@@ -1,0 +1,19 @@
+[package]
+name = "pb_build"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+cfg-if = { workspace = true }
+tonic-build = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = [
+    # Build dependencies not understood
+    "cfg_if",
+    "tonic_build",
+]

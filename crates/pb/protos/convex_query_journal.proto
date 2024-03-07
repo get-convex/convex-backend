@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+import "convex_cursor.proto";
+
+package convex_query_journal;
+
+message QueryJournal {
+    optional convex_cursor.Cursor end_cursor = 1;
+}

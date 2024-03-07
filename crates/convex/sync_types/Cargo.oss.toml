@@ -1,0 +1,30 @@
+[package]
+name = "convex_sync_types"
+description = "Sync types for the Convex Websocket protocol (convex.dev)"
+version = "0.6.0"
+authors = [ "Convex, Inc. <team@convex.dev>" ]
+edition = "2021"
+rust-version = "1.65.0"
+resolver = "2"
+license = "Apache-2.0"
+repository = "https://github.com/get-convex/convex-rs"
+homepage = "https://www.convex.dev/"
+
+[dependencies]
+anyhow = { version = "1" }
+base64 = { version = "0.13" }
+derive_more = { version = "0.99" }
+headers = { version = "0.3" }
+proptest = { optional = true, version = "1" }
+proptest-derive = { optional = true, version = "0.4.0" }
+rand = { version = "0.8" }
+serde = { features = [ "derive" ], version = "1" }
+serde_json = { features = [ "float_roundtrip", "preserve_order" ], version = "1" }
+uuid = { features = [ "serde", "v4" ], version = "1.6" }
+
+[dev-dependencies]
+proptest = { version = "1" }
+proptest-derive = { version = "0.4.0" }
+
+[features]
+testing = [ "proptest", "proptest-derive" ]

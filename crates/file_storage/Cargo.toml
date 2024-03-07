@@ -1,0 +1,40 @@
+[package]
+name = "file_storage"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+bytes = { workspace = true }
+common = { path = "../common" }
+database = { path = "../database" }
+errors = { path = "../errors" }
+futures = { workspace = true }
+headers = { workspace = true }
+keybroker = { path = "../keybroker" }
+metrics = { path = "../metrics" }
+mime = { workspace = true }
+model = { path = "../model" }
+storage = { path = "../storage" }
+tracing = { workspace = true }
+usage_tracking = { path = "../usage_tracking" }
+value = { path = "../value" }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+convex_macro = { path = "../convex_macro" }
+database = { path = "../database", features = ["testing"] }
+errors = { path = "../errors", features = ["testing"] }
+events = { path = "../events", features = ["testing"] }
+keybroker = { path = "../keybroker", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+model = { path = "../model", features = ["testing"] }
+runtime = { path = "../runtime", features = ["testing"] }
+storage = { path = "../storage", features = ["testing"] }
+usage_tracking = { path = "../usage_tracking", features = ["testing"] }
+value = { path = "../value", features = ["testing"] }

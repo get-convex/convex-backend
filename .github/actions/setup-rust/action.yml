@@ -1,0 +1,73 @@
+name: Setup Rust
+description: Common setup for Rust builds
+inputs:
+  github-token:
+    required: true
+    description: "pass secrets.GITHUB_TOKEN"
+  r2-access-key:
+    required: true
+    description: "pass secrets.R2_ACCESS_KEY_ID"
+  r2-secret-key:
+    required: true
+    description: "pass secrets.R2_SECRET_ACCESS_KEY"
+
+runs:
+  using: composite
+  steps:
+    - name: Install libsodium and pkg-config
+      shell: bash
+      if: runner.os != 'Windows'
+      run: sudo apt-get install pkg-config libsodium-dev
+
+    - name: Install Just
+      uses: extractions/setup-just@v1
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+
+    - name: Install Rust
+      uses: dsherret/rust-toolchain-file@v1
+
+    - name: Install Mold
+      uses: rui314/setup-mold@v1
+
+    - name: Export environment variables
+      shell: bash
+      run: |
+        echo "CARGO_TERM_COLOR=always" >> $GITHUB_ENV
+        echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
+        echo "ROCKSDB_LIB_DIR=/usr/lib" >> $GITHUB_ENV
+        echo "SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
+        echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
+        if [ "$RUNNER_OS" != "Windows" ]; then
+          echo "RUSTC_WRAPPER=/home/runner/.cargo/bin/sccache" >> $GITHUB_ENV
+        fi
+        echo "SCCACHE_ENDPOINT=https://a4aa0fffebef8bc497f64875c40ee6fb.r2.cloudflarestorage.com" >> $GITHUB_ENV
+        echo "SCCACHE_BUCKET=cvx-actions-cache" >> $GITHUB_ENV
+        echo "SCCACHE_REGION=auto" >> $GITHUB_ENV
+        echo "AWS_ACCESS_KEY_ID=${{ inputs.r2-access-key }}" >> $GITHUB_ENV
+        echo "AWS_SECRET_ACCESS_KEY=${{ inputs.r2-secret-key }}" >> $GITHUB_ENV
+        echo "CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse" >> $GITHUB_ENV
+        echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
+
+    - name: Install sccache
+      shell: bash
+      if: runner.os != 'Windows'
+      working-directory: "/home/runner"
+      run: |
+        sudo apt-get install -y pkg-config libssl-dev
+        curl -o- -sSLf --retry 3 --retry-delay 5 https://github.com/mozilla/sccache/releases/download/v0.3.3/sccache-v0.3.3-x86_64-unknown-linux-musl.tar.gz | tar xzf -
+        mv sccache-v0.3.3-x86_64-unknown-linux-musl/sccache .cargo/bin/sccache
+        chmod +x .cargo/bin/sccache
+        # Try to start sccache up to 3 times. Sometimes it times out for unknown reasons.
+        (r=3;while ! .cargo/bin/sccache --start-server ; do ((--r))||exit;sleep 5;done)
+
+    # n.b. this action inspects the environment and variables starting with
+    # `CARGO_` are used as part of the cache key.
+    # If users of this composite action add additional `CARGO_*` variables after
+    # this step runs, the cache key used for storing the job outputs will not
+    # match the cache key used for restoring.
+    - name: Cached load of cargo registry
+      uses: Swatinem/rust-cache@v2.7.3
+      with:
+        # Only cache the `.cargo` directory; not build artifacts.
+        cache-targets: "false"

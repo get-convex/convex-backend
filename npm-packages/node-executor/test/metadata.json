@@ -1,0 +1,33 @@
+{
+  "modulePaths": [
+    "a.js",
+    "b.js",
+    "c.js",
+    "contexts.js",
+    "cyclic1.js",
+    "cyclic2.js",
+    "d.js",
+    "diamond.js",
+    "left.js",
+    "right.js",
+    "shared.js",
+    "third_party.js",
+    "third_party.js.map",
+    "transitive.js"
+  ],
+  "moduleEnvironments": [
+    ["a.js", "node"],
+    ["b.js", "isolate"],
+    ["c.js", "isolate"],
+    ["contexts.js", "isolate"],
+    ["cyclic1.js", "isolate"],
+    ["cyclic2.js", "isolate"],
+    ["d.js", "isolate"],
+    ["diamond.js", "isolate"],
+    ["left.js", "isolate"],
+    ["right.js", "isolate"],
+    ["shared.js", "isolate"],
+    ["third_party.js", "isolate"],
+    ["transitive.js", "isolate"]
+  ]
+}

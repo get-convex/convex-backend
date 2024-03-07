@@ -1,0 +1,14 @@
+{
+  "npm": {
+    "upgradeRequired": "0.19.1",
+    "unsupported": "0.19.1"
+  },
+  "python": {
+    "upgradeRequired": "0.2.0",
+    "unsupported": "0.0.2"
+  },
+  "rust": {
+    "upgradeRequired": "0.0.1",
+    "unsupported": "0.0.1"
+  }
+}

@@ -1,0 +1,12 @@
+temp/
+dist
+node_modules
+
+# The convex npm package does not use a package-lock.json.
+package-lock.json
+
+# Using in packaging script
+tmpPackage*
+
+# used while building dist
+tmpDist*

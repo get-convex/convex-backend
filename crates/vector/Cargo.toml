@@ -1,0 +1,70 @@
+[package]
+name = "vector"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+atomic_refcell = { workspace = true }
+bitvec = { workspace = true }
+byteorder = { workspace = true }
+common = { path = "../common" }
+csf = { workspace = true }
+errors = { path = "../errors" }
+futures = { workspace = true }
+imbl = { workspace = true }
+indexing = { path = "../indexing" }
+metrics = { path = "../metrics" }
+parking_lot = { workspace = true }
+pb = { path = "../pb" }
+prometheus = { workspace = true }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+qdrant_segment = { workspace = true }
+rand = { workspace = true }
+rocksdb = { version = "0.21.0", default-features = false, features = [ "snappy" ] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+storage = { path = "../storage" }
+tempfile = { workspace = true }
+tracing = { workspace = true }
+usage_tracking = { path = "../usage_tracking" }
+uuid = { workspace = true }
+value = { path = "../value" }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+criterion = { workspace = true }
+errors = { path = "../errors", features = ["testing"] }
+indexing = { path = "../indexing", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+must-let = { workspace = true }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+storage = { path = "../storage", features = ["testing"] }
+tokio = { workspace = true }
+usage_tracking = { path = "../usage_tracking", features = ["testing"] }
+value = { path = "../value", features = ["testing"] }
+
+[features]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "indexing/testing",
+    "metrics/testing",
+    "proptest",
+    "proptest-derive",
+    "usage_tracking/testing",
+    "value/testing",
+    "storage/testing",
+]
+
+[[bench]]
+name = "memory_index"
+harness = false

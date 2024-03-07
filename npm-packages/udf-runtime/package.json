@@ -1,0 +1,18 @@
+{
+  "name": "udf-runtime",
+  "version": "0.0.0",
+  "scripts": {
+    "build": ""
+  },
+  "dependencies": {
+    "object-inspect": "^1.12.0",
+    "zod": "^3.21.4",
+    "base64-js": "^1.5.1",
+    "web-streams-polyfill": "~3.2.1",
+    "abortcontroller-polyfill": "~1.7.5",
+    "prettier": "3.2.5"
+  },
+  "devDependencies": {
+    "@types/object-inspect": "^1.8.1"
+  }
+}

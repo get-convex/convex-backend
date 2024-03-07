@@ -1,0 +1,45 @@
+[package]
+name = "indexing"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+common = { path = "../common" }
+errors = { path = "../errors" }
+futures = { workspace = true }
+futures-async-stream = { workspace = true }
+imbl = { workspace = true }
+itertools = { workspace = true }
+metrics = { path = "../metrics" }
+tracing = { workspace = true }
+value = { path = "../value" }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+convex_macro = { path = "../convex_macro" }
+divan = { workspace = true }
+errors = { path = "../errors", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+must-let = { workspace = true }
+runtime = { path = "../runtime", features = ["testing"] }
+value = { path = "../value", features = ["testing"] }
+
+[features]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "metrics/testing",
+    "runtime/testing",
+    "value/testing",
+]
+
+[[bench]]
+name = "index_registry"
+harness = false

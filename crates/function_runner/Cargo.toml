@@ -1,0 +1,87 @@
+[package]
+name = "function_runner"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["mysql"]
+development = ["mysql"]
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+async_lru = { path = "../async_lru" }
+cmd_util = { path = "../cmd_util" }
+common = { path = "../common" }
+convex_macro = { path = "../convex_macro" }
+database = { path = "../database" }
+errors = { path = "../errors" }
+file_storage = { path = "../file_storage" }
+futures = { workspace = true }
+imbl = { workspace = true }
+indexing = { path = "../indexing" }
+isolate = { path = "../isolate" }
+keybroker = { path = "../keybroker" }
+metrics = { path = "../metrics" }
+model = { path = "../model" }
+parking_lot = { workspace = true }
+pb = { path = "../pb" }
+prometheus = { workspace = true }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+request_context = { path = "../request_context" }
+runtime = { path = "../runtime" }
+search = { path = "../search" }
+serde_json = { workspace = true }
+storage = { path = "../storage" }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
+tokio = { workspace = true }
+tonic = { workspace = true }
+url = { workspace = true }
+usage_tracking = { path = "../usage_tracking" }
+value = { path = "../value" }
+vector = { path = "../vector" }
+
+[dev-dependencies]
+
+common = { path = "../common", features = ["testing"] }
+database = { path = "../database", features = ["testing"] }
+errors = { path = "../errors", features = ["testing"] }
+indexing = { path = "../indexing", features = ["testing"] }
+isolate = { path = "../isolate", features = ["testing"] }
+keybroker = { path = "../keybroker", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+model = { path = "../model", features = ["testing"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+request_context = { path = "../request_context", features = ["testing"] }
+runtime = { path = "../runtime", features = ["testing"] }
+search = { path = "../search", features = ["testing"] }
+shape_inference = { path = "../shape_inference", features = ["testing"] }
+storage = { path = "../storage", features = ["testing"] }
+usage_tracking = { path = "../usage_tracking", features = ["testing"] }
+value = { path = "../value", features = ["testing"] }
+vector = { path = "../vector", features = ["testing"] }
+
+[features]
+testing = [
+    "common/testing",
+    "database/testing",
+    "errors/testing",
+    "indexing/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "proptest",
+    "proptest-derive",
+    "request_context/testing",
+    "runtime/testing",
+    "search/testing",
+    "storage/testing",
+    "usage_tracking/testing",
+    "value/testing",
+    "vector/testing",
+]
+tracy-tracing = ["common/tracy-tracing"]

@@ -1,0 +1,30 @@
+[package]
+name = "sqlite"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+common = { path = "../common" }
+futures = { workspace = true }
+futures-async-stream = { workspace = true }
+parking_lot = { workspace = true }
+rusqlite = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = [
+    # persistence_test_suite macro depends on tokio
+    "tokio",
+]

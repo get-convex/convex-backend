@@ -1,0 +1,34 @@
+[package]
+name = "request_context"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+common = { path = "../common" }
+pb = { path = "../pb" }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+value = { path = "../value" }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+must-let = { workspace = true }
+proptest = { workspace = true }
+serde_json = { workspace = true }
+value = { path = "../value", features = ["testing"] }
+
+[features]
+testing = [
+    "proptest",
+    "proptest-derive",
+    "common/testing",
+    "value/testing",
+]
+

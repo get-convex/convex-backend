@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package convex_cursor;
+
+message IndexKey {
+  reserved 1, 2, 3;
+  bytes values = 4;
+}
+
+message Cursor {
+  string instance_name = 1;
+  oneof position {
+    IndexKey after = 2;
+    google.protobuf.Empty end = 3;
+  }
+  bytes query_fingerprint = 4;
+}

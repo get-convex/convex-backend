@@ -1,0 +1,48 @@
+[package]
+name = "usage_tracking"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+common = { path = "../common" }
+events = { path = "../events" }
+metrics = { path = "../metrics" }
+parking_lot = { workspace = true, features = ["hardware-lock-elision"] }
+pb = { path = "../pb" }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+value = { path = "../value" }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+events = { path = "../events", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+value = { path = "../value", features = ["testing"] }
+
+[features]
+testing = [
+    "common/testing",
+    "events/testing",
+    "metrics/testing",
+    "proptest",
+    "proptest-derive",
+    "value/testing",
+]
+
+[package.metadata.cargo-machete]
+ignored = [
+    # proptest_derive macro depends on proptest
+    "proptest",
+]

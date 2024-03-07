@@ -1,0 +1,668 @@
+use std::{
+    cmp::max,
+    ops::Bound,
+    sync::Arc,
+};
+
+use common::{
+    bootstrap_model::index::{
+        vector_index::{
+            FragmentedVectorSegment,
+            VectorIndexBackfillState,
+            VectorIndexSnapshotData,
+            VectorIndexState,
+        },
+        IndexConfig,
+        IndexMetadata,
+        TabletIndexMetadata,
+    },
+    document::{
+        ParsedDocument,
+        ResolvedDocument,
+    },
+    persistence::{
+        RepeatablePersistence,
+        TimestampRange,
+    },
+    persistence_helpers::stream_revision_pairs,
+    query::Order,
+    types::{
+        IndexId,
+        Timestamp,
+        WriteTimestamp,
+    },
+};
+use errors::ErrorMetadata;
+use futures::{
+    future::{
+        self,
+        BoxFuture,
+    },
+    FutureExt,
+    TryStreamExt,
+};
+use imbl::{
+    ordmap::Entry,
+    OrdMap,
+};
+use indexing::index_registry::{
+    index_backfilling_error,
+    Index,
+    IndexRegistry,
+};
+use storage::Storage;
+use usage_tracking::DocInVectorIndex;
+use value::{
+    GenericDocumentId,
+    InternalId,
+    TableIdAndTableNumber,
+};
+
+use crate::{
+    memory_index::MemoryVectorIndex,
+    metrics::{
+        self,
+        bootstrap_vector_indexes_timer,
+        finish_index_manager_update_timer,
+        VectorIndexType,
+    },
+    qdrant_index::QdrantSchema,
+    query::{
+        InternalVectorSearch,
+        VectorSearchQueryResult,
+    },
+    searcher::VectorSearcher,
+    CompiledVectorSearch,
+};
+
+#[derive(Clone)]
+pub struct VectorIndexManager {
+    indexes: IndexState,
+}
+
+#[derive(Clone)]
+enum IndexState {
+    Bootstrapping(OrdMap<IndexId, VectorIndexState>),
+    Ready(OrdMap<IndexId, (VectorIndexState, MemoryVectorIndex)>),
+}
+
+impl IndexState {
+    fn insert(&mut self, id: InternalId, state: VectorIndexState, memory_index: MemoryVectorIndex) {
+        match self {
+            IndexState::Bootstrapping(ref mut indexes) => {
+                indexes.insert(id, state);
+            },
+            IndexState::Ready(ref mut indexes) => {
+                indexes.insert(id, (state, memory_index));
+            },
+        };
+    }
+
+    fn update(
+        &mut self,
+        id: &IndexId,
+        new_vector_index_state: Option<VectorIndexState>,
+        mutate_memory: impl FnOnce(&mut MemoryVectorIndex) -> anyhow::Result<()>,
+    ) -> anyhow::Result<()> {
+        match self {
+            IndexState::Bootstrapping(indexes) => {
+                if let Some(new_vector_index_state) = new_vector_index_state {
+                    anyhow::ensure!(
+                        indexes.insert(*id, new_vector_index_state).is_some(),
+                        format!("Missing vector index for {id}"),
+                    );
+                }
+            },
+            IndexState::Ready(indexes) => match indexes.entry(*id) {
+                Entry::Vacant(_) => anyhow::bail!("Missing vector index for {id}"),
+                Entry::Occupied(ref mut e) => {
+                    if let Some(new_vector_index_state) = new_vector_index_state {
+                        e.get_mut().0 = new_vector_index_state;
+                    }
+                    mutate_memory(&mut e.get_mut().1)?;
+                },
+            },
+        }
+        Ok(())
+    }
+
+    fn delete(&mut self, id: &InternalId) {
+        match self {
+            IndexState::Bootstrapping(ref mut indexes) => {
+                indexes.remove(id);
+            },
+            IndexState::Ready(ref mut indexes) => {
+                indexes.remove(id);
+            },
+        }
+    }
+}
+
+fn get_vector_index_metadata(
+    registry: &IndexRegistry,
+) -> anyhow::Result<OrdMap<InternalId, (VectorIndexState, ParsedDocument<TabletIndexMetadata>)>> {
+    let mut indexes = OrdMap::new();
+
+    for index in registry.all_vector_indexes() {
+        let IndexConfig::Vector {
+            developer_config: _,
+            ref on_disk_state,
+        } = index.config
+        else {
+            continue;
+        };
+        indexes.insert(index.id().internal_id(), (on_disk_state.clone(), index));
+    }
+    Ok(indexes)
+}
+
+impl VectorIndexManager {
+    pub async fn read_updates_since_bootstrap(
+        &mut self,
+        bootstrap_ts: Timestamp,
+        persistence: RepeatablePersistence,
+        registry: &IndexRegistry,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(!self.is_backfilling());
+        let range = (Bound::Excluded(bootstrap_ts), Bound::Unbounded);
+
+        let document_stream = persistence.load_documents(TimestampRange::new(range)?, Order::Asc);
+        let revision_stream = stream_revision_pairs(document_stream, &persistence);
+        futures::pin_mut!(revision_stream);
+
+        while let Some(revision_pair) = revision_stream.try_next().await? {
+            self.update(
+                registry,
+                revision_pair.prev_document(),
+                revision_pair.document(),
+                WriteTimestamp::Committed(revision_pair.ts().succ()?),
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn is_backfilling(&self) -> bool {
+        matches!(self.indexes, IndexState::Bootstrapping(..))
+    }
+
+    pub fn bootstrap_index_metadata(registry: &IndexRegistry) -> anyhow::Result<Self> {
+        let _timer = bootstrap_vector_indexes_timer();
+        let vector_indexes_and_metadata = get_vector_index_metadata(registry)?;
+        let indexes = IndexState::Bootstrapping(Self::index_states(vector_indexes_and_metadata));
+        Ok(Self { indexes })
+    }
+
+    fn index_states(
+        indexes: OrdMap<InternalId, (VectorIndexState, ParsedDocument<TabletIndexMetadata>)>,
+    ) -> OrdMap<InternalId, VectorIndexState> {
+        indexes
+            .into_iter()
+            .map(|(index_id, (index, _))| (index_id, index))
+            .collect()
+    }
+
+    pub async fn full_bootstrap(
+        persistence: &RepeatablePersistence,
+        vector_indexes_with_fast_forward_timestamps: Vec<(
+            ParsedDocument<TabletIndexMetadata>,
+            Option<Timestamp>,
+        )>,
+    ) -> anyhow::Result<Self> {
+        let timer = metrics::bootstrap_timer();
+        let upper_bound = persistence.upper_bound();
+
+        let mut indexes = IndexState::Ready(OrdMap::new());
+
+        let mut num_revisions = 0;
+        let mut total_size = 0;
+
+        for (index_doc, fast_forward_ts) in vector_indexes_with_fast_forward_timestamps {
+            let (index_id, index_metadata) = index_doc.into_id_and_value();
+
+            let IndexConfig::Vector {
+                ref developer_config,
+                ref on_disk_state,
+            } = &index_metadata.config
+            else {
+                continue;
+            };
+            let snapshot_info = match on_disk_state {
+                VectorIndexState::Backfilled(ref snapshot_info) => snapshot_info,
+                VectorIndexState::SnapshottedAt(ref snapshot_info) => snapshot_info,
+                VectorIndexState::Backfilling(_) => {
+                    indexes.insert(
+                        index_id.internal_id(),
+                        on_disk_state.clone(),
+                        MemoryVectorIndex::new(WriteTimestamp::Committed(upper_bound.succ()?)),
+                    );
+                    continue;
+                },
+            };
+
+            let ts = max(fast_forward_ts.unwrap_or_default(), snapshot_info.ts);
+            tracing::info!(
+                "Bootstrapping vector index {:?} from {ts} for fast forward ts: {}, snapshot_ts: \
+                 {}",
+                index_metadata.name,
+                fast_forward_ts.unwrap_or_default(),
+                snapshot_info.ts
+            );
+            let range = (Bound::Excluded(ts), Bound::Included(*upper_bound));
+            let document_stream = persistence
+                .load_documents(TimestampRange::new(range)?, Order::Asc)
+                .try_filter(|(_, id, _)| future::ready(id.table() == index_metadata.name.table()));
+            let revision_stream = stream_revision_pairs(document_stream, persistence);
+            futures::pin_mut!(revision_stream);
+
+            let qdrant_schema = QdrantSchema::new(developer_config);
+
+            let mut memory_index =
+                MemoryVectorIndex::new(WriteTimestamp::Committed(snapshot_info.ts.succ()?));
+            while let Some(revision_pair) = revision_stream.try_next().await? {
+                memory_index.update(
+                    revision_pair.id.internal_id(),
+                    WriteTimestamp::Committed(revision_pair.ts()),
+                    revision_pair
+                        .prev_document()
+                        .and_then(|d| qdrant_schema.index(d)),
+                    revision_pair
+                        .document()
+                        .and_then(|d| qdrant_schema.index(d)),
+                )?;
+                num_revisions += 1;
+                total_size += revision_pair.document().map(|d| d.size()).unwrap_or(0);
+            }
+
+            indexes.insert(index_id.internal_id(), on_disk_state.clone(), memory_index);
+        }
+
+        tracing::info!(
+            "Loaded {num_revisions} revisions ({total_size} bytes) in {:?}.",
+            timer.elapsed()
+        );
+        metrics::finish_bootstrap(num_revisions, total_size, timer);
+        Ok(Self { indexes })
+    }
+
+    pub fn backfilled_and_enabled_index_sizes(
+        &self,
+    ) -> anyhow::Result<impl Iterator<Item = (IndexId, usize)> + '_> {
+        Ok(self
+            .require_ready_indexes()?
+            .iter()
+            .map(|(id, (_, idx))| (*id, idx.size())))
+    }
+
+    pub fn num_transactions(&self, index_id: IndexId) -> anyhow::Result<Option<usize>> {
+        let Some((_, index)) = self.require_ready_indexes()?.get(&index_id) else {
+            return Ok(None);
+        };
+        Ok(Some(index.num_transactions()))
+    }
+
+    fn require_ready_indexes(
+        &self,
+    ) -> anyhow::Result<&OrdMap<InternalId, (VectorIndexState, MemoryVectorIndex)>> {
+        if let IndexState::Ready(ref indexes) = self.indexes {
+            Ok(indexes)
+        } else {
+            anyhow::bail!(ErrorMetadata::overloaded(
+                "VectorIndexesUnavailable",
+                "Vector indexes are bootstrapping and not yet available for use",
+            ))
+        }
+    }
+
+    fn require_ready_index(
+        &self,
+        id: &InternalId,
+    ) -> anyhow::Result<Option<&(VectorIndexState, MemoryVectorIndex)>> {
+        Ok(self.require_ready_indexes()?.get(id))
+    }
+
+    pub fn update(
+        &mut self,
+        index_registry: &IndexRegistry,
+        deletion: Option<&ResolvedDocument>,
+        insertion: Option<&ResolvedDocument>,
+        ts: WriteTimestamp,
+    ) -> anyhow::Result<DocInVectorIndex> {
+        let timer = metrics::index_manager_update_timer();
+        let Some(id) = deletion.as_ref().or(insertion.as_ref()).map(|d| d.id()) else {
+            finish_index_manager_update_timer(timer, metrics::IndexUpdateType::None);
+            return Ok(DocInVectorIndex::Absent);
+        };
+        if self.update_vector_index_metadata(id, index_registry, deletion, insertion, ts)? {
+            finish_index_manager_update_timer(timer, metrics::IndexUpdateType::IndexMetadata);
+            return Ok(DocInVectorIndex::Absent);
+        }
+
+        if let IndexState::Ready(..) = self.indexes {
+            if self.update_vector_index_contents(id, index_registry, deletion, insertion, ts)? {
+                finish_index_manager_update_timer(timer, metrics::IndexUpdateType::Document);
+                return Ok(DocInVectorIndex::Present);
+            }
+        }
+        finish_index_manager_update_timer(timer, metrics::IndexUpdateType::None);
+        Ok(DocInVectorIndex::Absent)
+    }
+
+    fn update_vector_index_contents(
+        &mut self,
+        id: &GenericDocumentId<TableIdAndTableNumber>,
+        index_registry: &IndexRegistry,
+        deletion: Option<&ResolvedDocument>,
+        insertion: Option<&ResolvedDocument>,
+        ts: WriteTimestamp,
+    ) -> anyhow::Result<bool> {
+        let mut at_least_one_matching_index = false;
+        for index in index_registry.vector_indexes_by_table(&id.table().table_id) {
+            let IndexConfig::Vector {
+                ref developer_config,
+                ..
+            } = index.metadata.config
+            else {
+                continue;
+            };
+            let qdrant_schema = QdrantSchema::new(developer_config);
+            let old_value = deletion.as_ref().and_then(|d| qdrant_schema.index(d));
+            let new_value = insertion.as_ref().and_then(|d| qdrant_schema.index(d));
+            at_least_one_matching_index =
+                at_least_one_matching_index || old_value.is_some() || new_value.is_some();
+            self.indexes.update(&index.id, None, |memory_index| {
+                memory_index.update(id.internal_id(), ts, old_value, new_value)
+            })?;
+        }
+        Ok(at_least_one_matching_index)
+    }
+
+    fn update_vector_index_metadata(
+        &mut self,
+        id: &GenericDocumentId<TableIdAndTableNumber>,
+        index_registry: &IndexRegistry,
+        deletion: Option<&ResolvedDocument>,
+        insertion: Option<&ResolvedDocument>,
+        ts: WriteTimestamp,
+    ) -> anyhow::Result<bool> {
+        if *id.table() != index_registry.index_table() {
+            return Ok(false);
+        }
+        match (deletion, insertion) {
+            (None, Some(insertion)) => {
+                let metadata = IndexMetadata::try_from(insertion.value().clone().0)?;
+                if let IndexConfig::Vector {
+                    ref on_disk_state, ..
+                } = metadata.config
+                {
+                    let VectorIndexState::Backfilling(state) = on_disk_state else {
+                        anyhow::bail!(
+                            "Inserted new search index that wasn't backfilling: {metadata:?}"
+                        );
+                    };
+                    let index = VectorIndexState::Backfilling(state.clone());
+                    self.indexes.insert(
+                        insertion.id().internal_id(),
+                        index,
+                        MemoryVectorIndex::new(ts),
+                    );
+
+                    metrics::log_index_created()
+                }
+            },
+            (Some(prev_version), Some(next_version)) => {
+                let prev_metadata: ParsedDocument<IndexMetadata<_>> =
+                    prev_version.clone().try_into()?;
+                let next_metadata: ParsedDocument<IndexMetadata<_>> =
+                    next_version.clone().try_into()?;
+                let (old_snapshot, new_snapshot) =
+                    match (&prev_metadata.config, &next_metadata.config) {
+                        (
+                            IndexConfig::Vector {
+                                on_disk_state:
+                                    VectorIndexState::Backfilling(VectorIndexBackfillState { .. }),
+                                ..
+                            },
+                            IndexConfig::Vector {
+                                on_disk_state:
+                                    VectorIndexState::Backfilling(VectorIndexBackfillState { .. }),
+                                ..
+                            },
+                        ) => (None, None),
+                        (
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::Backfilling { .. },
+                                ..
+                            },
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::Backfilled(snapshot),
+                                ..
+                            },
+                        ) => (None, Some(snapshot)),
+                        (
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::Backfilled(old_snapshot),
+                                ..
+                            },
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::SnapshottedAt(new_snapshot),
+                                ..
+                            },
+                        ) => (Some(old_snapshot), Some(new_snapshot)),
+                        (
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::Backfilled(old_snapshot),
+                                ..
+                            },
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::Backfilled(new_snapshot),
+                                ..
+                            },
+                        ) => (Some(old_snapshot), Some(new_snapshot)),
+                        (
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::SnapshottedAt(old_snapshot),
+                                ..
+                            },
+                            IndexConfig::Vector {
+                                on_disk_state: VectorIndexState::SnapshottedAt(new_snapshot),
+                                ..
+                            },
+                        ) => (Some(old_snapshot), Some(new_snapshot)),
+                        (IndexConfig::Vector { .. }, _) | (_, IndexConfig::Vector { .. }) => {
+                            anyhow::bail!(
+                                "Invalid index type transition: {prev_metadata:?} to \
+                                 {next_metadata:?}"
+                            );
+                        },
+                        _ => (None, None),
+                    };
+                if let Some(new_snapshot) = new_snapshot {
+                    let is_newly_enabled =
+                        !prev_metadata.config.is_enabled() && next_metadata.config.is_enabled();
+                    let is_updated_snapshot = if let Some(old_snapshot) = old_snapshot {
+                        old_snapshot.ts < new_snapshot.ts
+                    } else {
+                        true
+                    };
+
+                    if is_newly_enabled || is_updated_snapshot {
+                        let is_next_index_enabled = next_metadata.config.is_enabled();
+                        let updated_state = if is_next_index_enabled {
+                            VectorIndexState::SnapshottedAt(new_snapshot.clone())
+                        } else {
+                            VectorIndexState::Backfilled(new_snapshot.clone())
+                        };
+
+                        self.indexes.update(
+                            &id.internal_id(),
+                            Some(updated_state),
+                            |memory_index| memory_index.truncate(new_snapshot.ts.succ()?),
+                        )?;
+
+                        if !prev_metadata.into_value().config.is_enabled() && is_next_index_enabled
+                        {
+                            metrics::log_index_backfilled();
+                        } else {
+                            metrics::log_index_advanced();
+                        }
+                    }
+                }
+            },
+            (Some(deletion), None) => {
+                let metadata: ParsedDocument<IndexMetadata<_>> = deletion.clone().try_into()?;
+                if metadata.is_vector_index() {
+                    self.indexes.delete(&deletion.id().internal_id());
+                    metrics::log_index_deleted();
+                }
+            },
+            _ => panic!("Had neither a deletion nor insertion despite checking above"),
+        }
+        Ok(true)
+    }
+
+    pub async fn vector_search(
+        &self,
+        index: &Index,
+        query: InternalVectorSearch,
+        searcher: Arc<dyn VectorSearcher>,
+        search_storage: Arc<dyn Storage>,
+    ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
+        let timer = metrics::search_timer();
+        let IndexConfig::Vector {
+            ref developer_config,
+            ..
+        } = index.metadata.config
+        else {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "IndexNotAVectorIndexError",
+                format!(
+                    "Index {} is not a vector index",
+                    query.printable_index_name()?
+                )
+            ));
+        };
+        let Some((vector_index, memory_index)) = self.require_ready_index(&index.id())? else {
+            anyhow::bail!("Vector index {:?} not available", index.id());
+        };
+        let qdrant_schema = QdrantSchema::new(developer_config);
+        let VectorIndexState::SnapshottedAt(ref snapshot) = vector_index else {
+            anyhow::bail!(index_backfilling_error(&query.printable_index_name()?));
+        };
+        let (disk_revisions, vector_index_type) = match snapshot.data {
+            VectorIndexSnapshotData::Unknown(_) => {
+                anyhow::bail!(index_backfilling_error(&query.printable_index_name()?))
+            },
+            VectorIndexSnapshotData::MultiSegment(ref segments) => (
+                self.multi_segment_search(
+                    query,
+                    searcher,
+                    segments,
+                    search_storage,
+                    qdrant_schema,
+                    memory_index,
+                    snapshot.ts,
+                )
+                .await?,
+                VectorIndexType::MultiSegment,
+            ),
+        };
+        metrics::finish_search(timer, &disk_revisions, vector_index_type);
+        Ok(disk_revisions)
+    }
+
+    async fn multi_segment_search(
+        &self,
+        query: InternalVectorSearch,
+        searcher: Arc<dyn VectorSearcher>,
+        segments: &Vec<FragmentedVectorSegment>,
+        search_storage: Arc<dyn Storage>,
+        qdrant_schema: QdrantSchema,
+        memory_index: &MemoryVectorIndex,
+        ts: Timestamp,
+    ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
+        self.compile_search_and_truncate(
+            query,
+            qdrant_schema,
+            memory_index,
+            ts,
+            |qdrant_schema, compiled_query, overfetch_delta| {
+                async move {
+                    let timer =
+                        metrics::searchlight_client_execute_timer(VectorIndexType::MultiSegment);
+                    let total_segments = segments.len();
+                    let results = searcher
+                        .execute_multi_segment_vector_query(
+                            search_storage.clone(),
+                            segments
+                                .iter()
+                                .cloned()
+                                .map(|segment| segment.to_paths_proto())
+                                .try_collect()?,
+                            qdrant_schema,
+                            compiled_query.clone(),
+                            overfetch_delta as u32,
+                        )
+                        .await?;
+                    metrics::log_num_segments_searched_total(total_segments);
+                    metrics::finish_searchlight_client_execute(timer, &results);
+                    Ok(results)
+                }
+                .boxed()
+            },
+        )
+        .await
+    }
+
+    async fn compile_search_and_truncate<'a>(
+        &'a self,
+        query: InternalVectorSearch,
+        qdrant_schema: QdrantSchema,
+        memory_index: &MemoryVectorIndex,
+        ts: Timestamp,
+        call_searchlight: impl FnOnce(
+            QdrantSchema,
+            CompiledVectorSearch,
+            usize,
+        )
+            -> BoxFuture<'a, anyhow::Result<Vec<VectorSearchQueryResult>>>,
+    ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
+        let compiled_query = qdrant_schema.compile(query)?;
+        let updated_matches = memory_index.updated_matches(ts, &compiled_query)?;
+        let overfetch_delta = updated_matches.len();
+        metrics::log_searchlight_overfetch_delta(overfetch_delta);
+        let mut disk_revisions =
+            call_searchlight(qdrant_schema, compiled_query.clone(), overfetch_delta).await?;
+
+        // Filter out revisions that are no longer latest.
+        disk_revisions.retain(|r| !updated_matches.contains(&r.id));
+
+        let memory_revisions = memory_index.query(ts, &compiled_query)?;
+
+        disk_revisions.extend(memory_revisions);
+        let original_len = disk_revisions.len();
+        disk_revisions.sort_by(|a, b| a.cmp(b).reverse());
+        disk_revisions.truncate(compiled_query.limit as usize);
+        metrics::log_num_discarded_revisions(original_len - disk_revisions.len());
+
+        Ok(disk_revisions)
+    }
+
+    pub fn total_in_memory_size(&self) -> usize {
+        if let IndexState::Ready(ref indexes) = self.indexes {
+            indexes
+                .iter()
+                .map(|(_, (_, memory_index))| memory_index.size())
+                .sum()
+        } else {
+            0
+        }
+    }
+
+    pub fn in_memory_sizes(&self) -> Vec<(IndexId, usize)> {
+        if let IndexState::Ready(ref indexes) = self.indexes {
+            indexes.iter().map(|(id, (_, s))| (*id, s.size())).collect()
+        } else {
+            vec![]
+        }
+    }
+}

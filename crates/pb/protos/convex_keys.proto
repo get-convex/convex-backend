@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package convex_keys;
+
+message AdminKey {
+  optional string instance_name = 1;
+  // Time of issue, measured in seconds since the epoch.
+  uint64 issued_s = 2;
+  oneof identity {
+    uint64 member_id = 3;
+    google.protobuf.Empty system = 4;
+  }
+}
+
+message StorageToken {
+  message StoreFile {}
+
+  string instance_name = 1;
+  uint64 issued_s = 2;
+  oneof authorization_type {
+    StoreFile store_file = 3;
+  }
+}

@@ -1,0 +1,56 @@
+[package]
+name = "convex"
+description = "Client library for Convex (convex.dev)"
+authors = ["Convex, Inc. <team@convex.dev>"]
+version = "0.6.0"
+edition = "2021"
+rust-version = "1.65.0"
+resolver = "2"
+license = "Apache-2.0"
+repository = "https://github.com/get-convex/convex-rs"
+homepage = "https://www.convex.dev/"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+bytes = { workspace = true }
+convex_sync_types = { path = "./sync_types", version = "=0.6.0" }
+futures = { workspace = true }
+imbl = { workspace = true }
+parking_lot = { workspace = true, optional = true }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+rand = { workspace = true }
+serde_json = { workspace = true, features = ["float_roundtrip", "preserve_order"] }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tokio-stream = { workspace = true, features = ["io-util", "sync"] }
+tokio-tungstenite = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true, features = ["serde", "v4"] }
+
+[dev-dependencies]
+colored = { workspace = true }
+convex_sync_types = { path = "./sync_types", version = "=0.6.0", features = ["testing"] }
+dotenvy = { workspace = true }
+maplit = { workspace = true }
+parking_lot = { workspace = true }
+pretty_assertions = { workspace = true }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+[features]
+default = ["native-tls"]
+native-tls = ["tokio-tungstenite/native-tls"]
+native-tls-vendored = ["tokio-tungstenite/native-tls-vendored"]
+rustls-tls-native-roots = ["tokio-tungstenite/rustls-tls-native-roots"]
+rustls-tls-webpki-roots = ["tokio-tungstenite/rustls-tls-webpki-roots"]
+testing = [
+    "convex_sync_types/testing",
+    "proptest",
+    "proptest-derive",
+    "parking_lot",
+]

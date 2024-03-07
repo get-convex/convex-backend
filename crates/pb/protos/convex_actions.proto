@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package convex_actions;
+
+message ActionCallbackToken {
+    // Time of issue, measured in seconds since the epoch.
+    uint64 issued_s = 2;
+}

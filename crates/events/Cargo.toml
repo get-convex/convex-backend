@@ -1,0 +1,24 @@
+[package]
+name = "events"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+async-trait = { workspace = true }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+
+[features]
+testing = [
+    "proptest",
+    "proptest-derive",
+]
+
+

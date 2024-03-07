@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package storage;
+
+message FileStorageId {
+    oneof storage_id_type {
+        string legacy_storage_id = 1;
+        string document_id = 2;
+    }
+}
+
+message FileStorageEntry {
+    optional string storage_id = 1;
+    optional string storage_key = 2;
+    optional bytes sha256 = 3;
+    optional int64 size = 4;
+    optional string content_type = 5;
+}

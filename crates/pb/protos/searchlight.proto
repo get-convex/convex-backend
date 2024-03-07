@@ -1,0 +1,200 @@
+syntax = "proto3";
+
+package searchlight;
+
+import "convex_token.proto";
+
+service Searchlight {
+  rpc ExecuteQuery(QueryRequest) returns (QueryResponse);
+  rpc ExecuteVectorQuery(VectorQueryRequest) returns (VectorQueryResponse);
+  rpc ExecuteVectorCompaction(VectorCompactionRequest) returns (VectorCompactionResponse);
+  rpc QueueVectorPrefetch(VectorPrefetchRequest) returns (VectorPrefetchResponse);
+}
+
+message QueryRequest {
+  SearchIndexConfig index_config = 2;
+  TextQuery query = 3;
+  Bm25StatisticsDiff memory_statistics_diff = 4;
+  TermShortlist memory_shortlisted_terms = 5;
+  uint32 limit = 6;
+  StorageKey disk_index = 7;
+  StorageType storage_type = 8;
+}
+
+message TextQuery {
+  repeated TextQueryTerm search_terms = 1;
+  repeated bytes filter_conditions = 2;
+}
+
+message TextQueryTerm {
+  oneof term_type {
+     ExactTextTerm exact = 1;
+     FuzzyTextTerm fuzzy = 2;
+  }
+}
+
+message ExactTextTerm {
+  string token = 1;
+}
+
+message FuzzyTextTerm {
+  string token = 1;
+  uint32 max_distance = 2;
+  bool prefix = 3;
+}
+
+message Bm25StatisticsDiff {
+  map<string, int64> term_statistics = 1;
+  int64 num_documents_diff = 2;
+  int64 num_search_tokens_diff = 3;
+}
+
+message TermShortlist {
+  repeated string shortlist = 1;
+  repeated QueryTermShortlistItems query_term_shortlist_items = 2;
+}
+
+message QueryTermShortlistItems {
+  TextQueryTerm query_term = 1;
+  repeated ShortlistItem items = 2;
+}
+
+message ShortlistItem {
+  uint32 shortlist_id = 1;
+  uint32 distance = 2;
+}
+
+message QueryResponse {
+  repeated CandidateRevisionPositions results = 1;
+  Bm25StatisticsDiff combined_statistics = 2;
+  TermShortlist combined_shortlisted_terms = 3;
+}
+
+message CandidateRevisionPositions {
+  CandidateRevision revision = 1;
+  repeated ShortlistPositions positions = 2;
+}
+
+message ShortlistPositions {
+  uint32 shortlist_id = 1;
+  repeated uint32 positions = 2;
+}
+
+message SearchIndexConfig {
+  convex_token.FieldPath search_field_path = 1;
+  repeated convex_token.FieldPath filter_fields = 2;
+}
+
+message FilterField {
+  convex_token.FieldPath path = 1;
+  uint32 field = 2;
+}
+
+message CandidateRevision {
+  float score = 1;
+  reserved 3;
+  optional uint64 ts = 4;
+  double creation_time = 5;
+  bytes internal_id = 6;
+}
+
+// Next field id: 6
+message VectorQueryRequest {
+  reserved 1;
+  VectorIndexConfig index_config = 2;
+  CompiledVectorQuery query = 3;
+  uint32 overfetch_delta = 4;
+  FragmentedVectorSegmentPathsList segments = 5;
+  StorageType storage_type = 6;
+}
+
+message VectorPrefetchRequest {
+  FragmentedVectorSegmentPathsList segments = 1;
+  StorageType storage_type = 2;
+}
+
+message VectorPrefetchResponse {}
+
+message VectorCompactionRequest {
+  FragmentedVectorSegmentPathsList segments = 1;
+  uint32 dimension = 2;
+  StorageType storage_type = 3;
+}
+
+message VectorCompactionResponse {
+  FragmentedVectorSegment segment = 1;
+}
+
+message VectorIndexConfig {
+  uint32 dimension = 1;
+  convex_token.FieldPath vector_field_path = 2;
+  repeated convex_token.FieldPath filter_fields = 3;
+}
+
+message CompiledVectorQuery {
+  repeated float vector = 1;
+  uint32 limit = 2;
+  repeated CompiledVectorQueryFilterCondition filter_conditions = 3;
+}
+
+message CompiledVectorQueryFilterCondition {
+  convex_token.FieldPath path = 1;
+  oneof filter {
+    bytes eq_condition = 2;
+    CompiledVectorQueryFilterInCondition in_condition = 3;
+  }
+}
+
+message CompiledVectorQueryFilterInCondition {
+  repeated bytes eq_conditions = 1;
+}
+
+message VectorQueryResponse {
+  repeated VectorQueryResult results = 1;
+}
+
+message VectorQueryResult {
+  float score = 1;
+  bytes internal_id = 2;
+  optional uint64 ts = 3;
+}
+
+// oneof doesn't support repeated fields without nesting.
+message FragmentedVectorSegmentPathsList {
+  repeated FragmentedVectorSegmentPaths segments = 2;
+}
+
+message FragmentedVectorSegmentPaths {
+  StorageKey segment = 1;
+  StorageKey id_tracker = 2;
+  StorageKey deleted_bitset = 3;
+}
+
+message FragmentedVectorSegment {
+  string segment_key = 1;
+  string id_tracker_key = 2;
+  string deleted_bitset_key = 3;
+  uint32 num_vectors = 4;
+  uint32 num_deleted = 5;
+  string id = 6;
+}
+
+message StorageKey {
+  string storage_key = 1;
+}
+
+message S3Storage {
+  string prefix = 1;
+  string bucket = 2;
+}
+
+message LocalStorage {
+  string path = 1;
+}
+
+message StorageType {
+  oneof storage_type {
+    S3Storage s3 = 1;
+    LocalStorage local = 2;
+  }
+}

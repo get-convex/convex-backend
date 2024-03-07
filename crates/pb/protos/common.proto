@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package common;
+
+message PathAndArgs {
+  optional string path = 1;
+  optional bytes args = 2;
+  optional string npm_version = 3;
+}
+
+message ResolvedDocument {
+    ResolvedDocumentId id = 1;
+    optional double creation_time = 2;
+    optional bytes value = 3;
+}
+
+message ResolvedDocumentId {
+    TableIdAndTableNumber table = 1;
+    optional bytes internal_id = 2;
+}
+
+message DocumentUpdate {
+    ResolvedDocumentId id = 3;
+    ResolvedDocument old_document = 1;
+    ResolvedDocument new_document = 2;
+}
+
+message TableIdAndTableNumber {
+    optional bytes table_id = 1;
+    optional uint32 table_number = 2;
+}
+
+message FunctionResult {
+  oneof result {
+    string json_packed_value = 1;
+    JsError js_error = 2;
+  }
+}
+
+message JsError {
+  optional string message = 1;
+  optional bytes custom_data = 2;
+  JsFrames frames = 3;
+}
+
+message JsFrames {
+    repeated FrameData frames = 1;
+}
+
+message FrameData {
+  optional string type_name = 1;
+  optional string function_name = 2;
+  optional string method_name = 3;
+  optional string file_name = 4;
+  optional uint32 line_number = 5;
+  optional uint32 column_number = 6;
+  optional string eval_origin = 7;
+  optional bool is_top_level = 8;
+  optional bool is_eval = 9;
+  optional bool is_native = 10;
+  optional bool is_constructor = 11;
+  optional bool is_async = 12;
+  optional bool is_promise_all = 13;
+  optional uint32 promise_index = 14;
+}
+
+message RequestContext {
+    optional string parent_scheduled_job = 1;
+    optional string request_id = 2;
+}

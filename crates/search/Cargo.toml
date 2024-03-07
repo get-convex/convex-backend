@@ -1,0 +1,82 @@
+[package]
+name = "search"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+async-broadcast = { workspace = true }
+async-trait = { workspace = true }
+async_lru = { path = "../async_lru" }
+async_zip = { workspace = true }
+bitvec = { workspace = true }
+bytes = { workspace = true }
+bytesize = { workspace = true }
+cmd_util = { path = "../cmd_util" }
+common = { path = "../common" }
+errors = { path = "../errors" }
+futures = { workspace = true }
+imbl = { workspace = true }
+indexing = { path = "../indexing" }
+itertools = { workspace = true }
+levenshtein_automata = { workspace = true }
+maplit = { workspace = true }
+metrics = { path = "../metrics" }
+parking_lot = { workspace = true }
+pb = { path = "../pb" }
+prometheus = { workspace = true }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+qdrant_segment = { workspace = true }
+rand = { workspace = true }
+ref-cast = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+storage = { path = "../storage" }
+sucds = { workspace = true }
+tantivy = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+value = { path = "../value" }
+vector = { path = "../vector" }
+walkdir = { workspace = true }
+xorf = { workspace = true }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+convex_macro = { path = "../convex_macro" }
+divan = { workspace = true }
+errors = { path = "../errors", features = ["testing"] }
+indexing = { path = "../indexing", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+rand = { workspace = true }
+runtime = { path = "../runtime", features = ["testing"] }
+storage = { path = "../storage", features = ["testing"] }
+value = { path = "../value", features = ["testing"] }
+vector = { path = "../vector", features = ["testing"] }
+
+[features]
+testing = [
+    "common/testing",
+    "errors/testing",
+    "indexing/testing",
+    "metrics/testing",
+    "proptest",
+    "proptest-derive",
+    "storage/testing",
+    "value/testing",
+    "vector/testing",
+]
+
+[[bench]]
+name = "memory_index"
+harness = false

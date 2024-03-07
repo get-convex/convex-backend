@@ -1,0 +1,18 @@
+[package]
+name = "http_client"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+http-cache-reqwest = { workspace = true }
+openidconnect = { workspace = true }
+reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+thiserror = { workspace = true }
+
+[features]

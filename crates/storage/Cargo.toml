@@ -1,0 +1,48 @@
+[package]
+name = "storage"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["runtime"]
+development = ["runtime"]
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true }
+bytes = { workspace = true }
+common = { path = "../common" }
+derive_more = { workspace = true }
+futures = { workspace = true }
+futures-async-stream = { workspace = true }
+http = { workspace = true }
+hyper = { workspace = true }
+pb = { path = "../pb" }
+pin-project = { workspace = true }
+runtime = { path = "../runtime", optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+value = { path = "../value" }
+
+[dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+convex_macro = { path = "../convex_macro" }
+runtime = { path = "../runtime", features = ["testing"] }
+value = { path = "../value", features = ["testing"] }
+
+[features]
+testing = [
+    "common/testing",
+    "runtime/testing",
+    "value/testing",
+]

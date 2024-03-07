@@ -1,0 +1,27 @@
+{
+  "name": "convex-tutorial",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:server dev:client",
+    "build": "vite build",
+    "dev:server": "convex dev",
+    "dev:client": "vite --open --clearScreen false",
+    "predev": "convex dev --until-success"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "prettier": "3.2.5"
+  },
+  "devDependencies": {
+    "@types/babel__core": "^7.20.0",
+    "@types/node": "^16.11.12",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.1.1",
+    "typescript": "~5.0.3",
+    "vite": "4.5.2",
+    "npm-run-all": "^4.1.5"
+  }
+}

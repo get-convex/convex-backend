@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package convex_identity;
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+message Identity {
+  oneof identity {
+    AdminIdentity admin_identity = 1;
+    google.protobuf.Empty system = 2;
+    UserIdentity user_identity = 3;   
+    ActingUser acting_user = 4;
+    google.protobuf.Empty unknown = 5;
+  }
+}
+
+message AdminIdentity {
+  optional string instance_name = 1;
+  optional uint64 member_id = 2;
+  optional string key = 3;
+}
+
+message UserIdentity {
+  optional string subject = 1;
+  optional string issuer = 2;
+  optional google.protobuf.Timestamp expiration = 3;
+  UserIdentityAttributes attributes = 4;
+  optional string original_token = 5;
+}
+
+message ActingUser {
+  AdminIdentity admin_identity = 1;
+  UserIdentityAttributes attributes = 2;
+}
+
+message UserIdentityAttributes {
+  optional string token_identifier = 1;
+  optional string issuer = 2;
+  optional string subject = 3;
+  optional string name = 4;
+  optional string given_name = 5;
+  optional string family_name = 6;
+  optional string nickname = 7;
+  optional string preferred_username = 8;
+  optional string profile_url = 9;
+  optional string picture_url = 10;
+  optional string website_url = 11;
+  optional string email = 12;
+  optional bool email_verified = 13; 
+  optional string gender = 14;
+  optional string birthday = 15;
+  optional string timezone = 16;
+  optional string language = 17;
+  optional string phone_number = 18;
+  optional bool phone_number_verified = 19;
+  optional string address = 20;
+  optional string updated_at = 21;
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "./api-extractor-base.json",
+  "mainEntryPointFilePath": "<projectFolder>/dist/esm-types/server/index.d.ts",
+  /**
+   * Enable the apiReport but use the same reportFolder and tempFolder to make it a no-op.
+   * This way forgotten exports are a warning instead of an error.
+   */
+  "apiReport": {
+    "enabled": true,
+    "reportFileName": "server.api.md",
+    "reportFolder": "reports",
+    "reportTempFolder": "temp"
+  }
+}

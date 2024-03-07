@@ -1,0 +1,112 @@
+[package]
+name = "common"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["proptest", "proptest-derive"]
+development = ["proptest", "proptest-derive"]
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true }
+bytes = { workspace = true }
+cmd_util = { path = "../cmd_util" }
+crossbeam = { workspace = true, optional = true }
+crossbeam-channel = { workspace = true }
+cstr = { workspace = true }
+deno_core = { workspace = true }
+derive_more = { workspace = true }
+enum-iterator = { workspace = true }
+errors = { path = "../errors" }
+event-listener = { workspace = true }
+float_next_after = { workspace = true }
+futures = { workspace = true }
+futures-async-stream = { workspace = true }
+governor = { workspace = true }
+headers = { workspace = true }
+http = { workspace = true }
+humansize = { workspace = true }
+hyper = { workspace = true }
+itertools = { workspace = true }
+maplit = { workspace = true }
+metrics = { path = "../metrics" }
+openidconnect = { workspace = true }
+packed_value = { path = "../packed_value" }
+parking_lot = { workspace = true }
+pb = { path = "../pb" }
+pin-project = { workspace = true }
+prometheus = { workspace = true }
+prometheus-hyper = { workspace = true }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+proptest-http = { workspace = true, optional = true }
+prost-types = { workspace = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true, optional = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+semver = { workspace = true }
+sentry = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+shape_inference = { path = "../shape_inference" }
+sourcemap = { workspace = true }
+strum = { workspace = true }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tonic-health = { workspace = true }
+tower = { workspace = true }
+tower-cookies = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tracy-client = { workspace = true, optional = true }
+# This dependency *must* match tungstenite from axum -> tokio-tungstenite -> tungstenite for error downcasting to work.
+tungstenite = { workspace = true }
+tuple_struct = { path = "../tuple_struct" }
+url = { workspace = true }
+uuid = { workspace = true }
+value = { path = "../value" }
+
+[dev-dependencies]
+crossbeam = { workspace = true }
+errors = { path = "../errors", features = ["testing"] }
+jsonschema = { workspace = true }
+metrics = { path = "../metrics", features = ["testing"] }
+must-let = { workspace = true }
+packed_value = { path = "../packed_value", features = ["testing"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+proptest-http = { workspace = true }
+rand_chacha = { workspace = true }
+shape_inference = { path = "../shape_inference", features = ["testing"] }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = [
+    "testing",
+] }
+value = { path = "../value", features = ["testing"] }
+
+[features]
+tracy-tracing = ["tracy-client", "tracy-client/enable"]
+testing = [
+    "crossbeam",
+    "errors/testing",
+    "metrics/testing",
+    "packed_value/testing",
+    "proptest",
+    "proptest-derive",
+    "proptest-http",
+    "rand_chacha",
+    "sync_types/testing",
+    "shape_inference/testing",
+    "value/testing",
+]

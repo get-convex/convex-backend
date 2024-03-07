@@ -1,0 +1,650 @@
+#![feature(async_closure)]
+#![feature(try_blocks)]
+#![feature(let_chains)]
+#![feature(coroutines)]
+
+use std::{
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
+    convert::TryInto,
+    path::Path,
+    sync::Arc,
+};
+
+use async_trait::async_trait;
+use common::{
+    document::{
+        InternalId,
+        ResolvedDocument,
+    },
+    index::{
+        IndexEntry,
+        IndexKeyBytes,
+    },
+    interval::{
+        End,
+        Interval,
+        Start,
+    },
+    persistence::{
+        ConflictStrategy,
+        DocumentStream,
+        IndexStream,
+        Persistence,
+        PersistenceGlobalKey,
+        PersistenceReader,
+        RetentionValidator,
+        TimestampRange,
+    },
+    query::Order,
+    types::{
+        DatabaseIndexUpdate,
+        DatabaseIndexValue,
+        IndexId,
+        PersistenceVersion,
+        Timestamp,
+    },
+    value::{
+        ConvexValue,
+        InternalDocumentId,
+        TableId,
+        TableIdentifier,
+    },
+};
+use futures::{
+    stream,
+    StreamExt,
+};
+use futures_async_stream::try_stream;
+use parking_lot::Mutex;
+use rusqlite::{
+    params,
+    types::Null,
+    Connection,
+    Row,
+    ToSql,
+};
+use serde_json::Value as JsonValue;
+
+// We only have a single Sqlite connection which does not allow async calls, so
+// we can't really make queries concurrent.
+#[derive(Clone)]
+pub struct SqlitePersistence {
+    inner: Arc<Mutex<Inner>>,
+}
+
+struct Inner {
+    newly_created: bool,
+    connection: Connection,
+}
+
+impl SqlitePersistence {
+    pub fn new(path: &str, allow_read_only: bool) -> anyhow::Result<Self> {
+        let newly_created = !Path::new(path).exists();
+        let connection = Connection::open(path)?;
+        // Execute create tables unconditionally since they are idempotent.
+        connection.execute_batch(DOCUMENTS_INIT)?;
+        connection.execute_batch(INDEXES_INIT)?;
+        connection.execute_batch(READ_ONLY_INIT)?;
+        connection.execute_batch(PERSISTENCE_GLOBALS_INIT)?;
+        if !allow_read_only {
+            let mut stmt = connection.prepare(CHECK_IS_READ_ONLY)?;
+            anyhow::ensure!(stmt.raw_query().next()?.is_none());
+        }
+        Ok(Self {
+            inner: Arc::new(Mutex::new(Inner {
+                newly_created,
+                connection,
+            })),
+        })
+    }
+
+    #[allow(clippy::needless_lifetimes)]
+    #[try_stream(ok = T, error = anyhow::Error)]
+    async fn validate_snapshot<T: 'static>(
+        &self,
+        ts: Timestamp,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) {
+        retention_validator.validate_snapshot(ts).await?;
+    }
+
+    fn _index_scan_inner(
+        &self,
+        index_id: IndexId,
+        table_id: TableId,
+        read_timestamp: Timestamp,
+        interval: &Interval,
+        order: Order,
+    ) -> anyhow::Result<Vec<anyhow::Result<(IndexKeyBytes, Timestamp, ResolvedDocument)>>> {
+        let interval = interval.clone();
+        let index_id = &index_id[..];
+        let read_timestamp: u64 = read_timestamp.into();
+
+        let mut params = params![index_id, read_timestamp].to_vec();
+
+        let Start::Included(ref start) = interval.start;
+        let start_bytes = &start[..];
+
+        params.push(&start_bytes);
+        let lower = format!(" AND key >= ${}", params.len());
+
+        let end_bytes = match interval.end {
+            End::Excluded(ref t) => Some(&t[..]),
+            End::Unbounded => None,
+        };
+        let upper = match end_bytes {
+            Some(ref t) => {
+                params.push(t);
+                format!(" AND key < ${}", params.len())
+            },
+            None => "".to_owned(),
+        };
+
+        let order = match order {
+            Order::Asc => "ASC",
+            Order::Desc => "DESC",
+        };
+        let query = format!(
+            r#"
+SELECT B.key, B.ts, B.document_id, C.table_id, C.json_value
+FROM (
+    SELECT index_id, key, MAX(ts) as max_ts
+    FROM indexes
+    WHERE index_id = $1 AND ts <= $2{lower}{upper}
+    GROUP BY index_id, key
+) A
+JOIN indexes B
+ON B.deleted is FALSE
+AND A.index_id = B.index_id
+AND A.key = B.key
+AND A.max_ts = B.ts
+LEFT JOIN documents C
+ON B.ts = C.ts
+AND B.table_id = c.table_id
+AND B.document_id = C.id
+ORDER BY B.key {order}
+"#,
+        );
+
+        let connection = &self.inner.lock().connection;
+        let mut stmt = connection.prepare(&query)?;
+        let row_iter = stmt.query_map(&params[..], |row| {
+            let key = IndexKeyBytes(row.get::<_, Vec<u8>>(0)?);
+            let ts = Timestamp::try_from(row.get::<_, u64>(1)?).expect("timestamp out of bounds");
+            let document_id = row.get::<_, Vec<u8>>(2)?;
+            let table: Option<Vec<u8>> = row.get(3)?;
+            let json_value: Option<String> = row.get(4)?;
+
+            Ok((key, ts, document_id, table, json_value))
+        })?;
+        let mut triples = vec![];
+        for row in row_iter {
+            let (key, ts, document_id, table, json_value) = row?;
+            let table = table.ok_or_else(|| {
+                anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
+            })?;
+            let table = TableId(table.try_into()?);
+            let _document_id = table.id(InternalId::try_from(document_id)?);
+            let json_value = json_value.ok_or_else(|| {
+                anyhow::anyhow!("Index reference to deleted document {:?} {:?}", key, ts)
+            })?;
+            let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
+            let value: ConvexValue = json_value.try_into()?;
+            let document = ResolvedDocument::from_database(table_id, value)?;
+            triples.push(Ok((key, ts, document)));
+        }
+        Ok(triples)
+    }
+
+    fn _get_persistence_global(
+        &self,
+        key: PersistenceGlobalKey,
+    ) -> anyhow::Result<Option<JsonValue>> {
+        let connection = &self.inner.lock().connection;
+        let mut stmt = connection.prepare(GET_PERSISTENCE_GLOBAL)?;
+        let key = String::from(key);
+        let params: Vec<&dyn ToSql> = vec![&key];
+        let mut row_iter = stmt.query_map(&params[..], |row| {
+            let json_value_str: String = row.get(0)?;
+            Ok(json_value_str)
+        })?;
+        row_iter
+            .next()
+            .map(|json_value_str| {
+                let json_value: serde_json::Value = serde_json::from_str(&json_value_str?)?;
+                Ok(json_value)
+            })
+            .transpose()
+    }
+}
+
+#[async_trait]
+impl Persistence for SqlitePersistence {
+    fn is_fresh(&self) -> bool {
+        self.inner.lock().newly_created
+    }
+
+    fn reader(&self) -> Box<dyn PersistenceReader> {
+        Box::new(Self {
+            inner: self.inner.clone(),
+        })
+    }
+
+    async fn write(
+        &self,
+        documents: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,
+        indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        conflict_strategy: ConflictStrategy,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            conflict_strategy == ConflictStrategy::Error || documents.is_empty(),
+            "Overwriting documents not supported"
+        );
+        let mut inner = self.inner.lock();
+        let tx = inner.connection.transaction()?;
+        let mut insert_document_query = tx.prepare_cached(INSERT_DOCUMENT)?;
+
+        for (ts, document_id, maybe_doc) in documents {
+            let (json_value, deleted) = if let Some(document) = maybe_doc {
+                assert_eq!(document_id, document.id_with_table_id());
+                let json_value: serde_json::Value = document.value().0.clone().into();
+                let json_value = serde_json::to_string(&json_value)?;
+                (Some(json_value), 0)
+            } else {
+                (None, 1)
+            };
+            insert_document_query.execute(params![
+                &document_id.internal_id()[..],
+                &u64::from(ts),
+                &document_id.table().0[..],
+                &json_value,
+                &deleted,
+            ])?;
+        }
+        drop(insert_document_query);
+
+        let mut insert_index_query = if conflict_strategy == ConflictStrategy::Overwrite {
+            tx.prepare_cached(INSERT_OVERWRITE_INDEX)?
+        } else {
+            tx.prepare_cached(INSERT_INDEX)?
+        };
+        for (ts, update) in indexes {
+            let index_id = update.index_id;
+            let key: Vec<u8> = update.key.into_bytes().0;
+            match update.value {
+                DatabaseIndexValue::Deleted => {
+                    insert_index_query.execute(params![
+                        &index_id[..],
+                        &u64::from(ts),
+                        key,
+                        &1,
+                        &Null,
+                        &Null,
+                    ])?;
+                },
+                DatabaseIndexValue::NonClustered(doc_id) => {
+                    insert_index_query.execute(params![
+                        &index_id[..],
+                        &u64::from(ts),
+                        key,
+                        &0,
+                        &doc_id.table().table_id.0[..],
+                        &doc_id.internal_id()[..],
+                    ])?;
+                },
+            };
+        }
+        drop(insert_index_query);
+
+        tx.commit()?;
+        Ok(())
+    }
+
+    async fn set_read_only(&mut self, read_only: bool) -> anyhow::Result<()> {
+        let stmt = if read_only {
+            SET_READ_ONLY
+        } else {
+            UNSET_READ_ONLY
+        };
+        self.inner.lock().connection.execute_batch(stmt)?;
+        Ok(())
+    }
+
+    async fn write_persistence_global(
+        &self,
+        key: PersistenceGlobalKey,
+        value: JsonValue,
+    ) -> anyhow::Result<()> {
+        let mut inner = self.inner.lock();
+        let tx = inner.connection.transaction()?;
+        let mut write_query = tx.prepare_cached(WRITE_PERSISTENCE_GLOBAL)?;
+        let json_value = serde_json::to_string(&value)?;
+        write_query.execute(params![&String::from(key), &json_value])?;
+        drop(write_query);
+        tx.commit()?;
+        Ok(())
+    }
+
+    async fn load_index_chunk(
+        &self,
+        cursor: Option<IndexEntry>,
+        chunk_size: usize,
+    ) -> anyhow::Result<Vec<IndexEntry>> {
+        let connection = &self.inner.lock().connection;
+        let mut walk_indexes = connection.prepare(WALK_INDEXES)?;
+        let row_iter = walk_indexes.query_map([], |row| {
+            let index_id: Vec<u8> = row.get(0)?;
+            let key: Vec<u8> = row.get(1)?;
+            let ts = Timestamp::try_from(row.get::<_, u64>(2)?).expect("timestamp out of bounds");
+            let deleted = row.get::<_, u32>(3)? != 0;
+            Ok((index_id, key, ts, deleted))
+        })?;
+        let rows = row_iter
+            .map(|row| {
+                let (index_id, key, ts, deleted) = row?;
+                let index_row = IndexEntry {
+                    index_id: index_id.try_into()?,
+                    key_prefix: key.clone(),
+                    key_suffix: None,
+                    key_sha256: key,
+                    ts,
+                    deleted,
+                };
+                Ok(index_row)
+            })
+            .filter(move |index_entry| match cursor {
+                None => true,
+                Some(ref cursor) => match index_entry {
+                    Ok(index_entry) => index_entry > cursor,
+                    Err(_) => true,
+                },
+            })
+            .take(chunk_size)
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        Ok(rows)
+    }
+
+    async fn index_entries_to_delete(
+        &self,
+        expired_entries: &Vec<IndexEntry>,
+    ) -> anyhow::Result<Vec<IndexEntry>> {
+        let connection = &self.inner.lock().connection;
+        let mut all_entries = BTreeSet::new();
+        for expired_entry in expired_entries {
+            let params = params![
+                &expired_entry.index_id[..],
+                &expired_entry.key_prefix[..],
+                &u64::from(expired_entry.ts),
+            ];
+            let mut entries_query = connection.prepare(INDEX_ENTRIES_TO_DELETE)?;
+            let row_iter = entries_query.query_map(params, |row| {
+                let index_id: Vec<u8> = row.get(0)?;
+                let key: Vec<u8> = row.get(1)?;
+                let ts =
+                    Timestamp::try_from(row.get::<_, u64>(2)?).expect("timestamp out of bounds");
+                let deleted = row.get::<_, u32>(3)? != 0;
+                Ok((index_id, key, ts, deleted))
+            })?;
+            for row in row_iter {
+                let (index_id, key, ts, deleted) = row?;
+                all_entries.insert(IndexEntry {
+                    index_id: index_id.try_into()?,
+                    key_prefix: key.clone(),
+                    key_suffix: None,
+                    key_sha256: key,
+                    ts,
+                    deleted,
+                });
+            }
+        }
+        Ok(all_entries.into_iter().collect())
+    }
+
+    async fn delete_index_entries(&self, expired_rows: Vec<IndexEntry>) -> anyhow::Result<usize> {
+        let mut inner = self.inner.lock();
+        let tx = inner.connection.transaction()?;
+        let mut delete_index_query = tx.prepare_cached(DELETE_INDEX)?;
+        let mut count_deleted = 0;
+
+        for IndexEntry {
+            index_id,
+            key_prefix,
+            ts,
+            ..
+        } in expired_rows
+        {
+            count_deleted +=
+                delete_index_query.execute(params![&index_id[..], &u64::from(ts), key_prefix,])?;
+        }
+        drop(delete_index_query);
+        tx.commit()?;
+        Ok(count_deleted)
+    }
+
+    fn box_clone(&self) -> Box<dyn Persistence> {
+        Box::new(self.clone())
+    }
+}
+
+#[async_trait]
+impl PersistenceReader for SqlitePersistence {
+    fn load_documents(
+        &self,
+        range: TimestampRange,
+        order: Order,
+        _page_size: u32,
+    ) -> DocumentStream<'_> {
+        let triples = try {
+            let connection = &self.inner.lock().connection;
+            let load_docs_query = load_docs(range, order);
+            let mut stmt = connection.prepare(load_docs_query.as_str())?;
+
+            let mut triples = vec![];
+            for row in stmt.query_map([], load_document_row)? {
+                let (id, ts, table, json_value, deleted) = row?;
+                let id = InternalId::try_from(id)?;
+                let ts = Timestamp::try_from(ts)?;
+                let table = TableId(table.try_into()?);
+                let document_id = table.id(id);
+                let document = if !deleted {
+                    let json_value = json_value.ok_or_else(|| {
+                        anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, ts)
+                    })?;
+                    let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
+                    let value: ConvexValue = json_value.try_into()?;
+                    let document = ResolvedDocument::from_database(table, value)?;
+                    Some(document)
+                } else {
+                    None
+                };
+                triples.push(Ok((ts, document_id, document)))
+            }
+            triples
+        };
+        match triples {
+            Ok(s) => stream::iter(s).boxed(),
+            Err(e) => stream::once(async { Err(e) }).boxed(),
+        }
+    }
+
+    async fn previous_revisions(
+        &self,
+        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+    ) -> anyhow::Result<
+        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
+    > {
+        let inner = self.inner.lock();
+        let mut out = BTreeMap::new();
+        for (id, ts) in ids {
+            let mut stmt = inner.connection.prepare(PREV_REV_QUERY)?;
+            let internal_id = id.internal_id();
+            let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
+            let mut row_iter = stmt.query_map(params, load_document_row)?;
+            if let Some(row) = row_iter.next() {
+                let (id, prev_ts, table, json_value, deleted) = row?;
+                let id = InternalId::try_from(id)?;
+                let table = TableId(table.try_into()?);
+                let prev_ts = Timestamp::try_from(prev_ts)?;
+                let document_id = table.id(id);
+                let document = if !deleted {
+                    let json_value = json_value.ok_or_else(|| {
+                        anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, prev_ts)
+                    })?;
+                    let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
+                    let value: ConvexValue = json_value.try_into()?;
+                    let document = ResolvedDocument::from_database(table, value)?;
+                    Some(document)
+                } else {
+                    None
+                };
+                out.insert((document_id, ts), (prev_ts, document));
+            }
+        }
+        Ok(out)
+    }
+
+    fn index_scan(
+        &self,
+        index_id: IndexId,
+        table_id: TableId,
+        read_timestamp: Timestamp,
+        interval: &Interval,
+        order: Order,
+        _size_hint: usize,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> IndexStream<'_> {
+        let triples = self._index_scan_inner(index_id, table_id, read_timestamp, interval, order);
+        // index_scan isn't async so we have to validate snapshot as part of the stream.
+        let validate = self.validate_snapshot(read_timestamp, retention_validator);
+        match triples {
+            Ok(s) => (validate.chain(stream::iter(s))).boxed(),
+            Err(e) => stream::once(async { Err(e) }).boxed(),
+        }
+    }
+
+    async fn get_persistence_global(
+        &self,
+        key: PersistenceGlobalKey,
+    ) -> anyhow::Result<Option<JsonValue>> {
+        self._get_persistence_global(key)
+    }
+
+    fn box_clone(&self) -> Box<dyn PersistenceReader> {
+        Box::new(self.clone())
+    }
+
+    fn version(&self) -> PersistenceVersion {
+        PersistenceVersion::V5
+    }
+}
+
+const DOCUMENTS_INIT: &str = r#"
+CREATE TABLE IF NOT EXISTS documents (
+    id BLOB NOT NULL,
+    ts INTEGER NOT NULL,
+
+    table_id BLOB NOT NULL,
+
+    json_value TEXT NULL,
+    deleted INTEGER NOT NULL,
+
+    PRIMARY KEY (ts, table_id, id)
+);
+CREATE INDEX IF NOT EXISTS documents_by_table_and_id ON documents (table_id, id, ts);
+"#;
+
+const INDEXES_INIT: &str = r#"
+CREATE TABLE IF NOT EXISTS indexes (
+    index_id BLOB NOT NULL,
+    ts INTEGER NOT NULL,
+
+    key BLOB NOT NULL,
+
+    deleted INTEGER NOT NULL,
+
+    table_id BLOB NULL,
+    document_id BLOB NULL,
+
+    PRIMARY KEY (index_id, key, ts)
+);
+"#;
+
+const READ_ONLY_INIT: &str = r#"
+CREATE TABLE IF NOT EXISTS read_only (
+    id INTEGER NOT NULL,
+
+    PRIMARY KEY (id)
+);
+"#;
+
+const PERSISTENCE_GLOBALS_INIT: &str = r#"
+CREATE TABLE IF NOT EXISTS persistence_globals (
+    key TEXT NOT NULL,
+    json_value TEXT NOT NULL,
+
+    PRIMARY KEY (key)
+);
+"#;
+
+fn load_docs(range: TimestampRange, order: Order) -> String {
+    let order_str = match order {
+        Order::Asc => " ORDER BY ts ASC, table_id ASC, id ASC ",
+        Order::Desc => " ORDER BY ts DESC, table_id DESC, id DESC ",
+    };
+    format!(
+        r#"
+SELECT id, ts, table_id, json_value, deleted
+FROM documents
+WHERE ts >= {} AND ts < {}
+{}
+"#,
+        range.min_timestamp_inclusive(),
+        range.max_timestamp_exclusive(),
+        order_str,
+    )
+}
+
+fn load_document_row(
+    row: &Row<'_>,
+) -> rusqlite::Result<(Vec<u8>, u64, Vec<u8>, Option<String>, bool)> {
+    let id = row.get::<_, Vec<u8>>(0)?;
+    let ts = row.get::<_, u64>(1)?;
+    let table: Vec<u8> = row.get(2)?;
+    let json_value: Option<String> = row.get(3)?;
+    let deleted = row.get::<_, u32>(4)? != 0;
+    Ok((id, ts, table, json_value, deleted))
+}
+
+const GET_PERSISTENCE_GLOBAL: &str = "SELECT json_value FROM persistence_globals WHERE key = ?";
+
+const INSERT_DOCUMENT: &str = "INSERT INTO documents VALUES (?, ?, ?, ?, ?)";
+const INSERT_INDEX: &str = "INSERT INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
+const INSERT_OVERWRITE_INDEX: &str = "INSERT OR REPLACE INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
+const WRITE_PERSISTENCE_GLOBAL: &str = "INSERT OR REPLACE INTO persistence_globals VALUES (?, ?)";
+
+const WALK_INDEXES: &str =
+    "SELECT index_id, key, ts, deleted FROM indexes ORDER BY index_id ASC, key ASC, ts ASC";
+
+const INDEX_ENTRIES_TO_DELETE: &str = r#"SELECT index_id, key, ts, deleted
+FROM indexes WHERE index_id = ? AND key = ? AND ts <= ?
+ORDER BY index_id DESC, key DESC, ts DESC
+"#;
+const DELETE_INDEX: &str = "DELETE FROM indexes WHERE index_id = ? AND ts <= ? AND key = ?";
+
+const CHECK_IS_READ_ONLY: &str = "SELECT 1 FROM read_only LIMIT 1";
+const SET_READ_ONLY: &str = "INSERT INTO read_only (id) VALUES (1)";
+const UNSET_READ_ONLY: &str = "DELETE FROM read_only WHERE id = 1";
+
+const PREV_REV_QUERY: &str = r#"
+SELECT id, ts, table_id, json_value, deleted
+FROM documents
+WHERE
+    table_id = $1 AND
+    id = $2 AND
+    ts < $3
+ORDER BY ts desc
+LIMIT 1
+"#;

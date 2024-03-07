@@ -1,0 +1,5 @@
+[package]
+name = "tuple_struct"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"

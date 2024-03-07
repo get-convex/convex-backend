@@ -1,0 +1,18 @@
+{
+  "extends": "./api-extractor-base.json",
+  "mainEntryPointFilePath": "<projectFolder>/dist/types/react-clerk/index.d.ts",
+  "dtsRollup": {
+    "untrimmedFilePath": "<projectFolder>/dist/types/react-clerk/react-clerk-internal.d.ts",
+    "publicTrimmedFilePath": "<projectFolder>/dist/types/react-clerk/react-clerk.d.ts"
+  },
+  /**
+   * Enable the apiReport but use the same reportFolder and tempFolder to make it a no-op.
+   * This way forgotten exports are a warning instead of an error.
+   */
+  "apiReport": {
+    "enabled": true,
+    "reportFileName": "react-clerk-tmp.api.md",
+    "reportFolder": "temp",
+    "reportTempFolder": "temp"
+  }
+}

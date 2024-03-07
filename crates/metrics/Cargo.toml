@@ -1,0 +1,29 @@
+[package]
+name = "metrics"
+version = "0.1.0"
+authors = ["Convex, Inc. <team@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+derive_more = { workspace = true }
+parking_lot = { workspace = true }
+paste = { workspace = true }
+prometheus = { workspace = true }
+semver = { workspace = true }
+sentry = { workspace = true }
+tracing = { workspace = true }
+
+[build-dependencies]
+anyhow = { workspace = true }
+vergen = { workspace = true, features = ["git", "gitcl"] }
+
+[features]
+testing = []
+
+[package.metadata.cargo-machete]
+ignored = ["vergen"]  # Build dependencies not understood

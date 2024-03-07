@@ -1,0 +1,172 @@
+[workspace]
+members = [ "crates/*", "crates/convex/sync_types" ]
+resolver = "2"
+
+[workspace.dependencies]
+anyhow = "1"
+async-broadcast = "0.7.0"
+async-channel = "1.9.0"
+async-recursion = "1.0.5"
+async-trait = "0.1"
+async_zip = { version = "0.0.9", default-features = false, features = [ "zstd", "deflate" ] }
+csv-async = "1.2"
+atomic_refcell = "0.1.10"
+axum = { version = "0.6", features = [ "headers", "ws", "original-uri", "macros", "multipart" ] }
+base32 = "0.4.0"
+base-62 = "0.1.1"
+base64 = "0.13"
+biscuit = "0.7.0"
+bitvec = "1.0.1"
+byteorder = "1.5.0"
+bytes = "1.1.0"
+bytesize = "1.3.0"
+cfg-if = "1.0"
+chrono = "0.4.26"
+clap = { version = "^4.1.8", features = [ "derive" ] }
+colored = "2"
+criterion = "0.5"
+crossbeam = "0.8"
+crossbeam-channel = "0.5"
+csf = "0.1.11"
+cstr = "0.2.11"
+deno_core = "0.266.0"
+deno_core_icudata = "0.0.73"
+derive_more = "0.99"
+divan = "0.1.11"
+dotenvy = "0.15.7"
+elliptic-curve = { version = "0.12.1", features = [ "std", "pem" ] }
+encoding_rs = "0.8.32"
+p256 = { version = "0.11.1", features = [ "ecdh" ] }
+event-listener = "2.5.3"
+flexbuffers = "2"
+float_next_after = "1.0.0"
+spki = "0.7.0"
+futures = "0.3"
+futures-async-stream = "0.2.9"
+governor = "0.6.0"
+headers = "0.3"
+hex = "0.4"
+home = "0.5"
+enum-iterator = "1.5.0"
+http = "0.2.8"
+http-cache-reqwest = { version = "0.13.0", features = [ "manager-moka" ] }
+humansize = { version = "2.1.3", features = [ "impl_style" ] }
+hyper = "0.14.16"
+proc-macro2 = { version = "1.0" }
+imbl = "2.0.0"
+itertools = "0.12"
+jsonschema = "0.17.0"
+levenshtein_automata = "0.2.1"
+lru = "0.12.0"
+maplit = "1"
+mime = "0.3"
+mime2ext = "0.1.52"
+must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
+num_cpus = "1.16.0"
+oauth2 = "4.4.2"
+openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "45a84cf974d45db998af10546a4c35abd5f0a487", features = [ "accept-rfc3339-timestamps" ] }
+parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
+paste = { version = "1.0.12" }
+phf = { version = "0.11.0", features = [ "macros" ] }
+pin-project = "1"
+p384 = "0.11.1"
+portpicker = "0.1"
+const-oid = "0.9.0"
+pretty_assertions = "1"
+prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "061619b6e44ca7f3b94d97346152cab319895929" }
+prometheus-hyper = "0.1.5"
+proptest = "1"
+proptest-derive = "0.4.0"
+proptest-http = { git = "https://github.com/sujayakar/proptest-http", rev = "12ef4c4ac2002b050ab0944a9587d83d7ea9fce2" }
+prost = "0.12"
+prost-types = "0.12"
+pyo3 = "0.19.1"
+pyo3-asyncio = { version = "0.19.0", features = [ "tokio-runtime" ] }
+qdrant_segment = { git = "https://github.com/get-convex/qdrant", rev = "76482c6e62dd37c2bcb30a298e6538678df1bd27", package = "segment" }
+quote = "1.0"
+rand = "0.8"
+rand_chacha = "0.3.1"
+ref-cast = "1.0.20"
+regex = "1"
+reqwest = { version = "0.11.24", features = [ "json", "stream", "gzip" ] }
+reqwest-middleware = "0.2.0"
+ring = "0.17.0"
+rsa = "0.9.0"
+rusqlite = { version = "0.30", features = [ "bundled" ] }
+saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
+semver = { version = "1", features = [ "serde" ] }
+sentry = { version = "0.31", features = [ "anyhow", "tower", "tower-http" ] }
+serde = { version = "1", features = [ "derive" ] }
+serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order" ] }
+sha2 = { version = "0.10.7", features = [ "asm" ] }
+slab = "0.4.2"
+sodiumoxide = "^0.2"
+sourcemap = "7"
+strum = { version = "0.25", features = [ "derive" ] }
+sucds = { version = "0.8.1", features = [ "intrinsics" ] }
+syn = { version = "2.0", features = [ "full" ] }
+tantivy = { git = "https://github.com/get-convex/tantivy", branch = "rakeeb/reexport-tantivy-fst" }
+tempfile = "3"
+thiserror = "1"
+thousands = "0.2.0"
+tokio = { version = "1", features = [ "full" ] }
+tokio-metrics-collector = { version = "0.2.0" }
+tokio-process-stream = { version = "0.4.0" }
+tokio-stream = { version = "^0.1.8", features = [ "io-util", "sync" ] }
+tokio-tungstenite = "0.20.0"
+tonic = { version = "0.10.0", features = [ "gzip" ] }
+tonic-build = "0.10.0"
+tonic-health = "0.10.0"
+tower = { version = "0.4", features = [ "limit", "timeout" ] }
+tower-cookies = "0.9"
+tower-http = { version = "0.4", features = [ "trace", "cors", "decompression-br", "compression-br" ] }
+tracing = "0.1"
+tracing-appender = { version = "0.2" }
+tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
+tracy-client = { version = "0.16.0", default-features = false, features = [ "fibers" ] }
+tungstenite = "0.20.0"
+url = "2"
+uuid = { version = "1.6", features = [ "serde", "v4" ] }
+vergen = { version = "8.1.0" }
+walkdir = "2"
+xorf = { git = "https://github.com/sujayakar/xorf.git", rev = "62a32de47bb3ad8b34d6d4feac034a24be2c881a" }
+
+[profile.release]
+opt-level = 3
+debug = true
+panic = "abort"
+
+[patch.crates-io]
+prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "061619b6e44ca7f3b94d97346152cab319895929" }
+
+[profile.dev.package.proptest]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.levenshtein_automata]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.flexbuffers]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.regex-syntax]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.sha2]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.digest]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.num-bigint-dig]
+opt-level = 3
+codegen-units = 16

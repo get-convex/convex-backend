@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ESNext",
+    "lib": ["ES2021", "dom"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "noEmit": true,
+    "esModuleInterop": true
+  },
+  "include": ["./**/*"]
+}

@@ -1,0 +1,85 @@
+[package]
+name = "local_backend"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[[bin]]
+name = "convex-local-backend"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+application = { path = "../application" }
+async-broadcast = { workspace = true }
+async-trait = { workspace = true }
+authentication = { path = "../authentication" }
+axum = { workspace = true }
+base64 = { workspace = true }
+clap = { workspace = true }
+cmd_util = { path = "../../crates/cmd_util" }
+common = { path = "../common" }
+database = { path = "../database" }
+errors = { path = "../errors" }
+events = { path = "../events" }
+file_storage = { path = "../file_storage" }
+function_runner = { path = "../function_runner" }
+futures = { workspace = true }
+http = { workspace = true }
+hyper = { workspace = true }
+isolate = { path = "../../crates/isolate" }
+keybroker = { path = "../keybroker" }
+maplit = { workspace = true }
+metrics = { path = "../metrics" }
+model = { path = "../model" }
+node_executor = { path = "../node_executor" }
+parking_lot = { workspace = true }
+rand = { workspace = true }
+request_context = { path = "../request_context" }
+runtime = { path = "../runtime" }
+search = { path = "../search" }
+sentry = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sodiumoxide = { workspace = true }
+sqlite = { path = "../sqlite" }
+storage = { path = "../storage" }
+sync = { path = "../sync" }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+tracing = { workspace = true }
+tungstenite = { workspace = true }
+url = { workspace = true }
+usage_tracking = { path = "../../crates/usage_tracking" }
+value = { path = "../../crates/value" }
+vector = { path = "../../crates/vector" }
+
+[dev-dependencies]
+application = { path = "../../crates/application", features = ["testing"] }
+authentication = { path = "../authentication", features = ["testing"] }
+common = { path = "../../crates/common", features = ["testing"] }
+convex_macro = { path = "../../crates/convex_macro" }
+database = { path = "../database", features = ["testing"] }
+errors = { path = "../errors", features = ["testing"] }
+events = { path = "../events", features = ["testing"] }
+function_runner = { path = "../function_runner", features = ["testing"] }
+isolate = { path = "../../crates/isolate", features = ["testing"] }
+keybroker = { path = "../../crates/keybroker", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+model = { path = "../model", features = ["testing"] }
+node_executor = { path = "../node_executor", features = ["testing"] }
+portpicker = { workspace = true }
+request_context = { path = "../request_context", features = ["testing"] }
+runtime = { path = "../runtime", features = ["testing"] }
+search = { path = "../search", features = ["testing"] }
+storage = { path = "../storage", features = ["testing"] }
+sync = { path = "../sync", features = ["testing"] }
+tokio-tungstenite = { workspace = true }
+usage_tracking = { path = "../../crates/usage_tracking", features = [
+    "testing",
+] }
+value = { path = "../../crates/value", features = ["testing"] }
+vector = { path = "../../crates/vector", features = ["testing"] }
