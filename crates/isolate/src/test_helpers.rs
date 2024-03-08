@@ -726,12 +726,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             )
             .await?;
         let log_lines: Vec<LogLine> = log_line_receiver.collect().await;
-        let log_lines = if !log_lines.is_empty() {
-            log_lines.into()
-        } else {
-            outcome.log_lines.clone()
-        };
-        Ok((outcome, log_lines))
+        Ok((outcome, log_lines.into()))
     }
 
     pub async fn action(&self, udf_path: &str, args: ConvexObject) -> anyhow::Result<ConvexValue> {
@@ -759,10 +754,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         udf_path: &str,
         args: ConvexObject,
     ) -> anyhow::Result<LogLines> {
-        let (_, outcome) = self
-            .action_outcome(udf_path, args, Identity::system())
+        let (_value, _outcome, log_lines) = self
+            .action_outcome_and_log_lines(udf_path, args, Identity::system())
             .await?;
-        Ok(outcome.log_lines)
+        Ok(log_lines)
     }
 
     pub async fn action_with_identity(
@@ -781,7 +776,19 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         args: ConvexObject,
         identity: Identity,
     ) -> anyhow::Result<(ConvexValue, ActionOutcome)> {
-        let (outcome, _log_lines) = self
+        let (value, outcome, _) = self
+            .action_outcome_and_log_lines(udf_path, args, identity)
+            .await?;
+        Ok((value, outcome))
+    }
+
+    pub async fn action_outcome_and_log_lines(
+        &self,
+        udf_path: &str,
+        args: ConvexObject,
+        identity: Identity,
+    ) -> anyhow::Result<(ConvexValue, ActionOutcome, LogLines)> {
+        let (outcome, log_lines) = self
             .raw_action(udf_path, vec![ConvexValue::Object(args)], identity)
             .await?;
         let value = outcome
@@ -795,7 +802,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 )
             })
             .unwrap();
-        Ok((value, outcome))
+        Ok((value, outcome, log_lines))
     }
 
     pub async fn raw_action(
@@ -849,12 +856,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             )
             .await?;
         let log_lines: Vec<LogLine> = log_line_receiver.collect().await;
-        let log_lines = if !log_lines.is_empty() {
-            log_lines.into()
-        } else {
-            outcome.log_lines.clone()
-        };
-        Ok((outcome, log_lines))
+        Ok((outcome, log_lines.into()))
     }
 }
 
