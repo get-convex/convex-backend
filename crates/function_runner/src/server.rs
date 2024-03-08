@@ -106,6 +106,7 @@ use crate::{
         ModuleCache,
     },
     FunctionFinalTransaction,
+    FunctionWrites,
 };
 
 const MAX_ISOLATE_WORKERS: usize = 128;
@@ -282,6 +283,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         udf_type: UdfType,
         identity: Identity,
         ts: RepeatableTimestamp,
+        existing_writes: FunctionWrites,
         journal: QueryJournal,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
@@ -306,6 +308,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             .begin_tx(
                 identity.clone(),
                 ts,
+                existing_writes,
                 reader,
                 instance_name.clone(),
                 in_memory_index_last_modified,
@@ -438,6 +441,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         udf_type: UdfType,
         identity: Identity,
         ts: RepeatableTimestamp,
+        existing_writes: FunctionWrites,
         journal: QueryJournal,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -483,6 +487,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 udf_type,
                 identity,
                 ts,
+                existing_writes,
                 journal,
                 system_env_vars,
                 in_memory_index_last_modified,

@@ -7,15 +7,15 @@ use sync_types::UdfPath;
 
 use crate::{
     test_helpers::UdfTest,
-    EmptyModuleLoader,
     ModuleLoader,
+    TransactionModuleLoader,
 };
 
 #[convex_macro::test_runtime]
 async fn test_log_number(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let mut tx = t.database.begin(Identity::system()).await?;
-    let module_loader = EmptyModuleLoader;
+    let module_loader = TransactionModuleLoader;
 
     let udf_type = module_loader
         .get_analyzed_function(

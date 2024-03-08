@@ -61,8 +61,8 @@ pub use self::{
         auth_config::AuthConfig,
         helpers::{
             module_loader::{
-                EmptyModuleLoader,
                 ModuleLoader,
+                TransactionModuleLoader,
             },
             validation::{
                 validate_schedule_args,

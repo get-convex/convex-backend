@@ -23,6 +23,7 @@ use model::modules::{
     },
     types::ModuleMetadata,
     ModuleModel,
+    MODULE_VERSIONS_TABLE,
 };
 use value::ResolvedDocumentId;
 
@@ -65,6 +66,18 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         // The transaction we're getting modules for should be from the same ts as when
         // this module loader was created.
         assert_eq!(tx.begin_timestamp(), self.transaction_ingredients.ts);
+
+        // If this transaction wrote to module_versions (true for REPLs), we cannot use
+        // the cache, load the module directly.
+        let module_versions_table_id = tx.table_mapping().id(&MODULE_VERSIONS_TABLE)?;
+        if tx.writes().has_written_to(&module_versions_table_id) {
+            let module_version = ModuleModel::new(tx)
+                .get_version(module_metadata.id(), module_metadata.latest_version)
+                .await?
+                .into_value();
+            return Ok(Some(Arc::new(module_version)));
+        }
+
         let key = ModuleCacheKey {
             instance_name: self.instance_name.clone(),
             module_id: module_metadata.id(),

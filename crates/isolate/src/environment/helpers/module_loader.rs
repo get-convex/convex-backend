@@ -89,10 +89,11 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
     }
 }
 
-pub struct EmptyModuleLoader;
+// Loads module versions directly from the transaction.
+pub struct TransactionModuleLoader;
 
 #[async_trait]
-impl<RT: Runtime> ModuleLoader<RT> for EmptyModuleLoader {
+impl<RT: Runtime> ModuleLoader<RT> for TransactionModuleLoader {
     async fn get_module_with_metadata(
         &self,
         tx: &mut Transaction<RT>,

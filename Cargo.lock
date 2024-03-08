@@ -2522,6 +2522,7 @@ dependencies = [
  "storage",
  "tokio",
  "tonic",
+ "tracing",
  "url",
  "usage_tracking",
  "value",

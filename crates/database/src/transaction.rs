@@ -318,6 +318,10 @@ impl<RT: Runtime> Transaction<RT> {
         self.writes.is_empty()
     }
 
+    pub fn writes(&self) -> &Writes {
+        &self.writes
+    }
+
     pub fn into_reads_and_writes(self) -> (TransactionReadSet, Writes) {
         (self.reads, self.writes)
     }
@@ -362,7 +366,7 @@ impl<RT: Runtime> Transaction<RT> {
         }
     }
 
-    /// Apples the reads and writes from FunctionRunner to the Transaction.
+    /// Applies the reads and writes from FunctionRunner to the Transaction.
     pub fn apply_function_runner_tx(
         &mut self,
         begin_timestamp: Timestamp,
@@ -378,16 +382,43 @@ impl<RT: Runtime> Transaction<RT> {
             *self.begin_timestamp() == begin_timestamp,
             "Timestamp mismatch"
         );
-        anyhow::ensure!(
-            self.is_readonly(),
-            "Cannot apply FunctionRunner writes to a transaction that already has writes."
-        );
-        anyhow::ensure!(
-            self.writes.generated_ids.is_disjoint(&generated_ids),
-            "Cannot have repeats in generated ids."
-        );
+
         self.reads
             .merge(reads, num_intervals, user_tx_size, system_tx_size);
+
+        self.merge_writes(updates, generated_ids)?;
+
+        for (table, rows_read) in rows_read {
+            self.stats.entry(table).or_default().rows_read += rows_read;
+        }
+
+        Ok(())
+    }
+
+    // Checks that if this transaction already has some writes, they are included
+    // in the given `updates`. This means the passed in `updates` are a superset
+    // of the existing `updates` on this transaction, and that the merged-in
+    // writes cannot modify documents already written to in this transaction.
+    // In most scenarios this transaction will have no writes.
+    pub fn merge_writes(
+        &mut self,
+        updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
+        // TODO: Delete generated_ids, they are included as (None, None)
+        // update in updates.
+        generated_ids: BTreeSet<ResolvedDocumentId>,
+    ) -> anyhow::Result<()> {
+        let (existing_updates, existing_generated_ids) =
+            self.writes().clone().into_updates_and_generated_ids();
+
+        // TODO: Delete generated_ids, they are included as (None, None)
+        // update in updates. This check is redundant.
+        for id in generated_ids.iter() {
+            anyhow::ensure!(
+                existing_updates.contains_key(id) || !existing_generated_ids.contains(id),
+                "Conflicting generated ID {id}"
+            );
+        }
+
         let mut updates = updates
             .into_iter()
             .map(|(id, write)| (id, write))
@@ -399,7 +430,21 @@ impl<RT: Runtime> Transaction<RT> {
                 update.new_document.as_ref(),
             )
         });
+
+        let mut preserved_update_count = 0;
         for (id, update) in updates {
+            // Ensure that the existing update matches, and that
+            // that the merged-in writes didn't otherwise modify documents
+            // already written to in this transaction.
+            if let Some(existing_update) = existing_updates.get(&id) {
+                anyhow::ensure!(
+                    existing_update == &update,
+                    "Conflicting updates for document {id}"
+                );
+                preserved_update_count += 1;
+                continue;
+            }
+
             if let Some(ref document) = update.new_document {
                 let doc_creation_time = document
                     .creation_time()
@@ -411,10 +456,11 @@ impl<RT: Runtime> Transaction<RT> {
             }
             self.apply_validated_write(id, update.old_document, update.new_document)?;
         }
-
-        for (table, rows_read) in rows_read {
-            self.stats.entry(table).or_default().rows_read += rows_read;
-        }
+        assert_eq!(
+            preserved_update_count,
+            existing_updates.len(),
+            "Existing write was not preserved"
+        );
 
         Ok(())
     }

@@ -31,6 +31,7 @@ message FunrunRequest {
   common.PathAndArgs path_and_args = 4;
   UdfType udf_type = 5;
   convex_identity.Identity identity = 6;
+  Writes existing_writes = 17;
   reserved 7;
   QueryJournal journal = 8;
 

@@ -332,10 +332,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
         context: RequestContext,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
     ) -> anyhow::Result<(Option<Transaction<RT>>, FunctionOutcome)> {
-        anyhow::ensure!(
-            tx.is_readonly(),
-            "Cannot send a request to Funrun that already has writes."
-        );
         let in_memory_index_last_modified = self
             .database
             .snapshot(tx.begin_timestamp())?
@@ -367,6 +363,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 udf_type,
                 tx.identity().clone(),
                 tx.begin_timestamp(),
+                tx.writes().clone().into(),
                 journal,
                 log_line_sender,
                 self.system_env_vars.clone(),

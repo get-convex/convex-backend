@@ -81,7 +81,10 @@ use super::metrics::{
     log_funrun_index_cache_get,
     log_funrun_index_load_rows,
 };
-use crate::metrics::begin_tx_timer;
+use crate::{
+    metrics::begin_tx_timer,
+    FunctionWrites,
+};
 
 /// Convenience struct for data required to create a [Transaction]. This struct
 /// is cloneable, while [Transaction] is not.
@@ -89,6 +92,7 @@ use crate::metrics::begin_tx_timer;
 pub struct TransactionIngredients<RT: Runtime> {
     pub ts: RepeatableTimestamp,
     pub identity: Identity,
+    pub existing_writes: FunctionWrites,
     pub rt: RT,
     pub table_registry: TableRegistry,
     pub index_registry: IndexRegistry,
@@ -107,6 +111,7 @@ impl<RT: Runtime> TryFrom<TransactionIngredients<RT>> for Transaction<RT> {
         TransactionIngredients {
             ts,
             identity,
+            existing_writes,
             rt,
             table_registry,
             index_registry,
@@ -125,7 +130,7 @@ impl<RT: Runtime> TryFrom<TransactionIngredients<RT>> for Transaction<RT> {
             database_index_snapshot,
             search_index_snapshot,
         );
-        let tx = Transaction::new(
+        let mut tx = Transaction::new(
             identity,
             id_generator,
             creation_time,
@@ -137,6 +142,8 @@ impl<RT: Runtime> TryFrom<TransactionIngredients<RT>> for Transaction<RT> {
             retention_validator,
             virtual_system_mapping,
         );
+        let updates = existing_writes.updates;
+        tx.merge_writes(updates, existing_writes.generated_ids)?;
         Ok(tx)
     }
 }
@@ -341,6 +348,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         &self,
         identity: Identity,
         ts: RepeatableTimestamp,
+        existing_writes: FunctionWrites,
         persistence: Box<dyn PersistenceReader>,
         instance_name: String,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
@@ -375,6 +383,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         let transaction_ingredients = TransactionIngredients {
             ts,
             identity,
+            existing_writes,
             rt: self.rt.clone(),
             table_registry,
             index_registry,

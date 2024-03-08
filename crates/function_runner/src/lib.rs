@@ -66,6 +66,7 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         udf_type: UdfType,
         identity: Identity,
         ts: RepeatableTimestamp,
+        existing_writes: FunctionWrites,
         journal: QueryJournal,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -141,7 +142,8 @@ impl From<TransactionReadSet> for FunctionReads {
 
 /// Subset of [`Writes`] that is returned by [FunctionRunner] after a function
 /// has executed.
-#[cfg_attr(any(test, feature = "testing"), derive(Clone, Debug, PartialEq,))]
+#[cfg_attr(any(test, feature = "testing"), derive(Debug, PartialEq))]
+#[derive(Clone)]
 pub struct FunctionWrites {
     pub updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
 

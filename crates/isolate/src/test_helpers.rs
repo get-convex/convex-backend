@@ -142,11 +142,11 @@ use crate::{
     validate_schedule_args,
     ActionCallbacks,
     BackendIsolateWorker,
-    EmptyModuleLoader,
     HttpActionOutcome,
     IsolateClient,
     IsolateConfig,
     ModuleLoader,
+    TransactionModuleLoader,
     ValidatedUdfPathAndArgs,
     CONVEX_ORIGIN,
     CONVEX_SITE,
@@ -197,7 +197,7 @@ pub static TEST_SOURCE_ISOLATE_ONLY: LazyLock<Vec<ModuleConfig>> = LazyLock::new
 
 pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentData<RT>> {
     let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
-    let module_loader = Arc::new(EmptyModuleLoader);
+    let module_loader = Arc::new(TransactionModuleLoader);
     let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
     let convex_origin = "http://127.0.0.1:8000".into();
     let file_storage = TransactionalFileStorage::new(rt.clone(), storage.clone(), convex_origin);
@@ -251,7 +251,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         .await?;
         database.start_vector_bootstrap().into_join_future().await?;
         let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
-        let module_loader = Arc::new(EmptyModuleLoader);
+        let module_loader = Arc::new(TransactionModuleLoader);
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let convex_origin = "http://127.0.0.1:8000".into();
         let file_storage =
