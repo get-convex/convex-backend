@@ -16,6 +16,7 @@ use common::{
     },
     query::{
         InternalSearch,
+        InternalSearchFilterExpression,
         SearchVersion,
     },
     types::{
@@ -160,6 +161,19 @@ impl SearchIndexManager {
             ..
         } = self.get_snapshot_info(index, &search.printable_index_name()?)?;
         let (compiled_query, reads) = tantivy_schema.compile(search, version)?;
+
+        // Ignore empty searches to avoid failures due to transient search issues (e.g.
+        // bootstrapping). Do this after validating the query above.
+        if search.filters.iter().any(|filter| {
+            let InternalSearchFilterExpression::Search(_, query_string) = filter else {
+                return false;
+            };
+            query_string.trim().is_empty()
+        }) {
+            tracing::debug!("Skipping empty search query");
+            return Ok(QueryResults::empty());
+        }
+
         let revisions_with_keys = tantivy_schema
             .search(
                 compiled_query,

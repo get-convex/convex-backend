@@ -580,6 +580,15 @@ pub struct QueryResults {
     pub reads: QueryReads,
 }
 
+impl QueryResults {
+    pub fn empty() -> Self {
+        Self {
+            revisions_with_keys: vec![],
+            reads: QueryReads::empty(),
+        }
+    }
+}
+
 /// A read based on a single token extracted from a text query search.
 ///
 /// A single text query will be split into many parts (tokenized), each part

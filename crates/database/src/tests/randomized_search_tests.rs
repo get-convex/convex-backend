@@ -8,9 +8,13 @@ use std::{
     sync::Arc,
 };
 
+use async_trait::async_trait;
 use cmd_util::env::env_config;
 use common::{
-    bootstrap_model::index::IndexMetadata,
+    bootstrap_model::index::{
+        vector_index::FragmentedVectorSegment,
+        IndexMetadata,
+    },
     floating_point::assert_approx_equal,
     query::{
         CursorPosition,
@@ -23,6 +27,7 @@ use common::{
     },
     types::{
         IndexName,
+        ObjectKey,
         TabletIndexName,
         Timestamp,
     },
@@ -41,6 +46,7 @@ use futures::{
 use keybroker::Identity;
 use maplit::btreeset;
 use must_let::must_let;
+use pb::searchlight::FragmentedVectorSegmentPaths;
 use proptest::prelude::*;
 use proptest_derive::Arbitrary;
 use runtime::testing::{
@@ -48,12 +54,26 @@ use runtime::testing::{
     TestRuntime,
 };
 use search::{
+    query::{
+        CompiledQuery,
+        TermShortlist,
+    },
+    scoring::Bm25StatisticsDiff,
     searcher::InProcessSearcher,
+    SearchQueryResult,
+    Searcher,
+    TantivySearchIndexSchema,
     MAX_CANDIDATE_REVISIONS,
 };
 use storage::Storage;
 use usage_tracking::FunctionUsageTracker;
 use value::assert_obj;
+use vector::{
+    CompiledVectorSearch,
+    QdrantSchema,
+    VectorSearchQueryResult,
+    VectorSearcher,
+};
 
 use crate::{
     test_helpers::{
@@ -82,6 +102,10 @@ struct Scenario {
 
 impl Scenario {
     async fn new(rt: TestRuntime) -> anyhow::Result<Self> {
+        Self::new_with_searcher(rt.clone(), InProcessSearcher::new(rt).await?).await
+    }
+
+    async fn new_with_searcher(rt: TestRuntime, searcher: impl Searcher) -> anyhow::Result<Self> {
         let DbFixtures {
             db: database,
             search_storage,
@@ -89,7 +113,7 @@ impl Scenario {
         } = DbFixtures::new_with_args(
             &rt,
             DbFixturesArgs {
-                searcher: Some(Arc::new(InProcessSearcher::new(rt.clone()).await?)),
+                searcher: Some(Arc::new(searcher)),
                 ..Default::default()
             },
         )
@@ -716,6 +740,87 @@ fn searches_with_duplicate_terms_have_same_memory_disk_score() {
         filter: None,
     });
     test_search_actions(vec![action, query]);
+}
+
+#[convex_macro::test_runtime]
+async fn empty_searches_produce_no_results(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        ._patch("key1", "rakeeb \t\nwuz here", "test")
+        .await?;
+    scenario.backfill().await?;
+    scenario
+        ._patch("key2", "rakeeb     wuz not here", "test")
+        .await?;
+
+    for query_string in vec!["", "    ", "\n", "\t"] {
+        let results = scenario
+            ._query_with_scores(query_string, None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 0);
+    }
+    Ok(())
+}
+
+struct BrokenSearcher;
+
+#[async_trait]
+impl VectorSearcher for BrokenSearcher {
+    async fn execute_multi_segment_vector_query(
+        &self,
+        _: Arc<dyn Storage>,
+        _: Vec<FragmentedVectorSegmentPaths>,
+        _: QdrantSchema,
+        _: CompiledVectorSearch,
+        _: u32,
+    ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
+        anyhow::bail!("我");
+    }
+
+    async fn execute_vector_compaction(
+        &self,
+        _: Arc<dyn Storage>,
+        _: Vec<FragmentedVectorSegmentPaths>,
+        _: usize,
+    ) -> anyhow::Result<FragmentedVectorSegment> {
+        anyhow::bail!("不");
+    }
+}
+
+#[async_trait]
+impl Searcher for BrokenSearcher {
+    async fn execute_query(
+        &self,
+        _: Arc<dyn Storage>,
+        _: &ObjectKey,
+        _: &TantivySearchIndexSchema,
+        _: CompiledQuery,
+        _: Bm25StatisticsDiff,
+        _: TermShortlist,
+        _: usize,
+    ) -> anyhow::Result<SearchQueryResult> {
+        anyhow::bail!("要");
+    }
+}
+
+#[convex_macro::test_runtime]
+async fn empty_searches_with_broken_searcher_return_empty_results(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new_with_searcher(rt, BrokenSearcher).await?;
+    scenario._patch("key1", "rakeeb wuz here", "test").await?;
+    scenario.backfill().await?;
+    scenario
+        ._patch("key2", "rakeeb wuz not here", "test")
+        .await?;
+
+    for query_string in vec!["", "    ", "\n", "\t"] {
+        let results = scenario
+            ._query_with_scores(query_string, None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 0);
+    }
+    Ok(())
 }
 
 /// Generates ASCII alphanumeric strings of length 1..32
