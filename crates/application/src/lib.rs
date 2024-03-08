@@ -570,7 +570,6 @@ impl<RT: Runtime> Application<RT> {
                 database.clone(),
                 key_broker.clone(),
                 database_isolate.clone(),
-                actions_isolate.clone(),
                 function_runner.clone(),
                 actions,
                 file_storage.transactional_file_storage.clone(),

@@ -15,7 +15,6 @@ use authentication::token_to_authorization_header;
 use common::{
     backoff::Backoff,
     errors::JsError,
-    http::fetch::ProxiedFetchClient,
     identity::InertIdentity,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
@@ -26,7 +25,6 @@ use common::{
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
-        UDF_USE_ISOLATE,
     },
     log_lines::{
         run_function_and_collect_log_lines,
@@ -202,7 +200,6 @@ static BUILD_DEPS_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| Duration::from_
 pub struct FunctionRouter<RT: Runtime> {
     // Execute within local process.
     udf_isolate: IsolateClient<RT>,
-    action_isolate: IsolateClient<RT>,
 
     function_runner: Arc<dyn FunctionRunner<RT>>,
     query_limiter: Arc<Limiter>,
@@ -217,7 +214,6 @@ pub struct FunctionRouter<RT: Runtime> {
 impl<RT: Runtime> FunctionRouter<RT> {
     pub fn new(
         udf_isolate: IsolateClient<RT>,
-        action_isolate: IsolateClient<RT>,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         rt: RT,
         database: Database<RT>,
@@ -225,7 +221,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
     ) -> Self {
         Self {
             udf_isolate,
-            action_isolate,
             function_runner,
             rt,
             database,
@@ -247,7 +242,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.udf_isolate.shutdown().await?;
-        self.action_isolate.shutdown().await?;
         Ok(())
     }
 }
@@ -263,66 +257,41 @@ impl<RT: Runtime> FunctionRouter<RT> {
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         anyhow::ensure!(udf_type == UdfType::Query || udf_type == UdfType::Mutation);
         let timer = function_total_timer(udf_type);
-        let result = if *UDF_USE_ISOLATE {
-            self.udf_isolate
-                .execute_udf(udf_type, path_and_args, tx, journal, context)
-                .await
-        } else {
-            let (tx, outcome) = self
-                .function_runner_execute(tx, path_and_args, udf_type, journal, context, None)
-                .await?;
-            let tx = tx.context("Missing transaction in response for {udf_type}")?;
-            Ok((tx, outcome))
-        };
+        let (tx, outcome) = self
+            .function_runner_execute(tx, path_and_args, udf_type, journal, context, None)
+            .await?;
+        let tx = tx.context("Missing transaction in response for {udf_type}")?;
         timer.finish();
-        result
+        Ok((tx, outcome))
     }
 
     pub(crate) async fn execute_action(
         &self,
         tx: Transaction<RT>,
         path_and_args: ValidatedUdfPathAndArgs,
-        // Note that action_callbacks is the primary difference between
-        action_callbacks: Arc<dyn ActionCallbacks>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         context: RequestContext,
     ) -> anyhow::Result<ActionOutcome> {
         let timer = function_total_timer(UdfType::Action);
-        let result = if *UDF_USE_ISOLATE {
-            // TODO: Delete. This code path is not used.
-            let fetch_client = Arc::new(ProxiedFetchClient::new(None, "".to_owned()));
-            self.action_isolate
-                .execute_action(
-                    path_and_args,
-                    tx,
-                    action_callbacks,
-                    fetch_client,
-                    log_line_sender,
-                    context,
-                )
-                .await
-        } else {
-            let (_, outcome) = self
-                .function_runner_execute(
-                    tx,
-                    path_and_args,
-                    UdfType::Action,
-                    QueryJournal::new(),
-                    context,
-                    Some(log_line_sender),
-                )
-                .await?;
+        let (_, outcome) = self
+            .function_runner_execute(
+                tx,
+                path_and_args,
+                UdfType::Action,
+                QueryJournal::new(),
+                context,
+                Some(log_line_sender),
+            )
+            .await?;
 
-            let FunctionOutcome::Action(outcome) = outcome else {
-                anyhow::bail!(
-                    "Calling an action returned an invalid outcome: {:?}",
-                    outcome
-                )
-            };
-            Ok(outcome)
+        let FunctionOutcome::Action(outcome) = outcome else {
+            anyhow::bail!(
+                "Calling an action returned an invalid outcome: {:?}",
+                outcome
+            )
         };
         timer.finish();
-        result
+        Ok(outcome)
     }
 
     // Execute using the function runner. Can be used for all Udf types including
@@ -495,7 +464,6 @@ impl<'a> Drop for RequestGuard<'a> {
     }
 }
 
-#[derive(Clone)]
 pub struct ApplicationFunctionRunner<RT: Runtime> {
     runtime: RT,
     pub(crate) database: Database<RT>,
@@ -527,7 +495,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         database: Database<RT>,
         key_broker: KeyBroker,
         udf_isolate: IsolateClient<RT>,
-        actions_isolate: IsolateClient<RT>,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         node_actions: Actions,
         file_storage: TransactionalFileStorage<RT>,
@@ -538,7 +505,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     ) -> Self {
         let isolate_functions = FunctionRouter::new(
             udf_isolate,
-            actions_isolate,
             function_runner,
             runtime.clone(),
             database.clone(),
@@ -1091,10 +1057,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             ModuleEnvironment::Isolate => {
                 // TODO: This is the only use case of clone. We should get rid of clone,
                 // when we deprecate that codepath.
-                let runner = Arc::new(self.clone());
                 let outcome_future = self
                     .isolate_functions
-                    .execute_action(tx, path_and_args, runner, log_line_sender, context.clone())
+                    .execute_action(tx, path_and_args, log_line_sender, context.clone())
                     .boxed();
                 let (outcome_result, log_lines) = run_function_and_collect_log_lines(
                     outcome_future,

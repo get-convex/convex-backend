@@ -683,14 +683,8 @@ pub static MAX_SEGMENT_DELETED_PERCENTAGE: LazyLock<f64> =
     LazyLock::new(|| env_config("MAX_SEGMENT_DELETED_PERCENTAGE", 0.2));
 
 /// Defines the fraction of UDF requests to send to Funrun vs
-/// InProcessFunctionRunner in backend. UDF_USE_ISOLATE must be false for this
-/// to take effect.
+/// InProcessFunctionRunner in backend.
 pub static UDF_USE_FUNRUN: LazyLock<f64> = LazyLock::new(|| env_config("UDF_USE_FUNRUN", 0.));
-
-/// Defines whether to use the isolate directly to run functions. False means we
-/// use `FunctionRunner`, deferring to the value of `UDF_USE_FUNRUN` to
-/// determine whether to use in process or remote funrun.
-pub static UDF_USE_ISOLATE: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE_ISOLATE", false));
 
 /// The amount of time to wait for the primary request to finish before starting
 /// a second backup request when running a vector search.
