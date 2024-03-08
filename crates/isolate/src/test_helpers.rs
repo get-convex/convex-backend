@@ -710,7 +710,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let mut tx = self.database.begin(identity.clone()).await?;
         let path: UdfPath = udf_path.parse()?;
 
-        let fetch_client = Arc::new(ProxiedFetchClient::new(None, "".to_owned()));
+        let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
         let outcome = self
             .isolate
@@ -833,7 +833,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             },
             Ok(path_and_args) => path_and_args,
         };
-        let fetch_client = Arc::new(ProxiedFetchClient::new(None, "".to_owned()));
+        let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
 
         // TODO(presley): Make this also be able to use local executor.

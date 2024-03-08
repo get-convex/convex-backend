@@ -21,15 +21,6 @@ use ::metrics::CONVEX_METRICS_REGISTRY;
 use async_trait::async_trait;
 use common::{
     heap_size::HeapSize,
-    http::{
-        fetch::{
-            FetchClient,
-            InternalFetchPurpose,
-            ProxiedFetchClient,
-        },
-        HttpRequestStream,
-        HttpResponseStream,
-    },
     knobs::RUNTIME_WORKER_THREADS,
     runtime::{
         JoinError,
@@ -43,13 +34,10 @@ use futures::{
     channel::oneshot,
     future::FusedFuture,
     FutureExt,
-    StreamExt,
     TryFutureExt,
-    TryStreamExt,
 };
 use parking_lot::Mutex;
 use rand::rngs::ThreadRng;
-use reqwest::Body;
 use tokio::{
     runtime::{
         Builder,
@@ -152,14 +140,6 @@ impl ThreadHandle {
 #[derive(Clone)]
 pub struct ProdRuntime {
     rt: TokioRuntimeHandle,
-    /// The client used for all HTTP requests. This maintains a connection pool
-    /// by default so can and should be reused. Is also cheap to clone since
-    /// it uses an Arc internally. https://docs.rs/reqwest/latest/reqwest/struct.Client.html
-    http_client: ProxiedFetchClient,
-    /// HTTP client to be used only for internal service to service
-    /// communication, bypassing the proxy and its security/firewall settings
-    /// For trusted requests only.
-    internal_http_client: reqwest::Client,
 }
 
 impl ProdRuntime {
@@ -198,23 +178,10 @@ impl ProdRuntime {
     /// which should include all references to the handle `ProdRuntime`.
     /// If `ProdRuntime` is used after the associated `TokioRuntime` has been
     /// dropped, it will panic.
-    pub fn new(tokio_rt: &TokioRuntime, proxy_url: Option<url::Url>) -> Self {
+    pub fn new(tokio_rt: &TokioRuntime) -> Self {
         let handle = tokio_rt.handle().clone();
-        #[cfg(not(debug_assertions))]
-        if proxy_url.is_none() {
-            tracing::warn!(
-                "Running without a proxy in release mode -- UDF `fetch` requests are unrestricted!"
-            );
-        }
 
-        // TODO(presley): The http proxy doesn't really belong to runtime. Remove it.
-        // In the meantime, use environment variable.
-        let convex_site = std::env::var("CONVEX_SITE").unwrap_or_default();
-        Self {
-            rt: handle,
-            http_client: ProxiedFetchClient::new(proxy_url, convex_site),
-            internal_http_client: reqwest::Client::new(),
-        }
+        Self { rt: handle }
     }
 
     pub fn block_on<F: Future>(&self, name: &'static str, f: F) -> F::Output {
@@ -268,36 +235,6 @@ impl Runtime for ProdRuntime {
         // cryptographically secure PRNG). (Source: https://docs.rs/rand/latest/rand/rngs/struct.StdRng.html)
         let mut rng = rand::thread_rng();
         f(&mut rng)
-    }
-
-    async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream> {
-        self.http_client.fetch(request).await
-    }
-
-    async fn internal_fetch(
-        &self,
-        request: HttpRequestStream,
-        _purpose: InternalFetchPurpose,
-    ) -> anyhow::Result<HttpResponseStream> {
-        let mut request_builder = self
-            .internal_http_client
-            .request(request.method, request.url.as_str());
-        let body = Body::wrap_stream(request.body);
-        request_builder = request_builder.body(body);
-        for (name, value) in &request.headers {
-            request_builder = request_builder.header(name.as_str(), value.as_bytes());
-        }
-        let raw_request = request_builder.build()?;
-        let raw_response = self.internal_http_client.execute(raw_request).await?;
-        let status = raw_response.status();
-        let headers = raw_response.headers().to_owned();
-        let response = HttpResponseStream {
-            status,
-            headers,
-            url: Some(request.url),
-            body: Some(raw_response.bytes_stream().map_err(|e| e.into()).boxed()),
-        };
-        Ok(response)
     }
 }
 

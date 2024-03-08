@@ -194,9 +194,15 @@ pub async fn make_app(
         *ACTION_USER_TIMEOUT,
     );
 
+    #[cfg(not(debug_assertions))]
+    if config.convex_http_proxy.is_none() {
+        tracing::warn!(
+            "Running without a proxy in release mode -- UDF `fetch` requests are unrestricted!"
+        );
+    }
     let fetch_client = Arc::new(ProxiedFetchClient::new(
         config.convex_http_proxy.clone(),
-        config.convex_site.to_string(),
+        config.name(),
     ));
     let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> = Arc::new(
         InProcessFunctionRunner::new(

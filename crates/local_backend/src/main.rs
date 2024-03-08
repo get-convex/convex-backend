@@ -45,7 +45,7 @@ fn main() -> Result<(), MainError> {
     sodiumoxide::init().map_err(|()| anyhow!("sodiumoxide initialization failed"))?;
 
     let tokio = ProdRuntime::init_tokio()?;
-    let runtime = ProdRuntime::new(&tokio, config.convex_http_proxy.clone());
+    let runtime = ProdRuntime::new(&tokio);
 
     let runtime_ = runtime.clone();
     let server_future = async {

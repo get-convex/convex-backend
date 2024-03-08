@@ -47,7 +47,7 @@ pub fn prod_rt_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let handler = builder
                 .spawn(|| {
                     let tokio = ::runtime::prod::ProdRuntime::init_tokio()?;
-                    let rt = ::runtime::prod::ProdRuntime::new(&tokio, None);
+                    let rt = ::runtime::prod::ProdRuntime::new(&tokio);
                     let rt2 = rt.clone();
                     let test_future = #name(rt);
                     rt2.block_on("test", test_future)

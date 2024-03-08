@@ -1,10 +1,6 @@
 //! Test implementation of the Runtime trait.
 
 use std::{
-    collections::{
-        BTreeMap,
-        HashMap,
-    },
     future::Future,
     marker::Send,
     mem,
@@ -58,17 +54,10 @@ use super::{
     },
     timer::StepTimer,
 };
-use crate::{
-    http::{
-        fetch::InternalFetchPurpose,
-        HttpRequestStream,
-        HttpResponseStream,
-    },
-    runtime::{
-        Nanos,
-        Runtime,
-        RuntimeInstant,
-    },
+use crate::runtime::{
+    Nanos,
+    Runtime,
+    RuntimeInstant,
 };
 
 const DEFAULT_SEED: u64 = 0;
@@ -106,17 +95,9 @@ impl Drop for TestDriver {
     }
 }
 
-type HandlerFn = Box<
-    dyn Fn(HttpRequestStream) -> BoxFuture<'static, anyhow::Result<HttpResponseStream>>
-        + Send
-        + Sync
-        + 'static,
->;
-
 struct TestRuntimeState {
     timer: StepTimer,
     rng: ChaCha12Rng,
-    router: BTreeMap<url::Url, HashMap<http::Method, HandlerFn>>,
 
     // Note that the `JoinHandle` does not keep the thread alive, so this does not introduce a
     // reference cycle involving `TestRuntimeState`.
@@ -174,22 +155,6 @@ impl TestRuntime {
     pub fn advance_time(&self, duration: Duration) {
         self.with_state(|state| state.timer.advance_time(duration));
     }
-
-    pub fn register_http_route<F>(&self, url: url::Url, method: http::Method, handler: F)
-    where
-        F: Fn(HttpRequestStream) -> BoxFuture<'static, anyhow::Result<HttpResponseStream>>
-            + Send
-            + Sync
-            + 'static,
-    {
-        self.with_state(|state| {
-            state
-                .router
-                .entry(url)
-                .or_default()
-                .insert(method, Box::new(handler));
-        })
-    }
 }
 
 impl TestDriver {
@@ -203,7 +168,6 @@ impl TestDriver {
         let state = TestRuntimeState {
             timer: StepTimer::new(),
             rng: ChaCha12Rng::seed_from_u64(seed),
-            router: BTreeMap::new(),
             threads: vec![],
         };
         Self {
@@ -330,31 +294,6 @@ impl Runtime for TestRuntime {
     fn with_rng<R>(&self, f: impl FnOnce(&mut Self::Rng) -> R) -> R {
         self.with_state(|state| f(&mut state.rng))
     }
-
-    async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream> {
-        let fut = self.with_state(|state| {
-            let handler = state
-                .router
-                .get(&request.url)
-                .and_then(|methods| methods.get(&request.method))
-                .unwrap_or_else(|| {
-                    panic!(
-                        "could not find route {} with method {}",
-                        request.url, request.method
-                    )
-                });
-            handler(request)
-        });
-        fut.await
-    }
-
-    async fn internal_fetch(
-        &self,
-        request: HttpRequestStream,
-        _purpose: InternalFetchPurpose,
-    ) -> anyhow::Result<HttpResponseStream> {
-        self.fetch(request).await
-    }
 }
 
 #[derive(Clone)]
@@ -461,26 +400,8 @@ impl ThreadNotify {
 mod tests {
     use std::time::Duration;
 
-    use errors::ErrorMetadataAnyhowExt;
-    use futures::FutureExt;
-    use http::{
-        HeaderMap,
-        StatusCode,
-    };
-
     use super::TestDriver;
-    use crate::{
-        http::{
-            categorize_http_response_stream,
-            HttpRequest,
-            HttpRequestStream,
-            HttpResponse,
-            HttpResponseStream,
-            CONVEX_CLIENT_HEADER,
-            CONVEX_CLIENT_HEADER_VALUE,
-        },
-        runtime::Runtime,
-    };
+    use crate::runtime::Runtime;
 
     #[test]
     fn test_block_on_timer() {
@@ -491,84 +412,5 @@ mod tests {
             Result::<(), anyhow::Error>::Ok(())
         };
         assert!(td.run_until(fut).is_ok());
-    }
-
-    #[test]
-    fn test_http_request() {
-        let mut td = TestDriver::new();
-        let runtime = td.rt();
-
-        let fut = async move {
-            let handler = |request: HttpRequestStream| {
-                async move {
-                    let response = if let Some(true) = request
-                        .headers
-                        .get(CONVEX_CLIENT_HEADER)
-                        .map(|v| v.eq(&*CONVEX_CLIENT_HEADER_VALUE))
-                    {
-                        HttpResponse::new(
-                            StatusCode::OK,
-                            HeaderMap::new(),
-                            Some("success".to_string().into_bytes()),
-                            None,
-                        )
-                    } else {
-                        HttpResponse::new(
-                            StatusCode::FORBIDDEN,
-                            HeaderMap::new(),
-                            Some("failed".to_string().into_bytes()),
-                            None,
-                        )
-                    };
-                    Ok(HttpResponseStream::from(response))
-                }
-                .boxed()
-            };
-
-            let url: url::Url = "https://google.ca".parse().unwrap();
-            runtime.register_http_route(url.clone(), reqwest::Method::GET, handler);
-
-            // Don't include Convex header
-            let response = runtime
-                .fetch(
-                    HttpRequest {
-                        headers: HeaderMap::new(),
-                        url: url.clone(),
-                        method: http::Method::GET,
-                        body: None,
-                    }
-                    .into(),
-                )
-                .await;
-            let response = response.and_then(categorize_http_response_stream);
-            assert!(response.is_err());
-            assert!(response.err().unwrap().is_forbidden());
-
-            // Include Convex header
-            let response = runtime
-                .fetch(
-                    HttpRequest {
-                        headers: HeaderMap::from_iter([(
-                            CONVEX_CLIENT_HEADER,
-                            CONVEX_CLIENT_HEADER_VALUE.clone(),
-                        )]),
-                        url: url.clone(),
-                        method: http::Method::GET,
-                        body: None,
-                    }
-                    .into(),
-                )
-                .await
-                .unwrap();
-
-            let response = response.into_http_response().await.unwrap();
-            assert_eq!(response.status, StatusCode::OK);
-            assert_eq!(
-                String::from_utf8(response.body.unwrap()).unwrap(),
-                "success"
-            );
-        };
-
-        td.run_until(fut);
     }
 }

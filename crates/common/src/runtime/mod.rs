@@ -45,11 +45,6 @@ use uuid::Uuid;
 use value::heap_size::HeapSize;
 
 use crate::{
-    http::{
-        fetch::InternalFetchPurpose,
-        HttpRequestStream,
-        HttpResponseStream,
-    },
     is_canceled::IsCanceled,
     types::Timestamp,
 };
@@ -162,21 +157,6 @@ pub trait Runtime: Clone + Sync + Send + 'static {
         });
         uuid::Builder::from_random_bytes(bytes).into_uuid()
     }
-
-    async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream>;
-
-    /// Unrestricted, unproxied fetch to be used for internal purposes only.
-    /// Customer UDFs should never have access to this method. A `purpose`
-    /// parameter is required (but not used) just to make it more obvious why
-    /// we're using this method.
-    /// E.g. usage tracking can use this to talk directly over the
-    /// internal network, bypassing the regular
-    /// proxied fetch and its associated security limitations.
-    async fn internal_fetch(
-        &self,
-        request: HttpRequestStream,
-        purpose: InternalFetchPurpose,
-    ) -> anyhow::Result<HttpResponseStream>;
 
     fn generate_timestamp(&self) -> anyhow::Result<Timestamp> {
         Timestamp::try_from(self.system_time())
