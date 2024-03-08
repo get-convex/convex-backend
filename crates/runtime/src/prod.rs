@@ -9,7 +9,6 @@ use std::{
         Sub,
     },
     pin::Pin,
-    str::FromStr,
     sync::LazyLock,
     thread,
     time::{
@@ -19,7 +18,6 @@ use std::{
 };
 
 use ::metrics::CONVEX_METRICS_REGISTRY;
-use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     heap_size::HeapSize,
@@ -277,9 +275,6 @@ impl Runtime for ProdRuntime {
         request: HttpRequestStream,
         _purpose: InternalFetchPurpose,
     ) -> anyhow::Result<HttpResponseStream> {
-        // reqwest has a bug https://github.com/seanmonstar/reqwest/issues/668
-        // where it panics on invalid urls. Workaround by adding an explicit check.
-        http::Uri::from_str(request.url.as_str()).context("Invalid URL")?;
         let mut request_builder = self
             .internal_http_client
             .request(request.method, request.url.as_str());

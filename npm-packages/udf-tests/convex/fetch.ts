@@ -140,7 +140,7 @@ async function fetchInvalidUriError() {
 
 async function fetchMalformedUriError() {
   const url = new URL("http://{{google/");
-  await expect(fetch(url)).to.be.rejectedWith(/Invalid URL/);
+  await expect(fetch(url)).to.be.rejectedWith(/Parsed Url is not a valid Uri/);
 }
 
 async function fetchJson() {

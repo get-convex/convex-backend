@@ -1,6 +1,3 @@
-use std::str::FromStr;
-
-use anyhow::Context;
 use async_trait::async_trait;
 use futures::{
     StreamExt,
@@ -51,9 +48,6 @@ impl ProxiedFetchClient {
 #[async_trait]
 impl FetchClient for ProxiedFetchClient {
     async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream> {
-        // reqwest has a bug https://github.com/seanmonstar/reqwest/issues/668
-        // where it panics on invalid urls. Workaround by adding an explicit check.
-        http::Uri::from_str(request.url.as_str()).context("Invalid URL")?;
         let mut request_builder = self.0.request(request.method, request.url.as_str());
         let body = Body::wrap_stream(request.body);
         request_builder = request_builder.body(body);
@@ -82,4 +76,35 @@ impl FetchClient for ProxiedFetchClient {
 
 pub enum InternalFetchPurpose {
     UsageTracking,
+}
+
+#[cfg(test)]
+mod tests {
+    use http::Method;
+
+    use super::ProxiedFetchClient;
+    use crate::http::{
+        fetch::FetchClient,
+        HttpRequest,
+    };
+
+    #[tokio::test]
+    async fn test_fetch_bad_url() -> anyhow::Result<()> {
+        let client = ProxiedFetchClient::new(None);
+        let request = HttpRequest {
+            headers: Default::default(),
+            url: "http://\"".parse()?,
+            method: Method::GET,
+            body: None,
+        };
+        let Err(err) = client.fetch(request.into()).await else {
+            panic!("Expected Invalid URL error");
+        };
+
+        // Ensure it doesn't panic. Regression test for.
+        // https://github.com/seanmonstar/reqwest/issues/668
+        assert!(err.to_string().contains("Parsed Url is not a valid Uri"));
+
+        Ok(())
+    }
 }
