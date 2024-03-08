@@ -47,7 +47,11 @@
  * @module
  */
 
-export type { Auth, UserIdentity } from "./authentication.js";
+export type {
+  Auth,
+  UserIdentity,
+  UserIdentityAttributes,
+} from "./authentication.js";
 export * from "./database.js";
 export type {
   GenericDocument,

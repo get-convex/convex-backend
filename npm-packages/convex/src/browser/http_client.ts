@@ -13,6 +13,7 @@ import {
   jsonToConvex,
 } from "../values/index.js";
 import { logToConsole } from "./logging.js";
+import { UserIdentityAttributes } from "../server/index.js";
 
 export const STATUS_CODE_OK = 200;
 export const STATUS_CODE_BAD_REQUEST = 400;
@@ -81,9 +82,16 @@ export class ConvexHttpClient {
   /**
    * @internal
    */
-  setAdminAuth(token: string) {
+  setAdminAuth(token: string, actingAsIdentity?: UserIdentityAttributes) {
     this.clearAuth();
-    this.adminAuth = token;
+    if (actingAsIdentity !== undefined) {
+      // Encode the identity to a base64 string
+      const bytes = new TextEncoder().encode(JSON.stringify(actingAsIdentity));
+      const actingAsIdentityEncoded = btoa(String.fromCodePoint(...bytes));
+      this.adminAuth = `${token}:${actingAsIdentityEncoded}`;
+    } else {
+      this.adminAuth = token;
+    }
   }
 
   /**
