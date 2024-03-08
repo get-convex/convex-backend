@@ -648,7 +648,7 @@ mod tests {
             object_validator: crate::schemas::validator::ObjectValidator(btreemap! {}),
             context: ValidationContext::new(),
         };
-        let schema_enforcement_error = SchemaEnforcementError {
+        let schema_enforcement_error = SchemaEnforcementError::Document {
             validation_error,
             table_name: "table".parse()?,
         };

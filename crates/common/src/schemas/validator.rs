@@ -1015,8 +1015,6 @@ pub enum ValidationError {
         validator_table: TableName,
         context: ValidationContext,
     },
-    #[display(fmt = "Table \"{table_name}\" that appears in schema must exist")]
-    TableMustExist { table_name: TableName },
     #[display(fmt = "`{value}` does not match literal validator \
                      `v.literal({literal_validator})`.{context}")]
     LiteralValuesDoNotMatch {

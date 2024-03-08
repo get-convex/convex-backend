@@ -86,44 +86,67 @@ pub enum SchemaValidationError {
         validation_error: ValidationError,
         table_name: TableName,
     },
+
+    #[display(fmt = "Failed to delete table \"{table_name}\" because it appears in the schema")]
+    TableCannotBeDeleted { table_name: TableName },
+    #[display(
+        fmt = "Failed to delete table \"{table_name}\" because `v.id(\"{table_name}\")` appears \
+               in the schema of table \"{table_in_schema}\""
+    )]
+    ReferencedTableCannotBeDeleted {
+        table_in_schema: TableName,
+        table_name: TableName,
+    },
 }
 
 #[derive(derive_more::Display, Debug, Clone, PartialEq)]
-#[display(
-    fmt = "Failed to insert or update a document in table \"{table_name}\" because it does not \
-           match the schema: {validation_error}"
-)]
-pub struct SchemaEnforcementError {
-    pub validation_error: ValidationError,
-    pub table_name: TableName,
+pub enum SchemaEnforcementError {
+    #[display(
+        fmt = "Failed to insert or update a document in table \"{table_name}\" because it does \
+               not match the schema: {validation_error}"
+    )]
+    Document {
+        validation_error: ValidationError,
+        table_name: TableName,
+    },
+    #[display(fmt = "Failed to delete table \"{table_name}\" because it appears in the schema")]
+    TableCannotBeDeleted { table_name: TableName },
+    #[display(
+        fmt = "Failed to delete table \"{table_name}\" because `v.id(\"{table_name}\")` appears \
+               in the schema of table \"{table_in_schema}\""
+    )]
+    ReferencedTableCannotBeDeleted {
+        table_in_schema: TableName,
+        table_name: TableName,
+    },
 }
 
 impl SchemaEnforcementError {
     pub fn to_error_metadata(self) -> ErrorMetadata {
-        let Self {
-            validation_error,
-            table_name,
-        } = self;
-        ErrorMetadata::bad_request(
-            "SchemaEnforcementError",
-            format!(
-                "Failed to insert or update a document in table \"{table_name}\" because it does \
-                 not match the schema: {validation_error}"
-            ),
-        )
+        ErrorMetadata::bad_request("SchemaEnforcementError", self.to_string())
     }
 }
 
 impl From<SchemaEnforcementError> for SchemaValidationError {
-    fn from(
-        SchemaEnforcementError {
-            validation_error,
-            table_name,
-        }: SchemaEnforcementError,
-    ) -> Self {
-        SchemaValidationError::NewDocument {
-            validation_error,
-            table_name,
+    fn from(value: SchemaEnforcementError) -> Self {
+        match value {
+            SchemaEnforcementError::Document {
+                validation_error,
+                table_name,
+            } => Self::NewDocument {
+                validation_error,
+                table_name,
+            },
+            SchemaEnforcementError::TableCannotBeDeleted { table_name } => {
+                Self::TableCannotBeDeleted { table_name }
+            },
+            SchemaEnforcementError::ReferencedTableCannotBeDeleted {
+                table_in_schema,
+                table_name,
+            } => Self::ReferencedTableCannotBeDeleted {
+                table_in_schema,
+                table_name,
+            },
         }
     }
 }
@@ -368,35 +391,36 @@ impl DatabaseSchema {
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Result<(), SchemaEnforcementError> {
         self.check_value(doc, table_mapping, virtual_table_mapping)
-            .map_err(|validation_error| SchemaEnforcementError {
+            .map_err(|validation_error| SchemaEnforcementError::Document {
                 validation_error,
                 table_name,
             })
     }
 
-    fn contains_table_or_reference(&self, table_name: &TableName) -> bool {
-        if self.schema_for_table(table_name).is_some() {
-            return true;
-        }
+    fn contains_table_as_reference(&self, table_name: &TableName) -> Option<TableName> {
         for table_schema in self.tables.values() {
             if let Some(document_schema) = &table_schema.document_type {
                 if document_schema.foreign_keys().contains(table_name) {
-                    return true;
+                    return Some(table_schema.table_name.clone());
                 }
             }
         }
-        false
+        None
     }
 
     pub fn check_delete_table(
         &self,
         active_table_to_delete: TableName,
     ) -> Result<(), SchemaEnforcementError> {
-        if self.contains_table_or_reference(&active_table_to_delete) {
-            Err(SchemaEnforcementError {
-                validation_error: ValidationError::TableMustExist {
-                    table_name: active_table_to_delete.clone(),
-                },
+        if self.schema_for_table(&active_table_to_delete).is_some() {
+            Err(SchemaEnforcementError::TableCannotBeDeleted {
+                table_name: active_table_to_delete,
+            })
+        } else if let Some(table_in_schema) =
+            self.contains_table_as_reference(&active_table_to_delete)
+        {
+            Err(SchemaEnforcementError::ReferencedTableCannotBeDeleted {
+                table_in_schema,
                 table_name: active_table_to_delete,
             })
         } else {

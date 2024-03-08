@@ -552,7 +552,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("Table \"my_table\" that appears in schema must exist"),
+                .contains("Failed to delete table \"my_table\" because it appears in the schema"),
             "{error}"
         );
         Ok(())
@@ -576,9 +576,10 @@ mod tests {
         let result = model.delete_table(table_name.clone()).await;
         let error = result.unwrap_err();
         assert!(
-            error
-                .to_string()
-                .contains("Table \"my_table\" that appears in schema must exist"),
+            error.to_string().contains(
+                "Failed to delete table \"my_table\" because `v.id(\"my_table\")` appears in the \
+                 schema of table \"other_table\""
+            ),
             "{error}"
         );
         Ok(())
@@ -612,7 +613,7 @@ mod tests {
         assert!(
             error
                 .to_string()
-                .contains("Table \"my_table\" that appears in schema must exist"),
+                .contains("Failed to delete table \"my_table\" because it appears in the schema"),
             "{error}"
         );
         Ok(())

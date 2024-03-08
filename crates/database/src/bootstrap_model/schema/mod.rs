@@ -366,6 +366,10 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                 let table_name = match error {
                     SchemaValidationError::ExistingDocument { table_name, .. } => table_name,
                     SchemaValidationError::NewDocument { table_name, .. } => table_name,
+                    SchemaValidationError::TableCannotBeDeleted { table_name } => table_name,
+                    SchemaValidationError::ReferencedTableCannotBeDeleted {
+                        table_name, ..
+                    } => table_name,
                 };
                 self.tx
                     .patch_system_document(
