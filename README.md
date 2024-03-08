@@ -74,9 +74,12 @@ the local database, in root directory run `rm convex_local_backend.sqlite3`.
 
 **2. Run CLI commands**
 
-_`just convex [arg]` can be replaced with
-`npx convex [arg] --admin-key [key] --url [url]`. `just` is used here for
-brevity._
+Convex local Backend works with the Convex CLI. You can use CLI commands in a
+demo directory like `npm-packages/demos/tutorial` or in your own projects.
+
+We've provided `just` recipes that set up the admin key to work with your local
+backend. Note that you may have to copy the `Justfile` into your own project to
+use these recipes.
 
 For example:
 
@@ -84,8 +87,9 @@ For example:
 just convex dev
 ```
 
-Must be run in a demo directory like `npm-packages/demos/tutorial`. Using `just`
-sets up the admin key to work with your local backend.
+_`just convex [arg]` can be replaced with
+`npx convex [arg] --admin-key [key] --url [url]`. `just` is used here for
+brevity._
 
 _The following CLI commands may be useful when interacting with your backend:_
 
