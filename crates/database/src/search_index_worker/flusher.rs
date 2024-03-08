@@ -256,7 +256,6 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         index_path: &TempDir,
     ) -> anyhow::Result<(Timestamp, usize)> {
         let tantivy_schema = TantivySearchIndexSchema::new(&job.developer_config);
-        let mut index_writer = index_writer_for_directory(&index_path, &tantivy_schema)?;
 
         let snapshot_ts = self.database.now_ts_for_reads();
         let table_iterator =
@@ -267,8 +266,10 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         let index_name = &job.index_name;
         let job = job.clone();
         let (tx, rx) = oneshot::channel();
+        let index_path = index_path.path().to_path_buf();
         self.runtime.spawn_thread(move || async move {
             let result: anyhow::Result<usize> = try {
+                let mut index_writer = index_writer_for_directory(&index_path, &tantivy_schema)?;
                 let rate_limiter = new_rate_limiter(
                     rt,
                     Quota::per_second(job.build_reason.read_max_pages_per_second()),
