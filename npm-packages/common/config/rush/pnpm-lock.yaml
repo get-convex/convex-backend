@@ -339,7 +339,6 @@ importers:
       prettier: 3.2.5
       prettier-old-sync: npm:prettier@2.8.8
       prettier-plugin-tailwindcss: ~0.3.0
-      pretty-format: ^29.3.1
       prop-types: ~15.8.1
       react: ^18.0.0
       react-datepicker: ^4.11.0
@@ -423,9 +422,7 @@ importers:
       node-fetch: 2.7.0
       nprogress: 0.2.0
       object-sizeof: 2.6.3
-      prettier: 3.2.5
       prettier-old-sync: /prettier/2.8.8
-      pretty-format: 29.7.0
       prop-types: 15.8.1
       react: 18.2.0
       react-datepicker: 4.20.0_biqbaboplfbrettd7655fr4n2y
@@ -511,6 +508,7 @@ importers:
       jest: 29.7.0_@types+node@16.18.58
       jest-environment-jsdom: 29.7.0
       postcss: 8.4.31
+      prettier: 3.2.5
       prettier-plugin-tailwindcss: 0.3.0_prettier@3.2.5
       regenerator-runtime: 0.13.11
       require-from-string: 2.0.2
@@ -12790,7 +12788,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.22.5_@babel+core@7.23.2
       '@types/babel__core': 7.20.3
       react-refresh: 0.14.0
-      vite: 4.5.2
+      vite: 4.5.2_@types+node@16.18.58
     transitivePeerDependencies:
       - supports-color
     dev: true
