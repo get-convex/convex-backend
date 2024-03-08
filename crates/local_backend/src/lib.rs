@@ -21,7 +21,10 @@ use application::{
     Application,
 };
 use common::{
-    http::RouteMapper,
+    http::{
+        fetch::ProxiedFetchClient,
+        RouteMapper,
+    },
     knobs::ACTION_USER_TIMEOUT,
     log_streaming::NoopLogSender,
     pause::PauseClient,
@@ -191,6 +194,10 @@ pub async fn make_app(
         *ACTION_USER_TIMEOUT,
     );
 
+    let fetch_client = Arc::new(ProxiedFetchClient::new(
+        config.convex_http_proxy.clone(),
+        config.convex_site.to_string(),
+    ));
     let function_runner: Arc<dyn FunctionRunner<ProdRuntime>> = Arc::new(
         InProcessFunctionRunner::new(
             config.name().clone(),
@@ -200,6 +207,7 @@ pub async fn make_app(
             persistence.reader(),
             files_storage.clone(),
             database.clone(),
+            fetch_client.clone(),
         )
         .await?,
     );
@@ -222,6 +230,7 @@ pub async fn make_app(
         searcher.clone(),
         persistence,
         actions,
+        fetch_client,
         Arc::new(NoopLogSender),
         Arc::new(AllowLogging),
         PauseClient::new(),

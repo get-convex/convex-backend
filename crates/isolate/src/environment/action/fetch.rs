@@ -69,7 +69,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         &self,
         request: HttpRequestStream,
     ) -> anyhow::Result<HttpResponseStream> {
-        self.rt.fetch(request).await
+        self.fetch_client.fetch(request).await
     }
 
     fn log_fetch_request(

@@ -21,6 +21,7 @@ use common::{
         JsError,
         INTERNAL_SERVER_ERROR,
     },
+    http::fetch::FetchClient,
     knobs::{
         ACTION_USER_TIMEOUT,
         FUNCTION_MAX_ARGS_SIZE,
@@ -199,6 +200,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         identity: Identity,
         transaction: Transaction<RT>,
         action_callbacks: Arc<dyn ActionCallbacks>,
+        fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         heap_stats: SharedIsolateHeapStats,
         context: RequestContext,
@@ -211,6 +213,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             file_storage,
             syscall_trace: syscall_trace.clone(),
             action_callbacks,
+            fetch_client,
             module_loader: module_loader.clone(),
             key_broker,
             task_order: Default::default(),

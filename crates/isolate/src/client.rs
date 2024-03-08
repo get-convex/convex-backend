@@ -24,6 +24,7 @@ use common::{
         recapture_stacktrace,
         JsError,
     },
+    http::fetch::FetchClient,
     identity::InertIdentity,
     knobs::{
         ISOLATE_IDLE_TIMEOUT,
@@ -392,6 +393,7 @@ pub enum RequestType<RT: Runtime> {
         response: oneshot::Sender<anyhow::Result<ActionOutcome>>,
         queue_timer: Timer<VMHistogram>,
         action_callbacks: Arc<dyn ActionCallbacks>,
+        fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     },
     HttpAction {
@@ -400,6 +402,7 @@ pub enum RequestType<RT: Runtime> {
         response: oneshot::Sender<anyhow::Result<HttpActionOutcome>>,
         queue_timer: Timer<VMHistogram>,
         action_callbacks: Arc<dyn ActionCallbacks>,
+        fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     },
     Analyze {
@@ -663,6 +666,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         http_request: http_action::HttpActionRequest,
         identity: Identity,
         action_callbacks: Arc<dyn ActionCallbacks>,
+        fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         transaction: Transaction<RT>,
         context: RequestContext,
@@ -687,6 +691,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             response: tx,
             queue_timer: queue_timer(),
             action_callbacks,
+            fetch_client,
             log_line_sender,
             environment_data: EnvironmentData {
                 key_broker,
@@ -712,6 +717,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         path_and_args: ValidatedUdfPathAndArgs,
         transaction: Transaction<RT>,
         action_callbacks: Arc<dyn ActionCallbacks>,
+        fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         context: RequestContext,
     ) -> anyhow::Result<ActionOutcome> {
@@ -734,6 +740,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             response: tx,
             queue_timer: queue_timer(),
             action_callbacks,
+            fetch_client,
             log_line_sender,
             environment_data: EnvironmentData {
                 key_broker,
@@ -1448,6 +1455,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 response,
                 queue_timer,
                 action_callbacks,
+                fetch_client,
                 log_line_sender,
             } => {
                 drop(queue_timer);
@@ -1460,6 +1468,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     request.identity,
                     request.transaction,
                     action_callbacks,
+                    fetch_client,
                     log_line_sender,
                     heap_stats.clone(),
                     request.context,
@@ -1492,6 +1501,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 response,
                 queue_timer,
                 action_callbacks,
+                fetch_client,
                 log_line_sender,
             } => {
                 drop(queue_timer);
@@ -1502,6 +1512,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     request.identity,
                     request.transaction,
                     action_callbacks,
+                    fetch_client,
                     log_line_sender,
                     heap_stats.clone(),
                     request.context,

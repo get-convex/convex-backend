@@ -18,6 +18,7 @@ use common::{
         IndexMetadata,
     },
     errors::JsError,
+    http::fetch::ProxiedFetchClient,
     log_lines::{
         LogLine,
         LogLines,
@@ -709,6 +710,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let mut tx = self.database.begin(identity.clone()).await?;
         let path: UdfPath = udf_path.parse()?;
 
+        let fetch_client = Arc::new(ProxiedFetchClient::new(None, "".to_owned()));
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
         let outcome = self
             .isolate
@@ -717,6 +719,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 http_request,
                 identity,
                 app.clone(),
+                fetch_client,
                 log_line_sender,
                 tx,
                 RequestContext::new(None),
@@ -830,6 +833,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             },
             Ok(path_and_args) => path_and_args,
         };
+        let fetch_client = Arc::new(ProxiedFetchClient::new(None, "".to_owned()));
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
 
         // TODO(presley): Make this also be able to use local executor.
@@ -839,6 +843,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 path_and_args,
                 tx,
                 Arc::new(self.clone()),
+                fetch_client,
                 log_line_sender,
                 RequestContext::new(None),
             )

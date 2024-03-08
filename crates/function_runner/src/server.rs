@@ -13,6 +13,7 @@ use common::{
         new_codel_queue_async,
         CoDelQueueSender,
     },
+    http::fetch::FetchClient,
     knobs::{
         FUNRUN_ISOLATE_ACTIVE_THREADS,
         ISOLATE_QUEUE_SIZE,
@@ -278,6 +279,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         table_count_snapshot: Arc<dyn TableCountSnapshot>,
         search_index_snapshot: Arc<dyn TransactionSearchSnapshot>,
         action_callbacks: Arc<dyn ActionCallbacks>,
+        fetch_client: Arc<dyn FetchClient>,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
         path_and_args: ValidatedUdfPathAndArgs,
         udf_type: UdfType,
@@ -375,6 +377,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         response: tx,
                         queue_timer: queue_timer(),
                         action_callbacks,
+                        fetch_client,
                         log_line_sender,
                     },
                 );
@@ -406,6 +409,7 @@ pub struct InProcessFunctionRunner<RT: Runtime> {
     // Use Weak reference to avoid reference cycle between InProcessFunctionRunner
     // and ApplicationFunctionRunner.
     action_callbacks: Arc<RwLock<Option<Weak<dyn ActionCallbacks>>>>,
+    fetch_client: Arc<dyn FetchClient>,
 }
 
 impl<RT: Runtime> InProcessFunctionRunner<RT> {
@@ -417,6 +421,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
         persistence_reader: Box<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         database: Database<RT>,
+        fetch_client: Arc<dyn FetchClient>,
     ) -> anyhow::Result<Self> {
         // InProcessFunrun is single tenant and thus can use the full capacity.
         let max_percent_per_client = 100;
@@ -429,6 +434,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
             convex_origin,
             database,
             action_callbacks: Arc::new(RwLock::new(None)),
+            fetch_client,
         })
     }
 }
@@ -482,6 +488,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 table_count_snapshot,
                 search_index_snapshot,
                 action_callbacks,
+                self.fetch_client.clone(),
                 log_line_sender,
                 path_and_args,
                 udf_type,

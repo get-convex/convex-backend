@@ -11,6 +11,7 @@ use cmd_util::env::config_test;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     db_schema,
+    http::fetch::StaticFetchClient,
     knobs::ACTION_USER_TIMEOUT,
     log_streaming::NoopLogSender,
     pause::PauseClient,
@@ -162,6 +163,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             StorageUseCase::SnapshotImports,
         )?);
 
+        let fetch_client = Arc::new(StaticFetchClient::new());
         let function_runner = Arc::new(
             InProcessFunctionRunner::new(
                 DEV_INSTANCE_NAME.into(),
@@ -171,6 +173,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 persistence.reader(),
                 files_storage.clone(),
                 database.clone(),
+                fetch_client.clone(),
             )
             .await?,
         );
@@ -207,6 +210,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             searcher.clone(),
             Box::new(persistence.clone()),
             actions,
+            fetch_client,
             Arc::new(NoopLogSender),
             Arc::new(AllowLogging),
             pause_client,

@@ -15,6 +15,7 @@ use authentication::token_to_authorization_header;
 use common::{
     backoff::Backoff,
     errors::JsError,
+    http::fetch::ProxiedFetchClient,
     identity::InertIdentity,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
@@ -288,11 +289,14 @@ impl<RT: Runtime> FunctionRouter<RT> {
     ) -> anyhow::Result<ActionOutcome> {
         let timer = function_total_timer(UdfType::Action);
         let result = if *UDF_USE_ISOLATE {
+            // TODO: Delete. This code path is not used.
+            let fetch_client = Arc::new(ProxiedFetchClient::new(None, "".to_owned()));
             self.action_isolate
                 .execute_action(
                     path_and_args,
                     tx,
                     action_callbacks,
+                    fetch_client,
                     log_line_sender,
                     context,
                 )

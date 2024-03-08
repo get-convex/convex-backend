@@ -118,6 +118,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 response,
                 queue_timer,
                 action_callbacks,
+                fetch_client,
                 log_line_sender,
             } => {
                 drop(queue_timer);
@@ -129,6 +130,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                     request.identity,
                     request.transaction,
                     action_callbacks,
+                    fetch_client,
                     log_line_sender,
                     heap_stats.clone(),
                     request.context,

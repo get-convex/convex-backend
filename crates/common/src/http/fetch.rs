@@ -1,5 +1,11 @@
+use std::collections::{
+    BTreeMap,
+    HashMap,
+};
+
 use async_trait::async_trait;
 use futures::{
+    future::BoxFuture,
     StreamExt,
     TryStreamExt,
 };
@@ -26,7 +32,7 @@ pub trait FetchClient: Send + Sync {
 pub struct ProxiedFetchClient(reqwest::Client);
 
 impl ProxiedFetchClient {
-    pub fn new(proxy_url: Option<Url>) -> Self {
+    pub fn new(proxy_url: Option<Url>, convex_site: String) -> Self {
         let mut builder = reqwest::Client::builder().redirect(redirect::Policy::none());
         // It's okay to panic on these errors, as they indicate a serious programming
         // error -- building the reqwest client is expected to be infallible.
@@ -34,8 +40,7 @@ impl ProxiedFetchClient {
             let proxy = Proxy::all(proxy_url)
                 .expect("Infallible conversion from URL type to URL type")
                 .custom_http_auth(
-                    std::env::var("CONVEX_SITE")
-                        .unwrap_or_default()
+                    convex_site
                         .try_into()
                         .expect("Backend name is not valid ASCII?"),
                 );
@@ -74,6 +79,55 @@ impl FetchClient for ProxiedFetchClient {
     }
 }
 
+type HandlerFn = Box<
+    dyn Fn(HttpRequestStream) -> BoxFuture<'static, anyhow::Result<HttpResponseStream>>
+        + Send
+        + Sync
+        + 'static,
+>;
+
+pub struct StaticFetchClient {
+    router: BTreeMap<url::Url, HashMap<http::Method, HandlerFn>>,
+}
+
+impl StaticFetchClient {
+    pub fn new() -> Self {
+        Self {
+            router: BTreeMap::new(),
+        }
+    }
+
+    pub fn register_http_route<F>(&mut self, url: url::Url, method: http::Method, handler: F)
+    where
+        F: Fn(HttpRequestStream) -> BoxFuture<'static, anyhow::Result<HttpResponseStream>>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.router
+            .entry(url)
+            .or_default()
+            .insert(method, Box::new(handler));
+    }
+}
+
+#[async_trait]
+impl FetchClient for StaticFetchClient {
+    async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream> {
+        let handler = self
+            .router
+            .get(&request.url)
+            .and_then(|methods| methods.get(&request.method))
+            .unwrap_or_else(|| {
+                panic!(
+                    "could not find route {} with method {}",
+                    request.url, request.method
+                )
+            });
+        handler(request).await
+    }
+}
+
 pub enum InternalFetchPurpose {
     UsageTracking,
 }
@@ -90,7 +144,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_bad_url() -> anyhow::Result<()> {
-        let client = ProxiedFetchClient::new(None);
+        let client =
+            ProxiedFetchClient::new(None, "http://example-deployment.convex.site/".to_owned());
         let request = HttpRequest {
             headers: Default::default(),
             url: "http://\"".parse()?,

@@ -5,6 +5,7 @@ use std::{
 };
 
 use common::{
+    http::fetch::FetchClient,
     knobs::MAX_CONCURRENT_ACTION_OPS,
     runtime::{
         Runtime,
@@ -59,6 +60,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub file_storage: TransactionalFileStorage<RT>,
     pub syscall_trace: Arc<Mutex<SyscallTrace>>,
     pub action_callbacks: Arc<dyn ActionCallbacks>,
+    pub fetch_client: Arc<dyn FetchClient>,
     pub module_loader: Arc<dyn ModuleLoader<RT>>,
     pub key_broker: KeyBroker,
     pub task_order: TaskOrder,

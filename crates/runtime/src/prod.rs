@@ -206,9 +206,13 @@ impl ProdRuntime {
                 "Running without a proxy in release mode -- UDF `fetch` requests are unrestricted!"
             );
         }
+
+        // TODO(presley): The http proxy doesn't really belong to runtime. Remove it.
+        // In the meantime, use environment variable.
+        let convex_site = std::env::var("CONVEX_SITE").unwrap_or_default();
         Self {
             rt: handle,
-            http_client: ProxiedFetchClient::new(proxy_url),
+            http_client: ProxiedFetchClient::new(proxy_url, convex_site),
             internal_http_client: reqwest::Client::new(),
         }
     }
