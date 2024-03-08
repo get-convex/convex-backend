@@ -483,7 +483,7 @@ class SubtleCrypto {
     const normalizedAlgorithm = normalizeAlgorithmVerify(algorithm);
 
     const handle = key[_handle];
-    const keyData = KEY_STORE.get(handle).data;
+    const keyData = KEY_STORE.get(handle);
 
     // 8.
     if (normalizedAlgorithm.name !== key.algorithm.name) {
@@ -502,25 +502,88 @@ class SubtleCrypto {
     }
 
     switch (normalizedAlgorithm.name) {
-      case "RSASSA-PKCS1-v1_5":
-      case "RSA-PSS":
-      case "ECDSA":
-      case "Ed25519":
-        // TODO: CX-4401
-        return throwNotImplementedMethodError(
-          `verify with algorithm ${normalizedAlgorithm.name}`,
-          "SubtleCrypto",
-        );
-      case "HMAC": {
-        const hashAlgorithm = key.algorithm.hash.name;
+      case "RSASSA-PKCS1-v1_5": {
+        if (key[_type] !== "public") {
+          throw new DOMException(
+            "Key type not supported",
+            "InvalidAccessError",
+          );
+        }
 
+        const hashAlgorithm = key[_algorithm].hash.name;
+        return await performOp("crypto/verify", {
+          key: keyData,
+          algorithm: "RSASSA-PKCS1-v1_5",
+          hash: hashAlgorithm,
+          signature,
+          data: dataCopy,
+        });
+      }
+      case "RSA-PSS": {
+        if (key[_type] !== "public") {
+          throw new DOMException(
+            "Key type not supported",
+            "InvalidAccessError",
+          );
+        }
+
+        const hashAlgorithm = key[_algorithm].hash.name;
+        return await performOp("crypto/verify", {
+          key: keyData,
+          algorithm: "RSA-PSS",
+          hash: hashAlgorithm,
+          signature,
+          data: dataCopy,
+        });
+      }
+      case "HMAC": {
+        const hash = key[_algorithm].hash.name;
         return performOp("crypto/verify", {
           key: keyData,
           algorithm: "HMAC",
-          hash: hashAlgorithm,
+          hash,
           signature: signatureCopy,
           data: dataCopy,
         });
+      }
+      case "ECDSA": {
+        // 1.
+        if (key[_type] !== "public") {
+          throw new DOMException(
+            "Key type not supported",
+            "InvalidAccessError",
+          );
+        }
+        // 2.
+        const hash = normalizedAlgorithm.hash.name;
+
+        if (
+          (key[_algorithm].namedCurve === "P-256" && hash !== "SHA-256") ||
+          (key[_algorithm].namedCurve === "P-384" && hash !== "SHA-384")
+        ) {
+          throw new DOMException("Not implemented", "NotSupportedError");
+        }
+
+        // 3-8.
+        return await performOp("crypto/verify", {
+          key: keyData,
+          algorithm: "ECDSA",
+          hash,
+          signature,
+          namedCurve: key[_algorithm].namedCurve,
+          data: dataCopy,
+        });
+      }
+      case "Ed25519": {
+        // 1.
+        if (key[_type] !== "public") {
+          throw new DOMException(
+            "Key type not supported",
+            "InvalidAccessError",
+          );
+        }
+
+        return performOp("crypto/verifyEd25519", keyData, dataCopy, signature);
       }
     }
 

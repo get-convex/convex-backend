@@ -31,6 +31,12 @@ impl CryptoOps {
         Some(pair.sign(data).as_ref().to_vec().into())
     }
 
+    pub fn verify_ed25519(pubkey: &[u8], data: &[u8], signature: &[u8]) -> bool {
+        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, pubkey)
+            .verify(data, signature)
+            .is_ok()
+    }
+
     pub fn import_spki_ed25519(key_data: JsBuffer) -> Option<ToJsBuffer> {
         // 2-3.
         let pk_info: SubjectPublicKeyInfo<AnyRef, Vec<u8>> =

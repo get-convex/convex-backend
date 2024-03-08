@@ -27,16 +27,22 @@ use ring::{
         EcdsaKeyPair,
         EcdsaSigningAlgorithm,
         EcdsaVerificationAlgorithm,
+        KeyPair,
     },
 };
 use rsa::{
-    pkcs1::DecodeRsaPrivateKey,
+    pkcs1::{
+        DecodeRsaPrivateKey,
+        DecodeRsaPublicKey,
+    },
     signature::{
         RandomizedSigner,
         SignatureEncoding,
         Signer,
+        Verifier,
     },
     RsaPrivateKey,
+    RsaPublicKey,
 };
 use serde::{
     Deserialize,
@@ -59,6 +65,7 @@ use self::{
         not_supported,
         secure_rng_unavailable,
         type_error,
+        AnyError,
     },
 };
 use crate::{
@@ -118,10 +125,21 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             algorithm,
             hash,
             signature,
+            named_curve,
             data,
         }: CryptoVerifyArgs,
     ) -> anyhow::Result<bool> {
-        CryptoOps::verify(&key, &data, &signature, algorithm, hash)
+        CryptoOps::verify(key, &data, &signature, algorithm, named_curve, hash)
+    }
+
+    #[convex_macro::v8_op]
+    pub fn op_crypto_verify_ed25519(
+        &mut self,
+        key: JsBuffer,
+        data: JsBuffer,
+        signature: JsBuffer,
+    ) -> anyhow::Result<bool> {
+        Ok(CryptoOps::verify_ed25519(&key, &data, &signature))
     }
 
     #[convex_macro::v8_op]
@@ -204,10 +222,11 @@ pub struct CryptoSignArgs {
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CryptoVerifyArgs {
-    pub key: JsBuffer,
+    pub key: KeyData,
     pub algorithm: Algorithm,
     pub hash: Option<CryptoHash>,
     pub signature: JsBuffer,
+    pub named_curve: Option<CryptoNamedCurve>,
     pub data: JsBuffer,
 }
 
@@ -291,7 +310,7 @@ pub enum KeyType {
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub struct KeyData {
-    // r#type: KeyType,
+    r#type: KeyType,
     data: JsBuffer,
 }
 #[derive(Deserialize)]
@@ -460,34 +479,104 @@ impl CryptoOps {
     }
 
     pub fn verify(
-        key: &[u8],
+        key: KeyData,
         data: &[u8],
         signature: &[u8],
         algorithm: Algorithm,
+        named_curve: Option<CryptoNamedCurve>,
         hash: Option<CryptoHash>,
     ) -> anyhow::Result<bool> {
-        match algorithm {
-            Algorithm::Hmac => {
-                let hash: HmacAlgorithm = hash
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(format!("Hash algorithm not supported: {hash:?}"))
-                    })?
-                    .into();
-                let key = HmacKey::new(hash, key);
-                Ok(ring::hmac::verify(&key, data, signature).is_ok())
+        let verification = match algorithm {
+            Algorithm::RsassaPkcs1v15 => {
+                use rsa::pkcs1v15::{
+                    Signature,
+                    VerifyingKey,
+                };
+                let public_key = read_rsa_public_key(key)?;
+                let signature: Signature = signature.as_ref().try_into()?;
+                match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
+                    CryptoHash::Sha1 => {
+                        let verifying_key = VerifyingKey::<Sha1>::new(public_key);
+                        verifying_key.verify(data, &signature).is_ok()
+                    },
+                    CryptoHash::Sha256 => {
+                        let verifying_key = VerifyingKey::<Sha256>::new(public_key);
+                        verifying_key.verify(data, &signature).is_ok()
+                    },
+                    CryptoHash::Sha384 => {
+                        let verifying_key = VerifyingKey::<Sha384>::new(public_key);
+                        verifying_key.verify(data, &signature).is_ok()
+                    },
+                    CryptoHash::Sha512 => {
+                        let verifying_key = VerifyingKey::<Sha512>::new(public_key);
+                        verifying_key.verify(data, &signature).is_ok()
+                    },
+                }
             },
-            Algorithm::RsassaPkcs1v15
-            | Algorithm::RsaPss
-            | Algorithm::RsaOaep
-            | Algorithm::Ecdsa
-            | Algorithm::Ecdh
-            | Algorithm::AesCtr
-            | Algorithm::AesCbc
-            | Algorithm::AesGcm
-            | Algorithm::AesKw
-            | Algorithm::Pbkdf2
-            | Algorithm::Hkdf => anyhow::bail!("Verify algorithm not implemented"),
-        }
+            Algorithm::RsaPss => {
+                use rsa::pss::{
+                    Signature,
+                    VerifyingKey,
+                };
+                let public_key = read_rsa_public_key(key)?;
+                let signature: Signature = signature.as_ref().try_into()?;
+
+                match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
+                    CryptoHash::Sha1 => {
+                        let verifying_key: VerifyingKey<Sha1> = public_key.into();
+                        verifying_key.verify(data, &signature).is_ok()
+                    },
+                    CryptoHash::Sha256 => {
+                        let verifying_key: VerifyingKey<Sha256> = public_key.into();
+                        verifying_key.verify(data, &signature).is_ok()
+                    },
+                    CryptoHash::Sha384 => {
+                        let verifying_key: VerifyingKey<Sha384> = public_key.into();
+                        verifying_key.verify(data, &signature).is_ok()
+                    },
+                    CryptoHash::Sha512 => {
+                        let verifying_key: VerifyingKey<Sha512> = public_key.into();
+                        verifying_key.verify(data, &signature).is_ok()
+                    },
+                }
+            },
+            Algorithm::Hmac => {
+                let hash: HmacAlgorithm = hash.ok_or_else(not_supported)?.into();
+                let key = HmacKey::new(hash, &key.data);
+                ring::hmac::verify(&key, data, signature).is_ok()
+            },
+            Algorithm::Ecdsa => {
+                let signing_alg: &EcdsaSigningAlgorithm =
+                    named_curve.ok_or_else(not_supported)?.try_into()?;
+                let verify_alg: &EcdsaVerificationAlgorithm =
+                    named_curve.ok_or_else(not_supported)?.try_into()?;
+
+                let private_key;
+
+                let public_key_bytes = match key.r#type {
+                    KeyType::Private => {
+                        private_key = EcdsaKeyPair::from_pkcs8(
+                            signing_alg,
+                            &key.data,
+                            secure_rng_unavailable()?,
+                        )
+                        .map_err(|e| anyhow::anyhow!(e))?;
+
+                        private_key.public_key().as_ref()
+                    },
+                    KeyType::Public => &*key.data,
+                    _ => return Err(type_error("Invalid Key format".to_string())),
+                };
+
+                let public_key =
+                    ring::signature::UnparsedPublicKey::new(verify_alg, public_key_bytes);
+
+                public_key.verify(data, signature).is_ok()
+            },
+            _ => return Err(type_error("Unsupported algorithm".to_string())),
+        };
+
+        Ok(verification)
     }
 
     pub fn derive_bits(args: DeriveKeyArg, salt: Option<JsBuffer>) -> anyhow::Result<ToJsBuffer> {
@@ -531,4 +620,13 @@ impl CryptoOps {
 
         Ok(output)
     }
+}
+
+fn read_rsa_public_key(key_data: KeyData) -> Result<RsaPublicKey, AnyError> {
+    let public_key = match key_data.r#type {
+        KeyType::Private => RsaPrivateKey::from_pkcs1_der(&key_data.data)?.to_public_key(),
+        KeyType::Public => RsaPublicKey::from_pkcs1_der(&key_data.data)?,
+        KeyType::Secret => unreachable!("unexpected KeyType::Secret"),
+    };
+    Ok(public_key)
 }
