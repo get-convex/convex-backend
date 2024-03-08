@@ -1,8 +1,11 @@
 #![allow(non_snake_case)]
 
-use std::convert::{
-    TryFrom,
-    TryInto,
+use std::{
+    collections::BTreeMap,
+    convert::{
+        TryFrom,
+        TryInto,
+    },
 };
 
 use anyhow::Context;
@@ -35,6 +38,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use itertools::Itertools;
 use model::{
     file_storage::{
         types::FileStorageEntry,
@@ -100,59 +104,133 @@ fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow::Re
     Ok(())
 }
 
+/// A batch of async syscalls that can run "in parallel", where they actually
+/// execute in a batch for determinism, but as far as the js promises are
+/// concerned, they're running in parallel.
+/// This could conceivably run reads
+/// (get/queryStreamNext/queryPage/storageGetUrl) all in a single batch.
+/// We could also run inserts, deletes, patches, and replaces in a batch
+/// together, disjoint from reads, as long as the affected IDs are disjoint.
+/// For now, we only allow batches of `db.get`s.
+/// TODO(lee) implement other kinds of batches.
+#[derive(Debug)]
+pub enum AsyncSyscallBatch {
+    Gets(Vec<JsonValue>),
+    Unbatched { name: String, args: JsonValue },
+}
+
+const MAX_SYSCALL_BATCH_SIZE: usize = 8;
+
+impl AsyncSyscallBatch {
+    pub fn new(name: String, args: JsonValue) -> Self {
+        match &*name {
+            "1.0/get" => Self::Gets(vec![args]),
+            _ => Self::Unbatched { name, args },
+        }
+    }
+
+    pub fn can_push(&self, name: &str, _args: &JsonValue) -> bool {
+        if self.len() >= MAX_SYSCALL_BATCH_SIZE {
+            return false;
+        }
+        match (self, name) {
+            (Self::Gets(_), "1.0/get") => true,
+            (Self::Gets(_), _) => false,
+            (Self::Unbatched { .. }, _) => false,
+        }
+    }
+
+    pub fn push(&mut self, name: String, args: JsonValue) -> anyhow::Result<()> {
+        match (&mut *self, &*name) {
+            (Self::Gets(batch_args), "1.0/get") => batch_args.push(args),
+            _ => anyhow::bail!("cannot push {name} onto {self:?}"),
+        }
+        Ok(())
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Gets(_) => "1.0/get",
+            Self::Unbatched { name, .. } => name,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Gets(args) => args.len(),
+            Self::Unbatched { .. } => 1,
+        }
+    }
+}
+
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
-    pub async fn run_async_syscall(
+    /// Runs a batch of syscalls, each of which can succeed or fail
+    /// independently. The returned vec is the same length as the batch.
+    pub async fn run_async_syscall_batch(
         &mut self,
-        name: String,
-        args: JsonValue,
-    ) -> anyhow::Result<String> {
+        batch: AsyncSyscallBatch,
+    ) -> anyhow::Result<Vec<anyhow::Result<String>>> {
         let start = self.phase.rt.monotonic_now();
-        let timer = async_syscall_timer(&name);
-        let result: anyhow::Result<_> = try {
-            match &name[..] {
-                // Database
-                "1.0/count" => self.async_syscall_count(args).await?,
-                "1.0/get" => DatabaseSyscallsV1::get(self, args).await?,
-                "1.0/insert" => DatabaseSyscallsV1::insert(self, args).await?,
-                "1.0/shallowMerge" => DatabaseSyscallsV1::shallow_merge(self, args).await?,
-                "1.0/replace" => DatabaseSyscallsV1::replace(self, args).await?,
-                "1.0/remove" => DatabaseSyscallsV1::remove(self, args).await?,
-                "1.0/queryStreamNext" => DatabaseSyscallsV1::queryStreamNext(self, args).await?,
-                "1.0/queryPage" => DatabaseSyscallsV1::queryPage(self, args).await?,
-                // Auth
-                "1.0/getUserIdentity" => self.async_syscall_getUserIdentity(args).await?,
-                // Storage
-                "1.0/storageDelete" => self.async_syscall_storageDelete(args).await?,
-                "1.0/storageGetMetadata" => self.async_syscall_storageGetMetadata(args).await?,
-                "1.0/storageGenerateUploadUrl" => {
-                    self.async_syscall_storageGenerateUploadUrl(args).await?
-                },
-                "1.0/storageGetUrl" => self.async_syscall_storageGetUrl(args).await?,
-                // Scheduling
-                "1.0/schedule" => self.async_syscall_schedule(args).await?,
-                "1.0/cancel_job" => self.async_syscall_cancel_job(args).await?,
-                #[cfg(test)]
-                "slowSyscall" => {
-                    std::thread::sleep(std::time::Duration::from_secs(1));
-                    JsonValue::Number(1017.into())
-                },
-                #[cfg(test)]
-                "reallySlowSyscall" => {
-                    std::thread::sleep(std::time::Duration::from_secs(3));
-                    JsonValue::Number(1017.into())
-                },
-                _ => {
-                    anyhow::bail!(ErrorMetadata::bad_request(
+        let batch_name = batch.name().to_string();
+        let timer = async_syscall_timer(&batch_name);
+        // Outer error is a system error that encompases the whole batch, while
+        // inner errors are for individual batch items that may be system or developer
+        // errors.
+        let results = match batch {
+            AsyncSyscallBatch::Gets(get_batch_args) => {
+                DatabaseSyscallsV1::get_batch(self, get_batch_args).await
+            },
+            AsyncSyscallBatch::Unbatched { name, args } => {
+                let result = match &name[..] {
+                    // Database
+                    "1.0/count" => self.async_syscall_count(args).await,
+                    "1.0/insert" => DatabaseSyscallsV1::insert(self, args).await,
+                    "1.0/shallowMerge" => DatabaseSyscallsV1::shallow_merge(self, args).await,
+                    "1.0/replace" => DatabaseSyscallsV1::replace(self, args).await,
+                    "1.0/remove" => DatabaseSyscallsV1::remove(self, args).await,
+                    "1.0/queryStreamNext" => DatabaseSyscallsV1::queryStreamNext(self, args).await,
+                    "1.0/queryPage" => DatabaseSyscallsV1::queryPage(self, args).await,
+                    // Auth
+                    "1.0/getUserIdentity" => self.async_syscall_getUserIdentity(args).await,
+                    // Storage
+                    "1.0/storageDelete" => self.async_syscall_storageDelete(args).await,
+                    "1.0/storageGetMetadata" => self.async_syscall_storageGetMetadata(args).await,
+                    "1.0/storageGenerateUploadUrl" => {
+                        self.async_syscall_storageGenerateUploadUrl(args).await
+                    },
+                    "1.0/storageGetUrl" => self.async_syscall_storageGetUrl(args).await,
+                    // Scheduling
+                    "1.0/schedule" => self.async_syscall_schedule(args).await,
+                    "1.0/cancel_job" => self.async_syscall_cancel_job(args).await,
+                    #[cfg(test)]
+                    "slowSyscall" => {
+                        std::thread::sleep(std::time::Duration::from_secs(1));
+                        Ok(JsonValue::Number(1017.into()))
+                    },
+                    #[cfg(test)]
+                    "reallySlowSyscall" => {
+                        std::thread::sleep(std::time::Duration::from_secs(3));
+                        Ok(JsonValue::Number(1017.into()))
+                    },
+                    _ => Err(ErrorMetadata::bad_request(
                         "UnknownAsyncOperation",
-                        format!("Unknown async operation {name}")
-                    ));
-                },
-            }
+                        format!("Unknown async operation {name}"),
+                    )
+                    .into()),
+                };
+                vec![result]
+            },
         };
-        self.syscall_trace
-            .log_async_syscall(name, start.elapsed(), result.is_ok());
+        self.syscall_trace.log_async_syscall(
+            batch_name,
+            start.elapsed(),
+            results.iter().all(|result| result.is_ok()),
+        );
         timer.finish();
-        result.and_then(|v| anyhow::Ok(serde_json::to_string(&v)?))
+        Ok(results
+            .into_iter()
+            .map(|result| anyhow::Ok(serde_json::to_string(&result?)?))
+            .collect())
     }
 
     #[convex_macro::instrument_future]
@@ -354,10 +432,10 @@ pub struct DatabaseSyscallsV1<RT: Runtime> {
 
 impl<RT: Runtime> DatabaseSyscallsV1<RT> {
     #[convex_macro::instrument_future]
-    async fn get(
+    async fn get_batch(
         env: &mut DatabaseUdfEnvironment<RT>,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+        batch_args: Vec<JsonValue>,
+    ) -> Vec<anyhow::Result<JsonValue>> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct GetArgs {
@@ -368,30 +446,65 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
             version: Option<String>,
         }
         let table_filter = env.table_filter();
-        let tx = env.phase.tx()?;
-
-        let (id, is_system, version) = with_argument_error("db.get", || {
-            let args: GetArgs = serde_json::from_value(args)?;
-            let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
-            let version = parse_version(args.version)?;
-            Ok((id, args.is_system, version))
-        })?;
-        let name = tx.all_tables_number_to_name(table_filter)(*id.table());
-        if name.is_ok() {
-            system_table_guard(&name?, is_system)?;
-        }
-
-        match tx.resolve_idv6(id, table_filter) {
-            Ok(_) => {
-                let value = match tx.get_with_ts_user_facing(id, version).await? {
-                    Some((doc, _)) => ConvexValue::Object(doc.into_value().0),
-                    None => ConvexValue::Null,
-                };
-                Ok(value.into())
+        let tx = match env.phase.tx() {
+            Ok(tx) => tx,
+            Err(e) => {
+                return batch_args
+                    .iter()
+                    .map(|_| Err(e.clone().into()))
+                    .collect_vec();
             },
-            // Get on a non-existent table should return null
-            Err(_) => Ok(JsonValue::Null),
+        };
+
+        let mut ids_to_fetch = BTreeMap::new();
+        let mut precomputed_results = BTreeMap::new();
+        let batch_size = batch_args.len();
+        for (idx, args) in batch_args.into_iter().enumerate() {
+            let result: anyhow::Result<_> = try {
+                let (id, is_system, version) = with_argument_error("db.get", || {
+                    let args: GetArgs = serde_json::from_value(args)?;
+                    let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
+                    let version = parse_version(args.version)?;
+                    Ok((id, args.is_system, version))
+                })?;
+                let name = tx.all_tables_number_to_name(table_filter)(*id.table());
+                if name.is_ok() {
+                    system_table_guard(&name?, is_system)?;
+                }
+                match tx.resolve_idv6(id, table_filter) {
+                    Ok(_) => {
+                        ids_to_fetch.insert(idx, (id, version));
+                    },
+                    Err(_) => {
+                        // Get on a non-existent table should return null
+                        assert!(precomputed_results
+                            .insert(idx, Ok(JsonValue::Null))
+                            .is_none());
+                    },
+                }
+            };
+            if let Err(e) = result {
+                assert!(precomputed_results.insert(idx, Err(e)).is_none());
+            }
         }
+
+        let mut fetched_results = tx.get_batch(ids_to_fetch).await;
+        (0..batch_size)
+            .map(|batch_key| {
+                if let Some(precomputed) = precomputed_results.remove(&batch_key) {
+                    precomputed
+                } else if let Some(fetched_result) = fetched_results.remove(&batch_key) {
+                    match fetched_result {
+                        Err(e) => Err(e),
+                        Ok(Some((doc, _))) => Ok(ConvexValue::Object(doc.into_value().0).into()),
+                        // Document does not exist.
+                        Ok(None) => Ok(JsonValue::Null),
+                    }
+                } else {
+                    Err(anyhow::anyhow!("missing batch_key {batch_key}"))
+                }
+            })
+            .collect()
     }
 
     #[convex_macro::instrument_future]

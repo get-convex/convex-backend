@@ -70,6 +70,16 @@ use crate::{
     DEFAULT_PAGE_SIZE,
 };
 
+pub type BatchKey = usize;
+
+pub struct RangeRequest {
+    pub index_name: TabletIndexName,
+    pub printable_index_name: IndexName,
+    pub interval: Interval,
+    pub order: Order,
+    pub max_size: usize,
+}
+
 /// [`TransactionIndex`] is an index used by transactions.
 /// It gets constructed from [`DatabaseIndexSnapshot`] and [`IndexRegistry`] at
 /// a timestamp snapshot. It buffers the transaction pending index updates and
@@ -247,6 +257,45 @@ impl TransactionIndex {
         reads.record_search(index_name.clone(), results.reads);
 
         Ok(results.revisions_with_keys)
+    }
+
+    pub async fn range_batch(
+        &mut self,
+        reads: &mut TransactionReadSet,
+        ranges: BTreeMap<BatchKey, RangeRequest>,
+    ) -> BTreeMap<
+        BatchKey,
+        anyhow::Result<(
+            Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+            Interval,
+        )>,
+    > {
+        let batch_size = ranges.len();
+        // TODO(lee) thread the batching down all the way to persistence.
+        // This is faux-batching for now, to establish the interface.
+        let mut results = BTreeMap::new();
+        for (batch_key, range) in ranges {
+            let RangeRequest {
+                index_name,
+                printable_index_name,
+                interval,
+                order,
+                max_size,
+            } = &range;
+            let result = self
+                .range(
+                    reads,
+                    index_name,
+                    printable_index_name,
+                    interval,
+                    *order,
+                    *max_size,
+                )
+                .await;
+            assert!(results.insert(batch_key, result).is_none());
+        }
+        assert_eq!(results.len(), batch_size);
+        results
     }
 
     /// Returns the next page from the index range.

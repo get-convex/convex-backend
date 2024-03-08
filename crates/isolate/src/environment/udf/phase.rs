@@ -163,11 +163,11 @@ impl<RT: Runtime> UdfPhase<RT> {
         Ok(module_version.map(|m| (*m).clone()))
     }
 
-    pub fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
+    pub fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
         if self.phase != Phase::Executing {
-            anyhow::bail!(ErrorMetadata::bad_request(
+            return Err(ErrorMetadata::bad_request(
                 "NoDbDuringImport",
-                "Can't use database at import time"
+                "Can't use database at import time",
             ));
         }
         Ok(&mut self.tx)

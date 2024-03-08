@@ -96,7 +96,10 @@ use value::{
 };
 
 use self::{
-    async_syscall::PendingSyscall,
+    async_syscall::{
+        AsyncSyscallBatch,
+        PendingSyscall,
+    },
     outcome::UdfOutcome,
     phase::UdfPhase,
 };
@@ -654,20 +657,31 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 break;
             }
 
-            // If the user's promise is blocked, it must have a pending syscall. Execute one
-            // syscall before reentering into JS.
-            //
-            // Eventually, we'll like to present more concurrency to the transaction layer.
-            // We can do this by scheduling all pending syscalls and then
-            // externalizing them to user space in a deterministic order. This
-            // can start as FIFO order, but we can eventually return
-            // them in completion order and recover determinism through journaling.
-            let (resolver, result) = {
+            // If the user's promise is blocked, it must have a pending syscall.
+            // Execute a batch of syscalls before reentering into JS.
+            // These are executed in a batch deterministically, down to which fetches
+            // hit the cache. AsyncSyscallBatch decides which syscalls can run in
+            // a batch together.
+            // Results are externalized to user space in FIFO order.
+            let (resolvers, results) = {
                 let state = scope.state_mut();
                 let Some(p) = state.environment.pending_syscalls.pop_front() else {
                     // No syscalls or javascript to run, so we're done.
                     break;
                 };
+                let mut batch = AsyncSyscallBatch::new(p.name, p.args);
+                let mut resolvers = vec![p.resolver];
+                while let Some(p) = state.environment.pending_syscalls.front()
+                    && batch.can_push(&p.name, &p.args)
+                {
+                    let p = state
+                        .environment
+                        .pending_syscalls
+                        .pop_front()
+                        .expect("should have a syscall");
+                    batch.push(p.name, p.args)?;
+                    resolvers.push(p.resolver);
+                }
                 // Pause the user-code UDF timeout for the duration of the syscall.
                 // This works because we know that the user is blocked on some syscall,
                 // so running the syscall is on us and we shouldn't count this time
@@ -679,27 +693,31 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 // Even though the future would be blocking on the database most of the
                 // time it still does some processing that might result in oversubscribing
                 // the CPU threads dedicated to v8.
-                let result = select_biased! {
+                let results = select_biased! {
                     _ = cancellation => {
                         log_isolate_request_cancelled();
                         anyhow::bail!("Cancelled");
                     },
-                    result = with_release_permit(
+                    results = with_release_permit(
                         &mut state.timeout,
                         &mut state.permit,
-                        state.environment.run_async_syscall(p.name, p.args),
-                    ).fuse() => result,
+                        state.environment.run_async_syscall_batch(batch),
+                    ).fuse() => results?,
                 };
-                (p.resolver, result)
+                (resolvers, results)
             };
+            // Every syscall must have a result (which could be an error or None).
+            assert_eq!(resolvers.len(), results.len());
 
             // Complete the syscall's promise, which will put its handlers on the microtask
             // queue.
-            let result_v8 = match result {
-                Ok(v) => Ok(serde_v8::to_v8(&mut scope, v)?),
-                Err(e) => Err(e),
-            };
-            resolve_promise(&mut scope, resolver, result_v8)?;
+            for (resolver, result) in resolvers.into_iter().zip(results.into_iter()) {
+                let result_v8 = match result {
+                    Ok(v) => Ok(serde_v8::to_v8(&mut scope, v)?),
+                    Err(e) => Err(e),
+                };
+                resolve_promise(&mut scope, resolver, result_v8)?;
+            }
             handle.check_terminated()?;
         }
 

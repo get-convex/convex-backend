@@ -83,6 +83,7 @@ use keybroker::{
     Identity,
     UserIdentityAttributes,
 };
+use maplit::btreemap;
 use search::CandidateRevision;
 use sync_types::{
     AuthenticationToken,
@@ -124,7 +125,11 @@ use crate::{
     },
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
-    transaction_index::TransactionIndex,
+    transaction_index::{
+        BatchKey,
+        RangeRequest,
+        TransactionIndex,
+    },
     virtual_tables::{
         VirtualSystemMapping,
         VirtualTable,
@@ -495,32 +500,89 @@ impl<RT: Runtime> Transaction<RT> {
         id: DeveloperDocumentId,
         version: Option<Version>,
     ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
-        if self.virtual_table_mapping().number_exists(id.table()) {
-            log_virtual_table_get();
-            let table_name = self.virtual_table_mapping().name(*id.table())?;
-            let result = VirtualTable::new(self).get(&id, version).await?;
-            if let Some((doc, _)) = &result {
-                self.reads.record_read_document(
-                    table_name,
-                    doc.size(),
-                    &self.usage_tracker,
-                    true,
-                )?
-            }
-            return Ok(result);
-        }
-        if !self.table_mapping().table_number_exists()(*id.table()) {
-            return Ok(None);
-        }
-        let id_ = id.map_table(self.table_mapping().inject_table_id())?;
-        let table_name = self.table_mapping().tablet_name(id_.table().table_id)?;
-        let result = self.get_inner(id_, table_name).await?;
-        result
-            .map(|(doc, ts)| {
-                let doc = doc.to_developer();
-                Ok((doc, ts))
+        let mut batch_result = self
+            .get_batch(btreemap! {
+                0 => (id, version),
             })
-            .transpose()
+            .await;
+        batch_result
+            .remove(&0)
+            .context("get_batch missing batch key")?
+    }
+
+    /// Fetches a batch of documents by id.
+    /// Stage 1: For each requested ID, set up the fetch, reading table and
+    ///     index ids, checking virtual tables, computing index intervals,
+    ///     and looking in the cache. In particular, cache hits for the
+    ///     entire batch are based on the initial state.
+    /// Stage 2: Execute all of the underlying fetches against persistence in
+    ///     parallel.
+    /// Stage 3: For each requested ID, add it to the cache and
+    ///     usage records, and munge the index range's results into
+    ///     DeveloperDocuments.
+    ///
+    /// This leads to completely deterministic results, down to usage counts
+    /// and which requests hit the cache.
+    /// Throughout the stages, each item in the batch is effectively separate,
+    /// so their errors are calculated independently.
+    /// Since stage 3 mutates common state in a loop, the items can affect each
+    /// other, e.g. if one item overflows the transaction limits, the remainder
+    /// of the batch will throw similar errors.
+    /// TODO(lee) dedupe duplicate fetches within a batch, which requires
+    /// cloning errors.
+    pub async fn get_batch(
+        &mut self,
+        ids: BTreeMap<BatchKey, (DeveloperDocumentId, Option<Version>)>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>>> {
+        let mut results = BTreeMap::new();
+        let mut ids_to_fetch = BTreeMap::new();
+        let batch_size = ids.len();
+        for (batch_key, (id, version)) in ids {
+            let resolve_result: anyhow::Result<_> = try {
+                if self.virtual_table_mapping().number_exists(id.table()) {
+                    // TODO(lee) batch virtual table gets
+                    log_virtual_table_get();
+                    let table_name = self.virtual_table_mapping().name(*id.table())?;
+                    match VirtualTable::new(self).get(&id, version).await? {
+                        Some(result) => {
+                            self.reads.record_read_document(
+                                table_name,
+                                result.0.size(),
+                                &self.usage_tracker,
+                                true,
+                            )?;
+                            assert!(results.insert(batch_key, Ok(Some(result))).is_none());
+                        },
+                        None => {
+                            assert!(results.insert(batch_key, Ok(None)).is_none());
+                        },
+                    }
+                } else {
+                    if !self.table_mapping().table_number_exists()(*id.table()) {
+                        assert!(results.insert(batch_key, Ok(None)).is_none());
+                        continue;
+                    }
+                    let id_ = id.map_table(self.table_mapping().inject_table_id())?;
+                    let table_name = self.table_mapping().tablet_name(id_.table().table_id)?;
+                    ids_to_fetch.insert(batch_key, (id_, table_name));
+                }
+            };
+            if let Err(e) = resolve_result {
+                assert!(results.insert(batch_key, Err(e)).is_none());
+            }
+        }
+        let fetched_results = self.get_inner_batch(ids_to_fetch).await;
+        for (batch_key, inner_result) in fetched_results {
+            let result: anyhow::Result<_> = try {
+                let developer_result = inner_result?.map(|(doc, ts)| (doc.to_developer(), ts));
+                assert!(results.insert(batch_key, Ok(developer_result)).is_none());
+            };
+            if let Err(e) = result {
+                assert!(results.insert(batch_key, Err(e)).is_none());
+            }
+        }
+        assert_eq!(results.len(), batch_size);
+        results
     }
 
     /// Creates a new document with given value in the specified table.
@@ -1075,47 +1137,83 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         table_name: TableName,
     ) -> anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>> {
-        let index_name = TabletIndexName::by_id(id.table().table_id);
-        let printable_index_name = IndexName::by_id(table_name.clone());
-        let index_key = IndexKey::new(vec![], id.into());
-        let interval = Interval::prefix(index_key.into_bytes().into());
+        let mut batch_result = self
+            .get_inner_batch(btreemap! {
+                0 => (id, table_name),
+            })
+            .await;
+        batch_result
+            .remove(&0)
+            .context("get_inner_batch missing batch key")?
+    }
 
-        // Request 2 to best-effort verify uniqueness of by_id index.
-        let max_size = 2;
-        let (results, remaining) = self
-            .index
-            .range(
-                &mut self.reads,
-                &index_name,
-                &printable_index_name,
-                &interval,
-                Order::Asc,
-                max_size,
-            )
-            .await?;
-        anyhow::ensure!(results.len() <= 1, "Got multiple values for id {id:?}");
-        anyhow::ensure!(
-            remaining.is_empty(),
-            "Querying 2 items for a single id didn't exhaust interval for {id:?}"
-        );
-        let result = match results.into_iter().next() {
-            Some((_, doc, timestamp)) => {
-                let is_virtual_table = self.virtual_table_mapping().name_exists(&table_name);
-                self.reads.record_read_document(
-                    table_name,
-                    doc.size(),
-                    &self.usage_tracker,
-                    is_virtual_table,
-                )?;
-                Some((doc, timestamp))
-            },
-            None => None,
-        };
-        self.stats
-            .entry(id.table().table_number)
-            .or_default()
-            .rows_read += 1;
-        Ok(result)
+    pub(crate) async fn get_inner_batch(
+        &mut self,
+        ids: BTreeMap<BatchKey, (ResolvedDocumentId, TableName)>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>>> {
+        let mut ranges = BTreeMap::new();
+        let batch_size = ids.len();
+        for (batch_key, (id, table_name)) in ids.iter() {
+            let index_name = TabletIndexName::by_id(id.table().table_id);
+            let printable_index_name = IndexName::by_id(table_name.clone());
+            let index_key = IndexKey::new(vec![], (*id).into());
+            let interval = Interval::prefix(index_key.into_bytes().into());
+            ranges.insert(
+                *batch_key,
+                RangeRequest {
+                    index_name,
+                    printable_index_name,
+                    interval,
+                    order: Order::Asc,
+                    // Request 2 to best-effort verify uniqueness of by_id index.
+                    max_size: 2,
+                },
+            );
+        }
+
+        let mut results = self.index.range_batch(&mut self.reads, ranges).await;
+        let mut batch_result = BTreeMap::new();
+        for (batch_key, (id, table_name)) in ids {
+            let result: anyhow::Result<_> = try {
+                let (range_results, remaining) =
+                    results.remove(&batch_key).context("expected result")??;
+                if range_results.len() > 1 {
+                    Err(anyhow::anyhow!("Got multiple values for id {id:?}"))?;
+                }
+                if !remaining.is_empty() {
+                    Err(anyhow::anyhow!(
+                        "Querying 2 items for a single id didn't exhaust interval for {id:?}"
+                    ))?;
+                }
+                match range_results.into_iter().next() {
+                    Some((_, doc, timestamp)) => {
+                        let is_virtual_table =
+                            self.virtual_table_mapping().name_exists(&table_name);
+                        self.reads.record_read_document(
+                            table_name,
+                            doc.size(),
+                            &self.usage_tracker,
+                            is_virtual_table,
+                        )?;
+                        assert!(batch_result
+                            .insert(batch_key, Ok(Some((doc, timestamp))))
+                            .is_none());
+                    },
+                    None => {
+                        assert!(batch_result.insert(batch_key, Ok(None)).is_none());
+                    },
+                }
+                self.stats
+                    .entry(id.table().table_number)
+                    .or_default()
+                    .rows_read += 1;
+            };
+            if let Err(e) = result {
+                assert!(batch_result.insert(batch_key, Err(e)).is_none());
+            }
+        }
+        assert_eq!(batch_result.len(), batch_size);
+        batch_result
     }
 
     /// Apply a validated write to the [Transaction], updating the
