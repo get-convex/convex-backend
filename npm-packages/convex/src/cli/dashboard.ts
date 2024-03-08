@@ -1,17 +1,11 @@
+import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import open from "open";
-import {
-  Context,
-  logFailure,
-  logMessage,
-  oneoffContext,
-} from "../bundler/context.js";
+import { logFailure, logMessage, oneoffContext } from "../bundler/context.js";
 import {
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsProvisionProd,
-  fetchTeamAndProject,
 } from "./lib/api.js";
-import { Command } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 
 const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
@@ -38,12 +32,14 @@ export const dashboard = new Command("dashboard")
     if (deploymentName === undefined) {
       logFailure(
         ctx,
-        "No deployment name, run `npx convex dev` to configure a Convex project",
+        `No Convex deployment configured, run \`${chalk.bold(
+          "npx convex dev",
+        )}\``,
       );
       return await ctx.crash(1, "invalid filesystem data");
     }
 
-    const loginUrl = await deploymentDashboardUrlPage(ctx, deploymentName, "");
+    const loginUrl = await deploymentDashboardUrlPage(deploymentName, "");
 
     if (options.open) {
       logMessage(
@@ -57,20 +53,10 @@ export const dashboard = new Command("dashboard")
   });
 
 export async function deploymentDashboardUrlPage(
-  ctx: Context,
   configuredDeployment: string | null,
   page: string,
 ): Promise<string> {
-  if (configuredDeployment !== null) {
-    const { team, project } = await fetchTeamAndProject(
-      ctx,
-      configuredDeployment,
-    );
-    return deploymentDashboardUrl(team, project, configuredDeployment) + page;
-  } else {
-    // If there is no configured deployment, go to the most recently opened deployment.
-    return `${DASHBOARD_HOST}/deployment/${page}`;
-  }
+  return `${DASHBOARD_HOST}/d/${configuredDeployment}${page}`;
 }
 
 export function deploymentDashboardUrl(

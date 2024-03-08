@@ -677,15 +677,18 @@ export async function pushConfig(
       const variableQuery =
         variableName !== undefined ? `?var=${variableName}` : "";
       const dashboardUrl = await deploymentDashboardUrlPage(
-        ctx,
         configuredDeployment,
         `/settings/environment-variables${variableQuery}`,
       );
       logFailure(
         ctx,
-        `Go to ${dashboardUrl} to setup your environment variable.`,
+        `Environment variable ${chalk.bold(
+          variableName,
+        )} is used in auth config file but ` +
+          `its value was not set. Go to:\n\n    ${chalk.bold(
+            dashboardUrl,
+          )}\n\n  to set it up. `,
       );
-      logError(ctx, chalk.red(errorMessage));
       await ctx.crash(1, "invalid filesystem or env vars", error);
     }
 

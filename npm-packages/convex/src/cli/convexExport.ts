@@ -97,7 +97,6 @@ export const convexExport = new Command("export")
         logFinishedStep(
           ctx,
           `Export is available at ${await deploymentDashboardUrlPage(
-            ctx,
             deploymentName ?? null,
             "/settings/snapshot-export",
           )}`,
