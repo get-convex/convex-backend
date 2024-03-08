@@ -2,10 +2,6 @@ use anyhow::Context;
 use common::{
     errors::JsError,
     identity::InertIdentity,
-    log_lines::{
-        LogLine,
-        LogLines,
-    },
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -47,8 +43,6 @@ pub struct ActionOutcome {
 
     pub unix_timestamp: UnixTimestamp,
 
-    pub log_lines: LogLines,
-
     pub result: Result<JsonPackedValue, JsError>,
     pub syscall_trace: SyscallTrace,
 
@@ -71,7 +65,6 @@ impl ActionOutcome {
             arguments,
             identity,
             unix_timestamp: rt.unix_timestamp(),
-            log_lines: vec![].into(),
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
@@ -81,7 +74,6 @@ impl ActionOutcome {
     pub(crate) fn from_proto(
         ActionOutcomeProto {
             unix_timestamp,
-            log_lines,
             result,
             syscall_trace,
         }: ActionOutcomeProto,
@@ -99,7 +91,6 @@ impl ActionOutcome {
             None => anyhow::bail!("Missing result"),
         };
         let (udf_path, arguments, udf_server_version) = path_and_args.consume();
-        let log_lines = log_lines.into_iter().map(LogLine::try_from).try_collect()?;
         Ok(Self {
             udf_path,
             arguments,
@@ -107,7 +98,6 @@ impl ActionOutcome {
             unix_timestamp: unix_timestamp
                 .context("Missing unix_timestamp")?
                 .try_into()?,
-            log_lines,
             result,
             syscall_trace: syscall_trace.context("Missing syscall_trace")?.try_into()?,
             udf_server_version,
@@ -124,7 +114,6 @@ impl TryFrom<ActionOutcome> for ActionOutcomeProto {
             arguments: _,
             identity: _,
             unix_timestamp,
-            log_lines,
             result,
             syscall_trace,
             udf_server_version: _,
@@ -136,7 +125,6 @@ impl TryFrom<ActionOutcome> for ActionOutcomeProto {
         };
         Ok(Self {
             unix_timestamp: Some(unix_timestamp.into()),
-            log_lines: log_lines.into_iter().map(|l| l.into()).collect(),
             result: Some(FunctionResultProto {
                 result: Some(result),
             }),
@@ -158,25 +146,15 @@ impl Arbitrary for ActionOutcome {
             any::<ConvexArray>(),
             any::<InertIdentity>(),
             any::<UnixTimestamp>(),
-            any::<LogLines>(),
             any::<Result<JsonPackedValue, JsError>>(),
             any::<SyscallTrace>(),
         )
             .prop_map(
-                |(
+                |(udf_path, arguments, identity, unix_timestamp, result, syscall_trace)| Self {
                     udf_path,
                     arguments,
                     identity,
                     unix_timestamp,
-                    log_lines,
-                    result,
-                    syscall_trace,
-                )| Self {
-                    udf_path,
-                    arguments,
-                    identity,
-                    unix_timestamp,
-                    log_lines,
                     result,
                     syscall_trace,
                     // Ok to not generate semver::Version because it is not serialized anyway
@@ -193,8 +171,6 @@ pub struct HttpActionOutcome {
     pub identity: InertIdentity,
 
     pub unix_timestamp: UnixTimestamp,
-
-    pub log_lines: LogLines,
 
     pub result: Result<HttpActionResponse, JsError>,
 

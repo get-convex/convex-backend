@@ -556,7 +556,6 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 let outcome = ActionOutcome {
                     unix_timestamp,
                     udf_path: job.cron_spec.udf_path,
-                    log_lines: vec![].into(),
                     arguments: job.cron_spec.udf_args.clone(),
                     identity,
                     result: Err(err),

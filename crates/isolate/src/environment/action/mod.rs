@@ -30,7 +30,6 @@ use common::{
     },
     log_lines::{
         LogLine,
-        LogLines,
         TRUNCATED_LINE_SUFFIX,
     },
     runtime::{
@@ -167,9 +166,8 @@ use crate::{
 
 pub struct ActionEnvironment<RT: Runtime> {
     identity: Identity,
-    log_lines: LogLines,
-    _total_log_lines: u64,
-    _log_line_sender: mpsc::UnboundedSender<LogLine>,
+    total_log_lines: usize,
+    log_line_sender: mpsc::UnboundedSender<LogLine>,
 
     rt: RT,
 
@@ -223,9 +221,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Self {
             identity,
             rt: rt.clone(),
-            log_lines: vec![].into(),
-            _total_log_lines: 0,
-            _log_line_sender: log_line_sender,
+            total_log_lines: 0,
+            log_line_sender,
 
             next_task_id: TaskId(0),
             pending_task_sender,
@@ -290,14 +287,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 .as_ref()
                 .ok()
                 .and_then(|(_, response)| response.as_ref().ok()),
-        );
+        )?;
         let (route, result) = result?;
         let outcome = HttpActionOutcome {
             route,
             http_request: request_head,
             unix_timestamp: start_unix_timestamp,
             identity: self.identity.into(),
-            log_lines: self.log_lines,
             result,
             syscall_trace: self.syscall_trace.lock().clone(),
             udf_server_version: validated_path.npm_version().clone(),
@@ -499,13 +495,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             execution_time,
             &arguments,
             result.as_ref().ok().and_then(|r| r.as_ref().ok()),
-        );
+        )?;
         let outcome = ActionOutcome {
             udf_path,
             arguments,
             unix_timestamp: start_unix_timestamp,
             identity: self.identity.into(),
-            log_lines: self.log_lines,
             result: match result? {
                 Ok(v) => Ok(JsonPackedValue::pack(v)),
                 Err(e) => Err(e),
@@ -905,7 +900,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         execution_time: FunctionExecutionTime,
         arguments: &ConvexArray,
         result: Option<&ConvexValue>,
-    ) {
+    ) -> anyhow::Result<()> {
         let argument_size_warning = warning_if_approaching_limit(
             arguments.size(),
             *FUNCTION_MAX_ARGS_SIZE,
@@ -914,9 +909,11 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             None,
             Some(" bytes"),
         );
-        self.log_lines.extend(argument_size_warning);
+        if let Some(warning) = argument_size_warning {
+            self.trace_system(warning)?;
+        }
 
-        self.add_warnings_to_log_lines(execution_time);
+        self.add_warnings_to_log_lines(execution_time)?;
 
         let result_size_warning = result.and_then(|result| {
             warning_if_approaching_limit(
@@ -928,15 +925,18 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 Some(" bytes"),
             )
         });
-        self.log_lines.extend(result_size_warning);
+        if let Some(warning) = result_size_warning {
+            self.trace_system(warning)?;
+        }
+        Ok(())
     }
 
     fn add_warnings_to_log_lines_http_action(
         &mut self,
         execution_time: FunctionExecutionTime,
         http_result: Option<&HttpActionResponse>,
-    ) {
-        self.add_warnings_to_log_lines(execution_time);
+    ) -> anyhow::Result<()> {
+        self.add_warnings_to_log_lines(execution_time)?;
 
         let response_size_warning = http_result
             .and_then(|response| response.body.as_ref())
@@ -950,20 +950,26 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                     Some(" bytes"),
                 )
             });
-        self.log_lines.extend(response_size_warning);
+        if let Some(warning) = response_size_warning {
+            self.trace_system(warning)?;
+        }
+        Ok(())
     }
 
-    fn add_warnings_to_log_lines(&mut self, execution_time: FunctionExecutionTime) {
+    fn add_warnings_to_log_lines(
+        &mut self,
+        execution_time: FunctionExecutionTime,
+    ) -> anyhow::Result<()> {
         let dangling_task_counts = self.dangling_task_counts();
         if !dangling_task_counts.is_empty() {
             let total_dangling_tasks = dangling_task_counts.values().sum();
             let task_names = dangling_task_counts.keys().join(", ");
             log_unawaited_pending_op(total_dangling_tasks, "action");
-            self.log_lines.push(LogLine::Unstructured(format!(
+            self.trace_system(LogLine::Unstructured(format!(
                     "[WARN] {total_dangling_tasks} unawaited operation{}: [{task_names}]. Async operations should be awaited or they might not run. \
                      See https://docs.convex.dev/functions/actions#dangling-promises for more information.",
                     if total_dangling_tasks == 1 { "" } else { "s" },
-                )));
+                )))?;
         }
 
         let timeout_warning = warning_if_approaching_duration_limit(
@@ -972,7 +978,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             "UserTimeout",
             "Function execution took a long time",
         );
-        self.log_lines.extend(timeout_warning);
+        if let Some(warning) = timeout_warning {
+            self.trace_system(warning)?;
+        }
+        Ok(())
     }
 
     fn dangling_task_counts(&self) -> BTreeMap<String, usize> {
@@ -1012,24 +1021,32 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
 
     fn trace(&mut self, message: String) -> anyhow::Result<()> {
         // - 1 to reserve for the [ERROR] log line
-        match self.log_lines.len().cmp(&(MAX_LOG_LINES - 1)) {
+
+        match self.total_log_lines.cmp(&(MAX_LOG_LINES - 1)) {
             Ordering::Less => {
                 if message.len() > MAX_LOG_LINE_LENGTH {
-                    self.log_lines.push(LogLine::Unstructured(format!(
-                        "{}{TRUNCATED_LINE_SUFFIX}",
-                        &message[..message.floor_char_boundary(
-                            MAX_LOG_LINE_LENGTH - TRUNCATED_LINE_SUFFIX.len()
-                        )]
-                    )))
+                    self.log_line_sender
+                        .unbounded_send(LogLine::Unstructured(format!(
+                            "{}{TRUNCATED_LINE_SUFFIX}",
+                            &message[..message.floor_char_boundary(
+                                MAX_LOG_LINE_LENGTH - TRUNCATED_LINE_SUFFIX.len()
+                            )]
+                        )))?;
+                    self.total_log_lines += 1;
                 } else {
-                    self.log_lines.push(LogLine::Unstructured(message));
+                    self.log_line_sender
+                        .unbounded_send(LogLine::Unstructured(message))?;
+                    self.total_log_lines += 1;
                 }
             },
             Ordering::Equal => {
                 // Add a message about omitting log lines once
-                self.log_lines.push(LogLine::Unstructured(format!(
-                    "[ERROR] Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
-                )))
+                self.log_line_sender
+                    .unbounded_send(LogLine::Unstructured(format!(
+                        "[ERROR] Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines \
+                         omitted."
+                    )))?;
+                self.total_log_lines += 1;
             },
             Ordering::Greater => (),
         };
@@ -1037,7 +1054,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
     }
 
     fn trace_system(&mut self, message: LogLine) -> anyhow::Result<()> {
-        self.log_lines.push(message);
+        // Don't check length limits or count this towards total log lines since
+        // this is a system log line
+        self.log_line_sender.unbounded_send(message)?;
         Ok(())
     }
 
