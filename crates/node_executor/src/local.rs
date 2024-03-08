@@ -760,13 +760,8 @@ mod tests {
             "Function execution unexpectedly timed out. Check your function for infinite loops or \
              other long-running operations."
         );
-        assert_eq!(
-            log_lines
-                .into_iter()
-                .map(|l| l.to_pretty_string())
-                .collect::<Vec<_>>(),
-            vec!["[LOG] 'I am going to work really hard for 1 hour'".to_owned()]
-        );
+        // Unfortunately, we can't provide log lines when the process timeouts.
+        assert!(log_lines.is_empty());
 
         Ok(())
     }

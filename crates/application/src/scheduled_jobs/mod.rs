@@ -543,6 +543,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 let outcome = ActionOutcome {
                     unix_timestamp: self.rt.unix_timestamp(),
                     udf_path: job.udf_path,
+                    log_lines: vec![].into(),
                     arguments: job.udf_args.clone(),
                     identity: identity.into(),
                     result: Err(JsError::from_message(message)),

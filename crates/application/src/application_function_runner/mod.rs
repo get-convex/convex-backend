@@ -1207,6 +1207,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     arguments,
                     identity: tx.inert_identity(),
                     unix_timestamp,
+                    log_lines: node_outcome.log_lines,
                     result: node_outcome.result.map(JsonPackedValue::pack),
                     syscall_trace: node_outcome.syscall_trace,
                     udf_server_version,

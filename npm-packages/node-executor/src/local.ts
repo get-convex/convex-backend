@@ -5,7 +5,6 @@ import { log, setDebugLogging } from "./log";
 import os from "node:os";
 import crypto from "crypto";
 import fs from "node:fs";
-import { Writable } from "node:stream";
 
 async function main(request_str: string, debug: boolean) {
   let request;
@@ -26,14 +25,8 @@ async function main(request_str: string, debug: boolean) {
   fs.mkdirSync(tempdir);
   os.tmpdir = () => tempdir;
 
-  const responseStream = new Writable({
-    write: (chunk, _encoding, callback) => {
-      log(chunk.toString());
-      callback();
-    },
-  });
-  await invoke(request, responseStream);
-  responseStream.end();
+  const response = await invoke(request);
+  log(JSON.stringify(response));
 
   // Don't wait for dangling promises. This matches AWS Lambda behavior.
   process.exit(0);

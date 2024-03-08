@@ -193,7 +193,7 @@ message ActionOutcome {
   optional google.protobuf.Timestamp unix_timestamp = 3;
 
   reserved 5;
-  reserved 9;
+  repeated LogLine log_lines = 9;
 
   common.FunctionResult result = 7;
   SyscallTrace syscall_trace = 8;
