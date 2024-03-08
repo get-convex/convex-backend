@@ -170,7 +170,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
                     if too_old.is_some() {
                         tracing::info!(
                             "Non-empty index is too old, age: {:?}, size: {index_size}",
-                            index_size
+                            index_age,
                         );
                     }
                     let too_large =
