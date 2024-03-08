@@ -129,6 +129,7 @@ use headers::{
 use http::StatusCode;
 use http_client::cached_http_client;
 use isolate::{
+    parse_udf_args,
     AuthConfig,
     BackendIsolateWorker,
     ConcurrencyLimiter,
@@ -136,6 +137,7 @@ use isolate::{
     HttpActionResponse,
     IsolateClient,
     IsolateConfig,
+    UdfOutcome,
     ValidatedHttpPath,
     CONVEX_ORIGIN,
     CONVEX_SITE,
@@ -1851,6 +1853,139 @@ impl<RT: Runtime> Application<RT> {
         table_names: Vec<TableName>,
     ) -> anyhow::Result<u64> {
         clear_tables(self, identity, table_names).await
+    }
+
+    pub async fn execute_module(
+        &self,
+        module: ModuleConfig,
+        server_version: Version,
+        args: Vec<JsonValue>,
+        identity: Identity,
+    ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        let block_logging = self
+            .log_visibility
+            .should_redact_logs_and_error(
+                &mut self.begin(identity.clone()).await?,
+                identity.clone(),
+                AllowedVisibility::All,
+            )
+            .await?;
+
+        let udf_config = UdfConfig {
+            // pulls source from main.
+            server_version,
+            // Generate a new seed and timestamp to be used at import time.
+            import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
+            import_phase_unix_timestamp: self.runtime.unix_timestamp(),
+        };
+
+        let module_path = module.path.clone().canonicalize();
+        let modules = vec![module];
+
+        let analyze_results = self
+            .analyze(udf_config.clone(), modules.clone(), None)
+            .await?
+            .map_err(|js_error| {
+                let metadata = ErrorMetadata::bad_request(
+                    "InvalidModules",
+                    format!("Could not analyze the given module:\n{js_error}"),
+                );
+                anyhow::anyhow!(js_error).context(metadata)
+            })?;
+
+        let mut tx = self.begin(identity.clone()).await?;
+
+        // 1. apply the config to the transaction
+        Self::_apply_config(
+            self.runner.clone(),
+            &mut tx,
+            ApplyConfigArgs {
+                // TODO: When we want to support auth testing,
+                // we need to use the deployment's pushed auth config.
+                auth_module: None,
+                config_file: ConfigFile {
+                    functions: "convex".to_owned(),
+                    auth_info: None,
+                },
+                // TODO: When we want to support mutations,
+                // we need to use the deployment's schema.
+                schema_id: None,
+                modules,
+                udf_config,
+                source_package: None,
+                analyze_results,
+            },
+        )
+        .await?;
+
+        // 2. get the function type
+        let mut module_model = ModuleModel::new(&mut tx);
+        let module_metadata = module_model
+            .get_metadata(module_path.clone())
+            .await?
+            .context("Unexpectedly cannot load module")?;
+        let module_version = module_model
+            .get_version(module_metadata.id(), module_metadata.latest_version)
+            .await?;
+        let analyzed_module = module_version
+            .analyze_result
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Unexpectedly missing analyze result"))?;
+
+        let mut analyzed_function = None;
+        for function in &analyzed_module.functions {
+            if function.name.as_ref() == "default" {
+                analyzed_function = Some(function.clone());
+            } else {
+                anyhow::bail!("Only `export default` is supported.");
+            }
+        }
+        let analyzed_function = analyzed_function.context("Missing default export.")?;
+
+        // 3. run the function within the transaction
+        let path = CanonicalizedUdfPath::new(module_path, "default".to_owned());
+        let arguments = parse_udf_args(&path.clone().into(), args)?;
+        let context = RequestContext::new(None);
+        let (result, log_lines) = match analyzed_function.udf_type {
+            UdfType::Query => self
+                .runner
+                .run_query_without_caching(
+                    tx,
+                    path,
+                    arguments,
+                    AllowedVisibility::All,
+                    context.clone(),
+                )
+                .await
+                .map(
+                    |UdfOutcome {
+                         result, log_lines, ..
+                     }| { (result, log_lines) },
+                ),
+            UdfType::Mutation => {
+                anyhow::bail!("Mutations are not supported in the REPL yet.")
+            },
+            UdfType::Action => {
+                anyhow::bail!("Actions are not supported in the REPL yet.")
+            },
+            UdfType::HttpAction => {
+                anyhow::bail!(
+                    "HTTP actions are not supported in the REPL. A \"not found\" message should \
+                     be returned instead."
+                )
+            },
+        }?;
+        let log_lines = RedactedLogLines::from_log_lines(log_lines, block_logging);
+        Ok(match result {
+            Ok(value) => Ok(FunctionReturn {
+                value: value.unpack(),
+                log_lines,
+            }),
+            Err(error) => Err(FunctionError {
+                error: RedactedJsError::from_js_error(error, block_logging, context.request_id),
+                log_lines,
+            }),
+        })
     }
 
     pub async fn build_external_node_deps(

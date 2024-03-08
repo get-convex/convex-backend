@@ -33,6 +33,7 @@ use model::modules::{
     },
     types::ModuleMetadata,
     ModuleModel,
+    MODULE_VERSIONS_TABLE,
 };
 use parking_lot::Mutex;
 use value::ResolvedDocumentId;
@@ -173,6 +174,18 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
         module_metadata: ParsedDocument<ModuleMetadata>,
     ) -> anyhow::Result<Option<Arc<ModuleVersionMetadata>>> {
         let timer = metrics::module_cache_get_module_timer();
+
+        // If this transaction wrote to module_versions (true for REPLs), we cannot use
+        // the cache, load the module directly.
+        let module_versions_table_id = tx.table_mapping().id(&MODULE_VERSIONS_TABLE)?;
+        if tx.writes().has_written_to(&module_versions_table_id) {
+            let module_version = ModuleModel::new(tx)
+                .get_version(module_metadata.id(), module_metadata.latest_version)
+                .await?
+                .into_value();
+            return Ok(Some(Arc::new(module_version)));
+        }
+
         let key = (module_metadata.id(), module_metadata.latest_version);
         let fetcher = ModuleVersionFetcher {
             database: self.database.clone(),

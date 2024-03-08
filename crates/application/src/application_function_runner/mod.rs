@@ -569,6 +569,60 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(())
     }
 
+    // Only used for running queries from REPLs.
+    pub async fn run_query_without_caching(
+        &self,
+        mut tx: Transaction<RT>,
+        udf_path: CanonicalizedUdfPath,
+        arguments: ConvexArray,
+        allowed_visibility: AllowedVisibility,
+        context: RequestContext,
+    ) -> anyhow::Result<UdfOutcome> {
+        if !(tx.identity().is_admin() || tx.identity().is_system()) {
+            anyhow::bail!(unauthorized_error("query_without_caching"));
+        }
+
+        let identity = tx.inert_identity();
+        let validate_result = ValidatedUdfPathAndArgs::new(
+            allowed_visibility,
+            &mut tx,
+            udf_path.clone(),
+            arguments.clone(),
+            UdfType::Query,
+            self.module_cache.clone(),
+        )
+        .await?;
+        let (_, outcome) = match validate_result {
+            Ok(path_and_args) => {
+                self.isolate_functions
+                    .execute_query_or_mutation(
+                        tx,
+                        path_and_args,
+                        UdfType::Query,
+                        QueryJournal::new(),
+                        context,
+                    )
+                    .await?
+            },
+            Err(js_err) => {
+                let query_outcome = UdfOutcome::from_error(
+                    js_err,
+                    udf_path.clone(),
+                    arguments.clone(),
+                    identity.clone(),
+                    self.runtime.clone(),
+                    None,
+                );
+                (tx, FunctionOutcome::Query(query_outcome))
+            },
+        };
+
+        Ok(match outcome {
+            FunctionOutcome::Query(o) => o,
+            _ => anyhow::bail!("Received non-mutation outcome for mutation"),
+        })
+    }
+
     /// Runs a mutations and retries on OCC errors.
     pub async fn retry_mutation(
         &self,

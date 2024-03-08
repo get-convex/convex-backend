@@ -49,6 +49,7 @@ import type * as _system_frontend_patchDocumentsFields from "../_system/frontend
 import type * as _system_frontend_replaceDocument from "../_system/frontend/replaceDocument.js";
 import type * as _system_frontend_tableSize from "../_system/frontend/tableSize.js";
 import type * as _system_paginationLimits from "../_system/paginationLimits.js";
+import type * as _system_repl_wrappers from "../_system/repl/wrappers.js";
 import type * as _system_secretSystemTables from "../_system/secretSystemTables.js";
 import type * as deploymentAuditLogTable from "../deploymentAuditLogTable.js";
 import type * as syscall from "../syscall.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/replaceDocument": typeof _system_frontend_replaceDocument;
   "_system/frontend/tableSize": typeof _system_frontend_tableSize;
   "_system/paginationLimits": typeof _system_paginationLimits;
+  "_system/repl/wrappers": typeof _system_repl_wrappers;
   "_system/secretSystemTables": typeof _system_secretSystemTables;
   deploymentAuditLogTable: typeof deploymentAuditLogTable;
   syscall: typeof syscall;
