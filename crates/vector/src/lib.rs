@@ -20,7 +20,7 @@ use value::FieldPath;
 
 pub mod id_tracker;
 mod memory_index;
-mod metrics;
+pub mod metrics;
 mod qdrant_index;
 pub mod qdrant_segments;
 mod query;
@@ -53,7 +53,10 @@ pub use self::{
         VectorSearchRequest,
     },
     searcher::VectorSearcher,
-    vector_index_manager::VectorIndexManager,
+    vector_index_manager::{
+        IndexState,
+        VectorIndexManager,
+    },
 };
 
 pub const MAX_VECTOR_RESULTS: usize = 256;
