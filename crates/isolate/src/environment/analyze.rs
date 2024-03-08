@@ -375,7 +375,7 @@ impl AnalyzeEnvironment {
 
             // Get source_index of current module
             let source_index = scope
-                .state_mut()
+                .state_mut()?
                 .environment
                 .get_source_map(&module_path)?
                 .as_ref()
@@ -556,7 +556,7 @@ fn udf_analyze<RT: Runtime>(
             let canon_path: CanonicalizedModulePath = path_from_module_specifier(&resource_url)?;
 
             (
-                scope.state_mut().environment.get_source_map(&canon_path)?,
+                scope.state_mut()?.environment.get_source_map(&canon_path)?,
                 canon_path,
             )
         };
@@ -781,7 +781,7 @@ fn http_analyze<RT: Runtime>(
             let resource_url = module_specifier_from_str(&resource_name)?;
             let canon_path: CanonicalizedModulePath = path_from_module_specifier(&resource_url)?;
 
-            let source_map = scope.state_mut().environment.get_source_map(&canon_path)?;
+            let source_map = scope.state_mut()?.environment.get_source_map(&canon_path)?;
             (source_map, canon_path)
         };
 

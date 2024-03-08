@@ -176,38 +176,40 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             .expect("IsolateHandle disappeared?")
     }
 
-    pub fn state(&mut self) -> &RequestState<RT, E> {
+    pub fn state(&mut self) -> anyhow::Result<&RequestState<RT, E>> {
         self.v8_context
             .get_slot(self.v8_scope)
-            .expect("ContextState disappeared?")
+            .ok_or_else(|| anyhow!("ContextState disappeared?"))
     }
 
     // TODO: Delete this method and use with_state_mut everywhere instead in
     // order to make it impossible to hold state across await points.
-    pub fn state_mut(&mut self) -> &mut RequestState<RT, E> {
+    pub fn state_mut(&mut self) -> anyhow::Result<&mut RequestState<RT, E>> {
         self.v8_context
             .get_slot_mut(self.v8_scope)
-            .expect("ContextState disappeared?")
+            .ok_or_else(|| anyhow!("ContextState disappeared?"))
     }
 
-    pub fn with_state_mut<T>(&mut self, f: impl FnOnce(&mut RequestState<RT, E>) -> T) -> T {
-        let state = self.state_mut();
-        f(state)
+    pub fn with_state_mut<T>(
+        &mut self,
+        f: impl FnOnce(&mut RequestState<RT, E>) -> T,
+    ) -> anyhow::Result<T> {
+        let state = self.state_mut()?;
+        Ok(f(state))
     }
 
-    pub fn record_heap_stats(&mut self) {
+    pub fn record_heap_stats(&mut self) -> anyhow::Result<()> {
         let mut stats = HeapStatistics::default();
         self.get_heap_statistics(&mut stats);
-        let blobs_heap_size = self.state().blob_parts.heap_size();
-        let streams_heap_size =
-            self.state().streams.heap_size() + self.state().stream_listeners.heap_size();
-        self.state()
-            .environment
-            .record_heap_stats(IsolateHeapStats::new(
+        self.with_state_mut(|state| {
+            let blobs_heap_size = state.blob_parts.heap_size();
+            let streams_heap_size = state.streams.heap_size() + state.stream_listeners.heap_size();
+            state.environment.record_heap_stats(IsolateHeapStats::new(
                 stats,
                 blobs_heap_size,
                 streams_heap_size,
             ));
+        })
     }
 
     pub fn module_map(&mut self) -> &ModuleMap {
@@ -421,7 +423,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             ));
         }
 
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let result = state
             .environment
             .lookup_source(module_path, &mut state.timeout, &mut state.permit)
@@ -652,7 +654,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             ))
         })?;
 
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let result = state.environment.syscall(&op_name[..], args_v)?;
 
         let value_s = serde_json::to_string(&result)?;
@@ -689,7 +691,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         let promise = resolver.get_promise(self);
         let resolver = v8::Global::new(self, resolver);
         {
-            let state = self.state_mut();
+            let state = self.state_mut()?;
             state
                 .environment
                 .start_async_syscall(op_name, args_v, resolver)?;

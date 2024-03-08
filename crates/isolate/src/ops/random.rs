@@ -10,7 +10,7 @@ use crate::{
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     #[convex_macro::v8_op]
     pub fn op_random(&mut self) -> anyhow::Result<JsonNumber> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let n = JsonNumber::from_f64(state.environment.rng()?.gen())
             .expect("f64's distribution returned a NaN or infinity?");
         Ok(n)

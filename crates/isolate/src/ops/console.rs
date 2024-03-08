@@ -20,7 +20,7 @@ fn format_message(level: LogLevel, message: String) -> String {
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     #[convex_macro::v8_op]
     pub fn op_console_message(&mut self, level: String, message: String) -> anyhow::Result<()> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         state
             .environment
             .trace(format_message(level.parse()?, message))?;
@@ -39,14 +39,14 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             None,
             |s| self.lookup_source_map(s),
         )?;
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         state.environment.trace(js_error.to_string())?;
         Ok(())
     }
 
     #[convex_macro::v8_op]
     pub fn op_console_timeStart(&mut self, label: String) -> anyhow::Result<()> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         if state.console_timers.contains_key(&label) {
             state.environment.trace(format_message(
                 LogLevel::Warn,
@@ -62,7 +62,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
     #[convex_macro::v8_op]
     pub fn op_console_timeLog(&mut self, label: String, message: String) -> anyhow::Result<()> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         match state.console_timers.get(&label) {
             None => {
                 state.environment.trace(format_message(
@@ -90,7 +90,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
     #[convex_macro::v8_op]
     pub fn op_console_timeEnd(&mut self, label: String) -> anyhow::Result<()> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         match state.console_timers.remove(&label) {
             None => {
                 state.environment.trace(format_message(

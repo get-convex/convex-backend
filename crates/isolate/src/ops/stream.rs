@@ -28,7 +28,7 @@ use crate::{
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     #[convex_macro::v8_op]
     pub fn op_stream_create(&mut self) -> anyhow::Result<uuid::Uuid> {
-        self.state_mut().create_stream()
+        self.state_mut()?.create_stream()
     }
 
     #[convex_macro::v8_op]
@@ -56,7 +56,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         listener: StreamListener,
     ) -> anyhow::Result<()> {
         if self
-            .state_mut()
+            .state_mut()?
             .stream_listeners
             .insert(stream_id, listener)
             .is_some()
@@ -67,7 +67,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     }
 
     pub fn error_stream(&mut self, id: uuid::Uuid, error: anyhow::Error) -> anyhow::Result<()> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         state.streams.insert(id, Err(error));
         self.update_stream_listeners()
     }
@@ -78,7 +78,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         bytes: Option<bytes::Bytes>,
         new_done: bool,
     ) -> anyhow::Result<()> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let new_part_id = match bytes {
             Some(bytes) => Some(state.create_blob_part(bytes)?),
             None => None,
@@ -104,7 +104,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
     #[allow(unused)]
     pub fn create_complete_stream(&mut self, bytes: bytes::Bytes) -> anyhow::Result<uuid::Uuid> {
-        let stream_id = self.state_mut().create_stream()?;
+        let stream_id = self.state_mut()?.create_stream()?;
         self.extend_stream(stream_id, Some(bytes), false)?;
         self.extend_stream(stream_id, None, true)?;
         Ok(stream_id)
@@ -120,7 +120,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             value: Option<ToJsBuffer>,
         }
         loop {
-            let state = self.state_mut();
+            let state = self.state_mut()?;
             let mut ready = BTreeMap::new();
             for stream_id in state.stream_listeners.keys() {
                 let chunk = state.streams.mutate(
@@ -160,7 +160,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 return Ok(());
             }
             for (stream_id, update) in ready {
-                if let Some(listener) = self.state_mut().stream_listeners.remove(&stream_id) {
+                if let Some(listener) = self.state_mut()?.stream_listeners.remove(&stream_id) {
                     match listener {
                         StreamListener::JsPromise(resolver) => {
                             let result = match update {
@@ -179,7 +179,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                             Ok(None) => stream.close_channel(),
                             Ok(Some(bytes)) => {
                                 let _ = stream.unbounded_send(Ok(bytes));
-                                self.state_mut()
+                                self.state_mut()?
                                     .stream_listeners
                                     .insert(stream_id, StreamListener::RustStream(stream));
                             },

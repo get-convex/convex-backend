@@ -35,7 +35,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         let content_length = serde_v8::from_v8(self, args.get(3))?;
         let digest = serde_v8::from_v8(self, args.get(4))?;
 
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         state.environment.start_async_op(
             AsyncOpRequest::StorageStore {
                 body_stream: body_receiver,
@@ -54,7 +54,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     ) -> anyhow::Result<()> {
         let storage_id = serde_v8::from_v8(self, args.get(1))?;
 
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let stream_id = state.create_stream()?;
         state.environment.start_async_op(
             AsyncOpRequest::StorageGet {

@@ -70,7 +70,7 @@ use crate::{
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     #[convex_macro::v8_op]
     pub fn op_crypto_randomUUID(&mut self) -> anyhow::Result<String> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let rng = state.environment.rng()?;
         let uuid = CryptoOps::random_uuid(rng)?;
         Ok(uuid.to_string())
@@ -78,7 +78,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
     #[convex_macro::v8_op]
     pub fn op_crypto_getRandomValues(&mut self, byte_length: u32) -> anyhow::Result<ToJsBuffer> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let rng = state.environment.rng()?;
         let bytes = CryptoOps::get_random_values(rng, byte_length)?;
 

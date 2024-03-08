@@ -45,7 +45,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         let arg: HttpRequestV8 = serde_v8::from_v8(self, args.get(1))?;
 
         let request = with_argument_error("fetch", || HttpRequestV8::into_stream(arg, self))?;
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let response_body_stream_id = state.create_stream()?;
         state.environment.start_async_op(
             AsyncOpRequest::Fetch {
@@ -69,7 +69,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             StreamListener::RustStream(request_sender),
         )?;
 
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         state.environment.start_async_op(
             AsyncOpRequest::ParseMultiPart {
                 content_type,

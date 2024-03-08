@@ -20,7 +20,7 @@ use crate::{
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     #[convex_macro::v8_op]
     pub fn op_now(&mut self) -> anyhow::Result<JsonNumber> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         // NB: Date.now returns the current Unix timestamp in *milliseconds*. We round
         // to the nearest millisecond to match browsers. Browsers generally don't
         // provide sub-millisecond precision to protect against timing attacks:
@@ -43,7 +43,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         }
         let duration = Duration::from_millis(millis as u64);
 
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let until = state.environment.unix_timestamp()? + duration;
         state
             .environment

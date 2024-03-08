@@ -483,7 +483,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // Initialize the environment, preloading the UDF config, before executing any
         // JS.
         {
-            let state = scope.state_mut();
+            let state = scope.state_mut()?;
             state
                 .environment
                 .phase
@@ -492,7 +492,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }
 
         let (udf_type, udf_path, udf_args) = {
-            let state = scope.state();
+            let state = scope.state()?;
             let environment = &state.environment;
             (
                 environment.udf_type,
@@ -608,7 +608,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         // Switch our phase to executing right before calling into the UDF.
         {
-            let state = scope.state_mut();
+            let state = scope.state_mut()?;
             state
                 .environment
                 .phase
@@ -634,7 +634,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // Advance the user's promise as far as it can go by draining the microtask
             // queue.
             scope.perform_microtask_checkpoint();
-            scope.record_heap_stats();
+            scope.record_heap_stats()?;
             handle.check_terminated()?;
 
             // Check for rejected promises still unhandled, if so terminate.
@@ -664,7 +664,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // a batch together.
             // Results are externalized to user space in FIFO order.
             let (resolvers, results) = {
-                let state = scope.state_mut();
+                let state = scope.state_mut()?;
                 let Some(p) = state.environment.pending_syscalls.pop_front() else {
                     // No syscalls or javascript to run, so we're done.
                     break;
@@ -728,7 +728,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             )),
             v8::PromiseState::Fulfilled => {
                 anyhow::ensure!(
-                    scope.state().environment.pending_syscalls.is_empty(),
+                    scope.state()?.environment.pending_syscalls.is_empty(),
                     "queries and mutations should run all syscalls to completion"
                 );
                 let promise_result_v8 = promise.result(&mut scope);

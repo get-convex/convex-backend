@@ -322,7 +322,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
 
         {
-            let state = scope.state_mut();
+            let state = scope.state_mut()?;
             state
                 .environment
                 .phase
@@ -381,9 +381,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let stream_id = match http_request.body {
             Some(body) => {
-                let stream_id = scope.state_mut().create_stream()?;
+                let stream_id = scope.state_mut()?.create_stream()?;
                 scope
-                    .state_mut()
+                    .state_mut()?
                     .environment
                     .send_stream(stream_id, Some(body));
                 Some(stream_id)
@@ -528,7 +528,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
 
         {
-            let state = scope.state_mut();
+            let state = scope.state_mut()?;
             state
                 .environment
                 .phase
@@ -730,7 +730,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     {
         // Switch our phase to executing right before calling into the UDF.
         {
-            let state = scope.state_mut();
+            let state = scope.state_mut()?;
             // This enforces on database access in the router.
             // We might relax this to e.g. implement a JavaScript router with
             // auth middleware which affected the matched route.
@@ -760,7 +760,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             // Advance the user's promise as far as it can go by draining the microtask
             // queue.
             scope.perform_microtask_checkpoint();
-            scope.record_heap_stats();
+            scope.record_heap_stats()?;
             handle.check_terminated()?;
 
             // Check for rejected promises still unhandled, if so terminate.
@@ -837,13 +837,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 let permit = state
                     .permit
                     .take()
-                    .expect("Running function without permit");
-                (timeout, permit)
-            });
+                    .ok_or_else(|| anyhow::anyhow!("Running function without permit"))?;
+                anyhow::Ok((timeout, permit))
+            })??;
             let limiter = permit.limiter().clone();
             drop(permit);
 
-            let environment = &mut scope.state_mut().environment;
+            let environment = &mut scope.state_mut()?.environment;
             select_biased! {
                 result = collecting_result => {
                     break result?;
@@ -888,14 +888,14 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 },
             }
             let permit_acquire =
-                scope.with_state_mut(|state| state.timeout.with_timeout(limiter.acquire()));
+                scope.with_state_mut(|state| state.timeout.with_timeout(limiter.acquire()))?;
             let permit = permit_acquire.await?;
-            scope.with_state_mut(|state| state.permit = Some(permit));
+            scope.with_state_mut(|state| state.permit = Some(permit))?;
             handle.check_terminated()?;
         };
         // Drain all remaining async syscalls that are not sleeps in case the
         // developer forgot to await them.
-        let environment = &mut scope.state_mut().environment;
+        let environment = &mut scope.state_mut()?.environment;
         environment.pending_task_sender.close_channel();
         if let Some(mut running_tasks) = environment.running_tasks.take() {
             running_tasks.shutdown();

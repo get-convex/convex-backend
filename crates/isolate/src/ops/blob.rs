@@ -13,7 +13,7 @@ use crate::{
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     #[convex_macro::v8_op]
     pub fn op_blob_createPart(&mut self, bytes: JsBuffer) -> anyhow::Result<uuid::Uuid> {
-        self.state_mut().create_blob_part(bytes.into())
+        self.state_mut()?.create_blob_part(bytes.into())
     }
 
     #[convex_macro::v8_op]
@@ -23,7 +23,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         start: usize,
         size: usize,
     ) -> anyhow::Result<uuid::Uuid> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let Some(bytes) = state.blob_parts.get(&id).cloned() else {
             anyhow::bail!("unrecognized blob id {id}");
         };
@@ -32,7 +32,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
     #[convex_macro::v8_op]
     pub fn op_blob_readPart(&mut self, id: uuid::Uuid) -> anyhow::Result<ToJsBuffer> {
-        let state = self.state_mut();
+        let state = self.state_mut()?;
         let Some(bytes) = state.blob_parts.get(&id).cloned() else {
             anyhow::bail!("unrecognized blob id {id}");
         };
