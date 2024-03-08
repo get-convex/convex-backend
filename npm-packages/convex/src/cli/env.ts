@@ -35,11 +35,13 @@ const envSet = new Command("set")
     const options = cmd.optsWithGlobals();
     const ctx = oneoffContext;
     await ensureHasConvexDependency(ctx, "env set");
-    await callUpdateEnvironmentVariables(ctx, options, [{ name, value }]);
+    const where = await callUpdateEnvironmentVariables(ctx, options, [
+      { name, value },
+    ]);
     const formatted = /\s/.test(value) ? `"${value}"` : value;
     logFinishedStep(
       ctx,
-      `Successfully set ${chalk.bold(name)} to ${chalk.bold(formatted)}`,
+      `Successfully set ${chalk.bold(name)} to ${chalk.bold(formatted)}${where}`,
     );
   });
 
@@ -77,6 +79,7 @@ const envGet = new Command("get")
 
 const envRemove = new Command("remove")
   .alias("rm")
+  .alias("unset")
   .arguments("<name>")
   .summary("Unset a variable")
   .description(
@@ -89,8 +92,10 @@ const envRemove = new Command("remove")
     const ctx = oneoffContext;
     const options = cmd.optsWithGlobals();
     await ensureHasConvexDependency(ctx, "env remove");
-    await callUpdateEnvironmentVariables(ctx, options, [{ name }]);
-    logFinishedStep(ctx, `Successfully unset ${chalk.bold(name)}`);
+    const where = await callUpdateEnvironmentVariables(ctx, options, [
+      { name },
+    ]);
+    logFinishedStep(ctx, `Successfully unset ${chalk.bold(name)}${where}`);
   });
 
 const envList = new Command("list")
@@ -141,7 +146,7 @@ async function callUpdateEnvironmentVariables(
   changes: EnvVarChange[],
 ) {
   const deploymentSelection = deploymentSelectionFromOptions(options);
-  const { adminKey, url } =
+  const { adminKey, url, deploymentName, deploymentType } =
     await fetchDeploymentCredentialsWithinCurrentProject(
       ctx,
       deploymentSelection,
@@ -159,6 +164,13 @@ async function callUpdateEnvironmentVariables(
         headers,
       },
     );
+    return deploymentType !== undefined || deploymentName !== undefined
+      ? ` (on${
+          deploymentType !== undefined ? " " + chalk.bold(deploymentType) : ""
+        } deployment${
+          deploymentName !== undefined ? " " + chalk.bold(deploymentName) : ""
+        })`
+      : "";
   } catch (e) {
     return await logAndHandleAxiosError(ctx, e);
   }
