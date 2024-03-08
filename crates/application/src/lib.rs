@@ -1858,7 +1858,6 @@ impl<RT: Runtime> Application<RT> {
     pub async fn execute_module(
         &self,
         module: ModuleConfig,
-        server_version: Version,
         args: Vec<JsonValue>,
         identity: Identity,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
@@ -1871,10 +1870,19 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
 
+        let mut tx = self.begin(identity.clone()).await?;
+
+        // Use the last pushed version. If there hasn't been a push
+        // yet, act like the most recent version.
+        let server_version = UdfConfigModel::new(&mut tx)
+            .get()
+            .await?
+            .map(|udf_config| udf_config.server_version.clone())
+            .unwrap_or_else(|| Version::parse("1000.0.0").unwrap());
+
+        // 1. analyze the module
         let udf_config = UdfConfig {
-            // pulls source from main.
             server_version,
-            // Generate a new seed and timestamp to be used at import time.
             import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
             import_phase_unix_timestamp: self.runtime.unix_timestamp(),
         };
@@ -1893,9 +1901,7 @@ impl<RT: Runtime> Application<RT> {
                 anyhow::anyhow!(js_error).context(metadata)
             })?;
 
-        let mut tx = self.begin(identity.clone()).await?;
-
-        // 1. apply the config to the transaction
+        // 2. apply the config to the transaction
         Self::_apply_config(
             self.runner.clone(),
             &mut tx,
@@ -1918,7 +1924,7 @@ impl<RT: Runtime> Application<RT> {
         )
         .await?;
 
-        // 2. get the function type
+        // 3. get the function type
         let mut module_model = ModuleModel::new(&mut tx);
         let module_metadata = module_model
             .get_metadata(module_path.clone())
@@ -1942,7 +1948,7 @@ impl<RT: Runtime> Application<RT> {
         }
         let analyzed_function = analyzed_function.context("Missing default export.")?;
 
-        // 3. run the function within the transaction
+        // 4. run the function within the transaction
         let path = CanonicalizedUdfPath::new(module_path, "default".to_owned());
         let arguments = parse_udf_args(&path.clone().into(), args)?;
         let context = RequestContext::new(None);
