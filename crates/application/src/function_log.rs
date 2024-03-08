@@ -322,7 +322,11 @@ pub struct ActionCompletion {
 
 impl ActionCompletion {
     pub fn log_lines(&self) -> &LogLines {
-        &self.log_lines
+        if !self.log_lines.is_empty() {
+            &self.log_lines
+        } else {
+            &self.outcome.log_lines
+        }
     }
 }
 
@@ -635,6 +639,11 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         context: RequestContext,
     ) {
         let usage_stats = usage.gather_user_stats();
+        let (log_lines, send_console_events) = if !log_lines.is_empty() {
+            (log_lines, false)
+        } else {
+            (outcome.log_lines.clone(), true)
+        };
         let execution = UdfExecution {
             params: UdfParams::Http {
                 result: match outcome.result {
@@ -658,7 +667,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
             identity: outcome.identity,
             request_id: context.request_id,
         };
-        self.log_execution(execution, /* send_console_events */ false);
+        self.log_execution(execution, send_console_events);
         self.usage_tracking.track_call(
             UdfIdentifier::Http(outcome.route),
             CallType::HttpAction {
@@ -699,7 +708,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         let (log_lines, send_console_events) = if !completion.log_lines.is_empty() {
             (completion.log_lines, false)
         } else {
-            (outcome.log_lines.clone(), true)
+            (outcome.log_lines, true)
         };
 
         let execution = UdfExecution {
@@ -762,7 +771,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
             return;
         }
         let event_source = FunctionEventSource {
-            path: identifier.strip().to_string(),
+            path: UdfIdentifier::Function(identifier).to_string(),
             udf_type: UdfType::Action,
             cached: Some(false),
         };
@@ -777,7 +786,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         log_lines: LogLines,
     ) {
         let event_source = FunctionEventSource {
-            path: identifier.to_string(),
+            path: UdfIdentifier::Http(identifier).to_string(),
             udf_type: UdfType::HttpAction,
             cached: Some(false),
         };
