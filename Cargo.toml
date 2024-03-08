@@ -98,6 +98,7 @@ semver = { version = "1", features = [ "serde" ] }
 sentry = { version = "0.31", features = [ "anyhow", "tower", "tower-http" ] }
 serde = { version = "1", features = [ "derive" ] }
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order" ] }
+sha1 = { version = "0.10.5", features = [ "oid" ] }
 sha2 = { version = "0.10.7", features = [ "asm" ] }
 slab = "0.4.2"
 sodiumoxide = "^0.2"

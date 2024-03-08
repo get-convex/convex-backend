@@ -3,15 +3,19 @@
 
 use std::borrow::Cow;
 
+use common::errors::JsError;
 use deno_core::{
     JsBuffer,
     ToJsBuffer,
 };
 use errors::ErrorMetadata;
+use rand::rngs::OsRng;
 use serde::{
     Deserialize,
     Serialize,
 };
+
+use crate::environment::UncatchableDeveloperError;
 
 pub type AnyError = anyhow::Error;
 
@@ -76,6 +80,35 @@ pub fn not_supported_error(msg: impl Into<Cow<'static, str>>) -> AnyError {
     ))
 }
 
+pub fn type_error(message: impl Into<Cow<'static, str>>) -> AnyError {
+    // TODO(CX-5961): throw as a TypeError into js.
+    anyhow::anyhow!(ErrorMetadata::bad_request("TypeError", message))
+}
+
+pub fn not_supported() -> AnyError {
+    // TODO(CX-5961): throw as a NotSupported error into js.
+    anyhow::anyhow!(ErrorMetadata::bad_request(
+        "NotSupported",
+        "The operation is not supported"
+    ))
+}
+
 pub fn unsupported_format() -> AnyError {
     not_supported_error("unsupported format")
+}
+
+// TODO(CX-5960) implement secure random, either only in actions or with
+// determinism.
+pub fn secure_rng_unavailable() -> anyhow::Result<&'static dyn ring::rand::SecureRandom> {
+    anyhow::bail!(UncatchableDeveloperError {
+        js_error: JsError::from_message("Convex runtime does not support SecureRandom".to_string())
+    })
+}
+
+pub fn crypto_rng_unavailable() -> anyhow::Result<&'static mut OsRng> {
+    anyhow::bail!(UncatchableDeveloperError {
+        js_error: JsError::from_message(
+            "Convex runtime does not support CryptoRngCore".to_string()
+        )
+    })
 }

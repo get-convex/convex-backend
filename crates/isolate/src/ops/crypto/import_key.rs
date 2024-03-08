@@ -1,7 +1,6 @@
 // Copyright 2018-2023 the Deno authors. All rights reserved. MIT license.
 // https://github.com/denoland/deno/blob/main/ext/crypto/import_key.rs
 
-use common::errors::JsError;
 use deno_core::{
     JsBuffer,
     ToJsBuffer,
@@ -47,7 +46,7 @@ use super::{
     CryptoNamedCurve,
     CryptoOps,
 };
-use crate::environment::UncatchableDeveloperError;
+use crate::ops::crypto::shared::secure_rng_unavailable;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -556,14 +555,6 @@ fn import_key_ec_jwk(
         },
         _ => unreachable!(),
     }
-}
-
-// TODO(CX-5960) implement secure random, either only in actions or with
-// determinism.
-fn secure_rng_unavailable() -> anyhow::Result<&'static dyn ring::rand::SecureRandom> {
-    anyhow::bail!(UncatchableDeveloperError {
-        js_error: JsError::from_message("Convex runtime does not support SecureRandom".to_string())
-    })
 }
 
 pub struct ECParametersSpki {

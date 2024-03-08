@@ -773,7 +773,7 @@ async function testImportRsaJwk() {
         continue;
       }
 
-      const _privateKeyPKCS1 = await crypto.subtle.importKey(
+      const privateKeyPKCS1 = await crypto.subtle.importKey(
         "jwk",
         {
           alg: hashMapPKCS1[hash],
@@ -799,11 +799,11 @@ async function testImportRsaJwk() {
         ["verify"],
       );
 
-      // const signaturePKCS1 = await crypto.subtle.sign(
-      //   { name: "RSASSA-PKCS1-v1_5", saltLength: 32 },
-      //   privateKeyPKCS1,
-      //   new Uint8Array([1, 2, 3, 4]),
-      // );
+      const _signaturePKCS1 = await crypto.subtle.sign(
+        { name: "RSASSA-PKCS1-v1_5", saltLength: 32 },
+        privateKeyPKCS1,
+        new Uint8Array([1, 2, 3, 4]),
+      );
 
       // const verifyPKCS1 = await crypto.subtle.verify(
       //   { name: "RSASSA-PKCS1-v1_5", saltLength: 32 },
@@ -1775,32 +1775,51 @@ async function testDigest() {
 export const algorithmNotImplemented = query({
   handler: async () => {
     const [_key, jwkData] = Object.entries(jwtRSAKeys)[0];
-    const { privateJWK } = jwkData;
-
+    const { publicJWK, privateJWK } = jwkData;
     const hash = "SHA-256";
-    const hashMapPSS: Record<string, string> = {
-      "SHA-1": "PS1",
-      "SHA-256": "PS256",
-      "SHA-384": "PS384",
-      "SHA-512": "PS512",
+    const hashMapPKCS1: Record<string, string> = {
+      "SHA-1": "RS1",
+      "SHA-256": "RS256",
+      "SHA-384": "RS384",
+      "SHA-512": "RS512",
     };
 
-    const privateKeyPSS = await crypto.subtle.importKey(
+    const privateKeyPKCS1 = await crypto.subtle.importKey(
       "jwk",
       {
-        alg: hashMapPSS[hash],
+        alg: hashMapPKCS1[hash],
         ...privateJWK,
         ext: true,
         key_ops: ["sign"],
       },
-      { name: "RSA-PSS", hash },
+      { name: "RSASSA-PKCS1-v1_5", hash },
       true,
       ["sign"],
     );
 
-    await crypto.subtle.sign(
-      { name: "RSA-PSS", saltLength: 32 },
-      privateKeyPSS,
+    const publicKeyPKCS1 = await crypto.subtle.importKey(
+      "jwk",
+      {
+        alg: hashMapPKCS1[hash],
+        ...publicJWK,
+        ext: true,
+        key_ops: ["verify"],
+      },
+      { name: "RSASSA-PKCS1-v1_5", hash },
+      true,
+      ["verify"],
+    );
+
+    const signaturePKCS1 = await crypto.subtle.sign(
+      { name: "RSASSA-PKCS1-v1_5", saltLength: 32 },
+      privateKeyPKCS1,
+      new Uint8Array([1, 2, 3, 4]),
+    );
+
+    const _verifyPKCS1 = await crypto.subtle.verify(
+      { name: "RSASSA-PKCS1-v1_5", saltLength: 32 },
+      publicKeyPKCS1,
+      signaturePKCS1,
       new Uint8Array([1, 2, 3, 4]),
     );
   },

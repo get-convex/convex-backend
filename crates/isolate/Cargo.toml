@@ -70,6 +70,8 @@ search = { path = "../search" }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha1 = { workspace = true }
+sha2 = { workspace = true }
 sourcemap = { workspace = true }
 spki = { workspace = true }
 storage = { path = "../storage", optional = true }

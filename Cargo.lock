@@ -3407,6 +3407,8 @@ dependencies = [
  "semver 1.0.19",
  "serde",
  "serde_json",
+ "sha1",
+ "sha2",
  "shape_inference",
  "sourcemap",
  "spki 0.7.3",

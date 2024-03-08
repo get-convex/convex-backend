@@ -103,6 +103,10 @@ const aesDerivedKeyParams = z.object({
   length: z.number(),
 });
 
+const rsaPssParams = z.object({
+  saltLength: z.number(),
+});
+
 const _generateKey = z.union([
   algorithmNameLiteralWithParams("RSASSA-PKCS1-v1_5", rsaHashedKeyGenParams),
   algorithmNameLiteralWithParams("RSA-PSS", rsaHashedKeyGenParams),
@@ -129,7 +133,7 @@ const importKey = z.union([
 
 const sign = z.union([
   algorithmNameLiteralWithoutParams("RSASSA-PKCS1-v1_5"),
-  algorithmNameLiteralWithParams("RSA-PSS", z.object({})),
+  algorithmNameLiteralWithParams("RSA-PSS", rsaPssParams),
   algorithmNameLiteralWithParams("ECDSA", ecdsaParams),
   algorithmNameLiteralWithoutParams("HMAC"),
   algorithmNameLiteralWithoutParams("Ed25519"),

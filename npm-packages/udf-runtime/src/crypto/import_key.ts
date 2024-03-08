@@ -271,7 +271,7 @@ const SUPPORTED_KEY_USAGES = {
 };
 
 // P-521 is not yet supported.
-const supportedNamedCurves = ["P-256", "P-384"];
+export const supportedNamedCurves = ["P-256", "P-384"];
 const recognisedUsages = [
   "encrypt",
   "decrypt",

@@ -7,6 +7,7 @@ use deno_core::{
 };
 use elliptic_curve::pkcs8::PrivateKeyInfo;
 use p256::pkcs8::der::Decode as _;
+use ring::signature::Ed25519KeyPair;
 use spki::{
     der::{
         AnyRef,
@@ -22,6 +23,14 @@ pub const ED25519_OID: const_oid::ObjectIdentifier =
     const_oid::ObjectIdentifier::new_unwrap("1.3.101.112");
 
 impl CryptoOps {
+    pub fn sign_ed25519(key: &[u8], data: &[u8]) -> Option<ToJsBuffer> {
+        let pair = match Ed25519KeyPair::from_seed_unchecked(key) {
+            Ok(p) => p,
+            Err(_) => return None,
+        };
+        Some(pair.sign(data).as_ref().to_vec().into())
+    }
+
     pub fn import_spki_ed25519(key_data: JsBuffer) -> Option<ToJsBuffer> {
         // 2-3.
         let pk_info: SubjectPublicKeyInfo<AnyRef, Vec<u8>> =

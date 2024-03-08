@@ -24,23 +24,47 @@ use ring::{
     },
     pbkdf2,
     signature::{
+        EcdsaKeyPair,
         EcdsaSigningAlgorithm,
         EcdsaVerificationAlgorithm,
     },
+};
+use rsa::{
+    pkcs1::DecodeRsaPrivateKey,
+    signature::{
+        RandomizedSigner,
+        SignatureEncoding,
+        Signer,
+    },
+    RsaPrivateKey,
 };
 use serde::{
     Deserialize,
     Serialize,
 };
+use sha1::Sha1;
+use sha2::{
+    Sha256,
+    Sha384,
+    Sha512,
+};
 use uuid::Uuid;
 
-use self::import_key::{
-    ImportKeyOptions,
-    ImportKeyResult,
+use self::{
+    import_key::{
+        ImportKeyOptions,
+        ImportKeyResult,
+    },
+    shared::{
+        not_supported,
+        secure_rng_unavailable,
+        type_error,
+    },
 };
 use crate::{
     environment::IsolateEnvironment,
     execution_scope::ExecutionScope,
+    ops::crypto::shared::crypto_rng_unavailable,
 };
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
@@ -69,10 +93,21 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             algorithm,
             hash,
             data,
+            salt_length,
+            named_curve,
         }: CryptoSignArgs,
     ) -> anyhow::Result<ToJsBuffer> {
-        let signature = CryptoOps::sign(&key, &data, algorithm, hash)?;
+        let signature = CryptoOps::sign(&key, &data, algorithm, hash, salt_length, named_curve)?;
         Ok(signature.into())
+    }
+
+    #[convex_macro::v8_op]
+    pub fn op_crypto_sign_ed25519(
+        &mut self,
+        key: JsBuffer,
+        data: JsBuffer,
+    ) -> anyhow::Result<Option<ToJsBuffer>> {
+        Ok(CryptoOps::sign_ed25519(&key, &data))
     }
 
     #[convex_macro::v8_op]
@@ -162,6 +197,8 @@ pub struct CryptoSignArgs {
     pub algorithm: Algorithm,
     pub hash: Option<CryptoHash>,
     pub data: JsBuffer,
+    pub salt_length: Option<u32>,
+    pub named_curve: Option<CryptoNamedCurve>,
 }
 
 #[derive(serde::Deserialize)]
@@ -326,30 +363,100 @@ impl CryptoOps {
         data: &[u8],
         algorithm: Algorithm,
         hash: Option<CryptoHash>,
+        salt_length: Option<u32>,
+        named_curve: Option<CryptoNamedCurve>,
     ) -> anyhow::Result<Vec<u8>> {
-        match algorithm {
-            Algorithm::Hmac => {
-                let hash: HmacAlgorithm = hash
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(format!("Hash algorithm not supported: {hash:?}"))
-                    })?
-                    .into();
-                let key = HmacKey::new(hash, key);
-                let signature = ring::hmac::sign(&key, data);
-                Ok(signature.as_ref().to_vec())
+        let signature = match algorithm {
+            Algorithm::RsassaPkcs1v15 => {
+                use rsa::pkcs1v15::SigningKey;
+                let private_key = RsaPrivateKey::from_pkcs1_der(key)?;
+                match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
+                    CryptoHash::Sha1 => {
+                        let signing_key = SigningKey::<Sha1>::new(private_key);
+                        signing_key.sign(data)
+                    },
+                    CryptoHash::Sha256 => {
+                        let signing_key = SigningKey::<Sha256>::new(private_key);
+                        signing_key.sign(data)
+                    },
+                    CryptoHash::Sha384 => {
+                        let signing_key = SigningKey::<Sha384>::new(private_key);
+                        signing_key.sign(data)
+                    },
+                    CryptoHash::Sha512 => {
+                        let signing_key = SigningKey::<Sha512>::new(private_key);
+                        signing_key.sign(data)
+                    },
+                }
+                .to_vec()
             },
-            Algorithm::RsassaPkcs1v15
-            | Algorithm::RsaPss
-            | Algorithm::RsaOaep
-            | Algorithm::Ecdsa
-            | Algorithm::Ecdh
-            | Algorithm::AesCtr
-            | Algorithm::AesCbc
-            | Algorithm::AesGcm
-            | Algorithm::AesKw
-            | Algorithm::Pbkdf2
-            | Algorithm::Hkdf => anyhow::bail!("Signing algorithm not implemented"),
-        }
+            Algorithm::RsaPss => {
+                use rsa::pss::SigningKey;
+                let private_key = RsaPrivateKey::from_pkcs1_der(key)?;
+
+                let salt_len = salt_length
+                    .ok_or_else(|| type_error("Missing argument saltLength".to_string()))?
+                    as usize;
+
+                let rng = crypto_rng_unavailable()?;
+                match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
+                    CryptoHash::Sha1 => {
+                        let signing_key =
+                            SigningKey::<Sha1>::new_with_salt_len(private_key, salt_len);
+                        signing_key.sign_with_rng(rng, data)
+                    },
+                    CryptoHash::Sha256 => {
+                        let signing_key =
+                            SigningKey::<Sha256>::new_with_salt_len(private_key, salt_len);
+                        signing_key.sign_with_rng(rng, data)
+                    },
+                    CryptoHash::Sha384 => {
+                        let signing_key =
+                            SigningKey::<Sha384>::new_with_salt_len(private_key, salt_len);
+                        signing_key.sign_with_rng(rng, data)
+                    },
+                    CryptoHash::Sha512 => {
+                        let signing_key =
+                            SigningKey::<Sha512>::new_with_salt_len(private_key, salt_len);
+                        signing_key.sign_with_rng(rng, data)
+                    },
+                }
+                .to_vec()
+            },
+            Algorithm::Ecdsa => {
+                let curve: &EcdsaSigningAlgorithm =
+                    named_curve.ok_or_else(not_supported)?.try_into()?;
+
+                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, secure_rng_unavailable()?)
+                    .map_err(|e| anyhow::anyhow!(e))?;
+                // We only support P256-SHA256 & P384-SHA384. These are recommended signature
+                // pairs. https://briansmith.org/rustdoc/ring/signature/index.html#statics
+                if let Some(hash) = hash {
+                    match hash {
+                        CryptoHash::Sha256 | CryptoHash::Sha384 => (),
+                        _ => return Err(type_error("Unsupported algorithm")),
+                    }
+                };
+
+                let signature = key_pair
+                    .sign(secure_rng_unavailable()?, data)
+                    .map_err(|e| anyhow::anyhow!(e))?;
+
+                // Signature data as buffer.
+                signature.as_ref().to_vec()
+            },
+            Algorithm::Hmac => {
+                let hash: HmacAlgorithm = hash.ok_or_else(not_supported)?.into();
+
+                let key = HmacKey::new(hash, key);
+
+                let signature = ring::hmac::sign(&key, data);
+                signature.as_ref().to_vec()
+            },
+            _ => return Err(type_error("Unsupported algorithm".to_string())),
+        };
+
+        Ok(signature)
     }
 
     pub fn verify(

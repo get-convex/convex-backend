@@ -67,7 +67,7 @@ async fn test_crypto(rt: TestRuntime) -> anyhow::Result<()> {
     assert_contains(
         &t.query_js_error("js_builtins/crypto:algorithmNotImplemented", assert_obj!())
             .await?,
-        "Not implemented: sign with algorithm RSA-PSS for SubtleCrypto",
+        "Not implemented: verify with algorithm RSASSA-PKCS1-v1_5 for SubtleCrypto",
     );
 
     assert_contains(

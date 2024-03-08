@@ -7,7 +7,7 @@ import {
   throwUncatchableDeveloperError,
 } from "./helpers.js";
 import { performOp } from "./syscall.js";
-import { copyBuffer } from "./crypto/helpers.js";
+import { ArrayPrototypeIncludes, copyBuffer } from "./crypto/helpers.js";
 import {
   normalizeAlgorithmDeriveBits,
   normalizeAlgorithmDigest,
@@ -141,15 +141,84 @@ class SubtleCrypto {
     }
 
     switch (normalizedAlgorithm.name) {
-      case "RSASSA-PKCS1-v1_5":
-      case "RSA-PSS":
-      case "ECDSA":
-      case "Ed25519":
-        // TODO: CX-4401
-        return throwNotImplementedMethodError(
-          `sign with algorithm ${normalizedAlgorithm.name}`,
-          "SubtleCrypto",
-        );
+      case "RSASSA-PKCS1-v1_5": {
+        // 1.
+        if (key[_type] !== "private") {
+          throw new DOMException(
+            "Key type not supported",
+            "InvalidAccessError",
+          );
+        }
+
+        // 2.
+        const hashAlgorithm = key[_algorithm].hash.name;
+        const signature = performOp("crypto/sign", {
+          key: keyData,
+          algorithm: "RSASSA-PKCS1-v1_5",
+          hash: hashAlgorithm,
+          data: dataCopy,
+        });
+
+        return signature.buffer;
+      }
+      case "RSA-PSS": {
+        // 1.
+        if (key[_type] !== "private") {
+          throw new DOMException(
+            "Key type not supported",
+            "InvalidAccessError",
+          );
+        }
+
+        // 2.
+        const hashAlgorithm = key[_algorithm].hash.name;
+        const signature = performOp("crypto/sign", {
+          key: keyData,
+          algorithm: "RSA-PSS",
+          hash: hashAlgorithm,
+          saltLength: normalizedAlgorithm.saltLength,
+          data: dataCopy,
+        });
+
+        return signature.buffer;
+      }
+      case "ECDSA": {
+        // 1.
+        if (key[_type] !== "private") {
+          throw new DOMException(
+            "Key type not supported",
+            "InvalidAccessError",
+          );
+        }
+
+        // 2.
+        const hashAlgorithm = normalizedAlgorithm.hash.name;
+        const namedCurve = key[_algorithm].namedCurve;
+        if (
+          !ArrayPrototypeIncludes(ImportKey.supportedNamedCurves, namedCurve)
+        ) {
+          throw new DOMException("Curve not supported", "NotSupportedError");
+        }
+
+        if (
+          (key[_algorithm].namedCurve === "P-256" &&
+            hashAlgorithm !== "SHA-256") ||
+          (key[_algorithm].namedCurve === "P-384" &&
+            hashAlgorithm !== "SHA-384")
+        ) {
+          throw new DOMException("Not implemented", "NotSupportedError");
+        }
+
+        const signature = performOp("crypto/sign", {
+          key: keyData,
+          algorithm: "ECDSA",
+          hash: hashAlgorithm,
+          namedCurve,
+          data: dataCopy,
+        });
+
+        return signature.buffer;
+      }
       case "HMAC": {
         const hashAlgorithm = key.algorithm.hash.name;
 
@@ -160,6 +229,22 @@ class SubtleCrypto {
           data: dataCopy,
         });
 
+        return signature.buffer;
+      }
+      case "Ed25519": {
+        // 1.
+        if (key[_type] !== "private") {
+          throw new DOMException(
+            "Key type not supported",
+            "InvalidAccessError",
+          );
+        }
+
+        // https://briansmith.org/rustdoc/src/ring/ec/curve25519/ed25519/signing.rs.html#260
+        const signature = performOp("crypto/signEd25519", keyData, dataCopy);
+        if (signature === null) {
+          throw new DOMException("Failed to sign", "OperationError");
+        }
         return signature.buffer;
       }
     }
@@ -423,7 +508,7 @@ class SubtleCrypto {
       case "Ed25519":
         // TODO: CX-4401
         return throwNotImplementedMethodError(
-          `sign with algorithm ${normalizedAlgorithm.name}`,
+          `verify with algorithm ${normalizedAlgorithm.name}`,
           "SubtleCrypto",
         );
       case "HMAC": {
