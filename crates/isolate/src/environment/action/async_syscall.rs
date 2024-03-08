@@ -22,7 +22,6 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use sync_types::UdfPath;
 use value::id_v6::DocumentIdV6;
 use vector::VectorSearchRequest;
 
@@ -81,17 +80,18 @@ impl<RT: Runtime> TaskExecutor<RT> {
             name: String,
             args: UdfArgsJson,
         }
-        let parsed_args: RunQueryArgs = with_argument_error("httpEndpoint/runQuery", || {
-            Ok(serde_json::from_value(args)?)
+        let (udf_path, args) = with_argument_error("runQuery", || {
+            let RunQueryArgs { name, args } = serde_json::from_value(args)?;
+            let udf_path = name.parse()?;
+            Ok((udf_path, args))
         })?;
 
-        let udf_path: UdfPath = parsed_args.name.parse()?;
         let value = self
             .action_callbacks
             .execute_query(
                 self.identity.clone(),
                 udf_path,
-                parsed_args.args.into_arg_vec(),
+                args.into_arg_vec(),
                 false,
                 self.context.clone(),
             )
@@ -111,17 +111,18 @@ impl<RT: Runtime> TaskExecutor<RT> {
             name: String,
             args: UdfArgsJson,
         }
-        let parsed_args: RunMutationArgs = with_argument_error("httpEndpoint/runMutation", || {
-            Ok(serde_json::from_value(args)?)
+        let (udf_path, args) = with_argument_error("runMutation", || {
+            let RunMutationArgs { name, args } = serde_json::from_value(args)?;
+            let udf_path = name.parse()?;
+            Ok((udf_path, args))
         })?;
 
-        let udf_path: UdfPath = parsed_args.name.parse()?;
         let value = self
             .action_callbacks
             .execute_mutation(
                 self.identity.clone(),
                 udf_path,
-                parsed_args.args.into_arg_vec(),
+                args.into_arg_vec(),
                 false,
                 self.context.clone(),
             )
@@ -138,17 +139,18 @@ impl<RT: Runtime> TaskExecutor<RT> {
             name: String,
             args: UdfArgsJson,
         }
-        let parsed_args: RunActionArgs = with_argument_error("httpEndpoint/runAction", || {
-            Ok(serde_json::from_value(args)?)
+        let (udf_path, args) = with_argument_error("runAction", || {
+            let RunActionArgs { name, args } = serde_json::from_value(args)?;
+            let udf_path = name.parse()?;
+            Ok((udf_path, args))
         })?;
 
-        let udf_path: UdfPath = parsed_args.name.parse()?;
         let value = self
             .action_callbacks
             .execute_action(
                 self.identity.clone(),
                 udf_path,
-                parsed_args.args.into_arg_vec(),
+                args.into_arg_vec(),
                 false,
                 self.context.clone(),
             )
