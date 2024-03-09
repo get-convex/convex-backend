@@ -121,7 +121,7 @@ tonic-build = "0.10.0"
 tonic-health = "0.10.0"
 tower = { version = "0.4", features = [ "limit", "timeout" ] }
 tower-cookies = "0.9"
-tower-http = { version = "0.4", features = [ "trace", "cors", "decompression-br", "compression-br" ] }
+tower-http = { version = "0.4", features = [ "trace", "cors" ] }
 tracing = "0.1"
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
