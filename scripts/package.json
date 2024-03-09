@@ -1,0 +1,7 @@
+{
+  "name": "convex_dev_dependencies",
+  "private": true,
+  "devDependencies": {
+    "@microsoft/rush": "^5.90.0"
+  }
+}

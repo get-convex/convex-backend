@@ -1,0 +1,67 @@
+name: Build and Test Convex Backend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  build_and_test:
+    name: Build and Test Convex Backend
+    runs-on: [self-hosted, aws, x64, xlarge]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          r2-access-key: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Check Cargo.lock up-to-date
+        run: cargo update -w --locked
+
+      - name: Cache pnpm artifacts
+        uses: actions/cache@v3
+        with:
+          path: |
+            npm-packages/common/temp/build-cache
+            npm-packages/common/temp/pnpm-store
+          key: pnpm-cache-${{
+            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+          restore-keys: pnpm-cache-
+
+      - name: Node setup
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: NPM v8
+        run: npm install -g npm@8 --registry=https://registry.npmjs.org
+
+      - name: NPM install globals
+        run: npm ci --prefix scripts
+
+      - name: Install JS
+        run: |
+          just rush install
+          just rush build
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@cargo-nextest
+
+      - name: Build rust tests
+        run: cargo nextest run --no-run --profile ci
+
+      - name: Run Rust tests
+        run: cargo nextest run --profile ci
