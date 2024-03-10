@@ -1,7 +1,20 @@
 {
-  "name": "convex_dev_dependencies",
+  "name": "convex",
   "private": true,
+  "scripts": {
+    "format": "prettier --write ."
+  },
   "devDependencies": {
-    "@microsoft/rush": "^5.90.0"
+    "@microsoft/rush": "^5.113.4",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@typescript-eslint/parser": "^6.7.4",
+    "dprint": "0.45.0",
+    "eslint": "^8.29.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-jest": "^27.2.3",
+    "eslint-plugin-react": "^7.30.0",
+    "eslint-plugin-react-hooks": "^4.5.0",
+    "jest": "^27.1.0",
+    "prettier": "3.2.5"
   }
 }
