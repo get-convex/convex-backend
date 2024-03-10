@@ -408,6 +408,10 @@ async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
     }
   > = new Map();
   for (const [name, value] of Object.entries(module)) {
+    if (value === undefined || value === null) {
+      continue;
+    }
+
     // TODO: This is a little more permissive than our V8 layer in that we
     // don't check whether `value instanceof Function`. This is tricky here
     // since we need to use the context's `Function` for the prototype check.
