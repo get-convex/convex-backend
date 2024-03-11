@@ -556,11 +556,11 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 let outcome = ActionOutcome {
                     unix_timestamp,
                     udf_path: job.cron_spec.udf_path,
-                    log_lines: vec![].into(),
                     arguments: job.cron_spec.udf_args.clone(),
                     identity,
                     result: Err(err),
                     syscall_trace: SyscallTrace::new(),
+                    log_lines: vec![].into(),
                     udf_server_version: None,
                 };
                 self.function_log.log_action(

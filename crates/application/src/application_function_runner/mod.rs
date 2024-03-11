@@ -1171,15 +1171,16 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 )
                 .await;
                 let node_outcome = node_outcome_result?;
+
                 let outcome = ActionOutcome {
                     udf_path: name.clone(),
                     arguments,
                     identity: tx.inert_identity(),
                     unix_timestamp,
-                    log_lines: node_outcome.log_lines,
                     result: node_outcome.result.map(JsonPackedValue::pack),
                     syscall_trace: node_outcome.syscall_trace,
                     udf_server_version,
+                    log_lines: node_outcome.log_lines,
                 };
                 let memory_in_mb = node_outcome.memory_used_in_mb;
                 Ok(ActionCompletion {
