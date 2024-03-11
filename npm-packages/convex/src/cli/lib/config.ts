@@ -552,6 +552,8 @@ export async function pullConfig(
   adminKey: string,
 ): Promise<Config> {
   const fetch = deploymentFetch(origin);
+
+  changeSpinner(ctx, "Downloading current deployment state...");
   try {
     const res = await fetch("/api/get_config", {
       method: "POST",

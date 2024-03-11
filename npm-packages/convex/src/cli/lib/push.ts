@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { Context, logMessage } from "../../bundler/context.js";
+import { Context, changeSpinner, logMessage } from "../../bundler/context.js";
 import { doCodegen } from "./codegen.js";
 import {
   configFromProjectConfig,
@@ -82,6 +82,7 @@ export async function runPush(ctx: Context, options: PushOptions) {
     options.adminKey,
   );
 
+  changeSpinner(ctx, "Diffing local code and deployment state");
   const diff = diffConfig(remoteConfig, localConfig);
   if (diff === "" && schemaState?.state === "active") {
     if (verbose) {
