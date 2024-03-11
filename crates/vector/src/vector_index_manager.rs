@@ -13,7 +13,6 @@ use common::{
         },
         IndexConfig,
         IndexMetadata,
-        TabletIndexMetadata,
     },
     document::{
         ParsedDocument,
@@ -139,9 +138,9 @@ impl IndexState {
     }
 }
 
-fn get_vector_index_metadata(
+fn get_vector_index_states(
     registry: &IndexRegistry,
-) -> anyhow::Result<OrdMap<InternalId, (VectorIndexState, ParsedDocument<TabletIndexMetadata>)>> {
+) -> anyhow::Result<OrdMap<InternalId, VectorIndexState>> {
     let mut indexes = OrdMap::new();
 
     for index in registry.all_vector_indexes() {
@@ -152,7 +151,7 @@ fn get_vector_index_metadata(
         else {
             continue;
         };
-        indexes.insert(index.id().internal_id(), (on_disk_state.clone(), index));
+        indexes.insert(index.id().internal_id(), on_disk_state.clone());
     }
     Ok(indexes)
 }
@@ -188,18 +187,9 @@ impl VectorIndexManager {
 
     pub fn bootstrap_index_metadata(registry: &IndexRegistry) -> anyhow::Result<Self> {
         let _timer = bootstrap_vector_indexes_timer();
-        let vector_indexes_and_metadata = get_vector_index_metadata(registry)?;
-        let indexes = IndexState::Bootstrapping(Self::index_states(vector_indexes_and_metadata));
+        let vector_indexes_and_metadata = get_vector_index_states(registry)?;
+        let indexes = IndexState::Bootstrapping(vector_indexes_and_metadata);
         Ok(Self { indexes })
-    }
-
-    fn index_states(
-        indexes: OrdMap<InternalId, (VectorIndexState, ParsedDocument<TabletIndexMetadata>)>,
-    ) -> OrdMap<InternalId, VectorIndexState> {
-        indexes
-            .into_iter()
-            .map(|(index_id, (index, _))| (index_id, index))
-            .collect()
     }
 
     pub fn backfilled_and_enabled_index_sizes(

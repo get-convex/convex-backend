@@ -43,6 +43,7 @@ use sync_types::{
 use value::{
     values_to_bytes,
     ConvexValue,
+    ResolvedDocumentId,
     TableId,
     TableMapping,
 };
@@ -260,7 +261,7 @@ pub async fn load_metadata_fast_forward_ts(
     registry: &IndexRegistry,
     snapshot: &PersistenceSnapshot,
     table_mapping: &TableMapping,
-    index: &ParsedDocument<TabletIndexMetadata>,
+    index: ResolvedDocumentId,
 ) -> anyhow::Result<Option<Timestamp>> {
     let metadata_table_id = table_mapping.id(&INDEX_WORKER_METADATA_TABLE)?;
     let metadata_index_id = (*INDEX_DOC_ID_INDEX)
@@ -269,7 +270,7 @@ pub async fn load_metadata_fast_forward_ts(
     let metadata_index_id: GenericIndexName<TableId> = metadata_index_id.into();
     let metadata_index_internal_id = registry.get_enabled(&metadata_index_id).unwrap().id();
 
-    let id_value = ConvexValue::String(index.id().internal_id().to_string().try_into()?);
+    let id_value = ConvexValue::String(index.internal_id().to_string().try_into()?);
     let id_value_bytes = values_to_bytes(&[Some(id_value)]);
     let interval = Interval::prefix(BinaryKey::from(id_value_bytes));
 

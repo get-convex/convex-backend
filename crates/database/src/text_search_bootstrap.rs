@@ -56,7 +56,7 @@ pub async fn bootstrap_search(
     let mut search_indexes_with_fast_forward_ts = vec![];
     for index in registry.all_search_indexes() {
         let fast_forward_ts =
-            load_metadata_fast_forward_ts(registry, &snapshot, table_mapping, &index).await?;
+            load_metadata_fast_forward_ts(registry, &snapshot, table_mapping, index.id()).await?;
         search_indexes_with_fast_forward_ts.push((index, fast_forward_ts));
     }
 
@@ -394,7 +394,7 @@ mod tests {
             &snapshot.index_registry,
             &persistence_snapshot,
             tx.table_mapping(),
-            &index_doc,
+            index_doc.id(),
         )
         .await?;
 

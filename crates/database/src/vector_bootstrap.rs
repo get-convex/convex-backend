@@ -1,10 +1,14 @@
 use std::{
-    cmp::max,
-    future,
+    cmp::{
+        max,
+        min,
+    },
+    collections::BTreeMap,
     ops::Bound,
     time::Duration,
 };
 
+use anyhow::Context;
 use common::{
     bootstrap_model::index::{
         vector_index::VectorIndexState,
@@ -21,7 +25,11 @@ use common::{
     persistence_helpers::stream_revision_pairs,
     query::Order,
     runtime::Runtime,
-    types::WriteTimestamp,
+    types::{
+        IndexId,
+        RepeatableTimestamp,
+        WriteTimestamp,
+    },
 };
 use errors::ErrorMetadataAnyhowExt;
 use futures::TryStreamExt;
@@ -31,7 +39,10 @@ use sync_types::{
     backoff::Backoff,
     Timestamp,
 };
-use value::TableMapping;
+use value::{
+    TableId,
+    TableMapping,
+};
 use vector::{
     IndexState,
     MemoryVectorIndex,
@@ -56,6 +67,15 @@ pub struct VectorBootstrapWorker<RT: Runtime> {
 
 const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
 const MAX_BACKOFF: Duration = Duration::from_secs(5);
+
+struct VectorIndexesToBootstrap {
+    vector_indexes: OrdMap<IndexId, (VectorIndexState, MemoryVectorIndex, QdrantSchema)>,
+    /// Map of table ids to the index ids that are defined for that table.
+    table_to_vector_indexes: BTreeMap<TableId, Vec<IndexId>>,
+    /// Timestamp to walk the document log from to get all of the revisions
+    /// since the last write to disk.
+    oldest_index_ts: Timestamp,
+}
 
 impl<RT: Runtime> VectorBootstrapWorker<RT> {
     pub(crate) fn new(
@@ -124,13 +144,68 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
                 &self.index_registry,
                 &snapshot,
                 &self.table_mapping,
-                &index,
+                index.id(),
             )
             .await?;
             indexes_with_fast_forward_ts.push((index, fast_forward_ts));
         }
 
         Self::bootstrap(&self.persistence, indexes_with_fast_forward_ts).await
+    }
+
+    fn vector_indexes_to_bootstrap(
+        upper_bound: RepeatableTimestamp,
+        vector_indexes_with_fast_forward_timestamps: Vec<(
+            ParsedDocument<TabletIndexMetadata>,
+            Option<Timestamp>,
+        )>,
+    ) -> anyhow::Result<VectorIndexesToBootstrap> {
+        let mut vector_indexes = OrdMap::new();
+        // We keep track of latest ts we can bootstrap from for each vector index.
+        let mut oldest_index_ts = *upper_bound;
+        let mut table_to_vector_indexes = BTreeMap::new();
+        for (index_doc, fast_forward_ts) in vector_indexes_with_fast_forward_timestamps {
+            let (index_id, index_metadata) = index_doc.into_id_and_value();
+            let (on_disk_state, developer_config) = match index_metadata.config {
+                IndexConfig::Vector {
+                    on_disk_state,
+                    ref developer_config,
+                    ..
+                } => (on_disk_state, developer_config),
+                _ => continue,
+            };
+            table_to_vector_indexes
+                .entry(*index_metadata.name.table())
+                .and_modify(|vector_indexes: &mut Vec<_>| {
+                    vector_indexes.push(index_id.internal_id())
+                })
+                .or_insert(vec![index_id.internal_id()]);
+            let qdrant_schema = QdrantSchema::new(developer_config);
+            let ts = match on_disk_state {
+                VectorIndexState::Backfilled(ref snapshot_info)
+                | VectorIndexState::SnapshottedAt(ref snapshot_info) => {
+                    // Use fast forward ts instead of snapshot ts.
+                    let current_index_ts =
+                        max(fast_forward_ts.unwrap_or_default(), snapshot_info.ts);
+                    oldest_index_ts = min(oldest_index_ts, current_index_ts);
+                    snapshot_info.ts
+                },
+                VectorIndexState::Backfilling(_) => upper_bound.succ()?,
+            };
+            vector_indexes.insert(
+                index_id.internal_id(),
+                (
+                    on_disk_state.clone(),
+                    MemoryVectorIndex::new(WriteTimestamp::Committed(ts)),
+                    qdrant_schema,
+                ),
+            );
+        }
+        Ok(VectorIndexesToBootstrap {
+            vector_indexes,
+            table_to_vector_indexes,
+            oldest_index_ts,
+        })
     }
 
     async fn bootstrap(
@@ -143,55 +218,39 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
         let _status = log_worker_starting("VectorBootstrap");
         let timer = vector::metrics::bootstrap_timer();
         let upper_bound = persistence.upper_bound();
-
-        let mut indexes = IndexState::Ready(OrdMap::new());
-
         let mut num_revisions = 0;
         let mut total_size = 0;
 
-        for (index_doc, fast_forward_ts) in vector_indexes_with_fast_forward_timestamps {
-            let (index_id, index_metadata) = index_doc.into_id_and_value();
+        let VectorIndexesToBootstrap {
+            mut vector_indexes,
+            table_to_vector_indexes,
+            oldest_index_ts,
+        } = Self::vector_indexes_to_bootstrap(
+            upper_bound,
+            vector_indexes_with_fast_forward_timestamps,
+        )?;
 
-            let IndexConfig::Vector {
-                ref developer_config,
-                ref on_disk_state,
-            } = &index_metadata.config
+        let range = (
+            Bound::Excluded(oldest_index_ts),
+            Bound::Included(*upper_bound),
+        );
+        let document_stream = persistence.load_documents(TimestampRange::new(range)?, Order::Asc);
+        let revision_stream = stream_revision_pairs(document_stream, persistence);
+        futures::pin_mut!(revision_stream);
+
+        while let Some(revision_pair) = revision_stream.try_next().await? {
+            num_revisions += 1;
+            total_size += revision_pair.document().map(|d| d.size()).unwrap_or(0);
+            let Some(vector_indexes_to_update) =
+                table_to_vector_indexes.get(revision_pair.id.table())
             else {
                 continue;
             };
-            let snapshot_info = match on_disk_state {
-                VectorIndexState::Backfilled(ref snapshot_info) => snapshot_info,
-                VectorIndexState::SnapshottedAt(ref snapshot_info) => snapshot_info,
-                VectorIndexState::Backfilling(_) => {
-                    indexes.insert(
-                        index_id.internal_id(),
-                        on_disk_state.clone(),
-                        MemoryVectorIndex::new(WriteTimestamp::Committed(upper_bound.succ()?)),
-                    );
-                    continue;
-                },
-            };
+            for index_id in vector_indexes_to_update {
+                let (_on_disk_state, memory_index, qdrant_schema) = vector_indexes
+                    .get_mut(index_id)
+                    .context("Missing vector index for index present in table_to_vector_indexes")?;
 
-            let ts = max(fast_forward_ts.unwrap_or_default(), snapshot_info.ts);
-            tracing::info!(
-                "Bootstrapping vector index {:?} from {ts} for fast forward ts: {}, snapshot_ts: \
-                 {}",
-                index_metadata.name,
-                fast_forward_ts.unwrap_or_default(),
-                snapshot_info.ts
-            );
-            let range = (Bound::Excluded(ts), Bound::Included(*upper_bound));
-            let document_stream = persistence
-                .load_documents(TimestampRange::new(range)?, Order::Asc)
-                .try_filter(|(_, id, _)| future::ready(id.table() == index_metadata.name.table()));
-            let revision_stream = stream_revision_pairs(document_stream, persistence);
-            futures::pin_mut!(revision_stream);
-
-            let qdrant_schema = QdrantSchema::new(developer_config);
-
-            let mut memory_index =
-                MemoryVectorIndex::new(WriteTimestamp::Committed(snapshot_info.ts.succ()?));
-            while let Some(revision_pair) = revision_stream.try_next().await? {
                 memory_index.update(
                     revision_pair.id.internal_id(),
                     WriteTimestamp::Committed(revision_pair.ts()),
@@ -202,11 +261,7 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
                         .document()
                         .and_then(|d| qdrant_schema.index(d)),
                 )?;
-                num_revisions += 1;
-                total_size += revision_pair.document().map(|d| d.size()).unwrap_or(0);
             }
-
-            indexes.insert(index_id.internal_id(), on_disk_state.clone(), memory_index);
         }
 
         tracing::info!(
@@ -214,6 +269,14 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
             timer.elapsed()
         );
         vector::metrics::finish_bootstrap(num_revisions, total_size, timer);
+        let indexes = IndexState::Ready(
+            vector_indexes
+                .into_iter()
+                .map(|(id, (on_disk_state, memory_index, _qdrant_schema))| {
+                    (id, (on_disk_state, memory_index))
+                })
+                .collect(),
+        );
         Ok(VectorIndexManager { indexes })
     }
 
@@ -412,6 +475,21 @@ mod tests {
         let result = query_vectors(&db, &index_metadata).await?;
         assert_expected_vector(result, vector_id);
 
+        Ok(())
+    }
+
+    // This tests that when the timestamp range is (upper_bound exclusive,
+    // upper_bound inclusive), bootstrapping doesn't panic.
+    #[convex_macro::test_runtime]
+    async fn bootstrap_just_backfilling_index(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = DbFixtures::new(&rt).await?;
+        let index_metadata = backfilling_vector_index()?;
+        let mut tx = fixtures.db.begin_system().await?;
+        IndexModel::new(&mut tx)
+            .add_application_index(index_metadata.clone())
+            .await?;
+        fixtures.db.commit(tx).await?;
+        reopen_db(&rt, &fixtures).await?;
         Ok(())
     }
 
