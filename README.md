@@ -74,7 +74,7 @@ To get started, first install [Dependencies](#dependencies) and then see
   - `npm install --prefix scripts`
   - We manage the packages in a monorepo using [Rush](https://rushjs.io/).
 - Install JS dependencies
-  - `just rush install`
+  - `just rush update`
 
 ## Running the Convex Backend
 
