@@ -56,8 +56,8 @@ impl TryFrom<AuthInfoPersisted> for ConvexObject {
     derive(proptest_derive::Arbitrary, PartialEq, Default)
 )]
 pub struct AuthDiff {
-    added: Vec<String>,
-    removed: Vec<String>,
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
 }
 
 impl TryFrom<AuthDiff> for ConvexObject {

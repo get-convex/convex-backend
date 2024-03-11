@@ -124,7 +124,7 @@ impl From<LegacyIndexDiff> for DeploymentAuditLogEvent {
 }
 
 impl DeploymentAuditLogEvent {
-    fn action(&self) -> &'static str {
+    pub fn action(&self) -> &'static str {
         match self {
             DeploymentAuditLogEvent::CreateEnvironmentVariable { .. } => {
                 "create_environment_variable"

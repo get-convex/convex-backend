@@ -416,8 +416,8 @@ impl TryFrom<ConvexObject> for UdfServerVersionDiff {
 )]
 #[derive(Debug, Clone, PartialEq)]
 pub struct ModuleDiff {
-    added_functions: Vec<String>,
-    removed_functions: Vec<String>,
+    pub added_functions: Vec<String>,
+    pub removed_functions: Vec<String>,
 }
 
 impl TryFrom<ModuleDiff> for ConvexObject {
@@ -487,9 +487,9 @@ impl ModuleDiff {
     derive(proptest_derive::Arbitrary, PartialEq)
 )]
 pub struct CronDiff {
-    added: Vec<String>,
-    updated: Vec<String>,
-    deleted: Vec<String>,
+    pub added: Vec<String>,
+    pub updated: Vec<String>,
+    pub deleted: Vec<String>,
 }
 
 impl TryFrom<CronDiff> for ConvexObject {
