@@ -228,6 +228,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             },
             SearchIndexState::SnapshottedAt(_) => SearchIndexState::SnapshottedAt(snapshot_data),
         };
+        let index_name = job.index_name.clone();
         tx.replace_system_document(
             job.metadata_id,
             IndexMetadata::new_search_index(
@@ -241,6 +242,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         self.database
             .commit_with_write_source(tx, "search_index_worker_build_index")
             .await?;
+        tracing::info!("Built search index {} at {}", index_name, snapshot_ts);
 
         timer.finish();
         metrics::search::log_documents_per_index(num_indexed_documents);
