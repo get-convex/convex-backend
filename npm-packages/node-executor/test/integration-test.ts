@@ -18,7 +18,6 @@ import { hashFromFile } from "../src/build_deps";
 import path from "node:path";
 import os from "node:os";
 import { randomUUID } from "crypto";
-import { Writable } from "stream";
 
 type NewType = FunctionName;
 
@@ -32,20 +31,10 @@ async function executeWrapper(
   createPackageJsonIfMissing(__dirname);
   const saved = console;
   const timeoutSecs = 300;
-  const logLines: string[] = [];
-  const responseStream = new Writable({
-    write: (chunk, _encoding, callback) => {
-      const chunkJson = JSON.parse(chunk);
-      if (chunkJson.kind === "LogLine") {
-        logLines.push(chunkJson.data);
-      }
-      callback();
-    },
-  });
   try {
-    setupConsole(responseStream);
+    setupConsole();
     const requestId = uuidv4();
-    const response = await executeInner(
+    return await executeInner(
       requestId,
       __dirname,
       modulePath,
@@ -68,7 +57,6 @@ async function executeWrapper(
           },
         ),
     );
-    return { response, logLines };
   } finally {
     globalThis.console = saved;
   }
@@ -126,98 +114,77 @@ async function expectFailure(fn: () => Promise<unknown>): Promise<Error> {
  *     transitive.js
  */
 async function test_diamond() {
-  const { response, logLines } = await executeWrapper(
-    "diamond.js",
-    "default",
-    "",
-    [],
-  );
+  const response = await executeWrapper("diamond.js", "default", "", []);
 
   printResponse(response);
   if (response.type !== "success") {
     throw new Error(`Unexpected error`);
   }
   assert.deepEqual(response.udfReturn, "1");
-  assert.deepEqual(logLines, []);
+  assert.deepEqual(response.logLines, []);
 }
 
 /**
  * Test for circular dependencies.
  */
 async function test_cyclic() {
-  const { response, logLines } = await executeWrapper(
-    "cyclic1.js",
-    "default",
-    "",
-    [],
-  );
+  const response = await executeWrapper("cyclic1.js", "default", "", []);
 
   printResponse(response);
   if (response.type !== "success") {
     throw new Error(`Unexpected error`);
   }
   assert.deepEqual(response.udfReturn, "1");
-  assert.deepEqual(logLines, []);
+  assert.deepEqual(response.logLines, []);
 }
 
 async function test_execute_success() {
-  const { response, logLines } = await executeWrapper(
-    "b.js",
-    "default",
-    "5",
-    [],
-  );
+  const response = await executeWrapper("b.js", "default", "5", []);
 
   printResponse(response);
   if (response.type !== "success") {
     throw new Error(`Unexpected error`);
   }
   assert.deepEqual(response.udfReturn, "8");
-  assert.deepEqual(logLines, ["[LOG] 'Computing...'"]);
+  assert.deepEqual(response.logLines, ["[LOG] 'Computing...'"]);
 }
 
 async function test_execute_env_var() {
   // Initialize and execute once.
-  let result = await executeWrapper("d.js", "default", "", [
+  let response = await executeWrapper("d.js", "default", "", [
     { name: "GLOBAL_SCOPE_VAR", value: "982" },
   ]);
-  let response = result.response;
-  let logLines = result.logLines;
 
   printResponse(response);
   if (response.type !== "success") {
     throw new Error(`Unexpected error`);
   }
   assert.deepEqual(response.udfReturn, "982");
-  assert.deepEqual(logLines, []);
+  assert.deepEqual(response.logLines, []);
 
   // Call agin with same env variables.
-  result = await executeWrapper("d.js", "default", "", [
+  response = await executeWrapper("d.js", "default", "", [
     { name: "GLOBAL_SCOPE_VAR", value: "982" },
   ]);
-  response = result.response;
-  logLines = result.logLines;
 
   printResponse(response);
   if (response.type !== "success") {
     throw new Error(`Unexpected error`);
   }
   assert.deepEqual(response.udfReturn, "982");
-  assert.deepEqual(logLines, []);
+  assert.deepEqual(response.logLines, []);
 
   // Call with different env variables. Should recompile.
-  result = await executeWrapper("d.js", "default", "", [
+  response = await executeWrapper("d.js", "default", "", [
     { name: "GLOBAL_SCOPE_VAR", value: "329" },
   ]);
-  response = result.response;
-  logLines = result.logLines;
 
   printResponse(response);
   if (response.type !== "success") {
     throw new Error(`Unexpected error`);
   }
   assert.deepEqual(response.udfReturn, "329");
-  assert.deepEqual(logLines, []);
+  assert.deepEqual(response.logLines, []);
 }
 
 // Tests that env vars don't leak into the Node
@@ -235,7 +202,7 @@ async function test_execute_env_var_sanitanization() {
 }
 
 async function test_execute_failure() {
-  const { response } = await executeWrapper("b.js", "throwError", "5", []);
+  const response = await executeWrapper("b.js", "throwError", "5", []);
 
   printResponse(response);
   if (response.type !== "error") {
@@ -299,7 +266,7 @@ async function test_execute_syscall() {
     // eslint-disable-next-line @typescript-eslint/no-empty-function
     assertNoPendingSyscalls() {},
   };
-  const { response, logLines } = await executeWrapper(
+  const response = await executeWrapper(
     "c.js",
     "default",
     "[]",
@@ -311,12 +278,12 @@ async function test_execute_syscall() {
     throw new Error(`Unexpected error`);
   }
   assert.deepEqual(response.udfReturn, "[7,8]");
-  assert.deepEqual(logLines, []);
+  assert.deepEqual(response.logLines, []);
   assert.deepEqual(syscallCount, 2);
 }
 
 async function test_execute_invalid_syscall() {
-  const { response } = await executeWrapper(
+  const response = await executeWrapper(
     "c.js",
     "default",
     "[]",
@@ -348,12 +315,7 @@ async function test_execute_invalid_syscall() {
 }
 
 async function runExample(example: string) {
-  const { response } = await executeWrapper(
-    "/third_party.js",
-    example,
-    "[]",
-    [],
-  );
+  const response = await executeWrapper("/third_party.js", example, "[]", []);
   printResponse(response);
   assert.equal(response.type, "success");
   return jsonToConvex(JSON.parse((response as any).udfReturn));
@@ -397,12 +359,7 @@ async function test_modules() {
 // Make sure that instanceof works as expected. Used to be a big deal when
 // we used vm.Module, but works ok when leverage Node.js
 async function test_contexts() {
-  const { response, logLines } = await executeWrapper(
-    "contexts.js",
-    "default",
-    "",
-    [],
-  );
+  const response = await executeWrapper("contexts.js", "default", "", []);
 
   printResponse(response);
   if (response.type !== "success") {
@@ -413,7 +370,7 @@ async function test_contexts() {
   )) {
     assert.deepEqual(succeeded, true, name);
   }
-  assert.deepEqual(logLines, []);
+  assert.deepEqual(response.logLines, []);
 }
 
 async function test_download() {
