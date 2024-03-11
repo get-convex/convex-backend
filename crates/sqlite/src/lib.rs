@@ -424,6 +424,56 @@ impl Persistence for SqlitePersistence {
         Ok(count_deleted)
     }
 
+    async fn documents_to_delete(
+        &self,
+        expired_documents: &Vec<(Timestamp, InternalDocumentId)>,
+    ) -> anyhow::Result<Vec<(Timestamp, InternalDocumentId)>> {
+        let connection = &self.inner.lock().connection;
+        let mut all_entries = BTreeSet::new();
+        for expired_entry in expired_documents {
+            let table_id: &TableId = expired_entry.1.table();
+            let id = expired_entry.1.internal_id();
+            let params = params![&table_id.0[..], &id[..], &u64::from(expired_entry.0),];
+            let mut entries_query = connection.prepare(DOCUMENTS_TO_DELETE)?;
+            let row_iter = entries_query.query_map(params, |row| {
+                let table_id: Vec<u8> = row.get(0)?;
+                let id: Vec<u8> = row.get(1)?;
+                let ts =
+                    Timestamp::try_from(row.get::<_, u64>(2)?).expect("timestamp out of bounds");
+                Ok((table_id, id, ts))
+            })?;
+            for row in row_iter {
+                let (table_id, id, ts) = row?;
+                all_entries.insert((
+                    ts,
+                    InternalDocumentId::new(TableId(table_id.try_into()?), id.try_into()?),
+                ));
+            }
+        }
+        Ok(all_entries.into_iter().collect())
+    }
+
+    async fn delete(
+        &self,
+        documents: Vec<(Timestamp, InternalDocumentId)>,
+    ) -> anyhow::Result<usize> {
+        let mut inner = self.inner.lock();
+        let tx = inner.connection.transaction()?;
+        let mut delete_document_query = tx.prepare_cached(DELETE_DOCUMENT)?;
+        let mut count_deleted = 0;
+
+        for (ts, internal_id) in documents {
+            let table_id: &TableId = internal_id.table();
+            let id = internal_id.internal_id();
+            count_deleted +=
+                delete_document_query
+                    .execute(params![&table_id.0[..], &id[..], &u64::from(ts),])?;
+        }
+        drop(delete_document_query);
+        tx.commit()?;
+        Ok(count_deleted)
+    }
+
     fn box_clone(&self) -> Box<dyn Persistence> {
         Box::new(self.clone())
     }
@@ -633,6 +683,12 @@ FROM indexes WHERE index_id = ? AND key = ? AND ts <= ?
 ORDER BY index_id DESC, key DESC, ts DESC
 "#;
 const DELETE_INDEX: &str = "DELETE FROM indexes WHERE index_id = ? AND ts <= ? AND key = ?";
+
+const DOCUMENTS_TO_DELETE: &str = r#"SELECT table_id, id, ts
+FROM documents WHERE table_id = ? AND id = ? AND ts <= ?
+ORDER BY table_id DESC, id DESC, ts DESC
+"#;
+const DELETE_DOCUMENT: &str = "DELETE FROM documents WHERE table_id = ? AND id = ? AND ts = ?";
 
 const CHECK_IS_READ_ONLY: &str = "SELECT 1 FROM read_only LIMIT 1";
 const SET_READ_ONLY: &str = "INSERT INTO read_only (id) VALUES (1)";

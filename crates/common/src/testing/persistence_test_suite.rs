@@ -8,6 +8,7 @@ use std::{
 };
 
 use futures::{
+    pin_mut,
     Future,
     StreamExt,
     TryStreamExt,
@@ -203,6 +204,13 @@ macro_rules! run_persistence_test_suite {
             let $db = $create_db;
             let p = $create_persistence;
             persistence_test_suite::persistence_enforce_retention(p).await
+        }
+
+        #[tokio::test]
+        async fn test_persistence_delete_documents() -> anyhow::Result<()> {
+            let $db = $create_db;
+            let p = $create_persistence;
+            persistence_test_suite::persistence_delete_documents(p).await
         }
 
         #[tokio::test]
@@ -1311,23 +1319,23 @@ pub async fn persistence_global<P: Persistence>(p: P) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn doc(
+    id: ResolvedDocumentId,
+    ts: i32,
+    val: Option<i64>,
+) -> anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)> {
+    let doc = val
+        .map(|val| ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("value" => val)))
+        .transpose()?;
+    Ok((Timestamp::must(ts), id.into(), doc))
+}
+
 pub async fn persistence_enforce_retention<P: Persistence>(p: P) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let by_id_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
     let by_val_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
     let table: TableName = str::parse("table")?;
     let table_id = id_generator.table_id(&table).table_id;
-
-    fn doc(
-        id: ResolvedDocumentId,
-        ts: i32,
-        val: Option<i64>,
-    ) -> anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)> {
-        let doc = val
-            .map(|val| ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("value" => val)))
-            .transpose()?;
-        Ok((Timestamp::must(ts), id.into(), doc))
-    }
 
     let by_id = |id: ResolvedDocumentId,
                  ts: i32,
@@ -1490,6 +1498,69 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: P) -> anyhow::Resu
     );
     let results: Vec<_> = stream.try_collect::<Vec<_>>().await?;
     assert_eq!(results, vec![]);
+
+    Ok(())
+}
+
+pub async fn persistence_delete_documents<P: Persistence>(p: P) -> anyhow::Result<()> {
+    let mut id_generator = TestIdGenerator::new();
+    let table: TableName = str::parse("table")?;
+
+    let id1 = id_generator.generate(&table);
+    let id2 = id_generator.generate(&table);
+    let id3 = id_generator.generate(&table);
+    let id4 = id_generator.generate(&table);
+    let id5 = id_generator.generate(&table);
+    let id6 = id_generator.generate(&table);
+    let id7 = id_generator.generate(&table);
+    let id8 = id_generator.generate(&table);
+    let id9 = id_generator.generate(&table);
+    let id10 = id_generator.generate(&table);
+
+    let documents = vec![
+        doc(id1, 1, Some(1))?,
+        doc(id2, 2, Some(2))?,
+        doc(id3, 3, Some(3))?,
+        // min_document_snapshot_ts: 4
+        doc(id4, 5, Some(4))?,
+        doc(id5, 6, Some(5))?,
+        doc(id6, 7, Some(6))?,
+        doc(id7, 8, Some(7))?,
+        doc(id8, 9, Some(8))?,
+        doc(id9, 10, Some(9))?,
+        doc(id10, 11, Some(10))?,
+    ];
+
+    p.write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
+        .await?;
+
+    let reader = p.reader();
+
+    let stream = reader.load_all_documents();
+    pin_mut!(stream);
+    let mut all_docs = Vec::new();
+    while let Some(val) = stream.try_next().await? {
+        all_docs.push(val);
+    }
+    assert_eq!(documents.clone(), all_docs);
+
+    let docs_to_delete = documents.clone()[..3]
+        .iter()
+        .map(|(ts, id, _)| (*ts, *id))
+        .collect_vec();
+
+    let expired_docs = p.documents_to_delete(&docs_to_delete).await?;
+    assert_eq!(docs_to_delete, expired_docs);
+
+    assert_eq!(p.delete(expired_docs).await?, 3);
+
+    let stream = reader.load_all_documents();
+    pin_mut!(stream);
+    let mut all_docs = Vec::new();
+    while let Some(val) = stream.try_next().await? {
+        all_docs.push(val);
+    }
+    assert_eq!(documents[3..], all_docs);
 
     Ok(())
 }

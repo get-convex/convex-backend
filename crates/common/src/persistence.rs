@@ -198,6 +198,18 @@ pub trait Persistence: Sync + Send + 'static {
     ) -> anyhow::Result<Vec<IndexEntry>>;
     async fn delete_index_entries(&self, entries: Vec<IndexEntry>) -> anyhow::Result<usize>;
 
+    // Retrieves expired documents
+    async fn documents_to_delete(
+        &self,
+        expired_documents: &Vec<(Timestamp, InternalDocumentId)>,
+    ) -> anyhow::Result<Vec<(Timestamp, InternalDocumentId)>>;
+
+    // Deletes documents
+    async fn delete(
+        &self,
+        documents: Vec<(Timestamp, InternalDocumentId)>,
+    ) -> anyhow::Result<usize>;
+
     fn box_clone(&self) -> Box<dyn Persistence>;
 
     // No-op by default. Persistence implementation can override.

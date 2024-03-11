@@ -224,6 +224,36 @@ impl Persistence for TestPersistence {
         Ok(total_deleted)
     }
 
+    async fn documents_to_delete(
+        &self,
+        expired_documents: &Vec<(Timestamp, InternalDocumentId)>,
+    ) -> anyhow::Result<Vec<(Timestamp, InternalDocumentId)>> {
+        let inner = self.inner.lock();
+        let log = &inner.log;
+        let mut new_expired_rows = Vec::new();
+        for expired_doc in expired_documents {
+            if log.get(expired_doc).is_some() {
+                new_expired_rows.push(*expired_doc);
+            }
+        }
+        Ok(new_expired_rows)
+    }
+
+    async fn delete(
+        &self,
+        documents: Vec<(Timestamp, InternalDocumentId)>,
+    ) -> anyhow::Result<usize> {
+        let mut inner = self.inner.lock();
+        let log = &mut inner.log;
+        let mut total_deleted = 0;
+        for expired_doc in documents {
+            if log.remove(&expired_doc).is_some() {
+                total_deleted += 1;
+            }
+        }
+        Ok(total_deleted)
+    }
+
     fn box_clone(&self) -> Box<dyn Persistence> {
         Box::new(self.clone())
     }
