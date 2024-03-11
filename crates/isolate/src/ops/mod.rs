@@ -16,5 +16,6 @@ mod storage;
 mod stream;
 mod text;
 mod time;
+mod validate_args;
 
 pub use self::crypto::CryptoOps;

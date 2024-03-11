@@ -81,7 +81,9 @@ use value::{
     heap_size::HeapSize,
     ConvexArray,
     Size,
+    TableMapping,
     TableMappingValue,
+    VirtualTableMapping,
 };
 
 use self::{
@@ -1081,8 +1083,12 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         self.phase.get_environment_variable(name)
     }
 
-    fn get_table_mapping(&mut self) -> anyhow::Result<TableMappingValue> {
-        anyhow::bail!("get_table_mapping unsupported in actions")
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
+        anyhow::bail!("get_table_mapping_without_system_tables unsupported in actions")
+    }
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+        anyhow::bail!("get_all_table_mappings unsupported in actions")
     }
 
     // We lookup all modules' sources upfront when initializing the action

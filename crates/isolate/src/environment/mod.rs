@@ -28,7 +28,11 @@ use model::modules::module_versions::{
 };
 use rand::Rng;
 use serde_json::Value as JsonValue;
-use value::TableMappingValue;
+use value::{
+    TableMapping,
+    TableMappingValue,
+    VirtualTableMapping,
+};
 
 pub use self::async_op::AsyncOpRequest;
 use crate::{
@@ -80,7 +84,10 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
 
     fn get_environment_variable(&mut self, name: EnvVarName)
         -> anyhow::Result<Option<EnvVarValue>>;
-    fn get_table_mapping(&mut self) -> anyhow::Result<TableMappingValue>;
+
+    /// The table mapping omitting system tables, intended for the dashboard.
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)>;
 
     fn start_async_op(
         &mut self,

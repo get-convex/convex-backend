@@ -568,7 +568,10 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             "atob" => self.op_atob(args, rv)?,
             "btoa" => self.op_btoa(args, rv)?,
             "environmentVariables/get" => self.op_environmentVariables_get(args, rv)?,
-            "getTableMapping" => self.op_getTableMapping(args, rv)?,
+            "getTableMappingWithoutSystemTables" => {
+                self.op_getTableMappingWithoutSystemTables(args, rv)?
+            },
+            "validateArgs" => self.op_validate_args(args, rv)?,
             "crypto/randomUUID" => self.op_crypto_randomUUID(args, rv)?,
             "crypto/getRandomValues" => self.op_crypto_getRandomValues(args, rv)?,
             "crypto/sign" => self.op_crypto_sign(args, rv)?,

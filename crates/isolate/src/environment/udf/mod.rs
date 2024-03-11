@@ -89,7 +89,9 @@ use value::{
         WithHeapSize,
     },
     Size,
+    TableMapping,
     TableMappingValue,
+    VirtualTableMapping,
     MAX_DOCUMENT_NESTING,
     MAX_USER_SIZE,
     VALUE_TOO_LARGE_SHORT_MSG,
@@ -254,8 +256,16 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         self.phase.get_environment_variable(name)
     }
 
-    fn get_table_mapping(&mut self) -> anyhow::Result<TableMappingValue> {
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
         Ok(self.phase.tx()?.table_mapping().clone().into())
+    }
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+        let tx = self.phase.tx()?;
+        Ok((
+            tx.table_mapping().clone(),
+            tx.virtual_table_mapping().clone(),
+        ))
     }
 
     async fn lookup_source(

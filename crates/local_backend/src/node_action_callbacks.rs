@@ -508,7 +508,7 @@ mod tests {
         let json_body = json!({
             "path":
                 "_system/frontend/paginatedScheduledJobs.js",
-            "args":json!({"paginationOpts": {"numItems": 10}}),
+            "args":json!({"paginationOpts": {"numItems": 10, "cursor": null}}),
             "format": "json",
         });
         let body = Body::from(serde_json::to_vec(&json_body)?);
@@ -571,7 +571,7 @@ mod tests {
         let json_body = json!({
             "path":
                 "_system/frontend/paginatedScheduledJobs.js",
-            "args":json!({"paginationOpts": {"numItems": 10}}),
+            "args":json!({"paginationOpts": {"numItems": 10, "cursor": null}}),
             "format": "json",
         });
         let body = Body::from(serde_json::to_vec(&json_body)?);

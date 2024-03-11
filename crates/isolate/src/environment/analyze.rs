@@ -72,7 +72,9 @@ use sync_types::{
 };
 use value::{
     heap_size::WithHeapSize,
+    TableMapping,
     TableMappingValue,
+    VirtualTableMapping,
 };
 
 use crate::{
@@ -151,7 +153,14 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         Ok(value)
     }
 
-    fn get_table_mapping(&mut self) -> anyhow::Result<TableMappingValue> {
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoTableMappingFetchDuringImport",
+            "Getting the table mapping unsupported at import time"
+        ))
+    }
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoTableMappingFetchDuringImport",
             "Getting the table mapping unsupported at import time"

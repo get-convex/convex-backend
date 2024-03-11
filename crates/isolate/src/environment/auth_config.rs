@@ -33,7 +33,11 @@ use rand_chacha::ChaCha12Rng;
 use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
-use value::TableMappingValue;
+use value::{
+    TableMapping,
+    TableMappingValue,
+    VirtualTableMapping,
+};
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
@@ -118,7 +122,14 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
             .map(Some)
     }
 
-    fn get_table_mapping(&mut self) -> anyhow::Result<TableMappingValue> {
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoTableMappingFetchDuringAuthConfig",
+            "Getting the table mapping unsupported when evaluating auth config file"
+        ))
+    }
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoTableMappingFetchDuringAuthConfig",
             "Getting the table mapping unsupported when evaluating auth config file"

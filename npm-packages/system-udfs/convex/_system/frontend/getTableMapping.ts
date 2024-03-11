@@ -8,6 +8,6 @@ import { queryPrivateSystem } from "../secretSystemTables";
 export default queryPrivateSystem({
   args: {},
   handler: async () => {
-    return performOp("getTableMapping");
+    return performOp("getTableMappingWithoutSystemTables");
   },
 });

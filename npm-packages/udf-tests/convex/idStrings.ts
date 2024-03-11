@@ -3,7 +3,7 @@ import { query } from "./_generated/server";
 
 /**
  * Copied and pasted from syscall.ts
- * We don't normally allow UDFs to call ops, but this is for testing the system UDF `getTableMapping`
+ * We don't normally allow UDFs to call ops, but this is for testing the system UDF `getTableMappingWithoutSystemTables`
  **/
 declare const Convex: {
   syscall: (op: string, jsonArgs: string) => string;
@@ -14,7 +14,7 @@ declare const Convex: {
 
 /**
  * Copied and pasted from syscall.ts
- * We don't normally allow UDFs to call ops, but this is for testing the system UDF `getTableMapping`
+ * We don't normally allow UDFs to call ops, but this is for testing the system UDF`getTableMappingWithoutSystemTables`
  **/
 function performOp(op: string, ...args: any[]): any {
   if (typeof Convex === "undefined" || Convex.op === undefined) {
@@ -30,7 +30,7 @@ function performOp(op: string, ...args: any[]): any {
  * so that it can be tested in UDF tests.
  */
 export const getTableMapping = query(async () => {
-  return performOp("getTableMapping");
+  return performOp("getTableMappingWithoutSystemTables");
 });
 
 export const normalizeId = query({

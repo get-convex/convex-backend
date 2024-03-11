@@ -36,7 +36,11 @@ use model::{
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use value::TableMappingValue;
+use value::{
+    TableMapping,
+    TableMappingValue,
+    VirtualTableMapping,
+};
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
@@ -101,7 +105,14 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
         ))
     }
 
-    fn get_table_mapping(&mut self) -> anyhow::Result<TableMappingValue> {
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoTableMappingFetchInSchema",
+            "Getting the table mapping unsupported when evaluating schema"
+        ))
+    }
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoTableMappingFetchInSchema",
             "Getting the table mapping unsupported when evaluating schema"

@@ -28,6 +28,7 @@ mod search;
 mod shapes;
 mod size_errors;
 mod source_maps;
+mod system_udfs;
 mod unicode;
 mod user_error;
 mod vector_search;
