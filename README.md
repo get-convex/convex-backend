@@ -2,28 +2,58 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/get-convex/convex/assets/65152573/59aa88a1-6b65-4595-b485-011ed0aeb943#gh-dark-mode-only" width="600">
   <source media="(prefers-color-scheme: light)" srcset="https://github.com/get-convex/convex/assets/65152573/d6accb5f-e739-4397-9e4f-3911f0d16741" width="600">
-  <img alt="Shows an illustrated sun in light mode and a moon with stars in dark mode." src="https://github.com/get-convex/convex/assets/65152573/d6accb5f-e739-4397-9e4f-3911f0d16741" width="600">
+  <img alt="Convex logo" src="https://github.com/get-convex/convex/assets/65152573/d6accb5f-e739-4397-9e4f-3911f0d16741" width="600">
 </picture>
 </p>
 
-[Convex](https://convex.dev) is the fullstack TypeScript development platform.
-Replace your database, server functions and glue code.
+[Convex](https://convex.dev) is the backend-as-a-service for fullstack app
+development. Thoughtfully curated components, optimized by experts.
 
-[TODO: James will add some blurb here about Convex]
+Convex replaces your database, server functions, scheduling, storage, vector
+search, etc. It includes
+[a set of client libraries](https://github.com/get-convex/) that deeply
+integrate with your frontend application code to provide fully consistent
+caching and real-time updates out of the box. All you need to do is write your
+application code.
 
-Tenatively, here are some of the things it will contain.
+The best way to get started with Convex is to follow the
+[getting started guides in the Convex docs](https://docs.convex.dev/).
 
-- Open core of the distributed convex cloud enviornment
-- Good for simply playing with the code or potentially for running integration
-  tests
-- Not intended to run in production because it isn’t the full cloud
-- Does not come with any warranties or support from the Convex team
-- Indication that folks should go to dashboard.convex.dev for hosted offering
+**Most Convex developers should be using the
+[managed hosted product](https://www.convex.dev/plans).** The hosted product
+includes a generous free tier and provides a seamless, reliable, cost-effective
+platform that allows you to focus on building your application without worrying
+about infrastructure.
+
+**This repository is the wild west open source version.** It's the same code
+used in the hosted Convex product but runs on a single machine and doesn't
+include the scale-out services, replicated database backend, production
+dashboard, or operational tooling. You are welcome to use this code to run your
+application, either for local testing or in production, but you are on your own
+managing it and ensuring the system is reliable and secure. In particular you
+should ensure you have strong competency with regards to:
+
+- Hosting
+- Traffic routing
+- Backups and replication
+- Monitoring
+- Upgrades
+- Migration between versions
+
+No official support is provided for the open source version of Convex but
+community support is available in the `#open-source` channel in the
+[Convex Discord](https://discord.gg/convex).
+
+Development of the Convex backend is led by the Convex team and we are not
+actively soliciting any major contributions from the community. We of course
+[welcome bug fixes](./CONTRIBUTING.md) and
+[love receiving feedback](https://discord.gg/convex). We keep this repository
+synced with any internal development work within a handful of days.
 
 ## Getting started
 
 To get started, first install [Dependencies](#dependencies) and then see
-[running the Convex backend](#running-the-convex-backend)
+[running the Convex backend](#running-the-convex-backend).
 
 ## Dependencies
 
