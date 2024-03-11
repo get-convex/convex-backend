@@ -77,9 +77,10 @@ export function setEnvironmentVariables(envs: EnvironmentVariable[]) {
 
 export async function invoke(
   request: ExecuteRequest | AnalyzeRequest | BuildDepsRequest,
+  responseStream: Writable,
 ) {
   const start = performance.now();
-  setupConsole();
+  setupConsole(responseStream);
   numInvocations += 1;
   logDebug(`Environment numInvocations=${numInvocations}`);
   let result;
@@ -94,7 +95,7 @@ export async function invoke(
   }
 
   logDurationMs("Total invocation time", start);
-  return result;
+  responseStream.write(JSON.stringify(result));
 }
 
 export type ExecuteRequest = {
@@ -207,7 +208,8 @@ export async function execute(
       type: "error",
       message: extractErrorMessage(e),
       name: e.name,
-      logLines: consoleConsoleOutput(),
+      // Log lines should be streamed, but send an empty array for backwards compatibility
+      logLines: [],
     };
   }
 
@@ -291,12 +293,14 @@ export async function executeInner(
       name: e?.name ?? "",
       data: getConvexErrorData(e),
       frames: e?.__frameData ? JSON.parse(e.__frameData) : [],
-      logLines: consoleConsoleOutput(),
+      // Log lines should be streamed, but send an empty array for backwards compatibility
+      logLines: [],
       udfTimeMs,
       importTimeMs,
     };
   } finally {
     globalSyscalls = null;
+    globalConsoleState = defaultConsoleState();
   }
 
   if (udfReturn === timeoutError) {
@@ -317,7 +321,8 @@ export async function executeInner(
   return {
     type: "success",
     udfReturn,
-    logLines: consoleConsoleOutput(),
+    // Log lines should be streamed, but send an empty array for backwards compatibility
+    logLines: [],
     udfTimeMs,
     importTimeMs,
   };
@@ -516,9 +521,6 @@ let globalSyscalls: Syscalls | null = null;
   },
 };
 
-let globalConsoleBuffer: string[];
-let globalConsoleTimers: Map<string, number>;
-
 function toString(value: unknown, defaultValue: string) {
   return value === undefined
     ? defaultValue
@@ -527,40 +529,25 @@ function toString(value: unknown, defaultValue: string) {
       : value.toString();
 }
 
-function consoleConsoleOutput() {
-  let result = globalConsoleBuffer;
-  globalConsoleBuffer = [];
-  // clear any remaining timers
-  globalConsoleTimers = new Map();
+type ConsoleState = {
+  sentLines: number;
+  totalSentLineLength: number;
+  logLimitHit: boolean;
+  timers: Map<string, number>;
+};
 
-  // Requirements:
-  // - 6MB limit on AWS lambda response size, so only collect
-  //   maximum 2MB of logs, one ~million UTF16 code units (UTF16
-  //   code unit is 2 bytes).
-  // - we only allow max 256 logs, see MAX_LOG_LINES
-  const numLogLines = result.length;
-  let totalLogLinesLength = 0;
-  for (let i = 0; i < numLogLines; i++) {
-    totalLogLinesLength += result[i].length;
-    if (totalLogLinesLength > 1_048_576) {
-      result = result.slice(0, i);
-      result.push(
-        "[ERROR] Log overflow (maximum 1M characters). Remaining log lines omitted.",
-      );
-      break;
-    }
-    if (i >= 256) {
-      result = result.slice(0, 255);
-      result.push(
-        "[ERROR] Log overflow (maximum 256). Remaining log lines omitted.",
-      );
-      break;
-    }
-  }
-  return result;
+let globalConsoleState: ConsoleState;
+
+function defaultConsoleState(): ConsoleState {
+  return {
+    sentLines: 0,
+    totalSentLineLength: 0,
+    logLimitHit: false,
+    timers: new Map(),
+  };
 }
 
-export function setupConsole() {
+export function setupConsole(responseStream: Writable) {
   // TODO(presley): For some reason capturing stdout and stderr doesn't work in
   // AWS Lambda. Not sure if it is async issue or AWS does something weird where
   // they patch node:console Console object. For now we will will throw away the
@@ -581,8 +568,7 @@ export function setupConsole() {
 
   // TODO: This code is copy & pasted from setup.ts in v8. We should
   // probably unify it at some points.
-  globalConsoleBuffer = [];
-  globalConsoleTimers = new Map();
+  globalConsoleState = defaultConsoleState();
   function consoleMessage(level: string, ...args: any[]) {
     // TODO: Support string substitution.
     // TODO: Implement the rest of the Console API.
@@ -597,8 +583,29 @@ export function setupConsole() {
       }),
     );
 
-    const message = `[${level}] ${serializedArgs.join(" ")}`;
-    globalConsoleBuffer.push(message);
+    let message = `[${level}] ${serializedArgs.join(" ")}`;
+    // Requirements:
+    // - 6MB limit on AWS lambda response size, so only collect
+    //   maximum 2MB of logs, one ~million UTF16 code units (UTF16
+    //   code unit is 2 bytes).
+    // - we only allow max 256 logs, see MAX_LOG_LINES
+    if (globalConsoleState.logLimitHit === true) {
+      return;
+    }
+    if (globalConsoleState.totalSentLineLength + message.length > 1_048_576) {
+      message =
+        "[ERROR] Log overflow (maximum 1M characters). Remaining log lines omitted.";
+      globalConsoleState.logLimitHit = true;
+    } else if (globalConsoleState.sentLines >= 256) {
+      message =
+        "[ERROR] Log overflow (maximum 256). Remaining log lines omitted.";
+      globalConsoleState.logLimitHit = true;
+    }
+    responseStream.write(
+      JSON.stringify({ kind: "LogLine", data: message }) + "\n",
+    );
+    globalConsoleState.totalSentLineLength += message.length;
+    globalConsoleState.sentLines += 1;
   }
   devConsole.debug = function (...args) {
     consoleMessage("DEBUG", ...args);
@@ -617,15 +624,15 @@ export function setupConsole() {
   };
   devConsole.time = function (label: unknown) {
     const labelStr = toString(label, "default");
-    if (globalConsoleTimers.has(labelStr)) {
+    if (globalConsoleState.timers.has(labelStr)) {
       consoleMessage("WARN", `Timer '${labelStr}' already exists`);
     } else {
-      globalConsoleTimers.set(labelStr, Date.now());
+      globalConsoleState.timers.set(labelStr, Date.now());
     }
   };
   devConsole.timeLog = function (label: unknown, ...args: any[]) {
     const labelStr = toString(label, "default");
-    const time = globalConsoleTimers.get(labelStr);
+    const time = globalConsoleState.timers.get(labelStr);
     if (time === undefined) {
       consoleMessage("WARN", `Timer '${labelStr}' does not exist`);
     } else {
@@ -635,12 +642,12 @@ export function setupConsole() {
   };
   devConsole.timeEnd = function (label: unknown) {
     const labelStr = toString(label, "default");
-    const time = globalConsoleTimers.get(labelStr);
+    const time = globalConsoleState.timers.get(labelStr);
     if (time === undefined) {
       consoleMessage("WARN", `Timer '${labelStr}' does not exist`);
     } else {
       const duration = Date.now() - time;
-      globalConsoleTimers.delete(labelStr);
+      globalConsoleState.timers.delete(labelStr);
       consoleMessage("INFO", `${labelStr}: ${duration}ms`);
     }
   };

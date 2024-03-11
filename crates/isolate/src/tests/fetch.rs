@@ -224,9 +224,9 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
     rt.spawn("test_router", serve(redirected_router, 4547));
 
     let t = UdfTest::default(rt).await?;
-    must_let!(let (ConvexValue::String(r), outcome) = t.action_outcome("fetch", assert_obj!(), Identity::system()).await?);
+    must_let!(let (ConvexValue::String(r), _outcome, log_lines) = t.action_outcome_and_log_lines("fetch", assert_obj!(), Identity::system()).await?);
     assert_eq!(String::from(r), "success".to_string());
-    assert!(outcome.log_lines.is_empty());
+    assert!(log_lines.is_empty());
 
     // Interaction between fetch and Request/Response blobs.
     let (response, _log_lines) = t
