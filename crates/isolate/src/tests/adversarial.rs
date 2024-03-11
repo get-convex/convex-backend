@@ -405,6 +405,20 @@ async fn test_writes_many(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn test_query_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 9_000_000])?);
+    let e = t
+        .query_js_error("basic:readTime", assert_obj!("data" => data))
+        .await?;
+    assert_contains(
+        &e,
+        "Arguments for basic.js:readTime are too large (actual: 8.58 MiB, limit: 8 MiB)",
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn test_query_args_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 8_000_000])?);
@@ -421,6 +435,20 @@ async fn test_query_args_big(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn test_mutation_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 9_000_000])?);
+    let e = t
+        .mutation_js_error("basic:simpleMutation", assert_obj!("data" => data))
+        .await?;
+    assert_contains(
+        &e,
+        "Arguments for basic.js:simpleMutation are too large (actual: 8.58 MiB, limit: 8 MiB)",
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn test_mutation_args_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 8_000_000])?);
@@ -432,6 +460,20 @@ async fn test_mutation_args_big(rt: TestRuntime) -> anyhow::Result<()> {
         &last_line,
         "[WARN] Large size of the function arguments (actual: 8000011 bytes, limit: 8388608 \
          bytes).",
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_action_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 9_000_000])?);
+    let e = t
+        .action_js_error("basic:simpleAction", assert_obj!("data" => data))
+        .await?;
+    assert_contains(
+        &e,
+        "Arguments for basic.js:simpleAction are too large (actual: 8.58 MiB, limit: 8 MiB)",
     );
     Ok(())
 }

@@ -4,6 +4,7 @@ use anyhow::Context;
 use common::{
     self,
     errors::JsError,
+    knobs::FUNCTION_MAX_ARGS_SIZE,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -22,6 +23,10 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
+use humansize::{
+    FormatSize,
+    BINARY,
+};
 use keybroker::Identity;
 use model::{
     backend_state::{
@@ -45,6 +50,7 @@ use sync_types::{
 use value::{
     ConvexArray,
     ConvexValue,
+    Size,
 };
 
 use crate::{
@@ -172,6 +178,7 @@ async fn udf_version<RT: Runtime>(
 /// This validation includes:
 /// - Checking the visibility of the UDF.
 /// - Checking that the UDF is the correct type.
+/// - Checking the args size.
 /// - Checking that the args pass validation.
 ///
 /// This should only be constructed via `ValidatedUdfPath::new` to use the type
@@ -285,6 +292,15 @@ impl ValidatedUdfPathAndArgs {
             return Ok(Err(JsError::from_message(format!(
                 "Trying to execute {} as {}, but it is defined as {}.",
                 udf_path, expected_udf_type, analyzed_function.udf_type
+            ))));
+        }
+
+        if args.size() > *FUNCTION_MAX_ARGS_SIZE {
+            return Ok(Err(JsError::from_message(format!(
+                "Arguments for {} are too large (actual: {}, limit: {})",
+                String::from(udf_path.clone()),
+                args.size().format_size(BINARY),
+                (*FUNCTION_MAX_ARGS_SIZE).format_size(BINARY),
             ))));
         }
 
