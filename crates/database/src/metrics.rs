@@ -9,6 +9,7 @@ use metrics::{
     log_distribution,
     log_distribution_with_tags,
     log_gauge,
+    log_gauge_with_tags,
     metric_tag_const,
     metric_tag_const_value,
     register_convex_counter,
@@ -546,6 +547,34 @@ register_convex_counter!(
 );
 pub fn log_virtual_table_query() {
     log_counter(&VIRTUAL_TABLE_QUERY_REQUESTS_TOTAL, 1);
+}
+
+pub struct DatabaseWorkerStatus {
+    name: &'static str,
+}
+
+impl Drop for DatabaseWorkerStatus {
+    fn drop(&mut self) {
+        log_worker_status(false, self.name);
+    }
+}
+
+register_convex_gauge!(
+    DATABASE_WORKER_IN_PROGRESS_TOTAL,
+    "1 if a worker is working, 0 otherwise",
+    &["worker"],
+);
+pub fn log_worker_starting(name: &'static str) -> DatabaseWorkerStatus {
+    log_worker_status(true, name);
+    DatabaseWorkerStatus { name }
+}
+
+fn log_worker_status(is_working: bool, name: &'static str) {
+    log_gauge_with_tags(
+        &DATABASE_WORKER_IN_PROGRESS_TOTAL,
+        if is_working { 1f64 } else { 0f64 },
+        vec![metric_tag_const_value("worker", name)],
+    )
 }
 
 pub mod search {

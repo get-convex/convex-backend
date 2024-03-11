@@ -119,7 +119,10 @@ use value::{
     VirtualTableMapping,
 };
 
-use crate::metrics::export_timer;
+use crate::metrics::{
+    export_timer,
+    log_worker_starting,
+};
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(900); // 15 minutes
@@ -214,6 +217,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             },
             (Some(export), None) => {
                 tracing::info!("Export requested.");
+                let _status = log_worker_starting("ExportWorker");
                 let timer = export_timer();
                 let ts = self.database.now_ts_for_reads();
                 let in_progress_export = (*export).clone().in_progress(*ts)?;
@@ -233,6 +237,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             },
             (None, Some(export)) => {
                 tracing::info!("In progress export restarting...");
+                let _status = log_worker_starting("ExportWorker");
                 let timer = export_timer();
                 self.export(export).await?;
                 timer.finish();

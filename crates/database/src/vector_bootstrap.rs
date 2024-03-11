@@ -42,6 +42,7 @@ use vector::{
 use crate::{
     committer::CommitterClient,
     index_workers::fast_forward::load_metadata_fast_forward_ts,
+    metrics::log_worker_starting,
 };
 
 pub struct VectorBootstrapWorker<RT: Runtime> {
@@ -139,6 +140,7 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
             Option<Timestamp>,
         )>,
     ) -> anyhow::Result<VectorIndexManager> {
+        let _status = log_worker_starting("VectorBootstrap");
         let timer = vector::metrics::bootstrap_timer();
         let upper_bound = persistence.upper_bound();
 

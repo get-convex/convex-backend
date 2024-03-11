@@ -163,7 +163,10 @@ use value::{
 
 use crate::{
     export_worker::FileStorageZipMetadata,
-    metrics::snapshot_import_timer,
+    metrics::{
+        log_worker_starting,
+        snapshot_import_timer,
+    },
     Application,
 };
 
@@ -219,6 +222,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
     /// If an import has Uploaded, parse it and set to WaitingForConfirmation.
     /// If an import is InProgress, execute it.
     pub async fn run(&mut self) -> anyhow::Result<()> {
+        let status = log_worker_starting("SnapshotImport");
         let mut tx = self.database.begin(Identity::system()).await?;
         let mut import_model = SnapshotImportModel::new(&mut tx);
         if let Some(import_uploaded) = import_model.import_in_state(ImportState::Uploaded).await? {
@@ -238,6 +242,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 .await?;
             timer.finish();
         }
+        drop(status);
         let token = tx.into_token()?;
         let subscription = self.database.subscribe(token).await?;
         subscription.wait_for_invalidation().await;

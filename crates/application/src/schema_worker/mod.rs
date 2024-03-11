@@ -35,6 +35,8 @@ use metrics::{
     schema_validation_timer,
 };
 
+use crate::metrics::log_worker_starting;
+
 mod metrics;
 
 const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
@@ -75,6 +77,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
     }
 
     pub async fn run(&self) -> anyhow::Result<()> {
+        let status = log_worker_starting("SchemaWorker");
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let snapshot = self.database.snapshot(tx.begin_timestamp())?;
         if let Some((id, db_schema)) = SchemaModel::new(&mut tx)
@@ -170,6 +173,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             timer.finish();
         }
 
+        drop(status);
         let token = tx.into_token()?;
         tracing::debug!("SchemaWorker waiting...");
         let subscription = self.database.subscribe(token).await?;

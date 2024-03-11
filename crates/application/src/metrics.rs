@@ -1,9 +1,11 @@
 use metrics::{
     log_counter_with_tags,
     log_distribution_with_tags,
+    log_gauge_with_tags,
     metric_tag_const,
     metric_tag_const_value,
     register_convex_counter,
+    register_convex_gauge,
     register_convex_histogram,
     StatusTimer,
     STATUS_LABEL,
@@ -66,4 +68,32 @@ register_convex_histogram!(
 );
 pub fn export_timer() -> StatusTimer {
     StatusTimer::new(&SNAPSHOT_EXPORT_TIMER_SECONDS)
+}
+
+pub struct AppWorkerStatus {
+    name: &'static str,
+}
+
+impl Drop for AppWorkerStatus {
+    fn drop(&mut self) {
+        log_worker_status(false, self.name);
+    }
+}
+
+register_convex_gauge!(
+    APP_WORKER_IN_PROGRESS_TOTAL,
+    "1 if a worker is working, 0 otherwise",
+    &["worker"],
+);
+pub fn log_worker_starting(name: &'static str) -> AppWorkerStatus {
+    log_worker_status(true, name);
+    AppWorkerStatus { name }
+}
+
+fn log_worker_status(is_working: bool, name: &'static str) {
+    log_gauge_with_tags(
+        &APP_WORKER_IN_PROGRESS_TOTAL,
+        if is_working { 1f64 } else { 0f64 },
+        vec![metric_tag_const_value("worker", name)],
+    )
 }

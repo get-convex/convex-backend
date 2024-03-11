@@ -24,6 +24,7 @@ use crate::{
         },
         timeout_with_jitter,
     },
+    metrics::log_worker_starting,
     vector_index_worker::{
         compactor::CompactionConfig,
         writer::VectorMetadataWriter,
@@ -110,11 +111,13 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         tracing::info!("Starting {name}");
 
         loop {
+            let status = log_worker_starting(name);
             let (metrics, token) = match self {
                 SearchIndexWorker::VectorFlusher(flusher) => flusher.step().await?,
                 SearchIndexWorker::VectorCompactor(compactor) => compactor.step().await?,
                 SearchIndexWorker::SearchFlusher(flusher) => flusher.step().await?,
             };
+            drop(status);
 
             if !metrics.is_empty() {
                 // We did some useful work this loop iteration that we expect is committed.

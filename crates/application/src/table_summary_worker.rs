@@ -29,6 +29,8 @@ use futures::{
 };
 use parking_lot::Mutex;
 
+use crate::metrics::log_worker_starting;
+
 pub struct TableSummaryWorker<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
@@ -80,6 +82,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         last_write_info: &mut Option<LastWriteInfo>,
         writer: &TableSummaryWriter<RT>,
     ) -> anyhow::Result<()> {
+        let _status = log_worker_starting("TableSummaryWorker");
         let commits_since_load = self.database.write_commits_since_load();
         let now = self.runtime.unix_timestamp();
         if let Some(last_write_info) = last_write_info

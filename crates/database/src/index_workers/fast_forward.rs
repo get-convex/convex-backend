@@ -59,6 +59,7 @@ use crate::{
         },
         timeout_with_jitter,
     },
+    metrics::log_worker_starting,
     search_index_worker::fast_forward::SearchFastForward,
     vector_index_worker::fast_forward::VectorFastForward,
     Database,
@@ -114,6 +115,7 @@ impl FastForwardIndexWorker {
         let mut vector_search_last_fast_forward_info: Option<LastFastForwardInfo> = None;
 
         loop {
+            let status = log_worker_starting("TextSearchFastForward");
             tracing::debug!("FastForwardWorker checking if we can fast forward");
             Self::fast_forward::<RT, SearchSnapshotVersion, SearchFastForward>(
                 "TextSearch",
@@ -122,6 +124,8 @@ impl FastForwardIndexWorker {
                 &mut text_search_last_fast_forward_info,
             )
             .await?;
+            drop(status);
+            let status = log_worker_starting("VectorSearchFastForward");
             Self::fast_forward::<RT, (), VectorFastForward>(
                 "VectorSearch",
                 rt,
@@ -129,6 +133,7 @@ impl FastForwardIndexWorker {
                 &mut vector_search_last_fast_forward_info,
             )
             .await?;
+            drop(status);
 
             backoff.reset();
             timeout_with_jitter(rt, *DATABASE_WORKERS_POLL_INTERVAL).await
