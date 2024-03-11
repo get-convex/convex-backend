@@ -116,6 +116,7 @@ use crate::{
     SchemaModel,
     TableModel,
     Transaction,
+    UserFacingModel,
 };
 
 mod randomized_search_tests;
@@ -182,7 +183,9 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     let mut tx = db.begin(Identity::system()).await?;
     summary1 = summary1.remove(&value1_doc.into_value())?;
     let value1 = assert_obj!("key1" => null);
-    let value1_doc = tx.replace_user_facing(value1_id.into(), value1).await?;
+    let value1_doc = UserFacingModel::new(&mut tx)
+        .replace(value1_id.into(), value1)
+        .await?;
     summary1 = summary1.insert(&value1_doc.into_value());
     // Update summary after snapshot.
     let value2 = assert_obj!("key2" => 1.0);
@@ -380,7 +383,7 @@ async fn test_delete_conflict(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
 
     let mut tx2 = database.begin(Identity::system()).await?;
-    tx2.delete_user_facing(id.into()).await?;
+    UserFacingModel::new(&mut tx2).delete(id.into()).await?;
     database
         .commit_with_write_source(tx2, "foo/bar:baz")
         .await?;
@@ -431,8 +434,8 @@ async fn test_creation_time_success(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
     let mut tx = database.begin(Identity::system()).await?;
-    let id = tx
-        .insert_user_facing("table".parse()?, assert_obj!())
+    let id = UserFacingModel::new(&mut tx)
+        .insert("table".parse()?, assert_obj!())
         .await?;
     let id_ = id.map_table(&tx.table_mapping().inject_table_id())?;
     let document = tx.get(id_).await?.unwrap();
@@ -895,22 +898,24 @@ async fn test_too_large_values(rt: TestRuntime) -> anyhow::Result<()> {
     let table_name: TableName = "table".parse()?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    let err = tx
-        .insert_user_facing(table_name.clone(), huge_obj.clone())
+    let err = UserFacingModel::new(&mut tx)
+        .insert(table_name.clone(), huge_obj.clone())
         .await
         .unwrap_err();
     assert!(format!("{err}").contains("Value is too large"));
 
-    let doc_id = tx.insert_user_facing(table_name, smol_obj).await?;
+    let doc_id = UserFacingModel::new(&mut tx)
+        .insert(table_name, smol_obj)
+        .await?;
 
-    let err = tx
-        .patch_user_facing(doc_id, huge_obj.clone().into())
+    let err = UserFacingModel::new(&mut tx)
+        .patch(doc_id, huge_obj.clone().into())
         .await
         .unwrap_err();
     assert!(format!("{err}").contains("Value is too large"), "{err}");
 
-    let err = tx
-        .replace_user_facing(doc_id, huge_obj.clone())
+    let err = UserFacingModel::new(&mut tx)
+        .replace(doc_id, huge_obj.clone())
         .await
         .unwrap_err();
     assert!(format!("{err}").contains("Value is too large"));
@@ -937,11 +942,12 @@ async fn test_too_nested_values(rt: TestRuntime) -> anyhow::Result<()> {
     let table_name: TableName = "table".parse()?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    tx.insert_user_facing(
-        table_name.clone(),
-        assert_obj!("x" => deeply_nested_but_still_ok.clone()),
-    )
-    .await?;
+    UserFacingModel::new(&mut tx)
+        .insert(
+            table_name.clone(),
+            assert_obj!("x" => deeply_nested_but_still_ok.clone()),
+        )
+        .await?;
 
     database.commit(tx).await?;
 
@@ -955,8 +961,8 @@ async fn test_too_nested_values(rt: TestRuntime) -> anyhow::Result<()> {
     let table_name: TableName = "table".parse()?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    let err = tx
-        .insert_user_facing(
+    let err = UserFacingModel::new(&mut tx)
+        .insert(
             table_name.clone(),
             assert_obj!("x" => too_deeply_nested.clone()),
         )
@@ -1206,15 +1212,16 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
 
     // Active tables can use schema as normal, despite the hidden table mapping.
     let mut tx = database.begin(Identity::system()).await?;
-    let active_foreign_doc = tx
-        .insert_user_facing(foreign_table_name.clone(), assert_obj!())
+    let active_foreign_doc = UserFacingModel::new(&mut tx)
+        .insert(foreign_table_name.clone(), assert_obj!())
         .await?;
     let active_foreign_doc_id = active_foreign_table_number.id(active_foreign_doc.internal_id());
-    tx.insert_user_facing(
-        table_name.clone(),
-        assert_obj!("foreign" => active_foreign_doc_id),
-    )
-    .await?;
+    UserFacingModel::new(&mut tx)
+        .insert(
+            table_name.clone(),
+            assert_obj!("foreign" => active_foreign_doc_id),
+        )
+        .await?;
     database.commit(tx).await?;
 
     // Hidden tables can also use the schema, as long as you pass in
@@ -1273,8 +1280,8 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let table_name: TableName = "table".parse()?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    let doc_id_user_facing = tx
-        .insert_user_facing(table_name.clone(), object.clone())
+    let doc_id_user_facing = UserFacingModel::new(&mut tx)
+        .insert(table_name.clone(), object.clone())
         .await?;
     let doc0_id = doc_id_user_facing.map_table(tx.table_mapping().inject_table_id())?;
     let doc0_id_str: String = DocumentIdV6::from(doc0_id).encode();
@@ -1313,8 +1320,8 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(doc1.id(), &doc1_id);
     assert_eq!(doc0.value().0.get("value"), Some(&val!(1)));
     assert_eq!(doc1.value().0.get("value"), Some(&val!(2)));
-    let (doc_user_facing, _) = tx
-        .get_with_ts_user_facing(doc_id_user_facing, None)
+    let (doc_user_facing, _) = UserFacingModel::new(&mut tx)
+        .get_with_ts(doc_id_user_facing, None)
         .await?
         .unwrap();
     assert_eq!(
@@ -1334,8 +1341,8 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = database.begin(Identity::system()).await?;
     assert!(tx.get_inner(doc0_id, table_name.clone()).await?.is_none());
-    let (doc_user_facing, _) = tx
-        .get_with_ts_user_facing(doc_id_user_facing, None)
+    let (doc_user_facing, _) = UserFacingModel::new(&mut tx)
+        .get_with_ts(doc_id_user_facing, None)
         .await?
         .unwrap();
     assert_eq!(
@@ -1355,7 +1362,9 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let table_name: TableName = "table".parse()?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    let doc0_id = tx.insert_user_facing(table_name.clone(), object).await?;
+    let doc0_id = UserFacingModel::new(&mut tx)
+        .insert(table_name.clone(), object)
+        .await?;
     let doc0_id_inner = doc0_id.map_table(&tx.table_mapping().inject_table_id())?;
     database.commit(tx).await?;
 
@@ -1379,8 +1388,14 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     // Now the import fails. The hidden table never gets activated.
     // The active table still works.
     let mut tx = database.begin(Identity::system()).await?;
-    assert!(tx.get_with_ts_user_facing(doc0_id, None).await?.is_some());
-    assert!(tx.get_with_ts_user_facing(doc1_id, None).await?.is_none());
+    assert!(UserFacingModel::new(&mut tx)
+        .get_with_ts(doc0_id, None)
+        .await?
+        .is_some());
+    assert!(UserFacingModel::new(&mut tx)
+        .get_with_ts(doc1_id, None)
+        .await?
+        .is_none());
     // Delete the active table.
     TableModel::new(&mut tx)
         .delete_table(table_name.clone())
@@ -1388,8 +1403,14 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    assert!(tx.get_with_ts_user_facing(doc0_id, None).await?.is_none());
-    assert!(tx.get_with_ts_user_facing(doc1_id, None).await?.is_none());
+    assert!(UserFacingModel::new(&mut tx)
+        .get_with_ts(doc0_id, None)
+        .await?
+        .is_none());
+    assert!(UserFacingModel::new(&mut tx)
+        .get_with_ts(doc1_id, None)
+        .await?
+        .is_none());
     assert!(tx
         .get_inner(doc0_id_inner, table_name.clone())
         .await?
@@ -1505,7 +1526,10 @@ async fn test_implicit_removal(rt: TestRuntime) -> anyhow::Result<()> {
     // Delete the document. The implicitly created table and default index should
     // stay.
     let mut tx = database.begin(Identity::system()).await?;
-    tx.delete_user_facing(document_id.into()).await.unwrap();
+    UserFacingModel::new(&mut tx)
+        .delete(document_id.into())
+        .await
+        .unwrap();
     database.commit(tx).await?;
 
     assert!(database
@@ -1757,7 +1781,8 @@ async fn test_virtual_table_transaction(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_retries(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt).await;
     async fn insert(tx: &mut Transaction<TestRuntime>) -> anyhow::Result<()> {
-        tx.insert_user_facing("table".parse()?, assert_obj!())
+        UserFacingModel::new(tx)
+            .insert("table".parse()?, assert_obj!())
             .await?;
         anyhow::bail!("fail this fn!");
     }

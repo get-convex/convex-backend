@@ -24,6 +24,7 @@ mod execution_size;
 mod index_worker;
 mod index_workers;
 mod metrics;
+mod model;
 pub mod patch;
 pub mod persistence_helpers;
 mod preloaded;
@@ -143,6 +144,7 @@ pub use self::{
         IndexSelector,
         IndexWriter,
     },
+    model::user_facing::UserFacingModel,
     query::{
         soft_data_limit,
         DeveloperQuery,

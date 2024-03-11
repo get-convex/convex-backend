@@ -203,6 +203,7 @@ mod tests {
     use database::{
         test_helpers::new_test_database,
         SchemaModel,
+        UserFacingModel,
     };
     use governor::Quota;
     use keybroker::Identity;
@@ -236,7 +237,8 @@ mod tests {
         };
         let (id, _) = SchemaModel::new(&mut tx).submit_pending(db_schema).await?;
         // Insert a document that matches the schema
-        tx.insert_user_facing(table_name.clone(), assert_obj!())
+        UserFacingModel::new(&mut tx)
+            .insert(table_name.clone(), assert_obj!())
             .await?;
         db.commit(tx).await?;
 

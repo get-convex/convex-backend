@@ -466,6 +466,7 @@ mod tests {
         },
         IndexModel,
         IndexWorker,
+        UserFacingModel,
     };
 
     fn small_user_object() -> impl Strategy<Value = ConvexObject> {
@@ -599,7 +600,9 @@ mod tests {
                                 continue;
                             }
                             let id = *(objects.keys().nth(index % objects.len()).unwrap());
-                            let replaced = tx.replace_user_facing(id.into(), object).await?;
+                            let replaced = UserFacingModel::new(&mut tx)
+                                .replace(id.into(), object)
+                                .await?;
                             objects.insert(id, replaced);
                         },
                         Update::Delete { index } => {
@@ -607,7 +610,7 @@ mod tests {
                                 continue;
                             }
                             let id = *(objects.keys().nth(index % objects.len()).unwrap());
-                            tx.delete_user_facing(id.into()).await?;
+                            UserFacingModel::new(&mut tx).delete(id.into()).await?;
                             objects.remove(&id).unwrap();
                         },
                     }
@@ -704,7 +707,8 @@ mod tests {
         let snapshot_ts = unchecked_repeatable_ts(database.commit(tx).await?);
 
         let mut tx = database.begin(Identity::system()).await?;
-        tx.replace_user_facing(id.into(), assert_obj!("k" => "a"))
+        UserFacingModel::new(&mut tx)
+            .replace(id.into(), assert_obj!("k" => "a"))
             .await?;
         database.commit(tx).await?;
         database.bump_max_repeatable_ts().await?;

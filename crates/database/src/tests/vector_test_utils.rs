@@ -89,6 +89,7 @@ use crate::{
     Database,
     IndexModel,
     Transaction,
+    UserFacingModel,
     VectorIndexCompactor,
 };
 
@@ -558,7 +559,9 @@ impl<RT: Runtime> VectorSearcher for DeleteOnCompactSearchlight<RT> {
         dimension: usize,
     ) -> anyhow::Result<FragmentedVectorSegment> {
         let mut tx: Transaction<RT> = self.db.begin_system().await?;
-        tx.delete_user_facing(self.to_delete.into()).await?;
+        UserFacingModel::new(&mut tx)
+            .delete(self.to_delete.into())
+            .await?;
         self.db.commit(tx).await?;
         backfill(self.rt.clone(), self.db.clone(), self.storage.clone()).await?;
 

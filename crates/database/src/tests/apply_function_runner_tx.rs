@@ -6,6 +6,7 @@ use value::obj;
 use crate::{
     test_helpers::new_test_database,
     Transaction,
+    UserFacingModel,
 };
 
 fn assert_transactions_match(
@@ -65,8 +66,8 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
         .await?;
 
     // Insert a document into a new table
-    function_runner_tx
-        .insert_user_facing("table".parse()?, obj!("field" => "value")?)
+    UserFacingModel::new(&mut function_runner_tx)
+        .insert("table".parse()?, obj!("field" => "value")?)
         .await?;
 
     // Apply these writes to the backend_tx
@@ -105,8 +106,8 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
 async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt).await;
     let mut setup_tx = db.begin_system().await?;
-    let id = setup_tx
-        .insert_user_facing("table".parse()?, obj!("field" => "value")?)
+    let id = UserFacingModel::new(&mut setup_tx)
+        .insert("table".parse()?, obj!("field" => "value")?)
         .await?;
     db.commit(setup_tx).await?;
 
@@ -122,7 +123,9 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
         )
         .await?;
 
-    function_runner_tx.get_with_ts_user_facing(id, None).await?;
+    UserFacingModel::new(&mut function_runner_tx)
+        .get_with_ts(id, None)
+        .await?;
 
     // Apply these writes to the backend_tx
     let num_intervals = function_runner_tx.reads.num_intervals();
@@ -157,8 +160,8 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
 async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt).await;
     let mut setup_tx = db.begin_system().await?;
-    let id = setup_tx
-        .insert_user_facing("table".parse()?, obj!("field" => "value")?)
+    let id = UserFacingModel::new(&mut setup_tx)
+        .insert("table".parse()?, obj!("field" => "value")?)
         .await?;
     db.commit(setup_tx).await?;
 
@@ -174,8 +177,8 @@ async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Resul
         )
         .await?;
 
-    function_runner_tx
-        .replace_user_facing(id, obj!("field" => "value2")?)
+    UserFacingModel::new(&mut function_runner_tx)
+        .replace(id, obj!("field" => "value2")?)
         .await?;
 
     // Apply these writes to the backend_tx
@@ -214,8 +217,8 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
     let db = new_test_database(rt).await;
     let mut backend_tx = db.begin_system().await?;
     // Make writes before initializing funrun transaction
-    backend_tx
-        .insert_user_facing("table".parse()?, obj!("field" => "value")?)
+    UserFacingModel::new(&mut backend_tx)
+        .insert("table".parse()?, obj!("field" => "value")?)
         .await?;
     let begin_timestamp = backend_tx.begin_timestamp();
 
@@ -231,8 +234,8 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
     function_runner_tx.merge_writes(updates, generated_ids)?;
 
     // Perform writes as if in funrun
-    function_runner_tx
-        .insert_user_facing("table2".parse()?, obj!("foo" => "bla")?)
+    UserFacingModel::new(&mut function_runner_tx)
+        .insert("table2".parse()?, obj!("foo" => "bla")?)
         .await?;
 
     // Apply reads and writes to the backend_tx
@@ -271,8 +274,8 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
     let db = new_test_database(rt).await;
     let mut backend_tx = db.begin_system().await?;
     // Make writes before initializing funrun transaction
-    backend_tx
-        .insert_user_facing("table".parse()?, obj!("field" => "value")?)
+    UserFacingModel::new(&mut backend_tx)
+        .insert("table".parse()?, obj!("field" => "value")?)
         .await?;
     let begin_timestamp = backend_tx.begin_timestamp();
 
@@ -287,8 +290,8 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
         .await?;
 
     // Perform writes as if in funrun
-    function_runner_tx
-        .insert_user_facing("table2".parse()?, obj!("foo" => "bla")?)
+    UserFacingModel::new(&mut function_runner_tx)
+        .insert("table2".parse()?, obj!("foo" => "bla")?)
         .await?;
 
     // Apply reads and writes to the backend_tx

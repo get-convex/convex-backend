@@ -28,7 +28,6 @@ use common::{
     },
     document::{
         CreationTime,
-        DeveloperDocument,
         DocumentUpdate,
         ResolvedDocument,
         CREATION_TIME_FIELD,
@@ -75,10 +74,8 @@ use common::{
         TableMapping,
         VirtualTableMapping,
     },
-    version::Version,
 };
 use errors::ErrorMetadata;
-use itertools::Itertools;
 use keybroker::{
     Identity,
     UserIdentityAttributes,
@@ -112,8 +109,6 @@ use crate::{
     execution_size::FunctionExecutionSize,
     metrics::{
         self,
-        log_virtual_table_get,
-        log_virtual_table_query,
     },
     patch::PatchValue,
     preloaded::PreloadedIndexRange,
@@ -130,10 +125,7 @@ use crate::{
         RangeRequest,
         TransactionIndex,
     },
-    virtual_tables::{
-        VirtualSystemMapping,
-        VirtualTable,
-    },
+    virtual_tables::VirtualSystemMapping,
     write_limits::BiggestDocumentWrites,
     writes::{
         TransactionWriteSize,
@@ -152,10 +144,10 @@ use crate::{
 /// when we're writing internal code and don't know what other value to choose.
 pub const DEFAULT_PAGE_SIZE: usize = 512;
 
-const MAX_PAGE_SIZE: usize = 1024;
+pub const MAX_PAGE_SIZE: usize = 1024;
 pub struct Transaction<RT: Runtime> {
-    identity: Identity,
-    id_generator: TransactionIdGenerator,
+    pub(crate) identity: Identity,
+    pub(crate) id_generator: TransactionIdGenerator,
 
     pub(crate) next_creation_time: CreationTime,
 
@@ -173,14 +165,14 @@ pub struct Transaction<RT: Runtime> {
     /// are zero.
     pub(crate) table_count_deltas: BTreeMap<TableId, i64>,
 
-    stats: BTreeMap<TableNumber, TableStats>,
+    pub(crate) stats: BTreeMap<TableNumber, TableStats>,
 
-    retention_validator: Arc<dyn RetentionValidator>,
+    pub(crate) retention_validator: Arc<dyn RetentionValidator>,
 
-    runtime: RT,
+    pub(crate) runtime: RT,
 
     pub usage_tracker: FunctionUsageTracker,
-    virtual_system_mapping: VirtualSystemMapping,
+    pub(crate) virtual_system_mapping: VirtualSystemMapping,
 
     #[cfg(any(test, feature = "testing"))]
     index_size_override: Option<usize>,
@@ -489,155 +481,13 @@ impl<RT: Runtime> Transaction<RT> {
             Err(_) => return Ok(None),
         };
         if self.virtual_system_mapping().is_virtual_table(&table_name) {
-            anyhow::bail!("Virtual tables should use get_with_ts_user_facing");
+            anyhow::bail!("Virtual tables should use UserFacingModel::get_with_ts");
         }
         self.get_inner(id, table_name).await
     }
 
-    #[convex_macro::instrument_future]
-    pub async fn get_with_ts_user_facing(
-        &mut self,
-        id: DeveloperDocumentId,
-        version: Option<Version>,
-    ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
-        let mut batch_result = self
-            .get_batch(btreemap! {
-                0 => (id, version),
-            })
-            .await;
-        batch_result
-            .remove(&0)
-            .context("get_batch missing batch key")?
-    }
-
-    /// Fetches a batch of documents by id.
-    /// Stage 1: For each requested ID, set up the fetch, reading table and
-    ///     index ids, checking virtual tables, computing index intervals,
-    ///     and looking in the cache. In particular, cache hits for the
-    ///     entire batch are based on the initial state.
-    /// Stage 2: Execute all of the underlying fetches against persistence in
-    ///     parallel.
-    /// Stage 3: For each requested ID, add it to the cache and
-    ///     usage records, and munge the index range's results into
-    ///     DeveloperDocuments.
-    ///
-    /// This leads to completely deterministic results, down to usage counts
-    /// and which requests hit the cache.
-    /// Throughout the stages, each item in the batch is effectively separate,
-    /// so their errors are calculated independently.
-    /// Since stage 3 mutates common state in a loop, the items can affect each
-    /// other, e.g. if one item overflows the transaction limits, the remainder
-    /// of the batch will throw similar errors.
-    /// TODO(lee) dedupe duplicate fetches within a batch, which requires
-    /// cloning errors.
-    pub async fn get_batch(
-        &mut self,
-        ids: BTreeMap<BatchKey, (DeveloperDocumentId, Option<Version>)>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>>> {
-        let mut results = BTreeMap::new();
-        let mut ids_to_fetch = BTreeMap::new();
-        let batch_size = ids.len();
-        for (batch_key, (id, version)) in ids {
-            let resolve_result: anyhow::Result<_> = try {
-                if self.virtual_table_mapping().number_exists(id.table()) {
-                    // TODO(lee) batch virtual table gets
-                    log_virtual_table_get();
-                    let table_name = self.virtual_table_mapping().name(*id.table())?;
-                    match VirtualTable::new(self).get(&id, version).await? {
-                        Some(result) => {
-                            self.reads.record_read_document(
-                                table_name,
-                                result.0.size(),
-                                &self.usage_tracker,
-                                true,
-                            )?;
-                            assert!(results.insert(batch_key, Ok(Some(result))).is_none());
-                        },
-                        None => {
-                            assert!(results.insert(batch_key, Ok(None)).is_none());
-                        },
-                    }
-                } else {
-                    if !self.table_mapping().table_number_exists()(*id.table()) {
-                        assert!(results.insert(batch_key, Ok(None)).is_none());
-                        continue;
-                    }
-                    let id_ = id.map_table(self.table_mapping().inject_table_id())?;
-                    let table_name = self.table_mapping().tablet_name(id_.table().table_id)?;
-                    ids_to_fetch.insert(batch_key, (id_, table_name));
-                }
-            };
-            if let Err(e) = resolve_result {
-                assert!(results.insert(batch_key, Err(e)).is_none());
-            }
-        }
-        let fetched_results = self.get_inner_batch(ids_to_fetch).await;
-        for (batch_key, inner_result) in fetched_results {
-            let result: anyhow::Result<_> = try {
-                let developer_result = inner_result?.map(|(doc, ts)| (doc.to_developer(), ts));
-                assert!(results.insert(batch_key, Ok(developer_result)).is_none());
-            };
-            if let Err(e) = result {
-                assert!(results.insert(batch_key, Err(e)).is_none());
-            }
-        }
-        assert_eq!(results.len(), batch_size);
-        results
-    }
-
-    /// Creates a new document with given value in the specified table.
-    #[convex_macro::instrument_future]
-    pub async fn insert_user_facing(
-        &mut self,
-        table: TableName,
-        value: ConvexObject,
-    ) -> anyhow::Result<DeveloperDocumentId> {
-        if self.virtual_system_mapping().is_virtual_table(&table) {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "ReadOnlyTable",
-                format!("{table} is a read-only table"),
-            ));
-        }
-
-        check_user_size(value.size())?;
-        self.retention_validator.fail_if_falling_behind()?;
-        let id = self.id_generator.generate(&table);
-
-        let creation_time = self.next_creation_time.increment()?;
-
-        if table.is_system() {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "InvalidTableName",
-                format!("Invalid table name {table} starts with metadata prefix '_'")
-            ));
-        }
-
-        // Note that the index and document store updates within `self.insert_document`
-        // below are fallible, and since the layers above still have access to
-        // the `Transaction` in that case (we only have `&mut self` here, not a
-        // consuming `self`), we need to make sure we leave the transaction in a
-        // consistent state on error.
-        //
-        // It's okay for us to insert the table write here and fail below: At worse the
-        // transaction will contain an insertion for an empty table's `_tables`
-        // record. On the other hand, it's not okay for us to succeed an
-        // insertion into the index/document store and then fail to insert the
-        // table metadata. If the user then subsequently commits that transaction,
-        // they'll have a record that points to a nonexistent table.
-        TableModel::new(self).insert_table_metadata(&table).await?;
-        let document = ResolvedDocument::new(
-            id.clone()
-                .map_table(self.table_mapping().name_to_id_user_input())?,
-            creation_time,
-            value,
-        )?;
-        let document_id = self.insert_document(document).await?;
-
-        Ok(document_id.into())
-    }
-
     /// Inserts a new document as part of a snapshot import.
-    /// This is like `insert_user_facing` with a few differences:
+    /// This is like `UserFacingModel::insert` with a few differences:
     /// - the table for insertion is chosen by table id, not table name or
     ///   number.
     /// - nonexistent tables won't be created implicitly.
@@ -782,32 +632,6 @@ impl<RT: Runtime> Transaction<RT> {
     /// Merges the existing document with the given object. Will overwrite any
     /// conflicting fields.
     #[convex_macro::instrument_future]
-    pub async fn patch_user_facing(
-        &mut self,
-        id: DeveloperDocumentId,
-        value: PatchValue,
-    ) -> anyhow::Result<DeveloperDocument> {
-        if self.is_system(*id.table()) && !(self.identity.is_admin() || self.identity.is_system()) {
-            anyhow::bail!(unauthorized_error("patch"))
-        }
-        self.retention_validator.fail_if_falling_behind()?;
-
-        let id_ = id.map_table(self.table_mapping().inject_table_id())?;
-
-        let new_document = self.patch_inner(id_, value).await?;
-
-        // Check the size of the patched document.
-        if !self.is_system(*id.table()) {
-            check_user_size(new_document.size())?;
-        }
-
-        let developer_document = new_document.to_developer();
-        Ok(developer_document)
-    }
-
-    /// Merges the existing document with the given object. Will overwrite any
-    /// conflicting fields.
-    #[convex_macro::instrument_future]
     pub async fn patch_system_document(
         &mut self,
         id: ResolvedDocumentId,
@@ -819,7 +643,7 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     #[convex_macro::instrument_future]
-    async fn patch_inner(
+    pub(crate) async fn patch_inner(
         &mut self,
         id: ResolvedDocumentId,
         value: PatchValue,
@@ -846,27 +670,6 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(new_document)
     }
 
-    /// Replace the document with the given value.
-    #[convex_macro::instrument_future]
-    pub async fn replace_user_facing(
-        &mut self,
-        id: DeveloperDocumentId,
-        value: ConvexObject,
-    ) -> anyhow::Result<DeveloperDocument> {
-        if self.is_system(*id.table()) && !(self.identity.is_admin() || self.identity.is_system()) {
-            anyhow::bail!(unauthorized_error("replace"))
-        }
-        if !self.is_system(*id.table()) {
-            check_user_size(value.size())?;
-        }
-        self.retention_validator.fail_if_falling_behind()?;
-        let id_ = id.map_table(self.table_mapping().inject_table_id())?;
-
-        let new_document = self.replace_inner(id_, value).await?;
-        let developer_document = new_document.to_developer();
-        Ok(developer_document)
-    }
-
     pub fn is_system(&mut self, table_number: TableNumber) -> bool {
         self.table_mapping().is_system(table_number)
             || self.virtual_table_mapping().number_exists(&table_number)
@@ -884,7 +687,7 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     #[convex_macro::instrument_future]
-    async fn replace_inner(
+    pub(crate) async fn replace_inner(
         &mut self,
         id: ResolvedDocumentId,
         value: ConvexObject,
@@ -909,23 +712,6 @@ impl<RT: Runtime> Transaction<RT> {
             Some(new_document.clone()),
         )?;
         Ok(new_document)
-    }
-
-    /// Delete the document at the given path -- called from user facing APIs
-    /// (e.g. syscalls)
-    #[convex_macro::instrument_future]
-    pub async fn delete_user_facing(
-        &mut self,
-        id: DeveloperDocumentId,
-    ) -> anyhow::Result<DeveloperDocument> {
-        if self.is_system(*id.table()) && !(self.identity.is_admin() || self.identity.is_system()) {
-            anyhow::bail!(unauthorized_error("delete"))
-        }
-        self.retention_validator.fail_if_falling_behind()?;
-
-        let id_ = id.map_table(&self.table_mapping().inject_table_id())?;
-        let document = self.delete_inner(id_).await?;
-        Ok(document.to_developer())
     }
 
     /// Delete the document at the given path.
@@ -1286,7 +1072,7 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(())
     }
 
-    async fn insert_document(
+    pub(crate) async fn insert_document(
         &mut self,
         document: ResolvedDocument,
     ) -> anyhow::Result<ResolvedDocumentId> {
@@ -1331,84 +1117,6 @@ impl<RT: Runtime> Transaction<RT> {
             &self.usage_tracker,
             is_virtual_table,
         )
-    }
-
-    pub fn record_read_document_user_facing(
-        &mut self,
-        document: &DeveloperDocument,
-        table_name: &TableName,
-    ) -> anyhow::Result<()> {
-        let is_virtual_table = self.virtual_system_mapping().is_virtual_table(table_name);
-        self.reads.record_read_document(
-            table_name.clone(),
-            document.size(),
-            &self.usage_tracker,
-            is_virtual_table,
-        )
-    }
-
-    /// NOTE: returns a page of results. Callers must call record_read_document
-    /// for all documents returned from the index stream.
-    #[convex_macro::instrument_future]
-    pub async fn index_range_user_facing(
-        &mut self,
-        stable_index_name: &StableIndexName,
-        interval: &Interval,
-        order: Order,
-        mut max_rows: usize,
-        version: Option<Version>,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
-        Interval,
-    )> {
-        if interval.is_empty() {
-            return Ok((vec![], Interval::empty()));
-        }
-
-        max_rows = cmp::min(max_rows, MAX_PAGE_SIZE);
-
-        let tablet_index_name = match stable_index_name {
-            StableIndexName::Physical(tablet_index_name) => tablet_index_name,
-            StableIndexName::Virtual(index_name, tablet_index_name) => {
-                log_virtual_table_query();
-                return VirtualTable::new(self)
-                    .index_range(
-                        index_name,
-                        tablet_index_name,
-                        interval,
-                        order,
-                        max_rows,
-                        version,
-                    )
-                    .await;
-            },
-            StableIndexName::Missing => {
-                return Ok((vec![], Interval::empty()));
-            },
-        };
-        let index_name = tablet_index_name
-            .clone()
-            .map_table(&self.table_mapping().tablet_to_name())?;
-
-        let (results, interval_remaining) = self
-            .index
-            .range(
-                &mut self.reads,
-                tablet_index_name,
-                &index_name,
-                interval,
-                order,
-                max_rows,
-            )
-            .await?;
-        let developer_results = results
-            .into_iter()
-            .map(|(key, doc, ts)| {
-                let doc = doc.to_developer();
-                anyhow::Ok((key, doc, ts))
-            })
-            .try_collect()?;
-        Ok((developer_results, interval_remaining))
     }
 
     // Preload an index range against the transaction, building a snapshot of
@@ -1458,7 +1166,8 @@ impl<RT: Runtime> Transaction<RT> {
             StableIndexName::Physical(tablet_index_name) => tablet_index_name,
             StableIndexName::Virtual(..) => {
                 anyhow::bail!(
-                    "Can't query virtual tables from index_range (index_range_user_facing can)"
+                    "Can't query virtual tables from index_range (use \
+                     UserFacingModel::index_range instead)"
                 );
             },
             StableIndexName::Missing => {

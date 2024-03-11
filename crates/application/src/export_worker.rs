@@ -855,6 +855,7 @@ mod tests {
     use database::{
         test_helpers::DbFixtures,
         TableModel,
+        UserFacingModel,
     };
     use file_storage::{
         FileStorage,
@@ -906,7 +907,9 @@ mod tests {
         for i in 0..2 {
             let table: TableName = str::parse(format!("table_{i}").as_str())?;
             let mut tx = db.begin(Identity::system()).await?;
-            tx.insert_user_facing(table, ConvexObject::empty()).await?;
+            UserFacingModel::new(&mut tx)
+                .insert(table, ConvexObject::empty())
+                .await?;
             db.commit(tx).await?;
         }
         let (_, tables, _) = export_worker.export_inner(ExportFormat::CleanJsonl).await?;
@@ -956,19 +959,22 @@ mod tests {
             let mut tx = db.begin(Identity::system()).await?;
             let id = match i {
                 0 => {
-                    tx.insert_user_facing(table, assert_obj!("foo" => 1))
+                    UserFacingModel::new(&mut tx)
+                        .insert(table, assert_obj!("foo" => 1))
                         .await?
                 },
                 1 => {
-                    tx.insert_user_facing(table, assert_obj!("foo" => [1, "1"]))
+                    UserFacingModel::new(&mut tx)
+                        .insert(table, assert_obj!("foo" => [1, "1"]))
                         .await?
                 },
                 _ => {
-                    tx.insert_user_facing(table, assert_obj!("foo" => "1"))
+                    UserFacingModel::new(&mut tx)
+                        .insert(table, assert_obj!("foo" => "1"))
                         .await?
                 },
             };
-            let (doc, _) = tx.get_with_ts_user_facing(id, None).await?.unwrap();
+            let doc = UserFacingModel::new(&mut tx).get(id, None).await?.unwrap();
             let doc = doc.to_resolved(&tx.table_mapping().inject_table_id())?;
             let id_v6 = doc.id_v6().encode();
             expected_export_entries.insert(
@@ -1148,11 +1154,13 @@ mod tests {
 
         // Write to two tables and delete one.
         let mut tx = db.begin(Identity::system()).await?;
-        tx.insert_user_facing("table_0".parse()?, ConvexObject::empty())
+        UserFacingModel::new(&mut tx)
+            .insert("table_0".parse()?, ConvexObject::empty())
             .await?;
         db.commit(tx).await?;
         let mut tx = db.begin(Identity::system()).await?;
-        tx.insert_user_facing("table_1".parse()?, ConvexObject::empty())
+        UserFacingModel::new(&mut tx)
+            .insert("table_1".parse()?, ConvexObject::empty())
             .await?;
         db.commit(tx).await?;
         let mut tx = db.begin(Identity::system()).await?;

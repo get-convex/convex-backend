@@ -13,6 +13,7 @@ use crate::{
     DocumentDeltas,
     SnapshotPage,
     TableModel,
+    UserFacingModel,
 };
 #[convex_macro::test_runtime]
 async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
@@ -140,7 +141,8 @@ async fn document_deltas_should_ignore_rows_from_deleted_tables(
 
     // When I insert a document…
     let mut tx = db.begin(Identity::system()).await?;
-    tx.insert_user_facing("table".parse()?, assert_obj!())
+    UserFacingModel::new(&mut tx)
+        .insert("table".parse()?, assert_obj!())
         .await?;
     db.commit(tx).await?;
 
@@ -168,7 +170,8 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
     // When I insert two documents…
     let mut tx = db.begin(Identity::system()).await?;
     let remaining_doc = tx.insert_and_get("table1".parse()?, assert_obj!()).await?;
-    tx.insert_user_facing("table2".parse()?, assert_obj!())
+    UserFacingModel::new(&mut tx)
+        .insert("table2".parse()?, assert_obj!())
         .await?;
     let ts_insert = db.commit(tx).await?;
 
@@ -221,8 +224,8 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let doc3 = tx
         .insert_and_get("table3".parse()?, assert_obj!("f" => 3))
         .await?;
-    let doc4 = tx
-        .patch_user_facing((*doc2.id()).into(), assert_obj!("f" => 4).into())
+    let doc4 = UserFacingModel::new(&mut tx)
+        .patch((*doc2.id()).into(), assert_obj!("f" => 4).into())
         .await?;
     let doc4 = doc4.to_resolved(&tx.table_mapping().inject_table_id())?;
     let ts2 = db.commit(tx).await?;

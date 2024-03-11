@@ -40,6 +40,7 @@ use crate::{
     },
     IndexModel,
     ResolvedQuery,
+    UserFacingModel,
 };
 
 #[convex_macro::test_runtime]
@@ -234,8 +235,8 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .await?;
     let obj = assert_obj!("key" => vec![0; 100]);
     let table_name: TableName = "my_table".parse()?;
-    let doc_id = tx
-        .insert_user_facing(table_name.clone(), obj.clone())
+    let doc_id = UserFacingModel::new(&mut tx)
+        .insert(table_name.clone(), obj.clone())
         .await?;
     db.commit(tx).await?;
     db.usage_counter().track_call(
@@ -258,7 +259,9 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     let mut tx = db
         .begin_with_usage(Identity::Unknown, tx_usage.clone())
         .await?;
-    tx.get_with_ts_user_facing(doc_id, None).await?;
+    UserFacingModel::new(&mut tx)
+        .get_with_ts(doc_id, None)
+        .await?;
     db.commit(tx).await?;
     db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
@@ -309,11 +312,14 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let obj = assert_obj!("key" => 1);
     let obj2 = assert_obj!("key" => 3);
     let obj3 = assert_obj!("key" => 1);
-    tx.insert_user_facing(table_name.clone(), obj.clone())
+    UserFacingModel::new(&mut tx)
+        .insert(table_name.clone(), obj.clone())
         .await?;
-    tx.insert_user_facing(table_name.clone(), obj2.clone())
+    UserFacingModel::new(&mut tx)
+        .insert(table_name.clone(), obj2.clone())
         .await?;
-    tx.insert_user_facing(table_name.clone(), obj3.clone())
+    UserFacingModel::new(&mut tx)
+        .insert(table_name.clone(), obj3.clone())
         .await?;
     db.commit(tx).await?;
     db.usage_counter().track_call(

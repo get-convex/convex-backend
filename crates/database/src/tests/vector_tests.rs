@@ -89,6 +89,7 @@ use crate::{
     Database,
     IndexModel,
     TableModel,
+    UserFacingModel,
     VectorIndexCompactor,
 };
 
@@ -186,7 +187,9 @@ impl<RT: Runtime> Scenario<RT> {
             let mut tx = self.database.begin(Identity::system()).await?;
             let vector = self.rt.with_rng(random_vector_value);
             let obj = assert_obj!(INDEXED_FIELD => vector, "A" => ConvexValue::Int64(1017));
-            let id = tx.insert_user_facing(TABLE_NAME.parse()?, obj).await?;
+            let id = UserFacingModel::new(&mut tx)
+                .insert(TABLE_NAME.parse()?, obj)
+                .await?;
             ids.push(id);
             self.database.commit(tx).await?;
         }
@@ -368,10 +371,14 @@ impl<RT: Runtime> RandomizedTest<RT> {
                 }
                 let new_obj = ConvexObject::try_from(new_obj)?;
                 let id = if let Some((document_id, _)) = self.model.remove(&update.key) {
-                    tx.replace_user_facing(document_id, new_obj).await?;
+                    UserFacingModel::new(&mut tx)
+                        .replace(document_id, new_obj)
+                        .await?;
                     document_id
                 } else {
-                    tx.insert_user_facing(TABLE_NAME.parse()?, new_obj).await?
+                    UserFacingModel::new(&mut tx)
+                        .insert(TABLE_NAME.parse()?, new_obj)
+                        .await?
                 };
                 self.scenario.database.commit(tx).await?;
                 self.model.insert(update.key, (id, update));
@@ -379,7 +386,7 @@ impl<RT: Runtime> RandomizedTest<RT> {
             TestAction::Delete(key) => {
                 if let Some((document_id, _)) = self.model.remove(&key) {
                     let mut tx = self.scenario.database.begin_system().await?;
-                    tx.delete_user_facing(document_id).await?;
+                    UserFacingModel::new(&mut tx).delete(document_id).await?;
                     self.scenario.database.commit(tx).await?;
                 }
             },
@@ -455,12 +462,14 @@ async fn test_vector_search(rt: TestRuntime) -> anyhow::Result<()> {
 
     let vector1 = rt.with_rng(random_vector_value);
     let obj = assert_obj!(INDEXED_FIELD => vector1, "A" => ConvexValue::Int64(1017));
-    let id1 = tx.insert_user_facing(TABLE_NAME.parse()?, obj).await?;
+    let id1 = UserFacingModel::new(&mut tx)
+        .insert(TABLE_NAME.parse()?, obj)
+        .await?;
 
     let vector2 = rt.with_rng(random_vector_value);
     let obj = assert_obj!(INDEXED_FIELD => vector2);
-    let id2 = tx
-        .insert_user_facing(TABLE_NAME.parse()?, obj.clone())
+    let id2 = UserFacingModel::new(&mut tx)
+        .insert(TABLE_NAME.parse()?, obj.clone())
         .await?;
 
     scenario.database.commit(tx).await?;
@@ -498,7 +507,7 @@ async fn test_vector_search(rt: TestRuntime) -> anyhow::Result<()> {
     // Test deleting the first vector and checking that it doesn't show up in
     // results.
     let mut tx = scenario.database.begin(Identity::system()).await?;
-    tx.delete_user_facing(id1).await?;
+    UserFacingModel::new(&mut tx).delete(id1).await?;
     scenario.database.commit(tx).await?;
 
     for _ in 0..2 {
@@ -511,7 +520,9 @@ async fn test_vector_search(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Test updating the second vector and checking that it shows up once.
     let mut tx = scenario.database.begin(Identity::system()).await?;
-    tx.replace_user_facing(id2, obj.clone()).await?;
+    UserFacingModel::new(&mut tx)
+        .replace(id2, obj.clone())
+        .await?;
     scenario.database.commit(tx).await?;
 
     for _ in 0..2 {
@@ -525,7 +536,7 @@ async fn test_vector_search(rt: TestRuntime) -> anyhow::Result<()> {
     // Test updating the second vector a second time and checking that it still
     // shows up once.
     let mut tx = scenario.database.begin(Identity::system()).await?;
-    tx.replace_user_facing(id2, obj).await?;
+    UserFacingModel::new(&mut tx).replace(id2, obj).await?;
     scenario.database.commit(tx).await?;
 
     for _ in 0..2 {
@@ -553,7 +564,9 @@ async fn test_vector_search_compaction(rt: TestRuntime) -> anyhow::Result<()> {
             let mut tx = scenario.database.begin(Identity::system()).await?;
             let vector = rt.with_rng(random_vector_value);
             let obj = assert_obj!(INDEXED_FIELD => vector, "A" => ConvexValue::Int64(1017));
-            let id = tx.insert_user_facing(TABLE_NAME.parse()?, obj).await?;
+            let id = UserFacingModel::new(&mut tx)
+                .insert(TABLE_NAME.parse()?, obj)
+                .await?;
             ids.push(id);
             scenario.database.commit(tx).await?;
             // Backfill to create a new segment
@@ -605,7 +618,9 @@ async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Resu
     for _ in 0..4 {
         let vector = rt.with_rng(random_vector_value);
         let obj = assert_obj!(INDEXED_FIELD => vector, "A" => ConvexValue::Int64(1017));
-        let id = tx.insert_user_facing(TABLE_NAME.parse()?, obj).await?;
+        let id = UserFacingModel::new(&mut tx)
+            .insert(TABLE_NAME.parse()?, obj)
+            .await?;
         ids.push(id);
     }
     scenario.database.commit(tx).await?;
@@ -616,7 +631,7 @@ async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Resu
     let mut timestamps_and_results = vec![];
     for (index, id) in ids.iter().rev().enumerate() {
         let mut tx = scenario.database.begin(Identity::system()).await?;
-        tx.delete_user_facing(*id).await?;
+        UserFacingModel::new(&mut tx).delete(*id).await?;
         let timestamp = scenario.database.commit(tx).await?;
         timestamps_and_results.push((
             timestamp,
@@ -680,7 +695,9 @@ async fn test_vector_search_compaction_with_deletes(rt: TestRuntime) -> anyhow::
         let mut tx = scenario.database.begin(Identity::system()).await?;
         let vector = rt.with_rng(random_vector_value);
         let obj = assert_obj!(INDEXED_FIELD => vector, "A" => ConvexValue::Int64(1017));
-        let id = tx.insert_user_facing(TABLE_NAME.parse()?, obj).await?;
+        let id = UserFacingModel::new(&mut tx)
+            .insert(TABLE_NAME.parse()?, obj)
+            .await?;
         ids.push(id);
         scenario.database.commit(tx).await?;
         // Backfill to create a new segment
@@ -690,7 +707,7 @@ async fn test_vector_search_compaction_with_deletes(rt: TestRuntime) -> anyhow::
     let ids_to_delete = ids[0..ids.len() / 2].to_vec();
     let mut tx = scenario.database.begin(Identity::system()).await?;
     for id in &ids_to_delete {
-        tx.delete_user_facing(*id).await?;
+        UserFacingModel::new(&mut tx).delete(*id).await?;
     }
     scenario.database.commit(tx).await?;
     scenario.compact().await?;
@@ -881,7 +898,9 @@ async fn test_recall_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
     for _ in 0..100 {
         let vector = rt.with_rng(random_vector);
         let obj = assert_obj!(INDEXED_FIELD => vector_to_value(vector.clone()));
-        let id = tx.insert_user_facing(TABLE_NAME.parse()?, obj).await?;
+        let id = UserFacingModel::new(&mut tx)
+            .insert(TABLE_NAME.parse()?, obj)
+            .await?;
         by_id.insert(id.internal_id(), vector);
     }
     scenario.database.commit(tx).await?;

@@ -712,6 +712,7 @@ mod tests {
         vector_index_worker::compactor::CompactionConfig,
         Database,
         IndexModel,
+        UserFacingModel,
     };
 
     fn new_vector_flusher_with_soft_limit(
@@ -908,7 +909,9 @@ mod tests {
             .await?;
 
         let mut tx = fixtures.db.begin_system().await?;
-        tx.delete_user_facing(to_delete.into()).await?;
+        UserFacingModel::new(&mut tx)
+            .delete(to_delete.into())
+            .await?;
         fixtures.db.commit(tx).await?;
 
         let mut worker = fixtures.new_index_flusher()?;
@@ -992,7 +995,9 @@ mod tests {
         // cause cause the flusher to write a new segment.
         let mut tx = fixtures.db.begin_system().await?;
         for doc_id in &deleted_doc_ids {
-            tx.delete_user_facing((*doc_id).into()).await?;
+            UserFacingModel::new(&mut tx)
+                .delete((*doc_id).into())
+                .await?;
         }
         fixtures.db.commit(tx).await?;
         let non_deleted_id = fixtures
@@ -1097,7 +1102,9 @@ mod tests {
         // cause cause the flusher to write a new segment.
         let mut tx = fixtures.db.begin_system().await?;
         for doc_id in &deleted_doc_ids {
-            tx.delete_user_facing((*doc_id).into()).await?;
+            UserFacingModel::new(&mut tx)
+                .delete((*doc_id).into())
+                .await?;
         }
         fixtures.db.commit(tx).await?;
         let non_deleted_id = fixtures
@@ -1160,17 +1167,20 @@ mod tests {
         let mut tx = fixtures.db.begin_system().await?;
         let patched_object = assert_val!([5f64, 6f64]);
         for doc_id in &deleted_doc_ids {
-            tx.patch_user_facing(
-                (*doc_id).into(),
-                assert_obj!("vector" => patched_object.clone()).into(),
-            )
-            .await?;
+            UserFacingModel::new(&mut tx)
+                .patch(
+                    (*doc_id).into(),
+                    assert_obj!("vector" => patched_object.clone()).into(),
+                )
+                .await?;
         }
         fixtures.db.commit(tx).await?;
 
         let mut tx = fixtures.db.begin_system().await?;
         for doc_id in &deleted_doc_ids {
-            tx.delete_user_facing((*doc_id).into()).await?;
+            UserFacingModel::new(&mut tx)
+                .delete((*doc_id).into())
+                .await?;
         }
         fixtures.db.commit(tx).await?;
 
@@ -1274,7 +1284,7 @@ mod tests {
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
         let mut tx = fixtures.db.begin_system().await?;
-        tx.delete_user_facing(id.into()).await?;
+        UserFacingModel::new(&mut tx).delete(id.into()).await?;
         fixtures.db.commit(tx).await?;
 
         let mut worker = fixtures.new_index_flusher()?;
@@ -1309,13 +1319,14 @@ mod tests {
         // Update the document in place
         let mut tx = fixtures.db.begin_system().await?;
         let patched_object = assert_val!([5f64, 6f64]);
-        tx.patch_user_facing(id.into(), assert_obj!("vector" => patched_object).into())
+        UserFacingModel::new(&mut tx)
+            .patch(id.into(), assert_obj!("vector" => patched_object).into())
             .await?;
         fixtures.db.commit(tx).await?;
 
         // Then delete it
         let mut tx = fixtures.db.begin_system().await?;
-        tx.delete_user_facing(id.into()).await?;
+        UserFacingModel::new(&mut tx).delete(id.into()).await?;
         fixtures.db.commit(tx).await?;
 
         // And flush to ensure that we handle the document showing up repeatedly in the
@@ -1353,7 +1364,7 @@ mod tests {
                 .await?;
             if index >= 5 {
                 let mut tx = fixtures.db.begin_system().await?;
-                tx.delete_user_facing(id.into()).await?;
+                UserFacingModel::new(&mut tx).delete(id.into()).await?;
                 fixtures.db.commit(tx).await?;
             }
         }
@@ -1395,7 +1406,7 @@ mod tests {
                 .await?;
             if index >= 5 {
                 let mut tx = fixtures.db.begin_system().await?;
-                tx.delete_user_facing(id.into()).await?;
+                UserFacingModel::new(&mut tx).delete(id.into()).await?;
                 fixtures.db.commit(tx).await?;
             }
         }
@@ -1434,11 +1445,12 @@ mod tests {
             if index >= 5 {
                 let mut tx = fixtures.db.begin_system().await?;
                 let patched_object = assert_val!([5f64, 6f64]);
-                tx.patch_user_facing(
-                    id.into(),
-                    assert_obj!("vector" => patched_object.clone()).into(),
-                )
-                .await?;
+                UserFacingModel::new(&mut tx)
+                    .patch(
+                        id.into(),
+                        assert_obj!("vector" => patched_object.clone()).into(),
+                    )
+                    .await?;
                 fixtures.db.commit(tx).await?;
             }
         }

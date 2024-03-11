@@ -5,6 +5,7 @@ use common::pause::{
 };
 use database::{
     Transaction,
+    UserFacingModel,
     MAX_OCC_FAILURES,
 };
 use errors::ErrorMetadataAnyhowExt;
@@ -28,7 +29,8 @@ async fn test_replace_tx(
     id: ResolvedDocumentId,
     value: ConvexValue,
 ) -> anyhow::Result<((), Vec<DeploymentAuditLogEvent>)> {
-    tx.replace_user_facing(id.into(), obj!("name" => value)?)
+    UserFacingModel::new(tx)
+        .replace(id.into(), obj!("name" => value)?)
         .await?;
     Ok(((), vec![]))
 }

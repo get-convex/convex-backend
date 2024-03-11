@@ -262,6 +262,7 @@ mod tests {
         vector_index_worker::flusher::VectorIndexFlusher,
         Database,
         IndexModel,
+        UserFacingModel,
     };
 
     #[convex_macro::test_runtime]
@@ -503,8 +504,8 @@ mod tests {
             "vector" => values,
             "channel" => ConvexValue::String("#general".try_into()?),
         );
-        let document_id = tx
-            .insert_user_facing(index_metadata.name.table().clone(), document)
+        let document_id = UserFacingModel::new(&mut tx)
+            .insert(index_metadata.name.table().clone(), document)
             .await?;
         db.commit(tx).await?;
         Ok(document_id)

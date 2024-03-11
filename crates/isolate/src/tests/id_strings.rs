@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use cmd_util::env::env_config;
 use common::version::Version;
+use database::UserFacingModel;
 use keybroker::Identity;
 use model::udf_config::{
     types::UdfConfig,
@@ -51,9 +52,11 @@ async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::
     let mut tx = t.database.begin(Identity::system()).await?;
     let table_name_a: TableName = "boats".parse()?;
     let table_name_b: TableName = "votes".parse()?;
-    tx.insert_user_facing(table_name_a.clone(), assert_obj!())
+    UserFacingModel::new(&mut tx)
+        .insert(table_name_a.clone(), assert_obj!())
         .await?;
-    tx.insert_user_facing(table_name_b.clone(), assert_obj!())
+    UserFacingModel::new(&mut tx)
+        .insert(table_name_b.clone(), assert_obj!())
         .await?;
     let table_number = tx.table_mapping().id(&table_name_a)?.table_number;
 
@@ -101,7 +104,8 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let mut tx = t.database.begin(Identity::system()).await?;
     let user_table_name: TableName = "boats".parse()?;
-    tx.insert_user_facing(user_table_name.clone(), assert_obj!())
+    UserFacingModel::new(&mut tx)
+        .insert(user_table_name.clone(), assert_obj!())
         .await?;
     let user_table_number = tx.table_mapping().id(&user_table_name)?.table_number;
 

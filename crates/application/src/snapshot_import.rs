@@ -2273,6 +2273,7 @@ mod tests {
         IndexModel,
         ResolvedQuery,
         SchemaModel,
+        UserFacingModel,
     };
     use errors::ErrorMetadataAnyhowExt;
     use futures::{
@@ -2791,16 +2792,17 @@ a
 
         {
             let mut tx = app.begin(identity).await?;
-            let validated_id = tx
-                .insert_user_facing(table_name.parse()?, assert_obj!())
+            let validated_id = UserFacingModel::new(&mut tx)
+                .insert(table_name.parse()?, assert_obj!())
                 .await?;
-            tx.insert_user_facing(
-                table_with_foreign_key.parse()?,
-                assert_obj!(
-                    "a" => validated_id.encode()
-                ),
-            )
-            .await?;
+            UserFacingModel::new(&mut tx)
+                .insert(
+                    table_with_foreign_key.parse()?,
+                    assert_obj!(
+                        "a" => validated_id.encode()
+                    ),
+                )
+                .await?;
             app.commit_test(tx).await?;
         }
 
@@ -2844,7 +2846,8 @@ _id,a
 
         {
             let mut tx = app.begin(identity).await?;
-            tx.insert_user_facing(table_name.parse()?, assert_obj!())
+            UserFacingModel::new(&mut tx)
+                .insert(table_name.parse()?, assert_obj!())
                 .await?;
             app.commit_test(tx).await?;
         }

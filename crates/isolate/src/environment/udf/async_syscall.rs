@@ -32,6 +32,7 @@ use database::{
     DeveloperQuery,
     PatchValue,
     Transaction,
+    UserFacingModel,
 };
 use deno_core::v8;
 use errors::{
@@ -488,7 +489,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
             }
         }
 
-        let mut fetched_results = tx.get_batch(ids_to_fetch).await;
+        let mut fetched_results = UserFacingModel::new(tx).get_batch(ids_to_fetch).await;
         (0..batch_size)
             .map(|batch_key| {
                 if let Some(precomputed) = precomputed_results.remove(&batch_key) {
@@ -531,7 +532,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
         system_table_guard(&table, false)?;
         let tx = env.phase.tx()?;
-        let document_id = tx.insert_user_facing(table, value).await?;
+        let document_id = UserFacingModel::new(tx).insert(table, value).await?;
         let id_str = document_id.encode();
         Ok(json!({ "_id": id_str }))
     }
@@ -561,7 +562,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = tx.patch_user_facing(id, value).await?;
+        let document = UserFacingModel::new(tx).patch(id, value).await?;
         Ok(document.into_value().0.into())
     }
 
@@ -590,7 +591,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = tx.replace_user_facing(id, value).await?;
+        let document = UserFacingModel::new(tx).replace(id, value).await?;
         Ok(document.into_value().0.into())
     }
 
@@ -671,7 +672,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = tx.delete_user_facing(id).await?;
+        let document = UserFacingModel::new(tx).delete(id).await?;
         Ok(document.into_value().0.into())
     }
 }

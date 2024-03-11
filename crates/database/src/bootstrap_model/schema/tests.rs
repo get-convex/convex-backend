@@ -39,6 +39,7 @@ use crate::{
     },
     SchemaModel,
     Transaction,
+    UserFacingModel,
 };
 
 #[convex_macro::test_runtime]
@@ -350,34 +351,38 @@ async fn test_schema_enforced_on_write(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Inserting a document that matches the schema should succeed
     let object = assert_obj!("name" => "emma", "age" => 24);
-    let id = tx.insert_user_facing(table.clone(), object).await?;
+    let id = UserFacingModel::new(&mut tx)
+        .insert(table.clone(), object)
+        .await?;
 
     // Replacing a document that matches the schema should succeed
     let object = assert_obj!("name" => "lee", "age" => 24);
-    tx.replace_user_facing(id, object).await?;
+    UserFacingModel::new(&mut tx).replace(id, object).await?;
 
     // Updating a document that matches the schema should succeed
     let object = assert_obj!("name" => "alex", "age" => 24);
-    tx.patch_user_facing(id, object.into()).await?;
+    UserFacingModel::new(&mut tx)
+        .patch(id, object.into())
+        .await?;
 
     // Inserting a document that does not match the schema should fail
     let bad_object = assert_obj!("name" => "emma", "age" => "24");
-    let err = tx
-        .insert_user_facing(table, bad_object.clone())
+    let err = UserFacingModel::new(&mut tx)
+        .insert(table, bad_object.clone())
         .await
         .unwrap_err();
     assert_eq!(err.short_msg(), "SchemaEnforcementError");
 
     // Replacing a document that does not match the schema should fail
-    let err = tx
-        .replace_user_facing(id, bad_object.clone())
+    let err = UserFacingModel::new(&mut tx)
+        .replace(id, bad_object.clone())
         .await
         .unwrap_err();
     assert_eq!(err.short_msg(), "SchemaEnforcementError");
 
     // Updating a document that does not match the schema should fail
-    let err = tx
-        .patch_user_facing(id, bad_object.into())
+    let err = UserFacingModel::new(&mut tx)
+        .patch(id, bad_object.into())
         .await
         .unwrap_err();
     assert_eq!(err.short_msg(), "SchemaEnforcementError");
@@ -398,19 +403,24 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
 
     // Inserting a document that matches the schema should succeed
     let object = assert_obj!("name" => "emma", "age" => 24);
-    let id = tx.insert_user_facing(table.clone(), object).await?;
+    let id = UserFacingModel::new(&mut tx)
+        .insert(table.clone(), object)
+        .await?;
 
     // Replacing a document that matches the schema should succeed
     let object = assert_obj!("name" => "lee", "age" => 24);
-    tx.replace_user_facing(id, object).await?;
+    UserFacingModel::new(&mut tx).replace(id, object).await?;
 
     // Updating a document that matches the schema should succeed
     let object = assert_obj!("name" => "alex", "age" => 24);
-    tx.patch_user_facing(id, object.into()).await?;
+    UserFacingModel::new(&mut tx)
+        .patch(id, object.into())
+        .await?;
 
     // Inserting a document that does not match the schema should fail
     let bad_object = assert_obj!("name" => "emma", "age" => "24");
-    tx.insert_user_facing(table.clone(), bad_object.clone())
+    UserFacingModel::new(&mut tx)
+        .insert(table.clone(), bad_object.clone())
         .await?;
     let SchemaMetadata { state, schema: _ } = tx
         .get(schema_id)
@@ -425,7 +435,9 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
     // failed and succeed
     let mut model = SchemaModel::new(&mut tx);
     let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
-    tx.replace_user_facing(id, bad_object.clone()).await?;
+    UserFacingModel::new(&mut tx)
+        .replace(id, bad_object.clone())
+        .await?;
     let SchemaMetadata { state, schema: _ } = tx
         .get(schema_id)
         .await?
@@ -439,7 +451,9 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
     // failed and succeed
     let mut model = SchemaModel::new(&mut tx);
     let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
-    tx.patch_user_facing(id, bad_object.into()).await?;
+    UserFacingModel::new(&mut tx)
+        .patch(id, bad_object.into())
+        .await?;
     let SchemaMetadata { state, schema: _ } = tx
         .get(schema_id)
         .await?

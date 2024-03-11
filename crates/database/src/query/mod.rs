@@ -47,6 +47,7 @@ use self::{
 use crate::{
     IndexModel,
     Transaction,
+    UserFacingModel,
 };
 
 mod filter;
@@ -194,7 +195,8 @@ impl QueryType for Developer {
         Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
         Interval,
     )> {
-        tx.index_range_user_facing(stable_index_name, interval, order, max_rows, version)
+        UserFacingModel::new(tx)
+            .index_range(stable_index_name, interval, order, max_rows, version)
             .await
     }
 
@@ -203,7 +205,7 @@ impl QueryType for Developer {
         id: GenericDocumentId<Self::T>,
         version: Option<Version>,
     ) -> anyhow::Result<Option<(GenericDocument<Self::T>, WriteTimestamp)>> {
-        tx.get_with_ts_user_facing(id, version).await
+        UserFacingModel::new(tx).get_with_ts(id, version).await
     }
 
     fn record_read_document<RT: Runtime>(
@@ -211,7 +213,7 @@ impl QueryType for Developer {
         doc: &GenericDocument<Self::T>,
         table_name: &TableName,
     ) -> anyhow::Result<()> {
-        tx.record_read_document_user_facing(doc, table_name)
+        UserFacingModel::new(tx).record_read_document(doc, table_name)
     }
 
     fn table_identifier<RT: Runtime>(

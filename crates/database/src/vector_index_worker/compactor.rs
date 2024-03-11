@@ -483,6 +483,7 @@ mod tests {
             VECTOR_SIZE_BYTES,
         },
         vector_index_worker::compactor::CompactionConfig,
+        UserFacingModel,
     };
 
     #[convex_macro::test_runtime]
@@ -859,7 +860,7 @@ mod tests {
         // Delete all but 1 vector.
         let mut tx = fixtures.db.begin_system().await?;
         for id in &ids[0..ids.len() - 1] {
-            tx.delete_user_facing((*id).into()).await?;
+            UserFacingModel::new(&mut tx).delete((*id).into()).await?;
         }
         fixtures.db.commit(tx).await?;
         fixtures.backfill().await?;
@@ -907,7 +908,7 @@ mod tests {
         // Delete all but one vctor.
         let mut tx = fixtures.db.begin_system().await?;
         for id in &ids[0..ids.len() - 1] {
-            tx.delete_user_facing((*id).into()).await?;
+            UserFacingModel::new(&mut tx).delete((*id).into()).await?;
         }
         fixtures.db.commit(tx).await?;
         fixtures.backfill().await?;

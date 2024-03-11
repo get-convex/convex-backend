@@ -85,6 +85,7 @@ use crate::{
     ResolvedQuery,
     SearchIndexFlusher,
     TableModel,
+    UserFacingModel,
 };
 
 struct Scenario {
@@ -297,7 +298,8 @@ impl Scenario {
             },
             Entry::Occupied(mut e) => {
                 let (document_id, ..) = e.get();
-                tx.patch_user_facing((*document_id).into(), new_document.into())
+                UserFacingModel::new(&mut tx)
+                    .patch((*document_id).into(), new_document.into())
                     .await?;
                 e.get_mut().1 = search_field;
                 e.get_mut().2 = filter_field;
@@ -321,7 +323,7 @@ impl Scenario {
             TestAction::Delete(k) => {
                 if let Some((id, ..)) = self.model.remove(&k.to_string()) {
                     let mut tx = self.database.begin(Identity::system()).await?;
-                    tx.delete_user_facing(id.into()).await?;
+                    UserFacingModel::new(&mut tx).delete(id.into()).await?;
                     self.database.commit(tx).await?;
                 }
             },
