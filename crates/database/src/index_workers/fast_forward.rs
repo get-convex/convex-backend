@@ -48,16 +48,14 @@ use value::{
     TableMapping,
 };
 
+use super::retriable_worker::retry_loop_expect_occs_and_overloaded;
 use crate::{
     bootstrap_model::index_workers::{
         IndexWorkerMetadataModel,
         IndexWorkerMetadataRecord,
     },
     index_workers::{
-        retriable_worker::{
-            retry_loop_expect_occs,
-            RetriableWorker,
-        },
+        retriable_worker::RetriableWorker,
         timeout_with_jitter,
     },
     metrics::log_worker_starting,
@@ -96,7 +94,7 @@ impl FastForwardIndexWorker {
         rt: RT,
         db: Database<RT>,
     ) -> impl Future<Output = ()> + Send {
-        retry_loop_expect_occs("FastForwardWorker", rt, db, FastForwardIndexWorker)
+        retry_loop_expect_occs_and_overloaded("FastForwardWorker", rt, db, FastForwardIndexWorker)
     }
 
     async fn fast_forward_loop<RT: Runtime>(
