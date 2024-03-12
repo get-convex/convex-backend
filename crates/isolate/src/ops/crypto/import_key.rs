@@ -13,10 +13,7 @@ use p256::pkcs8::EncodePrivateKey;
 use ring::signature::EcdsaKeyPair;
 use rsa::{
     pkcs1::UintRef,
-    pkcs8::der::{
-        Decode as RsaDecode,
-        EncodeValue,
-    },
+    pkcs8::der::Decode as RsaDecode,
 };
 use serde::{
     Deserialize,
@@ -276,7 +273,7 @@ fn import_key_rsassa(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
                 .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = private_key
-                .value_len()
+                .encoded_len()
                 .map_err(|e| data_error(e.to_string()))?;
 
             if bytes_consumed != spki::der::Length::new(pk_info.private_key.len() as u16) {
