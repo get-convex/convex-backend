@@ -2,7 +2,7 @@
 name = "value"
 description = "Serverside value types supported by Convex (convex.dev)"
 version = "0.1.0"
-authors = ["Convex, Inc. <team@convex.dev>"]
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
 edition = "2021"
 license = "LicenseRef-FSL-1.1-Apache-2.0"
 

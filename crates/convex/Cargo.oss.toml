@@ -1,7 +1,7 @@
 [package]
 name = "convex"
 description = "Client library for Convex (convex.dev)"
-authors = [ "Convex, Inc. <team@convex.dev>" ]
+authors = [ "Convex, Inc. <no-reply@convex.dev>" ]
 version = "0.6.0"
 edition = "2021"
 rust-version = "1.65.0"

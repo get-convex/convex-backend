@@ -20,7 +20,7 @@ use keybroker::{
 use url::Url;
 
 #[derive(Parser, Clone)]
-#[clap(version = COMPILED_REVISION, author = "Convex, Inc. <team@convex.dev>")]
+#[clap(version = COMPILED_REVISION, author = "Convex, Inc. <no-reply@convex.dev>")]
 pub struct LocalConfig {
     /// File path for SQLite
     #[clap(default_value = "convex_local_backend.sqlite3")]
