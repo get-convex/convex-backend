@@ -496,6 +496,52 @@ async function importRsaPkcs8() {
   assert.deepEqual(algorithm.publicExponent, new Uint8Array([1, 0, 1]));
 }
 
+const rsaSpkiPem = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwhYOFK2Ocbbpb/zVypi9
+SeKiNUqKQH0zTKN1+6fpCTu6ZalGI82s7XK3tan4dJt90ptUPKD2zvxqTzFNfx4H
+HHsrYCf2+FMLn1VTJfQazA2BvJqAwcpW1bqRUEty8tS/Yv4hRvWfQPcc2Gc3+/fQ
+OOW57zVy+rNoJc744kb30NjQxdGp03J2S3GLQu7oKtSDDPooQHD38PEMNnITf0pj
++KgDPjymkMGoJlO3aKppsjfbt/AH6GGdRghYRLOUwQU+h+ofWHR3lbYiKtXPn5dN
+24kiHy61e3VAQ9/YAZlwXC/99GGtw/NpghFAuM4P1JDn0DppJldy3PGFC0GfBCZA
+SwIDAQAB
+-----END PUBLIC KEY-----`;
+
+// (not from Deno)
+// Regression test for SPKI importKey.
+async function importRsaSpki() {
+  const pemHeader = "-----BEGIN PUBLIC KEY-----";
+  const pemFooter = "-----END PUBLIC KEY-----";
+  const hash = "SHA-256";
+  const keyFile = rsaSpkiPem;
+  const pemContents = keyFile.substring(
+    pemHeader.length,
+    keyFile.length - pemFooter.length,
+  );
+  const binaryDerString = atob(pemContents);
+  const binaryDer = new Uint8Array(binaryDerString.length);
+  for (let i = 0; i < binaryDerString.length; i++) {
+    binaryDer[i] = binaryDerString.charCodeAt(i);
+  }
+
+  const key = await crypto.subtle.importKey(
+    "spki",
+    binaryDer,
+    { name: "RSASSA-PKCS1-v1_5", hash },
+    true,
+    ["verify"],
+  );
+
+  assert(key);
+  assert.strictEqual(key.type, "public");
+  assert.strictEqual(key.extractable, true);
+  assert.deepEqual(key.usages, ["verify"]);
+  const algorithm = key.algorithm as RsaHashedKeyAlgorithm;
+  assert.strictEqual(algorithm.name, "RSASSA-PKCS1-v1_5");
+  assert.strictEqual(algorithm.hash.name, hash);
+  assert.strictEqual(algorithm.modulusLength, 2048);
+  assert.deepEqual(algorithm.publicExponent, new Uint8Array([1, 0, 1]));
+}
+
 const pem1 = `-----BEGIN PRIVATE KEY-----
 MIIE7gIBADA9BgkqhkiG9w0BAQowMKANMAsGCWCGSAFlAwQCAaEaMBgGCSqGSIb3
 DQEBCDALBglghkgBZQMEAgGiAwIBHgSCBKgwggSkAgEAAoIBAQClbSUIKRfpCk0W
@@ -1817,6 +1863,7 @@ export const test = query({
       // testSignRSASSAKey,
       subtleCryptoHmacImportExport,
       importRsaPkcs8,
+      importRsaSpki,
       importNonInteroperableRsaPkcs8,
       testImportRsaJwk,
       // importing EC keys requires SecureRandom

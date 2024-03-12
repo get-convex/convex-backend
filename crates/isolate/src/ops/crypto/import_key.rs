@@ -23,11 +23,8 @@ use serde::{
     Serialize,
 };
 use spki::{
-    der::{
-        AnyRef,
-        Encode as SpkiEncode,
-    },
-    SubjectPublicKeyInfo,
+    der::Encode as SpkiEncode,
+    SubjectPublicKeyInfoRef,
 };
 
 use super::{
@@ -224,9 +221,10 @@ fn import_key_rsassa(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
     match key_data {
         KeyData::Spki(data) => {
             // 2-3.
-            let pk_info: SubjectPublicKeyInfo<AnyRef, Vec<u8>> =
-                spki::SubjectPublicKeyInfo::from_der(&data)
-                    .map_err(|e| data_error(e.to_string()))?;
+            // Note we parse as BitString<'_> instead of Vec<u8> because
+            // that's required to infer the write ASN.1 type.
+            let pk_info: SubjectPublicKeyInfoRef = spki::SubjectPublicKeyInfo::from_der(&data)
+                .map_err(|e| data_error(e.to_string()))?;
 
             // 4-5.
             let alg = pk_info.algorithm.oid;
@@ -237,18 +235,21 @@ fn import_key_rsassa(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
             }
 
             // 8-9.
-            let public_key = rsa::pkcs1::RsaPublicKey::from_der(&pk_info.subject_public_key)
-                .map_err(|e| data_error(e.to_string()))?;
+            let public_key =
+                rsa::pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
+                    .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = public_key
                 .encoded_len()
                 .map_err(|e| data_error(e.to_string()))?;
 
-            if bytes_consumed != spki::der::Length::new(pk_info.subject_public_key.len() as u16) {
+            if bytes_consumed
+                != spki::der::Length::new(pk_info.subject_public_key.raw_bytes().len() as u16)
+            {
                 return Err(data_error("public key is invalid (too long)"));
             }
 
-            let data = pk_info.subject_public_key.to_vec().into();
+            let data = pk_info.subject_public_key.raw_bytes().to_vec().into();
             let public_exponent = public_key.public_exponent.as_bytes().to_vec().into();
             let modulus_length = public_key.modulus.as_bytes().len() * 8;
 
@@ -303,9 +304,8 @@ fn import_key_rsapss(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
     match key_data {
         KeyData::Spki(data) => {
             // 2-3.
-            let pk_info: SubjectPublicKeyInfo<AnyRef, Vec<u8>> =
-                spki::SubjectPublicKeyInfo::from_der(&data)
-                    .map_err(|e| data_error(e.to_string()))?;
+            let pk_info: SubjectPublicKeyInfoRef = spki::SubjectPublicKeyInfo::from_der(&data)
+                .map_err(|e| data_error(e.to_string()))?;
 
             // 4-5.
             let alg = pk_info.algorithm.oid;
@@ -316,18 +316,21 @@ fn import_key_rsapss(key_data: KeyData) -> anyhow::Result<ImportKeyResult> {
             }
 
             // 8-9.
-            let public_key = rsa::pkcs1::RsaPublicKey::from_der(&pk_info.subject_public_key)
-                .map_err(|e| data_error(e.to_string()))?;
+            let public_key =
+                rsa::pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
+                    .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = public_key
                 .encoded_len()
                 .map_err(|e| data_error(e.to_string()))?;
 
-            if bytes_consumed != spki::der::Length::new(pk_info.subject_public_key.len() as u16) {
+            if bytes_consumed
+                != spki::der::Length::new(pk_info.subject_public_key.raw_bytes().len() as u16)
+            {
                 return Err(data_error("public key is invalid (too long)"));
             }
 
-            let data = pk_info.subject_public_key.to_vec().into();
+            let data = pk_info.subject_public_key.raw_bytes().to_vec().into();
             let public_exponent = public_key.public_exponent.as_bytes().to_vec().into();
             let modulus_length = public_key.modulus.as_bytes().len() * 8;
 
@@ -382,9 +385,8 @@ fn import_key_rsaoaep(key_data: KeyData) -> Result<ImportKeyResult, anyhow::Erro
     match key_data {
         KeyData::Spki(data) => {
             // 2-3.
-            let pk_info: SubjectPublicKeyInfo<AnyRef, Vec<u8>> =
-                spki::SubjectPublicKeyInfo::from_der(&data)
-                    .map_err(|e| data_error(e.to_string()))?;
+            let pk_info: SubjectPublicKeyInfoRef = spki::SubjectPublicKeyInfo::from_der(&data)
+                .map_err(|e| data_error(e.to_string()))?;
 
             // 4-5.
             let alg = pk_info.algorithm.oid;
@@ -395,18 +397,21 @@ fn import_key_rsaoaep(key_data: KeyData) -> Result<ImportKeyResult, anyhow::Erro
             }
 
             // 8-9.
-            let public_key = rsa::pkcs1::RsaPublicKey::from_der(&pk_info.subject_public_key)
-                .map_err(|e| data_error(e.to_string()))?;
+            let public_key =
+                rsa::pkcs1::RsaPublicKey::from_der(pk_info.subject_public_key.raw_bytes())
+                    .map_err(|e| data_error(e.to_string()))?;
 
             let bytes_consumed = public_key
                 .encoded_len()
                 .map_err(|e| data_error(e.to_string()))?;
 
-            if bytes_consumed != spki::der::Length::new(pk_info.subject_public_key.len() as u16) {
+            if bytes_consumed
+                != spki::der::Length::new(pk_info.subject_public_key.raw_bytes().len() as u16)
+            {
                 return Err(data_error("public key is invalid (too long)"));
             }
 
-            let data = pk_info.subject_public_key.to_vec().into();
+            let data = pk_info.subject_public_key.raw_bytes().to_vec().into();
             let public_exponent = public_key.public_exponent.as_bytes().to_vec().into();
             let modulus_length = public_key.modulus.as_bytes().len() * 8;
 
@@ -658,9 +663,8 @@ fn import_key_ec(
         },
         KeyData::Spki(data) => {
             // 2-3.
-            let pk_info: SubjectPublicKeyInfo<AnyRef, Vec<u8>> =
-                spki::SubjectPublicKeyInfo::from_der(&data)
-                    .map_err(|e| data_error(e.to_string()))?;
+            let pk_info: SubjectPublicKeyInfoRef = spki::SubjectPublicKeyInfo::from_der(&data)
+                .map_err(|e| data_error(e.to_string()))?;
 
             // 4.
             let alg = pk_info.algorithm.oid;
@@ -694,7 +698,7 @@ fn import_key_ec(
             let encoded_key;
 
             if let Some(pk_named_curve) = pk_named_curve {
-                let pk = &pk_info.subject_public_key;
+                let pk = pk_info.subject_public_key.raw_bytes();
 
                 encoded_key = pk.to_vec();
 
@@ -721,7 +725,7 @@ fn import_key_ec(
                     _ => return Err(not_supported_error("Unsupported named curve")),
                 };
 
-                if bytes_consumed != pk_info.subject_public_key.len() {
+                if bytes_consumed != pk_info.subject_public_key.raw_bytes().len() {
                     return Err(data_error("public key is invalid (too long)"));
                 }
 
