@@ -17,10 +17,7 @@ use common::{
         HttpResponseError,
     },
     runtime::Runtime,
-    types::{
-        remove_type_prefix_from_admin_key,
-        ConvexOrigin,
-    },
+    types::remove_type_prefix_from_admin_key,
 };
 use errors::ErrorMetadata;
 use keybroker::Identity;
@@ -31,13 +28,6 @@ use sync_types::{
 };
 
 use crate::LocalAppState;
-
-const STANDALONE_DEV_ORIGIN_1: &str = "http://127.0.0.1:8000";
-const STANDALONE_DEV_ORIGIN_2: &str = "http://localhost:8000";
-
-pub fn is_standalone_dev(origin: &ConvexOrigin) -> bool {
-    **origin == STANDALONE_DEV_ORIGIN_1 || **origin == STANDALONE_DEV_ORIGIN_2
-}
 
 pub struct ExtractAuthenticationToken(pub AuthenticationToken);
 

@@ -18,14 +18,14 @@ _default:
 
 set positional-arguments
 
-# (*) Run the open source convex backend on port 8000
+# (*) Run the open source convex backend on port 3210
 run-local-backend *ARGS:
   RUST_LOG=${RUST_LOG:-info} cargo run -p local_backend --bin convex-local-backend -- "$@"
 
 # Uses an admin key from admin_key.txt for dev backends.
 # (*) Run convex CLI commands like `convex dev` against local backend from `just run-local-backend`.
 convex *ARGS:
-  cd {{invocation_directory()}}; npx convex "$@" --admin-key 0135d8598650f8f5cb0f30c34ec2e2bb62793bc28717c8eb6fb577996d50be5f4281b59181095065c5d0f86a2c31ddbe9b597ec62b47ded69782cd --url "http://127.0.0.1:8000"
+  cd {{invocation_directory()}}; npx convex "$@" --admin-key 0135d8598650f8f5cb0f30c34ec2e2bb62793bc28717c8eb6fb577996d50be5f4281b59181095065c5d0f86a2c31ddbe9b597ec62b47ded69782cd --url "http://127.0.0.1:3210"
 
 # Global JavaScript tools
 # Common commands are

@@ -31,21 +31,21 @@ pub struct LocalConfig {
     pub interface: ::std::net::Ipv4Addr,
 
     /// Host port daemon should bind to
-    #[clap(short, long, default_value = "8000")]
+    #[clap(short, long, default_value = "3210")]
     pub port: u16,
 
-    /// Origin of the Convex server
-    #[clap(long, default_value = "http://127.0.0.1:8000")]
-    pub convex_origin: ConvexOrigin,
+    /// Host port to bind for Convex HTTP Actions
+    #[clap(long, default_value = "3211")]
+    site_proxy_port: u16,
 
-    #[clap(long, default_value = "http://127.0.0.1:8001")]
-    pub convex_site: ConvexSite,
+    /// Origin of the Convex server
+    convex_origin: Option<ConvexOrigin>,
+
+    /// Origin of the Convex HTTP Actions
+    convex_site: Option<ConvexSite>,
 
     #[clap(long)]
     pub convex_http_proxy: Option<Url>,
-
-    #[clap(long, default_value = "8001")]
-    site_proxy_port: u16,
 
     #[clap(long, requires = "instance_secret")]
     pub instance_name: Option<String>,
@@ -75,6 +75,18 @@ impl LocalConfig {
 
     pub fn site_bind_address(&self) -> Option<([u8; 4], u16)> {
         Some((self.interface.octets(), self.site_proxy_port))
+    }
+
+    pub fn convex_origin_url(&self) -> ConvexOrigin {
+        self.convex_origin
+            .clone()
+            .unwrap_or(format!("http://127.0.0.1:{}", self.port).into())
+    }
+
+    pub fn convex_site_url(&self) -> ConvexSite {
+        self.convex_site
+            .clone()
+            .unwrap_or(format!("http://127.0.0.1:{}", self.site_proxy_port).into())
     }
 
     pub fn name(&self) -> String {

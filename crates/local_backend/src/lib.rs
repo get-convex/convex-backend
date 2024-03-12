@@ -92,7 +92,7 @@ pub const MAX_CONCURRENT_REQUESTS: usize = 128;
 pub const MAX_PUSH_BYTES: usize = 100_000_000;
 
 pub struct LocalAppState {
-    // Origin for the server (e.g. http://127.0.0.1:8000, https://demo.convex.cloud)
+    // Origin for the server (e.g. http://127.0.0.1:3210, https://demo.convex.cloud)
     pub origin: ConvexOrigin,
     // Origin for the corresponding convex.site (where we serve HTTP) (e.g. http://127.0.0.1:8001, https://crazy-giraffe-123.convex.site)
     pub site_origin: ConvexSite,
@@ -181,7 +181,7 @@ pub async fn make_app(
         transactional_file_storage: TransactionalFileStorage::new(
             runtime.clone(),
             files_storage.clone(),
-            config.convex_origin.clone(),
+            config.convex_origin_url(),
         ),
         database: database.clone(),
     };
@@ -190,7 +190,7 @@ pub async fn make_app(
     let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout)?);
     let actions = Actions::new(
         node_executor,
-        config.convex_origin.clone(),
+        config.convex_origin_url(),
         *ACTION_USER_TIMEOUT,
     );
 
@@ -208,7 +208,7 @@ pub async fn make_app(
         InProcessFunctionRunner::new(
             config.name().clone(),
             config.secret()?,
-            config.convex_origin.clone(),
+            config.convex_origin_url(),
             runtime.clone(),
             persistence.reader(),
             files_storage.clone(),
@@ -231,8 +231,8 @@ pub async fn make_app(
         config.name(),
         config.secret()?,
         function_runner,
-        config.convex_origin.clone(),
-        config.convex_site.clone(),
+        config.convex_origin_url(),
+        config.convex_site_url(),
         searcher.clone(),
         persistence,
         actions,
@@ -243,12 +243,12 @@ pub async fn make_app(
     )
     .await?;
 
-    let origin = config.convex_origin.clone();
+    let origin = config.convex_origin_url();
     let instance_name = config.name().clone();
 
     let app_state = LocalAppState {
         origin,
-        site_origin: config.convex_site.clone(),
+        site_origin: config.convex_site_url(),
         instance_name,
         application,
         live_ws_count: Arc::new(AtomicU64::new(0)),
