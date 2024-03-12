@@ -98,8 +98,7 @@ This command must be running at all times to serve the Convex backend.
 
 ## Provisioning a convex app locally
 
-This example will go through running the backend with the included tutorial
-project.
+This example will go through running the backend with the included demo project.
 
 **1. Start the backend**
 
@@ -124,10 +123,10 @@ just run:
 just convex dev
 ```
 
-To run the included tutorial project, you can use the following commands:
+To run the included demo project, you can use the following commands:
 
 ```bash
-cd npm-packages/tutorial
+cd npm-packages/demo
 npm i
 just convex dev
 ```
@@ -135,7 +134,7 @@ just convex dev
 This runs the `convex dev` code-watching service to push any application code
 changes to the backend.
 
-To run the client web application you can run the tutorial Vite server via:
+To run the client web application you can run the demo Vite server via:
 
 ```bash
 npm run dev:client
@@ -197,4 +196,5 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
     - `udf-tests/` is a collection of functions used in testing the isolate
       layer
     - `system-udfs/` contains functions used by the Convex system e.g. the CLI
-  - `tutorial/` contains a tutorial project
+- `demo/` contains a demo project that showcases the basic functionality of
+  Convex

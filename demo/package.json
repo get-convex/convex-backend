@@ -9,7 +9,7 @@
     "predev": "convex dev --until-success"
   },
   "dependencies": {
-    "convex": "workspace:*",
+    "convex": "*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "prettier": "3.2.5"
