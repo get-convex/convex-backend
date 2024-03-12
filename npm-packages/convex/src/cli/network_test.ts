@@ -26,7 +26,7 @@ export const networkTest = new Command("network-test")
   .addOption(
     new Option(
       "--timeout <timeout>",
-      "Timeout in seconds for the network test (default: 10).",
+      "Timeout in seconds for the network test (default: 30).",
     ),
   )
   .addOption(
@@ -65,7 +65,7 @@ export const networkTest = new Command("network-test")
     const ctx = oneoffContext;
     const timeoutSeconds = options.timeout
       ? Number.parseFloat(options.timeout)
-      : 10;
+      : 30;
     await withTimeout(
       ctx,
       "Network test",
