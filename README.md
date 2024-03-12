@@ -80,7 +80,7 @@ have them on your machine:
   - `npm install --prefix scripts`
   - We manage the packages in a monorepo using [Rush](https://rushjs.io/).
 - Convex JavaScript dependencies
-  - `just rush update`
+  - `just rush install`
 
 ## Running the Convex Backend
 

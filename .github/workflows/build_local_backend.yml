@@ -54,7 +54,7 @@ jobs:
 
       - name: Install JS
         run: |
-          just rush update  # TODO(switch back to rush install)
+          just rush install
           just rush build
 
       - name: Install cargo-nextest
