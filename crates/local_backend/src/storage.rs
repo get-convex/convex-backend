@@ -39,6 +39,7 @@ use common::{
         },
         HttpResponseError,
     },
+    knobs::ALLOW_STORAGE_GET_VIA_DOCUMENT_ID,
     sha256::DigestHeader,
 };
 use errors::ErrorMetadata;
@@ -48,10 +49,7 @@ use file_storage::{
 };
 use futures::StreamExt;
 use http::StatusCode;
-use model::file_storage::{
-    types::StorageUuid,
-    FileStorageId,
-};
+use model::file_storage::FileStorageId;
 use serde::{
     Deserialize,
     Serialize,
@@ -123,16 +121,24 @@ pub async fn storage_get(
     // Query(QueryParams { token }): Query<QueryParams>,
     range: Result<TypedHeader<Range>, TypedHeaderRejection>,
 ) -> Result<Response, HttpResponseError> {
-    let file_storage_id = match uuid.parse::<StorageUuid>() {
-        Ok(uuid) => FileStorageId::LegacyStorageId(uuid),
+    let storage_uuid = uuid.parse().context(ErrorMetadata::bad_request(
+        "InvalidStoragePath",
+        format!("Invalid storage path: \"{uuid}\" is not a valid UUID string."),
+    ));
+    let file_storage_id = match storage_uuid {
+        Ok(storage_uuid) => FileStorageId::LegacyStorageId(storage_uuid),
         Err(err) => {
-            // TODO: Delete this fallback.
-            // Fallback to parsing as uuid or virtual document_id. We should not
-            // allow the latter but there might be users that rely on it. For now,
-            // log if the fallback succeeds and allow it.
-            let file_storage_id = uuid.parse()?;
-            report_error(&mut err.context("Improper storage_get() use"));
-            file_storage_id
+            if *ALLOW_STORAGE_GET_VIA_DOCUMENT_ID {
+                // TODO: Delete this fallback.
+                // Fallback to parsing as uuid or virtual document_id. We should not
+                // allow the latter but there might be users that rely on it. For now,
+                // log if the fallback succeeds and allow it.
+                let file_storage_id = uuid.parse()?;
+                report_error(&mut err.context("Improper storage_get() use"));
+                file_storage_id
+            } else {
+                return Err(err.into());
+            }
         },
     };
     // TODO(CX-3065) figure out deterministic repeatable tokens

@@ -871,3 +871,9 @@ pub static MAX_BACKEND_PUBLIC_API_REQUEST_SIZE: LazyLock<usize> =
 /// some maximum period of time after which they checkpoint unconditionally.
 pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
     LazyLock::new(|| env_config("DATABASE_WORKERS_MIN_COMMITS", 100));
+
+/// We have temporary grandfathered a few instances to be able to use storage by
+/// using virtual document id until the developers can remove this incorrect
+/// usage.
+pub static ALLOW_STORAGE_GET_VIA_DOCUMENT_ID: LazyLock<bool> =
+    LazyLock::new(|| env_config("ALLOW_STORAGE_GET_VIA_DOCUMENT_ID", false));
