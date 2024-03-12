@@ -52,28 +52,34 @@ synced with any internal development work within a handful of days.
 
 ## Getting started
 
+We **strongly** recommend using the hosted version of Convex to get familiar
+with the development workflow before attempting to run this version locally.
+
 To get started, first install [Dependencies](#dependencies) and then see
 [running the Convex backend](#running-the-convex-backend).
 
 ## Dependencies
 
-- cargo
-  - The convex local backend is written in rust. Cargo is the build system.
-  - We recommend [rustup](https://rustup.rs/)
-- just
+You will need to first install the following dependencies if you don't already
+have them on your machine:
+
+- Cargo
+  - The convex local backend is written in Rust. Cargo is the build system.
+  - We recommend [rustup](https://rustup.rs/).
+- Just
   - `cargo install just`
   - [`Just`](https://github.com/casey/just) is used throughout this guide for
     brevity. All of the vanilla commands can be found in the `Justfile`.
-- rust nightly version specified in `rust-toolchain`
-  - Assuming you installed rust/cargo with `rustup`, this will install
-    automatically
-- node version specified in `.nvmrc`
-  - We recommend [nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-  - `nvm use` from the root of the repo
-- [rush](https://rushjs.io/)
+- The Rust nightly version specified in `rust-toolchain`
+  - Assuming you installed Rust/Cargo with `rustup`, this will install
+    automatically.
+- The node version specified in `.nvmrc`
+  - We recommend [nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+  - `nvm use` from the root of the repo.
+- Rush
   - `npm install --prefix scripts`
   - We manage the packages in a monorepo using [Rush](https://rushjs.io/).
-- Install JS dependencies
+- Convex JavaScript dependencies
   - `just rush update`
 
 ## Running the Convex Backend
@@ -82,11 +88,13 @@ To get started, first install [Dependencies](#dependencies) and then see
 just run-local-backend
 ```
 
-Under the hood, this builds with cargo.
+Under the hood, this builds with Cargo.
 
 ```bash
 cargo run -p local_backend --bin convex-local-backend
 ```
+
+This command must be running at all times to serve the Convex backend.
 
 ## Provisioning a convex app locally
 
@@ -96,6 +104,7 @@ project.
 **1. Start the backend**
 
 ```bash
+# keep this running in the background
 just run-local-backend
 ```
 
@@ -104,22 +113,36 @@ the local database, in root directory run `rm convex_local_backend.sqlite3`.
 
 **2. Run CLI commands**
 
-Convex local Backend works with the Convex CLI. You can use CLI commands in a
-demo directory like `npm-packages/demos/tutorial` or in your own projects.
-
-We've provided `just` recipes that set up the admin key to work with your local
-backend. Note that you may have to copy the `Justfile` into your own project to
-use these recipes.
-
-For example:
+We need to instruct the Convex CLI to talk to the local backend instead of the
+hosted Convex platform. We can do this via the `--url` and `--admin-key` flags
+to point to the localhost backend and a special local admin key. We have
+provided Just recipes that automatically pass the appropriate flags to the cli,
+e.g., instead of running `npx convex dev --admin-key [key] --url [url]` you can
+just run:
 
 ```bash
 just convex dev
 ```
 
-_`just convex [arg]` can be replaced with
-`npx convex [arg] --admin-key [key] --url [url]`. `just` is used here for
-brevity._
+To run the included tutorial project, you can use the following commands:
+
+```bash
+cd npm-packages/tutorial
+npm i
+just convex dev
+```
+
+This runs the `convex dev` code-watching service to push any application code
+changes to the backend.
+
+To run the client web application you can run the tutorial Vite server via:
+
+```bash
+npm run dev:client
+```
+
+Note that unlike the hosted Convex workflow, we don't want to run the
+`dev:server` command since the backend is already running.
 
 _The following CLI commands may be useful when interacting with your backend:_
 
@@ -161,7 +184,7 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
 
 ## Repository layout
 
-- `crates/` contains rust code
+- `crates/` contains Rust code
 
   - Main binary
     - `local_backend/` is an application server on top of the `Runtime`. This is
