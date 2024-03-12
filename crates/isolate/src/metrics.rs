@@ -22,6 +22,7 @@ use metrics::{
     STATUS_LABEL,
 };
 use prometheus::VMHistogram;
+use sync_types::CanonicalizedUdfPath;
 
 use crate::{
     environment::udf::outcome::UdfOutcome,
@@ -198,14 +199,23 @@ pub fn log_unawaited_pending_op(count: usize, environment: &'static str) {
 register_convex_counter!(
     FUNCTION_LIMIT_WARNING_TOTAL,
     "Count of functions that exceeded some limit warning level",
-    &["limit"]
+    &["limit", "system_udf_path"]
 );
-pub fn log_function_limit_warning(limit_name: &'static str) {
-    log_counter_with_tags(
-        &FUNCTION_LIMIT_WARNING_TOTAL,
-        1,
-        vec![metric_tag_const_value("limit", limit_name)],
-    );
+pub fn log_function_limit_warning(
+    limit_name: &'static str,
+    system_udf_path: Option<&CanonicalizedUdfPath>,
+) {
+    let tags = match system_udf_path {
+        Some(udf_path) => vec![
+            metric_tag_const_value("limit", limit_name),
+            metric_tag(format!("system_udf_path:{udf_path}")),
+        ],
+        None => vec![
+            metric_tag_const_value("limit", limit_name),
+            metric_tag_const_value("system_udf_path", "none"),
+        ],
+    };
+    log_counter_with_tags(&FUNCTION_LIMIT_WARNING_TOTAL, 1, tags);
 }
 
 register_convex_counter!(

@@ -787,6 +787,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         let execution_size = self.phase.execution_size();
         let biggest_writes = self.phase.biggest_document_writes();
 
+        let system_udf_path = if self.udf_path.is_system() {
+            Some(&self.udf_path)
+        } else {
+            None
+        };
         let warnings = vec![
             warning_if_approaching_limit(
                 self.arguments.size(),
@@ -795,6 +800,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 || "Large size of the function arguments".to_string(),
                 None,
                 Some(" bytes"),
+                system_udf_path,
             ),
             warning_if_approaching_limit(
                 execution_size.read_size.total_document_count,
@@ -803,6 +809,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 || "Many documents read in a single function execution".to_string(),
                 Some(OVER_LIMIT_HELP),
                 None,
+                system_udf_path,
             ),
             warning_if_approaching_limit(
                 execution_size.num_intervals,
@@ -811,6 +818,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 || "Many reads in a single function execution".to_string(),
                 Some(OVER_LIMIT_HELP),
                 None,
+                system_udf_path,
             ),
             warning_if_approaching_limit(
                 execution_size.read_size.total_document_size,
@@ -819,6 +827,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 || "Many bytes read in a single function execution".to_string(),
                 Some(OVER_LIMIT_HELP),
                 Some(" bytes"),
+                system_udf_path,
             ),
             warning_if_approaching_limit(
                 execution_size.write_size.num_writes,
@@ -827,6 +836,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 || "Many writes in a single function execution".to_string(),
                 None,
                 None,
+                system_udf_path,
             ),
             warning_if_approaching_limit(
                 execution_size.write_size.size,
@@ -835,6 +845,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 || "Many bytes written in a single function execution".to_string(),
                 None,
                 Some(" bytes"),
+                system_udf_path,
             ),
             warning_if_approaching_limit(
                 execution_size.scheduled_size.num_writes,
@@ -843,6 +854,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 || "Many functions scheduled by this mutation".to_string(),
                 None,
                 None,
+                system_udf_path,
             ),
             warning_if_approaching_limit(
                 execution_size.scheduled_size.size,
@@ -854,6 +866,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 },
                 None,
                 Some(" bytes"),
+                system_udf_path,
             ),
             biggest_writes.as_ref().and_then(|biggest_writes| {
                 let (document_id, max_size) = biggest_writes.max_size;
@@ -864,6 +877,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     || format!("Large document written with ID \"{document_id}\""),
                     None,
                     Some(" bytes"),
+                    system_udf_path,
                 )
             }),
             biggest_writes.as_ref().and_then(|biggest_writes| {
@@ -875,6 +889,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     || format!("Deeply nested document written with ID \"{document_id}\""),
                     None,
                     Some(" levels"),
+                    system_udf_path,
                 )
             }),
             result.and_then(|result| {
@@ -885,6 +900,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     || "Large size of the function return value".to_string(),
                     None,
                     Some(" bytes"),
+                    system_udf_path,
                 )
             }),
             warning_if_approaching_duration_limit(
@@ -892,6 +908,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 execution_time.limit,
                 "UserTimeout",
                 "Function execution took a long time",
+                system_udf_path,
             ),
         ];
         self.log_lines.extend(warnings.into_iter().flatten());

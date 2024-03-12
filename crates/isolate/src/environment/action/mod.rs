@@ -916,6 +916,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             || "Large size of the action arguments".to_string(),
             None,
             Some(" bytes"),
+            None,
         );
         if let Some(warning) = argument_size_warning {
             self.trace_system(warning)?;
@@ -931,6 +932,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 || "Large size of the action return value".to_string(),
                 None,
                 Some(" bytes"),
+                None,
             )
         });
         if let Some(warning) = result_size_warning {
@@ -956,6 +958,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                     || "Large response returned from an HTTP action".to_string(),
                     None,
                     Some(" bytes"),
+                    None,
                 )
             });
         if let Some(warning) = response_size_warning {
@@ -985,6 +988,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             execution_time.limit,
             "UserTimeout",
             "Function execution took a long time",
+            None,
         );
         if let Some(warning) = timeout_warning {
             self.trace_system(warning)?;
