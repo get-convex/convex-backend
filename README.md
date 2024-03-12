@@ -126,7 +126,7 @@ just convex dev
 To run the included demo project, you can use the following commands:
 
 ```bash
-cd npm-packages/demo
+cd demo
 npm i
 just convex dev
 ```
