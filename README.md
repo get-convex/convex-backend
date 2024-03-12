@@ -141,7 +141,7 @@ npm run dev:client
 ```
 
 Note that unlike the hosted Convex workflow, we don't want to run the
-`dev:server` command since the backend is already running.
+`dev:server` command since `convex dev` is already running.
 
 _The following CLI commands may be useful when interacting with your backend:_
 
@@ -178,8 +178,8 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
   backends. Unreleased/beta features won't have any guarantees.
 - Convex local backend does not support robust backend migrations. We'll always
   ensure things will work if you wipe your local database and start from
-  scratch. Upgrading an existing local-backend to a newer version is not
-  supported.
+  scratch. We do not provide support for upgrading an existing local-backend to
+  a newer version.
 
 ## Repository layout
 
@@ -197,4 +197,4 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
       layer
     - `system-udfs/` contains functions used by the Convex system e.g. the CLI
 - `demo/` contains a demo project that showcases the basic functionality of
-  Convex
+  Convex using React
