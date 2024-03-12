@@ -304,7 +304,7 @@ impl Actions {
         request: BuildDepsRequest,
     ) -> anyhow::Result<Result<(Sha256Digest, PackageSize), JsError>> {
         let timer = node_executor("build_deps");
-        let (log_line_sender, _) = mpsc::unbounded();
+        let (log_line_sender, _log_line_receiver) = mpsc::unbounded();
         let request = ExecutorRequest::BuildDeps(request);
         let InvokeResponse {
             response,
@@ -358,7 +358,7 @@ impl Actions {
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         let timer = node_executor("analyze");
 
-        let (log_line_sender, _) = mpsc::unbounded();
+        let (log_line_sender, _log_line_receiver) = mpsc::unbounded();
         let request = ExecutorRequest::Analyze(request);
         let InvokeResponse {
             response,
