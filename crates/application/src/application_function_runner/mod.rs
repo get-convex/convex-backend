@@ -177,7 +177,7 @@ use crate::{
     cache::CacheManager,
     function_log::{
         ActionCompletion,
-        UdfExecutionLog,
+        FunctionExecutionLog,
     },
     redaction::{
         RedactedJsError,
@@ -477,7 +477,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     modules_storage: Arc<dyn Storage>,
     file_storage: TransactionalFileStorage<RT>,
 
-    function_log: UdfExecutionLog<RT>,
+    function_log: FunctionExecutionLog<RT>,
 
     cache_manager: CacheManager<RT>,
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -500,7 +500,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         file_storage: TransactionalFileStorage<RT>,
         modules_storage: Arc<dyn Storage>,
         module_cache: Arc<dyn ModuleLoader<RT>>,
-        function_log: UdfExecutionLog<RT>,
+        function_log: FunctionExecutionLog<RT>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> Self {
         let isolate_functions = FunctionRouter::new(

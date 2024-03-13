@@ -81,7 +81,7 @@ use crate::{
     application_function_runner::ApplicationFunctionRunner,
     function_log::{
         ActionCompletion,
-        UdfExecutionLog,
+        FunctionExecutionLog,
     },
 };
 
@@ -106,7 +106,7 @@ impl<RT: Runtime> ScheduledJobRunner<RT> {
         rt: RT,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: UdfExecutionLog<RT>,
+        function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         let executor_fut =
             ScheduledJobExecutor::start(rt.clone(), database.clone(), runner, function_log);
@@ -135,7 +135,7 @@ pub struct ScheduledJobExecutor<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
-    function_log: UdfExecutionLog<RT>,
+    function_log: FunctionExecutionLog<RT>,
 }
 
 impl<RT: Runtime> ScheduledJobExecutor<RT> {
@@ -143,7 +143,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         rt: RT,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: UdfExecutionLog<RT>,
+        function_log: FunctionExecutionLog<RT>,
     ) -> impl Future<Output = ()> + Send {
         let executor = Self {
             rt,
@@ -167,7 +167,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         rt: RT,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: UdfExecutionLog<RT>,
+        function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         Self {
             rt,

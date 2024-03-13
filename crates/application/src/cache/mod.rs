@@ -81,7 +81,7 @@ use value::heap_size::HeapSize;
 
 use crate::{
     application_function_runner::FunctionRouter,
-    function_log::UdfExecutionLog,
+    function_log::FunctionExecutionLog,
     redaction::{
         RedactedJsError,
         RedactedLogLines,
@@ -101,7 +101,7 @@ pub struct CacheManager<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
     function_router: FunctionRouter<RT>,
-    udf_execution: UdfExecutionLog<RT>,
+    udf_execution: FunctionExecutionLog<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
 
     inner: Arc<Mutex<Inner<RT>>>,
@@ -191,7 +191,7 @@ impl<RT: Runtime> CacheManager<RT> {
         rt: RT,
         database: Database<RT>,
         function_router: FunctionRouter<RT>,
-        udf_execution: UdfExecutionLog<RT>,
+        udf_execution: FunctionExecutionLog<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
     ) -> Self {
         let inner = Inner {

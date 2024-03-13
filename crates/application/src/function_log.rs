@@ -77,10 +77,10 @@ use value::heap_size::{
     WithHeapSize,
 };
 
-/// A UDF's execution is summarized by this structure and stored in the
+/// A function's execution is summarized by this structure and stored in the
 /// UdfExecutionLog
 #[derive(Debug, Clone)]
-pub struct UdfExecution {
+pub struct FunctionExecution {
     pub params: UdfParams,
 
     /// When we return the function result and log it. For cached
@@ -133,7 +133,7 @@ pub struct UdfExecution {
     pub request_id: RequestId,
 }
 
-impl HeapSize for UdfExecution {
+impl HeapSize for FunctionExecution {
     fn heap_size(&self) -> usize {
         self.params.heap_size()
             + self.log_lines.heap_size()
@@ -142,7 +142,7 @@ impl HeapSize for UdfExecution {
     }
 }
 
-impl UdfExecution {
+impl FunctionExecution {
     /// Helper method to construct UDF execution for errors that occurred before
     /// execution and thus have no associated runtime information.
     pub fn for_error(
@@ -155,7 +155,7 @@ impl UdfExecution {
         identity: InertIdentity,
         context: RequestContext,
     ) -> Self {
-        UdfExecution {
+        FunctionExecution {
             params: UdfParams::Function {
                 error: Some(JsError::from_message(error)),
                 identifier: udf_path,
@@ -272,14 +272,14 @@ impl UdfExecution {
 }
 
 #[derive(Debug, Clone)]
-pub struct UdfExecutionProgress {
+pub struct FunctionExecutionProgress {
     /// Log lines that the UDF emitted via the `Console` API.
     pub log_lines: LogLines,
 
     pub event_source: FunctionEventSource,
 }
 
-impl UdfExecutionProgress {
+impl FunctionExecutionProgress {
     fn console_log_events(self, unix_timestamp: UnixTimestamp) -> Vec<LogEvent> {
         self.log_lines
             .into_iter()
@@ -500,19 +500,19 @@ impl TryFrom<serde_json::Value> for MetricsWindow {
 }
 
 #[derive(Clone)]
-pub struct UdfExecutionLog<RT: Runtime> {
+pub struct FunctionExecutionLog<RT: Runtime> {
     inner: Arc<Mutex<Inner<RT>>>,
     usage_tracking: UsageCounter,
     rt: RT,
 }
 
-impl<RT: Runtime> HeapSize for UdfExecutionLog<RT> {
+impl<RT: Runtime> HeapSize for FunctionExecutionLog<RT> {
     fn heap_size(&self) -> usize {
         self.inner.lock().heap_size() + self.usage_tracking.heap_size()
     }
 }
 
-impl<RT: Runtime> UdfExecutionLog<RT> {
+impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn new(rt: RT, usage_tracking: UsageCounter, log_manager: Arc<dyn LogSender>) -> Self {
         let inner = Inner {
             rt: rt.clone(),
@@ -552,7 +552,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         if outcome.udf_path.is_system() {
             return;
         }
-        let execution = UdfExecution {
+        let execution = FunctionExecution {
             params: UdfParams::Function {
                 error: match outcome.result {
                     Ok(_) => None,
@@ -603,7 +603,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         if outcome.udf_path.is_system() {
             return;
         }
-        let execution = UdfExecution {
+        let execution = FunctionExecution {
             params: UdfParams::Function {
                 error: match outcome.result {
                     Ok(_) => None,
@@ -639,7 +639,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         context: RequestContext,
     ) {
         let usage_stats = usage.gather_user_stats();
-        let execution = UdfExecution {
+        let execution = FunctionExecution {
             params: UdfParams::Http {
                 result: match outcome.result {
                     Ok(v) => Ok(HttpActionStatusCode(v.status())),
@@ -706,7 +706,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
             (outcome.log_lines.clone(), true)
         };
 
-        let execution = UdfExecution {
+        let execution = FunctionExecution {
             params: UdfParams::Function {
                 error: match outcome.result {
                     Ok(_) => None,
@@ -743,7 +743,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         identity: InertIdentity,
         context: RequestContext,
     ) {
-        let execution = UdfExecution::for_error(
+        let execution = FunctionExecution::for_error(
             udf_path,
             udf_type,
             unix_timestamp,
@@ -789,7 +789,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         self.log_execution_progress(log_lines, event_source, unix_timestamp)
     }
 
-    fn log_execution(&self, execution: UdfExecution, send_console_events: bool) {
+    fn log_execution(&self, execution: FunctionExecution, send_console_events: bool) {
         if let Err(mut e) = self
             .inner
             .lock()
@@ -905,7 +905,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
         (Some(summary), new_cursor)
     }
 
-    pub async fn stream(&self, cursor: CursorMs) -> (Vec<UdfExecution>, CursorMs) {
+    pub async fn stream(&self, cursor: CursorMs) -> (Vec<FunctionExecution>, CursorMs) {
         loop {
             let rx = {
                 let mut inner = self.inner.lock();
@@ -939,7 +939,7 @@ impl<RT: Runtime> UdfExecutionLog<RT> {
 struct Inner<RT: Runtime> {
     rt: RT,
 
-    log: WithHeapSize<VecDeque<(CursorMs, UdfExecution)>>,
+    log: WithHeapSize<VecDeque<(CursorMs, FunctionExecution)>>,
     log_waiters: WithHeapSize<Vec<oneshot::Sender<()>>>,
     log_manager: Arc<dyn LogSender>,
 
@@ -955,7 +955,7 @@ impl<RT: Runtime> HeapSize for Inner<RT> {
 impl<RT: Runtime> Inner<RT> {
     fn log_execution(
         &mut self,
-        execution: UdfExecution,
+        execution: FunctionExecution,
         send_console_events: bool,
     ) -> anyhow::Result<()> {
         self.metrics.append(&execution)?;
@@ -996,7 +996,7 @@ impl<RT: Runtime> Inner<RT> {
         event_source: FunctionEventSource,
         unix_timestamp: UnixTimestamp,
     ) -> anyhow::Result<()> {
-        let progress = UdfExecutionProgress {
+        let progress = FunctionExecutionProgress {
             log_lines,
             event_source,
         };
@@ -1033,7 +1033,7 @@ struct Metrics {
 }
 
 impl Metrics {
-    fn append(&mut self, row: &UdfExecution) -> anyhow::Result<()> {
+    fn append(&mut self, row: &FunctionExecution) -> anyhow::Result<()> {
         let ts = row.unix_timestamp.as_system_time();
         self.udf
             .entry(row.identifier())
@@ -1061,7 +1061,7 @@ struct UdfMetrics {
 }
 
 impl UdfMetrics {
-    fn append(&mut self, ts: SystemTime, row: &UdfExecution) -> anyhow::Result<()> {
+    fn append(&mut self, ts: SystemTime, row: &FunctionExecution) -> anyhow::Result<()> {
         self.invocations.append(ts)?;
         let is_err = match &row.params {
             UdfParams::Function { error, .. } => error.is_some(),

@@ -80,7 +80,7 @@ use crate::{
     application_function_runner::ApplicationFunctionRunner,
     function_log::{
         ActionCompletion,
-        UdfExecutionLog,
+        FunctionExecutionLog,
     },
 };
 
@@ -100,7 +100,7 @@ pub struct CronJobExecutor<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
-    function_log: UdfExecutionLog<RT>,
+    function_log: FunctionExecutionLog<RT>,
 }
 
 impl<RT: Runtime> CronJobExecutor<RT> {
@@ -108,7 +108,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         rt: RT,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: UdfExecutionLog<RT>,
+        function_log: FunctionExecutionLog<RT>,
     ) -> impl Future<Output = ()> + Send {
         let executor = Self {
             rt,
@@ -135,7 +135,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         rt: RT,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: UdfExecutionLog<RT>,
+        function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         Self {
             rt,

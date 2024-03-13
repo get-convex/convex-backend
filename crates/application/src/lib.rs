@@ -115,7 +115,7 @@ use file_storage::{
     FileStorage,
     FileStream,
 };
-use function_log::UdfExecution;
+use function_log::FunctionExecution;
 use function_runner::FunctionRunner;
 use futures::{
     channel::mpsc,
@@ -267,11 +267,11 @@ use crate::{
     application_function_runner::ApplicationFunctionRunner,
     export_worker::ExportWorker,
     function_log::{
+        FunctionExecutionLog,
         MetricsWindow,
         Percentile,
         TableRate,
         Timeseries,
-        UdfExecutionLog,
         UdfMetricSummary,
         UdfRate,
     },
@@ -388,7 +388,7 @@ pub struct Application<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
-    function_log: UdfExecutionLog<RT>,
+    function_log: FunctionExecutionLog<RT>,
     database_isolate: IsolateClient<RT>,
     file_storage: FileStorage<RT>,
     files_storage: Arc<dyn Storage>,
@@ -559,7 +559,7 @@ impl<RT: Runtime> Application<RT> {
             system_env_vars.clone(),
             module_loader.clone(),
         );
-        let function_log = UdfExecutionLog::new(
+        let function_log = FunctionExecutionLog::new(
             runtime.clone(),
             database.usage_counter(),
             log_sender.clone(),
@@ -674,7 +674,7 @@ impl<RT: Runtime> Application<RT> {
         self.runner.clone()
     }
 
-    pub fn function_log(&self) -> UdfExecutionLog<RT> {
+    pub fn function_log(&self) -> FunctionExecutionLog<RT> {
         self.function_log.clone()
     }
 
@@ -2294,7 +2294,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         cursor: CursorMs,
-    ) -> anyhow::Result<(Vec<UdfExecution>, CursorMs)> {
+    ) -> anyhow::Result<(Vec<FunctionExecution>, CursorMs)> {
         if !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("stream_udf_execution"));
         }
