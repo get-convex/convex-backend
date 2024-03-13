@@ -510,8 +510,13 @@ pub async fn bootstrap<RT: Runtime>(
         cmp::max(base_snapshot_ts, target_ts),
         retention_validator.clone(),
     );
-    let transaction_stream =
-        stream_transactions(bootstrap_tables, &repeatable_persistence, range, order);
+    let transaction_stream = stream_transactions(
+        bootstrap_tables,
+        &repeatable_persistence,
+        range,
+        order,
+        retention_validator.clone(),
+    );
     futures::pin_mut!(transaction_stream);
 
     let mut num_added = 0;

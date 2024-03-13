@@ -111,6 +111,16 @@ impl SqlitePersistence {
         retention_validator.validate_snapshot(ts).await?;
     }
 
+    #[allow(clippy::needless_lifetimes)]
+    #[try_stream(ok = T, error = anyhow::Error)]
+    async fn validate_document_snapshot<T: 'static>(
+        &self,
+        ts: Timestamp,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) {
+        retention_validator.validate_document_snapshot(ts).await?;
+    }
+
     fn _index_scan_inner(
         &self,
         index_id: IndexId,
@@ -486,6 +496,7 @@ impl PersistenceReader for SqlitePersistence {
         range: TimestampRange,
         order: Order,
         _page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
         let triples = try {
             let connection = &self.inner.lock().connection;
@@ -514,8 +525,12 @@ impl PersistenceReader for SqlitePersistence {
             }
             triples
         };
+        // load_documents isn't async so we have to validate snapshot as part of the
+        // stream.
+        let validate =
+            self.validate_document_snapshot(range.min_timestamp_inclusive(), retention_validator);
         match triples {
-            Ok(s) => stream::iter(s).boxed(),
+            Ok(s) => (validate.chain(stream::iter(s))).boxed(),
             Err(e) => stream::once(async { Err(e) }).boxed(),
         }
     }

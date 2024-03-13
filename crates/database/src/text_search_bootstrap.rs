@@ -2,6 +2,7 @@ use std::{
     cmp::max,
     future,
     ops::Bound,
+    sync::Arc,
 };
 
 use common::{
@@ -14,6 +15,7 @@ use common::{
     },
     persistence::{
         RepeatablePersistence,
+        RetentionValidator,
         TimestampRange,
     },
     persistence_helpers::stream_revision_pairs,
@@ -43,6 +45,7 @@ pub async fn bootstrap_search(
     registry: &IndexRegistry,
     persistence: &RepeatablePersistence,
     table_mapping: &TableMapping,
+    retention_validator: Arc<dyn RetentionValidator>,
 ) -> anyhow::Result<(OrdMap<InternalId, SearchIndex>, PersistenceVersion)> {
     let timer = crate::metrics::search::bootstrap_timer();
     let mut num_revisions = 0;
@@ -107,7 +110,11 @@ pub async fn bootstrap_search(
                     Bound::Included(*persistence.upper_bound()),
                 );
                 let document_stream = persistence
-                    .load_documents(TimestampRange::new(range)?, Order::Asc)
+                    .load_documents(
+                        TimestampRange::new(range)?,
+                        Order::Asc,
+                        retention_validator.clone(),
+                    )
                     .try_filter(|(_, id, _)| future::ready(id.table() == index.name.table()));
                 let revision_stream = stream_revision_pairs(document_stream, persistence);
                 futures::pin_mut!(revision_stream);
@@ -233,8 +240,13 @@ mod tests {
             RepeatablePersistence::new(tp.reader(), tx.begin_timestamp(), retention_validator);
         let snapshot = db.snapshot(tx.begin_timestamp())?;
 
-        let (indexes, _) =
-            bootstrap_search(&snapshot.index_registry, &persistence, tx.table_mapping()).await?;
+        let (indexes, _) = bootstrap_search(
+            &snapshot.index_registry,
+            &persistence,
+            tx.table_mapping(),
+            Arc::new(NoopRetentionValidator),
+        )
+        .await?;
         Ok(indexes)
     }
 

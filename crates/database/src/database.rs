@@ -602,10 +602,18 @@ impl DatabaseSnapshot {
         };
         drop(load_indexes_into_memory_timer);
 
-        let (search_indexes, persistence_version) =
-            bootstrap_search(&index_registry, &repeatable_persistence, &table_mapping).await?;
+        let (search_indexes, persistence_version) = bootstrap_search(
+            &index_registry,
+            &repeatable_persistence,
+            &table_mapping,
+            retention_validator.clone(),
+        )
+        .await?;
         let search = SearchIndexManager::from_bootstrap(search_indexes, persistence_version);
-        let vector = VectorIndexManager::bootstrap_index_metadata(&index_registry)?;
+        let vector = VectorIndexManager::bootstrap_index_metadata(
+            &index_registry,
+            retention_validator.clone(),
+        )?;
 
         // Step 3: Stream document changes since the last table summary snapshot so they
         // are up to date.
@@ -896,6 +904,7 @@ impl<RT: Runtime> Database<RT> {
             vector_persistence,
             table_mapping,
             self.committer.clone(),
+            self.retention_validator(),
         )
     }
 
@@ -928,6 +937,7 @@ impl<RT: Runtime> Database<RT> {
                 timestamp_range,
                 Order::Asc,
                 *DEFAULT_DOCUMENTS_PAGE_SIZE,
+                self.retention_validator(),
             )
             .then(|val| async {
                 while let Err(not_until) = rate_limiter.check() {
@@ -1493,7 +1503,8 @@ impl<RT: Runtime> Database<RT> {
             Some(ts) => TimestampRange::new((Bound::Excluded(ts), Bound::Unbounded))?,
             None => TimestampRange::all(),
         };
-        let mut document_stream = repeatable_persistence.load_documents(range, Order::Asc);
+        let mut document_stream =
+            repeatable_persistence.load_documents(range, Order::Asc, self.retention_validator());
         // deltas accumulated in (ts, id) order to return.
         let mut deltas = vec![];
         // new_cursor is set once, when we know the final timestamp.
@@ -1502,7 +1513,17 @@ impl<RT: Runtime> Database<RT> {
         // should request another page.
         let mut has_more = false;
         let mut rows_read = 0;
-        while let Some((ts, id, maybe_doc)) = document_stream.try_next().await? {
+        while let Some((ts, id, maybe_doc)) = match document_stream.try_next().await {
+            Ok::<_, Error>(doc) => doc,
+            Err(e) if e.is_out_of_retention() => {
+                // Throws a user error if the documents window is out of retention
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "InvalidWindowToReadDocuments",
+                    "Documents cannot be read at the given timestamp"
+                ))
+            },
+            Err(e) => anyhow::bail!(e),
+        } {
             rows_read += 1;
             if let Some(new_cursor) = new_cursor
                 && new_cursor < ts

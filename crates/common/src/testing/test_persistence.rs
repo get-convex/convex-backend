@@ -266,6 +266,7 @@ impl PersistenceReader for TestPersistence {
         range: TimestampRange,
         order: Order,
         _page_size: u32,
+        _retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
         let log = { self.inner.lock().log.clone() };
 
