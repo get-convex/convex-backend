@@ -4,6 +4,10 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    fmt::{
+        Debug,
+        Formatter,
+    },
 };
 
 use anyhow::Context;
@@ -371,11 +375,23 @@ impl InternalVectorSearch {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct CompiledVectorSearch {
     pub vector: IndexedVector,
     pub limit: u32,
     pub filter_conditions: BTreeMap<FieldPath, CompiledVectorFilter>,
+}
+
+impl Debug for CompiledVectorSearch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "CompiledVectorSearch {{ vector_size: {}, limit: {}, filter_conditions: {:?} }}",
+            self.vector.len(),
+            self.limit,
+            &self.filter_conditions,
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
