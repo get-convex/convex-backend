@@ -16,6 +16,13 @@ use crate::{
     Transaction,
 };
 
+/// We generally don't let `UserFacingModel` read or write system metadata,
+/// so this model is an alternative path for internal use for manipulating
+/// these tables.
+///
+/// Eventually, the goal is to entirely ban system metadata from
+/// `UserFacingModel` and strictly require that `SystemMetadataModel` only looks
+/// at system metadata.
 pub struct SystemMetadataModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
 }

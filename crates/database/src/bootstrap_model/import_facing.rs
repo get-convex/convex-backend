@@ -29,6 +29,13 @@ use crate::{
     Transaction,
 };
 
+/// `ImportFacingModel` is similar to `UserFacingModel` but with a few
+/// differences for insertions:
+/// - the table for insertion is chosen by table id, not table name or number.
+/// - we allow the insertion to choose its document ID.
+/// - nonexistent tables won't be created implicitly.
+/// - the _creationTime may be user-specified.
+/// - only admin/system auth is allowed.
 pub struct ImportFacingModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
 }
@@ -39,12 +46,6 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
     }
 
     /// Inserts a new document as part of a snapshot import.
-    /// This is like `UserFacingModel::insert` with a few differences:
-    /// - the table for insertion is chosen by table id, not table name or
-    ///   number.
-    /// - nonexistent tables won't be created implicitly.
-    /// - the _creationTime may be user-specified.
-    /// - only admin/system auth is allowed.
     #[convex_macro::instrument_future]
     pub async fn insert(
         &mut self,
