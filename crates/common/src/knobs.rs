@@ -882,4 +882,4 @@ pub static ALLOW_STORAGE_GET_VIA_DOCUMENT_ID: LazyLock<bool> =
 ///
 /// See https://docs.rs/tower-http/0.5.0/tower_http/timeout/struct.TimeoutLayer.html
 pub static HTTP_SERVER_TIMEOUT_DURATION: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("HTTP_SERVER_TIMEOUT_SECONDS", 125)));
+    LazyLock::new(|| Duration::from_secs(env_config("HTTP_SERVER_TIMEOUT_SECONDS", 300)));
