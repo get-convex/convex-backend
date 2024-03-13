@@ -1,8 +1,8 @@
 <p align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/get-convex/convex/assets/65152573/59aa88a1-6b65-4595-b485-011ed0aeb943#gh-dark-mode-only" width="600">
-  <source media="(prefers-color-scheme: light)" srcset="https://github.com/get-convex/convex/assets/65152573/d6accb5f-e739-4397-9e4f-3911f0d16741" width="600">
-  <img alt="Convex logo" src="https://github.com/get-convex/convex/assets/65152573/d6accb5f-e739-4397-9e4f-3911f0d16741" width="600">
+  <source media="(prefers-color-scheme: dark)" srcset="https://static-http.s3.amazonaws.com/logo/convex-logo-light.svg" width="600">
+  <source media="(prefers-color-scheme: light)" srcset="https://static-http.s3.amazonaws.com/logo/convex-logo.svg" width="600">
+  <img alt="Convex logo" src="https://static-http.s3.amazonaws.com/logo/convex-logo.svg" width="600">
 </picture>
 </p>
 
