@@ -8,7 +8,10 @@ use common::{
     },
     runtime::Runtime,
 };
-use database::Transaction;
+use database::{
+    SystemMetadataModel,
+    Transaction,
+};
 use value::{
     id_v6::DocumentIdV6,
     TableName,
@@ -57,9 +60,8 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
     }
 
     pub async fn put(&mut self, source_package: SourcePackage) -> anyhow::Result<SourcePackageId> {
-        let document_id = self
-            .tx
-            .insert_system_document(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)
+        let document_id = SystemMetadataModel::new(self.tx)
+            .insert(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)
             .await?;
         let id: DocumentIdV6 = document_id.try_into()?;
         Ok(id.into())

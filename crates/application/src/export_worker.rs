@@ -50,6 +50,7 @@ use database::{
     Database,
     IndexModel,
     ResolvedQuery,
+    SystemMetadataModel,
     TableSummary,
     Transaction,
 };
@@ -222,8 +223,8 @@ impl<RT: Runtime> ExportWorker<RT> {
                 let ts = self.database.now_ts_for_reads();
                 let in_progress_export = (*export).clone().in_progress(*ts)?;
                 let mut inner_tx = self.database.begin(Identity::system()).await?;
-                let in_progress_export_doc = inner_tx
-                    .replace_system_document(
+                let in_progress_export_doc = SystemMetadataModel::new(&mut inner_tx)
+                    .replace(
                         export.id().to_owned(),
                         in_progress_export.clone().try_into()?,
                     )
@@ -617,7 +618,8 @@ impl<RT: Runtime> ExportWorker<RT> {
             (*export)
                 .clone()
                 .completed(ts, *tx.begin_timestamp(), object_keys)?;
-        tx.replace_system_document(export.id(), completed_export.try_into()?)
+        SystemMetadataModel::new(&mut tx)
+            .replace(export.id(), completed_export.try_into()?)
             .await?;
         self.database
             .commit_with_write_source(tx, "export_worker_mark_complete")

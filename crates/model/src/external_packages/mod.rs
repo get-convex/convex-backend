@@ -22,6 +22,7 @@ use common::{
 };
 use database::{
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use value::{
@@ -89,9 +90,8 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
         &mut self,
         external_deps_package: ExternalDepsPackage,
     ) -> anyhow::Result<ExternalDepsPackageId> {
-        let id = self
-            .tx
-            .insert_system_document(&EXTERNAL_PACKAGES_TABLE, external_deps_package.try_into()?)
+        let id = SystemMetadataModel::new(self.tx)
+            .insert(&EXTERNAL_PACKAGES_TABLE, external_deps_package.try_into()?)
             .await?;
         let doc_id: DocumentIdV6 = id.try_into()?;
         Ok(doc_id.into())

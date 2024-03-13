@@ -18,6 +18,7 @@ use common::{
 use database::{
     unauthorized_error,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use value::TableName;
@@ -81,11 +82,11 @@ impl<'a, RT: Runtime> AuthInfoModel<'a, RT> {
         }
         // Make the changes.
         for id in to_delete {
-            self.tx.delete_system_document(id).await?;
+            SystemMetadataModel::new(self.tx).delete(id).await?;
         }
         for info in new_set.clone().into_iter() {
-            self.tx
-                .insert_system_document(&AUTH_TABLE, AuthInfoPersisted(info).try_into()?)
+            SystemMetadataModel::new(self.tx)
+                .insert(&AUTH_TABLE, AuthInfoPersisted(info).try_into()?)
                 .await?;
         }
         AuthDiff::new(new_set, removed_auth_infos)

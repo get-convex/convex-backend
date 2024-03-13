@@ -466,6 +466,7 @@ mod tests {
         },
         IndexModel,
         IndexWorker,
+        TestFacingModel,
         UserFacingModel,
     };
 
@@ -507,7 +508,9 @@ mod tests {
             let mut expected = BTreeSet::new();
             let mut tx = database.begin(Identity::system()).await?;
             for object in objects {
-                let id = tx.insert_for_test(&table_name, object).await?;
+                let id = TestFacingModel::new(&mut tx)
+                    .insert(&table_name, object)
+                    .await?;
                 expected.insert(id.internal_id());
             }
             let table_mapping = tx.table_mapping().clone();
@@ -548,7 +551,9 @@ mod tests {
         let mut objects = BTreeMap::new();
         let mut tx = database.begin(Identity::system()).await?;
         for object in initial {
-            let inserted_id = tx.insert_for_test(&table_name, object).await?;
+            let inserted_id = TestFacingModel::new(&mut tx)
+                .insert(&table_name, object)
+                .await?;
             let inserted = tx.get(inserted_id).await?.unwrap();
             objects.insert(inserted_id, inserted.to_developer());
         }
@@ -590,7 +595,9 @@ mod tests {
                     let mut tx = database_.begin(Identity::system()).await?;
                     match update {
                         Update::Insert { object } => {
-                            let inserted_id = tx.insert_for_test(&table_name_, object).await?;
+                            let inserted_id = TestFacingModel::new(&mut tx)
+                                .insert(&table_name_, object)
+                                .await?;
                             let inserted = tx.get(inserted_id).await?.unwrap();
 
                             objects.insert(inserted_id, inserted.to_developer());
@@ -694,10 +701,11 @@ mod tests {
         // from the skipped keys.
 
         let mut tx = database.begin(Identity::system()).await?;
-        tx.insert_for_test(&table_name, assert_obj!("k" => "m"))
+        TestFacingModel::new(&mut tx)
+            .insert(&table_name, assert_obj!("k" => "m"))
             .await?;
-        let id = tx
-            .insert_for_test(&table_name, assert_obj!("k" => "z"))
+        let id = TestFacingModel::new(&mut tx)
+            .insert(&table_name, assert_obj!("k" => "z"))
             .await?;
         let table_mapping = tx.table_mapping().clone();
         let by_k_metadata = IndexModel::new(&mut tx)

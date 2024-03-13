@@ -29,10 +29,11 @@ pub enum TableState {
     /// The table exists. It was created and has not been deleted.
     Active,
     /// This table is in the process of being imported with snapshot import.
-    /// New documents may be created in this table by `insert_for_import`.
-    /// It may have the same name and/or number as an existing Active table.
-    /// It appears in only one direction of TableMapping, so to find its mapping
-    /// you must look it up by TableId, not TableNumber or TableName.
+    /// New documents may be created in this table by
+    /// `ImportFacingModel::insert`. It may have the same name and/or number
+    /// as an existing Active table. It appears in only one direction of
+    /// TableMapping, so to find its mapping you must look it up by TableId,
+    /// not TableNumber or TableName.
     Hidden,
     /// The table has been marked as deleted. Documents in the table may still
     /// exist, but they should be ignored.

@@ -88,6 +88,7 @@ use crate::{
     },
     Database,
     IndexModel,
+    TestFacingModel,
     Transaction,
     UserFacingModel,
     VectorIndexCompactor,
@@ -372,7 +373,7 @@ pub async fn add_document_with_value(
         "vector" => value,
         "channel" => "#general",
     );
-    tx.insert_for_test(table_name, document).await
+    TestFacingModel::new(tx).insert(table_name, document).await
 }
 
 pub struct IndexData {

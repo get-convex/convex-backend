@@ -11,6 +11,7 @@ use common::{
 };
 use database::{
     unauthorized_error,
+    SystemMetadataModel,
     Transaction,
 };
 use value::{
@@ -94,9 +95,8 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
                 Some(member_id) => event_object.shallow_merge(obj!("member_id" => member_id)?)?,
                 None => event_object.shallow_merge(obj!("member_id" => null)?)?,
             };
-            let id = self
-                .tx
-                ._insert_metadata(&DEPLOYMENT_AUDIT_LOG_TABLE, event_object_with_member_id)
+            let id = SystemMetadataModel::new(self.tx)
+                .insert_metadata(&DEPLOYMENT_AUDIT_LOG_TABLE, event_object_with_member_id)
                 .await?;
             deployment_audit_log_ids.push(id);
         }

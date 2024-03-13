@@ -34,6 +34,7 @@ use database::{
     defaults::system_index,
     unauthorized_error,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
     VirtualSystemDocMapper,
 };
@@ -247,9 +248,8 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         } else {
             scheduled_job
         };
-        let id = self
-            .tx
-            ._insert_metadata(&SCHEDULED_JOBS_TABLE, job.try_into()?)
+        let id = SystemMetadataModel::new(self.tx)
+            .insert_metadata(&SCHEDULED_JOBS_TABLE, job.try_into()?)
             .await?;
 
         Ok(id)
@@ -264,7 +264,9 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             .tx
             .table_mapping()
             .number_matches_name(id.table().table_number, &SCHEDULED_JOBS_TABLE));
-        self.tx.replace_system_document(id, job.try_into()?).await?;
+        SystemMetadataModel::new(self.tx)
+            .replace(id, job.try_into()?)
+            .await?;
         Ok(())
     }
 
@@ -306,7 +308,9 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         // job has already been processed
         job.next_ts = None;
         job.completed_ts = Some(*self.tx.begin_timestamp());
-        self.tx.replace_system_document(id, job.try_into()?).await?;
+        SystemMetadataModel::new(self.tx)
+            .replace(id, job.try_into()?)
+            .await?;
 
         Ok(())
     }

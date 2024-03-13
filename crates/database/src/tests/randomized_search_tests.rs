@@ -85,6 +85,7 @@ use crate::{
     ResolvedQuery,
     SearchIndexFlusher,
     TableModel,
+    TestFacingModel,
     UserFacingModel,
 };
 
@@ -293,7 +294,9 @@ impl Scenario {
         let new_document = assert_obj!("searchField" => search_field.clone(), "filterField" => filter_field.clone());
         match self.model.entry(key) {
             Entry::Vacant(e) => {
-                let document_id = tx.insert_for_test(&self.table_name, new_document).await?;
+                let document_id = TestFacingModel::new(&mut tx)
+                    .insert(&self.table_name, new_document)
+                    .await?;
                 e.insert((document_id, search_field, filter_field));
             },
             Entry::Occupied(mut e) => {

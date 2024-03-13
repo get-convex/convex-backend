@@ -30,6 +30,7 @@ use database::{
     query::TableFilter,
     unauthorized_error,
     ResolvedQuery,
+    SystemMetadataModel,
     TableModel,
     Transaction,
     VirtualSystemDocMapper,
@@ -197,10 +198,10 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
         &mut self,
         entry: FileStorageEntry,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        // Call _insert_metadata rather than insert_metadata because we already
+        // Call insert_metadata rather than insert because we already
         // did access check on `identity` rather than `self.identity`
-        self.tx
-            ._insert_metadata(&FILE_STORAGE_TABLE, entry.try_into()?)
+        SystemMetadataModel::new(self.tx)
+            .insert_metadata(&FILE_STORAGE_TABLE, entry.try_into()?)
             .await
     }
 
@@ -309,7 +310,9 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
             return Ok(None);
         };
         let document_id = entry.id();
-        self.tx.delete_system_document(document_id).await?;
+        SystemMetadataModel::new(self.tx)
+            .delete(document_id)
+            .await?;
         Ok(Some(entry.into_value()))
     }
 

@@ -641,6 +641,7 @@ mod tests {
             write_snapshot,
         },
         test_helpers::DbFixtures,
+        TestFacingModel,
     };
 
     #[convex_macro::test_runtime]
@@ -658,7 +659,7 @@ mod tests {
         let table_name: TableName = "t".parse()?;
 
         let mut tx = database.begin(Identity::system()).await?;
-        let inserted = tx
+        let inserted = TestFacingModel::new(&mut tx)
             .insert_and_get(table_name.clone(), assert_obj!("f" => 1))
             .await?;
         let value = inserted.value().0.clone();
@@ -667,7 +668,7 @@ mod tests {
         let ts1 = unchecked_repeatable_ts(database.commit(tx).await?);
 
         let mut tx = database.begin(Identity::system()).await?;
-        let inserted = tx
+        let inserted = TestFacingModel::new(&mut tx)
             .insert_and_get(table_name.clone(), assert_obj!("f" => true))
             .await?;
         let value = inserted.value().0.clone();
@@ -675,7 +676,7 @@ mod tests {
         let ts2 = unchecked_repeatable_ts(database.commit(tx).await?);
 
         let mut tx = database.begin(Identity::system()).await?;
-        let inserted = tx
+        let inserted = TestFacingModel::new(&mut tx)
             .insert_and_get(table_name.clone(), assert_obj!("f" => 5.0))
             .await?;
         let value = inserted.value().0.clone();
@@ -750,7 +751,9 @@ mod tests {
             let mut expected = TableSummary::empty();
             let mut tx = database.begin(Identity::system()).await?;
             for v in vs {
-                let inserted = tx.insert_and_get(table_name.clone(), v).await?;
+                let inserted = TestFacingModel::new(&mut tx)
+                    .insert_and_get(table_name.clone(), v)
+                    .await?;
                 let value = inserted.value().0.clone();
                 expected = expected.insert(&value);
             }
@@ -790,7 +793,9 @@ mod tests {
 
             for (table_name, values) in &values {
                 for value in values {
-                    let inserted = tx.insert_and_get(table_name.clone(), value.clone()).await?;
+                    let inserted = TestFacingModel::new(&mut tx)
+                        .insert_and_get(table_name.clone(), value.clone())
+                        .await?;
                     let table_id = tx.table_mapping().id(table_name)?;
                     let summary = expected.entry(table_id).or_insert_with(TableSummary::empty);
                     let inserted = inserted.value().0.clone();

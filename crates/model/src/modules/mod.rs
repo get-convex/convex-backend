@@ -33,6 +33,7 @@ use database::{
     defaults::system_index,
     unauthorized_error,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use errors::{
@@ -293,8 +294,8 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     latest_version,
                     deleted: false,
                 };
-                self.tx
-                    .replace_system_document(module_metadata.id(), new_metadata.try_into()?)
+                SystemMetadataModel::new(self.tx)
+                    .replace(module_metadata.id(), new_metadata.try_into()?)
                     .await?;
 
                 // Delete the old module version since it has no more references.
@@ -302,7 +303,9 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     .get_version(module_metadata.id(), previous_version)
                     .await?
                     .id();
-                self.tx.delete_system_document(previous_version_id).await?;
+                SystemMetadataModel::new(self.tx)
+                    .delete(previous_version_id)
+                    .await?;
 
                 (module_metadata.id(), latest_version)
             },
@@ -314,9 +317,8 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     deleted: false,
                 };
 
-                let document_id = self
-                    .tx
-                    .insert_system_document(&MODULES_TABLE, new_metadata.try_into()?)
+                let document_id = SystemMetadataModel::new(self.tx)
+                    .insert(&MODULES_TABLE, new_metadata.try_into()?)
                     .await?;
                 (document_id, version)
             },
@@ -345,8 +347,8 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 em
             }
         }))?;
-        self.tx
-            .insert_system_document(&MODULE_VERSIONS_TABLE, new_version)
+        SystemMetadataModel::new(self.tx)
+            .insert(&MODULE_VERSIONS_TABLE, new_version)
             .await?;
         Ok(())
     }
@@ -359,13 +361,15 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         let include_deleted = false;
         if let Some(module_metadata) = self.module_metadata(path, include_deleted).await? {
             let module_id = module_metadata.id();
-            self.tx.delete_system_document(module_id).await?;
+            SystemMetadataModel::new(self.tx).delete(module_id).await?;
 
             // Delete the module version since it has no more references.
             let module_version = self
                 .get_version(module_id, module_metadata.latest_version)
                 .await?;
-            self.tx.delete_system_document(module_version.id()).await?;
+            SystemMetadataModel::new(self.tx)
+                .delete(module_version.id())
+                .await?;
         }
         Ok(())
     }

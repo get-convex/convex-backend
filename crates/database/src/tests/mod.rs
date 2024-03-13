@@ -110,11 +110,14 @@ use crate::{
     BootstrapMetadata,
     Database,
     DatabaseSnapshot,
+    ImportFacingModel,
     IndexModel,
     IndexWorker,
     ResolvedQuery as CompiledResolvedQuery,
     SchemaModel,
+    SystemMetadataModel,
     TableModel,
+    TestFacingModel,
     Transaction,
     UserFacingModel,
 };
@@ -135,9 +138,11 @@ async fn test_load_database(rt: TestRuntime) -> anyhow::Result<()> {
     // load once to initialize
     let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
     let mut tx = db.begin(Identity::system()).await?;
-    tx.insert_for_test(&"table1".parse()?, assert_obj!())
+    TestFacingModel::new(&mut tx)
+        .insert(&"table1".parse()?, assert_obj!())
         .await?;
-    tx.insert_for_test(&"table2".parse()?, assert_obj!())
+    TestFacingModel::new(&mut tx)
+        .insert(&"table2".parse()?, assert_obj!())
         .await?;
     db.commit(tx).await?;
 
@@ -168,7 +173,9 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     let table1: TableName = "table1".parse()?;
     let value1 = assert_obj!("key1" => 0);
     let mut summary1 = TableSummary::empty();
-    let value1_doc = tx.insert_and_get(table1.clone(), value1).await?;
+    let value1_doc = TestFacingModel::new(&mut tx)
+        .insert_and_get(table1.clone(), value1)
+        .await?;
     let value1_id = *value1_doc.id();
     summary1 = summary1.insert(value1_doc.value());
     db.commit(tx).await?;
@@ -189,7 +196,7 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     summary1 = summary1.insert(&value1_doc.into_value());
     // Update summary after snapshot.
     let value2 = assert_obj!("key2" => 1.0);
-    let value2_with_id = tx
+    let value2_with_id = TestFacingModel::new(&mut tx)
         .insert_and_get(table1.clone(), value2)
         .await?
         .into_value()
@@ -199,7 +206,7 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     // Create new table after snapshot.
     let table2: TableName = "table2".parse()?;
     let value3 = assert_obj!("key3" => null);
-    let value3_with_id = tx
+    let value3_with_id = TestFacingModel::new(&mut tx)
         .insert_and_get(table2.clone(), value3)
         .await?
         .into_value();
@@ -372,14 +379,15 @@ fn get_pending_index_fields(
 async fn test_delete_conflict(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
     let mut tx = database.begin(Identity::system()).await?;
-    let id = tx
-        .insert_for_test(&"key".parse()?, ConvexObject::empty())
+    let id = TestFacingModel::new(&mut tx)
+        .insert(&"key".parse()?, ConvexObject::empty())
         .await?;
     database.commit(tx).await?;
 
     let mut tx1 = database.begin(Identity::system()).await?;
     assert!(tx1.get(id).await?.is_some());
-    tx1.insert_for_test(&"key2".parse()?, ConvexObject::empty())
+    TestFacingModel::new(&mut tx1)
+        .insert(&"key2".parse()?, ConvexObject::empty())
         .await?;
 
     let mut tx2 = database.begin(Identity::system()).await?;
@@ -410,7 +418,8 @@ async fn test_delete_conflict(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_creation_time_success(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
     let mut tx = database.begin(Identity::system()).await?;
-    tx.insert_for_test(&"table".parse()?, ConvexObject::empty())
+    TestFacingModel::new(&mut tx)
+        .insert(&"table".parse()?, ConvexObject::empty())
         .await?;
     database.commit(tx).await?;
 
@@ -419,9 +428,11 @@ async fn test_creation_time_success(rt: TestRuntime) -> anyhow::Result<()> {
 
     assert!(tx1.next_creation_time < tx2.next_creation_time);
 
-    tx1.insert_for_test(&"table".parse()?, ConvexObject::empty())
+    TestFacingModel::new(&mut tx1)
+        .insert(&"table".parse()?, ConvexObject::empty())
         .await?;
-    tx2.insert_for_test(&"table".parse()?, ConvexObject::empty())
+    TestFacingModel::new(&mut tx2)
+        .insert(&"table".parse()?, ConvexObject::empty())
         .await?;
 
     database.commit(tx1).await?;
@@ -446,13 +457,14 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
     // this through the normal Transaction interface so we pretend it's an import.
     let id_v6 = DocumentIdV6::from(*document.id()).encode();
     let table_mapping_for_schema = tx.table_mapping().clone();
-    tx.insert_for_import(
-        *document.table(),
-        &"table".parse()?,
-        assert_obj!("_id" => id_v6),
-        &table_mapping_for_schema,
-    )
-    .await?;
+    ImportFacingModel::new(&mut tx)
+        .insert(
+            *document.table(),
+            &"table".parse()?,
+            assert_obj!("_id" => id_v6),
+            &table_mapping_for_schema,
+        )
+        .await?;
 
     // Committing this transaction show throw an exception.
     let err = database.commit(tx).await.unwrap_err();
@@ -465,8 +477,8 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
 async fn test_id_reuse_within_a_transactions(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
     let mut tx = database.begin(Identity::system()).await?;
-    let document_id = tx
-        .insert_for_test(&"table".parse()?, ConvexObject::empty())
+    let document_id = TestFacingModel::new(&mut tx)
+        .insert(&"table".parse()?, ConvexObject::empty())
         .await?;
 
     // Pretend this transaction does another insert using the same DocumentId. We
@@ -497,7 +509,7 @@ async fn run_query(
 async fn test_query_filter(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
     let mut tx = database.begin(Identity::system()).await?;
-    let doc1 = tx
+    let doc1 = TestFacingModel::new(&mut tx)
         .insert_and_get(
             "messages".parse()?,
             assert_obj!(
@@ -506,15 +518,16 @@ async fn test_query_filter(rt: TestRuntime) -> anyhow::Result<()> {
             ),
         )
         .await?;
-    tx.insert_for_test(
-        &"messages".parse()?,
-        assert_obj!(
-            "channel" => "general",
-            "text" => "@here",
-        ),
-    )
-    .await?;
-    let doc3 = tx
+    TestFacingModel::new(&mut tx)
+        .insert(
+            &"messages".parse()?,
+            assert_obj!(
+                "channel" => "general",
+                "text" => "@here",
+            ),
+        )
+        .await?;
+    let doc3 = TestFacingModel::new(&mut tx)
         .insert_and_get(
             "messages".parse()?,
             assert_obj!(
@@ -544,30 +557,33 @@ async fn test_query_filter(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_query_limit(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
     let mut tx = database.begin(Identity::system()).await?;
-    tx.insert_for_test(
-        &"messages".parse()?,
-        assert_obj!(
-            "channel" => "eng",
-            "text" => "hello",
-        ),
-    )
-    .await?;
-    tx.insert_for_test(
-        &"messages".parse()?,
-        assert_obj!(
-            "channel" => "general",
-            "text" => "@here",
-        ),
-    )
-    .await?;
-    tx.insert_for_test(
-        &"messages".parse()?,
-        assert_obj!(
-            "channel" => "eng",
-            "text" => "world",
-        ),
-    )
-    .await?;
+    TestFacingModel::new(&mut tx)
+        .insert(
+            &"messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "hello",
+            ),
+        )
+        .await?;
+    TestFacingModel::new(&mut tx)
+        .insert(
+            &"messages".parse()?,
+            assert_obj!(
+                "channel" => "general",
+                "text" => "@here",
+            ),
+        )
+        .await?;
+    TestFacingModel::new(&mut tx)
+        .insert(
+            &"messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "world",
+            ),
+        )
+        .await?;
     database.commit(tx).await?;
 
     let query = Query {
@@ -586,10 +602,10 @@ async fn test_query_limit(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_full_table_scan_order(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
     let mut tx = database.begin(Identity::system()).await?;
-    let doc1 = tx
+    let doc1 = TestFacingModel::new(&mut tx)
         .insert_and_get("messages".parse()?, ConvexObject::empty())
         .await?;
-    let doc2 = tx
+    let doc2 = TestFacingModel::new(&mut tx)
         .insert_and_get("messages".parse()?, ConvexObject::empty())
         .await?;
     database.commit(tx).await?;
@@ -626,7 +642,7 @@ async fn insert_documents(
     let mut values = Vec::new();
     for a in 0..10 {
         for b in 0..10 * TEST_PREFETCH_HINT {
-            let doc = tx
+            let doc = TestFacingModel::new(tx)
                 .insert_and_get(
                     table_name.clone(),
                     assert_obj!(
@@ -923,7 +939,9 @@ async fn test_too_large_values(rt: TestRuntime) -> anyhow::Result<()> {
     // Check that inserting a 4MB value to a system table works.
     let table_name = "_test_table".parse()?;
     tx.create_system_table_testing(&table_name, None).await?;
-    tx.insert_system_document(&table_name, huge_obj).await?;
+    SystemMetadataModel::new(&mut tx)
+        .insert(&table_name, huge_obj)
+        .await?;
 
     database.commit(tx).await?;
 
@@ -990,12 +1008,12 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(table_id.table_id, table_id.table_number, table_name.clone());
-    let doc1_id = tx
-        .insert_for_import(table_id, &table_name, object, &table_mapping_for_schema)
+    let doc1_id = ImportFacingModel::new(&mut tx)
+        .insert(table_id, &table_name, object, &table_mapping_for_schema)
         .await?;
     let doc1_id = table_id.id(doc1_id.internal_id());
-    let doc2_id = tx
-        .insert_for_import(
+    let doc2_id = ImportFacingModel::new(&mut tx)
+        .insert(
             table_id,
             &table_name,
             object_with_creation_time,
@@ -1052,15 +1070,16 @@ async fn test_importing_table_schema_validated(rt: TestRuntime) -> anyhow::Resul
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(table_id.table_id, table_id.table_number, table_name.clone());
-    tx.insert_for_import(
-        table_id,
-        &table_name,
-        assert_obj!("value" => 1.),
-        &table_mapping_for_schema,
-    )
-    .await?;
-    let err = tx
-        .insert_for_import(
+    ImportFacingModel::new(&mut tx)
+        .insert(
+            table_id,
+            &table_name,
+            assert_obj!("value" => 1.),
+            &table_mapping_for_schema,
+        )
+        .await?;
+    let err = ImportFacingModel::new(&mut tx)
+        .insert(
             table_id,
             &table_name,
             assert_obj!("value" => false),
@@ -1115,8 +1134,8 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.update(table_mapping_for_import);
-    let foreign_doc = tx
-        .insert_for_import(
+    let foreign_doc = ImportFacingModel::new(&mut tx)
+        .insert(
             foreign_table_id,
             &foreign_table_name,
             assert_obj!(),
@@ -1124,13 +1143,14 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
         )
         .await?;
     let foreign_doc_id = foreign_table_id.table_number.id(foreign_doc.internal_id());
-    tx.insert_for_import(
-        table_id,
-        &table_name,
-        assert_obj!("foreign" => foreign_doc_id),
-        &table_mapping_for_schema,
-    )
-    .await?;
+    ImportFacingModel::new(&mut tx)
+        .insert(
+            table_id,
+            &table_name,
+            assert_obj!("foreign" => foreign_doc_id),
+            &table_mapping_for_schema,
+        )
+        .await?;
     database.commit(tx).await?;
 
     Ok(())
@@ -1229,8 +1249,8 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.update(table_mapping_for_import.clone());
-    let foreign_doc = tx
-        .insert_for_import(
+    let foreign_doc = ImportFacingModel::new(&mut tx)
+        .insert(
             foreign_table_id,
             &foreign_table_name,
             assert_obj!(),
@@ -1238,13 +1258,14 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
         )
         .await?;
     let foreign_doc_id = foreign_table_id.table_number.id(foreign_doc.internal_id());
-    tx.insert_for_import(
-        table_id,
-        &table_name,
-        assert_obj!("foreign" => foreign_doc_id),
-        &table_mapping_for_schema,
-    )
-    .await?;
+    ImportFacingModel::new(&mut tx)
+        .insert(
+            table_id,
+            &table_name,
+            assert_obj!("foreign" => foreign_doc_id),
+            &table_mapping_for_schema,
+        )
+        .await?;
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;
@@ -1299,8 +1320,8 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(table_id.table_id, table_id.table_number, table_name.clone());
-    let doc1_id = tx
-        .insert_for_import(
+    let doc1_id = ImportFacingModel::new(&mut tx)
+        .insert(
             table_id,
             &table_name,
             object_with_id,
@@ -1375,8 +1396,8 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(table_id.table_id, table_id.table_number, table_name.clone());
-    let doc1_id = tx
-        .insert_for_import(
+    let doc1_id = ImportFacingModel::new(&mut tx)
+        .insert(
             table_id,
             &table_name,
             resolved_object,
@@ -1508,8 +1529,8 @@ async fn test_implicit_removal(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Insert a document. That should implicitly create the table.
     let mut tx = database.begin(Identity::system()).await?;
-    let document_id = tx
-        .insert_for_test(
+    let document_id = TestFacingModel::new(&mut tx)
+        .insert(
             &"messages".parse()?,
             assert_obj!(
                 "channel" => "eng",
@@ -1538,14 +1559,15 @@ async fn test_implicit_removal(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Add another document to the same table to make sure everything still works.
     let mut tx = database.begin(Identity::system()).await?;
-    tx.insert_for_test(
-        &"messages".parse()?,
-        assert_obj!(
-            "channel" => "eng",
-            "text" => "hello",
-        ),
-    )
-    .await?;
+    TestFacingModel::new(&mut tx)
+        .insert(
+            &"messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "hello",
+            ),
+        )
+        .await?;
     database.commit(tx).await?;
 
     assert!(database

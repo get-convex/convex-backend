@@ -13,6 +13,7 @@ use common::{
 };
 use database::{
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use errors::ErrorMetadata;
@@ -69,8 +70,8 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
 
     pub async fn initialize(&mut self) -> anyhow::Result<()> {
         // Create _backend_state row initialized as running.
-        self.tx
-            .insert_system_document(
+        SystemMetadataModel::new(self.tx)
+            .insert(
                 &BACKEND_STATE_TABLE,
                 PersistedBackendState(BackendState::Running).try_into()?,
             )
@@ -125,8 +126,8 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
                 format!("Deployment is already {new_state}")
             )
         );
-        self.tx
-            .replace_system_document(id, PersistedBackendState(new_state).try_into()?)
+        SystemMetadataModel::new(self.tx)
+            .replace(id, PersistedBackendState(new_state).try_into()?)
             .await?;
         Ok(())
     }

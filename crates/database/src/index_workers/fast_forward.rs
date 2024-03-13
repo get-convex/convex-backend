@@ -64,6 +64,7 @@ use crate::{
     Database,
     IndexModel,
     Snapshot,
+    SystemMetadataModel,
     Transaction,
     INDEX_DOC_ID_INDEX,
     INDEX_WORKER_METADATA_TABLE,
@@ -226,7 +227,8 @@ impl FastForwardIndexWorker {
             tracing::info!("Fast-forwarding {name} from {ts} to {fast_forward_ts}");
             *previous_fast_forward_ts = fast_forward_ts;
 
-            tx.replace_system_document(worker_meta_doc_id, worker_meta.try_into()?)
+            SystemMetadataModel::new(&mut tx)
+                .replace(worker_meta_doc_id, worker_meta.try_into()?)
                 .await?;
 
             indexes_fast_forwarded.insert(name);

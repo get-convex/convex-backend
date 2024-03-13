@@ -9,6 +9,7 @@ use common::{
     testing::TestPersistence,
     value::ConvexValue,
 };
+use database::TestFacingModel;
 use maplit::btreeset;
 use must_let::must_let;
 use runtime::testing::TestRuntime;
@@ -274,11 +275,12 @@ async fn test_too_many_terms_in_search_query(rt: TestRuntime) -> anyhow::Result<
 
     // Add one more term and it still works, just not including the last term.
     let mut tx = t.database.begin_system().await?;
-    tx.insert_for_test(
-        &TableName::from_str("messages")?,
-        assert_obj!("body" => "oneMoreTerm"),
-    )
-    .await?;
+    TestFacingModel::new(&mut tx)
+        .insert(
+            &TableName::from_str("messages")?,
+            assert_obj!("body" => "oneMoreTerm"),
+        )
+        .await?;
     t.database.commit(tx).await?;
 
     search_query = format!("{search_query} oneMoreTerm");

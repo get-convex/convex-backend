@@ -39,6 +39,7 @@ use crate::{
         SystemTable,
     },
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 
@@ -130,9 +131,8 @@ impl<'a, RT: Runtime> IndexWorkerMetadataModel<'a, RT> {
         &mut self,
         metadata: IndexWorkerMetadataRecord,
     ) -> anyhow::Result<ParsedDocument<IndexWorkerMetadataRecord>> {
-        let id = self
-            .tx
-            .insert_system_document(&INDEX_WORKER_METADATA_TABLE, metadata.try_into()?)
+        let id = SystemMetadataModel::new(self.tx)
+            .insert(&INDEX_WORKER_METADATA_TABLE, metadata.try_into()?)
             .await?;
         ParsedDocument::try_from(self.tx.get(id).await?.unwrap())
     }

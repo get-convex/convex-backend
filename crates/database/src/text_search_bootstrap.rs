@@ -217,7 +217,9 @@ mod tests {
         Database,
         IndexModel,
         SearchIndexFlusher,
+        SystemMetadataModel,
         TableModel,
+        TestFacingModel,
         Transaction,
     };
 
@@ -300,7 +302,8 @@ mod tests {
             .await?
             .into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX.pred().unwrap();
-        tx.replace_system_document(metadata_id, metadata.try_into()?)
+        SystemMetadataModel::new(&mut tx)
+            .replace(metadata_id, metadata.try_into()?)
             .await?;
         db.commit(tx).await?;
 
@@ -338,7 +341,8 @@ mod tests {
             .await?
             .into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX.pred().unwrap();
-        tx.replace_system_document(metadata_id, metadata.try_into()?)
+        SystemMetadataModel::new(&mut tx)
+            .replace(metadata_id, metadata.try_into()?)
             .await?;
         db.commit(tx).await?;
 
@@ -379,7 +383,8 @@ mod tests {
             .await?
             .into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX;
-        tx.replace_system_document(metadata_id, metadata.try_into()?)
+        SystemMetadataModel::new(&mut tx)
+            .replace(metadata_id, metadata.try_into()?)
             .await?;
         db.commit(tx).await?;
 
@@ -410,7 +415,7 @@ mod tests {
         let document = assert_obj!(
             "text" => text,
         );
-        tx.insert_for_test(table_name, document).await
+        TestFacingModel::new(tx).insert(table_name, document).await
     }
 
     async fn create_new_search_index<RT: Runtime>(

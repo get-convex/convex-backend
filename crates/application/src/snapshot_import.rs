@@ -54,6 +54,7 @@ use common::{
 };
 use database::{
     Database,
+    ImportFacingModel,
     IndexModel,
     SchemaModel,
     TableModel,
@@ -1529,7 +1530,7 @@ async fn finalize_import<RT: Runtime>(
 }
 
 /// Documents in an imported table should match the schema.
-/// Transaction::insert_for_import checks that new documents match the schema,
+/// ImportFacingModel::insert checks that new documents match the schema,
 /// but SchemaWorker does not check new schemas against existing documents in
 /// Hidden tables. This is useful if the import fails and a Hidden table is left
 /// dangling, because it should not block new schemas.
@@ -1744,13 +1745,9 @@ async fn import_storage_table<RT: Runtime>(
                             );
                         }
                         let entry_object = ConvexObject::try_from(entry_object_map)?;
-                        tx.insert_for_import(
-                            table_id,
-                            &FILE_STORAGE_TABLE,
-                            entry_object,
-                            &table_mapping,
-                        )
-                        .await?;
+                        ImportFacingModel::new(tx)
+                            .insert(table_id, &FILE_STORAGE_TABLE, entry_object, &table_mapping)
+                            .await?;
                         Ok(())
                     }
                     .into()
@@ -2031,13 +2028,14 @@ async fn insert_import_objects<RT: Runtime>(
             |tx| {
                 async {
                     for object_to_insert in objects_to_insert.clone() {
-                        tx.insert_for_import(
-                            table_id,
-                            table_name,
-                            object_to_insert.clone(),
-                            table_mapping_for_schema,
-                        )
-                        .await?;
+                        ImportFacingModel::new(tx)
+                            .insert(
+                                table_id,
+                                table_name,
+                                object_to_insert.clone(),
+                                table_mapping_for_schema,
+                            )
+                            .await?;
                     }
                     Ok(())
                 }

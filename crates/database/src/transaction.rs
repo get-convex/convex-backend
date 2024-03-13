@@ -30,8 +30,6 @@ use common::{
         CreationTime,
         DocumentUpdate,
         ResolvedDocument,
-        CREATION_TIME_FIELD,
-        ID_FIELD,
     },
     identity::InertIdentity,
     index::{
@@ -66,11 +64,8 @@ use common::{
     value::{
         id_v6::DocumentIdV6,
         ConvexObject,
-        ConvexValue,
-        DeveloperDocumentId,
         ResolvedDocumentId,
         Size,
-        TableIdAndTableNumber,
         TableMapping,
         VirtualTableMapping,
     },
@@ -92,10 +87,7 @@ use sync_types::{
 };
 use usage_tracking::FunctionUsageTracker;
 use value::{
-    check_user_size,
-    FieldName,
     TableId,
-    TableIdentifier,
     TableNumber,
 };
 
@@ -108,12 +100,8 @@ use crate::{
         },
     },
     committer::table_dependency_sort_key,
-    database::unauthorized_error,
-    defaults::bootstrap_system_tables,
     execution_size::FunctionExecutionSize,
-    metrics::{
-        self,
-    },
+    metrics,
     patch::PatchValue,
     preloaded::PreloadedIndexRange,
     query::TableFilter,
@@ -134,6 +122,7 @@ use crate::{
     IndexModel,
     ReadSet,
     SchemaModel,
+    SystemMetadataModel,
     TableModel,
     TableRegistry,
     VirtualTableMetadata,
@@ -486,162 +475,6 @@ impl<RT: Runtime> Transaction<RT> {
         self.get_inner(id, table_name).await
     }
 
-    /// Inserts a new document as part of a snapshot import.
-    /// This is like `UserFacingModel::insert` with a few differences:
-    /// - the table for insertion is chosen by table id, not table name or
-    ///   number.
-    /// - nonexistent tables won't be created implicitly.
-    /// - the _creationTime may be user-specified.
-    /// - only admin/system auth is allowed.
-    #[convex_macro::instrument_future]
-    pub async fn insert_for_import(
-        &mut self,
-        table_id: TableIdAndTableNumber,
-        table_name: &TableName,
-        value: ConvexObject,
-        table_mapping_for_schema: &TableMapping,
-    ) -> anyhow::Result<DeveloperDocumentId> {
-        if self.virtual_system_mapping().is_virtual_table(table_name) {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "ReadOnlyTable",
-                format!("{table_name} is a read-only table"),
-            ));
-        }
-        anyhow::ensure!(
-            bootstrap_system_tables()
-                .iter()
-                .all(|t| t.table_name() != table_name),
-            "Cannot import into bootstrap system table {table_name}"
-        );
-        if !(self.identity.is_admin() || self.identity.is_system()) {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "UnauthorizedImport",
-                "Import requires admin auth"
-            ));
-        }
-
-        check_user_size(value.size())?;
-        self.retention_validator.fail_if_falling_behind()?;
-        let id_field = FieldName::from(ID_FIELD.clone());
-        let internal_id = if let Some(ConvexValue::String(s)) = value.get(&id_field) {
-            let id_v6 = DocumentIdV6::decode(s).context(ErrorMetadata::bad_request(
-                "InvalidId",
-                format!("invalid _id '{s}'"),
-            ))?;
-            anyhow::ensure!(
-                *id_v6.table() == table_id.table_number,
-                ErrorMetadata::bad_request(
-                    "ImportConflict",
-                    format!(
-                        "_id {s} cannot be imported into '{table_name}' because its IDs have a \
-                         different format"
-                    )
-                )
-            );
-            id_v6.internal_id()
-        } else {
-            self.id_generator.generate_internal()
-        };
-        let id = table_id.id(internal_id);
-
-        let creation_time_field = FieldName::from(CREATION_TIME_FIELD.clone());
-        let creation_time = if let Some(ConvexValue::Float64(f)) = value.get(&creation_time_field) {
-            CreationTime::try_from(*f)?
-        } else {
-            self.next_creation_time.increment()?
-        };
-
-        let document = ResolvedDocument::new(id, creation_time, value)?;
-        SchemaModel::new(self)
-            .enforce_with_table_mapping(&document, table_mapping_for_schema)
-            .await?;
-        self.apply_validated_write(id, None, Some(document))?;
-
-        Ok(id.into())
-    }
-
-    /// Insert a new document and immediately read it. Prefer using `insert`
-    /// unless you need to read the creation time.
-    #[cfg(any(test, feature = "testing"))]
-    #[convex_macro::instrument_future]
-    pub async fn insert_for_test(
-        &mut self,
-        table: &TableName,
-        value: ConvexObject,
-    ) -> anyhow::Result<ResolvedDocumentId> {
-        self._insert_metadata(table, value).await
-    }
-
-    /// Creates a new document with given value in the specified table.
-    #[convex_macro::instrument_future]
-    pub async fn insert_system_document(
-        &mut self,
-        table: &TableName,
-        value: ConvexObject,
-    ) -> anyhow::Result<ResolvedDocumentId> {
-        anyhow::ensure!(table.is_system());
-        if !(self.identity.is_system() || self.identity.is_admin()) {
-            anyhow::bail!(unauthorized_error("insert_metadata"));
-        }
-        let table_id = self.table_mapping().id(table).with_context(|| {
-            if cfg!(any(test, feature = "testing")) {
-                format!(
-                    "Failed to find system table {table} in a test. Try initializing system \
-                     tables with:\nDbFixtures::new(&rt).await?.with_model().await?"
-                )
-            } else {
-                format!("Failed to find system table {table}")
-            }
-        })?;
-        let id = self.id_generator.generate(&table_id);
-        let creation_time = self.next_creation_time.increment()?;
-        let document = ResolvedDocument::new(id, creation_time, value)?;
-        self.insert_document(document).await
-    }
-
-    /// Creates a new document with given value in the specified table.
-    #[convex_macro::instrument_future]
-    pub async fn _insert_metadata(
-        &mut self,
-        table: &TableName,
-        value: ConvexObject,
-    ) -> anyhow::Result<ResolvedDocumentId> {
-        TableModel::new(self).insert_table_metadata(table).await?;
-        let table_id = self.table_mapping().id(table)?;
-        let id = self.id_generator.generate(&table_id);
-        let creation_time = self.next_creation_time.increment()?;
-        let document = ResolvedDocument::new(id, creation_time, value)?;
-        self.insert_document(document).await
-    }
-
-    /// Insert a new document and immediately read it. Prefer using `insert`
-    /// unless you need to read the creation time.
-    #[cfg(any(test, feature = "testing"))]
-    #[convex_macro::instrument_future]
-    pub async fn insert_and_get(
-        &mut self,
-        table: TableName,
-        value: ConvexObject,
-    ) -> anyhow::Result<ResolvedDocument> {
-        let id = self.insert_for_test(&table, value).await?;
-        self.get(id)
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Document with id {id} must exist"))
-    }
-
-    /// Merges the existing document with the given object. Will overwrite any
-    /// conflicting fields.
-    #[convex_macro::instrument_future]
-    pub async fn patch_system_document(
-        &mut self,
-        id: ResolvedDocumentId,
-        value: PatchValue,
-    ) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self.table_mapping().is_system(id.table().table_number));
-
-        self.patch_inner(id, value).await
-    }
-
     #[convex_macro::instrument_future]
     pub(crate) async fn patch_inner(
         &mut self,
@@ -676,17 +509,6 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     #[convex_macro::instrument_future]
-    pub async fn replace_system_document(
-        &mut self,
-        id: ResolvedDocumentId,
-        value: ConvexObject,
-    ) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self.table_mapping().is_system(id.table().table_number));
-
-        self.replace_inner(id, value).await
-    }
-
-    #[convex_macro::instrument_future]
     pub(crate) async fn replace_inner(
         &mut self,
         id: ResolvedDocumentId,
@@ -712,17 +534,6 @@ impl<RT: Runtime> Transaction<RT> {
             Some(new_document.clone()),
         )?;
         Ok(new_document)
-    }
-
-    /// Delete the document at the given path.
-    #[convex_macro::instrument_future]
-    pub async fn delete_system_document(
-        &mut self,
-        id: ResolvedDocumentId,
-    ) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self.table_mapping().is_system(id.table().table_number));
-
-        self.delete_inner(id).await
     }
 
     #[convex_macro::instrument_future]
@@ -792,6 +603,7 @@ impl<RT: Runtime> Transaction<RT> {
             .record_indexed_derived(tables_by_id, IndexedFields::by_id(), Interval::all());
     }
 
+    // XXX move to table model?
     #[cfg(any(test, feature = "testing"))]
     pub async fn create_system_table_testing(
         &mut self,
@@ -861,8 +673,8 @@ impl<RT: Runtime> Transaction<RT> {
                 .table_number_for_system_table(table_name, default_table_number)
                 .await?;
             let metadata = TableMetadata::new(table_name.clone(), table_number);
-            let table_doc_id = self
-                .insert_system_document(&TABLES_TABLE, metadata.try_into()?)
+            let table_doc_id = SystemMetadataModel::new(self)
+                .insert(&TABLES_TABLE, metadata.try_into()?)
                 .await?;
             let table_id = TableId(table_doc_id.internal_id());
 
@@ -870,13 +682,15 @@ impl<RT: Runtime> Transaction<RT> {
                 GenericIndexName::by_id(table_id),
                 IndexedFields::by_id(),
             );
-            self.insert_system_document(&INDEX_TABLE, by_id_index.try_into()?)
+            SystemMetadataModel::new(self)
+                .insert(&INDEX_TABLE, by_id_index.try_into()?)
                 .await?;
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_creation_time(table_id),
                 IndexedFields::creation_time(),
             );
-            self.insert_system_document(&INDEX_TABLE, metadata.try_into()?)
+            SystemMetadataModel::new(self)
+                .insert(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
             tracing::info!("Created system table: {table_name}");
         } else {
@@ -904,8 +718,8 @@ impl<RT: Runtime> Transaction<RT> {
                 .table_number_for_system_table(table_name, default_table_number)
                 .await?;
             let metadata = VirtualTableMetadata::new(table_name.clone(), table_number);
-            let table_doc_id = self
-                .insert_system_document(&VIRTUAL_TABLES_TABLE, metadata.try_into()?)
+            let table_doc_id = SystemMetadataModel::new(self)
+                .insert(&VIRTUAL_TABLES_TABLE, metadata.try_into()?)
                 .await?;
             tracing::info!("Created virtual table: {table_name} with doc_id {table_doc_id}");
         } else {
@@ -1005,7 +819,7 @@ impl<RT: Runtime> Transaction<RT> {
     /// Apply a validated write to the [Transaction], updating the
     /// [IndexRegistry] and [TableRegistry]. Validated means the write
     /// has already been checked for schema enforcement.
-    fn apply_validated_write(
+    pub(crate) fn apply_validated_write(
         &mut self,
         id: ResolvedDocumentId,
         old_document: Option<ResolvedDocument>,

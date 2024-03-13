@@ -14,6 +14,7 @@ use common::{
 use database::{
     unauthorized_error,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 
@@ -80,13 +81,13 @@ impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
 
         let existing_doc = self.get().await?;
         let opt_previous_version = if let Some(existing_doc) = existing_doc {
-            self.tx
-                .replace_system_document(existing_doc.id(), value)
+            SystemMetadataModel::new(self.tx)
+                .replace(existing_doc.id(), value)
                 .await?;
             Some(existing_doc.into_value().server_version)
         } else {
-            self.tx
-                .insert_system_document(&UDF_CONFIG_TABLE, value)
+            SystemMetadataModel::new(self.tx)
+                .insert(&UDF_CONFIG_TABLE, value)
                 .await?;
             None
         };

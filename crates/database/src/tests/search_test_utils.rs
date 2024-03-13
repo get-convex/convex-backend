@@ -32,6 +32,7 @@ use crate::{
     Database,
     IndexModel,
     SearchIndexFlusher,
+    TestFacingModel,
     Transaction,
 };
 
@@ -95,7 +96,7 @@ pub(crate) async fn add_document(
         "text" => text,
         "channel" => "#general",
     );
-    tx.insert_for_test(table_name, document).await
+    TestFacingModel::new(tx).insert(table_name, document).await
 }
 
 pub(crate) async fn create_search_index_with_document(

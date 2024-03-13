@@ -60,6 +60,7 @@ use crate::{
     vector_index_worker::flusher::VectorIndexMultiSegmentBackfillResult,
     Database,
     IndexModel,
+    SystemMetadataModel,
     Transaction,
 };
 
@@ -294,7 +295,8 @@ impl<RT: Runtime> Inner<RT> {
             .collect_vec();
         *current_segments = new_segments;
 
-        tx.replace_system_document(metadata.id(), metadata.into_value().try_into()?)
+        SystemMetadataModel::new(&mut tx)
+            .replace(metadata.id(), metadata.into_value().try_into()?)
             .await?;
         self.database
             .commit_with_write_source(tx, "vector_index_worker_commit_compaction")
@@ -437,18 +439,19 @@ impl<RT: Runtime> Inner<RT> {
             })
         };
 
-        tx.replace_system_document(
-            job.metadata_id,
-            IndexMetadata {
-                name: job.index_name.clone(),
-                config: IndexConfig::Vector {
-                    on_disk_state: new_on_disk_state,
-                    developer_config: developer_config.clone(),
-                },
-            }
-            .try_into()?,
-        )
-        .await?;
+        SystemMetadataModel::new(&mut tx)
+            .replace(
+                job.metadata_id,
+                IndexMetadata {
+                    name: job.index_name.clone(),
+                    config: IndexConfig::Vector {
+                        on_disk_state: new_on_disk_state,
+                        developer_config: developer_config.clone(),
+                    },
+                }
+                .try_into()?,
+            )
+            .await?;
         self.database
             .commit_with_write_source(tx, "vector_index_woker_commit_backfill")
             .await?;
@@ -532,18 +535,19 @@ impl<RT: Runtime> Inner<RT> {
             VectorIndexState::Backfilled(snapshot)
         };
 
-        tx.replace_system_document(
-            job.metadata_id,
-            IndexMetadata {
-                name: job.index_name.clone(),
-                config: IndexConfig::Vector {
-                    on_disk_state: new_on_disk_state,
-                    developer_config: developer_config.clone(),
-                },
-            }
-            .try_into()?,
-        )
-        .await?;
+        SystemMetadataModel::new(&mut tx)
+            .replace(
+                job.metadata_id,
+                IndexMetadata {
+                    name: job.index_name.clone(),
+                    config: IndexConfig::Vector {
+                        on_disk_state: new_on_disk_state,
+                        developer_config: developer_config.clone(),
+                    },
+                }
+                .try_into()?,
+            )
+            .await?;
         self.database
             .commit_with_write_source(tx, "vector_index_worker_commit_snapshot")
             .await?;

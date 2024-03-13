@@ -61,6 +61,7 @@ use crate::{
     IndexModel,
     ResolvedQuery,
     SchemaModel,
+    SystemMetadataModel,
     Transaction,
     VIRTUAL_TABLES_TABLE,
 };
@@ -182,7 +183,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .await?
         {
             let index_id = index.id();
-            self.tx.delete_system_document(index_id).await?;
+            SystemMetadataModel::new(self.tx).delete(index_id).await?;
         }
         let table_metadata = self.get_table_metadata(table_id.table_id).await?;
         let table_doc_id = table_metadata.id();
@@ -192,8 +193,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             number: table_metadata.number,
             state: TableState::Deleting,
         };
-        self.tx
-            .replace_system_document(table_doc_id, updated_table_metadata.try_into()?)
+        SystemMetadataModel::new(self.tx)
+            .replace(table_doc_id, updated_table_metadata.try_into()?)
             .await?;
         Ok(())
     }
@@ -336,8 +337,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         let table_doc_id = TABLES_TABLE
             .id(tablet_id.0)
             .map_table(self.tx.table_mapping().name_to_id())?;
-        self.tx
-            .replace_system_document(table_doc_id, table_metadata.try_into()?)
+        SystemMetadataModel::new(self.tx)
+            .replace(table_doc_id, table_metadata.try_into()?)
             .await?;
         Ok(documents_deleted)
     }
@@ -406,9 +407,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 self.next_user_table_number().await?
             };
             let table_metadata = TableMetadata::new_with_state(table.clone(), table_number, state);
-            let table_doc_id = self
-                .tx
-                ._insert_metadata(&TABLES_TABLE, table_metadata.try_into()?)
+            let table_doc_id = SystemMetadataModel::new(self.tx)
+                .insert_metadata(&TABLES_TABLE, table_metadata.try_into()?)
                 .await?;
             let table_id = TableIdAndTableNumber {
                 table_id: TableId(table_doc_id.internal_id()),
@@ -421,15 +421,15 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 GenericIndexName::by_id(table_id.table_id),
                 IndexedFields::by_id(),
             );
-            self.tx
-                ._insert_metadata(&INDEX_TABLE, metadata.try_into()?)
+            SystemMetadataModel::new(self.tx)
+                .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_creation_time(table_id.table_id),
                 IndexedFields::creation_time(),
             );
-            self.tx
-                ._insert_metadata(&INDEX_TABLE, metadata.try_into()?)
+            SystemMetadataModel::new(self.tx)
+                .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
             Ok(table_id)
         }

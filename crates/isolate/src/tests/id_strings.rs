@@ -2,7 +2,10 @@ use std::str::FromStr;
 
 use cmd_util::env::env_config;
 use common::version::Version;
-use database::UserFacingModel;
+use database::{
+    TestFacingModel,
+    UserFacingModel,
+};
 use keybroker::Identity;
 use model::udf_config::{
     types::UdfConfig,
@@ -29,7 +32,9 @@ use crate::test_helpers::UdfTest;
 async fn test_table_mapping_from_system_udf(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let mut tx = t.database.begin(Identity::system()).await?;
-    let document = tx.insert_and_get("table".parse()?, assert_obj!()).await?;
+    let document = TestFacingModel::new(&mut tx)
+        .insert_and_get("table".parse()?, assert_obj!())
+        .await?;
     let table_number = document.id().table().table_number;
     let table_number_field: FieldName = FieldName::from_str(table_number.to_string().as_ref())?;
     t.database.commit(tx).await?;

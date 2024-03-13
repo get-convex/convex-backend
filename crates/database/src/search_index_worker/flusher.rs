@@ -54,6 +54,7 @@ use crate::{
     metrics,
     Database,
     IndexModel,
+    SystemMetadataModel,
     Token,
 };
 
@@ -229,16 +230,17 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             SearchIndexState::SnapshottedAt(_) => SearchIndexState::SnapshottedAt(snapshot_data),
         };
         let index_name = job.index_name.clone();
-        tx.replace_system_document(
-            job.metadata_id,
-            IndexMetadata::new_search_index(
-                job.index_name,
-                job.developer_config,
-                new_on_disk_state,
+        SystemMetadataModel::new(&mut tx)
+            .replace(
+                job.metadata_id,
+                IndexMetadata::new_search_index(
+                    job.index_name,
+                    job.developer_config,
+                    new_on_disk_state,
+                )
+                .try_into()?,
             )
-            .try_into()?,
-        )
-        .await?;
+            .await?;
         self.database
             .commit_with_write_source(tx, "search_index_worker_build_index")
             .await?;
@@ -414,6 +416,7 @@ pub(crate) mod tests {
         },
         Database,
         IndexModel,
+        TestFacingModel,
     };
 
     async fn assert_snapshotted(
@@ -592,7 +595,8 @@ pub(crate) mod tests {
         rt.advance_time(Duration::from_secs(7200));
         let mut tx = database.begin_system().await?;
         let unrelated_document = assert_obj!("wise" => "ambience");
-        tx.insert_for_test(&"unrelated".parse()?, unrelated_document)
+        TestFacingModel::new(&mut tx)
+            .insert(&"unrelated".parse()?, unrelated_document)
             .await?;
         database.commit(tx).await?;
 

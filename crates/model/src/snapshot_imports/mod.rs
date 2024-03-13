@@ -17,6 +17,7 @@ use common::{
 use database::{
     patch_value,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use errors::ErrorMetadata;
@@ -98,9 +99,8 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             object_key,
             member_id: self.tx.identity().member_id(),
         };
-        let id = self
-            .tx
-            .insert_system_document(
+        let id = SystemMetadataModel::new(self.tx)
+            .insert(
                 SnapshotImportsTable.table_name(),
                 snapshot_import.try_into()?,
             )
@@ -134,8 +134,8 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
                 anyhow::bail!("invalid import state transition {current_state:?} -> {new_state:?}")
             },
         }
-        self.tx
-            .patch_system_document(
+        SystemMetadataModel::new(self.tx)
+            .patch(
                 id,
                 patch_value!("state" => Some(ConvexValue::Object(new_state.try_into()?)))?,
             )

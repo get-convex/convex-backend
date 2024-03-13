@@ -104,6 +104,7 @@ pub mod tests {
             vector_test_utils::add_document_vec_array,
         },
         Database,
+        TestFacingModel,
     };
 
     async fn get_fast_forward_ts(
@@ -144,7 +145,8 @@ pub mod tests {
         for _ in 0..*DATABASE_WORKERS_MIN_COMMITS {
             let mut tx = database.begin_system().await?;
             let unrelated_document = assert_obj!("wise" => "tunes");
-            tx.insert_for_test(&"unrelated".parse()?, unrelated_document)
+            TestFacingModel::new(&mut tx)
+                .insert(&"unrelated".parse()?, unrelated_document)
                 .await?;
             database.commit(tx).await?;
         }
@@ -195,7 +197,8 @@ pub mod tests {
         rt.advance_time(Duration::from_secs(10));
         let mut tx = database.begin_system().await?;
         let unrelated_document = assert_obj!("wise" => "jams");
-        tx.insert_for_test(&"unrelated".parse()?, unrelated_document)
+        TestFacingModel::new(&mut tx)
+            .insert(&"unrelated".parse()?, unrelated_document)
             .await?;
         add_document_vec_array(&mut tx, index_name.table(), [2f64, 3f64]).await?;
         database.commit(tx).await?;

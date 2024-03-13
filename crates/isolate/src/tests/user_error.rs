@@ -9,6 +9,7 @@ use common::{
 use database::{
     ResolvedQuery,
     TableModel,
+    TestFacingModel,
 };
 use keybroker::Identity;
 use model::{
@@ -162,7 +163,9 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
         .virtual_table_mapping()
         .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
     let nonexistent_virtual_table_id = DocumentIdV6::new(virtual_table_number, InternalId::MIN);
-    let user_document = tx.insert_and_get("table".parse()?, assert_obj!()).await?;
+    let user_document = TestFacingModel::new(&mut tx)
+        .insert_and_get("table".parse()?, assert_obj!())
+        .await?;
     let user_table_number = user_document.id().table().table_number;
     let nonexistent_user_table_id = DocumentIdV6::new(user_table_number, InternalId::MIN);
     t.database.commit(tx).await?;

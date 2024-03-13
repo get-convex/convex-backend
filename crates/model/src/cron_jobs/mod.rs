@@ -20,6 +20,7 @@ use common::{
 use database::{
     defaults::system_index,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use value::{
@@ -150,8 +151,8 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             state: CronJobState::Pending,
             prev_ts: None,
         };
-        self.tx
-            .insert_system_document(&CRON_JOBS_TABLE, cron.try_into()?)
+        SystemMetadataModel::new(self.tx)
+            .insert(&CRON_JOBS_TABLE, cron.try_into()?)
             .await?;
         Ok(())
     }
@@ -172,8 +173,8 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
     }
 
     pub async fn delete(&mut self, cron_job: ParsedDocument<CronJob>) -> anyhow::Result<()> {
-        self.tx
-            .delete_system_document(cron_job.clone().id())
+        SystemMetadataModel::new(self.tx)
+            .delete(cron_job.clone().id())
             .await?;
         self.apply_job_log_retention(cron_job.name.clone(), 0)
             .await?;
@@ -189,7 +190,9 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             .tx
             .table_mapping()
             .number_matches_name(id.table().table_number, &CRON_JOBS_TABLE));
-        self.tx.replace_system_document(id, job.try_into()?).await?;
+        SystemMetadataModel::new(self.tx)
+            .replace(id, job.try_into()?)
+            .await?;
         Ok(())
     }
 
@@ -209,8 +212,8 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             log_lines,
             execution_time,
         };
-        self.tx
-            ._insert_metadata(&CRON_JOB_LOGS_TABLE, cron_job_log.try_into()?)
+        SystemMetadataModel::new(self.tx)
+            .insert_metadata(&CRON_JOB_LOGS_TABLE, cron_job_log.try_into()?)
             .await?;
         self.apply_job_log_retention(job.name.clone(), MAX_LOGS_PER_CRON)
             .await?;
@@ -258,7 +261,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             }
         }
         for doc_id in to_delete.into_iter() {
-            self.tx.delete_system_document(doc_id).await?;
+            SystemMetadataModel::new(self.tx).delete(doc_id).await?;
         }
         Ok(())
     }

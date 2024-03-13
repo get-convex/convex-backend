@@ -24,7 +24,6 @@ mod execution_size;
 mod index_worker;
 mod index_workers;
 mod metrics;
-mod model;
 pub mod patch;
 pub mod persistence_helpers;
 mod preloaded;
@@ -98,6 +97,7 @@ pub use writes::{
 pub use self::{
     bootstrap_model::{
         defaults,
+        import_facing::ImportFacingModel,
         index::{
             IndexModel,
             IndexTable,
@@ -115,6 +115,7 @@ pub use self::{
             SCHEMAS_TABLE,
             SCHEMA_STATE_FIELD,
         },
+        system_metadata::SystemMetadataModel,
         table::{
             TableModel,
             TablesTable,
@@ -122,6 +123,7 @@ pub use self::{
             NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
             TABLES_INDEX,
         },
+        user_facing::UserFacingModel,
         virtual_tables::{
             types::VirtualTableMetadata,
             VirtualTablesTable,
@@ -143,7 +145,6 @@ pub use self::{
         IndexSelector,
         IndexWriter,
     },
-    model::user_facing::UserFacingModel,
     query::{
         soft_data_limit,
         DeveloperQuery,
@@ -171,4 +172,6 @@ pub use self::{
         VirtualSystemMapping,
     },
 };
+#[cfg(any(test, feature = "testing"))]
+pub use crate::bootstrap_model::test_facing::TestFacingModel;
 pub use crate::metrics::shutdown_error;

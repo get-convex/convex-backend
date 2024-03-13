@@ -101,6 +101,7 @@ use database::{
     Snapshot,
     SnapshotPage,
     Subscription,
+    SystemMetadataModel,
     TableModel,
     Token,
     Transaction,
@@ -1260,7 +1261,8 @@ impl<RT: Runtime> Application<RT> {
                         None => ExportFormat::CleanJsonl,
                     }
                 };
-                tx.insert_system_document(&EXPORTS_TABLE, Export::requested(format).try_into()?)
+                SystemMetadataModel::new(&mut tx)
+                    .insert(&EXPORTS_TABLE, Export::requested(format).try_into()?)
                     .await?;
                 Ok(())
             },

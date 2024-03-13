@@ -20,6 +20,7 @@ use common::{
     },
     version::Version,
 };
+use database::SystemMetadataModel;
 use keybroker::Identity;
 use model::udf_config::UdfConfigModel;
 use must_let::must_let;
@@ -737,7 +738,9 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Delete the UDF config to simulate it never having existed.
     must_let!(let Some(config) = UdfConfigModel::new(&mut tx).get().await?);
-    tx.delete_system_document(config.id()).await?;
+    SystemMetadataModel::new(&mut tx)
+        .delete(config.id())
+        .await?;
 
     let path = CanonicalizedUdfPath::from_str("myFunc.js:default")?;
     let result = ValidatedUdfPathAndArgs::new(

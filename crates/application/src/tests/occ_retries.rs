@@ -4,6 +4,7 @@ use common::pause::{
     PauseController,
 };
 use database::{
+    SystemMetadataModel,
     Transaction,
     UserFacingModel,
     MAX_OCC_FAILURES,
@@ -59,7 +60,9 @@ async fn test_occ_fails(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(identity.clone()).await?;
     let table_name: TableName = "_test_table".parse()?;
     tx.create_system_table_testing(&table_name, None).await?;
-    let id = tx.insert_system_document(&table_name, obj!()?).await?;
+    let id = SystemMetadataModel::new(&mut tx)
+        .insert(&table_name, obj!()?)
+        .await?;
     application.commit_test(tx).await?;
 
     let (mut pause, pause_client) = PauseController::new(["retry_tx_loop_start"]);
@@ -90,7 +93,9 @@ async fn test_occ_succeeds(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(identity.clone()).await?;
     let table_name: TableName = "_test_table".parse()?;
     tx.create_system_table_testing(&table_name, None).await?;
-    let id = tx.insert_system_document(&table_name, obj!()?).await?;
+    let id = SystemMetadataModel::new(&mut tx)
+        .insert(&table_name, obj!()?)
+        .await?;
     application.commit_test(tx).await?;
 
     let (mut pause, pause_client) = PauseController::new(["retry_tx_loop_start"]);

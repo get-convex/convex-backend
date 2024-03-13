@@ -21,6 +21,7 @@ use database::{
     defaults::system_index,
     unauthorized_error,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use keybroker::Identity;
@@ -158,8 +159,8 @@ impl<'a, RT: Runtime> SessionRequestModel<'a, RT> {
             anyhow::bail!(unauthorized_error("record_session_request"))
         }
 
-        self.tx
-            ._insert_metadata(&SESSION_REQUESTS_TABLE, record.try_into()?)
+        SystemMetadataModel::new(self.tx)
+            .insert_metadata(&SESSION_REQUESTS_TABLE, record.try_into()?)
             .await?;
         Ok(())
     }

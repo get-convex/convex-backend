@@ -31,6 +31,7 @@ use database::{
     defaults::system_index,
     PreloadedIndexRange,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use errors::ErrorMetadata;
@@ -170,8 +171,8 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         if forbidden_names.contains(env_var.name()) {
             anyhow::bail!(env_var_name_forbidden(env_var.name()));
         }
-        self.tx
-            .insert_system_document(
+        SystemMetadataModel::new(self.tx)
+            .insert(
                 &ENVIRONMENT_VARIABLES_TABLE,
                 PersistedEnvironmentVariable(env_var).try_into()?,
             )
@@ -185,7 +186,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         let Some(doc) = self.get(name).await? else {
             return Ok(None);
         };
-        let document = self.tx.delete_system_document(doc.id()).await?;
+        let document = SystemMetadataModel::new(self.tx).delete(doc.id()).await?;
         let env_var: ParsedDocument<PersistedEnvironmentVariable> = document.try_into()?;
         Ok(Some(env_var.into_value().0))
     }
@@ -226,8 +227,8 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
                 anyhow::bail!(env_var_name_not_unique(Some(&new_env_var_name)));
             }
 
-            self.tx
-                .replace_system_document(
+            SystemMetadataModel::new(self.tx)
+                .replace(
                     id,
                     PersistedEnvironmentVariable(environment_variable).try_into()?,
                 )

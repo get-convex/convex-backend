@@ -97,6 +97,7 @@ use crate::{
     },
     Database,
     ResolvedQuery,
+    SystemMetadataModel,
     TableIterator,
 };
 
@@ -425,7 +426,8 @@ impl<RT: Runtime> IndexWorker<RT> {
 
         let name = index_metadata.name.clone();
 
-        tx.replace_system_document(full_index_id, index_metadata.into_value().try_into()?)
+        SystemMetadataModel::new(&mut tx)
+            .replace(full_index_id, index_metadata.into_value().try_into()?)
             .await?;
         self.database
             .commit_with_write_source(tx, "index_worker_finish_backfill")

@@ -13,14 +13,19 @@ use crate::{
     DocumentDeltas,
     SnapshotPage,
     TableModel,
+    TestFacingModel,
     UserFacingModel,
 };
 #[convex_macro::test_runtime]
 async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let mut tx = db.begin(Identity::system()).await?;
-    let doc1 = tx.insert_and_get("table1".parse()?, assert_obj!()).await?;
-    let doc2 = tx.insert_and_get("table2".parse()?, assert_obj!()).await?;
+    let doc1 = TestFacingModel::new(&mut tx)
+        .insert_and_get("table1".parse()?, assert_obj!())
+        .await?;
+    let doc2 = TestFacingModel::new(&mut tx)
+        .insert_and_get("table2".parse()?, assert_obj!())
+        .await?;
     // Same timestamp => sorted by internal id.
     let (doc1sort, doc2sort) = if doc1.internal_id() < doc2.internal_id() {
         (doc1.clone(), doc2)
@@ -29,7 +34,9 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
     };
     let ts1 = db.commit(tx).await?;
     let mut tx = db.begin(Identity::system()).await?;
-    let doc3 = tx.insert_and_get("table3".parse()?, assert_obj!()).await?;
+    let doc3 = TestFacingModel::new(&mut tx)
+        .insert_and_get("table3".parse()?, assert_obj!())
+        .await?;
     let table_mapping = tx.table_mapping().clone();
     let ts2 = db.commit(tx).await?;
 
@@ -169,7 +176,9 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
 
     // When I insert two documents…
     let mut tx = db.begin(Identity::system()).await?;
-    let remaining_doc = tx.insert_and_get("table1".parse()?, assert_obj!()).await?;
+    let remaining_doc = TestFacingModel::new(&mut tx)
+        .insert_and_get("table1".parse()?, assert_obj!())
+        .await?;
     UserFacingModel::new(&mut tx)
         .insert("table2".parse()?, assert_obj!())
         .await?;
@@ -207,10 +216,10 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
 async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let mut tx = db.begin(Identity::system()).await?;
-    let doc1 = tx
+    let doc1 = TestFacingModel::new(&mut tx)
         .insert_and_get("table1".parse()?, assert_obj!("f" => 1))
         .await?;
-    let doc2 = tx
+    let doc2 = TestFacingModel::new(&mut tx)
         .insert_and_get("table2".parse()?, assert_obj!("f" => 2))
         .await?;
     let ts1 = db.commit(tx).await?;
@@ -221,7 +230,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     ];
     docs1sorted.sort_by_key(|(_, _, d)| *d.id());
     let mut tx = db.begin(Identity::system()).await?;
-    let doc3 = tx
+    let doc3 = TestFacingModel::new(&mut tx)
         .insert_and_get("table3".parse()?, assert_obj!("f" => 3))
         .await?;
     let doc4 = UserFacingModel::new(&mut tx)
