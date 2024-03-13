@@ -7,6 +7,7 @@ use std::{
     },
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
@@ -53,6 +54,7 @@ use indexing::{
         IndexRegistry,
     },
 };
+use maplit::btreemap;
 use search::{
     query::RevisionWithKeys,
     CandidateRevision,
@@ -123,91 +125,124 @@ impl TransactionIndex {
     /// pending writes.
     async fn range_no_deps(
         &mut self,
-        range_request: RangeRequest,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-        Interval,
-    )> {
+        ranges: BTreeMap<BatchKey, RangeRequest>,
+    ) -> BTreeMap<
+        BatchKey,
+        anyhow::Result<(
+            Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+            Interval,
+        )>,
+    > {
         let snapshot = &mut self.database_index_snapshot;
-        let (results, remaining_interval) = snapshot.range(range_request.clone()).await?;
-        let mut snapshot_it = results.into_iter();
-
-        let index_registry = &self.index_registry;
-        let database_index_updates = &self.database_index_updates;
-        let pending_it = match index_registry.require_enabled(
-            &range_request.index_name,
-            &range_request.printable_index_name,
-        ) {
-            Ok(index) => database_index_updates.get(&index.id()),
-            // Range queries on missing tables are allowed for system provided indexes.
-            Err(_) if range_request.index_name.is_by_id_or_creation_time() => None,
-            Err(e) => anyhow::bail!(e),
+        let mut snapshot_results = BTreeMap::new();
+        for (batch_key, range_request) in ranges.clone() {
+            // TODO(lee) thread the batching down all the way to persistence.
+            // This is faux-batching for now, to establish the interface.
+            snapshot_results.insert(batch_key, snapshot.range(range_request).await);
         }
-        .map(|pending| pending.range(&range_request.interval))
-        .into_iter()
-        .flatten();
-        let mut pending_it = range_request.order.apply(pending_it);
 
-        let mut snapshot_next = snapshot_it.next();
-        let mut pending_next = pending_it.next();
-        let mut results = vec![];
-        loop {
-            match (snapshot_next, pending_next) {
-                (
-                    Some((snapshot_key, snapshot_ts, snapshot_doc)),
-                    Some((pending_key, maybe_pending_doc)),
-                ) => {
-                    let cmp = match range_request.order {
-                        Order::Asc => snapshot_key.cmp(&pending_key),
-                        Order::Desc => pending_key.cmp(&snapshot_key),
-                    };
-                    match cmp {
-                        Ordering::Less => {
-                            results.push((
+        let batch_size = ranges.len();
+        let mut results = BTreeMap::new();
+
+        for (batch_key, range_request) in ranges {
+            let item_result: anyhow::Result<_> = try {
+                let (snapshot_result_vec, remaining_interval) = snapshot_results
+                    .remove(&batch_key)
+                    .context("batch_key missing")??;
+                let mut snapshot_it = snapshot_result_vec.into_iter();
+                let index_registry = &self.index_registry;
+                let database_index_updates = &self.database_index_updates;
+                let pending_it = match index_registry.require_enabled(
+                    &range_request.index_name,
+                    &range_request.printable_index_name,
+                ) {
+                    Ok(index) => database_index_updates.get(&index.id()),
+                    // Range queries on missing tables are allowed for system provided indexes.
+                    Err(_) if range_request.index_name.is_by_id_or_creation_time() => None,
+                    Err(e) => Err(e)?,
+                }
+                .map(|pending| pending.range(&range_request.interval))
+                .into_iter()
+                .flatten();
+                let mut pending_it = range_request.order.apply(pending_it);
+
+                let mut snapshot_next = snapshot_it.next();
+                let mut pending_next = pending_it.next();
+                let mut range_results = vec![];
+                loop {
+                    match (snapshot_next, pending_next) {
+                        (
+                            Some((snapshot_key, snapshot_ts, snapshot_doc)),
+                            Some((pending_key, maybe_pending_doc)),
+                        ) => {
+                            let cmp = match range_request.order {
+                                Order::Asc => snapshot_key.cmp(&pending_key),
+                                Order::Desc => pending_key.cmp(&snapshot_key),
+                            };
+                            match cmp {
+                                Ordering::Less => {
+                                    range_results.push((
+                                        snapshot_key,
+                                        snapshot_doc,
+                                        WriteTimestamp::Committed(snapshot_ts),
+                                    ));
+                                    snapshot_next = snapshot_it.next();
+                                    pending_next = Some((pending_key, maybe_pending_doc));
+                                },
+                                Ordering::Equal => {
+                                    // The pending entry overwrites the snapshot one.
+                                    if let Some(pending_doc) = maybe_pending_doc {
+                                        range_results.push((
+                                            pending_key,
+                                            pending_doc,
+                                            WriteTimestamp::Pending,
+                                        ));
+                                    };
+                                    snapshot_next = snapshot_it.next();
+                                    pending_next = pending_it.next();
+                                },
+                                Ordering::Greater => {
+                                    if let Some(pending_doc) = maybe_pending_doc {
+                                        range_results.push((
+                                            pending_key,
+                                            pending_doc,
+                                            WriteTimestamp::Pending,
+                                        ));
+                                    };
+                                    snapshot_next = Some((snapshot_key, snapshot_ts, snapshot_doc));
+                                    pending_next = pending_it.next();
+                                },
+                            }
+                        },
+                        (Some((snapshot_key, snapshot_ts, snapshot_doc)), None) => {
+                            range_results.push((
                                 snapshot_key,
                                 snapshot_doc,
                                 WriteTimestamp::Committed(snapshot_ts),
                             ));
                             snapshot_next = snapshot_it.next();
-                            pending_next = Some((pending_key, maybe_pending_doc));
+                            pending_next = None;
                         },
-                        Ordering::Equal => {
-                            // The pending entry overwrites the snapshot one.
+                        (None, Some((pending_key, maybe_pending_doc))) => {
                             if let Some(pending_doc) = maybe_pending_doc {
-                                results.push((pending_key, pending_doc, WriteTimestamp::Pending));
+                                range_results.push((
+                                    pending_key,
+                                    pending_doc,
+                                    WriteTimestamp::Pending,
+                                ));
                             };
-                            snapshot_next = snapshot_it.next();
+                            snapshot_next = None;
                             pending_next = pending_it.next();
                         },
-                        Ordering::Greater => {
-                            if let Some(pending_doc) = maybe_pending_doc {
-                                results.push((pending_key, pending_doc, WriteTimestamp::Pending));
-                            };
-                            snapshot_next = Some((snapshot_key, snapshot_ts, snapshot_doc));
-                            pending_next = pending_it.next();
-                        },
+                        (None, None) => break,
                     }
-                },
-                (Some((snapshot_key, snapshot_ts, snapshot_doc)), None) => {
-                    results.push((
-                        snapshot_key,
-                        snapshot_doc,
-                        WriteTimestamp::Committed(snapshot_ts),
-                    ));
-                    snapshot_next = snapshot_it.next();
-                    pending_next = None;
-                },
-                (None, Some((pending_key, maybe_pending_doc))) => {
-                    if let Some(pending_doc) = maybe_pending_doc {
-                        results.push((pending_key, pending_doc, WriteTimestamp::Pending));
-                    };
-                    snapshot_next = None;
-                    pending_next = pending_it.next();
-                },
-                (None, None) => break,
-            }
+                }
+                (range_results, remaining_interval)
+            };
+            assert!(results.insert(batch_key, item_result).is_none());
         }
-        Ok((results, remaining_interval))
+        assert_eq!(results.len(), batch_size);
+        results
     }
 
     pub async fn search(
@@ -255,11 +290,100 @@ impl TransactionIndex {
         )>,
     > {
         let batch_size = ranges.len();
-        // TODO(lee) thread the batching down all the way to persistence.
-        // This is faux-batching for now, to establish the interface.
         let mut results = BTreeMap::new();
-        for (batch_key, range) in ranges {
-            let result = self.range(reads, range).await;
+        let mut ranges_to_fetch = BTreeMap::new();
+
+        let mut indexed_fields_by_key = BTreeMap::new();
+        for (batch_key, range_request) in ranges {
+            let RangeRequest {
+                index_name,
+                printable_index_name,
+                ..
+            } = &range_request;
+            let result: anyhow::Result<_> = try {
+                let indexed_fields =
+                    match self.require_enabled(reads, index_name, printable_index_name) {
+                        Ok(index) => match index.metadata().config.clone() {
+                            IndexConfig::Database {
+                                developer_config: DeveloperDatabaseIndexConfig { fields },
+                                ..
+                            } => fields,
+                            _ => Err(index_not_a_database_index_error(printable_index_name))?,
+                        },
+                        // Range queries on missing system tables are allowed.
+                        Err(_) if index_name.is_by_id() => IndexedFields::by_id(),
+                        Err(_) if index_name.is_creation_time() => IndexedFields::creation_time(),
+                        Err(e) => Err(e)?,
+                    };
+                indexed_fields_by_key.insert(batch_key, indexed_fields);
+            };
+            if let Err(e) = result {
+                assert!(results.insert(batch_key, Err(e)).is_none());
+            } else {
+                ranges_to_fetch.insert(batch_key, range_request);
+            }
+        }
+
+        let mut fetch_results = self
+            .range_no_deps(
+                // We use max_rows as size hint. We might receive more or less
+                // due to pending deletes or inserts in the transaction.
+                ranges_to_fetch.clone(),
+            )
+            .await;
+
+        for (
+            batch_key,
+            RangeRequest {
+                index_name,
+                printable_index_name: _,
+                interval,
+                order,
+                max_size,
+            },
+        ) in ranges_to_fetch
+        {
+            let result: anyhow::Result<_> = try {
+                let (documents, interval_unfetched) = fetch_results
+                    .remove(&batch_key)
+                    .context("batch item missing")??;
+                let mut total_bytes = 0;
+                let mut within_bytes_limit = true;
+                let out: Vec<_> = documents
+                    .into_iter()
+                    .take(max_size)
+                    .take_while(|(_, document, _)| {
+                        within_bytes_limit = total_bytes < *TRANSACTION_MAX_READ_SIZE_BYTES;
+                        // Allow the query to exceed the limit by one document so the query
+                        // is guaranteed to make progress and probably fail.
+                        // Note system document limits are different, so a single document
+                        // can be larger than `TRANSACTION_MAX_READ_SIZE_BYTES`.
+                        total_bytes += document.size();
+                        within_bytes_limit
+                    })
+                    .collect();
+
+                let mut interval_read = Interval::empty();
+                let mut interval_unread = interval.clone();
+                if out.len() < max_size && within_bytes_limit && interval_unfetched.is_empty() {
+                    // If we exhaust the query before hitting any early-termination condition,
+                    // put the entire range in the read set.
+                    interval_read = interval.clone();
+                    interval_unread = Interval::empty();
+                } else if let Some((last_key, ..)) = out.last() {
+                    // If there is more in the query, split at the last key returned.
+                    (interval_read, interval_unread) = interval.split(last_key.clone(), order);
+                }
+                let indexed_fields = indexed_fields_by_key
+                    .remove(&batch_key)
+                    .context("indexed_fields missing")?;
+                reads.record_indexed_directly(
+                    index_name.clone(),
+                    indexed_fields.clone(),
+                    interval_read,
+                )?;
+                (out, interval_unread)
+            };
             assert!(results.insert(batch_key, result).is_none());
         }
         assert_eq!(results.len(), batch_size);
@@ -279,57 +403,10 @@ impl TransactionIndex {
         Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
         Interval,
     )> {
-        let RangeRequest {
-            index_name,
-            printable_index_name,
-            ..
-        } = &range_request;
-        let indexed_fields = match self.require_enabled(reads, index_name, printable_index_name) {
-            Ok(index) => match index.metadata().config.clone() {
-                IndexConfig::Database {
-                    developer_config: DeveloperDatabaseIndexConfig { fields },
-                    ..
-                } => fields,
-                _ => anyhow::bail!(index_not_a_database_index_error(printable_index_name)),
-            },
-            // Range queries on missing system tables are allowed.
-            Err(_) if index_name.is_by_id() => IndexedFields::by_id(),
-            Err(_) if index_name.is_creation_time() => IndexedFields::creation_time(),
-            Err(e) => anyhow::bail!(e),
-        };
-        let (documents, interval_unfetched) = self.range_no_deps(range_request.clone()).await?;
-        let mut total_bytes = 0;
-        let mut within_bytes_limit = true;
-        let out: Vec<_> = documents
-            .into_iter()
-            .take(range_request.max_size)
-            .take_while(|(_, document, _)| {
-                within_bytes_limit = total_bytes < *TRANSACTION_MAX_READ_SIZE_BYTES;
-                // Allow the query to exceed the limit by one document so the query
-                // is guaranteed to make progress and probably fail.
-                // Note system document limits are different, so a single document
-                // can be larger than `TRANSACTION_MAX_READ_SIZE_BYTES`.
-                total_bytes += document.size();
-                within_bytes_limit
-            })
-            .collect();
-
-        let mut interval_read = Interval::empty();
-        let mut interval_unread = range_request.interval.clone();
-        if out.len() < range_request.max_size && within_bytes_limit && interval_unfetched.is_empty()
-        {
-            // If we exhaust the query before hitting any early-termination condition,
-            // put the entire range in the read set.
-            interval_read = range_request.interval.clone();
-            interval_unread = Interval::empty();
-        } else if let Some((last_key, ..)) = out.last() {
-            // If there is more in the query, split at the last key returned.
-            (interval_read, interval_unread) = range_request
-                .interval
-                .split(last_key.clone(), range_request.order);
-        }
-        reads.record_indexed_directly(index_name.clone(), indexed_fields.clone(), interval_read)?;
-        Ok((out, interval_unread))
+        self.range_batch(reads, btreemap! {0 => range_request})
+            .await
+            .remove(&0)
+            .context("batch_key missing")?
     }
 
     pub async fn preload_index_range(
@@ -354,14 +431,16 @@ impl TransactionIndex {
         let mut preloaded = BTreeMap::new();
         while !remaining_interval.is_empty() {
             let (documents, new_remaining_interval) = self
-                .range_no_deps(RangeRequest {
+                .range_no_deps(btreemap! { 0 => RangeRequest {
                     index_name: tablet_index_name.clone(),
                     printable_index_name: printable_index_name.clone(),
                     interval: remaining_interval,
                     order: Order::Asc,
                     max_size: DEFAULT_PAGE_SIZE,
-                })
-                .await?;
+                }})
+                .await
+                .remove(&0)
+                .context("batch_key missing")??;
             remaining_interval = new_remaining_interval;
             for (_, document, _) in documents {
                 let key = document.value().0.get_path(&indexed_field).cloned();
