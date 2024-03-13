@@ -407,7 +407,40 @@ impl DatabaseIndexSnapshot {
         let cache_results =
             self.cache
                 .get(index.id(), &range_request.interval, range_request.order);
+
+        let (results, cache_miss_results, interval_read, interval_remaining) = self
+            .fetch_cache_misses(index.id(), range_request, cache_results)
+            .await?;
+
+        for (ts, doc) in cache_miss_results.into_iter() {
+            // Populate all index point lookups that can result in the given
+            // document.
+            for (some_index, index_key) in self.index_registry.index_keys(&doc) {
+                self.cache
+                    .populate(some_index.id(), index_key.into_bytes(), ts, doc.clone());
+            }
+        }
+        // After all documents in an index interval have been
+        // added to the cache with `populate_cache`, record the entire interval as
+        // being populated.
+        self.cache
+            .record_interval_populated(index.id(), interval_read);
+        Ok((results, interval_remaining))
+    }
+
+    async fn fetch_cache_misses(
+        &self,
+        index_id: IndexId,
+        range_request: RangeRequest,
+        cache_results: Vec<DatabaseIndexSnapshotCacheResult>,
+    ) -> anyhow::Result<(
+        Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
+        Vec<(Timestamp, ResolvedDocument)>,
+        Interval,
+        Interval,
+    )> {
         let mut results = vec![];
+        let mut cache_miss_results = vec![];
         for cache_result in cache_results {
             match cache_result {
                 DatabaseIndexSnapshotCacheResult::Document(index_key, ts, document) => {
@@ -419,7 +452,7 @@ impl DatabaseIndexSnapshot {
                     log_transaction_cache_query(false);
                     // Query persistence.
                     let mut stream = self.persistence.index_scan(
-                        index.id(),
+                        index_id,
                         *range_request.index_name.table(),
                         &interval,
                         range_request.order,
@@ -428,17 +461,8 @@ impl DatabaseIndexSnapshot {
                     while let Some((key, ts, doc)) =
                         instrument!(b"Persistence::try_next", stream.try_next()).await?
                     {
-                        // Populate all index point lookups that can result in the given
-                        // document.
-                        for (some_index, index_key) in self.index_registry.index_keys(&doc) {
-                            self.cache.populate(
-                                some_index.id(),
-                                index_key.into_bytes(),
-                                ts,
-                                doc.clone(),
-                            );
-                        }
-                        results.push((key.clone(), ts, doc));
+                        cache_miss_results.push((ts, doc.clone()));
+                        results.push((key, ts, doc));
                         if results.len() >= range_request.max_size {
                             break;
                         }
@@ -451,20 +475,22 @@ impl DatabaseIndexSnapshot {
                     .expect("should be at least one result")
                     .0
                     .clone();
-                // Record the partial interval as cached.
                 let (interval_read, interval_remaining) =
                     range_request.interval.split(last_key, range_request.order);
-                self.cache
-                    .record_interval_populated(index.id(), interval_read);
-                return Ok((results, interval_remaining));
+                return Ok((
+                    results,
+                    cache_miss_results,
+                    interval_read,
+                    interval_remaining,
+                ));
             }
         }
-        // After all documents in an index interval have been
-        // added to the cache with `populate_cache`, record the entire interval as
-        // being populated.
-        self.cache
-            .record_interval_populated(index.id(), range_request.interval);
-        Ok((results, Interval::empty()))
+        Ok((
+            results,
+            cache_miss_results,
+            range_request.interval,
+            Interval::empty(),
+        ))
     }
 
     /// Lookup the latest value of a document by id. Returns the document and
