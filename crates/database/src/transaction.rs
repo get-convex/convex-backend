@@ -76,6 +76,10 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
+use indexing::backend_in_memory_indexes::{
+    BatchKey,
+    RangeRequest,
+};
 use keybroker::{
     Identity,
     UserIdentityAttributes,
@@ -120,11 +124,7 @@ use crate::{
     },
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
-    transaction_index::{
-        BatchKey,
-        RangeRequest,
-        TransactionIndex,
-    },
+    transaction_index::TransactionIndex,
     virtual_tables::VirtualSystemMapping,
     write_limits::BiggestDocumentWrites,
     writes::{
@@ -1182,11 +1182,13 @@ impl<RT: Runtime> Transaction<RT> {
         self.index
             .range(
                 &mut self.reads,
-                tablet_index_name,
-                &index_name,
-                interval,
-                order,
-                max_rows,
+                RangeRequest {
+                    index_name: tablet_index_name.clone(),
+                    printable_index_name: index_name,
+                    interval: interval.clone(),
+                    order,
+                    max_size: max_rows,
+                },
             )
             .await
     }

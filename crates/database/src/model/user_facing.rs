@@ -20,6 +20,10 @@ use common::{
     version::Version,
 };
 use errors::ErrorMetadata;
+use indexing::backend_in_memory_indexes::{
+    BatchKey,
+    RangeRequest,
+};
 use maplit::btreemap;
 use value::{
     check_user_size,
@@ -37,7 +41,6 @@ use crate::{
     transaction::MAX_PAGE_SIZE,
     unauthorized_error,
     virtual_tables::VirtualTable,
-    BatchKey,
     PatchValue,
     TableModel,
     Transaction,
@@ -330,11 +333,13 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                 log_virtual_table_query();
                 return VirtualTable::new(self.tx)
                     .index_range(
-                        index_name,
-                        tablet_index_name,
-                        interval,
-                        order,
-                        max_rows,
+                        RangeRequest {
+                            index_name: tablet_index_name.clone(),
+                            printable_index_name: index_name.clone(),
+                            interval: interval.clone(),
+                            order,
+                            max_size: max_rows,
+                        },
                         version,
                     )
                     .await;
@@ -352,11 +357,13 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .index
             .range(
                 &mut self.tx.reads,
-                tablet_index_name,
-                &index_name,
-                interval,
-                order,
-                max_rows,
+                RangeRequest {
+                    index_name: tablet_index_name.clone(),
+                    printable_index_name: index_name,
+                    interval: interval.clone(),
+                    order,
+                    max_size: max_rows,
+                },
             )
             .await?;
         let developer_results = results

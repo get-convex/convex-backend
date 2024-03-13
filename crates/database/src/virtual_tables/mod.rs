@@ -10,17 +10,16 @@ use common::{
     },
     index::IndexKeyBytes,
     interval::Interval,
-    query::Order,
     runtime::Runtime,
     types::{
         IndexName,
-        TabletIndexName,
         WriteTimestamp,
     },
     version::Version,
 };
 use errors::ErrorMetadata;
 use imbl::OrdMap;
+use indexing::backend_in_memory_indexes::RangeRequest;
 use value::{
     id_v6::DocumentIdV6,
     DeveloperDocumentId,
@@ -77,35 +76,19 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
 
     pub async fn index_range(
         &mut self,
-        index_name: &IndexName,
-        tablet_index_name: &TabletIndexName,
-        interval: &Interval,
-        order: Order,
-        max_rows: usize,
+        range_request: RangeRequest,
         version: Option<Version>,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
         Interval,
     )> {
-        let index_name = self
-            .tx
-            .virtual_system_mapping()
-            .virtual_to_system_index(index_name)?
-            .clone();
         let table_mapping = self.tx.table_mapping().clone();
         let virtual_table_mapping = self.tx.virtual_table_mapping().clone();
 
         let (results, remaining_interval) = self
             .tx
             .index
-            .range(
-                &mut self.tx.reads,
-                tablet_index_name,
-                &index_name,
-                interval,
-                order,
-                max_rows,
-            )
+            .range(&mut self.tx.reads, range_request)
             .await?;
         let virtual_results = results
             .into_iter()

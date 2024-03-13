@@ -355,21 +355,18 @@ impl DatabaseIndexSnapshot {
     /// Query the given index at the snapshot.
     pub async fn range(
         &mut self,
-        index_name: TabletIndexName,
-        printable_index_name: &IndexName,
-        interval: Interval,
-        order: Order,
-        size_hint: usize,
+        range_request: RangeRequest,
     ) -> anyhow::Result<(Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>, Interval)> {
-        let index = match self
-            .index_registry
-            .require_enabled(&index_name, printable_index_name)
-        {
+        let index = match self.index_registry.require_enabled(
+            &range_request.index_name,
+            &range_request.printable_index_name,
+        ) {
             Ok(index) => index,
             // Allow default system defined indexes on all tables other than the _index table.
             Err(_)
-                if index_name.table() != &self.index_registry.index_table().table_id
-                    && index_name.is_by_id_or_creation_time() =>
+                if range_request.index_name.table()
+                    != &self.index_registry.index_table().table_id
+                    && range_request.index_name.is_by_id_or_creation_time() =>
             {
                 return Ok((vec![], Interval::empty()));
             },
@@ -379,7 +376,9 @@ impl DatabaseIndexSnapshot {
         // Check that the index is indeed a database index.
         let IndexConfig::Database { on_disk_state, .. } = &index.metadata.config else {
             let err = index_not_a_database_index_error(
-                &index_name.map_table(&self.table_mapping.tablet_to_name())?,
+                &range_request
+                    .index_name
+                    .map_table(&self.table_mapping.tablet_to_name())?,
             );
             anyhow::bail!(err);
         };
@@ -394,10 +393,10 @@ impl DatabaseIndexSnapshot {
             .in_memory_indexes
             .range(
                 index.id(),
-                &interval,
-                order,
-                *index_name.table(),
-                printable_index_name.table().clone(),
+                &range_request.interval,
+                range_request.order,
+                *range_request.index_name.table(),
+                range_request.printable_index_name.table().clone(),
             )
             .await?
         {
@@ -405,7 +404,9 @@ impl DatabaseIndexSnapshot {
         }
 
         // Next, try the transaction cache.
-        let cache_results = self.cache.get(index.id(), &interval, order);
+        let cache_results =
+            self.cache
+                .get(index.id(), &range_request.interval, range_request.order);
         let mut results = vec![];
         for cache_result in cache_results {
             match cache_result {
@@ -419,10 +420,10 @@ impl DatabaseIndexSnapshot {
                     // Query persistence.
                     let mut stream = self.persistence.index_scan(
                         index.id(),
-                        *index_name.table(),
+                        *range_request.index_name.table(),
                         &interval,
-                        order,
-                        size_hint,
+                        range_request.order,
+                        range_request.max_size,
                     );
                     while let Some((key, ts, doc)) =
                         instrument!(b"Persistence::try_next", stream.try_next()).await?
@@ -438,20 +439,21 @@ impl DatabaseIndexSnapshot {
                             );
                         }
                         results.push((key.clone(), ts, doc));
-                        if results.len() >= size_hint {
+                        if results.len() >= range_request.max_size {
                             break;
                         }
                     }
                 },
             }
-            if results.len() >= size_hint {
+            if results.len() >= range_request.max_size {
                 let last_key = results
                     .last()
                     .expect("should be at least one result")
                     .0
                     .clone();
                 // Record the partial interval as cached.
-                let (interval_read, interval_remaining) = interval.split(last_key, order);
+                let (interval_read, interval_remaining) =
+                    range_request.interval.split(last_key, range_request.order);
                 self.cache
                     .record_interval_populated(index.id(), interval_read);
                 return Ok((results, interval_remaining));
@@ -460,7 +462,8 @@ impl DatabaseIndexSnapshot {
         // After all documents in an index interval have been
         // added to the cache with `populate_cache`, record the entire interval as
         // being populated.
-        self.cache.record_interval_populated(index.id(), interval);
+        self.cache
+            .record_interval_populated(index.id(), range_request.interval);
         Ok((results, Interval::empty()))
     }
 
@@ -478,25 +481,25 @@ impl DatabaseIndexSnapshot {
         let range = Interval::prefix(index_key.into_bytes().into());
 
         // We call next() twice due to the verification below.
-        let size_hint = 2;
+        let max_size = 2;
         let (stream, remaining_interval) = self
-            .range(
+            .range(RangeRequest {
                 index_name,
-                &printable_index_name,
-                range,
-                Order::Asc,
-                size_hint,
-            )
+                printable_index_name,
+                interval: range,
+                order: Order::Asc,
+                max_size,
+            })
             .await?;
         let mut stream = stream.into_iter();
         match stream.next() {
             Some((key, ts, doc)) => {
-                assert!(
+                anyhow::ensure!(
                     stream.next().is_none(),
                     "Got multiple values for key {:?}",
                     key
                 );
-                assert!(remaining_interval.is_empty());
+                anyhow::ensure!(remaining_interval.is_empty());
                 Ok(Some((doc, ts)))
             },
             None => Ok(None),
@@ -893,4 +896,15 @@ mod cache_tests {
         );
         Ok(())
     }
+}
+
+pub type BatchKey = usize;
+
+#[derive(Debug, Clone)]
+pub struct RangeRequest {
+    pub index_name: TabletIndexName,
+    pub printable_index_name: IndexName,
+    pub interval: Interval,
+    pub order: Order,
+    pub max_size: usize,
 }
