@@ -148,7 +148,7 @@ const isType = (value: Value, type: TypeFilterValue): boolean => {
   }
 };
 
-export const typeOf = (value: Value): TypeFilterValue => {
+export const typeOf = (value: Value | undefined): TypeFilterValue => {
   if (value === null) {
     return "null";
   } else if (Array.isArray(value)) {
