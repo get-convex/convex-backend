@@ -144,7 +144,7 @@
     "prepare": "npm run build",
     "prepack": "node scripts/prepack.mjs",
     "postpack": "node scripts/postpack.mjs",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test": "NODE_OPTIONS=\"--experimental-vm-modules --no-warnings=ExperimentalWarning\" jest --silent",
     "test-esm": "node ./scripts/test-esm.mjs && ./scripts/checkdeps.mjs",
     "pack-internal": "echo TODO maybe set an environment variable"
   },
