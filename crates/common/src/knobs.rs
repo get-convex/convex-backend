@@ -877,3 +877,9 @@ pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
 /// usage.
 pub static ALLOW_STORAGE_GET_VIA_DOCUMENT_ID: LazyLock<bool> =
     LazyLock::new(|| env_config("ALLOW_STORAGE_GET_VIA_DOCUMENT_ID", false));
+
+/// HTTP requests to backend will time out after this duration has passed.
+///
+/// See https://docs.rs/tower-http/0.5.0/tower_http/timeout/struct.TimeoutLayer.html
+pub static HTTP_SERVER_TIMEOUT_DURATION: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("HTTP_SERVER_TIMEOUT_SECONDS", 125)));
