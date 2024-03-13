@@ -766,7 +766,7 @@ pub static BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT: LazyLock<usize> =
 /// How long to splay deploying AWS Lambdas due to changes in the backend. This
 /// know doesn't delay deploys that are required due to user backends.
 pub static AWS_LAMBDA_DEPLOY_SPLAY_SECONDS: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 1800)));
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 300)));
 
 /// The number of seconds backend should wait for requests to drain before
 /// shutting down after SIGINT.
