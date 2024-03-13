@@ -173,6 +173,7 @@ use crate::{
         self,
         load_indexes_into_memory_timer,
         load_virtual_table_metadata_timer,
+        vector::vector_search_with_retries_timer,
         verify_invariants_timer,
     },
     retention::LeaderRetentionManager,
@@ -1742,6 +1743,7 @@ impl<RT: Runtime> Database<RT> {
     ) -> anyhow::Result<(Vec<PublicVectorSearchQueryResult>, FunctionUsageStats)> {
         let mut last_error = None;
         let mut backoff = Backoff::new(INITIAL_VECTOR_BACKOFF, MAX_VECTOR_BACKOFF);
+        let timer = vector_search_with_retries_timer();
         while backoff.failures() < MAX_VECTOR_FAILURES {
             let ts = self.now_ts_for_reads();
             match self.vector_search_at_ts(query.clone(), ts).await {
@@ -1755,13 +1757,18 @@ impl<RT: Runtime> Database<RT> {
                         last_error = Some(e);
                         continue;
                     } else {
+                        timer.finish(false);
                         return Err(e);
                     }
                 },
-                Ok(result) => return Ok(result),
+                Ok(result) => {
+                    timer.finish(true);
+                    return Ok(result);
+                },
             }
         }
         let last_error = last_error.expect("Exited vector_search() loop without any failure");
+        timer.finish(false);
         Err(last_error)
     }
 

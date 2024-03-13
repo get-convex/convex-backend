@@ -669,6 +669,7 @@ pub mod vector {
         log_distribution,
         metric_tag,
         register_convex_histogram,
+        CancelableTimer,
         MetricTag,
         StatusTimer,
         Timer,
@@ -723,11 +724,20 @@ pub mod vector {
 
     register_convex_histogram!(
         DATABASE_VECTOR_SEARCH_QUERY_SECONDS,
-        "Time to run a vector search, including retries",
+        "Time to run a single vector search, not including retries due to bootstrapping",
         &STATUS_LABEL
     );
     pub fn vector_search_timer() -> StatusTimer {
         StatusTimer::new(&DATABASE_VECTOR_SEARCH_QUERY_SECONDS)
+    }
+
+    register_convex_histogram!(
+        DATABASE_VECTOR_SEARCH_WITH_RETRIES_QUERY_SECONDS,
+        "Time to run a vector search, including retries",
+        &STATUS_LABEL
+    );
+    pub fn vector_search_with_retries_timer() -> CancelableTimer {
+        CancelableTimer::new(&DATABASE_VECTOR_SEARCH_WITH_RETRIES_QUERY_SECONDS)
     }
 
     const COMPACTION_REASON_LABEL: &str = "compaction_reason";
