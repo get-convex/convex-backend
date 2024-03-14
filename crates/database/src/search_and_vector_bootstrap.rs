@@ -50,6 +50,7 @@ use search::{
     MemorySearchIndex,
     SearchIndex,
     SearchIndexManager,
+    SearchIndexManagerState,
     SnapshotInfo,
     TantivySearchIndexSchema,
 };
@@ -101,22 +102,24 @@ impl IndexesToBootstrap {
         persistence_version: PersistenceVersion,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> (SearchIndexManager, VectorIndexManager) {
-        let search_index_manager = SearchIndexManager::from_bootstrap(
-            self.table_to_search_indexes
-                .into_iter()
-                .flat_map(|(_id, search_indexes)| {
-                    search_indexes
-                        .into_iter()
-                        .map(
-                            |SearchIndexBootstrapData {
-                                 index_id,
-                                 search_index,
-                                 tantivy_schema: _,
-                             }| (index_id, search_index),
-                        )
-                        .collect::<Vec<_>>()
-                })
-                .collect(),
+        let search_index_manager = SearchIndexManager::new(
+            SearchIndexManagerState::Ready(
+                self.table_to_search_indexes
+                    .into_iter()
+                    .flat_map(|(_id, search_indexes)| {
+                        search_indexes
+                            .into_iter()
+                            .map(
+                                |SearchIndexBootstrapData {
+                                     index_id,
+                                     search_index,
+                                     tantivy_schema: _,
+                                 }| (index_id, search_index),
+                            )
+                            .collect::<Vec<_>>()
+                    })
+                    .collect(),
+            ),
             persistence_version,
         );
         let indexes = IndexState::Ready(
@@ -261,11 +264,12 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
     }
 
     async fn run(&self) -> anyhow::Result<()> {
-        let vector_index_manager = self.bootstrap_manager().await?;
-        self.finish_bootstrap(vector_index_manager).await
+        let (search_index_manager, vector_index_manager) = self.bootstrap_manager().await?;
+        self.finish_bootstrap(search_index_manager, vector_index_manager)
+            .await
     }
 
-    async fn bootstrap_manager(&self) -> anyhow::Result<VectorIndexManager> {
+    async fn bootstrap_manager(&self) -> anyhow::Result<(SearchIndexManager, VectorIndexManager)> {
         // Load all of the fast forward timestamps first to ensure that we stay within
         // the comparatively short valid time for the persistence snapshot
         let snapshot = self
@@ -294,13 +298,12 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
             indexes_with_fast_forward_ts,
         )?;
 
-        let (_, vector_index_manager) = Self::bootstrap(
+        Self::bootstrap(
             &self.persistence,
             indexes_to_bootstrap,
             self.retention_validator.clone(),
         )
-        .await?;
-        Ok(vector_index_manager)
+        .await
     }
 
     fn indexes_to_bootstrap(
@@ -336,7 +339,7 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
                     let vector_index_bootstrap_data = VectorIndexBootstrapData {
                         index_id: index_id.internal_id(),
                         on_disk_state,
-                        memory_index: MemoryVectorIndex::new(WriteTimestamp::Committed(ts)),
+                        memory_index: MemoryVectorIndex::new(WriteTimestamp::Committed(ts.succ()?)),
                         qdrant_schema,
                     };
                     if let Some(vector_indexes) =
@@ -369,18 +372,19 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
                         },
                         SearchIndexState::Backfilled(SearchIndexSnapshot {
                             index,
-                            ts,
+                            ts: disk_ts,
                             version,
                         })
                         | SearchIndexState::SnapshottedAt(SearchIndexSnapshot {
                             index,
-                            ts,
+                            ts: disk_ts,
                             version,
                         }) => {
-                            let current_index_ts = max(ts, fast_forward_ts.unwrap_or_default());
+                            let current_index_ts =
+                                max(disk_ts, fast_forward_ts.unwrap_or_default());
                             oldest_index_ts = min(oldest_index_ts, current_index_ts);
                             let memory_index =
-                                MemorySearchIndex::new(WriteTimestamp::Committed(current_index_ts));
+                                MemorySearchIndex::new(WriteTimestamp::Committed(disk_ts.succ()?));
                             let snapshot = SnapshotInfo {
                                 disk_index: index,
                                 disk_index_ts: current_index_ts,
@@ -477,25 +481,51 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
 
     async fn finish_bootstrap(
         &self,
+        search_index_manager: SearchIndexManager,
         vector_index_manager: VectorIndexManager,
     ) -> anyhow::Result<()> {
         self.committer_client
-            .finish_vector_bootstrap(vector_index_manager, self.persistence.upper_bound())
+            .finish_search_and_vector_bootstrap(
+                search_index_manager,
+                vector_index_manager,
+                self.persistence.upper_bound(),
+            )
             .await
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{
+        sync::Arc,
+        time::Duration,
+    };
 
     use common::{
-        bootstrap_model::index::IndexMetadata,
-        types::IndexName,
+        bootstrap_model::index::{
+            search_index::SearchIndexState,
+            IndexConfig,
+            IndexMetadata,
+            TabletIndexMetadata,
+        },
+        document::ParsedDocument,
+        persistence::{
+            NoopRetentionValidator,
+            RepeatablePersistence,
+        },
+        runtime::Runtime,
+        types::{
+            IndexId,
+            IndexName,
+            TabletIndexName,
+            WriteTimestamp,
+        },
     };
     use keybroker::Identity;
     use maplit::btreeset;
+    use must_let::must_let;
     use runtime::testing::TestRuntime;
+    use search::SearchIndex;
     use storage::Storage;
     use sync_types::Timestamp;
     use value::{
@@ -504,6 +534,7 @@ mod tests {
         FieldPath,
         GenericDocumentId,
         InternalId,
+        ResolvedDocumentId,
         TableName,
         TableNumber,
     };
@@ -514,6 +545,7 @@ mod tests {
 
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
+        index_workers::fast_forward::load_metadata_fast_forward_ts,
         test_helpers::{
             index_utils::assert_enabled,
             DbFixtures,
@@ -522,7 +554,11 @@ mod tests {
         vector_index_worker::flusher::VectorIndexFlusher,
         Database,
         IndexModel,
+        SearchIndexFlusher,
         SystemMetadataModel,
+        TableModel,
+        TestFacingModel,
+        Transaction,
         UserFacingModel,
     };
 
@@ -664,11 +700,13 @@ mod tests {
             add_and_enable_vector_index(&rt, &fixtures.db, fixtures.search_storage.clone()).await?;
 
         let db = reopen_db(&rt, &fixtures).await?;
-        let worker = db.new_vector_bootstrap_worker_for_testing();
+        let worker = db.new_search_and_vector_bootstrap_worker_for_testing();
 
-        let manager = worker.bootstrap_manager().await?;
+        let (search_index_manager, vector_index_manager) = worker.bootstrap_manager().await?;
         let vector_id = add_vector(&db, &index_metadata, [3f32, 4f32]).await?;
-        worker.finish_bootstrap(manager).await?;
+        worker
+            .finish_bootstrap(search_index_manager, vector_index_manager)
+            .await?;
 
         let result = query_vectors(&db, &index_metadata).await?;
         assert_expected_vector(result, vector_id);
@@ -817,5 +855,220 @@ mod tests {
         )
         .await?;
         Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_load_snapshot_without_fast_forward(rt: TestRuntime) -> anyhow::Result<()> {
+        let db_fixtures = DbFixtures::new(&rt).await?;
+        let db = &db_fixtures.db;
+        let (index_id, _) =
+            create_new_search_index(&rt, db, db_fixtures.search_storage.clone()).await?;
+
+        let mut tx = db.begin_system().await.unwrap();
+        add_document(
+            &mut tx,
+            &"test".parse()?,
+            "hello world, this is a message with more than just a few terms in it",
+        )
+        .await?;
+        db.commit(tx).await?;
+
+        let db = reopen_db(&rt, &db_fixtures).await?;
+        let snapshot = db.latest_snapshot()?;
+        let indexes = snapshot.search_indexes.ready_indexes();
+
+        let index = indexes.get(&index_id).unwrap();
+        let SearchIndex::Backfilled(snapshot) = index else {
+            // Not using must_let because we don't implement Debug for this or nested
+            // structs.
+            panic!("Not backfilling?")
+        };
+        assert_eq!(snapshot.memory_index.num_transactions(), 1);
+
+        Ok(())
+    }
+    #[convex_macro::test_runtime]
+    async fn test_load_snapshot_with_fast_forward(rt: TestRuntime) -> anyhow::Result<()> {
+        let db_fixtures = DbFixtures::new(&rt).await?;
+        let db = &db_fixtures.db;
+        let (index_id, _) =
+            create_new_search_index(&rt, db, db_fixtures.search_storage.clone()).await?;
+
+        rt.advance_time(Duration::from_secs(10));
+
+        let mut tx = db.begin_system().await.unwrap();
+        add_document(
+            &mut tx,
+            &"test".parse()?,
+            "hello world, this is a message with more than just a few terms in it",
+        )
+        .await?;
+        db.commit(tx).await?;
+
+        rt.advance_time(Duration::from_secs(10));
+
+        // We shouldn't ever fast forward across an update in real life, but doing so
+        // and verifying we don't read the document is a simple way to verify we
+        // actually use the fast forward timestamp.
+        let mut tx = db.begin_system().await?;
+        let mut model = IndexWorkerMetadataModel::new(&mut tx);
+        let (metadata_id, mut metadata) = model
+            .get_or_create_text_search(index_id)
+            .await?
+            .into_id_and_value();
+        *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX.pred().unwrap();
+        SystemMetadataModel::new(&mut tx)
+            .replace(metadata_id, metadata.try_into()?)
+            .await?;
+        db.commit(tx).await?;
+
+        let db = reopen_db(&rt, &db_fixtures).await?;
+        let snapshot = db.latest_snapshot()?;
+        let indexes = snapshot.search_indexes.ready_indexes();
+
+        let index = indexes.get(&index_id).unwrap();
+        let SearchIndex::Backfilled(snapshot) = index else {
+            panic!("Not backfilling?")
+        };
+        assert_eq!(snapshot.memory_index.num_transactions(), 0);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_load_snapshot_with_fast_forward_uses_disk_ts_for_memory_index(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let db_fixtures = DbFixtures::new(&rt).await?;
+        let db = &db_fixtures.db;
+        let (index_id, index_doc) =
+            create_new_search_index(&rt, db, db_fixtures.search_storage.clone()).await?;
+
+        // We shouldn't ever fast forward across an update in real life, but doing so
+        // and verifying we don't read the document is a simple way to verify we
+        // actually use the fast forward timestamp.
+        let mut tx = db.begin_system().await?;
+        let mut model = IndexWorkerMetadataModel::new(&mut tx);
+        let (metadata_id, mut metadata) = model
+            .get_or_create_text_search(index_id)
+            .await?
+            .into_id_and_value();
+        *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX.pred().unwrap();
+        SystemMetadataModel::new(&mut tx)
+            .replace(metadata_id, metadata.try_into()?)
+            .await?;
+        db.commit(tx).await?;
+
+        let db = reopen_db(&rt, &db_fixtures).await?;
+        let snapshot = db.latest_snapshot()?;
+        let indexes = snapshot.search_indexes.ready_indexes();
+
+        // No must-let because SearchIndex doesn't implement Debug.
+        let SearchIndex::Backfilled(memory_snapshot) = indexes.get(&index_id).unwrap() else {
+            anyhow::bail!("Unexpected index type");
+        };
+        must_let!(
+            let IndexConfig::Search {
+                on_disk_state: SearchIndexState::Backfilled(disk_snapshot), ..
+            } = index_doc.into_value().config
+        );
+
+        assert_eq!(
+            memory_snapshot.memory_index.min_ts(),
+            WriteTimestamp::Committed(disk_snapshot.ts.succ().unwrap())
+        );
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_load_fast_forward_ts(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures {
+            tp,
+            db,
+            search_storage,
+            ..
+        } = DbFixtures::new(&rt).await?;
+        let (index_id, index_doc) =
+            create_new_search_index(&rt, &db, search_storage.clone()).await?;
+        let mut tx = db.begin_system().await?;
+        let mut model = IndexWorkerMetadataModel::new(&mut tx);
+        let (metadata_id, mut metadata) = model
+            .get_or_create_text_search(index_id)
+            .await?
+            .into_id_and_value();
+        *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX;
+        SystemMetadataModel::new(&mut tx)
+            .replace(metadata_id, metadata.try_into()?)
+            .await?;
+        db.commit(tx).await?;
+
+        let mut tx = db.begin_system().await?;
+        let retention_validator = Arc::new(NoopRetentionValidator {});
+        let persistence =
+            RepeatablePersistence::new(tp.reader(), db.now_ts_for_reads(), retention_validator);
+        let persistence_snapshot = persistence.read_snapshot(persistence.upper_bound())?;
+        let snapshot = db.snapshot(db.now_ts_for_reads())?;
+
+        let fast_forward_ts = load_metadata_fast_forward_ts(
+            &snapshot.index_registry,
+            &persistence_snapshot,
+            tx.table_mapping(),
+            index_doc.id(),
+        )
+        .await?;
+
+        assert_eq!(fast_forward_ts, Some(Timestamp::MAX));
+
+        Ok(())
+    }
+    async fn add_document(
+        tx: &mut Transaction<TestRuntime>,
+        table_name: &TableName,
+        text: &str,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        let document = assert_obj!(
+            "text" => text,
+        );
+        TestFacingModel::new(tx).insert(table_name, document).await
+    }
+
+    async fn create_new_search_index<RT: Runtime>(
+        rt: &RT,
+        db: &Database<RT>,
+        search_storage: Arc<dyn Storage>,
+    ) -> anyhow::Result<(IndexId, ParsedDocument<TabletIndexMetadata>)> {
+        let table_name: TableName = "test".parse()?;
+        let mut tx = db.begin_system().await?;
+        TableModel::new(&mut tx)
+            .insert_table_metadata_for_test(&table_name)
+            .await?;
+        let index = IndexMetadata::new_backfilling_search_index(
+            "test.by_text".parse()?,
+            "searchField".parse()?,
+            btreeset! {"filterField".parse()?},
+        );
+        IndexModel::new(&mut tx)
+            .add_application_index(index)
+            .await?;
+        db.commit(tx).await?;
+
+        let snapshot = db.latest_snapshot()?;
+        let table_id = snapshot.table_mapping().id(&"test".parse()?)?.table_id;
+        let index_name = TabletIndexName::new(table_id, "by_text".parse()?)?;
+        SearchIndexFlusher::build_index_in_test(
+            index_name.clone(),
+            "test".parse()?,
+            rt.clone(),
+            db.clone(),
+            search_storage.clone(),
+        )
+        .await?;
+
+        let index_name = IndexName::new(table_name, "by_text".parse()?)?;
+        let mut tx = db.begin_system().await?;
+        let mut model = IndexModel::new(&mut tx);
+        let index_doc = model.pending_index_metadata(&index_name)?.unwrap();
+        Ok((index_doc.id().internal_id(), index_doc))
     }
 }

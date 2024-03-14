@@ -112,6 +112,7 @@ pub use self::{
     search_index_manager::{
         SearchIndex,
         SearchIndexManager,
+        SearchIndexManagerState,
         SnapshotInfo,
     },
     searcher::Searcher,

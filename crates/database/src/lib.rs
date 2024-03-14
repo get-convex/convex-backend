@@ -36,7 +36,6 @@ mod stack_traces;
 pub mod subscription;
 mod table_registry;
 pub mod table_summary;
-mod text_search_bootstrap;
 mod token;
 mod transaction;
 mod transaction_id_generator;

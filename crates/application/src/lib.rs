@@ -407,7 +407,7 @@ pub struct Application<RT: Runtime> {
     index_worker: Arc<Mutex<RT::Handle>>,
     fast_forward_worker: Arc<Mutex<RT::Handle>>,
     search_worker: Arc<Mutex<RT::Handle>>,
-    vector_bootstrap_worker: Arc<Mutex<RT::Handle>>,
+    search_and_vector_bootstrap_worker: Arc<Mutex<RT::Handle>>,
     table_summary_worker: TableSummaryClient<RT>,
     schema_worker: Arc<Mutex<RT::Handle>>,
     snapshot_import_worker: Arc<Mutex<RT::Handle>>,
@@ -442,7 +442,7 @@ impl<RT: Runtime> Clone for Application<RT> {
             index_worker: self.index_worker.clone(),
             fast_forward_worker: self.fast_forward_worker.clone(),
             search_worker: self.search_worker.clone(),
-            vector_bootstrap_worker: self.vector_bootstrap_worker.clone(),
+            search_and_vector_bootstrap_worker: self.search_and_vector_bootstrap_worker.clone(),
             table_summary_worker: self.table_summary_worker.clone(),
             schema_worker: self.schema_worker.clone(),
             snapshot_import_worker: self.snapshot_import_worker.clone(),
@@ -538,7 +538,8 @@ impl<RT: Runtime> Application<RT> {
             searcher,
         );
         let search_worker = Arc::new(Mutex::new(runtime.spawn("search_worker", search_worker)));
-        let vector_bootstrap_worker = Arc::new(Mutex::new(database.start_vector_bootstrap()));
+        let search_and_vector_bootstrap_worker =
+            Arc::new(Mutex::new(database.start_search_and_vector_bootstrap()));
         let table_summary_worker =
             TableSummaryWorker::start(runtime.clone(), database.clone(), persistence.clone());
         let schema_worker = Arc::new(Mutex::new(runtime.spawn(
@@ -643,7 +644,7 @@ impl<RT: Runtime> Application<RT> {
             index_worker,
             fast_forward_worker,
             search_worker,
-            vector_bootstrap_worker,
+            search_and_vector_bootstrap_worker,
             table_summary_worker,
             schema_worker,
             export_worker,
@@ -2476,7 +2477,7 @@ impl<RT: Runtime> Application<RT> {
         self.schema_worker.lock().shutdown();
         self.index_worker.lock().shutdown();
         self.search_worker.lock().shutdown();
-        self.vector_bootstrap_worker.lock().shutdown();
+        self.search_and_vector_bootstrap_worker.lock().shutdown();
         self.export_worker.lock().shutdown();
         self.snapshot_import_worker.lock().shutdown();
         self.runner.shutdown().await?;

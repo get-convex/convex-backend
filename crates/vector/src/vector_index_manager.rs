@@ -1,7 +1,4 @@
-use std::{
-    ops::Bound,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use common::{
     bootstrap_model::index::{
@@ -18,13 +15,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    persistence::{
-        RepeatablePersistence,
-        RetentionValidator,
-        TimestampRange,
-    },
-    persistence_helpers::stream_revision_pairs,
-    query::Order,
+    persistence::RetentionValidator,
     types::{
         IndexId,
         Timestamp,
@@ -35,7 +26,6 @@ use errors::ErrorMetadata;
 use futures::{
     future::BoxFuture,
     FutureExt,
-    TryStreamExt,
 };
 use imbl::{
     ordmap::Entry,
@@ -158,35 +148,7 @@ fn get_vector_index_states(
 }
 
 impl VectorIndexManager {
-    pub async fn read_updates_since_bootstrap(
-        &mut self,
-        bootstrap_ts: Timestamp,
-        persistence: RepeatablePersistence,
-        registry: &IndexRegistry,
-    ) -> anyhow::Result<()> {
-        anyhow::ensure!(!self.is_backfilling());
-        let range = (Bound::Excluded(bootstrap_ts), Bound::Unbounded);
-
-        let document_stream = persistence.load_documents(
-            TimestampRange::new(range)?,
-            Order::Asc,
-            self.retention_validator.clone(),
-        );
-        let revision_stream = stream_revision_pairs(document_stream, &persistence);
-        futures::pin_mut!(revision_stream);
-
-        while let Some(revision_pair) = revision_stream.try_next().await? {
-            self.update(
-                registry,
-                revision_pair.prev_document(),
-                revision_pair.document(),
-                WriteTimestamp::Committed(revision_pair.ts().succ()?),
-            )?;
-        }
-        Ok(())
-    }
-
-    pub fn is_backfilling(&self) -> bool {
+    pub fn is_bootstrapping(&self) -> bool {
         matches!(self.indexes, IndexState::Bootstrapping(..))
     }
 

@@ -56,7 +56,7 @@ impl<RT: Runtime> IndexFastForward<RT, SearchSnapshotVersion> for SearchFastForw
     }
 
     fn num_transactions(snapshot: Snapshot, index_id: IndexId) -> anyhow::Result<Option<usize>> {
-        Ok(snapshot.search_indexes.num_transactions(index_id))
+        snapshot.search_indexes.num_transactions(index_id)
     }
 }
 
