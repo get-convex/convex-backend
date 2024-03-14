@@ -213,6 +213,7 @@ impl<T: QueryType> IndexRange<T> {
                 self.version.clone(),
             )
             .await?;
+            anyhow::ensure!(self.unfetched_interval != new_unfetched_interval);
             self.unfetched_interval = new_unfetched_interval;
             self.page_count += 1;
             self.rows_read += page.len();

@@ -237,6 +237,11 @@ impl TransactionIndex {
                         (None, None) => break,
                     }
                 }
+                if remaining_interval == range_request.interval {
+                    Err(anyhow::anyhow!(
+                        "query for {remaining_interval:?} did not shrink"
+                    ))?;
+                }
                 (range_results, remaining_interval)
             };
             assert!(results.insert(batch_key, item_result).is_none());
@@ -382,6 +387,11 @@ impl TransactionIndex {
                     indexed_fields.clone(),
                     interval_read,
                 )?;
+                if interval_unread == interval {
+                    Err(anyhow::anyhow!(
+                        "query for {interval_unread:?} did not shrink"
+                    ))?;
+                }
                 (out, interval_unread)
             };
             assert!(results.insert(batch_key, result).is_none());
