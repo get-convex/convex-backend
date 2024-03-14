@@ -26,15 +26,12 @@ pub(crate) async fn action_udf_test(
 ) -> anyhow::Result<UdfTest<TestRuntime, TestPersistence>> {
     UdfTest::default_with_config(
         UdfTestConfig {
-            isolate_config: IsolateConfig::new(
-                "action_test",
-                // we need at least 2 threads since actions will request and block
-                // on the execution of other UDFs
-                2,
-                ConcurrencyLimiter::unlimited(),
-            ),
+            isolate_config: IsolateConfig::new("action_test", ConcurrencyLimiter::unlimited()),
             udf_server_version: Version::parse("1000.0.0")?,
         },
+        // we need at least 2 threads since actions will request and block
+        // on the execution of other UDFs
+        2,
         rt,
     )
     .await
@@ -89,10 +86,11 @@ async fn test_action_almost_time_out(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_action_occ(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default_with_config(
         UdfTestConfig {
-            // We run one parent action and 16 child actions => 17 threads.
-            isolate_config: IsolateConfig::new("action_test", 17, ConcurrencyLimiter::unlimited()),
+            isolate_config: IsolateConfig::new("action_test", ConcurrencyLimiter::unlimited()),
             udf_server_version: Version::parse("1000.0.0")?,
         },
+        // We run one parent action and 16 child actions => 17 threads.
+        17,
         rt,
     )
     .await?;

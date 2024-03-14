@@ -46,14 +46,17 @@ use crate::{
     ValidatedUdfPathAndArgs,
 };
 
+static MAX_ISOLATE_WORKERS: usize = 1;
+
 static TIMEOUT_CONFIG: LazyLock<UdfTestConfig> = LazyLock::new(|| UdfTestConfig {
-    isolate_config: IsolateConfig::new("timeout_test", 1, ConcurrencyLimiter::unlimited()),
+    isolate_config: IsolateConfig::new("timeout_test", ConcurrencyLimiter::unlimited()),
     udf_server_version: Version::parse("1000.0.0").unwrap(),
 });
 
 #[convex_macro::prod_rt_test]
 async fn test_time_out(rt: ProdRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), rt.clone()).await?;
+    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), MAX_ISOLATE_WORKERS, rt.clone())
+        .await?;
     let e = t
         .query_js_error("adversarial:simpleLoop", assert_obj!())
         .await?;
@@ -67,7 +70,8 @@ async fn test_time_out(rt: ProdRuntime) -> anyhow::Result<()> {
 #[ignore]
 #[convex_macro::prod_rt_test]
 async fn test_almost_time_out(rt: ProdRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), rt.clone()).await?;
+    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), MAX_ISOLATE_WORKERS, rt.clone())
+        .await?;
     let mut log_lines = t.query_log_lines("adversarial:slow", assert_obj!()).await?;
     assert_contains(
         &log_lines.pop().unwrap().to_pretty_string(),
@@ -659,7 +663,8 @@ async fn test_throw_system_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::prod_rt_test]
 async fn test_slow_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), rt.clone()).await?;
+    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), MAX_ISOLATE_WORKERS, rt.clone())
+        .await?;
     let r = t.query("adversarial:slowSyscall", assert_obj!()).await?;
     assert_eq!(r, assert_val!(1017.));
     Ok(())
@@ -668,7 +673,8 @@ async fn test_slow_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
 #[convex_macro::prod_rt_test]
 #[ignore]
 async fn test_really_slow_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), rt.clone()).await?;
+    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), MAX_ISOLATE_WORKERS, rt.clone())
+        .await?;
     let e = t
         .query("adversarial:reallySlowSyscall", assert_obj!())
         .await

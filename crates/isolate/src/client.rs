@@ -162,7 +162,6 @@ pub const NO_AVAILABLE_WORKERS: &str = "There are no available workers to proces
 pub struct IsolateConfig {
     // Name of isolate pool, used in metrics.
     pub name: &'static str,
-    pub max_exec_threads: usize,
 
     // Typically, the user timeout is configured based on environment. This
     // allows us to set an upper bound to it that we use for tests.
@@ -172,10 +171,9 @@ pub struct IsolateConfig {
 }
 
 impl IsolateConfig {
-    pub fn new(name: &'static str, max_exec_threads: usize, limiter: ConcurrencyLimiter) -> Self {
+    pub fn new(name: &'static str, limiter: ConcurrencyLimiter) -> Self {
         Self {
             name,
-            max_exec_threads,
             max_user_timeout: None,
             limiter,
         }
@@ -184,13 +182,11 @@ impl IsolateConfig {
     #[cfg(any(test, feature = "testing"))]
     pub fn new_with_max_user_timeout(
         name: &'static str,
-        max_exec_threads: usize,
         max_user_timeout: Option<Duration>,
         limiter: ConcurrencyLimiter,
     ) -> Self {
         Self {
             name,
-            max_exec_threads,
             max_user_timeout,
             limiter,
         }
@@ -202,7 +198,6 @@ impl Default for IsolateConfig {
     fn default() -> Self {
         Self {
             name: "test",
-            max_exec_threads: 1,
             max_user_timeout: None,
             limiter: ConcurrencyLimiter::unlimited(),
         }
@@ -573,6 +568,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     pub fn new(
         rt: RT,
         isolate_worker: BackendIsolateWorker<RT>,
+        max_workers: usize,
         allow_actions: bool,
         instance_name: String,
         instance_secret: InstanceSecret,
@@ -596,7 +592,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             // pops a request from the CoDelQueueReceiver. Then it sends the request
             // to the worker.
             let isolate_worker = isolate_worker.clone();
-            let scheduler = IsolateScheduler::new(_rt, isolate_worker, _handles);
+            let scheduler = IsolateScheduler::new(_rt, isolate_worker, max_workers, _handles);
             scheduler.run(receiver).await
         });
         Self {
@@ -875,6 +871,8 @@ impl<RT: Runtime> IsolateClient<RT> {
 pub struct IsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     rt: RT,
     worker: W,
+    max_workers: usize,
+
     // Vec of channels for sending work to individual workers.
     worker_senders: Vec<mpsc::Sender<(Request<RT>, oneshot::Sender<usize>, usize)>>,
     // Stack of indexes into worker_senders, including exactly the workers
@@ -888,10 +886,16 @@ pub struct IsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
 }
 
 impl<RT: Runtime, W: IsolateWorker<RT>> IsolateScheduler<RT, W> {
-    pub fn new(rt: RT, worker: W, handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>) -> Self {
+    pub fn new(
+        rt: RT,
+        worker: W,
+        max_workers: usize,
+        handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>,
+    ) -> Self {
         Self {
             rt,
             worker,
+            max_workers,
             available_workers: Vec::new(),
             worker_senders: Vec::new(),
             handles,
@@ -933,7 +937,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> IsolateScheduler<RT, W> {
             Some(value) => value,
             None => {
                 // No available worker, create a new one if under the limit
-                if self.worker_senders.len() < self.worker.config().max_exec_threads {
+                if self.worker_senders.len() < self.max_workers {
                     return self.create_worker();
                 }
                 // otherwise block indefinitely.

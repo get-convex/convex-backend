@@ -233,6 +233,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         rt: RT,
         persistence: P,
         config: UdfTestConfig,
+        max_isolate_workers: usize,
     ) -> anyhow::Result<Result<Self, JsError>> {
         let DbFixtures {
             db: database,
@@ -269,6 +270,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let isolate = IsolateClient::new(
             rt.clone(),
             isolate_worker,
+            max_isolate_workers,
             true,
             DEV_INSTANCE_NAME.to_string(),
             DEV_SECRET.try_into()?,
@@ -327,10 +329,17 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         rt: RT,
         persistence: P,
         config: UdfTestConfig,
+        max_isolate_workers: usize,
     ) -> anyhow::Result<Self> {
-        let result = Self::new(TEST_SOURCE_ISOLATE_ONLY.clone(), rt, persistence, config)
-            .await?
-            .expect("Unexpected JSError");
+        let result = Self::new(
+            TEST_SOURCE_ISOLATE_ONLY.clone(),
+            rt,
+            persistence,
+            config,
+            max_isolate_workers,
+        )
+        .await?
+        .expect("Unexpected JSError");
         Ok(result)
     }
 
@@ -868,6 +877,8 @@ static DEFAULT_CONFIG: LazyLock<UdfTestConfig> = LazyLock::new(|| UdfTestConfig 
     udf_server_version: Version::parse("1000.0.0").unwrap(),
 });
 
+static DEFAULT_MAX_ISOLATE_WORKERS: usize = 1;
+
 #[derive(Clone)]
 pub struct UdfTestConfig {
     pub isolate_config: IsolateConfig,
@@ -876,15 +887,20 @@ pub struct UdfTestConfig {
 
 impl<RT: Runtime> UdfTest<RT, TestPersistence> {
     pub async fn default(rt: RT) -> anyhow::Result<Self> {
-        Self::default_with_config(DEFAULT_CONFIG.clone(), rt).await
+        Self::default_with_config(DEFAULT_CONFIG.clone(), DEFAULT_MAX_ISOLATE_WORKERS, rt).await
     }
 
-    pub async fn default_with_config(config: UdfTestConfig, rt: RT) -> anyhow::Result<Self> {
+    pub async fn default_with_config(
+        config: UdfTestConfig,
+        max_isolate_workers: usize,
+        rt: RT,
+    ) -> anyhow::Result<Self> {
         let result = Self::new(
             TEST_SOURCE_ISOLATE_ONLY.clone(),
             rt,
             TestPersistence::new(),
             config,
+            max_isolate_workers,
         )
         .await?
         .expect("Unexpected JSError");
@@ -895,7 +911,14 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
         modules: Vec<ModuleConfig>,
         rt: RT,
     ) -> anyhow::Result<Result<Self, JsError>> {
-        Self::new(modules, rt, TestPersistence::new(), DEFAULT_CONFIG.clone()).await
+        Self::new(
+            modules,
+            rt,
+            TestPersistence::new(),
+            DEFAULT_CONFIG.clone(),
+            DEFAULT_MAX_ISOLATE_WORKERS,
+        )
+        .await
     }
 
     pub async fn with_timeout(rt: RT, timeout: Option<Duration>) -> anyhow::Result<Self> {
@@ -906,12 +929,12 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
             UdfTestConfig {
                 isolate_config: IsolateConfig::new_with_max_user_timeout(
                     "test",
-                    1,
                     timeout,
                     ConcurrencyLimiter::unlimited(),
                 ),
                 udf_server_version: "1000.0.0".parse().unwrap(),
             },
+            DEFAULT_MAX_ISOLATE_WORKERS,
         )
         .await?
         .expect("Unexpected JSError");

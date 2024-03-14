@@ -72,14 +72,14 @@ async fn http_action_udf_test_timeout<RT: Runtime>(
         UdfTestConfig {
             isolate_config: IsolateConfig::new_with_max_user_timeout(
                 "http_action_test",
-                // we need at least 2 threads since HTTP actions will request and block
-                // on the execution of other UDFs
-                2,
                 timeout,
                 ConcurrencyLimiter::unlimited(),
             ),
             udf_server_version: Version::parse("1000.0.0")?,
         },
+        // we need at least 2 threads since HTTP actions will request and block
+        // on the execution of other UDFs
+        2,
         rt,
     )
     .await

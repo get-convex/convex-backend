@@ -17,7 +17,6 @@ use common::{
     knobs::{
         FUNRUN_ISOLATE_ACTIVE_THREADS,
         ISOLATE_QUEUE_SIZE,
-        UDF_ISOLATE_MAX_EXEC_THREADS,
     },
     log_lines::LogLine,
     persistence::{
@@ -192,8 +191,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         } else {
             ConcurrencyLimiter::unlimited()
         };
-        let isolate_config =
-            IsolateConfig::new("funrun", *UDF_ISOLATE_MAX_EXEC_THREADS, concurrency_limit);
+        let isolate_config = IsolateConfig::new("funrun", concurrency_limit);
 
         initialize_v8();
         // TODO: do we need to change the below?

@@ -502,15 +502,12 @@ impl<RT: Runtime> Application<RT> {
         );
         let actions_isolate_worker = BackendIsolateWorker::new(
             runtime.clone(),
-            IsolateConfig::new(
-                "actions",
-                *V8_ACTION_MAX_ISOLATE_EXEC_THREADS,
-                limiter.clone(),
-            ),
+            IsolateConfig::new("actions", limiter.clone()),
         );
         let actions_isolate = IsolateClient::new(
             runtime.clone(),
             actions_isolate_worker,
+            *V8_ACTION_MAX_ISOLATE_EXEC_THREADS,
             true,
             instance_name.clone(),
             instance_secret,
@@ -549,11 +546,12 @@ impl<RT: Runtime> Application<RT> {
 
         let database_isolate_worker = BackendIsolateWorker::new(
             runtime.clone(),
-            IsolateConfig::new("database_executor", *UDF_ISOLATE_MAX_EXEC_THREADS, limiter),
+            IsolateConfig::new("database_executor", limiter),
         );
         let database_isolate = IsolateClient::new(
             runtime.clone(),
             database_isolate_worker,
+            *UDF_ISOLATE_MAX_EXEC_THREADS,
             false,
             instance_name.clone(),
             instance_secret,
