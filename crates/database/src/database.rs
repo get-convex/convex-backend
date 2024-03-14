@@ -177,6 +177,7 @@ use crate::{
         verify_invariants_timer,
     },
     retention::LeaderRetentionManager,
+    search_and_vector_bootstrap::SearchAndVectorIndexBootstrapWorker,
     snapshot_manager::{
         Snapshot,
         SnapshotManager,
@@ -200,7 +201,6 @@ use crate::{
         SearchIndexManagerSnapshot,
         TransactionIndex,
     },
-    vector_bootstrap::VectorBootstrapWorker,
     write_log::{
         new_write_log,
         LogReader,
@@ -889,16 +889,18 @@ impl<RT: Runtime> Database<RT> {
     }
 
     #[cfg(test)]
-    pub fn new_vector_bootstrap_worker_for_testing(&self) -> VectorBootstrapWorker<RT> {
+    pub fn new_vector_bootstrap_worker_for_testing(
+        &self,
+    ) -> SearchAndVectorIndexBootstrapWorker<RT> {
         self.new_vector_bootstrap_worker()
     }
 
-    fn new_vector_bootstrap_worker(&self) -> VectorBootstrapWorker<RT> {
+    fn new_vector_bootstrap_worker(&self) -> SearchAndVectorIndexBootstrapWorker<RT> {
         let (ts, snapshot) = self.snapshot_manager.lock().latest();
         let vector_persistence =
             RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator());
         let table_mapping = snapshot.table_mapping().clone();
-        VectorBootstrapWorker::new(
+        SearchAndVectorIndexBootstrapWorker::new(
             self.runtime.clone(),
             snapshot.index_registry,
             vector_persistence,

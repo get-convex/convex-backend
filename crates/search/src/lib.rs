@@ -185,6 +185,7 @@ impl TryFrom<&Token> for FieldPosition {
     }
 }
 
+#[derive(Clone)]
 pub struct TantivySearchIndexSchema {
     analyzer: TextAnalyzer,
 

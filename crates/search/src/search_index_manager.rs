@@ -79,7 +79,7 @@ impl SearchIndex {
         }
     }
 
-    fn memory_index_mut(&mut self) -> &mut MemorySearchIndex {
+    pub fn memory_index_mut(&mut self) -> &mut MemorySearchIndex {
         match self {
             SearchIndex::Backfilling {
                 ref mut memory_index,

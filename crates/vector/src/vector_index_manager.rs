@@ -58,7 +58,6 @@ use crate::{
     memory_index::MemoryVectorIndex,
     metrics::{
         self,
-        bootstrap_vector_indexes_timer,
         finish_index_manager_update_timer,
         VectorIndexType,
     },
@@ -195,7 +194,6 @@ impl VectorIndexManager {
         registry: &IndexRegistry,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<Self> {
-        let _timer = bootstrap_vector_indexes_timer();
         let vector_indexes_and_metadata = get_vector_index_states(registry)?;
         let indexes = IndexState::Bootstrapping(vector_indexes_and_metadata);
         Ok(Self {
