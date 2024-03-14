@@ -71,3 +71,4 @@ runs:
       with:
         # Only cache the `.cargo` directory; not build artifacts.
         cache-targets: "false"
+        cache-provider: "buildjet"
