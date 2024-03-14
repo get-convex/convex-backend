@@ -1,6 +1,7 @@
 use anyhow::Context;
 use common::{
     errors::JsError,
+    knobs::FUNCTION_MAX_RESULT_SIZE,
     value::{
         ConvexArray,
         ConvexValue,
@@ -11,12 +12,17 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use humansize::{
+    FormatSize,
+    BINARY,
+};
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use sync_types::{
     CanonicalizedUdfPath,
     UdfPath,
 };
+use value::Size;
 
 use crate::strings;
 
@@ -122,7 +128,17 @@ pub fn deserialize_udf_result(
         ))
     })?;
     let result = match ConvexValue::try_from(result_v) {
-        Ok(value) => Ok(value),
+        Ok(value) => {
+            if value.size() > *FUNCTION_MAX_RESULT_SIZE {
+                Err(JsError::from_message(format!(
+                    "Function {udf_path} return value is too large (actual: {}, limit: {})",
+                    value.size().format_size(BINARY),
+                    (*FUNCTION_MAX_RESULT_SIZE).format_size(BINARY),
+                )))
+            } else {
+                Ok(value)
+            }
+        },
         Err(e) if e.is_deterministic_user_error() => {
             Err(JsError::from_error(e.wrap_error_message(|msg| {
                 format!("Function {udf_path:?} return value invalid: {msg}")
