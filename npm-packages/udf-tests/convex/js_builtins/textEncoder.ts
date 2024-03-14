@@ -67,6 +67,16 @@ function textDecoder2() {
   assert.strictEqual(decoder.decode(fixture), "𝓽𝓮𝔁𝓽");
 }
 
+// Regression test.
+// Decoding a Uint8Array backed by a larger ArrayBuffer only decodes
+// the view, not the entire buffer.
+function textDecoderSubarray() {
+  const abcd = new Uint8Array([97, 98, 99, 100]);
+  const bc = abcd.subarray(1, 3);
+  const decoder = new TextDecoder();
+  assert.strictEqual(decoder.decode(bc), "bc");
+}
+
 // Deno tests ignoreBOM through WPT, which we don't do yet.
 // https://linear.app/convex/issue/CX-3310/set-up-web-platform-tests
 
@@ -255,6 +265,7 @@ export default query(async (): Promise<string> => {
     btoaFailed,
 
     textDecoder2,
+    textDecoderSubarray,
     textDecoderASCII,
     textDecoderErrorEncoding,
 

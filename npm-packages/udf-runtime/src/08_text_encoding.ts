@@ -1,5 +1,6 @@
 import { throwNotImplementedMethodError } from "./helpers.js";
 import { performOp } from "./syscall.js";
+import { copyBuffer } from "./crypto/helpers.js";
 
 class TextEncoder {
   get encoding() {
@@ -59,11 +60,8 @@ class TextDecoder {
       return "";
     }
 
-    const bytes = new Uint8Array(
-      "buffer" in buffer ? buffer.buffer : buffer,
-    ).slice();
     const { text } = performOp("textEncoder/decode", {
-      bytes,
+      bytes: copyBuffer(buffer),
       encoding: this.encoding,
       fatal: this.fatal,
       ignoreBOM: this.ignoreBOM,
