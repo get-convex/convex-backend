@@ -1205,22 +1205,25 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
         // No existing worker for this client and we've already started the max number
         // of workers -- just grab the least recently used worker. This worker is least
         // likely to be reused by its' previous client.
-        let (key, workers) = self
-            .available_workers
-            .iter_mut()
-            .min_by(|(_, workers1), (_, workers2)| {
-                workers1
-                    .back()
-                    .expect("Available worker map should never contain an empty list")
-                    .last_used_ts
-                    .cmp(
-                        &workers2
-                            .back()
-                            .expect("Available worker map should never contain an empty list")
-                            .last_used_ts,
-                    )
-            })
-            .expect("There is always an oldest worker in the list");
+        let Some((key, workers)) =
+            self.available_workers
+                .iter_mut()
+                .min_by(|(_, workers1), (_, workers2)| {
+                    workers1
+                        .back()
+                        .expect("Available worker map should never contain an empty list")
+                        .last_used_ts
+                        .cmp(
+                            &workers2
+                                .back()
+                                .expect("Available worker map should never contain an empty list")
+                                .last_used_ts,
+                        )
+                })
+        else {
+            // No available workers.
+            return None;
+        };
         let worker_id = workers
             .pop_back()
             .expect("Available worker map should never contain an empty list");
