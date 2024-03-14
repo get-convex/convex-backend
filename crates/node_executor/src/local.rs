@@ -317,14 +317,7 @@ mod tests {
         let (result, log_lines) =
             run_function_and_collect_log_lines(execute_future, log_line_receiver, |_| {}).await;
         match result {
-            Ok(outcome) => {
-                let log_lines = if !log_lines.is_empty() {
-                    log_lines
-                } else {
-                    outcome.log_lines.clone()
-                };
-                Ok((outcome, log_lines))
-            },
+            Ok(outcome) => Ok((outcome, log_lines)),
             Err(e) => Err(e),
         }
     }

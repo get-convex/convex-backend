@@ -2,10 +2,6 @@ use anyhow::Context;
 use common::{
     errors::JsError,
     identity::InertIdentity,
-    log_lines::{
-        LogLine,
-        LogLines,
-    },
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -49,7 +45,6 @@ pub struct ActionOutcome {
 
     pub result: Result<JsonPackedValue, JsError>,
     pub syscall_trace: SyscallTrace,
-    pub log_lines: LogLines,
 
     pub udf_server_version: Option<semver::Version>,
 }
@@ -72,7 +67,6 @@ impl ActionOutcome {
             unix_timestamp: rt.unix_timestamp(),
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
-            log_lines: vec![].into(),
             udf_server_version,
         }
     }
@@ -82,7 +76,6 @@ impl ActionOutcome {
             unix_timestamp,
             result,
             syscall_trace,
-            log_lines,
         }: ActionOutcomeProto,
         path_and_args: ValidatedUdfPathAndArgs,
         identity: InertIdentity,
@@ -107,7 +100,6 @@ impl ActionOutcome {
                 .try_into()?,
             result,
             syscall_trace: syscall_trace.context("Missing syscall_trace")?.try_into()?,
-            log_lines: log_lines.into_iter().map(LogLine::try_from).try_collect()?,
             udf_server_version,
         })
     }
@@ -124,7 +116,6 @@ impl TryFrom<ActionOutcome> for ActionOutcomeProto {
             unix_timestamp,
             result,
             syscall_trace,
-            log_lines,
             udf_server_version: _,
         }: ActionOutcome,
     ) -> anyhow::Result<Self> {
@@ -138,7 +129,6 @@ impl TryFrom<ActionOutcome> for ActionOutcomeProto {
                 result: Some(result),
             }),
             syscall_trace: Some(syscall_trace.try_into()?),
-            log_lines: log_lines.into_iter().map(|l| l.try_into()).try_collect()?,
         })
     }
 }
@@ -157,26 +147,16 @@ impl Arbitrary for ActionOutcome {
             any::<InertIdentity>(),
             any::<UnixTimestamp>(),
             any::<Result<JsonPackedValue, JsError>>(),
-            any::<LogLines>(),
             any::<SyscallTrace>(),
         )
             .prop_map(
-                |(
-                    udf_path,
-                    arguments,
-                    identity,
-                    unix_timestamp,
-                    result,
-                    log_lines,
-                    syscall_trace,
-                )| Self {
+                |(udf_path, arguments, identity, unix_timestamp, result, syscall_trace)| Self {
                     udf_path,
                     arguments,
                     identity,
                     unix_timestamp,
                     result,
                     syscall_trace,
-                    log_lines,
                     // Ok to not generate semver::Version because it is not serialized anyway
                     udf_server_version: None,
                 },

@@ -560,7 +560,6 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     identity,
                     result: Err(err),
                     syscall_trace: SyscallTrace::new(),
-                    log_lines: vec![].into(),
                     udf_server_version: None,
                 };
                 self.function_log.log_action(

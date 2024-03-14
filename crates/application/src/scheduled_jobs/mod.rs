@@ -547,7 +547,6 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                     identity: identity.into(),
                     result: Err(JsError::from_message(message)),
                     syscall_trace: SyscallTrace::new(),
-                    log_lines: vec![].into(),
                     udf_server_version: None,
                 };
                 self.function_log.log_action(

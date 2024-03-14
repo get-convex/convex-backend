@@ -14,10 +14,7 @@ use common::{
         FrameData,
         JsError,
     },
-    log_lines::{
-        LogLine,
-        LogLines,
-    },
+    log_lines::LogLine,
     sha256::Sha256Digest,
     types::{
         ActionCallbackToken,
@@ -274,8 +271,6 @@ impl Actions {
 
         let syscall_trace = execute_result.syscall_trace;
 
-        let log_lines = execute_result.log_lines;
-
         let result = match execute_result.result {
             ExecuteResponseResult::Success { udf_return, .. } => {
                 deserialize_udf_result(&path, &udf_return)?
@@ -293,7 +288,6 @@ impl Actions {
         };
         Ok(NodeActionOutcome {
             result,
-            log_lines,
             syscall_trace,
             memory_used_in_mb,
         })
@@ -634,7 +628,6 @@ pub struct ExecuteRequest {
 #[derive(Debug, PartialEq)]
 struct ExecuteResponse {
     result: ExecuteResponseResult,
-    log_lines: LogLines,
     num_invocations: Option<usize>,
     download_time: Option<Duration>,
     import_time: Option<Duration>,
@@ -659,7 +652,6 @@ enum ExecuteResponseResult {
 #[derive(Debug)]
 pub struct NodeActionOutcome {
     pub result: Result<ConvexValue, JsError>,
-    pub log_lines: LogLines,
     pub syscall_trace: SyscallTrace,
     pub memory_used_in_mb: u64,
 }
@@ -696,7 +688,6 @@ impl TryFrom<JsonValue> for ExecuteResponse {
             #[serde(rename_all = "camelCase")]
             Success {
                 udf_return: String,
-                log_lines: Vec<JsonValue>,
                 num_invocations: usize,
                 download_time_ms: Option<f64>,
                 import_time_ms: Option<f64>,
@@ -710,7 +701,6 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                 name: Option<String>,
                 data: Option<String>,
                 frames: Option<Vec<FrameData>>,
-                log_lines: Option<Vec<JsonValue>>,
                 num_invocations: Option<usize>,
                 download_time_ms: Option<f64>,
                 import_time_ms: Option<f64>,
@@ -723,7 +713,6 @@ impl TryFrom<JsonValue> for ExecuteResponse {
         let result = match resp_json {
             ExecuteResponseJson::Success {
                 udf_return,
-                log_lines,
                 num_invocations,
                 download_time_ms,
                 import_time_ms,
@@ -732,7 +721,6 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                 syscall_trace,
             } => ExecuteResponse {
                 result: ExecuteResponseResult::Success { udf_return },
-                log_lines: log_lines.into_iter().map(LogLine::try_from).try_collect()?,
                 num_invocations: Some(num_invocations),
                 download_time: download_time_ms.map(duration_from_millis_float),
                 import_time: import_time_ms.map(duration_from_millis_float),
@@ -750,7 +738,6 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                 name,
                 data,
                 frames,
-                log_lines,
                 num_invocations,
                 download_time_ms,
                 import_time_ms,
@@ -764,11 +751,6 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                     data,
                     frames,
                 },
-                log_lines: log_lines
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(LogLine::try_from)
-                    .try_collect()?,
                 num_invocations,
                 download_time: download_time_ms.map(duration_from_millis_float),
                 import_time: import_time_ms.map(duration_from_millis_float),

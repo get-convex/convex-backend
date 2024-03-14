@@ -510,9 +510,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 Ok(v) => Ok(JsonPackedValue::pack(v)),
                 Err(e) => Err(e),
             },
-            // Here for compatibility with funrun since this struct is used
-            // in both funrun and backend
-            log_lines: vec![].into(),
             syscall_trace: self.syscall_trace.lock().clone(),
             udf_server_version,
         };

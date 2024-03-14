@@ -322,11 +322,7 @@ pub struct ActionCompletion {
 
 impl ActionCompletion {
     pub fn log_lines(&self) -> &LogLines {
-        if self.outcome.log_lines.is_empty() {
-            &self.log_lines
-        } else {
-            &self.outcome.log_lines
-        }
+        &self.log_lines
     }
 }
 
@@ -700,11 +696,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             return;
         }
         let outcome = completion.outcome;
-        let (log_lines, send_console_events) = if !completion.log_lines.is_empty() {
-            (completion.log_lines, false)
-        } else {
-            (outcome.log_lines.clone(), true)
-        };
+        let log_lines = completion.log_lines;
 
         let execution = FunctionExecution {
             params: UdfParams::Function {
@@ -729,7 +721,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             identity: outcome.identity,
             request_id: completion.context.request_id,
         };
-        self.log_execution(execution, send_console_events)
+        self.log_execution(execution, /* send_console_events */ false)
     }
 
     pub fn log_error(
