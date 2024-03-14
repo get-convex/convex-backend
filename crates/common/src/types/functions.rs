@@ -7,7 +7,7 @@ use std::{
 };
 
 use metrics::{
-    metric_tag_const,
+    metric_tag_const_value,
     MetricTag,
 };
 use pb::funrun::UdfType as UdfTypeProto;
@@ -29,12 +29,16 @@ pub enum UdfType {
 
 impl UdfType {
     pub fn metric_tag(self) -> MetricTag {
-        metric_tag_const(match self {
-            UdfType::Query => "udf_type:query",
-            UdfType::Mutation => "udf_type:mutation",
-            UdfType::Action => "udf_type:action",
-            UdfType::HttpAction => "udf_type:http_action",
-        })
+        metric_tag_const_value("udf_type", self.to_lowercase_string())
+    }
+
+    pub fn to_lowercase_string(self) -> &'static str {
+        match self {
+            UdfType::Query => "query",
+            UdfType::Mutation => "mutation",
+            UdfType::Action => "action",
+            UdfType::HttpAction => "http_action",
+        }
     }
 }
 
