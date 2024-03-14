@@ -9,7 +9,7 @@ use common::{
         ResolvedDocument,
     },
     index::IndexKeyBytes,
-    interval::Interval,
+    query::CursorPosition,
     runtime::Runtime,
     types::{
         IndexName,
@@ -80,12 +80,12 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         version: Option<Version>,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
-        Interval,
+        CursorPosition,
     )> {
         let table_mapping = self.tx.table_mapping().clone();
         let virtual_table_mapping = self.tx.virtual_table_mapping().clone();
 
-        let (results, remaining_interval) = self
+        let (results, cursor) = self
             .tx
             .index
             .range(&mut self.tx.reads, range_request)
@@ -102,7 +102,7 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
                 anyhow::Ok((index_key, doc, ts))
             })
             .try_collect()?;
-        Ok((virtual_results, remaining_interval))
+        Ok((virtual_results, cursor))
     }
 }
 

@@ -28,7 +28,10 @@ use common::{
         IntervalSet,
     },
     persistence::PersistenceSnapshot,
-    query::Order,
+    query::{
+        CursorPosition,
+        Order,
+    },
     static_span,
     types::{
         DatabaseIndexUpdate,
@@ -356,7 +359,10 @@ impl DatabaseIndexSnapshot {
     pub async fn range(
         &mut self,
         range_request: RangeRequest,
-    ) -> anyhow::Result<(Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>, Interval)> {
+    ) -> anyhow::Result<(
+        Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
+        CursorPosition,
+    )> {
         let index = match self.index_registry.require_enabled(
             &range_request.index_name,
             &range_request.printable_index_name,
@@ -368,7 +374,7 @@ impl DatabaseIndexSnapshot {
                     != &self.index_registry.index_table().table_id
                     && range_request.index_name.is_by_id_or_creation_time() =>
             {
-                return Ok((vec![], Interval::empty()));
+                return Ok((vec![], CursorPosition::End));
             },
             Err(e) => anyhow::bail!(e),
         };
@@ -400,7 +406,7 @@ impl DatabaseIndexSnapshot {
             )
             .await?
         {
-            return Ok((range, Interval::empty()));
+            return Ok((range, CursorPosition::End));
         }
 
         // Next, try the transaction cache.
@@ -408,8 +414,8 @@ impl DatabaseIndexSnapshot {
             self.cache
                 .get(index.id(), &range_request.interval, range_request.order);
 
-        let (results, cache_miss_results, interval_read, interval_remaining) = self
-            .fetch_cache_misses(index.id(), range_request, cache_results)
+        let (results, cache_miss_results, cursor) = self
+            .fetch_cache_misses(index.id(), range_request.clone(), cache_results)
             .await?;
 
         for (ts, doc) in cache_miss_results.into_iter() {
@@ -420,12 +426,15 @@ impl DatabaseIndexSnapshot {
                     .populate(some_index.id(), index_key.into_bytes(), ts, doc.clone());
             }
         }
+        let (interval_read, _) = range_request
+            .interval
+            .split(cursor.clone(), range_request.order);
         // After all documents in an index interval have been
         // added to the cache with `populate_cache`, record the entire interval as
         // being populated.
         self.cache
             .record_interval_populated(index.id(), interval_read);
-        Ok((results, interval_remaining))
+        Ok((results, cursor))
     }
 
     async fn fetch_cache_misses(
@@ -436,8 +445,7 @@ impl DatabaseIndexSnapshot {
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
         Vec<(Timestamp, ResolvedDocument)>,
-        Interval,
-        Interval,
+        CursorPosition,
     )> {
         let mut results = vec![];
         let mut cache_miss_results = vec![];
@@ -475,22 +483,10 @@ impl DatabaseIndexSnapshot {
                     .expect("should be at least one result")
                     .0
                     .clone();
-                let (interval_read, interval_remaining) =
-                    range_request.interval.split(last_key, range_request.order);
-                return Ok((
-                    results,
-                    cache_miss_results,
-                    interval_read,
-                    interval_remaining,
-                ));
+                return Ok((results, cache_miss_results, CursorPosition::After(last_key)));
             }
         }
-        Ok((
-            results,
-            cache_miss_results,
-            range_request.interval,
-            Interval::empty(),
-        ))
+        Ok((results, cache_miss_results, CursorPosition::End))
     }
 
     /// Lookup the latest value of a document by id. Returns the document and
@@ -508,7 +504,7 @@ impl DatabaseIndexSnapshot {
 
         // We call next() twice due to the verification below.
         let max_size = 2;
-        let (stream, remaining_interval) = self
+        let (stream, cursor) = self
             .range(RangeRequest {
                 index_name,
                 printable_index_name,
@@ -525,7 +521,7 @@ impl DatabaseIndexSnapshot {
                     "Got multiple values for key {:?}",
                     key
                 );
-                anyhow::ensure!(remaining_interval.is_empty());
+                anyhow::ensure!(matches!(cursor, CursorPosition::End));
                 Ok(Some((doc, ts)))
             },
             None => Ok(None),

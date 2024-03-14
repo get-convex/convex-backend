@@ -43,6 +43,7 @@ use common::{
     },
     persistence::RetentionValidator,
     query::{
+        CursorPosition,
         Order,
         Search,
         SearchVersion,
@@ -775,12 +776,12 @@ impl<RT: Runtime> Transaction<RT> {
         let mut batch_result = BTreeMap::new();
         for (batch_key, (id, table_name)) in ids {
             let result: anyhow::Result<_> = try {
-                let (range_results, remaining) =
+                let (range_results, cursor) =
                     results.remove(&batch_key).context("expected result")??;
                 if range_results.len() > 1 {
                     Err(anyhow::anyhow!("Got multiple values for id {id:?}"))?;
                 }
-                if !remaining.is_empty() {
+                if !matches!(cursor, CursorPosition::End) {
                     Err(anyhow::anyhow!(
                         "Querying 2 items for a single id didn't exhaust interval for {id:?}"
                     ))?;
@@ -971,10 +972,10 @@ impl<RT: Runtime> Transaction<RT> {
         mut max_rows: usize,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-        Interval,
+        CursorPosition,
     )> {
         if interval.is_empty() {
-            return Ok((vec![], Interval::empty()));
+            return Ok((vec![], CursorPosition::End));
         }
         let tablet_index_name = match stable_index_name {
             StableIndexName::Physical(tablet_index_name) => tablet_index_name,
@@ -985,7 +986,7 @@ impl<RT: Runtime> Transaction<RT> {
                 );
             },
             StableIndexName::Missing => {
-                return Ok((vec![], Interval::empty()));
+                return Ok((vec![], CursorPosition::End));
             },
         };
         let index_name = tablet_index_name

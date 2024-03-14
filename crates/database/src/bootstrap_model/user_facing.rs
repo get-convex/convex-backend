@@ -11,7 +11,10 @@ use common::{
     },
     index::IndexKeyBytes,
     interval::Interval,
-    query::Order,
+    query::{
+        CursorPosition,
+        Order,
+    },
     runtime::Runtime,
     types::{
         StableIndexName,
@@ -319,10 +322,10 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         version: Option<Version>,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
-        Interval,
+        CursorPosition,
     )> {
         if interval.is_empty() {
-            return Ok((vec![], Interval::empty()));
+            return Ok((vec![], CursorPosition::End));
         }
 
         max_rows = cmp::min(max_rows, MAX_PAGE_SIZE);
@@ -345,14 +348,14 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                     .await;
             },
             StableIndexName::Missing => {
-                return Ok((vec![], Interval::empty()));
+                return Ok((vec![], CursorPosition::End));
             },
         };
         let index_name = tablet_index_name
             .clone()
             .map_table(&self.tx.table_mapping().tablet_to_name())?;
 
-        let (results, interval_remaining) = self
+        let (results, cursor) = self
             .tx
             .index
             .range(
@@ -373,6 +376,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                 anyhow::Ok((key, doc, ts))
             })
             .try_collect()?;
-        Ok((developer_results, interval_remaining))
+        Ok((developer_results, cursor))
     }
 }

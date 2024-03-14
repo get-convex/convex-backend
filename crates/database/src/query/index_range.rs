@@ -91,20 +91,19 @@ impl<T: QueryType> IndexRange<T> {
     ) -> Self {
         // unfetched_interval = intersection of interval with cursor_interval
         let unfetched_interval = match &cursor_interval.curr_exclusive {
-            Some(CursorPosition::After(position)) => {
-                let (_, after_curr_cursor_position) = interval.split(position.clone(), order);
+            Some(cursor) => {
+                let (_, after_curr_cursor_position) = interval.split(cursor.clone(), order);
                 after_curr_cursor_position
             },
-            Some(CursorPosition::End) => Interval::empty(),
             None => interval.clone(),
         };
         let unfetched_interval = match &cursor_interval.end_inclusive {
-            Some(CursorPosition::After(position)) => {
+            Some(cursor) => {
                 let (up_to_end_cursor_position, _) =
-                    unfetched_interval.split(position.clone(), order);
+                    unfetched_interval.split(cursor.clone(), order);
                 up_to_end_cursor_position
             },
-            Some(CursorPosition::End) | None => unfetched_interval.clone(),
+            None => unfetched_interval.clone(),
         };
 
         Self {
@@ -204,7 +203,7 @@ impl<T: QueryType> IndexRange<T> {
                 }
                 max_rows = cmp::min(max_rows, maximum_rows_read - self.rows_read);
             }
-            let (page, new_unfetched_interval) = T::index_range(
+            let (page, fetch_cursor) = T::index_range(
                 tx,
                 &self.stable_index_name,
                 &self.unfetched_interval,
@@ -213,6 +212,8 @@ impl<T: QueryType> IndexRange<T> {
                 self.version.clone(),
             )
             .await?;
+            let (_, new_unfetched_interval) =
+                self.unfetched_interval.split(fetch_cursor, self.order);
             anyhow::ensure!(self.unfetched_interval != new_unfetched_interval);
             self.unfetched_interval = new_unfetched_interval;
             self.page_count += 1;

@@ -127,3 +127,12 @@ export const orderOrder = query(async ({ db }) => {
   const q: any = db.query("test").order("desc");
   return q.order("desc").collect();
 });
+
+export const firstAfterPendingDeletes = mutation(async ({ db }) => {
+  const toDelete = await db.query("test").take(5);
+  for (const doc of toDelete) {
+    await db.delete(doc._id);
+  }
+  const firstDoc = await db.query("test").first();
+  return firstDoc!.hello;
+});

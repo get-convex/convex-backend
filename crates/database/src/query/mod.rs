@@ -113,7 +113,7 @@ pub trait QueryType {
         version: Option<Version>,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-        Interval,
+        CursorPosition,
     )>;
 
     async fn get_with_ts<RT: Runtime>(
@@ -150,7 +150,7 @@ impl QueryType for Resolved {
         _version: Option<Version>,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-        Interval,
+        CursorPosition,
     )> {
         tx.index_range(stable_index_name, interval, order, max_rows)
             .await
@@ -193,7 +193,7 @@ impl QueryType for Developer {
         version: Option<Version>,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-        Interval,
+        CursorPosition,
     )> {
         UserFacingModel::new(tx)
             .index_range(stable_index_name, interval, order, max_rows, version)

@@ -29,6 +29,7 @@ use common::{
     interval::Interval,
     knobs::TRANSACTION_MAX_READ_SIZE_BYTES,
     query::{
+        CursorPosition,
         InternalSearch,
         Order,
         SearchVersion,
@@ -130,7 +131,7 @@ impl TransactionIndex {
         BatchKey,
         anyhow::Result<(
             Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-            Interval,
+            CursorPosition,
         )>,
     > {
         let snapshot = &mut self.database_index_snapshot;
@@ -146,7 +147,7 @@ impl TransactionIndex {
 
         for (batch_key, range_request) in ranges {
             let item_result: anyhow::Result<_> = try {
-                let (snapshot_result_vec, remaining_interval) = snapshot_results
+                let (snapshot_result_vec, cursor) = snapshot_results
                     .remove(&batch_key)
                     .context("batch_key missing")??;
                 let mut snapshot_it = snapshot_result_vec.into_iter();
@@ -237,12 +238,13 @@ impl TransactionIndex {
                         (None, None) => break,
                     }
                 }
-                if remaining_interval == range_request.interval {
+                if !range_request.interval.contains_cursor(&cursor) {
                     Err(anyhow::anyhow!(
-                        "query for {remaining_interval:?} did not shrink"
+                        "query for {:?} not making progress",
+                        range_request.interval
                     ))?;
                 }
-                (range_results, remaining_interval)
+                (range_results, cursor)
             };
             assert!(results.insert(batch_key, item_result).is_none());
         }
@@ -291,7 +293,7 @@ impl TransactionIndex {
         BatchKey,
         anyhow::Result<(
             Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-            Interval,
+            CursorPosition,
         )>,
     > {
         let batch_size = ranges.len();
@@ -349,7 +351,7 @@ impl TransactionIndex {
         ) in ranges_to_fetch
         {
             let result: anyhow::Result<_> = try {
-                let (documents, interval_unfetched) = fetch_results
+                let (documents, fetch_cursor) = fetch_results
                     .remove(&batch_key)
                     .context("batch item missing")??;
                 let mut total_bytes = 0;
@@ -368,31 +370,31 @@ impl TransactionIndex {
                     })
                     .collect();
 
-                let mut interval_read = Interval::empty();
-                let mut interval_unread = interval.clone();
-                if out.len() < max_size && within_bytes_limit && interval_unfetched.is_empty() {
-                    // If we exhaust the query before hitting any early-termination condition,
-                    // put the entire range in the read set.
-                    interval_read = interval.clone();
-                    interval_unread = Interval::empty();
-                } else if let Some((last_key, ..)) = out.last() {
-                    // If there is more in the query, split at the last key returned.
-                    (interval_read, interval_unread) = interval.split(last_key.clone(), order);
-                }
+                let cursor = if let Some((last_key, ..)) = out.last()
+                    && (out.len() >= max_size || !within_bytes_limit)
+                {
+                    // We hit an early termination condition within this page.
+                    CursorPosition::After(last_key.clone())
+                } else {
+                    // Everything fetched will be returned, so the cursor
+                    // of the page is the fetch cursor
+                    fetch_cursor
+                };
                 let indexed_fields = indexed_fields_by_key
                     .remove(&batch_key)
                     .context("indexed_fields missing")?;
+                let (interval_read, _) = interval.split(cursor.clone(), order);
                 reads.record_indexed_directly(
                     index_name.clone(),
                     indexed_fields.clone(),
                     interval_read,
                 )?;
-                if interval_unread == interval {
+                if !interval.contains_cursor(&cursor) {
                     Err(anyhow::anyhow!(
-                        "query for {interval_unread:?} did not shrink"
+                        "query for {interval:?} not making progress"
                     ))?;
                 }
-                (out, interval_unread)
+                (out, cursor)
             };
             assert!(results.insert(batch_key, result).is_none());
         }
@@ -411,7 +413,7 @@ impl TransactionIndex {
         range_request: RangeRequest,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-        Interval,
+        CursorPosition,
     )> {
         self.range_batch(reads, btreemap! {0 => range_request})
             .await
@@ -440,7 +442,7 @@ impl TransactionIndex {
         let mut remaining_interval = interval.clone();
         let mut preloaded = BTreeMap::new();
         while !remaining_interval.is_empty() {
-            let (documents, new_remaining_interval) = self
+            let (documents, cursor) = self
                 .range_no_deps(btreemap! { 0 => RangeRequest {
                     index_name: tablet_index_name.clone(),
                     printable_index_name: printable_index_name.clone(),
@@ -451,7 +453,7 @@ impl TransactionIndex {
                 .await
                 .remove(&0)
                 .context("batch_key missing")??;
-            remaining_interval = new_remaining_interval;
+            (_, remaining_interval) = interval.split(cursor, Order::Asc);
             for (_, document, _) in documents {
                 let key = document.value().0.get_path(&indexed_field).cloned();
                 anyhow::ensure!(
@@ -821,12 +823,7 @@ mod tests {
             ResolvedDocument,
         },
         index::IndexKey,
-        interval::{
-            BinaryKey,
-            End,
-            Interval,
-            Start,
-        },
+        interval::Interval,
         persistence::{
             now_ts,
             ConflictStrategy,
@@ -834,7 +831,10 @@ mod tests {
             Persistence,
             RepeatablePersistence,
         },
-        query::Order,
+        query::{
+            CursorPosition,
+            Order,
+        },
         testing::{
             TestIdGenerator,
             TestPersistence,
@@ -1089,7 +1089,7 @@ mod tests {
         );
 
         // Query the missing table using table scan index. It should return no results.
-        let (results, remaining_interval) = index
+        let (results, cursor) = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1101,7 +1101,7 @@ mod tests {
                 },
             )
             .await?;
-        assert!(remaining_interval.is_empty());
+        assert!(matches!(cursor, CursorPosition::End));
         assert!(results.is_empty());
 
         // Query by any other index should return an error.
@@ -1132,7 +1132,7 @@ mod tests {
         let by_id_index = gen_index_document(&mut id_generator, metadata.clone())?;
         index.begin_update(None, Some(by_id_index))?.apply();
 
-        let (results, remaining_interval) = index
+        let (results, cursor) = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1144,7 +1144,7 @@ mod tests {
                 },
             )
             .await?;
-        assert!(remaining_interval.is_empty());
+        assert!(matches!(cursor, CursorPosition::End));
         assert!(results.is_empty());
 
         // Add a document and make sure we see it.
@@ -1156,7 +1156,7 @@ mod tests {
             ),
         )?;
         index.begin_update(None, Some(doc.clone()))?.apply();
-        let (result, remaining_interval) = index
+        let (result, cursor) = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1177,7 +1177,7 @@ mod tests {
                 WriteTimestamp::Pending
             )],
         );
-        assert!(remaining_interval.is_empty());
+        assert!(matches!(cursor, CursorPosition::End));
 
         Ok(())
     }
@@ -1303,7 +1303,7 @@ mod tests {
         index.begin_update(Some(bob), None)?.apply();
 
         // Query by id
-        let (results, remaining_interval) = index
+        let (results, cursor) = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1315,7 +1315,7 @@ mod tests {
                 },
             )
             .await?;
-        assert!(remaining_interval.is_empty());
+        assert!(matches!(cursor, CursorPosition::End));
         assert_eq!(
             results,
             vec![
@@ -1354,7 +1354,7 @@ mod tests {
         expected_reads.record_indexed_directly(by_id, IndexedFields::by_id(), Interval::all())?;
         assert_eq!(reads, expected_reads);
         // Query by name in ascending order
-        let (results, remaining_interval) = index
+        let (results, cursor) = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1366,7 +1366,7 @@ mod tests {
                 },
             )
             .await?;
-        assert!(remaining_interval.is_empty());
+        assert!(matches!(cursor, CursorPosition::End));
         assert_eq!(
             results,
             vec![
@@ -1393,8 +1393,8 @@ mod tests {
             ]
         );
         // Query by name in ascending order with limit=2.
-        // Returned remaining interval should be ("david", unbounded).
-        let (results, remaining_interval) = index
+        // Returned cursor should be After("david").
+        let (results, cursor) = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1407,18 +1407,13 @@ mod tests {
             )
             .await?;
         assert_eq!(
-            remaining_interval.start,
-            Start::Included(
-                BinaryKey::from(
-                    david
-                        .index_key(&by_name_fields[..], persistence_version)
-                        .into_bytes()
-                )
-                .increment()
-                .unwrap()
+            cursor,
+            CursorPosition::After(
+                david
+                    .index_key(&by_name_fields[..], persistence_version)
+                    .into_bytes()
             )
         );
-        assert_eq!(remaining_interval.end, End::Unbounded);
         assert_eq!(
             results,
             vec![
@@ -1440,7 +1435,7 @@ mod tests {
         );
 
         // Query by name in descending order
-        let (result, remaining_interval) = index
+        let (result, cursor) = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1452,7 +1447,7 @@ mod tests {
                 },
             )
             .await?;
-        assert!(remaining_interval.is_empty());
+        assert!(matches!(cursor, CursorPosition::End));
         assert_eq!(
             result,
             vec![

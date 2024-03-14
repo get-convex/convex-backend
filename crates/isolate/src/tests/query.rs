@@ -793,3 +793,20 @@ async fn test_query_order_filter(rt: TestRuntime) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_query_with_pending_deletes(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    for i in 0..10 {
+        t.mutation("query:insert", assert_obj!("number" => i))
+            .await?;
+    }
+
+    // Deletes 0 through 4, and returns the next which is 5.
+    let res = t
+        .mutation("query:firstAfterPendingDeletes", assert_obj!())
+        .await?;
+    must_let!(let ConvexValue::Int64(first) = res);
+    assert_eq!(first, 5);
+    Ok(())
+}

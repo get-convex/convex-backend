@@ -33,7 +33,10 @@ pub use self::{
 };
 use crate::{
     index::IndexKeyBytes,
-    query::Order,
+    query::{
+        CursorPosition,
+        Order,
+    },
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -88,6 +91,13 @@ impl Interval {
         after_start && before_end
     }
 
+    pub fn contains_cursor(&self, cursor: &CursorPosition) -> bool {
+        match cursor {
+            CursorPosition::After(last_key) => self.contains(last_key),
+            CursorPosition::End => true,
+        }
+    }
+
     pub fn is_disjoint(&self, other: &Self) -> bool {
         self.is_empty()
             || other.is_empty()
@@ -109,7 +119,7 @@ impl Interval {
     /// Note last_key must be a full IndexKeyBytes, not an arbitrary BinaryKey,
     /// so we can assume there are no other IndexKeyBytes that have `index_key`
     /// as a prefix.
-    pub fn split(&self, last_key: IndexKeyBytes, order: Order) -> (Self, Self) {
+    pub fn split_after(&self, last_key: IndexKeyBytes, order: Order) -> (Self, Self) {
         let last_key_binary = BinaryKey::from(last_key);
         match order {
             Order::Asc => (
@@ -135,6 +145,13 @@ impl Interval {
                     end: End::Excluded(last_key_binary),
                 },
             ),
+        }
+    }
+
+    pub fn split(&self, cursor: CursorPosition, order: Order) -> (Self, Self) {
+        match cursor {
+            CursorPosition::After(last_key) => self.split_after(last_key, order),
+            CursorPosition::End => (self.clone(), Interval::empty()),
         }
     }
 }
