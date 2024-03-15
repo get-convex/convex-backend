@@ -327,7 +327,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         retention_type: RetentionType,
     ) -> anyhow::Result<Option<Timestamp>> {
         let candidate = Self::candidate_min_snapshot_ts(snapshot_reader, retention_type).await?;
-        let min_snapshot_ts = bounds_writer.read().min_snapshot_ts;
+        let min_snapshot_ts = match retention_type {
+            RetentionType::Document => bounds_writer.read().min_document_snapshot_ts,
+            RetentionType::Index => bounds_writer.read().min_snapshot_ts,
+        };
         // Skip advancing the timestamp if the `max_repeatable_ts` hasn't increased
         if candidate <= min_snapshot_ts {
             return Ok(None);
