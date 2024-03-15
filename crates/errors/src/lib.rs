@@ -53,6 +53,7 @@ pub enum ErrorCode {
     ClientDisconnect,
 
     Overloaded,
+    RejectedBeforeExecution,
     OCC,
     PaginationLimit,
     OutOfRetention,
@@ -174,6 +175,23 @@ impl ErrorMetadata {
         }
     }
 
+    // This is similar to `overloaded` but also guarantees the request was
+    // rejected before it has been started. You should generally prefer to use
+    // `overloaded`` instead of this error code and decide if an operation is safe
+    // to retry based on the fact if its idempotent. This error code can be used
+    // in very specific situations, e.g. actions that have been rejected before
+    // they have been started, and thus can be safely retries.
+    pub fn rejected_before_execution(
+        short_msg: impl Into<Cow<'static, str>>,
+        msg: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            code: ErrorCode::RejectedBeforeExecution,
+            short_msg: short_msg.into(),
+            msg: msg.into(),
+        }
+    }
+
     /// Internal Optimistic Concurrency Control / Commit Race Error.
     ///
     /// These come from sqlx, or are caused by OCCs on system tables.
@@ -258,6 +276,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::Overloaded
     }
 
+    pub fn is_rejected_before_execution(&self) -> bool {
+        self.code == ErrorCode::RejectedBeforeExecution
+    }
+
     pub fn is_forbidden(&self) -> bool {
         self.code == ErrorCode::Forbidden
     }
@@ -276,7 +298,8 @@ impl ErrorMetadata {
             | ErrorCode::ClientDisconnect
             | ErrorCode::OCC
             | ErrorCode::OutOfRetention
-            | ErrorCode::Overloaded => false,
+            | ErrorCode::Overloaded
+            | ErrorCode::RejectedBeforeExecution => false,
         }
     }
 
@@ -290,6 +313,7 @@ impl ErrorMetadata {
             | ErrorCode::Forbidden => Some((sentry::Level::Info, None)),
             ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
+            | ErrorCode::RejectedBeforeExecution
             | ErrorCode::OperationalInternalServerError => Some((sentry::Level::Warning, None)),
 
             // 1% sampling for OCC, since we only really care about the details if they
@@ -309,6 +333,7 @@ impl ErrorMetadata {
             ErrorCode::OCC => Some("occ"),
             ErrorCode::OutOfRetention => Some("out_of_retention"),
             ErrorCode::Overloaded => Some("overloaded"),
+            ErrorCode::RejectedBeforeExecution => Some("rejected_before_execution"),
             ErrorCode::OperationalInternalServerError => Some("operational"),
         }
     }
@@ -329,6 +354,7 @@ impl ErrorMetadata {
             ErrorCode::PaginationLimit => None,
             ErrorCode::OutOfRetention => None,
             ErrorCode::Overloaded => None,
+            ErrorCode::RejectedBeforeExecution => None,
             ErrorCode::OperationalInternalServerError => None,
         }
     }
@@ -339,9 +365,10 @@ impl ErrorMetadata {
             | ErrorCode::PaginationLimit
             | ErrorCode::Forbidden
             | ErrorCode::ClientDisconnect => Some(CloseCode::Normal),
-            ErrorCode::OCC | ErrorCode::OutOfRetention | ErrorCode::Overloaded => {
-                Some(CloseCode::Again)
-            },
+            ErrorCode::OCC
+            | ErrorCode::OutOfRetention
+            | ErrorCode::Overloaded
+            | ErrorCode::RejectedBeforeExecution => Some(CloseCode::Again),
             ErrorCode::OperationalInternalServerError => Some(CloseCode::Error),
             // These ones are client errors - so no close code - the client
             // will handle and close the connection instead.
@@ -371,9 +398,10 @@ impl ErrorCode {
             ErrorCode::Forbidden => StatusCode::FORBIDDEN,
             ErrorCode::NotFound => StatusCode::NOT_FOUND,
             ErrorCode::OperationalInternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorCode::OCC | ErrorCode::OutOfRetention | ErrorCode::Overloaded => {
-                StatusCode::SERVICE_UNAVAILABLE
-            },
+            ErrorCode::OCC
+            | ErrorCode::OutOfRetention
+            | ErrorCode::Overloaded
+            | ErrorCode::RejectedBeforeExecution => StatusCode::SERVICE_UNAVAILABLE,
             ErrorCode::ClientDisconnect => StatusCode::REQUEST_TIMEOUT,
         }
     }
@@ -385,7 +413,9 @@ impl ErrorCode {
             ErrorCode::Forbidden => tonic::Code::FailedPrecondition,
             ErrorCode::NotFound => tonic::Code::NotFound,
             ErrorCode::ClientDisconnect => tonic::Code::Aborted,
-            ErrorCode::Overloaded => tonic::Code::ResourceExhausted,
+            ErrorCode::Overloaded | ErrorCode::RejectedBeforeExecution => {
+                tonic::Code::ResourceExhausted
+            },
             ErrorCode::OCC => tonic::Code::ResourceExhausted,
             ErrorCode::PaginationLimit => tonic::Code::InvalidArgument,
             ErrorCode::OutOfRetention => tonic::Code::OutOfRange,
@@ -414,6 +444,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_out_of_retention(&self) -> bool;
     fn is_bad_request(&self) -> bool;
     fn is_overloaded(&self) -> bool;
+    fn is_rejected_before_execution(&self) -> bool;
     fn is_forbidden(&self) -> bool;
     fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)>;
     fn is_deterministic_user_error(&self) -> bool;
@@ -476,6 +507,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_overloaded(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_overloaded();
+        }
+        false
+    }
+
+    /// Returns true if error is tagged as RejectedBeforeExecution
+    fn is_rejected_before_execution(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_rejected_before_execution();
         }
         false
     }
@@ -663,6 +702,9 @@ mod proptest {
                 ErrorCode::Unauthenticated => ErrorMetadata::unauthenticated("un", "auth"),
                 ErrorCode::Forbidden => ErrorMetadata::forbidden("for", "bidden"),
                 ErrorCode::Overloaded => ErrorMetadata::overloaded("overloaded", "error"),
+                ErrorCode::RejectedBeforeExecution => {
+                    ErrorMetadata::rejected_before_execution("rejected_before_execution", "error")
+                },
                 ErrorCode::OperationalInternalServerError => {
                     ErrorMetadata::operational_internal_server_error()
                 },
@@ -694,7 +736,8 @@ mod tests {
             assert!(err.should_report_to_sentry().is_some() || err.custom_metric().is_some());
             if err.metric_server_error_tag().is_some() {
                 assert!(err.should_report_to_sentry().unwrap().0 >= sentry::Level::Warning);
-                if err.code == ErrorCode::Overloaded {
+                if err.code == ErrorCode::Overloaded ||
+                    err.code == ErrorCode::RejectedBeforeExecution {
                     // Overloaded messages come with custom messaging
                 } else if err.code == ErrorCode::OCC {
                     assert_eq!(err.short_msg, OCC_ERROR);

@@ -9,6 +9,7 @@ enum ErrorCode {
     NOT_FOUND = 3;
     CLIENT_DISCONNECT = 4;
     OVERLOADED = 5;
+    REJECTED_BEFORE_EXECUTION = 10;
     OCC = 6;
     PAGINATION_LIMIT = 7;
     OUT_OF_RETENTION = 8;
