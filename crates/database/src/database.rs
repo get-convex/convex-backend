@@ -227,9 +227,10 @@ pub const MAX_OCC_FAILURES: u32 = 3;
 /// to query before backfill is finished will result in failure, so we need to
 /// retry. Vector search is latency tolerant because it's only run in actions,
 /// so we can retry for a while before we have to fail.
-const INITIAL_VECTOR_BACKOFF: Duration = Duration::from_millis(500);
-const MAX_VECTOR_BACKOFF: Duration = Duration::from_secs(10);
-const MAX_VECTOR_FAILURES: u32 = 10; // 10 * 10 = 100 seconds, well under the total action timeout.
+const INITIAL_VECTOR_BACKOFF: Duration = Duration::from_millis(150);
+const MAX_VECTOR_BACKOFF: Duration = Duration::from_millis(2500);
+// 150 * 2^5 ~= 5000 or 5 seconds total.
+const MAX_VECTOR_ATTEMPTS: u32 = 5;
 
 /// Public entry point for interacting with the database.
 ///
@@ -1765,7 +1766,7 @@ impl<RT: Runtime> Database<RT> {
         let mut last_error = None;
         let mut backoff = Backoff::new(INITIAL_VECTOR_BACKOFF, MAX_VECTOR_BACKOFF);
         let timer = vector_search_with_retries_timer();
-        while backoff.failures() < MAX_VECTOR_FAILURES {
+        while backoff.failures() < MAX_VECTOR_ATTEMPTS {
             let ts = self.now_ts_for_reads();
             match self.vector_search_at_ts(query.clone(), ts).await {
                 Err(e) => {
@@ -1773,9 +1774,15 @@ impl<RT: Runtime> Database<RT> {
                     // overloaded. We want to retry those.
                     if e.is_overloaded() {
                         let delay = self.runtime.with_rng(|rng| backoff.fail(rng));
-                        tracing::warn!("Retrying vector search error: {}", e);
-                        self.runtime.wait(delay).await;
                         last_error = Some(e);
+                        if backoff.failures() >= MAX_VECTOR_ATTEMPTS {
+                            break;
+                        }
+                        tracing::warn!(
+                            "Retrying vector search error: {}",
+                            last_error.as_ref().unwrap()
+                        );
+                        self.runtime.wait(delay).await;
                         continue;
                     } else {
                         timer.finish(false);
