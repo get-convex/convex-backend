@@ -17,6 +17,7 @@ futures = { workspace = true }
 futures-async-stream = { workspace = true }
 imbl = { workspace = true }
 itertools = { workspace = true }
+maplit = { workspace = true }
 metrics = { path = "../metrics" }
 tracing = { workspace = true }
 value = { path = "../value" }

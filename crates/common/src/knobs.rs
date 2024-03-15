@@ -237,6 +237,12 @@ pub static SCHEDULED_JOB_RETENTION: LazyLock<Duration> = LazyLock::new(|| {
 pub static SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE", 1000));
 
+/// Maximum number of syscalls that can run in a batch together when
+/// awaited in parallel. Higher values improve latency, while lower ones
+/// protect one isolate from hogging database connections.
+pub static MAX_SYSCALL_BATCH_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_SYSCALL_BATCH_SIZE", 16));
+
 /// Number of rows that can be read in a transaction.
 pub static TRANSACTION_MAX_READ_SIZE_ROWS: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_MAX_READ_SIZE_ROWS", 16384));

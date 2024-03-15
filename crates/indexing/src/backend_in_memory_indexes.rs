@@ -50,6 +50,7 @@ use errors::ErrorMetadata;
 use futures::TryStreamExt;
 use imbl::OrdMap;
 use itertools::Itertools;
+use maplit::btreemap;
 use value::{
     ResolvedDocumentId,
     TableId,
@@ -355,26 +356,32 @@ impl DatabaseIndexSnapshot {
         }
     }
 
-    /// Query the given index at the snapshot.
-    pub async fn range(
-        &mut self,
+    async fn start_range_fetch(
+        &self,
         range_request: RangeRequest,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
-        CursorPosition,
-    )> {
+    ) -> anyhow::Result<
+        // Ok means we have a result immediately, Err means we need to fetch.
+        Result<
+            (
+                Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
+                CursorPosition,
+            ),
+            (IndexId, RangeRequest, Vec<DatabaseIndexSnapshotCacheResult>),
+        >,
+    > {
         let index = match self.index_registry.require_enabled(
             &range_request.index_name,
             &range_request.printable_index_name,
         ) {
             Ok(index) => index,
-            // Allow default system defined indexes on all tables other than the _index table.
+            // Allow default system defined indexes on all tables other than the _index
+            // table.
             Err(_)
                 if range_request.index_name.table()
                     != &self.index_registry.index_table().table_id
                     && range_request.index_name.is_by_id_or_creation_time() =>
             {
-                return Ok((vec![], CursorPosition::End));
+                return Ok(Ok((vec![], CursorPosition::End)));
             },
             Err(e) => anyhow::bail!(e),
         };
@@ -406,35 +413,86 @@ impl DatabaseIndexSnapshot {
             )
             .await?
         {
-            return Ok((range, CursorPosition::End));
+            return Ok(Ok((range, CursorPosition::End)));
         }
 
         // Next, try the transaction cache.
         let cache_results =
             self.cache
                 .get(index.id(), &range_request.interval, range_request.order);
+        Ok(Err((index.id(), range_request, cache_results)))
+    }
 
-        let (results, cache_miss_results, cursor) = self
-            .fetch_cache_misses(index.id(), range_request.clone(), cache_results)
-            .await?;
+    /// Query the given index at the snapshot.
+    pub async fn range_batch(
+        &mut self,
+        range_requests: BTreeMap<BatchKey, RangeRequest>,
+    ) -> BTreeMap<
+        BatchKey,
+        anyhow::Result<(
+            Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
+            CursorPosition,
+        )>,
+    > {
+        let batch_size = range_requests.len();
+        let mut ranges_to_fetch = BTreeMap::new();
+        let mut results = BTreeMap::new();
 
-        for (ts, doc) in cache_miss_results.into_iter() {
-            // Populate all index point lookups that can result in the given
-            // document.
-            for (some_index, index_key) in self.index_registry.index_keys(&doc) {
-                self.cache
-                    .populate(some_index.id(), index_key.into_bytes(), ts, doc.clone());
+        for (batch_key, range_request) in range_requests {
+            let result = self.start_range_fetch(range_request).await;
+            match result {
+                Err(e) => {
+                    results.insert(batch_key, Err(e));
+                },
+                Ok(Ok(result)) => {
+                    results.insert(batch_key, Ok(result));
+                },
+                Ok(Err(to_fetch)) => {
+                    ranges_to_fetch.insert(batch_key, to_fetch);
+                },
             }
         }
-        let (interval_read, _) = range_request
-            .interval
-            .split(cursor.clone(), range_request.order);
-        // After all documents in an index interval have been
-        // added to the cache with `populate_cache`, record the entire interval as
-        // being populated.
-        self.cache
-            .record_interval_populated(index.id(), interval_read);
-        Ok((results, cursor))
+
+        let self_ = &*self;
+        let fetch_results = futures::future::join_all(ranges_to_fetch.into_iter().map(
+            |(batch_key, (index_id, range_request, cache_results))| async move {
+                let fetch_result = self_
+                    .fetch_cache_misses(index_id, range_request.clone(), cache_results)
+                    .await;
+                (batch_key, index_id, range_request, fetch_result)
+            },
+        ))
+        .await;
+
+        for (batch_key, index_id, range_request, fetch_result) in fetch_results {
+            let result: anyhow::Result<_> = try {
+                let (fetch_result_vec, cache_miss_results, cursor) = fetch_result?;
+                for (ts, doc) in cache_miss_results.into_iter() {
+                    // Populate all index point lookups that can result in the given
+                    // document.
+                    for (some_index, index_key) in self.index_registry.index_keys(&doc) {
+                        self.cache.populate(
+                            some_index.id(),
+                            index_key.into_bytes(),
+                            ts,
+                            doc.clone(),
+                        );
+                    }
+                }
+                let (interval_read, _) = range_request
+                    .interval
+                    .split(cursor.clone(), range_request.order);
+                // After all documents in an index interval have been
+                // added to the cache with `populate_cache`, record the entire interval as
+                // being populated.
+                self.cache
+                    .record_interval_populated(index_id, interval_read);
+                (fetch_result_vec, cursor)
+            };
+            results.insert(batch_key, result);
+        }
+        assert_eq!(results.len(), batch_size);
+        results
     }
 
     async fn fetch_cache_misses(
@@ -505,14 +563,16 @@ impl DatabaseIndexSnapshot {
         // We call next() twice due to the verification below.
         let max_size = 2;
         let (stream, cursor) = self
-            .range(RangeRequest {
+            .range_batch(btreemap! { 0 => RangeRequest {
                 index_name,
                 printable_index_name,
                 interval: range,
                 order: Order::Asc,
                 max_size,
-            })
-            .await?;
+            }})
+            .await
+            .remove(&0)
+            .context("batch_key missing")??;
         let mut stream = stream.into_iter();
         match stream.next() {
             Some((key, ts, doc)) => {

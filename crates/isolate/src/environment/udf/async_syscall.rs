@@ -11,6 +11,7 @@ use std::{
 use anyhow::Context;
 use common::{
     document::GenericDocument,
+    knobs::MAX_SYSCALL_BATCH_SIZE,
     query::{
         Cursor,
         CursorPosition,
@@ -120,8 +121,6 @@ pub enum AsyncSyscallBatch {
     Unbatched { name: String, args: JsonValue },
 }
 
-const MAX_SYSCALL_BATCH_SIZE: usize = 8;
-
 impl AsyncSyscallBatch {
     pub fn new(name: String, args: JsonValue) -> Self {
         match &*name {
@@ -131,7 +130,7 @@ impl AsyncSyscallBatch {
     }
 
     pub fn can_push(&self, name: &str, _args: &JsonValue) -> bool {
-        if self.len() >= MAX_SYSCALL_BATCH_SIZE {
+        if self.len() >= *MAX_SYSCALL_BATCH_SIZE {
             return false;
         }
         match (self, name) {

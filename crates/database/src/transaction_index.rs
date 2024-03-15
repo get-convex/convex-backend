@@ -135,12 +135,7 @@ impl TransactionIndex {
         )>,
     > {
         let snapshot = &mut self.database_index_snapshot;
-        let mut snapshot_results = BTreeMap::new();
-        for (batch_key, range_request) in ranges.clone() {
-            // TODO(lee) thread the batching down all the way to persistence.
-            // This is faux-batching for now, to establish the interface.
-            snapshot_results.insert(batch_key, snapshot.range(range_request).await);
-        }
+        let mut snapshot_results = snapshot.range_batch(ranges.clone()).await;
 
         let batch_size = ranges.len();
         let mut results = BTreeMap::new();

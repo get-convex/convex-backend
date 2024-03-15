@@ -3158,6 +3158,7 @@ dependencies = [
  "futures-async-stream",
  "imbl",
  "itertools 0.12.1",
+ "maplit",
  "metrics",
  "must-let",
  "runtime",
