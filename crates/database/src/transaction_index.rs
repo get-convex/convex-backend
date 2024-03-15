@@ -827,6 +827,7 @@ mod tests {
         persistence::{
             now_ts,
             ConflictStrategy,
+            NoopRetentionValidator,
             Persistence,
             RepeatablePersistence,
         },
@@ -861,7 +862,6 @@ mod tests {
     use search::{
         searcher::InProcessSearcher,
         SearchIndexManager,
-        SearchIndexManagerState,
     };
     use storage::{
         LocalDirStorage,
@@ -872,6 +872,7 @@ mod tests {
     use super::SearchIndexManagerSnapshot;
     use crate::{
         reads::TransactionReadSet,
+        text_search_bootstrap::bootstrap_search,
         transaction_index::TransactionIndex,
         FollowerRetentionManager,
     };
@@ -924,10 +925,14 @@ mod tests {
         )?;
         let index = BackendInMemoryIndexes::bootstrap(&index_registry, index_documents, ts)?;
 
-        let search = SearchIndexManager::new(
-            SearchIndexManagerState::Bootstrapping,
-            persistence.version(),
-        );
+        let (indexes, version) = bootstrap_search(
+            &index_registry,
+            &persistence,
+            id_generator,
+            Arc::new(NoopRetentionValidator),
+        )
+        .await?;
+        let search = SearchIndexManager::from_bootstrap(indexes, version);
 
         Ok((index_registry, index, search, index_id_by_name))
     }

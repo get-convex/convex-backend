@@ -126,7 +126,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         let expected_version = SearchSnapshotVersion::new(tx.persistence_version());
         let search_index = self.database.snapshot(tx.begin_timestamp())?.search_indexes;
         let ready_index_sizes = search_index
-            .backfilled_and_enabled_index_sizes()?
+            .backfilled_and_enabled_index_sizes()
             .collect::<BTreeMap<_, _>>();
 
         for index_doc in IndexModel::new(&mut tx).get_all_indexes().await? {

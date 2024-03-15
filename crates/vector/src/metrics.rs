@@ -7,8 +7,10 @@ use metrics::{
     register_convex_histogram,
     MetricTag,
     StatusTimer,
+    Timer,
     STATUS_LABEL,
 };
+use prometheus::VMHistogram;
 
 use crate::{
     qdrant_index::QdrantVectorIndexType,
@@ -16,6 +18,37 @@ use crate::{
     CompiledVectorSearch,
     VectorSearchQueryResult,
 };
+
+register_convex_histogram!(
+    VECTOR_BOOTSTRAP_SECONDS,
+    "Time taken to bootstrap search indexes",
+    &STATUS_LABEL
+);
+pub fn bootstrap_timer() -> StatusTimer {
+    StatusTimer::new(&VECTOR_BOOTSTRAP_SECONDS)
+}
+
+register_convex_counter!(
+    VECTOR_BOOTSTRAP_REVISIONS_TOTAL,
+    "Number of revisions loaded during vector bootstrap"
+);
+register_convex_counter!(
+    VECTOR_BOOTSTRAP_REVISIONS_BYTES,
+    "Total size of revisions loaded during vector bootstrap"
+);
+pub fn finish_bootstrap(num_revisions: usize, bytes: usize, timer: StatusTimer) {
+    log_counter(&VECTOR_BOOTSTRAP_REVISIONS_TOTAL, num_revisions as u64);
+    log_counter(&VECTOR_BOOTSTRAP_REVISIONS_BYTES, bytes as u64);
+    timer.finish();
+}
+
+register_convex_histogram!(
+    VECTOR_INDEXES_BOOTSTRAP_SECONDS,
+    "Time to bootstrap vector indexes",
+);
+pub fn bootstrap_vector_indexes_timer() -> Timer<VMHistogram> {
+    Timer::new(&VECTOR_INDEXES_BOOTSTRAP_SECONDS)
+}
 
 pub enum IndexUpdateType {
     IndexMetadata,

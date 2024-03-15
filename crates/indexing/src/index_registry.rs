@@ -385,13 +385,6 @@ impl IndexRegistry {
             .collect()
     }
 
-    pub fn all_search_and_vector_indexes(&self) -> Vec<ParsedDocument<TabletIndexMetadata>> {
-        self.all_indexes()
-            .filter(|index| index.is_search_index() || index.is_vector_index())
-            .cloned()
-            .collect()
-    }
-
     pub fn enabled_index_by_index_id(&self, index_id: &InternalId) -> Option<&Index> {
         self.enabled_indexes
             .values()

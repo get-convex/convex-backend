@@ -1100,7 +1100,7 @@ impl FinalTransaction {
             table_mapping,
             transaction,
             &modified_tables,
-            base_snapshot.search_indexes.in_memory_sizes().into_iter(),
+            base_snapshot.search_indexes.in_memory_sizes(),
             search_size_limit,
             "Search",
         )?;

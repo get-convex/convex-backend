@@ -577,36 +577,12 @@ fn log_worker_status(is_working: bool, name: &'static str) {
     )
 }
 
-register_convex_histogram!(
-    SEARCH_AND_VECTOR_BOOTSTRAP_SECONDS,
-    "Time taken to bootstrap search and vector indexes",
-    &STATUS_LABEL
-);
-pub fn bootstrap_timer() -> StatusTimer {
-    StatusTimer::new(&SEARCH_AND_VECTOR_BOOTSTRAP_SECONDS)
-}
-
-register_convex_counter!(
-    SEARCH_AND_VECTOR_BOOTSTRAP_REVISIONS_TOTAL,
-    "Number of revisions loaded during vector bootstrap"
-);
-register_convex_counter!(
-    SEARCH_AND_VECTOR_BOOTSTRAP_REVISIONS_BYTES,
-    "Total size of revisions loaded during vector bootstrap"
-);
-pub fn finish_bootstrap(num_revisions: usize, bytes: usize, timer: StatusTimer) {
-    log_counter(
-        &SEARCH_AND_VECTOR_BOOTSTRAP_REVISIONS_TOTAL,
-        num_revisions as u64,
-    );
-    log_counter(&SEARCH_AND_VECTOR_BOOTSTRAP_REVISIONS_BYTES, bytes as u64);
-    timer.finish();
-}
-
 pub mod search {
 
     use metrics::{
+        log_counter,
         log_distribution,
+        register_convex_counter,
         register_convex_histogram,
         StatusTimer,
         STATUS_LABEL,
@@ -663,15 +639,29 @@ pub mod search {
     pub fn iterator_next_timer() -> StatusTimer {
         StatusTimer::new(&DATABASE_SEARCH_ITERATOR_NEXT_SECONDS)
     }
-}
 
-register_convex_histogram!(
-    DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS,
-    "Time to bootstrap vector and search indexes",
-    &STATUS_LABEL
-);
-pub fn search_and_vector_bootstrap_timer() -> StatusTimer {
-    StatusTimer::new(&DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS)
+    register_convex_histogram!(
+        SEARCH_BOOTSTRAP_SECONDS,
+        "Time taken to bootstrap search indexes",
+        &STATUS_LABEL
+    );
+    pub fn bootstrap_timer() -> StatusTimer {
+        StatusTimer::new(&SEARCH_BOOTSTRAP_SECONDS)
+    }
+
+    register_convex_counter!(
+        SEARCH_BOOTSTRAP_REVISIONS_TOTAL,
+        "Number of revisions loaded during search bootstrap"
+    );
+    register_convex_counter!(
+        SEARCH_BOOTSTRAP_REVISIONS_BYTES,
+        "Total size of revisions loaded during search bootstrap"
+    );
+    pub fn finish_bootstrap(num_revisions: usize, bytes: usize, timer: StatusTimer) {
+        log_counter(&SEARCH_BOOTSTRAP_REVISIONS_TOTAL, num_revisions as u64);
+        log_counter(&SEARCH_BOOTSTRAP_REVISIONS_BYTES, bytes as u64);
+        timer.finish();
+    }
 }
 
 pub mod vector {
@@ -686,6 +676,15 @@ pub mod vector {
         STATUS_LABEL,
     };
     use prometheus::VMHistogramVec;
+
+    register_convex_histogram!(
+        DATABASE_VECTOR_BOOTSTRAP_SECONDS,
+        "Time to bootstrap vector indexes",
+        &STATUS_LABEL
+    );
+    pub fn bootstrap_timer() -> StatusTimer {
+        StatusTimer::new(&DATABASE_VECTOR_BOOTSTRAP_SECONDS)
+    }
 
     register_convex_histogram!(
         DATABASE_VECTOR_BUILD_ONE_SECONDS,
