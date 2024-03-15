@@ -111,6 +111,7 @@ export default action(async () => {
     fetchResponseStreamIsLockedWhileReading,
     fetchResponseStreamIsLockedWhileReadingBlob,
     fetchForbidden,
+    fetchOlaf,
   });
 });
 
@@ -1745,3 +1746,12 @@ export const fetchUnendingRequest = action(async () => {
   await response.text();
   throw new Error(`fetch should not complete`);
 });
+
+// Regression test for https://webtechsurvey.com/response-header/x-olaf
+async function fetchOlaf() {
+  const response = await fetch("http://localhost:4545/echo_server", {
+    method: "POST",
+    headers: { "X-Olaf": "⛄" },
+  });
+  assert.strictEqual(response.headers.get("X-Olaf"), "â\x9B\x84");
+}

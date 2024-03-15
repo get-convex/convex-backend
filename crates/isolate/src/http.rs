@@ -134,9 +134,11 @@ impl HttpResponseV8 {
         // None as the HeaderName for headers with multiple values
         // (https://docs.rs/http/latest/http/header/struct.HeaderMap.html#method.into_iter)
         for (name, value) in &response.headers {
-            let value_str = value.to_str()?;
+            // Don't use `value.to_str()` since that does not support non-ASCII headers
+            let value_bytes = value.as_bytes();
+            let value_str: String = value_bytes.iter().map(|&c| c as char).collect();
             let header_name_str = name.as_str();
-            header_pairs.push((header_name_str.to_string(), value_str.to_string()));
+            header_pairs.push((header_name_str.to_string(), value_str));
         }
         // reqwest does not expose status text sent in HTTP response, so we derive it
         // from status code.

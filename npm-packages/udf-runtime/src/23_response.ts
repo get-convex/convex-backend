@@ -271,7 +271,7 @@ export class Response {
       statusText: this.statusText,
       url: this._url,
     };
-    return `Request ${inspect(properties)}`;
+    return `Response ${inspect(properties)}`;
   }
 
   // ---------------------------------------------------------------
