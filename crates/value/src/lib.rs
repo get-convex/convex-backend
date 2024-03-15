@@ -449,6 +449,7 @@ pub mod encode_for_hash {
 
     use crate::{
         sorting::write_escaped_bytes,
+        ConvexObject,
         ConvexValue,
     };
 
@@ -499,11 +500,18 @@ pub mod encode_for_hash {
                 },
                 ConvexValue::Object(o) => {
                     w.write_u8(11)?;
-                    for (k, v) in o.iter() {
-                        write_escaped_bytes(k.as_bytes(), w)?;
-                        v.encode_for_hash(w)?;
-                    }
+                    o.encode_for_hash(w)?;
                 },
+            }
+            Ok(())
+        }
+    }
+
+    impl ConvexObject {
+        pub fn encode_for_hash<W: Write>(&self, w: &mut W) -> io::Result<()> {
+            for (k, v) in self.iter() {
+                write_escaped_bytes(k.as_bytes(), w)?;
+                v.encode_for_hash(w)?;
             }
             Ok(())
         }
@@ -513,6 +521,18 @@ pub mod encode_for_hash {
 impl Hash for ConvexValue {
     /// f64 doesn't implement `hash` so we need to manually implement `hash` for
     /// `Value`. Must be compatible with our manual implementation of `cmp`.
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        let mut bytes = vec![];
+        self.encode_for_hash(&mut bytes)
+            .expect("failed to write to memory");
+        bytes.hash(hasher)
+    }
+}
+
+impl Hash for ConvexObject {
+    /// f64 doesn't implement `hash` so we need to manually implement `hash` for
+    /// `ConvexObject`. Must be compatible with our manual implementation of
+    /// `cmp`.
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         let mut bytes = vec![];
         self.encode_for_hash(&mut bytes)

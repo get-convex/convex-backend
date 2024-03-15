@@ -3,11 +3,15 @@
 //! integer lengths for their digest type.)
 use std::{
     fmt,
+    hash::Hasher,
     io::{
         self,
         Write,
     },
-    ops::Deref,
+    ops::{
+        BitXorAssign,
+        Deref,
+    },
 };
 
 use anyhow::Context;
@@ -72,6 +76,14 @@ impl TryFrom<Vec<u8>> for Sha256Digest {
     }
 }
 
+impl BitXorAssign for Sha256Digest {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        for (i, x) in rhs.iter().enumerate() {
+            self.0[i] ^= *x;
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct Sha256 {
     inner: sha2::Sha256,
@@ -111,6 +123,25 @@ impl Sha256 {
                 .try_into()
                 .expect("Sha256 wasn't 32 bytes?"),
         )
+    }
+}
+
+impl Hasher for Sha256 {
+    // Prefer using `finalize` which returns the full 256 bits.
+    fn finish(&self) -> u64 {
+        let digest = self.clone().finalize();
+        let mut hash = 0;
+        // Compress the 32 byte digest into 8 bytes:
+        // Interpret the [u8; 32] as [u64 little endian; 4]
+        // and compute hash = XOR(the u64s).
+        for (i, x) in digest.iter().enumerate() {
+            hash ^= (*x as u64) << ((i % 8) * 8);
+        }
+        hash
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        self.update(bytes);
     }
 }
 
