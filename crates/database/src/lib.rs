@@ -136,6 +136,7 @@ pub use self::{
         Database,
         DatabaseSnapshot,
         DocumentDeltas,
+        OccRetryStats,
         ShortBoxFuture,
         ShutdownSignal,
         SnapshotPage,

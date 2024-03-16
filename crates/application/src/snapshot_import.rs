@@ -1490,7 +1490,7 @@ async fn finalize_import<RT: Runtime>(
     // If we inserted into an existing table, we're done because the table is
     // now populated and active.
     // If we inserted into an Hidden table, make it Active.
-    let (ts, documents_deleted) = database
+    let (ts, documents_deleted, _) = database
         .execute_with_occ_retries(
             identity,
             FunctionUsageTracker::new(),
@@ -2078,7 +2078,7 @@ async fn prepare_table_for_import<RT: Runtime>(
         insert_into_existing_table_id
     } else {
         let table_number = table_number.or(existing_table_id.map(|id| id.table_number));
-        let (_, table_id) = database
+        let (_, table_id, _) = database
             .execute_with_occ_retries(
                 identity.clone(),
                 FunctionUsageTracker::new(),

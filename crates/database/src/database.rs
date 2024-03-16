@@ -23,7 +23,10 @@ use std::{
         LazyLock,
         OnceLock,
     },
-    time::Duration,
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use anyhow::{
@@ -1260,7 +1263,7 @@ impl<RT: Runtime> Database<RT> {
         mut pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
-    ) -> anyhow::Result<(Timestamp, T)>
+    ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
     where
         T: Send,
         R: Fn(&Error) -> bool,
@@ -1274,6 +1277,7 @@ impl<RT: Runtime> Database<RT> {
                     .begin_with_usage(identity.clone(), usage.clone())
                     .await?;
                 pause_client.wait("retry_tx_loop_start").await;
+                let start = Instant::now();
                 let result = async {
                     let t = f(&mut tx).0.await?;
                     let ts = self
@@ -1282,6 +1286,7 @@ impl<RT: Runtime> Database<RT> {
                     Ok((ts, t))
                 }
                 .await;
+                let duration = Instant::now() - start;
                 match result {
                     Err(e) => {
                         if is_retriable(&e) {
@@ -1294,7 +1299,16 @@ impl<RT: Runtime> Database<RT> {
                             return Err(e);
                         }
                     },
-                    Ok((ts, t)) => return Ok((ts, t)),
+                    Ok((ts, t)) => {
+                        return Ok((
+                            ts,
+                            t,
+                            OccRetryStats {
+                                retries: backoff.failures(),
+                                duration,
+                            },
+                        ))
+                    },
                 }
             }
             let error =
@@ -1312,7 +1326,7 @@ impl<RT: Runtime> Database<RT> {
         pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
-    ) -> anyhow::Result<(Timestamp, T)>
+    ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
     where
         T: Send,
         F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'_, 'a, 'b, anyhow::Result<T>>,
@@ -1876,6 +1890,16 @@ impl<RT: Runtime> Database<RT> {
     pub fn runtime(&self) -> &RT {
         &self.runtime
     }
+}
+
+/// Transaction statistics reported for a retried transaction
+#[derive(Debug, PartialEq, Eq)]
+pub struct OccRetryStats {
+    /// Number of times the transaction was retried. 0 for a transaction that
+    /// succeeded the first time.
+    pub retries: u32,
+    /// The duration of the successful transaction
+    pub duration: Duration,
 }
 
 /// The read that conflicted as part of an OCC

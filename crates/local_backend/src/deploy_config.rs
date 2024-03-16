@@ -24,6 +24,7 @@ use common::{
     types::NodeDependency,
     version::Version,
 };
+use database::OccRetryStats;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
@@ -139,6 +140,42 @@ pub struct ConfigJson {
     pub bundled_module_infos: Option<Vec<BundledModuleInfoJson>>,
 }
 
+static NODE_ENVIRONMENT: &str = "node";
+impl ConfigJson {
+    pub fn stats(&self) -> (usize, usize, usize, usize) {
+        let num_node_modules = self
+            .modules
+            .iter()
+            .filter(|module| module.environment.as_deref() == Some(NODE_ENVIRONMENT))
+            .count();
+        let size_node_modules = self
+            .modules
+            .iter()
+            .filter(|module| module.environment.as_deref() == Some(NODE_ENVIRONMENT))
+            .fold(0, |acc, e| {
+                acc + e.source.len() + e.source_map.as_ref().map_or(0, |sm| sm.len())
+            });
+        let size_v8_modules = self
+            .modules
+            .iter()
+            .filter(|module| module.environment.as_deref() != Some(NODE_ENVIRONMENT))
+            .fold(0, |acc, e| {
+                acc + e.source.len() + e.source_map.as_ref().map_or(0, |sm| sm.len())
+            });
+        let num_v8_modules = self
+            .modules
+            .iter()
+            .filter(|module| module.environment.as_deref() != Some(NODE_ENVIRONMENT))
+            .count();
+        (
+            num_v8_modules,
+            num_node_modules,
+            size_v8_modules,
+            size_node_modules,
+        )
+    }
+}
+
 /// API level structure for representing modules as Json
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -198,6 +235,7 @@ pub struct PushAnalytics {
     pub udf_server_version: Version,
     pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
     pub schema: Option<DatabaseSchema>,
+    pub occ_stats: OccRetryStats,
 }
 
 #[debug_handler]
@@ -298,10 +336,13 @@ pub async fn push_config_handler(
         source_package.clone(),
     )
     .await?;
-    let ConfigMetadataAndSchema {
-        config_metadata,
-        schema,
-    } = application
+    let (
+        ConfigMetadataAndSchema {
+            config_metadata,
+            schema,
+        },
+        occ_stats,
+    ) = application
         .apply_config_with_retries(
             identity.clone(),
             ApplyConfigArgs {
@@ -324,6 +365,7 @@ pub async fn push_config_handler(
             udf_server_version: udf_config.server_version,
             analyze_results: analyze_result,
             schema,
+            occ_stats,
         },
     ))
 }

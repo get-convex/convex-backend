@@ -96,6 +96,7 @@ use database::{
     FastForwardIndexWorker,
     IndexModel,
     IndexWorker,
+    OccRetryStats,
     SearchIndexWorker,
     ShortBoxFuture,
     Snapshot,
@@ -1670,11 +1671,13 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         apply_config_args: ApplyConfigArgs,
-    ) -> anyhow::Result<ConfigMetadataAndSchema> {
+    ) -> anyhow::Result<(ConfigMetadataAndSchema, OccRetryStats)> {
         let runner = self.runner.clone();
-        self.execute_with_audit_log_events_and_occ_retries(identity, "apply_config", |tx| {
-            Self::_apply_config(runner.clone(), tx, apply_config_args.clone()).into()
-        })
+        self.execute_with_audit_log_events_and_occ_retries_reporting_stats(
+            identity,
+            "apply_config",
+            |tx| Self::_apply_config(runner.clone(), tx, apply_config_args.clone()).into(),
+        )
         .await
     }
 
@@ -2406,6 +2409,34 @@ impl<RT: Runtime> Application<RT> {
             f,
         )
         .await
+        .map(|(t, _)| t)
+    }
+
+    pub async fn execute_with_audit_log_events_and_occ_retries_reporting_stats<'a, F, T>(
+        &self,
+        identity: Identity,
+        write_source: impl Into<WriteSource>,
+        f: F,
+    ) -> anyhow::Result<(T, OccRetryStats)>
+    where
+        F: Send + Sync,
+        T: Send + 'static,
+        F: for<'b> Fn(
+            &'b mut Transaction<RT>,
+        ) -> ShortBoxFuture<
+            '_,
+            'a,
+            'b,
+            anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>,
+        >,
+    {
+        self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
+            identity,
+            PauseClient::new(),
+            write_source,
+            f,
+        )
+        .await
     }
 
     pub async fn execute_with_audit_log_events_and_occ_retries_with_pause_client<'a, F, T>(
@@ -2414,7 +2445,7 @@ impl<RT: Runtime> Application<RT> {
         pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
-    ) -> anyhow::Result<T>
+    ) -> anyhow::Result<(T, OccRetryStats)>
     where
         F: Send + Sync,
         T: Send + 'static,
@@ -2428,7 +2459,7 @@ impl<RT: Runtime> Application<RT> {
         >,
     {
         let db = self.database.clone();
-        let (ts, (t, events)) = db
+        let (ts, (t, events), stats) = db
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
@@ -2447,7 +2478,7 @@ impl<RT: Runtime> Application<RT> {
             .try_collect()?;
 
         self.log_sender.send_logs(logs);
-        Ok(t)
+        Ok((t, stats))
     }
 
     pub async fn execute_with_occ_retries<'a, T, F>(
@@ -2466,6 +2497,7 @@ impl<RT: Runtime> Application<RT> {
         self.database
             .execute_with_occ_retries(identity, usage, pause_client, write_source, f)
             .await
+            .map(|(ts, t, _)| (ts, t))
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
