@@ -735,6 +735,10 @@ pub static FUNRUN_MODULE_CACHE_SIZE: LazyLock<u64> =
 pub static FUNRUN_MODULE_MAX_CONCURRENCY: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_MODULE_MAX_CONCURRENCY", 100));
 
+/// The maximum number of fetch clients Funrun would create.
+pub static FUNRUN_FETCH_CLIENT_CACHE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("FUNRUN_FETCH_CLIENT_CACHE_SIZE", 100));
+
 /// The maximum number of concurrent requests a single client can make to a
 /// single Funrun server. 25% out of the v8 limit of 128 threads is 32.
 pub static FUNRUN_CLIENT_MAX_REQUESTS_PER_UPSTREAM: LazyLock<usize> =
