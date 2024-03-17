@@ -1,20 +1,17 @@
-use std::{
-    collections::BTreeMap,
-    sync::LazyLock,
-};
+use std::sync::LazyLock;
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use value::{
-    ConvexObject,
-    ConvexValue,
+    codegen_convex_serialization,
     TableNumber,
 };
 
-use crate::{
-    obj,
-    types::{
-        FieldName,
-        TableName,
-    },
+use crate::types::{
+    FieldName,
+    TableName,
 };
 
 pub static TABLES_TABLE: LazyLock<TableName> =
@@ -77,80 +74,71 @@ impl TableMetadata {
     }
 }
 
-impl TryFrom<TableMetadata> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: TableMetadata) -> Result<Self, Self::Error> {
-        obj!(
-            "name" => String::from(value.name),
-            "state" => String::from(match value.state {
-                TableState::Active => "active",
-                TableState::Deleting => "deleting",
-                TableState::Hidden => "hidden",
-            }),
-            "number" => ConvexValue::Int64(u32::from(value.number).into()),
-        )
-    }
+#[derive(Serialize, Deserialize)]
+struct SerializedTableMetadata {
+    name: String,
+    number: i64,
+    state: String,
 }
 
-impl TryFrom<ConvexObject> for TableMetadata {
+impl TryFrom<TableMetadata> for SerializedTableMetadata {
     type Error = anyhow::Error;
 
-    fn try_from(object: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = object.into();
-        let name = match fields.remove(&*NAME_FIELD) {
-            Some(ConvexValue::String(s)) => s.parse()?,
-            v => anyhow::bail!("Invalid name field for TableMetadata: {:?}", v),
-        };
-
-        let number = match fields.remove("number") {
-            Some(ConvexValue::Int64(v)) => u32::try_from(v)?.try_into()?,
-            v => anyhow::bail!("Invalid number field for TableMetadata: {:?}", v),
-        };
-        let state = match fields.remove("state") {
-            Some(ConvexValue::String(s)) => match &s[..] {
-                "active" => TableState::Active,
-                "deleting" => TableState::Deleting,
-                "hidden" => TableState::Hidden,
-                _ => anyhow::bail!("invalid table state {s}"),
-            },
-            None => TableState::Active,
-            _ => anyhow::bail!("invalid table state {fields:?}"),
-        };
+    fn try_from(m: TableMetadata) -> anyhow::Result<Self> {
         Ok(Self {
-            name,
-            number,
-            state,
+            name: m.name.into(),
+            number: u32::from(m.number) as i64,
+            state: match m.state {
+                TableState::Active => "active".to_owned(),
+                TableState::Deleting => "deleting".to_owned(),
+                TableState::Hidden => "hidden".to_owned(),
+            },
         })
     }
 }
 
-impl TryFrom<ConvexValue> for TableMetadata {
+impl TryFrom<SerializedTableMetadata> for TableMetadata {
     type Error = anyhow::Error;
 
-    fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        match value {
-            ConvexValue::Object(o) => o.try_into(),
-            _ => anyhow::bail!("Invalid table metadata value"),
-        }
+    fn try_from(m: SerializedTableMetadata) -> anyhow::Result<Self> {
+        Ok(Self {
+            name: m.name.parse()?,
+            number: u32::try_from(m.number)?.try_into()?,
+            state: match &m.state[..] {
+                "active" => TableState::Active,
+                "deleting" => TableState::Deleting,
+                "hidden" => TableState::Hidden,
+                s => anyhow::bail!("invalid table state {s}"),
+            },
+        })
     }
 }
 
+codegen_convex_serialization!(TableMetadata, SerializedTableMetadata);
+
 #[cfg(test)]
 mod tests {
-    use proptest::prelude::*;
-    use value::ConvexObject;
+    use value::obj;
 
     use super::TableMetadata;
-    use crate::testing::assert_roundtrips;
+    use crate::bootstrap_model::tables::TableState;
 
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_table_roundtrips(v in any::<TableMetadata>()) {
-            assert_roundtrips::<TableMetadata, ConvexObject>(v);
-        }
+    #[test]
+    fn test_backwards_compatibility() -> anyhow::Result<()> {
+        let serialized = obj!(
+            "name" => "foo",
+            "state" => "hidden",
+            "number" => 1017,
+        )?;
+        let deserialized: TableMetadata = serialized.try_into().unwrap();
+        assert_eq!(
+            deserialized,
+            TableMetadata {
+                name: "foo".parse()?,
+                number: 1017.try_into()?,
+                state: TableState::Hidden
+            }
+        );
+        Ok(())
     }
 }

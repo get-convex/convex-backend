@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     fmt::{
         self,
         Debug,
@@ -8,15 +7,15 @@ use std::{
     str::FromStr,
 };
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use serde_json::{
     json,
     Value as JsonValue,
 };
-use value::{
-    obj,
-    ConvexObject,
-    ConvexValue,
-};
+use value::codegen_convex_serialization;
 
 use crate::heap_size::HeapSize;
 
@@ -32,55 +31,35 @@ pub struct NodeDependency {
     pub version: String,
 }
 
-impl TryFrom<ConvexObject> for NodeDependency {
+#[derive(Serialize, Deserialize)]
+struct SerializedNodeDependency {
+    package: String,
+    version: String,
+}
+
+impl TryFrom<NodeDependency> for SerializedNodeDependency {
     type Error = anyhow::Error;
 
-    fn try_from(obj: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(obj);
-
-        let package: String = match fields.remove("package") {
-            Some(ConvexValue::String(s)) => s.into(),
-            _ => anyhow::bail!("Invalid or missing 'package' in NodeDependency: {fields:?}"),
-        };
-        let version: String = match fields.remove("version") {
-            Some(ConvexValue::String(s)) => s.into(),
-            _ => anyhow::bail!("Invalid or missing 'version' in NodeDependency: {fields:?}"),
-        };
-        Ok(Self { package, version })
+    fn try_from(dep: NodeDependency) -> Result<Self, Self::Error> {
+        Ok(Self {
+            package: dep.package,
+            version: dep.version,
+        })
     }
 }
 
-impl TryFrom<NodeDependency> for ConvexObject {
+impl TryFrom<SerializedNodeDependency> for NodeDependency {
     type Error = anyhow::Error;
 
-    fn try_from(value: NodeDependency) -> Result<Self, Self::Error> {
-        obj!(
-            "package" => value.package,
-            "version" => value.version
-        )
+    fn try_from(dep: SerializedNodeDependency) -> Result<Self, Self::Error> {
+        Ok(Self {
+            package: dep.package,
+            version: dep.version,
+        })
     }
 }
 
-impl TryFrom<ConvexValue> for NodeDependency {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        if let ConvexValue::Object(o) = value {
-            o.try_into()
-        } else {
-            anyhow::bail!("NodeDependency expected an Object, got {value:?}")
-        }
-    }
-}
-
-impl TryFrom<NodeDependency> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(value: NodeDependency) -> Result<Self, Self::Error> {
-        let obj: ConvexObject = value.try_into()?;
-        Ok(ConvexValue::Object(obj))
-    }
-}
+codegen_convex_serialization!(NodeDependency, SerializedNodeDependency);
 
 impl From<NodeDependency> for JsonValue {
     fn from(dep: NodeDependency) -> Self {
@@ -161,5 +140,28 @@ impl FromStr for HttpActionRoute {
             None => anyhow::bail!("Invalid HTTP action route"),
         };
         Ok(Self { method, path })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use value::assert_obj;
+
+    use super::NodeDependency;
+
+    #[test]
+    fn test_backwards_compatibility() {
+        let serialized = assert_obj!(
+            "package" => "foo",
+            "version" => "1.0.0",
+        );
+        let deserialized: NodeDependency = serialized.try_into().unwrap();
+        assert_eq!(
+            deserialized,
+            NodeDependency {
+                package: "foo".to_string(),
+                version: "1.0.0".to_string(),
+            }
+        );
     }
 }

@@ -23,6 +23,7 @@ mod map;
 mod metrics;
 pub mod numeric;
 mod object;
+pub mod serde;
 mod set;
 pub mod sha256;
 mod size;

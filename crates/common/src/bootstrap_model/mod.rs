@@ -11,4 +11,6 @@
 //! colocated in database crate.
 pub mod index;
 pub mod schema;
+mod schema_metadata;
+mod schema_state;
 pub mod tables;
