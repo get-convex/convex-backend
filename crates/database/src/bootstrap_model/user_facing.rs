@@ -124,27 +124,13 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     ) -> BTreeMap<BatchKey, anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>>> {
         let mut results = BTreeMap::new();
         let mut ids_to_fetch = BTreeMap::new();
+        let mut virtual_ids_to_fetch = BTreeMap::new();
         let batch_size = ids.len();
         for (batch_key, (id, version)) in ids {
             let resolve_result: anyhow::Result<_> = try {
                 if self.tx.virtual_table_mapping().number_exists(id.table()) {
-                    // TODO(lee) batch virtual table gets
                     log_virtual_table_get();
-                    let table_name = self.tx.virtual_table_mapping().name(*id.table())?;
-                    match VirtualTable::new(self.tx).get(&id, version).await? {
-                        Some(result) => {
-                            self.tx.reads.record_read_document(
-                                table_name,
-                                result.0.size(),
-                                &self.tx.usage_tracker,
-                                true,
-                            )?;
-                            assert!(results.insert(batch_key, Ok(Some(result))).is_none());
-                        },
-                        None => {
-                            assert!(results.insert(batch_key, Ok(None)).is_none());
-                        },
-                    }
+                    virtual_ids_to_fetch.insert(batch_key, (id, version));
                 } else {
                     if !self.tx.table_mapping().table_number_exists()(*id.table()) {
                         assert!(results.insert(batch_key, Ok(None)).is_none());
@@ -164,6 +150,30 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             let result: anyhow::Result<_> = try {
                 let developer_result = inner_result?.map(|(doc, ts)| (doc.to_developer(), ts));
                 assert!(results.insert(batch_key, Ok(developer_result)).is_none());
+            };
+            if let Err(e) = result {
+                assert!(results.insert(batch_key, Err(e)).is_none());
+            }
+        }
+        let fetched_virtual_results = VirtualTable::new(self.tx)
+            .get_batch(virtual_ids_to_fetch)
+            .await;
+        for (batch_key, inner_result) in fetched_virtual_results {
+            let result: anyhow::Result<_> = try {
+                let inner_result = inner_result?;
+                if let Some(inner_result) = &inner_result {
+                    let table_name = self
+                        .tx
+                        .virtual_table_mapping()
+                        .name(*inner_result.0.id().table())?;
+                    self.tx.reads.record_read_document(
+                        table_name,
+                        inner_result.0.size(),
+                        &self.tx.usage_tracker,
+                        true,
+                    )?;
+                }
+                assert!(results.insert(batch_key, Ok(inner_result)).is_none());
             };
             if let Err(e) = result {
                 assert!(results.insert(batch_key, Err(e)).is_none());
