@@ -151,11 +151,12 @@ message SystemLogMetadata {
 }
 
 message StructuredLogLine {
-    string message = 1;
+    reserved 1;
     string level = 2;
     bool is_truncated = 3;
     google.protobuf.Timestamp timestamp = 4;
     optional SystemLogMetadata system_metadata = 5;
+    repeated string messages = 6;
 
 }
 

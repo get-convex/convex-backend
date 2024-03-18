@@ -36,6 +36,7 @@ use value::{
     remove_int64,
     remove_nullable_object,
     remove_string,
+    remove_vec_of_strings,
     ConvexObject,
     ConvexValue,
 };
@@ -117,7 +118,9 @@ impl TryFrom<ConvexObject> for SystemLogMetadata {
 pub enum LogLine {
     Unstructured(String),
     Structured {
-        message: String,
+        // Each of these is a string representation of an argument to `console.log`
+        // or similar
+        messages: WithHeapSize<Vec<String>>,
         level: LogLevel,
         is_truncated: bool,
         timestamp: UnixTimestamp,
@@ -135,16 +138,16 @@ impl Arbitrary for LogLine {
         prop_oneof![
             any::<String>().prop_map(LogLine::Unstructured),
             (
-                any::<String>(),
+                prop::collection::vec(any::<String>(), 1..4),
                 any::<LogLevel>(),
                 any::<bool>(),
                 any::<u64>(),
                 any::<Option<SystemLogMetadata>>()
             )
                 .prop_map(
-                    |(message, level, is_truncated, timestamp_ms, system_metadata)| {
+                    |(messages, level, is_truncated, timestamp_ms, system_metadata)| {
                         LogLine::Structured {
-                            message,
+                            messages: messages.into(),
                             level,
                             is_truncated,
                             timestamp: UnixTimestamp::from_millis(timestamp_ms),
@@ -161,16 +164,16 @@ impl LogLine {
         match self {
             LogLine::Unstructured(m) => m,
             LogLine::Structured {
-                message,
+                messages,
                 level,
                 is_truncated,
                 timestamp: _timestamp,
                 system_metadata: _system_metadata,
             } => {
                 if is_truncated {
-                    format!("[{level}] {message}{TRUNCATED_LINE_SUFFIX}")
+                    format!("[{level}] {}{TRUNCATED_LINE_SUFFIX}", messages.join(" "))
                 } else {
-                    format!("[{level}] {message}")
+                    format!("[{level}] {}", messages.join(" "))
                 }
             },
         }
@@ -182,13 +185,13 @@ impl HeapSize for LogLine {
         match self {
             LogLine::Unstructured(m) => m.heap_size(),
             LogLine::Structured {
-                message,
+                messages,
                 level,
                 timestamp,
                 is_truncated,
                 system_metadata,
             } => {
-                message.heap_size()
+                messages.heap_size()
                     + level.heap_size()
                     + timestamp.heap_size()
                     + is_truncated.heap_size()
@@ -206,7 +209,7 @@ impl TryFrom<ConvexValue> for LogLine {
             ConvexValue::String(s) => LogLine::Unstructured(s.into()),
             ConvexValue::Object(o) => {
                 let mut fields = BTreeMap::from(o);
-                let message = remove_string(&mut fields, "message")?;
+                let messages = remove_vec_of_strings(&mut fields, "messages")?;
 
                 let is_truncated = remove_boolean(&mut fields, "is_truncated")?;
 
@@ -216,7 +219,7 @@ impl TryFrom<ConvexValue> for LogLine {
                 let system_metadata = remove_nullable_object(&mut fields, "system_metadata")?;
 
                 LogLine::Structured {
-                    message: message.clone(),
+                    messages: messages.clone().into(),
                     is_truncated,
                     level: LogLevel::from_str(&level)?,
                     timestamp: UnixTimestamp::from_millis(timestamp.try_into()?),
@@ -240,7 +243,7 @@ impl TryFrom<LogLine> for ConvexValue {
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LogLineJson {
-    message: String,
+    messages: Vec<String>,
     is_truncated: bool,
     timestamp: u64,
     level: String,
@@ -291,7 +294,7 @@ impl TryFrom<JsonValue> for LogLine {
         }
         let log_line_json: LogLineJson = serde_json::from_value(value)?;
         Ok(LogLine::Structured {
-            message: log_line_json.message,
+            messages: log_line_json.messages.into(),
             is_truncated: log_line_json.is_truncated,
             timestamp: UnixTimestamp::from_millis(log_line_json.timestamp),
             level: log_line_json.level.parse()?,
@@ -307,14 +310,14 @@ impl TryFrom<LogLine> for JsonValue {
         match value {
             LogLine::Unstructured(m) => Ok(JsonValue::String(m)),
             LogLine::Structured {
-                message,
+                messages,
                 level,
                 is_truncated,
                 timestamp,
                 system_metadata,
             } => {
                 let log_line_json = LogLineJson {
-                    message,
+                    messages: messages.into(),
                     is_truncated,
                     timestamp: timestamp.as_ms_since_epoch()?,
                     level: level.to_string(),
@@ -333,7 +336,7 @@ impl From<LogLine> for funrun::LogLine {
                 line: Some(funrun::log_line::Line::Unstructured(m)),
             },
             LogLine::Structured {
-                message,
+                messages,
                 level,
                 is_truncated,
                 timestamp,
@@ -341,7 +344,7 @@ impl From<LogLine> for funrun::LogLine {
             } => funrun::LogLine {
                 line: Some(funrun::log_line::Line::Structured(
                     funrun::StructuredLogLine {
-                        message,
+                        messages: messages.into(),
                         level: level.to_string(),
                         is_truncated,
                         timestamp: Some(timestamp.into()),
@@ -362,7 +365,7 @@ impl TryFrom<funrun::LogLine> for LogLine {
             Some(line) => match line {
                 funrun::log_line::Line::Unstructured(u) => LogLine::Unstructured(u),
                 funrun::log_line::Line::Structured(s) => LogLine::Structured {
-                    message: s.message,
+                    messages: s.messages.into(),
                     is_truncated: s.is_truncated,
                     level: s.level.parse()?,
                     timestamp: s
