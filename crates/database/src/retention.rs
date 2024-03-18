@@ -264,6 +264,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             "retention_advance_min_snapshot",
             Self::go_advance_min_snapshot(
                 bounds_writer,
+                checkpoint_reader.clone(),
                 rt.clone(),
                 persistence.clone(),
                 receive_min_snapshot.clone(),
@@ -307,26 +308,45 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// This timestamp is created relative to the `max_repeatable_ts`.
     async fn candidate_min_snapshot_ts(
         snapshot_reader: &Reader<SnapshotManager>,
+        checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
     ) -> anyhow::Result<Timestamp> {
         let delay = match retention_type {
             RetentionType::Document => *DOCUMENT_RETENTION_DELAY,
             RetentionType::Index => *INDEX_RETENTION_DELAY,
         };
-        snapshot_reader
+        let mut candidate = snapshot_reader
             .lock()
             .latest_ts()
             .sub(delay)
-            .context("Cannot calculate retention timestamp")
+            .context("Cannot calculate retention timestamp")?;
+
+        if matches!(retention_type, RetentionType::Document) {
+            // Ensures the invariant that the index retention confirmed deleted timestamp
+            // is always greater than the minimum document snapshot timestamp. It is
+            // important that we do this because it prevents us from deleting
+            // documents before their indexes are deleted + ensures that the
+            // index retention deleter is always reading from a valid snapshot.
+            let index_confirmed_deleted = match checkpoint_reader.lock().checkpoint {
+                Some(val) => val,
+                None => Timestamp::MIN,
+            };
+            candidate = cmp::min(candidate, index_confirmed_deleted);
+        }
+
+        Ok(candidate)
     }
 
     async fn advance_timestamp(
         bounds_writer: &Writer<SnapshotBounds>,
         persistence: &dyn Persistence,
         snapshot_reader: &Reader<SnapshotManager>,
+        checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
     ) -> anyhow::Result<Option<Timestamp>> {
-        let candidate = Self::candidate_min_snapshot_ts(snapshot_reader, retention_type).await?;
+        let candidate =
+            Self::candidate_min_snapshot_ts(snapshot_reader, checkpoint_reader, retention_type)
+                .await?;
         let min_snapshot_ts = match retention_type {
             RetentionType::Document => bounds_writer.read().min_document_snapshot_ts,
             RetentionType::Index => bounds_writer.read().min_snapshot_ts,
@@ -389,6 +409,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
     async fn go_advance_min_snapshot(
         bounds_writer: Writer<SnapshotBounds>,
+        checkpoint_reader: Reader<Checkpoint>,
         rt: RT,
         persistence: Box<dyn Persistence>,
         min_snapshot_rx: Receiver<Timestamp>,
@@ -410,6 +431,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &bounds_writer,
                     persistence.as_ref(),
                     &snapshot_reader,
+                    &checkpoint_reader,
                     RetentionType::Index,
                 )
                 .await;
@@ -424,6 +446,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &bounds_writer,
                     persistence.as_ref(),
                     &snapshot_reader,
+                    &checkpoint_reader,
                     RetentionType::Document,
                 )
                 .await;
