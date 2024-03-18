@@ -270,8 +270,8 @@ pub struct Database<RT: Runtime> {
 #[derive(Clone)]
 pub struct DatabaseSnapshot {
     ts: RepeatableTimestamp,
-    bootstrap_metadata: BootstrapMetadata,
-    pub(crate) snapshot: Snapshot,
+    pub bootstrap_metadata: BootstrapMetadata,
+    pub snapshot: Snapshot,
     pub persistence_snapshot: PersistenceSnapshot,
 
     summaries_num_rows: usize,
@@ -280,8 +280,8 @@ pub struct DatabaseSnapshot {
     // to look at current data and walk backwards.
     // Use the `table_iterator` method to do that -- don't access these
     // fields directly.
-    persistence_reader: Box<dyn PersistenceReader>,
-    retention_validator: Arc<dyn RetentionValidator>,
+    pub persistence_reader: Box<dyn PersistenceReader>,
+    pub retention_validator: Arc<dyn RetentionValidator>,
 }
 
 #[derive(PartialEq, Eq, Debug)]

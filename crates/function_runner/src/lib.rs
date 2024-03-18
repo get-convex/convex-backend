@@ -143,7 +143,7 @@ impl From<TransactionReadSet> for FunctionReads {
 /// Subset of [`Writes`] that is returned by [FunctionRunner] after a function
 /// has executed.
 #[cfg_attr(any(test, feature = "testing"), derive(Debug, PartialEq))]
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct FunctionWrites {
     pub updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
 
