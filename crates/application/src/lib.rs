@@ -1066,7 +1066,7 @@ impl<RT: Runtime> Application<RT> {
             Ok(validated_path) => validated_path,
             Err(e) => return Ok(Err(e)),
         };
-        let context = RequestContext::only_id();
+        let context = RequestContext::new(None);
         let unix_timestamp = self.runtime.unix_timestamp();
 
         let route = http_request.head.route_for_failure()?;

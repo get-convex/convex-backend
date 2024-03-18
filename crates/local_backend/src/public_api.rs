@@ -147,7 +147,7 @@ pub async fn public_function_post(
         return Result::Err(anyhow!(bad_admin_key_error(Some(st.instance_name.clone()))).into());
     }
 
-    let context = RequestContext::only_id();
+    let context = RequestContext::new(None);
     let udf_path = parse_udf_path(&req.path)?;
     let udf_result = st
         .application
@@ -336,7 +336,7 @@ pub async fn public_mutation_post(
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
             PauseClient::new(),
-            RequestContext::only_id(),
+            RequestContext::new(None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;

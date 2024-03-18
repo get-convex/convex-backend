@@ -39,7 +39,7 @@ async fn insert_object<RT: Runtime>(
             AllowedVisibility::PublicOnly,
             FunctionCaller::Action,
             pause_client,
-            RequestContext::new(None),
+            RequestContext::new_for_test(),
         )
         .await??;
     Ok(JsonValue::from(result.value))
@@ -59,7 +59,7 @@ async fn insert_and_count<RT: Runtime>(
             AllowedVisibility::PublicOnly,
             FunctionCaller::Action,
             pause_client,
-            RequestContext::new(None),
+            RequestContext::new_for_test(),
         )
         .await??;
     Ok(JsonValue::from(result.value)

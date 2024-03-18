@@ -22,6 +22,7 @@ use common::{
 use keybroker::Identity;
 use maplit::btreeset;
 use pretty_assertions::assert_eq;
+use request_context::ExecutionId;
 use runtime::testing::TestRuntime;
 use usage_tracking::{
     CallType,
@@ -58,6 +59,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
     fixtures.db.commit(tx).await?;
     fixtures.db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Action {
             env: ExecutionEnvironment::Isolate,
             duration: Duration::from_secs(10),
@@ -86,6 +88,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
     fixtures.db.commit(tx).await?;
     fixtures.db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
     );
@@ -119,6 +122,7 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
     fixtures.db.commit(tx).await?;
     fixtures.db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Action {
             env: ExecutionEnvironment::Isolate,
             duration: Duration::from_secs(10),
@@ -152,6 +156,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
     fixtures.db.commit(tx).await?;
     fixtures.db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Action {
             env: ExecutionEnvironment::Isolate,
             duration: Duration::from_secs(10),
@@ -200,6 +205,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
 
     fixtures.db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Action {
             env: ExecutionEnvironment::Isolate,
             duration: Duration::from_secs(10),
@@ -241,6 +247,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     db.commit(tx).await?;
     db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
     );
@@ -265,6 +272,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     db.commit(tx).await?;
     db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
     );
@@ -301,6 +309,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.commit(tx).await?;
     db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
     );
@@ -324,6 +333,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.commit(tx).await?;
     db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
     );
@@ -351,6 +361,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.commit(tx).await?;
     db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
     );
@@ -374,6 +385,7 @@ async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
     let tx_usage = FunctionUsageTracker::new();
     db.usage_counter().track_call(
         UdfIdentifier::Function("test.js:default".parse()?),
+        ExecutionId::new(),
         CallType::HttpAction {
             duration: Duration::from_secs(5),
             memory_in_mb: 100,

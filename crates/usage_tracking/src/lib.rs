@@ -20,7 +20,7 @@ use pb::usage::{
     CounterWithTag as CounterWithTagProto,
     FunctionUsageStats as FunctionUsageStatsProto,
 };
-use uuid::Uuid;
+use request_context::ExecutionId;
 use value::heap_size::{
     HeapSize,
     WithHeapSize,
@@ -275,10 +275,10 @@ impl UsageCounter {
     pub fn track_call(
         &self,
         udf_path: UdfIdentifier,
+        execution_id: ExecutionId,
         call_type: CallType,
         stats: FunctionUsageStats,
     ) {
-        let execution_id = ExecutionId::new();
         let mut usage_metrics = Vec::new();
 
         // Because system udfs might cause usage before any data is added by the user,
@@ -341,8 +341,12 @@ impl UsageCounter {
     // callbacks. We should only be using track_call() and never calling this
     // this directly. Otherwise, we will have the usage reflected in the usage
     // stats for billing but not in the UDF execution log counters.
-    pub fn track_function_usage(&self, udf_path: UdfIdentifier, stats: FunctionUsageStats) {
-        let execution_id = ExecutionId::new();
+    pub fn track_function_usage(
+        &self,
+        udf_path: UdfIdentifier,
+        execution_id: ExecutionId,
+        stats: FunctionUsageStats,
+    ) {
         let mut usage_metrics = Vec::new();
         self._track_function_usage(udf_path, stats, execution_id, &mut usage_metrics);
         self.usage_logger.record(usage_metrics);
@@ -512,9 +516,8 @@ impl StorageCallTracker for IndependentStorageCallTracker {
 
 impl StorageUsageTracker for UsageCounter {
     fn track_storage_call(&self, storage_api: &'static str) -> Box<dyn StorageCallTracker> {
-        let execution_id = ExecutionId::new();
-
         let mut state = self.state.lock();
+        let execution_id = ExecutionId::new();
         metrics::storage::log_storage_call();
         state
             .recent_storage_calls
@@ -841,42 +844,6 @@ pub struct AggregatedFunctionUsageStats {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
-}
-
-/// A unique ID per entry in the UDF logs. This can be group suboperations, like
-/// database or storage calls, by the containing UDF.
-///
-/// In contrast to the `RequestId`, there is a 1-1 relationship between a single
-/// UDF and its ExecutionId.
-///
-/// Execution ids are not meant to be human readable, but they must be globally
-/// unique.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct ExecutionId(String);
-
-impl Default for ExecutionId {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl From<String> for ExecutionId {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
-impl ToString for ExecutionId {
-    fn to_string(&self) -> String {
-        self.0.clone()
-    }
-}
-
-impl ExecutionId {
-    fn new() -> Self {
-        Self(Uuid::new_v4().to_string())
-    }
 }
 
 #[cfg(test)]

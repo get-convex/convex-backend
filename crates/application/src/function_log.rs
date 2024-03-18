@@ -538,6 +538,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         let aggregated = usage_stats.aggregate();
         self.usage_tracking.track_call(
             UdfIdentifier::Function(outcome.udf_path.clone()),
+            context.execution_id,
             if was_cached {
                 CallType::CachedQuery
             } else {
@@ -592,6 +593,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if !exclude_call_from_usage_tracking {
             self.usage_tracking.track_call(
                 UdfIdentifier::Function(outcome.udf_path.clone()),
+                context.execution_id,
                 CallType::Mutation,
                 usage_stats,
             );
@@ -661,6 +663,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.log_execution(execution, /* send_console_events */ false);
         self.usage_tracking.track_call(
             UdfIdentifier::Http(outcome.route),
+            context.execution_id,
             CallType::HttpAction {
                 duration: execution_time,
                 memory_in_mb: outcome.memory_in_mb,
@@ -684,6 +687,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if !exclude_call_from_usage_tracking {
             self.usage_tracking.track_call(
                 UdfIdentifier::Function(udf_path.clone()),
+                completion.context.execution_id,
                 CallType::Action {
                     env: completion.environment.into(),
                     duration: completion.execution_time,

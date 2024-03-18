@@ -4,7 +4,6 @@ import { UserIdentity } from "convex/server";
 import { RequestContext, SyscallStats } from "./executor";
 import { ConvexError, JSONValue } from "convex/values";
 import { UdfPath } from "./convex";
-import { randomUUID } from "crypto";
 
 const MAX_PENDING_SYSCALLS = 1000;
 
@@ -92,10 +91,7 @@ export class SyscallsImpl {
     backendCallbackToken: string,
     authHeader: string | null,
     userIdentity: UserIdentity | null,
-    // TODO(CX-5733): migrate and remove
-    parentScheduledJob: string | null,
-    // TODO(CX-5733): migrate and remove null
-    requestContext: RequestContext | null,
+    requestContext: RequestContext,
   ) {
     this.udfPath = udfPath;
     this.lambdaExecuteId = lambdaExecuteId;
@@ -105,14 +101,7 @@ export class SyscallsImpl {
     this.userIdentity = userIdentity;
     this.syscallTrace = {};
     this.pendingSyscallCount = {};
-    if (requestContext) {
-      this.requestContext = requestContext;
-    } else {
-      this.requestContext = {
-        requestId: randomUUID().toString(),
-        parentScheduledJob,
-      };
-    }
+    this.requestContext = requestContext;
   }
 
   async actionCallback<ResponseValidator extends z.ZodType>(args: {
@@ -160,6 +149,12 @@ export class SyscallsImpl {
         this.requestContext.parentScheduledJob;
     }
     headers["Convex-Request-Id"] = this.requestContext.requestId;
+    if (this.requestContext.executionId !== undefined) {
+      headers["Convex-Execution-Id"] = this.requestContext.executionId;
+    }
+    if (this.requestContext.isRoot !== undefined) {
+      headers["Convex-Root-Request"] = this.requestContext.isRoot.toString();
+    }
     if (this.authHeader !== null) {
       headers["Authorization"] = this.authHeader;
     }

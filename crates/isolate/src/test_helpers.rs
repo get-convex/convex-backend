@@ -472,7 +472,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 path_and_args,
                 tx,
                 QueryJournal::new(),
-                RequestContext::new(None),
+                RequestContext::new_for_test(),
             )
             .await?;
         self.database
@@ -592,7 +592,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 path_and_args,
                 tx,
                 journal.unwrap_or_else(QueryJournal::new),
-                RequestContext::new(None),
+                RequestContext::new_for_test(),
             )
             .await?;
         // Ensure the transaction is readonly by turning it into a subscription token.
@@ -631,7 +631,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 ),
                 tx,
                 QueryJournal::new(),
-                RequestContext::new(None),
+                RequestContext::new_for_test(),
             )
             .await?;
         match outcome {
@@ -731,7 +731,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 fetch_client,
                 log_line_sender,
                 tx,
-                RequestContext::new(None),
+                RequestContext::new_for_test(),
             )
             .await?;
         let log_lines: Vec<LogLine> = log_line_receiver.collect().await;
@@ -861,7 +861,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 Arc::new(self.clone()),
                 fetch_client,
                 log_line_sender,
-                RequestContext::new(None),
+                RequestContext::new_for_test(),
             )
             .await?;
         let log_lines: Vec<LogLine> = log_line_receiver.collect().await;
@@ -1114,7 +1114,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
         identity: Identity::system().into(),
         transaction: tx,
         journal: QueryJournal::new(),
-        context: RequestContext::new(None),
+        context: RequestContext::new_for_test(),
     };
     let inner = RequestType::Udf {
         request,

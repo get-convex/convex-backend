@@ -116,6 +116,7 @@ use model::{
     },
 };
 use regex::Regex;
+use request_context::ExecutionId;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -1522,6 +1523,7 @@ async fn finalize_import<RT: Runtime>(
 
     usage_tracking.track_call(
         UdfIdentifier::Cli("import".to_string()),
+        ExecutionId::new(),
         CallType::Import,
         usage.gather_user_stats(),
     );

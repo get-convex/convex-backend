@@ -84,6 +84,7 @@ use model::{
         FILE_STORAGE_VIRTUAL_TABLE,
     },
 };
+use request_context::ExecutionId;
 use serde::{
     Deserialize,
     Serialize,
@@ -626,6 +627,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             .await?;
         self.usage_tracking.track_call(
             UdfIdentifier::Cli("export".to_string()),
+            ExecutionId::new(),
             CallType::Export,
             usage.gather_user_stats(),
         );

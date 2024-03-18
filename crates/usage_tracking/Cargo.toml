@@ -17,6 +17,7 @@ parking_lot = { workspace = true, features = ["hardware-lock-elision"] }
 pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
+request_context = { path = "../request_context" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
@@ -29,6 +30,7 @@ events = { path = "../events", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
+request_context = { path = "../request_context", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 
 [features]
@@ -38,6 +40,7 @@ testing = [
     "metrics/testing",
     "proptest",
     "proptest-derive",
+    "request_context/testing",
     "value/testing",
 ]
 

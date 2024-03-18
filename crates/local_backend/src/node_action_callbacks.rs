@@ -38,7 +38,11 @@ use isolate::{
 };
 use keybroker::Identity;
 use model::file_storage::types::FileStorageEntry;
-use request_context::ExtractRequestContext;
+use request_context::{
+    ExecutionId,
+    RequestContext,
+    RequestId,
+};
 use serde::{
     Deserialize,
     Serialize,
@@ -93,7 +97,12 @@ pub async fn internal_query_post(
             identity,
             AllowedVisibility::All,
             FunctionCaller::Action,
-            context,
+            RequestContext::new_from_parts(
+                context.request_id,
+                ExecutionId::new(),
+                context.parent_scheduled_job,
+                false,
+            ),
         )
         .await?;
     if req.format.is_some() {
@@ -135,7 +144,12 @@ pub async fn internal_mutation_post(
             AllowedVisibility::All,
             FunctionCaller::Action,
             PauseClient::new(),
-            context,
+            RequestContext::new_from_parts(
+                context.request_id,
+                ExecutionId::new(),
+                context.parent_scheduled_job,
+                false,
+            ),
         )
         .await?;
     if req.format.is_some() {
@@ -178,7 +192,12 @@ pub async fn internal_action_post(
             identity,
             AllowedVisibility::All,
             FunctionCaller::Action,
-            context,
+            RequestContext::new_from_parts(
+                context.request_id,
+                ExecutionId::new(),
+                context.parent_scheduled_job,
+                false,
+            ),
         )
         .await?;
     if req.format.is_some() {
@@ -265,6 +284,7 @@ pub async fn vector_search(
     State(st): State<LocalAppState>,
     ExtractActionIdentity(identity): ExtractActionIdentity,
     ExtractActionName(action_name): ExtractActionName,
+    ExtractRequestContext(context): ExtractRequestContext,
     Json(req): Json<VectorSearchRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let VectorSearchRequest { query } = req;
@@ -288,6 +308,8 @@ pub async fn vector_search(
                     .parse()
                     .context(format!("Unexpected udf path format, got {action_name}"))?,
             ),
+            // TODO(CX-6045) - have the action send the ExecutionId as a request header
+            context.execution_id,
             usage.gather_user_stats(),
         );
     }
@@ -456,6 +478,60 @@ impl FromRequestParts<LocalAppState> for ExtractActionName {
             .map(|s| s.to_string());
 
         Ok(Self(action_name))
+    }
+}
+
+pub struct ExtractRequestContext(pub RequestContext);
+
+#[async_trait]
+impl<T> FromRequestParts<T> for ExtractRequestContext {
+    type Rejection = HttpResponseError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _st: &T,
+    ) -> Result<Self, Self::Rejection> {
+        let request_id: RequestId = parts
+            .headers
+            .get("Convex-Request-Id")
+            .map(|v| v.to_str())
+            .transpose()
+            .context("Request id must be a string")?
+            .map(RequestId::from_str)
+            .transpose()?
+            // Only for backwards compatibility
+            .unwrap_or(RequestId::new());
+        let execution_id: ExecutionId = parts
+            .headers
+            .get("Convex-Execution-Id")
+            .map(|v| v.to_str())
+            .transpose()
+            .context("Execution id must be a string")?
+            .map(ExecutionId::from_str)
+            .transpose()?
+            // For backwards compatibility
+            .unwrap_or(ExecutionId::new());
+
+        let is_root: bool = match parts.headers.get("Convex-Root-Request") {
+            Some(v) => v.to_str().context("Convex-Root-Request must be a string")? == "true",
+            None => false,
+        };
+        let parent_job_id = parts
+            .headers
+            .get("Convex-Parent-Scheduled-Job")
+            .map(|v| v.to_str())
+            .transpose()
+            .context("Parent scheduled job id must be a string")?
+            .map(|s| s.parse())
+            .transpose()
+            .context("Invalid scheduled job id")?;
+
+        Ok(Self(RequestContext::new_from_parts(
+            request_id,
+            execution_id,
+            parent_job_id,
+            is_root,
+        )))
     }
 }
 

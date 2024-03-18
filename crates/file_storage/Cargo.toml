@@ -20,6 +20,7 @@ keybroker = { path = "../keybroker" }
 metrics = { path = "../metrics" }
 mime = { workspace = true }
 model = { path = "../model" }
+request_context = { path = "../request_context" }
 storage = { path = "../storage" }
 tracing = { workspace = true }
 usage_tracking = { path = "../usage_tracking" }
@@ -34,6 +35,7 @@ events = { path = "../events", features = ["testing"] }
 keybroker = { path = "../keybroker", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 model = { path = "../model", features = ["testing"] }
+request_context = { path = "../request_context", features = ["testing"] }
 runtime = { path = "../runtime", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 usage_tracking = { path = "../usage_tracking", features = ["testing"] }

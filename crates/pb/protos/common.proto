@@ -67,4 +67,7 @@ message FrameData {
 message RequestContext {
     optional string parent_scheduled_job = 1;
     optional string request_id = 2;
+    optional string execution_id = 3;
+    optional bool is_root = 4;
+    
 }

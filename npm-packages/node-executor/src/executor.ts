@@ -116,14 +116,13 @@ export type ExecuteRequest = {
   environmentVariables: EnvironmentVariable[];
   timeoutSecs: number;
   npmVersion: string | null;
-  // TODO(CX-5733): Migrate and remove.
-  parentScheduledJob: string | null;
-  // TODO(CX-5733): Remove 'null' after migration.
-  requestContext: RequestContext | null;
+  requestContext: RequestContext;
 };
 
 export type RequestContext = {
   requestId: string;
+  executionId: string | undefined;
+  isRoot: boolean | undefined;
   parentScheduledJob: string | null;
 };
 
@@ -182,7 +181,6 @@ export async function execute(
     request.backendCallbackToken,
     request.authHeader,
     request.userIdentity,
-    request.parentScheduledJob,
     request.requestContext,
   );
 

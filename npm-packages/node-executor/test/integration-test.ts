@@ -61,9 +61,10 @@ async function executeWrapper(
           "",
           null,
           null,
-          null,
           {
             requestId: randomUUID(),
+            executionId: randomUUID(),
+            isRoot: true,
             parentScheduledJob: null,
           },
         ),
@@ -328,9 +329,10 @@ async function test_execute_invalid_syscall() {
       "",
       null,
       null,
-      null,
       {
         requestId: randomUUID(),
+        executionId: randomUUID(),
+        isRoot: true,
         parentScheduledJob: null,
       },
     ),

@@ -229,7 +229,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let mut function_backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
         loop {
             let result = self
-                .run_function(job.clone(), job_id, RequestContext::only_id())
+                .run_function(job.clone(), job_id, RequestContext::new(None))
                 .await;
             match result {
                 Ok(result) => {

@@ -299,7 +299,7 @@ mod tests {
             auth_header: None,
             environment_variables: btreemap! {},
             callback_token: "".to_owned(),
-            context: RequestContext::only_id(),
+            context: RequestContext::new_for_test(),
         }
     }
 
@@ -412,7 +412,7 @@ mod tests {
                 auth_header: None,
                 environment_variables: btreemap! {},
                 callback_token: "".to_owned(),
-                context: RequestContext::only_id(),
+                context: RequestContext::new_for_test(),
             },
             &source_maps,
         )
@@ -651,7 +651,7 @@ mod tests {
                 auth_header: None,
                 environment_variables,
                 callback_token: "".to_owned(),
-                context: RequestContext::only_id(),
+                context: RequestContext::new_for_test(),
             },
             &source_maps,
         )

@@ -62,7 +62,11 @@ use futures::{
     StreamExt,
 };
 use model::session_requests::types::SessionRequestIdentifier;
-use request_context::RequestContext;
+use request_context::{
+    ExecutionId,
+    RequestContext,
+    RequestId,
+};
 use sync_types::{
     ClientMessage,
     IdentityVersion,
@@ -417,10 +421,15 @@ impl<RT: Runtime> SyncWorker<RT> {
             } => {
                 let identity = self.state.identity(self.rt.system_time())?;
 
-                let mutation = self.state.session_id().map(|id| SessionRequestIdentifier {
-                    session_id: id,
-                    request_id,
-                });
+                let mutation_identifier =
+                    self.state.session_id().map(|id| SessionRequestIdentifier {
+                        session_id: id,
+                        request_id,
+                    });
+                let server_request_id = match self.state.session_id() {
+                    Some(id) => RequestId::new_for_ws_session(id, request_id),
+                    None => RequestId::new(),
+                };
 
                 let application = self.application.clone();
                 let rt = self.rt.clone();
@@ -434,11 +443,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 udf_path,
                                 args,
                                 identity,
-                                mutation,
+                                mutation_identifier,
                                 AllowedVisibility::PublicOnly,
                                 FunctionCaller::SyncWorker(client_version),
                                 PauseClient::new(),
-                                RequestContext::new(None),
+                                RequestContext::new_from_parts(
+                                    server_request_id,
+                                    ExecutionId::new(),
+                                    None,
+                                    true,
+                                ),
                             )
                             .await?;
 
@@ -476,6 +490,10 @@ impl<RT: Runtime> SyncWorker<RT> {
 
                 let application = self.application.clone();
                 let client_version = self.config.client_version.clone();
+                let server_request_id = match self.state.session_id() {
+                    Some(id) => RequestId::new_for_ws_session(id, request_id),
+                    None => RequestId::new(),
+                };
                 let future = async move {
                     let result = application
                         .action_udf(
@@ -484,7 +502,12 @@ impl<RT: Runtime> SyncWorker<RT> {
                             identity,
                             AllowedVisibility::PublicOnly,
                             FunctionCaller::SyncWorker(client_version),
-                            RequestContext::new(None),
+                            RequestContext::new_from_parts(
+                                server_request_id,
+                                ExecutionId::new(),
+                                None,
+                                true,
+                            ),
                         )
                         .await?;
                     let response = match result {
@@ -626,7 +649,12 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 // The sync worker is effectively the owner of the query as long
                                 // as we do not want to re-use the original query request id. So
                                 // create a new request context.
-                                RequestContext::new(None),
+                                RequestContext::new_from_parts(
+                                    RequestId::new(),
+                                    ExecutionId::new(),
+                                    None,
+                                    true,
+                                ),
                             )
                             .await?;
                         let subscription = application_.subscribe(udf_return.token).await?;

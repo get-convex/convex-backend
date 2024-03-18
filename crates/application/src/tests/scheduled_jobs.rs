@@ -66,7 +66,7 @@ async fn create_scheduled_job<'a>(
             udf_path.clone(),
             parse_udf_args(&udf_path, vec![JsonValue::Object(map)])?,
             rt.unix_timestamp(),
-            RequestContext::new(None),
+            RequestContext::new_for_test(),
         )
         .await?;
     let state = model.check_status(job_id).await?.unwrap();
