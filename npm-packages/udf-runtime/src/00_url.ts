@@ -81,13 +81,13 @@ class URLSearchParams {
   }
 
   append(name: string, value: string): void {
-    this._searchParamPairs.push([name, value]);
+    this._searchParamPairs.push([String(name), String(value)]);
     this._updateUrl();
   }
 
   delete(name: string) {
     this._searchParamPairs = this._searchParamPairs.filter(([key]) => {
-      return key !== name;
+      return key !== String(name);
     });
     this._updateUrl();
   }
@@ -105,7 +105,7 @@ class URLSearchParams {
   }
 
   get(name: string): string | null {
-    return this.getAll(name)[0] ?? null;
+    return this.getAll(String(name))[0] ?? null;
   }
 
   getAll(name: string): string[] {
@@ -119,7 +119,9 @@ class URLSearchParams {
   }
 
   has(name: string): boolean {
-    return this._searchParamPairs.find(([key]) => key === name) !== undefined;
+    return (
+      this._searchParamPairs.find(([key]) => key === String(name)) !== undefined
+    );
   }
 
   keys(): IterableIterator<string> {

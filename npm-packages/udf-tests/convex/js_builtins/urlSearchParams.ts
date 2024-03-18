@@ -320,6 +320,12 @@ function urlSearchParamsOverridingEntriesNotChangeForEach() {
   assert.strictEqual(loopCount, 1);
 }
 
+function urlSearchParamsNonString() {
+  // @ts-expect-error intentional error
+  const params = new URLSearchParams({ a: 123 });
+  assert.strictEqual(params.toString(), "a=123");
+}
+
 export default query(async () => {
   return await wrapInTests({
     urlSearchParamsWithMultipleSpaces,
@@ -354,5 +360,6 @@ export default query(async () => {
     // urlSearchParamsCustomSymbolIteratorWithNonStringParams
     // urlSearchParamsOverridingAppendNotChangeConstructorAndSet
     urlSearchParamsOverridingEntriesNotChangeForEach,
+    urlSearchParamsNonString,
   });
 });
