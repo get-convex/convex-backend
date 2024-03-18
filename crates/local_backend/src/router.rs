@@ -1,11 +1,13 @@
 use std::time::Duration;
 
 use axum::{
+    error_handling::HandleErrorLayer,
     extract::DefaultBodyLimit,
     routing::{
         get,
         post,
     },
+    BoxError,
     Router,
 };
 use common::{
@@ -26,12 +28,16 @@ use http::{
     request,
     HeaderValue,
     Method,
+    StatusCode,
 };
 use isolate::HTTP_ACTION_BODY_LIMIT;
 use tower::ServiceBuilder;
-use tower_http::cors::{
-    AllowOrigin,
-    CorsLayer,
+use tower_http::{
+    cors::{
+        AllowOrigin,
+        CorsLayer,
+    },
+    decompression::RequestDecompressionLayer,
 };
 
 use crate::{
@@ -125,7 +131,14 @@ pub async fn router(st: LocalAppState) -> Router {
     let cli_routes = Router::new()
         .route("/push_config", post(push_config))
         .route("/prepare_schema", post(prepare_schema))
-        .layer(DefaultBodyLimit::max(MAX_PUSH_BYTES))
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|_: BoxError| async {
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }))
+                .layer(RequestDecompressionLayer::new())
+                .layer(DefaultBodyLimit::max(MAX_PUSH_BYTES)),
+        )
         .route("/get_config", post(get_config))
         .route("/schema_state/:schema_id", get(schema_state))
         .route("/stream_udf_execution", get(stream_udf_execution))
