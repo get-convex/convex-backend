@@ -217,7 +217,7 @@ impl ErrorMetadata {
             msg: format!(
                 "Documents read from or written to {table_description} \
                 changed while this mutation was being run and on every \
-                subsequent retry. {write_source_description}See https://docs.convex.dev/errors#1",
+                subsequent retry. {write_source_description}See https://docs.convex.dev/error#1",
             )
             .into(),
         }
