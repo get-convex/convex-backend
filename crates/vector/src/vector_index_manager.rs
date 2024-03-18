@@ -20,7 +20,6 @@ use common::{
     },
     persistence::{
         RepeatablePersistence,
-        RetentionValidator,
         TimestampRange,
     },
     persistence_helpers::stream_revision_pairs,
@@ -74,7 +73,6 @@ use crate::{
 #[derive(Clone)]
 pub struct VectorIndexManager {
     pub indexes: IndexState,
-    pub retention_validator: Arc<dyn RetentionValidator>,
 }
 
 #[derive(Clone)]
@@ -168,11 +166,7 @@ impl VectorIndexManager {
         anyhow::ensure!(!self.is_backfilling());
         let range = (Bound::Excluded(bootstrap_ts), Bound::Unbounded);
 
-        let document_stream = persistence.load_documents(
-            TimestampRange::new(range)?,
-            Order::Asc,
-            self.retention_validator.clone(),
-        );
+        let document_stream = persistence.load_documents(TimestampRange::new(range)?, Order::Asc);
         let revision_stream = stream_revision_pairs(document_stream, &persistence);
         futures::pin_mut!(revision_stream);
 
@@ -191,17 +185,11 @@ impl VectorIndexManager {
         matches!(self.indexes, IndexState::Bootstrapping(..))
     }
 
-    pub fn bootstrap_index_metadata(
-        registry: &IndexRegistry,
-        retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<Self> {
+    pub fn bootstrap_index_metadata(registry: &IndexRegistry) -> anyhow::Result<Self> {
         let _timer = bootstrap_vector_indexes_timer();
         let vector_indexes_and_metadata = get_vector_index_states(registry)?;
         let indexes = IndexState::Bootstrapping(vector_indexes_and_metadata);
-        Ok(Self {
-            indexes,
-            retention_validator,
-        })
+        Ok(Self { indexes })
     }
 
     pub fn backfilled_and_enabled_index_sizes(

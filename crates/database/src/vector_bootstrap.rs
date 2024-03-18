@@ -5,7 +5,6 @@ use std::{
     },
     collections::BTreeMap,
     ops::Bound,
-    sync::Arc,
     time::Duration,
 };
 
@@ -21,7 +20,6 @@ use common::{
     knobs::UDF_EXECUTOR_OCC_MAX_RETRIES,
     persistence::{
         RepeatablePersistence,
-        RetentionValidator,
         TimestampRange,
     },
     persistence_helpers::stream_revision_pairs,
@@ -65,7 +63,6 @@ pub struct VectorBootstrapWorker<RT: Runtime> {
     table_mapping: TableMapping,
     committer_client: CommitterClient<RT>,
     backoff: Backoff,
-    retention_validator: Arc<dyn RetentionValidator>,
 }
 
 const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
@@ -87,7 +84,6 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
         persistence: RepeatablePersistence,
         table_mapping: TableMapping,
         committer_client: CommitterClient<RT>,
-        retention_validator: Arc<dyn RetentionValidator>,
     ) -> Self {
         {
             Self {
@@ -97,7 +93,6 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
                 persistence,
                 committer_client,
                 backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
-                retention_validator,
             }
         }
     }
@@ -155,12 +150,7 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
             indexes_with_fast_forward_ts.push((index, fast_forward_ts));
         }
 
-        Self::bootstrap(
-            &self.persistence,
-            indexes_with_fast_forward_ts,
-            self.retention_validator.clone(),
-        )
-        .await
+        Self::bootstrap(&self.persistence, indexes_with_fast_forward_ts).await
     }
 
     fn vector_indexes_to_bootstrap(
@@ -224,7 +214,6 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
             ParsedDocument<TabletIndexMetadata>,
             Option<Timestamp>,
         )>,
-        retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<VectorIndexManager> {
         let _status = log_worker_starting("VectorBootstrap");
         let timer = vector::metrics::bootstrap_timer();
@@ -245,11 +234,7 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
             Bound::Excluded(oldest_index_ts),
             Bound::Included(*upper_bound),
         );
-        let document_stream = persistence.load_documents(
-            TimestampRange::new(range)?,
-            Order::Asc,
-            retention_validator.clone(),
-        );
+        let document_stream = persistence.load_documents(TimestampRange::new(range)?, Order::Asc);
         let revision_stream = stream_revision_pairs(document_stream, persistence);
         futures::pin_mut!(revision_stream);
 
@@ -292,10 +277,7 @@ impl<RT: Runtime> VectorBootstrapWorker<RT> {
                 })
                 .collect(),
         );
-        Ok(VectorIndexManager {
-            indexes,
-            retention_validator: retention_validator.clone(),
-        })
+        Ok(VectorIndexManager { indexes })
     }
 
     async fn finish_bootstrap(

@@ -740,7 +740,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_selector: &'a IndexSelector,
     ) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
         let document_stream = reader
-            .load_documents(range, order, self.retention_validator.clone())
+            .load_documents(range, order)
             .try_filter(|(_, id, _)| future::ready(index_selector.filter_id(*id)));
         stream_revision_pairs(document_stream, reader)
     }

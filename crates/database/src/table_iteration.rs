@@ -302,11 +302,7 @@ impl<RT: Runtime> TableIterator<RT> {
         let repeatable_persistence =
             RepeatablePersistence::new(reader, end_ts, self.retention_validator.clone());
         let documents = repeatable_persistence
-            .load_documents(
-                TimestampRange::new(start_ts.succ()?..=*end_ts)?,
-                Order::Asc,
-                self.retention_validator.clone(),
-            )
+            .load_documents(TimestampRange::new(start_ts.succ()?..=*end_ts)?, Order::Asc)
             .try_chunks(self.page_size);
         pin_mut!(documents);
         let mut skipped_revs = BTreeSet::new();

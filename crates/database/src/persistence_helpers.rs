@@ -1,9 +1,6 @@
-use std::sync::Arc;
-
 use common::{
     persistence::{
         RepeatablePersistence,
-        RetentionValidator,
         TimestampRange,
     },
     persistence_helpers::{
@@ -50,9 +47,8 @@ pub async fn stream_transactions<'a>(
     // id)` space in the middle of a transaction boundary.
     range: TimestampRange,
     order: Order,
-    retention_validator: Arc<dyn RetentionValidator>,
 ) {
-    let document_stream = reader.load_documents(range, order, retention_validator);
+    let document_stream = reader.load_documents(range, order);
     let revision_stream = stream_revision_pairs(document_stream, reader);
     futures::pin_mut!(revision_stream);
 
