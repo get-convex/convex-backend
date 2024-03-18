@@ -251,7 +251,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         .await?
         .with_model()
         .await?;
-        database.start_vector_bootstrap().into_join_future().await?;
+        database
+            .start_search_and_vector_bootstrap()
+            .into_join_future()
+            .await?;
         let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
         let module_loader = Arc::new(TransactionModuleLoader);
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);

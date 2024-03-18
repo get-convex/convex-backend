@@ -127,7 +127,9 @@ impl<RT: Runtime> Scenario<RT> {
             },
         )
         .await?;
-        db.start_vector_bootstrap().into_join_future().await?;
+        db.start_search_and_vector_bootstrap()
+            .into_join_future()
+            .await?;
 
         let self_ = Self {
             rt,

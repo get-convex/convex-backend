@@ -16,6 +16,7 @@ use common::{
         IndexMetadata,
     },
     floating_point::assert_approx_equal,
+    persistence::Persistence,
     query::{
         CursorPosition,
         Query,
@@ -39,6 +40,7 @@ use common::{
     },
     version::MIN_NPM_VERSION_FOR_FUZZY_SEARCH,
 };
+use errors::ErrorMetadataAnyhowExt;
 use futures::{
     future::BoxFuture,
     FutureExt,
@@ -94,6 +96,9 @@ struct Scenario {
     database: Database<TestRuntime>,
 
     search_storage: Arc<dyn Storage>,
+    searcher: Arc<dyn Searcher>,
+    // Add test persistence here, or just change everything to use db fixtures.
+    tp: Box<dyn Persistence>,
 
     table_name: TableName,
 
@@ -111,7 +116,8 @@ impl Scenario {
         let DbFixtures {
             db: database,
             search_storage,
-            ..
+            searcher,
+            tp,
         } = DbFixtures::new_with_args(
             &rt,
             DbFixturesArgs {
@@ -140,6 +146,8 @@ impl Scenario {
             rt,
             database,
             search_storage,
+            searcher,
+            tp,
 
             table_name,
             model: BTreeMap::new(),
@@ -147,6 +155,31 @@ impl Scenario {
         self_.backfill().await?;
         self_.enable_index().await?;
         Ok(self_)
+    }
+
+    async fn set_bootstrapping(&mut self) -> anyhow::Result<()> {
+        let DbFixtures {
+            db,
+            searcher,
+            search_storage,
+            tp,
+        } = DbFixtures::new_with_args(
+            &self.rt,
+            DbFixturesArgs {
+                tp: Some(self.tp.clone()),
+                searcher: Some(self.searcher.clone()),
+                search_storage: Some(self.search_storage.clone()),
+                bootstrap_search_and_vector_indexes: false,
+                ..Default::default()
+            },
+        )
+        .await?;
+
+        self.database = db;
+        self.searcher = searcher;
+        self.search_storage = search_storage;
+        self.tp = tp;
+        Ok(())
     }
 
     async fn backfill(&mut self) -> anyhow::Result<()> {
@@ -764,6 +797,44 @@ async fn empty_searches_produce_no_results(rt: TestRuntime) -> anyhow::Result<()
             .await?;
         assert_eq!(results.len(), 0);
     }
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn empty_search_works_while_bootstrapping(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        ._patch("key1", "rakeeb \t\nwuz here", "test")
+        .await?;
+    scenario.backfill().await?;
+    scenario
+        ._patch("key2", "rakeeb     wuz not here", "test")
+        .await?;
+    scenario.set_bootstrapping().await?;
+
+    for query_string in vec!["", "    ", "\n", "\t"] {
+        let results = scenario
+            ._query_with_scores(query_string, None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 0);
+    }
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn search_fails_while_bootstrapping(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        ._patch("key1", "rakeeb \t\nwuz here", "test")
+        .await?;
+    scenario.backfill().await?;
+    scenario.set_bootstrapping().await?;
+    let err = scenario
+        ._query_with_scores("rakeeb", None, None, SearchVersion::V2)
+        .await
+        .unwrap_err();
+    assert!(err.is_overloaded());
+
     Ok(())
 }
 

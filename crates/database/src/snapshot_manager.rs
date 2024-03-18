@@ -354,9 +354,14 @@ impl SnapshotManager {
     /// This pattern works as long as transactions that depend on the data that
     /// we're amending treat the failures while that data is loading as
     /// transient system errors (timeouts, database issues etc) and retry.
-    pub fn overwrite_last_snapshot_vectors(&mut self, new_vectors: VectorIndexManager) {
+    pub fn overwrite_last_snapshot_search_and_vector_indexes(
+        &mut self,
+        search_indexes: SearchIndexManager,
+        vector_indexes: VectorIndexManager,
+    ) {
         let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
-        snapshot.vector_indexes = new_vectors;
+        snapshot.search_indexes = search_indexes;
+        snapshot.vector_indexes = vector_indexes;
     }
 
     /// Overwrites the in-memory indexes for the latest snapshot.
