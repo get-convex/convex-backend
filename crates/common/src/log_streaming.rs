@@ -1,3 +1,4 @@
+use request_context::RequestContext;
 use serde_json::Value as JsonValue;
 
 use crate::{
@@ -95,6 +96,7 @@ impl LogEvent {
         use sync_types::UserIdentifier;
 
         let source = EventSource::Function(FunctionEventSource {
+            context: RequestContext::new(None),
             path: "test".to_string(),
             udf_type: UdfType::Action,
             cached: None,
@@ -188,9 +190,7 @@ pub enum EventSource {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionEventSource {
-    // TODO(CX-4602): add request_id and execution_id
-    // request_id: String,
-    // execution_id: String,
+    pub context: RequestContext,
     pub path: String,
     pub udf_type: UdfType,
     // Only queries can be cached, so this is only Some for queries. This is important
@@ -201,6 +201,7 @@ pub struct FunctionEventSource {
 
 #[cfg(test)]
 mod tests {
+    use request_context::RequestContext;
     use serde_json::{
         json,
         Value as JsonValue,
@@ -228,6 +229,7 @@ mod tests {
             topic: LogTopic::Console,
             timestamp: UnixTimestamp::from_millis(1000),
             source: EventSource::Function(FunctionEventSource {
+                context: RequestContext::new(None),
                 path: "test:test".to_string(),
                 udf_type: UdfType::Query,
                 cached: Some(true),
@@ -264,6 +266,7 @@ mod tests {
             topic: LogTopic::User("myTopic".to_string()),
             timestamp: UnixTimestamp::from_millis(1000),
             source: EventSource::Function(FunctionEventSource {
+                context: RequestContext::new(None),
                 path: "test:test".to_string(),
                 udf_type: UdfType::Query,
                 cached: Some(true),

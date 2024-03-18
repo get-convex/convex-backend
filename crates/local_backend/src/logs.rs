@@ -42,6 +42,7 @@ pub struct UdfExecutionJson {
     success: Option<JsonValue>,
     error: Option<String>,
     request_id: String,
+    execution_id: String,
 }
 
 #[derive(Serialize)]
@@ -79,7 +80,8 @@ pub async fn stream_udf_execution(
                                 execution_time: e.execution_time,
                                 success: None,
                                 error: error.map(|e| e.to_string()),
-                                request_id: e.request_id.to_string(),
+                                request_id: e.context.request_id.to_string(),
+                                execution_id: e.context.execution_id.to_string()
                             }
                         },
                         UdfParams::Http{ result, identifier } => {
@@ -98,7 +100,8 @@ pub async fn stream_udf_execution(
                                 execution_time: e.execution_time,
                                 success,
                                 error: error.map(|e| e.to_string()),
-                                request_id: e.request_id.to_string(),
+                                request_id: e.context.request_id.to_string(),
+                                execution_id: e.context.execution_id.to_string()
                             }
                         },
                     };

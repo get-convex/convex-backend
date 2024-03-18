@@ -1090,6 +1090,7 @@ impl<RT: Runtime> Application<RT> {
                 self.function_log.log_http_action_progress(
                     route.clone(),
                     unix_timestamp,
+                    context.clone(),
                     vec![log_line].into(),
                 )
             })

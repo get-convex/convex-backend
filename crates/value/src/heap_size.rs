@@ -41,6 +41,7 @@ use sync_types::{
     ErrorPayload,
     LogLinesMessage,
     ServerMessage,
+    SessionId,
     StateModification,
     StateVersion,
     Timestamp,
@@ -843,6 +844,12 @@ impl<V: HeapSize> HeapSize for ErrorPayload<V> {
     }
 }
 
+impl HeapSize for SessionId {
+    fn heap_size(&self) -> usize {
+        // This wraps a UUID
+        0
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::{

@@ -55,10 +55,7 @@ use isolate::{
 };
 use model::config::types::ModuleEnvironment;
 use parking_lot::Mutex;
-use request_context::{
-    RequestContext,
-    RequestId,
-};
+use request_context::RequestContext;
 use serde::Deserialize;
 use serde_json::{
     json,
@@ -128,9 +125,7 @@ pub struct FunctionExecution {
     /// power.
     pub identity: InertIdentity,
 
-    /// A unique identifier for the initiating request. Child UDFs share the
-    /// same request_id with their relatives.
-    pub request_id: RequestId,
+    pub context: RequestContext,
 }
 
 impl HeapSize for FunctionExecution {
@@ -139,6 +134,7 @@ impl HeapSize for FunctionExecution {
             + self.log_lines.heap_size()
             + self.tables_touched.heap_size()
             + self.syscall_trace.heap_size()
+            + self.context.heap_size()
     }
 }
 
@@ -173,7 +169,7 @@ impl FunctionExecution {
             usage_stats: AggregatedFunctionUsageStats::default(),
             udf_server_version,
             identity,
-            request_id: context.request_id,
+            context,
         }
     }
 
@@ -196,6 +192,7 @@ impl FunctionExecution {
             path: udf_id,
             udf_type: self.udf_type,
             cached,
+            context: self.context.clone(),
         }
     }
 
@@ -538,7 +535,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         let aggregated = usage_stats.aggregate();
         self.usage_tracking.track_call(
             UdfIdentifier::Function(outcome.udf_path.clone()),
-            context.execution_id,
+            context.execution_id.clone(),
             if was_cached {
                 CallType::CachedQuery
             } else {
@@ -570,7 +567,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             usage_stats: aggregated,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
-            request_id: context.request_id,
+            context,
         };
         self.log_execution(execution, true);
     }
@@ -593,7 +590,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if !exclude_call_from_usage_tracking {
             self.usage_tracking.track_call(
                 UdfIdentifier::Function(outcome.udf_path.clone()),
-                context.execution_id,
+                context.execution_id.clone(),
                 CallType::Mutation,
                 usage_stats,
             );
@@ -622,7 +619,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             usage_stats: aggregated,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
-            request_id: context.request_id,
+            context,
         };
         self.log_execution(execution, true);
     }
@@ -637,6 +634,16 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         context: RequestContext,
     ) {
         let usage_stats = usage.gather_user_stats();
+        let aggregated = usage_stats.aggregate();
+        self.usage_tracking.track_call(
+            UdfIdentifier::Http(outcome.route.clone()),
+            context.execution_id.clone(),
+            CallType::HttpAction {
+                duration: execution_time,
+                memory_in_mb: outcome.memory_in_mb,
+            },
+            usage_stats,
+        );
         let execution = FunctionExecution {
             params: UdfParams::Http {
                 result: match outcome.result {
@@ -655,21 +662,12 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             environment: ModuleEnvironment::Isolate,
             syscall_trace: outcome.syscall_trace,
-            usage_stats: usage_stats.aggregate(),
+            usage_stats: aggregated,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
-            request_id: context.request_id,
+            context,
         };
         self.log_execution(execution, /* send_console_events */ false);
-        self.usage_tracking.track_call(
-            UdfIdentifier::Http(outcome.route),
-            context.execution_id,
-            CallType::HttpAction {
-                duration: execution_time,
-                memory_in_mb: outcome.memory_in_mb,
-            },
-            usage_stats,
-        );
     }
 
     // Set exclude_from_usage=true for any cases where we hit internal system errors
@@ -687,7 +685,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if !exclude_call_from_usage_tracking {
             self.usage_tracking.track_call(
                 UdfIdentifier::Function(udf_path.clone()),
-                completion.context.execution_id,
+                completion.context.execution_id.clone(),
                 CallType::Action {
                     env: completion.environment.into(),
                     duration: completion.execution_time,
@@ -723,7 +721,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             usage_stats: aggregated,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
-            request_id: completion.context.request_id,
+            context: completion.context,
         };
         self.log_execution(execution, /* send_console_events */ false)
     }
@@ -756,6 +754,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         &self,
         identifier: CanonicalizedUdfPath,
         unix_timestamp: UnixTimestamp,
+        context: RequestContext,
         log_lines: LogLines,
     ) {
         if identifier.is_system() {
@@ -765,6 +764,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             path: identifier.strip().to_string(),
             udf_type: UdfType::Action,
             cached: Some(false),
+            context,
         };
 
         self.log_execution_progress(log_lines, event_source, unix_timestamp)
@@ -774,12 +774,14 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         &self,
         identifier: HttpActionRoute,
         unix_timestamp: UnixTimestamp,
+        context: RequestContext,
         log_lines: LogLines,
     ) {
         let event_source = FunctionEventSource {
             path: identifier.to_string(),
             udf_type: UdfType::HttpAction,
             cached: Some(false),
+            context,
         };
 
         self.log_execution_progress(log_lines, event_source, unix_timestamp)

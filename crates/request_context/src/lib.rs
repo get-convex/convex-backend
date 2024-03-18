@@ -3,18 +3,21 @@
 use std::str::FromStr;
 
 use anyhow::Context;
-use common::types::SessionId;
 use rand::Rng;
 use serde_json::{
     json,
     Value as JsonValue,
 };
+use sync_types::types::SessionId;
 use uuid::Uuid;
 use value::{
+    heap_size::HeapSize,
     id_v6::DocumentIdV6,
     sha256,
 };
-#[derive(Clone, Debug)]
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct RequestContext {
     pub request_id: RequestId,
     // A unique ID per entry in the function logs.
@@ -69,7 +72,16 @@ impl RequestContext {
     }
 }
 
-#[derive(Clone, Debug)]
+impl HeapSize for RequestContext {
+    fn heap_size(&self) -> usize {
+        self.request_id.heap_size()
+            + self.execution_id.heap_size()
+            + self.parent_scheduled_job.heap_size()
+            + self.is_root.heap_size()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct RequestId(String);
 
@@ -101,6 +113,12 @@ impl FromStr for RequestId {
 impl ToString for RequestId {
     fn to_string(&self) -> String {
         self.0.clone()
+    }
+}
+
+impl HeapSize for RequestId {
+    fn heap_size(&self) -> usize {
+        self.0.heap_size()
     }
 }
 
@@ -152,6 +170,12 @@ impl ToString for ExecutionId {
 impl ExecutionId {
     pub fn new() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl HeapSize for ExecutionId {
+    fn heap_size(&self) -> usize {
+        self.0.heap_size()
     }
 }
 

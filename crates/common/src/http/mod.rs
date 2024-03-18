@@ -5,7 +5,9 @@ use std::{
     future::Future,
     net::SocketAddr,
     pin::Pin,
-    str,
+    str::{
+        self,
+    },
     sync::LazyLock,
     time::{
         Duration,
@@ -109,7 +111,6 @@ pub use sync_types::headers::{
     DEPRECATION_STATE_HEADER_NAME,
 };
 use value::heap_size::HeapSize;
-
 mod metrics {
     use std::time::Duration;
 

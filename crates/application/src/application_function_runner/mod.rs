@@ -1068,6 +1068,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         self.function_log.log_action_progress(
                             name.clone(),
                             unix_timestamp,
+                            context.clone(),
                             vec![log_line].into(),
                         )
                     },
@@ -1165,6 +1166,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         self.function_log.log_action_progress(
                             name.clone(),
                             unix_timestamp,
+                            context.clone(),
                             vec![log_line].into(),
                         )
                     },
