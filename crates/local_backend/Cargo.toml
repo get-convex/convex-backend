@@ -25,6 +25,7 @@ events = { path = "../events" }
 file_storage = { path = "../file_storage" }
 function_runner = { path = "../function_runner" }
 futures = { workspace = true }
+hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true }
 isolate = { path = "../../crates/isolate" }

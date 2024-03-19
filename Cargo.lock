@@ -3767,6 +3767,7 @@ dependencies = [
  "file_storage",
  "function_runner",
  "futures",
+ "hex",
  "http",
  "hyper",
  "isolate",

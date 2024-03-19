@@ -48,6 +48,7 @@ use crate::{
     },
     deploy_config::{
         get_config,
+        get_config_hashes,
         push_config,
     },
     environment_variables::update_environment_variables,
@@ -140,6 +141,7 @@ pub async fn router(st: LocalAppState) -> Router {
                 .layer(DefaultBodyLimit::max(MAX_PUSH_BYTES)),
         )
         .route("/get_config", post(get_config))
+        .route("/get_config_hashes", post(get_config_hashes))
         .route("/schema_state/:schema_id", get(schema_state))
         .route("/stream_udf_execution", get(stream_udf_execution))
         .merge(import_routes())

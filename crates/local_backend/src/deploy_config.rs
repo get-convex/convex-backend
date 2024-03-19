@@ -21,6 +21,7 @@ use common::{
     },
     runtime::Runtime,
     schemas::DatabaseSchema,
+    sha256::Sha256,
     types::NodeDependency,
     version::Version,
 };
@@ -82,6 +83,13 @@ pub struct GetConfigRequest {
 pub struct GetConfigResponse {
     pub config: JsonValue,
     pub modules: Vec<ModuleJson>,
+    pub udf_server_version: Option<String>,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetConfigHashesResponse {
+    pub config: JsonValue,
+    pub module_hashes: Vec<ModuleHashJson>,
     pub udf_server_version: Option<String>,
 }
 
@@ -186,6 +194,14 @@ pub struct ModuleJson {
     environment: Option<String>,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModuleHashJson {
+    path: String,
+    hash: String,
+    environment: Option<String>,
+}
+
 impl From<ModuleConfig> for ModuleJson {
     fn from(
         ModuleConfig {
@@ -199,6 +215,29 @@ impl From<ModuleConfig> for ModuleJson {
             path: path.into(),
             source,
             source_map,
+            environment: Some(environment.into()),
+        }
+    }
+}
+
+impl ModuleHashJson {
+    fn hash(
+        ModuleConfig {
+            path,
+            source,
+            source_map,
+            environment,
+        }: ModuleConfig,
+    ) -> ModuleHashJson {
+        let mut hasher = Sha256::new();
+        hasher.update(source.as_bytes());
+        if let Some(source_map) = source_map {
+            hasher.update(source_map.as_bytes());
+        }
+        let hash = hasher.finalize();
+        ModuleHashJson {
+            path: path.into(),
+            hash: hex::encode(hash),
             environment: Some(environment.into()),
         }
     }
@@ -261,6 +300,31 @@ pub async fn get_config(
     Ok(Json(GetConfigResponse {
         config,
         modules,
+        udf_server_version,
+    }))
+}
+
+#[debug_handler]
+pub async fn get_config_hashes(
+    State(st): State<LocalAppState>,
+    Json(req): Json<GetConfigRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let identity = must_be_admin_from_keybroker(
+        st.application.key_broker(),
+        Some(st.instance_name.clone()),
+        req.admin_key,
+    )?;
+
+    let mut tx = st.application.begin(identity).await?;
+    let (config, modules, udf_config) = ConfigModel::new(&mut tx).get().await?;
+    let config = ConvexObject::try_from(config)?;
+    let config: JsonValue = config.into();
+
+    let module_hashes = modules.into_iter().map(ModuleHashJson::hash).collect();
+    let udf_server_version = udf_config.map(|config| format!("{}", config.server_version));
+    Ok(Json(GetConfigHashesResponse {
+        config,
+        module_hashes,
         udf_server_version,
     }))
 }
