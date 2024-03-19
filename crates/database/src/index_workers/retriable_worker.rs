@@ -30,15 +30,6 @@ pub(crate) trait RetriableWorker<RT: Runtime> {
     ) -> anyhow::Result<()>;
 }
 
-pub(crate) async fn retry_loop_expect_occs<RT: Runtime>(
-    name: &'static str,
-    runtime: RT,
-    db: Database<RT>,
-    work: impl RetriableWorker<RT>,
-) {
-    retry_failures(name, runtime, db, 0, work).await
-}
-
 pub(crate) async fn retry_loop_expect_occs_and_overloaded<RT: Runtime>(
     name: &'static str,
     runtime: RT,

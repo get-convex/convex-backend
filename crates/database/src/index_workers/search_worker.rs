@@ -18,7 +18,6 @@ use sync_types::backoff::Backoff;
 use crate::{
     index_workers::{
         retriable_worker::{
-            retry_loop_expect_occs,
             retry_loop_expect_occs_and_overloaded,
             RetriableWorker,
         },
@@ -87,7 +86,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 vector_writer,
             )),
         );
-        let search_flush = retry_loop_expect_occs(
+        let search_flush = retry_loop_expect_occs_and_overloaded(
             "SearchFlusher",
             runtime.clone(),
             database.clone(),

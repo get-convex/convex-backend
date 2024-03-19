@@ -131,6 +131,7 @@ use pb::funrun::BootstrapMetadata as BootstrapMetadataProto;
 use search::{
     query::RevisionWithKeys,
     SearchIndexManager,
+    SearchIndexManagerState,
     Searcher,
 };
 use storage::Storage;
@@ -180,6 +181,7 @@ use crate::{
         verify_invariants_timer,
     },
     retention::LeaderRetentionManager,
+    search_and_vector_bootstrap::SearchAndVectorIndexBootstrapWorker,
     snapshot_manager::{
         Snapshot,
         SnapshotManager,
@@ -196,14 +198,12 @@ use crate::{
         self,
         TableSummarySnapshot,
     },
-    text_search_bootstrap::bootstrap_search,
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
     transaction_index::{
         SearchIndexManagerSnapshot,
         TransactionIndex,
     },
-    vector_bootstrap::VectorBootstrapWorker,
     write_log::{
         new_write_log,
         LogReader,
@@ -606,9 +606,10 @@ impl DatabaseSnapshot {
         };
         drop(load_indexes_into_memory_timer);
 
-        let (search_indexes, persistence_version) =
-            bootstrap_search(&index_registry, &repeatable_persistence, &table_mapping).await?;
-        let search = SearchIndexManager::from_bootstrap(search_indexes, persistence_version);
+        let search = SearchIndexManager::new(
+            SearchIndexManagerState::Bootstrapping,
+            persistence.version(),
+        );
         let vector = VectorIndexManager::bootstrap_index_metadata(&index_registry)?;
 
         // Step 3: Stream document changes since the last table summary snapshot so they
@@ -878,28 +879,36 @@ impl<RT: Runtime> Database<RT> {
         tracing::info!("Set search storage to {search_storage:?}");
     }
 
-    pub fn start_vector_bootstrap(&self) -> RT::Handle {
-        let worker = self.new_vector_bootstrap_worker();
+    pub fn start_search_and_vector_bootstrap(&self, pause_client: PauseClient) -> RT::Handle {
+        let worker = self.new_search_and_vector_bootstrap_worker(pause_client);
         self.runtime
-            .spawn("vector_bootstrap", async move { worker.start().await })
+            .spawn("search_and_vector_bootstrap", async move {
+                worker.start().await
+            })
     }
 
     #[cfg(test)]
-    pub fn new_vector_bootstrap_worker_for_testing(&self) -> VectorBootstrapWorker<RT> {
-        self.new_vector_bootstrap_worker()
+    pub fn new_search_and_vector_bootstrap_worker_for_testing(
+        &self,
+    ) -> SearchAndVectorIndexBootstrapWorker<RT> {
+        self.new_search_and_vector_bootstrap_worker(PauseClient::new())
     }
 
-    fn new_vector_bootstrap_worker(&self) -> VectorBootstrapWorker<RT> {
+    fn new_search_and_vector_bootstrap_worker(
+        &self,
+        pause_client: PauseClient,
+    ) -> SearchAndVectorIndexBootstrapWorker<RT> {
         let (ts, snapshot) = self.snapshot_manager.lock().latest();
         let vector_persistence =
             RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator());
         let table_mapping = snapshot.table_mapping().clone();
-        VectorBootstrapWorker::new(
+        SearchAndVectorIndexBootstrapWorker::new(
             self.runtime.clone(),
             snapshot.index_registry,
             vector_persistence,
             table_mapping,
             self.committer.clone(),
+            pause_client,
         )
     }
 

@@ -23,6 +23,7 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
+    pause::PauseClient,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -127,7 +128,9 @@ impl<RT: Runtime> Scenario<RT> {
             },
         )
         .await?;
-        db.start_vector_bootstrap().into_join_future().await?;
+        db.start_search_and_vector_bootstrap(PauseClient::new())
+            .into_join_future()
+            .await?;
 
         let self_ = Self {
             rt,

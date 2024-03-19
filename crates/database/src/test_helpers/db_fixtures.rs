@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use common::{
+    pause::PauseClient,
     persistence::Persistence,
     runtime::{
         Runtime,
@@ -32,12 +33,24 @@ pub struct DbFixtures<RT: Runtime> {
     pub search_storage: Arc<dyn Storage>,
 }
 
-#[derive(Default)]
 pub struct DbFixturesArgs {
     pub tp: Option<Box<dyn Persistence>>,
     pub searcher: Option<Arc<dyn Searcher>>,
     pub search_storage: Option<Arc<dyn Storage>>,
     pub virtual_system_mapping: VirtualSystemMapping,
+    pub bootstrap_search_and_vector_indexes: bool,
+}
+
+impl Default for DbFixturesArgs {
+    fn default() -> Self {
+        Self {
+            tp: None,
+            searcher: None,
+            search_storage: None,
+            virtual_system_mapping: Default::default(),
+            bootstrap_search_and_vector_indexes: true,
+        }
+    }
 }
 
 impl<RT: Runtime> DbFixtures<RT> {
@@ -52,6 +65,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             searcher,
             search_storage,
             virtual_system_mapping,
+            bootstrap_search_and_vector_indexes,
         }: DbFixturesArgs,
     ) -> anyhow::Result<Self> {
         let tp = tp.unwrap_or_else(|| Box::new(TestPersistence::new()));
@@ -70,7 +84,11 @@ impl<RT: Runtime> DbFixtures<RT> {
         )
         .await?;
         db.set_search_storage(search_storage.clone());
-        db.start_vector_bootstrap().into_join_future().await?;
+        if bootstrap_search_and_vector_indexes {
+            db.start_search_and_vector_bootstrap(PauseClient::new())
+                .into_join_future()
+                .await?;
+        }
         Ok(Self {
             tp,
             db,

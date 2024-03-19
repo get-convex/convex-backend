@@ -112,6 +112,7 @@ pub use self::{
     search_index_manager::{
         SearchIndex,
         SearchIndexManager,
+        SearchIndexManagerState,
         SnapshotInfo,
     },
     searcher::Searcher,
@@ -185,6 +186,7 @@ impl TryFrom<&Token> for FieldPosition {
     }
 }
 
+#[derive(Clone)]
 pub struct TantivySearchIndexSchema {
     analyzer: TextAnalyzer,
 

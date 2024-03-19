@@ -16,6 +16,8 @@ use common::{
         IndexMetadata,
     },
     floating_point::assert_approx_equal,
+    pause::PauseController,
+    persistence::Persistence,
     query::{
         CursorPosition,
         Query,
@@ -25,6 +27,7 @@ use common::{
         SearchFilterExpression,
         SearchVersion,
     },
+    runtime::SpawnHandle,
     types::{
         IndexName,
         ObjectKey,
@@ -39,8 +42,11 @@ use common::{
     },
     version::MIN_NPM_VERSION_FOR_FUZZY_SEARCH,
 };
+use errors::ErrorMetadataAnyhowExt;
 use futures::{
     future::BoxFuture,
+    pin_mut,
+    select_biased,
     FutureExt,
 };
 use keybroker::Identity;
@@ -76,6 +82,7 @@ use vector::{
 };
 
 use crate::{
+    search_and_vector_bootstrap::FINISHED_BOOTSTRAP_UPDATES,
     test_helpers::{
         DbFixtures,
         DbFixturesArgs,
@@ -89,11 +96,15 @@ use crate::{
     UserFacingModel,
 };
 
+#[derive(Clone)]
 struct Scenario {
     rt: TestRuntime,
     database: Database<TestRuntime>,
 
     search_storage: Arc<dyn Storage>,
+    searcher: Arc<dyn Searcher>,
+    // Add test persistence here, or just change everything to use db fixtures.
+    tp: Box<dyn Persistence>,
 
     table_name: TableName,
 
@@ -111,7 +122,8 @@ impl Scenario {
         let DbFixtures {
             db: database,
             search_storage,
-            ..
+            searcher,
+            tp,
         } = DbFixtures::new_with_args(
             &rt,
             DbFixturesArgs {
@@ -140,6 +152,8 @@ impl Scenario {
             rt,
             database,
             search_storage,
+            searcher,
+            tp,
 
             table_name,
             model: BTreeMap::new(),
@@ -147,6 +161,31 @@ impl Scenario {
         self_.backfill().await?;
         self_.enable_index().await?;
         Ok(self_)
+    }
+
+    async fn set_bootstrapping(&mut self) -> anyhow::Result<()> {
+        let DbFixtures {
+            db,
+            searcher,
+            search_storage,
+            tp,
+        } = DbFixtures::new_with_args(
+            &self.rt,
+            DbFixturesArgs {
+                tp: Some(self.tp.clone()),
+                searcher: Some(self.searcher.clone()),
+                search_storage: Some(self.search_storage.clone()),
+                bootstrap_search_and_vector_indexes: false,
+                ..Default::default()
+            },
+        )
+        .await?;
+
+        self.database = db;
+        self.searcher = searcher;
+        self.search_storage = search_storage;
+        self.tp = tp;
+        Ok(())
     }
 
     async fn backfill(&mut self) -> anyhow::Result<()> {
@@ -279,6 +318,23 @@ impl Scenario {
             .join(" ");
         let filter_field = format!("{filter_field:?}");
         self._patch(key.to_string(), text, filter_field).boxed()
+    }
+
+    async fn insert<S: Into<String>, F: Into<String>>(
+        &self,
+        search_field: S,
+        filter_field: F,
+    ) -> anyhow::Result<Timestamp> {
+        let search_field = search_field.into();
+        let filter_field = filter_field.into();
+        let mut tx = self.database.begin(Identity::system()).await?;
+        TestFacingModel::new(&mut tx)
+            .insert(
+                &self.table_name,
+                assert_obj!("searchField" => search_field, "filterField" => filter_field),
+            )
+            .await?;
+        self.database.commit(tx).await
     }
 
     async fn _patch<K: Into<String>, S: Into<String>, F: Into<String>>(
@@ -764,6 +820,77 @@ async fn empty_searches_produce_no_results(rt: TestRuntime) -> anyhow::Result<()
             .await?;
         assert_eq!(results.len(), 0);
     }
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn empty_search_works_while_bootstrapping(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        ._patch("key1", "rakeeb \t\nwuz here", "test")
+        .await?;
+    scenario.backfill().await?;
+    scenario
+        ._patch("key2", "rakeeb     wuz not here", "test")
+        .await?;
+    scenario.set_bootstrapping().await?;
+
+    for query_string in vec!["", "    ", "\n", "\t"] {
+        let results = scenario
+            ._query_with_scores(query_string, None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 0);
+    }
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn search_fails_while_bootstrapping(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        ._patch("key1", "rakeeb \t\nwuz here", "test")
+        .await?;
+    scenario.backfill().await?;
+    scenario.set_bootstrapping().await?;
+    let err = scenario
+        ._query_with_scores("rakeeb", None, None, SearchVersion::V2)
+        .await
+        .unwrap_err();
+    assert!(err.is_overloaded());
+
+    Ok(())
+}
+
+/// Test that search works after bootstrapping has finished when there are
+/// writes in between bootstrap ts and the commit ts.
+#[convex_macro::test_runtime]
+async fn search_works_after_bootstrapping(rt: TestRuntime) -> anyhow::Result<()> {
+    let scenario = Scenario::new(rt.clone()).await?;
+    let (mut pause_controller, pause_client) =
+        PauseController::new(vec![FINISHED_BOOTSTRAP_UPDATES]);
+    let mut wait_for_blocked = pause_controller
+        .wait_for_blocked(FINISHED_BOOTSTRAP_UPDATES)
+        .boxed();
+    let bootstrap_fut = scenario
+        .database
+        .start_search_and_vector_bootstrap(pause_client)
+        .into_join_future()
+        .fuse();
+    pin_mut!(bootstrap_fut);
+    select_biased! {
+                _ = bootstrap_fut => { panic!("bootstrap completed before pause");},
+                pause_guard = wait_for_blocked.as_mut().fuse() => {
+                    if let Some(mut pause_guard) = pause_guard {
+                        scenario.insert("rakeeb \t\nwuz here", "test").await?;
+                        pause_guard.unpause();
+                    }
+                },
+    }
+    bootstrap_fut.await?;
+    scenario
+        ._query_with_scores("rakeeb", None, None, SearchVersion::V2)
+        .await?;
+
     Ok(())
 }
 

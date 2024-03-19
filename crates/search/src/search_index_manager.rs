@@ -28,6 +28,7 @@ use common::{
         WriteTimestamp,
     },
 };
+use errors::ErrorMetadata;
 use imbl::{
     ordmap::Entry,
     OrdMap,
@@ -79,7 +80,7 @@ impl SearchIndex {
         }
     }
 
-    fn memory_index_mut(&mut self) -> &mut MemorySearchIndex {
+    pub fn memory_index_mut(&mut self) -> &mut MemorySearchIndex {
         match self {
             SearchIndex::Backfilling {
                 ref mut memory_index,
@@ -98,18 +99,37 @@ impl SearchIndex {
 
 #[derive(Clone)]
 pub struct SearchIndexManager {
-    indexes: OrdMap<IndexId, SearchIndex>,
+    indexes: SearchIndexManagerState,
     persistence_version: PersistenceVersion,
 }
 
+#[derive(Clone)]
+pub enum SearchIndexManagerState {
+    Bootstrapping,
+    Ready(OrdMap<IndexId, SearchIndex>),
+}
+
 impl SearchIndexManager {
-    pub fn from_bootstrap(
-        indexes: OrdMap<IndexId, SearchIndex>,
-        persistence_version: PersistenceVersion,
-    ) -> Self {
+    pub fn is_bootstrapping(&self) -> bool {
+        matches!(self.indexes, SearchIndexManagerState::Bootstrapping)
+    }
+
+    pub fn new(indexes: SearchIndexManagerState, persistence_version: PersistenceVersion) -> Self {
         Self {
             indexes,
             persistence_version,
+        }
+    }
+
+    fn require_ready_indexes(&self) -> anyhow::Result<&OrdMap<IndexId, SearchIndex>> {
+        match self.indexes {
+            SearchIndexManagerState::Bootstrapping => {
+                anyhow::bail!(ErrorMetadata::overloaded(
+                    "SearchIndexesUnavailable",
+                    "Search indexes bootstrapping and not yet available for use"
+                ));
+            },
+            SearchIndexManagerState::Ready(ref indexes) => Ok(indexes),
         }
     }
 
@@ -118,7 +138,8 @@ impl SearchIndexManager {
         index: &Index,
         printable_index_name: &IndexName,
     ) -> anyhow::Result<&SnapshotInfo> {
-        let index = if let Some(index) = self.indexes.get(&index.id()) {
+        let indexes = self.require_ready_indexes()?;
+        let index = if let Some(index) = indexes.get(&index.id()) {
             index
         } else {
             anyhow::bail!("Search index {:?} not available", index.id());
@@ -153,15 +174,7 @@ impl SearchIndexManager {
         let timer = metrics::search_timer();
         let tantivy_schema =
             TantivySearchIndexSchema::new_for_index(index, &search.printable_index_name()?)?;
-
-        let SnapshotInfo {
-            disk_index,
-            disk_index_ts,
-            memory_index,
-            ..
-        } = self.get_snapshot_info(index, &search.printable_index_name()?)?;
         let (compiled_query, reads) = tantivy_schema.compile(search, version)?;
-
         // Ignore empty searches to avoid failures due to transient search issues (e.g.
         // bootstrapping). Do this after validating the query above.
         if search.filters.iter().any(|filter| {
@@ -173,6 +186,13 @@ impl SearchIndexManager {
             tracing::debug!("Skipping empty search query");
             return Ok(QueryResults::empty());
         }
+
+        let SnapshotInfo {
+            disk_index,
+            disk_index_ts,
+            memory_index,
+            ..
+        } = self.get_snapshot_info(index, &search.printable_index_name()?)?;
 
         let revisions_with_keys = tantivy_schema
             .search(
@@ -229,28 +249,31 @@ impl SearchIndexManager {
 
     pub fn backfilled_and_enabled_index_sizes(
         &self,
-    ) -> impl Iterator<Item = (IndexId, usize)> + '_ {
-        self.indexes.iter().filter_map(|(id, idx)| {
-            let SnapshotInfo { memory_index, .. } = match idx {
-                SearchIndex::Backfilled(snapshot) => snapshot,
-                SearchIndex::Ready(snapshot) => snapshot,
-                SearchIndex::Backfilling { .. } => return None,
-            };
-            Some((*id, memory_index.size()))
-        })
+    ) -> anyhow::Result<impl Iterator<Item = (IndexId, usize)> + '_> {
+        Ok(self
+            .require_ready_indexes()?
+            .iter()
+            .filter_map(|(id, idx)| {
+                let SnapshotInfo { memory_index, .. } = match idx {
+                    SearchIndex::Backfilled(snapshot) => snapshot,
+                    SearchIndex::Ready(snapshot) => snapshot,
+                    SearchIndex::Backfilling { .. } => return None,
+                };
+                Some((*id, memory_index.size()))
+            }))
     }
 
-    pub fn num_transactions(&self, index_id: IndexId) -> Option<usize> {
-        let Some(index) = self.indexes.get(&index_id) else {
-            return None;
+    pub fn num_transactions(&self, index_id: IndexId) -> anyhow::Result<Option<usize>> {
+        let Some(index) = self.require_ready_indexes()?.get(&index_id) else {
+            return Ok(None);
         };
         let SnapshotInfo { memory_index, .. } = match index {
             SearchIndex::Ready(snapshot) => snapshot,
             SearchIndex::Backfilled(snapshot) => snapshot,
-            SearchIndex::Backfilling { .. } => return None,
+            SearchIndex::Backfilling { .. } => return Ok(None),
         };
 
-        Some(memory_index.num_transactions())
+        Ok(Some(memory_index.num_transactions()))
     }
 
     pub fn update(
@@ -260,6 +283,9 @@ impl SearchIndexManager {
         insertion: Option<&ResolvedDocument>,
         ts: WriteTimestamp,
     ) -> anyhow::Result<()> {
+        let SearchIndexManagerState::Ready(ref mut indexes) = self.indexes else {
+            return Ok(());
+        };
         let Some(id) = deletion.as_ref().or(insertion.as_ref()).map(|d| d.id()) else {
             return Ok(());
         };
@@ -283,7 +309,7 @@ impl SearchIndexManager {
                         };
                         let memory_index = MemorySearchIndex::new(ts);
                         let index = SearchIndex::Backfilling { memory_index };
-                        self.indexes.insert(insertion.id().internal_id(), index);
+                        indexes.insert(insertion.id().internal_id(), index);
 
                         metrics::log_index_created();
                     }
@@ -358,7 +384,7 @@ impl SearchIndexManager {
                         };
 
                         if is_newly_enabled || is_updated_snapshot {
-                            let mut entry = match self.indexes.entry(id.internal_id()) {
+                            let mut entry = match indexes.entry(id.internal_id()) {
                                 Entry::Occupied(e) => e,
                                 Entry::Vacant(..) => anyhow::bail!("Missing index for {id}"),
                             };
@@ -411,7 +437,7 @@ impl SearchIndexManager {
                 (Some(deletion), None) => {
                     let metadata: ParsedDocument<IndexMetadata<_>> = deletion.clone().try_into()?;
                     if metadata.is_search_index() {
-                        self.indexes.remove(&deletion.id().internal_id());
+                        indexes.remove(&deletion.id().internal_id());
                         metrics::log_index_deleted();
                     }
                 },
@@ -429,7 +455,7 @@ impl SearchIndexManager {
                 continue;
             };
             let tantivy_schema = TantivySearchIndexSchema::new(developer_config);
-            let Some(index) = self.indexes.get_mut(&index.id()) else {
+            let Some(index) = indexes.get_mut(&index.id()) else {
                 continue;
             };
             let old_value = deletion
@@ -462,19 +488,32 @@ impl SearchIndexManager {
     }
 
     pub fn total_in_memory_size(&self) -> usize {
-        self.in_memory_sizes().map(|(_, s)| s).sum()
+        self.in_memory_sizes().iter().map(|(_, s)| s).sum()
     }
 
-    pub fn in_memory_sizes(&self) -> impl Iterator<Item = (IndexId, usize)> + '_ {
-        self.indexes
-            .iter()
-            .map(|(id, s)| (*id, s.memory_index().size()))
+    pub fn in_memory_sizes(&self) -> Vec<(IndexId, usize)> {
+        match self.indexes {
+            SearchIndexManagerState::Bootstrapping => vec![],
+            SearchIndexManagerState::Ready(ref indexes) => indexes
+                .iter()
+                .map(|(id, s)| (*id, s.memory_index().size()))
+                .collect(),
+        }
     }
 
     pub fn consistency_check(&self) -> anyhow::Result<()> {
-        for index in self.indexes.values() {
+        let indexes = self.require_ready_indexes()?;
+        for index in indexes.values() {
             index.memory_index().consistency_check()?;
         }
         Ok(())
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn ready_indexes(&self) -> &OrdMap<IndexId, SearchIndex> {
+        match self.indexes {
+            SearchIndexManagerState::Bootstrapping => panic!("Search indexes not ready"),
+            SearchIndexManagerState::Ready(ref indexes) => indexes,
+        }
     }
 }
