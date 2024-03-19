@@ -1,4 +1,5 @@
-import { Cursor, mutationGeneric } from "convex/server";
+import { Cursor } from "convex/server";
+import { mutationGeneric } from "../../server";
 import { v } from "convex/values";
 
 export const MAX_CLEAR_ROWS = 4000;

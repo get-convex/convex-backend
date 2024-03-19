@@ -1,8 +1,5 @@
-import {
-  PaginationResult,
-  SystemDataModel,
-  mutationGeneric,
-} from "convex/server";
+import { PaginationResult, SystemDataModel } from "convex/server";
+import { mutationGeneric } from "../../server";
 import { Id } from "../../_generated/dataModel";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";

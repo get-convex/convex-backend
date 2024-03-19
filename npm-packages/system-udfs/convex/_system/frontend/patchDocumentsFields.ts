@@ -1,5 +1,5 @@
 import { Value, v, GenericId, ConvexError } from "convex/values";
-import { mutationGeneric } from "convex/server";
+import { mutationGeneric } from "../../server";
 
 // Since clients cannot send `undefined` through a serialized Convex Value to a server function,
 // we use a placeholder for it.
