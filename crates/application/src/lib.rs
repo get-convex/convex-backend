@@ -1869,6 +1869,7 @@ impl<RT: Runtime> Application<RT> {
         module: ModuleConfig,
         args: Vec<JsonValue>,
         identity: Identity,
+        caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
         let block_logging = self
             .log_visibility
@@ -1970,6 +1971,7 @@ impl<RT: Runtime> Application<RT> {
                     arguments,
                     AllowedVisibility::All,
                     context.clone(),
+                    caller,
                 )
                 .await
                 .map(

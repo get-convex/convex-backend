@@ -547,12 +547,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: RequestContext,
+        caller: FunctionCaller,
     ) -> anyhow::Result<UdfOutcome> {
         if !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("query_without_caching"));
         }
 
         let identity = tx.inert_identity();
+        let start = self.runtime.monotonic_now();
         let validate_result = ValidatedUdfPathAndArgs::new(
             allowed_visibility,
             &mut tx,
@@ -562,7 +564,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             self.module_cache.clone(),
         )
         .await?;
-        let (_, outcome) = match validate_result {
+        let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
                 self.isolate_functions
                     .execute_query_or_mutation(
@@ -570,7 +572,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         path_and_args,
                         UdfType::Query,
                         QueryJournal::new(),
-                        context,
+                        context.clone(),
                     )
                     .await?
             },
@@ -586,11 +588,23 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 (tx, FunctionOutcome::Query(query_outcome))
             },
         };
-
-        Ok(match outcome {
+        let outcome = match outcome {
             FunctionOutcome::Query(o) => o,
-            _ => anyhow::bail!("Received non-mutation outcome for mutation"),
-        })
+            _ => anyhow::bail!("Received non-query outcome for query"),
+        };
+        let stats = tx.take_stats();
+
+        self.function_log.log_query(
+            outcome.clone(),
+            stats,
+            false,
+            start.elapsed(),
+            caller,
+            tx.usage_tracker,
+            context,
+        );
+
+        Ok(outcome)
     }
 
     /// Runs a mutations and retries on OCC errors.

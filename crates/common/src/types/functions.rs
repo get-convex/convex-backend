@@ -118,6 +118,7 @@ pub enum AllowedVisibility {
 pub enum FunctionCaller {
     SyncWorker(ClientVersion),
     HttpApi(ClientVersion),
+    Tester(ClientVersion),
     HttpEndpoint,
     Cron,
     Scheduler,
@@ -129,6 +130,7 @@ impl FunctionCaller {
         match self {
             FunctionCaller::SyncWorker(c) => Some(c),
             FunctionCaller::HttpApi(c) => Some(c),
+            FunctionCaller::Tester(c) => Some(c),
             FunctionCaller::HttpEndpoint
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler
@@ -143,6 +145,7 @@ impl fmt::Display for FunctionCaller {
         let s = match self {
             FunctionCaller::SyncWorker(_) => "SyncWorker",
             FunctionCaller::HttpApi(_) => "HttpApi",
+            FunctionCaller::Tester(_) => "Tester",
             FunctionCaller::HttpEndpoint => "HttpEndpoint",
             FunctionCaller::Cron => "Cron",
             FunctionCaller::Scheduler => "Scheduler",
