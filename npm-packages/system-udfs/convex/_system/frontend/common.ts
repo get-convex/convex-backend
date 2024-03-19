@@ -81,9 +81,11 @@ export type ScheduledJob = Doc<"_scheduled_jobs">;
 
 export type UdfConfig = Doc<"_udf_config">;
 
-export type Sink = Doc<"_log_sinks">;
+export type Integration = Doc<"_log_sinks">;
 
-export type SinkConfig = Sink["config"];
+export type IntegrationConfig = Integration["config"];
+
+export type IntegrationType = IntegrationConfig["type"];
 
 export type DatadogConfig = Infer<typeof datadogConfig>;
 
@@ -92,5 +94,3 @@ export type DatadogSiteLocation = DatadogConfig["siteLocation"];
 export type WebhookConfig = Infer<typeof webhookConfig>;
 
 export type AxiomConfig = Infer<typeof axiomConfig>;
-
-export type SinkType = Sink["config"]["type"];
