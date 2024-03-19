@@ -13,22 +13,23 @@
 #![feature(arc_unwrap_or_clone)]
 #![feature(round_char_boundary)]
 
-mod bundled_js;
+pub mod bundled_js;
 pub mod client;
 mod concurrency_limiter;
 pub mod environment;
-mod error;
+pub mod error;
 mod execution_scope;
-mod helpers;
+pub mod helpers;
 mod http;
 mod http_action;
 mod is_instance_of_error;
 pub mod isolate;
+pub mod isolate2;
 pub mod metrics;
-mod module_map;
+pub mod module_map;
 mod ops;
 mod request_scope;
-mod strings;
+pub mod strings;
 mod termination;
 #[cfg(test)]
 mod tests;
