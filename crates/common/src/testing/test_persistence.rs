@@ -98,10 +98,6 @@ impl Persistence for TestPersistence {
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            conflict_strategy == ConflictStrategy::Error || documents.is_empty(),
-            "Overwriting documents not supported"
-        );
         let mut inner = self.inner.lock();
         for (ts, id, document) in documents {
             anyhow::ensure!(

@@ -504,6 +504,18 @@ pub async fn overwrite_document<P: Persistence>(p: P) -> anyhow::Result<()> {
         .to_string();
     assert!(err.contains("constraint") || err.contains("Duplicate entry"));
 
+    // With ConflictStrategy::Overwrite the write succeeds.
+    p.write(
+        vec![(
+            Timestamp::must(0),
+            doc.id_with_table_id(),
+            Some(doc.clone()),
+        )],
+        BTreeSet::new(),
+        ConflictStrategy::Overwrite,
+    )
+    .await?;
+
     Ok(())
 }
 

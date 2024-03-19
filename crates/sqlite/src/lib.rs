@@ -239,13 +239,12 @@ impl Persistence for SqlitePersistence {
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            conflict_strategy == ConflictStrategy::Error || documents.is_empty(),
-            "Overwriting documents not supported"
-        );
         let mut inner = self.inner.lock();
         let tx = inner.connection.transaction()?;
-        let mut insert_document_query = tx.prepare_cached(INSERT_DOCUMENT)?;
+        let mut insert_document_query = match conflict_strategy {
+            ConflictStrategy::Error => tx.prepare_cached(INSERT_DOCUMENT)?,
+            ConflictStrategy::Overwrite => tx.prepare_cached(INSERT_OVERWRITE_DOCUMENT)?,
+        };
 
         for (ts, document_id, maybe_doc) in documents {
             let (json_value, deleted) = if let Some(document) = maybe_doc {
@@ -671,6 +670,7 @@ fn load_document_row(
 const GET_PERSISTENCE_GLOBAL: &str = "SELECT json_value FROM persistence_globals WHERE key = ?";
 
 const INSERT_DOCUMENT: &str = "INSERT INTO documents VALUES (?, ?, ?, ?, ?)";
+const INSERT_OVERWRITE_DOCUMENT: &str = "INSERT OR REPLACE INTO documents VALUES (?, ?, ?, ?, ?)";
 const INSERT_INDEX: &str = "INSERT INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
 const INSERT_OVERWRITE_INDEX: &str = "INSERT OR REPLACE INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
 const WRITE_PERSISTENCE_GLOBAL: &str = "INSERT OR REPLACE INTO persistence_globals VALUES (?, ?)";
