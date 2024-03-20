@@ -1,5 +1,6 @@
 use std::{
     collections::HashSet,
+    ops::Deref,
     sync::Arc,
     time::Duration,
 };
@@ -43,6 +44,7 @@ use database::{
 };
 use errors::ErrorMetadataAnyhowExt;
 use futures::{
+    channel::oneshot,
     future::Either,
     select_biased,
     stream::FuturesUnordered,
@@ -132,6 +134,19 @@ const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
 const MAX_BACKOFF: Duration = Duration::from_secs(5);
 
 pub struct ScheduledJobExecutor<RT: Runtime> {
+    context: ScheduledJobContext<RT>,
+}
+
+impl<RT: Runtime> Deref for ScheduledJobExecutor<RT> {
+    type Target = ScheduledJobContext<RT>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.context
+    }
+}
+
+#[derive(Clone)]
+pub struct ScheduledJobContext<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
@@ -146,10 +161,12 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         function_log: FunctionExecutionLog<RT>,
     ) -> impl Future<Output = ()> + Send {
         let executor = Self {
-            rt,
-            database,
-            runner,
-            function_log,
+            context: ScheduledJobContext {
+                rt,
+                database,
+                runner,
+                function_log,
+            },
         };
         async move {
             let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
@@ -170,10 +187,12 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         Self {
-            rt,
-            database,
-            runner,
-            function_log,
+            context: ScheduledJobContext {
+                rt,
+                database,
+                runner,
+                function_log,
+            },
         }
     }
 
@@ -231,7 +250,22 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                     next_job_wait = Some(Duration::from_secs(5));
                     break;
                 }
-                futures.push(self.execute_job(job, job_id));
+                let (tx, rx) = oneshot::channel();
+                let context = self.context.clone();
+                self.rt.spawn("spawn_scheduled_job", async move {
+                    let result = context.execute_job(job, job_id).await;
+                    let _ = tx.send(result);
+                });
+
+                futures.push(async move {
+                    let Ok(result) = rx.await else {
+                        // This should never happen, but if it does, it's the same scenario as if
+                        // backend crashed during execution which we have to handle anyway.
+                        report_error(&mut anyhow::anyhow!("Cancelled job!"));
+                        return job_id;
+                    };
+                    result
+                });
                 running_job_ids.insert(job_id);
             }
 
@@ -243,6 +277,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
             let token = tx.into_token()?;
             let subscription = self.database.subscribe(token).await?;
+
             select_biased! {
                 job_id = futures.select_next_some() => {
                     running_job_ids.remove(&job_id);
@@ -251,11 +286,13 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 }
                 _ = subscription.wait_for_invalidation().fuse() => {
                 },
-            };
+            }
             backoff.reset();
         }
     }
+}
 
+impl<RT: Runtime> ScheduledJobContext<RT> {
     // This handles re-running the scheduled function on transient errors. It
     // guarantees that the job was successfully run or the job state changed.
     pub async fn execute_job(
@@ -265,8 +302,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
     ) -> ResolvedDocumentId {
         let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
         loop {
-            let result = self.run_function(job.clone(), job_id).await;
-            match result {
+            match self.run_function(job.clone(), job_id).await {
                 Ok(result) => {
                     metrics::log_scheduled_job_success(backoff.failures());
                     return result;
@@ -711,7 +747,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                 }
                 _ = subscription.wait_for_invalidation().fuse() => {
                 },
-            };
+            }
             backoff.reset();
         }
     }
