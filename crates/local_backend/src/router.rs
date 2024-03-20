@@ -61,7 +61,10 @@ use crate::{
         perform_import,
         prepare_import,
     },
-    logs::stream_udf_execution,
+    logs::{
+        stream_function_logs,
+        stream_udf_execution,
+    },
     node_action_callbacks::{
         action_callbacks_middleware,
         cancel_developer_job,
@@ -127,6 +130,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .route("/delete_tables", post(delete_tables))
         // Metrics routes
         .route("/app_metrics/stream_udf_execution", get(stream_udf_execution))
+        .route("/app_metrics/stream_function_logs", get(stream_function_logs))
         .layer(ServiceBuilder::new());
 
     let cli_routes = Router::new()
@@ -144,6 +148,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .route("/get_config_hashes", post(get_config_hashes))
         .route("/schema_state/:schema_id", get(schema_state))
         .route("/stream_udf_execution", get(stream_udf_execution))
+        .route("/stream_function_logs", get(stream_function_logs))
         .merge(import_routes())
         .layer(cli_cors().await);
 

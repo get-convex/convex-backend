@@ -1,5 +1,6 @@
 use request_context::RequestContext;
 use serde_json::Value as JsonValue;
+use value::heap_size::HeapSize;
 
 use crate::{
     errors::JsError,
@@ -202,6 +203,12 @@ pub struct FunctionEventSource {
     // information to transmit to the client to distinguish from logs users explicitly created
     // and logs that we created for by redoing a query when its readset changes.
     pub cached: Option<bool>,
+}
+
+impl HeapSize for FunctionEventSource {
+    fn heap_size(&self) -> usize {
+        self.path.heap_size() + self.udf_type.heap_size() + self.cached.heap_size()
+    }
 }
 
 #[cfg(test)]

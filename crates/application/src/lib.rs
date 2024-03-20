@@ -118,7 +118,10 @@ use file_storage::{
     FileStorage,
     FileStream,
 };
-use function_log::FunctionExecution;
+use function_log::{
+    FunctionExecution,
+    FunctionExecutionPart,
+};
 use function_runner::FunctionRunner;
 use futures::{
     channel::mpsc,
@@ -2309,6 +2312,17 @@ impl<RT: Runtime> Application<RT> {
             anyhow::bail!(unauthorized_error("stream_udf_execution"));
         }
         Ok(self.function_log.stream(cursor).await)
+    }
+
+    pub async fn stream_function_logs(
+        &self,
+        identity: Identity,
+        cursor: CursorMs,
+    ) -> anyhow::Result<(Vec<FunctionExecutionPart>, CursorMs)> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("stream_function_logs"));
+        }
+        Ok(self.function_log.stream_parts(cursor).await)
     }
 
     pub async fn cancel_all_jobs(

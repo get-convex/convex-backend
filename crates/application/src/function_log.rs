@@ -275,10 +275,17 @@ pub struct FunctionExecutionProgress {
     pub log_lines: LogLines,
 
     pub event_source: FunctionEventSource,
+    pub function_start_timestamp: UnixTimestamp,
+}
+
+impl HeapSize for FunctionExecutionProgress {
+    fn heap_size(&self) -> usize {
+        self.log_lines.heap_size() + self.event_source.heap_size()
+    }
 }
 
 impl FunctionExecutionProgress {
-    fn console_log_events(self, unix_timestamp: UnixTimestamp) -> Vec<LogEvent> {
+    fn console_log_events(self) -> Vec<LogEvent> {
         self.log_lines
             .into_iter()
             .map(|line| {
@@ -291,7 +298,7 @@ impl FunctionExecutionProgress {
                     topic: LogTopic::Console,
                     source: EventSource::Function(self.event_source.clone()),
                     payload,
-                    timestamp: unix_timestamp,
+                    timestamp: self.function_start_timestamp,
                 })
             })
             .filter_map(|event| match event {
@@ -303,6 +310,21 @@ impl FunctionExecutionProgress {
                 Ok(ev) => Some(ev),
             })
             .collect()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum FunctionExecutionPart {
+    Completion(FunctionExecution),
+    Progress(FunctionExecutionProgress),
+}
+
+impl HeapSize for FunctionExecutionPart {
+    fn heap_size(&self) -> usize {
+        match self {
+            FunctionExecutionPart::Completion(i) => i.heap_size(),
+            FunctionExecutionPart::Progress(i) => i.heap_size(),
+        }
     }
 }
 
@@ -510,6 +532,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn new(rt: RT, usage_tracking: UsageCounter, log_manager: Arc<dyn LogSender>) -> Self {
         let inner = Inner {
             rt: rt.clone(),
+            num_execution_completions: 0,
             log: WithHeapSize::default(),
             log_waiters: vec![].into(),
             log_manager,
@@ -884,6 +907,9 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         let mut summary = UdfMetricSummary::default();
         for i in first_entry_ix..inner.log.len() {
             let (_, entry) = &inner.log[i];
+            let FunctionExecutionPart::Completion(entry) = entry else {
+                continue;
+            };
             let function_summary = summary
                 .function_calls
                 .entry(entry.caller.clone())
@@ -916,7 +942,48 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 if first_entry_ix < inner.log.len() {
                     let entries = (first_entry_ix..inner.log.len())
                         .map(|i| &inner.log[i])
-                        .map(|(_, entry)| entry.clone())
+                        .filter_map(|(_, entry)| match entry {
+                            FunctionExecutionPart::Completion(completion) => {
+                                Some(completion.clone())
+                            },
+                            _ => None,
+                        })
+                        .collect();
+                    let (new_cursor, _) = inner.log.back().unwrap();
+                    return (entries, *new_cursor);
+                }
+                let (tx, rx) = oneshot::channel();
+                inner.log_waiters.push(tx);
+                rx
+            };
+            let _ = rx.await;
+        }
+    }
+
+    pub async fn stream_parts(&self, cursor: CursorMs) -> (Vec<FunctionExecutionPart>, CursorMs) {
+        loop {
+            let rx = {
+                let mut inner = self.inner.lock();
+                let first_entry_ix = inner.log.partition_point(|(ts, _)| *ts <= cursor);
+                if first_entry_ix < inner.log.len() {
+                    let entries = (first_entry_ix..inner.log.len())
+                        .map(|i| &inner.log[i])
+                        .map(|(_, entry)| match entry {
+                            FunctionExecutionPart::Completion(c) => {
+                                let with_stripped_log_lines = match c.udf_type {
+                                    UdfType::Query | UdfType::Mutation => c.clone(),
+                                    UdfType::Action | UdfType::HttpAction => {
+                                        let mut cloned = c.clone();
+                                        cloned.log_lines = vec![].into();
+                                        cloned
+                                    },
+                                };
+                                FunctionExecutionPart::Completion(with_stripped_log_lines)
+                            },
+                            FunctionExecutionPart::Progress(c) => {
+                                FunctionExecutionPart::Progress(c.clone())
+                            },
+                        })
                         .collect();
                     let (new_cursor, _) = inner.log.back().unwrap();
                     return (entries, *new_cursor);
@@ -942,7 +1009,8 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 struct Inner<RT: Runtime> {
     rt: RT,
 
-    log: WithHeapSize<VecDeque<(CursorMs, FunctionExecution)>>,
+    log: WithHeapSize<VecDeque<(CursorMs, FunctionExecutionPart)>>,
+    num_execution_completions: usize,
     log_waiters: WithHeapSize<Vec<oneshot::Sender<()>>>,
     log_manager: Arc<dyn LogSender>,
 
@@ -983,9 +1051,14 @@ impl<RT: Runtime> Inner<RT> {
 
         self.log_manager.send_logs(log_events);
 
-        self.log.push_back((next_time, execution));
-        while self.log.len() > *MAX_UDF_EXECUTION {
-            self.log.pop_front();
+        self.log
+            .push_back((next_time, FunctionExecutionPart::Completion(execution)));
+        self.num_execution_completions += 1;
+        while self.num_execution_completions > *MAX_UDF_EXECUTION {
+            let front = self.log.pop_front();
+            if let Some((_, FunctionExecutionPart::Completion(_))) = front {
+                self.num_execution_completions -= 1;
+            }
         }
         for waiter in self.log_waiters.drain(..) {
             let _ = waiter.send(());
@@ -997,18 +1070,23 @@ impl<RT: Runtime> Inner<RT> {
         &mut self,
         log_lines: LogLines,
         event_source: FunctionEventSource,
-        unix_timestamp: UnixTimestamp,
+        function_start_timestamp: UnixTimestamp,
     ) -> anyhow::Result<()> {
+        let next_time = self.next_time()?;
         let progress = FunctionExecutionProgress {
             log_lines,
             event_source,
+            function_start_timestamp,
         };
         // TODO: this should ideally use a timestamp on the log lines themselves, but
         // for now use the start timestamp of the function
-        let log_events = progress.console_log_events(unix_timestamp);
+        let log_events = progress.clone().console_log_events();
         self.log_manager.send_logs(log_events);
-        // TODO: add these to the UDF execution log so we can stream them to the
-        // dashboard
+        self.log
+            .push_back((next_time, FunctionExecutionPart::Progress(progress)));
+        for waiter in self.log_waiters.drain(..) {
+            let _ = waiter.send(());
+        }
         Ok(())
     }
 

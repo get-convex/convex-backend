@@ -16,6 +16,7 @@ use serde::{
     Serialize,
 };
 use sync_types::CanonicalizedUdfPath;
+use value::heap_size::HeapSize;
 
 use super::HttpActionRoute;
 use crate::version::ClientVersion;
@@ -68,6 +69,12 @@ impl fmt::Display for UdfType {
             UdfType::HttpAction => "HttpAction",
         };
         write!(f, "{s}")
+    }
+}
+
+impl HeapSize for UdfType {
+    fn heap_size(&self) -> usize {
+        0
     }
 }
 
