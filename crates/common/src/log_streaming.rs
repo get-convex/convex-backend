@@ -8,7 +8,10 @@ use crate::{
         Runtime,
         UnixTimestamp,
     },
-    types::UdfType,
+    types::{
+        ModuleEnvironment,
+        UdfType,
+    },
 };
 
 /// Public worker for the LogManager.
@@ -99,6 +102,7 @@ impl LogEvent {
             context: RequestContext::new(None),
             path: "test".to_string(),
             udf_type: UdfType::Action,
+            module_environment: ModuleEnvironment::Isolate,
             cached: None,
         });
         Self::construct_exception(
@@ -193,6 +197,7 @@ pub struct FunctionEventSource {
     pub context: RequestContext,
     pub path: String,
     pub udf_type: UdfType,
+    pub module_environment: ModuleEnvironment,
     // Only queries can be cached, so this is only Some for queries. This is important
     // information to transmit to the client to distinguish from logs users explicitly created
     // and logs that we created for by redoing a query when its readset changes.
@@ -215,7 +220,10 @@ mod tests {
             LogTopic,
         },
         runtime::UnixTimestamp,
-        types::UdfType,
+        types::{
+            ModuleEnvironment,
+            UdfType,
+        },
     };
 
     #[test]
@@ -232,6 +240,7 @@ mod tests {
                 context: RequestContext::new(None),
                 path: "test:test".to_string(),
                 udf_type: UdfType::Query,
+                module_environment: ModuleEnvironment::Isolate,
                 cached: Some(true),
             }),
             payload,
@@ -269,6 +278,7 @@ mod tests {
                 context: RequestContext::new(None),
                 path: "test:test".to_string(),
                 udf_type: UdfType::Query,
+                module_environment: ModuleEnvironment::Isolate,
                 cached: Some(true),
             }),
             payload,

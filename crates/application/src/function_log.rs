@@ -191,6 +191,7 @@ impl FunctionExecution {
         FunctionEventSource {
             path: udf_id,
             udf_type: self.udf_type,
+            module_environment: self.environment,
             cached,
             context: self.context.clone(),
         }
@@ -756,6 +757,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         unix_timestamp: UnixTimestamp,
         context: RequestContext,
         log_lines: LogLines,
+        module_environment: ModuleEnvironment,
     ) {
         if identifier.is_system() {
             return;
@@ -763,6 +765,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         let event_source = FunctionEventSource {
             path: identifier.strip().to_string(),
             udf_type: UdfType::Action,
+            module_environment,
             cached: Some(false),
             context,
         };
@@ -776,10 +779,12 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         unix_timestamp: UnixTimestamp,
         context: RequestContext,
         log_lines: LogLines,
+        module_environment: ModuleEnvironment,
     ) {
         let event_source = FunctionEventSource {
             path: identifier.to_string(),
             udf_type: UdfType::HttpAction,
+            module_environment,
             cached: Some(false),
             context,
         };

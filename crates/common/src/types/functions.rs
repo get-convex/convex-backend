@@ -194,6 +194,17 @@ impl fmt::Display for ModuleEnvironment {
     }
 }
 
+impl ModuleEnvironment {
+    pub fn as_sentry_tag(&self) -> &'static str {
+        match self {
+            // "isolate" is an internal term. Simply the default environment externally.
+            ModuleEnvironment::Isolate => "default",
+            ModuleEnvironment::Node => "node",
+            ModuleEnvironment::Invalid => "unknown",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;

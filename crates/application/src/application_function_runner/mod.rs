@@ -1082,6 +1082,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             unix_timestamp,
                             context.clone(),
                             vec![log_line].into(),
+                            module_version.environment,
                         )
                     },
                 )
@@ -1180,6 +1181,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             unix_timestamp,
                             context.clone(),
                             vec![log_line].into(),
+                            module_version.environment,
                         )
                     },
                 )

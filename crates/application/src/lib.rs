@@ -1094,6 +1094,8 @@ impl<RT: Runtime> Application<RT> {
                     unix_timestamp,
                     context.clone(),
                     vec![log_line].into(),
+                    // http actions are always run in Isolate
+                    ModuleEnvironment::Isolate,
                 )
             })
             .await;
