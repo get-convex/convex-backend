@@ -104,6 +104,7 @@ pub enum ClientType {
     Rust,
     StreamingImport,
     AirbyteExport,
+    FivetranImport,
     FivetranExport,
     Unrecognized(String),
 }
@@ -137,6 +138,7 @@ impl Display for ClientType {
             Self::Rust => write!(f, "rust"),
             Self::StreamingImport => write!(f, "streaming-import"),
             Self::AirbyteExport => write!(f, "airbyte-export"),
+            Self::FivetranImport => write!(f, "fivetran-import"),
             Self::FivetranExport => write!(f, "fivetran-export"),
             Self::Unrecognized(other_client) => write!(f, "{other_client}"),
         }
@@ -152,6 +154,7 @@ impl ClientType {
             Self::Rust => Some(rust.upgrade_required.clone()),
             Self::StreamingImport
             | Self::AirbyteExport
+            | Self::FivetranImport
             | Self::FivetranExport
             | Self::Unrecognized(_) => None,
         }
@@ -165,6 +168,7 @@ impl ClientType {
             Self::Rust => Some(rust.unsupported.clone()),
             Self::StreamingImport
             | Self::AirbyteExport
+            | Self::FivetranImport
             | Self::FivetranExport
             | Self::Unrecognized(_) => None,
         }
@@ -184,6 +188,7 @@ impl ClientType {
             },
             Self::StreamingImport
             | Self::AirbyteExport
+            | Self::FivetranImport
             | Self::FivetranExport
             | Self::Unrecognized(_) => "",
         }
@@ -285,6 +290,7 @@ impl ClientVersion {
             ClientType::Rust
             | ClientType::StreamingImport
             | ClientType::AirbyteExport
+            | ClientType::FivetranImport
             | ClientType::FivetranExport
             | ClientType::Unrecognized(_) => true,
         }
