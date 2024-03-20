@@ -1,0 +1,75 @@
+name: Daily Precompile
+
+on:
+  schedule:
+    - cron: 30 0 * * * # Runs at 00:30 UTC every day.
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+  
+      - name: Setup Rust
+        uses: ./.github/actions/setup-rust
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          r2-access-key: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+      - name: Cache pnpm artifacts
+        uses: runs-on/cache@v4
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+        with:
+          path: |
+            npm-packages/common/temp/build-cache
+            npm-packages/common/temp/pnpm-store
+          key: pnpm-cache-${{
+            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+          restore-keys: pnpm-cache-
+
+      - name: Node setup
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: NPM v8
+        run: npm install -g npm@8 --registry=https://registry.npmjs.org
+
+      - name: NPM install globals
+        run: npm ci --prefix scripts
+
+      - name: Install JS
+        run: |
+          just rush install
+          just rush build
+
+      - name: Install JS
+        run: |
+          just rush install
+          just rush build
+  
+      - name: Build backend
+        run: cargo build --release -p local_backend --bin convex-local-backend
+
+      - name: Get current date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+      
+      - name: Create Release and Upload Artifacts
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: target/release/convex-local-backend
+          tag_name: release-${{ steps.date.outputs.date }}
+          name: Release ${{ steps.date.outputs.date }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
