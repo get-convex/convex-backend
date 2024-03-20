@@ -61,15 +61,15 @@ jobs:
 
       - name: Get current date
         id: date
-        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+        run: echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
       
       - name: Create Release and Upload Artifacts
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: target/release/convex-local-backend
-          tag_name: release-${{ steps.date.outputs.date }}
-          name: Release ${{ steps.date.outputs.date }}
+          tag_name: release-${{ steps.date.outputs.CURRENT_DATE }}
+          name: Release ${{ steps.date.outputs.CURRENT_DATE }}
           draft: false
           prerelease: false
         env:
