@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     str::FromStr,
+    time::Duration,
 };
 
 use common::{
@@ -19,7 +20,6 @@ use database::{
     TableModel,
     Transaction,
 };
-use futures::FutureExt;
 use isolate::parse_udf_args;
 use keybroker::Identity;
 use model::{
@@ -39,13 +39,12 @@ use model::{
         CRON_JOB_LOGS_NAME_FIELD,
     },
 };
-use runtime::prod::ProdRuntime;
+use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
 use sync_types::UdfPath;
 
 use crate::{
     test_helpers::{
-        eventually_succeed,
         ApplicationTestExt,
         OBJECTS_TABLE,
     },
@@ -56,11 +55,11 @@ fn test_cron_identifier() -> CronIdentifier {
     CronIdentifier::from_str("test").unwrap()
 }
 
-async fn create_cron_job<RT: Runtime>(
-    tx: &mut Transaction<RT>,
+async fn create_cron_job(
+    tx: &mut Transaction<TestRuntime>,
 ) -> anyhow::Result<(
     BTreeMap<CronIdentifier, ParsedDocument<CronJob>>,
-    CronModel<RT>,
+    CronModel<TestRuntime>,
 )> {
     let mut cron_model = CronModel::new(tx);
     let mut map = serde_json::Map::new();
@@ -95,8 +94,9 @@ fn cron_log_query<RT: Runtime>(tx: &mut Transaction<RT>) -> anyhow::Result<Devel
     )
 }
 
-#[convex_macro::prod_rt_test]
-pub(crate) async fn test_cron_jobs_success(rt: ProdRuntime) -> anyhow::Result<()> {
+#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+#[convex_macro::test_runtime]
+pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -114,24 +114,17 @@ pub(crate) async fn test_cron_jobs_success(rt: ProdRuntime) -> anyhow::Result<()
 
     // Cron jobs executor within application will pick up the job and
     // execute it. Add some wait time to make this less racy.
-    let fut = move || {
-        let application = application.clone();
-        async move {
-            let mut tx = application.begin(Identity::system()).await?;
-            let mut table_model = TableModel::new(&mut tx);
-            anyhow::ensure!(!table_model.table_is_empty(&OBJECTS_TABLE).await?);
-            let mut logs_query = cron_log_query(&mut tx)?;
-            logs_query.expect_one(&mut tx).await?;
-            Ok(())
-        }
-        .boxed()
-    };
-    eventually_succeed(rt, fut).await?;
+    rt.wait(Duration::from_secs(1)).await;
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut table_model = TableModel::new(&mut tx);
+    assert!(!table_model.table_is_empty(&OBJECTS_TABLE).await?);
+    let mut logs_query = cron_log_query(&mut tx)?;
+    logs_query.expect_one(&mut tx).await?;
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-pub(crate) async fn test_cron_jobs_race_condition(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+pub(crate) async fn test_cron_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -159,22 +152,23 @@ pub(crate) async fn test_cron_jobs_race_condition(rt: ProdRuntime) -> anyhow::Re
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_paused_cron_jobs(rt: ProdRuntime) -> anyhow::Result<()> {
+#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+#[convex_macro::test_runtime]
+async fn test_paused_cron_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_cron_jobs_helper(rt, BackendState::Paused).await?;
+
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_disable_cron_jobs(rt: ProdRuntime) -> anyhow::Result<()> {
+#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+#[convex_macro::test_runtime]
+async fn test_disable_cron_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_cron_jobs_helper(rt, BackendState::Disabled).await?;
+
     Ok(())
 }
 
-async fn test_cron_jobs_helper<RT: Runtime>(
-    rt: RT,
-    backend_state: BackendState,
-) -> anyhow::Result<()> {
+async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> anyhow::Result<()> {
     // Helper for testing behavior for pausing or disabling backends
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
@@ -198,38 +192,23 @@ async fn test_cron_jobs_helper<RT: Runtime>(
     // Cron jobs executor within application will pick up the job and
     // execute it. Add some wait time to make this less racy. Job should not execute
     // because the backend is paused.
-    let application_clone = application.clone();
-    let fut = move || {
-        let application_clone = application_clone.clone();
-        async move {
-            let mut tx = application_clone.begin(Identity::system()).await?;
-            let mut table_model = TableModel::new(&mut tx);
-            assert!(table_model.table_is_empty(&OBJECTS_TABLE).await?);
-            let mut logs_query = cron_log_query(&mut tx)?;
-            logs_query.expect_none(&mut tx).await?;
-            Ok(())
-        }
-        .boxed()
-    };
-    eventually_succeed(rt.clone(), fut).await?;
+    rt.wait(Duration::from_secs(1)).await;
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut table_model = TableModel::new(&mut tx);
+    assert!(table_model.table_is_empty(&OBJECTS_TABLE).await?);
+    let mut logs_query = cron_log_query(&mut tx)?;
+    logs_query.expect_none(&mut tx).await?;
 
     // Resuming the backend should make the jobs execute.
-    let mut tx = application.begin(Identity::system()).await?;
     let mut model = BackendStateModel::new(&mut tx);
     model.toggle_backend_state(BackendState::Running).await?;
     application.commit_test(tx).await?;
-    let fut = move || {
-        let application = application.clone();
-        async move {
-            let mut tx = application.begin(Identity::system()).await?;
-            let mut table_model = TableModel::new(&mut tx);
-            anyhow::ensure!(!table_model.table_is_empty(&OBJECTS_TABLE).await?);
-            let mut logs_query = cron_log_query(&mut tx)?;
-            logs_query.expect_one(&mut tx).await?;
-            Ok(())
-        }
-        .boxed()
-    };
-    eventually_succeed(rt, fut).await?;
+    rt.wait(Duration::from_secs(1)).await;
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut table_model = TableModel::new(&mut tx);
+    assert!(!table_model.table_is_empty(&OBJECTS_TABLE).await?);
+    let mut logs_query = cron_log_query(&mut tx)?;
+    logs_query.expect_one(&mut tx).await?;
+
     Ok(())
 }

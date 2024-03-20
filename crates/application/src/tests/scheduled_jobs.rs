@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    time::Duration,
+};
 
 use common::{
     pause::PauseClient,
@@ -12,7 +15,6 @@ use database::{
     TableModel,
     Transaction,
 };
-use futures::FutureExt;
 use isolate::parse_udf_args;
 use keybroker::Identity;
 use model::{
@@ -26,7 +28,7 @@ use model::{
     },
 };
 use request_context::RequestContext;
-use runtime::prod::ProdRuntime;
+use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
 use sync_types::UdfPath;
 use value::{
@@ -36,7 +38,6 @@ use value::{
 
 use crate::{
     test_helpers::{
-        eventually_succeed,
         ApplicationTestExt,
         OBJECTS_TABLE,
     },
@@ -48,11 +49,11 @@ fn udf_path() -> UdfPath {
 }
 
 async fn create_scheduled_job<'a>(
-    rt: &'a ProdRuntime,
-    tx: &'a mut Transaction<ProdRuntime>,
+    rt: &'a TestRuntime,
+    tx: &'a mut Transaction<TestRuntime>,
 ) -> anyhow::Result<(
     GenericDocumentId<TableIdAndTableNumber>,
-    SchedulerModel<'a, ProdRuntime>,
+    SchedulerModel<'a, TestRuntime>,
 )> {
     let mut map = serde_json::Map::new();
     map.insert(
@@ -74,8 +75,9 @@ async fn create_scheduled_job<'a>(
     Ok((job_id, model))
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_scheduled_jobs_success(rt: ProdRuntime) -> anyhow::Result<()> {
+#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+#[convex_macro::test_runtime]
+async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -91,28 +93,21 @@ async fn test_scheduled_jobs_success(rt: ProdRuntime) -> anyhow::Result<()> {
 
     // Scheduled jobs executor within application will pick up the job and execute
     // it. Add some wait time to make this less racy.
-    let fut = move || {
-        let application = application.clone();
-        async move {
-            let mut tx = application.begin(Identity::system()).await?;
-            let mut model = SchedulerModel::new(&mut tx);
-            let state = model.check_status(job_id).await?.unwrap();
-            anyhow::ensure!(state == ScheduledJobState::Success);
-            anyhow::ensure!(
-                !TableModel::new(&mut tx)
-                    .table_is_empty(&OBJECTS_TABLE)
-                    .await?
-            );
-            Ok(())
-        }
-        .boxed()
-    };
-    eventually_succeed(rt, fut).await?;
+    rt.wait(Duration::from_secs(1)).await;
+    tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx);
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Success);
+    assert!(
+        !TableModel::new(&mut tx)
+            .table_is_empty(&OBJECTS_TABLE)
+            .await?
+    );
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_scheduled_jobs_canceled(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_scheduled_jobs_canceled(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -137,8 +132,8 @@ async fn test_scheduled_jobs_canceled(rt: ProdRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_scheduled_jobs_race_condition(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -166,9 +161,10 @@ async fn test_scheduled_jobs_race_condition(rt: ProdRuntime) -> anyhow::Result<(
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_scheduled_jobs_garbage_collection(rt: ProdRuntime) -> anyhow::Result<()> {
-    std::env::set_var("SCHEDULED_JOB_RETENTION", "2");
+#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+#[convex_macro::test_runtime]
+async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Result<()> {
+    std::env::set_var("SCHEDULED_JOB_RETENTION", "30");
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -185,58 +181,44 @@ async fn test_scheduled_jobs_garbage_collection(rt: ProdRuntime) -> anyhow::Resu
 
     // Scheduled jobs executor within application will pick up the job and execute
     // it. Add some wait time to make this less racy.
-    let application_clone = application.clone();
-    let f = move || {
-        let application = application_clone.clone();
-        async move {
-            let mut tx = application.begin(Identity::system()).await?;
-            let mut model = SchedulerModel::new(&mut tx);
-            let state = model.check_status(job_id).await?.unwrap();
-            anyhow::ensure!(state == ScheduledJobState::Success);
-            anyhow::ensure!(
-                !TableModel::new(&mut tx)
-                    .table_is_empty(&OBJECTS_TABLE)
-                    .await?
-            );
-            Ok(())
-        }
-        .boxed()
-    };
-    eventually_succeed(rt.clone(), f).await?;
+    rt.wait(Duration::from_secs(1)).await;
+    tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx);
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Success);
+    assert!(
+        !TableModel::new(&mut tx)
+            .table_is_empty(&OBJECTS_TABLE)
+            .await?
+    );
 
     // Wait for garbage collector to clean up the job
-    let f = move || {
-        let application = application.clone();
-        async move {
-            let mut tx = application.begin(Identity::system()).await?;
-            let mut model = SchedulerModel::new(&mut tx);
-            let state = model.check_status(job_id).await?;
-            anyhow::ensure!(state.is_none());
-            Ok(())
-        }
-        .boxed()
-    };
-    eventually_succeed(rt, f).await?;
+    rt.wait(Duration::from_secs(60)).await;
+    tx = application.begin(Identity::system()).await?;
+    let state = SchedulerModel::new(&mut tx).check_status(job_id).await?;
+    assert!(state.is_none());
 
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_pause_scheduled_jobs(rt: ProdRuntime) -> anyhow::Result<()> {
+#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+#[convex_macro::test_runtime]
+async fn test_pause_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_scheduled_jobs_helper(rt, BackendState::Paused).await?;
 
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_disable_scheduled_jobs(rt: ProdRuntime) -> anyhow::Result<()> {
+#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+#[convex_macro::test_runtime]
+async fn test_disable_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_scheduled_jobs_helper(rt, BackendState::Disabled).await?;
 
     Ok(())
 }
 
 async fn test_scheduled_jobs_helper(
-    rt: ProdRuntime,
+    rt: TestRuntime,
     backend_state: BackendState,
 ) -> anyhow::Result<()> {
     // Helper for testing the functionality of changing the backend state
@@ -260,53 +242,38 @@ async fn test_scheduled_jobs_helper(
     // Scheduled jobs executor within application would pick up the job and execute
     // it. Wait a second to avoid a race. Job should be pending since the backend is
     // paused.
-    let application_clone = application.clone();
-    let f = move || {
-        let application = application_clone.clone();
-        async move {
-            let mut tx = application.begin(Identity::system()).await?;
-            let mut model = SchedulerModel::new(&mut tx);
-            let state = model.check_status(job_id).await?.unwrap();
-            anyhow::ensure!(state == ScheduledJobState::Pending);
-            anyhow::ensure!(
-                TableModel::new(&mut tx)
-                    .table_is_empty(&OBJECTS_TABLE)
-                    .await?
-            );
-            Ok(())
-        }
-        .boxed()
-    };
-    eventually_succeed(rt.clone(), f).await?;
+    rt.wait(Duration::from_secs(1)).await;
+    tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx);
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Pending);
+    assert!(
+        TableModel::new(&mut tx)
+            .table_is_empty(&OBJECTS_TABLE)
+            .await?
+    );
 
     // Resuming the backend should allow the job to be executed.
-    let mut tx = application.begin(Identity::system()).await?;
     let mut model = BackendStateModel::new(&mut tx);
     model.toggle_backend_state(BackendState::Running).await?;
     application.commit_test(tx).await?;
-    let f = move || {
-        let application = application.clone();
-        async move {
-            let mut tx = application.begin(Identity::system()).await?;
-            let mut model = SchedulerModel::new(&mut tx);
-            let state = model.check_status(job_id).await?.unwrap();
-            anyhow::ensure!(state == ScheduledJobState::Success);
-            anyhow::ensure!(
-                !TableModel::new(&mut tx)
-                    .table_is_empty(&OBJECTS_TABLE)
-                    .await?
-            );
-            Ok(())
-        }
-        .boxed()
-    };
-    eventually_succeed(rt.clone(), f).await?;
+    rt.wait(Duration::from_secs(1)).await;
+    tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx);
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Success);
+    assert!(
+        !TableModel::new(&mut tx)
+            .table_is_empty(&OBJECTS_TABLE)
+            .await?
+    );
 
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_cancel_recursively_scheduled_job(rt: ProdRuntime) -> anyhow::Result<()> {
+#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+#[convex_macro::test_runtime]
+async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 

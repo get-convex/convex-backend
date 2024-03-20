@@ -5,7 +5,6 @@ use common::{
         PauseClient,
         PauseController,
     },
-    runtime::Runtime,
     types::{
         AllowedVisibility,
         FunctionCaller,
@@ -14,7 +13,7 @@ use common::{
 use errors::ErrorMetadataAnyhowExt;
 use keybroker::Identity;
 use request_context::RequestContext;
-use runtime::prod::ProdRuntime;
+use runtime::testing::TestRuntime;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -25,8 +24,8 @@ use crate::{
     Application,
 };
 
-async fn insert_object<RT: Runtime>(
-    application: &Application<RT>,
+async fn insert_object(
+    application: &Application<TestRuntime>,
     pause_client: PauseClient,
 ) -> anyhow::Result<JsonValue> {
     let obj = json!({"an": "object"});
@@ -45,8 +44,8 @@ async fn insert_object<RT: Runtime>(
     Ok(JsonValue::from(result.value))
 }
 
-async fn insert_and_count<RT: Runtime>(
-    application: &Application<RT>,
+async fn insert_and_count(
+    application: &Application<TestRuntime>,
     pause_client: PauseClient,
 ) -> anyhow::Result<usize> {
     let obj = json!({"an": "object"});
@@ -67,8 +66,8 @@ async fn insert_and_count<RT: Runtime>(
         .context("Expected f64 result")? as usize)
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_mutation(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_mutation(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
     let result = insert_object(&application, PauseClient::new()).await?;
@@ -76,8 +75,8 @@ async fn test_mutation(rt: ProdRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_mutation_occ_fail(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_mutation_occ_fail(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -104,8 +103,8 @@ async fn test_mutation_occ_fail(rt: ProdRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_mutation_occ_success(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_mutation_occ_success(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
@@ -138,8 +137,8 @@ async fn test_mutation_occ_success(rt: ProdRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_multiple_inserts_dont_occ(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_multiple_inserts_dont_occ(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 

@@ -32,7 +32,6 @@ use file_storage::{
     TransactionalFileStorage,
 };
 use function_runner::server::InProcessFunctionRunner;
-use futures::future::BoxFuture;
 use isolate::test_helpers::{
     TEST_SOURCE,
     TEST_SOURCE_ISOLATE_ONLY,
@@ -315,27 +314,4 @@ async fn insert_validated_schema<RT: Runtime>(
     let (schema_id, _) = model.submit_pending(schema).await?;
     model.mark_validated(schema_id).await?;
     Ok(schema_id)
-}
-
-/// A helper fn that takes in a future and runs it until it succeeds or
-/// times out. This is useful for testing async functions that are expected to
-/// eventually succeed
-pub async fn eventually_succeed<RT, F>(rt: RT, f: F) -> anyhow::Result<()>
-where
-    RT: Runtime,
-    F: Fn() -> BoxFuture<'static, anyhow::Result<()>> + 'static,
-{
-    let started = rt.monotonic_now();
-    loop {
-        match f().await {
-            Ok(()) => return Ok(()),
-            Err(e) => {
-                if rt.monotonic_now() - started.clone() < Duration::from_secs(10) {
-                    rt.wait(Duration::from_millis(100)).await;
-                } else {
-                    anyhow::bail!(e.context("eventually_succeed timed out"))
-                }
-            },
-        }
-    }
 }
