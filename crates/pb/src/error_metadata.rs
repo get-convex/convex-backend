@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use anyhow::Context;
 use errors::{
     ErrorCode,
@@ -79,6 +81,9 @@ impl TryFrom<ErrorMetadataProto> for ErrorMetadata {
 pub trait ErrorMetadataStatusExt {
     fn from_anyhow(error: anyhow::Error) -> Self;
     fn into_anyhow(self) -> anyhow::Error;
+    fn context<C>(self, context: C) -> Self
+    where
+        C: Display + Send + Sync + 'static;
 }
 
 impl ErrorMetadataStatusExt for tonic::Status {
@@ -111,6 +116,14 @@ impl ErrorMetadataStatusExt for tonic::Status {
             error = error.context(error_metadata)
         }
         error
+    }
+
+    fn context<C>(self, context: C) -> Self
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        let anyhow_err = self.into_anyhow();
+        Self::from_anyhow(anyhow_err.context(context))
     }
 }
 
