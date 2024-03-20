@@ -9,9 +9,12 @@ use std::{
     },
 };
 
-use common::runtime::{
-    Runtime,
-    UnixTimestamp,
+use common::{
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
+    types::ModuleEnvironment,
 };
 use database::{
     BiggestDocumentWrites,
@@ -20,7 +23,6 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
-    config::types::ModuleEnvironment,
     environment_variables::{
         types::{
             EnvVarName,

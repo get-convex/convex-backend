@@ -52,6 +52,7 @@ pub use environment_variables::{
 pub use functions::{
     AllowedVisibility,
     FunctionCaller,
+    ModuleEnvironment,
     UdfIdentifier,
     UdfType,
 };

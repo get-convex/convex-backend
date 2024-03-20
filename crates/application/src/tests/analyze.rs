@@ -1,12 +1,12 @@
 use common::{
     self,
-    types::UdfType,
+    types::{
+        ModuleEnvironment,
+        UdfType,
+    },
 };
 use model::{
-    config::types::{
-        ModuleConfig,
-        ModuleEnvironment,
-    },
+    config::types::ModuleConfig,
     udf_config::types::UdfConfig,
 };
 use runtime::prod::ProdRuntime;

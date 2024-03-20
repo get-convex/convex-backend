@@ -4,16 +4,14 @@ use std::{
 };
 
 use common::types::{
+    ModuleEnvironment,
     RoutableMethod,
     UdfType,
 };
 use keybroker::Identity;
 use maplit::btreemap;
 use model::{
-    config::types::{
-        ModuleConfig,
-        ModuleEnvironment,
-    },
+    config::types::ModuleConfig,
     cron_jobs::types::{
         CronIdentifier,
         CronSchedule,

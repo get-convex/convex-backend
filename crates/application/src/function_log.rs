@@ -35,6 +35,7 @@ use common::{
         CursorMs,
         FunctionCaller,
         HttpActionRoute,
+        ModuleEnvironment,
         TableName,
         TableStats,
         UdfIdentifier,
@@ -53,7 +54,6 @@ use isolate::{
     SyscallTrace,
     UdfOutcome,
 };
-use model::config::types::ModuleEnvironment;
 use parking_lot::Mutex;
 use request_context::RequestContext;
 use serde::Deserialize;
@@ -687,7 +687,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 UdfIdentifier::Function(udf_path.clone()),
                 completion.context.execution_id.clone(),
                 CallType::Action {
-                    env: completion.environment.into(),
+                    env: completion.environment,
                     duration: completion.execution_time,
                     memory_in_mb: completion.memory_in_mb,
                 },
@@ -1167,7 +1167,7 @@ impl From<UdfMetricSummary> for JsonValue {
                         .map(|(udf_type, v)| {
                             let map2 = v.into_iter()
                                 .map(|(environment, summary)| {
-                                    let key = String::from(environment);
+                                    let key = environment.to_string();
                                     let value = JsonValue::from(summary);
                                     (key, value)
                                 })

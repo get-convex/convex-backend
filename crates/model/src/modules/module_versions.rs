@@ -12,6 +12,7 @@ use std::{
 use async_lru::async_lru::SizedValue;
 use common::types::{
     HttpActionRoute,
+    ModuleEnvironment,
     UdfType,
 };
 use errors::ErrorMetadata;
@@ -35,7 +36,6 @@ use value::{
 
 use super::args_validator::ArgsValidator;
 use crate::{
-    config::types::ModuleEnvironment,
     cron_jobs::types::{
         CronIdentifier,
         CronSpec,
@@ -762,7 +762,7 @@ impl TryFrom<ModuleVersionMetadata> for ConvexObject {
             "version" => m.version,
             "sourcePackageId" => m.source_package_id.map(ConvexValue::try_from).transpose()?.unwrap_or(ConvexValue::Null),
             "analyzeResult" => m.analyze_result.map(ConvexValue::try_from).transpose()?.unwrap_or(ConvexValue::Null),
-            "environment" => String::from(m.environment),
+            "environment" => m.environment.to_string(),
         )
     }
 }

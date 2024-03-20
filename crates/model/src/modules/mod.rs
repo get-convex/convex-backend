@@ -22,7 +22,10 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    types::IndexName,
+    types::{
+        IndexName,
+        ModuleEnvironment,
+    },
     value::{
         ConvexValue,
         ResolvedDocumentId,
@@ -62,10 +65,7 @@ use self::{
     types::ModuleMetadata,
 };
 use crate::{
-    config::types::{
-        ModuleConfig,
-        ModuleEnvironment,
-    },
+    config::types::ModuleConfig,
     source_packages::types::SourcePackageId,
     SystemIndex,
     SystemTable,

@@ -215,7 +215,7 @@ impl From<ModuleConfig> for ModuleJson {
             path: path.into(),
             source,
             source_map,
-            environment: Some(environment.into()),
+            environment: Some(environment.to_string()),
         }
     }
 }
@@ -238,7 +238,7 @@ impl ModuleHashJson {
         ModuleHashJson {
             path: path.into(),
             hash: hex::encode(hash),
-            environment: Some(environment.into()),
+            environment: Some(environment.to_string()),
         }
     }
 }

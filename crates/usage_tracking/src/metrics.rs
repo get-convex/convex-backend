@@ -1,13 +1,12 @@
 pub mod storage {
 
+    use common::types::ModuleEnvironment;
     use metrics::{
         log_counter,
         log_counter_with_tags,
         metric_tag,
         register_convex_counter,
     };
-
-    use crate::ExecutionEnvironment;
 
     register_convex_counter!(STORAGE_INGRESS_BYTES, "Number of storage ingress bytes ");
     register_convex_counter!(STORAGE_EGRESS_BYTES, "Number of storage egress bytes");
@@ -30,11 +29,11 @@ pub mod storage {
         "The total number of times we try to track an action execution",
         &["environment"],
     );
-    pub fn log_action_compute(env: &ExecutionEnvironment) {
+    pub fn log_action_compute(env: &ModuleEnvironment) {
         log_counter_with_tags(
             &USAGE_ACTION_COMPUTE_TOTAL,
             1,
-            vec![metric_tag(format!("environment:{}", env.to_string()))],
+            vec![metric_tag(format!("environment:{env}"))],
         )
     }
 }

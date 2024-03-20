@@ -1,14 +1,14 @@
 use std::collections::BTreeMap;
 
 use anyhow::Context;
-use common::runtime::Runtime;
+use common::{
+    runtime::Runtime,
+    types::ModuleEnvironment,
+};
 use database::Transaction;
 use keybroker::Identity;
 use model::{
-    config::types::{
-        ModuleConfig,
-        ModuleEnvironment,
-    },
+    config::types::ModuleConfig,
     modules::ModuleModel,
     source_packages::types::SourcePackage,
 };

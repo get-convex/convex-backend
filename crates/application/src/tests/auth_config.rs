@@ -1,8 +1,8 @@
+use common::types::ModuleEnvironment;
 use keybroker::Identity;
 use model::config::types::{
     ConfigFile,
     ModuleConfig,
-    ModuleEnvironment,
 };
 use runtime::testing::TestRuntime;
 

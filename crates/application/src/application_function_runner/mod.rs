@@ -45,6 +45,7 @@ use common::{
     types::{
         AllowedVisibility,
         FunctionCaller,
+        ModuleEnvironment,
         NodeDependency,
         Timestamp,
         UdfType,
@@ -92,10 +93,7 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
-    config::types::{
-        ModuleConfig,
-        ModuleEnvironment,
-    },
+    config::types::ModuleConfig,
     environment_variables::{
         types::{
             EnvVarName,

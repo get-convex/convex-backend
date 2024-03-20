@@ -43,7 +43,10 @@ use common::{
     },
     schemas::DatabaseSchema,
     static_span,
-    types::UdfType,
+    types::{
+        ModuleEnvironment,
+        UdfType,
+    },
 };
 use database::{
     shutdown_error,
@@ -79,10 +82,7 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
-    config::types::{
-        ModuleConfig,
-        ModuleEnvironment,
-    },
+    config::types::ModuleConfig,
     environment_variables::types::{
         EnvVarName,
         EnvVarValue,

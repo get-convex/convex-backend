@@ -32,6 +32,7 @@ use common::{
     types::{
         AllowedVisibility,
         FunctionCaller,
+        ModuleEnvironment,
         UdfType,
     },
 };
@@ -59,7 +60,6 @@ use model::{
         types::BackendState,
         BackendStateModel,
     },
-    config::types::ModuleEnvironment,
     scheduled_jobs::{
         types::{
             ScheduledJob,

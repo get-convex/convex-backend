@@ -15,6 +15,7 @@ use common::{
     },
     types::{
         IndexName,
+        ModuleEnvironment,
         TableName,
         UdfIdentifier,
     },
@@ -26,7 +27,6 @@ use request_context::ExecutionId;
 use runtime::testing::TestRuntime;
 use usage_tracking::{
     CallType,
-    ExecutionEnvironment,
     FunctionUsageTracker,
     KB,
 };
@@ -61,7 +61,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
         UdfIdentifier::Function("test.js:default".parse()?),
         ExecutionId::new(),
         CallType::Action {
-            env: ExecutionEnvironment::Isolate,
+            env: ModuleEnvironment::Isolate,
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
@@ -124,7 +124,7 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
         UdfIdentifier::Function("test.js:default".parse()?),
         ExecutionId::new(),
         CallType::Action {
-            env: ExecutionEnvironment::Isolate,
+            env: ModuleEnvironment::Isolate,
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
@@ -158,7 +158,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
         UdfIdentifier::Function("test.js:default".parse()?),
         ExecutionId::new(),
         CallType::Action {
-            env: ExecutionEnvironment::Isolate,
+            env: ModuleEnvironment::Isolate,
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
@@ -207,7 +207,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         UdfIdentifier::Function("test.js:default".parse()?),
         ExecutionId::new(),
         CallType::Action {
-            env: ExecutionEnvironment::Isolate,
+            env: ModuleEnvironment::Isolate,
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },

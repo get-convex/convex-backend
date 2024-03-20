@@ -1,12 +1,10 @@
 use common::{
     self,
     bootstrap_model::index::database_index::IndexedFields,
+    types::ModuleEnvironment,
 };
 use errors::ErrorMetadataAnyhowExt;
-use model::config::types::{
-    ModuleConfig,
-    ModuleEnvironment,
-};
+use model::config::types::ModuleConfig;
 use runtime::testing::TestRuntime;
 
 use crate::{

@@ -4,14 +4,16 @@ use std::{
     sync::Arc,
 };
 
-use common::runtime::{
-    Runtime,
-    UnixTimestamp,
+use common::{
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
+    types::ModuleEnvironment,
 };
 use database::Transaction;
 use errors::ErrorMetadata;
 use model::{
-    config::types::ModuleEnvironment,
     environment_variables::{
         types::{
             EnvVarName,

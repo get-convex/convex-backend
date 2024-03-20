@@ -30,6 +30,7 @@ use common::{
     types::{
         AllowedVisibility,
         FunctionCaller,
+        ModuleEnvironment,
         UdfType,
     },
 };
@@ -58,7 +59,6 @@ use model::{
         types::BackendState,
         BackendStateModel,
     },
-    config::types::ModuleEnvironment,
     cron_jobs::{
         next_ts::compute_next_ts,
         types::{

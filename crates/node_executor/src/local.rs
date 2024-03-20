@@ -193,7 +193,10 @@ mod tests {
             run_function_and_collect_log_lines,
             LogLines,
         },
-        types::UdfType,
+        types::{
+            ModuleEnvironment,
+            UdfType,
+        },
         value::ConvexValue,
         version::Version,
     };
@@ -212,10 +215,7 @@ mod tests {
     };
     use maplit::btreemap;
     use model::{
-        config::types::{
-            ModuleConfig,
-            ModuleEnvironment,
-        },
+        config::types::ModuleConfig,
         modules::{
             args_validator::ArgsValidator,
             module_versions::{

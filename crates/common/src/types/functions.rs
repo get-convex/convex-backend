@@ -11,7 +11,10 @@ use metrics::{
     MetricTag,
 };
 use pb::funrun::UdfType as UdfTypeProto;
-use serde::Serialize;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sync_types::CanonicalizedUdfPath;
 
 use super::HttpActionRoute;
@@ -150,6 +153,42 @@ impl fmt::Display for FunctionCaller {
             FunctionCaller::Cron => "Cron",
             FunctionCaller::Scheduler => "Scheduler",
             FunctionCaller::Action => "Action",
+        };
+        write!(f, "{s}")
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ModuleEnvironment {
+    Isolate,
+    Node,
+    /// The function doesn't exist (the argument/path are invalid/no accessible
+    /// to the caller or analyze fails)
+    Invalid,
+}
+
+impl FromStr for ModuleEnvironment {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let environment = match s {
+            "node" => ModuleEnvironment::Node,
+            "isolate" => ModuleEnvironment::Isolate,
+            "invalid" => ModuleEnvironment::Invalid,
+            _ => anyhow::bail!("Invalid environment {s}"),
+        };
+        Ok(environment)
+    }
+}
+
+impl fmt::Display for ModuleEnvironment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            ModuleEnvironment::Isolate => "isolate",
+            ModuleEnvironment::Node => "node",
+            ModuleEnvironment::Invalid => "invalid",
         };
         write!(f, "{s}")
     }

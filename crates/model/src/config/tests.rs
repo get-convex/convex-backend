@@ -10,6 +10,7 @@ use common::{
         },
         DocumentSchema,
     },
+    types::ModuleEnvironment,
 };
 use database::{
     test_helpers::DbFixtures,
@@ -26,7 +27,6 @@ use crate::{
         types::{
             ConfigMetadata,
             ModuleConfig,
-            ModuleEnvironment,
         },
         ConfigModel,
     },

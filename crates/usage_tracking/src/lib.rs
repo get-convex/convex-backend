@@ -9,7 +9,10 @@ use std::{
 };
 
 use anyhow::Context;
-use common::types::UdfIdentifier;
+use common::types::{
+    ModuleEnvironment,
+    UdfIdentifier,
+};
 use events::usage::{
     UsageEvent,
     UsageEventLogger,
@@ -160,40 +163,15 @@ impl UsageCounter {
     }
 }
 
-// From ModuleEnvironment, not used here directly due to circular dependencies.
-pub enum ExecutionEnvironment {
-    Isolate,
-    Node,
-    // Analyze or ValidateUdfPathAndArgs failed before the function ran.
-    Invalid,
-}
-
-impl Default for ExecutionEnvironment {
-    fn default() -> Self {
-        Self::Isolate
-    }
-}
-
-impl ToString for ExecutionEnvironment {
-    fn to_string(&self) -> String {
-        match self {
-            ExecutionEnvironment::Isolate => "isolate",
-            ExecutionEnvironment::Node => "node",
-            ExecutionEnvironment::Invalid => "unknown",
-        }
-        .to_string()
-    }
-}
-
 struct ActionStats {
-    env: ExecutionEnvironment,
+    env: ModuleEnvironment,
     duration: Duration,
     memory_in_mb: u64,
 }
 
 pub enum CallType {
     Action {
-        env: ExecutionEnvironment,
+        env: ModuleEnvironment,
         duration: Duration,
         memory_in_mb: u64,
     },
@@ -225,7 +203,7 @@ impl CallType {
                 memory_in_mb,
             } => Some(ActionStats {
                 // Http Actions cannot be run in Node, so they must be in isolate.
-                env: ExecutionEnvironment::Isolate,
+                env: ModuleEnvironment::Isolate,
                 duration,
                 memory_in_mb,
             }),
@@ -265,7 +243,7 @@ impl CallType {
             CallType::Action { env, .. } => env,
             // All other UDF types, including HTTP actions run on the isolate
             // only.
-            _ => &ExecutionEnvironment::Isolate,
+            _ => &ModuleEnvironment::Isolate,
         }
         .to_string()
     }
@@ -317,17 +295,17 @@ impl UsageCounter {
                 let value = self.calculate_action_compute_time(duration, memory_in_mb);
                 log_action_compute(&env);
                 match env {
-                    ExecutionEnvironment::Isolate => state
+                    ModuleEnvironment::Isolate => state
                         .recent_v8_action_compute_time
                         .mutate_entry_or_default(udf_path.to_string(), |count| *count += value),
-                    ExecutionEnvironment::Node => state
+                    ModuleEnvironment::Node => state
                         .recent_node_action_compute_time
                         .mutate_entry_or_default(udf_path.to_string(), |count| *count += value),
                     // If the UDF can't be called because it was either deleted or not visible to
                     // the caller, it errors before we know what environment it would have executed
                     // in. We can bill a call for these, but there was no actual execution to bill
                     // here.
-                    ExecutionEnvironment::Invalid => {},
+                    ModuleEnvironment::Invalid => {},
                 }
             }
         }

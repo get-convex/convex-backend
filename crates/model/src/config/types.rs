@@ -13,26 +13,22 @@ use std::{
         Component,
         PathBuf,
     },
-    str::FromStr,
 };
 
 use common::{
     auth::AuthInfo,
     obj,
     schemas::DatabaseSchema,
+    types::ModuleEnvironment,
 };
 use database::LegacyIndexDiff;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use sync_types::{
     module_path::ACTIONS_DIR,
     CanonicalizedModulePath,
     ModulePath,
 };
-use usage_tracking::ExecutionEnvironment;
 use value::{
     remove_nullable_object,
     remove_object,
@@ -55,52 +51,6 @@ use crate::{
         SourceMap,
     },
 };
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub enum ModuleEnvironment {
-    Isolate,
-    Node,
-    /// The function doesn't exist (the argument/path are invalid/no accessible
-    /// to the caller or analyze fails)
-    Invalid,
-}
-
-// Avoid a circular dependency on usage tracking via database :/
-impl From<ModuleEnvironment> for ExecutionEnvironment {
-    fn from(value: ModuleEnvironment) -> Self {
-        match value {
-            ModuleEnvironment::Isolate => Self::Isolate,
-            ModuleEnvironment::Node => Self::Node,
-            ModuleEnvironment::Invalid => Self::Invalid,
-        }
-    }
-}
-
-impl FromStr for ModuleEnvironment {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let environment = match s {
-            "node" => ModuleEnvironment::Node,
-            "isolate" => ModuleEnvironment::Isolate,
-            "invalid" => ModuleEnvironment::Invalid,
-            _ => anyhow::bail!("Invalid environment {s}"),
-        };
-        Ok(environment)
-    }
-}
-
-impl From<ModuleEnvironment> for String {
-    fn from(value: ModuleEnvironment) -> String {
-        match value {
-            ModuleEnvironment::Isolate => "isolate".to_owned(),
-            ModuleEnvironment::Node => "node".to_owned(),
-            ModuleEnvironment::Invalid => "invalid".to_owned(),
-        }
-    }
-}
 
 /// User-specified module definition. See [`ModuleMetadata`] and associated
 /// structs for the corresponding module metadata used internally by the system.

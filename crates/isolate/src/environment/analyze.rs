@@ -21,6 +21,7 @@ use common::{
     },
     types::{
         HttpActionRoute,
+        ModuleEnvironment,
         RoutableMethod,
         UdfType,
     },
@@ -35,10 +36,7 @@ use deno_core::{
 };
 use errors::ErrorMetadata;
 use model::{
-    config::types::{
-        ModuleConfig,
-        ModuleEnvironment,
-    },
+    config::types::ModuleConfig,
     cron_jobs::types::{
         CronIdentifier,
         CronSpec,

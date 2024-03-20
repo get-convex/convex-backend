@@ -18,7 +18,10 @@ use common::{
         Sha256,
         Sha256Digest,
     },
-    types::ObjectKey,
+    types::{
+        ModuleEnvironment,
+        ObjectKey,
+    },
 };
 use futures::{
     channel::mpsc,
@@ -29,7 +32,6 @@ use model::{
     config::types::{
         deprecated_extract_environment_from_path,
         ModuleConfig,
-        ModuleEnvironment,
     },
     source_packages::types::PackageSize,
 };

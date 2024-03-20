@@ -37,6 +37,7 @@ use common::{
     testing::TestPersistence,
     types::{
         AllowedVisibility,
+        ModuleEnvironment,
         UdfType,
     },
     value::ConvexValue,
@@ -78,7 +79,6 @@ use model::{
         types::{
             ConfigMetadata,
             ModuleConfig,
-            ModuleEnvironment,
         },
         ConfigModel,
     },
