@@ -59,17 +59,19 @@ jobs:
       - name: Build backend
         run: cargo build --release -p local_backend --bin convex-local-backend
 
-      - name: Get current date
-        id: date
-        run: echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+      - name: Precompute release name
+        id: release_name
+        run: echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       
       - name: Create Release and Upload Artifacts
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          files: target/release/convex-local-backend
-          tag_name: release-${{ steps.date.outputs.CURRENT_DATE }}
-          name: Release ${{ steps.date.outputs.CURRENT_DATE }}
+          files: |
+            target/release/convex-local-backend
+            LICENSE.md
+          tag_name: release-${{ steps.release_name.outputs.RELEASE_NAME }}
+          name: Release ${{ steps.release_name.outputs.RELEASE_NAME }}
           draft: false
           prerelease: false
         env:
