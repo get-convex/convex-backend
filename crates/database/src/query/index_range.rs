@@ -3,6 +3,7 @@ use std::{
     collections::VecDeque,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     document::GenericDocument,
@@ -24,6 +25,7 @@ use common::{
     },
     version::Version,
 };
+use maplit::btreemap;
 
 use super::{
     query_scanned_too_many_documents_error,
@@ -35,6 +37,7 @@ use super::{
 };
 use crate::{
     metrics,
+    transaction::IndexRangeRequest,
     Transaction,
 };
 
@@ -138,6 +141,79 @@ impl<T: QueryType> IndexRange<T> {
         }
     }
 
+    fn start_next<RT: Runtime>(
+        &mut self,
+        tx: &mut Transaction<RT>,
+        prefetch_hint: Option<usize>,
+    ) -> anyhow::Result<Result<Option<(GenericDocument<T::T>, WriteTimestamp)>, IndexRangeRequest>>
+    {
+        // If we have an end cursor, for correctness we need to process
+        // the entire interval, so ignore `maximum_rows_read` and `maximum_bytes_read`.
+        let enforce_limits = self.cursor_interval.end_inclusive.is_none();
+
+        if enforce_limits
+            && let Some(maximum_bytes_read) = self.maximum_bytes_read
+            && self.returned_bytes >= maximum_bytes_read
+        {
+            // If we're over our data budget, throw an error.
+            // We do this after we've already exceeded the limit to ensure that
+            // paginated queries always scan at least one item so they can
+            // make progress.
+            return Err(query_scanned_too_much_data(self.returned_bytes).into());
+        }
+
+        if let Some((index_position, v, timestamp)) = self.page.pop_front() {
+            let index_bytes = index_position.len();
+            if let Some(intermediate_cursors) = &mut self.intermediate_cursors {
+                intermediate_cursors.push(CursorPosition::After(index_position.clone()));
+            }
+            self.cursor_interval.curr_exclusive = Some(CursorPosition::After(index_position));
+            self.returned_results += 1;
+            T::record_read_document(tx, &v, self.printable_index_name.table())?;
+            // Database bandwidth for index reads
+            tx.usage_tracker.track_database_egress_size(
+                self.printable_index_name.table().to_string(),
+                index_bytes as u64,
+                self.printable_index_name.is_system_owned(),
+            );
+            self.returned_bytes += v.size();
+            return Ok(Ok(Some((v, timestamp))));
+        }
+        if let Some(CursorPosition::End) = self.cursor_interval.curr_exclusive {
+            return Ok(Ok(None));
+        }
+        if self.unfetched_interval.is_empty() {
+            // We're out of results. If we have an end cursor then we must
+            // have reached it. Otherwise we're at the end of the entire
+            // query.
+            self.cursor_interval.curr_exclusive = Some(
+                self.cursor_interval
+                    .end_inclusive
+                    .clone()
+                    .unwrap_or(CursorPosition::End),
+            );
+            return Ok(Ok(None));
+        }
+
+        let mut max_rows = prefetch_hint
+            .unwrap_or(DEFAULT_QUERY_PREFETCH)
+            .clamp(1, MAX_QUERY_FETCH);
+
+        if enforce_limits && let Some(maximum_rows_read) = self.maximum_rows_read {
+            if self.rows_read >= maximum_rows_read {
+                return Err(query_scanned_too_many_documents_error(self.rows_read).into());
+            }
+            max_rows = cmp::min(max_rows, maximum_rows_read - self.rows_read);
+        }
+        Ok(Err(IndexRangeRequest {
+            stable_index_name: self.stable_index_name.clone(),
+            interval: self.unfetched_interval.clone(),
+            order: self.order,
+            max_rows,
+            version: self.version.clone(),
+        }))
+    }
+
     #[convex_macro::instrument_future]
     async fn _next<RT: Runtime>(
         &mut self,
@@ -145,73 +221,14 @@ impl<T: QueryType> IndexRange<T> {
         prefetch_hint: Option<usize>,
     ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
         loop {
-            // If we have an end cursor, for correctness we need to process
-            // the entire interval, so ignore `maximum_rows_read` and `maximum_bytes_read`.
-            let enforce_limits = self.cursor_interval.end_inclusive.is_none();
-
-            if enforce_limits
-                && let Some(maximum_bytes_read) = self.maximum_bytes_read
-                && self.returned_bytes >= maximum_bytes_read
-            {
-                // If we're over our data budget, throw an error.
-                // We do this after we've already exceeded the limit to ensure that
-                // paginated queries always scan at least one item so they can
-                // make progress.
-                return Err(query_scanned_too_much_data(self.returned_bytes).into());
-            }
-
-            if let Some((index_position, v, timestamp)) = self.page.pop_front() {
-                let index_bytes = index_position.len();
-                if let Some(intermediate_cursors) = &mut self.intermediate_cursors {
-                    intermediate_cursors.push(CursorPosition::After(index_position.clone()));
-                }
-                self.cursor_interval.curr_exclusive = Some(CursorPosition::After(index_position));
-                self.returned_results += 1;
-                T::record_read_document(tx, &v, self.printable_index_name.table())?;
-                // Database bandwidth for index reads
-                tx.usage_tracker.track_database_egress_size(
-                    self.printable_index_name.table().to_string(),
-                    index_bytes as u64,
-                    self.printable_index_name.is_system_owned(),
-                );
-                self.returned_bytes += v.size();
-                return Ok(Some((v, timestamp)));
-            }
-            if let Some(CursorPosition::End) = self.cursor_interval.curr_exclusive {
-                return Ok(None);
-            }
-            if self.unfetched_interval.is_empty() {
-                // We're out of results. If we have an end cursor then we must
-                // have reached it. Otherwise we're at the end of the entire
-                // query.
-                self.cursor_interval.curr_exclusive = Some(
-                    self.cursor_interval
-                        .end_inclusive
-                        .clone()
-                        .unwrap_or(CursorPosition::End),
-                );
-                return Ok(None);
-            }
-
-            let mut max_rows = prefetch_hint
-                .unwrap_or(DEFAULT_QUERY_PREFETCH)
-                .clamp(1, MAX_QUERY_FETCH);
-
-            if enforce_limits && let Some(maximum_rows_read) = self.maximum_rows_read {
-                if self.rows_read >= maximum_rows_read {
-                    return Err(query_scanned_too_many_documents_error(self.rows_read).into());
-                }
-                max_rows = cmp::min(max_rows, maximum_rows_read - self.rows_read);
-            }
-            let (page, fetch_cursor) = T::index_range(
-                tx,
-                &self.stable_index_name,
-                &self.unfetched_interval,
-                self.order,
-                max_rows,
-                self.version.clone(),
-            )
-            .await?;
+            let request = match self.start_next(tx, prefetch_hint)? {
+                Ok(result) => return Ok(result),
+                Err(request) => request,
+            };
+            let (page, fetch_cursor) = T::index_range_batch(tx, btreemap! {0 => request})
+                .await
+                .remove(&0)
+                .context("batch_key missing")??;
             let (_, new_unfetched_interval) =
                 self.unfetched_interval.split(fetch_cursor, self.order);
             anyhow::ensure!(self.unfetched_interval != new_unfetched_interval);

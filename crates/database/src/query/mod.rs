@@ -1,4 +1,7 @@
-use std::marker::PhantomData;
+use std::{
+    collections::BTreeMap,
+    marker::PhantomData,
+};
 
 use async_trait::async_trait;
 use common::{
@@ -12,7 +15,6 @@ use common::{
     query::{
         Cursor,
         CursorPosition,
-        Order,
         Query,
         QueryFingerprint,
         QueryOperator,
@@ -21,12 +23,12 @@ use common::{
     runtime::Runtime,
     types::{
         IndexName,
-        StableIndexName,
         WriteTimestamp,
     },
     version::Version,
 };
 use errors::ErrorMetadata;
+use indexing::backend_in_memory_indexes::BatchKey;
 use value::{
     GenericDocumentId,
     TableIdAndTableNumber,
@@ -45,6 +47,7 @@ use self::{
     search_query::SearchQuery,
 };
 use crate::{
+    transaction::IndexRangeRequest,
     IndexModel,
     Transaction,
     UserFacingModel,
@@ -104,17 +107,16 @@ trait QueryStream<T: QueryType>: Send {
 pub trait QueryType {
     type T: TableIdentifier;
 
-    async fn index_range<RT: Runtime>(
+    async fn index_range_batch<RT: Runtime>(
         tx: &mut Transaction<RT>,
-        stable_index_name: &StableIndexName,
-        interval: &Interval,
-        order: Order,
-        max_rows: usize,
-        version: Option<Version>,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-        CursorPosition,
-    )>;
+        requests: BTreeMap<BatchKey, IndexRangeRequest>,
+    ) -> BTreeMap<
+        BatchKey,
+        anyhow::Result<(
+            Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
+            CursorPosition,
+        )>,
+    >;
 
     async fn get_with_ts<RT: Runtime>(
         tx: &mut Transaction<RT>,
@@ -141,19 +143,17 @@ pub enum Developer {}
 impl QueryType for Resolved {
     type T = TableIdAndTableNumber;
 
-    async fn index_range<RT: Runtime>(
+    async fn index_range_batch<RT: Runtime>(
         tx: &mut Transaction<RT>,
-        stable_index_name: &StableIndexName,
-        interval: &Interval,
-        order: Order,
-        max_rows: usize,
-        _version: Option<Version>,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-        CursorPosition,
-    )> {
-        tx.index_range(stable_index_name, interval, order, max_rows)
-            .await
+        requests: BTreeMap<BatchKey, IndexRangeRequest>,
+    ) -> BTreeMap<
+        BatchKey,
+        anyhow::Result<(
+            Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
+            CursorPosition,
+        )>,
+    > {
+        tx.index_range_batch(requests).await
     }
 
     async fn get_with_ts<RT: Runtime>(
@@ -184,20 +184,17 @@ impl QueryType for Resolved {
 impl QueryType for Developer {
     type T = TableNumber;
 
-    async fn index_range<RT: Runtime>(
+    async fn index_range_batch<RT: Runtime>(
         tx: &mut Transaction<RT>,
-        stable_index_name: &StableIndexName,
-        interval: &Interval,
-        order: Order,
-        max_rows: usize,
-        version: Option<Version>,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-        CursorPosition,
-    )> {
-        UserFacingModel::new(tx)
-            .index_range(stable_index_name, interval, order, max_rows, version)
-            .await
+        requests: BTreeMap<BatchKey, IndexRangeRequest>,
+    ) -> BTreeMap<
+        BatchKey,
+        anyhow::Result<(
+            Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
+            CursorPosition,
+        )>,
+    > {
+        UserFacingModel::new(tx).index_range_batch(requests).await
     }
 
     async fn get_with_ts<RT: Runtime>(

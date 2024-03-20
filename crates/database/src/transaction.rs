@@ -70,6 +70,7 @@ use common::{
         TableMapping,
         VirtualTableMapping,
     },
+    version::Version,
 };
 use errors::ErrorMetadata;
 use indexing::backend_in_memory_indexes::{
@@ -961,23 +962,22 @@ impl<RT: Runtime> Transaction<RT> {
             .await
     }
 
-    /// NOTE: returns a page of results. Callers must call record_read_document
-    /// for all documents returned from the index stream.
-    #[convex_macro::instrument_future]
-    pub async fn index_range(
+    fn start_index_range(
         &mut self,
-        stable_index_name: &StableIndexName,
-        interval: &Interval,
-        order: Order,
-        mut max_rows: usize,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-        CursorPosition,
-    )> {
-        if interval.is_empty() {
-            return Ok((vec![], CursorPosition::End));
+        request: IndexRangeRequest,
+    ) -> anyhow::Result<
+        Result<
+            (
+                Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+                CursorPosition,
+            ),
+            RangeRequest,
+        >,
+    > {
+        if request.interval.is_empty() {
+            return Ok(Ok((vec![], CursorPosition::End)));
         }
-        let tablet_index_name = match stable_index_name {
+        let tablet_index_name = match request.stable_index_name {
             StableIndexName::Physical(tablet_index_name) => tablet_index_name,
             StableIndexName::Virtual(..) => {
                 anyhow::bail!(
@@ -986,26 +986,60 @@ impl<RT: Runtime> Transaction<RT> {
                 );
             },
             StableIndexName::Missing => {
-                return Ok((vec![], CursorPosition::End));
+                return Ok(Ok((vec![], CursorPosition::End)));
             },
         };
         let index_name = tablet_index_name
             .clone()
             .map_table(&self.table_mapping().tablet_to_name())?;
-        max_rows = cmp::min(max_rows, MAX_PAGE_SIZE);
+        let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
+        Ok(Err(RangeRequest {
+            index_name: tablet_index_name,
+            printable_index_name: index_name,
+            interval: request.interval,
+            order: request.order,
+            max_size: max_rows,
+        }))
+    }
 
-        self.index
-            .range(
-                &mut self.reads,
-                RangeRequest {
-                    index_name: tablet_index_name.clone(),
-                    printable_index_name: index_name,
-                    interval: interval.clone(),
-                    order,
-                    max_size: max_rows,
+    /// NOTE: returns a page of results. Callers must call record_read_document
+    /// for all documents returned from the index stream.
+    #[convex_macro::instrument_future]
+    pub async fn index_range_batch(
+        &mut self,
+        requests: BTreeMap<BatchKey, IndexRangeRequest>,
+    ) -> BTreeMap<
+        BatchKey,
+        anyhow::Result<(
+            Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+            CursorPosition,
+        )>,
+    > {
+        let batch_size = requests.len();
+        let mut results = BTreeMap::new();
+        let mut fetch_requests = BTreeMap::new();
+        for (batch_key, request) in requests {
+            match self.start_index_range(request) {
+                Err(e) => {
+                    results.insert(batch_key, Err(e));
                 },
-            )
-            .await
+                Ok(Ok(result)) => {
+                    results.insert(batch_key, Ok(result));
+                },
+                Ok(Err(fetch_request)) => {
+                    fetch_requests.insert(batch_key, fetch_request);
+                },
+            }
+        }
+        let fetch_results = self
+            .index
+            .range_batch(&mut self.reads, fetch_requests)
+            .await;
+        for (batch_key, fetch_result) in fetch_results {
+            results.insert(batch_key, fetch_result);
+        }
+        assert_eq!(results.len(), batch_size);
+        results
     }
 
     /// Used when a system table is served from cache - to manually add a read
@@ -1031,6 +1065,14 @@ impl<RT: Runtime> Transaction<RT> {
     ) -> anyhow::Result<FinalTransaction> {
         FinalTransaction::new(self, snapshot_reader).await
     }
+}
+
+pub struct IndexRangeRequest {
+    pub stable_index_name: StableIndexName,
+    pub interval: Interval,
+    pub order: Order,
+    pub max_rows: usize,
+    pub version: Option<Version>,
 }
 
 /// FinalTransaction is a finalized Transaction.

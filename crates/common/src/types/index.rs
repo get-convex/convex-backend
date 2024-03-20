@@ -112,7 +112,7 @@ pub type TabletIndexName = GenericIndexName<TableId>;
 
 /// Like TabletIndexName in that it refers to a stable underlying index,
 /// but it works for virtual tables too.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StableIndexName {
     Physical(TabletIndexName),
     Virtual(IndexName, TabletIndexName),

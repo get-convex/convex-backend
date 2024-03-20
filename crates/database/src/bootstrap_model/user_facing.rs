@@ -10,11 +10,7 @@ use common::{
         ResolvedDocument,
     },
     index::IndexKeyBytes,
-    interval::Interval,
-    query::{
-        CursorPosition,
-        Order,
-    },
+    query::CursorPosition,
     runtime::Runtime,
     types::{
         StableIndexName,
@@ -41,7 +37,10 @@ use crate::{
         log_virtual_table_get,
         log_virtual_table_query,
     },
-    transaction::MAX_PAGE_SIZE,
+    transaction::{
+        IndexRangeRequest,
+        MAX_PAGE_SIZE,
+    },
     unauthorized_error,
     virtual_tables::VirtualTable,
     PatchValue,
@@ -320,72 +319,106 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         )
     }
 
-    /// NOTE: returns a page of results. Callers must call record_read_document
-    /// for all documents returned from the index stream.
-    #[convex_macro::instrument_future]
-    pub async fn index_range(
+    async fn start_index_range(
         &mut self,
-        stable_index_name: &StableIndexName,
-        interval: &Interval,
-        order: Order,
-        mut max_rows: usize,
-        version: Option<Version>,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
-        CursorPosition,
-    )> {
-        if interval.is_empty() {
-            return Ok((vec![], CursorPosition::End));
+        request: IndexRangeRequest,
+    ) -> anyhow::Result<
+        Result<
+            (
+                Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
+                CursorPosition,
+            ),
+            RangeRequest,
+        >,
+    > {
+        if request.interval.is_empty() {
+            return Ok(Ok((vec![], CursorPosition::End)));
         }
 
-        max_rows = cmp::min(max_rows, MAX_PAGE_SIZE);
+        let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
 
-        let tablet_index_name = match stable_index_name {
+        let tablet_index_name = match request.stable_index_name {
             StableIndexName::Physical(tablet_index_name) => tablet_index_name,
             StableIndexName::Virtual(index_name, tablet_index_name) => {
                 log_virtual_table_query();
-                return VirtualTable::new(self.tx)
+                // TODO(lee) batch virtual table queryStreamNext
+                let virtual_result = VirtualTable::new(self.tx)
                     .index_range(
                         RangeRequest {
                             index_name: tablet_index_name.clone(),
                             printable_index_name: index_name.clone(),
-                            interval: interval.clone(),
-                            order,
+                            interval: request.interval.clone(),
+                            order: request.order,
                             max_size: max_rows,
                         },
-                        version,
+                        request.version,
                     )
-                    .await;
+                    .await?;
+                return Ok(Ok(virtual_result));
             },
             StableIndexName::Missing => {
-                return Ok((vec![], CursorPosition::End));
+                return Ok(Ok((vec![], CursorPosition::End)));
             },
         };
         let index_name = tablet_index_name
             .clone()
             .map_table(&self.tx.table_mapping().tablet_to_name())?;
+        Ok(Err(RangeRequest {
+            index_name: tablet_index_name.clone(),
+            printable_index_name: index_name,
+            interval: request.interval.clone(),
+            order: request.order,
+            max_size: max_rows,
+        }))
+    }
 
-        let (results, cursor) = self
+    /// NOTE: returns a page of results. Callers must call record_read_document
+    /// for all documents returned from the index stream.
+    #[convex_macro::instrument_future]
+    pub async fn index_range_batch(
+        &mut self,
+        requests: BTreeMap<BatchKey, IndexRangeRequest>,
+    ) -> BTreeMap<
+        BatchKey,
+        anyhow::Result<(
+            Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
+            CursorPosition,
+        )>,
+    > {
+        let batch_size = requests.len();
+        let mut results = BTreeMap::new();
+        let mut fetch_requests = BTreeMap::new();
+        for (batch_key, request) in requests {
+            match self.start_index_range(request).await {
+                Err(e) => {
+                    results.insert(batch_key, Err(e));
+                },
+                Ok(Ok(result)) => {
+                    results.insert(batch_key, Ok(result));
+                },
+                Ok(Err(request)) => {
+                    fetch_requests.insert(batch_key, request);
+                },
+            }
+        }
+
+        let fetch_results = self
             .tx
             .index
-            .range(
-                &mut self.tx.reads,
-                RangeRequest {
-                    index_name: tablet_index_name.clone(),
-                    printable_index_name: index_name,
-                    interval: interval.clone(),
-                    order,
-                    max_size: max_rows,
-                },
-            )
-            .await?;
-        let developer_results = results
-            .into_iter()
-            .map(|(key, doc, ts)| {
-                let doc = doc.to_developer();
-                anyhow::Ok((key, doc, ts))
-            })
-            .try_collect()?;
-        Ok((developer_results, cursor))
+            .range_batch(&mut self.tx.reads, fetch_requests)
+            .await;
+
+        for (batch_key, fetch_result) in fetch_results {
+            let result = fetch_result.map(|(resolved_results, cursor)| {
+                let developer_results = resolved_results
+                    .into_iter()
+                    .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
+                    .collect();
+                (developer_results, cursor)
+            });
+            results.insert(batch_key, result);
+        }
+        assert_eq!(results.len(), batch_size);
+        results
     }
 }
