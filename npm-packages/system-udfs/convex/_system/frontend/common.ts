@@ -85,7 +85,10 @@ export type Integration = Doc<"_log_sinks">;
 
 export type IntegrationConfig = Integration["config"];
 
-export type IntegrationType = IntegrationConfig["type"];
+// Export integrations aren't configured on convex's side, so they don't use _log_sinks table
+export type ExportIntegrationType = "airbyte" | "fivetran";
+
+export type IntegrationType = IntegrationConfig["type"] | ExportIntegrationType;
 
 export type DatadogConfig = Infer<typeof datadogConfig>;
 
