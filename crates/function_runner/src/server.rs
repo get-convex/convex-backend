@@ -588,7 +588,7 @@ mod tests {
         let response =
             FunctionRunnerCore::<TestRuntime, Arc<dyn Storage>>::receive_response(rx2).await?;
         let err = response.unwrap_err();
-        assert!(err.is_overloaded());
+        assert!(err.is_rejected_before_execution());
         assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));
         Ok(())
     }
@@ -639,7 +639,7 @@ mod tests {
         let response =
             FunctionRunnerCore::<TestRuntime, Arc<dyn Storage>>::receive_response(rx2).await?;
         let err = response.unwrap_err();
-        assert!(err.is_overloaded());
+        assert!(err.is_rejected_before_execution());
         assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));
         Ok(())
     }

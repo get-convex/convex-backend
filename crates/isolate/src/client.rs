@@ -451,9 +451,9 @@ impl<RT: Runtime> Request<RT> {
     }
 
     fn reject(self) {
-        // TODO: Create a concrete error type for this so FunRun knows when to respond
-        // with a gRPC RESOURCE_EXHAUSTED code.
-        let error = ErrorMetadata::overloaded("WorkerOverloaded", NO_AVAILABLE_WORKERS).into();
+        let error =
+            ErrorMetadata::rejected_before_execution("WorkerOverloaded", NO_AVAILABLE_WORKERS)
+                .into();
         match self.inner {
             RequestType::Udf { response, .. } => {
                 let _ = response.send(Err(error));
