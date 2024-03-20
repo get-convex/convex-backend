@@ -7,7 +7,8 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    name: Build Convex Backend
+    runs-on: [self-hosted, aws, x64, xlarge]
     steps:
       - name: Check out code
         uses: actions/checkout@v2
