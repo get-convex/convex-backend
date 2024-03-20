@@ -169,6 +169,7 @@ impl NodeExecutor for LocalNodeExecutor {
             response,
             // constant is good enough for measuring local executor
             memory_used_in_mb: 512,
+            aws_request_id: None,
         })
     }
 

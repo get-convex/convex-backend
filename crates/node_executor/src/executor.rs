@@ -117,6 +117,7 @@ pub trait NodeExecutor: Sync + Send {
 pub struct InvokeResponse {
     pub response: JsonValue,
     pub memory_used_in_mb: u64,
+    pub aws_request_id: Option<String>,
 }
 
 #[derive(Clone)]
@@ -211,6 +212,7 @@ impl Actions {
         let InvokeResponse {
             response,
             memory_used_in_mb,
+            aws_request_id,
         } = self.executor.invoke(request, log_line_sender).await?;
         let execute_result = ExecuteResponse::try_from(response.clone()).map_err(|e| {
             anyhow::anyhow!(
@@ -220,34 +222,17 @@ impl Actions {
             )
         })?;
 
-        // TODO - remove this trace once we've stabilized perf a bit. Don't need
-        // to spawn info logs for every action invocation.
         tracing::info!(
-            "Total:{:?}, executor:{:?}, download:{:?}, import:{:?}, udf:{:?}, env_invocations:{:?}",
+            "Total:{:?}, executor:{:?}, download:{:?}, import:{:?}, udf:{:?}, \
+             env_invocations:{:?}, aws_request_id:{:?}",
             timer.elapsed(),
             execute_result.total_executor_time,
             execute_result.download_time,
             execute_result.import_time,
             execute_result.udf_time,
             execute_result.num_invocations,
+            aws_request_id,
         );
-        // Debug print out in a prettier way with indentation showing subsections
-        tracing::debug!(
-            #[rustfmt::skip]
-            " Execute action took {:?}\n\
-             |  - total executor time {:?}\n\
-             |    - download time {:?}\n\
-             |    - import time {:?}\n\
-             |    - udf time {:?}\n\
-             Env Invocations: {:?}",
-            timer.elapsed(),
-            execute_result.total_executor_time,
-            execute_result.download_time,
-            execute_result.import_time,
-            execute_result.udf_time,
-            execute_result.num_invocations,
-        );
-
         let total_time = timer.finish();
         if let Some(download_time) = execute_result.download_time {
             log_download_time(download_time);
@@ -303,6 +288,7 @@ impl Actions {
         let InvokeResponse {
             response,
             memory_used_in_mb: _,
+            aws_request_id,
         } = self.executor.invoke(request, log_line_sender).await?;
         let response: BuildDepsResponse =
             serde_json::from_value(response.clone()).map_err(|e| {
@@ -339,7 +325,11 @@ impl Actions {
             },
         };
 
-        tracing::info!("build_deps took {:?}", timer.elapsed());
+        tracing::info!(
+            "build_deps took {:?}. aws_request_id={:?}",
+            timer.elapsed(),
+            aws_request_id
+        );
         timer.finish();
 
         result
@@ -357,6 +347,7 @@ impl Actions {
         let InvokeResponse {
             response,
             memory_used_in_mb: _,
+            aws_request_id,
         } = self.executor.invoke(request, log_line_sender).await?;
         let response: AnalyzeResponse = serde_json::from_value(response.clone()).map_err(|e| {
             anyhow::anyhow!(
@@ -365,7 +356,11 @@ impl Actions {
                 response
             )
         })?;
-        tracing::info!("Analyze took {:?}", timer.elapsed());
+        tracing::info!(
+            "Analyze took {:?}. aws_request_id={:?}",
+            timer.elapsed(),
+            aws_request_id
+        );
         timer.finish();
 
         let modules = match response {
