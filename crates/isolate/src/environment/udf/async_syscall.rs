@@ -117,7 +117,10 @@ fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow::Re
 /// TODO(lee) implement other kinds of batches.
 #[derive(Debug)]
 pub enum AsyncSyscallBatch {
+    // TODO(lee) consider db.get to be a special case of queryStreamNext so
+    // they can be batched together.
     Gets(Vec<JsonValue>),
+    QueryStreamNext(Vec<JsonValue>),
     Unbatched { name: String, args: JsonValue },
 }
 
@@ -125,6 +128,7 @@ impl AsyncSyscallBatch {
     pub fn new(name: String, args: JsonValue) -> Self {
         match &*name {
             "1.0/get" => Self::Gets(vec![args]),
+            "1.0/queryStreamNext" => Self::QueryStreamNext(vec![args]),
             _ => Self::Unbatched { name, args },
         }
     }
@@ -136,6 +140,8 @@ impl AsyncSyscallBatch {
         match (self, name) {
             (Self::Gets(_), "1.0/get") => true,
             (Self::Gets(_), _) => false,
+            (Self::QueryStreamNext(_), "1.0/queryStreamNext") => true,
+            (Self::QueryStreamNext(_), _) => false,
             (Self::Unbatched { .. }, _) => false,
         }
     }
@@ -143,6 +149,7 @@ impl AsyncSyscallBatch {
     pub fn push(&mut self, name: String, args: JsonValue) -> anyhow::Result<()> {
         match (&mut *self, &*name) {
             (Self::Gets(batch_args), "1.0/get") => batch_args.push(args),
+            (Self::QueryStreamNext(batch_args), "1.0/queryStreamNext") => batch_args.push(args),
             _ => anyhow::bail!("cannot push {name} onto {self:?}"),
         }
         Ok(())
@@ -151,6 +158,7 @@ impl AsyncSyscallBatch {
     pub fn name(&self) -> &str {
         match self {
             Self::Gets(_) => "1.0/get",
+            Self::QueryStreamNext(_) => "1.0/queryStreamNext",
             Self::Unbatched { name, .. } => name,
         }
     }
@@ -158,6 +166,7 @@ impl AsyncSyscallBatch {
     pub fn len(&self) -> usize {
         match self {
             Self::Gets(args) => args.len(),
+            Self::QueryStreamNext(args) => args.len(),
             Self::Unbatched { .. } => 1,
         }
     }
@@ -180,6 +189,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             AsyncSyscallBatch::Gets(get_batch_args) => {
                 DatabaseSyscallsV1::get_batch(self, get_batch_args).await
             },
+            AsyncSyscallBatch::QueryStreamNext(batch_args) => {
+                DatabaseSyscallsV1::queryStreamNext_batch(self, batch_args).await
+            },
             AsyncSyscallBatch::Unbatched { name, args } => {
                 let result = match &name[..] {
                     // Database
@@ -188,7 +200,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     "1.0/shallowMerge" => DatabaseSyscallsV1::shallow_merge(self, args).await,
                     "1.0/replace" => DatabaseSyscallsV1::replace(self, args).await,
                     "1.0/remove" => DatabaseSyscallsV1::remove(self, args).await,
-                    "1.0/queryStreamNext" => DatabaseSyscallsV1::queryStreamNext(self, args).await,
                     "1.0/queryPage" => DatabaseSyscallsV1::queryPage(self, args).await,
                     // Auth
                     "1.0/getUserIdentity" => self.async_syscall_getUserIdentity(args).await,
@@ -595,50 +606,84 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
     }
 
     #[convex_macro::instrument_future]
-    async fn queryStreamNext(
+    async fn queryStreamNext_batch(
         env: &mut DatabaseUdfEnvironment<RT>,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+        batch_args: Vec<JsonValue>,
+    ) -> Vec<anyhow::Result<JsonValue>> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct QueryStreamNextArgs {
+            // not dead code, clippy is wrong.
+            #[allow(dead_code)]
             query_id: u32,
         }
-        let query_id = with_argument_error("queryStreamNext", || {
-            let args: QueryStreamNextArgs = serde_json::from_value(args)?;
-            Ok(args.query_id)
-        })?;
-        let mut local_query =
-            env.developer_queries
-                .remove(&query_id)
-                .context(ErrorMetadata::not_found(
-                    "QueryNotFound",
-                    "in-progress query not found",
-                ))?;
 
-        let tx = env.phase.tx()?;
-        let result = local_query.next(tx, None).await;
-        env.developer_queries.insert(query_id, local_query);
+        let mut queries_to_fetch = BTreeMap::new();
+        let mut results = BTreeMap::new();
+        let batch_size = batch_args.len();
+        for (idx, args) in batch_args.into_iter().enumerate() {
+            let result: anyhow::Result<_> =
+                try {
+                    let query_id = with_argument_error("queryStreamNext", || {
+                        let args: QueryStreamNextArgs = serde_json::from_value(args)?;
+                        Ok(args.query_id)
+                    })?;
+                    let local_query = env.developer_queries.remove(&query_id).context(
+                        ErrorMetadata::not_found("QueryNotFound", "in-progress query not found"),
+                    )?;
+                    queries_to_fetch.insert(idx, (query_id, local_query));
+                };
+            if let Err(e) = result {
+                assert!(results.insert(idx, Err(e)).is_none());
+            }
+        }
 
-        let maybe_next = result?;
-        let done = maybe_next.is_none();
-        let value = match maybe_next {
-            Some(doc) => doc.into_value().0.into(),
-            None => ConvexValue::Null,
+        let tx = match env.phase.tx() {
+            Ok(tx) => tx,
+            Err(e) => {
+                return (0..batch_size).map(|_| Err(e.clone().into())).collect_vec();
+            },
         };
 
-        if done {
-            env.cleanup_developer_query(query_id);
+        // TODO(lee) actually batch this fetch. For now we do faux-batching to
+        // establish the interface.
+        let mut fetch_results = BTreeMap::new();
+        for (batch_key, (_, local_query)) in queries_to_fetch.iter_mut() {
+            fetch_results.insert(*batch_key, local_query.next(tx, None).await);
         }
+
         #[derive(Serialize)]
         struct QueryStreamNextResult {
             value: JsonValue,
             done: bool,
         }
-        Ok(serde_json::to_value(QueryStreamNextResult {
-            value: value.into(),
-            done,
-        })?)
+
+        for (batch_key, (query_id, local_query)) in queries_to_fetch {
+            env.developer_queries.insert(query_id, local_query);
+
+            let result: anyhow::Result<_> = try {
+                let maybe_next = fetch_results
+                    .remove(&batch_key)
+                    .context("batch_key missing")??;
+
+                let done = maybe_next.is_none();
+                let value = match maybe_next {
+                    Some(doc) => doc.into_value().0.into(),
+                    None => ConvexValue::Null,
+                };
+
+                if done {
+                    env.cleanup_developer_query(query_id);
+                }
+                serde_json::to_value(QueryStreamNextResult {
+                    value: value.into(),
+                    done,
+                })?
+            };
+            results.insert(batch_key, result);
+        }
+        assert_eq!(results.len(), batch_size);
+        results.into_values().collect()
     }
 
     #[convex_macro::instrument_future]
