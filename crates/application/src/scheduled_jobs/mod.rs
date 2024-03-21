@@ -19,6 +19,7 @@ use common::{
         SCHEDULED_JOB_RETENTION,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
+    pause::PauseClient,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -91,6 +92,8 @@ use crate::{
 
 mod metrics;
 
+pub(crate) const SCHEDULED_JOB_EXECUTED: &str = "scheduled_job_executed";
+
 pub struct ScheduledJobRunner<RT: Runtime> {
     executor: Arc<Mutex<RT::Handle>>,
     garbage_collector: Arc<Mutex<RT::Handle>>,
@@ -111,9 +114,15 @@ impl<RT: Runtime> ScheduledJobRunner<RT> {
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
+        pause_client: PauseClient,
     ) -> Self {
-        let executor_fut =
-            ScheduledJobExecutor::start(rt.clone(), database.clone(), runner, function_log);
+        let executor_fut = ScheduledJobExecutor::start(
+            rt.clone(),
+            database.clone(),
+            runner,
+            function_log,
+            pause_client,
+        );
         let executor = Arc::new(Mutex::new(rt.spawn("scheduled_job_executor", executor_fut)));
 
         let garbage_collector_fut = ScheduledJobGarbageCollector::start(rt.clone(), database);
@@ -137,6 +146,7 @@ const MAX_BACKOFF: Duration = Duration::from_secs(5);
 
 pub struct ScheduledJobExecutor<RT: Runtime> {
     context: ScheduledJobContext<RT>,
+    pause_client: PauseClient,
 }
 
 impl<RT: Runtime> Deref for ScheduledJobExecutor<RT> {
@@ -167,14 +177,16 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
+        pause_client: PauseClient,
     ) -> impl Future<Output = ()> + Send {
-        let executor = Self {
+        let mut executor = Self {
             context: ScheduledJobContext {
                 rt,
                 database,
                 runner,
                 function_log,
             },
+            pause_client,
         };
         async move {
             let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
@@ -201,6 +213,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 runner,
                 function_log,
             },
+            pause_client: PauseClient::new(),
         }
     }
 
@@ -219,7 +232,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         tracing::debug!("Drained {total_drained} finished scheduled jobs from the channel");
     }
 
-    async fn run(&self, backoff: &mut Backoff) -> anyhow::Result<()> {
+    async fn run(&mut self, backoff: &mut Backoff) -> anyhow::Result<()> {
         tracing::info!("Starting scheduled job executor");
         let (job_finished_tx, mut job_finished_rx) =
             mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
@@ -253,13 +266,14 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             select_biased! {
                 job_id = job_finished_rx.recv().fuse() => {
                     if let Some(job_id) = job_id {
+                    self.pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
                         running_job_ids.remove(&job_id);
                     } else {
                         anyhow::bail!("Job results channel closed, this is unexpected!");
                     }
-                }
+                },
                 _ = next_job_future.fuse() => {
-                }
+                },
                 _ = subscription.wait_for_invalidation().fuse() => {
                 },
             }

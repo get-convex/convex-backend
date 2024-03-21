@@ -484,7 +484,8 @@ impl<RT: Runtime> Application<RT> {
         fetch_client: Arc<dyn FetchClient>,
         log_sender: Arc<dyn LogSender>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
-        pause_client: PauseClient,
+        snapshot_import_pause_client: PauseClient,
+        scheduled_jobs_pause_client: PauseClient,
     ) -> anyhow::Result<Self> {
         let module_cache = ModuleCacheWorker::start(runtime.clone(), database.clone()).await;
         let module_loader = Arc::new(module_cache.clone());
@@ -594,6 +595,7 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             runner.clone(),
             function_log.clone(),
+            scheduled_jobs_pause_client,
         );
 
         let cron_job_executor_fut = CronJobExecutor::start(
@@ -621,7 +623,7 @@ impl<RT: Runtime> Application<RT> {
             snapshot_imports_storage.clone(),
             file_storage.clone(),
             database.usage_counter().clone(),
-            pause_client,
+            snapshot_import_pause_client,
         );
         let snapshot_import_worker = Arc::new(Mutex::new(
             runtime.spawn("snapshot_import_worker", snapshot_import_worker),

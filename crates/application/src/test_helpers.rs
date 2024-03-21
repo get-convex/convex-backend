@@ -14,7 +14,10 @@ use common::{
     http::fetch::StaticFetchClient,
     knobs::ACTION_USER_TIMEOUT,
     log_streaming::NoopLogSender,
-    pause::PauseClient,
+    pause::{
+        PauseClient,
+        PauseController,
+    },
     persistence::Persistence,
     runtime::Runtime,
     testing::TestPersistence,
@@ -69,7 +72,10 @@ use value::{
 use crate::{
     cron_jobs::CronJobExecutor,
     log_visibility::AllowLogging,
-    scheduled_jobs::ScheduledJobExecutor,
+    scheduled_jobs::{
+        ScheduledJobExecutor,
+        SCHEDULED_JOB_EXECUTED,
+    },
     Application,
 };
 
@@ -78,7 +84,19 @@ pub static OBJECTS_TABLE: LazyLock<TableName> = LazyLock::new(|| "objects".parse
 #[derive(Default)]
 pub struct ApplicationFixtureArgs {
     pub tp: Option<TestPersistence>,
-    pub pause_client: Option<PauseClient>,
+    pub snapshot_import_pause_client: Option<PauseClient>,
+    pub scheduled_jobs_pause_client: PauseClient,
+}
+
+impl ApplicationFixtureArgs {
+    pub fn with_scheduled_jobs_pause_client() -> (Self, PauseController) {
+        let (pause_controller, pause_client) = PauseController::new(vec![SCHEDULED_JOB_EXECUTED]);
+        let args = ApplicationFixtureArgs {
+            scheduled_jobs_pause_client: pause_client,
+            ..Default::default()
+        };
+        (args, pause_controller)
+    }
 }
 
 #[async_trait]
@@ -125,7 +143,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let convex_site = "http://127.0.0.1:8001".into();
         let searcher = Arc::new(search::searcher::SearcherStub {});
         let persistence = args.tp.unwrap_or_else(TestPersistence::new);
-        let pause_client = args.pause_client.unwrap_or_default();
+        let snapshot_import_pause_client = args.snapshot_import_pause_client.unwrap_or_default();
         let database = Database::load(
             Box::new(persistence.clone()),
             rt.clone(),
@@ -212,7 +230,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             fetch_client,
             Arc::new(NoopLogSender),
             Arc::new(AllowLogging),
-            pause_client,
+            snapshot_import_pause_client,
+            args.scheduled_jobs_pause_client,
         )
         .await?;
 

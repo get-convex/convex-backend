@@ -240,6 +240,7 @@ pub async fn make_app(
         Arc::new(NoopLogSender),
         Arc::new(AllowLogging),
         PauseClient::new(),
+        PauseClient::new(),
     )
     .await?;
 

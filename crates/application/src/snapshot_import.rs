@@ -2733,7 +2733,7 @@ Interrupting `npx convex import` will not cancel it."#
         let app = Application::new_for_tests_with_args(
             &rt,
             ApplicationFixtureArgs {
-                pause_client: Some(pause_client),
+                snapshot_import_pause_client: Some(pause_client),
                 ..Default::default()
             },
         )

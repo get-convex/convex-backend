@@ -4,7 +4,10 @@ use std::{
 };
 
 use common::{
-    pause::PauseClient,
+    pause::{
+        PauseClient,
+        PauseController,
+    },
     runtime::Runtime,
     types::{
         AllowedVisibility,
@@ -40,7 +43,9 @@ use value::{
 };
 
 use crate::{
+    scheduled_jobs::SCHEDULED_JOB_EXECUTED,
     test_helpers::{
+        ApplicationFixtureArgs,
         ApplicationTestExt,
         OBJECTS_TABLE,
     },
@@ -78,10 +83,20 @@ async fn create_scheduled_job<'a>(
     Ok((job_id, model))
 }
 
-#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
+/// Waits for scheduled job to execute and unpauses the scheduled job executor.
+async fn wait_for_scheduled_job_execution(mut pause_controller: PauseController) {
+    if let Some(mut pause_guard) = pause_controller
+        .wait_for_blocked(SCHEDULED_JOB_EXECUTED)
+        .await
+    {
+        pause_guard.unpause();
+    }
+}
+
 #[convex_macro::test_runtime]
 async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
+    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
+    let application = Application::new_for_tests_with_args(&rt, args).await?;
     application.load_udf_tests_modules().await?;
 
     let mut tx = application.begin(Identity::system()).await?;
@@ -94,9 +109,7 @@ async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
 
     application.commit_test(tx).await?;
 
-    // Scheduled jobs executor within application will pick up the job and execute
-    // it. Add some wait time to make this less racy.
-    rt.wait(Duration::from_secs(1)).await;
+    wait_for_scheduled_job_execution(pause_controller).await;
     tx = application.begin(Identity::system()).await?;
     let mut model = SchedulerModel::new(&mut tx);
     let state = model.check_status(job_id).await?.unwrap();
@@ -164,11 +177,11 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
     Ok(())
 }
 
-#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
 #[convex_macro::test_runtime]
 async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Result<()> {
     std::env::set_var("SCHEDULED_JOB_RETENTION", "30");
-    let application = Application::new_for_tests(&rt).await?;
+    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
+    let application = Application::new_for_tests_with_args(&rt, args).await?;
     application.load_udf_tests_modules().await?;
 
     let mut tx = application.begin(Identity::system()).await?;
@@ -182,9 +195,7 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
 
     application.commit_test(tx).await?;
 
-    // Scheduled jobs executor within application will pick up the job and execute
-    // it. Add some wait time to make this less racy.
-    rt.wait(Duration::from_secs(1)).await;
+    wait_for_scheduled_job_execution(pause_controller).await;
     tx = application.begin(Identity::system()).await?;
     let mut model = SchedulerModel::new(&mut tx);
     let state = model.check_status(job_id).await?.unwrap();
@@ -204,7 +215,6 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
     Ok(())
 }
 
-#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
 #[convex_macro::test_runtime]
 async fn test_pause_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_scheduled_jobs_helper(rt, BackendState::Paused).await?;
@@ -212,7 +222,6 @@ async fn test_pause_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
 #[convex_macro::test_runtime]
 async fn test_disable_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_scheduled_jobs_helper(rt, BackendState::Disabled).await?;
@@ -220,12 +229,13 @@ async fn test_disable_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Helper for testing the functionality of changing the backend state
 async fn test_scheduled_jobs_helper(
     rt: TestRuntime,
     backend_state: BackendState,
 ) -> anyhow::Result<()> {
-    // Helper for testing the functionality of changing the backend state
-    let application = Application::new_for_tests(&rt).await?;
+    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
+    let application = Application::new_for_tests_with_args(&rt, args).await?;
     application.load_udf_tests_modules().await?;
 
     let mut tx = application.begin(Identity::system()).await?;
@@ -242,10 +252,6 @@ async fn test_scheduled_jobs_helper(
 
     application.commit_test(tx).await?;
 
-    // Scheduled jobs executor within application would pick up the job and execute
-    // it. Wait a second to avoid a race. Job should be pending since the backend is
-    // paused.
-    rt.wait(Duration::from_secs(1)).await;
     tx = application.begin(Identity::system()).await?;
     let mut model = SchedulerModel::new(&mut tx);
     let state = model.check_status(job_id).await?.unwrap();
@@ -260,7 +266,7 @@ async fn test_scheduled_jobs_helper(
     let mut model = BackendStateModel::new(&mut tx);
     model.toggle_backend_state(BackendState::Running).await?;
     application.commit_test(tx).await?;
-    rt.wait(Duration::from_secs(1)).await;
+    wait_for_scheduled_job_execution(pause_controller).await;
     tx = application.begin(Identity::system()).await?;
     let mut model = SchedulerModel::new(&mut tx);
     let state = model.check_status(job_id).await?.unwrap();
