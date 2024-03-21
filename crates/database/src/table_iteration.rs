@@ -40,6 +40,8 @@ use common::{
 };
 use futures::{
     pin_mut,
+    stream,
+    Stream,
     StreamExt,
     TryStreamExt,
 };
@@ -239,10 +241,17 @@ impl<RT: Runtime> TableIterator<RT> {
                     page_skipped_keys
                 },
             };
-            let mut merged_page: Vec<_> = page
-                .into_iter()
-                .chain(page_skipped_keys.into_values())
-                .collect();
+            // Note we already fetched these documents earlier when calculating
+            // skipped_keys, but we would rather not hold them in memory. Since
+            // skipped documents are relatively rare, an extra fetch
+            // occasionally is worth it for the memory savings.
+            let page_skipped_docs: Vec<_> = self
+                .load_revisions_at_snapshot_ts(stream::iter(
+                    page_skipped_keys.into_values().map(Ok),
+                ))
+                .try_collect()
+                .await?;
+            let mut merged_page: Vec<_> = page.into_iter().chain(page_skipped_docs).collect();
             // Re-sort after merging the index walk and skipped keys.
             merged_page
                 .sort_by_key(|(doc, _)| doc.index_key(&indexed_fields, self.persistence.version()));
@@ -296,16 +305,37 @@ impl<RT: Runtime> TableIterator<RT> {
         start_ts: Timestamp,
         end_ts: RepeatableTimestamp,
         rate_limiter: &RateLimiter<RT>,
-    ) -> anyhow::Result<BTreeMap<IndexKey, (ResolvedDocument, Timestamp)>> {
+    ) -> anyhow::Result<BTreeMap<IndexKey, InternalDocumentId>> {
         let reader = self.persistence.clone();
         let persistence_version = reader.version();
+        let skipped_revs = self.walk_document_log(table_id, start_ts, end_ts, rate_limiter);
+        let revisions_at_snapshot = self.load_revisions_at_snapshot_ts(skipped_revs);
+        pin_mut!(revisions_at_snapshot);
+        let mut skipped_keys = BTreeMap::new();
+        while let Some((doc, _)) = revisions_at_snapshot.try_next().await? {
+            let index_key = doc.index_key(indexed_fields, persistence_version);
+            if lower_bound < Some(&index_key) {
+                skipped_keys.insert(index_key, doc.id_with_table_id());
+            }
+        }
+        Ok(skipped_keys)
+    }
+
+    #[try_stream(ok = InternalDocumentId, error = anyhow::Error)]
+    async fn walk_document_log<'a>(
+        &'a self,
+        table_id: TableId,
+        start_ts: Timestamp,
+        end_ts: RepeatableTimestamp,
+        rate_limiter: &'a RateLimiter<RT>,
+    ) {
+        let reader = self.persistence.clone();
         let repeatable_persistence =
             RepeatablePersistence::new(reader, end_ts, self.retention_validator.clone());
         let documents = repeatable_persistence
             .load_documents(TimestampRange::new(start_ts.succ()?..=*end_ts)?, Order::Asc)
             .try_chunks(self.page_size);
         pin_mut!(documents);
-        let mut skipped_revs = BTreeSet::new();
         while let Some(chunk) = documents.try_next().await? {
             while let Err(not_until) = rate_limiter.check() {
                 let delay = not_until.wait_time_from(self.runtime.monotonic_now().as_nanos());
@@ -313,19 +343,10 @@ impl<RT: Runtime> TableIterator<RT> {
             }
             for (_, id, _) in chunk {
                 if *id.table() == table_id {
-                    skipped_revs.insert(id);
+                    yield id;
                 }
             }
         }
-        let revisions_at_snapshot = self.load_revisions_at_snapshot_ts(skipped_revs).await?;
-        let mut skipped_keys = BTreeMap::new();
-        for (doc, ts) in revisions_at_snapshot.into_iter() {
-            let index_key = doc.index_key(indexed_fields, persistence_version);
-            if lower_bound < Some(&index_key) {
-                skipped_keys.insert(index_key, (doc, ts));
-            }
-        }
-        Ok(skipped_keys)
     }
 
     /// We have these constraints:
@@ -386,30 +407,36 @@ impl<RT: Runtime> TableIterator<RT> {
 
     // Load the revisions of documents visible at `self.snapshot_ts`, skipping
     // documents that don't exist then.
-    async fn load_revisions_at_snapshot_ts(
-        &self,
-        ids: BTreeSet<InternalDocumentId>,
-    ) -> anyhow::Result<Vec<(ResolvedDocument, Timestamp)>> {
+    #[try_stream(ok = (ResolvedDocument, Timestamp), error = anyhow::Error)]
+    async fn load_revisions_at_snapshot_ts<'a>(
+        &'a self,
+        ids: impl Stream<Item = anyhow::Result<InternalDocumentId>> + 'a,
+    ) {
         // Find the revision of the documents earlier than `snapshot_ts.succ()`.
         // These are the revisions visible at `snapshot_ts`.
         let ts_succ = self.snapshot_ts.succ()?;
-        let ids_to_load = ids.into_iter().map(|id| (id, ts_succ)).collect();
         let repeatable_persistence = RepeatablePersistence::new(
             self.persistence.clone(),
             self.snapshot_ts,
             self.retention_validator.clone(),
         );
-        let old_revisions = repeatable_persistence
-            .previous_revisions(ids_to_load)
-            .await?;
 
-        let mut results = Vec::new();
-        for (_, (revision_ts, revision)) in old_revisions.into_iter() {
-            if let Some(revision) = revision {
-                results.push((revision, revision_ts));
+        // Note even though `previous_revisions` can paginate internally, we don't want
+        // to hold the entire result set in memory, because documents can be large.
+        let id_chunks = ids.try_chunks(self.page_size);
+        pin_mut!(id_chunks);
+
+        while let Some(chunk) = id_chunks.try_next().await? {
+            let ids_to_load = chunk.into_iter().map(|id| (id, ts_succ)).collect();
+            let old_revisions = repeatable_persistence
+                .previous_revisions(ids_to_load)
+                .await?;
+            for (_, (revision_ts, revision)) in old_revisions.into_iter() {
+                if let Some(revision) = revision {
+                    yield (revision, revision_ts);
+                }
             }
         }
-        Ok(results)
     }
 }
 
