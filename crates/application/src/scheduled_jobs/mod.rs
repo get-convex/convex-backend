@@ -79,6 +79,7 @@ use request_context::{
     RequestContext,
     RequestId,
 };
+use sync_types::Timestamp;
 use usage_tracking::FunctionUsageTracker;
 use value::ResolvedDocumentId;
 
@@ -237,25 +238,43 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         let (job_finished_tx, mut job_finished_rx) =
             mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
         let mut running_job_ids = HashSet::new();
+        // Some if there's at least one pending job. May be in the past!
+        let mut next_job_ready_time = None;
         loop {
             Self::drain_finished_jobs(&mut running_job_ids, &mut job_finished_rx).await;
 
             let mut tx = self.database.begin(Identity::Unknown).await?;
             let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
-            let can_run = match backend_state {
-                BackendState::Running => true,
-                BackendState::Paused | BackendState::Disabled => false,
+            let is_backend_stopped = match backend_state {
+                BackendState::Running => false,
+                BackendState::Paused | BackendState::Disabled => true,
             };
 
-            let poll_next_time = if can_run {
+            next_job_ready_time = if is_backend_stopped {
+                // If the backend is stopped we shouldn't poll. Our subscription will notify us
+                // when the backend is started again.
+                None
+            } else if running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+                // A scheduled job may have been added, but we can't do anything because we're
+                // still running jobs at our concurrency limit.
+                next_job_ready_time
+            } else {
+                // Great! we have enough remaining concurrency and our backend is running, start
+                // new job(s) if we can and update our next ready time.
                 self.query_and_start_jobs(&mut tx, &mut running_job_ids, &job_finished_tx)
                     .await?
-            } else {
-                None
             };
 
-            let next_job_future = if let Some(next_job_wait) = poll_next_time {
-                Either::Left(self.rt.wait(next_job_wait))
+            let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
+                let now = self.rt.generate_timestamp()?;
+                Either::Left(if next_job_ts < now {
+                    metrics::log_scheduled_job_execution_lag(now - next_job_ts);
+                    // If we're behind, re-run this loop every 5 seconds to log the gauge above and
+                    // track how far we're behind in our metrics.
+                    self.rt.wait(Duration::from_secs(5))
+                } else {
+                    self.rt.wait(next_job_ts - now)
+                })
             } else {
                 Either::Right(std::future::pending())
             };
@@ -281,20 +300,19 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         }
     }
 
-    /// Read through scheduled jobs and start any that are allowed by our
-    /// concurrency limit and the job's scheduled time.
+    /// Reads through scheduled jobs in timestamp ascending order and starts any
+    /// that are allowed by our concurrency limit and the jobs' scheduled
+    /// time.
     ///
-    /// We return an optional amount of time we should sleep before polling
-    /// scheduled jobs again. For example, if a job isn't scheduled until
-    /// time T, we don't need to poll the jobs table again until T. Callers
-    /// are expected to handle other cases why we might want to poll (like a
-    /// new job being added).
+    /// Returns the time at which the next job in the queue will be ready to
+    /// run. If the scheduler is behind, the returned time may be in the
+    /// past. Returns None if all jobs are finished or running.
     async fn query_and_start_jobs(
         &self,
         tx: &mut Transaction<RT>,
         running_job_ids: &mut HashSet<ResolvedDocumentId>,
         job_finished_tx: &mpsc::Sender<ResolvedDocumentId>,
-    ) -> anyhow::Result<Option<Duration>> {
+    ) -> anyhow::Result<Option<Timestamp>> {
         let now = self.rt.generate_timestamp()?;
         let index_query = Query::index_range(IndexRange {
             index_name: SCHEDULED_JOBS_INDEX.clone(),
@@ -305,7 +323,6 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             order: Order::Asc,
         });
         let mut query_stream = ResolvedQuery::new(tx, index_query)?;
-        let mut next_job_wait = None;
         while let Some(doc) = query_stream.next(tx, None).await? {
             let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
             let (job_id, job) = job.clone().into_id_and_value();
@@ -315,20 +332,14 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             let next_ts = job
                 .next_ts
                 .ok_or_else(|| anyhow::anyhow!("Could not get next_ts to run scheduled job at"))?;
-            if next_ts > now {
-                next_job_wait = Some(next_ts - now);
-                break;
+            // If we can't execute the job return the job's target timestamp. If we're
+            // caught up, we can sleep until the timestamp. If we're behind and
+            // at our concurrency limit, we can use the timestamp to log how far
+            // behind we get.
+            if next_ts > now || running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+                return Ok(Some(next_ts));
             }
 
-            metrics::log_scheduled_job_execution_lag(now - next_ts);
-            if running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
-                // We are due to execute the next job, but we can't because of
-                // parallelism limits. We should break after logging the lag
-                // here, and then wake up in few seconds to log the lag again
-                // unless something else changes in between.
-                next_job_wait = Some(Duration::from_secs(5));
-                break;
-            }
             let context = self.context.clone();
             let tx = job_finished_tx.clone();
             self.rt.spawn("spawn_scheduled_job", async move {
@@ -337,8 +348,14 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             });
 
             running_job_ids.insert(job_id);
+
+            // We might have hit the concurrency limit by adding the new job, so
+            // we could check and break immediately if we have.
+            // However we want to know the time the next job in the
+            // queue (if any) is due, so instead we continue the loop one more
+            // time.
         }
-        Ok(next_job_wait)
+        Ok(None)
     }
 }
 
