@@ -22,6 +22,7 @@ use must_let::must_let;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use value::{
+    assert_val,
     id_v6::DocumentIdV6,
     ConvexObject,
 };
@@ -56,6 +57,27 @@ async fn test_full_table_scan(rt: TestRuntime) -> anyhow::Result<()> {
 
     must_let!(let ConvexValue::Array(r) = t.query("query:filterScan", assert_obj!( "number" => 2)).await?);
     assert_eq!(r.len(), 0);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_filter_first(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    add_index(&t).await?;
+    // Create two documents with different numbers, and filter for them.
+    // This tests that Limit and Filter are applied in the correct order,
+    // because if Limit is applied before Filter, `query().filter().first()`
+    // would run as `query().first().filter()` and get no results.
+    t.mutation("query:insert", assert_obj!( "number" => 1))
+        .await?;
+    t.mutation("query:insert", assert_obj!( "number" => 2))
+        .await?;
+
+    must_let!(let ConvexValue::Object(r) = t.query("query:filterFirst", assert_obj!( "number" => 1)).await?);
+    assert_eq!(r.get("hello"), Some(&assert_val!(1)));
+
+    must_let!(let ConvexValue::Object(r) = t.query("query:filterFirst", assert_obj!( "number" => 2)).await?);
+    assert_eq!(r.get("hello"), Some(&assert_val!(2)));
     Ok(())
 }
 

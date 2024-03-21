@@ -27,6 +27,13 @@ export const filterScan = query(({ db }, { number }: { number: number }) =>
     .collect(),
 );
 
+export const filterFirst = query(({ db }, { number }: { number: number }) =>
+  db
+    .query("test")
+    .filter((q) => q.eq(q.field("hello"), number))
+    .first(),
+);
+
 export const explicitScan = query(({ db }, { number }: { number: number }) => {
   return db
     .query("test")
