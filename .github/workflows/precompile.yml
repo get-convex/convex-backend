@@ -7,12 +7,26 @@ on:
 
 jobs:
   release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: "['self-hosted', 'aws', 'x64', 'xlarge']"
+          - target: x86_64-apple-darwin
+            # large are on intel
+            os: "'macos-latest-large'"
+          - target: aarch64-apple-darwin
+            # xlarge are on arm
+            os: "'macos-latest-xlarge'"
+          #- target: aarch64-unknown-linux-gnu
+          #  os: ubuntu-latest
     name: Build Convex Backend
-    runs-on: [self-hosted, aws, x64, xlarge]
+    runs-on: ${{ fromJSON(matrix.os) }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-  
+
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
         with:
@@ -55,23 +69,25 @@ jobs:
         run: |
           just rush install
           just rush build
-  
+
       - name: Build backend
-        run: cargo build --release -p local_backend --bin convex-local-backend
+        run: |
+          cargo build --release -p local_backend --bin convex-local-backend
+          mv target/release/convex-local-backend convex-local-backend-${{ matrix.target }}
 
       - name: Precompute release name
         id: release_name
         run: echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      
+
       - name: Create Release and Upload Artifacts
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            target/release/convex-local-backend
+            convex-local-backend-${{ matrix.target }}
             LICENSE.md
-          tag_name: release-${{ steps.release_name.outputs.RELEASE_NAME }}
-          name: Release ${{ steps.release_name.outputs.RELEASE_NAME }}
+          tag_name: release-test-${{ steps.release_name.outputs.RELEASE_NAME }}
+          name: Release-Test ${{ steps.release_name.outputs.RELEASE_NAME }}
           draft: false
           prerelease: false
         env:
