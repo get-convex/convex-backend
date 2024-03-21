@@ -1,5 +1,5 @@
 import { GenericId, v } from "convex/values";
-import { mutationGeneric } from "../../server";
+import { mutationGeneric } from "convex/server";
 
 const MAX_DOCUMENT_DELETIONS = 4096;
 

@@ -1,5 +1,5 @@
 import { TableNames } from "../../_generated/dataModel";
-import { queryGeneric } from "../../server";
+import { queryGeneric } from "convex/server";
 import { v } from "convex/values";
 
 // This query returns a new result every time

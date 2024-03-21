@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutationGeneric } from "../../server";
+import { mutationGeneric } from "convex/server";
 
 export default mutationGeneric({
   args: { table: v.string() },

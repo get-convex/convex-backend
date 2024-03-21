@@ -52,7 +52,6 @@ import type * as _system_paginationLimits from "../_system/paginationLimits.js";
 import type * as _system_repl_wrappers from "../_system/repl/wrappers.js";
 import type * as _system_secretSystemTables from "../_system/secretSystemTables.js";
 import type * as deploymentAuditLogTable from "../deploymentAuditLogTable.js";
-import type * as server from "../server.js";
 import type * as syscall from "../syscall.js";
 
 /**
@@ -102,7 +101,6 @@ declare const fullApi: ApiFromModules<{
   "_system/repl/wrappers": typeof _system_repl_wrappers;
   "_system/secretSystemTables": typeof _system_secretSystemTables;
   deploymentAuditLogTable: typeof deploymentAuditLogTable;
-  server: typeof server;
   syscall: typeof syscall;
 }>;
 export declare const api: FilterApi<

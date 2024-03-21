@@ -1,6 +1,6 @@
 import { ConvexError, GenericId } from "convex/values";
 import { v } from "convex/values";
-import { mutationGeneric } from "../../server";
+import { mutationGeneric } from "convex/server";
 
 export default mutationGeneric({
   args: { id: v.string(), document: v.any() },
