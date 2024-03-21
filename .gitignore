@@ -1,2 +1,4 @@
 node_modules/
 target/
+convex_local_backend*.sqlite3
+convex_local_storage/
