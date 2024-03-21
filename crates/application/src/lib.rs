@@ -34,6 +34,7 @@ use common::{
         schema::{
             invalid_schema_id,
             parse_schema_id,
+            SchemaState,
         },
     },
     document::{
@@ -98,6 +99,7 @@ use database::{
     IndexModel,
     IndexWorker,
     OccRetryStats,
+    SchemaModel,
     SearchIndexWorker,
     ShortBoxFuture,
     Snapshot,
@@ -1897,6 +1899,12 @@ impl<RT: Runtime> Application<RT> {
             .map(|udf_config| udf_config.server_version.clone())
             .unwrap_or_else(|| Version::parse("1000.0.0").unwrap());
 
+        // Use existing schema if any
+        let schema_id = SchemaModel::new(&mut tx)
+            .get_by_state(SchemaState::Active)
+            .await?
+            .map(|(schema_id, _)| schema_id.into());
+
         // 1. analyze the module
         let udf_config = UdfConfig {
             server_version,
@@ -1930,9 +1938,7 @@ impl<RT: Runtime> Application<RT> {
                     functions: "convex".to_owned(),
                     auth_info: None,
                 },
-                // TODO: When we want to support mutations,
-                // we need to use the deployment's schema.
-                schema_id: None,
+                schema_id,
                 modules,
                 udf_config,
                 source_package: None,
