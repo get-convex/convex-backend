@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use anyhow::Context;
 use errors::{
     ErrorCode,
@@ -79,11 +81,14 @@ impl TryFrom<ErrorMetadataProto> for ErrorMetadata {
 pub trait ErrorMetadataStatusExt {
     fn from_anyhow(error: anyhow::Error) -> Self;
     fn into_anyhow(self) -> anyhow::Error;
+    fn context<C>(self, context: C) -> Self
+    where
+        C: Display + Send + Sync + 'static;
 }
 
 impl ErrorMetadataStatusExt for tonic::Status {
     fn from_anyhow(error: anyhow::Error) -> Self {
-        let message = format!("{error}");
+        let message = format!("{error:#}");
         if let Some(metadata) = error.downcast_ref::<ErrorMetadata>().cloned() {
             let code: tonic::Code = metadata.code.grpc_status_code();
             let details = StatusDetailsProto {
@@ -112,10 +117,22 @@ impl ErrorMetadataStatusExt for tonic::Status {
         }
         error
     }
+
+    fn context<C>(self, context: C) -> Self
+    where
+        C: Display + Send + Sync + 'static,
+    {
+        let anyhow_err = self.into_anyhow();
+        Self::from_anyhow(anyhow_err.context(context))
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use errors::{
+        ErrorMetadataAnyhowExt,
+        INTERNAL_SERVER_ERROR_MSG,
+    };
     use proptest::prelude::*;
     use value::testing::assert_roundtrips;
 
@@ -156,5 +173,38 @@ mod tests {
         // We should have no ErrorMetadata in the context.
         let error = status.into_anyhow();
         assert!(error.downcast_ref::<ErrorMetadata>().is_none());
+    }
+
+    #[test]
+    fn test_context_no_error_metadata() {
+        let status =
+            tonic::Status::from_anyhow(anyhow::anyhow!("My special error")).context("Test context");
+
+        let error = status.into_anyhow();
+        // Check the error we log to sentry includes the original error and the context
+        let error_string = format!("{error:#}");
+        assert!(error_string.contains("My special error"));
+        assert!(error_string.contains("Test context"));
+
+        // Check that the user facing portions haven't changed
+        assert_eq!(error.user_facing_message(), INTERNAL_SERVER_ERROR_MSG);
+    }
+
+    #[test]
+    fn test_context_with_error_metadata() {
+        let status = tonic::Status::from_anyhow(
+            ErrorMetadata::overloaded("ShortMsg", "Test long message").into(),
+        )
+        .context("Test context");
+
+        let error = status.into_anyhow();
+        // Check the error we log to sentry includes the original error and the context
+        let error_string = format!("{error:#}");
+        assert!(error_string.contains("Test long message"));
+        assert!(error_string.contains("Test context"));
+
+        // Check that the user facing portions haven't changed
+        assert_eq!(error.user_facing_message(), "Test long message");
+        assert_eq!(error.short_msg(), "ShortMsg")
     }
 }
