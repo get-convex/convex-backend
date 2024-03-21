@@ -142,20 +142,6 @@ pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     module_cache: ModuleCache<RT>,
 }
 
-impl<RT: Runtime, S: StorageForInstance<RT>> Clone for FunctionRunnerCore<RT, S> {
-    fn clone(&self) -> Self {
-        Self {
-            rt: self.rt.clone(),
-            sender: self.sender.clone(),
-            scheduler: self.scheduler.clone(),
-            handles: self.handles.clone(),
-            storage: self.storage.clone(),
-            index_cache: self.index_cache.clone(),
-            module_cache: self.module_cache.clone(),
-        }
-    }
-}
-
 pub async fn validate_run_function_result(
     udf_type: UdfType,
     ts: Timestamp,
@@ -428,7 +414,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     }
 }
 
-#[derive(Clone)]
 pub struct InProcessFunctionRunner<RT: Runtime> {
     server: FunctionRunnerCore<RT, Arc<dyn Storage>>,
     persistence_reader: Box<dyn PersistenceReader>,
