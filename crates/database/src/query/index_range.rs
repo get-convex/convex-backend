@@ -214,6 +214,20 @@ impl<T: QueryType> IndexRange<T> {
         }))
     }
 
+    fn process_fetch(
+        &mut self,
+        page: Vec<(IndexKeyBytes, GenericDocument<T::T>, WriteTimestamp)>,
+        fetch_cursor: CursorPosition,
+    ) -> anyhow::Result<()> {
+        let (_, new_unfetched_interval) = self.unfetched_interval.split(fetch_cursor, self.order);
+        anyhow::ensure!(self.unfetched_interval != new_unfetched_interval);
+        self.unfetched_interval = new_unfetched_interval;
+        self.page_count += 1;
+        self.rows_read += page.len();
+        self.page.extend(page);
+        Ok(())
+    }
+
     #[convex_macro::instrument_future]
     async fn _next<RT: Runtime>(
         &mut self,
@@ -229,13 +243,7 @@ impl<T: QueryType> IndexRange<T> {
                 .await
                 .remove(&0)
                 .context("batch_key missing")??;
-            let (_, new_unfetched_interval) =
-                self.unfetched_interval.split(fetch_cursor, self.order);
-            anyhow::ensure!(self.unfetched_interval != new_unfetched_interval);
-            self.unfetched_interval = new_unfetched_interval;
-            self.page_count += 1;
-            self.rows_read += page.len();
-            self.page.extend(page);
+            self.process_fetch(page, fetch_cursor)?;
         }
     }
 }
