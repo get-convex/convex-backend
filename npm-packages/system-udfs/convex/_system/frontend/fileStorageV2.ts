@@ -1,8 +1,5 @@
-import {
-  PaginationResult,
-  SystemDataModel,
-  mutationGeneric,
-} from "convex/server";
+import { PaginationResult, SystemDataModel } from "convex/server";
+import { mutationGeneric } from "../server";
 import { Id } from "../../_generated/dataModel";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
@@ -47,14 +44,17 @@ export const fileMetadata = queryGeneric({
   },
 });
 
-export const deleteFile = mutationGeneric(
-  async (
+export const deleteFile = mutationGeneric({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (
     { storage },
     { storageId }: { storageId: Id<"_storage"> },
   ): Promise<void> => {
     return await storage.delete(storageId);
   },
-);
+});
 
 export const deleteFiles = mutationGeneric({
   args: {
@@ -67,8 +67,9 @@ export const deleteFiles = mutationGeneric({
   },
 });
 
-export const generateUploadUrl = mutationGeneric(
-  async ({ storage }): Promise<string> => {
+export const generateUploadUrl = mutationGeneric({
+  args: {},
+  handler: async ({ storage }): Promise<string> => {
     return await storage.generateUploadUrl();
   },
-);
+});

@@ -4,12 +4,10 @@ import {
   SystemDataModel,
   DefaultFunctionArgs,
   TableNamesInDataModel,
-  queryGeneric as baseQueryGeneric,
 } from "convex/server";
 import { Validator } from "convex/values";
-import { query as baseQuery } from "../_generated/server";
+import { query as baseQuery, queryGeneric as baseQueryGeneric } from "./server";
 import { Id } from "../_generated/dataModel";
-import { performOp } from "../syscall";
 
 // This set must be kept up-to-date to prevent accidental access to secret
 // system tables in system UDFs.
@@ -96,7 +94,6 @@ function maskPublicSystem<T extends GenericDataModel>(
 type FunctionDefinition = {
   args: Record<string, Validator<any, boolean>>;
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
-  exportArgs(): string;
 };
 
 /// `queryPrivateSystem` is for querying private system tables.
@@ -108,18 +105,9 @@ export const queryPrivateSystem = ((functionDefinition: FunctionDefinition) => {
   if (!("args" in functionDefinition)) {
     throw new Error("args validator required for system udf");
   }
-  const query = baseQuery({
-    args: functionDefinition.args,
-    handler: () => {},
-  });
-  const argsValidatorJson = query.exportArgs();
   return baseQuery({
     args: functionDefinition.args,
-    handler: async (ctx: any, args: any) => {
-      const result = await performOp("validateArgs", argsValidatorJson, args);
-      if (!result.valid) {
-        throw new Error(result.message);
-      }
+    handler: (ctx: any, args: any) => {
       return functionDefinition.handler(
         { ...ctx, db: maskPrivateSystem(ctx.db) },
         args,
