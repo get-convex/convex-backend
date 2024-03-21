@@ -74,7 +74,10 @@ use model::{
     },
 };
 use parking_lot::Mutex;
-use request_context::RequestContext;
+use request_context::{
+    RequestContext,
+    RequestId,
+};
 use usage_tracking::FunctionUsageTracker;
 use value::ResolvedDocumentId;
 
@@ -346,7 +349,9 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         job_id: ResolvedDocumentId,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let usage_tracker = FunctionUsageTracker::new();
-        let request_context = RequestContext::new(Some(job_id.into()));
+        // Generate a new request_id for every schedule job execution attempt.
+        let request_id = RequestId::new();
+        let request_context = RequestContext::new(request_id, Some(job_id.into()));
         let (success, mut tx) = self
             .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
             .await?;

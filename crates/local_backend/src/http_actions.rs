@@ -30,6 +30,7 @@ use isolate::{
     HttpActionRequestHead,
 };
 use keybroker::Identity;
+use request_context::RequestId;
 use url::Url;
 
 use crate::{
@@ -96,9 +97,14 @@ pub async fn http_any_method(
     // to go through if the header does not seem to specify Convex auth.
     let identity = identity_result.unwrap_or(Identity::Unknown);
 
+    // TODO: Move generating request_id and configuring sentry axum middleware.
+    let request_id = RequestId::new();
+    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
+
     let udf_return = st
         .application
         .http_action_udf(
+            request_id,
             udf_path,
             http_request_metadata,
             identity,

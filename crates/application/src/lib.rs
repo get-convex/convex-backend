@@ -941,6 +941,10 @@ impl<RT: Runtime> Application<RT> {
                 caller,
                 pause_client,
                 block_logging,
+                // TODO(presley): Passing context here means we use the same
+                // execution_id for all attempts of a mutation. It seem more
+                // correct to only pass request_id, parent_schedule_job and
+                // is_root here and generate a new RequestContext for each attempt.
                 context.clone(),
             )
             .await
@@ -1003,6 +1007,7 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn http_action_udf(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         http_request: HttpActionRequest,
         identity: Identity,
@@ -1017,7 +1022,7 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
         match self
-            .http_action_udf_inner(name, http_request, identity, caller)
+            .http_action_udf_inner(request_id, name, http_request, identity, caller)
             .await
         {
             Ok(Ok(result)) => Ok(result),
@@ -1039,6 +1044,7 @@ impl<RT: Runtime> Application<RT> {
 
     async fn http_action_udf_inner(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         http_request: HttpActionRequest,
         identity: Identity,
@@ -1073,8 +1079,8 @@ impl<RT: Runtime> Application<RT> {
             Ok(validated_path) => validated_path,
             Err(e) => return Ok(Err(e)),
         };
-        let context = RequestContext::new(None);
         let unix_timestamp = self.runtime.unix_timestamp();
+        let context = RequestContext::new(request_id, None);
 
         let route = http_request.head.route_for_failure()?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
@@ -1119,12 +1125,12 @@ impl<RT: Runtime> Application<RT> {
     /// Run a function of an arbitrary type from its name
     pub async fn any_udf(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
-        context: RequestContext,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
         let block_logging = self
             .log_visibility
@@ -1163,12 +1169,13 @@ impl<RT: Runtime> Application<RT> {
                 error: RedactedJsError::from_js_error(
                     JsError::from_message(missing_or_internal),
                     block_logging,
-                    context.request_id,
+                    request_id,
                 ),
                 log_lines: RedactedLogLines::empty(),
             }));
         };
 
+        let context = RequestContext::new(request_id, None);
         match analyzed_function.udf_type {
             UdfType::Query => self
                 .read_only_udf(name, args, identity, allowed_visibility, caller, context)
@@ -1875,6 +1882,7 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn execute_module(
         &self,
+        request_id: RequestId,
         module: ModuleConfig,
         args: Vec<JsonValue>,
         identity: Identity,
@@ -1974,16 +1982,15 @@ impl<RT: Runtime> Application<RT> {
         // 4. run the function within the transaction
         let path = CanonicalizedUdfPath::new(module_path, "default".to_owned());
         let arguments = parse_udf_args(&path.clone().into(), args)?;
-        let context = RequestContext::new(None);
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => self
                 .runner
                 .run_query_without_caching(
+                    request_id.clone(),
                     tx,
                     path,
                     arguments,
                     AllowedVisibility::All,
-                    context.clone(),
                     caller,
                 )
                 .await
@@ -2012,7 +2019,7 @@ impl<RT: Runtime> Application<RT> {
                 log_lines,
             }),
             Err(error) => Err(FunctionError {
-                error: RedactedJsError::from_js_error(error, block_logging, context.request_id),
+                error: RedactedJsError::from_js_error(error, block_logging, request_id),
                 log_lines,
             }),
         })

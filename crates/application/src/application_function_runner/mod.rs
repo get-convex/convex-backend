@@ -135,7 +135,10 @@ use node_executor::{
     BuildDepsRequest,
     ExecuteRequest,
 };
-use request_context::RequestContext;
+use request_context::{
+    RequestContext,
+    RequestId,
+};
 use serde_json::Value as JsonValue;
 use storage::Storage;
 use sync_types::{
@@ -540,11 +543,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     // Only used for running queries from REPLs.
     pub async fn run_query_without_caching(
         &self,
+        request_id: RequestId,
         mut tx: Transaction<RT>,
         udf_path: CanonicalizedUdfPath,
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
-        context: RequestContext,
         caller: FunctionCaller,
     ) -> anyhow::Result<UdfOutcome> {
         if !(tx.identity().is_admin() || tx.identity().is_system()) {
@@ -562,6 +565,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             self.module_cache.clone(),
         )
         .await?;
+        let context = RequestContext::new(request_id, None);
         let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
                 self.isolate_functions

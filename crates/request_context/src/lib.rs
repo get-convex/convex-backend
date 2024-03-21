@@ -16,6 +16,9 @@ use value::{
     sha256,
 };
 
+// TODO(presley): This should really be renamed to FunctionContext since the
+// execution_id and is_root are very specific to functions, not requests in
+// general.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct RequestContext {
@@ -34,9 +37,9 @@ pub struct RequestContext {
 }
 
 impl RequestContext {
-    pub fn new(parent_scheduled_job: Option<DocumentIdV6>) -> Self {
+    pub fn new(request_id: RequestId, parent_scheduled_job: Option<DocumentIdV6>) -> Self {
         Self {
-            request_id: RequestId::new(),
+            request_id,
             execution_id: ExecutionId::new(),
             parent_scheduled_job,
             is_root: true,

@@ -72,7 +72,10 @@ use model::{
         CRON_JOBS_INDEX_BY_NEXT_TS,
     },
 };
-use request_context::RequestContext;
+use request_context::{
+    RequestContext,
+    RequestId,
+};
 use usage_tracking::FunctionUsageTracker;
 use value::ResolvedDocumentId;
 
@@ -228,8 +231,10 @@ impl<RT: Runtime> CronJobExecutor<RT> {
     ) -> ResolvedDocumentId {
         let mut function_backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
         loop {
+            // Use a new request_id for every cron job execution attempt.
+            let request_id = RequestId::new();
             let result = self
-                .run_function(job.clone(), job_id, RequestContext::new(None))
+                .run_function(job.clone(), job_id, RequestContext::new(request_id, None))
                 .await;
             match result {
                 Ok(result) => {

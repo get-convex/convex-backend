@@ -100,7 +100,7 @@ impl LogEvent {
         use sync_types::UserIdentifier;
 
         let source = EventSource::Function(FunctionEventSource {
-            context: RequestContext::new(None),
+            context: RequestContext::new_for_test(),
             path: "test".to_string(),
             udf_type: UdfType::Action,
             module_environment: ModuleEnvironment::Isolate,
@@ -244,7 +244,7 @@ mod tests {
             topic: LogTopic::Console,
             timestamp: UnixTimestamp::from_millis(1000),
             source: EventSource::Function(FunctionEventSource {
-                context: RequestContext::new(None),
+                context: RequestContext::new_for_test(),
                 path: "test:test".to_string(),
                 udf_type: UdfType::Query,
                 module_environment: ModuleEnvironment::Isolate,
@@ -282,7 +282,7 @@ mod tests {
             topic: LogTopic::User("myTopic".to_string()),
             timestamp: UnixTimestamp::from_millis(1000),
             source: EventSource::Function(FunctionEventSource {
-                context: RequestContext::new(None),
+                context: RequestContext::new_for_test(),
                 path: "test:test".to_string(),
                 udf_type: UdfType::Query,
                 module_environment: ModuleEnvironment::Isolate,

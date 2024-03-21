@@ -27,7 +27,10 @@ use model::{
         SchedulerModel,
     },
 };
-use request_context::RequestContext;
+use request_context::{
+    RequestContext,
+    RequestId,
+};
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
 use sync_types::UdfPath;
@@ -285,7 +288,6 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
 
     // Run a mutation that has a canceled parent job and schedules
     let parent_scheduled_job = Some(job_id.into());
-    let context = RequestContext::new(parent_scheduled_job);
     application
         .mutation_udf(
             UdfPath::from_str("scheduler:scheduleWithArbitraryJson")?,
@@ -295,7 +297,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
             AllowedVisibility::All,
             FunctionCaller::Action,
             PauseClient::new(),
-            RequestContext::new(Some(job_id.into())),
+            RequestContext::new(RequestId::new(), parent_scheduled_job),
         )
         .await??;
 
@@ -307,7 +309,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
             Identity::system(),
             AllowedVisibility::All,
             FunctionCaller::Action,
-            context,
+            RequestContext::new(RequestId::new(), parent_scheduled_job),
         )
         .await??;
 

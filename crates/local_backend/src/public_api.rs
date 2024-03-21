@@ -28,7 +28,10 @@ use common::{
 };
 use errors::ErrorMetadata;
 use isolate::UdfArgsJson;
-use request_context::RequestContext;
+use request_context::{
+    RequestContext,
+    RequestId,
+};
 use serde::{
     Deserialize,
     Serialize,
@@ -147,17 +150,20 @@ pub async fn public_function_post(
         return Result::Err(anyhow!(bad_admin_key_error(Some(st.instance_name.clone()))).into());
     }
 
-    let context = RequestContext::new(None);
+    // TODO: Move generating request_id and configuring sentry axum middleware.
+    let request_id = RequestId::new();
+    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
+
     let udf_path = parse_udf_path(&req.path)?;
     let udf_result = st
         .application
         .any_udf(
+            request_id,
             udf_path,
             req.args.into_arg_vec(),
             identity,
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
-            context,
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -209,6 +215,9 @@ pub async fn public_query_get(
         "InvalidConvexFunction",
         format!("Failed to parse Convex function path: {}", req.path),
     ))?;
+    // TODO: Move generating request_id and configuring sentry axum middleware.
+    let request_id = RequestId::new();
+    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
     let args = req.args.into_arg_vec();
     let udf_return = st
         .application
@@ -218,7 +227,7 @@ pub async fn public_query_get(
             identity,
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
-            RequestContext::new(None),
+            RequestContext::new(request_id, None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -244,6 +253,9 @@ pub async fn public_query_post(
         "InvalidConvexFunction",
         format!("Failed to parse Convex function path: {}", req.path),
     ))?;
+    // TODO: Move generating request_id and configuring sentry axum middleware.
+    let request_id = RequestId::new();
+    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
     let udf_return = st
         .application
         .read_only_udf(
@@ -252,7 +264,7 @@ pub async fn public_query_post(
             identity,
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
-            RequestContext::new(None),
+            RequestContext::new(request_id, None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -286,6 +298,9 @@ pub async fn public_query_batch_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut results = vec![];
     let ts = *st.application.now_ts_for_reads();
+    // TODO: Move generating request_id and configuring sentry axum middleware.
+    let request_id = RequestId::new();
+    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
     for req in req_batch.queries {
         let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
         let udf_path = parse_udf_path(&req.path)?;
@@ -299,7 +314,8 @@ pub async fn public_query_batch_post(
                 None,
                 AllowedVisibility::PublicOnly,
                 FunctionCaller::HttpApi(client_version.clone()),
-                RequestContext::new(None),
+                // NOTE we generate a new request context for each query execution.
+                RequestContext::new(request_id.clone(), None),
             )
             .await?;
         let response = match udf_return.result {
@@ -326,6 +342,9 @@ pub async fn public_mutation_post(
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
+    // TODO: Move generating request_id and configuring sentry axum middleware.
+    let request_id = RequestId::new();
+    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
     let udf_result = st
         .application
         .mutation_udf(
@@ -336,7 +355,7 @@ pub async fn public_mutation_post(
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
             PauseClient::new(),
-            RequestContext::new(None),
+            RequestContext::new(request_id, None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -361,6 +380,9 @@ pub async fn public_action_post(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    // TODO: Move generating request_id and configuring sentry axum middleware.
+    let request_id = RequestId::new();
+    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
     let udf_path = parse_udf_path(&req.path)?;
     let action_result = st
         .application
@@ -370,7 +392,7 @@ pub async fn public_action_post(
             identity,
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
-            RequestContext::new(None),
+            RequestContext::new(request_id, None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
