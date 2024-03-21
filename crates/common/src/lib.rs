@@ -27,6 +27,7 @@ pub mod auth;
 pub mod backoff;
 pub mod bootstrap_model;
 pub mod bounds;
+pub mod client_pool;
 pub mod codel_queue;
 pub mod comparators;
 pub mod document;

@@ -778,6 +778,12 @@ pub static BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT: LazyLock<usize> =
 pub static AWS_LAMBDA_DEPLOY_SPLAY_SECONDS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 300)));
 
+/// The maximum number of requests to send using a single AWS Lambda client.
+/// Empirical tests have shown that AWS servers allows up to 128 concurrent
+/// streams over a single http2 connection.
+pub static AWS_LAMBDA_CLIENT_MAX_CONCURRENT_REQUESTS: LazyLock<usize> =
+    LazyLock::new(|| env_config("AWS_LAMBDA_MAX_CONCURRENT_STREAMS_PER_CONNECTION", 100));
+
 /// The number of seconds backend should wait for requests to drain before
 /// shutting down after SIGINT.
 pub static BACKEND_REQUEST_DRAIN_TIMEOUT: LazyLock<Duration> =
