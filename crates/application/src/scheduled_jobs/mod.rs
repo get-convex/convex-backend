@@ -30,6 +30,8 @@ use common::{
         RuntimeInstant,
         SpawnHandle,
     },
+    sync::mpsc,
+    tokio::task::yield_now,
     types::{
         AllowedVisibility,
         FunctionCaller,
@@ -44,13 +46,10 @@ use database::{
 };
 use errors::ErrorMetadataAnyhowExt;
 use futures::{
-    channel::oneshot,
     future::Either,
     select_biased,
-    stream::FuturesUnordered,
     Future,
     FutureExt,
-    StreamExt,
 };
 use isolate::{
     ActionOutcome,
@@ -153,6 +152,12 @@ pub struct ScheduledJobContext<RT: Runtime> {
     function_log: FunctionExecutionLog<RT>,
 }
 
+/// This roughly matches tokio's permits that it uses as part of cooperative
+/// scheduling. We shouldn't use this for anything sophisticated, it's just a
+/// simple way for us to yield occasionally for scheduled jobs but not yield too
+/// often. We really don't need anything fancy here.
+const CHECKS_BETWEEN_YIELDS: usize = 128;
+
 impl<RT: Runtime> ScheduledJobExecutor<RT> {
     pub fn start(
         rt: RT,
@@ -196,11 +201,29 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         }
     }
 
+    async fn drain_finished_jobs(
+        running_job_ids: &mut HashSet<ResolvedDocumentId>,
+        rx: &mut mpsc::Receiver<ResolvedDocumentId>,
+    ) {
+        let mut total_drained = 0;
+        while let Ok(job_id) = rx.try_recv() {
+            total_drained += 1;
+            running_job_ids.remove(&job_id);
+            if total_drained % CHECKS_BETWEEN_YIELDS == 0 {
+                yield_now().await;
+            }
+        }
+        tracing::debug!("Drained {total_drained} finished scheduled jobs from the channel");
+    }
+
     async fn run(&self, backoff: &mut Backoff) -> anyhow::Result<()> {
         tracing::info!("Starting scheduled job executor");
-        let mut futures = FuturesUnordered::new();
+        let (job_result_tx, mut job_result_rx) =
+            mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
         let mut running_job_ids = HashSet::new();
         loop {
+            Self::drain_finished_jobs(&mut running_job_ids, &mut job_result_rx).await;
+
             let mut tx = self.database.begin(Identity::Unknown).await?;
             // _backend_state appears unused but is needed to make sure the backend_state
             // is part of the readset for the query we subscribe to.
@@ -250,22 +273,13 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                     next_job_wait = Some(Duration::from_secs(5));
                     break;
                 }
-                let (tx, rx) = oneshot::channel();
                 let context = self.context.clone();
+                let tx = job_result_tx.clone();
                 self.rt.spawn("spawn_scheduled_job", async move {
                     let result = context.execute_job(job, job_id).await;
-                    let _ = tx.send(result);
+                    let _ = tx.send(result).await;
                 });
 
-                futures.push(async move {
-                    let Ok(result) = rx.await else {
-                        // This should never happen, but if it does, it's the same scenario as if
-                        // backend crashed during execution which we have to handle anyway.
-                        report_error(&mut anyhow::anyhow!("Cancelled job!"));
-                        return job_id;
-                    };
-                    result
-                });
                 running_job_ids.insert(job_id);
             }
 
@@ -279,8 +293,12 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             let subscription = self.database.subscribe(token).await?;
 
             select_biased! {
-                job_id = futures.select_next_some() => {
-                    running_job_ids.remove(&job_id);
+                job_id = job_result_rx.recv().fuse() => {
+                    if let Some(job_id) = job_id {
+                        running_job_ids.remove(&job_id);
+                    } else {
+                        anyhow::bail!("Job results channel closed, this is unexpected!");
+                    }
                 }
                 _ = next_job_future.fuse() => {
                 }
