@@ -34,7 +34,6 @@ use common::{
         schema::{
             invalid_schema_id,
             parse_schema_id,
-            SchemaState,
         },
     },
     document::{
@@ -103,7 +102,6 @@ use database::{
     IndexModel,
     IndexWorker,
     OccRetryStats,
-    SchemaModel,
     SearchIndexWorker,
     ShortBoxFuture,
     Snapshot,
@@ -1882,7 +1880,7 @@ impl<RT: Runtime> Application<RT> {
         clear_tables(self, identity, table_names).await
     }
 
-    pub async fn execute_module(
+    pub async fn execute_standalone_module(
         &self,
         request_id: RequestId,
         module: ModuleConfig,
@@ -1909,13 +1907,10 @@ impl<RT: Runtime> Application<RT> {
             .map(|udf_config| udf_config.server_version.clone())
             .unwrap_or_else(|| Version::parse("1000.0.0").unwrap());
 
-        // Use existing schema if any
-        let schema_id = SchemaModel::new(&mut tx)
-            .get_by_state(SchemaState::Active)
-            .await?
-            .map(|(schema_id, _)| schema_id.into());
-
         // 1. analyze the module
+        // We can analyze this module by itself, without combining it with the existing
+        // modules since this module should be self-contained and not import
+        // from other modules.
         let udf_config = UdfConfig {
             server_version,
             import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
@@ -1923,10 +1918,8 @@ impl<RT: Runtime> Application<RT> {
         };
 
         let module_path = module.path.clone().canonicalize();
-        let modules = vec![module];
-
         let analyze_results = self
-            .analyze(udf_config.clone(), modules.clone(), None)
+            .analyze(udf_config.clone(), vec![module.clone()], None)
             .await?
             .map_err(|js_error| {
                 let metadata = ErrorMetadata::bad_request(
@@ -1936,41 +1929,12 @@ impl<RT: Runtime> Application<RT> {
                 anyhow::anyhow!(js_error).context(metadata)
             })?;
 
-        // 2. apply the config to the transaction
-        Self::_apply_config(
-            self.runner.clone(),
-            &mut tx,
-            ApplyConfigArgs {
-                // TODO: When we want to support auth testing,
-                // we need to use the deployment's pushed auth config.
-                auth_module: None,
-                config_file: ConfigFile {
-                    functions: "convex".to_owned(),
-                    auth_info: None,
-                },
-                schema_id,
-                modules,
-                udf_config,
-                source_package: None,
-                analyze_results,
-            },
-        )
-        .await?;
+        let analyzed_module = analyze_results
+            .get(&module_path)
+            .ok_or_else(|| anyhow::anyhow!("Unexpectedly missing analyze result"))?
+            .clone();
 
-        // 3. get the function type
-        let mut module_model = ModuleModel::new(&mut tx);
-        let module_metadata = module_model
-            .get_metadata(module_path.clone())
-            .await?
-            .context("Unexpectedly cannot load module")?;
-        let module_version = module_model
-            .get_version(module_metadata.id(), module_metadata.latest_version)
-            .await?;
-        let analyzed_module = module_version
-            .analyze_result
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Unexpectedly missing analyze result"))?;
-
+        // 2. get the function type
         let mut analyzed_function = None;
         for function in &analyzed_module.functions {
             if function.name.as_ref() == "default" {
@@ -1980,6 +1944,18 @@ impl<RT: Runtime> Application<RT> {
             }
         }
         let analyzed_function = analyzed_function.context("Missing default export.")?;
+
+        // 3. Add the module
+        ModuleModel::new(&mut tx)
+            .put(
+                module_path.clone(),
+                module.source,
+                None,
+                module.source_map,
+                Some(analyzed_module),
+                ModuleEnvironment::Isolate,
+            )
+            .await?;
 
         // 4. run the function within the transaction
         let path = CanonicalizedUdfPath::new(module_path, "default".to_owned());
