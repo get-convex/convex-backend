@@ -9,9 +9,12 @@ use std::{
 };
 
 use anyhow::Context;
-use common::types::{
-    ModuleEnvironment,
-    UdfIdentifier,
+use common::{
+    request_context::ExecutionId,
+    types::{
+        ModuleEnvironment,
+        UdfIdentifier,
+    },
 };
 use events::usage::{
     UsageEvent,
@@ -23,7 +26,6 @@ use pb::usage::{
     CounterWithTag as CounterWithTagProto,
     FunctionUsageStats as FunctionUsageStatsProto,
 };
-use request_context::ExecutionId;
 use value::heap_size::{
     HeapSize,
     WithHeapSize,

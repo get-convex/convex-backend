@@ -31,6 +31,7 @@ futures = { workspace = true }
 futures-async-stream = { workspace = true }
 governor = { workspace = true }
 headers = { workspace = true }
+hex = { workspace = true }
 http = { workspace = true }
 humansize = { workspace = true }
 hyper = { workspace = true }
@@ -51,7 +52,6 @@ prost-types = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true, optional = true }
 regex = { workspace = true }
-request_context = { path = "../request_context" }
 reqwest = { workspace = true }
 semver = { workspace = true }
 sentry = { workspace = true }
@@ -90,7 +90,6 @@ proptest = { workspace = true }
 proptest-derive = { workspace = true }
 proptest-http = { workspace = true }
 rand_chacha = { workspace = true }
-request_context = { path = "../request_context", features = ["testing"] }
 shape_inference = { path = "../shape_inference", features = ["testing"] }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = [
     "testing",
@@ -108,7 +107,6 @@ testing = [
     "proptest-derive",
     "proptest-http",
     "rand_chacha",
-    "request_context/testing",
     "sync_types/testing",
     "shape_inference/testing",
     "value/testing",

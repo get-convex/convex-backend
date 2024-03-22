@@ -20,6 +20,10 @@ use common::{
         HttpResponseError,
     },
     pause::PauseClient,
+    request_context::{
+        RequestContext,
+        RequestId,
+    },
     types::{
         AllowedVisibility,
         FunctionCaller,
@@ -28,10 +32,6 @@ use common::{
 };
 use errors::ErrorMetadata;
 use isolate::UdfArgsJson;
-use request_context::{
-    RequestContext,
-    RequestId,
-};
 use serde::{
     Deserialize,
     Serialize,

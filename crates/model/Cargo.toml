@@ -29,7 +29,6 @@ proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 rand = { workspace = true }
 regex = { workspace = true }
-request_context = { path = "../request_context" }
 runtime = { path = "../runtime" }
 saffron = { workspace = true }
 search = { path = "../search" }
@@ -52,7 +51,6 @@ keybroker = { path = "../keybroker", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-request_context = { path = "../request_context", features = ["testing"] }
 runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 storage = { path = "../storage" }
@@ -70,7 +68,6 @@ testing = [
     "metrics/testing",
     "proptest",
     "proptest-derive",
-    "request_context/testing",
     "runtime/testing",
     "search/testing",
     "usage_tracking/testing",

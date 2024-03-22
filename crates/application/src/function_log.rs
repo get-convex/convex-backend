@@ -27,6 +27,7 @@ use common::{
         LogSender,
         LogTopic,
     },
+    request_context::RequestContext,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -55,7 +56,6 @@ use isolate::{
     UdfOutcome,
 };
 use parking_lot::Mutex;
-use request_context::RequestContext;
 use serde::Deserialize;
 use serde_json::{
     json,

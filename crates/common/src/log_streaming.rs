@@ -1,10 +1,10 @@
-use request_context::RequestContext;
 use serde_json::Value as JsonValue;
 use value::heap_size::HeapSize;
 
 use crate::{
     errors::JsError,
     identity::InertIdentity,
+    request_context::RequestContext,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -213,7 +213,6 @@ impl HeapSize for FunctionEventSource {
 
 #[cfg(test)]
 mod tests {
-    use request_context::RequestContext;
     use serde_json::{
         json,
         Value as JsonValue,
@@ -226,6 +225,7 @@ mod tests {
             LogEvent,
             LogTopic,
         },
+        request_context::RequestContext,
         runtime::UnixTimestamp,
         types::{
             ModuleEnvironment,

@@ -33,6 +33,7 @@ use common::{
         LogLine,
         TRUNCATED_LINE_SUFFIX,
     },
+    request_context::RequestContext,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -71,7 +72,6 @@ use model::{
 };
 use parking_lot::Mutex;
 use rand_chacha::ChaCha12Rng;
-use request_context::RequestContext;
 use serde_json::Value as JsonValue;
 use sync_types::{
     CanonicalizedUdfPath,

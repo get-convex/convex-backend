@@ -3,10 +3,10 @@ use std::fmt;
 use common::{
     errors::JsError,
     log_lines::LogLines,
+    request_context::RequestId,
 };
 use http::StatusCode;
 use isolate::HttpActionResponse;
-use request_context::RequestId;
 use serde::{
     Deserialize,
     Serialize,
@@ -171,11 +171,13 @@ impl From<RedactedJsError> for HttpActionResponse {
 
 #[cfg(test)]
 pub mod tests {
-    use common::errors::JsError;
+    use common::{
+        errors::JsError,
+        request_context::RequestId,
+    };
     use isolate::HttpActionResponse;
     use must_let::must_let;
     use proptest::prelude::*;
-    use request_context::RequestId;
     use serde_json::Value as JsonValue;
 
     use crate::redaction::RedactedJsError;

@@ -21,6 +21,7 @@ use common::{
         Order,
         Query,
     },
+    request_context::RequestContext,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -40,7 +41,6 @@ use database::{
 };
 use errors::ErrorMetadata;
 use maplit::btreemap;
-use request_context::RequestContext;
 use sync_types::UdfPath;
 use value::{
     id_v6::DocumentIdV6,

@@ -36,7 +36,6 @@ model = { path = "../model" }
 node_executor = { path = "../node_executor" }
 parking_lot = { workspace = true }
 rand = { workspace = true }
-request_context = { path = "../request_context" }
 runtime = { path = "../runtime" }
 search = { path = "../search" }
 sentry = { workspace = true }
@@ -73,7 +72,6 @@ metrics = { path = "../metrics", features = ["testing"] }
 model = { path = "../model", features = ["testing"] }
 node_executor = { path = "../node_executor", features = ["testing"] }
 portpicker = { workspace = true }
-request_context = { path = "../request_context", features = ["testing"] }
 runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }

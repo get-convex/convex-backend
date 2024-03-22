@@ -23,6 +23,7 @@ use common::{
         UDF_CACHE_MAX_SIZE,
     },
     query_journal::QueryJournal,
+    request_context::RequestContext,
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -74,7 +75,6 @@ use metrics::{
     GoReason,
 };
 use parking_lot::Mutex;
-use request_context::RequestContext;
 use sync_types::CanonicalizedUdfPath;
 use usage_tracking::FunctionUsageTracker;
 use value::heap_size::HeapSize;

@@ -194,6 +194,7 @@ mod tests {
             run_function_and_collect_log_lines,
             LogLines,
         },
+        request_context::RequestContext,
         types::{
             ModuleEnvironment,
             UdfType,
@@ -227,7 +228,6 @@ mod tests {
             },
         },
     };
-    use request_context::RequestContext;
     use runtime::prod::ProdRuntime;
     use storage::{
         LocalDirStorage,

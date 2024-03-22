@@ -13,6 +13,7 @@ use common::{
         Order,
         Query,
     },
+    request_context::ExecutionId,
     types::{
         IndexName,
         ModuleEnvironment,
@@ -23,7 +24,6 @@ use common::{
 use keybroker::Identity;
 use maplit::btreeset;
 use pretty_assertions::assert_eq;
-use request_context::ExecutionId;
 use runtime::testing::TestRuntime;
 use usage_tracking::{
     CallType,

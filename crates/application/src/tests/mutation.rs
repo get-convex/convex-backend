@@ -5,6 +5,7 @@ use common::{
         PauseClient,
         PauseController,
     },
+    request_context::RequestContext,
     types::{
         AllowedVisibility,
         FunctionCaller,
@@ -12,7 +13,6 @@ use common::{
 };
 use errors::ErrorMetadataAnyhowExt;
 use keybroker::Identity;
-use request_context::RequestContext;
 use runtime::testing::TestRuntime;
 use serde_json::{
     json,

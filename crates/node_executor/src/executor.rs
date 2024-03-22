@@ -15,6 +15,7 @@ use common::{
         JsError,
     },
     log_lines::LogLine,
+    request_context::RequestContext,
     sha256::Sha256Digest,
     types::{
         ActionCallbackToken,
@@ -59,7 +60,6 @@ use model::{
         SourcePackageId,
     },
 };
-use request_context::RequestContext;
 use serde::Deserialize;
 use serde_json::{
     json,

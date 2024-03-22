@@ -60,6 +60,10 @@ use common::{
     pause::PauseClient,
     persistence::Persistence,
     query_journal::QueryJournal,
+    request_context::{
+        RequestContext,
+        RequestId,
+    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -218,10 +222,6 @@ use node_executor::{
 };
 use parking_lot::Mutex;
 use rand::Rng;
-use request_context::{
-    RequestContext,
-    RequestId,
-};
 use scheduled_jobs::ScheduledJobRunner;
 use schema_worker::SchemaWorker;
 use search::{

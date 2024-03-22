@@ -32,6 +32,10 @@ use common::{
     },
     pause::PauseClient,
     query_journal::QueryJournal,
+    request_context::{
+        RequestContext,
+        RequestId,
+    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -134,10 +138,6 @@ use node_executor::{
     AnalyzeRequest,
     BuildDepsRequest,
     ExecuteRequest,
-};
-use request_context::{
-    RequestContext,
-    RequestId,
 };
 use serde_json::Value as JsonValue;
 use storage::Storage;

@@ -27,6 +27,11 @@ use common::{
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     pause::PauseClient,
     query_journal::QueryJournal,
+    request_context::{
+        ExecutionId,
+        RequestContext,
+        RequestId,
+    },
     runtime::{
         Runtime,
         WithTimeout,
@@ -62,11 +67,6 @@ use futures::{
     StreamExt,
 };
 use model::session_requests::types::SessionRequestIdentifier;
-use request_context::{
-    ExecutionId,
-    RequestContext,
-    RequestId,
-};
 use sync_types::{
     ClientMessage,
     IdentityVersion,

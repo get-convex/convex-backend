@@ -35,6 +35,7 @@ use common::{
     log_lines::LogLine,
     pause::PauseClient,
     query_journal::QueryJournal,
+    request_context::RequestContext,
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -104,7 +105,6 @@ use pb::common::{
     FunctionResult as FunctionResultProto,
 };
 use prometheus::VMHistogram;
-use request_context::RequestContext;
 use serde_json::Value as JsonValue;
 use sync_types::{
     CanonicalizedModulePath,

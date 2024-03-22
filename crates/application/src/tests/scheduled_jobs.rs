@@ -8,6 +8,10 @@ use common::{
         PauseClient,
         PauseController,
     },
+    request_context::{
+        RequestContext,
+        RequestId,
+    },
     runtime::Runtime,
     types::{
         AllowedVisibility,
@@ -29,10 +33,6 @@ use model::{
         types::ScheduledJobState,
         SchedulerModel,
     },
-};
-use request_context::{
-    RequestContext,
-    RequestId,
 };
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;

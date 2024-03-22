@@ -16,6 +16,7 @@ use common::{
     document::DocumentUpdate,
     log_lines::LogLine,
     query_journal::QueryJournal,
+    request_context::RequestContext,
     runtime::Runtime,
     types::{
         IndexId,
@@ -43,7 +44,6 @@ use model::environment_variables::types::{
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::strategy::Strategy;
-use request_context::RequestContext;
 use sync_types::Timestamp;
 use usage_tracking::FunctionUsageStats;
 use value::{

@@ -25,6 +25,7 @@ use common::{
         RetentionValidator,
     },
     query_journal::QueryJournal,
+    request_context::RequestContext,
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -87,7 +88,6 @@ use parking_lot::{
     Mutex,
     RwLock,
 };
-use request_context::RequestContext;
 use storage::Storage;
 use sync_types::Timestamp;
 use usage_tracking::{

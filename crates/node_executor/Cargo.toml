@@ -27,7 +27,6 @@ keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
 model = { path = "../model" }
-request_context = { path = "../request_context" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sourcemap = { workspace = true }
@@ -48,7 +47,6 @@ keybroker = { path = "../keybroker", features = ["testing"] }
 maplit = { workspace = true }
 metrics = { path = "../metrics", features = ["testing"] }
 model = { path = "../model", features = ["testing"] }
-request_context = { path = "../request_context", features = ["testing"] }
 runtime = { path = "../runtime", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 tempfile = { workspace = true }
@@ -62,7 +60,6 @@ testing = [
     "keybroker/testing",
     "metrics/testing",
     "model/testing",
-    "request_context/testing",
     "storage/testing",
     "value/testing",
 ]

@@ -9,6 +9,7 @@ use application::{
 };
 use common::{
     assert_obj,
+    request_context::RequestContext,
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -45,7 +46,6 @@ use model::{
 };
 use must_let::must_let;
 use parking_lot::Mutex;
-use request_context::RequestContext;
 use runtime::testing::{
     TestFutureHandle,
     TestRuntime,

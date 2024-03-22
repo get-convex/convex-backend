@@ -1,3 +1,4 @@
+use common::request_context::RequestContext;
 use futures::{
     future::BoxFuture,
     select_biased,
@@ -7,7 +8,6 @@ use model::environment_variables::types::{
     EnvVarName,
     EnvVarValue,
 };
-use request_context::RequestContext;
 mod async_syscall;
 
 pub mod outcome;

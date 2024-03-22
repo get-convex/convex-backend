@@ -26,6 +26,10 @@ use common::{
         Order,
         Query,
     },
+    request_context::{
+        RequestContext,
+        RequestId,
+    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -75,10 +79,6 @@ use model::{
     },
 };
 use parking_lot::Mutex;
-use request_context::{
-    RequestContext,
-    RequestId,
-};
 use sync_types::Timestamp;
 use usage_tracking::FunctionUsageTracker;
 use value::ResolvedDocumentId;

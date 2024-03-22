@@ -56,6 +56,7 @@ pub mod pii;
 pub mod pool_stats;
 pub mod query;
 pub mod query_journal;
+pub mod request_context;
 pub mod runtime;
 pub mod schemas;
 pub mod sha256;

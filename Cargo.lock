@@ -196,7 +196,6 @@ dependencies = [
  "proptest",
  "rand 0.8.5",
  "regex",
- "request_context",
  "runtime",
  "search",
  "semver 1.0.19",
@@ -1072,6 +1071,7 @@ dependencies = [
  "futures-async-stream",
  "governor",
  "headers",
+ "hex",
  "http",
  "humansize",
  "hyper",
@@ -1094,7 +1094,6 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "regex",
- "request_context",
  "reqwest",
  "semver 1.0.19",
  "sentry",
@@ -1672,7 +1671,6 @@ dependencies = [
  "proptest-derive",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "request_context",
  "runtime",
  "search",
  "segment",
@@ -2303,7 +2301,6 @@ dependencies = [
  "metrics",
  "mime",
  "model",
- "request_context",
  "runtime",
  "storage",
  "tracing",
@@ -2474,7 +2471,6 @@ dependencies = [
  "prometheus",
  "proptest",
  "proptest-derive",
- "request_context",
  "runtime",
  "search",
  "serde_json",
@@ -3355,7 +3351,6 @@ dependencies = [
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "regex",
- "request_context",
  "ring 0.17.8",
  "rsa",
  "runtime",
@@ -3780,7 +3775,6 @@ dependencies = [
  "parking_lot",
  "portpicker",
  "rand 0.8.5",
- "request_context",
  "runtime",
  "search",
  "sentry",
@@ -4078,7 +4072,6 @@ dependencies = [
  "proptest-derive",
  "rand 0.8.5",
  "regex",
- "request_context",
  "runtime",
  "saffron",
  "search",
@@ -4219,7 +4212,6 @@ dependencies = [
  "maplit",
  "metrics",
  "model",
- "request_context",
  "runtime",
  "serde",
  "serde_json",
@@ -5503,26 +5495,6 @@ name = "regex-syntax"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dbb5fb1acd8a1a18b3dd5be62d25485eb770e05afb408a9627d14d451bae12da"
-
-[[package]]
-name = "request_context"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "common 0.1.0",
- "convex_sync_types",
- "hex",
- "must-let",
- "pb",
- "proptest",
- "proptest-derive",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "uuid",
- "value",
-]
 
 [[package]]
 name = "reqwest"
@@ -6809,7 +6781,6 @@ dependencies = [
  "parking_lot",
  "proptest",
  "proptest-derive",
- "request_context",
  "runtime",
  "serde",
  "serde_json",
@@ -7708,7 +7679,6 @@ dependencies = [
  "pb",
  "proptest",
  "proptest-derive",
- "request_context",
  "serde",
  "serde_json",
  "tracing",

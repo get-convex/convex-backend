@@ -23,6 +23,10 @@ use common::{
         Order,
         Query,
     },
+    request_context::{
+        RequestContext,
+        RequestId,
+    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -71,10 +75,6 @@ use model::{
         CronModel,
         CRON_JOBS_INDEX_BY_NEXT_TS,
     },
-};
-use request_context::{
-    RequestContext,
-    RequestId,
 };
 use usage_tracking::FunctionUsageTracker;
 use value::ResolvedDocumentId;

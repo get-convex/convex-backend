@@ -23,7 +23,6 @@ model = { path = "../model" }
 parking_lot = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
-request_context = { path = "../request_context" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
@@ -42,7 +41,6 @@ model = { path = "../model", features = ["testing"] }
 must-let = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-request_context = { path = "../request_context", features = ["testing"] }
 runtime = { path = "../runtime", features = ["testing"] }
 
 [features]
@@ -57,5 +55,4 @@ testing = [
     "model/testing",
     "proptest",
     "proptest-derive",
-    "request_context/testing",
 ]

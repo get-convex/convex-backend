@@ -1,5 +1,3 @@
-#![feature(impl_trait_in_assoc_type)]
-
 use std::str::FromStr;
 
 use anyhow::Context;

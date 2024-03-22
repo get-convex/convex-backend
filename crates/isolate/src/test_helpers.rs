@@ -29,6 +29,7 @@ use common::{
     },
     persistence::Persistence,
     query_journal::QueryJournal,
+    request_context::RequestContext,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -94,7 +95,6 @@ use model::{
     },
     virtual_system_mapping,
 };
-use request_context::RequestContext;
 use search::searcher::InProcessSearcher;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
