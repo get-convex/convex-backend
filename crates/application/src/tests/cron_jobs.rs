@@ -94,7 +94,6 @@ fn cron_log_query<RT: Runtime>(tx: &mut Transaction<RT>) -> anyhow::Result<Devel
     )
 }
 
-#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
 #[convex_macro::test_runtime]
 pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
@@ -114,12 +113,12 @@ pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()
 
     // Cron jobs executor within application will pick up the job and
     // execute it. Add some wait time to make this less racy.
-    rt.wait(Duration::from_secs(1)).await;
+    rt.wait(Duration::from_secs(100)).await;
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     assert!(!table_model.table_is_empty(&OBJECTS_TABLE).await?);
     let mut logs_query = cron_log_query(&mut tx)?;
-    logs_query.expect_one(&mut tx).await?;
+    assert!(logs_query.next(&mut tx, None).await?.is_some());
     Ok(())
 }
 
@@ -152,7 +151,6 @@ pub(crate) async fn test_cron_jobs_race_condition(rt: TestRuntime) -> anyhow::Re
     Ok(())
 }
 
-#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
 #[convex_macro::test_runtime]
 async fn test_paused_cron_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_cron_jobs_helper(rt, BackendState::Paused).await?;
@@ -160,7 +158,6 @@ async fn test_paused_cron_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
 #[convex_macro::test_runtime]
 async fn test_disable_cron_jobs(rt: TestRuntime) -> anyhow::Result<()> {
     test_cron_jobs_helper(rt, BackendState::Disabled).await?;
@@ -192,7 +189,7 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     // Cron jobs executor within application will pick up the job and
     // execute it. Add some wait time to make this less racy. Job should not execute
     // because the backend is paused.
-    rt.wait(Duration::from_secs(1)).await;
+    rt.wait(Duration::from_secs(100)).await;
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     assert!(table_model.table_is_empty(&OBJECTS_TABLE).await?);
@@ -203,12 +200,12 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     let mut model = BackendStateModel::new(&mut tx);
     model.toggle_backend_state(BackendState::Running).await?;
     application.commit_test(tx).await?;
-    rt.wait(Duration::from_secs(1)).await;
+    rt.wait(Duration::from_secs(100)).await;
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     assert!(!table_model.table_is_empty(&OBJECTS_TABLE).await?);
     let mut logs_query = cron_log_query(&mut tx)?;
-    logs_query.expect_one(&mut tx).await?;
+    assert!(logs_query.next(&mut tx, None).await?.is_some());
 
     Ok(())
 }

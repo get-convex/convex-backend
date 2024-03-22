@@ -280,7 +280,6 @@ async fn test_scheduled_jobs_helper(
     Ok(())
 }
 
-#[ignore] // TODO(CX-6058) Fix this test and remove the ignore
 #[convex_macro::test_runtime]
 async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
