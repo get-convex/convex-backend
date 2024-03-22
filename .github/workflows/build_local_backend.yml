@@ -19,7 +19,7 @@ jobs:
     runs-on: [self-hosted, aws, x64, xlarge]
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Rust
         uses: ./.github/actions/setup-rust
@@ -47,7 +47,7 @@ jobs:
           restore-keys: pnpm-cache-
 
       - name: Node setup
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version-file: ".nvmrc"
 
