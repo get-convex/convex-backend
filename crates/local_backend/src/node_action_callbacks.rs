@@ -92,17 +92,14 @@ pub async fn internal_query_post(
     let udf_return = st
         .application
         .read_only_udf(
+            context.request_id,
             udf_path,
             req.args.into_arg_vec(),
             identity,
             AllowedVisibility::All,
-            FunctionCaller::Action,
-            RequestContext::new_from_parts(
-                context.request_id,
-                ExecutionId::new(),
-                context.parent_scheduled_job,
-                false,
-            ),
+            FunctionCaller::Action {
+                parent_scheduled_job: context.parent_scheduled_job,
+            },
         )
         .await?;
     if req.format.is_some() {
@@ -137,19 +134,16 @@ pub async fn internal_mutation_post(
     let udf_result = st
         .application
         .mutation_udf(
+            context.request_id,
             udf_path,
             req.args.into_arg_vec(),
             identity,
             None,
             AllowedVisibility::All,
-            FunctionCaller::Action,
+            FunctionCaller::Action {
+                parent_scheduled_job: context.parent_scheduled_job,
+            },
             PauseClient::new(),
-            RequestContext::new_from_parts(
-                context.request_id,
-                ExecutionId::new(),
-                context.parent_scheduled_job,
-                false,
-            ),
         )
         .await?;
     if req.format.is_some() {
@@ -187,17 +181,14 @@ pub async fn internal_action_post(
     let udf_result = st
         .application
         .action_udf(
+            context.request_id,
             udf_path,
             req.args.into_arg_vec(),
             identity,
             AllowedVisibility::All,
-            FunctionCaller::Action,
-            RequestContext::new_from_parts(
-                context.request_id,
-                ExecutionId::new(),
-                context.parent_scheduled_job,
-                false,
-            ),
+            FunctionCaller::Action {
+                parent_scheduled_job: context.parent_scheduled_job,
+            },
         )
         .await?;
     if req.format.is_some() {

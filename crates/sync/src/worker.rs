@@ -27,11 +27,7 @@ use common::{
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     pause::PauseClient,
     query_journal::QueryJournal,
-    request_context::{
-        ExecutionId,
-        RequestContext,
-        RequestId,
-    },
+    request_context::RequestId,
     runtime::{
         Runtime,
         WithTimeout,
@@ -440,6 +436,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                         timer.finish();
                         let result = application
                             .mutation_udf(
+                                server_request_id,
                                 udf_path,
                                 args,
                                 identity,
@@ -447,12 +444,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 AllowedVisibility::PublicOnly,
                                 FunctionCaller::SyncWorker(client_version),
                                 PauseClient::new(),
-                                RequestContext::new_from_parts(
-                                    server_request_id,
-                                    ExecutionId::new(),
-                                    None,
-                                    true,
-                                ),
                             )
                             .await?;
 
@@ -497,17 +488,12 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let future = async move {
                     let result = application
                         .action_udf(
+                            server_request_id,
                             udf_path,
                             args,
                             identity,
                             AllowedVisibility::PublicOnly,
                             FunctionCaller::SyncWorker(client_version),
-                            RequestContext::new_from_parts(
-                                server_request_id,
-                                ExecutionId::new(),
-                                None,
-                                true,
-                            ),
                         )
                         .await?;
                     let response = match result {
@@ -639,6 +625,11 @@ impl<RT: Runtime> SyncWorker<RT> {
                         // with. Rerun the query.
                         let udf_return = application_
                             .read_only_udf_at_ts(
+                                // This query run might have been triggered due to invalidation
+                                // of a subscription. The sync worker is effectively the owner of
+                                // the query so we do not want to re-use the original query request
+                                // id.
+                                RequestId::new(),
                                 query.udf_path,
                                 query.args,
                                 identity_,
@@ -646,15 +637,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 query.journal,
                                 AllowedVisibility::PublicOnly,
                                 FunctionCaller::SyncWorker(client_version),
-                                // The sync worker is effectively the owner of the query as long
-                                // as we do not want to re-use the original query request id. So
-                                // create a new request context.
-                                RequestContext::new_from_parts(
-                                    RequestId::new(),
-                                    ExecutionId::new(),
-                                    None,
-                                    true,
-                                ),
                             )
                             .await?;
                         let subscription = application_.subscribe(udf_return.token).await?;

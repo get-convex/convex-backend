@@ -233,9 +233,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         loop {
             // Use a new request_id for every cron job execution attempt.
             let request_id = RequestId::new();
-            let result = self
-                .run_function(job.clone(), job_id, RequestContext::new(request_id, None))
-                .await;
+            let result = self.run_function(request_id, job.clone(), job_id).await;
             match result {
                 Ok(result) => {
                     metrics::log_cron_job_success(function_backoff.failures());
@@ -254,9 +252,9 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 
     async fn run_function(
         &self,
+        request_id: RequestId,
         job: CronJob,
         job_id: ResolvedDocumentId,
-        context: RequestContext,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let usage_tracker = FunctionUsageTracker::new();
         let Some(mut tx) = self
@@ -285,11 +283,11 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 
         match udf_type {
             UdfType::Mutation => {
-                self.handle_mutation(tx, job, job_id, usage_tracker, context)
+                self.handle_mutation(request_id, tx, job, job_id, usage_tracker)
                     .await?
             },
             UdfType::Action => {
-                self.handle_action(tx, job, job_id, usage_tracker, context)
+                self.handle_action(request_id, tx, job, job_id, usage_tracker)
                     .await?
             },
             udf_type => {
@@ -339,14 +337,16 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 
     async fn handle_mutation(
         &self,
+        request_id: RequestId,
         tx: Transaction<RT>,
         job: CronJob,
         job_id: ResolvedDocumentId,
         usage_tracker: FunctionUsageTracker,
-        context: RequestContext,
     ) -> anyhow::Result<()> {
         let start = self.rt.monotonic_now();
         let identity = tx.inert_identity();
+        let caller = FunctionCaller::Cron;
+        let context = RequestContext::new(request_id, &caller);
         let mutation_result = self
             .runner
             .run_mutation_no_udf_log(
@@ -366,7 +366,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                         job.cron_spec.udf_args.clone(),
                         identity,
                         start,
-                        FunctionCaller::Cron,
+                        caller,
                         &e,
                         context,
                     )
@@ -448,7 +448,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             outcome,
             stats,
             execution_time,
-            FunctionCaller::Cron,
+            caller,
             false,
             usage_tracker,
             context,
@@ -459,13 +459,14 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 
     async fn handle_action(
         &self,
+        request_id: RequestId,
         mut tx: Transaction<RT>,
         job: CronJob,
         job_id: ResolvedDocumentId,
         usage_tracker: FunctionUsageTracker,
-        context: RequestContext,
     ) -> anyhow::Result<()> {
         let identity = tx.identity().clone();
+        let caller = FunctionCaller::Cron;
         match job.state {
             CronJobState::Pending => {
                 // Set state to in progress
@@ -479,6 +480,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     .await?;
 
                 // Execute the action
+                let context = RequestContext::new(request_id, &caller);
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
@@ -486,7 +488,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                         job.cron_spec.udf_args,
                         identity.clone(),
                         AllowedVisibility::All,
-                        FunctionCaller::Cron,
+                        caller,
                         usage_tracker.clone(),
                         context.clone(),
                     )
@@ -540,6 +542,12 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     log_lines: vec![].into(),
                     is_truncated: false,
                 };
+
+                // TODO: This is wrong. We don't know the executionId the action has been
+                // started with. We generate a new executionId and use it to log the failures. I
+                // guess the correct behavior here is to store the executionId in the state so
+                // we can log correctly here.
+                let context = RequestContext::new(request_id, &caller);
                 let mut model = CronModel::new(&mut tx);
                 model
                     .insert_cron_job_log(&job, status, log_lines, 0.0)
@@ -575,7 +583,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                         memory_in_mb: 0,
                         context,
                         unix_timestamp,
-                        caller: FunctionCaller::Cron,
+                        caller,
                         log_lines: vec![].into(),
                     },
                     true,

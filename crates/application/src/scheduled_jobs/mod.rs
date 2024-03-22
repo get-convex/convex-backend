@@ -369,7 +369,9 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
     ) -> ResolvedDocumentId {
         let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
         loop {
-            match self.run_function(job.clone(), job_id).await {
+            // Generate a new request_id for every schedule job execution attempt.
+            let request_id = RequestId::new();
+            match self.run_function(request_id, job.clone(), job_id).await {
                 Ok(result) => {
                     metrics::log_scheduled_job_success(backoff.failures());
                     return result;
@@ -391,13 +393,11 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
     async fn run_function(
         &self,
+        request_id: RequestId,
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let usage_tracker = FunctionUsageTracker::new();
-        // Generate a new request_id for every schedule job execution attempt.
-        let request_id = RequestId::new();
-        let request_context = RequestContext::new(request_id, Some(job_id.into()));
         let (success, mut tx) = self
             .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
             .await?;
@@ -411,6 +411,9 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
         // Since we don't specify the function type when we schedule, we have to
         // use the analyzed result.
+        let caller = FunctionCaller::Scheduler {
+            job_id: job_id.into(),
+        };
         let udf_type = match self
             .runner
             .module_cache
@@ -428,12 +431,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_analyze_failure")
                     .await?;
+                // NOTE: We didn't actually run anything, so we are creating a request context
+                // just report the error.
+                let request_context = RequestContext::new(request_id, &caller);
                 self.function_log.log_error(
                     job.udf_path,
                     udf_type,
                     self.rt.unix_timestamp(),
                     error,
-                    FunctionCaller::Scheduler,
+                    caller,
                     None,
                     identity,
                     request_context,
@@ -446,11 +452,11 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         // scheduling, but the modules can have been modified since scheduling.
         match udf_type {
             UdfType::Mutation => {
-                self.handle_mutation(tx, job, job_id, usage_tracker, request_context)
+                self.handle_mutation(request_id, caller, tx, job, job_id, usage_tracker)
                     .await?
             },
             UdfType::Action => {
-                self.handle_action(tx, job, job_id, usage_tracker, request_context)
+                self.handle_action(request_id, caller, tx, job, job_id, usage_tracker)
                     .await?
             },
             udf_type => {
@@ -468,12 +474,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_bad_udf")
                     .await?;
+                // NOTE: We didn't actually run anything, so we are creating a request context
+                // just report the error.
+                let request_context = RequestContext::new(request_id, &caller);
                 self.function_log.log_error(
                     job.udf_path,
                     udf_type,
                     self.rt.unix_timestamp(),
                     message,
-                    FunctionCaller::Scheduler,
+                    caller,
                     None,
                     identity,
                     request_context,
@@ -486,13 +495,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
     async fn handle_mutation(
         &self,
+        request_id: RequestId,
+        caller: FunctionCaller,
         tx: Transaction<RT>,
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
         usage_tracker: FunctionUsageTracker,
-        context: RequestContext,
     ) -> anyhow::Result<()> {
         let start = self.rt.monotonic_now();
+        let context = RequestContext::new(request_id, &caller);
         let identity = tx.inert_identity();
         let result = self
             .runner
@@ -513,7 +524,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         job.udf_args.clone(),
                         identity,
                         start,
-                        FunctionCaller::Scheduler,
+                        caller,
                         &e,
                         context,
                     )
@@ -568,7 +579,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             outcome,
             stats,
             execution_time,
-            FunctionCaller::Scheduler,
+            caller,
             false,
             usage_tracker,
             context,
@@ -579,11 +590,12 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
     async fn handle_action(
         &self,
+        request_id: RequestId,
+        caller: FunctionCaller,
         tx: Transaction<RT>,
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
         usage_tracker: FunctionUsageTracker,
-        context: RequestContext,
     ) -> anyhow::Result<()> {
         let identity = tx.identity().clone();
         let mut tx = self.database.begin(identity.clone()).await?;
@@ -600,6 +612,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
 
                 // Execute the action
+                let context = RequestContext::new(request_id, &caller);
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
@@ -607,7 +620,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         job.udf_args,
                         identity,
                         AllowedVisibility::All,
-                        FunctionCaller::Scheduler,
+                        caller,
                         usage_tracker.clone(),
                         context.clone(),
                     )
@@ -654,6 +667,11 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     syscall_trace: SyscallTrace::new(),
                     udf_server_version: None,
                 };
+                // TODO: This is wrong. We don't know the executionId the action has been
+                // started with. We generate a new executionId and use it to log the failures. I
+                // guess the correct behavior here is to store the executionId in the state so
+                // we can log correctly here.
+                let context = RequestContext::new(request_id, &caller);
                 self.function_log.log_action(
                     ActionCompletion {
                         outcome,
@@ -662,7 +680,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         memory_in_mb: 0,
                         context,
                         unix_timestamp: self.rt.unix_timestamp(),
-                        caller: FunctionCaller::Scheduler,
+                        caller,
                         log_lines: vec![].into(),
                     },
                     true,

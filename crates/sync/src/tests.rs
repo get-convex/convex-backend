@@ -9,7 +9,7 @@ use application::{
 };
 use common::{
     assert_obj,
-    request_context::RequestContext,
+    request_context::RequestId,
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -821,6 +821,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
     let result1 = test
         .application
         .read_only_udf_at_ts(
+            RequestId::new(),
             "sync:accountBalance".parse()?,
             vec![assert_obj!("name" => name.clone()).into()],
             Identity::Unknown,
@@ -828,7 +829,6 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
             None,
             AllowedVisibility::PublicOnly,
             FunctionCaller::SyncWorker(ClientVersion::unknown()),
-            RequestContext::new_for_test(),
         )
         .await?;
     assert_eq!(result1.result?, ConvexValue::from(5.0));
@@ -836,6 +836,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
     let result2 = test
         .application
         .read_only_udf_at_ts(
+            RequestId::new(),
             "sync:accountBalance".parse()?,
             vec![assert_obj!("name" => name).into()],
             Identity::Unknown,
@@ -843,7 +844,6 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
             None,
             AllowedVisibility::PublicOnly,
             FunctionCaller::SyncWorker(ClientVersion::unknown()),
-            RequestContext::new_for_test(),
         )
         .await?;
     assert_eq!(result2.result?, ConvexValue::from(0.0));

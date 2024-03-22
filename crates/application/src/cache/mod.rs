@@ -23,7 +23,10 @@ use common::{
         UDF_CACHE_MAX_SIZE,
     },
     query_journal::QueryJournal,
-    request_context::RequestContext,
+    request_context::{
+        RequestContext,
+        RequestId,
+    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -215,6 +218,7 @@ impl<RT: Runtime> CacheManager<RT> {
     /// consistent as of the given timestamp.
     pub async fn get(
         &self,
+        request_id: RequestId,
         name: CanonicalizedUdfPath,
         args: ConvexArray,
         identity: Identity,
@@ -224,11 +228,11 @@ impl<RT: Runtime> CacheManager<RT> {
         caller: FunctionCaller,
         block_logging: bool,
         usage_tracker: FunctionUsageTracker,
-        context: RequestContext,
     ) -> anyhow::Result<QueryReturn> {
         let timer = get_timer();
         let result = self
             ._get(
+                request_id,
                 name,
                 args,
                 identity,
@@ -238,7 +242,6 @@ impl<RT: Runtime> CacheManager<RT> {
                 caller,
                 block_logging,
                 usage_tracker,
-                context,
             )
             .await;
         match &result {
@@ -254,6 +257,7 @@ impl<RT: Runtime> CacheManager<RT> {
 
     async fn _get(
         &self,
+        request_id: RequestId,
         name: CanonicalizedUdfPath,
         args: ConvexArray,
         identity: Identity,
@@ -263,7 +267,6 @@ impl<RT: Runtime> CacheManager<RT> {
         caller: FunctionCaller,
         block_logging: bool,
         usage_tracker: FunctionUsageTracker,
-        context: RequestContext,
     ) -> anyhow::Result<(QueryReturn, bool)> {
         let start = self.rt.monotonic_now();
         let identity_cache_key = identity.cache_key();
@@ -274,6 +277,7 @@ impl<RT: Runtime> CacheManager<RT> {
             journal: journal.unwrap_or_else(QueryJournal::new),
             allowed_visibility,
         };
+        let context = RequestContext::new(request_id, &caller);
 
         let mut num_attempts = 0;
         'top: loop {

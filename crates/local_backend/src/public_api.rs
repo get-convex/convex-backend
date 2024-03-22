@@ -20,10 +20,7 @@ use common::{
         HttpResponseError,
     },
     pause::PauseClient,
-    request_context::{
-        RequestContext,
-        RequestId,
-    },
+    request_context::RequestId,
     types::{
         AllowedVisibility,
         FunctionCaller,
@@ -222,12 +219,12 @@ pub async fn public_query_get(
     let udf_return = st
         .application
         .read_only_udf(
+            request_id,
             udf_path,
             args,
             identity,
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
-            RequestContext::new(request_id, None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -259,12 +256,12 @@ pub async fn public_query_post(
     let udf_return = st
         .application
         .read_only_udf(
+            request_id,
             udf_path,
             req.args.into_arg_vec(),
             identity,
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
-            RequestContext::new(request_id, None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -307,6 +304,7 @@ pub async fn public_query_batch_post(
         let udf_return = st
             .application
             .read_only_udf_at_ts(
+                request_id.clone(),
                 udf_path,
                 req.args.into_arg_vec(),
                 identity.clone(),
@@ -314,8 +312,6 @@ pub async fn public_query_batch_post(
                 None,
                 AllowedVisibility::PublicOnly,
                 FunctionCaller::HttpApi(client_version.clone()),
-                // NOTE we generate a new request context for each query execution.
-                RequestContext::new(request_id.clone(), None),
             )
             .await?;
         let response = match udf_return.result {
@@ -348,6 +344,7 @@ pub async fn public_mutation_post(
     let udf_result = st
         .application
         .mutation_udf(
+            request_id,
             udf_path,
             req.args.into_arg_vec(),
             identity,
@@ -355,7 +352,6 @@ pub async fn public_mutation_post(
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
             PauseClient::new(),
-            RequestContext::new(request_id, None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -387,12 +383,12 @@ pub async fn public_action_post(
     let action_result = st
         .application
         .action_udf(
+            request_id,
             udf_path,
             req.args.into_arg_vec(),
             identity,
             AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
-            RequestContext::new(request_id, None),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;

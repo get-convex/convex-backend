@@ -811,15 +811,16 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn read_only_udf(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
-        context: RequestContext,
     ) -> anyhow::Result<QueryReturn> {
         let ts = *self.now_ts_for_reads();
         self.read_only_udf_at_ts(
+            request_id,
             name,
             args,
             identity,
@@ -827,13 +828,13 @@ impl<RT: Runtime> Application<RT> {
             None,
             allowed_visibility,
             caller,
-            context,
         )
         .await
     }
 
     pub async fn read_only_udf_at_ts(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
@@ -841,7 +842,6 @@ impl<RT: Runtime> Application<RT> {
         journal: Option<Option<String>>,
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
-        context: RequestContext,
     ) -> anyhow::Result<QueryReturn> {
         let block_logging = self
             .log_visibility
@@ -864,7 +864,7 @@ impl<RT: Runtime> Application<RT> {
                     result: Err(RedactedJsError::from_js_error(
                         JsError::from_error(e),
                         block_logging,
-                        context.request_id,
+                        request_id,
                     )),
                     log_lines: RedactedLogLines::empty(),
                     // Create a token for an empty read set because we haven't
@@ -880,6 +880,7 @@ impl<RT: Runtime> Application<RT> {
         match self
             .runner
             .run_query_at_ts(
+                request_id.clone(),
                 name,
                 args,
                 identity,
@@ -888,7 +889,6 @@ impl<RT: Runtime> Application<RT> {
                 allowed_visibility,
                 caller,
                 block_logging,
-                context.clone(),
             )
             .await
         {
@@ -897,7 +897,7 @@ impl<RT: Runtime> Application<RT> {
                 result: Err(RedactedJsError::from_js_error(
                     JsError::from_error(e),
                     block_logging,
-                    context.request_id,
+                    request_id,
                 )),
                 log_lines: RedactedLogLines::empty(),
                 // Create a token for an empty read set because we haven't
@@ -912,6 +912,7 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn mutation_udf(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
@@ -920,7 +921,6 @@ impl<RT: Runtime> Application<RT> {
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         pause_client: PauseClient,
-        context: RequestContext,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         let block_logging = self
             .log_visibility
@@ -933,6 +933,7 @@ impl<RT: Runtime> Application<RT> {
         match self
             .runner
             .retry_mutation(
+                request_id.clone(),
                 name,
                 args,
                 identity,
@@ -941,11 +942,6 @@ impl<RT: Runtime> Application<RT> {
                 caller,
                 pause_client,
                 block_logging,
-                // TODO(presley): Passing context here means we use the same
-                // execution_id for all attempts of a mutation. It seem more
-                // correct to only pass request_id, parent_schedule_job and
-                // is_root here and generate a new RequestContext for each attempt.
-                context.clone(),
             )
             .await
         {
@@ -954,7 +950,7 @@ impl<RT: Runtime> Application<RT> {
                 error: RedactedJsError::from_js_error(
                     JsError::from_error(e),
                     block_logging,
-                    context.request_id,
+                    request_id,
                 ),
                 log_lines: RedactedLogLines::empty(),
             })),
@@ -964,12 +960,12 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn action_udf(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
-        context: RequestContext,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
         let block_logging = self
             .log_visibility
@@ -982,13 +978,13 @@ impl<RT: Runtime> Application<RT> {
         match self
             .runner
             .run_action(
+                request_id.clone(),
                 name,
                 args,
                 identity,
                 allowed_visibility,
                 caller,
                 block_logging,
-                context.clone(),
             )
             .await
         {
@@ -997,7 +993,7 @@ impl<RT: Runtime> Application<RT> {
                 error: RedactedJsError::from_js_error(
                     JsError::from_error(e),
                     block_logging,
-                    context.request_id,
+                    request_id,
                 ),
                 log_lines: RedactedLogLines::empty(),
             })),
@@ -1080,7 +1076,7 @@ impl<RT: Runtime> Application<RT> {
             Err(e) => return Ok(Err(e)),
         };
         let unix_timestamp = self.runtime.unix_timestamp();
-        let context = RequestContext::new(request_id, None);
+        let context = RequestContext::new(request_id, &caller);
 
         let route = http_request.head.route_for_failure()?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
@@ -1175,10 +1171,9 @@ impl<RT: Runtime> Application<RT> {
             }));
         };
 
-        let context = RequestContext::new(request_id, None);
         match analyzed_function.udf_type {
             UdfType::Query => self
-                .read_only_udf(name, args, identity, allowed_visibility, caller, context)
+                .read_only_udf(request_id, name, args, identity, allowed_visibility, caller)
                 .await
                 .map(
                     |QueryReturn {
@@ -1192,6 +1187,7 @@ impl<RT: Runtime> Application<RT> {
                 ),
             UdfType::Mutation => self
                 .mutation_udf(
+                    request_id,
                     name,
                     args,
                     identity,
@@ -1199,7 +1195,6 @@ impl<RT: Runtime> Application<RT> {
                     allowed_visibility,
                     caller,
                     PauseClient::new(),
-                    context,
                 )
                 .await
                 .map(|res| {
@@ -1215,7 +1210,7 @@ impl<RT: Runtime> Application<RT> {
                     )
                 }),
             UdfType::Action => self
-                .action_udf(name, args, identity, allowed_visibility, caller, context)
+                .action_udf(request_id, name, args, identity, allowed_visibility, caller)
                 .await
                 .map(|res| {
                     res.map(

@@ -295,26 +295,30 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
     let parent_scheduled_job = Some(job_id.into());
     application
         .mutation_udf(
+            RequestId::new(),
             UdfPath::from_str("scheduler:scheduleWithArbitraryJson")?,
             vec![],
             Identity::system(),
             None,
             AllowedVisibility::All,
-            FunctionCaller::Action,
+            FunctionCaller::Action {
+                parent_scheduled_job,
+            },
             PauseClient::new(),
-            RequestContext::new(RequestId::new(), parent_scheduled_job),
         )
         .await??;
 
     // Run an action in v8 that has a canceled parent job and schedules
     application
         .action_udf(
+            RequestId::new(),
             UdfPath::from_str("action:schedule")?,
             vec![],
             Identity::system(),
             AllowedVisibility::All,
-            FunctionCaller::Action,
-            RequestContext::new(RequestId::new(), parent_scheduled_job),
+            FunctionCaller::Action {
+                parent_scheduled_job,
+            },
         )
         .await??;
 

@@ -5,7 +5,7 @@ use common::{
         PauseClient,
         PauseController,
     },
-    request_context::RequestContext,
+    request_context::RequestId,
     types::{
         AllowedVisibility,
         FunctionCaller,
@@ -31,14 +31,16 @@ async fn insert_object(
     let obj = json!({"an": "object"});
     let result = application
         .mutation_udf(
+            RequestId::new(),
             "basic:insertObject".parse()?,
             vec![obj],
             Identity::system(),
             None,
             AllowedVisibility::PublicOnly,
-            FunctionCaller::Action,
+            FunctionCaller::Action {
+                parent_scheduled_job: None,
+            },
             pause_client,
-            RequestContext::new_for_test(),
         )
         .await??;
     Ok(JsonValue::from(result.value))
@@ -51,14 +53,16 @@ async fn insert_and_count(
     let obj = json!({"an": "object"});
     let result = application
         .mutation_udf(
+            RequestId::new(),
             "basic:insertAndCount".parse()?,
             vec![obj],
             Identity::system(),
             None,
             AllowedVisibility::PublicOnly,
-            FunctionCaller::Action,
+            FunctionCaller::Action {
+                parent_scheduled_job: None,
+            },
             pause_client,
-            RequestContext::new_for_test(),
         )
         .await??;
     Ok(JsonValue::from(result.value)

@@ -16,7 +16,10 @@ use serde::{
     Serialize,
 };
 use sync_types::CanonicalizedUdfPath;
-use value::heap_size::HeapSize;
+use value::{
+    heap_size::HeapSize,
+    id_v6::DocumentIdV6,
+};
 
 use super::HttpActionRoute;
 use crate::version::ClientVersion;
@@ -131,8 +134,12 @@ pub enum FunctionCaller {
     Tester(ClientVersion),
     HttpEndpoint,
     Cron,
-    Scheduler,
-    Action,
+    Scheduler {
+        job_id: DocumentIdV6,
+    },
+    Action {
+        parent_scheduled_job: Option<DocumentIdV6>,
+    },
 }
 
 impl FunctionCaller {
@@ -143,10 +150,36 @@ impl FunctionCaller {
             FunctionCaller::Tester(c) => Some(c),
             FunctionCaller::HttpEndpoint
             | FunctionCaller::Cron
-            | FunctionCaller::Scheduler
-            | FunctionCaller::Action => None,
+            | FunctionCaller::Scheduler { .. }
+            | FunctionCaller::Action { .. } => None,
         }
         .cloned()
+    }
+
+    pub fn parent_scheduled_job(&self) -> Option<DocumentIdV6> {
+        match self {
+            FunctionCaller::SyncWorker(_)
+            | FunctionCaller::HttpApi(_)
+            | FunctionCaller::Tester(_)
+            | FunctionCaller::HttpEndpoint
+            | FunctionCaller::Cron => None,
+            FunctionCaller::Scheduler { job_id } => Some(*job_id),
+            FunctionCaller::Action {
+                parent_scheduled_job,
+            } => *parent_scheduled_job,
+        }
+    }
+
+    pub fn is_root(&self) -> bool {
+        match self {
+            FunctionCaller::SyncWorker(_)
+            | FunctionCaller::HttpApi(_)
+            | FunctionCaller::Tester(_)
+            | FunctionCaller::HttpEndpoint
+            | FunctionCaller::Cron
+            | FunctionCaller::Scheduler { .. } => true,
+            FunctionCaller::Action { .. } => false,
+        }
     }
 }
 
@@ -158,8 +191,8 @@ impl fmt::Display for FunctionCaller {
             FunctionCaller::Tester(_) => "Tester",
             FunctionCaller::HttpEndpoint => "HttpEndpoint",
             FunctionCaller::Cron => "Cron",
-            FunctionCaller::Scheduler => "Scheduler",
-            FunctionCaller::Action => "Action",
+            FunctionCaller::Scheduler { .. } => "Scheduler",
+            FunctionCaller::Action { .. } => "Action",
         };
         write!(f, "{s}")
     }

@@ -565,7 +565,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             self.module_cache.clone(),
         )
         .await?;
-        let context = RequestContext::new(request_id, None);
+        let context = RequestContext::new(request_id, &caller);
         let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
                 self.isolate_functions
@@ -612,6 +612,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     /// Runs a mutations and retries on OCC errors.
     pub async fn retry_mutation(
         &self,
+        request_id: RequestId,
         udf_path: UdfPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
@@ -620,11 +621,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         caller: FunctionCaller,
         pause_client: PauseClient,
         block_logging: bool,
-        context: RequestContext,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         let timer = mutation_timer();
         let result = self
             ._retry_mutation(
+                request_id,
                 udf_path,
                 arguments,
                 identity,
@@ -633,7 +634,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 caller,
                 pause_client,
                 block_logging,
-                context.clone(),
             )
             .await;
         match &result {
@@ -646,6 +646,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     /// Runs a mutations and retries on OCC errors.
     async fn _retry_mutation(
         &self,
+        request_id: RequestId,
         udf_path: UdfPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
@@ -654,7 +655,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         caller: FunctionCaller,
         mut pause_client: PauseClient,
         block_logging: bool,
-        context: RequestContext,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         if udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
@@ -663,7 +663,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(MutationError {
-                    error: RedactedJsError::from_js_error(error, block_logging, context.request_id),
+                    error: RedactedJsError::from_js_error(error, block_logging, request_id),
                     log_lines: RedactedLogLines::empty(),
                 }))
             },
@@ -678,6 +678,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let usage_tracker = FunctionUsageTracker::new();
         loop {
+            // Note that we use different context for every mutation attempt.
+            // This so every JS function run gets a different executionId.
+            let context = RequestContext::new(request_id.clone(), &caller);
+
             let start = self.runtime.monotonic_now();
             let mut tx = self
                 .database
@@ -914,13 +918,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
     pub async fn run_action(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         block_logging: bool,
-        context: RequestContext,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
         if name.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
@@ -929,11 +933,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(ActionError {
-                    error: RedactedJsError::from_js_error(error, block_logging, context.request_id),
+                    error: RedactedJsError::from_js_error(error, block_logging, request_id),
                     log_lines: RedactedLogLines::empty(),
                 }))
             },
         };
+        let context = RequestContext::new(request_id.clone(), &caller);
         let name = name.canonicalize();
         let usage_tracking = FunctionUsageTracker::new();
         let completion = self
@@ -944,7 +949,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 allowed_visibility,
                 caller,
                 usage_tracking.clone(),
-                context.clone(),
+                context,
             )
             .await?;
         let log_lines =
@@ -959,7 +964,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             // developer error.
             Err(error) => {
                 return Ok(Err(ActionError {
-                    error: RedactedJsError::from_js_error(error, block_logging, context.request_id),
+                    error: RedactedJsError::from_js_error(error, block_logging, request_id),
                     log_lines,
                 }))
             },
@@ -1426,6 +1431,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
     pub async fn run_query_at_ts(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
@@ -1434,10 +1440,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         block_logging: bool,
-        context: RequestContext,
     ) -> anyhow::Result<QueryReturn> {
         let result = self
             .run_query_at_ts_inner(
+                request_id,
                 name,
                 args,
                 identity,
@@ -1446,7 +1452,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 allowed_visibility,
                 caller,
                 block_logging,
-                context,
             )
             .await;
         match result.as_ref() {
@@ -1470,6 +1475,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
     async fn run_query_at_ts_inner(
         &self,
+        request_id: RequestId,
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
@@ -1478,7 +1484,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         block_logging: bool,
-        context: RequestContext,
     ) -> anyhow::Result<QueryReturn> {
         if name.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
@@ -1490,7 +1495,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     result: Err(RedactedJsError::from_js_error(
                         js_error,
                         block_logging,
-                        context.request_id,
+                        request_id,
                     )),
                     log_lines: RedactedLogLines::empty(),
                     token: Token::empty(ts),
@@ -1504,6 +1509,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let result = self
             .cache_manager
             .get(
+                request_id,
                 canonicalized_name,
                 args,
                 identity.clone(),
@@ -1513,7 +1519,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 caller,
                 block_logging,
                 usage_tracker.clone(),
-                context,
             )
             .await?;
         Ok(result)
@@ -1620,15 +1625,17 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let ts = self.database.now_ts_for_reads();
         let result = self
             .run_query_at_ts(
+                context.request_id,
                 name,
                 args,
                 identity,
                 *ts,
                 None,
                 AllowedVisibility::All,
-                FunctionCaller::Action,
+                FunctionCaller::Action {
+                    parent_scheduled_job: context.parent_scheduled_job,
+                },
                 block_logging,
-                context,
             )
             .await
             .map(|r| r.result.map_err(|e| e.pretend_to_unredact()))?;
@@ -1645,15 +1652,17 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     ) -> anyhow::Result<FunctionResult> {
         let result = self
             .retry_mutation(
+                context.request_id,
                 name,
                 args,
                 identity,
                 None,
                 AllowedVisibility::All,
-                FunctionCaller::Action,
+                FunctionCaller::Action {
+                    parent_scheduled_job: context.parent_scheduled_job,
+                },
                 PauseClient::new(),
                 block_logging,
-                context,
             )
             .await
             .map(|r| match r {
@@ -1674,13 +1683,15 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let _tx = self.database.begin(identity.clone()).await?;
         let result = self
             .run_action(
+                context.request_id,
                 name,
                 args,
                 identity,
                 AllowedVisibility::All,
-                FunctionCaller::Action,
+                FunctionCaller::Action {
+                    parent_scheduled_job: context.parent_scheduled_job,
+                },
                 block_logging,
-                context,
             )
             .await
             .map(|r| match r {
