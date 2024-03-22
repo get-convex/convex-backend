@@ -62,7 +62,7 @@ pub type QueryFingerprint = Vec<u8>;
 
 /// A `CursorPosition` is a position within query results used to implement
 /// `paginate()`.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum CursorPosition {
     After(IndexKeyBytes),

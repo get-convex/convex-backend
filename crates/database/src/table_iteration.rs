@@ -7,16 +7,15 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     document::ResolvedDocument,
-    index::IndexKey,
-    interval::{
-        BinaryKey,
-        End,
-        Interval,
-        Start,
+    index::{
+        IndexKey,
+        IndexKeyBytes,
     },
+    interval::Interval,
     pause::PauseClient,
     persistence::{
         new_static_repeatable_recent,
@@ -25,7 +24,10 @@ use common::{
         RetentionValidator,
         TimestampRange,
     },
-    query::Order,
+    query::{
+        CursorPosition,
+        Order,
+    },
     runtime::{
         RateLimiter,
         Runtime,
@@ -56,34 +58,34 @@ use value::{
 /// The key is the last element processed thus far.
 #[derive(Clone, Debug)]
 pub struct TableScanCursor {
-    pub index_key: Option<IndexKey>,
+    pub index_key: Option<CursorPosition>,
 }
 
 impl TableScanCursor {
     pub fn interval(&self) -> Interval {
         match &self.index_key {
             Some(index_key) => {
-                let cursor_bytes: BinaryKey = index_key.clone().into_bytes().into();
-                Interval {
-                    start: Start::Included(
-                        // `.increment()` should never fail because:
-                        // 1. Document IDs serialize to a nonempty index key
-                        // 2. At the very least, the index key starts with ID_TAG < 255
-                        cursor_bytes.increment().expect("id should have increment"),
-                    ),
-                    end: End::Unbounded,
-                }
+                let (_, remaining) = Interval::all().split(index_key.clone(), Order::Asc);
+                remaining
             },
             None => Interval::all(),
         }
     }
 
-    pub fn advance(&mut self, index_key: IndexKey) -> anyhow::Result<()> {
+    pub fn advance(&mut self, index_key: CursorPosition) -> anyhow::Result<()> {
         if let Some(existing_key) = &self.index_key {
-            anyhow::ensure!(index_key >= existing_key);
+            anyhow::ensure!(index_key > existing_key);
         }
         self.index_key = Some(index_key);
         Ok(())
+    }
+}
+
+fn cursor_has_walked(cursor: Option<&CursorPosition>, key: &IndexKeyBytes) -> bool {
+    match cursor {
+        None => false,
+        Some(CursorPosition::End) => true,
+        Some(CursorPosition::After(cursor)) => key <= cursor,
     }
 }
 
@@ -128,12 +130,12 @@ impl<RT: Runtime> TableIterator<RT> {
             table_id,
             by_id,
             IndexedFields::by_id(),
-            cursor.map(|id| IndexKey::new(vec![], id.into())),
+            cursor.map(|id| CursorPosition::After(IndexKey::new(vec![], id.into()).into_bytes())),
             rate_limiter,
         );
         pin_mut!(stream);
-        while let Some(item) = stream.try_next().await? {
-            yield item;
+        while let Some((_, ts, doc)) = stream.try_next().await? {
+            yield (doc, ts);
         }
     }
 
@@ -152,13 +154,13 @@ impl<RT: Runtime> TableIterator<RT> {
     /// Consider a document that exists in the index at snapshot_ts.
     /// Either it has changed since snapshot_ts, in which case (2) will find
     /// it, or it has not, in which case (1) will find it.
-    #[try_stream(ok = (ResolvedDocument, Timestamp), error = anyhow::Error)]
+    #[try_stream(ok = (IndexKeyBytes, Timestamp, ResolvedDocument), error = anyhow::Error)]
     pub async fn stream_documents_in_table_by_index(
         mut self,
         table_id: TableId,
         index_id: IndexId,
         indexed_fields: IndexedFields,
-        cursor: Option<IndexKey>,
+        cursor: Option<CursorPosition>,
         rate_limiter: &RateLimiter<RT>,
     ) {
         let mut cursor = TableScanCursor { index_key: cursor };
@@ -182,22 +184,19 @@ impl<RT: Runtime> TableIterator<RT> {
                 self.runtime.wait(delay).await;
             }
             let page_start = cursor.index_key.clone();
-            let (page, new_end_ts) = self
-                .fetch_page(index_id, table_id, &indexed_fields, &mut cursor)
-                .await?;
+            let (page, new_end_ts) = self.fetch_page(index_id, table_id, &mut cursor).await?;
             anyhow::ensure!(*new_end_ts >= end_ts);
-            // If page is empty, we have exhausted the cursor.
-            let page_end = if page.is_empty() {
-                None
-            } else {
-                cursor.index_key.clone()
-            };
+            let page_end = cursor
+                .index_key
+                .as_ref()
+                .context("cursor after page should not be empty")?;
             // Filter out rows from the index scan that were modified after
             // snapshot_ts. Such documents will be found when walking the
             // documents log to generate skipped_keys.
-            let page: Vec<_> = page
+            let page: BTreeMap<_, _> = page
                 .into_iter()
-                .filter(|(_, ts)| *ts <= *self.snapshot_ts)
+                .filter(|(_, ts, _)| *ts <= *self.snapshot_ts)
+                .map(|(index_key, ts, doc)| (index_key, (ts, doc)))
                 .collect();
 
             // 2. Find any keys for documents that were skipped by this
@@ -219,71 +218,68 @@ impl<RT: Runtime> TableIterator<RT> {
             if let Some((first_skipped_key, _)) = skipped_keys.iter().next() {
                 // Check all skipped ids are after the old cursor,
                 // which ensures the yielded output is in index key order.
-                anyhow::ensure!(page_start.as_ref() < Some(first_skipped_key));
+                anyhow::ensure!(!cursor_has_walked(page_start.as_ref(), first_skipped_key));
             }
             end_ts = new_end_ts;
             // Extract the documents from skipped_keys that should be returned in
             // the current page.
-            let page_skipped_keys = match page_end.as_ref() {
-                Some(cursor_key) => {
-                    let mut page_skipped_keys = BTreeMap::new();
-                    while let Some(first_skipped_key) = skipped_keys.first_entry()
-                        && first_skipped_key.key() <= cursor_key
-                    {
-                        let (key, value) = first_skipped_key.remove_entry();
-                        page_skipped_keys.insert(key, value);
-                    }
-                    page_skipped_keys
-                },
-                None => {
-                    let page_skipped_keys = skipped_keys;
-                    skipped_keys = BTreeMap::new();
-                    page_skipped_keys
-                },
+            let page_skipped_keys = {
+                let mut page_skipped_keys = BTreeMap::new();
+                while let Some(first_skipped_key) = skipped_keys.first_entry()
+                    && cursor_has_walked(Some(page_end), first_skipped_key.key())
+                {
+                    let (key, value) = first_skipped_key.remove_entry();
+                    page_skipped_keys.insert(key, value);
+                }
+                page_skipped_keys
             };
             // Note we already fetched these documents earlier when calculating
             // skipped_keys, but we would rather not hold them in memory. Since
             // skipped documents are relatively rare, an extra fetch
             // occasionally is worth it for the memory savings.
-            let page_skipped_docs: Vec<_> = self
+            let page_skipped_docs: BTreeMap<_, _> = self
                 .load_revisions_at_snapshot_ts(stream::iter(
                     page_skipped_keys.into_values().map(Ok),
                 ))
+                .map_ok(|(doc, ts)| {
+                    (
+                        doc.index_key(&indexed_fields, self.persistence.version())
+                            .into_bytes(),
+                        (ts, doc),
+                    )
+                })
                 .try_collect()
                 .await?;
-            let mut merged_page: Vec<_> = page.into_iter().chain(page_skipped_docs).collect();
-            // Re-sort after merging the index walk and skipped keys.
-            merged_page
-                .sort_by_key(|(doc, _)| doc.index_key(&indexed_fields, self.persistence.version()));
+            // Merge index walk and skipped keys into BTreeMap, which sorts by index key.
+            let merged_page: BTreeMap<_, _> = page.into_iter().chain(page_skipped_docs).collect();
 
             // Sanity check output.
             let all_ids: BTreeSet<_> = merged_page
                 .iter()
-                .map(|(doc, _)| doc.id().internal_id())
+                .map(|(_, (_, doc))| doc.id().internal_id())
                 .collect();
             anyhow::ensure!(
                 all_ids.len() == merged_page.len(),
                 "duplicate id in table iterator {merged_page:?}"
             );
             anyhow::ensure!(
-                merged_page.iter().all(|(_, ts)| *ts <= *self.snapshot_ts),
+                merged_page
+                    .iter()
+                    .all(|(_, (ts, _))| *ts <= *self.snapshot_ts),
                 "document after snapshot in table iterator {merged_page:?}"
             );
             anyhow::ensure!(
-                merged_page.iter().all(|(doc, _)| {
-                    let key = doc.index_key(&indexed_fields, self.persistence.version());
-                    page_start.as_ref() < Some(&key)
-                        && (page_end
-                            .as_ref()
-                            .map_or(true, |cursor_key| key <= *cursor_key))
+                merged_page.iter().all(|(key, _)| {
+                    !cursor_has_walked(page_start.as_ref(), key)
+                        && cursor_has_walked(Some(page_end), key)
                 }),
                 "document outside page in table iterator {merged_page:?}"
             );
 
-            for (revision, revision_ts) in merged_page {
-                yield (revision, revision_ts);
+            for (key, (revision_ts, revision)) in merged_page {
+                yield (key, revision_ts, revision);
             }
-            if page_end.is_none() {
+            if matches!(page_end, CursorPosition::End) {
                 // If we are done, all skipped_keys would be put in this final page.
                 anyhow::ensure!(skipped_keys.is_empty());
                 break;
@@ -301,11 +297,11 @@ impl<RT: Runtime> TableIterator<RT> {
         &self,
         table_id: TableId,
         indexed_fields: &IndexedFields,
-        lower_bound: Option<&IndexKey>,
+        lower_bound: Option<&CursorPosition>,
         start_ts: Timestamp,
         end_ts: RepeatableTimestamp,
         rate_limiter: &RateLimiter<RT>,
-    ) -> anyhow::Result<BTreeMap<IndexKey, InternalDocumentId>> {
+    ) -> anyhow::Result<BTreeMap<IndexKeyBytes, InternalDocumentId>> {
         let reader = self.persistence.clone();
         let persistence_version = reader.version();
         let skipped_revs = self.walk_document_log(table_id, start_ts, end_ts, rate_limiter);
@@ -313,8 +309,10 @@ impl<RT: Runtime> TableIterator<RT> {
         pin_mut!(revisions_at_snapshot);
         let mut skipped_keys = BTreeMap::new();
         while let Some((doc, _)) = revisions_at_snapshot.try_next().await? {
-            let index_key = doc.index_key(indexed_fields, persistence_version);
-            if lower_bound < Some(&index_key) {
+            let index_key = doc
+                .index_key(indexed_fields, persistence_version)
+                .into_bytes();
+            if !cursor_has_walked(lower_bound, &index_key) {
                 skipped_keys.insert(index_key, doc.id_with_table_id());
             }
         }
@@ -377,9 +375,11 @@ impl<RT: Runtime> TableIterator<RT> {
         &self,
         index_id: IndexId,
         table_id: TableId,
-        indexed_fields: &IndexedFields,
         cursor: &mut TableScanCursor,
-    ) -> anyhow::Result<(Vec<(ResolvedDocument, Timestamp)>, RepeatableTimestamp)> {
+    ) -> anyhow::Result<(
+        Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
+        RepeatableTimestamp,
+    )> {
         let ts = self.new_ts().await?;
         let repeatable_persistence = RepeatablePersistence::new(
             self.persistence.clone(),
@@ -394,13 +394,11 @@ impl<RT: Runtime> TableIterator<RT> {
             Order::Asc,
             self.page_size,
         );
-        let documents_in_page: Vec<_> = stream
-            .take(self.page_size)
-            .map(|item| item.map(|(_, ts, document)| (document, ts)))
-            .try_collect()
-            .await?;
-        if let Some((document, _)) = documents_in_page.last() {
-            cursor.advance(document.index_key(indexed_fields, self.persistence.version()))?;
+        let documents_in_page: Vec<_> = stream.take(self.page_size).try_collect().await?;
+        if documents_in_page.len() < self.page_size {
+            cursor.advance(CursorPosition::End)?;
+        } else if let Some((index_key, ..)) = documents_in_page.last() {
+            cursor.advance(CursorPosition::After(index_key.clone()))?;
         }
         Ok((documents_in_page, ts))
     }
@@ -767,7 +765,7 @@ mod tests {
         assert_eq!(revisions.len(), 2);
         let k_values: Vec<_> = revisions
             .iter()
-            .map(|(doc, _)| doc.value().get("k").unwrap().clone())
+            .map(|(_, _, doc)| doc.value().get("k").unwrap().clone())
             .collect();
         assert_eq!(k_values, vec![assert_val!("m"), assert_val!("z")]);
 
