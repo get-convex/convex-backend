@@ -104,7 +104,7 @@ sha2 = { version = "0.10.7", features = [ "asm" ] }
 slab = "0.4.2"
 sodiumoxide = "^0.2"
 sourcemap = "7"
-strum = { version = "0.25", features = [ "derive" ] }
+strum = { version = "0.26", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
 tantivy = { git = "https://github.com/get-convex/tantivy", branch = "rakeeb/reexport-tantivy-fst" }
