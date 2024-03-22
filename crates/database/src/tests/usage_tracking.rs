@@ -6,6 +6,7 @@ use std::{
 use common::{
     assert_obj,
     bootstrap_model::index::IndexMetadata,
+    execution_context::ExecutionId,
     maybe_val,
     query::{
         IndexRange,
@@ -13,7 +14,6 @@ use common::{
         Order,
         Query,
     },
-    request_context::ExecutionId,
     types::{
         IndexName,
         ModuleEnvironment,

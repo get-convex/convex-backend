@@ -100,7 +100,7 @@ export async function invoke(
 
 export type ExecuteRequest = {
   type: "execute";
-  // The AWS lambda request id unique to this particular UDF. Unlike the ID in the RequestContext,
+  // The AWS lambda request id unique to this particular UDF. Unlike the ID in the ExecutionContext,
   // it's unique to this particular request and never re-used.
   // TODO(CX-5733): Rename this in callers and migrate.
   requestId: string;
@@ -116,10 +116,11 @@ export type ExecuteRequest = {
   environmentVariables: EnvironmentVariable[];
   timeoutSecs: number;
   npmVersion: string | null;
-  requestContext: RequestContext;
+  // TODO(presley): Rename this to executionContext
+  requestContext: ExecutionContext;
 };
 
-export type RequestContext = {
+export type ExecutionContext = {
   requestId: string;
   executionId: string | undefined;
   isRoot: boolean | undefined;

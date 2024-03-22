@@ -72,7 +72,7 @@ message ExecuteQueryRequest {
     convex_identity.Identity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
-    optional common.RequestContext request_context = 6;
+    optional common.ExecutionContext execution_context = 6;
 }
 
 message ExecuteQueryResponse {
@@ -87,7 +87,7 @@ message ExecuteMutationRequest {
     convex_identity.Identity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
-    optional common.RequestContext request_context = 6;
+    optional common.ExecutionContext execution_context = 6;
 }
 
 message ExecuteMutationResponse {
@@ -102,7 +102,7 @@ message ExecuteActionRequest {
     convex_identity.Identity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
-    optional common.RequestContext request_context = 6;
+    optional common.ExecutionContext execution_context = 6;
 }
 
 message ExecuteActionResponse {
@@ -159,7 +159,7 @@ message ScheduleJobRequest {
     convex_identity.Identity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional double scheduled_ts = 4;
-    optional common.RequestContext request_context = 6;
+    optional common.ExecutionContext execution_context = 6;
 }
 
 message ScheduleJobResponse {

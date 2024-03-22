@@ -12,6 +12,7 @@ use common::{
         report_error,
         JsError,
     },
+    execution_context::ExecutionContext,
     identity::InertIdentity,
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
@@ -23,10 +24,6 @@ use common::{
         Order,
         Query,
     },
-    request_context::{
-        RequestContext,
-        RequestId,
-    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -37,6 +34,7 @@ use common::{
         ModuleEnvironment,
         UdfType,
     },
+    RequestId,
 };
 use database::{
     Database,
@@ -346,7 +344,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let start = self.rt.monotonic_now();
         let identity = tx.inert_identity();
         let caller = FunctionCaller::Cron;
-        let context = RequestContext::new(request_id, &caller);
+        let context = ExecutionContext::new(request_id, &caller);
         let mutation_result = self
             .runner
             .run_mutation_no_udf_log(
@@ -480,7 +478,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     .await?;
 
                 // Execute the action
-                let context = RequestContext::new(request_id, &caller);
+                let context = ExecutionContext::new(request_id, &caller);
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
@@ -547,7 +545,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 // started with. We generate a new executionId and use it to log the failures. I
                 // guess the correct behavior here is to store the executionId in the state so
                 // we can log correctly here.
-                let context = RequestContext::new(request_id, &caller);
+                let context = ExecutionContext::new(request_id, &caller);
                 let mut model = CronModel::new(&mut tx);
                 model
                     .insert_cron_job_log(&job, status, log_lines, 0.0)
@@ -626,7 +624,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         log_lines: CronJobLogLines,
         execution_time: f64,
         usage_tracker: FunctionUsageTracker,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<()> {
         let Some(mut tx) = self
             .new_transaction_for_job_state(job_id, expected_state, usage_tracker)
@@ -661,7 +659,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         job_id: ResolvedDocumentId,
         job: &CronJob,
         udf_type: UdfType,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<()> {
         let now = self.rt.generate_timestamp()?;
         let prev_ts = job.next_ts;

@@ -3,8 +3,8 @@ use value::heap_size::HeapSize;
 
 use crate::{
     errors::JsError,
+    execution_context::ExecutionContext,
     identity::InertIdentity,
-    request_context::RequestContext,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -100,7 +100,7 @@ impl LogEvent {
         use sync_types::UserIdentifier;
 
         let source = EventSource::Function(FunctionEventSource {
-            context: RequestContext::new_for_test(),
+            context: ExecutionContext::new_for_test(),
             path: "test".to_string(),
             udf_type: UdfType::Action,
             module_environment: ModuleEnvironment::Isolate,
@@ -195,7 +195,7 @@ pub enum EventSource {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionEventSource {
-    pub context: RequestContext,
+    pub context: ExecutionContext,
     pub path: String,
     pub udf_type: UdfType,
     pub module_environment: ModuleEnvironment,
@@ -219,13 +219,13 @@ mod tests {
     };
 
     use crate::{
+        execution_context::ExecutionContext,
         log_streaming::{
             EventSource,
             FunctionEventSource,
             LogEvent,
             LogTopic,
         },
-        request_context::RequestContext,
         runtime::UnixTimestamp,
         types::{
             ModuleEnvironment,
@@ -244,7 +244,7 @@ mod tests {
             topic: LogTopic::Console,
             timestamp: UnixTimestamp::from_millis(1000),
             source: EventSource::Function(FunctionEventSource {
-                context: RequestContext::new_for_test(),
+                context: ExecutionContext::new_for_test(),
                 path: "test:test".to_string(),
                 udf_type: UdfType::Query,
                 module_environment: ModuleEnvironment::Isolate,
@@ -282,7 +282,7 @@ mod tests {
             topic: LogTopic::User("myTopic".to_string()),
             timestamp: UnixTimestamp::from_millis(1000),
             source: EventSource::Function(FunctionEventSource {
-                context: RequestContext::new_for_test(),
+                context: ExecutionContext::new_for_test(),
                 path: "test:test".to_string(),
                 udf_type: UdfType::Query,
                 module_environment: ModuleEnvironment::Isolate,

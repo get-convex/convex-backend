@@ -13,6 +13,7 @@ use common::{
         report_error,
         JsError,
     },
+    execution_context::ExecutionContext,
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE,
@@ -25,10 +26,6 @@ use common::{
         IndexRangeExpression,
         Order,
         Query,
-    },
-    request_context::{
-        RequestContext,
-        RequestId,
     },
     runtime::{
         Runtime,
@@ -43,6 +40,7 @@ use common::{
         ModuleEnvironment,
         UdfType,
     },
+    RequestId,
 };
 use database::{
     Database,
@@ -433,7 +431,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
                 // NOTE: We didn't actually run anything, so we are creating a request context
                 // just report the error.
-                let request_context = RequestContext::new(request_id, &caller);
+                let context = ExecutionContext::new(request_id, &caller);
                 self.function_log.log_error(
                     job.udf_path,
                     udf_type,
@@ -442,7 +440,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     caller,
                     None,
                     identity,
-                    request_context,
+                    context,
                 );
                 return Ok(job_id);
             },
@@ -476,7 +474,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
                 // NOTE: We didn't actually run anything, so we are creating a request context
                 // just report the error.
-                let request_context = RequestContext::new(request_id, &caller);
+                let context = ExecutionContext::new(request_id, &caller);
                 self.function_log.log_error(
                     job.udf_path,
                     udf_type,
@@ -485,7 +483,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     caller,
                     None,
                     identity,
-                    request_context,
+                    context,
                 );
             },
         };
@@ -503,7 +501,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
         let start = self.rt.monotonic_now();
-        let context = RequestContext::new(request_id, &caller);
+        let context = ExecutionContext::new(request_id, &caller);
         let identity = tx.inert_identity();
         let result = self
             .runner
@@ -612,7 +610,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .await?;
 
                 // Execute the action
-                let context = RequestContext::new(request_id, &caller);
+                let context = ExecutionContext::new(request_id, &caller);
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
@@ -671,7 +669,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // started with. We generate a new executionId and use it to log the failures. I
                 // guess the correct behavior here is to store the executionId in the state so
                 // we can log correctly here.
-                let context = RequestContext::new(request_id, &caller);
+                let context = ExecutionContext::new(request_id, &caller);
                 self.function_log.log_action(
                     ActionCompletion {
                         outcome,

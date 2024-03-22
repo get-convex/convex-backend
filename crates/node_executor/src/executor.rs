@@ -14,8 +14,8 @@ use common::{
         FrameData,
         JsError,
     },
+    execution_context::ExecutionContext,
     log_lines::LogLine,
-    request_context::RequestContext,
     sha256::Sha256Digest,
     types::{
         ActionCallbackToken,
@@ -521,6 +521,7 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                     "npmVersion": npm_version.map(|v| v.to_string()),
                     // TODO(CX-5733): Migrate and remove.
                     "parentScheduledJob": r.context.parent_scheduled_job.map(|id| id.to_string()),
+                    // TODO(presley): Rename this to executionContext
                     "requestContext": JsonValue::from(r.context),
                 })
             },
@@ -617,7 +618,7 @@ pub struct ExecuteRequest {
     pub environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
 
     pub callback_token: ActionCallbackToken,
-    pub context: RequestContext,
+    pub context: ExecutionContext,
 }
 
 #[derive(Debug, PartialEq)]

@@ -13,6 +13,7 @@ use common::{
         new_codel_queue_async,
         CoDelQueueSender,
     },
+    execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::{
         FUNRUN_ISOLATE_ACTIVE_THREADS,
@@ -25,7 +26,6 @@ use common::{
         RetentionValidator,
     },
     query_journal::QueryJournal,
-    request_context::RequestContext,
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -307,7 +307,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         journal: QueryJournal,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<(
         Option<FunctionFinalTransaction>,
         FunctionOutcome,
@@ -469,7 +469,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<(
         Option<FunctionFinalTransaction>,
         FunctionOutcome,

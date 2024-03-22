@@ -14,9 +14,9 @@ use std::{
 use async_trait::async_trait;
 use common::{
     document::DocumentUpdate,
+    execution_context::ExecutionContext,
     log_lines::LogLine,
     query_journal::QueryJournal,
-    request_context::RequestContext,
     runtime::Runtime,
     types::{
         IndexId,
@@ -71,7 +71,7 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<(
         Option<FunctionFinalTransaction>,
         FunctionOutcome,

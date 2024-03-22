@@ -15,6 +15,7 @@ use authentication::token_to_authorization_header;
 use common::{
     backoff::Backoff,
     errors::JsError,
+    execution_context::ExecutionContext,
     identity::InertIdentity,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
@@ -33,10 +34,6 @@ use common::{
     },
     pause::PauseClient,
     query_journal::QueryJournal,
-    request_context::{
-        RequestContext,
-        RequestId,
-    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -56,6 +53,7 @@ use common::{
         UdfType,
     },
     value::ConvexArray,
+    RequestId,
 };
 use database::{
     unauthorized_error,
@@ -258,7 +256,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         path_and_args: ValidatedUdfPathAndArgs,
         udf_type: UdfType,
         journal: QueryJournal,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         anyhow::ensure!(udf_type == UdfType::Query || udf_type == UdfType::Mutation);
         // All queries and mutations are run in the isolate environment.
@@ -276,7 +274,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         tx: Transaction<RT>,
         path_and_args: ValidatedUdfPathAndArgs,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<ActionOutcome> {
         let (_, outcome) = self
             .function_runner_execute(
@@ -306,7 +304,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         path_and_args: ValidatedUdfPathAndArgs,
         udf_type: UdfType,
         journal: QueryJournal,
-        context: RequestContext,
+        context: ExecutionContext,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
     ) -> anyhow::Result<(Option<Transaction<RT>>, FunctionOutcome)> {
         let in_memory_index_last_modified = self
@@ -601,7 +599,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             self.module_cache.clone(),
         )
         .await?;
-        let context = RequestContext::new(request_id, &caller);
+        let context = ExecutionContext::new(request_id, &caller);
         let (mut tx, outcome) = match validate_result {
             Ok(path_and_args) => {
                 self.isolate_functions
@@ -716,7 +714,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         loop {
             // Note that we use different context for every mutation attempt.
             // This so every JS function run gets a different executionId.
-            let context = RequestContext::new(request_id.clone(), &caller);
+            let context = ExecutionContext::new(request_id.clone(), &caller);
 
             let start = self.runtime.monotonic_now();
             let mut tx = self
@@ -875,7 +873,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         udf_path: CanonicalizedUdfPath,
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
         let result = self
             .run_mutation_inner(tx, udf_path, arguments, allowed_visibility, context)
@@ -906,7 +904,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         udf_path: CanonicalizedUdfPath,
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
         if udf_path.is_system() && !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
@@ -974,7 +972,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 }))
             },
         };
-        let context = RequestContext::new(request_id.clone(), &caller);
+        let context = ExecutionContext::new(request_id.clone(), &caller);
         let name = name.canonicalize();
         let usage_tracking = FunctionUsageTracker::new();
         let completion = self
@@ -1019,7 +1017,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<ActionCompletion> {
         let result = self
             .run_action_inner(
@@ -1060,7 +1058,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<ActionCompletion> {
         if name.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
@@ -1604,7 +1602,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         start: RT::Instant,
         caller: FunctionCaller,
         e: &anyhow::Error,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<()> {
         // TODO: We currently synthesize a `UdfOutcome` for
         // an internal system error. If we decide we want to keep internal system errors
@@ -1664,7 +1662,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         name: UdfPath,
         args: Vec<JsonValue>,
         block_logging: bool,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let ts = self.database.now_ts_for_reads();
         let result = self
@@ -1692,7 +1690,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         name: UdfPath,
         args: Vec<JsonValue>,
         block_logging: bool,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let result = self
             .retry_mutation(
@@ -1722,7 +1720,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         name: UdfPath,
         args: Vec<JsonValue>,
         block_logging: bool,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let _tx = self.database.begin(identity.clone()).await?;
         let result = self
@@ -1797,7 +1795,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         udf_path: UdfPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<DocumentIdV6> {
         let mut tx = self.database.begin(identity).await?;
         let (udf_path, udf_args) = validate_schedule_args(

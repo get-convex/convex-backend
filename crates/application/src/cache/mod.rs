@@ -16,6 +16,7 @@ use async_broadcast::{
 };
 use common::{
     self,
+    execution_context::ExecutionContext,
     identity::IdentityCacheKey,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
@@ -23,10 +24,6 @@ use common::{
         UDF_CACHE_MAX_SIZE,
     },
     query_journal::QueryJournal,
-    request_context::{
-        RequestContext,
-        RequestId,
-    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -40,6 +37,7 @@ use common::{
         UdfType,
     },
     value::ConvexArray,
+    RequestId,
 };
 use database::{
     Database,
@@ -277,7 +275,7 @@ impl<RT: Runtime> CacheManager<RT> {
             journal: journal.unwrap_or_else(QueryJournal::new),
             allowed_visibility,
         };
-        let context = RequestContext::new(request_id, &caller);
+        let context = ExecutionContext::new(request_id, &caller);
 
         let mut num_attempts = 0;
         'top: loop {
@@ -403,7 +401,7 @@ impl<RT: Runtime> CacheManager<RT> {
         now: RT::Instant,
         identity: &Identity,
         ts: Timestamp,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> Option<CacheOp> {
         let go = |sender: Option<(Sender<_>, u64)>| {
             let (sender, waiting_entry_id) = match sender {
@@ -799,6 +797,6 @@ enum CacheOp {
         ts: Timestamp,
         journal: QueryJournal,
         allowed_visibility: AllowedVisibility,
-        context: RequestContext,
+        context: ExecutionContext,
     },
 }

@@ -5,11 +5,11 @@ use common::{
         PauseClient,
         PauseController,
     },
-    request_context::RequestId,
     types::{
         AllowedVisibility,
         FunctionCaller,
     },
+    RequestId,
 };
 use errors::ErrorMetadataAnyhowExt;
 use keybroker::Identity;

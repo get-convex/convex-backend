@@ -5,9 +5,9 @@ use std::{
 };
 
 use common::{
+    execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::MAX_CONCURRENT_ACTION_OPS,
-    request_context::RequestContext,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -66,7 +66,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub task_order: TaskOrder,
     pub task_retval_sender: UnboundedSender<TaskResponse>,
     pub usage_tracker: FunctionUsageTracker,
-    pub context: RequestContext,
+    pub context: ExecutionContext,
 }
 
 impl<RT: Runtime> TaskExecutor<RT> {

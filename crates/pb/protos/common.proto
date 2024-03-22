@@ -64,7 +64,7 @@ message FrameData {
   optional uint32 promise_index = 14;
 }
 
-message RequestContext {
+message ExecutionContext {
     optional string parent_scheduled_job = 1;
     optional string request_id = 2;
     optional string execution_id = 3;

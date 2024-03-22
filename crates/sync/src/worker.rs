@@ -27,7 +27,6 @@ use common::{
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     pause::PauseClient,
     query_journal::QueryJournal,
-    request_context::RequestId,
     runtime::{
         Runtime,
         WithTimeout,
@@ -38,6 +37,7 @@ use common::{
     },
     value::ConvexValue,
     version::ClientVersion,
+    RequestId,
 };
 use database::Subscription;
 use futures::{

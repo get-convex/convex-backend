@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { UserIdentity } from "convex/server";
-import { RequestContext, SyscallStats } from "./executor";
+import { ExecutionContext, SyscallStats } from "./executor";
 import { ConvexError, JSONValue } from "convex/values";
 import { UdfPath } from "./convex";
 
@@ -74,7 +74,7 @@ export class SyscallsImpl {
   backendAddress: string;
   backendCallbackToken: string;
   authHeader: string | null;
-  requestContext: RequestContext;
+  executionContext: ExecutionContext;
 
   // The `userIdentity` is determined from `authHeader`, but we only want to implement parsing in
   // Rust, so we'll unpack it there and send both to JS.
@@ -91,7 +91,7 @@ export class SyscallsImpl {
     backendCallbackToken: string,
     authHeader: string | null,
     userIdentity: UserIdentity | null,
-    requestContext: RequestContext,
+    executionContext: ExecutionContext,
   ) {
     this.udfPath = udfPath;
     this.lambdaExecuteId = lambdaExecuteId;
@@ -101,7 +101,7 @@ export class SyscallsImpl {
     this.userIdentity = userIdentity;
     this.syscallTrace = {};
     this.pendingSyscallCount = {};
-    this.requestContext = requestContext;
+    this.executionContext = executionContext;
   }
 
   async actionCallback<ResponseValidator extends z.ZodType>(args: {
@@ -144,16 +144,16 @@ export class SyscallsImpl {
       "Convex-Action-Callback-Token": this.backendCallbackToken,
       "Convex-Action-Function-Name": `${this.udfPath.canonicalizedPath}:${this.udfPath.function}`,
     };
-    if (this.requestContext.parentScheduledJob !== null) {
+    if (this.executionContext.parentScheduledJob !== null) {
       headers["Convex-Parent-Scheduled-Job"] =
-        this.requestContext.parentScheduledJob;
+        this.executionContext.parentScheduledJob;
     }
-    headers["Convex-Request-Id"] = this.requestContext.requestId;
-    if (this.requestContext.executionId !== undefined) {
-      headers["Convex-Execution-Id"] = this.requestContext.executionId;
+    headers["Convex-Request-Id"] = this.executionContext.requestId;
+    if (this.executionContext.executionId !== undefined) {
+      headers["Convex-Execution-Id"] = this.executionContext.executionId;
     }
-    if (this.requestContext.isRoot !== undefined) {
-      headers["Convex-Root-Request"] = this.requestContext.isRoot.toString();
+    if (this.executionContext.isRoot !== undefined) {
+      headers["Convex-Root-Request"] = this.executionContext.isRoot.toString();
     }
     if (this.authHeader !== null) {
       headers["Authorization"] = this.authHeader;

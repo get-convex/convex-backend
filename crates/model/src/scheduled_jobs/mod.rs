@@ -11,6 +11,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    execution_context::ExecutionContext,
     knobs::{
         TRANSACTION_MAX_NUM_SCHEDULED,
         TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
@@ -21,7 +22,6 @@ use common::{
         Order,
         Query,
     },
-    request_context::RequestContext,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -199,7 +199,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         udf_path: UdfPath,
         args: ConvexArray,
         ts: UnixTimestamp,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<ResolvedDocumentId> {
         if udf_path.is_system()
             && !(self.tx.identity().is_admin() || self.tx.identity().is_system())
@@ -431,7 +431,7 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
         udf_path: UdfPath,
         args: ConvexArray,
         ts: UnixTimestamp,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<DocumentIdV6> {
         let system_id = SchedulerModel::new(self.tx)
             .schedule(udf_path, args, ts, context)

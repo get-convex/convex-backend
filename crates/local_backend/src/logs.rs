@@ -18,7 +18,7 @@ use common::{
         },
         HttpResponseError,
     },
-    request_context::RequestId,
+    RequestId,
 };
 use errors::ErrorMetadata;
 use futures::FutureExt;

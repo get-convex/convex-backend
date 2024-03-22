@@ -38,7 +38,7 @@ message FunrunRequest {
   map<string, string> system_env_vars = 10;
   repeated InMemoryIndexLastModified in_memory_index_last_modified = 13; 
   BootstrapMetadata bootstrap_metadata = 14;
-  optional common.RequestContext context = 15;
+  optional common.ExecutionContext context = 15;
   RepeatableTimestamp repeatable_ts = 16;
 }
 

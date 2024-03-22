@@ -20,12 +20,12 @@ use common::{
         HttpResponseError,
     },
     pause::PauseClient,
-    request_context::RequestId,
     types::{
         AllowedVisibility,
         FunctionCaller,
     },
     version::ClientVersion,
+    RequestId,
 };
 use errors::ErrorMetadata;
 use isolate::UdfArgsJson;

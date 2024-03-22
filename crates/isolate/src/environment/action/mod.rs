@@ -21,6 +21,7 @@ use common::{
         JsError,
         INTERNAL_SERVER_ERROR,
     },
+    execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::{
         ACTION_USER_TIMEOUT,
@@ -33,7 +34,6 @@ use common::{
         LogLine,
         TRUNCATED_LINE_SUFFIX,
     },
-    request_context::RequestContext,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -203,7 +203,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         heap_stats: SharedIsolateHeapStats,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> Self {
         let syscall_trace = Arc::new(Mutex::new(SyscallTrace::new()));
         let (task_retval_sender, task_responses) = mpsc::unbounded();

@@ -37,12 +37,12 @@ use common::{
         ID_FIELD,
     },
     errors::report_error,
+    execution_context::ExecutionId,
     knobs::{
         TRANSACTION_MAX_NUM_USER_WRITES,
         TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
     pause::PauseClient,
-    request_context::ExecutionId,
     runtime::Runtime,
     schemas::DatabaseSchema,
     types::{

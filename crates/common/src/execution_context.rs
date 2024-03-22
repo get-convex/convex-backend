@@ -16,12 +16,9 @@ use value::{
 
 use crate::types::FunctionCaller;
 
-// TODO(presley): This should really be renamed to FunctionContext since the
-// execution_id and is_root are very specific to functions, not requests in
-// general.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct RequestContext {
+pub struct ExecutionContext {
     pub request_id: RequestId,
     // A unique ID per entry in the function logs.
     // In contrast to the `RequestId`, there is a 1-1 relationship between a single
@@ -36,7 +33,7 @@ pub struct RequestContext {
     is_root: bool,
 }
 
-impl RequestContext {
+impl ExecutionContext {
     pub fn new(request_id: RequestId, caller: &FunctionCaller) -> Self {
         Self {
             request_id,
@@ -75,7 +72,7 @@ impl RequestContext {
     }
 }
 
-impl HeapSize for RequestContext {
+impl HeapSize for ExecutionContext {
     fn heap_size(&self) -> usize {
         self.request_id.heap_size()
             + self.execution_id.heap_size()
@@ -182,9 +179,9 @@ impl HeapSize for ExecutionId {
     }
 }
 
-impl From<RequestContext> for pb::common::RequestContext {
-    fn from(value: RequestContext) -> Self {
-        pb::common::RequestContext {
+impl From<ExecutionContext> for pb::common::ExecutionContext {
+    fn from(value: ExecutionContext) -> Self {
+        pb::common::ExecutionContext {
             request_id: Some(value.request_id.to_string()),
             execution_id: Some(value.execution_id.to_string()),
             parent_scheduled_job: value.parent_scheduled_job.map(|id| id.into()),
@@ -193,10 +190,10 @@ impl From<RequestContext> for pb::common::RequestContext {
     }
 }
 
-impl TryFrom<pb::common::RequestContext> for RequestContext {
+impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
     type Error = anyhow::Error;
 
-    fn try_from(value: pb::common::RequestContext) -> Result<Self, Self::Error> {
+    fn try_from(value: pb::common::ExecutionContext) -> Result<Self, Self::Error> {
         Ok(Self {
             request_id: RequestId::from_str(&value.request_id.context("Missing request id")?)?,
             execution_id: match &value.execution_id {
@@ -209,8 +206,8 @@ impl TryFrom<pb::common::RequestContext> for RequestContext {
     }
 }
 
-impl From<RequestContext> for JsonValue {
-    fn from(value: RequestContext) -> Self {
+impl From<ExecutionContext> for JsonValue {
+    fn from(value: ExecutionContext) -> Self {
         json!({
             "requestId": value.request_id.to_string(),
             "executionId": value.execution_id.to_string(),

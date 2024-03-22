@@ -1,4 +1,4 @@
-use common::request_context::RequestContext;
+use common::execution_context::ExecutionContext;
 use futures::{
     future::BoxFuture,
     select_biased,
@@ -204,7 +204,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 
     heap_stats: SharedIsolateHeapStats,
 
-    context: RequestContext,
+    context: ExecutionContext,
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {

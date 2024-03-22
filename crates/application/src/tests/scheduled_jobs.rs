@@ -4,19 +4,17 @@ use std::{
 };
 
 use common::{
+    execution_context::ExecutionContext,
     pause::{
         PauseClient,
         PauseController,
-    },
-    request_context::{
-        RequestContext,
-        RequestId,
     },
     runtime::Runtime,
     types::{
         AllowedVisibility,
         FunctionCaller,
     },
+    RequestId,
 };
 use database::{
     TableModel,
@@ -75,7 +73,7 @@ async fn create_scheduled_job<'a>(
             udf_path.clone(),
             parse_udf_args(&udf_path, vec![JsonValue::Object(map)])?,
             rt.unix_timestamp(),
-            RequestContext::new_for_test(),
+            ExecutionContext::new_for_test(),
         )
         .await?;
     let state = model.check_status(job_id).await?.unwrap();

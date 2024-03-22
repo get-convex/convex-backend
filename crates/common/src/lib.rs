@@ -32,6 +32,7 @@ pub mod codel_queue;
 pub mod comparators;
 pub mod document;
 pub mod errors;
+pub mod execution_context;
 pub mod ext;
 pub mod floating_point;
 pub mod heap_size;
@@ -56,7 +57,6 @@ pub mod pii;
 pub mod pool_stats;
 pub mod query;
 pub mod query_journal;
-pub mod request_context;
 pub mod runtime;
 pub mod schemas;
 pub mod sha256;
@@ -72,6 +72,7 @@ pub mod bounded_thread_pool;
 pub mod version;
 pub mod ws;
 
+pub use execution_context::RequestId;
 pub use tokio;
 #[cfg(any(test, feature = "testing"))]
 pub use value::assert_obj;

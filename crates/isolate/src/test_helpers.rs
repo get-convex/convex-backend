@@ -18,6 +18,7 @@ use common::{
         IndexMetadata,
     },
     errors::JsError,
+    execution_context::ExecutionContext,
     http::fetch::ProxiedFetchClient,
     log_lines::{
         LogLine,
@@ -29,7 +30,6 @@ use common::{
     },
     persistence::Persistence,
     query_journal::QueryJournal,
-    request_context::RequestContext,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -475,7 +475,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 path_and_args,
                 tx,
                 QueryJournal::new(),
-                RequestContext::new_for_test(),
+                ExecutionContext::new_for_test(),
             )
             .await?;
         self.database
@@ -595,7 +595,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 path_and_args,
                 tx,
                 journal.unwrap_or_else(QueryJournal::new),
-                RequestContext::new_for_test(),
+                ExecutionContext::new_for_test(),
             )
             .await?;
         // Ensure the transaction is readonly by turning it into a subscription token.
@@ -634,7 +634,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 ),
                 tx,
                 QueryJournal::new(),
-                RequestContext::new_for_test(),
+                ExecutionContext::new_for_test(),
             )
             .await?;
         match outcome {
@@ -734,7 +734,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 fetch_client,
                 log_line_sender,
                 tx,
-                RequestContext::new_for_test(),
+                ExecutionContext::new_for_test(),
             )
             .await?;
         let log_lines: Vec<LogLine> = log_line_receiver.collect().await;
@@ -864,7 +864,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 Arc::new(self.clone()),
                 fetch_client,
                 log_line_sender,
-                RequestContext::new_for_test(),
+                ExecutionContext::new_for_test(),
             )
             .await?;
         let log_lines: Vec<LogLine> = log_line_receiver.collect().await;
@@ -950,7 +950,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         name: UdfPath,
         args: Vec<JsonValue>,
         _block_logging: bool,
-        _context: RequestContext,
+        _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let arguments = parse_udf_args(&name, args)?;
         let str_name = String::from(name);
@@ -971,7 +971,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         name: UdfPath,
         args: Vec<JsonValue>,
         _block_logging: bool,
-        _context: RequestContext,
+        _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let arguments = parse_udf_args(&name, args)?;
         let str_name = String::from(name);
@@ -992,7 +992,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         name: UdfPath,
         args: Vec<JsonValue>,
         _block_logging: bool,
-        _context: RequestContext,
+        _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let arguments = parse_udf_args(&name, args)?;
         let str_name = String::from(name);
@@ -1055,7 +1055,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         udf_path: UdfPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<DocumentIdV6> {
         let mut tx: database::Transaction<RT> = self.database.begin(identity).await?;
         let (udf_path, udf_args) = validate_schedule_args(
@@ -1117,7 +1117,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
         identity: Identity::system().into(),
         transaction: tx,
         journal: QueryJournal::new(),
-        context: RequestContext::new_for_test(),
+        context: ExecutionContext::new_for_test(),
     };
     let inner = RequestType::Udf {
         request,

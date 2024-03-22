@@ -10,7 +10,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    request_context::ExecutionId,
+    execution_context::ExecutionId,
     types::{
         ModuleEnvironment,
         UdfIdentifier,

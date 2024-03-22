@@ -190,11 +190,11 @@ mod tests {
     use cmd_util::env::config_test;
     use common::{
         assert_obj,
+        execution_context::ExecutionContext,
         log_lines::{
             run_function_and_collect_log_lines,
             LogLines,
         },
-        request_context::RequestContext,
         types::{
             ModuleEnvironment,
             UdfType,
@@ -300,7 +300,7 @@ mod tests {
             auth_header: None,
             environment_variables: btreemap! {},
             callback_token: "".to_owned(),
-            context: RequestContext::new_for_test(),
+            context: ExecutionContext::new_for_test(),
         }
     }
 
@@ -413,7 +413,7 @@ mod tests {
                 auth_header: None,
                 environment_variables: btreemap! {},
                 callback_token: "".to_owned(),
-                context: RequestContext::new_for_test(),
+                context: ExecutionContext::new_for_test(),
             },
             &source_maps,
         )
@@ -652,7 +652,7 @@ mod tests {
                 auth_header: None,
                 environment_variables,
                 callback_token: "".to_owned(),
-                context: RequestContext::new_for_test(),
+                context: ExecutionContext::new_for_test(),
             },
             &source_maps,
         )

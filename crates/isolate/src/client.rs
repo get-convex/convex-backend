@@ -24,6 +24,7 @@ use common::{
         recapture_stacktrace,
         JsError,
     },
+    execution_context::ExecutionContext,
     http::fetch::FetchClient,
     identity::InertIdentity,
     knobs::{
@@ -35,7 +36,6 @@ use common::{
     log_lines::LogLine,
     pause::PauseClient,
     query_journal::QueryJournal,
-    request_context::RequestContext,
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -256,7 +256,7 @@ pub trait ActionCallbacks: Send + Sync {
         name: UdfPath,
         args: Vec<JsonValue>,
         block_logging: bool,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 
     async fn execute_mutation(
@@ -265,7 +265,7 @@ pub trait ActionCallbacks: Send + Sync {
         name: UdfPath,
         args: Vec<JsonValue>,
         block_logging: bool,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 
     async fn execute_action(
@@ -274,7 +274,7 @@ pub trait ActionCallbacks: Send + Sync {
         name: UdfPath,
         args: Vec<JsonValue>,
         block_logging: bool,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 
     // Storage
@@ -311,7 +311,7 @@ pub trait ActionCallbacks: Send + Sync {
         udf_path: UdfPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<DocumentIdV6>;
 
     async fn cancel_job(&self, identity: Identity, virtual_id: DocumentIdV6) -> anyhow::Result<()>;
@@ -330,7 +330,7 @@ pub struct UdfRequest<RT: Runtime> {
     pub identity: InertIdentity,
     pub transaction: Transaction<RT>,
     pub journal: QueryJournal,
-    pub context: RequestContext,
+    pub context: ExecutionContext,
 }
 
 pub struct HttpActionRequest<RT: Runtime> {
@@ -338,14 +338,14 @@ pub struct HttpActionRequest<RT: Runtime> {
     http_request: http_action::HttpActionRequest,
     transaction: Transaction<RT>,
     identity: Identity,
-    context: RequestContext,
+    context: ExecutionContext,
 }
 
 pub struct ActionRequest<RT: Runtime> {
     pub params: ActionRequestParams,
     pub transaction: Transaction<RT>,
     pub identity: Identity,
-    pub context: RequestContext,
+    pub context: ExecutionContext,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -624,7 +624,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         path_and_args: ValidatedUdfPathAndArgs,
         transaction: Transaction<RT>,
         journal: QueryJournal,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         let timer = metrics::execute_timer(&udf_type, path_and_args.npm_version());
         let (tx, rx) = oneshot::channel();
@@ -665,7 +665,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         transaction: Transaction<RT>,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<HttpActionOutcome> {
         // In production, we have two isolate clients, one for DB UDFs (queries,
         // mutations) and one for actions (including HTTP actions).
@@ -715,7 +715,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> anyhow::Result<ActionOutcome> {
         // In production, we have two isolate clients, one for DB UDFs (queries,
         // mutations) and one for actions (including HTTP actions).

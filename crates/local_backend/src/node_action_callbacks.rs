@@ -16,6 +16,10 @@ use axum::{
     RequestPartsExt,
 };
 use common::{
+    execution_context::{
+        ExecutionContext,
+        ExecutionId,
+    },
     http::{
         extract::Json,
         ExtractClientVersion,
@@ -23,17 +27,13 @@ use common::{
     },
     knobs::ACTION_USER_TIMEOUT,
     pause::PauseClient,
-    request_context::{
-        ExecutionId,
-        RequestContext,
-        RequestId,
-    },
     runtime::UnixTimestamp,
     types::{
         AllowedVisibility,
         FunctionCaller,
         UdfIdentifier,
     },
+    RequestId,
 };
 use errors::ErrorMetadata;
 use http::HeaderMap;
@@ -85,7 +85,7 @@ pub async fn internal_query_post(
     State(st): State<LocalAppState>,
     ExtractActionIdentity(identity): ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
-    ExtractRequestContext(context): ExtractRequestContext,
+    ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
@@ -127,7 +127,7 @@ pub async fn internal_mutation_post(
     State(st): State<LocalAppState>,
     ExtractActionIdentity(identity): ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
-    ExtractRequestContext(context): ExtractRequestContext,
+    ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
@@ -174,7 +174,7 @@ pub async fn internal_action_post(
     State(st): State<LocalAppState>,
     ExtractActionIdentity(identity): ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
-    ExtractRequestContext(context): ExtractRequestContext,
+    ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
@@ -228,7 +228,7 @@ pub struct ScheduleJobResponse {
 pub async fn schedule_job(
     State(st): State<LocalAppState>,
     ExtractActionIdentity(identity): ExtractActionIdentity,
-    ExtractRequestContext(context): ExtractRequestContext,
+    ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<ScheduleJobRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let scheduled_ts = UnixTimestamp::from_secs_f64(req.scheduled_ts);
@@ -275,7 +275,7 @@ pub async fn vector_search(
     State(st): State<LocalAppState>,
     ExtractActionIdentity(identity): ExtractActionIdentity,
     ExtractActionName(action_name): ExtractActionName,
-    ExtractRequestContext(context): ExtractRequestContext,
+    ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<VectorSearchRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let VectorSearchRequest { query } = req;
@@ -472,10 +472,10 @@ impl FromRequestParts<LocalAppState> for ExtractActionName {
     }
 }
 
-pub struct ExtractRequestContext(pub RequestContext);
+pub struct ExtractExecutionContext(pub ExecutionContext);
 
 #[async_trait]
-impl<T> FromRequestParts<T> for ExtractRequestContext {
+impl<T> FromRequestParts<T> for ExtractExecutionContext {
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
@@ -517,7 +517,7 @@ impl<T> FromRequestParts<T> for ExtractRequestContext {
             .transpose()
             .context("Invalid scheduled job id")?;
 
-        Ok(Self(RequestContext::new_from_parts(
+        Ok(Self(ExecutionContext::new_from_parts(
             request_id,
             execution_id,
             parent_job_id,

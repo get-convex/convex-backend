@@ -3,7 +3,7 @@ use std::fmt;
 use common::{
     errors::JsError,
     log_lines::LogLines,
-    request_context::RequestId,
+    RequestId,
 };
 use http::StatusCode;
 use isolate::HttpActionResponse;
@@ -173,7 +173,7 @@ impl From<RedactedJsError> for HttpActionResponse {
 pub mod tests {
     use common::{
         errors::JsError,
-        request_context::RequestId,
+        RequestId,
     };
     use isolate::HttpActionResponse;
     use must_let::must_let;

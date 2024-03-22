@@ -17,6 +17,7 @@ use common::{
         report_error,
         JsError,
     },
+    execution_context::ExecutionContext,
     identity::InertIdentity,
     knobs::MAX_UDF_EXECUTION,
     log_lines::LogLines,
@@ -27,7 +28,6 @@ use common::{
         LogSender,
         LogTopic,
     },
-    request_context::RequestContext,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -125,7 +125,7 @@ pub struct FunctionExecution {
     /// power.
     pub identity: InertIdentity,
 
-    pub context: RequestContext,
+    pub context: ExecutionContext,
 }
 
 impl HeapSize for FunctionExecution {
@@ -149,7 +149,7 @@ impl FunctionExecution {
         caller: FunctionCaller,
         udf_server_version: Option<semver::Version>,
         identity: InertIdentity,
-        context: RequestContext,
+        context: ExecutionContext,
     ) -> Self {
         FunctionExecution {
             params: UdfParams::Function {
@@ -334,7 +334,7 @@ pub struct ActionCompletion {
     pub execution_time: Duration,
     pub environment: ModuleEnvironment,
     pub memory_in_mb: u64,
-    pub context: RequestContext,
+    pub context: ExecutionContext,
     pub unix_timestamp: UnixTimestamp,
     pub caller: FunctionCaller,
     pub log_lines: LogLines,
@@ -553,7 +553,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         execution_time: Duration,
         caller: FunctionCaller,
         usage: FunctionUsageTracker,
-        context: RequestContext,
+        context: ExecutionContext,
     ) {
         let usage_stats = usage.gather_user_stats();
         let aggregated = usage_stats.aggregate();
@@ -607,7 +607,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         exclude_call_from_usage_tracking: bool,
         usage: FunctionUsageTracker,
-        context: RequestContext,
+        context: ExecutionContext,
     ) {
         let usage_stats = usage.gather_user_stats();
         let aggregated = usage_stats.aggregate();
@@ -655,7 +655,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         execution_time: Duration,
         caller: FunctionCaller,
         usage: FunctionUsageTracker,
-        context: RequestContext,
+        context: ExecutionContext,
     ) {
         let usage_stats = usage.gather_user_stats();
         let aggregated = usage_stats.aggregate();
@@ -759,7 +759,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         udf_server_version: Option<semver::Version>,
         identity: InertIdentity,
-        context: RequestContext,
+        context: ExecutionContext,
     ) {
         let execution = FunctionExecution::for_error(
             udf_path,
@@ -778,7 +778,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         &self,
         identifier: CanonicalizedUdfPath,
         unix_timestamp: UnixTimestamp,
-        context: RequestContext,
+        context: ExecutionContext,
         log_lines: LogLines,
         module_environment: ModuleEnvironment,
     ) {
@@ -800,7 +800,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         &self,
         identifier: HttpActionRoute,
         unix_timestamp: UnixTimestamp,
-        context: RequestContext,
+        context: ExecutionContext,
         log_lines: LogLines,
         module_environment: ModuleEnvironment,
     ) {

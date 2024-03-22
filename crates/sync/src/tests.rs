@@ -9,7 +9,6 @@ use application::{
 };
 use common::{
     assert_obj,
-    request_context::RequestId,
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -28,6 +27,7 @@ use common::{
         ConvexValue,
     },
     version::ClientVersion,
+    RequestId,
 };
 use errors::ErrorMetadataAnyhowExt;
 use futures::channel::mpsc;

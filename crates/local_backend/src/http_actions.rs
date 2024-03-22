@@ -18,8 +18,8 @@ use axum::{
 };
 use common::{
     http::HttpResponseError,
-    request_context::RequestId,
     types::FunctionCaller,
+    RequestId,
 };
 use futures::TryStreamExt;
 use http::{

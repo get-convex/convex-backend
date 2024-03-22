@@ -45,6 +45,7 @@ use common::{
         report_error,
         JsError,
     },
+    execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::{
         APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
@@ -59,10 +60,6 @@ use common::{
     pause::PauseClient,
     persistence::Persistence,
     query_journal::QueryJournal,
-    request_context::{
-        RequestContext,
-        RequestId,
-    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -92,6 +89,7 @@ use common::{
         UdfType,
         ENV_VAR_LIMIT,
     },
+    RequestId,
 };
 use cron_jobs::CronJobExecutor;
 use database::{
@@ -1076,7 +1074,7 @@ impl<RT: Runtime> Application<RT> {
             Err(e) => return Ok(Err(e)),
         };
         let unix_timestamp = self.runtime.unix_timestamp();
-        let context = RequestContext::new(request_id, &caller);
+        let context = ExecutionContext::new(request_id, &caller);
 
         let route = http_request.head.route_for_failure()?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
