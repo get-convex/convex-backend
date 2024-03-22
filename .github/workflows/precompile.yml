@@ -2,7 +2,7 @@ name: Daily Precompile
 
 on:
   schedule:
-    - cron: 30 0 * * * # Runs at 00:30 UTC every day.
+    - cron: 30 0 * * 1,2,3,4,5
   workflow_dispatch:
 
 jobs:
@@ -79,15 +79,15 @@ jobs:
         id: release_name
         run: echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Create Release and Upload Artifacts
+      - name: Create Upload Precompiled Artifacts
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             convex-local-backend-${{ matrix.target }}
             LICENSE.md
-          tag_name: release-test-${{ steps.release_name.outputs.RELEASE_NAME }}
-          name: Release-Test ${{ steps.release_name.outputs.RELEASE_NAME }}
+          tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
+          name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
           draft: false
           prerelease: false
         env:
