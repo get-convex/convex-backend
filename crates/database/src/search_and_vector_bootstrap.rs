@@ -71,7 +71,10 @@ use vector::{
 use crate::{
     committer::CommitterClient,
     index_workers::fast_forward::load_metadata_fast_forward_ts,
-    metrics::log_worker_starting,
+    metrics::{
+        log_document_skipped,
+        log_worker_starting,
+    },
 };
 
 pub const FINISHED_BOOTSTRAP_UPDATES: &str = "finished_bootstrap_updates";
@@ -466,10 +469,12 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
         while let Some(revision_pair) = revision_stream.try_next().await? {
             num_revisions += 1;
             total_size += revision_pair.document().map(|d| d.size()).unwrap_or(0);
+            let mut revision_not_in_indexes = true;
             if let Some(vector_indexes_to_update) = indexes_to_bootstrap
                 .table_to_vector_indexes
                 .get_mut(revision_pair.id.table())
             {
+                revision_not_in_indexes = false;
                 for vector_index in vector_indexes_to_update {
                     vector_index.update(&revision_pair)?;
                 }
@@ -478,9 +483,13 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
                 .table_to_search_indexes
                 .get_mut(revision_pair.id.table())
             {
+                revision_not_in_indexes = false;
                 for search_index in search_indexes_to_update {
                     search_index.update(&revision_pair)?;
                 }
+            }
+            if revision_not_in_indexes {
+                log_document_skipped()
             }
         }
 

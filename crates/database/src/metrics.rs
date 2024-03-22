@@ -674,6 +674,17 @@ pub fn search_and_vector_bootstrap_timer() -> StatusTimer {
     StatusTimer::new(&DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS)
 }
 
+register_convex_counter!(
+    DATABASE_SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
+    "Number of documents skipped during vector and search index bootstrap",
+);
+pub fn log_document_skipped() {
+    log_counter(
+        &DATABASE_SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
+        1,
+    );
+}
+
 pub mod vector {
     use metrics::{
         log_distribution,
