@@ -586,13 +586,40 @@ pub fn bootstrap_timer() -> StatusTimer {
     StatusTimer::new(&SEARCH_AND_VECTOR_BOOTSTRAP_SECONDS)
 }
 
+register_convex_histogram!(
+    SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_SECONDS,
+    "Time to update search and vector index bootstrap in the committer"
+);
+pub fn bootstrap_update_timer() -> Timer<VMHistogram> {
+    Timer::new(&SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_SECONDS)
+}
+register_convex_counter!(
+    SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_REVISIONS_TOTAL,
+    "Number of revisions loaded during search and vector bootstrap updates in the committer"
+);
+register_convex_counter!(
+    SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_REVISIONS_BYTES,
+    "Total size of revisions loaded during search and vector bootstrap updates in the committer"
+);
+
+pub fn finish_bootstrap_update(num_revisions: usize, bytes: usize) {
+    log_counter(
+        &SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_REVISIONS_TOTAL,
+        num_revisions as u64,
+    );
+    log_counter(
+        &SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_REVISIONS_BYTES,
+        bytes as u64,
+    );
+}
+
 register_convex_counter!(
     SEARCH_AND_VECTOR_BOOTSTRAP_REVISIONS_TOTAL,
-    "Number of revisions loaded during vector bootstrap"
+    "Number of revisions loaded during search and vector bootstrap"
 );
 register_convex_counter!(
     SEARCH_AND_VECTOR_BOOTSTRAP_REVISIONS_BYTES,
-    "Total size of revisions loaded during vector bootstrap"
+    "Total size of revisions loaded during search and vector bootstrap"
 );
 pub fn finish_bootstrap(num_revisions: usize, bytes: usize, timer: StatusTimer) {
     log_counter(
@@ -675,14 +702,11 @@ pub fn search_and_vector_bootstrap_timer() -> StatusTimer {
 }
 
 register_convex_counter!(
-    DATABASE_SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
+    SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
     "Number of documents skipped during vector and search index bootstrap",
 );
 pub fn log_document_skipped() {
-    log_counter(
-        &DATABASE_SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
-        1,
-    );
+    log_counter(&SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL, 1);
 }
 
 pub mod vector {

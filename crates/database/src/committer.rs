@@ -35,8 +35,6 @@ use common::{
         RetentionValidator,
         TimestampRange,
     },
-    persistence_helpers::stream_revision_pairs,
-    query::Order,
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -80,7 +78,6 @@ use futures::{
 use indexing::index_registry::IndexRegistry;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
-use search::SearchIndexManager;
 use usage_tracking::{
     DocInVectorIndex,
     FunctionUsageTracker,
@@ -94,7 +91,6 @@ use value::{
     TableMapping,
     TableName,
 };
-use vector::VectorIndexManager;
 
 use crate::{
     bootstrap_model::defaults::BootstrapTableIds,
@@ -102,8 +98,16 @@ use crate::{
         ConflictingReadWithWriteSource,
         ShutdownSignal,
     },
-    metrics,
+    metrics::{
+        self,
+        bootstrap_update_timer,
+        finish_bootstrap_update,
+    },
     reads::ReadSet,
+    search_and_vector_bootstrap::{
+        stream_revision_pairs_for_indexes,
+        BootstrappedSearchAndVectorIndexes,
+    },
     snapshot_manager::SnapshotManager,
     transaction::FinalTransaction,
     write_log::{
@@ -270,12 +274,12 @@ impl<RT: Runtime> Committer<RT> {
                             self.bump_max_repeatable_ts(result);
                         },
                         Some(CommitterMessage::FinishSearchAndVectorBootstrap {
-                            search_index_manager,
-                            vector_index_manager, bootstrap_ts, result,
+                            bootstrapped_indexes,
+                            bootstrap_ts,
+                            result,
                         }) => {
                             self.finish_search_and_vector_bootstrap(
-                                search_index_manager,
-                                vector_index_manager,
+                                bootstrapped_indexes,
                                 bootstrap_ts,
                                 result
                             ).await;
@@ -293,12 +297,16 @@ impl<RT: Runtime> Committer<RT> {
     }
 
     async fn update_indexes_since_bootstrap(
-        search_index_manager: &mut SearchIndexManager,
-        vector_index_manager: &mut VectorIndexManager,
+        BootstrappedSearchAndVectorIndexes {
+            search_index_manager,
+            vector_index_manager,
+            tables_with_indexes,
+        }: &mut BootstrappedSearchAndVectorIndexes,
         bootstrap_ts: Timestamp,
         persistence: RepeatablePersistence,
         registry: &IndexRegistry,
     ) -> anyhow::Result<()> {
+        let _timer = bootstrap_update_timer();
         anyhow::ensure!(
             !search_index_manager.is_bootstrapping(),
             "Trying to update search index while it's still bootstrapping"
@@ -307,13 +315,17 @@ impl<RT: Runtime> Committer<RT> {
             !vector_index_manager.is_bootstrapping(),
             "Trying to update vector index while it's still bootstrapping"
         );
-        let range = (Bound::Excluded(bootstrap_ts), Bound::Unbounded);
+        let range = TimestampRange::new((Bound::Excluded(bootstrap_ts), Bound::Unbounded))?;
 
-        let document_stream = persistence.load_documents(TimestampRange::new(range)?, Order::Asc);
-        let revision_stream = stream_revision_pairs(document_stream, &persistence);
+        let revision_stream =
+            stream_revision_pairs_for_indexes(tables_with_indexes, &persistence, range);
         futures::pin_mut!(revision_stream);
 
+        let mut num_revisions = 0;
+        let mut total_size = 0;
         while let Some(revision_pair) = revision_stream.try_next().await? {
+            num_revisions += 1;
+            total_size += revision_pair.document().map(|d| d.size()).unwrap_or(0);
             search_index_manager.update(
                 registry,
                 revision_pair.prev_document(),
@@ -327,13 +339,13 @@ impl<RT: Runtime> Committer<RT> {
                 WriteTimestamp::Committed(revision_pair.ts()),
             )?;
         }
+        finish_bootstrap_update(num_revisions, total_size);
         Ok(())
     }
 
     async fn finish_search_and_vector_bootstrap(
         &mut self,
-        mut search_index_manager: SearchIndexManager,
-        mut vector_index_manager: VectorIndexManager,
+        mut bootstrapped_indexes: BootstrappedSearchAndVectorIndexes,
         bootstrap_ts: RepeatableTimestamp,
         result: oneshot::Sender<anyhow::Result<()>>,
     ) {
@@ -352,8 +364,7 @@ impl<RT: Runtime> Committer<RT> {
             );
 
             let res = Self::update_indexes_since_bootstrap(
-                &mut search_index_manager,
-                &mut vector_index_manager,
+                &mut bootstrapped_indexes,
                 *bootstrap_ts,
                 repeatable_persistence,
                 &last_snapshot.index_registry,
@@ -371,8 +382,8 @@ impl<RT: Runtime> Committer<RT> {
             panic!("Snapshots were changed concurrently during commit?");
         }
         snapshot_manager.overwrite_last_snapshot_search_and_vector_indexes(
-            search_index_manager,
-            vector_index_manager,
+            bootstrapped_indexes.search_index_manager,
+            bootstrapped_indexes.vector_index_manager,
         );
         tracing::info!("Committed backfilled vector indexes");
         let _ = result.send(Ok(()));
@@ -814,14 +825,12 @@ impl<RT: Runtime> Clone for CommitterClient<RT> {
 impl<RT: Runtime> CommitterClient<RT> {
     pub async fn finish_search_and_vector_bootstrap(
         &self,
-        search_index_manager: SearchIndexManager,
-        vector_index_manager: VectorIndexManager,
+        bootstrapped_indexes: BootstrappedSearchAndVectorIndexes,
         bootstrap_ts: RepeatableTimestamp,
     ) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
         let message = CommitterMessage::FinishSearchAndVectorBootstrap {
-            search_index_manager,
-            vector_index_manager,
+            bootstrapped_indexes,
             bootstrap_ts,
             result: tx,
         };
@@ -977,8 +986,7 @@ enum CommitterMessage {
         result: oneshot::Sender<anyhow::Result<()>>,
     },
     FinishSearchAndVectorBootstrap {
-        search_index_manager: SearchIndexManager,
-        vector_index_manager: VectorIndexManager,
+        bootstrapped_indexes: BootstrappedSearchAndVectorIndexes,
         bootstrap_ts: RepeatableTimestamp,
         result: oneshot::Sender<anyhow::Result<()>>,
     },

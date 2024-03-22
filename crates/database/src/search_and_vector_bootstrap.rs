@@ -3,7 +3,10 @@ use std::{
         max,
         min,
     },
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     ops::Bound,
     time::Duration,
 };
@@ -41,6 +44,8 @@ use common::{
 };
 use errors::ErrorMetadataAnyhowExt;
 use futures::{
+    future,
+    Stream,
     StreamExt,
     TryStreamExt,
 };
@@ -100,11 +105,23 @@ struct IndexesToBootstrap {
     oldest_index_ts: Timestamp,
 }
 
+pub struct BootstrappedSearchAndVectorIndexes {
+    pub search_index_manager: SearchIndexManager,
+    pub vector_index_manager: VectorIndexManager,
+    pub tables_with_indexes: BTreeSet<TableId>,
+}
+
 impl IndexesToBootstrap {
-    fn into_search_and_vector_index_managers(
-        self,
-        persistence_version: PersistenceVersion,
-    ) -> (SearchIndexManager, VectorIndexManager) {
+    fn tables_with_indexes(&self) -> BTreeSet<TableId> {
+        self.table_to_search_indexes
+            .keys()
+            .chain(self.table_to_vector_indexes.keys())
+            .copied()
+            .collect()
+    }
+
+    fn finish(self, persistence_version: PersistenceVersion) -> BootstrappedSearchAndVectorIndexes {
+        let tables_with_indexes = self.tables_with_indexes();
         let search_index_manager = SearchIndexManager::new(
             SearchIndexManagerState::Ready(
                 self.table_to_search_indexes
@@ -146,7 +163,11 @@ impl IndexesToBootstrap {
                 .collect(),
         );
         let vector_index_manager = VectorIndexManager { indexes };
-        (search_index_manager, vector_index_manager)
+        BootstrappedSearchAndVectorIndexes {
+            search_index_manager,
+            vector_index_manager,
+            tables_with_indexes,
+        }
     }
 }
 
@@ -238,6 +259,24 @@ impl VectorIndexBootstrapData {
     }
 }
 
+/// Streams revision pairs for documents in the indexed tables.
+pub fn stream_revision_pairs_for_indexes<'a>(
+    tables_with_indexes: &'a BTreeSet<TableId>,
+    persistence: &'a RepeatablePersistence,
+    range: TimestampRange,
+) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
+    let document_stream = persistence
+        .load_documents(range, Order::Asc)
+        .try_filter(|(_, id, _)| {
+            let is_in_indexed_table = tables_with_indexes.contains(id.table());
+            if !is_in_indexed_table {
+                log_document_skipped();
+            }
+            future::ready(tables_with_indexes.contains(id.table()))
+        });
+    stream_revision_pairs(document_stream, persistence)
+}
+
 impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
     pub(crate) fn new(
         runtime: RT,
@@ -291,13 +330,17 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
     }
 
     async fn run(&mut self) -> anyhow::Result<()> {
-        let (search_index_manager, vector_index_manager) = self.bootstrap_manager().await?;
+        let bootstrapped_indexes = self.bootstrap().await?;
         self.pause_client.wait(FINISHED_BOOTSTRAP_UPDATES).await;
-        self.finish_bootstrap(search_index_manager, vector_index_manager)
+        self.committer_client
+            .finish_search_and_vector_bootstrap(
+                bootstrapped_indexes,
+                self.persistence.upper_bound(),
+            )
             .await
     }
 
-    async fn bootstrap_manager(&self) -> anyhow::Result<(SearchIndexManager, VectorIndexManager)> {
+    async fn bootstrap(&self) -> anyhow::Result<BootstrappedSearchAndVectorIndexes> {
         // Load all of the fast forward timestamps first to ensure that we stay within
         // the comparatively short valid time for the persistence snapshot
         let snapshot = self
@@ -326,7 +369,7 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
             indexes_with_fast_forward_ts,
         )?;
 
-        Self::bootstrap(&self.persistence, indexes_to_bootstrap).await
+        Self::bootstrap_inner(&self.persistence, indexes_to_bootstrap).await
     }
 
     fn indexes_to_bootstrap(
@@ -448,33 +491,32 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
         })
     }
 
-    async fn bootstrap(
+    async fn bootstrap_inner(
         persistence: &RepeatablePersistence,
         mut indexes_to_bootstrap: IndexesToBootstrap,
-    ) -> anyhow::Result<(SearchIndexManager, VectorIndexManager)> {
+    ) -> anyhow::Result<BootstrappedSearchAndVectorIndexes> {
         let _status = log_worker_starting("SearchAndVectorBootstrap");
         let timer = crate::metrics::bootstrap_timer();
         let upper_bound = persistence.upper_bound();
         let mut num_revisions = 0;
         let mut total_size = 0;
 
-        let range = (
+        let range = TimestampRange::new((
             Bound::Excluded(indexes_to_bootstrap.oldest_index_ts),
             Bound::Included(*upper_bound),
-        );
-        let document_stream = persistence.load_documents(TimestampRange::new(range)?, Order::Asc);
-        let revision_stream = stream_revision_pairs(document_stream, persistence);
+        ))?;
+        let tables_with_indexes = indexes_to_bootstrap.tables_with_indexes();
+        let revision_stream =
+            stream_revision_pairs_for_indexes(&tables_with_indexes, persistence, range);
         futures::pin_mut!(revision_stream);
 
         while let Some(revision_pair) = revision_stream.try_next().await? {
             num_revisions += 1;
             total_size += revision_pair.document().map(|d| d.size()).unwrap_or(0);
-            let mut revision_not_in_indexes = true;
             if let Some(vector_indexes_to_update) = indexes_to_bootstrap
                 .table_to_vector_indexes
                 .get_mut(revision_pair.id.table())
             {
-                revision_not_in_indexes = false;
                 for vector_index in vector_indexes_to_update {
                     vector_index.update(&revision_pair)?;
                 }
@@ -483,13 +525,9 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
                 .table_to_search_indexes
                 .get_mut(revision_pair.id.table())
             {
-                revision_not_in_indexes = false;
                 for search_index in search_indexes_to_update {
                     search_index.update(&revision_pair)?;
                 }
-            }
-            if revision_not_in_indexes {
-                log_document_skipped()
             }
         }
 
@@ -499,21 +537,7 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
         );
         crate::metrics::finish_bootstrap(num_revisions, total_size, timer);
 
-        Ok(indexes_to_bootstrap.into_search_and_vector_index_managers(persistence.version()))
-    }
-
-    async fn finish_bootstrap(
-        &self,
-        search_index_manager: SearchIndexManager,
-        vector_index_manager: VectorIndexManager,
-    ) -> anyhow::Result<()> {
-        self.committer_client
-            .finish_search_and_vector_bootstrap(
-                search_index_manager,
-                vector_index_manager,
-                self.persistence.upper_bound(),
-            )
-            .await
+        Ok(indexes_to_bootstrap.finish(persistence.version()))
     }
 }
 
@@ -725,10 +749,14 @@ mod tests {
         let db = reopen_db(&rt, &fixtures).await?;
         let worker = db.new_search_and_vector_bootstrap_worker_for_testing();
 
-        let (search_index_manager, vector_index_manager) = worker.bootstrap_manager().await?;
+        let bootstrapped_indexes = worker.bootstrap().await?;
         let vector_id = add_vector(&db, &index_metadata, [3f32, 4f32]).await?;
         worker
-            .finish_bootstrap(search_index_manager, vector_index_manager)
+            .committer_client
+            .finish_search_and_vector_bootstrap(
+                bootstrapped_indexes,
+                worker.persistence.upper_bound(),
+            )
             .await?;
 
         let result = query_vectors(&db, &index_metadata).await?;
