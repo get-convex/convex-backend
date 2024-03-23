@@ -213,6 +213,8 @@ export type ObjectType<Validators extends PropertyValidators> = Expand<
  * Calculate the type of a {@link Validator} for an object.
  *
  * This is used within the validator builder, {@link v}.
+ *
+ * @public
  */
 export type ObjectValidator<Validators extends PropertyValidators> = Validator<
   // Compute the TypeScript type this validator refers to.

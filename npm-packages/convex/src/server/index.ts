@@ -126,8 +126,12 @@ export type { Scheduler, SchedulableFunctionReference } from "./scheduler.js";
 export { cronJobs } from "./cron.js";
 export type { CronJob, Crons } from "./cron.js";
 export type {
+  SystemFields,
+  IdField,
   WithoutSystemFields,
   WithOptionalSystemFields,
+  SystemIndexes,
+  IndexTiebreakerField,
 } from "./system_fields.js";
 export { httpRouter, HttpRouter, ROUTABLE_HTTP_METHODS } from "./router.js";
 export type { RoutableMethod } from "./router.js";
@@ -174,3 +178,8 @@ export type {
   VectorFilterBuilder,
   FilterExpression,
 } from "./vector_search.js";
+
+/**
+ * @public
+ */
+export type { BetterOmit, Expand } from "../type_utils.js";
