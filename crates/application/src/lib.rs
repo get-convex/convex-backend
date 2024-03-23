@@ -48,11 +48,11 @@ use common::{
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::{
-        APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
         BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
         MAX_JOBS_CANCEL_BATCH,
         SNAPSHOT_LIST_LIMIT,
         UDF_ISOLATE_MAX_EXEC_THREADS,
+        V8_ACTION_MAX_ISOLATE_EXEC_THREADS,
     },
     log_lines::run_function_and_collect_log_lines,
     log_streaming::LogSender,
@@ -510,7 +510,7 @@ impl<RT: Runtime> Application<RT> {
         let actions_isolate = IsolateClient::new(
             runtime.clone(),
             actions_isolate_worker,
-            *APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
+            *V8_ACTION_MAX_ISOLATE_EXEC_THREADS,
             true,
             instance_name.clone(),
             instance_secret,
