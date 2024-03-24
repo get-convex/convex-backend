@@ -27,7 +27,9 @@ use super::{
         soft_data_limit,
         CursorInterval,
     },
+    IndexRangeResponse,
     QueryStream,
+    QueryStreamNext,
     QueryType,
 };
 use crate::{
@@ -136,8 +138,12 @@ impl<T: QueryType> QueryStream<T> for SearchQuery<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         _prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
-        self._next(tx).await
+    ) -> anyhow::Result<QueryStreamNext<T>> {
+        self._next(tx).await.map(QueryStreamNext::Ready)
+    }
+
+    fn feed(&mut self, _index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+        anyhow::bail!("cannot feed an index range response into a search query");
     }
 }
 

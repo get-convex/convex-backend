@@ -90,6 +90,7 @@ use sync_types::{
 use usage_tracking::FunctionUsageTracker;
 use value::{
     TableId,
+    TableIdAndTableNumber,
     TableNumber,
 };
 
@@ -106,7 +107,10 @@ use crate::{
     metrics,
     patch::PatchValue,
     preloaded::PreloadedIndexRange,
-    query::TableFilter,
+    query::{
+        IndexRangeResponse,
+        TableFilter,
+    },
     reads::TransactionReadSet,
     snapshot_manager::{
         Snapshot,
@@ -777,8 +781,10 @@ impl<RT: Runtime> Transaction<RT> {
         let mut batch_result = BTreeMap::new();
         for (batch_key, (id, table_name)) in ids {
             let result: anyhow::Result<_> = try {
-                let (range_results, cursor) =
-                    results.remove(&batch_key).context("expected result")??;
+                let IndexRangeResponse {
+                    page: range_results,
+                    cursor,
+                } = results.remove(&batch_key).context("expected result")??;
                 if range_results.len() > 1 {
                     Err(anyhow::anyhow!("Got multiple values for id {id:?}"))?;
                 }
@@ -962,20 +968,12 @@ impl<RT: Runtime> Transaction<RT> {
             .await
     }
 
-    fn start_index_range(
-        &mut self,
-        request: IndexRangeRequest,
-    ) -> anyhow::Result<
-        Result<
-            (
-                Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-                CursorPosition,
-            ),
-            RangeRequest,
-        >,
-    > {
+    fn start_index_range(&mut self, request: IndexRangeRequest) -> anyhow::Result<RangeResponse> {
         if request.interval.is_empty() {
-            return Ok(Ok((vec![], CursorPosition::End)));
+            return Ok(RangeResponse::Ready(IndexRangeResponse {
+                page: vec![],
+                cursor: CursorPosition::End,
+            }));
         }
         let tablet_index_name = match request.stable_index_name {
             StableIndexName::Physical(tablet_index_name) => tablet_index_name,
@@ -986,14 +984,17 @@ impl<RT: Runtime> Transaction<RT> {
                 );
             },
             StableIndexName::Missing => {
-                return Ok(Ok((vec![], CursorPosition::End)));
+                return Ok(RangeResponse::Ready(IndexRangeResponse {
+                    page: vec![],
+                    cursor: CursorPosition::End,
+                }));
             },
         };
         let index_name = tablet_index_name
             .clone()
             .map_table(&self.table_mapping().tablet_to_name())?;
         let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
-        Ok(Err(RangeRequest {
+        Ok(RangeResponse::WaitingOn(RangeRequest {
             index_name: tablet_index_name,
             printable_index_name: index_name,
             interval: request.interval,
@@ -1008,13 +1009,7 @@ impl<RT: Runtime> Transaction<RT> {
     pub async fn index_range_batch(
         &mut self,
         requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<
-        BatchKey,
-        anyhow::Result<(
-            Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-            CursorPosition,
-        )>,
-    > {
+    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<TableIdAndTableNumber>>> {
         let batch_size = requests.len();
         let mut results = BTreeMap::new();
         let mut fetch_requests = BTreeMap::new();
@@ -1023,10 +1018,10 @@ impl<RT: Runtime> Transaction<RT> {
                 Err(e) => {
                     results.insert(batch_key, Err(e));
                 },
-                Ok(Ok(result)) => {
+                Ok(RangeResponse::Ready(result)) => {
                     results.insert(batch_key, Ok(result));
                 },
-                Ok(Err(fetch_request)) => {
+                Ok(RangeResponse::WaitingOn(fetch_request)) => {
                     fetch_requests.insert(batch_key, fetch_request);
                 },
             }
@@ -1073,6 +1068,11 @@ pub struct IndexRangeRequest {
     pub order: Order,
     pub max_rows: usize,
     pub version: Option<Version>,
+}
+
+pub enum RangeResponse {
+    Ready(IndexRangeResponse<TableIdAndTableNumber>),
+    WaitingOn(RangeRequest),
 }
 
 /// FinalTransaction is a finalized Transaction.

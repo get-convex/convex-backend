@@ -9,8 +9,6 @@ use common::{
         DeveloperDocument,
         ResolvedDocument,
     },
-    index::IndexKeyBytes,
-    query::CursorPosition,
     runtime::Runtime,
     types::{
         IndexName,
@@ -31,10 +29,14 @@ use value::{
     TableIdentifier,
     TableMapping,
     TableName,
+    TableNumber,
     VirtualTableMapping,
 };
 
-use crate::Transaction;
+use crate::{
+    query::IndexRangeResponse,
+    Transaction,
+};
 
 pub struct VirtualTable<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
@@ -101,14 +103,14 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         &mut self,
         range_request: RangeRequest,
         version: Option<Version>,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
-        CursorPosition,
-    )> {
+    ) -> anyhow::Result<IndexRangeResponse<TableNumber>> {
         let table_mapping = self.tx.table_mapping().clone();
         let virtual_table_mapping = self.tx.virtual_table_mapping().clone();
 
-        let (results, cursor) = self
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = self
             .tx
             .index
             .range(&mut self.tx.reads, range_request)
@@ -125,7 +127,10 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
                 anyhow::Ok((index_key, doc, ts))
             })
             .try_collect()?;
-        Ok((virtual_results, cursor))
+        Ok(IndexRangeResponse {
+            page: virtual_results,
+            cursor,
+        })
     }
 }
 

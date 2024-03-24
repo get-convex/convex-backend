@@ -1,17 +1,17 @@
 use async_trait::async_trait;
 use common::{
-    document::GenericDocument,
     query::{
         CursorPosition,
         Expression,
     },
     runtime::Runtime,
-    types::WriteTimestamp,
 };
 
 use super::{
+    IndexRangeResponse,
     QueryNode,
     QueryStream,
+    QueryStreamNext,
     QueryType,
 };
 use crate::Transaction;
@@ -51,17 +51,24 @@ impl<T: QueryType> QueryStream<T> for Filter<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         _prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
+    ) -> anyhow::Result<QueryStreamNext<T>> {
         loop {
             let (document, write_timestamp) =
                 match self.inner.next(tx, Some(FILTER_QUERY_PREFETCH)).await? {
-                    Some(v) => v,
-                    None => return Ok(None),
+                    QueryStreamNext::Ready(Some(v)) => v,
+                    QueryStreamNext::Ready(None) => return Ok(QueryStreamNext::Ready(None)),
+                    QueryStreamNext::WaitingOn(request) => {
+                        return Ok(QueryStreamNext::WaitingOn(request))
+                    },
                 };
             let value = document.value().0.clone();
             if self.expr.eval(&value)?.into_boolean()? {
-                return Ok(Some((document, write_timestamp)));
+                return Ok(QueryStreamNext::Ready(Some((document, write_timestamp))));
             }
         }
+    }
+
+    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+        self.inner.feed(index_range_response)
     }
 }

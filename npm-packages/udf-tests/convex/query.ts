@@ -34,6 +34,25 @@ export const filterFirst = query(({ db }, { number }: { number: number }) =>
     .first(),
 );
 
+export const parallelQuery = query(
+  async ({ db }, { numbers }: { numbers: number[] }) => {
+    return await Promise.all(
+      numbers.map((number) =>
+        db
+          .query("test")
+          .filter((q) => q.eq(q.field("hello"), number))
+          .first(),
+      ),
+    );
+  },
+);
+
+export const parallelGet = query(
+  async ({ db }, { ids }: { ids: Id<"test">[] }) => {
+    return await Promise.all(ids.map((id) => db.get(id)));
+  },
+);
+
 export const explicitScan = query(({ db }, { number }: { number: number }) => {
   return db
     .query("test")

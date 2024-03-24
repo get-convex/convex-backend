@@ -3,7 +3,6 @@ use std::{
     collections::VecDeque,
 };
 
-use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     document::GenericDocument,
@@ -25,12 +24,13 @@ use common::{
     },
     version::Version,
 };
-use maplit::btreemap;
 
 use super::{
     query_scanned_too_many_documents_error,
     query_scanned_too_much_data,
+    IndexRangeResponse,
     QueryStream,
+    QueryStreamNext,
     QueryType,
     DEFAULT_QUERY_PREFETCH,
     MAX_QUERY_FETCH,
@@ -145,8 +145,7 @@ impl<T: QueryType> IndexRange<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Result<Option<(GenericDocument<T::T>, WriteTimestamp)>, IndexRangeRequest>>
-    {
+    ) -> anyhow::Result<QueryStreamNext<T>> {
         // If we have an end cursor, for correctness we need to process
         // the entire interval, so ignore `maximum_rows_read` and `maximum_bytes_read`.
         let enforce_limits = self.cursor_interval.end_inclusive.is_none();
@@ -177,10 +176,10 @@ impl<T: QueryType> IndexRange<T> {
                 self.printable_index_name.is_system_owned(),
             );
             self.returned_bytes += v.size();
-            return Ok(Ok(Some((v, timestamp))));
+            return Ok(QueryStreamNext::Ready(Some((v, timestamp))));
         }
         if let Some(CursorPosition::End) = self.cursor_interval.curr_exclusive {
-            return Ok(Ok(None));
+            return Ok(QueryStreamNext::Ready(None));
         }
         if self.unfetched_interval.is_empty() {
             // We're out of results. If we have an end cursor then we must
@@ -192,7 +191,7 @@ impl<T: QueryType> IndexRange<T> {
                     .clone()
                     .unwrap_or(CursorPosition::End),
             );
-            return Ok(Ok(None));
+            return Ok(QueryStreamNext::Ready(None));
         }
 
         let mut max_rows = prefetch_hint
@@ -205,7 +204,7 @@ impl<T: QueryType> IndexRange<T> {
             }
             max_rows = cmp::min(max_rows, maximum_rows_read - self.rows_read);
         }
-        Ok(Err(IndexRangeRequest {
+        Ok(QueryStreamNext::WaitingOn(IndexRangeRequest {
             stable_index_name: self.stable_index_name.clone(),
             interval: self.unfetched_interval.clone(),
             order: self.order,
@@ -226,25 +225,6 @@ impl<T: QueryType> IndexRange<T> {
         self.rows_read += page.len();
         self.page.extend(page);
         Ok(())
-    }
-
-    #[convex_macro::instrument_future]
-    async fn _next<RT: Runtime>(
-        &mut self,
-        tx: &mut Transaction<RT>,
-        prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
-        loop {
-            let request = match self.start_next(tx, prefetch_hint)? {
-                Ok(result) => return Ok(result),
-                Err(request) => request,
-            };
-            let (page, fetch_cursor) = T::index_range_batch(tx, btreemap! {0 => request})
-                .await
-                .remove(&0)
-                .context("batch_key missing")??;
-            self.process_fetch(page, fetch_cursor)?;
-        }
     }
 }
 
@@ -276,8 +256,12 @@ impl<T: QueryType> QueryStream<T> for IndexRange<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
-        self._next(tx, prefetch_hint).await
+    ) -> anyhow::Result<QueryStreamNext<T>> {
+        self.start_next(tx, prefetch_hint)
+    }
+
+    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+        self.process_fetch(index_range_response.page, index_range_response.cursor)
     }
 }
 

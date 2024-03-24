@@ -9,7 +9,6 @@ use common::{
         DeveloperDocument,
         ResolvedDocument,
     },
-    index::IndexKeyBytes,
     query::CursorPosition,
     runtime::Runtime,
     types::{
@@ -30,6 +29,7 @@ use value::{
     DeveloperDocumentId,
     Size,
     TableName,
+    TableNumber,
 };
 
 use crate::{
@@ -37,6 +37,7 @@ use crate::{
         log_virtual_table_get,
         log_virtual_table_query,
     },
+    query::IndexRangeResponse,
     transaction::{
         IndexRangeRequest,
         MAX_PAGE_SIZE,
@@ -322,17 +323,12 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     async fn start_index_range(
         &mut self,
         request: IndexRangeRequest,
-    ) -> anyhow::Result<
-        Result<
-            (
-                Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
-                CursorPosition,
-            ),
-            RangeRequest,
-        >,
-    > {
+    ) -> anyhow::Result<Result<IndexRangeResponse<TableNumber>, RangeRequest>> {
         if request.interval.is_empty() {
-            return Ok(Ok((vec![], CursorPosition::End)));
+            return Ok(Ok(IndexRangeResponse {
+                page: vec![],
+                cursor: CursorPosition::End,
+            }));
         }
 
         let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
@@ -357,7 +353,10 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                 return Ok(Ok(virtual_result));
             },
             StableIndexName::Missing => {
-                return Ok(Ok((vec![], CursorPosition::End)));
+                return Ok(Ok(IndexRangeResponse {
+                    page: vec![],
+                    cursor: CursorPosition::End,
+                }));
             },
         };
         let index_name = tablet_index_name
@@ -378,13 +377,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     pub async fn index_range_batch(
         &mut self,
         requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<
-        BatchKey,
-        anyhow::Result<(
-            Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
-            CursorPosition,
-        )>,
-    > {
+    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<TableNumber>>> {
         let batch_size = requests.len();
         let mut results = BTreeMap::new();
         let mut fetch_requests = BTreeMap::new();
@@ -409,12 +402,15 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .await;
 
         for (batch_key, fetch_result) in fetch_results {
-            let result = fetch_result.map(|(resolved_results, cursor)| {
-                let developer_results = resolved_results
+            let result = fetch_result.map(|IndexRangeResponse { page, cursor }| {
+                let developer_results = page
                     .into_iter()
                     .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
                     .collect();
-                (developer_results, cursor)
+                IndexRangeResponse {
+                    page: developer_results,
+                    cursor,
+                }
             });
             results.insert(batch_key, result);
         }

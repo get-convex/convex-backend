@@ -17,6 +17,7 @@ use common::{
         Size,
     },
 };
+use itertools::Itertools;
 use keybroker::Identity;
 use must_let::must_let;
 use pretty_assertions::assert_eq;
@@ -78,6 +79,42 @@ async fn test_filter_first(rt: TestRuntime) -> anyhow::Result<()> {
 
     must_let!(let ConvexValue::Object(r) = t.query("query:filterFirst", assert_obj!( "number" => 2)).await?);
     assert_eq!(r.get("hello"), Some(&assert_val!(2)));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_query_parallel(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    // Batch size for queries running in parallel is 16.
+    let mut ids = Vec::new();
+    for i in 1..20 {
+        ids.push(
+            t.mutation("query:insert", assert_obj!( "number" => i))
+                .await?,
+        );
+    }
+
+    let numbers = ConvexValue::try_from((1..20).map(|n| assert_val!(n)).collect_vec())?;
+    must_let!(let ConvexValue::Array(r) = t.query("query:parallelQuery", assert_obj!( "numbers" => numbers)).await?);
+    let returned_ids = r
+        .iter()
+        .map(|v| {
+            must_let!(let ConvexValue::Object(o) = v);
+            o.get("_id").unwrap().clone()
+        })
+        .collect_vec();
+    assert_eq!(returned_ids, ids);
+
+    must_let!(let ConvexValue::Array(r) = t.query("query:parallelGet", assert_obj!( "ids" => ids)).await?);
+    let returned_numbers = r
+        .iter()
+        .map(|v| {
+            must_let!(let ConvexValue::Object(o) = v);
+            must_let!(let ConvexValue::Int64(i) = o.get("hello").unwrap());
+            *i
+        })
+        .collect_vec();
+    assert_eq!(returned_numbers, (1..20).collect_vec());
     Ok(())
 }
 

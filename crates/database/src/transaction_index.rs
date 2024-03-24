@@ -67,10 +67,12 @@ use storage::Storage;
 use value::{
     DeveloperDocumentId,
     FieldPath,
+    TableIdAndTableNumber,
 };
 
 use crate::{
     preloaded::PreloadedIndexRange,
+    query::IndexRangeResponse,
     reads::TransactionReadSet,
     DEFAULT_PAGE_SIZE,
 };
@@ -284,13 +286,7 @@ impl TransactionIndex {
         &mut self,
         reads: &mut TransactionReadSet,
         ranges: BTreeMap<BatchKey, RangeRequest>,
-    ) -> BTreeMap<
-        BatchKey,
-        anyhow::Result<(
-            Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-            CursorPosition,
-        )>,
-    > {
+    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<TableIdAndTableNumber>>> {
         let batch_size = ranges.len();
         let mut results = BTreeMap::new();
         let mut ranges_to_fetch = BTreeMap::new();
@@ -389,7 +385,7 @@ impl TransactionIndex {
                         "query for {interval:?} not making progress"
                     ))?;
                 }
-                (out, cursor)
+                IndexRangeResponse { page: out, cursor }
             };
             assert!(results.insert(batch_key, result).is_none());
         }
@@ -406,10 +402,7 @@ impl TransactionIndex {
         &mut self,
         reads: &mut TransactionReadSet,
         range_request: RangeRequest,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
-        CursorPosition,
-    )> {
+    ) -> anyhow::Result<IndexRangeResponse<TableIdAndTableNumber>> {
         self.range_batch(reads, btreemap! {0 => range_request})
             .await
             .remove(&0)
@@ -866,6 +859,7 @@ mod tests {
 
     use super::SearchIndexManagerSnapshot;
     use crate::{
+        query::IndexRangeResponse,
         reads::TransactionReadSet,
         transaction_index::TransactionIndex,
         FollowerRetentionManager,
@@ -1079,7 +1073,10 @@ mod tests {
         );
 
         // Query the missing table using table scan index. It should return no results.
-        let (results, cursor) = index
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1122,7 +1119,10 @@ mod tests {
         let by_id_index = gen_index_document(&mut id_generator, metadata.clone())?;
         index.begin_update(None, Some(by_id_index))?.apply();
 
-        let (results, cursor) = index
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1146,7 +1146,10 @@ mod tests {
             ),
         )?;
         index.begin_update(None, Some(doc.clone()))?.apply();
-        let (result, cursor) = index
+        let IndexRangeResponse {
+            page: result,
+            cursor,
+        } = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1293,7 +1296,10 @@ mod tests {
         index.begin_update(Some(bob), None)?.apply();
 
         // Query by id
-        let (results, cursor) = index
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1344,7 +1350,10 @@ mod tests {
         expected_reads.record_indexed_directly(by_id, IndexedFields::by_id(), Interval::all())?;
         assert_eq!(reads, expected_reads);
         // Query by name in ascending order
-        let (results, cursor) = index
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1384,7 +1393,10 @@ mod tests {
         );
         // Query by name in ascending order with limit=2.
         // Returned cursor should be After("david").
-        let (results, cursor) = index
+        let IndexRangeResponse {
+            page: results,
+            cursor,
+        } = index
             .range(
                 &mut reads,
                 RangeRequest {
@@ -1425,7 +1437,10 @@ mod tests {
         );
 
         // Query by name in descending order
-        let (result, cursor) = index
+        let IndexRangeResponse {
+            page: result,
+            cursor,
+        } = index
             .range(
                 &mut reads,
                 RangeRequest {

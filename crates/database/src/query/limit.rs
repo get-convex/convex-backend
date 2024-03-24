@@ -3,15 +3,15 @@ use std::cmp;
 use async_trait::async_trait;
 use common::{
     self,
-    document::GenericDocument,
     query::CursorPosition,
     runtime::Runtime,
-    types::WriteTimestamp,
 };
 
 use super::{
+    IndexRangeResponse,
     QueryNode,
     QueryStream,
+    QueryStreamNext,
     QueryType,
     DEFAULT_QUERY_PREFETCH,
 };
@@ -52,18 +52,22 @@ impl<T: QueryType> QueryStream<T> for Limit<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
+    ) -> anyhow::Result<QueryStreamNext<T>> {
         if self.rows_emitted >= self.limit {
-            return Ok(None);
+            return Ok(QueryStreamNext::Ready(None));
         }
         let inner_hint = cmp::min(
             prefetch_hint.unwrap_or(DEFAULT_QUERY_PREFETCH),
             self.limit - self.rows_emitted,
         );
-        let next_value = self.inner.next(tx, Some(inner_hint)).await?;
-        if next_value.is_some() {
+        let result = self.inner.next(tx, Some(inner_hint)).await?;
+        if let QueryStreamNext::Ready(Some(_)) = result {
             self.rows_emitted += 1;
         }
-        Ok(next_value)
+        Ok(result)
+    }
+
+    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+        self.inner.feed(index_range_response)
     }
 }

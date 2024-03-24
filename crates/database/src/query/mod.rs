@@ -3,6 +3,7 @@ use std::{
     marker::PhantomData,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
@@ -29,6 +30,7 @@ use common::{
 };
 use errors::ErrorMetadata;
 use indexing::backend_in_memory_indexes::BatchKey;
+use maplit::btreemap;
 use value::{
     GenericDocumentId,
     TableIdAndTableNumber,
@@ -96,11 +98,28 @@ trait QueryStream<T: QueryType>: Send {
     /// method returns an error, it is safe to retry calling `.next()`, but
     /// the query may not make any progress if the error was, for
     /// example, an `QueryScannedTooManyDocumentsError`.
+    /// If `next` needs to fetch an index range, it returns
+    /// Ok(WaitingOn(request)) and the response should be fed back into
+    /// `feed` before calling `next` again.
+    /// TODO(lee) once SearchQuery is no longer in the query pipeline, make
+    /// `next` synchronous, with all IO handled by batched index range requests
+    /// triggered by WaitingOn(request).
     async fn next<RT: Runtime>(
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>>;
+    ) -> anyhow::Result<QueryStreamNext<T>>;
+    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()>;
+}
+
+pub struct IndexRangeResponse<T: TableIdentifier> {
+    pub page: Vec<(IndexKeyBytes, GenericDocument<T>, WriteTimestamp)>,
+    pub cursor: CursorPosition,
+}
+
+pub enum QueryStreamNext<T: QueryType> {
+    Ready(Option<(GenericDocument<T::T>, WriteTimestamp)>),
+    WaitingOn(IndexRangeRequest),
 }
 
 #[async_trait]
@@ -110,13 +129,7 @@ pub trait QueryType {
     async fn index_range_batch<RT: Runtime>(
         tx: &mut Transaction<RT>,
         requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<
-        BatchKey,
-        anyhow::Result<(
-            Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-            CursorPosition,
-        )>,
-    >;
+    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<Self::T>>>;
 
     async fn get_with_ts<RT: Runtime>(
         tx: &mut Transaction<RT>,
@@ -146,13 +159,7 @@ impl QueryType for Resolved {
     async fn index_range_batch<RT: Runtime>(
         tx: &mut Transaction<RT>,
         requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<
-        BatchKey,
-        anyhow::Result<(
-            Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-            CursorPosition,
-        )>,
-    > {
+    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<Self::T>>> {
         tx.index_range_batch(requests).await
     }
 
@@ -187,13 +194,7 @@ impl QueryType for Developer {
     async fn index_range_batch<RT: Runtime>(
         tx: &mut Transaction<RT>,
         requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<
-        BatchKey,
-        anyhow::Result<(
-            Vec<(IndexKeyBytes, GenericDocument<Self::T>, WriteTimestamp)>,
-            CursorPosition,
-        )>,
-    > {
+    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<Self::T>>> {
         UserFacingModel::new(tx).index_range_batch(requests).await
     }
 
@@ -458,7 +459,10 @@ impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
     ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
-        self.root.next(tx, prefetch_hint).await
+        query_batch_next(btreemap! {0 => (self, prefetch_hint)}, tx)
+            .await
+            .remove(&0)
+            .context("batch_key missing")?
     }
 
     pub async fn expect_one(
@@ -507,6 +511,58 @@ impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
     }
 }
 
+pub async fn query_batch_next<RT: Runtime, T: QueryType>(
+    mut batch: BTreeMap<BatchKey, (&mut CompiledQuery<RT, T>, Option<usize>)>,
+    tx: &mut Transaction<RT>,
+) -> BTreeMap<BatchKey, anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>>> {
+    let batch_size = batch.len();
+    // Algorithm overview:
+    // Call `next` on every query.
+    // Accumulate fetch (IO) requests and perform them all in a batch.
+    // Call `feed` on the queries with the responses from the fetch requests.
+    // Repeat until all queries have returned Ready from `next`.
+    let mut results = BTreeMap::new();
+    while !batch.is_empty() {
+        let mut batch_to_feed = BTreeMap::new();
+        let mut requests = BTreeMap::new();
+        for (batch_key, (query, prefetch_hint)) in batch {
+            match query.root.next(tx, prefetch_hint).await {
+                Err(e) => {
+                    results.insert(batch_key, Err(e));
+                },
+                Ok(QueryStreamNext::WaitingOn(request)) => {
+                    requests.insert(batch_key, request);
+                    batch_to_feed.insert(batch_key, (query, prefetch_hint));
+                },
+                Ok(QueryStreamNext::Ready(result)) => {
+                    results.insert(batch_key, Ok(result));
+                },
+            }
+        }
+        let mut responses = T::index_range_batch(tx, requests).await;
+        let mut next_batch = BTreeMap::new();
+        for (batch_key, (query, prefetch_hint)) in batch_to_feed {
+            let result: anyhow::Result<_> = try {
+                let index_range_responses = responses
+                    .remove(&batch_key)
+                    .context("batch_key missing")??;
+                query.root.feed(index_range_responses)?;
+            };
+            match result {
+                Err(e) => {
+                    results.insert(batch_key, Err(e));
+                },
+                Ok(_) => {
+                    next_batch.insert(batch_key, (query, prefetch_hint));
+                },
+            }
+        }
+        batch = next_batch;
+    }
+    assert_eq!(results.len(), batch_size);
+    results
+}
+
 enum QueryNode<T: QueryType> {
     IndexRange(IndexRange<T>),
     Search(SearchQuery<T>),
@@ -547,12 +603,21 @@ impl<T: QueryType> QueryStream<T> for QueryNode<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
+    ) -> anyhow::Result<QueryStreamNext<T>> {
         match self {
             QueryNode::IndexRange(r) => r.next(tx, prefetch_hint).await,
             QueryNode::Search(r) => r.next(tx, prefetch_hint).await,
             QueryNode::Filter(r) => r.next(tx, prefetch_hint).await,
             QueryNode::Limit(r) => r.next(tx, prefetch_hint).await,
+        }
+    }
+
+    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+        match self {
+            QueryNode::IndexRange(r) => r.feed(index_range_response),
+            QueryNode::Search(r) => r.feed(index_range_response),
+            QueryNode::Filter(r) => r.feed(index_range_response),
+            QueryNode::Limit(r) => r.feed(index_range_response),
         }
     }
 }

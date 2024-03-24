@@ -26,6 +26,7 @@ use common::{
 };
 use database::{
     query::{
+        query_batch_next,
         CompiledQuery,
         QueryType,
     },
@@ -645,12 +646,14 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
             },
         };
 
-        // TODO(lee) actually batch this fetch. For now we do faux-batching to
-        // establish the interface.
-        let mut fetch_results = BTreeMap::new();
-        for (batch_key, (_, local_query)) in queries_to_fetch.iter_mut() {
-            fetch_results.insert(*batch_key, local_query.next(tx, None).await);
-        }
+        let mut fetch_results = query_batch_next(
+            queries_to_fetch
+                .iter_mut()
+                .map(|(idx, (_, local_query))| (*idx, (local_query, None)))
+                .collect(),
+            tx,
+        )
+        .await;
 
         #[derive(Serialize)]
         struct QueryStreamNextResult {
@@ -668,7 +671,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
                 let done = maybe_next.is_none();
                 let value = match maybe_next {
-                    Some(doc) => doc.into_value().0.into(),
+                    Some((doc, _)) => doc.into_value().0.into(),
                     None => ConvexValue::Null,
                 };
 
