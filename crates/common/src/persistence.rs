@@ -53,8 +53,9 @@ use crate::{
     },
 };
 
-pub type DocumentStream<'a> =
-    BoxStream<'a, anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>>;
+pub type DocumentLogEntry = (Timestamp, InternalDocumentId, Option<ResolvedDocument>);
+
+pub type DocumentStream<'a> = BoxStream<'a, anyhow::Result<DocumentLogEntry>>;
 
 /// No tombstones included
 pub type LatestDocumentStream<'a> = BoxStream<'a, anyhow::Result<(Timestamp, ResolvedDocument)>>;
