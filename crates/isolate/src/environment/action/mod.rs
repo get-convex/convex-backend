@@ -31,8 +31,9 @@ use common::{
         V8_ACTION_SYSTEM_TIMEOUT,
     },
     log_lines::{
+        LogLevel,
         LogLine,
-        TRUNCATED_LINE_SUFFIX,
+        SystemLogMetadata,
     },
     runtime::{
         Runtime,
@@ -102,8 +103,8 @@ use self::{
     task_executor::TaskExecutor,
 };
 use super::warnings::{
-    warning_if_approaching_duration_limit,
-    warning_if_approaching_limit,
+    add_warning_if_approaching_duration_limit,
+    add_warning_if_approaching_limit,
 };
 use crate::{
     client::{
@@ -121,7 +122,6 @@ use crate::{
             JsonPackedValue,
             SyscallTrace,
             MAX_LOG_LINES,
-            MAX_LOG_LINE_LENGTH,
         },
         AsyncOpRequest,
         IsolateEnvironment,
@@ -906,7 +906,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         arguments: &ConvexArray,
         result: Option<&ConvexValue>,
     ) -> anyhow::Result<()> {
-        let argument_size_warning = warning_if_approaching_limit(
+        add_warning_if_approaching_limit(
+            self,
             arguments.size(),
             *FUNCTION_MAX_ARGS_SIZE,
             "FunctionArgumentsTooLarge",
@@ -914,15 +915,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             None,
             Some(" bytes"),
             None,
-        );
-        if let Some(warning) = argument_size_warning {
-            self.trace_system(warning)?;
-        }
-
+        )?;
         self.add_warnings_to_log_lines(execution_time)?;
 
-        let result_size_warning = result.and_then(|result| {
-            warning_if_approaching_limit(
+        if let Some(result) = result {
+            add_warning_if_approaching_limit(
+                self,
                 result.size(),
                 *FUNCTION_MAX_RESULT_SIZE,
                 "TooLargeFunctionResult",
@@ -930,11 +928,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 None,
-            )
-        });
-        if let Some(warning) = result_size_warning {
-            self.trace_system(warning)?;
-        }
+            )?
+        };
         Ok(())
     }
 
@@ -945,22 +940,21 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     ) -> anyhow::Result<()> {
         self.add_warnings_to_log_lines(execution_time)?;
 
-        let response_size_warning = http_result
-            .and_then(|response| response.body.as_ref())
-            .and_then(|body| {
-                warning_if_approaching_limit(
-                    body.len(),
-                    HTTP_ACTION_BODY_LIMIT,
-                    "HttpResponseTooLarge",
-                    || "Large response returned from an HTTP action".to_string(),
-                    None,
-                    Some(" bytes"),
-                    None,
-                )
-            });
-        if let Some(warning) = response_size_warning {
-            self.trace_system(warning)?;
-        }
+        let Some(response) = http_result else {
+            return Ok(());
+        };
+        if let Some(body) = response.body.as_ref() {
+            add_warning_if_approaching_limit(
+                self,
+                body.len(),
+                HTTP_ACTION_BODY_LIMIT,
+                "HttpResponseTooLarge",
+                || "Large response returned from an HTTP action".to_string(),
+                None,
+                Some(" bytes"),
+                None,
+            )?;
+        };
         Ok(())
     }
 
@@ -973,24 +967,21 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             let total_dangling_tasks = dangling_task_counts.values().sum();
             let task_names = dangling_task_counts.keys().join(", ");
             log_unawaited_pending_op(total_dangling_tasks, "action");
-            self.trace_system(LogLine::Unstructured(format!(
-                    "[WARN] {total_dangling_tasks} unawaited operation{}: [{task_names}]. Async operations should be awaited or they might not run. \
+            self.trace_system(LogLevel::Warn, vec![format!(
+                    "{total_dangling_tasks} unawaited operation{}: [{task_names}]. Async operations should be awaited or they might not run. \
                      See https://docs.convex.dev/functions/actions#dangling-promises for more information.",
                     if total_dangling_tasks == 1 { "" } else { "s" },
-                )))?;
+                )], SystemLogMetadata { code: "UnawaitedOperations".to_string() })?;
         }
 
-        let timeout_warning = warning_if_approaching_duration_limit(
+        add_warning_if_approaching_duration_limit(
+            self,
             execution_time.elapsed,
             execution_time.limit,
             "UserTimeout",
             "Function execution took a long time",
             None,
-        );
-        if let Some(warning) = timeout_warning {
-            self.trace_system(warning)?;
-        }
-        Ok(())
+        )
     }
 
     fn dangling_task_counts(&self) -> BTreeMap<String, usize> {
@@ -1028,33 +1019,29 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
     type Rng = ChaCha12Rng;
 
-    fn trace(&mut self, message: String) -> anyhow::Result<()> {
+    fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // - 1 to reserve for the [ERROR] log line
 
         match self.total_log_lines.cmp(&(MAX_LOG_LINES - 1)) {
             Ordering::Less => {
-                if message.len() > MAX_LOG_LINE_LENGTH {
-                    self.log_line_sender
-                        .unbounded_send(LogLine::Unstructured(format!(
-                            "{}{TRUNCATED_LINE_SUFFIX}",
-                            &message[..message.floor_char_boundary(
-                                MAX_LOG_LINE_LENGTH - TRUNCATED_LINE_SUFFIX.len()
-                            )]
-                        )))?;
-                    self.total_log_lines += 1;
-                } else {
-                    self.log_line_sender
-                        .unbounded_send(LogLine::Unstructured(message))?;
-                    self.total_log_lines += 1;
-                }
+                self.log_line_sender
+                    .unbounded_send(LogLine::new_developer_log_line(
+                        level,
+                        messages,
+                        self.rt.unix_timestamp(),
+                    ))?;
+                self.total_log_lines += 1;
             },
             Ordering::Equal => {
                 // Add a message about omitting log lines once
                 self.log_line_sender
-                    .unbounded_send(LogLine::Unstructured(format!(
-                        "[ERROR] Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines \
-                         omitted."
-                    )))?;
+                    .unbounded_send(LogLine::new_developer_log_line(
+                        LogLevel::Error,
+                        vec![format!(
+                            "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
+                        )],
+                        self.rt.unix_timestamp(),
+                    ))?;
                 self.total_log_lines += 1;
             },
             Ordering::Greater => (),
@@ -1062,10 +1049,19 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         Ok(())
     }
 
-    fn trace_system(&mut self, message: LogLine) -> anyhow::Result<()> {
-        // Don't check length limits or count this towards total log lines since
-        // this is a system log line
-        self.log_line_sender.unbounded_send(message)?;
+    fn trace_system(
+        &mut self,
+        level: LogLevel,
+        messages: Vec<String>,
+        system_log_metadata: SystemLogMetadata,
+    ) -> anyhow::Result<()> {
+        self.log_line_sender
+            .unbounded_send(LogLine::new_system_log_line(
+                level,
+                messages,
+                self.rt.unix_timestamp(),
+                system_log_metadata,
+            ))?;
         Ok(())
     }
 

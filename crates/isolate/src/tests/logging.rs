@@ -164,7 +164,7 @@ async fn test_console_trace(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
 
     let line = log_lines.first().unwrap().clone().to_pretty_string();
-    assert!(line.starts_with("[LOG] 'myString'\n"));
+    assert!(line.starts_with("[LOG] 'myString' \n"));
     // Has the original function somewhere in the stack trace
     assert_contains(&line, "convex/logging.ts:");
     Ok(())

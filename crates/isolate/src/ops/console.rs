@@ -13,34 +13,30 @@ use crate::{
     execution_scope::ExecutionScope,
 };
 
-fn format_message(level: LogLevel, message: String) -> String {
-    format!("[{level}] {message}")
-}
-
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     #[convex_macro::v8_op]
-    pub fn op_console_message(&mut self, level: String, message: String) -> anyhow::Result<()> {
+    pub fn op_console_message(
+        &mut self,
+        level: String,
+        messages: Vec<String>,
+    ) -> anyhow::Result<()> {
         let state = self.state_mut()?;
-        state
-            .environment
-            .trace(format_message(level.parse()?, message))?;
+        state.environment.trace(level.parse()?, messages)?;
         Ok(())
     }
 
     #[convex_macro::v8_op]
     pub fn op_console_trace(
         &mut self,
-        message: String,
+        mut messages: Vec<String>,
         frame_data: Vec<FrameData>,
     ) -> anyhow::Result<()> {
-        let js_error = JsError::from_frames(
-            format_message(LogLevel::Log, message),
-            frame_data,
-            None,
-            |s| self.lookup_source_map(s),
-        )?;
+        let js_error = JsError::from_frames("".to_string(), frame_data, None, |s| {
+            self.lookup_source_map(s)
+        })?;
         let state = self.state_mut()?;
-        state.environment.trace(js_error.to_string())?;
+        messages.push(js_error.to_string());
+        state.environment.trace(LogLevel::Log, messages)?;
         Ok(())
     }
 
@@ -48,10 +44,10 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     pub fn op_console_timeStart(&mut self, label: String) -> anyhow::Result<()> {
         let state = self.state_mut()?;
         if state.console_timers.contains_key(&label) {
-            state.environment.trace(format_message(
+            state.environment.trace(
                 LogLevel::Warn,
-                format!("Timer '{label}' already exists"),
-            ))?;
+                vec![format!("Timer '{label}' already exists")],
+            )?;
         } else {
             state
                 .console_timers
@@ -61,28 +57,27 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     }
 
     #[convex_macro::v8_op]
-    pub fn op_console_timeLog(&mut self, label: String, message: String) -> anyhow::Result<()> {
+    pub fn op_console_timeLog(
+        &mut self,
+        label: String,
+        extra_messages: Vec<String>,
+    ) -> anyhow::Result<()> {
         let state = self.state_mut()?;
         match state.console_timers.get(&label) {
             None => {
-                state.environment.trace(format_message(
+                state.environment.trace(
                     LogLevel::Warn,
-                    format!("Timer '{label}' does not exist"),
-                ))?;
+                    vec![format!("Timer '{label}' does not exist")],
+                )?;
             },
             Some(time) => {
                 let now = state
                     .unix_timestamp_non_deterministic()
                     .as_ms_since_epoch()?;
                 let duration = now - time.as_ms_since_epoch()?;
-                let log_line = if message.is_empty() {
-                    format!("{label}: {duration}ms")
-                } else {
-                    format!("{label}: {duration}ms {message}")
-                };
-                state
-                    .environment
-                    .trace(format_message(LogLevel::Info, log_line))?;
+                let mut messages = vec![format!("{label}: {duration}ms")];
+                messages.extend(extra_messages.into_iter());
+                state.environment.trace(LogLevel::Info, messages)?;
             },
         };
         Ok(())
@@ -93,20 +88,19 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         let state = self.state_mut()?;
         match state.console_timers.remove(&label) {
             None => {
-                state.environment.trace(format_message(
+                state.environment.trace(
                     LogLevel::Warn,
-                    format!("Timer '{label}' does not exist"),
-                ))?;
+                    vec![format!("Timer '{label}' does not exist")],
+                )?;
             },
             Some(time) => {
                 let now = state
                     .unix_timestamp_non_deterministic()
                     .as_ms_since_epoch()?;
                 let duration = now - time.as_ms_since_epoch()?;
-                state.environment.trace(format_message(
-                    LogLevel::Info,
-                    format!("{label}: {duration}ms"),
-                ))?;
+                state
+                    .environment
+                    .trace(LogLevel::Info, vec![format!("{label}: {duration}ms")])?;
             },
         };
         Ok(())

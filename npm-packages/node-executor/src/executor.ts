@@ -582,7 +582,7 @@ export function setupConsole(responseStream: Writable) {
       }),
     );
 
-    let message = `[${level}] ${serializedArgs.join(" ")}`;
+    let messages = serializedArgs;
     // Requirements:
     // - 6MB limit on AWS lambda response size, so only collect
     //   maximum 2MB of logs, one ~million UTF16 code units (UTF16
@@ -591,19 +591,34 @@ export function setupConsole(responseStream: Writable) {
     if (globalConsoleState.logLimitHit === true) {
       return;
     }
-    if (globalConsoleState.totalSentLineLength + message.length > 1_048_576) {
-      message =
-        "[ERROR] Log overflow (maximum 1M characters). Remaining log lines omitted.";
+    const totalMessageLength =
+      messages.reduce((acc, current) => acc + current.length + 1, 0) - 1;
+    if (
+      globalConsoleState.totalSentLineLength + totalMessageLength >
+      1_048_576
+    ) {
+      level = "ERROR";
+      messages = [
+        "Log overflow (maximum 1M characters). Remaining log lines omitted.",
+      ];
       globalConsoleState.logLimitHit = true;
     } else if (globalConsoleState.sentLines >= 256) {
-      message =
-        "[ERROR] Log overflow (maximum 256). Remaining log lines omitted.";
+      level = "ERROR";
+      messages = ["Log overflow (maximum 256). Remaining log lines omitted."];
       globalConsoleState.logLimitHit = true;
     }
     responseStream.write(
-      JSON.stringify({ kind: "LogLine", data: message }) + "\n",
+      JSON.stringify({
+        kind: "LogLine",
+        data: {
+          messages,
+          isTruncated: false,
+          timestamp: Date.now(),
+          level,
+        },
+      }) + "\n",
     );
-    globalConsoleState.totalSentLineLength += message.length;
+    globalConsoleState.totalSentLineLength += totalMessageLength;
     globalConsoleState.sentLines += 1;
   }
   devConsole.debug = function (...args) {

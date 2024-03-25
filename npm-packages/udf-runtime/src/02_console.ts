@@ -13,7 +13,7 @@ function getMessage(args) {
       customInspect: true,
     }),
   );
-  return serializedArgs.join(" ");
+  return serializedArgs;
 }
 
 function toString(value: unknown, defaultValue: string) {

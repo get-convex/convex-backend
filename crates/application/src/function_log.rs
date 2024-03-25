@@ -20,7 +20,10 @@ use common::{
     execution_context::ExecutionContext,
     identity::InertIdentity,
     knobs::MAX_UDF_EXECUTION,
-    log_lines::LogLines,
+    log_lines::{
+        LogLine,
+        LogLines,
+    },
     log_streaming::{
         EventSource,
         FunctionEventSource,
@@ -201,6 +204,10 @@ impl FunctionExecution {
         self.log_lines
             .iter()
             .map(|line| {
+                let timestamp = match &line {
+                    LogLine::Unstructured(_) => self.unix_timestamp,
+                    LogLine::Structured { timestamp, .. } => *timestamp,
+                };
                 let JsonValue::Object(payload) = json!({
                     "message": line.clone().to_pretty_string()
                 }) else {
@@ -210,7 +217,7 @@ impl FunctionExecution {
                     topic: LogTopic::Console,
                     source: EventSource::Function(self.event_source()),
                     payload,
-                    timestamp: self.unix_timestamp,
+                    timestamp,
                 })
             })
             .filter_map(|event| match event {
@@ -288,7 +295,11 @@ impl FunctionExecutionProgress {
     fn console_log_events(self) -> Vec<LogEvent> {
         self.log_lines
             .into_iter()
-            .map(|line| {
+            .map(|line: LogLine| {
+                let timestamp = match &line {
+                    LogLine::Unstructured(_) => self.function_start_timestamp,
+                    LogLine::Structured { timestamp, .. } => *timestamp,
+                };
                 let JsonValue::Object(payload) = json!({
                     "message": line.to_pretty_string()
                 }) else {
@@ -298,7 +309,7 @@ impl FunctionExecutionProgress {
                     topic: LogTopic::Console,
                     source: EventSource::Function(self.event_source.clone()),
                     payload,
-                    timestamp: self.function_start_timestamp,
+                    timestamp,
                 })
             })
             .filter_map(|event| match event {
@@ -1078,8 +1089,7 @@ impl<RT: Runtime> Inner<RT> {
             event_source,
             function_start_timestamp,
         };
-        // TODO: this should ideally use a timestamp on the log lines themselves, but
-        // for now use the start timestamp of the function
+
         let log_events = progress.clone().console_log_events();
         self.log_manager.send_logs(log_events);
         self.log

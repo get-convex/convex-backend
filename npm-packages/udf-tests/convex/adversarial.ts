@@ -40,6 +40,7 @@ export const consoleLongLine = query(() => {
   const longLine = "A".repeat(4511) + "!";
   const args = Array(9).fill(longLine);
   console.log(...args);
+  console.log(args.join(" "));
 });
 
 export const consoleLongLineCharBoundary = query(() => {

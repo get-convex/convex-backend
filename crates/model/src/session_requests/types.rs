@@ -18,10 +18,6 @@ use common::{
         ConvexValue,
     },
 };
-#[cfg(any(test, feature = "testing"))]
-use proptest::arbitrary::Arbitrary;
-#[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
 use value::ConvexObject;
 
 /// Identifier for a single request in a session
@@ -94,6 +90,7 @@ impl TryFrom<ConvexObject> for SessionRequestRecord {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SessionRequestOutcome {
     // In case of mutation, the session request is recorded atomically with
     // performing the mutation. There are no record for incomplete mutations.
@@ -101,28 +98,6 @@ pub enum SessionRequestOutcome {
         result: ConvexValue,
         log_lines: LogLines,
     },
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl Arbitrary for SessionRequestOutcome {
-    type Parameters = ();
-
-    type Strategy = impl Strategy<Value = SessionRequestOutcome>;
-
-    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        (
-            any::<ConvexValue>(),
-            prop::collection::vec(any::<String>(), 0..10),
-        )
-            .prop_map(|(result, log_line_strs)| SessionRequestOutcome::Mutation {
-                result,
-                log_lines: log_line_strs
-                    .into_iter()
-                    // Only generate unstructured ones since structured ones won't roundtrip yet
-                    .map(LogLine::Unstructured)
-                    .collect(),
-            })
-    }
 }
 
 impl TryFrom<SessionRequestOutcome> for ConvexObject {

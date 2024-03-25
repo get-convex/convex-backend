@@ -32,6 +32,7 @@ use value::{
         HeapSize,
         WithHeapSize,
     },
+    obj,
     remove_boolean,
     remove_int64,
     remove_nullable_object,
@@ -44,6 +45,7 @@ use value::{
 use crate::runtime::UnixTimestamp;
 
 pub const TRUNCATED_LINE_SUFFIX: &str = " (truncated due to length)";
+pub const MAX_LOG_LINE_LENGTH: usize = 32768;
 /// List of log lines from a Convex function execution.
 pub type LogLines = WithHeapSize<Vec<LogLine>>;
 pub type RawLogLines = WithHeapSize<Vec<String>>;
@@ -95,7 +97,7 @@ impl HeapSize for LogLevel {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct SystemLogMetadata {
-    code: String,
+    pub code: String,
 }
 
 impl HeapSize for SystemLogMetadata {
@@ -111,6 +113,14 @@ impl TryFrom<ConvexObject> for SystemLogMetadata {
         let mut fields = BTreeMap::from(value);
         let code = remove_string(&mut fields, "code")?;
         Ok(SystemLogMetadata { code })
+    }
+}
+
+impl TryFrom<SystemLogMetadata> for ConvexValue {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SystemLogMetadata) -> Result<Self, Self::Error> {
+        Ok(ConvexValue::Object(obj!("code" => value.code)?))
     }
 }
 
@@ -141,17 +151,21 @@ impl Arbitrary for LogLine {
                 prop::collection::vec(any::<String>(), 1..4),
                 any::<LogLevel>(),
                 any::<bool>(),
-                any::<u64>(),
+                any::<i64>(),
                 any::<Option<SystemLogMetadata>>()
             )
-                .prop_map(
+                .prop_filter_map(
+                    "Invalid LogLine",
                     |(messages, level, is_truncated, timestamp_ms, system_metadata)| {
-                        LogLine::Structured {
-                            messages: messages.into(),
-                            level,
-                            is_truncated,
-                            timestamp: UnixTimestamp::from_millis(timestamp_ms),
-                            system_metadata,
+                        match u64::try_from(timestamp_ms) {
+                            Ok(timestamp_ms) => Some(LogLine::Structured {
+                                messages: messages.into(),
+                                level,
+                                is_truncated,
+                                timestamp: UnixTimestamp::from_millis(timestamp_ms),
+                                system_metadata,
+                            }),
+                            Err(_) => None,
                         }
                     }
                 )
@@ -176,6 +190,61 @@ impl LogLine {
                     format!("[{level}] {}", messages.join(" "))
                 }
             },
+        }
+    }
+
+    pub fn new_developer_log_line(
+        level: LogLevel,
+        messages: Vec<String>,
+        timestamp: UnixTimestamp,
+    ) -> Self {
+        // total length of messages joined by a space
+        let total_length = messages.iter().map(|m| m.len() + 1).sum::<usize>() - 1;
+        if total_length <= MAX_LOG_LINE_LENGTH {
+            return LogLine::Structured {
+                messages: messages.into(),
+                level,
+                is_truncated: false,
+                timestamp,
+                system_metadata: None,
+            };
+        }
+        let mut total_length = 0;
+        let mut truncated_messages: Vec<String> = vec![];
+        for message in messages {
+            let remaining_space = MAX_LOG_LINE_LENGTH - TRUNCATED_LINE_SUFFIX.len() - total_length;
+            if message.len() <= remaining_space {
+                total_length += message.len() + 1;
+                truncated_messages.push(message);
+            } else {
+                let last_message =
+                    message[..message.floor_char_boundary(remaining_space)].to_string();
+                truncated_messages.push(last_message);
+                break;
+            }
+        }
+        LogLine::Structured {
+            messages: truncated_messages.into(),
+            level,
+            is_truncated: true,
+            timestamp,
+            system_metadata: None,
+        }
+    }
+
+    pub fn new_system_log_line(
+        level: LogLevel,
+        messages: Vec<String>,
+        timestamp: UnixTimestamp,
+        system_log_metadata: SystemLogMetadata,
+    ) -> Self {
+        // Never truncate system log lines
+        LogLine::Structured {
+            messages: messages.into(),
+            level,
+            is_truncated: false,
+            timestamp,
+            system_metadata: Some(system_log_metadata),
         }
     }
 }
@@ -216,7 +285,8 @@ impl TryFrom<ConvexValue> for LogLine {
                 let level = remove_string(&mut fields, "level")?;
 
                 let timestamp = remove_int64(&mut fields, "timestamp")?;
-                let system_metadata = remove_nullable_object(&mut fields, "system_metadata")?;
+                let system_metadata: Option<SystemLogMetadata> =
+                    remove_nullable_object(&mut fields, "system_metadata")?;
 
                 LogLine::Structured {
                     messages: messages.clone().into(),
@@ -236,7 +306,30 @@ impl TryFrom<LogLine> for ConvexValue {
     type Error = anyhow::Error;
 
     fn try_from(value: LogLine) -> Result<Self, Self::Error> {
-        Ok(ConvexValue::String(value.to_pretty_string().try_into()?))
+        let result = match value {
+            LogLine::Unstructured(v) => v.try_into()?,
+            LogLine::Structured {
+                messages,
+                level,
+                is_truncated,
+                timestamp,
+                system_metadata,
+            } => {
+                let timestamp_ms: i64 = timestamp.as_ms_since_epoch()?.try_into()?;
+                let system_metadata_value = match system_metadata {
+                    Some(m) => ConvexValue::try_from(m)?,
+                    None => ConvexValue::Null,
+                };
+                ConvexValue::Object(obj!(
+                    "messages" => messages.into_iter().map(ConvexValue::try_from).try_collect::<Vec<_>>()?,
+                    "level" => level.to_string(),
+                    "is_truncated" => is_truncated,
+                    "timestamp" => timestamp_ms,
+                    "system_metadata" => system_metadata_value,
+                )?)
+            },
+        };
+        Ok(result)
     }
 }
 
@@ -426,9 +519,7 @@ mod tests {
         )]
         #[test]
         fn test_structured_round_trips(log_line in any::<LogLine>()) {
-            let pretty = log_line.clone().to_pretty_string();
-            let val = LogLine::try_from(ConvexValue::try_from(log_line).unwrap()).unwrap();
-            assert_eq!(val, LogLine::Unstructured(pretty));
+            assert_roundtrips::<LogLine, ConvexValue>(log_line);
         }
 
         #[test]

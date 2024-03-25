@@ -43,9 +43,10 @@ use common::{
         TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
     log_lines::{
+        LogLevel,
         LogLine,
         LogLines,
-        TRUNCATED_LINE_SUFFIX,
+        SystemLogMetadata,
     },
     query_journal::QueryJournal,
     runtime::{
@@ -108,8 +109,8 @@ use self::{
 use super::{
     helpers::permit::with_release_permit,
     warnings::{
-        warning_if_approaching_duration_limit,
-        warning_if_approaching_limit,
+        add_warning_if_approaching_duration_limit,
+        add_warning_if_approaching_limit,
     },
 };
 use crate::{
@@ -130,7 +131,6 @@ use crate::{
             JsonPackedValue,
             SyscallTrace,
             MAX_LOG_LINES,
-            MAX_LOG_LINE_LENGTH,
         },
         AsyncOpRequest,
         IsolateEnvironment,
@@ -210,34 +210,47 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     type Rng = ChaCha12Rng;
 
-    fn trace(&mut self, message: String) -> anyhow::Result<()> {
+    fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // - 1 to reserve for the [ERROR] log line
         match self.log_lines.len().cmp(&(MAX_LOG_LINES - 1)) {
-            Ordering::Less => {
-                if message.len() > MAX_LOG_LINE_LENGTH {
-                    self.log_lines.push(LogLine::Unstructured(format!(
-                        "{}{TRUNCATED_LINE_SUFFIX}",
-                        &message[..message.floor_char_boundary(
-                            MAX_LOG_LINE_LENGTH - TRUNCATED_LINE_SUFFIX.len()
-                        )]
-                    )))
-                } else {
-                    self.log_lines.push(LogLine::Unstructured(message));
-                }
-            },
+            Ordering::Less => self.log_lines.push(LogLine::new_developer_log_line(
+                level,
+                messages,
+                // Note: accessing the current time here is still deterministic since
+                // we don't externalize the time to the function.
+                self.rt.unix_timestamp(),
+            )),
             Ordering::Equal => {
                 // Add a message about omitting log lines once
-                self.log_lines.push(LogLine::Unstructured(format!(
-                    "[ERROR] Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
-                )))
+                self.log_lines.push(LogLine::new_developer_log_line(
+                    LogLevel::Error,
+                    vec![format!(
+                        "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
+                    )],
+                    // Note: accessing the current time here is still deterministic since
+                    // we don't externalize the time to the function.
+                    self.rt.unix_timestamp(),
+                ))
             },
             Ordering::Greater => (),
         };
         Ok(())
     }
 
-    fn trace_system(&mut self, message: LogLine) -> anyhow::Result<()> {
-        self.log_lines.push(message);
+    fn trace_system(
+        &mut self,
+        level: LogLevel,
+        messages: Vec<String>,
+        system_log_metadata: SystemLogMetadata,
+    ) -> anyhow::Result<()> {
+        self.log_lines.push(LogLine::new_system_log_line(
+            level,
+            messages,
+            // Note: accessing the current time here is still deterministic since
+            // we don't externalize the time to the function.
+            self.rt.unix_timestamp(),
+            system_log_metadata,
+        ));
         Ok(())
     }
 
@@ -432,10 +445,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }
         let execution_time;
         (self, execution_time) = isolate_context.take_environment();
-        self.add_warnings_to_log_lines(
-            execution_time,
-            result.as_ref().ok().and_then(|r| r.as_ref().ok()),
-        );
+        let success_result_value = match result.as_ref() {
+            Ok(Ok(v)) => Some(v),
+            _ => None,
+        };
+        self.add_warnings_to_log_lines(execution_time, success_result_value)?;
         let outcome = match self.udf_type {
             UdfType::Query => FunctionOutcome::Query(UdfOutcome {
                 udf_path: self.udf_path,
@@ -783,134 +797,143 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         &mut self,
         execution_time: FunctionExecutionTime,
         result: Option<&ConvexValue>,
-    ) {
+    ) -> anyhow::Result<()> {
         let execution_size = self.phase.execution_size();
         let biggest_writes = self.phase.biggest_document_writes();
 
         let system_udf_path = if self.udf_path.is_system() {
-            Some(&self.udf_path)
+            Some(self.udf_path.clone())
         } else {
             None
         };
-        let warnings = vec![
-            warning_if_approaching_limit(
-                self.arguments.size(),
-                *FUNCTION_MAX_ARGS_SIZE,
-                "TooLargeFunctionArguments",
-                || "Large size of the function arguments".to_string(),
+        add_warning_if_approaching_limit(
+            self,
+            self.arguments.size(),
+            *FUNCTION_MAX_ARGS_SIZE,
+            "TooLargeFunctionArguments",
+            || "Large size of the function arguments".to_string(),
+            None,
+            Some(" bytes"),
+            system_udf_path.as_ref(),
+        )?;
+        add_warning_if_approaching_limit(
+            self,
+            execution_size.read_size.total_document_count,
+            *TRANSACTION_MAX_READ_SIZE_ROWS,
+            "TooManyDocumentsRead",
+            || "Many documents read in a single function execution".to_string(),
+            Some(OVER_LIMIT_HELP),
+            None,
+            system_udf_path.as_ref(),
+        )?;
+        add_warning_if_approaching_limit(
+            self,
+            execution_size.num_intervals,
+            *TRANSACTION_MAX_READ_SET_INTERVALS,
+            "TooManyReads",
+            || "Many reads in a single function execution".to_string(),
+            Some(OVER_LIMIT_HELP),
+            None,
+            system_udf_path.as_ref(),
+        )?;
+        add_warning_if_approaching_limit(
+            self,
+            execution_size.read_size.total_document_size,
+            *TRANSACTION_MAX_READ_SIZE_BYTES,
+            "TooManyBytesRead",
+            || "Many bytes read in a single function execution".to_string(),
+            Some(OVER_LIMIT_HELP),
+            Some(" bytes"),
+            system_udf_path.as_ref(),
+        )?;
+        add_warning_if_approaching_limit(
+            self,
+            execution_size.write_size.num_writes,
+            *TRANSACTION_MAX_NUM_USER_WRITES,
+            "TooManyWrites",
+            || "Many writes in a single function execution".to_string(),
+            None,
+            None,
+            system_udf_path.as_ref(),
+        )?;
+        add_warning_if_approaching_limit(
+            self,
+            execution_size.write_size.size,
+            *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
+            "TooManyBytesWritten",
+            || "Many bytes written in a single function execution".to_string(),
+            None,
+            Some(" bytes"),
+            system_udf_path.as_ref(),
+        )?;
+        add_warning_if_approaching_limit(
+            self,
+            execution_size.scheduled_size.num_writes,
+            *TRANSACTION_MAX_NUM_SCHEDULED,
+            "TooManyFunctionsScheduled",
+            || "Many functions scheduled by this mutation".to_string(),
+            None,
+            None,
+            system_udf_path.as_ref(),
+        )?;
+        add_warning_if_approaching_limit(
+            self,
+            execution_size.scheduled_size.size,
+            *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
+            "ScheduledFunctionsArgumentsTooLarge",
+            || {
+                "Large total size of the arguments of scheduled functions from this mutation"
+                    .to_string()
+            },
+            None,
+            Some(" bytes"),
+            system_udf_path.as_ref(),
+        )?;
+        if let Some(biggest_writes) = biggest_writes {
+            let (max_size_document_id, max_size) = biggest_writes.max_size;
+            add_warning_if_approaching_limit(
+                self,
+                max_size,
+                MAX_USER_SIZE,
+                VALUE_TOO_LARGE_SHORT_MSG,
+                || format!("Large document written with ID \"{max_size_document_id}\""),
                 None,
                 Some(" bytes"),
-                system_udf_path,
-            ),
-            warning_if_approaching_limit(
-                execution_size.read_size.total_document_count,
-                *TRANSACTION_MAX_READ_SIZE_ROWS,
-                "TooManyDocumentsRead",
-                || "Many documents read in a single function execution".to_string(),
-                Some(OVER_LIMIT_HELP),
+                system_udf_path.as_ref(),
+            )?;
+
+            let (max_nesting_document_id, max_nesting) = biggest_writes.max_nesting;
+            add_warning_if_approaching_limit(
+                self,
+                max_nesting,
+                MAX_DOCUMENT_NESTING,
+                "TooNested",
+                || format!("Deeply nested document written with ID \"{max_nesting_document_id}\""),
                 None,
-                system_udf_path,
-            ),
-            warning_if_approaching_limit(
-                execution_size.num_intervals,
-                *TRANSACTION_MAX_READ_SET_INTERVALS,
-                "TooManyReads",
-                || "Many reads in a single function execution".to_string(),
-                Some(OVER_LIMIT_HELP),
-                None,
-                system_udf_path,
-            ),
-            warning_if_approaching_limit(
-                execution_size.read_size.total_document_size,
-                *TRANSACTION_MAX_READ_SIZE_BYTES,
-                "TooManyBytesRead",
-                || "Many bytes read in a single function execution".to_string(),
-                Some(OVER_LIMIT_HELP),
-                Some(" bytes"),
-                system_udf_path,
-            ),
-            warning_if_approaching_limit(
-                execution_size.write_size.num_writes,
-                *TRANSACTION_MAX_NUM_USER_WRITES,
-                "TooManyWrites",
-                || "Many writes in a single function execution".to_string(),
-                None,
-                None,
-                system_udf_path,
-            ),
-            warning_if_approaching_limit(
-                execution_size.write_size.size,
-                *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
-                "TooManyBytesWritten",
-                || "Many bytes written in a single function execution".to_string(),
+                Some(" levels"),
+                system_udf_path.as_ref(),
+            )?;
+        };
+        if let Some(result) = result {
+            add_warning_if_approaching_limit(
+                self,
+                result.size(),
+                *FUNCTION_MAX_RESULT_SIZE,
+                "TooLargeFunctionResult",
+                || "Large size of the function return value".to_string(),
                 None,
                 Some(" bytes"),
-                system_udf_path,
-            ),
-            warning_if_approaching_limit(
-                execution_size.scheduled_size.num_writes,
-                *TRANSACTION_MAX_NUM_SCHEDULED,
-                "TooManyFunctionsScheduled",
-                || "Many functions scheduled by this mutation".to_string(),
-                None,
-                None,
-                system_udf_path,
-            ),
-            warning_if_approaching_limit(
-                execution_size.scheduled_size.size,
-                *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
-                "ScheduledFunctionsArgumentsTooLarge",
-                || {
-                    "Large total size of the arguments of scheduled functions from this mutation"
-                        .to_string()
-                },
-                None,
-                Some(" bytes"),
-                system_udf_path,
-            ),
-            biggest_writes.as_ref().and_then(|biggest_writes| {
-                let (document_id, max_size) = biggest_writes.max_size;
-                warning_if_approaching_limit(
-                    max_size,
-                    MAX_USER_SIZE,
-                    VALUE_TOO_LARGE_SHORT_MSG,
-                    || format!("Large document written with ID \"{document_id}\""),
-                    None,
-                    Some(" bytes"),
-                    system_udf_path,
-                )
-            }),
-            biggest_writes.as_ref().and_then(|biggest_writes| {
-                let (document_id, max_nesting) = biggest_writes.max_nesting;
-                warning_if_approaching_limit(
-                    max_nesting,
-                    MAX_DOCUMENT_NESTING,
-                    "TooNested",
-                    || format!("Deeply nested document written with ID \"{document_id}\""),
-                    None,
-                    Some(" levels"),
-                    system_udf_path,
-                )
-            }),
-            result.and_then(|result| {
-                warning_if_approaching_limit(
-                    result.size(),
-                    *FUNCTION_MAX_RESULT_SIZE,
-                    "TooLargeFunctionResult",
-                    || "Large size of the function return value".to_string(),
-                    None,
-                    Some(" bytes"),
-                    system_udf_path,
-                )
-            }),
-            warning_if_approaching_duration_limit(
-                execution_time.elapsed,
-                execution_time.limit,
-                "UserTimeout",
-                "Function execution took a long time",
-                system_udf_path,
-            ),
-        ];
-        self.log_lines.extend(warnings.into_iter().flatten());
+                system_udf_path.as_ref(),
+            )?;
+        };
+        add_warning_if_approaching_duration_limit(
+            self,
+            execution_time.elapsed,
+            execution_time.limit,
+            "UserTimeout",
+            "Function execution took a long time",
+            system_udf_path.as_ref(),
+        )?;
+        Ok(())
     }
 }

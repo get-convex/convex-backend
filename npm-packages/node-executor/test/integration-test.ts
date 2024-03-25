@@ -32,7 +32,12 @@ async function executeWrapper(
   createPackageJsonIfMissing(__dirname);
   const saved = console;
   const timeoutSecs = 300;
-  const logLines: string[] = [];
+  const logLines: {
+    level: string;
+    messages: string[];
+    isTruncated: boolean;
+    timestamp: number;
+  }[] = [];
   const responseStream = new Writable({
     write: (chunk, _encoding, callback) => {
       const chunkJson = JSON.parse(chunk);
@@ -82,9 +87,6 @@ function printResponse(response: ExecuteResponseInner) {
   }
   if (response.type === "success") {
     console.log(`SUCCESS -> ${response.udfReturn}`);
-    for (const logLine of response.logLines) {
-      console.log(`[log] ${logLine}`);
-    }
   } else {
     console.log(`ERROR -> ${response.message}`);
     for (const frame of response.frames ?? []) {
@@ -93,9 +95,6 @@ function printResponse(response: ExecuteResponseInner) {
           frame.lineNumber
         }`,
       );
-    }
-    for (const logLine of response.logLines ?? []) {
-      console.log(`[log] ${logLine}`);
     }
   }
 }
@@ -174,7 +173,9 @@ async function test_execute_success() {
     throw new Error(`Unexpected error`);
   }
   assert.deepEqual(response.udfReturn, "8");
-  assert.deepEqual(logLines, ["[LOG] 'Computing...'"]);
+  assert.strictEqual(logLines.length, 1);
+  assert.strictEqual(logLines[0].level, "LOG");
+  assert.deepEqual(logLines[0].messages, ["'Computing...'"]);
 }
 
 async function test_execute_env_var() {
@@ -495,14 +496,14 @@ async function test_logging() {
   let result = await executeWrapper("logging.js", "logSome", "[]", []);
   let logLines = result.logLines;
   assert.strictEqual(logLines.length, 40);
-  assert.strictEqual(logLines[0], "[LOG] 'Hello'");
+  assert.deepEqual(logLines[0].messages, ["'Hello'"]);
 
   result = await executeWrapper("logging.js", "logTooManyLines", "[]", []);
   logLines = result.logLines;
   assert.strictEqual(logLines.length, 257);
-  assert.strictEqual(logLines[0], "[LOG] 'Hello'");
+  assert.deepEqual(logLines[0].messages, ["'Hello'"]);
   assert(
-    logLines[256].includes(
+    logLines[256].messages[0].includes(
       "Log overflow (maximum 256). Remaining log lines omitted.",
     ),
   );
@@ -511,8 +512,8 @@ async function test_logging() {
   logLines = result.logLines;
   assert.strictEqual(logLines.length, 32);
   assert(
-    logLines[logLines.length - 1].includes(
-      "[ERROR] Log overflow (maximum 1M characters). Remaining log lines omitted.",
+    logLines[logLines.length - 1].messages[0].includes(
+      "Log overflow (maximum 1M characters). Remaining log lines omitted.",
     ),
   );
 }
