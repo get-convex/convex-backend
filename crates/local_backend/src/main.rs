@@ -37,6 +37,9 @@ use tokio::signal::{
 };
 
 fn main() -> Result<(), MainError> {
+    if std::env::var_os("RUST_LOG").is_none() {
+        std::env::set_var("RUST_LOG", "info");
+    }
     tracing::info!("Starting a local backend");
     let _guard = config_tool();
     let config = LocalConfig::parse();
