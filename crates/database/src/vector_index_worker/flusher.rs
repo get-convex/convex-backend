@@ -333,7 +333,9 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         } else {
             None
         };
-        let new_segment_id = new_segment.as_ref().map(|segment| segment.id.clone());
+        let new_segment_id = new_segment
+            .as_ref()
+            .map(|segment: &FragmentedVectorSegment| segment.id.clone());
         let vectors_in_new_segment = new_segment.as_ref().map(|segment| segment.num_vectors);
 
         let new_and_updated_parts = if let Some(new_segment) = new_segment {
