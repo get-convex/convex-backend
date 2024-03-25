@@ -1,9 +1,6 @@
 use std::{
     fs,
-    path::{
-        Path,
-        PathBuf,
-    },
+    path::PathBuf,
     time::Duration,
 };
 
@@ -34,6 +31,10 @@ use crate::executor::{
     EXECUTE_TIMEOUT_RESPONSE_JSON,
 };
 
+/// Always use node version specified in .nvmrc for lambda execution, even if
+/// we're using older version for CLI.
+const NODE_VERSION: &str = include_str!("../../../.nvmrc");
+
 pub struct LocalNodeExecutor {
     _source_dir: TempDir,
     source_path: PathBuf,
@@ -57,17 +58,7 @@ impl LocalNodeExecutor {
             "Using local node executor. Source: {}",
             source_path.to_str().expect("Path is not UTF-8 string?"),
         );
-        let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap();
-
-        // Always use node version specified in .nvmrc for lambda execution, even if
-        // we're using older version for CLI.
-        let node_version = fs::read_to_string(repo_root.join(".nvmrc"))?
-            .trim()
-            .to_string();
+        let node_version = NODE_VERSION.trim();
 
         // Look for node16 in a few places. CI nvm installer uses `mynvm`
         let mut node_path = "node".to_string();
