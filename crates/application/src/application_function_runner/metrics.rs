@@ -1,4 +1,7 @@
-use common::types::UdfType;
+use common::types::{
+    ModuleEnvironment,
+    UdfType,
+};
 use metrics::{
     log_counter,
     log_counter_with_tags,
@@ -9,6 +12,7 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
+    MetricTag,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -71,9 +75,14 @@ register_convex_gauge!(
     APPLICATION_FUNCTION_RUNNER_OUTSTANDING_TOTAL,
     "The number of currently outstanding functions of a given type. Includes both running and \
      waiting functions",
-    &["udf_type", "state"]
+    &["udf_type", "state", "env_type"]
 );
-pub fn log_outstanding_functions(total: usize, udf_type: UdfType, state: OutstandingFunctionState) {
+pub fn log_outstanding_functions(
+    total: usize,
+    env: ModuleEnvironment,
+    udf_type: UdfType,
+    state: OutstandingFunctionState,
+) {
     let state_tag = metric_tag_const(match state {
         OutstandingFunctionState::Running => "state:running",
         OutstandingFunctionState::Waiting => "state:waiting",
@@ -81,7 +90,7 @@ pub fn log_outstanding_functions(total: usize, udf_type: UdfType, state: Outstan
     log_gauge_with_tags(
         &APPLICATION_FUNCTION_RUNNER_OUTSTANDING_TOTAL,
         total as f64,
-        vec![udf_type.metric_tag(), state_tag],
+        vec![udf_type.metric_tag(), state_tag, env.metric_tag()],
     )
 }
 
@@ -89,24 +98,40 @@ register_convex_histogram!(
     APPLICATION_FUNCTION_RUNNER_TOTAL_SECONDS,
     "The total time it took to execute a function. This includes wait time and run time. The \
      metric is also logged for isolate client code path so we can compare apples to apples.",
-    &[STATUS_LABEL[0], "udf_type"]
+    &[STATUS_LABEL[0], "udf_type", "env_type"]
 );
-pub fn function_total_timer(udf_type: UdfType) -> StatusTimer {
+pub fn function_total_timer(env: ModuleEnvironment, udf_type: UdfType) -> StatusTimer {
     let mut timer = StatusTimer::new(&APPLICATION_FUNCTION_RUNNER_TOTAL_SECONDS);
     timer.add_tag(udf_type.metric_tag());
+    timer.add_tag(env.metric_tag());
     timer
+}
+
+trait ModuleEnvironmentExt {
+    fn metric_tag(&self) -> MetricTag;
+}
+
+impl ModuleEnvironmentExt for ModuleEnvironment {
+    fn metric_tag(&self) -> MetricTag {
+        let value = match self {
+            ModuleEnvironment::Isolate => "env_type:isolate",
+            ModuleEnvironment::Node => "env_type:node",
+            ModuleEnvironment::Invalid => "env_type:invalid",
+        };
+        metric_tag_const(value)
+    }
 }
 
 register_convex_counter!(
     APPLICATION_FUNCTION_RUNNER_WAIT_TIMEOUT_TOTAL,
     "Total number with running a function has timed out due to instance concurrency limits.",
-    &["udf_type"],
+    &["udf_type", "env_type"],
 );
-pub fn log_function_wait_timeout(udf_type: UdfType) {
+pub fn log_function_wait_timeout(env: ModuleEnvironment, udf_type: UdfType) {
     log_counter_with_tags(
         &APPLICATION_FUNCTION_RUNNER_WAIT_TIMEOUT_TOTAL,
         1,
-        vec![udf_type.metric_tag()],
+        vec![udf_type.metric_tag(), env.metric_tag()],
     );
 }
 

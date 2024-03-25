@@ -19,9 +19,10 @@ use common::{
     identity::InertIdentity,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
-        APPLICATION_MAX_CONCURRENT_ACTIONS,
         APPLICATION_MAX_CONCURRENT_MUTATIONS,
+        APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
         APPLICATION_MAX_CONCURRENT_QUERIES,
+        APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
         ISOLATE_MAX_USER_HEAP_SIZE,
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
@@ -225,16 +226,19 @@ impl<RT: Runtime> FunctionRouter<RT> {
             database,
             system_env_vars,
             query_limiter: Arc::new(Limiter::new(
+                ModuleEnvironment::Isolate,
                 UdfType::Query,
                 *APPLICATION_MAX_CONCURRENT_QUERIES,
             )),
             mutation_limiter: Arc::new(Limiter::new(
+                ModuleEnvironment::Isolate,
                 UdfType::Mutation,
                 *APPLICATION_MAX_CONCURRENT_MUTATIONS,
             )),
             action_limiter: Arc::new(Limiter::new(
+                ModuleEnvironment::Isolate,
                 UdfType::Action,
-                *APPLICATION_MAX_CONCURRENT_ACTIONS,
+                *APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
             )),
         }
     }
@@ -255,7 +259,8 @@ impl<RT: Runtime> FunctionRouter<RT> {
         context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         anyhow::ensure!(udf_type == UdfType::Query || udf_type == UdfType::Mutation);
-        let timer = function_total_timer(udf_type);
+        // All queries and mutations are run in the isolate environment.
+        let timer = function_total_timer(ModuleEnvironment::Isolate, udf_type);
         let (tx, outcome) = self
             .function_runner_execute(tx, path_and_args, udf_type, journal, context, None)
             .await?;
@@ -271,7 +276,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         context: ExecutionContext,
     ) -> anyhow::Result<ActionOutcome> {
-        let timer = function_total_timer(UdfType::Action);
         let (_, outcome) = self
             .function_runner_execute(
                 tx,
@@ -289,11 +293,10 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 outcome
             )
         };
-        timer.finish();
         Ok(outcome)
     }
 
-    // Execute using the function runner. Can be used for all Udf types including
+    // Execute using the function runner. Can be used for v8 udfs other than http
     // actions.
     async fn function_runner_execute(
         &self,
@@ -316,17 +319,9 @@ impl<RT: Runtime> FunctionRouter<RT> {
             UdfType::Action => &self.action_limiter,
             UdfType::HttpAction => anyhow::bail!("Function runner does not support http actions"),
         };
-        let mut request_guard = limiter.start();
-        select_biased! {
-            _ = request_guard.acquire_permit().fuse() => {},
-            _ = self.rt.wait(*APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT) => {
-                log_function_wait_timeout(udf_type);
-                anyhow::bail!(ErrorMetadata::overloaded(
-                    "TooManyConcurrentRequests",
-                    "Too many concurrent requests, backoff and try again.",
-                ));
-            },
-        }
+
+        let request_guard = limiter.acquire_permit_with_timeout(&self.rt).await?;
+
         let timer = function_run_timer(udf_type);
         let (function_tx, outcome, usage_stats) = self
             .function_runner
@@ -384,6 +379,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
 // and log gauges for the number of waiting and currently running functions.
 struct Limiter {
     udf_type: UdfType,
+    env: ModuleEnvironment,
 
     // Used to limit running functions.
     semaphore: Semaphore,
@@ -394,9 +390,10 @@ struct Limiter {
 }
 
 impl Limiter {
-    fn new(udf_type: UdfType, total_permits: usize) -> Self {
+    fn new(env: ModuleEnvironment, udf_type: UdfType, total_permits: usize) -> Self {
         let limiter = Self {
             udf_type,
+            env,
             semaphore: Semaphore::new(total_permits),
             total_permits,
             total_outstanding: AtomicUsize::new(0),
@@ -404,6 +401,24 @@ impl Limiter {
         // Update the gauges on startup.
         limiter.update_gauges();
         limiter
+    }
+
+    async fn acquire_permit_with_timeout<'a, RT: Runtime>(
+        &'a self,
+        rt: &'a RT,
+    ) -> anyhow::Result<RequestGuard<'a>> {
+        let mut request_guard = self.start();
+        select_biased! {
+            _ = request_guard.acquire_permit().fuse() => {},
+            _ = rt.wait(*APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT) => {
+                log_function_wait_timeout(self.env, self.udf_type);
+                anyhow::bail!(ErrorMetadata::overloaded(
+                    "TooManyConcurrentRequests",
+                    "Too many concurrent requests, backoff and try again.",
+                ));
+            },
+        }
+        Ok(request_guard)
     }
 
     fn start(&self) -> RequestGuard {
@@ -423,8 +438,18 @@ impl Limiter {
             .total_outstanding
             .load(Ordering::SeqCst)
             .saturating_sub(running);
-        log_outstanding_functions(running, self.udf_type, OutstandingFunctionState::Running);
-        log_outstanding_functions(waiting, self.udf_type, OutstandingFunctionState::Waiting);
+        log_outstanding_functions(
+            running,
+            self.env,
+            self.udf_type,
+            OutstandingFunctionState::Running,
+        );
+        log_outstanding_functions(
+            waiting,
+            self.env,
+            self.udf_type,
+            OutstandingFunctionState::Waiting,
+        );
     }
 }
 
@@ -463,6 +488,11 @@ impl<'a> Drop for RequestGuard<'a> {
     }
 }
 
+/// Executes UDFs for backends.
+///
+/// This struct directly executes http and node actions. Queries, Mutations and
+/// v8 Actions are instead routed through the FunctionRouter and its
+/// FunctionRunner implementation.
 pub struct ApplicationFunctionRunner<RT: Runtime> {
     runtime: RT,
     pub(crate) database: Database<RT>,
@@ -480,6 +510,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
 
     cache_manager: CacheManager<RT>,
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    node_action_limiter: Limiter,
 }
 
 impl<RT: Runtime> HeapSize for ApplicationFunctionRunner<RT> {
@@ -529,6 +560,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             function_log,
             cache_manager,
             system_env_vars,
+            node_action_limiter: Limiter::new(
+                ModuleEnvironment::Node,
+                UdfType::Action,
+                *APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
+            ),
         }
     }
 
@@ -1072,6 +1108,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .await?
             .context("Missing a valid module_version")?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
+
+        let timer = function_total_timer(module_version.environment, UdfType::Action);
         match module_version.environment {
             ModuleEnvironment::Isolate => {
                 // TODO: This is the only use case of clone. We should get rid of clone,
@@ -1098,6 +1136,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 let memory_in_mb: u64 = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
                     .try_into()
                     .unwrap();
+                timer.finish();
                 Ok(ActionCompletion {
                     outcome,
                     execution_time: start.elapsed(),
@@ -1110,6 +1149,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 })
             },
             ModuleEnvironment::Node => {
+                let _request_guard = self
+                    .node_action_limiter
+                    .acquire_permit_with_timeout(&self.runtime)
+                    .await?;
                 let mut source_maps = BTreeMap::new();
                 if let Some(source_map) = module_version.source_map.clone() {
                     source_maps.insert(name.module().clone(), source_map);
@@ -1204,6 +1247,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     syscall_trace: node_outcome.syscall_trace,
                     udf_server_version,
                 };
+                timer.finish();
                 let memory_in_mb = node_outcome.memory_used_in_mb;
                 Ok(ActionCompletion {
                     outcome,

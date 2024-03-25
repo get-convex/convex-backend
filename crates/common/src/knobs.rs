@@ -570,18 +570,6 @@ pub static ISOLATE_IDLE_TIMEOUT: LazyLock<Duration> =
 pub static V8_ACTION_SYSTEM_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_SYSTEM_TIMEOUT_SECONDS", 15)));
 
-/// Number of threads to execute V8 actions.
-pub static V8_ACTION_MAX_ISOLATE_EXEC_THREADS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "V8_ACTION_MAX_ISOLATE_EXEC_THREADS",
-        if cfg!(any(test, feature = "testing")) {
-            2
-        } else {
-            16
-        },
-    )
-});
-
 /// The maximum amount of time
 pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| {
@@ -591,17 +579,88 @@ pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
         ))
     });
 
-/// The maximum number of concurrent queries that can be ran by application.
+/// The maximum number of queries that can be run concurrently by an
+/// application.
+///
+/// This is a per backend limit applied before FunctionRunner implementations.
+///
+/// The value here may be overridden by big brain.
 pub static APPLICATION_MAX_CONCURRENT_QUERIES: LazyLock<usize> =
     LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_QUERIES", 16));
 
-/// The maximum number of concurrent mutations that can be ran by application.
+/// The maximum number of mutations that can be run concurrently by an
+/// application.
+///
+/// This is a per backend limit applied before FunctionRunner implementations.
+///
+/// The value here may be overridden by big brain.
 pub static APPLICATION_MAX_CONCURRENT_MUTATIONS: LazyLock<usize> =
     LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_MUTATIONS", 16));
 
-/// The maximum number of concurrent actions that can be ran by application.
-pub static APPLICATION_MAX_CONCURRENT_ACTIONS: LazyLock<usize> =
+/// The maximum number of v8 actions that can be run concurrently by an
+/// application.
+///
+/// This is a higher level limit applied before FunctionRunner implementations.
+///
+/// This does NOT apply to:
+/// 1. Http actions
+/// 2. Node actions
+///
+/// Node actions are limited by the APPLICATION_MAX_CONCURRENT_NODE_ACTIONS
+/// knob. Http actions are limited by APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS
+/// knob.
+///
+/// The value here may be overridden by big brain.
+pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "APPLICATION_MAX_CONCURRENT_V8_ACTIONS",
+        *APPLICATION_MAX_CONCURRENT_ACTIONS,
+    )
+});
+// TODO(CX-6067): Remove APPLICATION_MAX_CONCURRENT_ACTIONS and merge the
+// default into *_V8_ACTIONS
+static APPLICATION_MAX_CONCURRENT_ACTIONS: LazyLock<usize> =
     LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_ACTIONS", 16));
+
+/// The maximum number of node actions that can be run concurrently by an
+/// application
+///
+/// Node actions are not sent through FunctionRunner implementations, so this is
+/// a limit on the number of actions sent to AWS. AWS also has a global maximum
+/// number of total concurrent actions across all backends. If we hit the AWS
+/// limit, we'll see 429 error responses for node actions.
+///
+/// The value here may be overridden by big brain.
+// TODO(CX-6067): Reduce this back down to 16.
+pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_NODE_ACTIONS", 1000));
+
+/// Number of threads to execute V8 actions.
+///
+/// Http actions are not sent through FunctionRunner implementations. This is a
+/// maximum on the number of http actions that will be executed in process in a
+/// particular backend.
+///
+/// The value here may be overridden by big brain.
+pub static APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS",
+        *V8_ACTION_MAX_ISOLATE_EXEC_THREADS,
+    )
+});
+
+// TODO(CX-6067): Remove V8_ACTION_MAX_ISOLATE_EXEC_THREADS and merge the
+// default into *_HTTP_ACTIONS
+static V8_ACTION_MAX_ISOLATE_EXEC_THREADS: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "V8_ACTION_MAX_ISOLATE_EXEC_THREADS",
+        if cfg!(any(test, feature = "testing")) {
+            2
+        } else {
+            16
+        },
+    )
+});
 
 /// Set a 64MB limit on the heap size.
 pub static ISOLATE_MAX_USER_HEAP_SIZE: LazyLock<usize> =
