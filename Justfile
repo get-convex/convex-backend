@@ -20,7 +20,7 @@ set positional-arguments
 
 # (*) Run the open source convex backend on port 3210
 run-local-backend *ARGS:
-  RUST_LOG=${RUST_LOG:-info} cargo run -p local_backend --bin convex-local-backend -- "$@"
+  cargo run -p local_backend --bin convex-local-backend -- "$@"
 
 # Uses an admin key from admin_key.txt for dev backends.
 # This uses the default admin key for local backends, which is safe as long as the backend is

@@ -87,7 +87,9 @@ pub fn config_tool() -> TracingGuard {
             .boxed(),
     };
     let stdout = format_layer
-        .with_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info")),
+        )
         .boxed();
     layers.push(stdout);
 
