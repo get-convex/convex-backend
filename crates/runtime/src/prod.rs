@@ -21,7 +21,10 @@ use ::metrics::CONVEX_METRICS_REGISTRY;
 use async_trait::async_trait;
 use common::{
     heap_size::HeapSize,
-    knobs::RUNTIME_WORKER_THREADS,
+    knobs::{
+        RUNTIME_DISABLE_LIFO_SLOT,
+        RUNTIME_WORKER_THREADS,
+    },
     runtime::{
         JoinError,
         Nanos,
@@ -153,6 +156,9 @@ impl ProdRuntime {
         tokio_builder.thread_stack_size(STACK_SIZE);
         if *RUNTIME_WORKER_THREADS > 0 {
             tokio_builder.worker_threads(*RUNTIME_WORKER_THREADS);
+        }
+        if *RUNTIME_DISABLE_LIFO_SLOT {
+            tokio_builder.disable_lifo_slot();
         }
         let tokio_rt = tokio_builder.enable_all().build()?;
         Ok(tokio_rt)
