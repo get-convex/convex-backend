@@ -73,18 +73,22 @@ jobs:
       - name: Build backend
         run: |
           cargo build --release -p local_backend --bin convex-local-backend
-          mv target/release/convex-local-backend convex-local-backend-${{ matrix.target }}
+
+      - name: Zip backend into arch
+        run: |
+          mv target/release/convex-local-backend .
+          zip -r convex-local-backend-${{ matrix.target }} convex-local-backend
 
       - name: Precompute release name
         id: release_name
-        run: echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: echo "RELEASE_NAME=testing-$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Create Upload Precompiled Artifacts
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            convex-local-backend-${{ matrix.target }}
+            convex-local-backend-${{ matrix.target }}.zip
             LICENSE.md
           tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
           name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
