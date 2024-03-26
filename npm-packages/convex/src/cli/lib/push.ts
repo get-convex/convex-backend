@@ -74,7 +74,7 @@ export async function runPush(ctx: Context, options: PushOptions) {
   );
 
   const timeConfigPullStarts = performance.now();
-  const remoteConfig = await pullConfig(
+  const remoteConfigWithModuleHashes = await pullConfig(
     ctx,
     undefined,
     undefined,
@@ -83,7 +83,7 @@ export async function runPush(ctx: Context, options: PushOptions) {
   );
 
   changeSpinner(ctx, "Diffing local code and deployment state");
-  const diff = diffConfig(remoteConfig, localConfig);
+  const diff = diffConfig(remoteConfigWithModuleHashes, localConfig);
   if (diff === "" && schemaState?.state === "active") {
     if (verbose) {
       const msg =

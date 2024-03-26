@@ -13,6 +13,7 @@ import {
 } from "../../bundler/context.js";
 import {
   Bundle,
+  BundleHash,
   bundle,
   bundleAuthConfig,
   entryPointsByEnvironment,
@@ -30,6 +31,7 @@ import {
   ThrowingFetchError,
 } from "./utils.js";
 import { getTargetDeploymentName } from "./deployment.js";
+import { createHash } from "crypto";
 export { productionProvisionHost, provisionHost } from "./utils.js";
 
 /** Type representing auth configuration. */
@@ -65,6 +67,15 @@ interface NodeDependency {
 export interface Config {
   projectConfig: ProjectConfig;
   modules: Bundle[];
+  nodeDependencies: NodeDependency[];
+  schemaId?: string;
+  udfServerVersion?: string;
+  authConfig?: Bundle;
+}
+
+export interface ConfigWithModuleHashes {
+  projectConfig: ProjectConfig;
+  moduleHashes: BundleHash[];
   nodeDependencies: NodeDependency[];
   schemaId?: string;
   udfServerVersion?: string;
@@ -550,12 +561,12 @@ export async function pullConfig(
   team: string | undefined,
   origin: string,
   adminKey: string,
-): Promise<Config> {
+): Promise<ConfigWithModuleHashes> {
   const fetch = deploymentFetch(origin);
 
   changeSpinner(ctx, "Downloading current deployment state...");
   try {
-    const res = await fetch("/api/get_config", {
+    const res = await fetch("/api/get_config_hashes", {
       method: "POST",
       body: JSON.stringify({ version, adminKey }),
       headers: {
@@ -581,7 +592,7 @@ export async function pullConfig(
     };
     return {
       projectConfig,
-      modules: data.modules,
+      moduleHashes: data.moduleHashes,
       // TODO(presley): Add this to diffConfig().
       nodeDependencies: data.nodeDependencies,
       udfServerVersion: data.udfServerVersion,
@@ -711,25 +722,38 @@ export type CodegenResponse =
       error: string;
     };
 
-function renderModule(module: Bundle): string {
-  const sourceMapSize = formatSize(module.sourceMap?.length ?? 0);
-  return (
-    module.path +
-    ` (${formatSize(module.source.length)}, source map ${sourceMapSize})`
+function renderModule(module: Bundle | BundleHash): string {
+  const sourceMapSize = formatSize(
+    "sourceMap" in module ? module.sourceMap?.length ?? 0 : 0,
   );
+  if ("source" in module) {
+    return (
+      module.path +
+      ` (${formatSize(module.source.length)}, source map ${sourceMapSize})`
+    );
+  }
+  return module.path;
 }
 
-function compareModules(oldModules: Bundle[], newModules: Bundle[]): string {
-  let diff = "";
+function hash(bundle: Bundle) {
+  return createHash("sha256")
+    .update(bundle.source)
+    .update(bundle.sourceMap || "")
+    .digest("hex");
+}
 
+function compareModules(
+  oldModules: BundleHash[],
+  newModules: Bundle[],
+): string {
+  let diff = "";
   const droppedModules = [];
   for (const oldModule of oldModules) {
     let matches = false;
     for (const newModule of newModules) {
       if (
         oldModule.path === newModule.path &&
-        oldModule.source === newModule.source &&
-        oldModule.sourceMap === newModule.sourceMap
+        oldModule.hash === hash(newModule)
       ) {
         matches = true;
         break;
@@ -752,8 +776,7 @@ function compareModules(oldModules: Bundle[], newModules: Bundle[]): string {
     for (const oldModule of oldModules) {
       if (
         oldModule.path === newModule.path &&
-        oldModule.source === newModule.source &&
-        oldModule.sourceMap === newModule.sourceMap
+        oldModule.hash === hash(newModule)
       ) {
         matches = true;
         break;
@@ -774,8 +797,11 @@ function compareModules(oldModules: Bundle[], newModules: Bundle[]): string {
 }
 
 /** Generate a human-readable diff between the two configs. */
-export function diffConfig(oldConfig: Config, newConfig: Config): string {
-  let diff = compareModules(oldConfig.modules, newConfig.modules);
+export function diffConfig(
+  oldConfig: ConfigWithModuleHashes,
+  newConfig: Config,
+): string {
+  let diff = compareModules(oldConfig.moduleHashes, newConfig.modules);
 
   const droppedAuth = [];
   if (

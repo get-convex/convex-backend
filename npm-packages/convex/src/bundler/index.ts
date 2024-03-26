@@ -44,6 +44,12 @@ export interface Bundle {
   environment: ModuleEnvironment;
 }
 
+export interface BundleHash {
+  path: string;
+  hash: string;
+  environment: ModuleEnvironment;
+}
+
 type EsBuildResult = esbuild.BuildResult & {
   outputFiles: esbuild.OutputFile[];
   // Set of referenced external modules.
