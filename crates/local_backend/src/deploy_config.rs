@@ -148,9 +148,16 @@ pub struct ConfigJson {
     pub bundled_module_infos: Option<Vec<BundledModuleInfoJson>>,
 }
 
+pub struct ConfigStats {
+    pub num_node_modules: usize,
+    pub size_node_modules: usize,
+    pub num_v8_modules: usize,
+    pub size_v8_modules: usize,
+}
+
 static NODE_ENVIRONMENT: &str = "node";
 impl ConfigJson {
-    pub fn stats(&self) -> (usize, usize, usize, usize) {
+    pub fn stats(&self) -> ConfigStats {
         let num_node_modules = self
             .modules
             .iter()
@@ -175,12 +182,12 @@ impl ConfigJson {
             .iter()
             .filter(|module| module.environment.as_deref() != Some(NODE_ENVIRONMENT))
             .count();
-        (
+        ConfigStats {
             num_v8_modules,
             num_node_modules,
             size_v8_modules,
             size_node_modules,
-        )
+        }
     }
 }
 
