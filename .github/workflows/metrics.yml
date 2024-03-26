@@ -1,3 +1,4 @@
+name: Metrics
 on:
   workflow_run:
     workflows:
