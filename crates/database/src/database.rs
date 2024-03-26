@@ -941,6 +941,7 @@ impl<RT: Runtime> Database<RT> {
                 timestamp_range,
                 Order::Asc,
                 *DEFAULT_DOCUMENTS_PAGE_SIZE,
+                self.retention_validator(),
             )
             .then(|val| async {
                 while let Err(not_until) = rate_limiter.check() {
@@ -1526,7 +1527,17 @@ impl<RT: Runtime> Database<RT> {
         // should request another page.
         let mut has_more = false;
         let mut rows_read = 0;
-        while let Some((ts, id, maybe_doc)) = document_stream.try_next().await? {
+        while let Some((ts, id, maybe_doc)) = match document_stream.try_next().await {
+            Ok::<_, Error>(doc) => doc,
+            Err(e) if e.is_out_of_retention() => {
+                // Throws a user error if the documents window is out of retention
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "InvalidWindowToReadDocuments",
+                    format!("Timestamp {} is too old", range.min_timestamp_inclusive())
+                ))
+            },
+            Err(e) => anyhow::bail!(e),
+        } {
             rows_read += 1;
             if let Some(new_cursor) = new_cursor
                 && new_cursor < ts

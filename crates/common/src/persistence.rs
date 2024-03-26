@@ -300,6 +300,9 @@ pub trait RetentionValidator: Sync + Send {
     /// Call validate_snapshot *after* reading at the snapshot, to confirm all
     /// data in the snapshot is within retention.
     async fn validate_snapshot(&self, ts: Timestamp) -> anyhow::Result<()>;
+    /// Call validate_document_snapshot *after* reading at the snapshot, to
+    /// confirm the documents log is valid at this snapshot.
+    async fn validate_document_snapshot(&self, ts: Timestamp) -> anyhow::Result<()>;
     async fn min_snapshot_ts(&self) -> anyhow::Result<Timestamp>;
     async fn min_document_snapshot_ts(&self) -> anyhow::Result<Timestamp>;
 
@@ -317,6 +320,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
         range: TimestampRange,
         order: Order,
         page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_>;
 
     /// Loads documents within the given table and the given timestamp range.
@@ -333,19 +337,11 @@ pub trait PersistenceReader: Send + Sync + 'static {
         range: TimestampRange,
         order: Order,
         page_size: u32,
+        retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
-        self.load_documents(range, order, page_size)
+        self.load_documents(range, order, page_size, retention_validator)
             .try_filter(move |(_, doc_id, _)| future::ready(*doc_id.table() == table_id))
             .boxed()
-    }
-
-    /// Returns all timestamps in ascending (ts, id) order.
-    fn load_all_documents(&self) -> DocumentStream {
-        self.load_documents(
-            TimestampRange::all(),
-            Order::Asc,
-            *DEFAULT_DOCUMENTS_PAGE_SIZE,
-        )
     }
 
     /// Look up the previous revision of `(id, ts)`, returning a map where for
@@ -424,7 +420,15 @@ pub trait PersistenceReader: Send + Sync + 'static {
     async fn max_ts(&self) -> anyhow::Result<Option<Timestamp>> {
         // Fetch the document with the maximum timestamp and also MaxRepeatableTimestamp
         // in parallel.
-        let mut stream = self.load_documents(TimestampRange::all(), Order::Desc, 1);
+        let mut stream = self.load_documents(
+            TimestampRange::all(),
+            Order::Desc,
+            1,
+            // We don't know the ID of the most recent document, so we
+            // need to scan the entire timestamp range to find it
+            // (this may include looking at the `documents` log outside of the retention window)
+            Arc::new(NoopRetentionValidator),
+        );
         let max_repeatable =
             self.get_persistence_global(PersistenceGlobalKey::MaxRepeatableTimestamp);
         let (max_committed, max_repeatable) = try_join!(stream.try_next(), max_repeatable)?;
@@ -435,6 +439,18 @@ pub trait PersistenceReader: Send + Sync + 'static {
     }
 
     fn version(&self) -> PersistenceVersion;
+
+    /// Returns all timestamps and documents in ascending (ts, table_id, id)
+    /// order. Only should be used for testing
+    #[cfg(any(test, feature = "testing"))]
+    fn load_all_documents(&self) -> DocumentStream {
+        self.load_documents(
+            TimestampRange::all(),
+            Order::Asc,
+            *DEFAULT_DOCUMENTS_PAGE_SIZE,
+            Arc::new(NoopRetentionValidator),
+        )
+    }
 }
 
 pub fn now_ts<RT: Runtime>(max_ts: Timestamp, rt: &RT) -> anyhow::Result<Timestamp> {
@@ -500,9 +516,30 @@ impl RepeatablePersistence {
     /// Same as [`Persistence::load_documents`] but only including documents in
     /// the snapshot range.
     pub fn load_documents(&self, range: TimestampRange, order: Order) -> DocumentStream<'_> {
-        let stream = self
-            .reader
-            .load_documents(range, order, *DEFAULT_DOCUMENTS_PAGE_SIZE);
+        let stream = self.reader.load_documents(
+            range,
+            order,
+            *DEFAULT_DOCUMENTS_PAGE_SIZE,
+            self.retention_validator.clone(),
+        );
+        Box::pin(stream.try_filter(|(ts, ..)| future::ready(*ts <= *self.upper_bound)))
+    }
+
+    /// Same as `load_documents` but doesn't use the `RetentionValidator` from
+    /// this `RepeatablePersistence`. Instead, the caller can choose its
+    /// own validator.
+    pub fn load_documents_with_retention_validator(
+        &self,
+        range: TimestampRange,
+        order: Order,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> DocumentStream<'_> {
+        let stream = self.reader.load_documents(
+            range,
+            order,
+            *DEFAULT_DOCUMENTS_PAGE_SIZE,
+            retention_validator,
+        );
         Box::pin(stream.try_filter(|(ts, ..)| future::ready(*ts <= *self.upper_bound)))
     }
 
@@ -670,6 +707,10 @@ impl RetentionValidator for NoopRetentionValidator {
     }
 
     async fn validate_snapshot(&self, _ts: Timestamp) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    async fn validate_document_snapshot(&self, _ts: Timestamp) -> anyhow::Result<()> {
         Ok(())
     }
 

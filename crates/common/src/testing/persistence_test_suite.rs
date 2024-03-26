@@ -608,7 +608,13 @@ pub async fn test_load_documents_from_table<P: Persistence>(
     for page_size in 1..3 {
         let docs: Vec<_> = p
             .reader()
-            .load_documents_from_table(table_id, range, order, page_size)
+            .load_documents_from_table(
+                table_id,
+                range,
+                order,
+                page_size,
+                Arc::new(NoopRetentionValidator),
+            )
             .try_collect()
             .await?;
         let docs: Vec<_> = docs.into_iter().collect();
@@ -626,7 +632,7 @@ pub async fn test_load_documents<P: Persistence>(
 ) -> anyhow::Result<()> {
     let docs: Vec<_> = p
         .reader()
-        .load_documents(range, order, 10)
+        .load_documents(range, order, 10, Arc::new(NoopRetentionValidator))
         .try_collect()
         .await?;
     let docs: Vec<_> = docs

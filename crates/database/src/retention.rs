@@ -585,7 +585,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let reader = persistence.reader();
         let persistence_version = reader.version();
         let snapshot_ts = new_static_repeatable_ts(min_snapshot_ts, reader.as_ref(), rt).await?;
-        let reader = RepeatablePersistence::new(reader, snapshot_ts, retention_validator);
+        let reader = RepeatablePersistence::new(reader, snapshot_ts, retention_validator.clone());
 
         tracing::trace!("delete: about to grab chunks");
         let expired_chunks = Self::expired_index_entries(
@@ -744,6 +744,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &mut all_indexes,
                     &mut index_cursor,
                     index_table_id,
+                    retention_validator.clone(),
                 )
                 .await?;
                 tracing::trace!("go_delete: Loaded initial indexes");
@@ -763,6 +764,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &mut all_indexes,
                     &mut index_cursor,
                     index_table_id,
+                    retention_validator.clone(),
                 )
                 .await?;
                 tracing::trace!("go_delete: loaded second round of indexes");
@@ -866,12 +868,14 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
         cursor: &mut Timestamp,
         index_table_id: TableIdAndTableNumber,
+        retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<()> {
         let reader = persistence.reader();
         let mut document_stream = reader.load_documents(
             TimestampRange::greater_than(*cursor),
             Order::Asc,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
+            retention_validator,
         );
         while let Some((ts, _, maybe_doc)) = document_stream.try_next().await? {
             Self::accumulate_index_document(maybe_doc, all_indexes, index_table_id)?;
@@ -889,7 +893,23 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
         let min_snapshot_ts = self.bounds_reader.lock().min_snapshot_ts;
         log_snapshot_verification_age(&self.rt, ts, min_snapshot_ts, false, true);
         if ts < min_snapshot_ts {
-            anyhow::bail!(snapshot_invalid_error(ts, min_snapshot_ts));
+            anyhow::bail!(snapshot_invalid_error(
+                ts,
+                min_snapshot_ts,
+                RetentionType::Index
+            ));
+        }
+        Ok(())
+    }
+
+    async fn validate_document_snapshot(&self, ts: Timestamp) -> anyhow::Result<()> {
+        let min_snapshot_ts = self.bounds_reader.lock().min_document_snapshot_ts;
+        if ts < min_snapshot_ts {
+            anyhow::bail!(snapshot_invalid_error(
+                ts,
+                min_snapshot_ts,
+                RetentionType::Document
+            ));
         }
         Ok(())
     }
@@ -988,7 +1008,23 @@ impl<RT: Runtime> RetentionValidator for FollowerRetentionManager<RT> {
         let min_snapshot_ts = self.min_snapshot_ts().await?;
         log_snapshot_verification_age(&self.rt, ts, min_snapshot_ts, false, false);
         if ts < min_snapshot_ts {
-            anyhow::bail!(snapshot_invalid_error(ts, min_snapshot_ts));
+            anyhow::bail!(snapshot_invalid_error(
+                ts,
+                min_snapshot_ts,
+                RetentionType::Index
+            ));
+        }
+        Ok(())
+    }
+
+    async fn validate_document_snapshot(&self, ts: Timestamp) -> anyhow::Result<()> {
+        let min_snapshot_ts = self.min_document_snapshot_ts().await?;
+        if ts < min_snapshot_ts {
+            anyhow::bail!(snapshot_invalid_error(
+                ts,
+                min_snapshot_ts,
+                RetentionType::Document
+            ));
         }
         Ok(())
     }
@@ -1026,9 +1062,13 @@ impl<RT: Runtime> RetentionValidator for FollowerRetentionManager<RT> {
     }
 }
 
-fn snapshot_invalid_error(ts: Timestamp, min_snapshot_ts: Timestamp) -> anyhow::Error {
+fn snapshot_invalid_error(
+    ts: Timestamp,
+    min_snapshot_ts: Timestamp,
+    retention_type: RetentionType,
+) -> anyhow::Error {
     anyhow::anyhow!(ErrorMetadata::out_of_retention()).context(format!(
-        "Snapshot timestamp out of retention window: {ts} < {min_snapshot_ts}"
+        "{retention_type:?} snapshot timestamp out of retention window: {ts} < {min_snapshot_ts}"
     ))
 }
 
