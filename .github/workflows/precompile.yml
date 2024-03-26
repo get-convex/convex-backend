@@ -65,15 +65,13 @@ jobs:
           just rush install
           just rush build
 
-      - name: Install JS
-        run: |
-          just rush install
-          just rush build
-
       - name: Build backend
+        run: cargo build --release -p local_backend --bin convex-local-backend
+
+      - name: Zip backend into arch
         run: |
-          cargo build --release -p local_backend --bin convex-local-backend
-          mv target/release/convex-local-backend convex-local-backend-${{ matrix.target }}
+          mv target/release/convex-local-backend .
+          zip -r convex-local-backend-${{ matrix.target }} convex-local-backend
 
       - name: Precompute release name
         id: release_name
@@ -84,7 +82,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            convex-local-backend-${{ matrix.target }}
+            convex-local-backend-${{ matrix.target }}.zip
             LICENSE.md
           tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
           name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
