@@ -52,30 +52,45 @@ synced with any internal development work within a handful of days.
 
 ## Getting started
 
-We **strongly** recommend using the hosted version of Convex to get familiar
-with the development workflow before attempting to run this version locally.
+_We **strongly** recommend using the hosted version of Convex to get familiar
+with the development workflow before attempting to run this version locally._
 
-To get started, first install [Dependencies](#dependencies) and then see
-[running the Convex backend](#running-the-convex-backend).
+To get started, clone this repo:
+
+```sh
+git clone https://github.com/get-convex/convex-backend.git
+cd convex-backend
+```
 
 ## Dependencies
 
 You will need to first install the following dependencies if you don't already
 have them on your machine:
 
+To use the scripts set up in this repo:
+
+- [`Just`](https://github.com/casey/just)
+  - Just is used to execute scripts set up in the `Justfile`.
+  - To install it see
+    [Packages](https://github.com/casey/just?tab=readme-ov-file#packages), for
+    example `cargo install just` or `brew install just`
+
+To run the Convex CLI:
+
+- [Node.js](https://nodejs.org/en)
+  - Make sure you have the version specified in `.nvmrc`
+  - We recommend installing Node.js via
+    [nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+  - Run `nvm use` from the root of the repo.
+
+To [build the backend from source](#building-from-source):
+
 - Cargo
   - The convex local backend is written in Rust. Cargo is the build system.
-  - We recommend [rustup](https://rustup.rs/).
-- Just
-  - `cargo install just`
-  - [`Just`](https://github.com/casey/just) is used throughout this guide for
-    brevity. All of the vanilla commands can be found in the `Justfile`.
+  - We recommend installing Cargo via [rustup](https://rustup.rs/).
 - The Rust nightly version specified in `rust-toolchain`
   - Assuming you installed Rust/Cargo with `rustup`, this will install
     automatically.
-- The node version specified in `.nvmrc`
-  - We recommend [nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
-  - `nvm use` from the root of the repo.
 - Rush
   - `npm install --prefix scripts`
   - We manage the packages in a monorepo using [Rush](https://rushjs.io/).
@@ -84,46 +99,58 @@ have them on your machine:
 
 ## Running the Convex Backend
 
-```bash
+### Using prebuilt binaries
+
+You can download the latest precompiled binary release from
+[Releases](https://github.com/get-convex/convex-backend/releases). Only Apple
+x64, Apple Arm64 (Apple silicon), and Linux x64 binaries are currently available
+for download.
+
+_Note: On MacOS you might need to hold the `option` key and double click the
+binary file in Finder once, to circumvent the
+[Gatekeeper](https://support.apple.com/en-us/102445) warning._
+
+Then you can run it:
+
+```sh
+./convex-local-backend
+```
+
+Adjust the path based on where you downloaded the binary to or add it to your
+`PATH`. The backend will store its database in the directory where it is
+executed **from** (not where the binary file lives).
+
+### Building from source
+
+Build and run the local backend from the source in this repo:
+
+```sh
 just run-local-backend
 ```
 
-Under the hood, this builds with Cargo.
+Under the hood, this builds with Cargo:
 
-```bash
+```sh
 cargo run -p local_backend --bin convex-local-backend
 ```
 
-This command must be running at all times to serve the Convex backend.
-
-## Provisioning a convex app locally
+## Provisioning a demo app locally
 
 This example will go through running the backend with the included demo project.
 
 **1. Start the backend**
 
-```bash
-# keep this running in the background
-just run-local-backend
-```
+[Run the backend](#running-the-convex-backend)
 
 If this fails with an error "persisted db metadata ..." you might need to erase
 the local database, in root directory run `rm convex_local_backend.sqlite3`.
 
-**2. Run CLI commands**
+**2. Develop against the backend**
 
-We need to instruct the Convex CLI to talk to the local backend instead of the
-hosted Convex platform. We can do this via the `--url` and `--admin-key` flags
-to point to the localhost backend and a special local admin key. We have
-provided Just recipes that automatically pass the appropriate flags to the cli,
-e.g., instead of running `npx convex dev --admin-key [key] --url [url]` you can
-just run:
+The Convex CLI watches for changes in the application source code and pushes the
+code to backend.
 
-```bash
-just convex dev
-```
-
-To run the included demo project, you can use the following commands:
+To make the local backend run the included demo project, do:
 
 ```bash
 cd demo
@@ -131,8 +158,8 @@ npm i
 just convex dev
 ```
 
-This runs the `convex dev` code-watching service to push any application code
-changes to the backend.
+The `convex` script in `Justfile` automatically adds appropriate `--url` and
+`--admin-key` flags to point the CLI to the local backend.
 
 To run the client web application you can run the demo Vite server via:
 
