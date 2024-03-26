@@ -116,8 +116,9 @@ export type ExecuteRequest = {
   environmentVariables: EnvironmentVariable[];
   timeoutSecs: number;
   npmVersion: string | null;
-  // TODO(presley): Rename this to executionContext
+  // TODO(presley): Remove requestContext and make executionContext non-optional.
   requestContext: ExecutionContext;
+  executionContext: ExecutionContext | null;
 };
 
 export type ExecutionContext = {
@@ -182,7 +183,7 @@ export async function execute(
     request.backendCallbackToken,
     request.authHeader,
     request.userIdentity,
-    request.requestContext,
+    request.executionContext ?? request.requestContext,
   );
 
   let innerResult: ExecuteResponseInner;

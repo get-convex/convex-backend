@@ -519,10 +519,9 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                     "userIdentity": r.user_identity.map(JsonValue::try_from).transpose()?,
                     "environmentVariables": JsonValue::Array(environment_variables),
                     "npmVersion": npm_version.map(|v| v.to_string()),
-                    // TODO(CX-5733): Migrate and remove.
-                    "parentScheduledJob": r.context.parent_scheduled_job.map(|id| id.to_string()),
-                    // TODO(presley): Rename this to executionContext
-                    "requestContext": JsonValue::from(r.context),
+                    // TODO(presley): Remove `requestContext` after a backend push.
+                    "requestContext": JsonValue::from(r.context.clone()),
+                    "executionContext": JsonValue::from(r.context),
                 })
             },
             ExecutorRequest::Analyze(r) => {
