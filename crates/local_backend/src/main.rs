@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::anyhow;
 use clap::Parser;
-use cmd_util::env::config_tool;
+use cmd_util::env::config_service;
 use common::{
     errors::MainError,
     http::{
@@ -41,7 +41,7 @@ use tokio::signal::{
 
 fn main() -> Result<(), MainError> {
     tracing::info!("Starting a local backend");
-    let _guard = config_tool();
+    let _guard = config_service();
     let config = LocalConfig::parse();
     tracing::info!("Starting with config {:?}", config);
 

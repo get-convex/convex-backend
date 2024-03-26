@@ -2,13 +2,17 @@ use std::{
     env,
     fmt::Debug,
     fs::File,
+    io,
     str::FromStr,
     sync::LazyLock,
 };
 
 use tracing::Level;
 use tracing_subscriber::{
-    fmt::format::format,
+    fmt::{
+        format::format,
+        MakeWriter,
+    },
     layer::SubscriberExt,
     util::SubscriberInitExt,
     EnvFilter,
@@ -64,34 +68,38 @@ pub struct TracingGuard {
     _guard: Option<tracing_appender::non_blocking::WorkerGuard>,
 }
 
-/// Call this from scripts and services at startup.
+/// Call this from scripts at startup.
 pub fn config_tool() -> TracingGuard {
+    config_tracing(io::stderr, Level::ERROR)
+}
+
+/// Call this from services at startup.
+pub fn config_service() -> TracingGuard {
+    config_tracing(io::stdout, Level::INFO)
+}
+
+fn config_tracing<W>(writer: W, level: Level) -> TracingGuard
+where
+    W: Send + Sync + for<'writer> MakeWriter<'writer> + 'static,
+{
     let mut layers = Vec::new();
     let color_disabled = std::env::var("NO_COLOR").is_ok();
+    let format_layer = tracing_subscriber::fmt::layer()
+        .with_ansi(!color_disabled)
+        .with_writer(writer);
     let format_layer = match std::env::var("LOG_FORMAT") {
-        Ok(s) if s == "json" => tracing_subscriber::fmt::layer()
-            .event_format(format().json())
-            .with_ansi(!color_disabled)
-            .boxed(),
-        Ok(s) if s == "compact" => tracing_subscriber::fmt::layer()
-            .event_format(format().compact())
-            .with_ansi(!color_disabled)
-            .boxed(),
-        Ok(s) if s == "pretty" => tracing_subscriber::fmt::layer()
-            .event_format(format().pretty())
-            .with_ansi(!color_disabled)
-            .boxed(),
-        _ => tracing_subscriber::fmt::layer()
-            .event_format(format().compact())
-            .with_ansi(!color_disabled)
-            .boxed(),
+        Ok(s) if s == "json" => format_layer.event_format(format().json()).boxed(),
+        Ok(s) if s == "compact" => format_layer.event_format(format().compact()).boxed(),
+        Ok(s) if s == "pretty" => format_layer.event_format(format().pretty()).boxed(),
+        _ => format_layer.event_format(format().compact()).boxed(),
     };
-    let stdout = format_layer
+    let format_layer = format_layer
         .with_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or(EnvFilter::new("info")),
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or(EnvFilter::new(level.as_str())),
         )
         .boxed();
-    layers.push(stdout);
+    layers.push(format_layer);
 
     let guard = if let Some(ref file) = *CONVEX_TRACE_FILE {
         let (file_writer, guard) = tracing_appender::non_blocking(file);
