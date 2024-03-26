@@ -75,111 +75,114 @@ macro_rules! run_persistence_test_suite {
         async fn test_persistence_write_and_load() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::write_and_load(p).await
+            persistence_test_suite::write_and_load(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_write_and_load_from_table() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::write_and_load_from_table(p).await
+            persistence_test_suite::write_and_load_from_table(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_write_and_load_value_types() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::write_and_load_value_types(p).await
+            persistence_test_suite::write_and_load_value_types(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_overwrite_document() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::overwrite_document(p).await
+            persistence_test_suite::overwrite_document(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_overwrite_index() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::overwrite_index(p).await
+            persistence_test_suite::overwrite_index(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_write_and_load_sorting() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::write_and_load_sorting(p).await
+            persistence_test_suite::write_and_load_sorting(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_same_internal_id_multiple_tables() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::same_internal_id_multiple_tables(p).await
+            persistence_test_suite::same_internal_id_multiple_tables(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_query_index_at_ts() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::query_index_at_ts(p).await
+            persistence_test_suite::query_index_at_ts(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_query_index_range_short() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::query_index_range_short(p).await
+            persistence_test_suite::query_index_range_short(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_query_index_range_long() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::query_index_range_long(p).await
+            persistence_test_suite::query_index_range_long(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_query_multiple_indexes() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::query_multiple_indexes(p).await
+            persistence_test_suite::query_multiple_indexes(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_query_dangling_reference() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::query_dangling_reference(p).await
+            persistence_test_suite::query_dangling_reference(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_query_reference_deleted_doc() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::query_reference_deleted_doc(p).await
+            persistence_test_suite::query_reference_deleted_doc(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_query_with_rows_estimate_short() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::query_with_rows_estimate_short(p).await
+            persistence_test_suite::query_with_rows_estimate_short(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_query_with_rows_estimate_long() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::query_with_rows_estimate_long(p).await
+            persistence_test_suite::query_with_rows_estimate_long(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_write_then_read() -> anyhow::Result<()> {
             let $db = $create_db;
-            persistence_test_suite::write_then_read(|| async { Ok($create_persistence) }).await
+            persistence_test_suite::write_then_read(|| async {
+                Ok(::std::sync::Arc::new($create_persistence))
+            })
+            .await
         }
 
         #[tokio::test]
@@ -196,33 +199,33 @@ macro_rules! run_persistence_test_suite {
         async fn test_persistence_global() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::persistence_global(p).await
+            persistence_test_suite::persistence_global(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_enforce_retention() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::persistence_enforce_retention(p).await
+            persistence_test_suite::persistence_enforce_retention(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_delete_documents() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::persistence_delete_documents(p).await
+            persistence_test_suite::persistence_delete_documents(::std::sync::Arc::new(p)).await
         }
 
         #[tokio::test]
         async fn test_persistence_previous_revisions() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::persistence_previous_revisions(p).await
+            persistence_test_suite::persistence_previous_revisions(::std::sync::Arc::new(p)).await
         }
     };
 }
 
-pub async fn write_and_load_from_table<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table1: TableName = str::parse("table1")?;
     let doc_id1 = id_generator.generate(&table1);
@@ -253,7 +256,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: P) -> anyhow::Result<(
         ConflictStrategy::Error,
     )
     .await?;
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     test_load_documents_from_table(
         &p,
@@ -333,7 +336,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: P) -> anyhow::Result<(
     Ok(())
 }
 
-pub async fn write_and_load<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table: TableName = str::parse("table")?;
     let doc_id = id_generator.generate(&table);
@@ -355,7 +358,7 @@ pub async fn write_and_load<P: Persistence>(p: P) -> anyhow::Result<()> {
         ConflictStrategy::Error,
     )
     .await?;
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     // Equivalent of load_all_documents.
     test_load_documents(
@@ -411,7 +414,7 @@ pub async fn write_and_load<P: Persistence>(p: P) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn write_and_load_value_types<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn write_and_load_value_types<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table: TableName = str::parse("table")?;
     let mut next_ts = Timestamp::MIN;
@@ -451,7 +454,7 @@ pub async fn write_and_load_value_types<P: Persistence>(p: P) -> anyhow::Result<
 
     p.write(triples.clone(), BTreeSet::new(), ConflictStrategy::Error)
         .await?;
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     test_load_documents(
         &p,
@@ -465,7 +468,7 @@ pub async fn write_and_load_value_types<P: Persistence>(p: P) -> anyhow::Result<
     Ok(())
 }
 
-pub async fn overwrite_document<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn overwrite_document<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table: TableName = str::parse("table")?;
     let doc_id = id_generator.generate(&table);
@@ -519,7 +522,7 @@ pub async fn overwrite_document<P: Persistence>(p: P) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn overwrite_index<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let index_id = id_generator.generate(&INDEX_TABLE);
     let ts = Timestamp::must(1);
@@ -596,7 +599,7 @@ pub async fn overwrite_index<P: Persistence>(p: P) -> anyhow::Result<()> {
 }
 
 pub async fn test_load_documents_from_table<P: Persistence>(
-    p: &P,
+    p: &Arc<P>,
     table_id: TableId,
     range: TimestampRange,
     order: Order,
@@ -615,7 +618,7 @@ pub async fn test_load_documents_from_table<P: Persistence>(
 }
 
 pub async fn test_load_documents<P: Persistence>(
-    p: &P,
+    p: &Arc<P>,
     table_mapping: &TableMapping,
     range: TimestampRange,
     order: Order,
@@ -634,7 +637,7 @@ pub async fn test_load_documents<P: Persistence>(
     Ok(())
 }
 
-pub async fn write_and_load_sorting<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn write_and_load_sorting<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let table1: TableName = str::parse("table1")?;
     let table2: TableName = str::parse("table2")?;
     let mut id_generator = TestIdGenerator::new();
@@ -662,7 +665,7 @@ pub async fn write_and_load_sorting<P: Persistence>(p: P) -> anyhow::Result<()> 
         ConflictStrategy::Error,
     )
     .await?;
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     let docs: Vec<_> = p.reader().load_all_documents().try_collect().await?;
     let docs: Vec<_> = docs
@@ -681,7 +684,7 @@ pub async fn write_and_load_sorting<P: Persistence>(p: P) -> anyhow::Result<()> 
     Ok(())
 }
 
-pub async fn same_internal_id_multiple_tables<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
 
     // Create two documents with the same internal_id but in two different tables.
@@ -782,7 +785,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: P) -> anyhow::R
     Ok(())
 }
 
-pub async fn query_index_at_ts<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let index_id = id_generator.generate(&INDEX_TABLE).internal_id();
 
@@ -829,7 +832,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: P) -> anyhow::Result<()> {
         .await?;
         old_key = Some(key);
     }
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     // Query at the each timestamp should returns the expected result.
     for (ts, expected_value) in ts_to_value.into_iter() {
@@ -864,7 +867,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: P) -> anyhow::Result<()> {
 
 // Test varies ranges where all generated keys start with the given prefix.
 pub async fn query_index_range_with_prefix<P: Persistence>(
-    p: P,
+    p: Arc<P>,
     prefix: Vec<u8>,
 ) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
@@ -902,7 +905,7 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
     }
 
     p.write(documents, indexes, ConflictStrategy::Error).await?;
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     keys.sort();
     for i in 0..keys.len() {
@@ -955,18 +958,18 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
 }
 
 // Test without prefix.
-pub async fn query_index_range_short<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn query_index_range_short<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     query_index_range_with_prefix(p, Vec::new()).await
 }
 
 // Test by prefixing all keys with the same long prefix.
-pub async fn query_index_range_long<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn query_index_range_long<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let long_prefix = testing::generate_with::<Vec<u8>>(size_range(10000).lift());
     query_index_range_with_prefix(p, long_prefix).await
 }
 
 // Make sure we correctly filter using the index_id.
-pub async fn query_multiple_indexes<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let table: TableName = str::parse("table")?;
     let ts = Timestamp::must(1702);
 
@@ -1007,7 +1010,7 @@ pub async fn query_multiple_indexes<P: Persistence>(p: P) -> anyhow::Result<()> 
     }
 
     p.write(documents, indexes, ConflictStrategy::Error).await?;
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     for (index_id, expected) in index_to_results {
         let keys = p
@@ -1035,7 +1038,7 @@ pub async fn query_multiple_indexes<P: Persistence>(p: P) -> anyhow::Result<()> 
 }
 
 // Write an index without the doc itself. Querying should fail.
-pub async fn query_dangling_reference<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn query_dangling_reference<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let table: TableName = str::parse("table")?;
     let ts = Timestamp::must(1702);
     let mut id_generator = TestIdGenerator::new();
@@ -1084,7 +1087,7 @@ pub async fn query_dangling_reference<P: Persistence>(p: P) -> anyhow::Result<()
 
 // Write an index pointing to a deleted doc. Querying should
 // fail.
-pub async fn query_reference_deleted_doc<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let table: TableName = str::parse("table")?;
     let ts = Timestamp::must(1702);
 
@@ -1133,7 +1136,7 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: P) -> anyhow::Result
 }
 
 pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
-    p: P,
+    p: Arc<P>,
     prefix: Vec<u8>,
 ) -> anyhow::Result<()> {
     let table: TableName = str::parse("table")?;
@@ -1167,7 +1170,7 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
         .await?;
         documents.push(document);
     }
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     // We should get the same result regardless of the rows estimate.
     for rows_estimate in [1, 10, 20, 100] {
@@ -1193,12 +1196,12 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
     Ok(())
 }
 
-pub async fn query_with_rows_estimate_short<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn query_with_rows_estimate_short<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     query_with_rows_estimate_with_prefix(p, Vec::new()).await
 }
 
 // Test by prefixing all keys with the same long prefix.
-pub async fn query_with_rows_estimate_long<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn query_with_rows_estimate_long<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let long_prefix = testing::generate_with::<Vec<u8>>(size_range(10000).lift());
     query_with_rows_estimate_with_prefix(p, long_prefix).await
 }
@@ -1206,7 +1209,7 @@ pub async fn query_with_rows_estimate_long<P: Persistence>(p: P) -> anyhow::Resu
 pub async fn write_then_read<F, Fut, P: Persistence>(mut make_p: F) -> anyhow::Result<()>
 where
     F: FnMut() -> Fut,
-    Fut: Future<Output = anyhow::Result<P>>,
+    Fut: Future<Output = anyhow::Result<Arc<P>>>,
 {
     let p_write = make_p().await?;
     let table: TableName = str::parse("table")?;
@@ -1226,7 +1229,7 @@ where
             ConflictStrategy::Error,
         )
         .await?;
-    id_generator.write_tables(p_write.box_clone()).await?;
+    id_generator.write_tables(p_write.clone()).await?;
     drop(p_write);
 
     // Read from another persistence, e.g. on a replica.
@@ -1282,7 +1285,7 @@ where
     // Release the lease.
     drop(p_backend1);
 
-    let mut p_migration = make_p().await?;
+    let p_migration = make_p().await?;
     p_migration.set_read_only(true).await?;
 
     let result = make_p().await;
@@ -1294,7 +1297,7 @@ where
     let result = make_p().await;
     assert!(result.is_err());
 
-    let mut p_cleanup = make_p_read_only().await?;
+    let p_cleanup = make_p_read_only().await?;
     p_cleanup.set_read_only(false).await?;
     drop(p_cleanup);
 
@@ -1315,7 +1318,7 @@ where
     Ok(())
 }
 
-pub async fn persistence_global<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn persistence_global<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let key = PersistenceGlobalKey::RetentionMinSnapshotTimestamp;
     p.write_persistence_global(key, json!(5)).await?;
     assert_eq!(
@@ -1342,7 +1345,7 @@ fn doc(
     Ok((Timestamp::must(ts), id.into(), doc))
 }
 
-pub async fn persistence_enforce_retention<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let by_id_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
     let by_val_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
@@ -1440,7 +1443,7 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: P) -> anyhow::Resu
     p.write(documents, indexes, ConflictStrategy::Error).await?;
     // Writes 3 tables (_tables, _index, table) with index entries.
     let tables_count = 3;
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     // Check load_index_chunk pagination.
     let mut index_entries = Vec::new();
@@ -1514,7 +1517,7 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: P) -> anyhow::Resu
     Ok(())
 }
 
-pub async fn persistence_delete_documents<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn persistence_delete_documents<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table: TableName = str::parse("table")?;
 
@@ -1577,7 +1580,7 @@ pub async fn persistence_delete_documents<P: Persistence>(p: P) -> anyhow::Resul
     Ok(())
 }
 
-pub async fn persistence_previous_revisions<P: Persistence>(p: P) -> anyhow::Result<()> {
+pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let reader = p.reader();
 
     let table: TableName = str::parse("table")?;
@@ -1614,7 +1617,7 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: P) -> anyhow::Res
         .collect();
     p.write(writes, BTreeSet::new(), ConflictStrategy::Error)
         .await?;
-    id_generator.write_tables(p.box_clone()).await?;
+    id_generator.write_tables(p.clone()).await?;
 
     // Query the eight documents + four nonexistent IDs at timestamp 3.
     let queries = vec![

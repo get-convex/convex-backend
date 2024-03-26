@@ -133,14 +133,14 @@ pub struct EmptyResponse {}
 pub async fn make_app(
     runtime: ProdRuntime,
     config: LocalConfig,
-    persistence: Box<dyn Persistence>,
+    persistence: Arc<dyn Persistence>,
     shutdown_rx: async_broadcast::Receiver<()>,
     shutdown_tx: ShutdownSignal,
 ) -> anyhow::Result<LocalAppState> {
     let key_broker = config.key_broker()?;
     let searcher: Arc<dyn Searcher> = Arc::new(InProcessSearcher::new(runtime.clone()).await?);
     let database = Database::load(
-        persistence.box_clone(),
+        persistence.clone(),
         runtime.clone(),
         searcher.clone(),
         shutdown_tx.clone(),

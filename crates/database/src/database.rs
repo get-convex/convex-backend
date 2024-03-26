@@ -257,7 +257,7 @@ pub struct Database<RT: Runtime> {
     log: LogReader,
     snapshot_manager: Reader<SnapshotManager>,
     pub(crate) runtime: RT,
-    reader: Box<dyn PersistenceReader>,
+    reader: Arc<dyn PersistenceReader>,
     write_commits_since_load: Arc<AtomicUsize>,
     retention_manager: LeaderRetentionManager<RT>,
     pub searcher: Arc<dyn Searcher>,
@@ -280,7 +280,7 @@ pub struct DatabaseSnapshot {
     // to look at current data and walk backwards.
     // Use the `table_iterator` method to do that -- don't access these
     // fields directly.
-    pub persistence_reader: Box<dyn PersistenceReader>,
+    pub persistence_reader: Arc<dyn PersistenceReader>,
     pub retention_validator: Arc<dyn RetentionValidator>,
 }
 
@@ -572,7 +572,7 @@ impl DatabaseSnapshot {
 
     pub async fn load<RT: Runtime>(
         rt: &RT,
-        persistence: Box<dyn PersistenceReader>,
+        persistence: Arc<dyn PersistenceReader>,
         snapshot: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<Self> {
@@ -769,7 +769,7 @@ impl<'c, 'a: 'c, 'b: 'c, T, F: Future<Output = T> + Send + 'c> From<F>
 
 impl<RT: Runtime> Database<RT> {
     pub async fn load(
-        mut persistence: Box<dyn Persistence>,
+        mut persistence: Arc<dyn Persistence>,
         runtime: RT,
         searcher: Arc<dyn Searcher>,
         shutdown: ShutdownSignal,
@@ -1063,7 +1063,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(by_id_indexes)
     }
 
-    async fn initialize(rt: &RT, persistence: &mut Box<dyn Persistence>) -> anyhow::Result<()> {
+    async fn initialize(rt: &RT, persistence: &mut Arc<dyn Persistence>) -> anyhow::Result<()> {
         let mut id_generator = TransactionIdGenerator::new(rt)?;
         let ts = rt.generate_timestamp()?;
         let mut creation_time = CreationTime::try_from(ts)?;

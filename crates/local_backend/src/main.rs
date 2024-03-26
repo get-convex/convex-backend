@@ -1,6 +1,9 @@
 #![feature(let_chains)]
 
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -79,7 +82,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
     let st = make_app(
         runtime.clone(),
         config.clone(),
-        Box::new(persistence),
+        Arc::new(persistence),
         shutdown_rx.clone(),
         ShutdownSignal::new(preempt_tx.clone()),
     )

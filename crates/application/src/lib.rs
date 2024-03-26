@@ -475,7 +475,7 @@ impl<RT: Runtime> Application<RT> {
         convex_origin: ConvexOrigin,
         convex_site: ConvexSite,
         searcher: Arc<dyn Searcher>,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         actions: Actions,
         fetch_client: Arc<dyn FetchClient>,
         log_sender: Arc<dyn LogSender>,

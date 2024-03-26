@@ -126,7 +126,7 @@ pub fn assert_root_cause<T: Debug>(result: anyhow::Result<T>, expected: &str) {
 /// schema.
 pub async fn deploy_schema(
     rt: &TestRuntime,
-    tp: Box<dyn Persistence>,
+    tp: Arc<dyn Persistence>,
     db: &Database<TestRuntime>,
     schema: DatabaseSchema,
 ) -> anyhow::Result<()> {
@@ -186,7 +186,7 @@ pub async fn apply_config(
 pub async fn backfill_indexes(
     rt: TestRuntime,
     db: Database<TestRuntime>,
-    tp: Box<dyn Persistence>,
+    tp: Arc<dyn Persistence>,
 ) -> anyhow::Result<()> {
     let storage = LocalDirStorage::new(rt.clone())?;
     SearchIndexFlusher::backfill_all_in_test(rt.clone(), db.clone(), Arc::new(storage.clone()))

@@ -34,7 +34,7 @@ use crate::metrics::log_worker_starting;
 pub struct TableSummaryWorker<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
-    persistence: Box<dyn Persistence>,
+    persistence: Arc<dyn Persistence>,
 }
 
 struct Inner<RT: Runtime> {
@@ -56,7 +56,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
     pub(crate) fn start(
         runtime: RT,
         database: Database<RT>,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
     ) -> TableSummaryClient<RT> {
         let table_summary_worker = Self {
             runtime: runtime.clone(),

@@ -253,7 +253,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         identity: Identity,
         ts: RepeatableTimestamp,
         existing_writes: FunctionWrites,
-        reader: Box<dyn PersistenceReader>,
+        reader: Arc<dyn PersistenceReader>,
         instance_name: String,
         in_memory_index_versions: BTreeMap<IndexId, Timestamp>,
         bootstrap_metadata: BootstrapMetadata,
@@ -291,7 +291,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         &self,
         instance_name: String,
         instance_secret: InstanceSecret,
-        reader: Box<dyn PersistenceReader>,
+        reader: Arc<dyn PersistenceReader>,
         convex_origin: ConvexOrigin,
         bootstrap_metadata: BootstrapMetadata,
         table_count_snapshot: Arc<dyn TableCountSnapshot>,
@@ -416,7 +416,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
 
 pub struct InProcessFunctionRunner<RT: Runtime> {
     server: FunctionRunnerCore<RT, Arc<dyn Storage>>,
-    persistence_reader: Box<dyn PersistenceReader>,
+    persistence_reader: Arc<dyn PersistenceReader>,
 
     // Static information about the backend.
     instance_name: String,
@@ -435,7 +435,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
         instance_secret: InstanceSecret,
         convex_origin: ConvexOrigin,
         rt: RT,
-        persistence_reader: Box<dyn PersistenceReader>,
+        persistence_reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         database: Database<RT>,
         fetch_client: Arc<dyn FetchClient>,
@@ -499,7 +499,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             .run_function_no_retention_check(
                 self.instance_name.clone(),
                 self.instance_secret,
-                self.persistence_reader.box_clone(),
+                self.persistence_reader.clone(),
                 self.convex_origin.clone(),
                 self.database.bootstrap_metadata.clone(),
                 table_count_snapshot,

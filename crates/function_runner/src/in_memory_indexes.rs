@@ -349,7 +349,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         identity: Identity,
         ts: RepeatableTimestamp,
         existing_writes: FunctionWrites,
-        persistence: Box<dyn PersistenceReader>,
+        persistence: Arc<dyn PersistenceReader>,
         instance_name: String,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
         bootstrap_metadata: BootstrapMetadata,

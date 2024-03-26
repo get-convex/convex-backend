@@ -94,7 +94,7 @@ fn cursor_has_walked(cursor: Option<&CursorPosition>, key: &IndexKeyBytes) -> bo
 
 pub struct TableIterator<RT: Runtime> {
     runtime: RT,
-    persistence: Box<dyn PersistenceReader>,
+    persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     page_size: usize,
     pause_client: PauseClient,
@@ -105,7 +105,7 @@ impl<RT: Runtime> TableIterator<RT> {
     pub fn new(
         runtime: RT,
         snapshot_ts: RepeatableTimestamp,
-        persistence: Box<dyn PersistenceReader>,
+        persistence: Arc<dyn PersistenceReader>,
         retention_validator: Arc<dyn RetentionValidator>,
         page_size: usize,
         pause_client: Option<PauseClient>,

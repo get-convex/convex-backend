@@ -564,7 +564,7 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
     );
 
     // Add a document to persistence.
-    let ps = TestPersistence::new();
+    let ps = Arc::new(TestPersistence::new());
     let doc1 = ResolvedDocument::new(
         next_document_id(&mut id_generator, "messages")?,
         CreationTime::ONE,
@@ -589,7 +589,7 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
         ConflictStrategy::Error,
     )
     .await?;
-    id_generator.write_tables(ps.box_clone()).await?;
+    id_generator.write_tables(ps.clone()).await?;
     let retention_validator = Arc::new(NoopRetentionValidator {});
 
     // Load the index.
@@ -598,7 +598,7 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
             &index_registry,
             &by_author,
             &RepeatablePersistence::new(
-                Box::new(ps),
+                ps.clone(),
                 unchecked_repeatable_ts(Timestamp::must(2)),
                 retention_validator,
             )

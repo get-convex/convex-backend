@@ -227,8 +227,8 @@ impl Persistence for SqlitePersistence {
         self.inner.lock().newly_created
     }
 
-    fn reader(&self) -> Box<dyn PersistenceReader> {
-        Box::new(Self {
+    fn reader(&self) -> Arc<dyn PersistenceReader> {
+        Arc::new(Self {
             inner: self.inner.clone(),
         })
     }
@@ -302,7 +302,7 @@ impl Persistence for SqlitePersistence {
         Ok(())
     }
 
-    async fn set_read_only(&mut self, read_only: bool) -> anyhow::Result<()> {
+    async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
         let stmt = if read_only {
             SET_READ_ONLY
         } else {
@@ -472,10 +472,6 @@ impl Persistence for SqlitePersistence {
         tx.commit()?;
         Ok(count_deleted)
     }
-
-    fn box_clone(&self) -> Box<dyn Persistence> {
-        Box::new(self.clone())
-    }
 }
 
 #[async_trait]
@@ -579,10 +575,6 @@ impl PersistenceReader for SqlitePersistence {
         key: PersistenceGlobalKey,
     ) -> anyhow::Result<Option<JsonValue>> {
         self._get_persistence_global(key)
-    }
-
-    fn box_clone(&self) -> Box<dyn PersistenceReader> {
-        Box::new(self.clone())
     }
 
     fn version(&self) -> PersistenceVersion {

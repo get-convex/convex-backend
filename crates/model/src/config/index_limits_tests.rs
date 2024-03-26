@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use common::{
     db_schema_with_vector_indexes,
     object_validator,
@@ -43,7 +45,7 @@ const VECTOR_FIELD: &str = "field";
 
 async fn commit_schema(
     rt: &TestRuntime,
-    tp: Box<dyn Persistence>,
+    tp: Arc<dyn Persistence>,
     db: &Database<TestRuntime>,
 ) -> anyhow::Result<()> {
     let document_schema = DocumentSchema::Union(vec![object_validator!(

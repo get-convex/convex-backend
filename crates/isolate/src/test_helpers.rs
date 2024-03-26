@@ -219,7 +219,7 @@ pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentD
 pub struct UdfTest<RT: Runtime, P: Persistence + Clone> {
     pub database: Database<RT>,
     pub isolate: IsolateClient<RT>,
-    pub persistence: P,
+    pub persistence: Arc<P>,
     pub rt: RT,
     pub key_broker: KeyBroker,
     pub module_loader: Arc<dyn ModuleLoader<RT>>,
@@ -231,7 +231,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
     async fn new(
         modules: Vec<ModuleConfig>,
         rt: RT,
-        persistence: P,
+        persistence: Arc<P>,
         config: UdfTestConfig,
         max_isolate_workers: usize,
     ) -> anyhow::Result<Result<Self, JsError>> {
@@ -242,7 +242,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         } = DbFixtures::new_with_args(
             &rt,
             DbFixturesArgs {
-                tp: Some(persistence.box_clone()),
+                tp: Some(persistence.clone()),
                 searcher: Some(Arc::new(InProcessSearcher::new(rt.clone()).await?)),
                 virtual_system_mapping: virtual_system_mapping(),
                 ..Default::default()
@@ -327,7 +327,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
 
     pub async fn with_persistence(
         rt: RT,
-        persistence: P,
+        persistence: Arc<P>,
         config: UdfTestConfig,
         max_isolate_workers: usize,
     ) -> anyhow::Result<Self> {
@@ -359,7 +359,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             FollowerRetentionManager::new(self.rt.clone(), self.persistence.reader()).await?;
         IndexWorker::new_terminating(
             self.rt.clone(),
-            self.persistence.box_clone(),
+            self.persistence.clone(),
             Arc::new(retention_manager),
             self.database.clone(),
         )
@@ -660,7 +660,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         );
         IndexWorker::new_terminating(
             self.rt.clone(),
-            self.persistence.box_clone(),
+            self.persistence.clone(),
             retention_validator,
             self.database.clone(),
         )
@@ -898,7 +898,7 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
         let result = Self::new(
             TEST_SOURCE_ISOLATE_ONLY.clone(),
             rt,
-            TestPersistence::new(),
+            Arc::new(TestPersistence::new()),
             config,
             max_isolate_workers,
         )
@@ -914,7 +914,7 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
         Self::new(
             modules,
             rt,
-            TestPersistence::new(),
+            Arc::new(TestPersistence::new()),
             DEFAULT_CONFIG.clone(),
             DEFAULT_MAX_ISOLATE_WORKERS,
         )
@@ -925,7 +925,7 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
         let result = Self::new(
             TEST_SOURCE_ISOLATE_ONLY.clone(),
             rt,
-            TestPersistence::new(),
+            Arc::new(TestPersistence::new()),
             UdfTestConfig {
                 isolate_config: IsolateConfig::new_with_max_user_timeout(
                     "test",

@@ -145,7 +145,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let persistence = args.tp.unwrap_or_else(TestPersistence::new);
         let snapshot_import_pause_client = args.snapshot_import_pause_client.unwrap_or_default();
         let database = Database::load(
-            Box::new(persistence.clone()),
+            Arc::new(persistence.clone()),
             rt.clone(),
             searcher.clone(),
             ShutdownSignal::panic(),
@@ -225,7 +225,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             convex_origin,
             convex_site,
             searcher.clone(),
-            Box::new(persistence.clone()),
+            Arc::new(persistence.clone()),
             actions,
             fetch_client,
             Arc::new(NoopLogSender),

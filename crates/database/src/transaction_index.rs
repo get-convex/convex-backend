@@ -925,14 +925,14 @@ mod tests {
     async fn test_transaction_index_missing_index(rt: ProdRuntime) -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
 
-        let persistence = Box::new(TestPersistence::new());
+        let persistence = Arc::new(TestPersistence::new());
         let retention_manager =
             Arc::new(FollowerRetentionManager::new(rt.clone(), persistence.clone()).await?);
 
         // Create a transactions with `by_name` index missing before the transaction
         // started.
         let rp = RepeatablePersistence::new(
-            Box::new(TestPersistence::new()),
+            Arc::new(TestPersistence::new()),
             unchecked_repeatable_ts(Timestamp::must(1000)),
             retention_manager,
         );
@@ -1039,7 +1039,7 @@ mod tests {
         let printable_by_name = IndexName::new("messages".parse()?, "by_name".parse()?)?;
 
         // Create a transactions with table missing before the transaction started.
-        let persistence = Box::new(TestPersistence::new());
+        let persistence = Arc::new(TestPersistence::new());
         let persistence_version = persistence.reader().version();
         let retention_manager =
             Arc::new(FollowerRetentionManager::new(rt.clone(), persistence.clone()).await?);
@@ -1181,7 +1181,7 @@ mod tests {
         let by_id_fields = vec![];
         let by_name_fields = vec!["name".parse()?];
         let now0 = now_ts(Timestamp::MIN, &rt)?;
-        let mut ps = Box::new(TestPersistence::new());
+        let ps = Arc::new(TestPersistence::new());
         let persistence_version = ps.reader().version();
         let retention_manager =
             Arc::new(FollowerRetentionManager::new(rt.clone(), ps.clone()).await?);
@@ -1210,7 +1210,7 @@ mod tests {
         async fn add(
             index_registry: &mut IndexRegistry,
             index: &mut BackendInMemoryIndexes,
-            ps: &mut TestPersistence,
+            ps: &TestPersistence,
             ts: Timestamp,
             doc: ResolvedDocument,
         ) -> anyhow::Result<()> {
@@ -1234,14 +1234,7 @@ mod tests {
             ),
         )?;
         let now1 = now0.succ()?;
-        add(
-            &mut index_registry,
-            &mut index,
-            &mut ps,
-            now1,
-            alice.clone(),
-        )
-        .await?;
+        add(&mut index_registry, &mut index, &ps, now1, alice.clone()).await?;
         let bob = ResolvedDocument::new(
             next_document_id(&mut id_generator, "users")?,
             CreationTime::ONE,
@@ -1250,7 +1243,7 @@ mod tests {
             ),
         )?;
         let now2 = now1.succ()?;
-        add(&mut index_registry, &mut index, &mut ps, now2, bob.clone()).await?;
+        add(&mut index_registry, &mut index, &ps, now2, bob.clone()).await?;
         let zack = ResolvedDocument::new(
             next_document_id(&mut id_generator, "users")?,
             CreationTime::ONE,
@@ -1259,10 +1252,10 @@ mod tests {
             ),
         )?;
         let now3 = now2.succ()?;
-        add(&mut index_registry, &mut index, &mut ps, now3, zack.clone()).await?;
+        add(&mut index_registry, &mut index, &ps, now3, zack.clone()).await?;
 
         let by_id_index = *(index_ids.get(&by_id).unwrap());
-        id_generator.write_tables(ps.box_clone()).await?;
+        id_generator.write_tables(ps.clone()).await?;
 
         let now4 = now3.succ()?;
         // Start a transaction, add "David" and delete "Bob"

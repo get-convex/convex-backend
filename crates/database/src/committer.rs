@@ -143,7 +143,7 @@ pub struct Committer<RT: Runtime> {
     log: LogWriter,
 
     snapshot_manager: Writer<SnapshotManager>,
-    persistence: Box<dyn Persistence>,
+    persistence: Arc<dyn Persistence>,
     runtime: RT,
 
     last_assigned_ts: Timestamp,
@@ -160,7 +160,7 @@ impl<RT: Runtime> Committer<RT> {
     pub(crate) fn start(
         log: LogWriter,
         snapshot_manager: Writer<SnapshotManager>,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         runtime: RT,
         retention_validator: Arc<dyn RetentionValidator>,
         shutdown: ShutdownSignal,
@@ -593,7 +593,7 @@ impl<RT: Runtime> Committer<RT> {
     /// the write went through, we crash the process and recover from whatever
     /// has been written to persistence.
     async fn write_to_persistence(
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         index_writes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         document_writes: Vec<ValidatedDocumentWrite>,
     ) -> anyhow::Result<()> {
@@ -805,7 +805,7 @@ struct ValidatedDocumentWrite {
 pub struct CommitterClient<RT: Runtime> {
     handle: Arc<Mutex<RT::Handle>>,
     sender: mpsc::Sender<CommitterMessage>,
-    persistence_reader: Box<dyn PersistenceReader>,
+    persistence_reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     snapshot_reader: Reader<SnapshotManager>,
 }

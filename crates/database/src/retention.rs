@@ -202,7 +202,7 @@ const INITIAL_BACKOFF: Duration = Duration::from_millis(50);
 impl<RT: Runtime> LeaderRetentionManager<RT> {
     pub async fn new(
         rt: RT,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         snapshot_reader: Reader<SnapshotManager>,
         follower_retention_manager: FollowerRetentionManager<RT>,
     ) -> anyhow::Result<LeaderRetentionManager<RT>> {
@@ -411,7 +411,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         bounds_writer: Writer<SnapshotBounds>,
         checkpoint_reader: Reader<Checkpoint>,
         rt: RT,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         min_snapshot_rx: Receiver<Timestamp>,
         min_snapshot_sender: Sender<Timestamp>,
         min_document_snapshot_rx: Receiver<Timestamp>,
@@ -567,7 +567,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// correlated.
     async fn delete(
         min_snapshot_ts: Timestamp,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         rt: &RT,
         cursor: Timestamp,
         all_indexes: &BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
@@ -650,7 +650,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
     async fn delete_chunk(
         delete_chunk: Vec<IndexEntry>,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         mut new_cursor: Timestamp,
     ) -> anyhow::Result<(Timestamp, usize)> {
         let _timer = retention_delete_chunk_timer();
@@ -702,7 +702,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     async fn go_delete(
         bounds_reader: Reader<SnapshotBounds>,
         rt: RT,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         indexes_at_min_snapshot: BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
         index_table_id: TableIdAndTableNumber,
         mut index_cursor: Timestamp,
@@ -961,11 +961,11 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
 pub struct FollowerRetentionManager<RT: Runtime> {
     rt: RT,
     snapshot_bounds: Arc<Mutex<SnapshotBounds>>,
-    persistence: Box<dyn PersistenceReader>,
+    persistence: Arc<dyn PersistenceReader>,
 }
 
 impl<RT: Runtime> FollowerRetentionManager<RT> {
-    pub async fn new(rt: RT, persistence: Box<dyn PersistenceReader>) -> anyhow::Result<Self> {
+    pub async fn new(rt: RT, persistence: Arc<dyn PersistenceReader>) -> anyhow::Result<Self> {
         let min_snapshot_ts =
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Index).await?;
         let min_document_snapshot_ts =
@@ -1086,7 +1086,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_expired_index_entries(_rt: TestRuntime) -> anyhow::Result<()> {
-        let p = TestPersistence::new();
+        let p = Arc::new(TestPersistence::new());
         let mut id_generator = TestIdGenerator::new();
         let by_id_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
         let by_val_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
@@ -1195,7 +1195,7 @@ mod tests {
         ];
 
         p.write(documents, indexes, ConflictStrategy::Error).await?;
-        id_generator.write_tables(p.box_clone()).await?;
+        id_generator.write_tables(p.clone()).await?;
 
         let min_snapshot_ts = Timestamp::must(8);
         let repeatable_ts = unchecked_repeatable_ts(min_snapshot_ts);

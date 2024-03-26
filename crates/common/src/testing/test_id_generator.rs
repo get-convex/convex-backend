@@ -4,6 +4,7 @@ use std::{
         Deref,
         DerefMut,
     },
+    sync::Arc,
 };
 
 use value::{
@@ -126,7 +127,7 @@ impl TestIdGenerator {
         num
     }
 
-    pub async fn write_tables(&mut self, p: Box<dyn Persistence>) -> anyhow::Result<()> {
+    pub async fn write_tables(&mut self, p: Arc<dyn Persistence>) -> anyhow::Result<()> {
         let tables_by_id = self.generate_internal();
         p.write_persistence_global(
             PersistenceGlobalKey::TablesByIdIndex,

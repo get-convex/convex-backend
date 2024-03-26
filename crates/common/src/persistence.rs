@@ -166,7 +166,7 @@ pub trait Persistence: Sync + Send + 'static {
     /// Whether the persistence layer is freshely created or not.
     fn is_fresh(&self) -> bool;
 
-    fn reader(&self) -> Box<dyn PersistenceReader>;
+    fn reader(&self) -> Arc<dyn PersistenceReader>;
 
     /// Writes documents and the respective derived indexes.
     async fn write(
@@ -176,7 +176,7 @@ pub trait Persistence: Sync + Send + 'static {
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
 
-    async fn set_read_only(&mut self, read_only: bool) -> anyhow::Result<()>;
+    async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()>;
 
     /// Writes global key-value data for the whole persistence.
     /// This is expected to be small data that does not make sense in a
@@ -211,17 +211,9 @@ pub trait Persistence: Sync + Send + 'static {
         documents: Vec<(Timestamp, InternalDocumentId)>,
     ) -> anyhow::Result<usize>;
 
-    fn box_clone(&self) -> Box<dyn Persistence>;
-
     // No-op by default. Persistence implementation can override.
     async fn shutdown(&self) -> anyhow::Result<()> {
         Ok(())
-    }
-}
-
-impl Clone for Box<dyn Persistence> {
-    fn clone(&self) -> Self {
-        self.box_clone()
     }
 }
 
@@ -316,8 +308,6 @@ pub trait RetentionValidator: Sync + Send {
 
 #[async_trait]
 pub trait PersistenceReader: Send + Sync + 'static {
-    fn box_clone(&self) -> Box<dyn PersistenceReader>;
-
     /// The persistence is required to load documents within the given timestamp
     /// range.
     /// page_size is how many documents to fetch with a single query. It doesn't
@@ -452,12 +442,6 @@ pub fn now_ts<RT: Runtime>(max_ts: Timestamp, rt: &RT) -> anyhow::Result<Timesta
     Ok(ts)
 }
 
-impl Clone for Box<dyn PersistenceReader> {
-    fn clone(&self) -> Self {
-        self.box_clone()
-    }
-}
-
 /// Timestamp that is repeatable because the caller is holding the lease and
 /// no one is writing to persistence. In particular the Committer is not
 /// running. So all future commits will be after the returned
@@ -485,14 +469,14 @@ pub async fn new_idle_repeatable_ts<RT: Runtime>(
 /// will not see new writes, i.e. all reads will see the same data.
 #[derive(Clone)]
 pub struct RepeatablePersistence {
-    reader: Box<dyn PersistenceReader>,
+    reader: Arc<dyn PersistenceReader>,
     upper_bound: RepeatableTimestamp,
     retention_validator: Arc<dyn RetentionValidator>,
 }
 
 impl RepeatablePersistence {
     pub fn new(
-        reader: Box<dyn PersistenceReader>,
+        reader: Arc<dyn PersistenceReader>,
         upper_bound: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> Self {
@@ -617,7 +601,7 @@ async fn wait_for_ts<RT: Runtime>(
 /// snapshot.
 #[derive(Clone)]
 pub struct PersistenceSnapshot {
-    reader: Box<dyn PersistenceReader>,
+    reader: Arc<dyn PersistenceReader>,
     at: RepeatableTimestamp,
     retention_validator: Arc<dyn RetentionValidator>,
 }

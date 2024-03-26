@@ -104,7 +104,7 @@ struct Scenario {
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
     // Add test persistence here, or just change everything to use db fixtures.
-    tp: Box<dyn Persistence>,
+    tp: Arc<dyn Persistence>,
 
     table_name: TableName,
 

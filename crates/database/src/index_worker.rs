@@ -124,9 +124,9 @@ pub struct IndexWorker<RT: Runtime> {
 
 pub struct IndexWriter<RT: Runtime> {
     // Persistence target for writing indexes.
-    persistence: Box<dyn Persistence>,
+    persistence: Arc<dyn Persistence>,
     // Reader must have by_id index fully populated.
-    reader: Box<dyn PersistenceReader>,
+    reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     rate_limiter: RateLimiter<RT>,
     runtime: RT,
@@ -177,7 +177,7 @@ impl<RT: Runtime> IndexWorker<RT> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         runtime: RT,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         retention_validator: Arc<dyn RetentionValidator>,
         database: Database<RT>,
     ) -> impl Future<Output = ()> + Send {
@@ -217,7 +217,7 @@ impl<RT: Runtime> IndexWorker<RT> {
     #[cfg(any(test, feature = "testing"))]
     pub fn new_terminating(
         runtime: RT,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         retention_validator: Arc<dyn RetentionValidator>,
         database: Database<RT>,
     ) -> impl Future<Output = anyhow::Result<()>> + Send {
@@ -440,8 +440,8 @@ impl<RT: Runtime> IndexWorker<RT> {
 
 impl<RT: Runtime> IndexWriter<RT> {
     pub fn new(
-        persistence: Box<dyn Persistence>,
-        reader: Box<dyn PersistenceReader>,
+        persistence: Arc<dyn Persistence>,
+        reader: Arc<dyn PersistenceReader>,
         retention_validator: Arc<dyn RetentionValidator>,
         runtime: RT,
     ) -> Self {

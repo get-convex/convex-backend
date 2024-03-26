@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::Context;
 use axum::headers::Authorization;
@@ -44,7 +47,7 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
     let st = make_app(
         runtime,
         config.clone(),
-        Box::new(persistence),
+        Arc::new(persistence),
         shutdown_rx,
         ShutdownSignal::new(preempt_tx),
     )

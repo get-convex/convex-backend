@@ -88,8 +88,8 @@ impl Persistence for TestPersistence {
         self.inner.lock().is_fresh
     }
 
-    fn reader(&self) -> Box<dyn PersistenceReader> {
-        Box::new(self.clone())
+    fn reader(&self) -> Arc<dyn PersistenceReader> {
+        Arc::new(self.clone())
     }
 
     async fn write(
@@ -135,7 +135,7 @@ impl Persistence for TestPersistence {
         Ok(())
     }
 
-    async fn set_read_only(&mut self, read_only: bool) -> anyhow::Result<()> {
+    async fn set_read_only(&self, read_only: bool) -> anyhow::Result<()> {
         self.inner.lock().is_read_only = read_only;
         Ok(())
     }
@@ -248,10 +248,6 @@ impl Persistence for TestPersistence {
             }
         }
         Ok(total_deleted)
-    }
-
-    fn box_clone(&self) -> Box<dyn Persistence> {
-        Box::new(self.clone())
     }
 }
 
@@ -397,10 +393,6 @@ impl PersistenceReader for TestPersistence {
         key: PersistenceGlobalKey,
     ) -> anyhow::Result<Option<JsonValue>> {
         Ok(self.inner.lock().persistence_globals.get(&key).cloned())
-    }
-
-    fn box_clone(&self) -> Box<dyn PersistenceReader> {
-        Box::new(self.clone())
     }
 
     fn version(&self) -> PersistenceVersion {

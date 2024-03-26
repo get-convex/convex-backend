@@ -308,7 +308,7 @@ impl TryFrom<JsonValue> for TableSummarySnapshot {
 }
 
 pub struct TableSummaryWriter<RT: Runtime> {
-    persistence: Box<dyn Persistence>,
+    persistence: Arc<dyn Persistence>,
     database: Database<RT>,
     retention_validator: Arc<dyn RetentionValidator>,
 }
@@ -316,7 +316,7 @@ pub struct TableSummaryWriter<RT: Runtime> {
 impl<RT: Runtime> TableSummaryWriter<RT> {
     pub fn new(
         runtime: RT,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         database: Database<RT>,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> Self {
@@ -325,7 +325,7 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
 
     pub fn new_with_config(
         _runtime: RT,
-        persistence: Box<dyn Persistence>,
+        persistence: Arc<dyn Persistence>,
         database: Database<RT>,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> Self {
@@ -449,7 +449,7 @@ pub async fn write_snapshot(
 /// * The number of log entries processed
 pub async fn bootstrap<RT: Runtime>(
     rt: &RT,
-    persistence: Box<dyn PersistenceReader>,
+    persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     target_ts: RepeatableTimestamp,
     from_scratch: bool,

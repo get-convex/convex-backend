@@ -27,14 +27,14 @@ use crate::{
 };
 
 pub struct DbFixtures<RT: Runtime> {
-    pub tp: Box<dyn Persistence>,
+    pub tp: Arc<dyn Persistence>,
     pub db: Database<RT>,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<dyn Storage>,
 }
 
 pub struct DbFixturesArgs {
-    pub tp: Option<Box<dyn Persistence>>,
+    pub tp: Option<Arc<dyn Persistence>>,
     pub searcher: Option<Arc<dyn Searcher>>,
     pub search_storage: Option<Arc<dyn Storage>>,
     pub virtual_system_mapping: VirtualSystemMapping,
@@ -68,7 +68,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             bootstrap_search_and_vector_indexes,
         }: DbFixturesArgs,
     ) -> anyhow::Result<Self> {
-        let tp = tp.unwrap_or_else(|| Box::new(TestPersistence::new()));
+        let tp = tp.unwrap_or_else(|| Arc::new(TestPersistence::new()));
         let searcher = searcher.unwrap_or_else(|| Arc::new(SearcherStub {}));
         let search_storage = match search_storage {
             Some(ss) => ss,
