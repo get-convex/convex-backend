@@ -568,7 +568,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// entries is the number of index entries we found were expired, not
     /// necessarily the total we deleted or wanted to delete, though they're
     /// correlated.
-    async fn delete(
+    pub(crate) async fn delete(
         min_snapshot_ts: Timestamp,
         persistence: Arc<dyn Persistence>,
         rt: &RT,

@@ -16,7 +16,10 @@ use common::{
     self,
     backoff::Backoff,
     bootstrap_model::index::{
-        database_index::DatabaseIndexState,
+        database_index::{
+            DatabaseIndexState,
+            IndexedFields,
+        },
         IndexConfig,
         IndexMetadata,
         TabletIndexMetadata,
@@ -64,6 +67,7 @@ use common::{
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
+        WriteTimestamp,
     },
     value::{
         ResolvedDocumentId,
@@ -85,7 +89,10 @@ use futures::{
 use governor::Quota;
 use indexing::index_registry::IndexRegistry;
 use keybroker::Identity;
-use maplit::btreeset;
+use maplit::{
+    btreemap,
+    btreeset,
+};
 use tracing::log;
 use value::InternalDocumentId;
 
@@ -95,6 +102,7 @@ use crate::{
         log_num_indexes_to_backfill,
         log_worker_starting,
     },
+    retention::LeaderRetentionManager,
     Database,
     ResolvedQuery,
     SystemMetadataModel,
@@ -347,6 +355,11 @@ impl<RT: Runtime> IndexWorker<RT> {
                 index_selector,
             )
             .await?;
+        let (backfill_begin_ts, index_name, indexed_fields) =
+            self.begin_retention(index_id).await?;
+        self.index_writer
+            .run_retention(index_id, backfill_begin_ts, index_name, indexed_fields)
+            .await?;
         self.finish_backfill(index_id).await?;
         Ok(())
     }
@@ -384,6 +397,47 @@ impl<RT: Runtime> IndexWorker<RT> {
         drop(tx);
         log::info!("Starting backfill of index {} @ {ts}", index_metadata.name);
         Ok(index_metadata.name.clone())
+    }
+
+    async fn begin_retention(
+        &mut self,
+        index_id: IndexId,
+    ) -> anyhow::Result<(Timestamp, TabletIndexName, IndexedFields)> {
+        let mut tx = self.database.begin(Identity::system()).await?;
+        let index_table_id = tx.bootstrap_tables().index_id;
+
+        let (index_doc, index_ts) = tx
+            .get_with_ts(ResolvedDocumentId::new(index_table_id, index_id))
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Index {index_id:?} no longer exists"))?;
+        let index_metadata = TabletIndexMetadata::from_document(index_doc)?;
+
+        // Assuming that the IndexWorker is the only writer of index state, we expect
+        // the state to still be `Backfilling` here. If this assertion fails, we
+        // somehow raced with another `IndexWorker`(!) or don't actually have the
+        // database lease (!).
+        let indexed_fields = match &index_metadata.config {
+            IndexConfig::Database {
+                on_disk_state,
+                developer_config,
+            } => {
+                anyhow::ensure!(
+                    matches!(*on_disk_state, DatabaseIndexState::Backfilling(_)),
+                    "IndexWorker started backfilling index {index_metadata:?} not in Backfilling \
+                     state",
+                );
+                developer_config.fields.clone()
+            },
+            _ => anyhow::bail!(
+                "IndexWorker attempted to backfill an index {index_metadata:?} which wasn't a \
+                 database index."
+            ),
+        };
+        drop(tx);
+        let WriteTimestamp::Committed(index_ts) = index_ts else {
+            anyhow::bail!("index {index_id} is pending write");
+        };
+        Ok((index_ts, index_metadata.name.clone(), indexed_fields))
     }
 
     async fn finish_backfill(&mut self, index_id: IndexId) -> anyhow::Result<()> {
@@ -793,6 +847,31 @@ impl<RT: Runtime> IndexWriter<RT> {
                     last_logged = self.runtime.system_time();
                 }
             }
+        }
+        Ok(())
+    }
+
+    async fn run_retention(
+        &self,
+        index_id: IndexId,
+        backfill_begin_ts: Timestamp,
+        index_name: TabletIndexName,
+        indexed_fields: IndexedFields,
+    ) -> anyhow::Result<()> {
+        let min_snapshot_ts = self.retention_validator.min_snapshot_ts().await?;
+        let all_indexes = btreemap! { index_id => (index_name, indexed_fields) };
+        // TODO(lee) add checkpointing.
+        let mut cursor_ts = backfill_begin_ts;
+        while cursor_ts.succ()? < min_snapshot_ts {
+            (cursor_ts, _) = LeaderRetentionManager::delete(
+                min_snapshot_ts,
+                self.persistence.clone(),
+                &self.runtime,
+                backfill_begin_ts,
+                &all_indexes,
+                self.retention_validator.clone(),
+            )
+            .await?;
         }
         Ok(())
     }
