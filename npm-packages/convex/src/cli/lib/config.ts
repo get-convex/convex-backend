@@ -32,7 +32,11 @@ import {
 } from "./utils.js";
 import { getTargetDeploymentName } from "./deployment.js";
 import { createHash } from "crypto";
+import { promisify } from "util";
+import zlib from "zlib";
 export { productionProvisionHost, provisionHost } from "./utils.js";
+
+const brotli = promisify(zlib.brotliCompress);
 
 /** Type representing auth configuration. */
 export interface AuthInfo {
@@ -671,10 +675,16 @@ export async function pushConfig(
       changeSpinner(ctx, "Analyzing and deploying source code...");
     }
     await fetch("/api/push_config", {
-      body: JSON.stringify(serializedConfig),
+      body: await brotli(JSON.stringify(serializedConfig), {
+        params: {
+          [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
+          [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
+        },
+      }),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Content-Encoding": "br",
         "Convex-Client": `npm-cli-${version}`,
       },
     });
