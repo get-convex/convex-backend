@@ -753,9 +753,9 @@ pub static MIN_COMPACTION_SEGMENTS: LazyLock<usize> =
 pub static MAX_SEGMENT_DELETED_PERCENTAGE: LazyLock<f64> =
     LazyLock::new(|| env_config("MAX_SEGMENT_DELETED_PERCENTAGE", 0.2));
 
-/// Defines the fraction of UDF requests to send to Funrun vs
-/// InProcessFunctionRunner in backend.
-pub static UDF_USE_FUNRUN: LazyLock<f64> = LazyLock::new(|| env_config("UDF_USE_FUNRUN", 0.));
+/// Whether to run queries, mutations, and v8 actions in Funrun (true) or
+/// InProcessFunctionRunner (false).
+pub static UDF_USE_FUNRUN: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE_FUNRUN", true));
 
 /// The amount of time to wait for the primary request to finish before starting
 /// a second backup request when running a vector search.
