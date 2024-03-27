@@ -24,7 +24,10 @@ use async_trait::async_trait;
 use common::{
     backoff::Backoff,
     bootstrap_model::index::{
-        database_index::IndexedFields,
+        database_index::{
+            DatabaseIndexState,
+            IndexedFields,
+        },
         IndexConfig,
         IndexMetadata,
     },
@@ -854,11 +857,22 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let index: ParsedDocument<IndexMetadata<TableId>> = doc.try_into()?;
         let index = index.into_value();
         let IndexConfig::Database {
-            developer_config, ..
+            developer_config,
+            on_disk_state,
         } = index.config
         else {
             return Ok(());
         };
+
+        // Don't run retention for indexes that are currently backfilling. This
+        // is important for correctness since IndexBackfilling and retention
+        // interact poorly. NOTE that accumulate only adds indexes. Thus we won't
+        // stop running retention if index is deleted or goes from Enabled to
+        // Backfilling.
+        if let DatabaseIndexState::Backfilling { .. } = on_disk_state {
+            return Ok(());
+        }
+
         all_indexes.insert(index_id, (index.name, developer_config.fields));
         Ok(())
     }
