@@ -18,7 +18,6 @@
  */
 export { BaseConvexClient } from "./sync/client.js";
 export type {
-  ClientOptions,
   BaseConvexClientOptions,
   MutationOptions,
   SubscribeOptions,

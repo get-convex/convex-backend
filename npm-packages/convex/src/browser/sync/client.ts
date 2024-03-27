@@ -42,15 +42,6 @@ import { ConvexError } from "../../values/errors.js";
 /**
  * Options for {@link BaseConvexClient}.
  *
- * @deprecated Use ConvexReactClientOptions, ConvexClientOptions, or BaseConvexClientOptions.
- *
- * @public
- */
-export interface ClientOptions extends BaseConvexClientOptions {}
-
-/**
- * Options for {@link BaseConvexClient}.
- *
  * @public
  */
 export interface BaseConvexClientOptions {
@@ -678,12 +669,6 @@ export class BaseConvexClient {
   async close(): Promise<void> {
     this.authenticationManager.stop();
     return this.webSocketManager.stop();
-  }
-
-  private _logVerbose(message: string) {
-    if (this.verbose) {
-      console.debug(`${new Date().toISOString()} ${message}`);
-    }
   }
 
   // Instance property so that `mark()` doesn't need to be called as a method.

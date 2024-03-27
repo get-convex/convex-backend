@@ -57,18 +57,6 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
 }
 
 /**
- * If you're using code generation, use the `MutationCtx` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
- *
- * If you need an unparameterized MutationCtx use GenericMutationCtx.
- *
- * @public
- * @deprecated
- */
-export interface MutationCtx<DataModel extends GenericDataModel>
-  extends GenericMutationCtx<DataModel> {}
-
-/**
  * A set of services for use within Convex query functions.
  *
  * The query context is passed as the first argument to any Convex query
@@ -96,18 +84,6 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
    */
   storage: StorageReader;
 }
-
-/**
- * If you're using code generation, use the `QueryCtx` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
- *
- * If you need an unparameterized QueryCtx use GenericQueryCtx.
- *
- * @public
- * @deprecated
- */
-export interface QueryCtx<DataModel extends GenericDataModel>
-  extends GenericQueryCtx<DataModel> {}
 
 /**
  * A set of services for use within Convex action functions.
@@ -204,19 +180,6 @@ export interface GenericActionCtx<DataModel extends GenericDataModel> {
     >,
   ): Promise<Array<{ _id: Id<TableName>; _score: number }>>;
 }
-
-/**
- * If you're using code generation, use the `ActionCtx` type in
- * `convex/_generated/server.d.ts` which is typed for your data model.
- *
- * If you need an unparameterized ActionCtx use GenericActionCtx.
- *
- * @public
- * @deprecated
- */
-export interface ActionCtx<
-  DataModel extends GenericDataModel = GenericDataModel,
-> extends GenericActionCtx<DataModel> {}
 
 /**
  * The default arguments type for a Convex query, mutation, or action function.

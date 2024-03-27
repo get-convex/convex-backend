@@ -101,7 +101,6 @@ export * from "./pagination.js";
 export type { OrderedQuery, Query, QueryInitializer } from "./query.js";
 export type {
   ActionBuilder,
-  ActionCtx,
   ArgsArray,
   DefaultFunctionArgs,
   HttpActionBuilder,
@@ -111,12 +110,10 @@ export type {
   GenericQueryCtx,
   MutationBuilder,
   PublicHttpAction,
-  MutationCtx,
   RegisteredAction,
   RegisteredMutation,
   RegisteredQuery,
   QueryBuilder,
-  QueryCtx,
   UnvalidatedFunction,
   ValidatedFunction,
 } from "./registration.js";
