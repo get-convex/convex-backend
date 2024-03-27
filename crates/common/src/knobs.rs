@@ -805,9 +805,17 @@ pub static FUNRUN_FETCH_CLIENT_CACHE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_FETCH_CLIENT_CACHE_SIZE", 100));
 
 /// The maximum number of concurrent requests a single client can make to a
-/// single Funrun server. 25% out of the v8 limit of 128 threads is 32.
+/// single Funrun server.
+/// NOTE: When changing this value, ensure that the following parameters
+/// for pro satisfy this inequality. This makes sure that if one funrun instance
+/// is down, we still have enough capacity to satisfy requests if a backend is
+/// maxing out its concurrent function call limits.
+///
+/// max_concurrent_queries +
+/// max_concurrent_mutations + max_concurrent_v8_actions < (number of funrun
+/// nodes - 1) * FUNRUN_CLIENT_MAX_CONCURRENT_REQUESTS_PER_UPSTREAM
 pub static FUNRUN_CLIENT_MAX_REQUESTS_PER_UPSTREAM: LazyLock<usize> =
-    LazyLock::new(|| env_config("FUNRUN_CLIENT_MAX_REQUESTS_PER_UPSTREAM", 32));
+    LazyLock::new(|| env_config("FUNRUN_CLIENT_MAX_REQUESTS_PER_UPSTREAM", 25));
 
 /// The maximum number of retries a Funrun client will perform. The client only
 /// retries overloaded errors.
