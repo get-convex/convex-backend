@@ -1280,13 +1280,15 @@ impl<RT: Runtime> Database<RT> {
                 let start = Instant::now();
                 let result = async {
                     let t = f(&mut tx).0.await?;
+                    let func_end_time = Instant::now();
                     let ts = self
                         .commit_with_write_source(tx, write_source.clone())
                         .await?;
-                    Ok((ts, t))
+                    let commit_end_time = Instant::now();
+                    Ok((ts, t, func_end_time, commit_end_time))
                 }
                 .await;
-                let duration = Instant::now() - start;
+                let total_duration = Instant::now() - start;
                 match result {
                     Err(e) => {
                         if is_retriable(&e) {
@@ -1299,13 +1301,15 @@ impl<RT: Runtime> Database<RT> {
                             return Err(e);
                         }
                     },
-                    Ok((ts, t)) => {
+                    Ok((ts, t, func_end_time, commit_end_time)) => {
                         return Ok((
                             ts,
                             t,
                             OccRetryStats {
                                 retries: backoff.failures(),
-                                duration,
+                                total_duration,
+                                duration: func_end_time - start,
+                                commit_duration: commit_end_time - func_end_time,
                             },
                         ))
                     },
@@ -1897,8 +1901,10 @@ pub struct OccRetryStats {
     /// Number of times the transaction was retried. 0 for a transaction that
     /// succeeded the first time.
     pub retries: u32,
-    /// The duration of the successful transaction
+    /// The duration of the successful transaction, not including commit
     pub duration: Duration,
+    pub commit_duration: Duration,
+    pub total_duration: Duration,
 }
 
 /// The read that conflicted as part of an OCC

@@ -1,4 +1,10 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    time::{
+        Duration,
+        Instant,
+    },
+};
 
 use anyhow::{
     anyhow,
@@ -95,7 +101,7 @@ pub struct GetConfigHashesResponse {
 
 #[derive(Deserialize, Debug, Copy, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PushMetrics {
+pub struct ClientPushMetrics {
     pub typecheck: f64,
     pub bundle: f64,
     pub schema_push: f64,
@@ -137,7 +143,7 @@ pub struct ConfigJson {
     // Used in CLI >= 0.14.0, None when there is no schema file.
     pub schema_id: Option<String>,
     // Used in CLI >= future
-    pub push_metrics: Option<PushMetrics>,
+    pub push_metrics: Option<ClientPushMetrics>,
     // Use for external node dependencies
     // TODO: add what version of CLI this is used for
     pub node_dependencies: Option<Vec<NodeDependencyJson>>,
@@ -281,6 +287,12 @@ pub struct PushAnalytics {
     pub udf_server_version: Version,
     pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
     pub schema: Option<DatabaseSchema>,
+}
+
+pub struct PushMetrics {
+    pub build_external_deps_time: Duration,
+    pub upload_source_package_time: Duration,
+    pub analyze_time: Duration,
     pub occ_stats: OccRetryStats,
 }
 
@@ -351,7 +363,7 @@ pub async fn push_config(
 pub async fn push_config_handler(
     application: &Application<ProdRuntime>,
     config: ConfigJson,
-) -> anyhow::Result<(Identity, PushAnalytics)> {
+) -> anyhow::Result<(Identity, PushAnalytics, PushMetrics)> {
     let modules: Vec<ModuleConfig> = config
         .modules
         .into_iter()
@@ -366,6 +378,7 @@ pub async fn push_config_handler(
         ErrorMetadata::bad_request("InvalidVersion", "The function version is invalid"),
     )?;
 
+    let begin_build_external_deps = Instant::now();
     // Upload external node dependencies separately
     let external_deps_id_and_pkg = if let Some(deps) = config.node_dependencies
         && !deps.is_empty()
@@ -375,6 +388,7 @@ pub async fn push_config_handler(
     } else {
         None
     };
+    let end_build_external_deps = Instant::now();
     let external_deps_pkg_size = external_deps_id_and_pkg
         .as_ref()
         .map(|(_, pkg)| pkg.package_size)
@@ -383,7 +397,7 @@ pub async fn push_config_handler(
     let source_package = application
         .upload_package(&modules, external_deps_id_and_pkg)
         .await?;
-
+    let end_upload_source_package = Instant::now();
     // Verify that we have not exceeded the max zipped or unzipped file size
     let combined_pkg_size = source_package
         .as_ref()
@@ -398,7 +412,7 @@ pub async fn push_config_handler(
         import_phase_rng_seed: application.runtime().with_rng(|rng| rng.gen()),
         import_phase_unix_timestamp: application.runtime().unix_timestamp(),
     };
-
+    let begin_analyze = Instant::now();
     // Run analyze to make sure the new modules are valid.
     let (auth_module, analyze_result) = analyze_modules_with_auth_config(
         application,
@@ -407,6 +421,7 @@ pub async fn push_config_handler(
         source_package.clone(),
     )
     .await?;
+    let end_analyze = Instant::now();
     let (
         ConfigMetadataAndSchema {
             config_metadata,
@@ -436,6 +451,11 @@ pub async fn push_config_handler(
             udf_server_version: udf_config.server_version,
             analyze_results: analyze_result,
             schema,
+        },
+        PushMetrics {
+            build_external_deps_time: end_build_external_deps - begin_build_external_deps,
+            upload_source_package_time: end_upload_source_package - end_build_external_deps,
+            analyze_time: end_analyze - begin_analyze,
             occ_stats,
         },
     ))
