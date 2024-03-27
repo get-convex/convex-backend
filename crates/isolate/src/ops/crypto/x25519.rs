@@ -9,13 +9,21 @@ use elliptic_curve::pkcs8::PrivateKeyInfo;
 use p256::pkcs8::der::Decode as _;
 use spki::{
     der::{
+        asn1::BitString,
         AnyRef,
         Decode,
+        Encode,
     },
     SubjectPublicKeyInfo,
 };
 
-use super::CryptoOps;
+use super::{
+    shared::{
+        custom_error,
+        AnyError,
+    },
+    CryptoOps,
+};
 
 // id-X25519 OBJECT IDENTIFIER ::= { 1 3 101 110 }
 pub const X25519_OID: const_oid::ObjectIdentifier =
@@ -63,5 +71,37 @@ impl CryptoOps {
             return None;
         }
         Some(pk_info.private_key[2..].to_vec().into())
+    }
+
+    pub fn export_spki_x25519(pubkey: &[u8]) -> Result<ToJsBuffer, AnyError> {
+        let key_info = spki::SubjectPublicKeyInfo {
+            algorithm: spki::AlgorithmIdentifierRef {
+                // id-X25519
+                oid: X25519_OID,
+                parameters: None,
+            },
+            subject_public_key: BitString::from_bytes(pubkey)?,
+        };
+        Ok(key_info
+            .to_der()
+            .map_err(|_| custom_error("DOMExceptionOperationError", "Failed to export key"))?
+            .into())
+    }
+
+    pub fn export_pkcs8_x25519(pkey: &[u8]) -> Result<ToJsBuffer, AnyError> {
+        // This should probably use OneAsymmetricKey instead
+        let pk_info = rsa::pkcs8::PrivateKeyInfo {
+            public_key: None,
+            algorithm: rsa::pkcs8::AlgorithmIdentifierRef {
+                // id-X25519
+                oid: X25519_OID,
+                parameters: None,
+            },
+            private_key: pkey, // OCTET STRING
+        };
+
+        let mut buf = Vec::new();
+        pk_info.encode_to_vec(&mut buf)?;
+        Ok(buf.into())
     }
 }

@@ -2,6 +2,7 @@
 // https://github.com/denoland/deno/blob/main/ext/crypto/key.rs
 
 mod ed25519;
+mod export_key;
 mod import_key;
 mod shared;
 mod x25519;
@@ -57,6 +58,10 @@ use sha2::{
 use uuid::Uuid;
 
 use self::{
+    export_key::{
+        ExportKeyOptions,
+        ExportKeyResult,
+    },
     import_key::{
         ImportKeyOptions,
         ImportKeyResult,
@@ -66,6 +71,7 @@ use self::{
         secure_rng_unavailable,
         type_error,
         AnyError,
+        V8RawKeyData,
     },
 };
 use crate::{
@@ -202,9 +208,51 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     }
 
     #[convex_macro::v8_op]
+    pub fn op_crypto_base64_url_encode(&mut self, data: JsBuffer) -> anyhow::Result<String> {
+        Ok(base64::encode_config(data, base64::URL_SAFE_NO_PAD))
+    }
+
+    #[convex_macro::v8_op]
     pub fn op_crypto_base64_url_decode(&mut self, data: String) -> anyhow::Result<ToJsBuffer> {
         let data: Vec<u8> = base64::decode_config(data, base64::URL_SAFE_NO_PAD)?;
         Ok(data.into())
+    }
+
+    #[convex_macro::v8_op]
+    pub fn op_crypto_export_key(
+        &mut self,
+        opts: ExportKeyOptions,
+        key_data: V8RawKeyData,
+    ) -> anyhow::Result<ExportKeyResult> {
+        CryptoOps::export_key(opts, key_data)
+    }
+
+    #[convex_macro::v8_op]
+    pub fn op_crypto_export_spki_ed25519(
+        &mut self,
+        pubkey: JsBuffer,
+    ) -> anyhow::Result<ToJsBuffer> {
+        CryptoOps::export_spki_ed25519(&pubkey)
+    }
+
+    #[convex_macro::v8_op]
+    pub fn op_crypto_export_pkcs8_ed25519(&mut self, pkey: JsBuffer) -> anyhow::Result<ToJsBuffer> {
+        CryptoOps::export_pkcs8_ed25519(&pkey)
+    }
+
+    #[convex_macro::v8_op]
+    pub fn op_crypto_jwk_x_ed25519(&mut self, pkey: JsBuffer) -> anyhow::Result<String> {
+        CryptoOps::jwk_x_ed25519(&pkey)
+    }
+
+    #[convex_macro::v8_op]
+    pub fn op_crypto_export_spki_x25519(&mut self, pubkey: JsBuffer) -> anyhow::Result<ToJsBuffer> {
+        CryptoOps::export_spki_x25519(&pubkey)
+    }
+
+    #[convex_macro::v8_op]
+    pub fn op_crypto_export_pkcs8_x25519(&mut self, pkey: JsBuffer) -> anyhow::Result<ToJsBuffer> {
+        CryptoOps::export_pkcs8_x25519(&pkey)
     }
 }
 

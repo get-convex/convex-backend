@@ -67,7 +67,7 @@ async fn test_crypto(rt: TestRuntime) -> anyhow::Result<()> {
     assert_contains(
         &t.query_js_error("js_builtins/crypto:methodNotImplemented", assert_obj!())
             .await?,
-        "Not implemented: exportKey for SubtleCrypto",
+        "Not implemented: generateKey for SubtleCrypto",
     );
 
     Ok(())

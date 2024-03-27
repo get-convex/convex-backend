@@ -8,8 +8,17 @@ use deno_core::{
     JsBuffer,
     ToJsBuffer,
 };
+use elliptic_curve::sec1::ToEncodedPoint;
 use errors::ErrorMetadata;
+use p256::pkcs8::DecodePrivateKey;
 use rand::rngs::OsRng;
+use rsa::{
+    pkcs1::{
+        DecodeRsaPrivateKey,
+        EncodeRsaPublicKey,
+    },
+    RsaPrivateKey,
+};
 use serde::{
     Deserialize,
     Serialize,
@@ -59,6 +68,81 @@ pub enum V8RawKeyData {
     Public(JsBuffer),
 }
 
+impl V8RawKeyData {
+    pub fn as_rsa_public_key(&self) -> Result<Cow<'_, [u8]>, AnyError> {
+        match self {
+            V8RawKeyData::Public(data) => Ok(Cow::Borrowed(data)),
+            V8RawKeyData::Private(data) => {
+                let private_key = RsaPrivateKey::from_pkcs1_der(data)
+                    .map_err(|_| type_error("expected valid private key"))?;
+
+                let public_key_doc = private_key
+                    .to_public_key()
+                    .to_pkcs1_der()
+                    .map_err(|_| type_error("expected valid public key"))?;
+
+                Ok(Cow::Owned(public_key_doc.as_bytes().into()))
+            },
+            _ => Err(type_error("expected public key")),
+        }
+    }
+
+    pub fn as_rsa_private_key(&self) -> Result<&[u8], AnyError> {
+        match self {
+            V8RawKeyData::Private(data) => Ok(data),
+            _ => Err(type_error("expected private key")),
+        }
+    }
+
+    pub fn as_secret_key(&self) -> Result<&[u8], AnyError> {
+        match self {
+            V8RawKeyData::Secret(data) => Ok(data),
+            _ => Err(type_error("expected secret key")),
+        }
+    }
+
+    pub fn as_ec_public_key_p256(&self) -> Result<p256::EncodedPoint, AnyError> {
+        match self {
+            V8RawKeyData::Public(data) => {
+                // public_key is a serialized EncodedPoint
+                p256::EncodedPoint::from_bytes(data)
+                    .map_err(|_| type_error("expected valid public EC key"))
+            },
+            V8RawKeyData::Private(data) => {
+                let signing_key = p256::SecretKey::from_pkcs8_der(data)
+                    .map_err(|_| type_error("expected valid private EC key"))?;
+                Ok(signing_key.public_key().to_encoded_point(false))
+            },
+            // Should never reach here.
+            V8RawKeyData::Secret(_) => unreachable!(),
+        }
+    }
+
+    pub fn as_ec_public_key_p384(&self) -> Result<p384::EncodedPoint, AnyError> {
+        match self {
+            V8RawKeyData::Public(data) => {
+                // public_key is a serialized EncodedPoint
+                p384::EncodedPoint::from_bytes(data)
+                    .map_err(|_| type_error("expected valid public EC key"))
+            },
+            V8RawKeyData::Private(data) => {
+                let signing_key = p384::SecretKey::from_pkcs8_der(data)
+                    .map_err(|_| type_error("expected valid private EC key"))?;
+                Ok(signing_key.public_key().to_encoded_point(false))
+            },
+            // Should never reach here.
+            V8RawKeyData::Secret(_) => unreachable!(),
+        }
+    }
+
+    pub fn as_ec_private_key(&self) -> Result<&[u8], AnyError> {
+        match self {
+            V8RawKeyData::Private(data) => Ok(data),
+            _ => Err(type_error("expected private key")),
+        }
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "lowercase", tag = "type", content = "data")]
 pub enum RustRawKeyData {
@@ -67,30 +151,25 @@ pub enum RustRawKeyData {
     Public(ToJsBuffer),
 }
 
+pub fn custom_error(class: &'static str, msg: impl Into<Cow<'static, str>>) -> AnyError {
+    // TODO(CX-5961) throw as custom class into js.
+    anyhow::anyhow!(ErrorMetadata::bad_request(class, msg))
+}
+
 pub fn data_error(msg: impl Into<Cow<'static, str>>) -> AnyError {
-    // TODO(CX-5961): throw as a DOMExceptionDataError into js.
-    anyhow::anyhow!(ErrorMetadata::bad_request("DOMExceptionDataError", msg))
+    custom_error("DOMExceptionDataError", msg)
 }
 
 pub fn not_supported_error(msg: impl Into<Cow<'static, str>>) -> AnyError {
-    // TODO(CX-5961): throw as a DOMExceptionNotSupportedError into js.
-    anyhow::anyhow!(ErrorMetadata::bad_request(
-        "DOMExceptionNotSupportedError",
-        msg
-    ))
+    custom_error("DOMExceptionNotSupportedError", msg)
 }
 
 pub fn type_error(message: impl Into<Cow<'static, str>>) -> AnyError {
-    // TODO(CX-5961): throw as a TypeError into js.
-    anyhow::anyhow!(ErrorMetadata::bad_request("TypeError", message))
+    custom_error("TypeError", message)
 }
 
 pub fn not_supported() -> AnyError {
-    // TODO(CX-5961): throw as a NotSupported error into js.
-    anyhow::anyhow!(ErrorMetadata::bad_request(
-        "NotSupported",
-        "The operation is not supported"
-    ))
+    custom_error("NotSupported", "The operation is not supported")
 }
 
 pub fn unsupported_format() -> AnyError {

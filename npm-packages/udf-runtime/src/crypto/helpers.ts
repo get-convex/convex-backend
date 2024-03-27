@@ -38,6 +38,13 @@ export function WeakMapPrototypeSet<K extends object, T>(
   set.set(key, item);
 }
 
+export function WeakMapPrototypeGet<K extends object, T>(
+  set: WeakMap<K, T>,
+  key: K,
+): T | undefined {
+  return set.get(key);
+}
+
 export function ArrayPrototypeEvery<T>(
   array: T[],
   predicate: (t: T) => boolean,
@@ -47,4 +54,12 @@ export function ArrayPrototypeEvery<T>(
 
 export function TypedArrayPrototypeGetByteLength(typedArray: Uint8Array) {
   return typedArray.byteLength;
+}
+
+export function TypedArrayPrototypeGetBuffer(typedArray: Uint8Array) {
+  return typedArray.buffer;
+}
+
+export function ObjectAssign(target: object, source: object) {
+  Object.assign(target, source);
 }

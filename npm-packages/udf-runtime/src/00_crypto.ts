@@ -7,7 +7,11 @@ import {
   throwUncatchableDeveloperError,
 } from "./helpers.js";
 import { performOp } from "./syscall.js";
-import { ArrayPrototypeIncludes, copyBuffer } from "./crypto/helpers.js";
+import {
+  ArrayPrototypeIncludes,
+  WeakMapPrototypeGet,
+  copyBuffer,
+} from "./crypto/helpers.js";
 import {
   normalizeAlgorithmDeriveBits,
   normalizeAlgorithmDigest,
@@ -25,6 +29,7 @@ import {
   _usages,
 } from "./crypto/crypto_key.js";
 import * as ImportKey from "./crypto/import_key.js";
+import * as ExportKey from "./crypto/export_key.js";
 import { deriveBits } from "./crypto/derive_bits.js";
 import getKeyLength from "./crypto/get_key_length.js";
 
@@ -353,8 +358,58 @@ class SubtleCrypto {
     }
   }
 
-  async exportKey() {
-    throwNotImplementedMethodError("exportKey", "SubtleCrypto");
+  async exportKey(format: "jwk" | "pkcs8" | "raw" | "spki", key: CryptoKey) {
+    const prefix = "Failed to execute 'exportKey' on 'SubtleCrypto'";
+    requiredArguments(arguments.length, 2, prefix);
+
+    const handle = key[_handle];
+    // 2.
+    const innerKey = WeakMapPrototypeGet(KEY_STORE, handle);
+
+    const algorithmName = key[_algorithm].name;
+
+    let result;
+
+    switch (algorithmName) {
+      case "HMAC": {
+        result = ExportKey.hmac(format, key, innerKey);
+        break;
+      }
+      case "RSASSA-PKCS1-v1_5":
+      case "RSA-PSS":
+      case "RSA-OAEP": {
+        result = ExportKey.rsa(format, key, innerKey);
+        break;
+      }
+      case "ECDH":
+      case "ECDSA": {
+        result = ExportKey.ec(format, key, innerKey);
+        break;
+      }
+      case "Ed25519": {
+        result = ExportKey.ed25519(format, key, innerKey);
+        break;
+      }
+      case "X25519": {
+        result = ExportKey.x25519(format, key, innerKey);
+        break;
+      }
+      case "AES-CTR":
+      case "AES-CBC":
+      case "AES-GCM":
+      case "AES-KW": {
+        result = ExportKey.aes(format, key, innerKey);
+        break;
+      }
+      default:
+        throw new DOMException("Not implemented", "NotSupportedError");
+    }
+
+    if (key.extractable === false) {
+      throw new DOMException("Key is not extractable", "InvalidAccessError");
+    }
+
+    return result;
   }
 
   async deriveBits(

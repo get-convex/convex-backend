@@ -419,12 +419,11 @@ async function subtleCryptoHmacImportExport() {
   assert.deepEqual(actual1, expected.buffer);
   assert.deepEqual(actual2, expected.buffer);
 
-  // TODO: CX-4407
-  // const exportedKey1 = await crypto.subtle.exportKey("raw", key1);
-  // assertEquals(new Uint8Array(exportedKey1), rawKey);
+  const exportedKey1 = await crypto.subtle.exportKey("raw", key1);
+  assert.deepEqual(new Uint8Array(exportedKey1), rawKey);
 
-  // const exportedKey2 = await crypto.subtle.exportKey("jwk", key2);
-  // assertEquals(exportedKey2, jwk);
+  const exportedKey2 = await crypto.subtle.exportKey("jwk", key2);
+  assert.deepEqual(exportedKey2, jwk);
 }
 
 // 2048-bits publicExponent=65537
@@ -1438,13 +1437,11 @@ async function testAesGcmEncrypt() {
   // }
 }
 
-// WARNING: doesn't actually test round trip because exportKey isn't implemented.
-// It currently just tests that importKey works.
 async function roundTripSecretJwk(
   jwk: JsonWebKey,
   algId: AlgorithmIdentifier | HmacImportParams,
   ops: KeyUsage[],
-  _validateKeys: (
+  validateKeys: (
     key: CryptoKey,
     originalJwk: JsonWebKey,
     exportedJwk: JsonWebKey,
@@ -1455,9 +1452,9 @@ async function roundTripSecretJwk(
   assert(key instanceof CryptoKey);
   assert.strictEqual(key.type, "secret");
 
-  // const exportedKey = await crypto.subtle.exportKey("jwk", key);
+  const exportedKey = await crypto.subtle.exportKey("jwk", key);
 
-  // validateKeys(key, jwk, exportedKey);
+  validateKeys(key, jwk, exportedKey);
 }
 
 async function testSecretJwkBase64Url() {
@@ -1921,20 +1918,14 @@ async function testDigest() {
 
 export const methodNotImplemented = query({
   handler: async () => {
-    const subtle = crypto.subtle;
-
-    const key = new Uint8Array([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
-    ]);
-    const cryptoKey = await subtle.importKey(
-      "raw",
-      key.buffer,
-      { name: "HMAC", hash: { name: "SHA-256" } },
-      false,
+    await crypto.subtle.generateKey(
+      {
+        name: "HMAC",
+        hash: "SHA-512",
+      },
+      true,
       ["sign"],
     );
-
-    await subtle.exportKey("jwk", cryptoKey);
   },
 });
 
