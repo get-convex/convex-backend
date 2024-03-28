@@ -65,7 +65,7 @@ pub struct FutureHandle {
 }
 
 impl SpawnHandle for FutureHandle {
-    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>> + Send>>;
 
     fn shutdown(&mut self) {
         self.handle.abort();
@@ -83,7 +83,7 @@ pub struct ThreadHandle {
 }
 
 impl SpawnHandle for ThreadHandle {
-    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>> + Send>>;
 
     fn shutdown(&mut self) {
         if let Some(cancel) = self.cancel.take() {

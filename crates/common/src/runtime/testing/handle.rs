@@ -62,7 +62,7 @@ impl TestFutureHandle {
 }
 
 impl SpawnHandle for TestFutureHandle {
-    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>> + Send>>;
 
     fn shutdown(&mut self) {
         // Per the documentation of RemoteHandle, execution of the future stops
@@ -202,7 +202,7 @@ impl Future for InternalThreadHandle {
 }
 
 impl SpawnHandle for TestThreadHandle {
-    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>> + Send>>;
 
     fn shutdown(&mut self) {
         self.command_tx

@@ -74,7 +74,7 @@ impl From<tokio::task::JoinError> for JoinError {
 }
 
 pub trait SpawnHandle: Send + Sync {
-    type Future: Future<Output = Result<(), JoinError>>;
+    type Future: Future<Output = Result<(), JoinError>> + Send;
     fn shutdown(&mut self);
     fn into_join_future(self) -> Self::Future;
 }
