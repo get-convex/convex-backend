@@ -12,8 +12,9 @@ use crate::{
 };
 
 // This TableMapping contains the mapping between TableNames and
-// TableIdAndTableNumber. This only includes active tables (i.e. not deleted
-// tables).
+// TableIdAndTableNumber. This only includes active tables and hidden tables
+// (i.e. not deleted tables).
+// Use is_active to determine if a table is active.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TableMapping {
     /// Maps from tablet to number and name exist for all tablets.
@@ -37,6 +38,15 @@ impl TableMapping {
     pub fn iter(&self) -> impl Iterator<Item = (TableId, TableNumber, &TableName)> {
         self.table_id_to_number_and_name
             .iter()
+            .map(|(table_id, (table_number, table_name))| (*table_id, *table_number, table_name))
+    }
+
+    pub fn iter_active_user_tables(
+        &self,
+    ) -> impl Iterator<Item = (TableId, TableNumber, &TableName)> {
+        self.table_id_to_number_and_name
+            .iter()
+            .filter(|(tablet_id, (_, name))| !name.is_system() && self.is_active(**tablet_id))
             .map(|(table_id, (table_number, table_name))| (*table_id, *table_number, table_name))
     }
 
@@ -174,6 +184,16 @@ impl TableMapping {
             Some((_, t)) => t.is_system(),
             None => false,
         }
+    }
+
+    pub fn is_active(&self, tablet_id: TableId) -> bool {
+        let Some((table_number, _)) = self.table_id_to_number_and_name.get(&tablet_id) else {
+            return false;
+        };
+        let Some(active_tablet_id) = self.table_number_to_canonical_id.get(table_number) else {
+            return false;
+        };
+        tablet_id == *active_tablet_id
     }
 
     pub fn number_matches_name(&self, table_number: TableNumber, name: &TableName) -> bool {

@@ -841,10 +841,12 @@ impl IndexCategory {
     ) -> bool {
         let is_system = index.name.descriptor().is_reserved()
             || table_mapping.is_system_table_id(*index.name.table());
-        match self {
-            Self::System => is_system,
-            Self::Application => !is_system,
-        }
+        let is_active = table_mapping.is_active(*index.name.table());
+        is_active
+            && match self {
+                Self::System => is_system,
+                Self::Application => !is_system,
+            }
     }
 }
 

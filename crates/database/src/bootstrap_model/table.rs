@@ -158,11 +158,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     }
 
     pub fn count_user_tables(&mut self) -> usize {
-        self.tx
-            .table_mapping()
-            .iter()
-            .filter(|(_, _, name)| !name.is_system())
-            .count()
+        self.tx.table_mapping().iter_active_user_tables().count()
     }
 
     pub async fn delete_table(&mut self, table_name: TableName) -> anyhow::Result<()> {
