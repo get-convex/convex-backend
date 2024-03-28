@@ -51,7 +51,7 @@ use runtime::testing::TestRuntime;
 use crate::{
     config::index_test_utils::{
         apply_config,
-        assert_root_cause,
+        assert_root_cause_contains,
         backfill_indexes,
         db_schema_with_indexes,
         deploy_schema,
@@ -628,10 +628,9 @@ async fn apply_config_with_backfilling_database_index_throws(
 
     // The CLI should have waited until the index was backfilled before trying to
     // commit the schema.
-    assert_root_cause(
+    assert_root_cause_contains(
         result,
-        "Expected backfilled index, but found: Backfilling(DatabaseIndexBackfillState) for \
-         \"index\"",
+        "Expected backfilled index, but found: Backfilling(DatabaseIndexBackfillState",
     );
 
     Ok(())
@@ -649,7 +648,7 @@ async fn apply_config_with_backfilling_search_index_throws(rt: TestRuntime) -> a
 
     // The CLI should have waited until the index was backfilled before trying to
     // commit the schema.
-    assert_root_cause(
+    assert_root_cause_contains(
         result,
         "Expected backfilled index, but found: Backfilling for \"index\"",
     );
@@ -689,7 +688,7 @@ async fn apply_config_with_index_not_present_in_schema_drops_index(
 
         let mut tx = db.begin_system().await?;
         let index_result = get_recent_index_metadata(&mut tx, TABLE_NAME, INDEX_NAME);
-        assert_root_cause(
+        assert_root_cause_contains(
             index_result,
             &format!("Missing index: {TABLE_NAME}.{INDEX_NAME}"),
         );
@@ -717,7 +716,7 @@ async fn apply_config_with_partially_committed_index_not_present_in_schema_drops
 
         let mut tx = db.begin_system().await?;
         let index_result = get_recent_index_metadata(&mut tx, TABLE_NAME, INDEX_NAME);
-        assert_root_cause(
+        assert_root_cause_contains(
             index_result,
             &format!("Missing index: {TABLE_NAME}.{INDEX_NAME}"),
         );
@@ -854,7 +853,7 @@ async fn apply_config_with_existing_index_and_removed_schema_drops_index(
 
         let mut tx = db.begin_system().await?;
         let index_result = get_recent_index_metadata(&mut tx, TABLE_NAME, INDEX_NAME);
-        assert_root_cause(
+        assert_root_cause_contains(
             index_result,
             &format!("Missing index: {TABLE_NAME}.{INDEX_NAME}"),
         );

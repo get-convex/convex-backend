@@ -864,13 +864,15 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             return Ok(());
         };
 
-        // Don't run retention for indexes that are currently backfilling. This
-        // is important for correctness since IndexBackfilling and retention
-        // interact poorly. NOTE that accumulate only adds indexes. Thus we won't
-        // stop running retention if index is deleted or goes from Enabled to
-        // Backfilling.
-        if let DatabaseIndexState::Backfilling { .. } = on_disk_state {
-            return Ok(());
+        // Don't run retention for indexes that are still backfilling unless IndexWorker
+        // has explicitly opted-in to running retention. This is important for
+        // correctness since index backfill and retention interact poorly.
+        // NOTE: accumulate only adds indexes. Thus we won't stop running
+        // retention if index is deleted or changes from Enabled to Backfilling.
+        if let DatabaseIndexState::Backfilling(state) = on_disk_state {
+            if !state.retention_started {
+                return Ok(());
+            }
         }
 
         all_indexes.insert(index_id, (index.name, developer_config.fields));

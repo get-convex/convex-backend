@@ -36,6 +36,7 @@ use crate::{
 
 async fn add_index<RT: Runtime, P: Persistence + Clone>(t: &UdfTest<RT, P>) -> anyhow::Result<()> {
     t.add_index(IndexMetadata::new_backfilling(
+        *t.database.now_ts_for_reads(),
         "myTable.by_a_b".parse()?,
         IndexedFields::try_from(vec!["a".parse()?, "b".parse()?])?,
     ))
@@ -739,6 +740,7 @@ async fn test_query_journal_start_to_end(rt: TestRuntime) -> anyhow::Result<()> 
 async fn test_query_journal_middle_to_middle(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     t.add_index(IndexMetadata::new_backfilling(
+        *t.database.now_ts_for_reads(),
         "test.by_hello".parse()?,
         IndexedFields::try_from(vec!["hello".parse()?])?,
     ))

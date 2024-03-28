@@ -4,6 +4,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use sync_types::Timestamp;
 use value::{
     codegen_convex_serialization,
     ConvexValue,
@@ -61,12 +62,19 @@ pub struct IndexMetadata<T: TableIdentifier> {
 }
 
 impl<T: TableIdentifier> IndexMetadata<T> {
-    pub fn new_backfilling(name: GenericIndexName<T>, fields: IndexedFields) -> Self {
+    pub fn new_backfilling(
+        index_created_lower_bound: Timestamp,
+        name: GenericIndexName<T>,
+        fields: IndexedFields,
+    ) -> Self {
         Self {
             name,
             config: IndexConfig::Database {
                 developer_config: DeveloperDatabaseIndexConfig { fields },
-                on_disk_state: DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {}),
+                on_disk_state: DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {
+                    index_created_lower_bound: Some(index_created_lower_bound),
+                    retention_started: false,
+                }),
             },
         }
     }

@@ -122,6 +122,7 @@ async fn test_read_many_documents(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_reads_too_many(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     t.add_index(IndexMetadata::new_backfilling(
+        *t.database.now_ts_for_reads(),
         "test.by_hello".parse()?,
         IndexedFields::try_from(vec!["hello".parse()?])?,
     ))
@@ -138,6 +139,7 @@ async fn test_reads_too_many(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_reads_many(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     t.add_index(IndexMetadata::new_backfilling(
+        *t.database.now_ts_for_reads(),
         "test.by_hello".parse()?,
         IndexedFields::try_from(vec!["hello".parse()?])?,
     ))

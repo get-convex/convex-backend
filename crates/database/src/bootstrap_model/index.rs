@@ -319,6 +319,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             for (index_descriptor, index_schema) in &table_schema.indexes {
                 let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
                 indexes_in_schema.push(IndexMetadata::new_backfilling(
+                    *self.tx.begin_timestamp(),
                     index_name.clone(),
                     index_schema.fields.clone(),
                 ))
@@ -788,11 +789,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             }
             let index_name = TabletIndexName::new(target_table, index.name.descriptor().clone())?;
             let metadata = match index.into_value().config {
-                // Table is empty, so it's okay to create indexes in state Enabled.
                 IndexConfig::Database {
                     developer_config: DeveloperDatabaseIndexConfig { fields },
                     ..
-                } => IndexMetadata::new_backfilling(index_name, fields),
+                } => IndexMetadata::new_backfilling(*self.tx.begin_timestamp(), index_name, fields),
                 IndexConfig::Search {
                     developer_config:
                         DeveloperSearchIndexConfig {

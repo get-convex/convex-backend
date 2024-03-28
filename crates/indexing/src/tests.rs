@@ -38,7 +38,6 @@ use common::{
         GenericIndexName,
         PersistenceVersion,
         TableName,
-        TabletIndexName,
         Timestamp,
     },
 };
@@ -328,15 +327,23 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
     let by_name = GenericIndexName::new(table.table_id, "by_name".parse()?)?;
     let pending = gen_index_document(
         &mut id_generator,
-        IndexMetadata::new_backfilling(by_name.clone(), vec!["name".parse()?].try_into()?),
+        IndexMetadata::new_backfilling(
+            Timestamp::MIN,
+            by_name.clone(),
+            vec!["name".parse()?].try_into()?,
+        ),
     )?;
     let result = index_registry.update(None, Some(&pending));
     assert!(result.is_ok());
     let name_collision = ResolvedDocument::new(
         id_generator.generate(&INDEX_TABLE),
         CreationTime::ONE,
-        IndexMetadata::new_backfilling(by_name.clone(), vec!["other_field".parse()?].try_into()?)
-            .try_into()?,
+        IndexMetadata::new_backfilling(
+            Timestamp::MIN,
+            by_name.clone(),
+            vec!["other_field".parse()?].try_into()?,
+        )
+        .try_into()?,
     )?;
     let result = index_registry.update(None, Some(&name_collision));
     assert!(result.is_err());
@@ -703,13 +710,14 @@ fn new_enabled_doc(
     name: &str,
     fields: Vec<&str>,
 ) -> anyhow::Result<ResolvedDocument> {
-    new_index_doc(
-        id_generator,
-        table_id,
-        name,
-        fields,
-        &IndexMetadata::new_enabled,
-    )
+    let index_name = GenericIndexName::new(table_id, name.parse()?)?;
+    let field_paths = fields
+        .into_iter()
+        .map(|field| field.parse())
+        .collect::<anyhow::Result<Vec<FieldPath>>>()?;
+
+    let metadata = IndexMetadata::new_enabled(index_name, field_paths.try_into()?);
+    gen_index_document(id_generator, metadata)
 }
 
 fn new_pending_doc(
@@ -718,29 +726,14 @@ fn new_pending_doc(
     name: &str,
     fields: Vec<&str>,
 ) -> anyhow::Result<ResolvedDocument> {
-    new_index_doc(
-        id_generator,
-        table_id,
-        name,
-        fields,
-        &IndexMetadata::new_backfilling,
-    )
-}
-
-fn new_index_doc(
-    id_generator: &mut dyn IdGenerator,
-    table_id: TableId,
-    name: &str,
-    fields: Vec<&str>,
-    get_metadata: &dyn Fn(TabletIndexName, IndexedFields) -> TabletIndexMetadata,
-) -> anyhow::Result<ResolvedDocument> {
     let index_name = GenericIndexName::new(table_id, name.parse()?)?;
     let field_paths = fields
         .into_iter()
         .map(|field| field.parse())
         .collect::<anyhow::Result<Vec<FieldPath>>>()?;
 
-    let metadata = get_metadata(index_name, field_paths.try_into()?);
+    let metadata =
+        IndexMetadata::new_backfilling(Timestamp::MIN, index_name, field_paths.try_into()?);
     gen_index_document(id_generator, metadata)
 }
 

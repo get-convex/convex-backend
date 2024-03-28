@@ -67,8 +67,12 @@ impl TryFrom<SerializedDatabaseIndexState> for DatabaseIndexState {
             },
             SerializedDatabaseIndexState::Backfilled2 => DatabaseIndexState::Backfilled,
             SerializedDatabaseIndexState::Enabled => DatabaseIndexState::Enabled,
+            // TODO(Presley): Backfill and delete Disabled state.
             SerializedDatabaseIndexState::Disabled => {
-                DatabaseIndexState::Backfilling(DatabaseIndexBackfillState)
+                DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {
+                    index_created_lower_bound: None,
+                    retention_started: false,
+                })
             },
         })
     }

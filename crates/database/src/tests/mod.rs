@@ -676,8 +676,10 @@ where
     let index_name = IndexName::new(table_name.clone(), "a_and_b".parse()?)?;
 
     let mut tx = database.begin(Identity::system()).await?;
+    let begin_ts = tx.begin_timestamp();
     IndexModel::new(&mut tx)
         .add_application_index(IndexMetadata::new_backfilling(
+            *begin_ts,
             index_name.clone(),
             vec![str::parse("a")?, str::parse("b")?].try_into()?,
         ))
@@ -1466,12 +1468,14 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
     // load once to initialize
     let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
     let mut tx = db.begin(Identity::system()).await?;
+    let begin_ts = tx.begin_timestamp();
 
     // Add the maximum allowed number of indexes.
     for i in 0..MAX_USER_INDEXES {
         let field_name = format!("field_{}", i);
         IndexModel::new(&mut tx)
             .add_application_index(IndexMetadata::new_backfilling(
+                *begin_ts,
                 IndexName::new("table".parse()?, format!("by_{}", field_name).parse()?)?,
                 vec![field_name.parse()?].try_into()?,
             ))
@@ -1481,6 +1485,7 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
     // Try to add one more. Should fail.
     let err = IndexModel::new(&mut tx)
         .add_application_index(IndexMetadata::new_backfilling(
+            *begin_ts,
             IndexName::new("table".parse()?, "by_field_max".parse()?)?,
             vec!["field_max".parse()?].try_into()?,
         ))
@@ -1506,8 +1511,10 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
     )
     .await?;
     let mut tx = db.begin(Identity::system()).await?;
+    let begin_ts = tx.begin_timestamp();
     let err = IndexModel::new(&mut tx)
         .add_application_index(IndexMetadata::new_backfilling(
+            *begin_ts,
             IndexName::new("table".parse()?, "by_field_max".parse()?)?,
             vec!["field_32".parse()?].try_into()?,
         ))
@@ -1590,8 +1597,10 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
 
     let index_name = IndexName::new(table_name, "a_and_b".parse()?)?;
     let mut tx = db.begin_system().await?;
+    let begin_ts = tx.begin_timestamp();
     IndexModel::new(&mut tx)
         .add_application_index(IndexMetadata::new_backfilling(
+            *begin_ts,
             index_name.clone(),
             vec![str::parse("a")?, str::parse("b")?].try_into()?,
         ))

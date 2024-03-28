@@ -347,6 +347,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let index_name = name.parse()?;
         let index = IndexMetadata::new_backfilling(
+            *tx.begin_timestamp(),
             index_name,
             IndexedFields::try_from(vec![field.parse()?])?,
         );

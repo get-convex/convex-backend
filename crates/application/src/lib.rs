@@ -2075,7 +2075,8 @@ impl<RT: Runtime> Application<RT> {
         let mut tx = self.begin(identity.clone()).await?;
         for (index_name, index_fields) in indexes.into_iter() {
             let index_fields = self._validate_user_defined_index_fields(index_fields)?;
-            let index_metadata = IndexMetadata::new_backfilling(index_name, index_fields);
+            let index_metadata =
+                IndexMetadata::new_backfilling(*tx.begin_timestamp(), index_name, index_fields);
             let mut model = IndexModel::new(&mut tx);
             if let Some(existing_index_metadata) = model
                 .pending_index_metadata(&index_metadata.name)?

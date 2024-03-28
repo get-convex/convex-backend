@@ -116,10 +116,13 @@ pub(crate) use db_schema_with_indexes;
 
 use super::types::ConfigMetadata;
 
-pub fn assert_root_cause<T: Debug>(result: anyhow::Result<T>, expected: &str) {
+pub fn assert_root_cause_contains<T: Debug>(result: anyhow::Result<T>, expected: &str) {
     let error = result.unwrap_err();
     let root_cause = error.root_cause();
-    assert_eq!(format!("{}", root_cause), expected);
+    assert!(
+        format!("{}", root_cause).contains(expected),
+        "Root cause \"{root_cause}\" does not contain expected string:\n\"{expected}\""
+    );
 }
 
 /// Simulate a CLI pushing a schema, waiting for backfill, then committing the

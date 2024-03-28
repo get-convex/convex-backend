@@ -328,6 +328,7 @@ mod tests {
         },
     };
     use maplit::btreeset;
+    use sync_types::Timestamp;
     use value::{
         assert_obj,
         ResolvedDocumentId,
@@ -369,6 +370,7 @@ mod tests {
             id_generator.generate(&INDEX_TABLE),
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
+                Timestamp::MIN,
                 TabletIndexName::new(user_table1.table_id, "by_likes".parse()?)?,
                 IndexedFields::by_id(),
             )
@@ -398,6 +400,7 @@ mod tests {
             id_generator.generate(&INDEX_TABLE),
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
+                Timestamp::MIN,
                 TabletIndexName::new(user_table2.table_id, "by_likes".parse()?)?,
                 IndexedFields::by_id(),
             )

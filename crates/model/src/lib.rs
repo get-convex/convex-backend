@@ -267,7 +267,11 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                     index.fields
                 ),
                 None => {
-                    let index_metadata = IndexMetadata::new_backfilling(index.name, index.fields);
+                    let index_metadata = IndexMetadata::new_backfilling(
+                        *tx.begin_timestamp(),
+                        index.name,
+                        index.fields,
+                    );
                     IndexModel::new(tx).add_system_index(index_metadata).await?;
                 },
             }
