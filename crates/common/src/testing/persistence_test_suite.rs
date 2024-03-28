@@ -1643,7 +1643,9 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow
         (id8, 3, 1, true),
     ];
     assert_eq!(
-        reader.previous_revisions(queries).await?,
+        reader
+            .previous_revisions(queries, Arc::new(NoopRetentionValidator))
+            .await?,
         expected
             .into_iter()
             .map(|(id, ts, prev_ts, exists)| (

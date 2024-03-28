@@ -353,6 +353,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
     async fn previous_revisions(
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<
         BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
     >;
@@ -553,7 +554,9 @@ impl RepeatablePersistence {
             // Reading documents <ts, so ts-1 needs to be repeatable.
             anyhow::ensure!(*ts <= self.upper_bound.succ()?);
         }
-        self.reader.previous_revisions(ids).await
+        self.reader
+            .previous_revisions(ids, self.retention_validator.clone())
+            .await
     }
 
     pub fn read_snapshot(&self, at: RepeatableTimestamp) -> anyhow::Result<PersistenceSnapshot> {

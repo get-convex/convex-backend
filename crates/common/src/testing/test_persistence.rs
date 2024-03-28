@@ -278,6 +278,7 @@ impl PersistenceReader for TestPersistence {
     async fn previous_revisions(
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        _retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<
         BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
     > {

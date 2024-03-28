@@ -4,6 +4,7 @@
 #![feature(coroutines)]
 
 use std::{
+    cmp,
     collections::{
         BTreeMap,
         BTreeSet,
@@ -533,36 +534,44 @@ impl PersistenceReader for SqlitePersistence {
     async fn previous_revisions(
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<
         BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
     > {
-        let inner = self.inner.lock();
         let mut out = BTreeMap::new();
-        for (id, ts) in ids {
-            let mut stmt = inner.connection.prepare(PREV_REV_QUERY)?;
-            let internal_id = id.internal_id();
-            let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
-            let mut row_iter = stmt.query_map(params, load_document_row)?;
-            if let Some(row) = row_iter.next() {
-                let (id, prev_ts, table, json_value, deleted) = row?;
-                let id = InternalId::try_from(id)?;
-                let table = TableId(table.try_into()?);
-                let prev_ts = Timestamp::try_from(prev_ts)?;
-                let document_id = table.id(id);
-                let document = if !deleted {
-                    let json_value = json_value.ok_or_else(|| {
-                        anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, prev_ts)
-                    })?;
-                    let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
-                    let value: ConvexValue = json_value.try_into()?;
-                    let document = ResolvedDocument::from_database(table, value)?;
-                    Some(document)
-                } else {
-                    None
-                };
-                out.insert((document_id, ts), (prev_ts, document));
+        let mut min_ts = Timestamp::MAX;
+        {
+            let inner = self.inner.lock();
+            for (id, ts) in ids {
+                let mut stmt = inner.connection.prepare(PREV_REV_QUERY)?;
+                let internal_id = id.internal_id();
+                let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
+                let mut row_iter = stmt.query_map(params, load_document_row)?;
+                if let Some(row) = row_iter.next() {
+                    let (id, prev_ts, table, json_value, deleted) = row?;
+                    let id = InternalId::try_from(id)?;
+                    let table = TableId(table.try_into()?);
+                    let prev_ts = Timestamp::try_from(prev_ts)?;
+                    let document_id = table.id(id);
+                    let document = if !deleted {
+                        let json_value = json_value.ok_or_else(|| {
+                            anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, prev_ts)
+                        })?;
+                        let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
+                        let value: ConvexValue = json_value.try_into()?;
+                        let document = ResolvedDocument::from_database(table, value)?;
+                        Some(document)
+                    } else {
+                        None
+                    };
+                    min_ts = cmp::min(ts, min_ts);
+                    out.insert((document_id, ts), (prev_ts, document));
+                }
             }
         }
+        retention_validator
+            .validate_document_snapshot(min_ts)
+            .await?;
         Ok(out)
     }
 
