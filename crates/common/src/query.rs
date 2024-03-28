@@ -189,13 +189,13 @@ impl IndexRange {
         // NB: `indexed_fields` does not include the implicit `_id` field at the end of
         // every index, so this omission prevents the user from using it in an
         // index expression.
-        let index_rank: BTreeMap<_, _> = indexed_fields[..]
-            .iter()
+        let index_rank: BTreeMap<_, _> = indexed_fields
+            .iter_with_id()
             .enumerate()
             .map(|(i, field_name)| (field_name, i))
             .collect();
         anyhow::ensure!(
-            index_rank.len() == indexed_fields.len(),
+            index_rank.len() == indexed_fields.len() + 1,
             "{index_name} has duplicate fields?"
         );
 
@@ -237,7 +237,7 @@ impl IndexRange {
 
         let query_fields = QueryFields(used_paths.clone());
 
-        let mut fields_iter = indexed_fields.iter();
+        let mut fields_iter = indexed_fields.iter_with_id();
         for field_path in used_paths {
             let matching_field = fields_iter.next().ok_or_else(|| {
                 invalid_index_range(&index_name, &indexed_fields, &query_fields, &field_path)

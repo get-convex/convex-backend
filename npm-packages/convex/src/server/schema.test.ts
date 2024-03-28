@@ -432,11 +432,17 @@ describe("DataModelFromSchemaDefinition", () => {
       | "property1"
       | "property2";
     type ExpectedIndexes = {
-      by_property1: ["property1", "_creationTime"];
-      by_property1_property2: ["property1", "property2", "_creationTime"];
+      by_property1: ["property1", "_creationTime", "_id"];
+      by_property1_property2: [
+        "property1",
+        "property2",
+        "_creationTime",
+        "_id",
+      ];
 
-      // System index
-      by_creation_time: ["_creationTime"];
+      // System indexes
+      by_creation_time: ["_creationTime", "_id"];
+      by_id: ["_id"];
     };
     type ExpectedDataModel = {
       table: {

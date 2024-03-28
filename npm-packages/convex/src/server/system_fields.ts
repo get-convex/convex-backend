@@ -46,16 +46,15 @@ export type WithOptionalSystemFields<Document extends GenericDocument> = Expand<
  * @public
  */
 export type SystemIndexes = {
-  // We have a system index `by_id` but developers should never have a use
-  // for querying it (`db.get(id)` is always simpler).
-  // by_id: ["_id"];
+  // Note `db.get(id)` is simpler and equivalent to a query on `by_id`.
+  // Unless the query is being built dynamically, or doing manual pagination.
+  by_id: ["_id"];
 
-  by_creation_time: ["_creationTime"];
+  by_creation_time: ["_creationTime", "_id"];
 };
 
 /**
- * Convex automatically appends "_creationTime" to the end of every index to
- * break ties if all of the other fields are identical.
+ * Convex automatically appends "_creationTime" and "_id" to the end of every index to break ties if all other fields are identical.
  * @public
  */
-export type IndexTiebreakerField = "_creationTime";
+export type IndexTiebreakerFields = ["_creationTime", "_id"];

@@ -38,7 +38,7 @@ import {
 } from "../server/data_model.js";
 import {
   IdField,
-  IndexTiebreakerField,
+  IndexTiebreakerFields,
   SystemFields,
   SystemIndexes,
 } from "../server/system_fields.js";
@@ -200,7 +200,7 @@ export class TableDefinition<
       Indexes &
         Record<
           IndexName,
-          [FirstFieldPath, ...RestFieldPaths, IndexTiebreakerField]
+          [FirstFieldPath, ...RestFieldPaths, ...IndexTiebreakerFields]
         >
     >,
     SearchIndexes,
