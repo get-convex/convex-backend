@@ -81,10 +81,18 @@ function createAuthHeader(adminKey: string): string {
 
 type UdfType = "Query" | "Mutation" | "Action" | "HttpAction";
 
+type StructuredLogLine = {
+  messages: string[];
+  level: "LOG" | "DEBUG" | "INFO" | "WARN" | "ERROR";
+  timestamp: number;
+  isTruncated: boolean;
+};
+type LogLine = string | StructuredLogLine;
+
 type UdfExecutionResponse = {
   identifier: string;
   udfType: UdfType;
-  logLines: string[];
+  logLines: LogLine[];
   // Unix timestamp (in seconds)
   timestamp: number;
   // UDF execution duration (in seconds)
@@ -187,34 +195,49 @@ function logToTerminal(
   timestamp: number,
   udfType: UdfType,
   udfPath: string,
-  message: string,
+  message: LogLine,
   dest: LogDestination,
 ) {
   const prefix = prefixForSource(udfType);
-  if (type === "info") {
-    const match = message.match(/^\[.*?\] /);
-    if (match === null) {
+  if (typeof message === "string") {
+    if (type === "info") {
+      const match = message.match(/^\[.*?\] /);
+      if (match === null) {
+        logToDestination(
+          ctx,
+          dest,
+          chalk.red(
+            `[CONVEX ${prefix}(${udfPath})] Could not parse console.log`,
+          ),
+        );
+        return;
+      }
+      const level = message.slice(1, match[0].length - 2);
+      const args = message.slice(match[0].length);
+
       logToDestination(
         ctx,
         dest,
-        chalk.red(`[CONVEX ${prefix}(${udfPath})] Could not parse console.log`),
+        chalk.cyan(`${prefixLog(timestamp, udfType, udfPath)} [${level}]`),
+        args,
       );
-      return;
+    } else {
+      logToDestination(
+        ctx,
+        dest,
+        chalk.red(`${prefixLog(timestamp, udfType, udfPath)} ${message}`),
+      );
     }
-    const level = message.slice(1, match[0].length - 2);
-    const args = message.slice(match[0].length);
-
-    logToDestination(
-      ctx,
-      dest,
-      chalk.cyan(`${prefixLog(timestamp, udfType, udfPath)} [${level}]`),
-      args,
-    );
   } else {
+    const level = message.level;
+    const formattedMessage = `${message.messages.join(" ")}${message.isTruncated ? " (truncated due to length)" : ""}`;
     logToDestination(
       ctx,
       dest,
-      chalk.red(`$${prefixLog(timestamp, udfType, udfPath)} ${message}`),
+      chalk.cyan(
+        `${prefixLog(message.timestamp, udfType, udfPath)} [${level}]`,
+      ),
+      formattedMessage,
     );
   }
 }
