@@ -207,6 +207,10 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
   ensure things will work if you wipe your local database and start from
   scratch. We do not provide support for upgrading an existing local-backend to
   a newer version.
+- If you're using both the local backend and the hosted cloud platform, make
+  sure to run `npx convex dev` or `just convex dev` before you start testing
+  your client. The `dev` command will take care of updating your `.env.local`
+  file with the correct `CONVEX_URL`.
 
 ## Repository layout
 
