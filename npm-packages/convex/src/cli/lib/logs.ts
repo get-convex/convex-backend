@@ -90,6 +90,7 @@ type UdfExecutionResponse = {
   // UDF execution duration (in seconds)
   executionTime: number;
   error: string | null;
+  kind: "Completion" | "Progress";
 };
 
 async function pollUdfLog(
@@ -98,7 +99,7 @@ async function pollUdfLog(
   authHeader: string,
 ): Promise<{ entries: UdfExecutionResponse[]; newCursor: number }> {
   const fetch = deploymentFetch(url);
-  const response = await fetch(`/api/stream_udf_execution?cursor=${cursor}`, {
+  const response = await fetch(`/api/stream_function_logs?cursor=${cursor}`, {
     headers: {
       Authorization: authHeader,
       "Convex-Client": `npm-cli-${version}`,
@@ -145,7 +146,7 @@ function processLogs(
           log.error!,
           dest,
         );
-      } else if (shouldShowSuccessLogs) {
+      } else if (log.kind === "Completion" && shouldShowSuccessLogs) {
         logFunctionExecution(
           ctx,
           log.timestamp,

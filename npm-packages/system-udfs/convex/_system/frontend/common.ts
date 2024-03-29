@@ -17,7 +17,8 @@ export type UdfWrite = {
   source: string;
 };
 
-export type UdfExecution = {
+export type FunctionExecutionCompletion = {
+  kind: "Completion";
   identifier: string;
   udfType: UdfType;
   arguments: string[];
@@ -37,7 +38,23 @@ export type UdfExecution = {
   executionTime: number;
 
   requestId: string;
+  executionId: string;
 };
+
+export type FunctionExecutionProgess = {
+  kind: "Progress";
+  identifier: string;
+  udfType: UdfType;
+  // Unix timestamp (in seconds)
+  timestamp: number;
+  logLines: string[];
+  requestId: string;
+  executionId: string;
+};
+
+export type FunctionExecution =
+  | FunctionExecutionCompletion
+  | FunctionExecutionProgess;
 
 export type ResolvedSourcePos = {
   path: string;

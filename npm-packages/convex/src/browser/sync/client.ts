@@ -135,8 +135,8 @@ export class BaseConvexClient {
   private remoteQuerySet: RemoteQuerySet;
   private readonly optimisticQueryResults: OptimisticQueryResults;
   private readonly onTransition: (updatedQueries: QueryToken[]) => void;
-  private nextRequestId: RequestId;
-  private readonly sessionId: string;
+  private _nextRequestId: RequestId;
+  private readonly _sessionId: string;
   private firstMessageReceived = false;
   private readonly verbose: boolean;
   private readonly debug: boolean;
@@ -208,8 +208,8 @@ export class BaseConvexClient {
     });
     this.optimisticQueryResults = new OptimisticQueryResults();
     this.onTransition = onTransition;
-    this.nextRequestId = 0;
-    this.sessionId = newSessionId();
+    this._nextRequestId = 0;
+    this._sessionId = newSessionId();
 
     const { unsavedChangesWarning } = options;
     if (
@@ -247,7 +247,7 @@ export class BaseConvexClient {
         this.webSocketManager.sendMessage({
           ...reconnectMetadata,
           type: "Connect",
-          sessionId: this.sessionId,
+          sessionId: this._sessionId,
           maxObservedTimestamp: this.maxObservedTimestamp,
         });
 
@@ -585,7 +585,7 @@ export class BaseConvexClient {
     const mutationArgs = parseArgs(args);
     this.tryReportLongDisconnect();
     const requestId = this.nextRequestId;
-    this.nextRequestId++;
+    this._nextRequestId++;
 
     if (options !== undefined) {
       const optimisticUpdate = options.optimisticUpdate;
@@ -644,7 +644,7 @@ export class BaseConvexClient {
   ): Promise<FunctionResult> {
     const actionArgs = parseArgs(args);
     const requestId = this.nextRequestId;
-    this.nextRequestId++;
+    this._nextRequestId++;
     this.tryReportLongDisconnect();
 
     const message: ActionRequest = {
@@ -669,6 +669,20 @@ export class BaseConvexClient {
   async close(): Promise<void> {
     this.authenticationManager.stop();
     return this.webSocketManager.stop();
+  }
+
+  /**
+   * @internal
+   */
+  get nextRequestId() {
+    return this._nextRequestId;
+  }
+
+  /**
+   * @internal
+   */
+  get sessionId() {
+    return this._sessionId;
   }
 
   // Instance property so that `mark()` doesn't need to be called as a method.
