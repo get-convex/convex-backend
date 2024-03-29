@@ -99,7 +99,7 @@ pub struct GetConfigHashesResponse {
     pub udf_server_version: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Copy, Clone)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientPushMetrics {
     pub typecheck: f64,
@@ -107,6 +107,23 @@ pub struct ClientPushMetrics {
     pub schema_push: f64,
     pub code_pull: f64,
     pub total_before_push: f64,
+    pub module_diff_stats: Option<ModuleDiffStats>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ModuleDiffStats {
+    updated: ModuleDiffStat,
+    added: ModuleDiffStat,
+    identical: ModuleDiffStat,
+    num_dropped: usize,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ModuleDiffStat {
+    count: usize,
+    size: usize,
 }
 
 #[derive(Deserialize)]

@@ -732,17 +732,15 @@ export type CodegenResponse =
       error: string;
     };
 
-function renderModule(module: Bundle | BundleHash): string {
-  const sourceMapSize = formatSize(
-    "sourceMap" in module ? module.sourceMap?.length ?? 0 : 0,
+function renderModule(module: {
+  path: string;
+  sourceMapSize: number;
+  sourceSize: number;
+}): string {
+  return (
+    module.path +
+    ` (${formatSize(module.sourceSize)}, source map ${module.sourceMapSize})`
   );
-  if ("source" in module) {
-    return (
-      module.path +
-      ` (${formatSize(module.source.length)}, source map ${sourceMapSize})`
-    );
-  }
-  return module.path;
 }
 
 function hash(bundle: Bundle) {
@@ -752,67 +750,129 @@ function hash(bundle: Bundle) {
     .digest("hex");
 }
 
+type ModuleDiffStat = { count: number; size: number };
+export type ModuleDiffStats = {
+  updated: ModuleDiffStat;
+  identical: ModuleDiffStat;
+  added: ModuleDiffStat;
+  numDropped: number;
+};
+
 function compareModules(
   oldModules: BundleHash[],
   newModules: Bundle[],
-): string {
+): {
+  diffString: string;
+  stats: ModuleDiffStats;
+} {
   let diff = "";
-  const droppedModules = [];
-  for (const oldModule of oldModules) {
-    let matches = false;
-    for (const newModule of newModules) {
-      if (
-        oldModule.path === newModule.path &&
-        oldModule.hash === hash(newModule)
-      ) {
-        matches = true;
-        break;
-      }
-    }
-    if (!matches) {
-      droppedModules.push(oldModule);
+  const oldModuleMap = new Map(
+    oldModules.map((value) => [value.path, value.hash]),
+  );
+  const newModuleMap = new Map(
+    newModules.map((value) => [
+      value.path,
+      {
+        hash: hash(value),
+        sourceMapSize: value.sourceMap?.length ?? 0,
+        sourceSize: value.source.length,
+      },
+    ]),
+  );
+  const updatedModules: Array<{
+    path: string;
+    sourceMapSize: number;
+    sourceSize: number;
+  }> = [];
+  const identicalModules: Array<{ path: string; size: number }> = [];
+  const droppedModules: Array<string> = [];
+  const addedModules: Array<{
+    path: string;
+    sourceMapSize: number;
+    sourceSize: number;
+  }> = [];
+  for (const [path, oldHash] of oldModuleMap.entries()) {
+    const newModule = newModuleMap.get(path);
+    if (newModule === undefined) {
+      droppedModules.push();
+    } else if (newModule.hash !== oldHash) {
+      updatedModules.push({
+        path,
+        sourceMapSize: newModule.sourceMapSize,
+        sourceSize: newModule.sourceSize,
+      });
+    } else {
+      identicalModules.push({
+        path,
+        size: newModule.sourceSize + newModule.sourceMapSize,
+      });
     }
   }
-  if (droppedModules.length > 0) {
+  for (const [path, newModule] of newModuleMap.entries()) {
+    if (oldModuleMap.get(path) === undefined) {
+      addedModules.push({
+        path,
+        sourceMapSize: newModule.sourceMapSize,
+        sourceSize: newModule.sourceSize,
+      });
+    }
+  }
+  if (droppedModules.length > 0 || updatedModules.length > 0) {
     diff += "Delete the following modules:\n";
     for (const module of droppedModules) {
-      diff += "[-] " + renderModule(module) + "\n";
+      diff += `[-] ${module}\n`;
+    }
+    for (const module of updatedModules) {
+      diff += `[-] ${module.path}\n`;
     }
   }
 
-  const addedModules = [];
-  for (const newModule of newModules) {
-    let matches = false;
-    for (const oldModule of oldModules) {
-      if (
-        oldModule.path === newModule.path &&
-        oldModule.hash === hash(newModule)
-      ) {
-        matches = true;
-        break;
-      }
-    }
-    if (!matches) {
-      addedModules.push(newModule);
-    }
-  }
-  if (addedModules.length > 0) {
+  if (addedModules.length > 0 || updatedModules.length > 0) {
     diff += "Add the following modules:\n";
     for (const module of addedModules) {
       diff += "[+] " + renderModule(module) + "\n";
     }
+    for (const module of updatedModules) {
+      diff += "[+] " + renderModule(module) + "\n";
+    }
   }
 
-  return diff;
+  return {
+    diffString: diff,
+    stats: {
+      updated: {
+        count: updatedModules.length,
+        size: updatedModules.reduce((acc, curr) => {
+          return acc + curr.sourceMapSize + curr.sourceSize;
+        }, 0),
+      },
+      identical: {
+        count: identicalModules.length,
+        size: identicalModules.reduce((acc, curr) => {
+          return acc + curr.size;
+        }, 0),
+      },
+      added: {
+        count: addedModules.length,
+        size: addedModules.reduce((acc, curr) => {
+          return acc + curr.sourceMapSize + curr.sourceSize;
+        }, 0),
+      },
+      numDropped: droppedModules.length,
+    },
+  };
 }
 
 /** Generate a human-readable diff between the two configs. */
 export function diffConfig(
   oldConfig: ConfigWithModuleHashes,
   newConfig: Config,
-): string {
-  let diff = compareModules(oldConfig.moduleHashes, newConfig.modules);
-
+): { diffString: string; stats: ModuleDiffStats } {
+  const { diffString, stats } = compareModules(
+    oldConfig.moduleHashes,
+    newConfig.modules,
+  );
+  let diff = diffString;
   const droppedAuth = [];
   if (
     oldConfig.projectConfig.authInfo !== undefined &&
@@ -876,5 +936,5 @@ export function diffConfig(
     diff += versionMessage;
   }
 
-  return diff;
+  return { diffString: diff, stats };
 }

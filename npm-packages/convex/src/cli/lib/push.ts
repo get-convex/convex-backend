@@ -83,8 +83,11 @@ export async function runPush(ctx: Context, options: PushOptions) {
   );
 
   changeSpinner(ctx, "Diffing local code and deployment state");
-  const diff = diffConfig(remoteConfigWithModuleHashes, localConfig);
-  if (diff === "" && schemaState?.state === "active") {
+  const { diffString, stats } = diffConfig(
+    remoteConfigWithModuleHashes,
+    localConfig,
+  );
+  if (diffString === "" && schemaState?.state === "active") {
     if (verbose) {
       const msg =
         localConfig.modules.length === 0
@@ -113,7 +116,7 @@ export async function runPush(ctx: Context, options: PushOptions) {
         } be overwritten with the following changes:`,
       ),
     );
-    logMessage(ctx, diff);
+    logMessage(ctx, diffString);
   }
 
   if (options.dryRun) {
@@ -129,6 +132,7 @@ export async function runPush(ctx: Context, options: PushOptions) {
     schemaPush: (timeConfigPullStarts - timeSchemaPushStarts) / 1000,
     codePull: (timePushStarts - timeConfigPullStarts) / 1000,
     totalBeforePush: (timePushStarts - timeRunPushStarts) / 1000,
+    moduleDiffStats: stats,
   };
   await pushConfig(
     ctx,
