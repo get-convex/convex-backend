@@ -519,8 +519,6 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                     "userIdentity": r.user_identity.map(JsonValue::try_from).transpose()?,
                     "environmentVariables": JsonValue::Array(environment_variables),
                     "npmVersion": npm_version.map(|v| v.to_string()),
-                    // TODO(presley): Remove `requestContext` after a backend push.
-                    "requestContext": JsonValue::from(r.context.clone()),
                     "executionContext": JsonValue::from(r.context),
                 })
             },
