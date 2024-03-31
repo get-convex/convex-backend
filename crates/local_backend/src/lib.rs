@@ -88,8 +88,6 @@ pub mod subs;
 mod test_helpers;
 
 pub const MAX_CONCURRENT_REQUESTS: usize = 128;
-// Schema and code bundle pushes must be less than this in 100MB
-pub const MAX_PUSH_BYTES: usize = 100_000_000;
 
 pub struct LocalAppState {
     // Origin for the server (e.g. http://127.0.0.1:3210, https://demo.convex.cloud)

@@ -18,6 +18,7 @@ use common::{
     knobs::{
         MAX_BACKEND_ACTION_CALLBACKS_REQUEST_SIZE,
         MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
+        MAX_PUSH_BYTES,
     },
 };
 use http::{
@@ -109,7 +110,6 @@ use crate::{
         sync_client_version_url,
     },
     LocalAppState,
-    MAX_PUSH_BYTES,
 };
 
 pub async fn router(st: LocalAppState) -> Router {
@@ -142,7 +142,7 @@ pub async fn router(st: LocalAppState) -> Router {
                     StatusCode::INTERNAL_SERVER_ERROR
                 }))
                 .layer(RequestDecompressionLayer::new())
-                .layer(DefaultBodyLimit::max(MAX_PUSH_BYTES)),
+                .layer(DefaultBodyLimit::max(*MAX_PUSH_BYTES)),
         )
         .route("/get_config", post(get_config))
         .route("/get_config_hashes", post(get_config_hashes))
