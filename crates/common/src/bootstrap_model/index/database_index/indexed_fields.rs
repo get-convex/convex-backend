@@ -2,7 +2,6 @@ use std::{
     collections::HashSet,
     convert::TryFrom,
     fmt::Display,
-    iter,
     ops::Deref,
 };
 
@@ -44,10 +43,6 @@ impl IndexedFields {
         let field_path = FieldPath::new(vec![CREATION_TIME_FIELD.to_owned()])
             .expect("Invalid _creationTime field path");
         IndexedFields(vec![field_path].into())
-    }
-
-    pub fn iter_with_id(&self) -> impl Iterator<Item = &FieldPath> {
-        self.iter().chain(iter::once(&*ID_FIELD_PATH))
     }
 }
 

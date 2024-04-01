@@ -22,15 +22,6 @@ export const getObject = query(async ({ db }, { id }: { id: Id<any> }) => {
   return db.get(id);
 });
 
-export const getObjectById = query(
-  async ({ db }, { id }: { id: Id<"objects"> }) => {
-    return db
-      .query("objects")
-      .withIndex("by_id", (q) => q.eq("_id", id))
-      .unique();
-  },
-);
-
 export const insertObject = mutation(async ({ db }, obj) => {
   const id = await db.insert("objects", obj);
   return await db.get(id);

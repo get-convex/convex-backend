@@ -162,11 +162,6 @@ async fn test_insert_and_get(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(id2, id);
     must_let!(let Some(field) = obj.get("field"));
     assert_eq!(field, &value);
-
-    // Get the object by index lookup.
-    must_let!(let ConvexValue::Object(obj) = t.query("basic:getObjectById", assert_obj!("id" => id.clone())).await?);
-    must_let!(let Some(id3) = obj.get("_id"));
-    assert_eq!(id3, id);
     Ok(())
 }
 
