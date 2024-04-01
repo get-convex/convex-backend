@@ -150,5 +150,12 @@ mod tests {
             // Check that decoding never panics on invalid input.
             let _ = decode(&s);
         }
+
+        #[test]
+        fn proptest_base32_order_preserving(left in any::<Vec<u8>>(), right in any::<Vec<u8>>()) {
+            let left_encoded = encode(&left);
+            let right_encoded = encode(&right);
+            assert_eq!(left.cmp(&right), left_encoded.cmp(&right_encoded));
+        }
     }
 }
