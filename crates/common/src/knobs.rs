@@ -617,16 +617,8 @@ pub static APPLICATION_MAX_CONCURRENT_MUTATIONS: LazyLock<usize> =
 /// knob.
 ///
 /// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "APPLICATION_MAX_CONCURRENT_V8_ACTIONS",
-        *APPLICATION_MAX_CONCURRENT_ACTIONS,
-    )
-});
-// TODO(CX-6067): Remove APPLICATION_MAX_CONCURRENT_ACTIONS and merge the
-// default into *_V8_ACTIONS
-static APPLICATION_MAX_CONCURRENT_ACTIONS: LazyLock<usize> =
-    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_ACTIONS", 16));
+pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> =
+    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_V8_ACTIONS", 16));
 
 /// The maximum number of node actions that can be run concurrently by an
 /// application
@@ -637,9 +629,8 @@ static APPLICATION_MAX_CONCURRENT_ACTIONS: LazyLock<usize> =
 /// limit, we'll see 429 error responses for node actions.
 ///
 /// The value here may be overridden by big brain.
-// TODO(CX-6067): Reduce this back down to 16.
 pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> =
-    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_NODE_ACTIONS", 1000));
+    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_NODE_ACTIONS", 16));
 
 /// Number of threads to execute V8 actions.
 ///
@@ -651,15 +642,6 @@ pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> =
 pub static APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
     env_config(
         "APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS",
-        *V8_ACTION_MAX_ISOLATE_EXEC_THREADS,
-    )
-});
-
-// TODO(CX-6067): Remove V8_ACTION_MAX_ISOLATE_EXEC_THREADS and merge the
-// default into *_HTTP_ACTIONS
-static V8_ACTION_MAX_ISOLATE_EXEC_THREADS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "V8_ACTION_MAX_ISOLATE_EXEC_THREADS",
         if cfg!(any(test, feature = "testing")) {
             2
         } else {
