@@ -66,7 +66,11 @@ jobs:
           just rush build
 
       - name: Build backend
-        run: cargo build --release -p local_backend --bin convex-local-backend
+        run: |
+          unset ROCKSDB_LIB_DIR
+          unset SODIUM_USE_PKG_CONFIG
+          unset SNAPPY_LIB_DIR
+          cargo build --release -p local_backend --bin convex-local-backend
 
       - name: Zip backend into arch
         run: |

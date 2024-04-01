@@ -19,14 +19,6 @@ runs:
       if: runner.os == 'Linux'
       run: sudo apt-get install pkg-config libsodium-dev
 
-    - name: Install libsodium and pkg-config
-      shell: bash
-      env:
-        HOMEBREW_NO_AUTO_UPDATE: 1
-        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
-      if: runner.os == 'MacOS'
-      run: brew install pkg-config libsodium rocksdb
-
     - name: Install Just
       uses: extractions/setup-just@v1
       env:
@@ -48,10 +40,6 @@ runs:
           echo "SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
           echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
           echo "ROCKSDB_LIB_DIR=/usr/lib" >> $GITHUB_ENV
-        fi
-        if [ "$RUNNER_OS" == "MacOS" ]; then
-          echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
-          echo "ROCKSDB_LIB_DIR=$(ls -d /usr/local/Cellar/rocksdb/*/lib)" >> $GITHUB_ENV
         fi
         echo "SCCACHE_ENDPOINT=https://a4aa0fffebef8bc497f64875c40ee6fb.r2.cloudflarestorage.com" >> $GITHUB_ENV
         echo "SCCACHE_BUCKET=cvx-actions-cache" >> $GITHUB_ENV
