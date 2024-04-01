@@ -10,7 +10,6 @@ doctest = false
 
 [dependencies]
 anyhow = { workspace = true }
-async-broadcast = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { path = "../async_lru" }
 async_zip = { workspace = true }
@@ -27,7 +26,6 @@ itertools = { workspace = true }
 levenshtein_automata = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
-parking_lot = { workspace = true }
 pb = { path = "../pb" }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }

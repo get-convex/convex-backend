@@ -21,4 +21,8 @@ testing = [
     "proptest-derive",
 ]
 
-
+[package.metadata.cargo-machete]
+ignored = [
+    "proptest",
+    "proptest-derive",
+]

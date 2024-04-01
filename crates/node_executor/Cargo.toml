@@ -22,7 +22,6 @@ futures = { workspace = true }
 home = { workspace = true }
 http = { workspace = true }
 isolate = { path = "../isolate" }
-itertools = { workspace = true }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }

@@ -13,15 +13,11 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 common = { path = "../common" }
 futures = { workspace = true }
-http = { workspace = true }
 metrics = { path = "../metrics" }
 parking_lot = { workspace = true }
 rand = { workspace = true }
-reqwest = { workspace = true }
 tokio = { workspace = true }
 tokio-metrics-collector = { workspace = true }
-tracing = { workspace = true }
-url = { workspace = true }
 
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }

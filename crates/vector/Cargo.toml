@@ -23,7 +23,6 @@ indexing = { path = "../indexing" }
 metrics = { path = "../metrics" }
 parking_lot = { workspace = true }
 pb = { path = "../pb" }
-prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 qdrant_segment = { workspace = true }

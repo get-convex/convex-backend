@@ -31,17 +31,11 @@ prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 runtime = { path = "../runtime" }
-search = { path = "../search" }
-serde_json = { workspace = true }
 storage = { path = "../storage" }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 tokio = { workspace = true }
-tonic = { workspace = true }
-tracing = { workspace = true }
-url = { workspace = true }
 usage_tracking = { path = "../usage_tracking" }
 value = { path = "../value" }
-vector = { path = "../vector" }
 
 [dev-dependencies]
 
@@ -56,12 +50,9 @@ model = { path = "../model", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
-search = { path = "../search", features = ["testing"] }
-shape_inference = { path = "../shape_inference", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 usage_tracking = { path = "../usage_tracking", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
-vector = { path = "../vector", features = ["testing"] }
 
 [features]
 testing = [
@@ -76,10 +67,8 @@ testing = [
     "proptest",
     "proptest-derive",
     "runtime/testing",
-    "search/testing",
     "storage/testing",
     "usage_tracking/testing",
     "value/testing",
-    "vector/testing",
 ]
 tracy-tracing = ["common/tracy-tracing"]

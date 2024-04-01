@@ -16,9 +16,7 @@ cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 derive_more = { workspace = true }
 errors = { path = "../errors" }
-headers = { workspace = true }
 hex = { workspace = true }
-http = { workspace = true }
 metrics = { path = "../metrics" }
 openidconnect = { workspace = true }
 pb = { path = "../pb" }
@@ -27,10 +25,8 @@ proptest-derive = { workspace = true }
 prost = { workspace = true }
 rand = { workspace = true }
 rsa = { workspace = true, optional = true }
-serde = { workspace = true }
 sodiumoxide = { workspace = true }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
-tower-cookies = { workspace = true }
 
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }

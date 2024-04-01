@@ -17,10 +17,6 @@ parking_lot = { workspace = true, features = ["hardware-lock-elision"] }
 pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-tracing = { workspace = true }
-uuid = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]
@@ -42,7 +38,4 @@ testing = [
 ]
 
 [package.metadata.cargo-machete]
-ignored = [
-    # proptest_derive macro depends on proptest
-    "proptest",
-]
+ignored = []
