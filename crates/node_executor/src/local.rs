@@ -13,7 +13,7 @@ use futures::{
     FutureExt,
     StreamExt,
 };
-use isolate::NODE_EXECUTOR_FILES;
+use isolate::bundled_js::node_executor_file;
 use serde_json::Value as JsonValue;
 use tempfile::TempDir;
 use tokio::process::Command as TokioCommand;
@@ -46,9 +46,8 @@ impl LocalNodeExecutor {
     pub fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
         // Write the source of local.cjs to a temp file.
         let source_dir = TempDir::new()?;
-        let (source, source_map) = NODE_EXECUTOR_FILES
-            .get("local.cjs")
-            .expect("local.cjs not generated!");
+        let (source, source_map) =
+            node_executor_file("local.cjs").expect("local.cjs not generated!");
         let source_map = source_map.context("Missing local.cjs.map")?;
         let source_path = source_dir.path().join("local.cjs");
         let source_map_path = source_dir.path().join("local.cjs.map");

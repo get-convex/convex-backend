@@ -40,10 +40,6 @@ mod user_error;
 pub mod test_helpers;
 
 pub use self::{
-    bundled_js::{
-        NODE_EXECUTOR_FILES,
-        NODE_EXECUTOR_SHA256,
-    },
     client::{
         ActionCallbacks,
         ActionRequest,

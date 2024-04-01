@@ -35,7 +35,7 @@ use serde_json::Value as JsonValue;
 use value::heap_size::HeapSize;
 
 use crate::{
-    bundled_js::SYSTEM_UDF_FILES,
+    bundled_js::system_udf_file,
     environment::IsolateEnvironment,
     helpers::{
         self,
@@ -414,8 +414,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
         // Overlay our "_system/" files on top of the user's UDFs.
         if let Some(system_path) = module_path.strip_prefix(SYSTEM_PREFIX) {
-            let (source, source_map) = SYSTEM_UDF_FILES
-                .get(system_path)
+            let (source, source_map) = system_udf_file(system_path)
                 .ok_or_else(|| SystemModuleNotFoundError::new(system_path))?;
             return Ok((
                 source.to_string(),

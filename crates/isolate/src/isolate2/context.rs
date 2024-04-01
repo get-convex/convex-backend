@@ -21,7 +21,7 @@ use super::{
     FunctionId,
 };
 use crate::{
-    bundled_js::SYSTEM_UDF_FILES,
+    bundled_js::system_udf_file,
     isolate::SETUP_URL,
     strings,
 };
@@ -85,9 +85,8 @@ impl Context {
 
         ctx.enter(session, |mut ctx| {
             let setup_url = ModuleSpecifier::parse(SETUP_URL)?;
-            let (source, _) = SYSTEM_UDF_FILES
-                .get("setup.js")
-                .ok_or_else(|| anyhow!("Setup module not found"))?;
+            let (source, _) =
+                system_udf_file("setup.js").ok_or_else(|| anyhow!("Setup module not found"))?;
             let unresolved_imports = ctx.register_module(&setup_url, source)?;
             anyhow::ensure!(
                 unresolved_imports.is_empty(),
