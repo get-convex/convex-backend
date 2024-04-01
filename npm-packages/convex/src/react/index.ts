@@ -75,6 +75,7 @@ export {
   type WatchQueryOptions,
   type MutationOptions,
   type ConvexReactClientOptions,
+  type OptionalRestArgsOrSkip,
   ConvexReactClient,
   useConvex,
   ConvexProvider,
