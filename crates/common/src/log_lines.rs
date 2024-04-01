@@ -151,21 +151,17 @@ impl Arbitrary for LogLine {
                 prop::collection::vec(any::<String>(), 1..4),
                 any::<LogLevel>(),
                 any::<bool>(),
-                any::<i64>(),
+                (u64::MIN..(i64::MAX as u64)),
                 any::<Option<SystemLogMetadata>>()
             )
-                .prop_filter_map(
-                    "Invalid LogLine",
+                .prop_map(
                     |(messages, level, is_truncated, timestamp_ms, system_metadata)| {
-                        match u64::try_from(timestamp_ms) {
-                            Ok(timestamp_ms) => Some(LogLine::Structured {
-                                messages: messages.into(),
-                                level,
-                                is_truncated,
-                                timestamp: UnixTimestamp::from_millis(timestamp_ms),
-                                system_metadata,
-                            }),
-                            Err(_) => None,
+                        LogLine::Structured {
+                            messages: messages.into(),
+                            level,
+                            is_truncated,
+                            timestamp: UnixTimestamp::from_millis(timestamp_ms),
+                            system_metadata,
                         }
                     }
                 )
