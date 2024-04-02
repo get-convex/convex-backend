@@ -374,6 +374,14 @@ pub fn retention_delete_timer() -> Timer<VMHistogram> {
 }
 
 register_convex_histogram!(
+    RETENTION_DELETE_DOCUMENTS_SECONDS,
+    "Time for retention to complete deletions"
+);
+pub fn retention_delete_documents_timer() -> Timer<VMHistogram> {
+    Timer::new(&RETENTION_DELETE_DOCUMENTS_SECONDS)
+}
+
+register_convex_histogram!(
     RETENTION_DELETE_CHUNK_SECONDS,
     "Time for retention to delete one chunk"
 );
@@ -381,9 +389,25 @@ pub fn retention_delete_chunk_timer() -> Timer<VMHistogram> {
     Timer::new(&RETENTION_DELETE_CHUNK_SECONDS)
 }
 
+register_convex_histogram!(
+    RETENTION_DELETE_DOCUMENT_CHUNK_SECONDS,
+    "Time for document retention to delete one chunk"
+);
+pub fn retention_delete_document_chunk_timer() -> Timer<VMHistogram> {
+    Timer::new(&RETENTION_DELETE_DOCUMENT_CHUNK_SECONDS)
+}
+
 register_convex_gauge!(RETENTION_CURSOR_AGE_SECONDS, "Age of the retention cursor");
 pub fn log_retention_cursor_age(age_secs: f64) {
     log_gauge(&RETENTION_CURSOR_AGE_SECONDS, age_secs)
+}
+
+register_convex_gauge!(
+    DOCUMENT_RETENTION_CURSOR_AGE_SECONDS,
+    "Age of the document retention cursor"
+);
+pub fn log_document_retention_cursor_age(age_secs: f64) {
+    log_gauge(&DOCUMENT_RETENTION_CURSOR_AGE_SECONDS, age_secs)
 }
 
 register_convex_counter!(
@@ -392,6 +416,36 @@ register_convex_counter!(
     &["tombstone", "prev_rev"]
 );
 pub fn log_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
+    log_counter_with_tags(
+        &RETENTION_SCANNED_DOCUMENT_TOTAL,
+        1,
+        vec![
+            metric_tag_const_value(
+                "tombstone",
+                if is_tombstone {
+                    "is_tombstone"
+                } else {
+                    "is_document"
+                },
+            ),
+            metric_tag_const_value(
+                "prev_rev",
+                if has_prev_rev {
+                    "has_prev_rev"
+                } else {
+                    "no_prev_rev"
+                },
+            ),
+        ],
+    )
+}
+
+register_convex_counter!(
+    DOCUMENT_RETENTION_SCANNED_DOCUMENT_TOTAL,
+    "Count of documents scanned by retention",
+    &["tombstone", "prev_rev"]
+);
+pub fn log_document_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
     log_counter_with_tags(
         &RETENTION_SCANNED_DOCUMENT_TOTAL,
         1,
@@ -446,6 +500,15 @@ register_convex_counter!(
 );
 pub fn log_retention_index_entries_deleted(deleted_rows: usize) {
     log_counter(&RETENTION_INDEX_ENTRIES_DELETED_TOTAL, deleted_rows as u64)
+}
+
+register_convex_counter!(
+    RETENTION_DOCUMENTS_DELETED_TOTAL,
+    "The total number of documents persistence returns as having been actually deleted by \
+     retention."
+);
+pub fn log_retention_documents_deleted(deleted_rows: usize) {
+    log_counter(&RETENTION_DOCUMENTS_DELETED_TOTAL, deleted_rows as u64)
 }
 
 register_convex_counter!(

@@ -559,6 +559,23 @@ impl RepeatablePersistence {
             .await
     }
 
+    /// Allows a retention validator to be explicitly passed in
+    pub async fn previous_revisions_with_validator(
+        &self,
+        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> anyhow::Result<
+        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
+    > {
+        for (_, ts) in &ids {
+            // Reading documents <ts, so ts-1 needs to be repeatable.
+            anyhow::ensure!(*ts <= self.upper_bound.succ()?);
+        }
+        self.reader
+            .previous_revisions(ids, retention_validator.clone())
+            .await
+    }
+
     pub fn read_snapshot(&self, at: RepeatableTimestamp) -> anyhow::Result<PersistenceSnapshot> {
         anyhow::ensure!(at <= self.upper_bound);
         self.retention_validator.optimistic_validate_snapshot(*at)?;

@@ -362,6 +362,10 @@ pub static RETENTION_DELETE_BATCH: LazyLock<usize> =
 pub static RETENTION_DELETES_ENABLED: LazyLock<bool> =
     LazyLock::new(|| env_config("RETENTION_DELETES_ENABLED", true));
 
+/// Whether retention document deletes are enabled.
+pub static RETENTION_DOCUMENT_DELETES_ENABLED: LazyLock<bool> =
+    LazyLock::new(|| env_config("RETENTION_DOCUMENT_DELETES_ENABLED", false));
+
 /// Enable or disable failing insert/update/deletes when retention is behind.
 pub static RETENTION_FAIL_ENABLED: LazyLock<bool> =
     LazyLock::new(|| env_config("RETENTION_FAIL_ENABLED", false));
@@ -375,6 +379,18 @@ pub static RETENTION_FAIL_START_MULTIPLIER: LazyLock<usize> =
 /// behind (e.g. 4 * 40 = 2 hours and 4 minutes).
 pub static RETENTION_FAIL_ALL_MULTIPLIER: LazyLock<usize> =
     LazyLock::new(|| env_config("RETENTION_FAIL_ALL_MULTIPLIER", 40));
+
+/// Maximum number of batches of documents that can be deleted in a minute
+pub static DOCUMENT_RETENTION_BATCHES_PER_MINUTE: LazyLock<NonZeroU32> = LazyLock::new(|| {
+    env_config(
+        "DOCUMENT_RETENTION_BATCHES_PER_MINUTE",
+        NonZeroU32::new(1).unwrap(),
+    )
+});
+
+/// Whether or not we run document retention in dry run mode
+pub static DOCUMENT_RETENTION_DRY_RUN: LazyLock<bool> =
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DRY_RUN", true));
 
 /// Size at which a search index will be queued for snapshotting.
 pub static SEARCH_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =

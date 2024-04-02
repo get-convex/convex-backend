@@ -1340,7 +1340,7 @@ pub async fn persistence_global<P: Persistence>(p: Arc<P>) -> anyhow::Result<()>
     Ok(())
 }
 
-fn doc(
+pub fn doc(
     id: ResolvedDocumentId,
     ts: i32,
     val: Option<i64>,
