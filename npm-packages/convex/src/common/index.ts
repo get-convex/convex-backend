@@ -49,7 +49,10 @@ export function validateDeploymentUrl(deploymentUrl: string) {
     return;
   }
 
-  if (!deploymentUrl.endsWith(".convex.cloud")) {
+  if (
+    !deploymentUrl.endsWith(".convex.cloud") &&
+    !deploymentUrl.includes("0.0.0.0")
+  ) {
     throw new Error(
       `Invalid deployment address: Must end with ".convex.cloud". Found "${deploymentUrl}".`,
     );
