@@ -86,6 +86,7 @@ use common::{
         GenericIndexName,
         IndexId,
         PersistenceVersion,
+        RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
     },
@@ -256,7 +257,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // We need to delete from all indexes that might be queried.
         // Therefore we scan _index.by_id at min_snapshot_ts before min_snapshot_ts
         // starts moving, and update the map before confirming any deletes.
-        let indexes_at_min_snapshot = {
+        let mut all_indexes = {
             let reader = persistence.reader();
             let snapshot_ts =
                 new_static_repeatable_ts(min_snapshot_ts, reader.as_ref(), &rt).await?;
@@ -280,6 +281,19 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         };
         let index_table_id =
             index_table_id.ok_or_else(|| anyhow::anyhow!("there must be at least one index"))?;
+        let mut index_cursor = min_snapshot_ts;
+        let latest_ts = snapshot_reader.lock().latest_ts();
+        // Also update the set of indexes up to the current timestamp before document
+        // retention starts moving.
+        Self::accumulate_indexes(
+            persistence.as_ref(),
+            &mut all_indexes,
+            &mut index_cursor,
+            latest_ts,
+            index_table_id,
+            follower_retention_manager.clone(),
+        )
+        .await?;
 
         let (send_min_snapshot, receive_min_snapshot) = async_channel::bounded(1);
         let (send_min_document_snapshot, receive_min_document_snapshot) = async_channel::bounded(1);
@@ -303,9 +317,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 bounds_reader.clone(),
                 rt.clone(),
                 persistence.clone(),
-                indexes_at_min_snapshot,
+                all_indexes,
                 index_table_id,
-                min_snapshot_ts,
+                index_cursor,
                 follower_retention_manager.clone(),
                 receive_min_snapshot,
                 checkpoint_writer,
@@ -979,7 +993,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         bounds_reader: Reader<SnapshotBounds>,
         rt: RT,
         persistence: Arc<dyn Persistence>,
-        indexes_at_min_snapshot: BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
+        mut all_indexes: BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
         index_table_id: TableIdAndTableNumber,
         mut index_cursor: Timestamp,
         retention_validator: Arc<dyn RetentionValidator>,
@@ -988,7 +1002,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         snapshot_reader: Reader<SnapshotManager>,
     ) {
         let reader = persistence.reader();
-        let mut all_indexes = indexes_at_min_snapshot;
 
         let mut error_backoff = Backoff::new(INITIAL_BACKOFF, *MAX_RETENTION_DELAY_SECONDS);
         let mut min_snapshot_ts = Timestamp::default();
@@ -1020,10 +1033,12 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
                 tracing::trace!("go_delete: loaded checkpoint: {cursor:?}");
+                let latest_ts = snapshot_reader.lock().latest_ts();
                 Self::accumulate_indexes(
                     persistence.as_ref(),
                     &mut all_indexes,
                     &mut index_cursor,
+                    latest_ts,
                     index_table_id,
                     retention_validator.clone(),
                 )
@@ -1040,10 +1055,12 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
                 tracing::trace!("go_delete: finished running delete");
+                let latest_ts = snapshot_reader.lock().latest_ts();
                 Self::accumulate_indexes(
                     persistence.as_ref(),
                     &mut all_indexes,
                     &mut index_cursor,
+                    latest_ts,
                     index_table_id,
                     retention_validator.clone(),
                 )
@@ -1279,20 +1296,21 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: &dyn Persistence,
         all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
         cursor: &mut Timestamp,
+        latest_ts: RepeatableTimestamp,
         index_table_id: TableIdAndTableNumber,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<()> {
         let reader = persistence.reader();
         let mut document_stream = reader.load_documents(
-            TimestampRange::greater_than(*cursor),
+            TimestampRange::new(*cursor..*latest_ts)?,
             Order::Asc,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             retention_validator,
         );
-        while let Some((ts, _, maybe_doc)) = document_stream.try_next().await? {
+        while let Some((_, _, maybe_doc)) = document_stream.try_next().await? {
             Self::accumulate_index_document(maybe_doc, all_indexes, index_table_id)?;
-            *cursor = ts;
         }
+        *cursor = *latest_ts;
         Ok(())
     }
 }
