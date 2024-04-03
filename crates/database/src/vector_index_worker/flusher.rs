@@ -222,6 +222,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                     .await?;
                 let job = IndexBuild {
                     index_name: name.clone(),
+                    index_id: index_id.internal_id(),
                     by_id: by_id_metadata.id().internal_id(),
                     developer_config: developer_config.clone(),
                     metadata_id: index_id,
@@ -272,17 +273,17 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         let index_path = TempDir::new()?;
         let mut tx = self.database.begin(Identity::system()).await?;
         let table_id = tx.table_mapping().inject_table_number()(*job.index_name.table())?;
-        let mut snapshot_ts = tx.begin_timestamp();
+        let mut new_ts = tx.begin_timestamp();
         let (previous_segments, build_type) = match job.on_disk_state {
             VectorIndexState::Backfilling(ref backfill_state) => {
                 let backfill_snapshot_ts = backfill_state
                     .backfill_snapshot_ts
-                    .map(|ts| snapshot_ts.prior_ts(ts))
+                    .map(|ts| new_ts.prior_ts(ts))
                     .transpose()?
-                    .unwrap_or(snapshot_ts);
+                    .unwrap_or(new_ts);
                 // For backfilling indexes, the snapshot timestamp we return is the backfill
                 // snapshot timestamp
-                snapshot_ts = backfill_snapshot_ts;
+                new_ts = backfill_snapshot_ts;
 
                 let cursor = backfill_state.cursor;
 
@@ -303,13 +304,18 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                         vec![],
                         MultipartBuildType::IncrementalComplete {
                             cursor: None,
-                            backfill_snapshot_ts: snapshot_ts,
+                            backfill_snapshot_ts: new_ts,
                         },
                     ),
-                    VectorIndexSnapshotData::MultiSegment(ref parts) => (
-                        parts.clone(),
-                        MultipartBuildType::Partial(snapshot_ts.prior_ts(snapshot.ts)?),
-                    ),
+                    VectorIndexSnapshotData::MultiSegment(ref parts) => {
+                        let ts = IndexWorkerMetadataModel::new(&mut tx)
+                            .get_fast_forward_ts(snapshot.ts, job.index_id)
+                            .await?;
+                        (
+                            parts.clone(),
+                            MultipartBuildType::Partial(new_ts.prior_ts(ts)?),
+                        )
+                    },
                 }
             },
         };
@@ -319,13 +325,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             updated_previous_segments,
             backfill_result,
         } = self
-            .build_multipart_segment_in_dir(
-                job,
-                &index_path,
-                snapshot_ts,
-                build_type,
-                previous_segments,
-            )
+            .build_multipart_segment_in_dir(job, &index_path, new_ts, build_type, previous_segments)
             .await?;
 
         let new_segment = if let Some(new_segment) = new_segment {
@@ -358,7 +358,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         let data = VectorIndexSnapshotData::MultiSegment(new_and_updated_parts);
 
         Ok(IndexBuildResult {
-            snapshot_ts: *snapshot_ts,
+            snapshot_ts: *new_ts,
             data,
             total_vectors,
             vectors_in_new_segment,
@@ -565,6 +565,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         let worker = Self::new(runtime, database, storage, writer);
         let job = IndexBuild {
             index_name,
+            index_id: metadata.clone().into_id_and_value().0.internal_id(),
             by_id: by_id_metadata.id().internal_id(),
             developer_config: developer_config.clone(),
             metadata_id: metadata.clone().id(),
@@ -679,6 +680,11 @@ mod tests {
             MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             VECTOR_INDEX_SIZE_SOFT_LIMIT,
         },
+        runtime::Runtime,
+        types::{
+            IndexId,
+            IndexName,
+        },
     };
     use keybroker::Identity;
     use maplit::{
@@ -697,12 +703,14 @@ mod tests {
         TableIdAndTableNumber,
     };
     use vector::{
+        PublicVectorSearchQueryResult,
         QdrantExternalId,
         VectorSearch,
     };
 
     use super::VectorIndexFlusher;
     use crate::{
+        bootstrap_model::index_workers::IndexWorkerMetadataModel,
         test_helpers::new_test_database,
         tests::vector_test_utils::{
             add_document_vec,
@@ -714,6 +722,7 @@ mod tests {
         vector_index_worker::compactor::CompactionConfig,
         Database,
         IndexModel,
+        SystemMetadataModel,
         UserFacingModel,
     };
 
@@ -1489,22 +1498,109 @@ mod tests {
             let (metrics, _) = worker.step().await?;
             assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
-            let (results, _usage_stats) = fixtures
-                .db
-                .vector_search(
-                    Identity::system(),
-                    VectorSearch {
-                        index_name: index_name.clone(),
-                        vector: vector.into_iter().map(|value| value as f32).collect(),
-                        limit: Some(1),
-                        expressions: btreeset![],
-                    },
-                )
-                .await?;
-
+            let results = vector_search(&fixtures.db, index_name.clone(), vector).await?;
             assert_eq!(results.first().unwrap().id.internal_id(), id.internal_id());
         }
 
         Ok(())
+    }
+
+    async fn set_fast_forward_time_to_now<RT: Runtime>(
+        db: &Database<RT>,
+        index_id: IndexId,
+    ) -> anyhow::Result<()> {
+        let mut tx = db.begin_system().await?;
+        let metadata = IndexWorkerMetadataModel::new(&mut tx)
+            .get_or_create_vector_search(index_id)
+            .await?;
+        let (worker_meta_doc_id, mut metadata) = metadata.into_id_and_value();
+        *metadata.index_metadata.mut_fast_forward_ts() = *tx.begin_timestamp();
+        SystemMetadataModel::new(&mut tx)
+            .replace(worker_meta_doc_id, metadata.try_into()?)
+            .await?;
+        db.commit(tx).await?;
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn multi_segment_with_newer_fast_forward_time_builds_from_fast_forward_time(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = VectorFixtures::new(rt.clone()).await?;
+
+        let IndexData {
+            index_name,
+            index_id,
+            resolved_index_name,
+        } = fixtures.enabled_vector_index().await?;
+
+        let vector = [8f64, 9f64];
+        fixtures
+            .add_document_vec_array(index_name.table(), vector)
+            .await?;
+
+        set_fast_forward_time_to_now(&fixtures.db, index_id.internal_id()).await?;
+
+        let mut worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let (metrics, _) = worker.step().await?;
+        assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 0});
+
+        let results = vector_search(&fixtures.db, index_name, vector).await?;
+
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn multi_segment_with_older_fast_forward_time_builds_from_index_time(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = VectorFixtures::new(rt.clone()).await?;
+
+        let IndexData {
+            index_name,
+            index_id,
+            resolved_index_name,
+        } = fixtures.enabled_vector_index().await?;
+
+        set_fast_forward_time_to_now(&fixtures.db, index_id.internal_id()).await?;
+
+        let vector = [8f64, 9f64];
+        let vector_doc_id = fixtures
+            .add_document_vec_array(index_name.table(), vector)
+            .await?;
+
+        let mut worker = fixtures.new_index_flusher_with_full_scan_threshold(0)?;
+        let (metrics, _) = worker.step().await?;
+        assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
+
+        let results = vector_search(&fixtures.db, index_name, vector).await?;
+
+        assert_eq!(
+            results.first().unwrap().id.internal_id(),
+            vector_doc_id.internal_id()
+        );
+
+        Ok(())
+    }
+
+    async fn vector_search<RT: Runtime>(
+        db: &Database<RT>,
+        index_name: IndexName,
+        vector: [f64; 2],
+    ) -> anyhow::Result<Vec<PublicVectorSearchQueryResult>> {
+        Ok(db
+            .vector_search(
+                Identity::system(),
+                VectorSearch {
+                    index_name,
+                    vector: vector.into_iter().map(|value| value as f32).collect(),
+                    limit: Some(1),
+                    expressions: btreeset![],
+                },
+            )
+            .await?
+            .0)
     }
 }

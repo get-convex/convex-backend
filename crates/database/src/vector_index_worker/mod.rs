@@ -19,6 +19,7 @@ use crate::index_workers::BuildReason;
 
 pub(crate) struct IndexBuild {
     index_name: TabletIndexName,
+    index_id: IndexId,
     by_id: IndexId,
     developer_config: DeveloperVectorIndexConfig,
     metadata_id: ResolvedDocumentId,
