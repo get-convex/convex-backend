@@ -70,6 +70,7 @@ pub mod types;
 pub mod utils;
 pub use value;
 pub mod bounded_thread_pool;
+pub mod try_chunks;
 pub mod version;
 pub mod ws;
 

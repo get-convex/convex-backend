@@ -82,6 +82,7 @@ use common::{
         Reader,
         Writer,
     },
+    try_chunks::TryChunksExt,
     types::{
         GenericIndexName,
         IndexId,
@@ -533,8 +534,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let reader_ = &reader;
         let mut index_entry_chunks = reader
             .load_documents(TimestampRange::new(cursor..min_snapshot_ts)?, Order::Asc)
-            .try_chunks(*RETENTION_READ_CHUNK)
-            .map_err(|e| e.1)
+            .try_chunks2(*RETENTION_READ_CHUNK)
             .map(move |chunk| async move {
                 let chunk = chunk?.to_vec();
                 let mut entries_to_delete = vec![];
@@ -653,8 +653,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             all_indexes,
             persistence_version,
         )
-        .try_chunks(*RETENTION_DELETE_CHUNK)
-        .map_err(|e| e.1);
+        .try_chunks2(*RETENTION_DELETE_CHUNK);
         pin_mut!(expired_chunks);
         while let Some(delete_chunk) = expired_chunks.try_next().await? {
             tracing::trace!(
@@ -709,8 +708,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 Order::Asc,
                 Arc::new(NoopRetentionValidator),
             )
-            .try_chunks(*RETENTION_READ_CHUNK)
-            .map_err(|e| e.1)
+            .try_chunks2(*RETENTION_READ_CHUNK)
             .map(move |chunk| async move {
                 let chunk = chunk?.to_vec();
                 let mut entries_to_delete: Vec<(Timestamp, InternalDocumentId)> = vec![];
@@ -812,8 +810,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
         tracing::trace!("delete_documents: about to grab chunks");
         let expired_chunks = Self::expired_documents(rt, reader, cursor, min_snapshot_ts)
-            .try_chunks(*RETENTION_DELETE_CHUNK)
-            .map_err(|e| e.1);
+            .try_chunks2(*RETENTION_DELETE_CHUNK);
         pin_mut!(expired_chunks);
         while let Some(delete_chunk) = expired_chunks.try_next().await? {
             tracing::trace!(
@@ -1530,6 +1527,7 @@ mod tests {
             TestIdGenerator,
             TestPersistence,
         },
+        try_chunks::TryChunksExt,
         types::{
             unchecked_repeatable_ts,
             DatabaseIndexUpdate,
@@ -1570,9 +1568,8 @@ mod tests {
             ));
         };
         let stream_throws = stream::once(async move { throws() });
-        // IMPORTANT: the map_err is required here and whenever we use try_chunks.
-        // Otherwise the error gets re-wrapped and loses context.
-        let chunks = stream_throws.try_chunks(1).map_err(|e| e.1);
+        // IMPORTANT: try_chunks fails here. try_chunks2 is necessary.
+        let chunks = stream_throws.try_chunks2(1);
         let chunk_throws = async move || -> anyhow::Result<()> {
             pin_mut!(chunks);
             chunks.try_next().await?;

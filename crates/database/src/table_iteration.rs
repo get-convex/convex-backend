@@ -35,6 +35,7 @@ use common::{
         Runtime,
         RuntimeInstant,
     },
+    try_chunks::TryChunksExt,
     types::{
         IndexId,
         RepeatableTimestamp,
@@ -318,8 +319,7 @@ impl<RT: Runtime> TableIterator<RT> {
             RepeatablePersistence::new(reader, end_ts, self.retention_validator.clone());
         let documents = repeatable_persistence
             .load_documents(TimestampRange::new(start_ts.succ()?..=*end_ts)?, Order::Asc)
-            .try_chunks(self.page_size)
-            .map_err(|e| e.1);
+            .try_chunks2(self.page_size);
         pin_mut!(documents);
         while let Some(chunk) = documents.try_next().await? {
             while let Err(not_until) = rate_limiter.check() {
@@ -409,7 +409,7 @@ impl<RT: Runtime> TableIterator<RT> {
 
         // Note even though `previous_revisions` can paginate internally, we don't want
         // to hold the entire result set in memory, because documents can be large.
-        let id_chunks = ids.try_chunks(self.page_size).map_err(|e| e.1);
+        let id_chunks = ids.try_chunks2(self.page_size);
         pin_mut!(id_chunks);
 
         while let Some(chunk) = id_chunks.try_next().await? {

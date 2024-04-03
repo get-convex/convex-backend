@@ -10,6 +10,7 @@ use crate::{
     document::ResolvedDocument,
     knobs::DOCUMENTS_IN_MEMORY,
     persistence::RepeatablePersistence,
+    try_chunks::TryChunksExt,
     types::Timestamp,
 };
 
@@ -49,7 +50,7 @@ pub async fn stream_revision_pairs<'a>(
     documents: impl Stream<Item = RevisionStreamEntry> + 'a,
     reader: &'a RepeatablePersistence,
 ) {
-    let documents = documents.try_chunks(*DOCUMENTS_IN_MEMORY).map_err(|e| e.1);
+    let documents = documents.try_chunks2(*DOCUMENTS_IN_MEMORY);
     futures::pin_mut!(documents);
 
     while let Some(read_chunk) = documents.try_next().await? {
