@@ -695,6 +695,20 @@ pub static MYSQL_TIMEOUT: LazyLock<u64> = LazyLock::new(|| env_config("MYSQL_TIM
 pub static MYSQL_MAX_CONNECTIONS: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_CONNECTIONS", 128));
 
+/// Minimum number of rows to read from MySQL in a single query.
+pub static MYSQL_MIN_QUERY_BATCH_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MYSQL_MIN_QUERY_BATCH_SIZE", 1));
+
+/// Maximum number of rows to read from MySQL in a single query.
+pub static MYSQL_MAX_QUERY_BATCH_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MYSQL_MAX_QUERY_BATCH_SIZE", 5000));
+
+/// We dynamically increase the batch size up to this threshold if client keeps
+/// fetching more results. This helps correct for tombstones, long prefixes and
+/// wrong client size estimates.
+pub static MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE", 8));
+
 /// Close a connection after it has been idle for some time. RDS proxy closes
 /// connections after idle_client_timeout in mysql.tf, which should be
 /// configured to be higher than this.
