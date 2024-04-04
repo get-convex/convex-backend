@@ -58,6 +58,7 @@ use common::{
         RateLimiter,
         Runtime,
         RuntimeInstant,
+        SpawnHandle,
     },
     types::{
         DatabaseIndexUpdate,
@@ -130,16 +131,18 @@ pub struct IndexWorker<RT: Runtime> {
     persistence_version: PersistenceVersion,
 }
 
+#[derive(Clone)]
 pub struct IndexWriter<RT: Runtime> {
     // Persistence target for writing indexes.
     persistence: Arc<dyn Persistence>,
     // Reader must have by_id index fully populated.
     reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
-    rate_limiter: RateLimiter<RT>,
+    rate_limiter: Arc<RateLimiter<RT>>,
     runtime: RT,
 }
 
+#[derive(Clone)]
 pub enum IndexSelector {
     All(IndexRegistry),
     Index { name: TabletIndexName, id: IndexId },
@@ -532,7 +535,10 @@ impl<RT: Runtime> IndexWriter<RT> {
             persistence,
             reader,
             retention_validator,
-            rate_limiter: new_rate_limiter(runtime.clone(), Quota::per_second(*ENTRIES_PER_SECOND)),
+            rate_limiter: Arc::new(new_rate_limiter(
+                runtime.clone(),
+                Quota::per_second(*ENTRIES_PER_SECOND),
+            )),
             runtime,
         }
     }
@@ -567,15 +573,34 @@ impl<RT: Runtime> IndexWriter<RT> {
     ) -> anyhow::Result<()> {
         // Backfill in two steps: first create index entries for all latest documents,
         // then create index entries for all documents in the retention range.
-        for table_id in index_selector.iterate_tables() {
-            self.backfill_exact_snapshot_of_table(
-                snapshot_ts,
-                &index_selector,
-                index_metadata,
-                table_id,
-            )
-            .await?;
+
+        let (tx, rx) = mpsc::unbounded();
+        let handles = index_selector.iterate_tables().map(|table_id| {
+            let index_metadata = index_metadata.clone();
+            let index_selector = index_selector.clone();
+            let self_ = (*self).clone();
+            let tx = tx.clone();
+            self.runtime
+                .spawn("index_backfill_table_snapshot", async move {
+                    tx.unbounded_send(
+                        self_
+                            .backfill_exact_snapshot_of_table(
+                                snapshot_ts,
+                                &index_selector,
+                                &index_metadata,
+                                table_id,
+                            )
+                            .await,
+                    )
+                    .unwrap();
+                })
+        });
+        for handle in handles {
+            handle.into_join_future().await?;
         }
+        tx.close_channel();
+        let _: Vec<_> = rx.try_collect().await?;
+
         let mut min_backfilled_ts = snapshot_ts;
 
         // Retry until min_snapshot_ts passes min_backfilled_ts, at which point we
