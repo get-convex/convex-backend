@@ -197,14 +197,18 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn write_udf_test_bundle(out_dir: &Path) -> anyhow::Result<()> {
-    let bundle_path = out_dir.join("udf_test_bundle.json");
+    let bundle_dir = out_dir.join("udf_test_bundle");
+    // clear the existing content
+    if Path::exists(&bundle_dir) {
+        fs::remove_dir_all(bundle_dir.clone())?;
+    }
     let output = Command::new("npx")
         .current_dir(UDF_TESTS_DIR)
         .args([
             "convex",
             "deploy",
             "--debug-bundle-path",
-            bundle_path.to_str().unwrap(),
+            bundle_dir.to_str().unwrap(),
             "--codegen=disable",
             "--typecheck=disable",
             "--url",

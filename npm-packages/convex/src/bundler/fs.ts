@@ -65,7 +65,10 @@ export interface Filesystem {
   access(path: string): void;
 
   writeUtf8File(path: string, contents: string, mode?: Mode): void;
-  mkdir(dirPath: string, options?: { allowExisting?: boolean }): void;
+  mkdir(
+    dirPath: string,
+    options?: { allowExisting?: boolean; recursive?: boolean },
+  ): void;
   rm(path: string, options?: { force?: boolean; recursive?: boolean }): void;
   rmdir(path: string): void;
   unlink(path: string): void;
@@ -148,9 +151,12 @@ class NodeFs implements Filesystem {
       stdFs.closeSync(fd);
     }
   }
-  mkdir(dirPath: string, options?: { allowExisting?: boolean }): void {
+  mkdir(
+    dirPath: string,
+    options?: { allowExisting?: boolean; recursive?: boolean },
+  ): void {
     try {
-      stdFs.mkdirSync(dirPath);
+      stdFs.mkdirSync(dirPath, { recursive: options?.recursive });
     } catch (e: any) {
       if (options?.allowExisting && e.code === "EEXIST") {
         return;
@@ -317,10 +323,13 @@ export class RecordingFs implements Filesystem {
     this.updateOnWrite(absPath);
   }
 
-  mkdir(dirPath: string, options?: { allowExisting?: boolean }): void {
+  mkdir(
+    dirPath: string,
+    options?: { allowExisting?: boolean; recursive?: boolean },
+  ): void {
     const absPath = path.resolve(dirPath);
     try {
-      stdFs.mkdirSync(absPath);
+      stdFs.mkdirSync(absPath, { recursive: options?.recursive });
     } catch (e: any) {
       if (options?.allowExisting && e.code === "EEXIST") {
         const st = nodeFs.stat(absPath);

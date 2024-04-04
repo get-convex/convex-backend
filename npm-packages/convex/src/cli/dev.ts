@@ -4,6 +4,7 @@ import path from "path";
 import { performance } from "perf_hooks";
 import {
   Context,
+  logError,
   logFinishedStep,
   logMessage,
   logWarning,
@@ -93,6 +94,7 @@ export const dev = new Command("dev")
   .addOption(new Option("--trace-events").default(false).hideHelp())
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
+  .addOption(new Option("--debug-bundle-path <path>").hideHelp())
   // Options for testing
   .addOption(new Option("--override-auth-url <url>").hideHelp())
   .addOption(new Option("--override-auth-client <id>").hideHelp())
@@ -101,6 +103,11 @@ export const dev = new Command("dev")
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = oneoffContext;
+
+    if (cmdOptions.debugBundlePath !== undefined && !cmdOptions.once) {
+      logError(ctx, "`--debug-bundle-path` can only be used with `--once`.");
+      await ctx.crash(1, "fatal");
+    }
 
     if (!cmdOptions.url || !cmdOptions.adminKey) {
       if (!(await checkAuthorization(ctx, false))) {
@@ -133,6 +140,7 @@ export const dev = new Command("dev")
           dryRun: false,
           typecheck: cmdOptions.typecheck,
           debug: false,
+          debugBundlePath: cmdOptions.debugBundlePath,
           codegen: cmdOptions.codegen === "enable",
         },
         cmdOptions,
