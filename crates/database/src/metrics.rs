@@ -447,7 +447,7 @@ register_convex_counter!(
 );
 pub fn log_document_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
     log_counter_with_tags(
-        &RETENTION_SCANNED_DOCUMENT_TOTAL,
+        &DOCUMENT_RETENTION_SCANNED_DOCUMENT_TOTAL,
         1,
         vec![
             metric_tag_const_value(
