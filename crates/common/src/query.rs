@@ -25,16 +25,19 @@ use sha2::{
 };
 use value::{
     heap_size::HeapSize,
+    id_v6::VirtualTableNumberMap,
     utils::display_sequence,
     val,
     ConvexObject,
     ConvexValue,
+    DeveloperDocumentId,
     TableId,
     TableIdAndTableNumber,
 };
 
 use crate::{
     bootstrap_model::index::database_index::IndexedFields,
+    document::ID_FIELD_PATH,
     index::IndexKeyBytes,
     interval::{
         BinaryKey,
@@ -176,12 +179,22 @@ pub struct IndexRange {
 }
 
 impl IndexRange {
-    pub fn compile(self, indexed_fields: IndexedFields) -> anyhow::Result<Interval> {
+    pub fn compile(
+        self,
+        indexed_fields: IndexedFields,
+        virtual_table_number_map: Option<VirtualTableNumberMap>,
+    ) -> anyhow::Result<Interval> {
         let index_name = self.index_name.clone();
         let SplitIndexRange {
             equalities,
             inequality,
-        } = self.split()?;
+        } = self.split()?.map_values(|field, v| {
+            if field == &*ID_FIELD_PATH {
+                map_id_value_to_tablet(v, virtual_table_number_map)
+            } else {
+                Ok(v)
+            }
+        })?;
 
         // Check that some permutation of the equality field paths + the (optional)
         // inequality field path is a prefix of the indexed paths.
@@ -189,13 +202,13 @@ impl IndexRange {
         // NB: `indexed_fields` does not include the implicit `_id` field at the end of
         // every index, so this omission prevents the user from using it in an
         // index expression.
-        let index_rank: BTreeMap<_, _> = indexed_fields[..]
-            .iter()
+        let index_rank: BTreeMap<_, _> = indexed_fields
+            .iter_with_id()
             .enumerate()
             .map(|(i, field_name)| (field_name, i))
             .collect();
         anyhow::ensure!(
-            index_rank.len() == indexed_fields.len(),
+            index_rank.len() == indexed_fields.iter_with_id().count(),
             "{index_name} has duplicate fields?"
         );
 
@@ -237,7 +250,7 @@ impl IndexRange {
 
         let query_fields = QueryFields(used_paths.clone());
 
-        let mut fields_iter = indexed_fields.iter();
+        let mut fields_iter = indexed_fields.iter_with_id();
         for field_path in used_paths {
             let matching_field = fields_iter.next().ok_or_else(|| {
                 invalid_index_range(&index_name, &indexed_fields, &query_fields, &field_path)
@@ -387,6 +400,49 @@ struct SplitIndexRange {
     inequality: Option<IndexInequality>,
 }
 
+impl SplitIndexRange {
+    pub fn map_values(
+        self,
+        f: impl Fn(&FieldPath, ConvexValue) -> anyhow::Result<ConvexValue>,
+    ) -> anyhow::Result<SplitIndexRange> {
+        let equalities = self
+            .equalities
+            .into_iter()
+            .map(|(field, value)| {
+                let new_value = match value.0 {
+                    Some(value) => MaybeValue(Some(f(&field, value)?)),
+                    None => MaybeValue(None),
+                };
+                anyhow::Ok((field, new_value))
+            })
+            .try_collect()?;
+        let inequality = self
+            .inequality
+            .map(|inequality| {
+                let start = match inequality.start {
+                    Bound::Unbounded => Bound::Unbounded,
+                    Bound::Included(value) => Bound::Included(f(&inequality.field_path, value)?),
+                    Bound::Excluded(value) => Bound::Excluded(f(&inequality.field_path, value)?),
+                };
+                let end = match inequality.end {
+                    Bound::Unbounded => Bound::Unbounded,
+                    Bound::Included(value) => Bound::Included(f(&inequality.field_path, value)?),
+                    Bound::Excluded(value) => Bound::Excluded(f(&inequality.field_path, value)?),
+                };
+                anyhow::Ok(IndexInequality {
+                    field_path: inequality.field_path,
+                    start,
+                    end,
+                })
+            })
+            .transpose()?;
+        Ok(SplitIndexRange {
+            equalities,
+            inequality,
+        })
+    }
+}
+
 struct IndexInequality {
     field_path: FieldPath,
     start: Bound<ConvexValue>,
@@ -401,6 +457,21 @@ impl Display for QueryFields {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         display_sequence(f, ["[", "]"], self.0.iter())
     }
+}
+
+fn map_id_value_to_tablet(
+    value: ConvexValue,
+    virtual_table_number_map: Option<VirtualTableNumberMap>,
+) -> anyhow::Result<ConvexValue> {
+    let val = match (&value, virtual_table_number_map) {
+        (ConvexValue::String(id), Some(virtual_table_number_map)) => {
+            let mapped =
+                DeveloperDocumentId::map_string_between_table_numbers(id, virtual_table_number_map);
+            val!(mapped)
+        },
+        _ => value,
+    };
+    Ok(val)
 }
 
 fn already_defined_bound_error(

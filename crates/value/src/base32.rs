@@ -1,3 +1,5 @@
+use std::cmp;
+
 // Forked from https://github.com/andreasots/base32 @ 58909ac.
 //
 // Copyright (c) 2015 The base32 Developers - MIT License
@@ -119,6 +121,72 @@ pub fn decode(data: &str) -> Result<Vec<u8>, InvalidBase32Error> {
     // Truncate any extra output from our last chunk.
     out.truncate(out_length);
     Ok(out)
+}
+
+fn clamp_char_to_alphabet(c: char) -> char {
+    match c {
+        ..'0' => '0',
+        '0'..='9' => c,
+        ':'..'a' => 'a',
+        'a'..='h' => c,
+        'i' => 'j',
+        'j'..='k' => c,
+        'l' => 'm',
+        'm'..='n' => c,
+        'o' => 'p',
+        'p'..='t' => c,
+        'u' => 'v',
+        'v'..='z' => c,
+        '{'.. => 'z',
+    }
+}
+
+/// Returns a string that can be base32 decoded, and is the closest such string
+/// to the input string in lexicographic order.
+/// i.e. for every `t` which is valid base32 of length <= `target_len`,
+/// if s = t, then clamp_to_alphabet(s) = t,
+/// if s < t, then clamp_to_alphabet(s) <= t.
+/// if s > t, then clamp_to_alphabet(s) >= t.
+///
+/// How does it work?
+/// Each character is clamped to the closest character in the base32 alphabet.
+/// If a character has to be rounded up, following characters all become '0'.
+/// If a character has to be rounded down, following characters all become 'z'.
+/// And then we pad to a multiple of 5 characters to avoid dropping chars when
+/// decoding.
+///
+/// e.g. "azi" is between "azhzz" and "azj00", so it is clamped to "azj00".
+/// e.g. "abcd~" is between "abcdz" and "abce0", so it is clamped to "abcdz".
+pub fn clamp_to_alphabet(s: &str, target_len: usize) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut order = cmp::Ordering::Equal;
+    for c in s.chars() {
+        match order {
+            cmp::Ordering::Equal => {
+                let clamped = clamp_char_to_alphabet(c);
+                out.push(clamped);
+                order = c.cmp(&clamped);
+            },
+            cmp::Ordering::Less => {
+                out.push('0');
+            },
+            cmp::Ordering::Greater => {
+                out.push('z');
+            },
+        }
+    }
+    // Pad the output to a multiple of 5 with 0s so no characters are lost.
+    while out.len() < target_len || out.len() % 5 != 0 {
+        match order {
+            cmp::Ordering::Equal | cmp::Ordering::Less => {
+                out.push('0');
+            },
+            cmp::Ordering::Greater => {
+                out.push('z');
+            },
+        }
+    }
+    out
 }
 
 #[cfg(test)]

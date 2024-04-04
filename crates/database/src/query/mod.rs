@@ -375,7 +375,10 @@ impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
             )),
             QuerySource::IndexRange(index_range) => {
                 let order = index_range.order;
-                let interval = index_range.compile(indexed_fields)?;
+                let virtual_table_mapping = tx.virtual_table_mapping().clone();
+                let virtual_table_number_map = stable_index_name
+                    .virtual_table_number_map(tx.table_mapping(), &virtual_table_mapping)?;
+                let interval = index_range.compile(indexed_fields, virtual_table_number_map)?;
                 QueryNode::IndexRange(IndexRange::new(
                     stable_index_name,
                     index_name,

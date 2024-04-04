@@ -11,13 +11,16 @@ use sync_types::identifier::{
 };
 use value::{
     heap_size::HeapSize,
+    id_v6::VirtualTableNumberMap,
     FieldName,
     InternalId,
     ResolvedDocumentId,
     TableId,
     TableIdAndTableNumber,
     TableIdentifier,
+    TableMapping,
     TableName,
+    VirtualTableMapping,
 };
 
 use crate::{
@@ -117,6 +120,35 @@ pub enum StableIndexName {
     Physical(TabletIndexName),
     Virtual(IndexName, TabletIndexName),
     Missing,
+}
+
+impl StableIndexName {
+    pub fn virtual_table_number_map(
+        &self,
+        table_mapping: &TableMapping,
+        virtual_table_mapping: &VirtualTableMapping,
+    ) -> anyhow::Result<Option<VirtualTableNumberMap>> {
+        match self {
+            StableIndexName::Physical(index_name) => {
+                let table_number =
+                    table_mapping.inject_table_number()(*index_name.table())?.table_number;
+                Ok(Some(VirtualTableNumberMap {
+                    virtual_table_number: table_number,
+                    physical_table_number: table_number,
+                }))
+            },
+            StableIndexName::Virtual(index_name, tablet_index_name) => {
+                Ok(Some(VirtualTableNumberMap {
+                    virtual_table_number: virtual_table_mapping.number(index_name.table())?,
+                    physical_table_number: table_mapping.inject_table_number()(
+                        *tablet_index_name.table(),
+                    )?
+                    .table_number,
+                }))
+            },
+            StableIndexName::Missing => Ok(None),
+        }
+    }
 }
 
 impl HeapSize for TabletIndexName {

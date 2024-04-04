@@ -196,6 +196,20 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[convex_macro::test_runtime]
+async fn test_virtual_id_query(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let scheduled_id = t.mutation("idStrings:schedule", assert_obj!()).await?;
+
+    t.query(
+        "idStrings:queryVirtualId",
+        assert_obj!("id" => scheduled_id),
+    )
+    .await?;
+
+    Ok(())
+}
+
 proptest! {
     #![proptest_config(ProptestConfig { cases: 32 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
 
