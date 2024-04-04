@@ -843,6 +843,11 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 return Ok((new_cursor, total_expired_entries));
             }
         }
+        // Don't advance the retention confirmed deleted timestamp if dry run is enabled
+        if *DOCUMENT_RETENTION_DRY_RUN {
+            tracing::info!("DRY RUN: Would have deleted {total_expired_entries} documents");
+            return Ok((cursor, total_expired_entries));
+        }
         tracing::debug!(
             "delete: finished loop, returning {:?}",
             min_snapshot_ts.pred()
@@ -959,8 +964,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             )
         }
         for document_to_delete in documents_to_delete.iter() {
-            // If we're deleting an index entry, we've definitely deleted
-            // index entries for documents at all prior timestamps.
+            // If we're deleting a document, we've definitely deleted
+            // entries for documents at all prior timestamps.
             if document_to_delete.0 > Timestamp::MIN {
                 new_cursor = cmp::max(new_cursor, document_to_delete.0.pred()?);
             }
