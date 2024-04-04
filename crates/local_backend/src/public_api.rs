@@ -471,7 +471,7 @@ mod tests {
         http_format_tester(
             rt,
             "/api/query",
-            "bigint:intQuery",
+            "values:intQuery",
             json!({}),
             None,
             Err("RequiresFormatParam"),
@@ -484,7 +484,7 @@ mod tests {
         http_format_tester(
             rt,
             "/api/query",
-            "bigint:intQuery",
+            "values:intQuery",
             json!({}),
             Some("json"),
             Ok(json!("1")),
@@ -497,7 +497,7 @@ mod tests {
         http_format_tester(
             rt,
             "/api/mutation",
-            "bigint:intMutation",
+            "values:intMutation",
             json!({}),
             None,
             Err("RequiresFormatParam"),
@@ -510,7 +510,7 @@ mod tests {
         http_format_tester(
             rt,
             "/api/mutation",
-            "bigint:intMutation",
+            "values:intMutation",
             json!({}),
             Some("json"),
             Ok(json!("1")),
@@ -523,7 +523,7 @@ mod tests {
         http_format_tester(
             rt,
             "/api/action",
-            "bigint:intAction",
+            "values:intAction",
             json!({}),
             None,
             Err("RequiresFormatParam"),
@@ -536,7 +536,7 @@ mod tests {
         http_format_tester(
             rt,
             "/api/action",
-            "bigint:intAction",
+            "values:intAction",
             json!({}),
             Some("json"),
             Ok(json!("1")),

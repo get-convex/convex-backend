@@ -153,9 +153,6 @@ export const base64ToBigInt = (DataView.prototype as any).getBigInt64
 const MAX_IDENTIFIER_LEN = 1024;
 
 function validateObjectField(k: string) {
-  if (k.length === 0) {
-    throw new Error("Empty field names are disallowed.");
-  }
   if (k.length > MAX_IDENTIFIER_LEN) {
     throw new Error(
       `Field name ${k} exceeds maximum field name length ${MAX_IDENTIFIER_LEN}.`,

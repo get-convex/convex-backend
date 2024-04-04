@@ -22,7 +22,6 @@ import type * as asyncTests from "../asyncTests.js";
 import type * as auth from "../auth.js";
 import type * as basic from "../basic.js";
 import type * as benches from "../benches.js";
-import type * as bigint from "../bigint.js";
 import type * as creationTime from "../creationTime.js";
 import type * as crons from "../crons.js";
 import type * as crons_error from "../crons_error.js";
@@ -74,6 +73,7 @@ import type * as sourceMaps from "../sourceMaps.js";
 import type * as sync from "../sync.js";
 import type * as unicode from "../unicode.js";
 import type * as userError from "../userError.js";
+import type * as values from "../values.js";
 import type * as vector_search from "../vector_search.js";
 
 /**
@@ -93,7 +93,6 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   basic: typeof basic;
   benches: typeof benches;
-  bigint: typeof bigint;
   creationTime: typeof creationTime;
   crons: typeof crons;
   crons_error: typeof crons_error;
@@ -145,6 +144,7 @@ declare const fullApi: ApiFromModules<{
   sync: typeof sync;
   unicode: typeof unicode;
   userError: typeof userError;
+  values: typeof values;
   vector_search: typeof vector_search;
 }>;
 export declare const api: FilterApi<

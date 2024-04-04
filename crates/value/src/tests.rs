@@ -1,7 +1,11 @@
-use std::mem;
+use std::{
+    mem,
+    ops::Deref,
+};
 
 use crate::{
     assert_obj,
+    obj,
     ConvexObject,
     ConvexValue,
     InternalId,
@@ -128,5 +132,37 @@ fn test_shallow_merge() -> anyhow::Result<()> {
     old = old.shallow_merge(new)?;
     assert!(*old == *expected);
 
+    Ok(())
+}
+
+#[test]
+fn test_object_keys() -> anyhow::Result<()> {
+    let obj = assert_obj!(
+        "name" => "me",
+    );
+    assert_eq!(
+        obj.keys().map(Deref::deref).collect::<Vec<_>>(),
+        vec!["name"]
+    );
+    let empty_string_key = assert_obj!(
+        "" => "empty",
+    );
+    assert_eq!(
+        empty_string_key
+            .keys()
+            .map(Deref::deref)
+            .collect::<Vec<_>>(),
+        vec![""]
+    );
+    let control_char_key: anyhow::Result<_> = try { obj!("\t" => "tab")? };
+    assert!(control_char_key
+        .unwrap_err()
+        .to_string()
+        .contains("Field names can only contain non-control ASCII characters"));
+    let dollar_sign_key: anyhow::Result<_> = try { obj!("$id" => "tab")? };
+    assert!(dollar_sign_key
+        .unwrap_err()
+        .to_string()
+        .contains("Field name $id starts with '$', which is reserved"));
     Ok(())
 }

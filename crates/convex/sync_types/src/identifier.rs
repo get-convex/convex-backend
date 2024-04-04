@@ -82,24 +82,12 @@ pub fn is_valid_field_name(s: &str) -> bool {
 }
 
 fn check_valid_field_name_inner(s: &str) -> Result<(), String> {
-    let mut chars = s.chars();
-    match chars.next() {
-        Some('$') => {
-            return Err(format!(
-                "Field name {s} starts with '$', which is reserved."
-            ))
-        },
-        Some(c) => {
-            if !c.is_ascii() || c.is_ascii_control() {
-                return Err(format!(
-                    "Field name {s} has invalid character '{c}': Field names can only contain \
-                     non-control ASCII characters"
-                ));
-            }
-        },
-        None => return Err(format!("Field name cannot be empty")),
-    };
-    for c in chars {
+    if s.starts_with('$') {
+        return Err(format!(
+            "Field name {s} starts with '$', which is reserved."
+        ));
+    }
+    for c in s.chars() {
         if !c.is_ascii() || c.is_ascii_control() {
             return Err(format!(
                 "Field name {s} has invalid character '{c}': Field names can only contain \

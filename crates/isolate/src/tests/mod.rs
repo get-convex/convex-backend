@@ -31,6 +31,7 @@ mod source_maps;
 mod system_udfs;
 mod unicode;
 mod user_error;
+mod values;
 mod vector_search;
 
 pub fn assert_contains(error: &impl Display, expected: &str) {
