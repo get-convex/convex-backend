@@ -24,6 +24,7 @@ for (const dir of fs.readdirSync(path.join(__dirname, "../dist/esm"))) {
 
 // ts-node-esm requires respects Node.js import urls (requires .js extensions)
 child_process.execFileSync("node_modules/.bin/ts-node-esm", [
+  "--files",
   "src/cli/index.ts",
   "--version",
 ]);

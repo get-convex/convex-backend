@@ -479,7 +479,7 @@ export async function validateOrSelectProject(
             {
               name: "project",
               message: multiProjectPrompt,
-              type: "list",
+              type: "search-list",
               choices: nonDemoProjects.map((project: Project) => ({
                 name: `${project.name} (${project.slug})`,
                 value: project.slug,

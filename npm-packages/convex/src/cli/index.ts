@@ -27,6 +27,8 @@ import { networkTest } from "./network_test.js";
 import { convexExport } from "./convexExport.js";
 import { env } from "./env.js";
 import { data } from "./data.js";
+import inquirer from "inquirer";
+import inquirerSearchList from "inquirer-search-list";
 
 const MINIMUM_MAJOR_VERSION = 16;
 const MINIMUM_MINOR_VERSION = 15;
@@ -50,6 +52,8 @@ async function main() {
       },
     });
   }
+
+  inquirer.registerPrompt("search-list", inquirerSearchList);
 
   const nodeVersion = process.versions.node;
   const majorVersion = parseInt(nodeVersion.split(".")[0], 10);

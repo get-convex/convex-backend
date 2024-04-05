@@ -236,6 +236,7 @@
     "find-up": "^6.3.0",
     "http-proxy": "~1.18.1",
     "inquirer": "^9.1.4",
+    "inquirer-search-list": "~1.2.6",
     "jest": "^29.5.0",
     "jest-environment-jsdom": "^29.5.0",
     "jwt-encode": "~1.0.1",
