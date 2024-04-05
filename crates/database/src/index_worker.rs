@@ -657,6 +657,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             .fuse();
         pin_mut!(stream);
         let mut index_updates_written = 0;
+        let mut last_logged = self.runtime.system_time();
         while !stream.is_done() {
             let mut chunk = BTreeSet::new();
             while chunk.len() < *INDEX_BACKFILL_CHUNK_SIZE {
@@ -678,8 +679,18 @@ impl<RT: Runtime> IndexWriter<RT> {
                     .write(vec![], chunk, ConflictStrategy::Overwrite)
                     .await?;
             }
+            if last_logged.elapsed()? >= Duration::from_secs(60) {
+                tracing::info!(
+                    "backfilled {index_updates_written} index rows for table {table_id} at \
+                     snapshot {snapshot_ts}",
+                );
+                last_logged = self.runtime.system_time();
+            }
         }
-        tracing::info!("backfilled {index_updates_written} index rows at snapshot {snapshot_ts}");
+        tracing::info!(
+            "backfilled {index_updates_written} index rows for table {table_id} at snapshot \
+             {snapshot_ts}"
+        );
         Ok(())
     }
 
@@ -892,7 +903,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 self.persistence
                     .write(vec![], chunk, ConflictStrategy::Overwrite)
                     .await?;
-                if last_logged.elapsed()? >= Duration::from_secs(10) {
+                if last_logged.elapsed()? >= Duration::from_secs(60) {
                     log::info!(
                         "Backfilled {} index entries of index {}",
                         num_entries_written,
