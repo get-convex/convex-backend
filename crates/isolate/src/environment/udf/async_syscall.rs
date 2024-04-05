@@ -10,11 +10,18 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    document::GenericDocument,
+    document::{
+        GenericDocument,
+        ID_FIELD_PATH,
+    },
     knobs::MAX_SYSCALL_BATCH_SIZE,
+    maybe_val,
     query::{
         Cursor,
         CursorPosition,
+        IndexRange,
+        IndexRangeExpression,
+        Order,
         Query,
     },
     runtime::{
@@ -22,6 +29,7 @@ use common::{
         RuntimeInstant,
         UnixTimestamp,
     },
+    types::IndexName,
     value::ConvexValue,
 };
 use database::{
@@ -468,7 +476,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
             },
         };
 
-        let mut ids_to_fetch = BTreeMap::new();
+        let mut queries_to_fetch = BTreeMap::new();
         let mut precomputed_results = BTreeMap::new();
         let batch_size = batch_args.len();
         for (idx, args) in batch_args.into_iter().enumerate() {
@@ -484,8 +492,19 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
                     system_table_guard(&name?, is_system)?;
                 }
                 match tx.resolve_idv6(id, table_filter) {
-                    Ok(_) => {
-                        ids_to_fetch.insert(idx, (id, version));
+                    Ok(table_name) => {
+                        let query = Query::index_range(IndexRange {
+                            index_name: IndexName::by_id(table_name),
+                            range: vec![IndexRangeExpression::Eq(
+                                ID_FIELD_PATH.clone(),
+                                maybe_val!(id.encode()),
+                            )],
+                            order: Order::Asc,
+                        });
+                        queries_to_fetch.insert(
+                            idx,
+                            DeveloperQuery::new_with_version(tx, query, version, table_filter)?,
+                        );
                     },
                     Err(_) => {
                         // Get on a non-existent table should return null
@@ -500,7 +519,14 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
             }
         }
 
-        let mut fetched_results = UserFacingModel::new(tx).get_batch(ids_to_fetch).await;
+        let mut fetched_results = query_batch_next(
+            queries_to_fetch
+                .iter_mut()
+                .map(|(batch_key, query)| (*batch_key, (query, Some(2))))
+                .collect(),
+            tx,
+        )
+        .await;
         (0..batch_size)
             .map(|batch_key| {
                 if let Some(precomputed) = precomputed_results.remove(&batch_key) {

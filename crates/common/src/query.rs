@@ -198,10 +198,6 @@ impl IndexRange {
 
         // Check that some permutation of the equality field paths + the (optional)
         // inequality field path is a prefix of the indexed paths.
-        //
-        // NB: `indexed_fields` does not include the implicit `_id` field at the end of
-        // every index, so this omission prevents the user from using it in an
-        // index expression.
         let index_rank: BTreeMap<_, _> = indexed_fields
             .iter_with_id()
             .enumerate()
