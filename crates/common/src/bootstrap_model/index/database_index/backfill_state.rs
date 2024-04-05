@@ -15,7 +15,7 @@ pub struct DatabaseIndexBackfillState {
     // before the index was committed because we don't know the commit timestamp.
     // We need to run retention from this timestamp, because live writes write to
     // the index the moment the index committed.
-    pub index_created_lower_bound: Option<Timestamp>,
+    pub index_created_lower_bound: Timestamp,
     // We have done the backfill and the only step left is catch up retention.
     pub retention_started: bool,
 }
@@ -23,7 +23,8 @@ pub struct DatabaseIndexBackfillState {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedDatabaseIndexBackfillState {
-    // TODO: Backfill and remove optional.
+    // NOTE: Those fields should be populated for all latest indexes. We keep them
+    // as option if we ever need to parse historical documents.
     index_created_lower_bound: Option<i64>,
     retention_started: Option<bool>,
 }
@@ -33,7 +34,7 @@ impl TryFrom<DatabaseIndexBackfillState> for SerializedDatabaseIndexBackfillStat
 
     fn try_from(config: DatabaseIndexBackfillState) -> anyhow::Result<Self> {
         Ok(Self {
-            index_created_lower_bound: config.index_created_lower_bound.map(|ts| ts.into()),
+            index_created_lower_bound: Some(config.index_created_lower_bound.into()),
             retention_started: Some(config.retention_started),
         })
     }
@@ -47,8 +48,8 @@ impl TryFrom<SerializedDatabaseIndexBackfillState> for DatabaseIndexBackfillStat
             index_created_lower_bound: config
                 .index_created_lower_bound
                 .map(|ts| ts.try_into())
-                .transpose()?,
-            // Treat legacy records as retention not started.
+                .transpose()?
+                .unwrap_or(Timestamp::MIN),
             retention_started: config.retention_started.unwrap_or(false),
         })
     }

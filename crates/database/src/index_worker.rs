@@ -68,7 +68,6 @@ use common::{
         RepeatableTimestamp,
         TabletIndexName,
         Timestamp,
-        WriteTimestamp,
     },
     value::{
         ResolvedDocumentId,
@@ -424,8 +423,8 @@ impl<RT: Runtime> IndexWorker<RT> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let index_table_id = tx.bootstrap_tables().index_id;
 
-        let (index_doc, index_ts) = tx
-            .get_with_ts(ResolvedDocumentId::new(index_table_id, index_id))
+        let index_doc = tx
+            .get(ResolvedDocumentId::new(index_table_id, index_id))
             .await?
             .ok_or_else(|| anyhow::anyhow!("Index {index_id:?} no longer exists"))?;
         let mut index_metadata = TabletIndexMetadata::from_document(index_doc)?;
@@ -447,13 +446,10 @@ impl<RT: Runtime> IndexWorker<RT> {
                 };
 
                 state.retention_started = true;
-
-                // TODO(presley): Remove the fallback to commit_ts.
-                let WriteTimestamp::Committed(committed_ts) = index_ts else {
-                    anyhow::bail!("index {index_id} is pending write");
-                };
-                let index_created = state.index_created_lower_bound.unwrap_or(committed_ts);
-                (index_created, developer_config.fields.clone())
+                (
+                    state.index_created_lower_bound,
+                    developer_config.fields.clone(),
+                )
             },
             _ => anyhow::bail!(
                 "IndexWorker attempted to backfill an index {index_metadata:?} which wasn't a \

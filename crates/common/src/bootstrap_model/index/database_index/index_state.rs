@@ -4,6 +4,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use sync_types::Timestamp;
 use value::codegen_convex_serialization;
 
 use super::{
@@ -67,10 +68,10 @@ impl TryFrom<SerializedDatabaseIndexState> for DatabaseIndexState {
             },
             SerializedDatabaseIndexState::Backfilled2 => DatabaseIndexState::Backfilled,
             SerializedDatabaseIndexState::Enabled => DatabaseIndexState::Enabled,
-            // TODO(Presley): Backfill and delete Disabled state.
+            // None of the latest index documents should be in this state.
             SerializedDatabaseIndexState::Disabled => {
                 DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {
-                    index_created_lower_bound: None,
+                    index_created_lower_bound: Timestamp::MIN,
                     retention_started: false,
                 })
             },

@@ -72,7 +72,7 @@ impl<T: TableIdentifier> IndexMetadata<T> {
             config: IndexConfig::Database {
                 developer_config: DeveloperDatabaseIndexConfig { fields },
                 on_disk_state: DatabaseIndexState::Backfilling(DatabaseIndexBackfillState {
-                    index_created_lower_bound: Some(index_created_lower_bound),
+                    index_created_lower_bound,
                     retention_started: false,
                 }),
             },
