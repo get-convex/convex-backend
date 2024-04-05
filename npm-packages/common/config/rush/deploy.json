@@ -17,7 +17,7 @@
    * If the main project should include other unrelated Rush projects, add it to the "projectSettings" section,
    * and then specify those projects in the "additionalProjectsToInclude" list.
    */
-  "deploymentProjectNames": ["workload-runner", "typescript-demo"],
+  "deploymentProjectNames": ["scenario-runner", "typescript-demo"],
 
   /**
    * When deploying a local Rush project, the package.json "devDependencies" are normally excluded.
@@ -71,7 +71,7 @@
       /**
        * The full package name of the project, which must be declared in rush.json.
        */
-      "projectName": "workload-runner",
+      "projectName": "scenario-runner",
     
       /**
        * A list of additional local Rush projects to be deployed with this project (beyond the package.json
