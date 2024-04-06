@@ -352,9 +352,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     }
 
     pub fn shutdown(&self) {
-        self.advance_min_snapshot_handle.lock().shutdown();
         self.deletion_handle.lock().shutdown();
         self.document_deletion_handle.lock().shutdown();
+        self.advance_min_snapshot_handle.lock().shutdown();
     }
 
     /// Returns the timestamp which we would like to use as min_snapshot_ts.
