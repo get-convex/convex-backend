@@ -77,7 +77,7 @@ use serde::{
     Serialize,
 };
 use tokio::net::TcpSocket;
-use tonic::transport::NamedService;
+use tonic::server::NamedService;
 use tonic_health::server::health_reporter;
 use tower::{
     timeout::TimeoutLayer,

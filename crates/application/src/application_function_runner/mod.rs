@@ -250,6 +250,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
 }
 
 impl<RT: Runtime> FunctionRouter<RT> {
+    #[minitrace::trace]
     pub(crate) async fn execute_query_or_mutation(
         &self,
         tx: Transaction<RT>,
@@ -298,6 +299,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
 
     // Execute using the function runner. Can be used for v8 udfs other than http
     // actions.
+    #[minitrace::trace]
     async fn function_runner_execute(
         &self,
         mut tx: Transaction<RT>,
@@ -644,6 +646,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs a mutations and retries on OCC errors.
+    #[minitrace::trace]
     pub async fn retry_mutation(
         &self,
         request_id: RequestId,
@@ -678,6 +681,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs a mutations and retries on OCC errors.
+    #[minitrace::trace]
     async fn _retry_mutation(
         &self,
         request_id: RequestId,
@@ -898,6 +902,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs the mutation once without any logging.
+    #[minitrace::trace]
     async fn run_mutation_inner(
         &self,
         mut tx: Transaction<RT>,
@@ -1566,6 +1571,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(result)
     }
 
+    #[minitrace::trace]
     async fn check_mutation_status(
         &self,
         tx: &mut Transaction<RT>,
@@ -1627,6 +1633,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(())
     }
 
+    #[minitrace::trace]
     async fn write_mutation_status(
         &self,
         tx: &mut Transaction<RT>,

@@ -49,6 +49,7 @@ pub mod knobs;
 pub mod log_lines;
 pub mod log_streaming;
 pub mod metrics;
+pub mod minitrace_helpers;
 pub mod numeric;
 pub mod paths;
 pub mod pause;

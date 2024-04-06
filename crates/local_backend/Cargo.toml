@@ -32,6 +32,7 @@ isolate = { path = "../../crates/isolate" }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
+minitrace = { workspace = true }
 model = { path = "../model" }
 node_executor = { path = "../node_executor" }
 parking_lot = { workspace = true }

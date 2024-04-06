@@ -26,6 +26,10 @@ use common::{
         MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY,
         MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY,
     },
+    minitrace_helpers::{
+        initialize_root_from_parent,
+        EncodedSpan,
+    },
     persistence::{
         ConflictStrategy,
         Persistence,
@@ -76,6 +80,10 @@ use futures::{
     TryStreamExt,
 };
 use indexing::index_registry::IndexRegistry;
+use minitrace::{
+    collector::SpanContext,
+    prelude::*,
+};
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use usage_tracking::{
@@ -128,6 +136,8 @@ enum PersistenceWrite {
         commit_timer: StatusTimer,
 
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
+
+        parent_trace: EncodedSpan,
     },
     MaxRepeatableTimestamp {
         new_max_repeatable: Timestamp,
@@ -230,7 +240,10 @@ impl<RT: Runtime> Committer<RT> {
                             pending_write,
                             commit_timer,
                             result,
+                            parent_trace,
                         } => {
+                            let root = initialize_root_from_parent("Committer::publish_commit", parent_trace);
+                            let _guard = root.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
                             self.publish_commit(pending_write);
                             let _ = result.send(Ok(commit_ts));
@@ -265,9 +278,13 @@ impl<RT: Runtime> Committer<RT> {
                             transaction,
                             result,
                             write_source,
+                            parent_trace,
                         }) => {
+                            let root = initialize_root_from_parent("handle_commit_message", parent_trace.clone())
+                                .with_property(|| ("time_in_queue_ms", format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0)));
+                            let _guard = root.set_local_parent();
                             drop(queue_timer);
-                            self.commit(transaction, result, write_source);
+                            self.start_commit(transaction, result, write_source, parent_trace);
                         },
                         #[cfg(any(test, feature = "testing"))]
                         Some(CommitterMessage::BumpMaxRepeatableTs { result }) => {
@@ -480,6 +497,7 @@ impl<RT: Runtime> Committer<RT> {
     /// First, check that it's valid to apply this transaction in-memory. If it
     /// passes validation, we can rebase the transaction to a new timestamp
     /// if other transactions have committed.
+    #[minitrace::trace]
     fn validate_commit(
         &mut self,
         transaction: FinalTransaction,
@@ -592,6 +610,7 @@ impl<RT: Runtime> Committer<RT> {
     /// transaction must be published and made visible. If we are unsure whether
     /// the write went through, we crash the process and recover from whatever
     /// has been written to persistence.
+    #[minitrace::trace]
     async fn write_to_persistence(
         persistence: Arc<dyn Persistence>,
         index_writes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
@@ -669,11 +688,13 @@ impl<RT: Runtime> Committer<RT> {
         apply_timer.finish();
     }
 
-    fn commit(
+    #[minitrace::trace]
+    fn start_commit(
         &mut self,
         transaction: FinalTransaction,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         write_source: WriteSource,
+        parent_trace: EncodedSpan,
     ) {
         // Quit early for read-only transactions.
         if transaction.is_readonly() {
@@ -697,6 +718,8 @@ impl<RT: Runtime> Committer<RT> {
             },
         };
 
+        // necessary because this value is moved
+        let parent_trace_copy = parent_trace.clone();
         let persistence = self.persistence.clone();
         self.persistence_writes.push_back(
             async move {
@@ -711,12 +734,18 @@ impl<RT: Runtime> Committer<RT> {
                     pending_write,
                     commit_timer,
                     result,
+                    parent_trace: parent_trace_copy,
                 })
             }
+            .in_span(initialize_root_from_parent(
+                "Committer::persistence_writes_future",
+                parent_trace.clone(),
+            ))
             .boxed(),
         );
     }
 
+    #[minitrace::trace]
     fn track_commit(
         usage_tracker: FunctionUsageTracker,
         index_writes: &BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
@@ -865,6 +894,7 @@ impl<RT: Runtime> CommitterClient<RT> {
         self._commit(transaction, write_source).boxed()
     }
 
+    #[minitrace::trace]
     async fn _commit(
         &self,
         transaction: Transaction<RT>,
@@ -883,6 +913,7 @@ impl<RT: Runtime> CommitterClient<RT> {
             transaction,
             result: tx,
             write_source,
+            parent_trace: EncodedSpan::from_parent(SpanContext::current_local_parent()),
         };
         self.sender.try_send(message).map_err(|e| match e {
             TrySendError::Full(..) => metrics::committer_full_error().into(),
@@ -978,6 +1009,7 @@ enum CommitterMessage {
         transaction: FinalTransaction,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         write_source: WriteSource,
+        parent_trace: EncodedSpan,
     },
     #[cfg(any(test, feature = "testing"))]
     BumpMaxRepeatableTs { result: oneshot::Sender<Timestamp> },

@@ -46,6 +46,7 @@ keybroker = { path = "../keybroker" }
 maplit = { workspace = true, optional = true }
 metrics = { path = "../metrics" }
 mime = { workspace = true }
+minitrace = { workspace = true }
 model = { path = "../model" }
 must-let = { workspace = true, optional = true }
 p256 = { workspace = true }

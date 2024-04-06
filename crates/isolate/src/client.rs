@@ -34,6 +34,10 @@ use common::{
         V8_THREADS,
     },
     log_lines::LogLine,
+    minitrace_helpers::{
+        initialize_root_from_parent,
+        EncodedSpan,
+    },
     pause::PauseClient,
     query_journal::QueryJournal,
     runtime::{
@@ -81,6 +85,10 @@ use keybroker::{
     Identity,
     InstanceSecret,
     KeyBroker,
+};
+use minitrace::{
+    full_name,
+    future::FutureExt as _,
 };
 use model::{
     config::types::ModuleConfig,
@@ -364,14 +372,16 @@ pub struct Request<RT: Runtime> {
     pub client_id: String,
     pub inner: RequestType<RT>,
     pub pause_client: PauseClient,
+    pub parent_trace: EncodedSpan,
 }
 
 impl<RT: Runtime> Request<RT> {
-    pub fn new(client_id: String, inner: RequestType<RT>) -> Self {
+    pub fn new(client_id: String, inner: RequestType<RT>, parent_trace: EncodedSpan) -> Self {
         Self {
             client_id,
             inner,
             pause_client: PauseClient::new(),
+            parent_trace,
         }
     }
 }
@@ -647,7 +657,11 @@ impl<RT: Runtime> IsolateClient<RT> {
             response: tx,
             queue_timer: queue_timer(),
         };
-        self.send_request(Request::new(self.instance_name.clone(), request))?;
+        self.send_request(Request::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::empty(),
+        ))?;
         let (tx, outcome) = Self::receive_response(rx).await??;
         metrics::finish_execute_timer(timer, &outcome);
         Ok((tx, outcome))
@@ -696,7 +710,13 @@ impl<RT: Runtime> IsolateClient<RT> {
                 module_loader: self.module_loader.clone(),
             },
         };
-        self.send_request(Request::new(self.instance_name.clone(), request))?;
+        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
+        // http actions
+        self.send_request(Request::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::empty(),
+        ))?;
         let outcome = Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
                 recapture_stacktrace(e)
@@ -745,7 +765,13 @@ impl<RT: Runtime> IsolateClient<RT> {
                 module_loader: self.module_loader.clone(),
             },
         };
-        self.send_request(Request::new(self.instance_name.clone(), request))?;
+        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
+        // actions
+        self.send_request(Request::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::empty(),
+        ))?;
         let outcome = Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
                 recapture_stacktrace(e)
@@ -777,7 +803,13 @@ impl<RT: Runtime> IsolateClient<RT> {
             udf_config,
             environment_variables,
         };
-        self.send_request(Request::new(self.instance_name.clone(), request))?;
+        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
+        // other requests besides udfs
+        self.send_request(Request::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::empty(),
+        ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
                 recapture_stacktrace(e)
@@ -801,7 +833,13 @@ impl<RT: Runtime> IsolateClient<RT> {
             rng_seed,
             response: tx,
         };
-        self.send_request(Request::new(self.instance_name.clone(), request))?;
+        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
+        // other requests besides udfs
+        self.send_request(Request::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::empty(),
+        ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
                 recapture_stacktrace(e)
@@ -825,7 +863,13 @@ impl<RT: Runtime> IsolateClient<RT> {
             environment_variables,
             response: tx,
         };
-        self.send_request(Request::new(self.instance_name.clone(), request))?;
+        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
+        // other requests besides udfs
+        self.send_request(Request::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::empty(),
+        ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
                 recapture_stacktrace(e)
@@ -1327,6 +1371,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                     let Some((req, done, done_token)) = req else {
                         return;
                     };
+                    let root = initialize_root_from_parent(full_name!(),req.parent_trace.clone());
                     // If we receive a request from a different client (i.e. a different backend),
                     // recreate the isolate. We don't allow an isolate to be reused
                     // across clients for security isolation.
@@ -1355,6 +1400,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                     let mut isolate_clean = false;
                     let debug_str = self
                         .handle_request(&mut isolate, &mut isolate_clean, req, heap_stats.clone())
+                        .in_span(root)
                         .await;
                     let _ = done.send(done_token);
                     if !isolate_clean || should_recreate_isolate(&mut isolate, debug_str) {
@@ -1412,6 +1458,7 @@ pub(crate) fn should_recreate_isolate<RT: Runtime>(
 
 #[async_trait(?Send)]
 impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
+    #[minitrace::trace]
     async fn handle_request(
         &self,
         isolate: &mut Isolate<RT>,
@@ -1420,6 +1467,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             client_id: _,
             inner,
             pause_client: _,
+            parent_trace: _,
         }: Request<RT>,
         heap_stats: SharedIsolateHeapStats,
     ) -> String {

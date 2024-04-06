@@ -66,6 +66,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
 
 #[async_trait(?Send)]
 impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
+    #[minitrace::trace]
     async fn handle_request(
         &self,
         isolate: &mut Isolate<RT>,
@@ -74,6 +75,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
             client_id: _,
             inner,
             mut pause_client,
+            parent_trace: _,
         }: Request<RT>,
         heap_stats: SharedIsolateHeapStats,
     ) -> String {

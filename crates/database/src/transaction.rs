@@ -359,6 +359,7 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     /// Applies the reads and writes from FunctionRunner to the Transaction.
+    #[minitrace::trace]
     pub fn apply_function_runner_tx(
         &mut self,
         begin_timestamp: Timestamp,

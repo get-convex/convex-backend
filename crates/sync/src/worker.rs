@@ -25,6 +25,7 @@ use application::{
 use cmd_util::env::env_config;
 use common::{
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
+    minitrace_helpers::get_sampled_span,
     pause::PauseClient,
     query_journal::QueryJournal,
     runtime::{
@@ -34,6 +35,7 @@ use common::{
     types::{
         AllowedVisibility,
         FunctionCaller,
+        UdfType,
     },
     value::ConvexValue,
     version::ClientVersion,
@@ -62,6 +64,8 @@ use futures::{
     FutureExt,
     StreamExt,
 };
+use maplit::btreemap;
+use minitrace::prelude::*;
 use model::session_requests::types::SessionRequestIdentifier;
 use sync_types::{
     ClientMessage,
@@ -426,11 +430,18 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
-
-                let application = self.application.clone();
+                let root = get_sampled_span(
+                    "sync-worker/mutation".into(),
+                    self.rt.clone(),
+                    btreemap! {
+                       "udf_type".into() => UdfType::Mutation.to_lowercase_string().into(),
+                       "udf_path".into() => udf_path.clone().into(),
+                    },
+                );
                 let rt = self.rt.clone();
                 let client_version = self.config.client_version.clone();
                 let timer = mutation_queue_timer();
+                let application = self.application.clone();
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
                         timer.finish();
@@ -445,6 +456,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 FunctionCaller::SyncWorker(client_version),
                                 PauseClient::new(),
                             )
+                            .in_span(root)
                             .await?;
 
                         let response = match result {

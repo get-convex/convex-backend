@@ -39,6 +39,7 @@ maplit = { workspace = true }
 metrics = { path = "../metrics" }
 mime = { workspace = true }
 mime2ext = { workspace = true }
+minitrace = { workspace = true }
 model = { path = "../model" }
 node_executor = { path = "../../crates/node_executor" }
 num_cpus = { workspace = true }

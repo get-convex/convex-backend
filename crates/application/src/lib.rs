@@ -691,6 +691,11 @@ impl<RT: Runtime> Application<RT> {
         self.database.now_ts_for_reads()
     }
 
+    pub fn instance_name(&self) -> String {
+        self.instance_name.clone()
+    }
+
+    #[minitrace::trace]
     pub async fn begin(&self, identity: Identity) -> anyhow::Result<Transaction<RT>> {
         self.database.begin(identity).await
     }
@@ -700,6 +705,7 @@ impl<RT: Runtime> Application<RT> {
         self.commit(transaction, "test").await
     }
 
+    #[minitrace::trace]
     pub async fn commit(
         &self,
         transaction: Transaction<RT>,
@@ -908,6 +914,7 @@ impl<RT: Runtime> Application<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn mutation_udf(
         &self,
         request_id: RequestId,
@@ -1677,6 +1684,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(auth_config)
     }
 
+    #[minitrace::trace]
     pub async fn apply_config_with_retries(
         &self,
         identity: Identity,

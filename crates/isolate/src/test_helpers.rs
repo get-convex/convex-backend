@@ -24,6 +24,7 @@ use common::{
         LogLine,
         LogLines,
     },
+    minitrace_helpers::EncodedSpan,
     pause::{
         PauseClient,
         PauseController,
@@ -1130,6 +1131,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
         client_id: client_id.to_string(),
         inner,
         pause_client: pause_client.unwrap_or_default(),
+        parent_trace: EncodedSpan::empty(),
     })
 }
 

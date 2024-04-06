@@ -344,6 +344,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     }
 
     /// Loads table and index registry from cache or persistence snapshot.
+    #[minitrace::trace]
     pub(crate) async fn begin_tx(
         &self,
         identity: Identity,

@@ -37,6 +37,7 @@ hyper = { workspace = true }
 itertools = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
+minitrace = { workspace = true }
 openidconnect = { workspace = true }
 packed_value = { path = "../packed_value" }
 parking_lot = { workspace = true }

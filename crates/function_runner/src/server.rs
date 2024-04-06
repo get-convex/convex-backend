@@ -20,6 +20,7 @@ use common::{
         ISOLATE_QUEUE_SIZE,
     },
     log_lines::LogLine,
+    minitrace_helpers::EncodedSpan,
     persistence::{
         NoopRetentionValidator,
         PersistenceReader,
@@ -80,6 +81,7 @@ use keybroker::{
     InstanceSecret,
     KeyBroker,
 };
+use minitrace::collector::SpanContext;
 use model::environment_variables::types::{
     EnvVarName,
     EnvVarValue,
@@ -142,6 +144,7 @@ pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     module_cache: ModuleCache<RT>,
 }
 
+#[minitrace::trace]
 pub async fn validate_run_function_result(
     udf_type: UdfType,
     ts: Timestamp,
@@ -287,6 +290,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     // NOTE: The caller of this is responsible of checking retention by calling
     // `validate_function_runner_result`. If the retention check fails, we should
     // ignore any results or errors returned by this method.
+    #[minitrace::trace]
     pub async fn run_function_no_retention_check(
         &self,
         instance_name: String,
@@ -373,6 +377,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         response: tx,
                         queue_timer: queue_timer(),
                     },
+                    EncodedSpan::from_parent(SpanContext::current_local_parent()),
                 );
                 self.send_request(request)?;
                 let (tx, outcome) = Self::receive_response(rx).await??;
@@ -398,6 +403,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         fetch_client,
                         log_line_sender,
                     },
+                    EncodedSpan::from_parent(SpanContext::current_local_parent()),
                 );
                 self.send_request(request)?;
                 let outcome = Self::receive_response(rx).await??;
@@ -458,6 +464,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
 
 #[async_trait]
 impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
+    #[minitrace::trace]
     async fn run_function(
         &self,
         path_and_args: ValidatedUdfPathAndArgs,

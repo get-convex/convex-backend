@@ -187,6 +187,7 @@ dependencies = [
  "metrics",
  "mime",
  "mime2ext",
+ "minitrace",
  "model",
  "must-let",
  "node_executor",
@@ -805,6 +806,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cache-padded"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "981520c98f422fcc584dc1a95c334e6953900b9106bc47a9839b81790009eb21"
+
+[[package]]
 name = "camino"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1076,6 +1083,7 @@ dependencies = [
  "jsonschema",
  "maplit",
  "metrics",
+ "minitrace",
  "must-let",
  "openidconnect",
  "packed_value",
@@ -1658,6 +1666,7 @@ dependencies = [
  "keybroker",
  "maplit",
  "metrics",
+ "minitrace",
  "must-let",
  "parking_lot",
  "pb",
@@ -2461,6 +2470,7 @@ dependencies = [
  "isolate",
  "keybroker",
  "metrics",
+ "minitrace",
  "model",
  "parking_lot",
  "pb",
@@ -3320,6 +3330,7 @@ dependencies = [
  "maplit",
  "metrics",
  "mime",
+ "minitrace",
  "model",
  "must-let",
  "p256 0.11.1",
@@ -3748,6 +3759,7 @@ dependencies = [
  "keybroker",
  "maplit",
  "metrics",
+ "minitrace",
  "model",
  "node_executor",
  "parking_lot",
@@ -3996,6 +4008,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "minitrace"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2df1d765f7ec35138abeefde2a023c3b26b8d9bb2e4a3b98ed132acf2d755a7"
+dependencies = [
+ "futures",
+ "minitrace-macro",
+ "minstant",
+ "once_cell",
+ "parking_lot",
+ "pin-project",
+ "rand 0.8.5",
+ "rtrb",
+]
+
+[[package]]
+name = "minitrace-macro"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36aca96c5da5b6a8c7f75910fb52c8d5aecb70f27d821adeae06ba54d2cf74b0"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "miniz_oxide"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4011,6 +4051,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7810e0be55b428ada41041c41f32c9f1a42817901b4ccf45fa3d4b6561e74c7"
 dependencies = [
  "adler",
+]
+
+[[package]]
+name = "minstant"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fb9b5c752f145ac5046bccc3c4f62892e3c950c1d1eab80c5949cd68a2078db"
+dependencies = [
+ "ctor",
+ "web-time",
 ]
 
 [[package]]
@@ -5630,6 +5680,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rtrb"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99e704dd104faf2326a320140f70f0b736d607c1caa1b1748a6c568a79819109"
+dependencies = [
+ "cache-padded",
+]
+
+[[package]]
 name = "runtime"
 version = "0.1.0"
 dependencies = [
@@ -6739,12 +6798,15 @@ dependencies = [
  "futures",
  "isolate",
  "keybroker",
+ "maplit",
  "metrics",
+ "minitrace",
  "model",
  "must-let",
  "parking_lot",
  "proptest",
  "proptest-derive",
+ "rand 0.8.5",
  "runtime",
  "serde",
  "serde_json",
@@ -7252,9 +7314,9 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.10.0"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5469afaf78a11265c343a88969045c1568aa8ecc6c787dbf756e92e70f199861"
+checksum = "d560933a0de61cf715926b9cac824d4c883c2c43142f787595e48280c40a1d0e"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -7948,6 +8010,16 @@ name = "web-sys"
 version = "0.3.68"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96565907687f7aceb35bc5fc03770a8a0471d82e479f25832f54a0e3f4b28446"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "web-time"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",

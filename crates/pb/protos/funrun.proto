@@ -40,6 +40,9 @@ message FunrunRequest {
   BootstrapMetadata bootstrap_metadata = 14;
   optional common.ExecutionContext context = 15;
   RepeatableTimestamp repeatable_ts = 16;
+  
+  // Encoded parent trace
+  optional string encoded_parent_trace = 18;
 }
 
 // Only construct this via

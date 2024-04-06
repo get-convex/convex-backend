@@ -989,3 +989,8 @@ pub static HTTP_SERVER_TIMEOUT_DURATION: LazyLock<Duration> =
 // Schema and code bundle pushes must be less than this.
 pub static MAX_PUSH_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_PUSH_BYTES", 100_000_000));
+
+/// Percentage of request traces that should sampled
+pub static REQUEST_TRACE_SAMPLE_PERCENT: LazyLock<f64> = LazyLock::new(|| {
+    env_config("REQUEST_TRACE_SAMPLE_PERCENT", 0.0) // 0% by default
+});

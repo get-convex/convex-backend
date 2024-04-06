@@ -53,6 +53,7 @@ pub struct RequestZipExport {
     include_storage: bool,
 }
 
+#[minitrace::trace]
 pub async fn request_zip_export(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,

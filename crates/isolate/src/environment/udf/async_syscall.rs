@@ -184,6 +184,7 @@ impl AsyncSyscallBatch {
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     /// Runs a batch of syscalls, each of which can succeed or fail
     /// independently. The returned vec is the same length as the batch.
+    #[minitrace::trace]
     pub async fn run_async_syscall_batch(
         &mut self,
         batch: AsyncSyscallBatch,
@@ -452,6 +453,7 @@ pub struct DatabaseSyscallsV1<RT: Runtime> {
 
 impl<RT: Runtime> DatabaseSyscallsV1<RT> {
     #[convex_macro::instrument_future]
+    #[minitrace::trace]
     async fn get_batch(
         env: &mut DatabaseUdfEnvironment<RT>,
         batch_args: Vec<JsonValue>,
@@ -545,6 +547,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
             .collect()
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     async fn insert(
         env: &mut DatabaseUdfEnvironment<RT>,
@@ -574,6 +577,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
         Ok(json!({ "_id": id_str }))
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     async fn shallow_merge(
         env: &mut DatabaseUdfEnvironment<RT>,
@@ -603,6 +607,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
         Ok(document.into_value().0.into())
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     async fn replace(
         env: &mut DatabaseUdfEnvironment<RT>,
@@ -632,6 +637,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
         Ok(document.into_value().0.into())
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     async fn queryStreamNext_batch(
         env: &mut DatabaseUdfEnvironment<RT>,
@@ -715,6 +721,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
         results.into_values().collect()
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     async fn queryPage(
         env: &mut DatabaseUdfEnvironment<RT>,
@@ -723,6 +730,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
         DatabaseSyscallsShared::queryPage(env, args).await
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     async fn remove(
         env: &mut DatabaseUdfEnvironment<RT>,
