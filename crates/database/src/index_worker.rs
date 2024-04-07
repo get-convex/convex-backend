@@ -571,26 +571,29 @@ impl<RT: Runtime> IndexWriter<RT> {
         // then create index entries for all documents in the retention range.
 
         let (tx, rx) = mpsc::unbounded();
-        let handles = index_selector.iterate_tables().map(|table_id| {
-            let index_metadata = index_metadata.clone();
-            let index_selector = index_selector.clone();
-            let self_ = (*self).clone();
-            let tx = tx.clone();
-            self.runtime
-                .spawn("index_backfill_table_snapshot", async move {
-                    tx.unbounded_send(
-                        self_
-                            .backfill_exact_snapshot_of_table(
-                                snapshot_ts,
-                                &index_selector,
-                                &index_metadata,
-                                table_id,
-                            )
-                            .await,
-                    )
-                    .unwrap();
-                })
-        });
+        let handles: Vec<_> = index_selector
+            .iterate_tables()
+            .map(|table_id| {
+                let index_metadata = index_metadata.clone();
+                let index_selector = index_selector.clone();
+                let self_ = (*self).clone();
+                let tx = tx.clone();
+                self.runtime
+                    .spawn("index_backfill_table_snapshot", async move {
+                        tx.unbounded_send(
+                            self_
+                                .backfill_exact_snapshot_of_table(
+                                    snapshot_ts,
+                                    &index_selector,
+                                    &index_metadata,
+                                    table_id,
+                                )
+                                .await,
+                        )
+                        .unwrap();
+                    })
+            })
+            .collect();
         for handle in handles {
             handle.into_join_future().await?;
         }
