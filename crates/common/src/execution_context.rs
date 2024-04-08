@@ -100,6 +100,10 @@ impl RequestId {
         hash.truncate(16);
         Self(hash)
     }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
 }
 
 impl FromStr for RequestId {

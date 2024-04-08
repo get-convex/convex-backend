@@ -17,9 +17,11 @@ use axum::{
     RequestExt,
 };
 use common::{
-    http::HttpResponseError,
+    http::{
+        ExtractRequestId,
+        HttpResponseError,
+    },
     types::FunctionCaller,
-    RequestId,
 };
 use futures::TryStreamExt;
 use http::{
@@ -87,6 +89,7 @@ impl FromRequest<LocalAppState, axum::body::Body> for ExtractHttpRequestMetadata
 pub async fn http_any_method(
     State(st): State<LocalAppState>,
     TryExtractIdentity(identity_result): TryExtractIdentity,
+    ExtractRequestId(request_id): ExtractRequestId,
     ExtractHttpRequestMetadata(http_request_metadata): ExtractHttpRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     // All HTTP actions run the default export of the http.js path.
@@ -96,10 +99,6 @@ pub async fn http_any_method(
     // Try to extract the identity based on the Convex auth, but allow the request
     // to go through if the header does not seem to specify Convex auth.
     let identity = identity_result.unwrap_or(Identity::Unknown);
-
-    // TODO: Move generating request_id and configuring sentry axum middleware.
-    let request_id = RequestId::new();
-    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
 
     let udf_return = st
         .application

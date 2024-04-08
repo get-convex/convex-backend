@@ -5,9 +5,7 @@ use std::{
     future::Future,
     net::SocketAddr,
     pin::Pin,
-    str::{
-        self,
-    },
+    str,
     sync::LazyLock,
     time::{
         Duration,
@@ -70,6 +68,7 @@ use http::{
 };
 use hyper::server::conn::AddrIncoming;
 use itertools::Itertools;
+use maplit::btreemap;
 use prometheus::TextEncoder;
 use sentry::integrations::tower as sentry_tower;
 use serde::{
@@ -94,11 +93,13 @@ use crate::{
     errors::report_error,
     knobs::HTTP_SERVER_TCP_BACKLOG,
     metrics::log_client_version_unsupported,
+    minitrace_helpers::get_sampled_span,
     version::{
         ClientVersion,
         ClientVersionState,
         COMPILED_REVISION,
     },
+    RequestId,
 };
 
 pub mod extract;
@@ -707,6 +708,7 @@ async fn client_version_state_middleware(
 pub async fn stats_middleware<RM: RouteMapper>(
     State(route_metric_mapper): State<RM>,
     matched_path: Option<axum::extract::MatchedPath>,
+    ExtractRequestId(request_id): ExtractRequestId,
     ExtractClientVersion(client_version): ExtractClientVersion,
     req: http::request::Request<Body>,
     next: axum::middleware::Next<Body>,
@@ -724,6 +726,18 @@ pub async fn stats_middleware<RM: RouteMapper>(
         .unwrap_or("unknown".to_owned());
 
     let route = route_metric_mapper.map_route(route);
+
+    // Configure tracing.
+    let mut rng = rand::thread_rng();
+    let root = get_sampled_span(
+        route.clone(),
+        &mut rng,
+        btreemap!["request_id".to_owned() => request_id.to_string()],
+    );
+    let _guard = root.set_local_parent();
+
+    // Add the request_id to sentry
+    sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
 
     log_http_request(
         &client_version_s,
@@ -801,6 +815,51 @@ where
             ))
         })?;
         Ok(Self(client_version))
+    }
+}
+
+#[allow(clippy::declare_interior_mutable_const)]
+pub const CONVEX_REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("convex-request-id");
+
+pub struct ExtractRequestId(pub RequestId);
+
+async fn request_id_from_req_parts(
+    parts: &mut axum::http::request::Parts,
+) -> anyhow::Result<RequestId> {
+    if let Some(request_id_header) = parts
+        .headers
+        .get(CONVEX_REQUEST_ID_HEADER)
+        .and_then(|h| h.to_str().ok().map(|s| s.to_string()))
+    {
+        request_id_header.parse::<RequestId>()
+    } else {
+        // Generate a new request_id
+        let request_id = RequestId::new();
+        parts
+            .headers
+            .insert(CONVEX_REQUEST_ID_HEADER, request_id.as_str().parse()?);
+        Ok(request_id)
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for ExtractRequestId
+where
+    S: Send + Sync,
+{
+    type Rejection = HttpResponseError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let request_id = request_id_from_req_parts(parts).await.map_err(|e| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidRequestId",
+                e.to_string(),
+            ))
+        })?;
+        Ok(Self(request_id))
     }
 }
 

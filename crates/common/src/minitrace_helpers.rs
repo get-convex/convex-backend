@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    borrow::Cow,
+    collections::BTreeMap,
+};
 
 use minitrace::{
     collector::SpanContext,
@@ -6,10 +9,7 @@ use minitrace::{
 };
 use rand::Rng;
 
-use crate::{
-    knobs::REQUEST_TRACE_SAMPLE_PERCENT,
-    runtime::Runtime,
-};
+use crate::knobs::REQUEST_TRACE_SAMPLE_PERCENT;
 
 #[derive(Clone)]
 pub struct EncodedSpan(pub Option<String>);
@@ -27,14 +27,12 @@ impl EncodedSpan {
 
 /// Given an instance name returns a span with the sample percentage specified
 /// in `knobs.rs`
-pub fn get_sampled_span<RT: Runtime>(
-    request_name: String,
-    rt: RT,
+pub fn get_sampled_span<R: Rng>(
+    request_name: impl Into<Cow<'static, str>>,
+    rng: &mut R,
     properties: BTreeMap<String, String>,
 ) -> Span {
-    let should_sample = rt
-        .clone()
-        .with_rng(|rng| rng.gen_bool(*REQUEST_TRACE_SAMPLE_PERCENT));
+    let should_sample = rng.gen_bool(*REQUEST_TRACE_SAMPLE_PERCENT);
     match should_sample {
         true => Span::root(request_name, SpanContext::random()).with_properties(|| properties),
         false => Span::noop(),

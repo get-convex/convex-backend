@@ -430,14 +430,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
-                let root = get_sampled_span(
-                    "sync-worker/mutation".into(),
-                    self.rt.clone(),
-                    btreemap! {
-                       "udf_type".into() => UdfType::Mutation.to_lowercase_string().into(),
-                       "udf_path".into() => udf_path.clone().into(),
-                    },
-                );
+                let root = self.rt.with_rng(|rng| {
+                    get_sampled_span(
+                        "sync-worker/mutation",
+                        rng,
+                        btreemap! {
+                           "udf_type".into() => UdfType::Mutation.to_lowercase_string().into(),
+                           "udf_path".into() => udf_path.clone().into(),
+                        },
+                    )
+                });
                 let rt = self.rt.clone();
                 let client_version = self.config.client_version.clone();
                 let timer = mutation_queue_timer();
