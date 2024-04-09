@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use metrics::{
     log_counter_with_tags,
     log_gauge_with_tags,
@@ -87,4 +89,20 @@ pub fn async_lru_get_timer(label: &str) -> CancelableTimer {
     let mut timer = CancelableTimer::new(&ASYNC_LRU_GET_SECONDS);
     timer.add_tag(async_lru_label_tag(label));
     timer
+}
+
+register_convex_counter!(
+    ASYNC_LRU_EVICTED_TOTAL,
+    "The total number of records evicted",
+    &[ASYNC_LRU_LABEL],
+);
+register_convex_gauge!(
+    ASYNC_LRU_EVICTED_AGE_SECONDS,
+    "The age of the last evicted entry",
+    &[ASYNC_LRU_LABEL],
+);
+pub fn async_lru_log_eviction(label: &str, age: Duration) {
+    let tags = vec![async_lru_label_tag(label)];
+    log_counter_with_tags(&ASYNC_LRU_EVICTED_TOTAL, 1, tags.clone());
+    log_gauge_with_tags(&ASYNC_LRU_EVICTED_AGE_SECONDS, age.as_secs_f64(), tags)
 }

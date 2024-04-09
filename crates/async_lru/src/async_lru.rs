@@ -16,7 +16,10 @@ use common::{
         CoDelQueueSender,
     },
     errors::recapture_stacktrace_noreport,
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        RuntimeInstant,
+    },
 };
 use futures::{
     future::BoxFuture,
@@ -28,6 +31,7 @@ use parking_lot::Mutex;
 use crate::metrics::{
     async_lru_compute_timer,
     async_lru_get_timer,
+    async_lru_log_eviction,
     log_async_lru_cache_hit,
     log_async_lru_cache_miss,
     log_async_lru_cache_waiting,
@@ -78,19 +82,20 @@ impl<RT: Runtime, Key, Value> Clone for AsyncLru<RT, Key, Value> {
         }
     }
 }
-enum CacheResult<Value> {
+enum CacheResult<Value, RT: Runtime> {
     Ready {
         value: Arc<Value>,
         // Memoize the size to guard against implementations of `SizedValue`
         // that (unexpectedly) change while the value is in the cache.
         size: u64,
+        added: RT::Instant,
     },
     Waiting {
         receiver: BroadcastReceiver<Result<Arc<Value>, Arc<anyhow::Error>>>,
     },
 }
 
-impl<Value: SizedValue> SizedValue for CacheResult<Value> {
+impl<Value: SizedValue, RT: Runtime> SizedValue for CacheResult<Value, RT> {
     fn size(&self) -> u64 {
         match self {
             CacheResult::Ready { size, .. } => *size,
@@ -100,7 +105,7 @@ impl<Value: SizedValue> SizedValue for CacheResult<Value> {
 }
 
 struct Inner<RT: Runtime, Key, Value> {
-    cache: LruCache<Key, CacheResult<Value>>,
+    cache: LruCache<Key, CacheResult<Value, RT>>,
     current_size: u64,
     max_size: u64,
     label: &'static str,
@@ -109,7 +114,7 @@ struct Inner<RT: Runtime, Key, Value> {
 
 impl<RT: Runtime, Key, Value> Inner<RT, Key, Value> {
     fn new(
-        cache: LruCache<Key, CacheResult<Value>>,
+        cache: LruCache<Key, CacheResult<Value, RT>>,
         max_size: u64,
         label: &'static str,
         tx: CoDelQueueSender<RT, BuildValueRequest<Key, Value>>,
@@ -194,7 +199,7 @@ impl<
 
     fn _new(
         rt: RT,
-        cache: LruCache<Key, CacheResult<Value>>,
+        cache: LruCache<Key, CacheResult<Value, RT>>,
         max_size: u64,
         concurrency: usize,
         label: &'static str,
@@ -204,7 +209,7 @@ impl<
         let inner = Inner::new(cache, max_size, label, tx);
         let handle = rt.spawn(
             label,
-            Self::value_generating_worker_thread(rx, inner.clone(), concurrency),
+            Self::value_generating_worker_thread(rt.clone(), rx, inner.clone(), concurrency),
         );
         Self {
             inner,
@@ -226,6 +231,7 @@ impl<
     }
 
     fn update_value(
+        rt: RT,
         inner: Arc<Mutex<Inner<RT, Key, Value>>>,
         key: Key,
         value: anyhow::Result<Value>,
@@ -237,6 +243,7 @@ impl<
                 let new_value = CacheResult::Ready {
                     size: result.size(),
                     value: result.clone(),
+                    added: rt.monotonic_now(),
                 };
                 inner.current_size += new_value.size();
                 // Ideally we'd not change the LRU order by putting here...
@@ -269,15 +276,21 @@ impl<
                 .expect("Over max size, but no more entries");
             // This isn't catastrophic necessarily, but it may lead to
             // under / over counting of the cache's size.
-            if let CacheResult::Ready { ref value, size } = evicted
-                && size != value.size()
+            if let CacheResult::Ready {
+                ref value,
+                size,
+                ref added,
+            } = evicted
             {
-                tracing::warn!(
-                    "Value changed size from {} to {} while in the {} cache!",
-                    size,
-                    value.size(),
-                    inner.label
-                )
+                if size != value.size() {
+                    tracing::warn!(
+                        "Value changed size from {} to {} while in the {} cache!",
+                        size,
+                        value.size(),
+                        inner.label
+                    )
+                }
+                async_lru_log_eviction(inner.label, added.elapsed());
             }
             inner.current_size -= evicted.size();
         }
@@ -380,12 +393,14 @@ impl<
     }
 
     async fn value_generating_worker_thread(
+        rt: RT,
         rx: CoDelQueueReceiver<RT, BuildValueRequest<Key, Value>>,
         inner: Arc<Mutex<Inner<RT, Key, Value>>>,
         concurrency: usize,
     ) {
         rx.for_each_concurrent(concurrency, |((key, generator, tx), expired)| {
             let inner = inner.clone();
+            let rt = rt.clone();
             async move {
                 if let Some(expired) = expired {
                     Self::drop_waiting(inner, &key);
@@ -395,7 +410,7 @@ impl<
 
                 let value = generator.await;
 
-                let to_broadcast = Self::update_value(inner, key, value).map_err(Arc::new);
+                let to_broadcast = Self::update_value(rt, inner, key, value).map_err(Arc::new);
                 let _ = tx.broadcast(to_broadcast).await;
             }
         })
