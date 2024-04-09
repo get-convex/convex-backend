@@ -46,9 +46,9 @@ export type WithOptionalSystemFields<Document extends GenericDocument> = Expand<
  * @public
  */
 export type SystemIndexes = {
-  // We have a system index `by_id` but developers should never have a use
-  // for querying it (`db.get(id)` is always simpler).
-  // by_id: ["_id"];
+  // Note `db.get(id)` is simpler and equivalent to a query on `by_id`.
+  // Unless the query is being built dynamically, or doing manual pagination.
+  by_id: ["_id"];
 
   by_creation_time: ["_creationTime"];
 };

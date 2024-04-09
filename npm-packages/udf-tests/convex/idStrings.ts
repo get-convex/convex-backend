@@ -59,7 +59,6 @@ export const schedule = mutation({
   },
 });
 
-// TODO(lee) remove `any` casts when there are types for `_id` filters.
 export const queryVirtualId = query({
   args: { id: v.id("_scheduled_functions") },
   handler: async ({ db }, { id }) => {
@@ -78,28 +77,32 @@ export const queryVirtualId = query({
     // Fetch with by_id.
     const doc2 = await db.system
       .query("_scheduled_functions")
-      .withIndex("by_id" as any, (q) => q.eq("_id", id))
+      .withIndex("by_id", (q) => q.eq("_id", id))
       .unique();
     assert.deepEqual(doc2, doc);
     // Fetch with inequalities on ID.
     const doc3 = await db.system
       .query("_scheduled_functions")
-      .withIndex("by_id" as any, (q) => q.lte("_id", id))
+      .withIndex("by_id", (q) => q.lte("_id", id))
       .unique();
     assert.deepEqual(doc3, doc);
     const doc4 = await db.system
       .query("_scheduled_functions")
-      .withIndex("by_id" as any, (q) => q.lt("_id", id))
+      .withIndex("by_id", (q) => q.lt("_id", id))
       .unique();
     assert.strictEqual(doc4, null);
     const doc5 = await db.system
       .query("_scheduled_functions")
-      .withIndex("by_id" as any, (q) => q.gt("_id", id.slice(0, -1)))
+      .withIndex("by_id", (q) =>
+        q.gt("_id", id.slice(0, -1) as Id<"_scheduled_functions">),
+      )
       .unique();
     assert.deepEqual(doc5, doc);
     const doc6 = await db.system
       .query("_scheduled_functions")
-      .withIndex("by_id" as any, (q) => q.gt("_id", id + " "))
+      .withIndex("by_id", (q) =>
+        q.gt("_id", (id + " ") as Id<"_scheduled_functions">),
+      )
       .unique();
     assert.strictEqual(doc6, null);
   },
