@@ -164,11 +164,11 @@ The `convex` script in `Justfile` automatically adds appropriate `--url` and
 To run the client web application you can run the demo Vite server via:
 
 ```bash
-npm run dev:client
+npm run dev:frontend
 ```
 
 Note that unlike the hosted Convex workflow, we don't want to run the
-`dev:server` command since `convex dev` is already running.
+`dev:backend` command since `convex dev` is already running.
 
 _The following CLI commands may be useful when interacting with your backend:_
 
