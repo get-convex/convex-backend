@@ -973,12 +973,6 @@ pub static MAX_BACKEND_PUBLIC_API_REQUEST_SIZE: LazyLock<usize> =
 pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
     LazyLock::new(|| env_config("DATABASE_WORKERS_MIN_COMMITS", 100));
 
-/// We have temporary grandfathered a few instances to be able to use storage by
-/// using virtual document id until the developers can remove this incorrect
-/// usage.
-pub static ALLOW_STORAGE_GET_VIA_DOCUMENT_ID: LazyLock<bool> =
-    LazyLock::new(|| env_config("ALLOW_STORAGE_GET_VIA_DOCUMENT_ID", false));
-
 /// HTTP requests to backend will time out after this duration has passed.
 ///
 /// See https://docs.rs/tower-http/0.5.0/tower_http/timeout/struct.TimeoutLayer.html
