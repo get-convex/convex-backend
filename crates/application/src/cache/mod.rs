@@ -291,6 +291,17 @@ impl<RT: Runtime> CacheManager<RT> {
                 None => continue 'top,
             };
 
+            // Create a waiting entry in order to guarantee the waiting entry always
+            // get cleaned up if the current future returns an error or gets dropped.
+            let waiting_entry_id = match op {
+                CacheOp::Go {
+                    waiting_entry_id, ..
+                } => waiting_entry_id,
+                _ => None,
+            };
+            let mut waiting_entry_guard =
+                WaitingEntryGuard::new(waiting_entry_id, &key, self.cache.clone());
+
             // Step 2: Perform our cache operation, potentially running the UDF.
             let is_cache_hit = match op {
                 // Serving from cache.
@@ -301,36 +312,20 @@ impl<RT: Runtime> CacheManager<RT> {
                 // We are executing ourselves.
                 CacheOp::Go { .. } => false,
             };
-            let waiting_entry_id = match op {
-                CacheOp::Go {
-                    waiting_entry_id, ..
-                } => waiting_entry_id,
-                _ => None,
+            let (result, table_stats) = match self
+                .perform_cache_op(&key, op, usage_tracker.clone())
+                .await?
+            {
+                Some(r) => r,
+                None => continue 'top,
             };
-            let (result, table_stats) =
-                match self.perform_cache_op(&key, op, usage_tracker.clone()).await {
-                    Ok(Some(r)) => r,
-                    Ok(None) => continue 'top,
-                    Err(err) => {
-                        if let Some(waiting_entry_id) = waiting_entry_id {
-                            self.cache.remove_waiting(&key, waiting_entry_id);
-                        }
-                        return Err(err);
-                    },
-                };
 
             // Step 3: Validate that the cache result we got is good enough. Is our desired
             // timestamp in its validity interval? If it looked at system time, is it not
             // too old?
-            let cache_result = match self.validate_cache_result(&key, ts, result).await {
-                Ok(Some(r)) => r,
-                Ok(None) => continue 'top,
-                Err(err) => {
-                    if let Some(waiting_entry_id) = waiting_entry_id {
-                        self.cache.remove_waiting(&key, waiting_entry_id);
-                    }
-                    return Err(err);
-                },
+            let cache_result = match self.validate_cache_result(&key, ts, result).await? {
+                Some(r) => r,
+                None => continue 'top,
             };
 
             // Step 4: Rewrite the value into the cache. This method will discard the new
@@ -338,9 +333,9 @@ impl<RT: Runtime> CacheManager<RT> {
             // value is in the cache.
             if cache_result.outcome.result.is_ok() {
                 // We do not cache JSErrors
-                self.cache.put_ready(key.clone(), cache_result.clone());
-            } else if let Some(waiting_entry_id) = waiting_entry_id {
-                self.cache.remove_waiting(&key, waiting_entry_id);
+                waiting_entry_guard.complete(cache_result.clone());
+            } else {
+                drop(waiting_entry_guard);
             }
 
             // Step 5: Log some stuff and return.
@@ -554,6 +549,42 @@ impl<RT: Runtime> CacheManager<RT> {
             }
         }
         Ok(Some(result))
+    }
+}
+
+// A wrapper struct that makes sure that the waiting entry always gets removed
+// when the performing operation is dropped, even if the caller future gets
+// canceled.
+struct WaitingEntryGuard<'a, RT: Runtime> {
+    entry_id: Option<u64>,
+    key: &'a CacheKey,
+    cache: Cache<RT>,
+}
+
+impl<'a, RT: Runtime> WaitingEntryGuard<'a, RT> {
+    fn new(entry_id: Option<u64>, key: &'a CacheKey, cache: Cache<RT>) -> Self {
+        Self {
+            entry_id,
+            key,
+            cache,
+        }
+    }
+
+    // Marks the waiting entry as removed, so we don't have to remove it on Drop
+    fn complete(&mut self, result: CacheResult) {
+        self.cache.put_ready(self.key.clone(), result);
+        // We just performed put_ready so there is no need to perform remove_waiting
+        // on Drop.
+        self.entry_id.take();
+    }
+}
+
+impl<'a, RT: Runtime> Drop for WaitingEntryGuard<'a, RT> {
+    fn drop(&mut self) {
+        // Remove the cache entry from the cache if still present.
+        if let Some(entry_id) = self.entry_id {
+            self.cache.remove_waiting(self.key, entry_id)
+        }
     }
 }
 
