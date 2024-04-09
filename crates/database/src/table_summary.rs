@@ -9,6 +9,7 @@ use std::{
 use common::pause::PauseClient;
 use common::{
     document::ResolvedDocument,
+    knobs::TABLE_SUMMARY_CHUNKS_PER_SECOND,
     persistence::{
         new_static_repeatable_recent,
         Persistence,
@@ -400,6 +401,10 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         let mut summary = TableSummary::empty();
         while let Some((document, _ts)) = revision_stream.try_next().await? {
             summary = summary.insert(document.value());
+            let num_values = summary.inferred_type.num_values();
+            if num_values % 10000 == 0 {
+                tracing::info!("Collecting table summary with {num_values} documents")
+            }
         }
         Ok(summary)
     }
@@ -469,8 +474,10 @@ pub async fn bootstrap<RT: Runtime>(
     let (base_snapshot, base_snapshot_ts) = match stored_snapshot {
         Some(base) => base,
         None => {
-            let rate_limiter =
-                new_rate_limiter(rt.clone(), Quota::per_second(1000.try_into().unwrap()));
+            let rate_limiter = new_rate_limiter(
+                rt.clone(),
+                Quota::per_second(*TABLE_SUMMARY_CHUNKS_PER_SECOND),
+            );
             let by_id_indexes = index_registry.by_id_indexes();
             let base_snapshot = TableSummaryWriter::collect_snapshot(
                 *recent_ts,

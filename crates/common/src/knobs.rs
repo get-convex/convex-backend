@@ -483,14 +483,9 @@ pub static MAX_SESSION_CLEANUP_DURATION: LazyLock<Option<Duration>> = LazyLock::
 pub static TABLE_SUMMARY_CHUNKS_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
     env_config(
         "TABLE_SUMMARY_CHUNKS_PER_SECOND",
-        NonZeroU32::new(2).unwrap(),
+        NonZeroU32::new(1000).unwrap(),
     )
 });
-
-/// Size of chunks read when calculating table summaries.
-pub static TABLE_SUMMARY_CHUNK_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("TABLE_SUMMARY_CHUNK_SIZE", 128));
-
 /// Size at which a vector index will be queued for snapshotting vector indexes.
 pub static VECTOR_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("VECTOR_INDEX_SIZE_SOFT_LIMIT", 30 * (1 << 20))); // 30 MiB
