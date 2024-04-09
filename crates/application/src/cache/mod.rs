@@ -98,6 +98,7 @@ pub const MAX_CACHE_AGE: Duration = Duration::from_secs(5);
 static TOTAL_QUERY_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| *DATABASE_UDF_USER_TIMEOUT + *DATABASE_UDF_SYSTEM_TIMEOUT);
 
+#[derive(Clone)]
 pub struct CacheManager<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
@@ -105,25 +106,12 @@ pub struct CacheManager<RT: Runtime> {
     udf_execution: FunctionExecutionLog<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
 
-    inner: Arc<Mutex<Inner<RT>>>,
-}
-
-impl<RT: Runtime> Clone for CacheManager<RT> {
-    fn clone(&self) -> Self {
-        Self {
-            rt: self.rt.clone(),
-            database: self.database.clone(),
-            function_router: self.function_router.clone(),
-            udf_execution: self.udf_execution.clone(),
-            module_loader: self.module_loader.clone(),
-            inner: self.inner.clone(),
-        }
-    }
+    cache: Cache<RT>,
 }
 
 impl<RT: Runtime> HeapSize for CacheManager<RT> {
     fn heap_size(&self) -> usize {
-        self.inner.lock().size
+        self.cache.heap_size()
     }
 }
 
@@ -195,18 +183,13 @@ impl<RT: Runtime> CacheManager<RT> {
         udf_execution: FunctionExecutionLog<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
     ) -> Self {
-        let inner = Inner {
-            cache: LruCache::unbounded(),
-            size: 0,
-            next_waiting_id: 0,
-        };
         Self {
             rt,
             database,
             function_router,
             udf_execution,
             module_loader,
-            inner: Arc::new(Mutex::new(inner)),
+            cache: Cache::new(),
         }
     }
 
@@ -295,7 +278,7 @@ impl<RT: Runtime> CacheManager<RT> {
 
             // Step 1: Decide what we're going to do this iteration: use a cached value,
             // wait on someone else to run a UDF, or run the UDF ourselves.
-            let maybe_op = self.plan_cache_op(
+            let maybe_op = self.cache.plan_cache_op(
                 &key,
                 start.clone(),
                 now.clone(),
@@ -330,7 +313,7 @@ impl<RT: Runtime> CacheManager<RT> {
                     Ok(None) => continue 'top,
                     Err(err) => {
                         if let Some(waiting_entry_id) = waiting_entry_id {
-                            self.inner.lock().remove_waiting(&key, waiting_entry_id);
+                            self.cache.remove_waiting(&key, waiting_entry_id);
                         }
                         return Err(err);
                     },
@@ -344,7 +327,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 Ok(None) => continue 'top,
                 Err(err) => {
                     if let Some(waiting_entry_id) = waiting_entry_id {
-                        self.inner.lock().remove_waiting(&key, waiting_entry_id);
+                        self.cache.remove_waiting(&key, waiting_entry_id);
                     }
                     return Err(err);
                 },
@@ -355,11 +338,9 @@ impl<RT: Runtime> CacheManager<RT> {
             // value is in the cache.
             if cache_result.outcome.result.is_ok() {
                 // We do not cache JSErrors
-                self.inner
-                    .lock()
-                    .put_ready(key.clone(), cache_result.clone());
+                self.cache.put_ready(key.clone(), cache_result.clone());
             } else if let Some(waiting_entry_id) = waiting_entry_id {
-                self.inner.lock().remove_waiting(&key, waiting_entry_id);
+                self.cache.remove_waiting(&key, waiting_entry_id);
             }
 
             // Step 5: Log some stuff and return.
@@ -396,99 +377,6 @@ impl<RT: Runtime> CacheManager<RT> {
         }
     }
 
-    fn plan_cache_op(
-        &self,
-        key: &CacheKey,
-        start: RT::Instant,
-        now: RT::Instant,
-        identity: &Identity,
-        ts: Timestamp,
-        context: ExecutionContext,
-    ) -> Option<CacheOp> {
-        let go = |sender: Option<(Sender<_>, u64)>| {
-            let (sender, waiting_entry_id) = match sender {
-                Some((sender, waiting_entry_id)) => (sender, Some(waiting_entry_id)),
-                None => {
-                    // No one should wait for this, so it's okay to drop the
-                    // receiver. And the sender ignores errors.
-                    let (sender, _) = broadcast(1);
-                    (sender, None)
-                },
-            };
-            CacheOp::Go {
-                waiting_entry_id,
-                sender,
-                name: key.udf_path.clone(),
-                args: key.args.clone(),
-                identity: identity.clone(),
-                ts,
-                journal: key.journal.clone(),
-                allowed_visibility: key.allowed_visibility.clone(),
-                context,
-            }
-        };
-        let mut inner = self.inner.lock();
-        let op = match inner.cache.get(key) {
-            Some(CacheEntry::Ready(r)) => {
-                if ts < r.original_ts {
-                    // If another request has already executed this UDF at a
-                    // newer timestamp, we can't use the cache. Re-execute
-                    // in this case.
-                    tracing::debug!("Cache value too new for {:?}", key);
-                    log_plan_go(GoReason::PeerTimestampTooNew);
-                    go(None)
-                } else {
-                    tracing::debug!("Cache value ready for {:?}", key);
-                    log_plan_ready();
-                    CacheOp::Ready { result: r.clone() }
-                }
-            },
-            Some(CacheEntry::Waiting {
-                id,
-                started: peer_started,
-                receiver,
-                ts: peer_ts,
-            }) => {
-                let entry_id = *id;
-                if *peer_ts > ts {
-                    log_plan_go(GoReason::PeerTimestampTooNew);
-                    return Some(go(None));
-                }
-                // We don't serialize sampling `now` under the cache lock, and since it can
-                // occur on different threads, we're not guaranteed that
-                // `peer_started < now`. So, if the peer started *after* us,
-                // consider its `peer_elapsed` time to be zero.
-                let peer_started = cmp::min(now.clone(), peer_started.clone());
-                let peer_elapsed = now.clone() - peer_started;
-                if peer_elapsed >= *TOTAL_QUERY_TIMEOUT {
-                    tracing::debug!(
-                        "Peer timed out ({:?}), removing cache entry and retrying",
-                        peer_elapsed
-                    );
-                    inner.remove_waiting(key, entry_id);
-                    log_plan_peer_timeout();
-                    return None;
-                }
-                let get_elapsed = now - start;
-                let remaining = *TOTAL_QUERY_TIMEOUT - cmp::max(peer_elapsed, get_elapsed);
-                tracing::debug!("Waiting for peer to compute {:?}", key);
-                log_plan_wait();
-                CacheOp::Wait {
-                    waiting_entry_id: *id,
-                    receiver: receiver.clone(),
-                    remaining,
-                }
-            },
-            None => {
-                tracing::debug!("No cache value for {:?}, executing UDF...", key);
-                let (sender, executor_id) = inner.put_waiting(key.clone(), now, ts);
-                log_plan_go(GoReason::NoCacheResult);
-                go(Some((sender, executor_id)))
-            },
-        };
-        Some(op)
-    }
-
     #[minitrace::trace]
     async fn perform_cache_op(
         &self,
@@ -516,7 +404,7 @@ impl<RT: Runtime> CacheManager<RT> {
                         Err(..) => {
                             // The peer working on the cache entry went away (perhaps due to an
                             // error), so remove its entry and retry.
-                            self.inner.lock().remove_waiting(key, waiting_entry_id);
+                            self.cache.remove_waiting(key, waiting_entry_id);
                             log_perform_wait_peer_timeout();
                             return Ok(None)
                         },
@@ -633,7 +521,7 @@ impl<RT: Runtime> CacheManager<RT> {
                     result.original_ts,
                     ts
                 );
-                self.inner.lock().remove_ready(key, result.original_ts);
+                self.cache.remove_ready(key, result.original_ts);
                 log_validate_refresh_failed();
                 return Ok(None);
             },
@@ -648,7 +536,7 @@ impl<RT: Runtime> CacheManager<RT> {
                         key,
                         entry_age
                     );
-                    self.inner.lock().remove_ready(key, result.original_ts);
+                    self.cache.remove_ready(key, result.original_ts);
                     log_validate_system_time_too_old();
                     return Ok(None);
                 },
@@ -658,7 +546,7 @@ impl<RT: Runtime> CacheManager<RT> {
                         cached_time,
                         sys_now,
                     );
-                    self.inner.lock().remove_ready(key, result.original_ts);
+                    self.cache.remove_ready(key, result.original_ts);
                     log_validate_system_time_in_the_future();
                     return Ok(None);
                 },
@@ -674,6 +562,135 @@ struct Inner<RT: Runtime> {
     size: usize,
 
     next_waiting_id: u64,
+}
+
+#[derive(Clone)]
+struct Cache<RT: Runtime> {
+    inner: Arc<Mutex<Inner<RT>>>,
+}
+
+impl<RT: Runtime> Cache<RT> {
+    fn new() -> Self {
+        let inner = Inner {
+            cache: LruCache::unbounded(),
+            size: 0,
+            next_waiting_id: 0,
+        };
+        Self {
+            inner: Arc::new(Mutex::new(inner)),
+        }
+    }
+
+    fn plan_cache_op(
+        &self,
+        key: &CacheKey,
+        start: RT::Instant,
+        now: RT::Instant,
+        identity: &Identity,
+        ts: Timestamp,
+        context: ExecutionContext,
+    ) -> Option<CacheOp> {
+        let go = |sender: Option<(Sender<_>, u64)>| {
+            let (sender, waiting_entry_id) = match sender {
+                Some((sender, waiting_entry_id)) => (sender, Some(waiting_entry_id)),
+                None => {
+                    // No one should wait for this, so it's okay to drop the
+                    // receiver. And the sender ignores errors.
+                    let (sender, _) = broadcast(1);
+                    (sender, None)
+                },
+            };
+            CacheOp::Go {
+                waiting_entry_id,
+                sender,
+                name: key.udf_path.clone(),
+                args: key.args.clone(),
+                identity: identity.clone(),
+                ts,
+                journal: key.journal.clone(),
+                allowed_visibility: key.allowed_visibility.clone(),
+                context,
+            }
+        };
+        let mut inner = self.inner.lock();
+        let op = match inner.cache.get(key) {
+            Some(CacheEntry::Ready(r)) => {
+                if ts < r.original_ts {
+                    // If another request has already executed this UDF at a
+                    // newer timestamp, we can't use the cache. Re-execute
+                    // in this case.
+                    tracing::debug!("Cache value too new for {:?}", key);
+                    log_plan_go(GoReason::PeerTimestampTooNew);
+                    go(None)
+                } else {
+                    tracing::debug!("Cache value ready for {:?}", key);
+                    log_plan_ready();
+                    CacheOp::Ready { result: r.clone() }
+                }
+            },
+            Some(CacheEntry::Waiting {
+                id,
+                started: peer_started,
+                receiver,
+                ts: peer_ts,
+            }) => {
+                let entry_id = *id;
+                if *peer_ts > ts {
+                    log_plan_go(GoReason::PeerTimestampTooNew);
+                    return Some(go(None));
+                }
+                // We don't serialize sampling `now` under the cache lock, and since it can
+                // occur on different threads, we're not guaranteed that
+                // `peer_started < now`. So, if the peer started *after* us,
+                // consider its `peer_elapsed` time to be zero.
+                let peer_started = cmp::min(now.clone(), peer_started.clone());
+                let peer_elapsed = now.clone() - peer_started;
+                if peer_elapsed >= *TOTAL_QUERY_TIMEOUT {
+                    tracing::debug!(
+                        "Peer timed out ({:?}), removing cache entry and retrying",
+                        peer_elapsed
+                    );
+                    inner.remove_waiting(key, entry_id);
+                    log_plan_peer_timeout();
+                    return None;
+                }
+                let get_elapsed = now - start;
+                let remaining = *TOTAL_QUERY_TIMEOUT - cmp::max(peer_elapsed, get_elapsed);
+                tracing::debug!("Waiting for peer to compute {:?}", key);
+                log_plan_wait();
+                CacheOp::Wait {
+                    waiting_entry_id: *id,
+                    receiver: receiver.clone(),
+                    remaining,
+                }
+            },
+            None => {
+                tracing::debug!("No cache value for {:?}, executing UDF...", key);
+                let (sender, executor_id) = inner.put_waiting(key.clone(), now, ts);
+                log_plan_go(GoReason::NoCacheResult);
+                go(Some((sender, executor_id)))
+            },
+        };
+        Some(op)
+    }
+
+    fn remove_waiting(&self, key: &CacheKey, entry_id: u64) {
+        self.inner.lock().remove_waiting(key, entry_id)
+    }
+
+    fn remove_ready(&self, key: &CacheKey, original_ts: Timestamp) {
+        self.inner.lock().remove_ready(key, original_ts)
+    }
+
+    fn put_ready(&self, key: CacheKey, result: CacheResult) {
+        self.inner.lock().put_ready(key, result)
+    }
+}
+
+impl<RT: Runtime> HeapSize for Cache<RT> {
+    fn heap_size(&self) -> usize {
+        self.inner.lock().size
+    }
 }
 
 impl<RT: Runtime> Inner<RT> {
