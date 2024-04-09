@@ -14,7 +14,6 @@ derive_more = { workspace = true }
 parking_lot = { workspace = true }
 paste = { workspace = true }
 prometheus = { workspace = true }
-semver = { workspace = true }
 sentry = { workspace = true }
 tracing = { workspace = true }
 

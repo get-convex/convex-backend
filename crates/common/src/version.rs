@@ -19,6 +19,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use tuple_struct::tuple_struct_string;
 
 // Threshold for each of our clients
 #[derive(Deserialize, Debug, Clone)]
@@ -46,26 +47,7 @@ pub static DEPRECATION_THRESHOLD: LazyLock<DeprecationThreshold> = LazyLock::new
 pub static MIN_NPM_VERSION_FOR_FUZZY_SEARCH: LazyLock<Version> =
     LazyLock::new(|| env_config("MIN_NPM_VERSION_FOR_FUZZY_SEARCH", Version::new(1, 6, 1000)));
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Ord, PartialOrd, derive_more::Display)]
-pub struct BackendVersion(Version);
-impl BackendVersion {
-    pub fn new(s: &str) -> anyhow::Result<Self> {
-        Ok(Self(Version::parse(s)?))
-    }
-}
-impl From<Version> for BackendVersion {
-    fn from(v: Version) -> Self {
-        BackendVersion(v)
-    }
-}
-
-impl FromStr for BackendVersion {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> anyhow::Result<Self> {
-        Self::new(s)
-    }
-}
+tuple_struct_string!(BackendVersion);
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub enum ClientVersionState {

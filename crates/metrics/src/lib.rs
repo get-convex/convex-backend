@@ -14,8 +14,6 @@ use std::{
     },
 };
 
-use semver::Version;
-
 mod macros;
 mod metrics;
 mod progress;
@@ -44,17 +42,16 @@ pub use crate::{
     },
 };
 
-static SERVER_VERSION: LazyLock<Option<Version>> = LazyLock::new(|| {
+static SERVER_VERSION: LazyLock<Option<String>> = LazyLock::new(|| {
     // Use the version baked in at compile time.
     // In dev/test, use a fallback runtime-set version
     let compile_time = option_env!("CONVEX_RELEASE_VERSION");
     let runtime = env::var("CONVEX_RELEASE_VERSION_DEV").ok();
     compile_time.or(runtime.as_deref()).and_then(|s| {
-        if s == "dev" {
+        if s == "dev" || s.is_empty() {
             return None;
         }
-        let v = Version::parse(s).unwrap_or_else(|_| panic!("Invalid version: {}", s));
-        Some(v)
+        Some(s.to_owned())
     })
 });
 

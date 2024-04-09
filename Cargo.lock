@@ -3938,7 +3938,6 @@ dependencies = [
  "parking_lot",
  "paste",
  "prometheus",
- "semver 1.0.19",
  "sentry",
  "tracing",
  "vergen",

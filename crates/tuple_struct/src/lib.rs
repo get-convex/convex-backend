@@ -38,6 +38,7 @@ macro_rules! tuple_struct_string {
             Debug,
             PartialEq,
             Eq,
+            Hash,
             PartialOrd,
             Ord,
             serde::Serialize,
