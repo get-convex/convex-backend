@@ -964,6 +964,7 @@ impl<RT: Runtime> Application<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn action_udf(
         &self,
         request_id: RequestId,

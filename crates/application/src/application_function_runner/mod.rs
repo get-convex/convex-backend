@@ -270,6 +270,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         Ok((tx, outcome))
     }
 
+    #[minitrace::trace]
     pub(crate) async fn execute_action(
         &self,
         tx: Transaction<RT>,
@@ -955,6 +956,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok((tx, mutation_outcome))
     }
 
+    #[minitrace::trace]
     pub async fn run_action(
         &self,
         request_id: RequestId,
@@ -1014,6 +1016,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
     /// Runs the actions without logging to the UDF log. It is the caller
     /// responsibility to log to the UDF log.
+    #[minitrace::trace]
     pub async fn run_action_no_udf_log(
         &self,
         name: CanonicalizedUdfPath,
@@ -1055,6 +1058,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs the action without any logging.
+    #[minitrace::trace]
     async fn run_action_inner(
         &self,
         name: CanonicalizedUdfPath,
@@ -1665,6 +1669,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
+    #[minitrace::trace]
     async fn execute_query(
         &self,
         identity: Identity,
@@ -1693,6 +1698,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         Ok(FunctionResult { result })
     }
 
+    #[minitrace::trace]
     async fn execute_mutation(
         &self,
         identity: Identity,
@@ -1723,6 +1729,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         Ok(FunctionResult { result })
     }
 
+    #[minitrace::trace]
     async fn execute_action(
         &self,
         identity: Identity,

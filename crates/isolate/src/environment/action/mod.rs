@@ -35,6 +35,7 @@ use common::{
         LogLine,
         SystemLogMetadata,
     },
+    minitrace_helpers::EncodedSpan,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -61,6 +62,7 @@ use humansize::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
+use minitrace::collector::SpanContext;
 use model::{
     environment_variables::types::{
         EnvVarName,
@@ -453,10 +455,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .unbounded_send(TaskRequest {
                 task_id,
                 variant: TaskRequestEnum::AsyncOp(AsyncOpRequest::SendStream { stream, stream_id }),
+                parent_trace: EncodedSpan::from_parent(SpanContext::current_local_parent()),
             })
             .expect("TaskExecutor went away?");
     }
 
+    #[minitrace::trace]
     pub async fn run_action(
         mut self,
         isolate: &mut Isolate<RT>,
@@ -516,6 +520,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Ok(outcome)
     }
 
+    #[minitrace::trace]
     async fn run_action_inner(
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         request_params: ActionRequestParams,
@@ -712,6 +717,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
     }
 
+    #[minitrace::trace]
     async fn run_inner<'a, 'b: 'a, T, Fut>(
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
         handle: IsolateHandle,
@@ -1010,6 +1016,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .unbounded_send(TaskRequest {
                 task_id,
                 variant: request,
+                parent_trace: EncodedSpan::from_parent(SpanContext::current_local_parent()),
             })
             .expect("TaskExecutor went away?");
         Ok(())

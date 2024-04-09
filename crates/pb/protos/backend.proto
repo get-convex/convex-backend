@@ -73,6 +73,9 @@ message ExecuteQueryRequest {
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
+
+    // Encoded parent trace
+    optional string encoded_parent_trace = 7;
 }
 
 message ExecuteQueryResponse {
@@ -88,6 +91,9 @@ message ExecuteMutationRequest {
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
+
+    // Encoded parent trace
+    optional string encoded_parent_trace = 7;
 }
 
 message ExecuteMutationResponse {
@@ -103,6 +109,9 @@ message ExecuteActionRequest {
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
+
+    // Encoded parent trace
+    optional string encoded_parent_trace = 7;
 }
 
 message ExecuteActionResponse {

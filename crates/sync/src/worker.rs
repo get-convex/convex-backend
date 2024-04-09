@@ -499,6 +499,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
+                let root = self.rt.with_rng(|rng| {
+                    get_sampled_span(
+                        "sync-worker/action",
+                        rng,
+                        btreemap! {
+                           "udf_type".into() => UdfType::Action.to_lowercase_string().into(),
+                           "udf_path".into() => udf_path.clone().into(),
+                        },
+                    )
+                });
                 let future = async move {
                     let result = application
                         .action_udf(
@@ -509,6 +519,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             AllowedVisibility::PublicOnly,
                             FunctionCaller::SyncWorker(client_version),
                         )
+                        .in_span(root)
                         .await?;
                     let response = match result {
                         Ok(udf_return) => ServerMessage::ActionResponse {

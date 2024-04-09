@@ -36,6 +36,7 @@ use crate::{
 };
 
 impl<RT: Runtime> TaskExecutor<RT> {
+    #[minitrace::trace]
     pub async fn run_async_syscall(&self, name: String, args: JsonValue) -> anyhow::Result<String> {
         let start = self.rt.monotonic_now();
         let timer = async_syscall_timer(&name);

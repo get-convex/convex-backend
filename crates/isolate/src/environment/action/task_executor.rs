@@ -8,6 +8,7 @@ use common::{
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::MAX_CONCURRENT_ACTION_OPS,
+    minitrace_helpers::initialize_root_from_parent,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -27,6 +28,7 @@ use keybroker::{
     Identity,
     KeyBroker,
 };
+use minitrace::future::FutureExt;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use usage_tracking::FunctionUsageTracker;
@@ -95,8 +97,9 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 },
                 task_request = pending_tasks.next() => {
                     if let Some(task_request) = task_request {
+                        let root = initialize_root_from_parent("TaskExecutor::execute_task", task_request.parent_trace.clone());
                         self.task_order.push_running_task(&task_request);
-                        running_tasks.push(self.clone().run_async_task(task_request));
+                        running_tasks.push(self.clone().run_async_task(task_request).in_span(root));
                     } else {
                         requests_closed = true;
                     }
@@ -105,6 +108,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         }
     }
 
+    #[minitrace::trace]
     async fn run_async_task(self, task_request: TaskRequest) -> TaskId {
         let task_id = task_request.task_id;
         let variant = match task_request.variant {

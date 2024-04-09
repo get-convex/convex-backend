@@ -1,9 +1,12 @@
 //! Our action runtime runs "tasks" asynchronously, which either be
 //! async syscalls or async ops.
 
-use common::runtime::{
-    Runtime,
-    UnixTimestamp,
+use common::{
+    minitrace_helpers::EncodedSpan,
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
 };
 use deno_core::{
     serde_v8,
@@ -30,6 +33,7 @@ use crate::{
 pub struct TaskRequest {
     pub task_id: TaskId,
     pub variant: TaskRequestEnum,
+    pub parent_trace: EncodedSpan,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, derive_more::Display)]
