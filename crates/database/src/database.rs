@@ -127,12 +127,6 @@ use indexing::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
-use minitrace::{
-    collector::SpanContext,
-    full_name,
-    future::FutureExt,
-    Span,
-};
 use pb::funrun::BootstrapMetadata as BootstrapMetadataProto;
 use search::{
     query::RevisionWithKeys,
@@ -1465,13 +1459,6 @@ impl<RT: Runtime> Database<RT> {
         let result = self
             .committer
             .commit(transaction, write_source.into())
-            .in_span(
-                SpanContext::current_local_parent()
-                    .map(|ctx| {
-                        Span::root(format!("{}::CommitterClient::commit", full_name!()), ctx)
-                    })
-                    .unwrap_or(Span::noop()),
-            )
             .await?;
         if !readonly {
             self.write_commits_since_load.fetch_add(1, Ordering::SeqCst);

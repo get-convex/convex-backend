@@ -214,6 +214,7 @@ impl<RT: Runtime> CacheManager<RT> {
     /// timestamp. This function internally handles LRU caching these
     /// function executions and ensuring that served cache values are
     /// consistent as of the given timestamp.
+    #[minitrace::trace]
     pub async fn get(
         &self,
         request_id: RequestId,
@@ -253,6 +254,7 @@ impl<RT: Runtime> CacheManager<RT> {
         Ok(result?.0)
     }
 
+    #[minitrace::trace]
     async fn _get(
         &self,
         request_id: RequestId,
@@ -487,6 +489,7 @@ impl<RT: Runtime> CacheManager<RT> {
         Some(op)
     }
 
+    #[minitrace::trace]
     async fn perform_cache_op(
         &self,
         key: &CacheKey,
@@ -609,6 +612,7 @@ impl<RT: Runtime> CacheManager<RT> {
         Ok(Some(r))
     }
 
+    #[minitrace::trace]
     async fn validate_cache_result(
         &self,
         key: &CacheKey,

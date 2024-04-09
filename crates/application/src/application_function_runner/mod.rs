@@ -1476,6 +1476,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         self.node_actions.enable()
     }
 
+    #[minitrace::trace]
     pub async fn run_query_at_ts(
         &self,
         request_id: RequestId,
@@ -1520,6 +1521,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         result
     }
 
+    #[minitrace::trace]
     async fn run_query_at_ts_inner(
         &self,
         request_id: RequestId,

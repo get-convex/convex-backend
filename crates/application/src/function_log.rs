@@ -556,6 +556,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub fn log_query(
         &self,
         outcome: UdfOutcome,

@@ -836,6 +836,7 @@ impl<RT: Runtime> Application<RT> {
         .await
     }
 
+    #[minitrace::trace]
     pub async fn read_only_udf_at_ts(
         &self,
         request_id: RequestId,

@@ -621,6 +621,16 @@ impl<RT: Runtime> SyncWorker<RT> {
             let current_token = current_subscription
                 .as_ref()
                 .and_then(|s| s.current_token());
+            let root = self.rt.with_rng(|rng| {
+                get_sampled_span(
+                    "sync-worker/update-queries",
+                    rng,
+                    btreemap! {
+                       "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
+                       "udf_path".into() => query.udf_path.clone().into(),
+                    },
+                )
+            });
             let future = async move {
                 let refreshed_token = match current_token {
                     Some(token) => application_.refresh_token(token, new_ts).await?,
@@ -665,7 +675,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                     },
                 };
                 Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
-            };
+            }
+            .in_span(root);
             futures.push(future);
         }
         Ok(async move {
