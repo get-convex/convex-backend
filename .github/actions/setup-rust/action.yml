@@ -14,10 +14,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install libsodium and pkg-config
+    - name: Install libsodium and libssl
       shell: bash
       if: runner.os == 'Linux'
-      run: sudo apt-get install pkg-config libsodium-dev
+      run: sudo apt-get install pkg-config libsodium-dev libssl-dev
 
     - name: Install Just
       uses: extractions/setup-just@v1
@@ -54,7 +54,6 @@ runs:
       if: runner.os == 'Linux'
       working-directory: "/home/runner"
       run: |
-        sudo apt-get install -y pkg-config libssl-dev
         curl -o- -sSLf --retry 3 --retry-delay 5 https://github.com/mozilla/sccache/releases/download/v0.3.3/sccache-v0.3.3-x86_64-unknown-linux-musl.tar.gz | tar xzf -
         mv sccache-v0.3.3-x86_64-unknown-linux-musl/sccache .cargo/bin/sccache
         chmod +x .cargo/bin/sccache
