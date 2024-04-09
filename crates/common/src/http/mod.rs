@@ -730,7 +730,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     // Configure tracing.
     let mut rng = rand::thread_rng();
     let root = get_sampled_span(
-        route.clone(),
+        route.as_str(),
         &mut rng,
         btreemap!["request_id".to_owned() => request_id.to_string()],
     );

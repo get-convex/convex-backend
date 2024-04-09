@@ -20,6 +20,8 @@ use std::{
 
 use cmd_util::env::env_config;
 
+use crate::minitrace_helpers::SamplingConfig;
+
 /// This exists solely to allow knobs to have separate defaults for local
 /// execution and prod (running in Nomad). Don't export this outside of
 /// this module. We assume that if we're running in Nomad, we're in production
@@ -985,6 +987,5 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_PUSH_BYTES", 100_000_000));
 
 /// Percentage of request traces that should sampled
-pub static REQUEST_TRACE_SAMPLE_PERCENT: LazyLock<f64> = LazyLock::new(|| {
-    env_config("REQUEST_TRACE_SAMPLE_PERCENT", 0.0) // 0% by default
-});
+pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> =
+    LazyLock::new(|| env_config("REQUEST_TRACE_SAMPLE_CONFIG", SamplingConfig::default()));
