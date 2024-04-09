@@ -17,12 +17,22 @@ export type UdfWrite = {
   source: string;
 };
 
+export type LogLevel = "LOG" | "DEBUG" | "INFO" | "WARN" | "ERROR";
+
+export type StructuredLogLine = {
+  messages: string[];
+  level: LogLevel;
+  timestamp: number;
+  isTruncated: boolean;
+};
+export type LogLine = string | StructuredLogLine;
+
 export type FunctionExecutionCompletion = {
   kind: "Completion";
   identifier: string;
   udfType: UdfType;
   arguments: string[];
-  logLines: string[];
+  logLines: LogLine[];
   // Unix timestamp (in seconds)
   timestamp: number;
 
@@ -47,7 +57,7 @@ export type FunctionExecutionProgess = {
   udfType: UdfType;
   // Unix timestamp (in seconds)
   timestamp: number;
-  logLines: string[];
+  logLines: LogLine[];
   requestId: string;
   executionId: string;
 };
