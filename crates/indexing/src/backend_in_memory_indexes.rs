@@ -424,6 +424,7 @@ impl DatabaseIndexSnapshot {
     }
 
     /// Query the given index at the snapshot.
+    #[minitrace::trace]
     pub async fn range_batch(
         &mut self,
         range_requests: BTreeMap<BatchKey, RangeRequest>,
@@ -495,6 +496,7 @@ impl DatabaseIndexSnapshot {
         results
     }
 
+    #[minitrace::trace]
     async fn fetch_cache_misses(
         &self,
         index_id: IndexId,
@@ -549,6 +551,7 @@ impl DatabaseIndexSnapshot {
 
     /// Lookup the latest value of a document by id. Returns the document and
     /// the timestamp it was written at.
+    #[minitrace::trace]
     pub async fn lookup_document_with_ts(
         &mut self,
         id: ResolvedDocumentId,

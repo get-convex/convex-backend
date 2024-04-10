@@ -3195,6 +3195,7 @@ dependencies = [
  "itertools 0.12.1",
  "maplit",
  "metrics",
+ "minitrace",
  "must-let",
  "runtime",
  "tracing",

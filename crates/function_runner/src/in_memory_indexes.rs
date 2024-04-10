@@ -172,6 +172,7 @@ pub(crate) struct InMemoryIndexCache<RT: Runtime> {
     rt: RT,
 }
 
+#[minitrace::trace]
 async fn load_index(
     instance_name: String,
     index_id: IndexId,

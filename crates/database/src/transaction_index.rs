@@ -126,6 +126,7 @@ impl TransactionIndex {
     /// streamed from the database.
     /// The returned vec may be larger or smaller than `max_size` depending on
     /// pending writes.
+    #[minitrace::trace]
     async fn range_no_deps(
         &mut self,
         ranges: BTreeMap<BatchKey, RangeRequest>,
@@ -282,6 +283,7 @@ impl TransactionIndex {
         Ok(results.revisions_with_keys)
     }
 
+    #[minitrace::trace]
     pub async fn range_batch(
         &mut self,
         reads: &mut TransactionReadSet,
