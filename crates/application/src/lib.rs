@@ -2531,7 +2531,7 @@ impl<RT: Runtime> Application<RT> {
         self.actions_isolate.shutdown().await?;
         self.database_isolate.shutdown().await?;
         self.module_cache.shutdown();
-        self.database.shutdown();
+        self.database.shutdown().await?;
         tracing::info!("Application shut down");
         Ok(())
     }

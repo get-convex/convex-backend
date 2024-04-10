@@ -68,9 +68,9 @@ use common::{
     query::Order,
     runtime::{
         new_rate_limiter,
+        shutdown_and_join,
         Runtime,
         RuntimeInstant,
-        SpawnHandle,
     },
     sha256::Sha256,
     sync::split_rw_lock::{
@@ -172,12 +172,10 @@ impl Checkpoint {
 pub struct LeaderRetentionManager<RT: Runtime> {
     rt: RT,
     bounds_reader: Reader<SnapshotBounds>,
-    advance_min_snapshot_handle: Arc<Mutex<RT::Handle>>,
-    deletion_handle: Arc<Mutex<RT::Handle>>,
-    document_deletion_handle: Arc<Mutex<RT::Handle>>,
     index_table_id: TableIdAndTableNumber,
     checkpoint_reader: Reader<Checkpoint>,
     document_checkpoint_reader: Reader<Checkpoint>,
+    handles: Arc<Mutex<Vec<RT::Handle>>>,
 }
 
 impl<RT: Runtime> Clone for LeaderRetentionManager<RT> {
@@ -185,12 +183,10 @@ impl<RT: Runtime> Clone for LeaderRetentionManager<RT> {
         Self {
             rt: self.rt.clone(),
             bounds_reader: self.bounds_reader.clone(),
-            advance_min_snapshot_handle: self.advance_min_snapshot_handle.clone(),
-            deletion_handle: self.deletion_handle.clone(),
-            document_deletion_handle: self.deletion_handle.clone(),
             index_table_id: self.index_table_id,
             checkpoint_reader: self.checkpoint_reader.clone(),
             document_checkpoint_reader: self.document_checkpoint_reader.clone(),
+            handles: self.handles.clone(),
         }
     }
 }
@@ -342,19 +338,25 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         Ok(Self {
             rt,
             bounds_reader,
-            advance_min_snapshot_handle: Arc::new(Mutex::new(advance_min_snapshot_handle)),
-            deletion_handle: Arc::new(Mutex::new(deletion_handle)),
-            document_deletion_handle: Arc::new(Mutex::new(document_deletion_handle)),
             index_table_id,
             checkpoint_reader,
             document_checkpoint_reader,
+            handles: Arc::new(Mutex::new(vec![
+                // Order matters because we need to shutdown the threads that have
+                // receivers before the senders
+                deletion_handle,
+                document_deletion_handle,
+                advance_min_snapshot_handle,
+            ])),
         })
     }
 
-    pub fn shutdown(&self) {
-        self.deletion_handle.lock().shutdown();
-        self.document_deletion_handle.lock().shutdown();
-        self.advance_min_snapshot_handle.lock().shutdown();
+    pub async fn shutdown(&self) -> anyhow::Result<()> {
+        let handles: Vec<_> = self.handles.lock().drain(..).collect();
+        for handle in handles.into_iter() {
+            shutdown_and_join(handle).await?;
+        }
+        Ok(())
     }
 
     /// Returns the timestamp which we would like to use as min_snapshot_ts.
@@ -1143,7 +1145,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if !is_working {
                 min_document_snapshot_ts = match min_document_snapshot_rx.changed().await {
                     Err(err) => {
-                        tracing::warn!("Failed to receive document snapshot: {}", err);
+                        report_error(&mut err.into());
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
                         Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;

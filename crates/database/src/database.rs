@@ -912,11 +912,12 @@ impl<RT: Runtime> Database<RT> {
         )
     }
 
-    pub fn shutdown(&self) {
+    pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.committer.shutdown();
         self.subscriptions.shutdown();
-        self.retention_manager.shutdown();
+        self.retention_manager.shutdown().await?;
         tracing::info!("Database shutdown");
+        Ok(())
     }
 
     pub fn retention_validator(&self) -> Arc<dyn RetentionValidator> {
