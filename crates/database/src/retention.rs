@@ -1134,7 +1134,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if !is_working {
                 min_document_snapshot_ts = match min_document_snapshot_rx.recv().await {
                     Err(err) => {
-                        report_error(&mut err.into());
+                        tracing::warn!("Failed to receive document snapshot: {}", err);
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
                         Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
