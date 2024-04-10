@@ -33,7 +33,6 @@ pub fn get_sampled_span<R: Rng>(
     rng: &mut R,
     properties: BTreeMap<String, String>,
 ) -> Span {
-    println!("{name}");
     let sample_ratio = REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(name);
     let should_sample = rng.gen_bool(sample_ratio);
     match should_sample {
