@@ -43,6 +43,7 @@ use common::{
     runtime::{
         shutdown_and_join,
         Runtime,
+        RuntimeInstant,
         SpawnHandle,
         UnixTimestamp,
     },
@@ -152,6 +153,7 @@ use crate::{
         is_developer_ok,
         log_pool_allocated_count,
         log_pool_running_count,
+        log_worker_stolen,
         queue_timer,
         RequestStatus,
     },
@@ -1268,6 +1270,13 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             // No available workers.
             return None;
         };
+        log_worker_stolen(
+            workers
+                .back()
+                .expect("Available worker map should never contain an empty list")
+                .last_used_ts
+                .elapsed(),
+        );
         let worker_id = workers
             .pop_back()
             .expect("Available worker map should never contain an empty list");

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use common::{
     types::UdfType,
     version::Version,
@@ -107,6 +109,17 @@ pub fn service_request_timer(udf_type: &UdfType) -> StatusTimer {
     let mut t = StatusTimer::new(&UDF_SERVICE_REQUEST_SECONDS);
     t.add_tag(udf_type.metric_tag());
     t
+}
+
+register_convex_histogram!(
+    ISOLATE_SCHEDULER_STOLEN_WORKER_AGE_SECONDS,
+    "The now - last_used_ts in seconds for the stolen worker",
+);
+pub fn log_worker_stolen(age: Duration) {
+    log_distribution(
+        &ISOLATE_SCHEDULER_STOLEN_WORKER_AGE_SECONDS,
+        age.as_secs_f64(),
+    );
 }
 
 register_convex_histogram!(UDF_QUEUE_SECONDS, "UDF queue time");
