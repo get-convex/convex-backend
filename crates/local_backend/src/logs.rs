@@ -16,8 +16,10 @@ use common::{
             Json,
             Query,
         },
+        ExtractClientVersion,
         HttpResponseError,
     },
+    version::ClientType,
     RequestId,
 };
 use errors::ErrorMetadata;
@@ -45,7 +47,7 @@ pub enum FunctionExecutionJson {
     Completion {
         udf_type: String,
         identifier: String,
-        log_lines: Vec<String>,
+        log_lines: Vec<JsonValue>,
         timestamp: f64,
         cached_result: bool,
         execution_time: f64,
@@ -59,7 +61,7 @@ pub enum FunctionExecutionJson {
         udf_type: String,
         identifier: String,
         timestamp: f64,
-        log_lines: Vec<String>,
+        log_lines: Vec<JsonValue>,
         request_id: String,
         execution_id: String,
     },
@@ -86,8 +88,8 @@ pub async fn stream_udf_execution(
             let (log_entries, new_cursor) = entries_future_r?;
             let entries = log_entries
                 .into_iter()
-                .map(execution_to_json)
-                .collect::<anyhow::Result<_>>()?;
+                .map(|e| execution_to_json(e, false))
+                .try_collect()?;
             let response = StreamUdfExecutionResponse {
                 entries,
                 new_cursor,
@@ -131,6 +133,7 @@ pub struct StreamFunctionLogs {
 pub async fn stream_function_logs(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    ExtractClientVersion(client_version): ExtractClientVersion,
     Query(query_args): Query<StreamFunctionLogs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let entries_future = st
@@ -143,6 +146,22 @@ pub async fn stream_function_logs(
             client_request_counter,
         )),
         _ => None,
+    };
+    // As of writing, this endpoint is only used by the CLI and dashboard, both of
+    // which support either unstructured `string` log lines or structured log
+    // lines.
+    let supports_structured_log_lines = match client_version.client() {
+        ClientType::CLI => true,
+        ClientType::Dashboard => true,
+        ClientType::NPM
+        | ClientType::Actions
+        | ClientType::Python
+        | ClientType::Rust
+        | ClientType::StreamingImport
+        | ClientType::AirbyteExport
+        | ClientType::FivetranImport
+        | ClientType::FivetranExport
+        | ClientType::Unrecognized(_) => false,
     };
     futures::select_biased! {
         entries_future_r = entries_future.fuse() => {
@@ -166,7 +185,7 @@ pub async fn stream_function_logs(
                 .map(|e| {
                     let json = match e {
                         FunctionExecutionPart::Completion(c) => {
-                            execution_to_json(c)?
+                            execution_to_json(c, supports_structured_log_lines)?
                         },
                         FunctionExecutionPart::Progress(c) => {
                             FunctionExecutionJson::Progress {
@@ -174,7 +193,9 @@ pub async fn stream_function_logs(
                                 identifier: c.event_source.path,
                                 timestamp: c.function_start_timestamp.as_secs_f64(),
                                 log_lines: c.log_lines
-                                    .into_iter().map(|l| l.to_pretty_string()).collect(),
+                                    .into_iter()
+                                    .map(|l| l.to_json(supports_structured_log_lines, false))
+                                    .try_collect()?,
                                 request_id: c.event_source.context.request_id.to_string(),
                                 execution_id: c.event_source.context.execution_id.to_string()
                             }
@@ -204,7 +225,10 @@ pub async fn stream_function_logs(
     }
 }
 
-fn execution_to_json(execution: FunctionExecution) -> anyhow::Result<FunctionExecutionJson> {
+fn execution_to_json(
+    execution: FunctionExecution,
+    supports_structured_log_lines: bool,
+) -> anyhow::Result<FunctionExecutionJson> {
     let json = match execution.params {
         UdfParams::Function { error, identifier } => {
             let identifier: String = identifier.strip().into();
@@ -214,8 +238,8 @@ fn execution_to_json(execution: FunctionExecution) -> anyhow::Result<FunctionExe
                 log_lines: execution
                     .log_lines
                     .into_iter()
-                    .map(|l| l.to_pretty_string())
-                    .collect(),
+                    .map(|l| l.to_json(supports_structured_log_lines, false))
+                    .try_collect()?,
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,
@@ -237,8 +261,8 @@ fn execution_to_json(execution: FunctionExecution) -> anyhow::Result<FunctionExe
                 log_lines: execution
                     .log_lines
                     .into_iter()
-                    .map(|l| l.to_pretty_string())
-                    .collect(),
+                    .map(|l| l.to_json(supports_structured_log_lines, false))
+                    .try_collect()?,
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,

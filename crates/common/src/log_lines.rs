@@ -189,6 +189,41 @@ impl LogLine {
         }
     }
 
+    pub fn to_json(
+        self,
+        allow_structured: bool,
+        include_system_metadata: bool,
+    ) -> anyhow::Result<JsonValue> {
+        if !allow_structured {
+            Ok(JsonValue::String(self.to_pretty_string()))
+        } else {
+            match self {
+                LogLine::Unstructured(m) => Ok(JsonValue::String(m)),
+                LogLine::Structured {
+                    messages,
+                    level,
+                    is_truncated,
+                    timestamp,
+                    system_metadata,
+                } => {
+                    let system_metadata = if include_system_metadata {
+                        system_metadata
+                    } else {
+                        None
+                    };
+                    let log_line_json = LogLineJson {
+                        messages: messages.into(),
+                        is_truncated,
+                        timestamp: timestamp.as_ms_since_epoch()?,
+                        level: level.to_string(),
+                        system_metadata: system_metadata.map(SystemLogMetadataJson::from),
+                    };
+                    Ok(serde_json::to_value(log_line_json)?)
+                },
+            }
+        }
+    }
+
     pub fn new_developer_log_line(
         level: LogLevel,
         messages: Vec<String>,
@@ -208,7 +243,7 @@ impl LogLine {
         let mut total_length = 0;
         let mut truncated_messages: Vec<String> = vec![];
         for message in messages {
-            let remaining_space = MAX_LOG_LINE_LENGTH - TRUNCATED_LINE_SUFFIX.len() - total_length;
+            let remaining_space = MAX_LOG_LINE_LENGTH - total_length;
             if message.len() <= remaining_space {
                 total_length += message.len() + 1;
                 truncated_messages.push(message);
@@ -396,25 +431,7 @@ impl TryFrom<LogLine> for JsonValue {
     type Error = anyhow::Error;
 
     fn try_from(value: LogLine) -> Result<Self, Self::Error> {
-        match value {
-            LogLine::Unstructured(m) => Ok(JsonValue::String(m)),
-            LogLine::Structured {
-                messages,
-                level,
-                is_truncated,
-                timestamp,
-                system_metadata,
-            } => {
-                let log_line_json = LogLineJson {
-                    messages: messages.into(),
-                    is_truncated,
-                    timestamp: timestamp.as_ms_since_epoch()?,
-                    level: level.to_string(),
-                    system_metadata: system_metadata.map(SystemLogMetadataJson::from),
-                };
-                Ok(serde_json::to_value(log_line_json)?)
-            },
-        }
+        value.to_json(true, true)
     }
 }
 

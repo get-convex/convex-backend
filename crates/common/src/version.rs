@@ -88,6 +88,9 @@ pub enum ClientType {
     AirbyteExport,
     FivetranImport,
     FivetranExport,
+    // For HTTP requests from the dashboard. Requests from the dashboard via a
+    // Convex client will have an `NPM` version
+    Dashboard,
     Unrecognized(String),
 }
 
@@ -104,6 +107,7 @@ impl FromStr for ClientType {
             "streaming-import" => Self::StreamingImport,
             "airbyte-export" => Self::AirbyteExport,
             "fivetran-export" => Self::FivetranExport,
+            "dashboard" => Self::Dashboard,
             unrecognized => Self::Unrecognized(unrecognized.to_string()),
         };
         Ok(client_type)
@@ -122,6 +126,7 @@ impl Display for ClientType {
             Self::AirbyteExport => write!(f, "airbyte-export"),
             Self::FivetranImport => write!(f, "fivetran-import"),
             Self::FivetranExport => write!(f, "fivetran-export"),
+            Self::Dashboard => write!(f, "dashboard"),
             Self::Unrecognized(other_client) => write!(f, "{other_client}"),
         }
     }
@@ -138,6 +143,7 @@ impl ClientType {
             | Self::AirbyteExport
             | Self::FivetranImport
             | Self::FivetranExport
+            | Self::Dashboard
             | Self::Unrecognized(_) => None,
         }
     }
@@ -152,6 +158,7 @@ impl ClientType {
             | Self::AirbyteExport
             | Self::FivetranImport
             | Self::FivetranExport
+            | Self::Dashboard
             | Self::Unrecognized(_) => None,
         }
     }
@@ -172,6 +179,7 @@ impl ClientType {
             | Self::AirbyteExport
             | Self::FivetranImport
             | Self::FivetranExport
+            | Self::Dashboard
             | Self::Unrecognized(_) => "",
         }
     }
@@ -274,6 +282,7 @@ impl ClientVersion {
             | ClientType::AirbyteExport
             | ClientType::FivetranImport
             | ClientType::FivetranExport
+            | ClientType::Dashboard
             | ClientType::Unrecognized(_) => true,
         }
     }

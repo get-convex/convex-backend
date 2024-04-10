@@ -321,6 +321,7 @@ fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncW
         | ClientType::AirbyteExport
         | ClientType::FivetranImport
         | ClientType::FivetranExport
+        | ClientType::Dashboard
         | ClientType::Actions => Err(anyhow::anyhow!(
             "No websocket support for client: {}",
             client_version.client()

@@ -179,18 +179,18 @@ async fn test_console_line_too_long(rt: TestRuntime) -> anyhow::Result<()> {
         TRUNCATED_LINE_SUFFIX,
     );
     // The limit is 32768 MAX_LOG_LINE_LENGTH, but we don't count the [INFO]
-    // prefix, so just check that we're close
+    // prefix or the truncated line suffix, so just check that we're close
     assert!(log_lines[0].clone().to_pretty_string().len() > 32700);
-    assert!(log_lines[0].clone().to_pretty_string().len() < 32800);
+    assert!(log_lines[0].clone().to_pretty_string().len() < 32900);
 
     assert_contains(
         &log_lines[1].clone().to_pretty_string(),
         TRUNCATED_LINE_SUFFIX,
     );
     // The limit is 32768 MAX_LOG_LINE_LENGTH, but we don't count the [INFO]
-    // prefix, so just check that we're close
+    // prefix or the truncated line suffix, so just check that we're close
     assert!(log_lines[1].clone().to_pretty_string().len() > 32700);
-    assert!(log_lines[1].clone().to_pretty_string().len() < 32800);
+    assert!(log_lines[1].clone().to_pretty_string().len() < 32900);
     Ok(())
 }
 
