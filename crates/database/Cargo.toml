@@ -11,7 +11,6 @@ doctest = false
 [dependencies]
 anyhow = { workspace = true }
 async-broadcast = { workspace = true }
-async-channel = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 cmd_util = { path = "../cmd_util" }
@@ -47,12 +46,14 @@ slab = { workspace = true }
 storage = { path = "../storage" }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 tempfile = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 usage_tracking = { path = "../usage_tracking" }
 value = { path = "../value" }
 vector = { path = "../vector" }
 
 [dev-dependencies]
+async-channel = { workspace = true }
 common = { path = "../common", features = ["testing"] }
 criterion = { workspace = true }
 errors = { path = "../errors", features = ["testing"] }

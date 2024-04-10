@@ -16,10 +16,6 @@ use std::{
 };
 
 use anyhow::Context;
-use async_channel::{
-    Receiver,
-    Sender,
-};
 use async_trait::async_trait;
 use common::{
     backoff::Backoff,
@@ -108,6 +104,11 @@ use futures_async_stream::try_stream;
 use governor::Quota;
 use parking_lot::Mutex;
 use rand::Rng;
+use tokio::sync::watch::{
+    self,
+    Receiver,
+    Sender,
+};
 use value::InternalDocumentId;
 
 use crate::{
@@ -296,8 +297,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         )
         .await?;
 
-        let (send_min_snapshot, receive_min_snapshot) = async_channel::bounded(1);
-        let (send_min_document_snapshot, receive_min_document_snapshot) = async_channel::bounded(1);
+        let (send_min_snapshot, receive_min_snapshot) = watch::channel(min_snapshot_ts);
+        let (send_min_document_snapshot, receive_min_document_snapshot) =
+            watch::channel(min_document_snapshot_ts);
         let advance_min_snapshot_handle = rt.spawn(
             "retention_advance_min_snapshot",
             Self::go_advance_min_snapshot(
@@ -305,9 +307,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 checkpoint_reader.clone(),
                 rt.clone(),
                 persistence.clone(),
-                receive_min_snapshot.clone(),
                 send_min_snapshot,
-                receive_min_document_snapshot.clone(),
                 send_min_document_snapshot,
                 snapshot_reader.clone(),
             ),
@@ -444,8 +444,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     }
 
     async fn emit_timestamp(
-        snapshot_rx: Receiver<Timestamp>,
-        snapshot_sender: Sender<Timestamp>,
+        snapshot_sender: &Sender<Timestamp>,
         ts: anyhow::Result<Option<Timestamp>>,
     ) {
         match ts {
@@ -453,11 +452,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 report_error(&mut err);
             },
             Ok(Some(ts)) => {
-                // Clear out the old value if one is there.
-                let _ = snapshot_rx.try_recv();
-                // Send the new one. This will not block because we're the only
-                // producer.
-                if let Err(err) = snapshot_sender.send(ts).await {
+                if let Err(err) = snapshot_sender.send(ts) {
                     report_error(&mut err.into());
                 }
             },
@@ -470,9 +465,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         checkpoint_reader: Reader<Checkpoint>,
         rt: RT,
         persistence: Arc<dyn Persistence>,
-        min_snapshot_rx: Receiver<Timestamp>,
         min_snapshot_sender: Sender<Timestamp>,
-        min_document_snapshot_rx: Receiver<Timestamp>,
         min_document_snapshot_sender: Sender<Timestamp>,
         snapshot_reader: Reader<SnapshotManager>,
     ) {
@@ -493,12 +486,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     RetentionType::Index,
                 )
                 .await;
-                let _ = Self::emit_timestamp(
-                    min_snapshot_rx.clone(),
-                    min_snapshot_sender.clone(),
-                    index_ts,
-                )
-                .await;
+                Self::emit_timestamp(&min_snapshot_sender, index_ts).await;
 
                 let document_ts = Self::advance_timestamp(
                     &bounds_writer,
@@ -508,12 +496,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     RetentionType::Document,
                 )
                 .await;
-                let _ = Self::emit_timestamp(
-                    min_document_snapshot_rx.clone(),
-                    min_document_snapshot_sender.clone(),
-                    document_ts,
-                )
-                .await;
+                Self::emit_timestamp(&min_document_snapshot_sender, document_ts).await;
             }
             rt.wait(ADVANCE_RETENTION_TS_FREQUENCY).await;
         }
@@ -1025,7 +1008,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         index_table_id: TableIdAndTableNumber,
         mut index_cursor: Timestamp,
         retention_validator: Arc<dyn RetentionValidator>,
-        min_snapshot_rx: Receiver<Timestamp>,
+        mut min_snapshot_rx: Receiver<Timestamp>,
         checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
     ) {
@@ -1036,7 +1019,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let mut is_working = false;
         loop {
             if !is_working {
-                min_snapshot_ts = match min_snapshot_rx.recv().await {
+                min_snapshot_ts = match min_snapshot_rx.changed().await {
                     Err(err) => {
                         report_error(&mut err.into());
                         // Fall back to polling if the channel is closed or falls over. This should
@@ -1044,7 +1027,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
                         bounds_reader.lock().min_snapshot_ts
                     },
-                    Ok(timestamp) => timestamp,
+                    Ok(()) => *min_snapshot_rx.borrow_and_update(),
                 };
                 is_working = true;
             }
@@ -1138,7 +1121,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         rt: RT,
         persistence: Arc<dyn Persistence>,
         retention_validator: Arc<dyn RetentionValidator>,
-        min_document_snapshot_rx: Receiver<Timestamp>,
+        mut min_document_snapshot_rx: Receiver<Timestamp>,
         checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
     ) {
@@ -1158,15 +1141,15 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
         loop {
             if !is_working {
-                min_document_snapshot_ts = match min_document_snapshot_rx.recv().await {
+                min_document_snapshot_ts = match min_document_snapshot_rx.changed().await {
                     Err(err) => {
                         tracing::warn!("Failed to receive document snapshot: {}", err);
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
                         Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
-                        bounds_reader.lock().min_document_snapshot_ts
+                        bounds_reader.lock().min_snapshot_ts
                     },
-                    Ok(timestamp) => timestamp,
+                    Ok(()) => *min_document_snapshot_rx.borrow_and_update(),
                 };
                 is_working = true;
             }

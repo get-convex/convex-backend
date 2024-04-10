@@ -1685,6 +1685,7 @@ dependencies = [
  "slab",
  "storage",
  "tempfile",
+ "tokio",
  "tracing",
  "usage_tracking",
  "value",
