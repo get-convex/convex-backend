@@ -931,7 +931,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 min_snapshot_ts,
                 self.persistence.clone(),
                 &self.runtime,
-                backfill_begin_ts,
+                cursor_ts,
                 &all_indexes,
                 self.retention_validator.clone(),
             )
