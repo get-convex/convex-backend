@@ -623,7 +623,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// entries is the number of index entries we found were expired, not
     /// necessarily the total we deleted or wanted to delete, though they're
     /// correlated.
-    pub(crate) async fn delete(
+    async fn delete(
         min_snapshot_ts: Timestamp,
         persistence: Arc<dyn Persistence>,
         rt: &RT,
@@ -688,6 +688,32 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         min_snapshot_ts
             .pred()
             .map(|timestamp| (timestamp, total_expired_entries))
+    }
+
+    pub async fn delete_all_no_checkpoint(
+        mut cursor_ts: Timestamp,
+        min_snapshot_ts: Timestamp,
+        persistence: Arc<dyn Persistence>,
+        rt: &RT,
+        all_indexes: &BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> anyhow::Result<()> {
+        while cursor_ts.succ()? < min_snapshot_ts {
+            let (new_cursor_ts, _) = Self::delete(
+                min_snapshot_ts,
+                persistence.clone(),
+                rt,
+                cursor_ts,
+                all_indexes,
+                retention_validator.clone(),
+            )
+            .await?;
+            tracing::info!(
+                "custom index retention completed between ts {cursor_ts} and {new_cursor_ts}"
+            );
+            cursor_ts = new_cursor_ts;
+        }
+        Ok(())
     }
 
     #[try_stream(ok = (Timestamp, InternalDocumentId), error = anyhow::Error)]
@@ -1222,9 +1248,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         Ok(())
     }
 
-    async fn get_checkpoint(
+    pub async fn get_checkpoint_no_logging(
         persistence: &dyn PersistenceReader,
-        snapshot_reader: Reader<SnapshotManager>,
         retention_type: RetentionType,
     ) -> anyhow::Result<Timestamp> {
         let key = match retention_type {
@@ -1239,21 +1264,27 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             .map(ConvexValue::try_from)
             .transpose()?;
         let checkpoint = match checkpoint_value {
-            Some(ConvexValue::Int64(ts)) => {
-                let checkpoint = Timestamp::try_from(ts)?;
-                match retention_type {
-                    RetentionType::Document => log_document_retention_cursor_age(
-                        (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
-                    ),
-                    RetentionType::Index => log_retention_cursor_age(
-                        (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
-                    ),
-                }
-                checkpoint
-            },
+            Some(ConvexValue::Int64(ts)) => Timestamp::try_from(ts)?,
             None => Timestamp::MIN,
             _ => anyhow::bail!("invalid retention checkpoint {checkpoint_value:?}"),
         };
+        Ok(checkpoint)
+    }
+
+    async fn get_checkpoint(
+        persistence: &dyn PersistenceReader,
+        snapshot_reader: Reader<SnapshotManager>,
+        retention_type: RetentionType,
+    ) -> anyhow::Result<Timestamp> {
+        let checkpoint = Self::get_checkpoint_no_logging(persistence, retention_type).await?;
+        match retention_type {
+            RetentionType::Document => log_document_retention_cursor_age(
+                (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
+            ),
+            RetentionType::Index => log_retention_cursor_age(
+                (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
+            ),
+        }
         Ok(checkpoint)
     }
 

@@ -925,18 +925,15 @@ impl<RT: Runtime> IndexWriter<RT> {
         let min_snapshot_ts = self.retention_validator.min_snapshot_ts().await?;
         let all_indexes = btreemap! { index_id => (index_name, indexed_fields) };
         // TODO(lee) add checkpointing.
-        let mut cursor_ts = backfill_begin_ts;
-        while cursor_ts.succ()? < min_snapshot_ts {
-            (cursor_ts, _) = LeaderRetentionManager::delete(
-                min_snapshot_ts,
-                self.persistence.clone(),
-                &self.runtime,
-                cursor_ts,
-                &all_indexes,
-                self.retention_validator.clone(),
-            )
-            .await?;
-        }
+        LeaderRetentionManager::delete_all_no_checkpoint(
+            backfill_begin_ts,
+            min_snapshot_ts,
+            self.persistence.clone(),
+            &self.runtime,
+            &all_indexes,
+            self.retention_validator.clone(),
+        )
+        .await?;
         Ok(())
     }
 }

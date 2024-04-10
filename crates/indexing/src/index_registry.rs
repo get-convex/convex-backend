@@ -12,6 +12,7 @@ use common::{
         database_index::{
             DatabaseIndexState,
             DeveloperDatabaseIndexConfig,
+            IndexedFields,
         },
         DeveloperIndexConfig,
         IndexConfig,
@@ -403,6 +404,23 @@ impl IndexRegistry {
             .values()
             .chain(self.pending_indexes.values())
             .map(|index| index.metadata())
+    }
+
+    pub fn all_database_index_configs(
+        &self,
+    ) -> BTreeMap<IndexId, (TabletIndexName, IndexedFields)> {
+        self.all_indexes()
+            .filter_map(|index| {
+                let index_id = index.id().internal_id();
+                let index_name = index.name.clone();
+                match &index.config {
+                    IndexConfig::Database {
+                        developer_config, ..
+                    } => Some((index_id, (index_name, developer_config.fields.clone()))),
+                    IndexConfig::Search { .. } | IndexConfig::Vector { .. } => None,
+                }
+            })
+            .collect()
     }
 
     pub fn all_enabled_indexes(&self) -> Vec<ParsedDocument<TabletIndexMetadata>> {

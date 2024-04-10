@@ -153,6 +153,8 @@ pub use self::{
     retention::{
         latest_retention_min_snapshot_ts,
         FollowerRetentionManager,
+        LeaderRetentionManager,
+        RetentionType,
     },
     snapshot_manager::{
         Snapshot,
