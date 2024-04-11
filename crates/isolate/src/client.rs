@@ -88,6 +88,7 @@ use keybroker::{
     KeyBroker,
 };
 use minitrace::{
+    collector::SpanContext,
     full_name,
     future::FutureExt as _,
 };
@@ -790,6 +791,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     }
 
     /// Analyze a set of user-defined modules.
+    #[minitrace::trace]
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
@@ -809,12 +811,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             udf_config,
             environment_variables,
         };
-        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
-        // other requests besides udfs
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::empty(),
+            EncodedSpan::from_parent(SpanContext::current_local_parent()),
         ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {

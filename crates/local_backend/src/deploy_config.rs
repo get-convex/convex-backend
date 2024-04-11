@@ -377,6 +377,7 @@ pub async fn push_config(
     Ok(Json(EmptyResponse {}))
 }
 
+#[minitrace::trace]
 pub async fn push_config_handler(
     application: &Application<ProdRuntime>,
     config: ConfigJson,
@@ -478,6 +479,7 @@ pub async fn push_config_handler(
     ))
 }
 
+#[minitrace::trace]
 async fn analyze_modules_with_auth_config(
     application: &Application<ProdRuntime>,
     udf_config: UdfConfig,

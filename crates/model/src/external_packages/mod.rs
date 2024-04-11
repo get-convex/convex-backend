@@ -73,6 +73,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
         Self { tx }
     }
 
+    #[minitrace::trace]
     pub async fn get(
         &mut self,
         external_deps_package_id: ExternalDepsPackageId,
@@ -97,6 +98,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
         Ok(doc_id.into())
     }
 
+    #[minitrace::trace]
     pub async fn get_cached_package_match(
         &mut self,
         deps: Vec<NodeDependency>,

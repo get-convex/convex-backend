@@ -25,6 +25,7 @@ isolate = { path = "../isolate" }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
+minitrace = { workspace = true }
 model = { path = "../model" }
 serde = { workspace = true }
 serde_json = { workspace = true }

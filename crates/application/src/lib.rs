@@ -1598,6 +1598,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(schema)
     }
 
+    #[minitrace::trace]
     pub async fn get_evaluated_auth_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
         tx: &mut Transaction<RT>,
@@ -1701,6 +1702,7 @@ impl<RT: Runtime> Application<RT> {
         .await
     }
 
+    #[minitrace::trace]
     async fn _apply_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
         tx: &mut Transaction<RT>,
@@ -2006,6 +2008,7 @@ impl<RT: Runtime> Application<RT> {
         })
     }
 
+    #[minitrace::trace]
     pub async fn build_external_node_deps(
         &self,
         deps: Vec<NodeDependency>,
@@ -2042,6 +2045,7 @@ impl<RT: Runtime> Application<RT> {
         Ok((id, pkg))
     }
 
+    #[minitrace::trace]
     async fn _upload_external_deps_package(
         &self,
         external_deps_package: ExternalDepsPackage,

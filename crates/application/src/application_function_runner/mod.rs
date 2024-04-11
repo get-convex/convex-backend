@@ -1275,6 +1275,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn build_deps(
         &self,
         deps: Vec<NodeDependency>,
@@ -1298,6 +1299,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         )
     }
 
+    #[minitrace::trace]
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
@@ -1401,6 +1403,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(Ok(result))
     }
 
+    #[minitrace::trace]
     async fn validate_cron_jobs(
         &self,
         modules: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,

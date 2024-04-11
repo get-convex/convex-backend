@@ -150,6 +150,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         Ok(Some(persisted.into_value().0))
     }
 
+    #[minitrace::trace]
     pub async fn get_all(&mut self) -> anyhow::Result<BTreeMap<EnvVarName, EnvVarValue>> {
         let query = Query::full_table_scan(ENVIRONMENT_VARIABLES_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, query)?;

@@ -69,6 +69,7 @@ use http::{
 use hyper::server::conn::AddrIncoming;
 use itertools::Itertools;
 use maplit::btreemap;
+use minitrace::future::FutureExt;
 use prometheus::TextEncoder;
 use sentry::integrations::tower as sentry_tower;
 use serde::{
@@ -715,26 +716,27 @@ pub async fn stats_middleware<RM: RouteMapper>(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let start = Instant::now();
     let method = req.method().clone();
-
-    let resp = next.run(req).await;
-
-    let client_version_s = client_version.to_string();
     // tag with the route. 404s lack matched query path - and the
     // uri is generally unhelpful for metrics aggregation, so leave it out there.
     let route = matched_path
         .map(|r| r.as_str().to_owned())
         .unwrap_or("unknown".to_owned());
 
-    let route = route_metric_mapper.map_route(route);
+    // Configure tracing
+    let root = {
+        let mut rng = rand::thread_rng();
+        get_sampled_span(
+            route.as_str(),
+            &mut rng,
+            btreemap!["request_id".to_owned() => request_id.to_string()],
+        )
+    };
 
-    // Configure tracing.
-    let mut rng = rand::thread_rng();
-    let root = get_sampled_span(
-        route.as_str(),
-        &mut rng,
-        btreemap!["request_id".to_owned() => request_id.to_string()],
-    );
-    let _guard = root.set_local_parent();
+    let resp = next.run(req).in_span(root).await;
+
+    let client_version_s = client_version.to_string();
+
+    let route = route_metric_mapper.map_route(route);
 
     // Add the request_id to sentry
     sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));

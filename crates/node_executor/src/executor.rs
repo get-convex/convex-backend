@@ -335,6 +335,7 @@ impl Actions {
         result
     }
 
+    #[minitrace::trace]
     pub async fn analyze(
         &self,
         request: AnalyzeRequest,

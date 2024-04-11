@@ -424,7 +424,6 @@ impl DatabaseIndexSnapshot {
     }
 
     /// Query the given index at the snapshot.
-    #[minitrace::trace]
     pub async fn range_batch(
         &mut self,
         range_requests: BTreeMap<BatchKey, RangeRequest>,

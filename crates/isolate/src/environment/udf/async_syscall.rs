@@ -452,8 +452,8 @@ pub struct DatabaseSyscallsV1<RT: Runtime> {
 }
 
 impl<RT: Runtime> DatabaseSyscallsV1<RT> {
-    #[convex_macro::instrument_future]
     #[minitrace::trace]
+    #[convex_macro::instrument_future]
     async fn get_batch(
         env: &mut DatabaseUdfEnvironment<RT>,
         batch_args: Vec<JsonValue>,
@@ -840,6 +840,7 @@ impl<RT: Runtime> DatabaseSyscallsShared<RT> {
         ))
     }
 
+    #[minitrace::trace]
     async fn queryPage(
         env: &mut DatabaseUdfEnvironment<RT>,
         args: JsonValue,
