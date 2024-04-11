@@ -569,11 +569,11 @@ impl IndexRegistry {
         }
     }
 
-    fn index_ids(&self) -> BTreeSet<&IndexId> {
+    pub fn index_ids(&self) -> BTreeSet<IndexId> {
         self.enabled_indexes
             .iter()
             .chain(self.pending_indexes.iter())
-            .map(|(_name, index)| &index.id)
+            .map(|(_name, index)| index.id)
             .collect()
     }
 
