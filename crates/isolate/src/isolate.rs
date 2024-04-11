@@ -29,10 +29,7 @@ use crate::{
         create_isolate_timer,
         log_heap_statistics,
     },
-    request_scope::{
-        RequestScope,
-        RequestState,
-    },
+    request_scope::RequestState,
     strings,
     termination::{
         IsolateHandle,
@@ -263,45 +260,6 @@ impl<RT: Runtime> Isolate<RT> {
         }
 
         Ok(())
-    }
-
-    pub async fn with_request_scope<E: IsolateEnvironment<RT>, R>(
-        &mut self,
-        environment: E,
-        allow_dynamic_imports: bool,
-        f: impl FnOnce(&mut RequestScope<RT, E>) -> anyhow::Result<R>,
-    ) -> anyhow::Result<R> {
-        // Set up our timeout and environment for the new context.
-        let (handle, state) = self.start_request(environment).await?;
-
-        // Create a new `v8::HandleScope` on the stack.
-        let mut handle_scope = self.handle_scope();
-
-        // Create a new `v8::Context` that points to the handle scope.
-        let v8_context = v8::Context::new(&mut handle_scope);
-
-        // Connect the context to the handle scope with a new `v8::ContextScope`.
-        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
-
-        // Create our `IsolateContext` with a pointer to the stack-allocated context
-        // scope.
-        let mut isolate_context =
-            RequestScope::new(&mut context_scope, handle, state, allow_dynamic_imports).await?;
-
-        // Run the user's code.
-        let result = f(&mut isolate_context);
-
-        // Drain the microtask queue, to clean up the isolate.
-        isolate_context.scope.perform_microtask_checkpoint();
-
-        // Unlink the request from the isolate.
-        // After this point, it's unsafe to run js code in the isolate that
-        // expects the current request's environment.
-        // If the microtask queue is somehow nonempty after this point but before
-        // the next request starts, the isolate may panic.
-        drop(isolate_context);
-
-        result
     }
 
     pub async fn start_request<E: IsolateEnvironment<RT>>(
