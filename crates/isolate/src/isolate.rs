@@ -262,6 +262,7 @@ impl<RT: Runtime> Isolate<RT> {
         Ok(())
     }
 
+    #[minitrace::trace]
     pub async fn start_request<E: IsolateEnvironment<RT>>(
         &mut self,
         environment: E,
