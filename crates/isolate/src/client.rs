@@ -566,6 +566,10 @@ pub fn initialize_v8() {
             "--no-wasm-async-compilation".to_string(),
             // Disable `eval` or `new Function()`.
             "--disallow-code-generation-from-strings".to_string(),
+            // We ensure 4MiB of stack space on all of our threads, so
+            // tell V8 it can use up to 2MiB of stack space itself. The
+            // default is 1MiB. Note that the flag is in KiB (https://github.com/v8/v8/blob/master/src/flags/flag-definitions.h#L1594).
+            "--stack-size=2048".to_string(),
         ];
         // v8 returns the args that were misunderstood
         let misunderstood = V8::set_flags_from_command_line(argv);
