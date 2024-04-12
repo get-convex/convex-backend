@@ -7,7 +7,6 @@ use std::{
     sync::LazyLock,
 };
 
-use anyhow::Context;
 use cmd_util::env::env_config;
 use errors::ErrorMetadata;
 pub use metrics::{
@@ -73,7 +72,38 @@ impl ClientVersionState {
 #[derive(PartialEq, Eq, Clone, Ord, PartialOrd)]
 pub struct ClientVersion {
     client: ClientType,
-    version: Version,
+    version: ClientVersionIdent,
+}
+
+#[derive(PartialEq, Eq, Clone, Ord, PartialOrd)]
+pub enum ClientVersionIdent {
+    Semver(Version),
+    Unrecognized(String),
+}
+
+impl Display for ClientVersionIdent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Semver(v) => write!(f, "{v}"),
+            Self::Unrecognized(ident) => write!(f, "{ident}"),
+        }
+    }
+}
+
+impl ClientVersionIdent {
+    fn below_threshold(&self, threshold: &Version) -> bool {
+        match self {
+            Self::Semver(version) => version <= threshold,
+            Self::Unrecognized(_) => true,
+        }
+    }
+
+    fn above_threshold(&self, threshold: &Version) -> bool {
+        match self {
+            Self::Semver(version) => version >= threshold,
+            Self::Unrecognized(_) => true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
@@ -95,7 +125,7 @@ pub enum ClientType {
 }
 
 impl FromStr for ClientType {
-    type Err = anyhow::Error;
+    type Err = !;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let client_type = match &*s.to_ascii_lowercase() {
@@ -189,25 +219,38 @@ impl FromStr for ClientVersion {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> anyhow::Result<Self> {
-        let em = ErrorMetadata::bad_request(
-            "InvalidVersion",
-            format!(
-                "Failed to parse client version string: '{s}'. Expected format is \
-                 {{client_name}}-{{semver}}, e.g. my-esolang-client-0.0.1"
-            ),
-        );
-
         // Use the longest parseable semver spec from the right.
         let parts: Vec<&str> = s.split('-').collect();
-        let (n, version) = (1..parts.len())
-            .find_map(|n| {
-                Version::parse(parts[n..parts.len()].join("-").as_str())
-                    .map(|v| (n, v))
-                    .ok()
-            })
-            .context(em.clone())?;
-        let client_str = parts[0..n].join("-");
-        let client = client_str.parse::<ClientType>().context(em)?;
+
+        if parts.len() < 2 {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidVersion",
+                format!(
+                    "Failed to parse client version string: '{s}'. Expected format is \
+                     {{client_name}}-{{semver}}, e.g. my-esolang-client-0.0.1"
+                ),
+            ));
+        }
+
+        let split = (1..parts.len()).find_map(|n| {
+            Version::parse(parts[n..parts.len()].join("-").as_str())
+                .map(|v| (n, v))
+                .ok()
+        });
+        let (client_str, version) = match split {
+            Some((n, version)) => {
+                let client_str = parts[0..n].join("-");
+                (client_str, ClientVersionIdent::Semver(version))
+            },
+            None => {
+                let client_str = parts[0].to_string();
+                let version = ClientVersionIdent::Unrecognized(parts[1..].join("-"));
+                (client_str, version)
+            },
+        };
+        let Ok(client) = client_str.parse::<ClientType>() else {
+            unreachable!()
+        };
         Ok(Self { client, version })
     }
 }
@@ -217,7 +260,7 @@ impl ClientVersion {
         &self.client
     }
 
-    pub fn version(&self) -> &Version {
+    pub fn version(&self) -> &ClientVersionIdent {
         &self.version
     }
 
@@ -227,7 +270,7 @@ impl ClientVersion {
         let upgrade_instructions = self.client.upgrade_instructions();
 
         if let Some(unsupported_threshold) = self.client.unsupported_threshold()
-            && self.version <= unsupported_threshold
+            && self.version.below_threshold(&unsupported_threshold)
         {
             return ClientVersionState::Unsupported(format!(
                 "The Convex {client} package at version {version} is no longer supported. \
@@ -235,7 +278,7 @@ impl ClientVersion {
             ));
         }
         if let Some(upgrade_required_threshold) = self.client.upgrade_required_threshold()
-            && self.version <= upgrade_required_threshold
+            && self.version.below_threshold(&upgrade_required_threshold)
         {
             return ClientVersionState::UpgradeRequired(format!(
                 "The Convex {client} package at {version} is deprecated and will no longer be \
@@ -257,14 +300,14 @@ impl ClientVersion {
             } else {
                 ClientType::CLI
             },
-            version: v,
+            version: ClientVersionIdent::Semver(v),
         }
     }
 
     pub fn unknown() -> ClientVersion {
         Self {
             client: ClientType::Unrecognized("unknown".into()),
-            version: Version::new(0, 0, 0),
+            version: ClientVersionIdent::Unrecognized("unknownversion".into()),
         }
     }
 
@@ -274,9 +317,9 @@ impl ClientVersion {
     pub fn should_require_format_param(&self) -> bool {
         match self.client() {
             ClientType::CLI | ClientType::NPM | ClientType::Actions => {
-                self.version() >= &Version::new(1, 4, 1)
+                self.version().above_threshold(&Version::new(1, 4, 1))
             },
-            ClientType::Python => self.version() >= &Version::new(0, 5, 0),
+            ClientType::Python => self.version().above_threshold(&Version::new(0, 5, 0)),
             ClientType::Rust
             | ClientType::StreamingImport
             | ClientType::AirbyteExport
@@ -316,6 +359,7 @@ mod tests {
     };
     use crate::version::{
         ClientType,
+        ClientVersionIdent,
         DeprecationThreshold,
         DEPRECATION_THRESHOLD,
     };
@@ -341,12 +385,23 @@ mod tests {
         );
         let client_version = ClientVersion {
             client: ClientType::NPM,
-            version: upgrade_required_version_plus_one,
+            version: ClientVersionIdent::Semver(upgrade_required_version_plus_one),
         };
         assert_eq!(
             client_version.current_state(),
             ClientVersionState::Supported
         );
+
+        // Unknown version of NPM are unsupported
+        let client_version = ClientVersion {
+            client: ClientType::NPM,
+            version: ClientVersionIdent::Unrecognized("asdfdsasdf".to_string()),
+        };
+        assert_matches!(
+            client_version.current_state(),
+            ClientVersionState::Unsupported(_)
+        );
+
         // Versions higher than what we know about are also considered latest.
         assert_eq!(
             "python-convex-1000.0.0"
@@ -358,10 +413,16 @@ mod tests {
             "streaming-import-0.0.10".parse::<ClientVersion>()?,
             ClientVersion {
                 client: ClientType::StreamingImport,
-                version: Version::new(0, 0, 10)
+                version: ClientVersionIdent::Semver(Version::new(0, 0, 10))
             }
         );
-        assert!("npm-1.2.3.4".parse::<ClientVersion>().is_err());
+
+        // Not a valid semver
+        assert_matches!(
+            "npm-1.2.3.4".parse::<ClientVersion>()?.current_state(),
+            ClientVersionState::Unsupported(_)
+        );
+
         assert_eq!(
             &format!("{}", "npm-0.0.10".parse::<ClientVersion>()?),
             "npm-0.0.10"
@@ -386,14 +447,20 @@ mod tests {
             "some-custom-thing-1.2.3-4.5.6-alpha.7".parse::<ClientVersion>()?,
             ClientVersion {
                 client: ClientType::Unrecognized("some-custom-thing".to_string()),
-                version: Version {
+                version: ClientVersionIdent::Semver(Version {
                     major: 1,
                     minor: 2,
                     patch: 3,
                     pre: Prerelease::new("4.5.6-alpha.7")?,
                     build: BuildMetadata::EMPTY
-                }
+                })
             }
+        );
+        assert_eq!(
+            "big_brain-20240412T160958Z-baea64010a12"
+                .parse::<ClientVersion>()?
+                .current_state(),
+            ClientVersionState::Supported
         );
         Ok(())
     }

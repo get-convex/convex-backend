@@ -22,6 +22,7 @@
 #![feature(error_iter)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(round_char_boundary)]
+#![feature(never_type)]
 
 pub mod async_compat;
 pub mod auth;
