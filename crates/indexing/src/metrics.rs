@@ -1,7 +1,8 @@
 use metrics::{
-    log_counter_with_tags,
-    metric_tag_const,
+    log_counter_with_labels,
     register_convex_counter,
+    IntoLabel,
+    MetricLabel,
 };
 
 register_convex_counter!(
@@ -11,10 +12,9 @@ register_convex_counter!(
 );
 
 pub fn log_transaction_cache_query(hit: bool) {
-    let label = if hit { "hit:true" } else { "hit:false" };
-    log_counter_with_tags(
+    log_counter_with_labels(
         &TRANSACTION_INDEX_CACHE_HIT_TOTAL,
         1,
-        vec![metric_tag_const(label)],
+        vec![MetricLabel::new("hit", hit.as_label())],
     );
 }

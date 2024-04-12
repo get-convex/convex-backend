@@ -5,7 +5,7 @@ use metrics::{
     STATUS_LABEL,
 };
 use vector::{
-    vector_index_type_tag,
+    vector_index_type_label,
     VectorIndexType,
     VECTOR_INDEX_TYPE_LABEL,
 };
@@ -47,6 +47,6 @@ register_convex_histogram!(
 );
 pub fn vector_query_timer(vector_index_type: VectorIndexType) -> CancelableTimer {
     let mut timer = CancelableTimer::new(&SEARCHLIGHT_VECTOR_QUERY_SECONDS);
-    timer.add_tag(vector_index_type_tag(vector_index_type));
+    timer.add_label(vector_index_type_label(vector_index_type));
     timer
 }

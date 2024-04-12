@@ -676,7 +676,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .await;
         match &result {
             Ok(_) => timer.finish(),
-            Err(e) => timer.finish_with(e.metric_status_tag_value()),
+            Err(e) => timer.finish_with(e.metric_status_label_value()),
         };
         result
     }
@@ -895,7 +895,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) => {
                 log_udf_executor_result(
                     UdfType::Mutation,
-                    UdfExecutorResult::SystemError(e.metric_status_tag_value()),
+                    UdfExecutorResult::SystemError(e.metric_status_label_value()),
                 );
             },
         };
@@ -1050,7 +1050,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) => {
                 log_udf_executor_result(
                     UdfType::Action,
-                    UdfExecutorResult::SystemError(e.metric_status_tag_value()),
+                    UdfExecutorResult::SystemError(e.metric_status_label_value()),
                 );
             },
         };
@@ -1521,7 +1521,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) => {
                 log_udf_executor_result(
                     UdfType::Query,
-                    UdfExecutorResult::SystemError(e.metric_status_tag_value()),
+                    UdfExecutorResult::SystemError(e.metric_status_label_value()),
                 );
             },
         };

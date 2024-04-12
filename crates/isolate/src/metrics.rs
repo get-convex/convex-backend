@@ -8,17 +8,14 @@ use deno_core::v8;
 use errors::ErrorMetadata;
 use metrics::{
     log_counter,
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_distribution,
-    log_gauge_with_tags,
-    metric_tag,
-    metric_tag_const,
-    metric_tag_const_value,
+    log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
     CancelableTimer,
-    MetricTag,
+    MetricLabel,
     StatusTimer,
     Timer,
     STATUS_LABEL,
@@ -40,10 +37,10 @@ register_convex_histogram!(
 );
 pub fn execute_timer(udf_type: &UdfType, npm_version: &Option<Version>) -> StatusTimer {
     let mut t = StatusTimer::new(&UDF_EXECUTE_SECONDS);
-    t.add_tag(udf_type.metric_tag());
-    t.add_tag(match npm_version {
-        Some(v) => metric_tag(format!("npm_version:{v}")),
-        None => metric_tag_const("npm_version:none"),
+    t.add_label(udf_type.metric_label());
+    t.add_label(match npm_version {
+        Some(v) => MetricLabel::new("npm_version", v.to_string()),
+        None => MetricLabel::new("npm_version", "none"),
     });
     t
 }
@@ -54,10 +51,10 @@ register_convex_gauge!(
     &["pool_name"]
 );
 pub fn log_pool_running_count(name: &'static str, count: usize) {
-    log_gauge_with_tags(
+    log_gauge_with_labels(
         &ISOLATE_POOL_RUNNING_COUNT_INFO,
         count as f64,
-        vec![metric_tag_const_value("pool_name", name)],
+        vec![MetricLabel::new("pool_name", name)],
     );
 }
 
@@ -67,10 +64,10 @@ register_convex_gauge!(
     &["pool_name"]
 );
 pub fn log_pool_allocated_count(name: &'static str, count: usize) {
-    log_gauge_with_tags(
+    log_gauge_with_labels(
         &ISOLATE_POOL_ALLOCATED_COUNT_INFO,
         count as f64,
-        vec![metric_tag_const_value("pool_name", name)],
+        vec![MetricLabel::new("pool_name", name)],
     );
 }
 
@@ -107,7 +104,7 @@ register_convex_histogram!(
 );
 pub fn service_request_timer(udf_type: &UdfType) -> StatusTimer {
     let mut t = StatusTimer::new(&UDF_SERVICE_REQUEST_SECONDS);
-    t.add_tag(udf_type.metric_tag());
+    t.add_label(udf_type.metric_label());
     t
 }
 
@@ -170,7 +167,7 @@ pub fn log_result_length(result: &str) {
 register_convex_histogram!(UDF_OP_SECONDS, "Duration of UDF op", &["status", "op"]);
 pub fn op_timer(op_name: &str) -> StatusTimer {
     let mut t = StatusTimer::new(&UDF_OP_SECONDS);
-    t.add_tag(metric_tag(format!("op:{op_name}")));
+    t.add_label(MetricLabel::new("op", op_name.to_owned()));
     t
 }
 
@@ -181,7 +178,7 @@ register_convex_histogram!(
 );
 pub fn syscall_timer(op_name: &str) -> StatusTimer {
     let mut t = StatusTimer::new(&UDF_SYSCALL_SECONDS);
-    t.add_tag(metric_tag(format!("syscall:{op_name}")));
+    t.add_label(MetricLabel::new("syscall", op_name.to_owned()));
     t
 }
 
@@ -192,7 +189,7 @@ register_convex_histogram!(
 );
 pub fn async_syscall_timer(op_name: &str) -> StatusTimer {
     let mut t = StatusTimer::new(&UDF_ASYNC_SYSCALL_SECONDS);
-    t.add_tag(metric_tag(format!("syscall:{op_name}")));
+    t.add_label(MetricLabel::new("syscall", op_name.to_owned()));
     t
 }
 
@@ -202,10 +199,10 @@ register_convex_counter!(
     &["environment"],
 );
 pub fn log_unawaited_pending_op(count: usize, environment: &'static str) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &UDF_UNAWAITED_OP_TOTAL,
         count as u64,
-        vec![metric_tag_const_value("environment", environment)],
+        vec![MetricLabel::new("environment", environment)],
     );
 }
 
@@ -218,17 +215,17 @@ pub fn log_function_limit_warning(
     limit_name: &'static str,
     system_udf_path: Option<&CanonicalizedUdfPath>,
 ) {
-    let tags = match system_udf_path {
+    let labels = match system_udf_path {
         Some(udf_path) => vec![
-            metric_tag_const_value("limit", limit_name),
-            metric_tag(format!("system_udf_path:{udf_path}")),
+            MetricLabel::new("limit", limit_name),
+            MetricLabel::new("system_udf_path", udf_path.to_string()),
         ],
         None => vec![
-            metric_tag_const_value("limit", limit_name),
-            metric_tag_const_value("system_udf_path", "none"),
+            MetricLabel::new("limit", limit_name),
+            MetricLabel::new("system_udf_path", "none"),
         ],
     };
-    log_counter_with_tags(&FUNCTION_LIMIT_WARNING_TOTAL, 1, tags);
+    log_counter_with_labels(&FUNCTION_LIMIT_WARNING_TOTAL, 1, labels);
 }
 
 register_convex_counter!(
@@ -256,10 +253,10 @@ register_convex_counter!(
     &["reason"]
 );
 pub fn log_recreate_isolate(reason: &'static str) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &RECREATE_ISOLATE_TOTAL,
         1,
-        vec![metric_tag_const_value("reason", reason)],
+        vec![MetricLabel::new("reason", reason)],
     )
 }
 
@@ -383,14 +380,14 @@ pub fn concurrency_permit_acquire_timer() -> CancelableTimer {
 register_convex_counter!(UDF_FETCH_TOTAL, "Number of UDF fetches", &STATUS_LABEL);
 register_convex_counter!(UDF_FETCH_BYTES_TOTAL, "Number of bytes fetched in UDFs");
 pub fn finish_udf_fetch_timer(t: StatusTimer, success: Result<usize, ()>) {
-    let status_tag = if let Ok(size) = success {
+    let status_label = if let Ok(size) = success {
         t.finish();
         log_counter(&UDF_FETCH_BYTES_TOTAL, size as u64);
-        MetricTag::STATUS_SUCCESS
+        MetricLabel::STATUS_SUCCESS
     } else {
-        MetricTag::STATUS_ERROR
+        MetricLabel::STATUS_ERROR
     };
-    log_counter_with_tags(&UDF_FETCH_TOTAL, 1, vec![status_tag]);
+    log_counter_with_labels(&UDF_FETCH_TOTAL, 1, vec![status_label]);
 }
 
 // Analyze counters

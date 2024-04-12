@@ -14,16 +14,15 @@ use prometheus::{
 
 use crate::{
     get_desc,
+    labels::MetricLabel,
     log_distribution,
-    log_distribution_with_tags,
-    metric_tag_const_value,
-    tags::MetricTag,
+    log_distribution_with_labels,
 };
 
 pub struct Timer<T: 'static> {
     start: Instant,
     histogram: &'static T,
-    tags: BTreeSet<MetricTag>,
+    labels: BTreeSet<MetricLabel>,
 }
 
 trait DropInner {
@@ -43,25 +42,25 @@ impl<T: 'static> Drop for Timer<T> {
 }
 
 impl Timer<VMHistogramVec> {
-    pub fn new_tagged(histogram: &'static VMHistogramVec) -> Self {
+    pub fn new_with_labels(histogram: &'static VMHistogramVec) -> Self {
         Self {
             start: Instant::now(),
             histogram,
-            tags: BTreeSet::new(),
+            labels: BTreeSet::new(),
         }
     }
 
-    pub fn add_tag(&mut self, tag: MetricTag) {
-        self.tags.insert(tag);
+    pub fn add_label(&mut self, label: MetricLabel) {
+        self.labels.insert(label);
     }
 
-    pub fn remove_tag(&mut self, tag: MetricTag) {
-        self.tags.remove(&tag);
+    pub fn remove_label(&mut self, label: MetricLabel) {
+        self.labels.remove(&label);
     }
 
-    pub fn replace_tag(&mut self, old_tag: MetricTag, new_tag: MetricTag) {
-        self.tags.remove(&old_tag);
-        self.tags.insert(new_tag);
+    pub fn replace_label(&mut self, old_label: MetricLabel, new_label: MetricLabel) {
+        self.labels.remove(&old_label);
+        self.labels.insert(new_label);
     }
 
     pub fn elapsed(&self) -> Duration {
@@ -74,7 +73,7 @@ impl Timer<VMHistogram> {
         Self {
             start: Instant::now(),
             histogram,
-            tags: BTreeSet::new(),
+            labels: BTreeSet::new(),
         }
     }
 
@@ -105,9 +104,9 @@ impl DropInner for Timer<VMHistogramVec> {
         let elapsed = elapsed_duration.as_secs_f64();
 
         let desc = get_desc(self.histogram);
-        tracing::debug!("{elapsed_duration:?} for timer {desc:?} {:?}", self.tags);
-        let tags = mem::take(&mut self.tags);
-        log_distribution_with_tags(self.histogram, elapsed, tags.into_iter().collect());
+        tracing::debug!("{elapsed_duration:?} for timer {desc:?} {:?}", self.labels);
+        let labels = mem::take(&mut self.labels);
+        log_distribution_with_labels(self.histogram, elapsed, labels.into_iter().collect());
     }
 }
 
@@ -118,37 +117,39 @@ pub struct StatusTimer(Timer<VMHistogramVec>);
 
 impl StatusTimer {
     pub fn new(histogram: &'static VMHistogramVec) -> Self {
-        let mut timer = Timer::new_tagged(histogram);
-        timer.add_tag(MetricTag::STATUS_ERROR);
+        let mut timer = Timer::new_with_labels(histogram);
+        timer.add_label(MetricLabel::STATUS_ERROR);
         Self(timer)
     }
 
-    pub fn add_tag(&mut self, tag: MetricTag) {
-        self.0.tags.insert(tag);
+    pub fn add_label(&mut self, label: MetricLabel) {
+        self.0.labels.insert(label);
     }
 
     /// Finish the timer with status success
     pub fn finish(mut self) -> Duration {
         self.0
-            .replace_tag(MetricTag::STATUS_ERROR, MetricTag::STATUS_SUCCESS);
+            .replace_label(MetricLabel::STATUS_ERROR, MetricLabel::STATUS_SUCCESS);
         self.0.elapsed()
     }
 
     /// Finish the timer with developer error
     pub fn finish_developer_error(mut self) -> Duration {
-        self.0
-            .replace_tag(MetricTag::STATUS_ERROR, MetricTag::STATUS_DEVELOPER_ERROR);
+        self.0.replace_label(
+            MetricLabel::STATUS_ERROR,
+            MetricLabel::STATUS_DEVELOPER_ERROR,
+        );
         self.0.elapsed()
     }
 
     /// Finish the timer with the given status
     /// Commonly used as
     ///
-    /// .finish_with(e.metric_status_tag_value())
+    /// .finish_with(e.metric_status_label_value())
     pub fn finish_with(mut self, status: &'static str) -> Duration {
-        self.0.replace_tag(
-            MetricTag::STATUS_ERROR,
-            metric_tag_const_value("status", status),
+        self.0.replace_label(
+            MetricLabel::STATUS_ERROR,
+            MetricLabel::new("status", status),
         );
         self.0.elapsed()
     }
@@ -161,22 +162,22 @@ pub struct CancelableTimer(Timer<VMHistogramVec>);
 
 impl CancelableTimer {
     pub fn new(histogram: &'static VMHistogramVec) -> Self {
-        let mut timer = Timer::new_tagged(histogram);
-        timer.add_tag(MetricTag::STATUS_CANCELED);
+        let mut timer = Timer::new_with_labels(histogram);
+        timer.add_label(MetricLabel::STATUS_CANCELED);
         Self(timer)
     }
 
     pub fn finish(mut self, is_ok: bool) -> Duration {
         self.0
-            .replace_tag(MetricTag::STATUS_CANCELED, MetricTag::status(is_ok));
+            .replace_label(MetricLabel::STATUS_CANCELED, MetricLabel::status(is_ok));
         self.0.elapsed()
     }
 
     /// Finish the timer with developer error
     pub fn finish_developer_error(mut self) -> Duration {
-        self.0.replace_tag(
-            MetricTag::STATUS_CANCELED,
-            MetricTag::STATUS_DEVELOPER_ERROR,
+        self.0.replace_label(
+            MetricLabel::STATUS_CANCELED,
+            MetricLabel::STATUS_DEVELOPER_ERROR,
         );
         self.0.elapsed()
     }
@@ -184,11 +185,11 @@ impl CancelableTimer {
     /// Finish the timer with the given status
     /// Commonly used as
     ///
-    /// .finish_with(e.metric_status_tag_value())
+    /// .finish_with(e.metric_status_label_value())
     pub fn finish_with(mut self, status: &'static str) -> Duration {
-        self.0.replace_tag(
-            MetricTag::STATUS_CANCELED,
-            metric_tag_const_value("status", status),
+        self.0.replace_label(
+            MetricLabel::STATUS_CANCELED,
+            MetricLabel::new("status", status),
         );
         self.0.elapsed()
     }

@@ -14,27 +14,27 @@ use std::{
     },
 };
 
+mod labels;
 mod macros;
 mod metrics;
 mod progress;
 mod reporting;
-mod tags;
 mod timer;
 
 pub use crate::{
+    labels::*,
     macros::*,
     metrics::*,
     progress::ProgressCounter,
     reporting::{
         get_desc,
         log_counter,
-        log_counter_with_tags,
+        log_counter_with_labels,
         log_distribution,
-        log_distribution_with_tags,
+        log_distribution_with_labels,
         log_gauge,
-        log_gauge_with_tags,
+        log_gauge_with_labels,
     },
-    tags::*,
     timer::{
         CancelableTimer,
         StatusTimer,

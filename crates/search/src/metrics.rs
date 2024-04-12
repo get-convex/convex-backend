@@ -1,14 +1,13 @@
 use metrics::{
     log_counter,
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_distribution,
-    log_gauge_with_tags,
-    metric_tag,
-    metric_tag_const,
+    log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricTag,
+    IntoLabel,
+    MetricLabel,
     StatusTimer,
     Timer,
     STATUS_LABEL,
@@ -361,12 +360,11 @@ register_convex_counter!(
     &["overlaps"]
 );
 pub fn log_query_reads_outcome(overlaps: bool) {
-    let tag = if overlaps {
-        metric_tag_const("overlaps:true")
-    } else {
-        metric_tag_const("overlaps:false")
-    };
-    log_counter_with_tags(&SEARCH_QUERY_READS_OVERLAPS_TOTAL, 1, vec![tag]);
+    log_counter_with_labels(
+        &SEARCH_QUERY_READS_OVERLAPS_TOTAL,
+        1,
+        vec![MetricLabel::new("overlaps", overlaps.as_label())],
+    );
 }
 
 register_convex_histogram!(
@@ -421,7 +419,7 @@ pub fn log_compacted_segment_size_bytes(size_bytes: u64) {
 pub const SEARCH_FILE_TYPE: &str = "search_file_type";
 
 impl SearchFileType {
-    pub fn metric_tag(&self) -> MetricTag {
+    pub fn metric_label(&self) -> MetricLabel {
         let search_type_str = match self {
             SearchFileType::VectorSegment => "vector_segment",
             SearchFileType::VectorDeletedBitset => "vector_deleted_bitset",
@@ -429,7 +427,7 @@ impl SearchFileType {
             SearchFileType::Text => "text",
             SearchFileType::FragmentedVectorSegment => "fragmented_vector_segment",
         };
-        metric_tag(format!("{SEARCH_FILE_TYPE}:{search_type_str}"))
+        MetricLabel::new(SEARCH_FILE_TYPE, search_type_str)
     }
 }
 
@@ -440,7 +438,7 @@ register_convex_histogram!(
 );
 pub fn upload_archive_timer(search_file_type: SearchFileType) -> StatusTimer {
     let mut timer = StatusTimer::new(&SEARCH_UPLOAD_ARCHIVE_SECONDS);
-    timer.add_tag(search_file_type.metric_tag());
+    timer.add_label(search_file_type.metric_label());
     timer
 }
 
@@ -451,12 +449,12 @@ pub enum SearchType {
 }
 
 pub const SEARCH_TYPE_LABEL: [&str; 1] = ["search_type"];
-pub fn search_type_tag(search_type: SearchType) -> MetricTag {
+pub fn search_type_label(search_type: SearchType) -> MetricLabel {
     let type_str = match search_type {
         SearchType::Vector => "vector",
         SearchType::Text => "text",
     };
-    metric_tag(format!("search_type:{type_str}"))
+    MetricLabel::new("search_type", type_str)
 }
 
 register_convex_counter!(
@@ -465,16 +463,16 @@ register_convex_counter!(
     &[ASYNC_LRU_LABEL],
 );
 pub fn log_async_lru_cache_hit(label: &str) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &SEARCHLIGHT_ASYNC_LRU_CACHE_HIT_TOTAL,
         1,
-        vec![async_lru_label_tag(label)],
+        vec![async_lru_label(label)],
     );
 }
 
 pub const ASYNC_LRU_LABEL: &str = "label";
-pub fn async_lru_label_tag(label: &str) -> MetricTag {
-    metric_tag(format!("{}:{}", ASYNC_LRU_LABEL, label))
+pub fn async_lru_label(label: &str) -> MetricLabel {
+    MetricLabel::new(ASYNC_LRU_LABEL, label.to_owned())
 }
 
 register_convex_counter!(
@@ -483,10 +481,10 @@ register_convex_counter!(
     &[ASYNC_LRU_LABEL],
 );
 pub fn log_async_lru_cache_waiting(label: &str) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &SEARCHLIGHT_ASYNC_LRU_CACHE_WAITING_TOTAL,
         1,
-        vec![async_lru_label_tag(label)],
+        vec![async_lru_label(label)],
     );
 }
 
@@ -496,10 +494,10 @@ register_convex_counter!(
     &[ASYNC_LRU_LABEL],
 );
 pub fn log_async_lru_cache_miss(label: &str) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &SEARCHLIGHT_ASYNC_LRU_CACHE_MISS_TOTAL,
         1,
-        vec![async_lru_label_tag(label)],
+        vec![async_lru_label(label)],
     );
 }
 
@@ -509,10 +507,10 @@ register_convex_gauge!(
     &[ASYNC_LRU_LABEL],
 );
 pub fn log_async_lru_size(size: usize, label: &str) {
-    log_gauge_with_tags(
+    log_gauge_with_labels(
         &SEARCHLIGHT_ASYNC_LRU_SIZE_TOTAL,
         size as f64,
-        vec![async_lru_label_tag(label)],
+        vec![async_lru_label(label)],
     )
 }
 

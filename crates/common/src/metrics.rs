@@ -11,15 +11,14 @@ use futures::{
 use metrics::{
     self,
     log_counter,
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_distribution,
     log_gauge,
-    metric_tag,
-    metric_tag_const_value,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricTag,
+    IntoLabel,
+    MetricLabel,
     Timer,
     CONVEX_METRICS_REGISTRY,
 };
@@ -74,12 +73,12 @@ register_convex_counter!(
     &["expired", "reason"]
 );
 pub fn log_index_expiration_checked(expired: bool, reason: &'static str) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &CHECKED_INDEX_EXPIRATION_DOCUMENTS,
         1,
         vec![
-            metric_tag_const_value("expired", if expired { "true" } else { "false" }),
-            metric_tag_const_value("reason", reason),
+            MetricLabel::new("expired", expired.as_label()),
+            MetricLabel::new("reason", reason),
         ],
     );
 }
@@ -90,10 +89,10 @@ register_convex_counter!(
     &["version"]
 );
 pub fn log_client_version_unsupported(version: String) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &CLIENT_VERSION_UNSUPPORTED_TOTAL,
         1,
-        vec![metric_tag(format!("version:{version}"))],
+        vec![MetricLabel::new("version", version)],
     );
 }
 
@@ -103,8 +102,8 @@ register_convex_histogram!(
     &["recent"]
 );
 pub fn static_repeatable_ts_timer(is_recent: bool) -> Timer<VMHistogramVec> {
-    let mut timer = Timer::new_tagged(&STATIC_REPEATABLE_TS_SECONDS);
-    timer.add_tag(metric_tag_const_value(
+    let mut timer = Timer::new_with_labels(&STATIC_REPEATABLE_TS_SECONDS);
+    timer.add_label(MetricLabel::new(
         "recent",
         if is_recent { "recent" } else { "at_ts" },
     ));
@@ -112,8 +111,8 @@ pub fn static_repeatable_ts_timer(is_recent: bool) -> Timer<VMHistogramVec> {
 }
 
 register_convex_counter!(ERRORS_REPORTED_TOTAL, "Count of errors reported", &["type"]);
-pub fn log_errors_reported_total(tag: MetricTag) {
-    log_counter_with_tags(&ERRORS_REPORTED_TOTAL, 1, vec![tag]);
+pub fn log_errors_reported_total(tag: MetricLabel) {
+    log_counter_with_labels(&ERRORS_REPORTED_TOTAL, 1, vec![tag]);
 }
 
 pub type FlushMetrics<RT: Runtime> = impl FnOnce() -> BoxFuture<'static, ()>;

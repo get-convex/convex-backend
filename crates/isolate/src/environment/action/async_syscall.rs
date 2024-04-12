@@ -68,7 +68,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .log_async_syscall(name, start.elapsed(), result.is_ok());
         match &result {
             Ok(_) => timer.finish(),
-            Err(e) => timer.finish_with(e.metric_status_tag_value()),
+            Err(e) => timer.finish_with(e.metric_status_label_value()),
         };
         result.and_then(|v| anyhow::Ok(serde_json::to_string(&v)?))
     }

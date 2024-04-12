@@ -1,12 +1,11 @@
 use metrics::{
-    log_counter_with_tags,
-    log_distribution_with_tags,
-    log_gauge_with_tags,
-    metric_tag_const,
-    metric_tag_const_value,
+    log_counter_with_labels,
+    log_distribution_with_labels,
+    log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
+    MetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -18,16 +17,12 @@ register_convex_counter!(
     &["cache_status"],
 );
 pub fn log_external_deps_package(is_cache_hit: bool) {
-    let cache_tag = if is_cache_hit {
-        "cache_status:hit"
-    } else {
-        "cache_status:miss"
-    };
+    let cache_label = if is_cache_hit { "hit" } else { "miss" };
 
-    log_counter_with_tags(
+    log_counter_with_labels(
         &EXTERNAL_DEPS_PACKAGES_TOTAL,
         1,
-        vec![metric_tag_const(cache_tag)],
+        vec![MetricLabel::new("cache_status", cache_label)],
     );
 }
 
@@ -37,18 +32,18 @@ register_convex_histogram!(
     &["compressed"],
 );
 pub fn log_source_package_size_bytes_total(pkg_size: PackageSize) {
-    let zipped_tag = metric_tag_const_value("compressed", "true");
-    let unzipped_tag = metric_tag_const_value("compressed", "false");
+    let zipped_label = MetricLabel::new("compressed", "true");
+    let unzipped_label = MetricLabel::new("compressed", "false");
 
-    log_distribution_with_tags(
+    log_distribution_with_labels(
         &SOURCE_PACKAGE_SIZE_BYTES_TOTAL,
         pkg_size.zipped_size_bytes as f64,
-        vec![zipped_tag],
+        vec![zipped_label],
     );
-    log_distribution_with_tags(
+    log_distribution_with_labels(
         &SOURCE_PACKAGE_SIZE_BYTES_TOTAL,
         pkg_size.unzipped_size_bytes as f64,
-        vec![unzipped_tag],
+        vec![unzipped_label],
     );
 }
 
@@ -91,9 +86,9 @@ pub fn log_worker_starting(name: &'static str) -> AppWorkerStatus {
 }
 
 fn log_worker_status(is_working: bool, name: &'static str) {
-    log_gauge_with_tags(
+    log_gauge_with_labels(
         &APP_WORKER_IN_PROGRESS_TOTAL,
         if is_working { 1f64 } else { 0f64 },
-        vec![metric_tag_const_value("worker", name)],
+        vec![MetricLabel::new("worker", name)],
     )
 }

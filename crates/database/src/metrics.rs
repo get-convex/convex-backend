@@ -5,16 +5,16 @@ use common::{
 use errors::ErrorMetadata;
 use metrics::{
     log_counter,
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_distribution,
-    log_distribution_with_tags,
+    log_distribution_with_labels,
     log_gauge,
-    log_gauge_with_tags,
-    metric_tag_const,
-    metric_tag_const_value,
+    log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
+    IntoLabel,
+    MetricLabel,
     StatusTimer,
     Timer,
     STATUS_LABEL,
@@ -416,11 +416,11 @@ register_convex_counter!(
     &["tombstone", "prev_rev"]
 );
 pub fn log_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &RETENTION_SCANNED_DOCUMENT_TOTAL,
         1,
         vec![
-            metric_tag_const_value(
+            MetricLabel::new(
                 "tombstone",
                 if is_tombstone {
                     "is_tombstone"
@@ -428,7 +428,7 @@ pub fn log_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
                     "is_document"
                 },
             ),
-            metric_tag_const_value(
+            MetricLabel::new(
                 "prev_rev",
                 if has_prev_rev {
                     "has_prev_rev"
@@ -446,11 +446,11 @@ register_convex_counter!(
     &["tombstone", "prev_rev"]
 );
 pub fn log_document_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &DOCUMENT_RETENTION_SCANNED_DOCUMENT_TOTAL,
         1,
         vec![
-            metric_tag_const_value(
+            MetricLabel::new(
                 "tombstone",
                 if is_tombstone {
                     "is_tombstone"
@@ -458,7 +458,7 @@ pub fn log_document_retention_scanned_document(is_tombstone: bool, has_prev_rev:
                     "is_document"
                 },
             ),
-            metric_tag_const_value(
+            MetricLabel::new(
                 "prev_rev",
                 if has_prev_rev {
                     "has_prev_rev"
@@ -476,10 +476,10 @@ register_convex_counter!(
     &["reason"]
 );
 pub fn log_retention_expired_index_entry(is_tombstone: bool, is_key_change_tombstone: bool) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &RETENTION_EXPIRED_INDEX_ENTRY_TOTAL,
         1,
-        vec![metric_tag_const_value(
+        vec![MetricLabel::new(
             "reason",
             if is_tombstone {
                 if is_key_change_tombstone {
@@ -533,32 +533,24 @@ pub fn log_snapshot_verification_age<RT: Runtime>(
     optimistic: bool,
     leader: bool,
 ) {
-    let tags = vec![
-        if optimistic {
-            metric_tag_const("optimistic:true")
-        } else {
-            metric_tag_const("optimistic:false")
-        },
-        if leader {
-            metric_tag_const("leader:true")
-        } else {
-            metric_tag_const("leader:false")
-        },
+    let labels = vec![
+        MetricLabel::new("optimistic", optimistic.as_label()),
+        MetricLabel::new("leader", leader.as_label()),
     ];
     if snapshot < min_snapshot_ts {
-        log_counter_with_tags(&OUTSIDE_RETENTION_TOTAL, 1, tags.clone());
+        log_counter_with_labels(&OUTSIDE_RETENTION_TOTAL, 1, labels.clone());
     }
     if let Ok(current_timestamp) = rt.generate_timestamp() {
-        log_distribution_with_tags(
+        log_distribution_with_labels(
             &SNAPSHOT_AGE_SECONDS,
             current_timestamp.secs_since_f64(snapshot),
-            tags.clone(),
+            labels.clone(),
         );
     }
-    log_distribution_with_tags(
+    log_distribution_with_labels(
         &SNAPSHOT_BUFFER_VS_MIN_SNAPSHOT_SECONDS,
         snapshot.secs_since_f64(min_snapshot_ts),
-        tags,
+        labels,
     );
 }
 
@@ -633,10 +625,10 @@ pub fn log_worker_starting(name: &'static str) -> DatabaseWorkerStatus {
 }
 
 fn log_worker_status(is_working: bool, name: &'static str) {
-    log_gauge_with_tags(
+    log_gauge_with_labels(
         &DATABASE_WORKER_IN_PROGRESS_TOTAL,
         if is_working { 1f64 } else { 0f64 },
-        vec![metric_tag_const_value("worker", name)],
+        vec![MetricLabel::new("worker", name)],
     )
 }
 
@@ -775,10 +767,9 @@ pub fn log_document_skipped() {
 pub mod vector {
     use metrics::{
         log_distribution,
-        metric_tag,
         register_convex_histogram,
         CancelableTimer,
-        MetricTag,
+        MetricLabel,
         StatusTimer,
         Timer,
         STATUS_LABEL,
@@ -849,14 +840,14 @@ pub mod vector {
     }
 
     impl CompactionReason {
-        fn metric_tag(&self) -> MetricTag {
+        fn metric_label(&self) -> MetricLabel {
             let label = match self {
                 CompactionReason::Unknown => "unknown",
                 CompactionReason::SmallSegments => "small",
                 CompactionReason::LargeSegments => "large",
                 CompactionReason::Deletes => "deletes",
             };
-            metric_tag(format!("{}:{}", COMPACTION_REASON_LABEL, label))
+            MetricLabel::new(COMPACTION_REASON_LABEL, label)
         }
     }
 
@@ -867,12 +858,15 @@ pub mod vector {
     );
     pub fn vector_compaction_build_one_timer() -> StatusTimer {
         let mut timer = StatusTimer::new(&VECTOR_COMPACTION_BUILD_ONE_SECONDS);
-        timer.add_tag(CompactionReason::Unknown.metric_tag());
+        timer.add_label(CompactionReason::Unknown.metric_label());
         timer
     }
 
     pub fn finish_compaction_timer(mut timer: StatusTimer, reason: CompactionReason) {
-        timer.replace_tag(CompactionReason::Unknown.metric_tag(), reason.metric_tag());
+        timer.replace_label(
+            CompactionReason::Unknown.metric_label(),
+            reason.metric_label(),
+        );
         timer.finish();
     }
 
@@ -906,12 +900,12 @@ pub mod vector {
     const VECTOR_WRITER_WAITER_LABEL: &str = "waiter";
 
     impl VectorWriterLockWaiter {
-        fn tag(&self) -> MetricTag {
+        fn tag(&self) -> MetricLabel {
             let label = match self {
                 VectorWriterLockWaiter::Compactor => "compactor",
                 VectorWriterLockWaiter::Flusher => "flusher",
             };
-            metric_tag(format!("{}:{}", VECTOR_WRITER_WAITER_LABEL, label))
+            MetricLabel::new(VECTOR_WRITER_WAITER_LABEL, label)
         }
     }
 
@@ -922,8 +916,8 @@ pub mod vector {
         &[VECTOR_WRITER_WAITER_LABEL]
     );
     pub fn vector_writer_lock_wait_timer(waiter: VectorWriterLockWaiter) -> Timer<VMHistogramVec> {
-        let mut timer = Timer::new_tagged(&VECTOR_WRITER_LOCK_WAIT_SECONDS);
-        timer.add_tag(waiter.tag());
+        let mut timer = Timer::new_with_labels(&VECTOR_WRITER_LOCK_WAIT_SECONDS);
+        timer.add_label(waiter.tag());
         timer
     }
 
@@ -936,13 +930,13 @@ pub mod vector {
     }
 
     impl VectorIndexMergeType {
-        fn metric_tag(&self) -> MetricTag {
+        fn metric_label(&self) -> MetricLabel {
             let label = match self {
                 VectorIndexMergeType::Unknown => "unknown",
                 VectorIndexMergeType::Required => "required",
                 VectorIndexMergeType::NotRequired => "not_required",
             };
-            metric_tag(format!("{}:{}", MERGE_LABEL, label))
+            MetricLabel::new(MERGE_LABEL, label)
         }
     }
 
@@ -953,7 +947,7 @@ pub mod vector {
     );
     pub fn vector_compaction_merge_commit_timer() -> StatusTimer {
         let mut timer = StatusTimer::new(&VECTOR_COMPACTION_MERGE_COMMIT_SECONDS);
-        timer.add_tag(VectorIndexMergeType::Unknown.metric_tag());
+        timer.add_label(VectorIndexMergeType::Unknown.metric_label());
         timer
     }
 
@@ -964,7 +958,7 @@ pub mod vector {
     );
     pub fn vector_flush_merge_commit_timer() -> StatusTimer {
         let mut timer = StatusTimer::new(&VECTOR_COMPACTION_MERGE_COMMIT_SECONDS);
-        timer.add_tag(VectorIndexMergeType::Unknown.metric_tag());
+        timer.add_label(VectorIndexMergeType::Unknown.metric_label());
         timer
     }
 
@@ -972,9 +966,9 @@ pub mod vector {
         mut timer: StatusTimer,
         merge_type: VectorIndexMergeType,
     ) {
-        timer.replace_tag(
-            VectorIndexMergeType::Unknown.metric_tag(),
-            merge_type.metric_tag(),
+        timer.replace_label(
+            VectorIndexMergeType::Unknown.metric_label(),
+            merge_type.metric_label(),
         );
         timer.finish();
     }

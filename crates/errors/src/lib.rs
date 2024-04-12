@@ -7,11 +7,7 @@ use std::{
     sync::LazyLock,
 };
 
-use ::metrics::{
-    metric_tag_const,
-    metric_tag_const_value,
-    MetricTag,
-};
+use ::metrics::MetricLabel;
 use http::StatusCode;
 use prometheus::IntCounter;
 use tungstenite::protocol::{
@@ -329,7 +325,7 @@ impl ErrorMetadata {
         }
     }
 
-    fn metric_server_error_tag_value(&self) -> Option<&'static str> {
+    fn metric_server_error_label_value(&self) -> Option<&'static str> {
         match self.code {
             ErrorCode::BadRequest
             | ErrorCode::NotFound
@@ -345,9 +341,9 @@ impl ErrorMetadata {
         }
     }
 
-    pub fn metric_server_error_tag(&self) -> Option<MetricTag> {
-        self.metric_server_error_tag_value()
-            .map(|v| metric_tag_const_value("type", v))
+    pub fn metric_server_error_label(&self) -> Option<MetricLabel> {
+        self.metric_server_error_label_value()
+            .map(|v| MetricLabel::new("type", v))
     }
 
     pub fn custom_metric(&self) -> Option<&'static IntCounter> {
@@ -458,8 +454,8 @@ pub trait ErrorMetadataAnyhowExt {
     fn user_facing_message(&self) -> String;
     fn short_msg(&self) -> &str;
     fn msg(&self) -> &str;
-    fn metric_server_error_tag(&self) -> Option<MetricTag>;
-    fn metric_status_tag_value(&self) -> &'static str;
+    fn metric_server_error_label(&self) -> Option<MetricLabel>;
+    fn metric_status_label_value(&self) -> &'static str;
     fn close_frame(&self) -> Option<CloseFrame<'static>>;
     fn http_status(&self) -> StatusCode;
     fn map_error_metadata<F: FnOnce(ErrorMetadata) -> ErrorMetadata>(self, f: F) -> Self;
@@ -582,22 +578,22 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     }
 
     /// Return the tag to use on a server error metric
-    fn metric_server_error_tag(&self) -> Option<MetricTag> {
+    fn metric_server_error_label(&self) -> Option<MetricLabel> {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
-            return e.metric_server_error_tag();
+            return e.metric_server_error_label();
         }
-        Some(metric_tag_const("type:internal"))
+        Some(MetricLabel::new("type", "internal"))
     }
 
     /// Return the tag to use on a server status metric
-    fn metric_status_tag_value(&self) -> &'static str {
+    fn metric_status_label_value(&self) -> &'static str {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
-            return match e.metric_server_error_tag_value() {
+            return match e.metric_server_error_label_value() {
                 Some(v) => v,
-                None => MetricTag::STATUS_DEVELOPER_ERROR.split_key_value().1,
+                None => MetricLabel::STATUS_DEVELOPER_ERROR.split_key_value().1,
             };
         }
-        MetricTag::STATUS_ERROR.split_key_value().1
+        MetricLabel::STATUS_ERROR.split_key_value().1
     }
 
     /// Return the CloseCode to use on websocket
@@ -741,7 +737,7 @@ mod tests {
         fn test_server_error_visibility(err in any::<ErrorMetadata>()) {
             // Error has visibility through sentry or custom metric.
             assert!(err.should_report_to_sentry().is_some() || err.custom_metric().is_some());
-            if err.metric_server_error_tag().is_some() {
+            if err.metric_server_error_label().is_some() {
                 assert!(err.should_report_to_sentry().unwrap().0 >= sentry::Level::Warning);
                 if err.code == ErrorCode::Overloaded ||
                     err.code == ErrorCode::RejectedBeforeExecution {

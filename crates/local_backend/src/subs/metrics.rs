@@ -2,15 +2,14 @@ use std::time::Duration;
 
 use metrics::{
     log_counter,
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_distribution,
-    log_distribution_with_tags,
+    log_distribution_with_labels,
     log_gauge,
-    metric_tag,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricTag,
+    MetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -75,13 +74,13 @@ pub fn log_websocket_message_out(message: &ServerMessage, delay: Duration) {
         ServerMessage::FatalError { .. } => "FatalError",
         ServerMessage::Ping { .. } => "Ping",
     };
-    let tags = vec![metric_tag(format!("endpoint:{endpoint}"))];
-    log_distribution_with_tags(
+    let labels = vec![MetricLabel::new("endpoint", endpoint)];
+    log_distribution_with_labels(
         &BACKEND_WS_SEND_DELAY_SECONDS,
         delay.as_secs_f64(),
-        tags.clone(),
+        labels.clone(),
     );
-    log_counter_with_tags(&BACKEND_WS_OUT_TOTAL, 1, tags);
+    log_counter_with_labels(&BACKEND_WS_OUT_TOTAL, 1, labels);
 }
 
 register_convex_counter!(
@@ -97,8 +96,8 @@ register_convex_counter!(
     "Count of websocket server errors",
     &["type"]
 );
-pub fn log_websocket_server_error(tag: MetricTag) {
-    log_counter_with_tags(&BACKEND_WS_SERVER_ERROR_TOTAL, 1, vec![tag]);
+pub fn log_websocket_server_error(tag: MetricLabel) {
+    log_counter_with_labels(&BACKEND_WS_SERVER_ERROR_TOTAL, 1, vec![tag]);
 }
 
 register_convex_counter!(

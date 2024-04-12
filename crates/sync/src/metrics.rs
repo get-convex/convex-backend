@@ -2,11 +2,11 @@ use std::time::Duration;
 
 use metrics::{
     log_counter,
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_distribution,
-    metric_tag,
     register_convex_counter,
     register_convex_histogram,
+    MetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -44,7 +44,7 @@ pub fn handle_message_timer(message: &ClientMessage) -> StatusTimer {
         ClientMessage::Mutation { .. } => "Mutation",
         ClientMessage::Event { .. } => "Event",
     };
-    timer.add_tag(metric_tag(format!("endpoint:{request_name}")));
+    timer.add_label(MetricLabel::new("endpoint", request_name.to_owned()));
     timer
 }
 
@@ -100,8 +100,8 @@ register_convex_histogram!(
     "How many previous connections happened on a given reconnect",
 );
 pub fn log_connect(last_close_reason: String, connection_count: u32) {
-    let tags = vec![metric_tag(format!("reason:{last_close_reason}"))];
-    log_counter_with_tags(&SYNC_CONNECT_TOTAL, 1, tags);
+    let labels = vec![MetricLabel::new("reason", last_close_reason)];
+    log_counter_with_labels(&SYNC_CONNECT_TOTAL, 1, labels);
     log_distribution(&SYNC_RECONNECT_PREV_CONNECTIONS, connection_count.into());
 }
 

@@ -3,9 +3,9 @@ pub mod storage {
     use common::types::ModuleEnvironment;
     use metrics::{
         log_counter,
-        log_counter_with_tags,
-        metric_tag,
+        log_counter_with_labels,
         register_convex_counter,
+        MetricLabel,
     };
 
     register_convex_counter!(STORAGE_INGRESS_BYTES, "Number of storage ingress bytes ");
@@ -30,10 +30,10 @@ pub mod storage {
         &["environment"],
     );
     pub fn log_action_compute(env: &ModuleEnvironment) {
-        log_counter_with_tags(
+        log_counter_with_labels(
             &USAGE_ACTION_COMPUTE_TOTAL,
             1,
-            vec![metric_tag(format!("environment:{env}"))],
+            vec![MetricLabel::new("environment", env.to_string())],
         )
     }
 }

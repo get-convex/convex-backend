@@ -3,10 +3,10 @@ use std::time::Duration;
 use metrics::{
     log_counter,
     log_distribution,
-    log_distribution_with_tags,
-    metric_tag_const_value,
+    log_distribution_with_labels,
     register_convex_counter,
     register_convex_histogram,
+    MetricLabel,
     StatusTimer,
 };
 use model::source_packages::types::PackageSize;
@@ -18,7 +18,7 @@ register_convex_histogram!(
 );
 pub fn node_executor(method: &'static str) -> StatusTimer {
     let mut t = StatusTimer::new(&NODE_EXECUTOR_TOTAL_SECONDS);
-    t.add_tag(metric_tag_const_value("method", method));
+    t.add_label(MetricLabel::new("method", method));
     t
 }
 
@@ -104,17 +104,17 @@ register_convex_histogram!(
     &["compressed"],
 );
 pub fn log_external_deps_size_bytes_total(pkg_size: PackageSize) {
-    let zipped_tag = metric_tag_const_value("compressed", "true");
-    let unzipped_tag = metric_tag_const_value("compressed", "false");
+    let zipped_label = MetricLabel::new("compressed", "true");
+    let unzipped_label = MetricLabel::new("compressed", "false");
 
-    log_distribution_with_tags(
+    log_distribution_with_labels(
         &EXTERNAL_DEPS_SIZE_BYTES_TOTAL,
         pkg_size.zipped_size_bytes as f64,
-        vec![zipped_tag],
+        vec![zipped_label],
     );
-    log_distribution_with_tags(
+    log_distribution_with_labels(
         &EXTERNAL_DEPS_SIZE_BYTES_TOTAL,
         pkg_size.unzipped_size_bytes as f64,
-        vec![unzipped_tag],
+        vec![unzipped_label],
     );
 }

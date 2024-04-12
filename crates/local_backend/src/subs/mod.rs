@@ -275,8 +275,8 @@ async fn run_sync_socket(
                 }
             }
             sentry::with_scope(|s| *s = sentry_scope, || report_error(&mut err));
-            if let Some(tag) = err.metric_server_error_tag() {
-                log_websocket_server_error(tag);
+            if let Some(label) = err.metric_server_error_label() {
+                log_websocket_server_error(label);
             }
             // Convert from tungstenite::Message to axum::Message
             let close_frame = err.close_frame().map(|cf| CloseFrame {

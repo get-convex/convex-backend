@@ -76,8 +76,8 @@ fn strip_pii(err: &mut anyhow::Error) {
 pub fn report_error(err: &mut anyhow::Error) {
     strip_pii(err);
     if let Some(e) = err.downcast_ref::<ErrorMetadata>() {
-        if let Some(tag) = e.metric_server_error_tag() {
-            log_errors_reported_total(tag);
+        if let Some(label) = e.metric_server_error_label() {
+            log_errors_reported_total(label);
         }
 
         if let Some(counter) = e.custom_metric() {

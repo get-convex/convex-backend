@@ -231,7 +231,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 succeed_get_timer(timer, *is_cache_hit);
             },
             Err(e) => {
-                timer.finish_with(e.metric_status_tag_value());
+                timer.finish_with(e.metric_status_label_value());
             },
         }
         Ok(result?.0)

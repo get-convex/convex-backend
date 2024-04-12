@@ -117,9 +117,9 @@ mod metrics {
     use std::time::Duration;
 
     use metrics::{
-        log_distribution_with_tags,
-        metric_tag,
+        log_distribution_with_labels,
         register_convex_histogram,
+        MetricLabel,
     };
 
     use crate::version::SERVER_VERSION_STR;
@@ -143,17 +143,21 @@ mod metrics {
         status: &str,
         duration: Duration,
     ) {
-        // There are a lot of tags in here and some (e.g., client_version) are
+        // There are a lot of labels in here and some (e.g., client_version) are
         // pretty high cardinality. If this gets too expensive we can split out
         // separate logging just for client version.
-        let tags = vec![
-            metric_tag(format!("endpoint:{route}")),
-            metric_tag(format!("method:{method}")),
-            metric_tag(format!("status:{status}")),
-            metric_tag(format!("client_version:{client_version}")),
-            metric_tag(format!("server_version:{}", *SERVER_VERSION_STR)),
+        let labels = vec![
+            MetricLabel::new("endpoint", route.to_owned()),
+            MetricLabel::new("method", method.to_owned()),
+            MetricLabel::new("status", status.to_owned()),
+            MetricLabel::new("client_version", client_version.to_owned()),
+            MetricLabel::new("server_version", &*SERVER_VERSION_STR),
         ];
-        log_distribution_with_tags(&HTTP_HANDLE_DURATION_SECONDS, duration.as_secs_f64(), tags);
+        log_distribution_with_labels(
+            &HTTP_HANDLE_DURATION_SECONDS,
+            duration.as_secs_f64(),
+            labels,
+        );
     }
 }
 

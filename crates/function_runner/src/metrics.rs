@@ -1,10 +1,9 @@
 use metrics::{
-    log_counter_with_tags,
-    log_distribution_with_tags,
-    metric_tag,
+    log_counter_with_labels,
+    log_distribution_with_labels,
     register_convex_counter,
     register_convex_histogram,
-    MetricTag,
+    MetricLabel,
     Timer,
 };
 use prometheus::{
@@ -12,10 +11,10 @@ use prometheus::{
     VMHistogramVec,
 };
 
-fn cache_metric_tags(table_name: &str, instance_name: &str) -> Vec<MetricTag> {
+fn cache_metric_labels(table_name: &str, instance_name: &str) -> Vec<MetricLabel> {
     vec![
-        metric_tag(format!("table:{table_name}")),
-        metric_tag(format!("instance_name:{instance_name}")),
+        MetricLabel::new("table", table_name.to_owned()),
+        MetricLabel::new("instance_name", instance_name.to_owned()),
     ]
 }
 
@@ -25,10 +24,10 @@ register_convex_counter!(
     &["table", "instance_name"]
 );
 pub fn log_funrun_index_cache_get(table_name: &str, instance_name: &str) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &MEMORY_INDEX_CACHE_GET_TOTAL,
         1,
-        cache_metric_tags(table_name, instance_name),
+        cache_metric_labels(table_name, instance_name),
     );
 }
 
@@ -38,9 +37,9 @@ register_convex_histogram!(
     &["table", "instance_name"]
 );
 pub fn load_index_timer(table_name: &str, instance_name: &str) -> Timer<VMHistogramVec> {
-    let mut t = Timer::new_tagged(&MEMORY_INDEX_CACHE_LOAD_INDEX_SECONDS);
-    t.add_tag(metric_tag(format!("table:{table_name}")));
-    t.add_tag(metric_tag(format!("instance_name:{instance_name}")));
+    let mut t = Timer::new_with_labels(&MEMORY_INDEX_CACHE_LOAD_INDEX_SECONDS);
+    t.add_label(MetricLabel::new("table", table_name.to_owned()));
+    t.add_label(MetricLabel::new("instance_name", instance_name.to_owned()));
     t
 }
 
@@ -50,10 +49,10 @@ register_convex_histogram!(
     &["table", "instance_name"]
 );
 pub fn log_funrun_index_load_rows(rows: u64, table_name: &str, instance_name: &str) {
-    log_distribution_with_tags(
+    log_distribution_with_labels(
         &MEMORY_INDEX_CACHE_LOADED_ROWS,
         rows as f64,
-        cache_metric_tags(table_name, instance_name),
+        cache_metric_labels(table_name, instance_name),
     );
 }
 

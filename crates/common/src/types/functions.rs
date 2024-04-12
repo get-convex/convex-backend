@@ -6,10 +6,7 @@ use std::{
     str::FromStr,
 };
 
-use metrics::{
-    metric_tag_const_value,
-    MetricTag,
-};
+use metrics::MetricLabel;
 use pb::funrun::UdfType as UdfTypeProto;
 use serde::{
     Deserialize,
@@ -35,8 +32,8 @@ pub enum UdfType {
 }
 
 impl UdfType {
-    pub fn metric_tag(self) -> MetricTag {
-        metric_tag_const_value("udf_type", self.to_lowercase_string())
+    pub fn metric_label(self) -> MetricLabel {
+        MetricLabel::new("udf_type", self.to_lowercase_string())
     }
 
     pub fn to_lowercase_string(self) -> &'static str {

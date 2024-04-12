@@ -1,8 +1,7 @@
 use metrics::{
-    log_distribution_with_tags,
-    metric_tag_const_value,
+    log_distribution_with_labels,
     register_convex_histogram,
-    MetricTag,
+    MetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -27,10 +26,10 @@ pub(crate) enum GetFileType {
 }
 
 impl GetFileType {
-    fn tag(&self) -> MetricTag {
+    fn tag(&self) -> MetricLabel {
         match self {
-            GetFileType::All => metric_tag_const_value(GET_FILE_TYPE_LABEL, "all"),
-            GetFileType::Range => metric_tag_const_value(GET_FILE_TYPE_LABEL, "range"),
+            GetFileType::All => MetricLabel::new(GET_FILE_TYPE_LABEL, "all"),
+            GetFileType::Range => MetricLabel::new(GET_FILE_TYPE_LABEL, "range"),
         }
     }
 }
@@ -41,7 +40,7 @@ register_convex_histogram!(
     &[GET_FILE_TYPE_LABEL],
 );
 pub fn log_get_file_chunk_size(size_bytes: u64, get_file_type: GetFileType) {
-    log_distribution_with_tags(
+    log_distribution_with_labels(
         &GET_FILE_CHUNK_SIZE_BYTES,
         size_bytes as f64,
         vec![get_file_type.tag()],

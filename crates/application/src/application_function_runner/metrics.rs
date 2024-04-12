@@ -4,15 +4,13 @@ use common::types::{
 };
 use metrics::{
     log_counter,
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_distribution,
-    log_gauge_with_tags,
-    metric_tag_const,
-    metric_tag_const_value,
+    log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricTag,
+    MetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -32,14 +30,14 @@ pub fn log_udf_executor_result(udf_type: UdfType, result: UdfExecutorResult) {
     let result_value = match result {
         UdfExecutorResult::Success => "success",
         UdfExecutorResult::UserError => "user_error",
-        UdfExecutorResult::SystemError(tag) => tag,
+        UdfExecutorResult::SystemError(label) => label,
     };
-    log_counter_with_tags(
+    log_counter_with_labels(
         &UDF_EXECUTOR_RESULT_TOTAL,
         1,
         vec![
-            udf_type.metric_tag(),
-            metric_tag_const_value("result", result_value),
+            udf_type.metric_label(),
+            MetricLabel::new("result", result_value),
         ],
     );
 }
@@ -83,14 +81,17 @@ pub fn log_outstanding_functions(
     udf_type: UdfType,
     state: OutstandingFunctionState,
 ) {
-    let state_tag = metric_tag_const(match state {
-        OutstandingFunctionState::Running => "state:running",
-        OutstandingFunctionState::Waiting => "state:waiting",
-    });
-    log_gauge_with_tags(
+    let state_label = MetricLabel::new(
+        "state",
+        match state {
+            OutstandingFunctionState::Running => "running",
+            OutstandingFunctionState::Waiting => "waiting",
+        },
+    );
+    log_gauge_with_labels(
         &APPLICATION_FUNCTION_RUNNER_OUTSTANDING_TOTAL,
         total as f64,
-        vec![udf_type.metric_tag(), state_tag, env.metric_tag()],
+        vec![udf_type.metric_label(), state_label, env.metric_label()],
     )
 }
 
@@ -102,23 +103,23 @@ register_convex_histogram!(
 );
 pub fn function_total_timer(env: ModuleEnvironment, udf_type: UdfType) -> StatusTimer {
     let mut timer = StatusTimer::new(&APPLICATION_FUNCTION_RUNNER_TOTAL_SECONDS);
-    timer.add_tag(udf_type.metric_tag());
-    timer.add_tag(env.metric_tag());
+    timer.add_label(udf_type.metric_label());
+    timer.add_label(env.metric_label());
     timer
 }
 
 trait ModuleEnvironmentExt {
-    fn metric_tag(&self) -> MetricTag;
+    fn metric_label(&self) -> MetricLabel;
 }
 
 impl ModuleEnvironmentExt for ModuleEnvironment {
-    fn metric_tag(&self) -> MetricTag {
+    fn metric_label(&self) -> MetricLabel {
         let value = match self {
-            ModuleEnvironment::Isolate => "env_type:isolate",
-            ModuleEnvironment::Node => "env_type:node",
-            ModuleEnvironment::Invalid => "env_type:invalid",
+            ModuleEnvironment::Isolate => "isolate",
+            ModuleEnvironment::Node => "node",
+            ModuleEnvironment::Invalid => "invalid",
         };
-        metric_tag_const(value)
+        MetricLabel::new("env_type", value)
     }
 }
 
@@ -128,10 +129,10 @@ register_convex_counter!(
     &["udf_type", "env_type"],
 );
 pub fn log_function_wait_timeout(env: ModuleEnvironment, udf_type: UdfType) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &APPLICATION_FUNCTION_RUNNER_WAIT_TIMEOUT_TOTAL,
         1,
-        vec![udf_type.metric_tag(), env.metric_tag()],
+        vec![udf_type.metric_label(), env.metric_label()],
     );
 }
 
@@ -142,7 +143,7 @@ register_convex_histogram!(
 );
 pub fn function_waiter_timer(udf_type: UdfType) -> StatusTimer {
     let mut timer = StatusTimer::new(&APPLICATION_FUNCTION_RUNNER_WAIT_SECONDS);
-    timer.add_tag(udf_type.metric_tag());
+    timer.add_label(udf_type.metric_label());
     timer
 }
 
@@ -153,6 +154,6 @@ register_convex_histogram!(
 );
 pub fn function_run_timer(udf_type: UdfType) -> StatusTimer {
     let mut timer = StatusTimer::new(&APPLICATION_FUNCTION_RUNNER_RUN_SECONDS);
-    timer.add_tag(udf_type.metric_tag());
+    timer.add_label(udf_type.metric_label());
     timer
 }

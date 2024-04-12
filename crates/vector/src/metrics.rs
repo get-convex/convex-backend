@@ -1,11 +1,10 @@
 use metrics::{
     log_counter,
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_distribution,
-    metric_tag,
     register_convex_counter,
     register_convex_histogram,
-    MetricTag,
+    MetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -46,10 +45,10 @@ pub fn finish_index_manager_update_timer(
     mut timer: StatusTimer,
     index_update_type: IndexUpdateType,
 ) {
-    timer.add_tag(metric_tag(format!(
-        "index_update_type:{}",
-        index_update_type.tag()
-    )));
+    timer.add_label(MetricLabel::new(
+        "index_update_type",
+        index_update_type.tag(),
+    ));
     timer.finish();
 }
 
@@ -80,7 +79,7 @@ register_convex_histogram!(
 );
 pub fn searchlight_client_execute_timer(vector_index_type: VectorIndexType) -> StatusTimer {
     let mut timer = StatusTimer::new(&VECTOR_SEARCH_SEARCHLIGHT_CLIENT_EXECUTE_SECONDS);
-    timer.add_tag(vector_index_type_tag(vector_index_type));
+    timer.add_label(vector_index_type_label(vector_index_type));
     timer
 }
 
@@ -119,10 +118,10 @@ pub fn log_num_segments_searched_total(num_segments: usize) {
 }
 
 fn log_vector_search_total(filter: &str) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &VECTOR_SEARCH_COMPILE_TOTAL,
         1,
-        vec![metric_tag(format!("filter_type:{filter}"))],
+        vec![MetricLabel::new("filter_type", filter.to_owned())],
     );
 }
 
@@ -168,7 +167,7 @@ register_convex_histogram!(
 );
 pub fn search_timer() -> StatusTimer {
     let mut timer = StatusTimer::new(&VECTOR_INDEX_MANAGER_SEARCH_SECONDS);
-    timer.add_tag(vector_index_type_tag(VectorIndexType::Unknown));
+    timer.add_label(vector_index_type_label(VectorIndexType::Unknown));
     timer
 }
 
@@ -183,7 +182,7 @@ pub fn finish_search(
     vector_index_type: VectorIndexType,
 ) {
     log_distribution(&VECTOR_INDEX_MANAGER_RESULTS_TOTAL, results.len() as f64);
-    timer.add_tag(vector_index_type_tag(vector_index_type));
+    timer.add_label(vector_index_type_label(vector_index_type));
     timer.finish();
 }
 
@@ -221,12 +220,12 @@ pub fn log_index_deleted() {
 const QDRANT_VECTOR_INDEX_TYPE: &str = "index_type";
 
 impl QdrantVectorIndexType {
-    fn metric_tag(&self) -> MetricTag {
+    fn metric_label(&self) -> MetricLabel {
         let index_string = match self {
             QdrantVectorIndexType::Plain => "plain",
             QdrantVectorIndexType::HNSW => "hnsw",
         };
-        metric_tag(format!("{QDRANT_VECTOR_INDEX_TYPE}:{index_string}"))
+        MetricLabel::new(QDRANT_VECTOR_INDEX_TYPE, index_string)
     }
 }
 
@@ -245,7 +244,7 @@ register_convex_histogram!(
 );
 pub fn qdrant_segment_disk_build_timer(disk_index_type: QdrantVectorIndexType) -> StatusTimer {
     let mut timer = StatusTimer::new(&QDRANT_SEGMENT_DISK_BUILD_SECONDS);
-    timer.add_tag(disk_index_type.metric_tag());
+    timer.add_label(disk_index_type.metric_label());
     timer
 }
 
@@ -257,11 +256,11 @@ pub enum VectorIndexType {
 }
 
 pub const VECTOR_INDEX_TYPE_LABEL: &str = "vector_index_type";
-pub fn vector_index_type_tag(vector_index_type: VectorIndexType) -> MetricTag {
+pub fn vector_index_type_label(vector_index_type: VectorIndexType) -> MetricLabel {
     let type_str = match vector_index_type {
         VectorIndexType::SingleSegment => "single_segment",
         VectorIndexType::MultiSegment => "multi_segment",
         VectorIndexType::Unknown => "unknown",
     };
-    metric_tag(format!("{VECTOR_INDEX_TYPE_LABEL}:{type_str}"))
+    MetricLabel::new(VECTOR_INDEX_TYPE_LABEL, type_str)
 }

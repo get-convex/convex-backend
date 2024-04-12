@@ -32,7 +32,7 @@ pub use self::qdrant_index::cosine_similarity;
 pub use self::{
     memory_index::MemoryVectorIndex,
     metrics::{
-        vector_index_type_tag,
+        vector_index_type_label,
         VectorIndexType,
         VECTOR_INDEX_TYPE_LABEL,
     },

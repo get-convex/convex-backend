@@ -13,7 +13,7 @@
 //! We also have a few conventions for instrumenting code within our crates.
 //! 1. All metrics code goes in a `metrics` module. The interface to this module
 //! should be high level (e.g. "this event happened") rather than logging an
-//! `f64` to a particular metric name. 2. All metrics names and tags are
+//! `f64` to a particular metric name. 2. All metrics names and labels are
 //! constants/string literals in the metrics module.
 use std::{
     borrow::Cow,
@@ -27,11 +27,11 @@ use parking_lot::RwLock;
 use prometheus::Registry;
 
 use crate::{
-    log_counter_with_tags,
+    log_counter_with_labels,
     log_gauge,
-    metric_tag,
     register_convex_counter,
     register_convex_gauge,
+    MetricLabel,
 };
 
 const ALLOWED_SUFFIXES: &[&str] = &[
@@ -208,10 +208,10 @@ register_convex_counter!(
 // it could easily grow out of proportion if we push a bad metric.
 static METRICS_ERROR_ONCE: LazyLock<RwLock<HashSet<String>>> = LazyLock::new(Default::default);
 pub fn log_invalid_metric(name: String, error: prometheus::Error) {
-    log_counter_with_tags(
+    log_counter_with_labels(
         &INVALID_METRIC_TOTAL,
         1,
-        vec![metric_tag(format!("metric_name:{}", name))],
+        vec![MetricLabel::new("metric_name", name.clone())],
     );
     if METRICS_ERROR_ONCE.read().contains(&name) {
         return;
