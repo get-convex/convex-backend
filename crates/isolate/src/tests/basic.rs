@@ -61,7 +61,9 @@ async fn test_javascript(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_insert_object(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default(rt).await?;
+    let mut t = UdfTest::default(rt).await?;
+    t.enable_isolate_v2();
+
     let values = [
         assert_val!(10),
         assert_val!(-0.),

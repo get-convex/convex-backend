@@ -1,5 +1,3 @@
-#![allow(non_snake_case)]
-
 use std::convert::TryFrom;
 
 use anyhow::Context;
@@ -11,6 +9,7 @@ use common::{
 use database::{
     query::TableFilter,
     DeveloperQuery,
+    Transaction,
 };
 use errors::ErrorMetadata;
 use serde::{
@@ -27,9 +26,9 @@ use value::{
     TableName,
 };
 
-use super::async_syscall::{
-    DatabaseSyscallsV1,
-    SyscallProvider,
+use super::{
+    async_syscall::QueryManager,
+    DatabaseUdfEnvironment,
 };
 use crate::environment::helpers::{
     parse_version,
@@ -37,15 +36,39 @@ use crate::environment::helpers::{
     ArgName,
 };
 
+pub trait SyscallProvider<RT: Runtime> {
+    fn table_filter(&self) -> TableFilter;
+    fn query_manager(&mut self) -> &mut QueryManager<RT>;
+    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata>;
+}
+
+impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
+    fn table_filter(&self) -> TableFilter {
+        if self.udf_path.is_system() {
+            TableFilter::IncludePrivateSystemTables
+        } else {
+            TableFilter::ExcludePrivateSystemTables
+        }
+    }
+
+    fn query_manager(&mut self) -> &mut QueryManager<RT> {
+        &mut self.query_manager
+    }
+
+    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
+        self.phase.tx()
+    }
+}
+
 pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
     provider: &mut P,
     name: &str,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
     match name {
-        "1.0/queryCleanup" => DatabaseSyscallsV1::syscall_queryCleanup(provider, args),
-        "1.0/queryStream" => DatabaseSyscallsV1::syscall_queryStream(provider, args),
-        "1.0/db/normalizeId" => syscall_normalizeId(provider, args),
+        "1.0/queryCleanup" => syscall_query_cleanup(provider, args),
+        "1.0/queryStream" => syscall_query_stream(provider, args),
+        "1.0/db/normalizeId" => syscall_normalize_id(provider, args),
 
         #[cfg(test)]
         "throwSystemError" => anyhow::bail!("I can't go for that."),
@@ -73,7 +96,7 @@ pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
     }
 }
 
-fn syscall_normalizeId<RT: Runtime, P: SyscallProvider<RT>>(
+fn syscall_normalize_id<RT: Runtime, P: SyscallProvider<RT>>(
     provider: &mut P,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
@@ -128,48 +151,52 @@ fn syscall_normalizeId<RT: Runtime, P: SyscallProvider<RT>>(
     }
 }
 
-impl<RT: Runtime, P: SyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
-    fn syscall_queryStream(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
-        let _s: common::tracing::NoopSpan = static_span!();
-        let table_filter = provider.table_filter();
-        let tx = provider.tx()?;
+fn syscall_query_stream<RT: Runtime, P: SyscallProvider<RT>>(
+    provider: &mut P,
+    args: JsonValue,
+) -> anyhow::Result<JsonValue> {
+    let _s: common::tracing::NoopSpan = static_span!();
+    let table_filter = provider.table_filter();
+    let tx = provider.tx()?;
 
-        #[derive(Deserialize)]
-        struct QueryStreamArgs {
-            query: JsonValue,
-            version: Option<String>,
-        }
-        let (parsed_query, version) = with_argument_error("queryStream", || {
-            let args: QueryStreamArgs = serde_json::from_value(args)?;
-            let parsed_query = Query::try_from(args.query).context(ArgName("query"))?;
-            let version = parse_version(args.version)?;
-            Ok((parsed_query, version))
-        })?;
-        // TODO: Are all invalid query pipelines developer errors? These could be bugs
-        // in convex/server.
-        let compiled_query =
-            { DeveloperQuery::new_with_version(tx, parsed_query, version, table_filter)? };
-        let query_id = provider.query_manager().put_developer(compiled_query);
-
-        #[derive(Serialize)]
-        #[serde(rename_all = "camelCase")]
-        struct QueryStreamResult {
-            query_id: u32,
-        }
-        Ok(serde_json::to_value(QueryStreamResult { query_id })?)
+    #[derive(Deserialize)]
+    struct QueryStreamArgs {
+        query: JsonValue,
+        version: Option<String>,
     }
+    let (parsed_query, version) = with_argument_error("queryStream", || {
+        let args: QueryStreamArgs = serde_json::from_value(args)?;
+        let parsed_query = Query::try_from(args.query).context(ArgName("query"))?;
+        let version = parse_version(args.version)?;
+        Ok((parsed_query, version))
+    })?;
+    // TODO: Are all invalid query pipelines developer errors? These could be bugs
+    // in convex/server.
+    let compiled_query =
+        { DeveloperQuery::new_with_version(tx, parsed_query, version, table_filter)? };
+    let query_id = provider.query_manager().put_developer(compiled_query);
 
-    fn syscall_queryCleanup(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
-        let _s = static_span!();
-
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct QueryCleanupArgs {
-            query_id: u32,
-        }
-        let args: QueryCleanupArgs =
-            with_argument_error("queryCleanup", || Ok(serde_json::from_value(args)?))?;
-        let cleaned_up = provider.query_manager().cleanup_developer(args.query_id);
-        Ok(serde_json::to_value(cleaned_up)?)
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct QueryStreamResult {
+        query_id: u32,
     }
+    Ok(serde_json::to_value(QueryStreamResult { query_id })?)
+}
+
+fn syscall_query_cleanup<RT: Runtime, P: SyscallProvider<RT>>(
+    provider: &mut P,
+    args: JsonValue,
+) -> anyhow::Result<JsonValue> {
+    let _s = static_span!();
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct QueryCleanupArgs {
+        query_id: u32,
+    }
+    let args: QueryCleanupArgs =
+        with_argument_error("queryCleanup", || Ok(serde_json::from_value(args)?))?;
+    let cleaned_up = provider.query_manager().cleanup_developer(args.query_id);
+    Ok(serde_json::to_value(cleaned_up)?)
 }

@@ -499,9 +499,11 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         if let Ok(ref packed_result) = outcome.result
             && self.isolate_v2_enabled
         {
-            let result = packed_result.unpack();
+            let _result = packed_result.unpack();
             let tx = self.database.begin(identity.clone()).await?;
-            let v2_result = run_isolate_v2_udf(
+            // We can't actually compare the results since they're not pinning
+            // the same runtime state. Just check that the UDF completes for now.
+            let _v2_result = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
                 Arc::new(TransactionModuleLoader),
@@ -513,7 +515,6 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     .try_into()?,
             )
             .await?;
-            anyhow::ensure!(result == v2_result);
         }
 
         self.database
@@ -658,7 +659,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     .try_into()?,
             )
             .await?;
-            anyhow::ensure!(result == v2_result);
+            anyhow::ensure!(result == v2_result, "{result} != {v2_result}");
         }
 
         Ok(query_outcome)

@@ -106,7 +106,7 @@ impl HeapSize for PendingSyscall {
 
 // Checks if the underlying table and the request's expectation for the table
 // line up.
-fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow::Result<()> {
+pub fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow::Result<()> {
     if expect_system_table && !name.is_system() {
         return Err(anyhow::anyhow!(ErrorMetadata::bad_request(
             "SystemTableError",
@@ -185,6 +185,10 @@ impl AsyncSyscallBatch {
             Self::Unbatched { .. } => 1,
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 pub struct QueryManager<RT: Runtime> {
@@ -221,7 +225,8 @@ impl<RT: Runtime> QueryManager<RT> {
 }
 
 // Trait for allowing code reuse between `DatabaseUdfEnvironment` and isolate2.
-pub trait SyscallProvider<RT: Runtime> {
+#[allow(async_fn_in_trait)]
+pub trait AsyncSyscallProvider<RT: Runtime> {
     fn rt(&self) -> &RT;
     fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata>;
     fn key_broker(&self) -> &KeyBroker;
@@ -258,7 +263,7 @@ pub trait SyscallProvider<RT: Runtime> {
     ) -> anyhow::Result<Option<FileStorageEntry>>;
 }
 
-impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
+impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     fn rt(&self) -> &RT {
         &self.phase.rt
     }
@@ -361,11 +366,11 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 ///
 /// Most of the common logic lives on `Transaction` or `DatabaseSyscallsShared`,
 /// and this is mostly just taking care of the argument parsing.
-pub struct DatabaseSyscallsV1<RT: Runtime, P: SyscallProvider<RT>> {
+pub struct DatabaseSyscallsV1<RT: Runtime, P: AsyncSyscallProvider<RT>> {
     _pd: PhantomData<(RT, P)>,
 }
 
-impl<RT: Runtime, P: SyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
+impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     /// Runs a batch of syscalls, each of which can succeed or fail
     /// independently. The returned vec is the same length as the batch.
     #[minitrace::trace]
@@ -893,7 +898,7 @@ impl<RT: Runtime, P: SyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     }
 }
 
-struct DatabaseSyscallsShared<RT: Runtime, P: SyscallProvider<RT>> {
+struct DatabaseSyscallsShared<RT: Runtime, P: AsyncSyscallProvider<RT>> {
     _pd: PhantomData<(RT, P)>,
 }
 
@@ -923,7 +928,7 @@ struct QueryPageMetadata {
     page_status: Option<QueryPageStatus>,
 }
 
-impl<RT: Runtime, P: SyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
+impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
     async fn read_page_from_query<T: QueryType>(
         mut query: CompiledQuery<RT, T>,
         tx: &mut Transaction<RT>,

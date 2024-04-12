@@ -5,19 +5,28 @@ use std::{
 };
 
 use common::{
+    execution_context::ExecutionContext,
     log_lines::{
         LogLevel,
         LogLine,
         LogLines,
     },
+    query_journal::QueryJournal,
     runtime::{
         Runtime,
         SpawnHandle,
         UnixTimestamp,
     },
-    types::UdfType,
+    types::{
+        PersistenceVersion,
+        UdfType,
+    },
 };
-use database::Transaction;
+use database::{
+    query::TableFilter,
+    Transaction,
+};
+use errors::ErrorMetadata;
 use futures::{
     channel::{
         mpsc,
@@ -26,6 +35,7 @@ use futures::{
     FutureExt,
     StreamExt,
 };
+use keybroker::KeyBroker;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
@@ -53,12 +63,26 @@ use super::{
 };
 use crate::{
     client::initialize_v8,
-    environment::helpers::{
-        module_loader::{
-            module_specifier_from_path,
-            path_from_module_specifier,
+    environment::{
+        helpers::{
+            module_loader::{
+                module_specifier_from_path,
+                path_from_module_specifier,
+            },
+            MAX_LOG_LINES,
         },
-        MAX_LOG_LINES,
+        udf::{
+            async_syscall::{
+                AsyncSyscallBatch,
+                AsyncSyscallProvider,
+                DatabaseSyscallsV1,
+                QueryManager,
+            },
+            syscall::{
+                syscall_impl,
+                SyscallProvider,
+            },
+        },
     },
     ModuleLoader,
 };
@@ -147,12 +171,23 @@ impl<RT: Runtime> UdfEnvironment<RT> {
     }
 }
 
+impl<RT: Runtime> SyscallProvider<RT> for UdfEnvironment<RT> {
+    fn table_filter(&self) -> TableFilter {
+        todo!();
+    }
+
+    fn query_manager(&mut self) -> &mut QueryManager<RT> {
+        todo!();
+    }
+
+    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
+        todo!();
+    }
+}
+
 impl<RT: Runtime> Environment for UdfEnvironment<RT> {
-    fn syscall(&mut self, op: &str, args: JsonValue) -> anyhow::Result<JsonValue> {
-        if op == "echo" {
-            return Ok(args);
-        }
-        anyhow::bail!("Syscall not implemented")
+    fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue> {
+        syscall_impl(self, name, args)
     }
 
     fn trace(
@@ -221,9 +256,11 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
 }
 
 async fn run_request<RT: Runtime>(
-    client: &mut IsolateThreadClient<RT>,
-    mut tx: Transaction<RT>,
+    rt: RT,
+    tx: &mut Transaction<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
+    unix_timestamp: UnixTimestamp,
+    client: &mut IsolateThreadClient<RT>,
     udf_type: UdfType,
     udf_path: CanonicalizedUdfPath,
     args: ConvexObject,
@@ -232,10 +269,7 @@ async fn run_request<RT: Runtime>(
 
     while let Some(module_path) = stack.pop() {
         let module_specifier = module_specifier_from_path(&module_path)?;
-        let Some(module_metadata) = module_loader
-            .get_module(&mut tx, module_path.clone())
-            .await?
-        else {
+        let Some(module_metadata) = module_loader.get_module(tx, module_path.clone()).await? else {
             anyhow::bail!("Module not found: {module_path:?}")
         };
         let requests = client
@@ -250,6 +284,16 @@ async fn run_request<RT: Runtime>(
     let udf_module_specifier = module_specifier_from_path(udf_path.module())?;
 
     client.evaluate_module(udf_module_specifier.clone()).await?;
+
+    let mut provider = Isolate2SyscallProvider {
+        tx,
+        rt,
+        query_manager: QueryManager::new(),
+        unix_timestamp,
+        prev_journal: QueryJournal::new(),
+        next_journal: QueryJournal::new(),
+        is_system: udf_path.is_system(),
+    };
 
     let (function_id, mut result) = client
         .start_function(
@@ -267,19 +311,164 @@ async fn run_request<RT: Runtime>(
         };
 
         let mut completions = vec![];
+
+        let mut syscall_batch = None;
+        let mut batch_promise_ids = vec![];
+
         for async_syscall in async_syscalls {
             let promise_id = async_syscall.promise_id;
-            let result = Ok(JsonValue::from(1));
-            completions.push(AsyncSyscallCompletion { promise_id, result });
+            match syscall_batch {
+                None => {
+                    syscall_batch = Some(AsyncSyscallBatch::new(
+                        async_syscall.name,
+                        async_syscall.args,
+                    ));
+                    assert!(batch_promise_ids.is_empty());
+                    batch_promise_ids.push(promise_id);
+                },
+                Some(ref mut batch) if batch.can_push(&async_syscall.name, &async_syscall.args) => {
+                    batch.push(async_syscall.name, async_syscall.args)?;
+                    batch_promise_ids.push(promise_id);
+                },
+                Some(batch) => {
+                    let results =
+                        DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await?;
+                    assert_eq!(results.len(), batch_promise_ids.len());
+
+                    for (promise_id, result) in batch_promise_ids.drain(..).zip(results) {
+                        // TODO: Avoid reparsing the result here.
+                        let result: JsonValue = serde_json::from_str(&(result?))?;
+                        completions.push(AsyncSyscallCompletion {
+                            promise_id,
+                            result: Ok(result),
+                        });
+                    }
+
+                    syscall_batch = None;
+                },
+            }
         }
+        if let Some(batch) = syscall_batch {
+            let results = DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await?;
+            assert_eq!(results.len(), batch_promise_ids.len());
+
+            for (promise_id, result) in batch_promise_ids.into_iter().zip(results) {
+                // TODO: Avoid reparsing the result here.
+                let result: JsonValue = serde_json::from_str(&(result?))?;
+                completions.push(AsyncSyscallCompletion {
+                    promise_id,
+                    result: Ok(result),
+                });
+            }
+        }
+
         result = client.poll_function(function_id, completions).await?;
+    }
+}
+
+struct Isolate2SyscallProvider<'a, RT: Runtime> {
+    tx: &'a mut Transaction<RT>,
+    rt: RT,
+
+    query_manager: QueryManager<RT>,
+
+    unix_timestamp: UnixTimestamp,
+
+    prev_journal: QueryJournal,
+    next_journal: QueryJournal,
+
+    is_system: bool,
+}
+
+impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, RT> {
+    fn rt(&self) -> &RT {
+        &self.rt
+    }
+
+    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
+        // TODO: phases.
+        Ok(self.tx)
+    }
+
+    fn key_broker(&self) -> &KeyBroker {
+        todo!()
+    }
+
+    fn context(&self) -> &ExecutionContext {
+        todo!()
+    }
+
+    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+        // TODO: phases.
+        Ok(self.unix_timestamp)
+    }
+
+    fn persistence_version(&self) -> PersistenceVersion {
+        todo!()
+    }
+
+    fn table_filter(&self) -> TableFilter {
+        if self.is_system {
+            TableFilter::IncludePrivateSystemTables
+        } else {
+            TableFilter::ExcludePrivateSystemTables
+        }
+    }
+
+    fn log_async_syscall(&mut self, _name: String, _duration: Duration, _is_success: bool) {}
+
+    fn query_manager(&mut self) -> &mut QueryManager<RT> {
+        &mut self.query_manager
+    }
+
+    fn prev_journal(&mut self) -> &mut QueryJournal {
+        &mut self.prev_journal
+    }
+
+    fn next_journal(&mut self) -> &mut QueryJournal {
+        &mut self.next_journal
+    }
+
+    async fn validate_schedule_args(
+        &mut self,
+        _udf_path: UdfPath,
+        _args: Vec<JsonValue>,
+        _scheduled_ts: UnixTimestamp,
+    ) -> anyhow::Result<(UdfPath, value::ConvexArray)> {
+        todo!()
+    }
+
+    fn file_storage_generate_upload_url(&self) -> anyhow::Result<String> {
+        todo!()
+    }
+
+    async fn file_storage_get_url(
+        &mut self,
+        _storage_id: model::file_storage::FileStorageId,
+    ) -> anyhow::Result<Option<String>> {
+        todo!()
+    }
+
+    async fn file_storage_delete(
+        &mut self,
+        _storage_id: model::file_storage::FileStorageId,
+    ) -> anyhow::Result<()> {
+        todo!()
+    }
+
+    async fn file_storage_get_entry(
+        &mut self,
+        _storage_id: model::file_storage::FileStorageId,
+    ) -> anyhow::Result<Option<model::file_storage::types::FileStorageEntry>> {
+        todo!()
     }
 }
 
 async fn tokio_thread<RT: Runtime>(
     rt: RT,
-    tx: Transaction<RT>,
+    mut tx: Transaction<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
+    unix_timestamp: UnixTimestamp,
     mut client: IsolateThreadClient<RT>,
     total_timeout: Duration,
     mut sender: oneshot::Sender<anyhow::Result<ConvexValue>>,
@@ -287,8 +476,19 @@ async fn tokio_thread<RT: Runtime>(
     udf_path: CanonicalizedUdfPath,
     args: ConvexObject,
 ) {
+    let request = run_request(
+        rt.clone(),
+        &mut tx,
+        module_loader,
+        unix_timestamp,
+        &mut client,
+        udf_type,
+        udf_path,
+        args,
+    );
+
     let r = futures::select_biased! {
-        r = run_request(&mut client, tx, module_loader, udf_type, udf_path, args).fuse() => r,
+        r = request.fuse() => r,
 
         // Eventually we'll attempt to cleanup the isolate thread in these conditions.
         _ = rt.wait(total_timeout) => Err(anyhow::anyhow!("Total timeout exceeded")),
@@ -340,6 +540,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
             rt.clone(),
             tx,
             module_loader,
+            unix_timestamp,
             client,
             total_timeout,
             sender,

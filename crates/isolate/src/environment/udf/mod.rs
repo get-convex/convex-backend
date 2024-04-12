@@ -8,11 +8,11 @@ use model::environment_variables::types::{
     EnvVarName,
     EnvVarValue,
 };
-mod async_syscall;
+pub mod async_syscall;
 
 pub mod outcome;
 mod phase;
-mod syscall;
+pub mod syscall;
 use std::{
     cmp::Ordering,
     collections::VecDeque,
