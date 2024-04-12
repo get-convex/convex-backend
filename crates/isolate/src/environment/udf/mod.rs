@@ -15,10 +15,7 @@ mod phase;
 mod syscall;
 use std::{
     cmp::Ordering,
-    collections::{
-        BTreeMap,
-        VecDeque,
-    },
+    collections::VecDeque,
     sync::{
         Arc,
         LazyLock,
@@ -63,9 +60,6 @@ use common::{
     },
 };
 use database::{
-    query::TableFilter,
-    DeveloperQuery,
-    ResolvedQuery,
     Transaction,
     OVER_LIMIT_HELP,
 };
@@ -102,9 +96,11 @@ use self::{
     async_syscall::{
         AsyncSyscallBatch,
         PendingSyscall,
+        QueryManager,
     },
     outcome::UdfOutcome,
     phase::UdfPhase,
+    syscall::syscall_impl,
 };
 use super::{
     helpers::permit::with_release_permit,
@@ -132,6 +128,7 @@ use crate::{
             SyscallTrace,
             MAX_LOG_LINES,
         },
+        udf::async_syscall::DatabaseSyscallsV1,
         AsyncOpRequest,
         IsolateEnvironment,
     },
@@ -183,9 +180,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     module_loader: Arc<dyn ModuleLoader<RT>>,
     file_storage: TransactionalFileStorage<RT>,
 
-    next_id: u32,
-    resolved_queries: BTreeMap<u32, ResolvedQuery<RT>>,
-    developer_queries: BTreeMap<u32, DeveloperQuery<RT>>,
+    query_manager: QueryManager<RT>,
 
     persistence_version: PersistenceVersion,
     key_broker: KeyBroker,
@@ -297,7 +292,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue> {
-        self.syscall_impl(name, args)
+        syscall_impl(self, name, args)
     }
 
     fn start_async_syscall(
@@ -378,9 +373,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             module_loader,
             file_storage,
 
-            next_id: 0,
-            resolved_queries: BTreeMap::new(),
-            developer_queries: BTreeMap::new(),
+            query_manager: QueryManager::new(),
 
             persistence_version,
             key_broker,
@@ -392,14 +385,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             syscall_trace: SyscallTrace::new(),
             heap_stats,
             context,
-        }
-    }
-
-    pub fn table_filter(&self) -> TableFilter {
-        if self.udf_path.is_system() {
-            TableFilter::IncludePrivateSystemTables
-        } else {
-            TableFilter::ExcludePrivateSystemTables
         }
     }
 
@@ -728,7 +713,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     results = with_release_permit(
                         &mut state.timeout,
                         &mut state.permit,
-                        state.environment.run_async_syscall_batch(batch),
+                        DatabaseSyscallsV1::run_async_syscall_batch(&mut state.environment, batch),
                     ).fuse() => results?,
                 };
                 (resolvers, results)
@@ -771,28 +756,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         };
 
         Ok(result)
-    }
-
-    pub fn put_resolved_query(&mut self, query: ResolvedQuery<RT>) -> u32 {
-        let id = self.next_id;
-        self.next_id += 1;
-        self.resolved_queries.insert(id, query);
-        id
-    }
-
-    pub fn put_developer_query(&mut self, query: DeveloperQuery<RT>) -> u32 {
-        let id = self.next_id;
-        self.next_id += 1;
-        self.developer_queries.insert(id, query);
-        id
-    }
-
-    pub fn cleanup_resolved_query(&mut self, id: u32) -> bool {
-        self.resolved_queries.remove(&id).is_some()
-    }
-
-    pub fn cleanup_developer_query(&mut self, id: u32) -> bool {
-        self.developer_queries.remove(&id).is_some()
     }
 
     // Called when a function finishes

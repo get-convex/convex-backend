@@ -1,11 +1,11 @@
-#![allow(non_snake_case)]
-
 use std::{
     collections::BTreeMap,
     convert::{
         TryFrom,
         TryInto,
     },
+    marker::PhantomData,
+    time::Duration,
 };
 
 use anyhow::Context;
@@ -14,6 +14,7 @@ use common::{
         GenericDocument,
         ID_FIELD_PATH,
     },
+    execution_context::ExecutionContext,
     knobs::MAX_SYSCALL_BATCH_SIZE,
     maybe_val,
     query::{
@@ -24,12 +25,16 @@ use common::{
         Order,
         Query,
     },
+    query_journal::QueryJournal,
     runtime::{
         Runtime,
         RuntimeInstant,
         UnixTimestamp,
     },
-    types::IndexName,
+    types::{
+        IndexName,
+        PersistenceVersion,
+    },
     value::ConvexValue,
 };
 use database::{
@@ -37,6 +42,7 @@ use database::{
         query_batch_next,
         CompiledQuery,
         QueryType,
+        TableFilter,
     },
     soft_data_limit,
     DeveloperQuery,
@@ -50,6 +56,7 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use itertools::Itertools;
+use keybroker::KeyBroker;
 use model::{
     file_storage::{
         types::FileStorageEntry,
@@ -65,22 +72,21 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use sync_types::UdfPath;
 use value::{
     heap_size::HeapSize,
     id_v6::DocumentIdV6,
+    ConvexArray,
     TableName,
 };
 
 use super::DatabaseUdfEnvironment;
 use crate::{
-    environment::{
-        helpers::{
-            parse_version,
-            validation::validate_schedule_args,
-            with_argument_error,
-            ArgName,
-        },
-        IsolateEnvironment,
+    environment::helpers::{
+        parse_version,
+        validation::validate_schedule_args,
+        with_argument_error,
+        ArgName,
     },
     helpers::UdfArgsJson,
     metrics::async_syscall_timer,
@@ -181,15 +187,193 @@ impl AsyncSyscallBatch {
     }
 }
 
-impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
+pub struct QueryManager<RT: Runtime> {
+    next_id: u32,
+    developer_queries: BTreeMap<u32, DeveloperQuery<RT>>,
+}
+
+impl<RT: Runtime> QueryManager<RT> {
+    pub fn new() -> Self {
+        Self {
+            next_id: 0,
+            developer_queries: BTreeMap::new(),
+        }
+    }
+
+    pub fn put_developer(&mut self, query: DeveloperQuery<RT>) -> u32 {
+        let id = self.next_id;
+        self.developer_queries.insert(id, query);
+        self.next_id += 1;
+        id
+    }
+
+    pub fn take_developer(&mut self, id: u32) -> Option<DeveloperQuery<RT>> {
+        self.developer_queries.remove(&id)
+    }
+
+    pub fn insert_developer(&mut self, id: u32, query: DeveloperQuery<RT>) {
+        self.developer_queries.insert(id, query);
+    }
+
+    pub fn cleanup_developer(&mut self, id: u32) -> bool {
+        self.developer_queries.remove(&id).is_some()
+    }
+}
+
+// Trait for allowing code reuse between `DatabaseUdfEnvironment` and isolate2.
+pub trait SyscallProvider<RT: Runtime> {
+    fn rt(&self) -> &RT;
+    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata>;
+    fn key_broker(&self) -> &KeyBroker;
+    fn context(&self) -> &ExecutionContext;
+
+    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp>;
+
+    fn persistence_version(&self) -> PersistenceVersion;
+    fn table_filter(&self) -> TableFilter;
+
+    fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool);
+
+    fn query_manager(&mut self) -> &mut QueryManager<RT>;
+
+    fn prev_journal(&mut self) -> &mut QueryJournal;
+    fn next_journal(&mut self) -> &mut QueryJournal;
+
+    async fn validate_schedule_args(
+        &mut self,
+        udf_path: UdfPath,
+        args: Vec<JsonValue>,
+        scheduled_ts: UnixTimestamp,
+    ) -> anyhow::Result<(UdfPath, ConvexArray)>;
+
+    fn file_storage_generate_upload_url(&self) -> anyhow::Result<String>;
+    async fn file_storage_get_url(
+        &mut self,
+        storage_id: FileStorageId,
+    ) -> anyhow::Result<Option<String>>;
+    async fn file_storage_delete(&mut self, storage_id: FileStorageId) -> anyhow::Result<()>;
+    async fn file_storage_get_entry(
+        &mut self,
+        storage_id: FileStorageId,
+    ) -> anyhow::Result<Option<FileStorageEntry>>;
+}
+
+impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
+    fn rt(&self) -> &RT {
+        &self.phase.rt
+    }
+
+    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
+        self.phase.tx()
+    }
+
+    fn key_broker(&self) -> &KeyBroker {
+        &self.key_broker
+    }
+
+    fn context(&self) -> &ExecutionContext {
+        &self.context
+    }
+
+    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+        self.phase.unix_timestamp()
+    }
+
+    fn persistence_version(&self) -> PersistenceVersion {
+        self.persistence_version
+    }
+
+    fn table_filter(&self) -> TableFilter {
+        if self.udf_path.is_system() {
+            TableFilter::IncludePrivateSystemTables
+        } else {
+            TableFilter::ExcludePrivateSystemTables
+        }
+    }
+
+    fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool) {
+        self.syscall_trace
+            .log_async_syscall(name, duration, is_success);
+    }
+
+    fn query_manager(&mut self) -> &mut QueryManager<RT> {
+        &mut self.query_manager
+    }
+
+    fn prev_journal(&mut self) -> &mut QueryJournal {
+        &mut self.prev_journal
+    }
+
+    fn next_journal(&mut self) -> &mut QueryJournal {
+        &mut self.next_journal
+    }
+
+    async fn validate_schedule_args(
+        &mut self,
+        udf_path: UdfPath,
+        args: Vec<JsonValue>,
+        scheduled_ts: UnixTimestamp,
+    ) -> anyhow::Result<(UdfPath, ConvexArray)> {
+        validate_schedule_args(
+            udf_path,
+            args,
+            scheduled_ts,
+            self.phase.unix_timestamp()?,
+            &self.module_loader,
+            self.phase.tx()?,
+        )
+        .await
+    }
+
+    fn file_storage_generate_upload_url(&self) -> anyhow::Result<String> {
+        let issued_ts = self.phase.unix_timestamp()?;
+        let post_url = self
+            .file_storage
+            .generate_upload_url(&self.key_broker, issued_ts)?;
+        Ok(post_url)
+    }
+
+    async fn file_storage_get_url(
+        &mut self,
+        storage_id: FileStorageId,
+    ) -> anyhow::Result<Option<String>> {
+        self.file_storage
+            .get_url(self.phase.tx()?, storage_id)
+            .await
+    }
+
+    async fn file_storage_delete(&mut self, storage_id: FileStorageId) -> anyhow::Result<()> {
+        self.file_storage.delete(self.phase.tx()?, storage_id).await
+    }
+
+    async fn file_storage_get_entry(
+        &mut self,
+        storage_id: FileStorageId,
+    ) -> anyhow::Result<Option<FileStorageEntry>> {
+        self.file_storage
+            .get_file_entry(self.phase.tx()?, storage_id)
+            .await
+    }
+}
+
+/// These are syscalls that exist on `db` in `convex/server` for npm versions >=
+/// 0.16.0. They expect DocumentIdv6 strings (as opposed to ID classes).
+///
+/// Most of the common logic lives on `Transaction` or `DatabaseSyscallsShared`,
+/// and this is mostly just taking care of the argument parsing.
+pub struct DatabaseSyscallsV1<RT: Runtime, P: SyscallProvider<RT>> {
+    _pd: PhantomData<(RT, P)>,
+}
+
+impl<RT: Runtime, P: SyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     /// Runs a batch of syscalls, each of which can succeed or fail
     /// independently. The returned vec is the same length as the batch.
     #[minitrace::trace]
     pub async fn run_async_syscall_batch(
-        &mut self,
+        provider: &mut P,
         batch: AsyncSyscallBatch,
     ) -> anyhow::Result<Vec<anyhow::Result<String>>> {
-        let start = self.phase.rt.monotonic_now();
+        let start = provider.rt().monotonic_now();
         let batch_name = batch.name().to_string();
         let timer = async_syscall_timer(&batch_name);
         // Outer error is a system error that encompases the whole batch, while
@@ -197,32 +381,32 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // errors.
         let results = match batch {
             AsyncSyscallBatch::Gets(get_batch_args) => {
-                DatabaseSyscallsV1::get_batch(self, get_batch_args).await
+                Self::get_batch(provider, get_batch_args).await
             },
             AsyncSyscallBatch::QueryStreamNext(batch_args) => {
-                DatabaseSyscallsV1::queryStreamNext_batch(self, batch_args).await
+                Self::query_stream_next_batch(provider, batch_args).await
             },
             AsyncSyscallBatch::Unbatched { name, args } => {
                 let result = match &name[..] {
                     // Database
-                    "1.0/count" => self.async_syscall_count(args).await,
-                    "1.0/insert" => DatabaseSyscallsV1::insert(self, args).await,
-                    "1.0/shallowMerge" => DatabaseSyscallsV1::shallow_merge(self, args).await,
-                    "1.0/replace" => DatabaseSyscallsV1::replace(self, args).await,
-                    "1.0/remove" => DatabaseSyscallsV1::remove(self, args).await,
-                    "1.0/queryPage" => DatabaseSyscallsV1::queryPage(self, args).await,
+                    "1.0/count" => Self::count(provider, args).await,
+                    "1.0/insert" => Self::insert(provider, args).await,
+                    "1.0/shallowMerge" => Self::shallow_merge(provider, args).await,
+                    "1.0/replace" => Self::replace(provider, args).await,
+                    "1.0/remove" => Self::remove(provider, args).await,
+                    "1.0/queryPage" => Self::query_page(provider, args).await,
                     // Auth
-                    "1.0/getUserIdentity" => self.async_syscall_getUserIdentity(args).await,
+                    "1.0/getUserIdentity" => Self::get_user_identity(provider, args).await,
                     // Storage
-                    "1.0/storageDelete" => self.async_syscall_storageDelete(args).await,
-                    "1.0/storageGetMetadata" => self.async_syscall_storageGetMetadata(args).await,
+                    "1.0/storageDelete" => Self::storage_delete(provider, args).await,
+                    "1.0/storageGetMetadata" => Self::storage_get_metadata(provider, args).await,
                     "1.0/storageGenerateUploadUrl" => {
-                        self.async_syscall_storageGenerateUploadUrl(args).await
+                        Self::storage_generate_upload_url(provider, args).await
                     },
-                    "1.0/storageGetUrl" => self.async_syscall_storageGetUrl(args).await,
+                    "1.0/storageGetUrl" => Self::storage_get_url(provider, args).await,
                     // Scheduling
-                    "1.0/schedule" => self.async_syscall_schedule(args).await,
-                    "1.0/cancel_job" => self.async_syscall_cancel_job(args).await,
+                    "1.0/schedule" => Self::schedule(provider, args).await,
+                    "1.0/cancel_job" => Self::cancel_job(provider, args).await,
                     #[cfg(test)]
                     "slowSyscall" => {
                         std::thread::sleep(std::time::Duration::from_secs(1));
@@ -242,7 +426,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 vec![result]
             },
         };
-        self.syscall_trace.log_async_syscall(
+        provider.log_async_syscall(
             batch_name,
             start.elapsed(),
             results.iter().all(|result| result.is_ok()),
@@ -255,7 +439,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_count(&mut self, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn count(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct CountArgs {
@@ -265,7 +449,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             let args: CountArgs = serde_json::from_value(args)?;
             args.table.parse().context(ArgName("table"))
         })?;
-        let tx = self.phase.tx()?;
+        let tx = provider.tx()?;
         let result = tx.count(&table).await?;
 
         // Trim to u32 and check for overflow.
@@ -276,12 +460,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_getUserIdentity(
-        &mut self,
-        _args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+    async fn get_user_identity(provider: &mut P, _args: JsonValue) -> anyhow::Result<JsonValue> {
         // TODO: Somehow make the Transaction aware of the dependency on the user.
-        let tx = self.phase.tx()?;
+        let tx = provider.tx()?;
         let user_identity = tx.user_identity();
         if let Some(user_identity) = user_identity {
             return user_identity.try_into();
@@ -291,19 +472,16 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_storageGenerateUploadUrl(
-        &mut self,
+    async fn storage_generate_upload_url(
+        provider: &mut P,
         _args: JsonValue,
     ) -> anyhow::Result<JsonValue> {
-        let issued_ts = self.unix_timestamp()?;
-        let postUrl = self
-            .file_storage
-            .generate_upload_url(&self.key_broker, issued_ts)?;
-        Ok(serde_json::to_value(postUrl)?)
+        let post_url = provider.file_storage_generate_upload_url()?;
+        Ok(serde_json::to_value(post_url)?)
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_storageGetUrl(&mut self, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn storage_get_url(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct GetUrlArgs {
@@ -313,15 +491,12 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             let GetUrlArgs { storage_id } = serde_json::from_value(args)?;
             storage_id.parse().context(ArgName("storageId"))
         })?;
-        let url = self
-            .file_storage
-            .get_url(self.phase.tx()?, storage_id)
-            .await?;
+        let url = provider.file_storage_get_url(storage_id).await?;
         Ok(url.into())
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_storageDelete(&mut self, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn storage_delete(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct StorageDeleteArgs {
@@ -333,18 +508,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         })?;
 
         // Synchronously delete the file from storage
-        self.file_storage
-            .delete(self.phase.tx()?, storage_id.clone())
-            .await?;
+        provider.file_storage_delete(storage_id).await?;
 
         Ok(JsonValue::Null)
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_storageGetMetadata(
-        &mut self,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+    async fn storage_get_metadata(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct StorageGetMetadataArgs {
@@ -363,32 +533,28 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             size: i64,
             content_type: Option<String>,
         }
-        let file_metadata = self
-            .file_storage
-            .get_file_entry(self.phase.tx()?, storage_id)
-            .await?
-            .map(
-                |FileStorageEntry {
-                     storage_id,
-                     storage_key: _, // internal field that we shouldn't return in syscalls
-                     sha256,
-                     size,
-                     content_type,
-                 }| {
-                    FileMetadataJson {
-                        storage_id: storage_id.to_string(),
-                        // TODO(CX-5533) use base64 for consistency.
-                        sha256: sha256.as_hex(),
-                        size,
-                        content_type,
-                    }
-                },
-            );
+        let file_metadata = provider.file_storage_get_entry(storage_id).await?.map(
+            |FileStorageEntry {
+                 storage_id,
+                 storage_key: _, // internal field that we shouldn't return in syscalls
+                 sha256,
+                 size,
+                 content_type,
+             }| {
+                FileMetadataJson {
+                    storage_id: storage_id.to_string(),
+                    // TODO(CX-5533) use base64 for consistency.
+                    sha256: sha256.as_hex(),
+                    size,
+                    content_type,
+                }
+            },
+        );
         Ok(serde_json::to_value(file_metadata)?)
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_schedule(&mut self, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn schedule(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct ScheduleArgs {
@@ -401,34 +567,28 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
         let udf_path = with_argument_error("scheduler", || name.parse().context(ArgName("name")))?;
 
-        let unix_timestamp = self.unix_timestamp()?;
-        let tx = self.phase.tx()?;
         let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
-        let (udf_path, udf_args) = validate_schedule_args(
-            udf_path,
-            args.into_arg_vec(),
-            scheduled_ts,
-            unix_timestamp,
-            &self.module_loader,
-            tx,
-        )
-        .await?;
+        let (udf_path, udf_args) = provider
+            .validate_schedule_args(udf_path, args.into_arg_vec(), scheduled_ts)
+            .await?;
 
+        let context = provider.context().clone();
+        let tx = provider.tx()?;
         let virtual_id = VirtualSchedulerModel::new(tx)
-            .schedule(udf_path, udf_args, scheduled_ts, self.context.clone())
+            .schedule(udf_path, udf_args, scheduled_ts, context)
             .await?;
 
         Ok(JsonValue::from(virtual_id))
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_cancel_job(&mut self, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn cancel_job(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct CancelJobArgs {
             id: String,
         }
-        let tx = self.phase.tx()?;
+        let tx = provider.tx()?;
 
         let virtual_id_v6 = with_argument_error("db.cancel_job", || {
             let args: CancelJobArgs = serde_json::from_value(args)?;
@@ -440,22 +600,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
         Ok(JsonValue::Null)
     }
-}
 
-/// These are syscalls that exist on `db` in `convex/server` for npm versions >=
-/// 0.16.0. They expect DocumentIdv6 strings (as opposed to ID classes).
-///
-/// Most of the common logic lives on `Transaction` or `DatabaseSyscallsShared`,
-/// and this is mostly just taking care of the argument parsing.
-pub struct DatabaseSyscallsV1<RT: Runtime> {
-    _rt: RT,
-}
-
-impl<RT: Runtime> DatabaseSyscallsV1<RT> {
     #[minitrace::trace]
     #[convex_macro::instrument_future]
     async fn get_batch(
-        env: &mut DatabaseUdfEnvironment<RT>,
+        provider: &mut P,
         batch_args: Vec<JsonValue>,
     ) -> Vec<anyhow::Result<JsonValue>> {
         #[derive(Deserialize)]
@@ -467,8 +616,8 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
             #[serde(default)]
             version: Option<String>,
         }
-        let table_filter = env.table_filter();
-        let tx = match env.phase.tx() {
+        let table_filter = provider.table_filter();
+        let tx = match provider.tx() {
             Ok(tx) => tx,
             Err(e) => {
                 return batch_args
@@ -549,10 +698,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    async fn insert(
-        env: &mut DatabaseUdfEnvironment<RT>,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+    async fn insert(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct InsertArgs {
@@ -571,7 +717,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
         })?;
 
         system_table_guard(&table, false)?;
-        let tx = env.phase.tx()?;
+        let tx = provider.tx()?;
         let document_id = UserFacingModel::new(tx).insert(table, value).await?;
         let id_str = document_id.encode();
         Ok(json!({ "_id": id_str }))
@@ -579,18 +725,15 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    async fn shallow_merge(
-        env: &mut DatabaseUdfEnvironment<RT>,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+    async fn shallow_merge(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct UpdateArgs {
             id: String,
             value: JsonValue,
         }
-        let table_filter = env.table_filter();
-        let tx = env.phase.tx()?;
+        let table_filter = provider.table_filter();
+        let tx = provider.tx()?;
         let (id, value, table_name) = with_argument_error("db.patch", || {
             let args: UpdateArgs = serde_json::from_value(args)?;
 
@@ -609,18 +752,15 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    async fn replace(
-        env: &mut DatabaseUdfEnvironment<RT>,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+    async fn replace(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct ReplaceArgs {
             id: String,
             value: JsonValue,
         }
-        let table_filter = env.table_filter();
-        let tx = env.phase.tx()?;
+        let table_filter = provider.table_filter();
+        let tx = provider.tx()?;
         let (id, value, table_name) = with_argument_error("db.replace", || {
             let args: ReplaceArgs = serde_json::from_value(args)?;
 
@@ -639,8 +779,8 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    async fn queryStreamNext_batch(
-        env: &mut DatabaseUdfEnvironment<RT>,
+    async fn query_stream_next_batch(
+        provider: &mut P,
         batch_args: Vec<JsonValue>,
     ) -> Vec<anyhow::Result<JsonValue>> {
         #[derive(Deserialize)]
@@ -655,23 +795,22 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
         let mut results = BTreeMap::new();
         let batch_size = batch_args.len();
         for (idx, args) in batch_args.into_iter().enumerate() {
-            let result: anyhow::Result<_> =
-                try {
-                    let query_id = with_argument_error("queryStreamNext", || {
-                        let args: QueryStreamNextArgs = serde_json::from_value(args)?;
-                        Ok(args.query_id)
-                    })?;
-                    let local_query = env.developer_queries.remove(&query_id).context(
-                        ErrorMetadata::not_found("QueryNotFound", "in-progress query not found"),
-                    )?;
-                    queries_to_fetch.insert(idx, (query_id, local_query));
-                };
+            let result: anyhow::Result<_> = try {
+                let query_id = with_argument_error("queryStreamNext", || {
+                    let args: QueryStreamNextArgs = serde_json::from_value(args)?;
+                    Ok(args.query_id)
+                })?;
+                let local_query = provider.query_manager().take_developer(query_id).context(
+                    ErrorMetadata::not_found("QueryNotFound", "in-progress query not found"),
+                )?;
+                queries_to_fetch.insert(idx, (query_id, local_query));
+            };
             if let Err(e) = result {
                 assert!(results.insert(idx, Err(e)).is_none());
             }
         }
 
-        let tx = match env.phase.tx() {
+        let tx = match provider.tx() {
             Ok(tx) => tx,
             Err(e) => {
                 return (0..batch_size).map(|_| Err(e.clone().into())).collect_vec();
@@ -694,7 +833,9 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
         }
 
         for (batch_key, (query_id, local_query)) in queries_to_fetch {
-            env.developer_queries.insert(query_id, local_query);
+            provider
+                .query_manager()
+                .insert_developer(query_id, local_query);
 
             let result: anyhow::Result<_> = try {
                 let maybe_next = fetch_results
@@ -708,7 +849,7 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
                 };
 
                 if done {
-                    env.cleanup_developer_query(query_id);
+                    provider.query_manager().cleanup_developer(query_id);
                 }
                 serde_json::to_value(QueryStreamNextResult {
                     value: value.into(),
@@ -723,27 +864,21 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    async fn queryPage(
-        env: &mut DatabaseUdfEnvironment<RT>,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
-        DatabaseSyscallsShared::queryPage(env, args).await
+    async fn query_page(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
+        DatabaseSyscallsShared::query_page(provider, args).await
     }
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    async fn remove(
-        env: &mut DatabaseUdfEnvironment<RT>,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+    async fn remove(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RemoveArgs {
             id: String,
         }
 
-        let table_filter = env.table_filter();
-        let tx = env.phase.tx()?;
+        let table_filter = provider.table_filter();
+        let tx = provider.tx()?;
         let (id, table_name) = with_argument_error("db.delete", || {
             let args: RemoveArgs = serde_json::from_value(args)?;
             let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
@@ -758,8 +893,8 @@ impl<RT: Runtime> DatabaseSyscallsV1<RT> {
     }
 }
 
-struct DatabaseSyscallsShared<RT: Runtime> {
-    _rt: RT,
+struct DatabaseSyscallsShared<RT: Runtime, P: SyscallProvider<RT>> {
+    _pd: PhantomData<(RT, P)>,
 }
 
 /// As pages of results are commonly returned directly from UDFs, a page should
@@ -788,7 +923,7 @@ struct QueryPageMetadata {
     page_status: Option<QueryPageStatus>,
 }
 
-impl<RT: Runtime> DatabaseSyscallsShared<RT> {
+impl<RT: Runtime, P: SyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
     async fn read_page_from_query<T: QueryType>(
         mut query: CompiledQuery<RT, T>,
         tx: &mut Transaction<RT>,
@@ -841,10 +976,7 @@ impl<RT: Runtime> DatabaseSyscallsShared<RT> {
     }
 
     #[minitrace::trace]
-    async fn queryPage(
-        env: &mut DatabaseUdfEnvironment<RT>,
-        args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+    async fn query_page(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct QueryPageArgs {
@@ -863,7 +995,7 @@ impl<RT: Runtime> DatabaseSyscallsShared<RT> {
             Query::try_from(args.query).context(ArgName("query"))
         })?;
         let version = parse_version(args.version)?;
-        let table_filter = env.table_filter();
+        let table_filter = provider.table_filter();
 
         let page_size = args.page_size;
         if page_size == 0 {
@@ -875,18 +1007,23 @@ impl<RT: Runtime> DatabaseSyscallsShared<RT> {
 
         let start_cursor = args
             .cursor
-            .map(|c| env.key_broker.decrypt_cursor(c, env.persistence_version))
+            .map(|c| {
+                provider
+                    .key_broker()
+                    .decrypt_cursor(c, provider.persistence_version())
+            })
             .transpose()?;
-
-        let tx = env.phase.tx()?;
 
         let end_cursor = match args.end_cursor {
             Some(end_cursor) => Some(
-                env.key_broker
-                    .decrypt_cursor(end_cursor, env.persistence_version)?,
+                provider
+                    .key_broker()
+                    .decrypt_cursor(end_cursor, provider.persistence_version())?,
             ),
-            None => env.prev_journal.end_cursor.clone(),
+            None => provider.prev_journal().end_cursor.clone(),
         };
+
+        let tx = provider.tx()?;
 
         let (
             page,
@@ -919,17 +1056,18 @@ impl<RT: Runtime> DatabaseSyscallsShared<RT> {
 
         // Place split_cursor in the middle.
         let split_cursor = split_cursor.map(|split| {
-            env.key_broker
-                .encrypt_cursor(&split, env.persistence_version)
+            provider
+                .key_broker()
+                .encrypt_cursor(&split, provider.persistence_version())
         });
 
         let continue_cursor = match &cursor {
             None => anyhow::bail!(
                 "Cursor was None. This should be impossible if `.next` was called on the query."
             ),
-            Some(cursor) => env
-                .key_broker
-                .encrypt_cursor(cursor, env.persistence_version),
+            Some(cursor) => provider
+                .key_broker()
+                .encrypt_cursor(cursor, provider.persistence_version()),
         };
 
         let is_done = matches!(
@@ -941,14 +1079,14 @@ impl<RT: Runtime> DatabaseSyscallsShared<RT> {
         );
 
         anyhow::ensure!(
-            env.next_journal.end_cursor.is_none(),
+            provider.next_journal().end_cursor.is_none(),
             ErrorMetadata::bad_request(
                 "MultiplePaginatedDatabaseQueries",
                 "This query or mutation function ran multiple paginated queries. Convex only \
                  supports a single paginated query in each function.",
             )
         );
-        env.next_journal.end_cursor = cursor;
+        provider.next_journal().end_cursor = cursor;
 
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
