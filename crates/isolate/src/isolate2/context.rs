@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::anyhow;
+use common::types::UdfType;
 use deno_core::{
     v8::{
         self,
@@ -8,6 +9,7 @@ use deno_core::{
     ModuleSpecifier,
 };
 use futures::future::Either;
+use value::ConvexObject;
 
 use super::{
     client::{
@@ -20,11 +22,7 @@ use super::{
     session::Session,
     FunctionId,
 };
-use crate::{
-    bundled_js::system_udf_file,
-    isolate::SETUP_URL,
-    strings,
-};
+use crate::strings;
 
 // Each isolate session can have multiple contexts, which we'll eventually use
 // for subtransactions. Each context executes with a particular environment,
@@ -47,27 +45,32 @@ impl Context {
             let state = ContextState::new(environment);
             context.set_slot(&mut scope, state);
 
+            let convex_value = v8::Object::new(&mut scope);
+
             let syscall_template = v8::FunctionTemplate::new(&mut scope, Self::syscall);
             let syscall_value = syscall_template
                 .get_function(&mut scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
+            let syscall_key = strings::syscall.create(&mut scope)?;
+            convex_value.set(&mut scope, syscall_key.into(), syscall_value.into());
 
             let async_syscall_template = v8::FunctionTemplate::new(&mut scope, Self::async_syscall);
             let async_syscall_value = async_syscall_template
                 .get_function(&mut scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
-
-            let convex_value = v8::Object::new(&mut scope);
-
-            let syscall_key = strings::syscall.create(&mut scope)?;
-            convex_value.set(&mut scope, syscall_key.into(), syscall_value.into());
-
             let async_syscall_key = strings::asyncSyscall.create(&mut scope)?;
             convex_value.set(
                 &mut scope,
                 async_syscall_key.into(),
                 async_syscall_value.into(),
             );
+
+            let op_template = v8::FunctionTemplate::new(&mut scope, Self::op);
+            let op_value = op_template
+                .get_function(&mut scope)
+                .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
+            let op_key = strings::op.create(&mut scope)?;
+            convex_value.set(&mut scope, op_key.into(), op_value.into());
 
             let convex_key = strings::Convex.create(&mut scope)?;
 
@@ -82,20 +85,7 @@ impl Context {
             next_function_id: 0,
             pending_functions: HashMap::new(),
         };
-
-        ctx.enter(session, |mut ctx| {
-            let setup_url = ModuleSpecifier::parse(SETUP_URL)?;
-            let (source, _) =
-                system_udf_file("setup.js").ok_or_else(|| anyhow!("Setup module not found"))?;
-            let unresolved_imports = ctx.register_module(&setup_url, source)?;
-            anyhow::ensure!(
-                unresolved_imports.is_empty(),
-                "Unexpected import specifiers for setup module"
-            );
-            ctx.evaluate_module(&setup_url)?;
-            Ok(())
-        })?;
-
+        ctx.enter(session, |mut ctx| ctx.run_setup_module())?;
         Ok(ctx)
     }
 
@@ -110,20 +100,23 @@ impl Context {
     pub fn start_function(
         &mut self,
         session: &mut Session,
+        udf_type: UdfType,
         module: &ModuleSpecifier,
         name: &str,
+        args: ConvexObject,
     ) -> anyhow::Result<(FunctionId, EvaluateResult)> {
         let function_id = self.next_function_id;
         self.next_function_id += 1;
 
-        let result =
-            match self.enter(session, |mut ctx| ctx.start_evaluate_function(module, name))? {
-                Either::Left(result) => (function_id, EvaluateResult::Ready(result)),
-                Either::Right((promise, async_syscalls)) => {
-                    self.pending_functions.insert(function_id, promise);
-                    (function_id, EvaluateResult::Pending { async_syscalls })
-                },
-            };
+        let result = match self.enter(session, |mut ctx| {
+            ctx.start_evaluate_function(udf_type, module, name, args)
+        })? {
+            Either::Left(result) => (function_id, EvaluateResult::Ready(result)),
+            Either::Right((promise, async_syscalls)) => {
+                self.pending_functions.insert(function_id, promise);
+                (function_id, EvaluateResult::Pending { async_syscalls })
+            },
+        };
         Ok(result)
     }
 
@@ -180,6 +173,24 @@ impl Context {
                 // let exception = v8::Exception::error(scope, message);
                 // scope.throw_exception(exception);
                 todo!();
+            },
+        }
+    }
+
+    pub fn op(
+        scope: &mut v8::HandleScope,
+        args: v8::FunctionCallbackArguments,
+        rv: v8::ReturnValue,
+    ) {
+        let mut ctx = EnteredContext::from_callback(scope);
+        match ctx.op(args, rv) {
+            Ok(()) => (),
+            Err(e) => {
+                // XXX: Handle syscall or op error.
+                // let message = strings::syscallError.create(scope).unwrap();
+                // let exception = v8::Exception::error(scope, message);
+                // scope.throw_exception(exception);
+                panic!("Unexpected error: {e:?}");
             },
         }
     }

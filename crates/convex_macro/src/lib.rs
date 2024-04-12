@@ -256,3 +256,100 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     gen.into()
 }
+
+#[proc_macro_attribute]
+pub fn v8_op2(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let ItemFn {
+        ref attrs,
+        ref vis,
+        ref sig,
+        ref block,
+    } = syn::parse(item).unwrap();
+
+    assert!(sig.constness.is_none(), "const fn cannot be op");
+    assert!(sig.asyncness.is_none(), "async fn cannot be op");
+    assert!(sig.unsafety.is_none(), "unsafe fn cannot be op");
+    assert!(sig.abi.is_none(), "fn with explicit ABI cannot be op");
+    assert!(
+        sig.variadic.is_none(),
+        "fn with variadic arguments cannot be op"
+    );
+
+    let Signature {
+        ref ident,
+        ref generics,
+        ref inputs,
+        ref output,
+        ..
+    } = sig;
+
+    let Some(FnArg::Receiver(receiver)) = inputs.first() else {
+        panic!("op should take &mut self");
+    };
+    let arg_parsing: TokenStream2 = inputs
+        .iter()
+        .enumerate()
+        .skip(1)
+        .map(|(idx, input)| {
+            let idx = idx as i32;
+            let FnArg::Typed(pat) = input else {
+                panic!("input must be typed")
+            };
+            let arg_info = format!("{} arg{}", ident, idx);
+            // NOTE: deno has special case when pat.ty is &mut [u8].
+            // While that would make some ops more efficient, it also makes them
+            // unsafe because it's hard to prove that the same buffer isn't
+            // being mutated from multiple ops in parallel or multiple arguments
+            // on the same op.
+            //
+            // Forego all special casing and just use serde_v8.
+            quote! {
+                let #pat = {
+                    let __raw_arg = __args.get(#idx);
+                    ::deno_core::serde_v8::from_v8(self.scope, __raw_arg).context(#arg_info)?
+                };
+            }
+        })
+        .collect();
+
+    let ReturnType::Type(_, return_type) = output else {
+        panic!("op needs return type");
+    };
+    let Type::Path(rtype_path) = &**return_type else {
+        panic!("op must return anyhow::Result<...>")
+    };
+    let PathSegment {
+        ident: retval_type,
+        arguments: retval_arguments,
+    } = rtype_path.path.segments.last().unwrap();
+    assert_eq!(&retval_type.to_string(), "Result");
+    let PathArguments::AngleBracketed(retval_arguments) = retval_arguments else {
+        panic!("op must return anyhow::Result<...>")
+    };
+    let GenericArgument::Type(_retval_type) = retval_arguments
+        .args
+        .last()
+        .expect("op must return anyhow::Result<...>")
+    else {
+        panic!("op must return anyhow::Result<...>");
+    };
+    let serialize_retval = quote! {
+        let __value_v8 = deno_core::serde_v8::to_v8(self.scope, __result_v)?;
+        __rv.set(__value_v8);
+    };
+
+    let gen = quote! {
+        #(#attrs)*
+        #vis fn #ident #generics (
+            #receiver,
+            __args: ::deno_core::v8::FunctionCallbackArguments,
+            mut __rv: ::deno_core::v8::ReturnValue,
+        ) -> ::anyhow::Result<()> {
+            #arg_parsing
+            let __result_v = (|| #output { #block })()?;
+            { #serialize_retval }
+            Ok(())
+        }
+    };
+    gen.into()
+}

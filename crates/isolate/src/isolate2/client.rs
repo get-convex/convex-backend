@@ -6,7 +6,10 @@ use std::{
     },
 };
 
-use common::errors::JsError;
+use common::{
+    errors::JsError,
+    types::UdfType,
+};
 use crossbeam_channel;
 use deno_core::ModuleSpecifier;
 use futures::{
@@ -16,6 +19,10 @@ use futures::{
 };
 use serde_json::Value as JsonValue;
 use tokio::sync::Semaphore;
+use value::{
+    ConvexObject,
+    ConvexValue,
+};
 
 use super::{
     FunctionId,
@@ -23,11 +30,6 @@ use super::{
 };
 
 pub enum IsolateThreadRequest {
-    // XXX: This ain't right. We should have a request to initialize, and then
-    // that can also be cancelled. So, we should have the isolate handle upfront!
-    WaitForInitialized {
-        response: oneshot::Sender<()>,
-    },
     RegisterModule {
         name: ModuleSpecifier,
         source: String,
@@ -39,8 +41,10 @@ pub enum IsolateThreadRequest {
         response: oneshot::Sender<()>,
     },
     StartFunction {
+        udf_type: UdfType,
         module: ModuleSpecifier,
         name: String,
+        args: ConvexObject,
         response: oneshot::Sender<(FunctionId, EvaluateResult)>,
     },
     PollFunction {
@@ -52,7 +56,7 @@ pub enum IsolateThreadRequest {
 
 #[derive(Debug)]
 pub enum EvaluateResult {
-    Ready(String),
+    Ready(ConvexValue),
     Pending {
         async_syscalls: Vec<PendingAsyncSyscall>,
     },
@@ -127,15 +131,6 @@ impl IsolateThreadClient {
         Ok(result?)
     }
 
-    pub async fn wait_for_initialized(&mut self) -> anyhow::Result<()> {
-        let (tx, rx) = oneshot::channel();
-        self.send(
-            IsolateThreadRequest::WaitForInitialized { response: tx },
-            rx,
-        )
-        .await
-    }
-
     pub async fn register_module(
         &mut self,
         name: ModuleSpecifier,
@@ -164,14 +159,18 @@ impl IsolateThreadClient {
 
     pub async fn start_function(
         &mut self,
+        udf_type: UdfType,
         module: ModuleSpecifier,
         name: String,
+        args: ConvexObject,
     ) -> anyhow::Result<(FunctionId, EvaluateResult)> {
         let (tx, rx) = oneshot::channel();
         self.send(
             IsolateThreadRequest::StartFunction {
+                udf_type,
                 module,
                 name,
+                args,
                 response: tx,
             },
             rx,
