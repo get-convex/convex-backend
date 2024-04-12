@@ -22,7 +22,9 @@ use crate::test_helpers::UdfTest;
 
 #[convex_macro::test_runtime]
 async fn test_basic(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default(rt).await?;
+    let mut t = UdfTest::default(rt).await?;
+    t.enable_isolate_v2();
+
     must_let!(let ConvexValue::Float64(r) = t.query("directory/udfs:f", assert_obj!("a" => 10., "b" => 3.)).await?);
     assert_eq!(r, 57.);
 
@@ -39,7 +41,9 @@ async fn test_basic(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_int64(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default(rt).await?;
+    let mut t = UdfTest::default(rt).await?;
+    t.enable_isolate_v2();
+
     let v = t.query("basic:addOneInt", assert_obj!("x" => 1)).await?;
     assert_eq!(v, ConvexValue::Int64(2));
     Ok(())
@@ -47,7 +51,9 @@ async fn test_int64(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_javascript(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default(rt).await?;
+    let mut t = UdfTest::default(rt).await?;
+    t.enable_isolate_v2();
+
     let v = t.query("js:addOneInt", assert_obj!("x" => 1)).await?;
     assert_eq!(v, ConvexValue::Int64(2));
     Ok(())

@@ -8,14 +8,16 @@ use std::{
 
 use common::{
     errors::JsError,
+    runtime::Runtime,
     types::UdfType,
 };
-use crossbeam_channel;
 use deno_core::ModuleSpecifier;
 use futures::{
     self,
-    channel::oneshot,
-    FutureExt,
+    channel::{
+        mpsc,
+        oneshot,
+    },
 };
 use serde_json::Value as JsonValue;
 use tokio::sync::Semaphore;
@@ -74,19 +76,22 @@ pub struct AsyncSyscallCompletion {
     pub result: Result<JsonValue, JsError>,
 }
 
-pub struct IsolateThreadClient {
-    sender: crossbeam_channel::Sender<IsolateThreadRequest>,
+pub struct IsolateThreadClient<RT: Runtime> {
+    rt: RT,
+    sender: mpsc::Sender<IsolateThreadRequest>,
     user_time_remaining: Duration,
     semaphore: Arc<Semaphore>,
 }
 
-impl IsolateThreadClient {
+impl<RT: Runtime> IsolateThreadClient<RT> {
     pub fn new(
-        sender: crossbeam_channel::Sender<IsolateThreadRequest>,
+        rt: RT,
+        sender: mpsc::Sender<IsolateThreadRequest>,
         user_timeout: Duration,
         semaphore: Arc<Semaphore>,
     ) -> Self {
         Self {
+            rt,
             sender,
             user_time_remaining: user_timeout,
             semaphore,
@@ -108,11 +113,10 @@ impl IsolateThreadClient {
 
         // Start the user timer after we acquire the permit.
         let user_start = Instant::now();
-        let user_timeout = tokio::time::sleep(self.user_time_remaining);
-
-        self.sender.send(request)?;
+        let mut user_timeout = self.rt.wait(self.user_time_remaining);
+        self.sender.try_send(request)?;
         let result = futures::select_biased! {
-            _ = user_timeout.fuse() => {
+            _ = user_timeout => {
                 // XXX: We need to terminate the isolate handle here in
                 // case user code is in an infinite loop.
                 anyhow::bail!("User time exhausted");

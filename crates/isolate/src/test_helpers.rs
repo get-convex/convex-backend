@@ -139,6 +139,7 @@ use crate::{
         udf::outcome::UdfOutcome,
     },
     http_action::HttpActionRequest,
+    isolate2::runner::run_isolate_v2_udf,
     metrics::queue_timer,
     parse_udf_args,
     validate_schedule_args,
@@ -226,6 +227,8 @@ pub struct UdfTest<RT: Runtime, P: Persistence + Clone> {
     pub module_loader: Arc<dyn ModuleLoader<RT>>,
     search_storage: Arc<dyn Storage>,
     file_storage: TransactionalFileStorage<RT>,
+
+    isolate_v2_enabled: bool,
 }
 
 impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
@@ -323,6 +326,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             search_storage,
             module_loader,
             file_storage,
+            isolate_v2_enabled: false,
         }))
     }
 
@@ -342,6 +346,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         .await?
         .expect("Unexpected JSError");
         Ok(result)
+    }
+
+    pub fn enable_isolate_v2(&mut self) {
+        self.isolate_v2_enabled = true;
     }
 
     pub async fn create_index(&self, name: &str, field: &str) -> anyhow::Result<()> {
@@ -445,7 +453,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let mut tx = self.database.begin(identity.clone()).await?;
         let path: UdfPath = udf_path.parse()?;
         let canonicalized_path = path.canonicalize();
+
+        let arg = args.first().cloned();
         let args_array = ConvexArray::try_from(args)?;
+
         let validated_path_or_err = ValidatedUdfPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
@@ -480,13 +491,35 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 ExecutionContext::new_for_test(),
             )
             .await?;
+        let FunctionOutcome::Mutation(outcome) = outcome else {
+            anyhow::bail!("Called raw_mutation on a non-mutation");
+        };
+
+        // Before committing, try to rerun the request with isolate2 if enabled.
+        if let Ok(ref packed_result) = outcome.result
+            && self.isolate_v2_enabled
+        {
+            let result = packed_result.unpack();
+            let tx = self.database.begin(identity.clone()).await?;
+            let v2_result = run_isolate_v2_udf(
+                self.rt.clone(),
+                tx,
+                Arc::new(TransactionModuleLoader),
+                outcome.rng_seed,
+                outcome.unix_timestamp,
+                UdfType::Mutation,
+                udf_path,
+                arg.ok_or_else(|| anyhow::anyhow!("Missing argument"))?
+                    .try_into()?,
+            )
+            .await?;
+            anyhow::ensure!(result == v2_result);
+        }
+
         self.database
             .commit_with_write_source(tx, Some(canonicalized_path.into()))
             .await?;
-        match outcome {
-            FunctionOutcome::Mutation(m) => Ok(m),
-            _ => Err(anyhow::anyhow!("Called raw_mutation on a non-mutation")),
-        }
+        Ok(outcome)
     }
 
     pub async fn query(&self, udf_path: &str, args: ConvexObject) -> anyhow::Result<ConvexValue> {
@@ -565,6 +598,8 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let mut tx = self.database.begin(identity.clone()).await?;
         let path: UdfPath = udf_path.parse()?;
         let canonicalized_path = path.canonicalize();
+
+        let arg = args.first().cloned();
         let args_array = ConvexArray::try_from(args)?;
 
         let validated_path_or_err = ValidatedUdfPathAndArgs::new(
@@ -602,10 +637,31 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             .await?;
         // Ensure the transaction is readonly by turning it into a subscription token.
         let _ = tx.into_token()?;
-        match outcome {
-            FunctionOutcome::Query(q) => Ok(q),
-            _ => Err(anyhow::anyhow!("Called raw_query on a non-query")),
+        let FunctionOutcome::Query(query_outcome) = outcome else {
+            anyhow::bail!("Called raw_query on a non-query");
+        };
+
+        if let Ok(ref packed_result) = query_outcome.result
+            && self.isolate_v2_enabled
+        {
+            let result = packed_result.unpack();
+            let tx = self.database.begin(identity.clone()).await?;
+            let v2_result = run_isolate_v2_udf(
+                self.rt.clone(),
+                tx,
+                Arc::new(TransactionModuleLoader),
+                query_outcome.rng_seed,
+                query_outcome.unix_timestamp,
+                UdfType::Query,
+                udf_path,
+                arg.ok_or_else(|| anyhow::anyhow!("Missing argument"))?
+                    .try_into()?,
+            )
+            .await?;
+            anyhow::ensure!(result == v2_result);
         }
+
+        Ok(query_outcome)
     }
 
     /// Run a query, bypassing the validation done in `ValidatedUdfPathAndArgs`,
