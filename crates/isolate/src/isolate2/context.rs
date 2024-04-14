@@ -22,7 +22,10 @@ use super::{
     session::Session,
     FunctionId,
 };
-use crate::strings;
+use crate::{
+    ops::run_op,
+    strings,
+};
 
 // Each isolate session can have multiple contexts, which we'll eventually use
 // for subtransactions. Each context executes with a particular environment,
@@ -183,15 +186,12 @@ impl Context {
         rv: v8::ReturnValue,
     ) {
         let mut ctx = EnteredContext::from_callback(scope);
-        match ctx.op(args, rv) {
-            Ok(()) => (),
-            Err(e) => {
-                // XXX: Handle syscall or op error.
-                // let message = strings::syscallError.create(scope).unwrap();
-                // let exception = v8::Exception::error(scope, message);
-                // scope.throw_exception(exception);
-                panic!("Unexpected error: {e:?}");
-            },
+        if let Err(e) = run_op(&mut ctx, args, rv) {
+            // XXX: Handle syscall or op error.
+            // let message = strings::syscallError.create(scope).unwrap();
+            // let exception = v8::Exception::error(scope, message);
+            // scope.throw_exception(exception);
+            panic!("Unexpected error: {e:?}");
         }
     }
 

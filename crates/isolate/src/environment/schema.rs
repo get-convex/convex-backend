@@ -72,8 +72,6 @@ pub struct SchemaEnvironment {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
-    type Rng = ChaCha12Rng;
-
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access at schema evaluation time: {}",
@@ -95,7 +93,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
         Ok(())
     }
 
-    fn rng(&mut self) -> anyhow::Result<&mut Self::Rng> {
+    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         Ok(&mut self.rng)
     }
 

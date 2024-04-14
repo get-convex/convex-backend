@@ -75,8 +75,6 @@ pub struct AuthConfig {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
-    type Rng = ChaCha12Rng;
-
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access when evaluating auth config file: {}",
@@ -98,7 +96,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         Ok(())
     }
 
-    fn rng(&mut self) -> anyhow::Result<&mut Self::Rng> {
+    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoRandomDuringAuthConfig",
             "Math.random unsupported when evaluating auth config file"

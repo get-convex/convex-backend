@@ -1,9 +1,6 @@
 use std::mem;
 
-use anyhow::{
-    anyhow,
-    Context as AnyhowContext,
-};
+use anyhow::anyhow;
 use common::{
     errors::JsError,
     types::UdfType,
@@ -16,11 +13,7 @@ use deno_core::{
 };
 use errors::ErrorMetadata;
 use futures::future::Either;
-use rand::Rng;
-use serde_json::{
-    value::Number as JsonNumber,
-    Value as JsonValue,
-};
+use serde_json::Value as JsonValue;
 use value::{
     ConvexObject,
     ConvexValue,
@@ -559,60 +552,6 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         Ok(promise)
     }
 
-    pub fn op(
-        &mut self,
-        args: v8::FunctionCallbackArguments,
-        rv: v8::ReturnValue,
-    ) -> anyhow::Result<()> {
-        if args.length() < 1 {
-            // This must be a bug in our `udf-runtime` code, not a developer error.
-            anyhow::bail!("op(op_name, ...) takes at least one argument");
-        }
-        let op_name: v8::Local<v8::String> = args.get(0).try_into()?;
-        let op_name = to_rust_string(self.scope, &op_name)?;
-
-        match &op_name[..] {
-            "console/message" => self.op_console_message(args, rv)?,
-            "random" => self.op_random(args, rv)?,
-            "now" => self.op_now(args, rv)?,
-            _ => {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "UnknownOperation",
-                    format!("Unknown operation {op_name}")
-                ));
-            },
-        }
-
-        Ok(())
-    }
-
-    #[convex_macro::v8_op2]
-    fn op_console_message(&mut self, level: String, messages: Vec<String>) -> anyhow::Result<()> {
-        let state = self.context_state_mut()?;
-        state.environment.trace(level.parse()?, messages)?;
-        Ok(())
-    }
-
-    #[convex_macro::v8_op2]
-    fn op_random(&mut self) -> anyhow::Result<JsonNumber> {
-        let state = self.context_state_mut()?;
-        let n = JsonNumber::from_f64(state.environment.rng()?.gen())
-            .expect("f64's distribution returned a NaN or infinity?");
-        Ok(n)
-    }
-
-    #[convex_macro::v8_op2]
-    fn op_now(&mut self) -> anyhow::Result<JsonNumber> {
-        let state = self.context_state_mut()?;
-        // NB: Date.now returns the current Unix timestamp in *milliseconds*. We round
-        // to the nearest millisecond to match browsers. Browsers generally don't
-        // provide sub-millisecond precision to protect against timing attacks:
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now#reduced_time_precision
-        let ms_since_epoch: u64 = state.environment.unix_timestamp()?.as_ms_since_epoch()?;
-        let n = JsonNumber::from(ms_since_epoch);
-        Ok(n)
-    }
-
     pub fn push_unhandled_promise_rejection(
         &mut self,
         message: v8::PromiseRejectMessage,
@@ -663,5 +602,110 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         let message = message.get(self.scope);
         let message = to_rust_string(self.scope, &message)?;
         Ok(JsError::from_message(message))
+    }
+}
+
+mod op_provider {
+    use std::collections::BTreeMap;
+
+    use bytes::Bytes;
+    use common::{
+        log_lines::LogLevel,
+        runtime::UnixTimestamp,
+        types::{
+            EnvVarName,
+            EnvVarValue,
+        },
+    };
+    use deno_core::{
+        v8,
+        JsBuffer,
+        ModuleSpecifier,
+    };
+    use rand_chacha::ChaCha12Rng;
+    use sourcemap::SourceMap;
+    use uuid::Uuid;
+    use value::{
+        heap_size::WithHeapSize,
+        TableMapping,
+        TableMappingValue,
+        VirtualTableMapping,
+    };
+
+    use super::EnteredContext;
+    use crate::ops::OpProvider;
+
+    impl<'enter, 'scope: 'enter> OpProvider<'scope> for EnteredContext<'enter, 'scope> {
+        fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
+            let state = self.context_state_mut()?;
+            state.environment.rng()
+        }
+
+        fn scope(&mut self) -> &mut v8::HandleScope<'scope> {
+            self.scope
+        }
+
+        fn lookup_source_map(
+            &mut self,
+            _specifier: &ModuleSpecifier,
+        ) -> anyhow::Result<Option<SourceMap>> {
+            todo!()
+        }
+
+        fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
+            self.context_state_mut()?.environment.trace(level, messages)
+        }
+
+        fn console_timers(
+            &mut self,
+        ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>> {
+            todo!()
+        }
+
+        fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
+            self.context_state_mut()?.environment.unix_timestamp()
+        }
+
+        fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp> {
+            todo!()
+        }
+
+        fn create_blob_part(&mut self, _bytes: Bytes) -> anyhow::Result<Uuid> {
+            todo!()
+        }
+
+        fn get_blob_part(&mut self, _uuid: &Uuid) -> anyhow::Result<Option<Bytes>> {
+            todo!()
+        }
+
+        fn create_stream(&mut self) -> anyhow::Result<Uuid> {
+            todo!()
+        }
+
+        fn extend_stream(
+            &mut self,
+            _id: Uuid,
+            _bytes: Option<JsBuffer>,
+            _new_done: bool,
+        ) -> anyhow::Result<()> {
+            todo!()
+        }
+
+        fn get_environment_variable(
+            &mut self,
+            _name: EnvVarName,
+        ) -> anyhow::Result<Option<EnvVarValue>> {
+            todo!()
+        }
+
+        fn get_all_table_mappings(
+            &mut self,
+        ) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+            todo!()
+        }
+
+        fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
+            todo!()
+        }
     }
 }

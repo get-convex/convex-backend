@@ -123,8 +123,6 @@ pub struct AnalyzeEnvironment {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
-    type Rng = ChaCha12Rng;
-
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access at import time: {}",
@@ -146,7 +144,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         Ok(())
     }
 
-    fn rng(&mut self) -> anyhow::Result<&mut Self::Rng> {
+    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         Ok(&mut self.rng)
     }
 

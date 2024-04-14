@@ -1024,8 +1024,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
-    type Rng = ChaCha12Rng;
-
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // - 1 to reserve for the [ERROR] log line
 
@@ -1072,7 +1070,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         Ok(())
     }
 
-    fn rng(&mut self) -> anyhow::Result<&mut Self::Rng> {
+    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         self.phase.rng()
     }
 

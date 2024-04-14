@@ -1,4 +1,3 @@
-#![allow(non_snake_case)]
 //! This module contains the implementation of both synchronous and
 //! async ops. Unlike syscalls, these functions are present in *every*
 //! environment, but the environment may decide not to implement their
@@ -18,4 +17,303 @@ mod text;
 mod time;
 mod validate_args;
 
-pub use self::crypto::CryptoOps;
+use std::{
+    collections::BTreeMap,
+    ops::DerefMut,
+};
+
+use ::errors::ErrorMetadata;
+use bytes::Bytes;
+use common::{
+    log_lines::LogLevel,
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
+    types::{
+        EnvVarName,
+        EnvVarValue,
+    },
+};
+use deno_core::{
+    v8,
+    JsBuffer,
+    ModuleSpecifier,
+};
+use rand_chacha::ChaCha12Rng;
+use sourcemap::SourceMap;
+use uuid::Uuid;
+use value::{
+    heap_size::WithHeapSize,
+    TableMapping,
+    TableMappingValue,
+    VirtualTableMapping,
+};
+
+use self::{
+    blob::{
+        op_blob_create_part,
+        op_blob_read_part,
+        op_blob_slice_part,
+    },
+    console::{
+        op_console_message,
+        op_console_time_end,
+        op_console_time_log,
+        op_console_time_start,
+        op_console_trace,
+    },
+    crypto::{
+        op_crypto_base64_url_decode,
+        op_crypto_base64_url_encode,
+        op_crypto_derive_bits,
+        op_crypto_digest,
+        op_crypto_export_key,
+        op_crypto_export_pkcs8_ed25519,
+        op_crypto_export_pkcs8_x25519,
+        op_crypto_export_spki_ed25519,
+        op_crypto_export_spki_x25519,
+        op_crypto_get_random_values,
+        op_crypto_import_key,
+        op_crypto_import_pkcs8_ed25519,
+        op_crypto_import_pkcs8_x25519,
+        op_crypto_import_spki_ed25519,
+        op_crypto_import_spki_x25519,
+        op_crypto_jwk_x_ed25519,
+        op_crypto_random_uuid,
+        op_crypto_sign,
+        op_crypto_sign_ed25519,
+        op_crypto_verify,
+        op_crypto_verify_ed25519,
+    },
+    database::op_get_table_mapping_without_system_tables,
+    environment_variables::op_environment_variables_get,
+    errors::{
+        op_error_stack,
+        op_throw_uncatchable_developer_error,
+    },
+    http::{
+        op_headers_get_mime_type,
+        op_headers_normalize_name,
+        op_url_get_url_info,
+        op_url_get_url_search_param_pairs,
+        op_url_stringify_url_search_params,
+        op_url_update_url_info,
+    },
+    stream::{
+        op_stream_create,
+        op_stream_extend,
+    },
+    text::{
+        op_atob,
+        op_btoa,
+        op_text_encoder_decode,
+        op_text_encoder_encode,
+        op_text_encoder_encode_into,
+        op_text_encoder_normalize_label,
+    },
+    time::op_now,
+    validate_args::op_validate_args,
+};
+pub use self::{
+    crypto::CryptoOps,
+    random::op_random,
+};
+use crate::{
+    environment::IsolateEnvironment,
+    execution_scope::ExecutionScope,
+    helpers::to_rust_string,
+    metrics,
+};
+
+pub trait OpProvider<'b> {
+    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
+    fn scope(&mut self) -> &mut v8::HandleScope<'b>;
+    fn lookup_source_map(
+        &mut self,
+        specifier: &ModuleSpecifier,
+    ) -> anyhow::Result<Option<SourceMap>>;
+    fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()>;
+    fn console_timers(
+        &mut self,
+    ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>>;
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
+    fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp>;
+    fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid>;
+    fn get_blob_part(&mut self, uuid: &Uuid) -> anyhow::Result<Option<Bytes>>;
+    fn create_stream(&mut self) -> anyhow::Result<Uuid>;
+    fn extend_stream(
+        &mut self,
+        id: Uuid,
+        bytes: Option<JsBuffer>,
+        new_done: bool,
+    ) -> anyhow::Result<()>;
+    fn get_environment_variable(&mut self, name: EnvVarName)
+        -> anyhow::Result<Option<EnvVarValue>>;
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)>;
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
+}
+
+impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
+    for ExecutionScope<'a, 'b, RT, E>
+{
+    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
+        let state = self.state_mut()?;
+        state.environment.rng()
+    }
+
+    fn lookup_source_map(
+        &mut self,
+        specifier: &ModuleSpecifier,
+    ) -> anyhow::Result<Option<SourceMap>> {
+        ExecutionScope::lookup_source_map(self, specifier)
+    }
+
+    fn scope(&mut self) -> &mut v8::HandleScope<'b> {
+        self.deref_mut()
+    }
+
+    fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
+        let state = self.state_mut()?;
+        state.environment.trace(level, messages)?;
+        Ok(())
+    }
+
+    fn console_timers(
+        &mut self,
+    ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>> {
+        let state = self.state_mut()?;
+        Ok(&mut state.console_timers)
+    }
+
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
+        let state = self.state_mut()?;
+        state.environment.unix_timestamp()
+    }
+
+    fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp> {
+        let state = self.state_mut()?;
+        Ok(state.unix_timestamp_non_deterministic())
+    }
+
+    fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid> {
+        let state = self.state_mut()?;
+        state.create_blob_part(bytes)
+    }
+
+    fn get_blob_part(&mut self, uuid: &Uuid) -> anyhow::Result<Option<Bytes>> {
+        let state = self.state_mut()?;
+        Ok(state.blob_parts.get(uuid).cloned())
+    }
+
+    fn create_stream(&mut self) -> anyhow::Result<Uuid> {
+        self.state_mut()?.create_stream()
+    }
+
+    fn extend_stream(
+        &mut self,
+        id: Uuid,
+        bytes: Option<JsBuffer>,
+        new_done: bool,
+    ) -> anyhow::Result<()> {
+        ExecutionScope::extend_stream(self, id, bytes.map(|b| b.into()), new_done)
+    }
+
+    fn get_environment_variable(
+        &mut self,
+        name: EnvVarName,
+    ) -> anyhow::Result<Option<EnvVarValue>> {
+        let state = self.state_mut()?;
+        state.environment.get_environment_variable(name)
+    }
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+        let state = self.state_mut()?;
+        state.environment.get_all_table_mappings()
+    }
+
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
+        let state = self.state_mut()?;
+        state.environment.get_table_mapping_without_system_tables()
+    }
+}
+
+pub fn run_op<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    args: v8::FunctionCallbackArguments,
+    rv: v8::ReturnValue,
+) -> anyhow::Result<()> {
+    if args.length() < 1 {
+        // This must be a bug in our `udf-runtime` code, not a developer error.
+        anyhow::bail!("op(op_name, ...) takes at least one argument");
+    }
+    let op_name: v8::Local<v8::String> = args.get(0).try_into()?;
+    let op_name = to_rust_string(provider.scope(), &op_name)?;
+
+    let timer = metrics::op_timer(&op_name);
+    match &op_name[..] {
+        "throwUncatchableDeveloperError" => {
+            op_throw_uncatchable_developer_error(provider, args, rv)?
+        },
+        "console/message" => op_console_message(provider, args, rv)?,
+        "console/trace" => op_console_trace(provider, args, rv)?,
+        "console/timeStart" => op_console_time_start(provider, args, rv)?,
+        "console/timeLog" => op_console_time_log(provider, args, rv)?,
+        "console/timeEnd" => op_console_time_end(provider, args, rv)?,
+        "error/stack" => op_error_stack(provider, args, rv)?,
+        "random" => op_random(provider, args, rv)?,
+        "now" => op_now(provider, args, rv)?,
+        "url/getUrlInfo" => op_url_get_url_info(provider, args, rv)?,
+        "url/getUrlSearchParamPairs" => op_url_get_url_search_param_pairs(provider, args, rv)?,
+        "url/stringifyUrlSearchParams" => op_url_stringify_url_search_params(provider, args, rv)?,
+        "url/updateUrlInfo" => op_url_update_url_info(provider, args, rv)?,
+        "blob/createPart" => op_blob_create_part(provider, args, rv)?,
+        "blob/slicePart" => op_blob_slice_part(provider, args, rv)?,
+        "blob/readPart" => op_blob_read_part(provider, args, rv)?,
+        "headers/getMimeType" => op_headers_get_mime_type(provider, args, rv)?,
+        "headers/normalizeName" => op_headers_normalize_name(provider, args, rv)?,
+        "stream/create" => op_stream_create(provider, args, rv)?,
+        "stream/extend" => op_stream_extend(provider, args, rv)?,
+        "textEncoder/encode" => op_text_encoder_encode(provider, args, rv)?,
+        "textEncoder/encodeInto" => op_text_encoder_encode_into(provider, args, rv)?,
+        "textEncoder/decode" => op_text_encoder_decode(provider, args, rv)?,
+        "textEncoder/normalizeLabel" => op_text_encoder_normalize_label(provider, args, rv)?,
+        "atob" => op_atob(provider, args, rv)?,
+        "btoa" => op_btoa(provider, args, rv)?,
+        "environmentVariables/get" => op_environment_variables_get(provider, args, rv)?,
+        "getTableMappingWithoutSystemTables" => {
+            op_get_table_mapping_without_system_tables(provider, args, rv)?
+        },
+        "validateArgs" => op_validate_args(provider, args, rv)?,
+
+        "crypto/randomUUID" => op_crypto_random_uuid(provider, args, rv)?,
+        "crypto/getRandomValues" => op_crypto_get_random_values(provider, args, rv)?,
+        "crypto/sign" => op_crypto_sign(provider, args, rv)?,
+        "crypto/signEd25519" => op_crypto_sign_ed25519(provider, args, rv)?,
+        "crypto/verify" => op_crypto_verify(provider, args, rv)?,
+        "crypto/verifyEd25519" => op_crypto_verify_ed25519(provider, args, rv)?,
+        "crypto/deriveBits" => op_crypto_derive_bits(provider, args, rv)?,
+        "crypto/digest" => op_crypto_digest(provider, args, rv)?,
+        "crypto/importKey" => op_crypto_import_key(provider, args, rv)?,
+        "crypto/importSpkiEd25519" => op_crypto_import_spki_ed25519(provider, args, rv)?,
+        "crypto/importPkcs8Ed25519" => op_crypto_import_pkcs8_ed25519(provider, args, rv)?,
+        "crypto/importSpkiX25519" => op_crypto_import_spki_x25519(provider, args, rv)?,
+        "crypto/importPkcs8X25519" => op_crypto_import_pkcs8_x25519(provider, args, rv)?,
+        "crypto/base64UrlEncode" => op_crypto_base64_url_encode(provider, args, rv)?,
+        "crypto/base64UrlDecode" => op_crypto_base64_url_decode(provider, args, rv)?,
+        "crypto/exportKey" => op_crypto_export_key(provider, args, rv)?,
+        "crypto/exportSpkiEd25519" => op_crypto_export_spki_ed25519(provider, args, rv)?,
+        "crypto/exportPkcs8Ed25519" => op_crypto_export_pkcs8_ed25519(provider, args, rv)?,
+        "crypto/JwkXEd25519" => op_crypto_jwk_x_ed25519(provider, args, rv)?,
+        "crypto/exportSpkiX25519" => op_crypto_export_spki_x25519(provider, args, rv)?,
+        "crypto/exportPkcs8X25519" => op_crypto_export_pkcs8_x25519(provider, args, rv)?,
+        _ => {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "UnknownOperation",
+                format!("Unknown operation {op_name}")
+            ));
+        },
+    }
+    timer.finish();
+    Ok(())
+}

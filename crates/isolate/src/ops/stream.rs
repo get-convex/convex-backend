@@ -13,6 +13,7 @@ use deno_core::{
 use serde::Serialize;
 use uuid::Uuid;
 
+use super::OpProvider;
 use crate::{
     environment::{
         helpers::resolve_promise,
@@ -25,22 +26,23 @@ use crate::{
     },
 };
 
+#[convex_macro::v8_op]
+pub fn op_stream_create<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<Uuid> {
+    provider.create_stream()
+}
+
+#[convex_macro::v8_op]
+pub fn op_stream_extend<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    id: Uuid,
+    bytes: Option<JsBuffer>,
+    new_done: bool,
+) -> anyhow::Result<()> {
+    provider.extend_stream(id, bytes, new_done)
+}
+
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
-    #[convex_macro::v8_op]
-    pub fn op_stream_create(&mut self) -> anyhow::Result<uuid::Uuid> {
-        self.state_mut()?.create_stream()
-    }
-
-    #[convex_macro::v8_op]
-    pub fn op_stream_extend(
-        &mut self,
-        id: uuid::Uuid,
-        bytes: Option<JsBuffer>,
-        new_done: bool,
-    ) -> anyhow::Result<()> {
-        self.extend_stream(id, bytes.map(|b| b.into()), new_done)
-    }
-
+    #[allow(non_snake_case)]
     pub fn async_op_stream_readPart(
         &mut self,
         args: v8::FunctionCallbackArguments,

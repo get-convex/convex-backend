@@ -25,6 +25,7 @@ use url::{
     Url,
 };
 
+use super::OpProvider;
 use crate::{
     environment::{
         helpers::with_argument_error,
@@ -35,6 +36,164 @@ use crate::{
     http::HttpRequestV8,
     request_scope::StreamListener,
 };
+
+#[convex_macro::v8_op]
+pub fn op_url_get_url_info<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    url: String,
+    base: Option<String>,
+) -> anyhow::Result<JsonValue> {
+    let base_url = match base {
+        Some(b) => match Url::parse(&b) {
+            Ok(url) => Some(url),
+            Err(_) => return Ok(json!({"kind": "error", "errorType": "InvalidURL"})),
+        },
+        None => None,
+    };
+
+    let parsed_url = match Url::options().base_url(base_url.as_ref()).parse(&url) {
+        Ok(u) => u,
+        // The URL spec (https://url.spec.whatwg.org/) dictates that JS
+        // throw a TypeError when the URL is invalid, so we return `null`
+        // and throw the error on the JS side instead of having this error
+        // turn into a JsError
+        Err(_) => return Ok(json!({"kind": "error", "errorType": "InvalidURL"})),
+    };
+    match UrlInfo::try_from(parsed_url) {
+        Ok(url_info) => Ok(json!({"kind": "success", "urlInfo": serde_json::to_value(url_info)?})),
+        // This is a valid URL, but not one we support
+        Err(e) => {
+            Ok(json!({"kind": "error", "errorType": "UnsupportedURL", "message": e.to_string()}))
+        },
+    }
+}
+
+#[convex_macro::v8_op]
+pub fn op_url_get_url_search_param_pairs<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    query_string: String,
+) -> anyhow::Result<Vec<(String, String)>> {
+    let parsed_url = form_urlencoded::parse(query_string.as_bytes());
+
+    let query_pairs: Vec<(String, String)> = parsed_url
+        .into_iter()
+        .map(|(key, value)| (key.into(), value.into()))
+        .collect();
+
+    Ok(query_pairs)
+}
+
+#[convex_macro::v8_op]
+pub fn op_url_stringify_url_search_params<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    query_pairs: Vec<(String, String)>,
+) -> anyhow::Result<String> {
+    let search = form_urlencoded::Serializer::new(String::new())
+        .extend_pairs(query_pairs)
+        .finish();
+    Ok(search)
+}
+
+#[convex_macro::v8_op]
+pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    original_url: String,
+    update: JsonValue,
+) -> anyhow::Result<JsonValue> {
+    #[derive(Deserialize, Debug, Clone)]
+    #[serde(rename_all = "camelCase")]
+    #[serde(tag = "type")]
+    enum Update {
+        Hash { value: Option<String> },
+        Hostname { value: Option<String> },
+        Href { value: String },
+        Protocol { value: String },
+        Port { value: Option<String> },
+        Pathname { value: String },
+        Search { value: Option<String> },
+        SearchParams { value: Vec<(String, String)> },
+    }
+
+    let update: Update = serde_json::from_value(update)?;
+    let mut parsed_url = Url::parse(&original_url)?;
+
+    match update {
+        Update::Hash { value } => parsed_url.set_fragment(value.as_deref()),
+        Update::SearchParams { value } => {
+            if value.is_empty() {
+                parsed_url.set_query(None)
+            } else {
+                parsed_url
+                    .query_pairs_mut()
+                    .clear()
+                    .extend_pairs(value)
+                    .finish();
+            }
+        },
+        Update::Hostname { value } => parsed_url.set_host(value.as_deref())?,
+        Update::Href { value } => {
+            parsed_url = Url::parse(&value).context(ErrorMetadata::bad_request(
+                "BadUrl",
+                format!("Could not parse URL: {original_url}"),
+            ))?;
+        },
+        Update::Protocol { value } => {
+            if value != "http" && value != "https" {
+                parsed_url
+                    .set_scheme(&value)
+                    .map_err(|_e| anyhow::anyhow!("Failed to set scheme"))?
+            }
+        },
+        Update::Port { value } => match value {
+            Some(port_str) => match port_str.parse::<u16>() {
+                Ok(port_number) => parsed_url
+                    .set_port(Some(port_number))
+                    .map_err(|_e| anyhow::anyhow!("Failed to set port"))?,
+                Err(_) => (),
+            },
+            None => parsed_url
+                .set_port(None)
+                .map_err(|_e| anyhow::anyhow!("Failed to set port"))?,
+        },
+        Update::Pathname { value } => parsed_url.set_path(&value),
+        Update::Search { value } => parsed_url.set_query(value.as_deref()),
+    }
+
+    let url_info: UrlInfo = parsed_url.try_into()?;
+    Ok(serde_json::to_value(url_info)?)
+}
+
+#[convex_macro::v8_op]
+pub fn op_headers_get_mime_type<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    content_type: String,
+) -> anyhow::Result<Option<MimeType>> {
+    let mime_type = match mime::Mime::from_str(&content_type) {
+        Ok(mime_type) => mime_type,
+        Err(_) => {
+            // Invalid mime type, so turn it into null on the JS side.
+            return Ok(None);
+        },
+    };
+    Ok(Some(MimeType {
+        essence: mime_type.essence_str().to_string(),
+        boundary: mime_type.get_param(mime::BOUNDARY).map(|b| b.to_string()),
+    }))
+}
+
+#[convex_macro::v8_op]
+pub fn op_headers_normalize_name<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    name: String,
+) -> anyhow::Result<Option<String>> {
+    let result = match HeaderName::from_bytes(name.as_bytes()) {
+        Ok(normalized_name) => Some(normalized_name.as_str().into()),
+        // This is an invalid header name, so turn it into a TypeError on the
+        // JS side
+        Err(_) => None,
+    };
+    Ok(result)
+}
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     pub fn async_op_fetch(
@@ -56,6 +215,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         )
     }
 
+    #[allow(non_snake_case)]
     pub fn async_op_parseMultiPart(
         &mut self,
         args: v8::FunctionCallbackArguments,
@@ -77,160 +237,6 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             },
             resolver,
         )
-    }
-
-    #[convex_macro::v8_op]
-    pub fn op_url_getUrlInfo(
-        &mut self,
-        url: String,
-        base: Option<String>,
-    ) -> anyhow::Result<JsonValue> {
-        let base_url = match base {
-            Some(b) => match Url::parse(&b) {
-                Ok(url) => Some(url),
-                Err(_) => return Ok(json!({"kind": "error", "errorType": "InvalidURL"})),
-            },
-            None => None,
-        };
-
-        let parsed_url = match Url::options().base_url(base_url.as_ref()).parse(&url) {
-            Ok(u) => u,
-            // The URL spec (https://url.spec.whatwg.org/) dictates that JS
-            // throw a TypeError when the URL is invalid, so we return `null`
-            // and throw the error on the JS side instead of having this error
-            // turn into a JsError
-            Err(_) => return Ok(json!({"kind": "error", "errorType": "InvalidURL"})),
-        };
-        match UrlInfo::try_from(parsed_url) {
-            Ok(url_info) => {
-                Ok(json!({"kind": "success", "urlInfo": serde_json::to_value(url_info)?}))
-            },
-            // This is a valid URL, but not one we support
-            Err(e) => Ok(
-                json!({"kind": "error", "errorType": "UnsupportedURL", "message": e.to_string()}),
-            ),
-        }
-    }
-
-    #[convex_macro::v8_op]
-    pub fn op_url_getUrlSearchParamPairs(
-        &mut self,
-        query_string: String,
-    ) -> anyhow::Result<Vec<(String, String)>> {
-        let parsed_url = form_urlencoded::parse(query_string.as_bytes());
-
-        let query_pairs: Vec<(String, String)> = parsed_url
-            .into_iter()
-            .map(|(key, value)| (key.into(), value.into()))
-            .collect();
-
-        Ok(query_pairs)
-    }
-
-    #[convex_macro::v8_op]
-    pub fn op_url_stringifyUrlSearchParams(
-        &mut self,
-        query_pairs: Vec<(String, String)>,
-    ) -> anyhow::Result<String> {
-        let search = form_urlencoded::Serializer::new(String::new())
-            .extend_pairs(query_pairs)
-            .finish();
-        Ok(search)
-    }
-
-    #[convex_macro::v8_op]
-    pub fn op_url_updateUrlInfo(
-        &mut self,
-        original_url: String,
-        update: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
-        #[derive(Deserialize, Debug, Clone)]
-        #[serde(rename_all = "camelCase")]
-        #[serde(tag = "type")]
-        enum Update {
-            Hash { value: Option<String> },
-            Hostname { value: Option<String> },
-            Href { value: String },
-            Protocol { value: String },
-            Port { value: Option<String> },
-            Pathname { value: String },
-            Search { value: Option<String> },
-            SearchParams { value: Vec<(String, String)> },
-        }
-
-        let update: Update = serde_json::from_value(update)?;
-        let mut parsed_url = Url::parse(&original_url)?;
-
-        match update {
-            Update::Hash { value } => parsed_url.set_fragment(value.as_deref()),
-            Update::SearchParams { value } => {
-                if value.is_empty() {
-                    parsed_url.set_query(None)
-                } else {
-                    parsed_url
-                        .query_pairs_mut()
-                        .clear()
-                        .extend_pairs(value)
-                        .finish();
-                }
-            },
-            Update::Hostname { value } => parsed_url.set_host(value.as_deref())?,
-            Update::Href { value } => {
-                parsed_url = Url::parse(&value).context(ErrorMetadata::bad_request(
-                    "BadUrl",
-                    format!("Could not parse URL: {original_url}"),
-                ))?;
-            },
-            Update::Protocol { value } => {
-                if value != "http" && value != "https" {
-                    parsed_url
-                        .set_scheme(&value)
-                        .map_err(|_e| anyhow::anyhow!("Failed to set scheme"))?
-                }
-            },
-            Update::Port { value } => match value {
-                Some(port_str) => match port_str.parse::<u16>() {
-                    Ok(port_number) => parsed_url
-                        .set_port(Some(port_number))
-                        .map_err(|_e| anyhow::anyhow!("Failed to set port"))?,
-                    Err(_) => (),
-                },
-                None => parsed_url
-                    .set_port(None)
-                    .map_err(|_e| anyhow::anyhow!("Failed to set port"))?,
-            },
-            Update::Pathname { value } => parsed_url.set_path(&value),
-            Update::Search { value } => parsed_url.set_query(value.as_deref()),
-        }
-
-        let url_info: UrlInfo = parsed_url.try_into()?;
-        Ok(serde_json::to_value(url_info)?)
-    }
-
-    #[convex_macro::v8_op]
-    pub fn op_headers_getMimeType(
-        &mut self,
-        content_type: String,
-    ) -> anyhow::Result<Option<MimeType>> {
-        let Ok(mime_type) = mime::Mime::from_str(&content_type) else {
-            // Invalid mime type, so turn it into null on the JS side.
-            return Ok(None);
-        };
-        Ok(Some(MimeType {
-            essence: mime_type.essence_str().to_string(),
-            boundary: mime_type.get_param(mime::BOUNDARY).map(|b| b.to_string()),
-        }))
-    }
-
-    #[convex_macro::v8_op]
-    pub fn op_headers_normalizeName(&mut self, name: String) -> anyhow::Result<Option<String>> {
-        let result = match HeaderName::from_bytes(name.as_bytes()) {
-            Ok(normalized_name) => Some(normalized_name.as_str().into()),
-            // This is an invalid header name, so turn it into a TypeError on the
-            // JS side
-            Err(_) => None,
-        };
-        Ok(result)
     }
 }
 

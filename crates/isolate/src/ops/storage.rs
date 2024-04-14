@@ -17,6 +17,7 @@ use crate::{
 };
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
+    #[allow(non_snake_case)]
     pub fn async_op_storageStore(
         &mut self,
         args: v8::FunctionCallbackArguments,
@@ -47,6 +48,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         )
     }
 
+    #[allow(non_snake_case)]
     pub fn async_op_storageGet(
         &mut self,
         args: v8::FunctionCallbackArguments,

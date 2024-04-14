@@ -29,7 +29,7 @@ use model::modules::module_versions::{
     ModuleSource,
     SourceMap,
 };
-use rand::Rng;
+use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use value::{
     TableMapping,
@@ -62,8 +62,6 @@ use crate::{
 /// Both ops and syscalls can return errors tagged with `DeveloperError` to
 /// signal a user-visible error that will be turned into a JavaScript exception.
 pub trait IsolateEnvironment<RT: Runtime>: 'static {
-    type Rng: Rng;
-
     #[allow(async_fn_in_trait)]
     async fn lookup_source(
         &mut self,
@@ -87,7 +85,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
         messages: Vec<String>,
         system_log_metadata: SystemLogMetadata,
     ) -> anyhow::Result<()>;
-    fn rng(&mut self) -> anyhow::Result<&mut Self::Rng>;
+    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp>;
 
     fn get_environment_variable(&mut self, name: EnvVarName)

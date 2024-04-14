@@ -203,8 +203,6 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
-    type Rng = ChaCha12Rng;
-
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         // - 1 to reserve for the [ERROR] log line
         match self.log_lines.len().cmp(&(MAX_LOG_LINES - 1)) {
@@ -249,7 +247,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         Ok(())
     }
 
-    fn rng(&mut self) -> anyhow::Result<&mut Self::Rng> {
+    fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         self.phase.rng()
     }
 

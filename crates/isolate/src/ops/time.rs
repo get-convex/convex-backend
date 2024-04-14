@@ -9,6 +9,7 @@ use deno_core::{
 };
 use serde_json::value::Number as JsonNumber;
 
+use super::OpProvider;
 use crate::{
     environment::{
         AsyncOpRequest,
@@ -17,19 +18,18 @@ use crate::{
     execution_scope::ExecutionScope,
 };
 
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
-    #[convex_macro::v8_op]
-    pub fn op_now(&mut self) -> anyhow::Result<JsonNumber> {
-        let state = self.state_mut()?;
-        // NB: Date.now returns the current Unix timestamp in *milliseconds*. We round
-        // to the nearest millisecond to match browsers. Browsers generally don't
-        // provide sub-millisecond precision to protect against timing attacks:
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now#reduced_time_precision
-        let ms_since_epoch: u64 = state.environment.unix_timestamp()?.as_ms_since_epoch()?;
-        let n = JsonNumber::from(ms_since_epoch);
-        Ok(n)
-    }
+#[convex_macro::v8_op]
+pub fn op_now<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNumber> {
+    // NB: Date.now returns the current Unix timestamp in *milliseconds*. We round
+    // to the nearest millisecond to match browsers. Browsers generally don't
+    // provide sub-millisecond precision to protect against timing attacks:
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now#reduced_time_precision
+    let ms_since_epoch: u64 = provider.unix_timestamp()?.as_ms_since_epoch()?;
+    let n = JsonNumber::from(ms_since_epoch);
+    Ok(n)
+}
 
+impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
     pub fn async_op_sleep(
         &mut self,
         args: v8::FunctionCallbackArguments,

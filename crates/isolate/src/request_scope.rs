@@ -47,7 +47,10 @@ use crate::{
         log_promise_handler_added_after_reject,
     },
     module_map::ModuleMap,
-    ops::CryptoOps,
+    ops::{
+        run_op,
+        CryptoOps,
+    },
     strings,
     termination::{
         IsolateHandle,
@@ -241,7 +244,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
         rv: v8::ReturnValue,
     ) {
         let mut scope = ExecutionScope::<RT, E>::new(scope);
-        if let Err(e) = scope.op(args, rv) {
+        if let Err(e) = run_op(&mut scope, args, rv) {
             Self::handle_syscall_or_op_error(&mut scope, e)
         }
     }
