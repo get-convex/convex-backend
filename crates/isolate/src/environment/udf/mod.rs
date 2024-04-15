@@ -529,7 +529,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             return Ok(Err(JsError::from_message(message)));
         };
 
-        let module = match scope.eval_user_module(&module_specifier).await? {
+        let module = match scope
+            .eval_user_module(udf_type, false, &module_specifier)
+            .await?
+        {
             Ok(id) => id,
             Err(e) => return Ok(Err(e)),
         };

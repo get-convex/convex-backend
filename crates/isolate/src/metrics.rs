@@ -18,6 +18,7 @@ use metrics::{
     register_convex_gauge,
     register_convex_histogram,
     CancelableTimer,
+    IntoLabel,
     MetricLabel,
     StatusTimer,
     Timer,
@@ -152,6 +153,74 @@ register_convex_histogram!(
 );
 pub fn context_build_timer() -> StatusTimer {
     StatusTimer::new(&UDF_ISOLATE_BUILD_SECONDS)
+}
+
+register_convex_histogram!(
+    UDF_ISOLATE_LOAD_SETUP_MODULE_SECONDS,
+    "Time it takes to load our initialization code for our JS environment",
+    &["status"]
+);
+pub fn load_setup_module_timer() -> StatusTimer {
+    StatusTimer::new(&UDF_ISOLATE_LOAD_SETUP_MODULE_SECONDS)
+}
+
+register_convex_histogram!(
+    UDF_ISOLATE_RUN_SETUP_MODULE_SECONDS,
+    "Time it takes to run our initialization code for our JS environment",
+    &["status"]
+);
+pub fn run_setup_module_timer() -> StatusTimer {
+    StatusTimer::new(&UDF_ISOLATE_RUN_SETUP_MODULE_SECONDS)
+}
+
+register_convex_histogram!(
+    UDF_ISOLATE_LOAD_USER_MODULES_SECONDS,
+    "Time to load all user modules for a request",
+    &["udf_type", "is_dynamic", "status"],
+);
+pub fn eval_user_module_timer(udf_type: UdfType, is_dynamic: bool) -> StatusTimer {
+    let mut t = StatusTimer::new(&UDF_ISOLATE_LOAD_USER_MODULES_SECONDS);
+    t.add_label(udf_type.metric_label());
+    t.add_label(MetricLabel::new("is_dynamic", is_dynamic.as_label()));
+    t
+}
+
+register_convex_histogram!(
+    UDF_ISOLATE_LOOKUP_SOURCE_SECONDS,
+    "Time to load a single module's source",
+    &["is_system", "status"],
+);
+pub fn lookup_source_timer(is_system: bool) -> StatusTimer {
+    let mut t = StatusTimer::new(&UDF_ISOLATE_LOOKUP_SOURCE_SECONDS);
+    t.add_label(MetricLabel::new("is_system", is_system.as_label()));
+    t
+}
+
+register_convex_histogram!(
+    UDF_ISOLATE_COMPILE_MODULE_SECONDS,
+    "Time to compile a single module's source",
+    &["status"],
+);
+pub fn compile_module_timer() -> StatusTimer {
+    StatusTimer::new(&UDF_ISOLATE_COMPILE_MODULE_SECONDS)
+}
+
+register_convex_histogram!(
+    UDF_ISOLATE_INSTANTIATE_MODULE_SECONDS,
+    "Time to instantiate the top-level module",
+    &["status"],
+);
+pub fn instantiate_module_timer() -> StatusTimer {
+    StatusTimer::new(&UDF_ISOLATE_INSTANTIATE_MODULE_SECONDS)
+}
+
+register_convex_histogram!(
+    UDF_ISOLATE_EVALUATE_MODULE_SECONDS,
+    "Time to evaluate the top-level module",
+    &["status"],
+);
+pub fn evaluate_module_timer() -> StatusTimer {
+    StatusTimer::new(&UDF_ISOLATE_EVALUATE_MODULE_SECONDS)
 }
 
 register_convex_histogram!(

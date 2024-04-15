@@ -41,7 +41,10 @@ use common::{
         SpawnHandle,
         UnixTimestamp,
     },
-    types::HttpActionRoute,
+    types::{
+        HttpActionRoute,
+        UdfType,
+    },
     value::ConvexValue,
 };
 use database::Transaction;
@@ -407,6 +410,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             client_id,
             &mut scope,
             handle,
+            UdfType::HttpAction,
             v8_function,
             &v8_args,
             Self::collect_http_result,
@@ -566,7 +570,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             return Ok(Err(JsError::from_message(message)));
         };
 
-        let module = match scope.eval_user_module(&module_specifier).await? {
+        let module = match scope
+            .eval_user_module(UdfType::Action, false, &module_specifier)
+            .await?
+        {
             Ok(id) => id,
             Err(e) => return Ok(Err(e)),
         };
@@ -610,6 +617,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             client_id,
             &mut scope,
             handle,
+            UdfType::Action,
             v8_function,
             &v8_args,
             |_, result_str| {
@@ -686,7 +694,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             return Ok(Err(JsError::from_message(message)));
         };
 
-        let module = match scope.eval_user_module(&module_specifier).await? {
+        let module = match scope
+            .eval_user_module(UdfType::HttpAction, false, &module_specifier)
+            .await?
+        {
             Ok(id) => id,
             Err(e) => return Ok(Err(e)),
         };
@@ -733,6 +744,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         client_id: Arc<String>,
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
         handle: IsolateHandle,
+        udf_type: UdfType,
         v8_function: v8::Local<'_, v8::Function>,
         v8_args: &[v8::Local<'_, v8::Value>],
         collect_result: impl FnOnce(
@@ -800,7 +812,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             };
             if !dynamic_imports.is_empty() {
                 for (specifier, resolver) in dynamic_imports {
-                    match scope.eval_user_module(&specifier).await? {
+                    match scope.eval_user_module(udf_type, true, &specifier).await? {
                         Ok(module) => {
                             let namespace = module.get_module_namespace();
                             resolve_promise(scope, resolver, Ok(namespace))?;

@@ -44,7 +44,9 @@ use crate::{
     },
     metrics::{
         context_build_timer,
+        load_setup_module_timer,
         log_promise_handler_added_after_reject,
+        run_setup_module_timer,
     },
     module_map::ModuleMap,
     ops::{
@@ -330,9 +332,12 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     }
 
     pub(crate) async fn run_setup_module(&mut self) -> anyhow::Result<()> {
+        let timer = load_setup_module_timer();
         let mut scope = ExecutionScope::<RT, E>::new(self.scope);
         let setup_url = ModuleSpecifier::parse(SETUP_URL).unwrap();
         let module = scope.eval_module(&setup_url).await?;
+        timer.finish();
+
         let namespace = module
             .get_module_namespace()
             .to_object(&mut scope)
@@ -345,9 +350,11 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
             .try_into()?;
 
         let global = scope.get_current_context().global(&mut scope);
+        let timer = run_setup_module_timer();
         scope
             .with_try_catch(|s| function.call(s, global.into(), &[global.into()]))??
             .ok_or_else(|| anyhow!("Successful setup() returned None"))?;
+        timer.finish();
         Ok(())
     }
 

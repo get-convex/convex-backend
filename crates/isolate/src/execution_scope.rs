@@ -16,6 +16,7 @@ use common::{
     errors::JsError,
     runtime::Runtime,
     static_span,
+    types::UdfType,
 };
 use deno_core::{
     serde_v8,
@@ -260,8 +261,11 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
     pub async fn eval_user_module(
         &mut self,
+        udf_type: UdfType,
+        is_dynamic: bool,
         name: &ModuleSpecifier,
     ) -> anyhow::Result<Result<v8::Local<'a, v8::Module>, JsError>> {
+        let timer = metrics::eval_user_module_timer(udf_type, is_dynamic);
         let module = match self.eval_module(name).await {
             Ok(id) => id,
             Err(e) => {
@@ -282,6 +286,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 }
             },
         };
+        timer.finish();
         Ok(Ok(module))
     }
 
@@ -321,6 +326,9 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         let (id, import_specifiers) = {
             let (source, source_map) = self.lookup_source(name).await?;
 
+            // Step 1: Compile the module and discover its imports.
+            let timer = metrics::compile_module_timer();
+
             let name_str = v8::String::new(self, name.as_str())
                 .ok_or_else(|| anyhow!("Failed to create name string"))?;
             let source_str = v8::String::new(self, &source)
@@ -329,8 +337,6 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             let origin = helpers::module_origin(self, name_str);
             let v8_source = v8::script_compiler::Source::new(source_str, Some(&origin));
 
-            // Step 1: Compile the module and discover its imports. This step occurs within
-            // `JsRuntime::mod_new` in Deno.
             let module = self
                 .with_try_catch(|s| v8::script_compiler::compile_module(s, v8_source))??
                 .ok_or_else(|| anyhow!("Unexpected module compilation error"))?;
@@ -348,6 +354,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 let module_specifier = deno_core::resolve_import(&import_specifier, name.as_str())?;
                 import_specifiers.push(module_specifier);
             }
+            timer.finish();
 
             // Step 2: Register the module with the module map.
             let id = {
@@ -359,9 +366,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         };
 
         // Step 3: Recursively load the dependencies. Since we've already registered
-        // ourselves, this won't create an infinite loop on import cycles. This
-        // roughly corresponds to the loop in `JsRuntime::register_during_load`
-        // that drives the `RecursiveModuleLoad` stream.
+        // ourselves, this won't create an infinite loop on import cycles.
         for import_specifier in import_specifiers {
             self.register_module(&import_specifier).await?;
         }
@@ -412,14 +417,18 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             .strip_prefix('/')
             .ok_or_else(|| anyhow!("Path for {:?} did not start with a slash", module_specifier))?;
 
+        let timer = metrics::lookup_source_timer(module_path.starts_with(SYSTEM_PREFIX));
+
         // Overlay our "_system/" files on top of the user's UDFs.
         if let Some(system_path) = module_path.strip_prefix(SYSTEM_PREFIX) {
             let (source, source_map) = system_udf_file(system_path)
                 .ok_or_else(|| SystemModuleNotFoundError::new(system_path))?;
-            return Ok((
+            let result = (
                 source.to_string(),
                 source_map.as_ref().map(|s| s.to_string()),
-            ));
+            );
+            timer.finish();
+            return Ok(result);
         }
 
         let state = self.state_mut()?;
@@ -428,6 +437,9 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             .lookup_source(module_path, &mut state.timeout, &mut state.permit)
             .await?
             .ok_or_else(|| ModuleNotFoundError::new(module_path))?;
+
+        timer.finish();
+
         Ok(result)
     }
 
@@ -446,19 +458,28 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             v8::ModuleStatus::Evaluated => return Ok(()),
             _ => (),
         }
-        // Instantiate the module, loading its dependencies. This part corresponds to
-        // `JsRuntime::mod_instantiate`.
-        let instantiate_result =
-            self.with_try_catch(|s| module.instantiate_module(s, Self::module_resolve_callback))??;
-        if matches!(instantiate_result, Some(false) | None) {
-            anyhow::bail!("Unexpected successful instantiate result: {instantiate_result:?}");
-        }
-        anyhow::ensure!(module.get_status() == v8::ModuleStatus::Instantiated);
+        // Instantiate the module, loading its dependencies.
+        {
+            let timer = metrics::instantiate_module_timer();
+            let result = self.with_try_catch(|s| {
+                module.instantiate_module(s, Self::module_resolve_callback)
+            })??;
+            if matches!(result, Some(false) | None) {
+                anyhow::bail!("Unexpected successful instantiate result: {result:?}");
+            }
+            anyhow::ensure!(module.get_status() == v8::ModuleStatus::Instantiated);
+            timer.finish();
+        };
 
-        let value = self
-            .with_try_catch(|s| module.evaluate(s))??
-            .ok_or_else(|| anyhow!("Missing result from successful module evaluation"))?;
-        // TODO: Check if we have a terminating error here.
+        let value = {
+            let timer = metrics::evaluate_module_timer();
+            let result = self
+                .with_try_catch(|s| module.evaluate(s))??
+                .ok_or_else(|| anyhow!("Missing result from successful module evaluation"))?;
+            // TODO: Check if we have a terminating error here.
+            timer.finish();
+            result
+        };
 
         let status = module.get_status();
         anyhow::ensure!(
