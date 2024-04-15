@@ -55,6 +55,11 @@ impl ConcurrencyLimiter {
                 rt.wait(frequency).await;
                 let current_permits = tracker.lock().reset_start_time();
                 for (client_id, start_time) in current_permits {
+                    if start_time.elapsed() >= frequency {
+                        tracing::warn!(
+                            "{client_id} held concurrency semaphore for more than {frequency:?}"
+                        );
+                    }
                     log_concurrency_permit_used(client_id, start_time.elapsed());
                 }
             }
@@ -85,6 +90,7 @@ struct PermitId(usize);
 // TODO(presley): Remove this when we have isolate_v2.
 #[derive(Debug)]
 struct ActivePermitsTracker {
+    // Generate a separate id for each concurrency limit to simplify deregistering.
     active_permits: BTreeMap<PermitId, (Arc<String>, Instant)>,
     next_permit_id: usize,
 }
