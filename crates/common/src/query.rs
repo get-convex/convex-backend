@@ -1118,6 +1118,17 @@ impl Query {
         }
     }
 
+    pub fn get(table_name: TableName, id: DeveloperDocumentId) -> Self {
+        Self::index_range(IndexRange {
+            index_name: IndexName::by_id(table_name),
+            range: vec![IndexRangeExpression::Eq(
+                ID_FIELD_PATH.clone(),
+                MaybeValue(Some(ConvexValue::from(id))),
+            )],
+            order: Order::Asc,
+        })
+    }
+
     pub fn search(search: Search) -> Self {
         Self {
             source: QuerySource::Search(search),

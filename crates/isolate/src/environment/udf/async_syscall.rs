@@ -10,19 +10,12 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    document::{
-        GenericDocument,
-        ID_FIELD_PATH,
-    },
+    document::GenericDocument,
     execution_context::ExecutionContext,
     knobs::MAX_SYSCALL_BATCH_SIZE,
-    maybe_val,
     query::{
         Cursor,
         CursorPosition,
-        IndexRange,
-        IndexRangeExpression,
-        Order,
         Query,
     },
     query_journal::QueryJournal,
@@ -31,10 +24,7 @@ use common::{
         RuntimeInstant,
         UnixTimestamp,
     },
-    types::{
-        IndexName,
-        PersistenceVersion,
-    },
+    types::PersistenceVersion,
     value::ConvexValue,
 };
 use database::{
@@ -743,14 +733,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         }
                         match tx.resolve_idv6(id, table_filter) {
                             Ok(table_name) => {
-                                let query = Query::index_range(IndexRange {
-                                    index_name: IndexName::by_id(table_name),
-                                    range: vec![IndexRangeExpression::Eq(
-                                        ID_FIELD_PATH.clone(),
-                                        maybe_val!(id.encode()),
-                                    )],
-                                    order: Order::Asc,
-                                });
+                                let query = Query::get(table_name, id);
                                 Some((
                                     None,
                                     DeveloperQuery::new_with_version(
