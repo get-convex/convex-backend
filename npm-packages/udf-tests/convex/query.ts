@@ -53,6 +53,23 @@ export const parallelGet = query(
   },
 );
 
+export const parallelGetAndQuery = query(
+  async (
+    { db },
+    { ids, numbers }: { ids: Id<"test">[]; numbers: number[] },
+  ) => {
+    return await Promise.all([
+      ...ids.map((id) => db.get(id)),
+      ...numbers.map((number) =>
+        db
+          .query("test")
+          .filter((q) => q.eq(q.field("hello"), number))
+          .first(),
+      ),
+    ]);
+  },
+);
+
 export const explicitScan = query(({ db }, { number }: { number: number }) => {
   return db
     .query("test")

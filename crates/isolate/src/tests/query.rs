@@ -96,7 +96,7 @@ async fn test_query_parallel(rt: TestRuntime) -> anyhow::Result<()> {
     }
 
     let numbers = ConvexValue::try_from((1..20).map(|n| assert_val!(n)).collect_vec())?;
-    must_let!(let ConvexValue::Array(r) = t.query("query:parallelQuery", assert_obj!( "numbers" => numbers)).await?);
+    must_let!(let ConvexValue::Array(r) = t.query("query:parallelQuery", assert_obj!( "numbers" => numbers.clone())).await?);
     let returned_ids = r
         .iter()
         .map(|v| {
@@ -106,7 +106,7 @@ async fn test_query_parallel(rt: TestRuntime) -> anyhow::Result<()> {
         .collect_vec();
     assert_eq!(returned_ids, ids);
 
-    must_let!(let ConvexValue::Array(r) = t.query("query:parallelGet", assert_obj!( "ids" => ids)).await?);
+    must_let!(let ConvexValue::Array(r) = t.query("query:parallelGet", assert_obj!( "ids" => ids.clone())).await?);
     let returned_numbers = r
         .iter()
         .map(|v| {
@@ -116,6 +116,17 @@ async fn test_query_parallel(rt: TestRuntime) -> anyhow::Result<()> {
         })
         .collect_vec();
     assert_eq!(returned_numbers, (1..20).collect_vec());
+
+    must_let!(let ConvexValue::Array(r) = t.query("query:parallelGetAndQuery", assert_obj!( "ids" => ids, "numbers" => numbers)).await?);
+    let returned_numbers = r
+        .iter()
+        .map(|v| {
+            must_let!(let ConvexValue::Object(o) = v);
+            must_let!(let ConvexValue::Int64(i) = o.get("hello").unwrap());
+            *i
+        })
+        .collect_vec();
+    assert_eq!(returned_numbers, (1..20).chain(1..20).collect_vec());
     Ok(())
 }
 

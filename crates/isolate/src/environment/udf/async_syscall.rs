@@ -128,22 +128,25 @@ pub fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow
 /// (get/queryStreamNext/queryPage/storageGetUrl) all in a single batch.
 /// We could also run inserts, deletes, patches, and replaces in a batch
 /// together, disjoint from reads, as long as the affected IDs are disjoint.
-/// For now, we only allow batches of `db.get`s.
+/// For now, we only allow batches of `db.get`s and `db.query`s.
 /// TODO(lee) implement other kinds of batches.
 #[derive(Debug)]
 pub enum AsyncSyscallBatch {
-    // TODO(lee) consider db.get to be a special case of queryStreamNext so
-    // they can be batched together.
-    Gets(Vec<JsonValue>),
-    QueryStreamNext(Vec<JsonValue>),
+    Reads(Vec<AsyncRead>),
     Unbatched { name: String, args: JsonValue },
+}
+
+#[derive(Debug)]
+pub enum AsyncRead {
+    Get(JsonValue),
+    QueryStreamNext(JsonValue),
 }
 
 impl AsyncSyscallBatch {
     pub fn new(name: String, args: JsonValue) -> Self {
         match &*name {
-            "1.0/get" => Self::Gets(vec![args]),
-            "1.0/queryStreamNext" => Self::QueryStreamNext(vec![args]),
+            "1.0/get" => Self::Reads(vec![AsyncRead::Get(args)]),
+            "1.0/queryStreamNext" => Self::Reads(vec![AsyncRead::QueryStreamNext(args)]),
             _ => Self::Unbatched { name, args },
         }
     }
@@ -153,18 +156,19 @@ impl AsyncSyscallBatch {
             return false;
         }
         match (self, name) {
-            (Self::Gets(_), "1.0/get") => true,
-            (Self::Gets(_), _) => false,
-            (Self::QueryStreamNext(_), "1.0/queryStreamNext") => true,
-            (Self::QueryStreamNext(_), _) => false,
+            (Self::Reads(_), "1.0/get") => true,
+            (Self::Reads(_), "1.0/queryStreamNext") => true,
+            (Self::Reads(_), _) => false,
             (Self::Unbatched { .. }, _) => false,
         }
     }
 
     pub fn push(&mut self, name: String, args: JsonValue) -> anyhow::Result<()> {
         match (&mut *self, &*name) {
-            (Self::Gets(batch_args), "1.0/get") => batch_args.push(args),
-            (Self::QueryStreamNext(batch_args), "1.0/queryStreamNext") => batch_args.push(args),
+            (Self::Reads(batch_args), "1.0/get") => batch_args.push(AsyncRead::Get(args)),
+            (Self::Reads(batch_args), "1.0/queryStreamNext") => {
+                batch_args.push(AsyncRead::QueryStreamNext(args))
+            },
             _ => anyhow::bail!("cannot push {name} onto {self:?}"),
         }
         Ok(())
@@ -172,16 +176,15 @@ impl AsyncSyscallBatch {
 
     pub fn name(&self) -> &str {
         match self {
-            Self::Gets(_) => "1.0/get",
-            Self::QueryStreamNext(_) => "1.0/queryStreamNext",
+            // 1.0/get is grouped in with 1.0/queryStreamNext.
+            Self::Reads(_) => "1.0/queryStreamNext",
             Self::Unbatched { name, .. } => name,
         }
     }
 
     pub fn len(&self) -> usize {
         match self {
-            Self::Gets(args) => args.len(),
-            Self::QueryStreamNext(args) => args.len(),
+            Self::Reads(args) => args.len(),
             Self::Unbatched { .. } => 1,
         }
     }
@@ -385,12 +388,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         // inner errors are for individual batch items that may be system or developer
         // errors.
         let results = match batch {
-            AsyncSyscallBatch::Gets(get_batch_args) => {
-                Self::get_batch(provider, get_batch_args).await
-            },
-            AsyncSyscallBatch::QueryStreamNext(batch_args) => {
-                Self::query_stream_next_batch(provider, batch_args).await
-            },
+            AsyncSyscallBatch::Reads(batch_args) => Self::query_batch(provider, batch_args).await,
             AsyncSyscallBatch::Unbatched { name, args } => {
                 let result = match &name[..] {
                     // Database
@@ -608,101 +606,6 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    async fn get_batch(
-        provider: &mut P,
-        batch_args: Vec<JsonValue>,
-    ) -> Vec<anyhow::Result<JsonValue>> {
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct GetArgs {
-            id: String,
-            #[serde(default)]
-            is_system: bool,
-            #[serde(default)]
-            version: Option<String>,
-        }
-        let table_filter = provider.table_filter();
-        let tx = match provider.tx() {
-            Ok(tx) => tx,
-            Err(e) => {
-                return batch_args
-                    .iter()
-                    .map(|_| Err(e.clone().into()))
-                    .collect_vec();
-            },
-        };
-
-        let mut queries_to_fetch = BTreeMap::new();
-        let mut precomputed_results = BTreeMap::new();
-        let batch_size = batch_args.len();
-        for (idx, args) in batch_args.into_iter().enumerate() {
-            let result: anyhow::Result<_> = try {
-                let (id, is_system, version) = with_argument_error("db.get", || {
-                    let args: GetArgs = serde_json::from_value(args)?;
-                    let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
-                    let version = parse_version(args.version)?;
-                    Ok((id, args.is_system, version))
-                })?;
-                let name = tx.all_tables_number_to_name(table_filter)(*id.table());
-                if name.is_ok() {
-                    system_table_guard(&name?, is_system)?;
-                }
-                match tx.resolve_idv6(id, table_filter) {
-                    Ok(table_name) => {
-                        let query = Query::index_range(IndexRange {
-                            index_name: IndexName::by_id(table_name),
-                            range: vec![IndexRangeExpression::Eq(
-                                ID_FIELD_PATH.clone(),
-                                maybe_val!(id.encode()),
-                            )],
-                            order: Order::Asc,
-                        });
-                        queries_to_fetch.insert(
-                            idx,
-                            DeveloperQuery::new_with_version(tx, query, version, table_filter)?,
-                        );
-                    },
-                    Err(_) => {
-                        // Get on a non-existent table should return null
-                        assert!(precomputed_results
-                            .insert(idx, Ok(JsonValue::Null))
-                            .is_none());
-                    },
-                }
-            };
-            if let Err(e) = result {
-                assert!(precomputed_results.insert(idx, Err(e)).is_none());
-            }
-        }
-
-        let mut fetched_results = query_batch_next(
-            queries_to_fetch
-                .iter_mut()
-                .map(|(batch_key, query)| (*batch_key, (query, Some(2))))
-                .collect(),
-            tx,
-        )
-        .await;
-        (0..batch_size)
-            .map(|batch_key| {
-                if let Some(precomputed) = precomputed_results.remove(&batch_key) {
-                    precomputed
-                } else if let Some(fetched_result) = fetched_results.remove(&batch_key) {
-                    match fetched_result {
-                        Err(e) => Err(e),
-                        Ok(Some((doc, _))) => Ok(ConvexValue::Object(doc.into_value().0).into()),
-                        // Document does not exist.
-                        Ok(None) => Ok(JsonValue::Null),
-                    }
-                } else {
-                    Err(anyhow::anyhow!("missing batch_key {batch_key}"))
-                }
-            })
-            .collect()
-    }
-
-    #[minitrace::trace]
-    #[convex_macro::instrument_future]
     async fn insert(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
@@ -784,10 +687,19 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    async fn query_stream_next_batch(
+    async fn query_batch(
         provider: &mut P,
-        batch_args: Vec<JsonValue>,
+        batch_args: Vec<AsyncRead>,
     ) -> Vec<anyhow::Result<JsonValue>> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct GetArgs {
+            id: String,
+            #[serde(default)]
+            is_system: bool,
+            #[serde(default)]
+            version: Option<String>,
+        }
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct QueryStreamNextArgs {
@@ -796,22 +708,80 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             query_id: u32,
         }
 
+        let table_filter = provider.table_filter();
         let mut queries_to_fetch = BTreeMap::new();
         let mut results = BTreeMap::new();
         let batch_size = batch_args.len();
         for (idx, args) in batch_args.into_iter().enumerate() {
             let result: anyhow::Result<_> = try {
-                let query_id = with_argument_error("queryStreamNext", || {
-                    let args: QueryStreamNextArgs = serde_json::from_value(args)?;
-                    Ok(args.query_id)
-                })?;
-                let local_query = provider.query_manager().take_developer(query_id).context(
-                    ErrorMetadata::not_found("QueryNotFound", "in-progress query not found"),
-                )?;
-                queries_to_fetch.insert(idx, (query_id, local_query));
+                match args {
+                    AsyncRead::QueryStreamNext(args) => {
+                        let query_id = with_argument_error("queryStreamNext", || {
+                            let args: QueryStreamNextArgs = serde_json::from_value(args)?;
+                            Ok(args.query_id)
+                        })?;
+                        let local_query = provider
+                            .query_manager()
+                            .take_developer(query_id)
+                            .context(ErrorMetadata::not_found(
+                                "QueryNotFound",
+                                "in-progress query not found",
+                            ))?;
+                        Some((Some(query_id), local_query))
+                    },
+                    AsyncRead::Get(args) => {
+                        let tx = provider.tx()?;
+                        let (id, is_system, version) = with_argument_error("db.get", || {
+                            let args: GetArgs = serde_json::from_value(args)?;
+                            let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
+                            let version = parse_version(args.version)?;
+                            Ok((id, args.is_system, version))
+                        })?;
+                        let name = tx.all_tables_number_to_name(table_filter)(*id.table());
+                        if name.is_ok() {
+                            system_table_guard(&name?, is_system)?;
+                        }
+                        match tx.resolve_idv6(id, table_filter) {
+                            Ok(table_name) => {
+                                let query = Query::index_range(IndexRange {
+                                    index_name: IndexName::by_id(table_name),
+                                    range: vec![IndexRangeExpression::Eq(
+                                        ID_FIELD_PATH.clone(),
+                                        maybe_val!(id.encode()),
+                                    )],
+                                    order: Order::Asc,
+                                });
+                                Some((
+                                    None,
+                                    DeveloperQuery::new_with_version(
+                                        tx,
+                                        query,
+                                        version,
+                                        table_filter,
+                                    )?,
+                                ))
+                            },
+                            Err(_) => {
+                                // Get on a non-existent table should return
+                                // null.
+                                None
+                            },
+                        }
+                    },
+                }
             };
-            if let Err(e) = result {
-                assert!(results.insert(idx, Err(e)).is_none());
+            match result {
+                Err(e) => {
+                    assert!(results.insert(idx, Err(e)).is_none());
+                },
+                Ok(Some((query_id, query_to_fetch))) => {
+                    assert!(queries_to_fetch
+                        .insert(idx, (query_id, query_to_fetch))
+                        .is_none());
+                },
+                Ok(None) => {
+                    assert!(results.insert(idx, Ok(JsonValue::Null)).is_none());
+                },
             }
         }
 
@@ -838,11 +808,12 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         }
 
         for (batch_key, (query_id, local_query)) in queries_to_fetch {
-            provider
-                .query_manager()
-                .insert_developer(query_id, local_query);
-
             let result: anyhow::Result<_> = try {
+                if let Some(query_id) = query_id {
+                    provider
+                        .query_manager()
+                        .insert_developer(query_id, local_query);
+                }
                 let maybe_next = fetch_results
                     .remove(&batch_key)
                     .context("batch_key missing")??;
@@ -853,13 +824,17 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     None => ConvexValue::Null,
                 };
 
-                if done {
-                    provider.query_manager().cleanup_developer(query_id);
+                if let Some(query_id) = query_id {
+                    if done {
+                        provider.query_manager().cleanup_developer(query_id);
+                    }
+                    serde_json::to_value(QueryStreamNextResult {
+                        value: value.into(),
+                        done,
+                    })?
+                } else {
+                    value.into()
                 }
-                serde_json::to_value(QueryStreamNextResult {
-                    value: value.into(),
-                    done,
-                })?
             };
             results.insert(batch_key, result);
         }
