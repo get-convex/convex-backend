@@ -54,7 +54,6 @@ use futures::{
     FutureExt,
     TryStreamExt,
 };
-use imbl::OrdMap;
 use indexing::{
     backend_in_memory_indexes::{
         DatabaseIndexSnapshot,
@@ -158,7 +157,7 @@ struct CacheKey {
 /// The cache value is the same as [DatabaseIndexMap] apart from keeping track
 /// of last modified timestamps. The [OrdMap] keys are the index keys.
 #[derive(Clone)]
-struct CacheValue(WithHeapSize<OrdMap<Vec<u8>, (Timestamp, PackedDocument)>>);
+struct CacheValue(WithHeapSize<BTreeMap<Vec<u8>, (Timestamp, PackedDocument)>>);
 
 impl SizedValue for CacheValue {
     fn size(&self) -> u64 {
@@ -181,12 +180,11 @@ async fn load_index(
     table_name: String,
 ) -> anyhow::Result<CacheValue> {
     let _timer = load_index_timer(&table_name, &instance_name);
-    let index_map: OrdMap<Vec<u8>, (Timestamp, PackedDocument)> = persistence_snapshot
+    let index_map: BTreeMap<Vec<u8>, (Timestamp, PackedDocument)> = persistence_snapshot
         .index_scan(index_id, table_id, &Interval::all(), Order::Asc, usize::MAX)
         .map_ok(|(key, ts, doc)| (key.0, (ts, PackedDocument::pack(doc))))
-        .try_collect::<Vec<_>>()
-        .await?
-        .into();
+        .try_collect()
+        .await?;
     log_funrun_index_load_rows(index_map.len() as u64, &table_name, &instance_name);
     Ok(CacheValue(index_map.into()))
 }

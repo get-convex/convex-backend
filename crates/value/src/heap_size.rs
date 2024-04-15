@@ -26,7 +26,6 @@ use std::{
 
 use ::bytes;
 use futures::channel::oneshot;
-use imbl::OrdMap;
 #[cfg(any(test, feature = "testing"))]
 use proptest::{
     prelude::Arbitrary,
@@ -706,25 +705,6 @@ impl<T: HeapSize> From<BTreeSet<T>> for WithHeapSize<BTreeSet<T>> {
 impl<T: HeapSize> From<WithHeapSize<BTreeSet<T>>> for BTreeSet<T> {
     fn from(value: WithHeapSize<BTreeSet<T>>) -> Self {
         value.inner
-    }
-}
-
-impl<K: HeapSize + Ord, V: HeapSize> From<OrdMap<K, V>> for WithHeapSize<OrdMap<K, V>> {
-    fn from(value: OrdMap<K, V>) -> Self {
-        let elements_heap_size = value
-            .iter()
-            .map(|(k, v)| k.heap_size() + v.heap_size())
-            .sum();
-        Self {
-            inner: value,
-            elements_heap_size,
-        }
-    }
-}
-
-impl<K: HeapSize + Ord, V: HeapSize> HeapSize for WithHeapSize<OrdMap<K, V>> {
-    fn heap_size(&self) -> usize {
-        self.elements_heap_size
     }
 }
 

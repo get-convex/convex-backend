@@ -2466,7 +2466,6 @@ dependencies = [
  "errors",
  "file_storage",
  "futures",
- "imbl",
  "indexing",
  "isolate",
  "keybroker",
