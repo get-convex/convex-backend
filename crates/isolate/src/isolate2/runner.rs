@@ -57,7 +57,10 @@ use super::{
         IsolateThreadRequest,
     },
     context::Context,
-    environment::Environment,
+    environment::{
+        Environment,
+        EnvironmentOutcome,
+    },
     session::Session,
     thread::Thread,
 };
@@ -84,7 +87,10 @@ use crate::{
             },
         },
     },
+    JsonPackedValue,
     ModuleLoader,
+    SyscallTrace,
+    UdfOutcome,
 };
 
 fn handle_request(
@@ -149,24 +155,46 @@ async fn v8_thread(
     Ok(())
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct SeedData {
+    pub rng_seed: [u8; 32],
+    pub unix_timestamp: UnixTimestamp,
+}
+
 struct UdfEnvironment<RT: Runtime> {
     rt: RT,
     log_lines: LogLines,
 
-    // TODO:
-    // Initialize this with the seed and rng from the database during import time.
-    // Flip it with begin_execution.
-    rng: ChaCha12Rng,
-    unix_timestamp: UnixTimestamp,
+    import_time_seed: SeedData,
+    execution_time_seed: SeedData,
+
+    phase: UdfPhase,
+}
+
+#[derive(Debug)]
+enum UdfPhase {
+    Importing {
+        rng: ChaCha12Rng,
+    },
+    Executing {
+        rng: ChaCha12Rng,
+        observed_time: bool,
+        observed_rng: bool,
+    },
+    Finalized,
 }
 
 impl<RT: Runtime> UdfEnvironment<RT> {
-    pub fn new(rt: RT, rng_seed: [u8; 32], unix_timestamp: UnixTimestamp) -> Self {
+    pub fn new(rt: RT, import_time_seed: SeedData, execution_time_seed: SeedData) -> Self {
+        let rng = ChaCha12Rng::from_seed(import_time_seed.rng_seed);
         Self {
             rt,
             log_lines: vec![].into(),
-            rng: ChaCha12Rng::from_seed(rng_seed),
-            unix_timestamp,
+
+            import_time_seed,
+            execution_time_seed,
+
+            phase: UdfPhase::Importing { rng },
         }
     }
 }
@@ -239,11 +267,33 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
     }
 
     fn rng(&mut self) -> anyhow::Result<&mut rand_chacha::ChaCha12Rng> {
-        Ok(&mut self.rng)
+        match self.phase {
+            UdfPhase::Importing { ref mut rng } => Ok(rng),
+            UdfPhase::Executing {
+                ref mut rng,
+                ref mut observed_rng,
+                ..
+            } => {
+                *observed_rng = true;
+                Ok(rng)
+            },
+            UdfPhase::Finalized => anyhow::bail!("RNG not available in finalized phase"),
+        }
     }
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
-        Ok(self.unix_timestamp)
+        let result = match self.phase {
+            UdfPhase::Importing { .. } => self.import_time_seed.unix_timestamp,
+            UdfPhase::Executing {
+                ref mut observed_time,
+                ..
+            } => {
+                *observed_time = true;
+                self.execution_time_seed.unix_timestamp
+            },
+            UdfPhase::Finalized => anyhow::bail!("Time not available in finalized phase"),
+        };
+        Ok(result)
     }
 
     fn get_environment_variable(
@@ -253,18 +303,46 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         // TODO!
         Ok(None)
     }
+
+    fn start_execution(&mut self) -> anyhow::Result<()> {
+        let UdfPhase::Importing { .. } = self.phase else {
+            anyhow::bail!("Phase was already {:?}", self.phase)
+        };
+        self.phase = UdfPhase::Executing {
+            rng: ChaCha12Rng::from_seed(self.execution_time_seed.rng_seed),
+            observed_time: false,
+            observed_rng: false,
+        };
+        Ok(())
+    }
+
+    fn finish_execution(&mut self) -> anyhow::Result<EnvironmentOutcome> {
+        let UdfPhase::Executing {
+            observed_time,
+            observed_rng,
+            ..
+        } = self.phase
+        else {
+            anyhow::bail!("Phase was not executing")
+        };
+        self.phase = UdfPhase::Finalized;
+        Ok(EnvironmentOutcome {
+            observed_rng,
+            observed_time,
+        })
+    }
 }
 
 async fn run_request<RT: Runtime>(
     rt: RT,
     tx: &mut Transaction<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
-    unix_timestamp: UnixTimestamp,
+    execution_time_seed: SeedData,
     client: &mut IsolateThreadClient<RT>,
     udf_type: UdfType,
     udf_path: CanonicalizedUdfPath,
     args: ConvexObject,
-) -> anyhow::Result<ConvexValue> {
+) -> anyhow::Result<UdfOutcome> {
     let mut stack = vec![udf_path.module().clone()];
 
     while let Some(module_path) = stack.pop() {
@@ -289,7 +367,7 @@ async fn run_request<RT: Runtime>(
         tx,
         rt,
         query_manager: QueryManager::new(),
-        unix_timestamp,
+        unix_timestamp: execution_time_seed.unix_timestamp,
         prev_journal: QueryJournal::new(),
         next_journal: QueryJournal::new(),
         is_system: udf_path.is_system(),
@@ -300,13 +378,28 @@ async fn run_request<RT: Runtime>(
             udf_type,
             udf_module_specifier.clone(),
             udf_path.function_name().to_string(),
-            args,
+            args.clone(),
         )
         .await?;
 
     loop {
         let async_syscalls = match result {
-            EvaluateResult::Ready(r) => return Ok(r),
+            EvaluateResult::Ready { result, outcome } => {
+                return Ok(UdfOutcome {
+                    udf_path,
+                    arguments: vec![ConvexValue::Object(args)].try_into()?,
+                    identity: provider.tx.inert_identity(),
+                    rng_seed: execution_time_seed.rng_seed,
+                    observed_rng: outcome.observed_rng,
+                    unix_timestamp: execution_time_seed.unix_timestamp,
+                    observed_time: outcome.observed_time,
+                    log_lines: vec![].into(),
+                    journal: provider.next_journal,
+                    result: Ok(JsonPackedValue::pack(result)),
+                    syscall_trace: SyscallTrace::new(),
+                    udf_server_version: None,
+                });
+            },
             EvaluateResult::Pending { async_syscalls } => async_syscalls,
         };
 
@@ -468,10 +561,10 @@ async fn tokio_thread<RT: Runtime>(
     rt: RT,
     mut tx: Transaction<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
-    unix_timestamp: UnixTimestamp,
+    execution_time_seed: SeedData,
     mut client: IsolateThreadClient<RT>,
     total_timeout: Duration,
-    mut sender: oneshot::Sender<anyhow::Result<ConvexValue>>,
+    mut sender: oneshot::Sender<anyhow::Result<(Transaction<RT>, UdfOutcome)>>,
     udf_type: UdfType,
     udf_path: CanonicalizedUdfPath,
     args: ConvexObject,
@@ -480,7 +573,7 @@ async fn tokio_thread<RT: Runtime>(
         rt.clone(),
         &mut tx,
         module_loader,
-        unix_timestamp,
+        execution_time_seed,
         &mut client,
         udf_type,
         udf_path,
@@ -494,7 +587,7 @@ async fn tokio_thread<RT: Runtime>(
         _ = rt.wait(total_timeout) => Err(anyhow::anyhow!("Total timeout exceeded")),
         _ = sender.cancellation().fuse() => Err(anyhow::anyhow!("Cancelled")),
     };
-    let _ = sender.send(r);
+    let _ = sender.send(r.map(|r| (tx, r)));
     drop(client);
 }
 
@@ -502,12 +595,12 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     rt: RT,
     tx: Transaction<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
-    seed: [u8; 32],
-    unix_timestamp: UnixTimestamp,
+    import_time_seed: SeedData,
+    execution_time_seed: SeedData,
     udf_type: UdfType,
     udf_path: &str,
     args: ConvexObject,
-) -> anyhow::Result<ConvexValue> {
+) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
     let udf_path: UdfPath = udf_path.parse()?;
     let udf_path = udf_path.canonicalize();
 
@@ -521,7 +614,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     // based on a tx timestamp that may be out of retention.
     let total_timeout = Duration::from_secs(10);
 
-    let environment = UdfEnvironment::new(rt.clone(), seed, unix_timestamp);
+    let environment = UdfEnvironment::new(rt.clone(), import_time_seed, execution_time_seed);
 
     // The protocol is synchronous, so there should never be more than
     // one pending request at a time.
@@ -540,7 +633,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
             rt.clone(),
             tx,
             module_loader,
-            unix_timestamp,
+            execution_time_seed,
             client,
             total_timeout,
             sender,

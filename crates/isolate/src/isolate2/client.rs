@@ -27,6 +27,7 @@ use value::{
 };
 
 use super::{
+    environment::EnvironmentOutcome,
     FunctionId,
     PromiseId,
 };
@@ -58,7 +59,10 @@ pub enum IsolateThreadRequest {
 
 #[derive(Debug)]
 pub enum EvaluateResult {
-    Ready(ConvexValue),
+    Ready {
+        result: ConvexValue,
+        outcome: EnvironmentOutcome,
+    },
     Pending {
         async_syscalls: Vec<PendingAsyncSyscall>,
     },

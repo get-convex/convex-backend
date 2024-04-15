@@ -12,7 +12,6 @@ use deno_core::{
     ModuleSpecifier,
 };
 use errors::ErrorMetadata;
-use futures::future::Either;
 use serde_json::Value as JsonValue;
 use value::{
     ConvexObject,
@@ -22,6 +21,7 @@ use value::{
 use super::{
     client::{
         AsyncSyscallCompletion,
+        EvaluateResult,
         PendingAsyncSyscall,
     },
     context_state::ContextState,
@@ -302,10 +302,10 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         url: &ModuleSpecifier,
         name: &str,
         args: ConvexObject,
-    ) -> anyhow::Result<Either<ConvexValue, (v8::Global<v8::Promise>, Vec<PendingAsyncSyscall>)>>
-    {
+    ) -> anyhow::Result<(v8::Global<v8::Promise>, EvaluateResult)> {
         let module_global = {
-            let context_state = self.context_state()?;
+            let context_state = self.context_state_mut()?;
+            context_state.environment.start_execution()?;
             context_state
                 .module_map
                 .modules
@@ -392,32 +392,15 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             .ok_or_else(|| anyhow!("Failed to call invoke function"))?
             .try_into()?;
 
-        match promise.state() {
-            v8::PromiseState::Pending => {
-                let promise = v8::Global::new(self.scope, promise);
-                let pending = mem::take(&mut self.context_state_mut()?.pending_async_syscalls);
-                Ok(Either::Right((promise, pending)))
-            },
-            v8::PromiseState::Fulfilled => {
-                let result: v8::Local<v8::String> = promise.result(self.scope).try_into()?;
-                let result = helpers::to_rust_string(self.scope, &result)?;
-                // TODO: `deserialize_udf_result`
-                let result_json: JsonValue = serde_json::from_str(&result)?;
-                let result = ConvexValue::try_from(result_json)?;
-                Ok(Either::Left(result))
-            },
-            v8::PromiseState::Rejected => {
-                todo!()
-            },
-        }
+        let evaluate_result = self.check_promise_result(&promise)?;
+        Ok((v8::Global::new(self.scope, promise), evaluate_result))
     }
 
     pub fn poll_function(
         &mut self,
         completions: Vec<AsyncSyscallCompletion>,
         promise: &v8::Global<v8::Promise>,
-    ) -> anyhow::Result<Either<ConvexValue, (v8::Global<v8::Promise>, Vec<PendingAsyncSyscall>)>>
-    {
+    ) -> anyhow::Result<EvaluateResult> {
         let completed = {
             let context_state = self.context_state_mut()?;
             let mut completed = vec![];
@@ -451,11 +434,18 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
         let promise = v8::Local::new(self.scope, promise);
+        self.check_promise_result(&promise)
+    }
+
+    fn check_promise_result(
+        &mut self,
+        promise: &v8::Local<v8::Promise>,
+    ) -> anyhow::Result<EvaluateResult> {
         match promise.state() {
             v8::PromiseState::Pending => {
-                let promise = v8::Global::new(self.scope, promise);
-                let pending = mem::take(&mut self.context_state_mut()?.pending_async_syscalls);
-                Ok(Either::Right((promise, pending)))
+                let async_syscalls =
+                    mem::take(&mut self.context_state_mut()?.pending_async_syscalls);
+                Ok(EvaluateResult::Pending { async_syscalls })
             },
             v8::PromiseState::Fulfilled => {
                 let result: v8::Local<v8::String> = promise.result(self.scope).try_into()?;
@@ -463,7 +453,8 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                 // TODO: `deserialize_udf_result`
                 let result_json: JsonValue = serde_json::from_str(&result)?;
                 let result = ConvexValue::try_from(result_json)?;
-                Ok(Either::Left(result))
+                let outcome = self.context_state_mut()?.environment.finish_execution()?;
+                Ok(EvaluateResult::Ready { result, outcome })
             },
             v8::PromiseState::Rejected => {
                 todo!()

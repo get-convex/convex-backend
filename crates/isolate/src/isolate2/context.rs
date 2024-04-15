@@ -8,7 +8,6 @@ use deno_core::{
     },
     ModuleSpecifier,
 };
-use futures::future::Either;
 use value::ConvexObject;
 
 use super::{
@@ -111,16 +110,13 @@ impl Context {
         let function_id = self.next_function_id;
         self.next_function_id += 1;
 
-        let result = match self.enter(session, |mut ctx| {
+        let (promise, result) = self.enter(session, |mut ctx| {
             ctx.start_evaluate_function(udf_type, module, name, args)
-        })? {
-            Either::Left(result) => (function_id, EvaluateResult::Ready(result)),
-            Either::Right((promise, async_syscalls)) => {
-                self.pending_functions.insert(function_id, promise);
-                (function_id, EvaluateResult::Pending { async_syscalls })
-            },
+        })?;
+        if let EvaluateResult::Pending { .. } = result {
+            self.pending_functions.insert(function_id, promise);
         };
-        Ok(result)
+        Ok((function_id, result))
     }
 
     pub fn poll_function(
@@ -129,18 +125,13 @@ impl Context {
         function_id: FunctionId,
         completions: Vec<AsyncSyscallCompletion>,
     ) -> anyhow::Result<EvaluateResult> {
-        let promise = self
-            .pending_functions
-            .remove(&function_id)
-            .ok_or_else(|| anyhow!("Function {function_id} not found"))?;
-        let result =
-            match self.enter(session, |mut ctx| ctx.poll_function(completions, &promise))? {
-                Either::Left(result) => EvaluateResult::Ready(result),
-                Either::Right((promise, async_syscalls)) => {
-                    self.pending_functions.insert(function_id, promise);
-                    EvaluateResult::Pending { async_syscalls }
-                },
-            };
+        let Some(promise) = self.pending_functions.remove(&function_id) else {
+            anyhow::bail!("Function {function_id} not found");
+        };
+        let result = self.enter(session, |mut ctx| ctx.poll_function(completions, &promise))?;
+        if let EvaluateResult::Pending { .. } = result {
+            self.pending_functions.insert(function_id, promise);
+        }
         Ok(result)
     }
 

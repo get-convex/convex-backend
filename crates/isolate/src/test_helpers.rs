@@ -65,6 +65,7 @@ use futures::{
         oneshot,
     },
     select,
+    Future,
     FutureExt,
     StreamExt,
 };
@@ -96,6 +97,7 @@ use model::{
     },
     virtual_system_mapping,
 };
+use rand::Rng;
 use search::searcher::InProcessSearcher;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
@@ -139,7 +141,10 @@ use crate::{
         udf::outcome::UdfOutcome,
     },
     http_action::HttpActionRequest,
-    isolate2::runner::run_isolate_v2_udf,
+    isolate2::runner::{
+        run_isolate_v2_udf,
+        SeedData,
+    },
     metrics::queue_timer,
     parse_udf_args,
     validate_schedule_args,
@@ -450,77 +455,84 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         args: Vec<ConvexValue>,
         identity: Identity,
     ) -> anyhow::Result<UdfOutcome> {
-        let mut tx = self.database.begin(identity.clone()).await?;
-        let path: UdfPath = udf_path.parse()?;
-        let canonicalized_path = path.canonicalize();
-
-        let arg = args.first().cloned();
-        let args_array = ConvexArray::try_from(args)?;
-
-        let validated_path_or_err = ValidatedUdfPathAndArgs::new(
-            AllowedVisibility::PublicOnly,
-            &mut tx,
-            canonicalized_path.clone(),
-            args_array.clone(),
-            UdfType::Mutation,
-            self.module_loader.clone(),
-        )
-        .await?;
-
-        let path_and_args = match validated_path_or_err {
-            Err(js_error) => {
-                return Ok(UdfOutcome::from_error(
-                    js_error,
-                    canonicalized_path,
-                    args_array,
-                    identity.into(),
-                    self.rt.clone(),
-                    None,
-                ))
-            },
-            Ok(path_and_args) => path_and_args,
-        };
-
-        let (tx, outcome) = self
-            .isolate
-            .execute_udf(
-                UdfType::Mutation,
-                path_and_args,
-                tx,
-                QueryJournal::new(),
-                ExecutionContext::new_for_test(),
-            )
-            .await?;
-        let FunctionOutcome::Mutation(outcome) = outcome else {
-            anyhow::bail!("Called raw_mutation on a non-mutation");
-        };
-
-        // Before committing, try to rerun the request with isolate2 if enabled.
-        if let Ok(ref packed_result) = outcome.result
-            && self.isolate_v2_enabled
-        {
-            let _result = packed_result.unpack();
+        if self.isolate_v2_enabled {
             let tx = self.database.begin(identity.clone()).await?;
-            // We can't actually compare the results since they're not pinning
-            // the same runtime state. Just check that the UDF completes for now.
-            let _v2_result = run_isolate_v2_udf(
+            let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
                 Arc::new(TransactionModuleLoader),
-                outcome.rng_seed,
-                outcome.unix_timestamp,
+                SeedData {
+                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
+                    unix_timestamp: self.rt.unix_timestamp(),
+                },
+                SeedData {
+                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
+                    unix_timestamp: self.rt.unix_timestamp(),
+                },
                 UdfType::Mutation,
                 udf_path,
-                arg.ok_or_else(|| anyhow::anyhow!("Missing argument"))?
+                args.first()
+                    .cloned()
+                    .ok_or_else(|| anyhow::anyhow!("Missing argument"))?
                     .try_into()?,
             )
             .await?;
-        }
+            let path: UdfPath = udf_path.parse()?;
+            let canonicalized_path = path.canonicalize();
+            self.database
+                .commit_with_write_source(tx, Some(canonicalized_path.into()))
+                .await?;
+            Ok(outcome)
+        } else {
+            let mut tx = self.database.begin(identity.clone()).await?;
+            let path: UdfPath = udf_path.parse()?;
+            let canonicalized_path = path.canonicalize();
 
-        self.database
-            .commit_with_write_source(tx, Some(canonicalized_path.into()))
+            let args_array = ConvexArray::try_from(args)?;
+
+            let validated_path_or_err = ValidatedUdfPathAndArgs::new(
+                AllowedVisibility::PublicOnly,
+                &mut tx,
+                canonicalized_path.clone(),
+                args_array.clone(),
+                UdfType::Mutation,
+                self.module_loader.clone(),
+            )
             .await?;
-        Ok(outcome)
+
+            let path_and_args = match validated_path_or_err {
+                Err(js_error) => {
+                    return Ok(UdfOutcome::from_error(
+                        js_error,
+                        canonicalized_path,
+                        args_array,
+                        identity.into(),
+                        self.rt.clone(),
+                        None,
+                    ))
+                },
+                Ok(path_and_args) => path_and_args,
+            };
+
+            let (tx, outcome) = self
+                .isolate
+                .execute_udf(
+                    UdfType::Mutation,
+                    path_and_args,
+                    tx,
+                    QueryJournal::new(),
+                    ExecutionContext::new_for_test(),
+                )
+                .await?;
+            let FunctionOutcome::Mutation(outcome) = outcome else {
+                anyhow::bail!("Called raw_mutation on a non-mutation");
+            };
+
+            self.database
+                .commit_with_write_source(tx, Some(canonicalized_path.into()))
+                .await?;
+            Ok(outcome)
+        }
     }
 
     pub async fn query(&self, udf_path: &str, args: ConvexObject) -> anyhow::Result<ConvexValue> {
@@ -596,73 +608,78 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         identity: Identity,
         journal: Option<QueryJournal>,
     ) -> anyhow::Result<UdfOutcome> {
-        let mut tx = self.database.begin(identity.clone()).await?;
-        let path: UdfPath = udf_path.parse()?;
-        let canonicalized_path = path.canonicalize();
-
-        let arg = args.first().cloned();
-        let args_array = ConvexArray::try_from(args)?;
-
-        let validated_path_or_err = ValidatedUdfPathAndArgs::new(
-            AllowedVisibility::PublicOnly,
-            &mut tx,
-            canonicalized_path.clone(),
-            args_array.clone(),
-            UdfType::Query,
-            self.module_loader.clone(),
-        )
-        .await?;
-
-        let path_and_args = match validated_path_or_err {
-            Err(js_error) => {
-                return Ok(UdfOutcome::from_error(
-                    js_error,
-                    canonicalized_path,
-                    args_array,
-                    identity.into(),
-                    self.rt.clone(),
-                    None,
-                ))
-            },
-            Ok(path_and_args) => path_and_args,
-        };
-        let (tx, outcome) = self
-            .isolate
-            .execute_udf(
-                UdfType::Query,
-                path_and_args,
-                tx,
-                journal.unwrap_or_else(QueryJournal::new),
-                ExecutionContext::new_for_test(),
-            )
-            .await?;
-        // Ensure the transaction is readonly by turning it into a subscription token.
-        let _ = tx.into_token()?;
-        let FunctionOutcome::Query(query_outcome) = outcome else {
-            anyhow::bail!("Called raw_query on a non-query");
-        };
-
-        if let Ok(ref packed_result) = query_outcome.result
-            && self.isolate_v2_enabled
-        {
-            let result = packed_result.unpack();
+        if self.isolate_v2_enabled {
             let tx = self.database.begin(identity.clone()).await?;
-            let v2_result = run_isolate_v2_udf(
+            let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
                 Arc::new(TransactionModuleLoader),
-                query_outcome.rng_seed,
-                query_outcome.unix_timestamp,
+                SeedData {
+                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
+                    unix_timestamp: self.rt.unix_timestamp(),
+                },
+                SeedData {
+                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
+                    unix_timestamp: self.rt.unix_timestamp(),
+                },
                 UdfType::Query,
                 udf_path,
-                arg.ok_or_else(|| anyhow::anyhow!("Missing argument"))?
+                args.first()
+                    .cloned()
+                    .ok_or_else(|| anyhow::anyhow!("Missing argument"))?
                     .try_into()?,
             )
             .await?;
-            anyhow::ensure!(result == v2_result, "{result} != {v2_result}");
-        }
+            // Ensure the transaction is readonly by turning it into a subscription token.
+            let _ = tx.into_token()?;
+            Ok(outcome)
+        } else {
+            let mut tx = self.database.begin(identity.clone()).await?;
+            let path: UdfPath = udf_path.parse()?;
+            let canonicalized_path = path.canonicalize();
 
-        Ok(query_outcome)
+            let args_array = ConvexArray::try_from(args)?;
+
+            let validated_path_or_err = ValidatedUdfPathAndArgs::new(
+                AllowedVisibility::PublicOnly,
+                &mut tx,
+                canonicalized_path.clone(),
+                args_array.clone(),
+                UdfType::Query,
+                self.module_loader.clone(),
+            )
+            .await?;
+
+            let path_and_args = match validated_path_or_err {
+                Err(js_error) => {
+                    return Ok(UdfOutcome::from_error(
+                        js_error,
+                        canonicalized_path,
+                        args_array,
+                        identity.into(),
+                        self.rt.clone(),
+                        None,
+                    ))
+                },
+                Ok(path_and_args) => path_and_args,
+            };
+            let (tx, outcome) = self
+                .isolate
+                .execute_udf(
+                    UdfType::Query,
+                    path_and_args,
+                    tx,
+                    journal.unwrap_or_else(QueryJournal::new),
+                    ExecutionContext::new_for_test(),
+                )
+                .await?;
+            // Ensure the transaction is readonly by turning it into a subscription token.
+            let _ = tx.into_token()?;
+            let FunctionOutcome::Query(query_outcome) = outcome else {
+                anyhow::bail!("Called raw_query on a non-query");
+            };
+            Ok(query_outcome)
+        }
     }
 
     /// Run a query, bypassing the validation done in `ValidatedUdfPathAndArgs`,
@@ -945,6 +962,32 @@ pub struct UdfTestConfig {
 }
 
 impl<RT: Runtime> UdfTest<RT, TestPersistence> {
+    pub async fn run_test_with_isolate<F, Fut>(rt: RT, mut f: F) -> anyhow::Result<()>
+    where
+        F: FnMut(Self) -> Fut,
+        Fut: Future<Output = anyhow::Result<()>>,
+    {
+        let test = Self::default(rt.clone()).await?;
+        f(test).await?;
+
+        Ok(())
+    }
+
+    pub async fn run_test_with_isolate2<F, Fut>(rt: RT, mut f: F) -> anyhow::Result<()>
+    where
+        F: FnMut(Self) -> Fut,
+        Fut: Future<Output = anyhow::Result<()>>,
+    {
+        let test = Self::default(rt.clone()).await?;
+        f(test).await?;
+
+        let mut test = Self::default(rt.clone()).await?;
+        test.enable_isolate_v2();
+        f(test).await?;
+
+        Ok(())
+    }
+
     pub async fn default(rt: RT) -> anyhow::Result<Self> {
         Self::default_with_config(DEFAULT_CONFIG.clone(), DEFAULT_MAX_ISOLATE_WORKERS, rt).await
     }
