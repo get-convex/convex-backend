@@ -72,7 +72,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
         Request {
-            client_id: _,
+            client_id,
             inner,
             mut pause_client,
             parent_trace: _,
@@ -98,7 +98,12 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                     request,
                 );
                 let r = environment
-                    .run(isolate, isolate_clean, response.cancellation().boxed())
+                    .run(
+                        client_id,
+                        isolate,
+                        isolate_clean,
+                        response.cancellation().boxed(),
+                    )
                     .await;
                 let status = match &r {
                     Ok((_tx, outcome)) => {
@@ -138,7 +143,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                     request.context,
                 );
                 let r = environment
-                    .run_action(isolate, isolate_clean, request.params.clone())
+                    .run_action(client_id, isolate, isolate_clean, request.params.clone())
                     .await;
 
                 let status = match &r {

@@ -1,6 +1,7 @@
 use std::{
     ffi,
     ptr,
+    sync::Arc,
     time::Duration,
 };
 
@@ -262,9 +263,9 @@ impl<RT: Runtime> Isolate<RT> {
         Ok(())
     }
 
-    #[minitrace::trace]
     pub async fn start_request<E: IsolateEnvironment<RT>>(
         &mut self,
+        client_id: Arc<String>,
         environment: E,
     ) -> anyhow::Result<(IsolateHandle, RequestState<RT, E>)> {
         self.check_isolate_clean()?;
@@ -281,7 +282,9 @@ impl<RT: Runtime> Isolate<RT> {
             Some(user_timeout),
             Some(environment.system_timeout()),
         );
-        let permit = timeout.with_timeout(self.limiter.acquire()).await?;
+        let permit = timeout
+            .with_timeout(self.limiter.acquire(client_id))
+            .await?;
         let state = RequestState {
             rt: self.rt.clone(),
             environment,

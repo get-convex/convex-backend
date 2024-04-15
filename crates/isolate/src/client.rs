@@ -1477,7 +1477,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
         Request {
-            client_id: _,
+            client_id,
             inner,
             pause_client: _,
             parent_trace: _,
@@ -1501,7 +1501,12 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     request,
                 );
                 let r = environment
-                    .run(isolate, isolate_clean, response.cancellation().boxed())
+                    .run(
+                        client_id,
+                        isolate,
+                        isolate_clean,
+                        response.cancellation().boxed(),
+                    )
                     .await;
                 let status = match &r {
                     Ok((_tx, outcome)) => {
@@ -1543,6 +1548,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 );
                 let r = environment
                     .run_http_action(
+                        client_id,
                         isolate,
                         isolate_clean,
                         request.router_path,
@@ -1586,7 +1592,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     request.context,
                 );
                 let r = environment
-                    .run_action(isolate, isolate_clean, request.params.clone())
+                    .run_action(client_id, isolate, isolate_clean, request.params.clone())
                     .await;
                 let status = match &r {
                     Ok(outcome) => {
@@ -1609,6 +1615,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 response,
             } => {
                 let r = AnalyzeEnvironment::analyze::<RT>(
+                    client_id,
                     isolate,
                     udf_config,
                     modules,
@@ -1629,6 +1636,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 response,
             } => {
                 let r = SchemaEnvironment::evaluate_schema(
+                    client_id,
                     isolate,
                     schema_bundle,
                     source_map,
@@ -1649,6 +1657,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 response,
             } => {
                 let r = AuthConfigEnvironment::evaluate_auth_config(
+                    client_id,
                     isolate,
                     auth_config_bundle,
                     source_map,

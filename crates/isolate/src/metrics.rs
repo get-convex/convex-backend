@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use common::{
     types::UdfType,
@@ -375,6 +378,26 @@ register_convex_histogram!(
 );
 pub fn concurrency_permit_acquire_timer() -> CancelableTimer {
     CancelableTimer::new(&CONCURRENCY_PERMIT_ACQUIRE_SECONDS)
+}
+
+register_convex_counter!(
+    CONCURRENCY_PERMIT_TOTAL_HOLD_TIME_SECONDS,
+    "The total time concurrency limit was held for ",
+    &["client_id"]
+);
+pub fn log_concurrency_permit_used(client_id: Arc<String>, duration: Duration) {
+    let duration_ms = duration
+        .as_millis()
+        .try_into()
+        .expect("Hold duration is too long {}");
+    // This is fairly high cardinality but also super important metric.
+    if duration_ms > 0 {
+        log_counter_with_labels(
+            &CONCURRENCY_PERMIT_TOTAL_HOLD_TIME_SECONDS,
+            duration_ms,
+            vec![MetricLabel::new("client_id", client_id.to_string())],
+        );
+    }
 }
 
 register_convex_counter!(UDF_FETCH_TOTAL, "Number of UDF fetches", &STATUS_LABEL);

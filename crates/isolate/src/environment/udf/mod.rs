@@ -389,6 +389,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     #[minitrace::trace]
     pub async fn run(
         mut self,
+        client_id: String,
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
         cancellation: BoxFuture<'_, ()>,
@@ -402,7 +403,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
-        let (handle, state) = isolate.start_request(self).await?;
+        let client_id = Arc::new(client_id);
+        let (handle, state) = isolate.start_request(client_id, self).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);

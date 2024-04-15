@@ -5,6 +5,7 @@ use std::{
     },
     path::Path,
     str::FromStr,
+    sync::Arc,
 };
 
 use anyhow::anyhow;
@@ -243,6 +244,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
 
 impl AnalyzeEnvironment {
     pub async fn analyze<RT: Runtime>(
+        client_id: String,
         isolate: &mut Isolate<RT>,
         udf_config: UdfConfig,
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
@@ -268,7 +270,8 @@ impl AnalyzeEnvironment {
             unix_timestamp,
             environment_variables,
         };
-        let (handle, state) = isolate.start_request(environment).await?;
+        let client_id = Arc::new(client_id);
+        let (handle, state) = isolate.start_request(client_id, environment).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);

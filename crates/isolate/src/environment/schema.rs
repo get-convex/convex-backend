@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use common::{
     knobs::{
@@ -190,6 +192,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
 
 impl SchemaEnvironment {
     pub async fn evaluate_schema<RT: Runtime>(
+        client_id: String,
         isolate: &mut Isolate<RT>,
         schema_bundle: ModuleSource,
         source_map: Option<SourceMap>,
@@ -201,7 +204,8 @@ impl SchemaEnvironment {
             source_map,
             rng,
         };
-        let (handle, state) = isolate.start_request(environment).await?;
+        let client_id = Arc::new(client_id);
+        let (handle, state) = isolate.start_request(client_id, environment).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);

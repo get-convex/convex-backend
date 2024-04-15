@@ -4,6 +4,7 @@ use std::{
         Arc,
         Weak,
     },
+    time::Duration,
 };
 
 use anyhow::Context;
@@ -112,6 +113,9 @@ use crate::{
 };
 
 const MAX_ISOLATE_WORKERS: usize = 128;
+// We gather prometheus stats every 30 seconds, so we should make sure we log
+// active permits more frequently than that.
+const ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY: Duration = Duration::from_secs(10);
 
 #[async_trait]
 pub trait StorageForInstance<RT: Runtime>: Clone + Send + Sync + 'static {
@@ -138,6 +142,7 @@ pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     rt: RT,
     sender: CoDelQueueSender<RT, IsolateRequest<RT>>,
     scheduler: Arc<Mutex<Option<RT::Handle>>>,
+    concurrency_logger: Arc<Mutex<Option<RT::Handle>>>,
     handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>,
     storage: S,
     index_cache: InMemoryIndexCache<RT>,
@@ -180,6 +185,10 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         } else {
             ConcurrencyLimiter::unlimited()
         };
+        let concurrency_logger = rt.spawn(
+            "concurrency_logger",
+            concurrency_limit.go_log(rt.clone(), ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY),
+        );
         let isolate_config = IsolateConfig::new("funrun", concurrency_limit);
 
         initialize_v8();
@@ -212,6 +221,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             rt,
             sender,
             scheduler: Arc::new(Mutex::new(Some(scheduler))),
+            concurrency_logger: Arc::new(Mutex::new(Some(concurrency_logger))),
             handles,
             storage,
             index_cache,
@@ -247,6 +257,9 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         }
         if let Some(mut scheduler) = self.scheduler.lock().take() {
             scheduler.shutdown();
+        }
+        if let Some(mut concurrency_logger) = self.concurrency_logger.lock().take() {
+            concurrency_logger.shutdown();
         }
         Ok(())
     }

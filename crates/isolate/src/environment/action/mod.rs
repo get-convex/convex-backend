@@ -245,17 +245,19 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
     pub async fn run_http_action(
         mut self,
+        client_id: String,
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
         validated_path: ValidatedHttpPath,
         request: HttpActionRequest,
     ) -> anyhow::Result<HttpActionOutcome> {
+        let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
 
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
-        let (handle, state) = isolate.start_request(self).await?;
+        let (handle, state) = isolate.start_request(client_id.clone(), self).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
@@ -265,6 +267,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let request_head = request.head.clone();
         let mut result = Self::run_http_action_inner(
+            client_id,
             &mut isolate_context,
             validated_path.canonicalized_udf_path(),
             request,
@@ -314,6 +317,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
     #[convex_macro::instrument_future]
     async fn run_http_action_inner(
+        client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         router_path: &CanonicalizedUdfPath,
         http_request: HttpActionRequest,
@@ -400,6 +404,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let v8_args = [args_v8_str.into()];
 
         let result = Self::run_inner(
+            client_id,
             &mut scope,
             handle,
             v8_function,
@@ -464,16 +469,18 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     #[minitrace::trace]
     pub async fn run_action(
         mut self,
+        client_id: String,
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
         request_params: ActionRequestParams,
     ) -> anyhow::Result<ActionOutcome> {
+        let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
 
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
-        let (handle, state) = isolate.start_request(self).await?;
+        let (handle, state) = isolate.start_request(client_id.clone(), self).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
@@ -481,7 +488,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let mut isolate_context =
             RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;
 
-        let mut result = Self::run_action_inner(&mut isolate_context, request_params.clone()).await;
+        let mut result =
+            Self::run_action_inner(client_id, &mut isolate_context, request_params.clone()).await;
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -523,6 +531,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
     #[minitrace::trace]
     async fn run_action_inner(
+        client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         request_params: ActionRequestParams,
     ) -> anyhow::Result<Result<ConvexValue, JsError>> {
@@ -598,6 +607,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let v8_args = [request_id_v8_str.into(), args_v8_str.into()];
 
         Self::run_inner(
+            client_id,
             &mut scope,
             handle,
             v8_function,
@@ -720,6 +730,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
     #[minitrace::trace]
     async fn run_inner<'a, 'b: 'a, T, Fut>(
+        client_id: Arc<String>,
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
         handle: IsolateHandle,
         v8_function: v8::Local<'_, v8::Function>,
@@ -891,8 +902,11 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                     continue;
                 },
             }
-            let permit_acquire =
-                scope.with_state_mut(|state| state.timeout.with_timeout(limiter.acquire()))?;
+            let permit_acquire = scope.with_state_mut(|state| {
+                state
+                    .timeout
+                    .with_timeout(limiter.acquire(client_id.clone()))
+            })?;
             let permit = permit_acquire.await?;
             scope.with_state_mut(|state| state.permit = Some(permit))?;
             handle.check_terminated()?;

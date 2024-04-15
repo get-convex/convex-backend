@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use common::{
@@ -210,6 +213,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
 
 impl AuthConfigEnvironment {
     pub async fn evaluate_auth_config<RT: Runtime>(
+        client_id: String,
         isolate: &mut Isolate<RT>,
         auth_config_bundle: ModuleSource,
         source_map: Option<SourceMap>,
@@ -220,7 +224,8 @@ impl AuthConfigEnvironment {
             source_map,
             environment_variables,
         };
-        let (handle, state) = isolate.start_request(environment).await?;
+        let client_id = Arc::new(client_id);
+        let (handle, state) = isolate.start_request(client_id, environment).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
