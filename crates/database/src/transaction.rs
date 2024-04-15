@@ -467,6 +467,7 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(self.get_with_ts(id).await?.map(|(doc, _)| doc))
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn get_with_ts(
         &mut self,
@@ -482,6 +483,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.get_inner(id, table_name).await
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub(crate) async fn patch_inner(
         &mut self,
@@ -515,6 +517,7 @@ impl<RT: Runtime> Transaction<RT> {
             || self.virtual_table_mapping().number_exists(&table_number)
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub(crate) async fn replace_inner(
         &mut self,
@@ -543,6 +546,7 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(new_document)
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn delete_inner(
         &mut self,
@@ -561,6 +565,7 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(document)
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn count(&mut self, table: &TableName) -> anyhow::Result<u64> {
         let virtual_system_mapping = self.virtual_system_mapping().clone();
