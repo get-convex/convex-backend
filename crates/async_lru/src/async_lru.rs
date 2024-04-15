@@ -340,7 +340,7 @@ impl<
         value_generator: ValueGenerator<Value>,
     ) -> anyhow::Result<Status<Value>> {
         let mut inner = self.inner.lock();
-        log_async_lru_size(inner.cache.len(), self.label);
+        log_async_lru_size(inner.cache.len(), inner.current_size, self.label);
         match inner.cache.get(key) {
             Some(CacheResult::Ready { value, .. }) => {
                 log_async_lru_cache_hit(self.label);

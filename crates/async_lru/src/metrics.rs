@@ -53,12 +53,22 @@ register_convex_gauge!(
     "Number of entries in an async LRU",
     &[ASYNC_LRU_LABEL],
 );
-pub fn log_async_lru_size(size: usize, label: &str) {
+register_convex_gauge!(
+    ASYNC_LRU_NUM_ENTRIES_TOTAL,
+    "Number of entries in an async LRU",
+    &[ASYNC_LRU_LABEL],
+);
+pub fn log_async_lru_size(num_entries: usize, total_size: u64, label: &str) {
     log_gauge_with_labels(
         &ASYNC_LRU_SIZE_TOTAL,
-        size as f64,
+        total_size as f64,
         vec![async_lru_label(label)],
-    )
+    );
+    log_gauge_with_labels(
+        &ASYNC_LRU_NUM_ENTRIES_TOTAL,
+        num_entries as f64,
+        vec![async_lru_label(label)],
+    );
 }
 
 register_convex_histogram!(
