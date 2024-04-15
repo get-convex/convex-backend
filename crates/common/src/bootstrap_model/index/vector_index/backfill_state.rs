@@ -45,10 +45,7 @@ impl TryFrom<VectorIndexBackfillState> for SerializedVectorIndexBackfillState {
                     .collect::<anyhow::Result<Vec<_>>>()?,
             ),
             document_cursor: backfill_state.cursor.map(|id| id.to_string()),
-            backfill_snapshot_ts: backfill_state
-                .backfill_snapshot_ts
-                .map(|ts| ts.try_into())
-                .transpose()?,
+            backfill_snapshot_ts: backfill_state.backfill_snapshot_ts.map(|ts| ts.into()),
         })
     }
 }

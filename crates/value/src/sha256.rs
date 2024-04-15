@@ -117,12 +117,7 @@ impl Sha256 {
     }
 
     pub fn finalize(self) -> Sha256Digest {
-        Sha256Digest(
-            self.inner
-                .finalize()
-                .try_into()
-                .expect("Sha256 wasn't 32 bytes?"),
-        )
+        Sha256Digest(self.inner.finalize().into())
     }
 }
 

@@ -362,7 +362,7 @@ impl TryFrom<JsError> for JsErrorProto {
             message: Some(message),
             custom_data: custom_data
                 .map(|v| {
-                    let json = JsonValue::try_from(v)?;
+                    let json = JsonValue::from(v);
                     anyhow::Ok::<Vec<u8>>(serde_json::to_vec(&json)?)
                 })
                 .transpose()?,

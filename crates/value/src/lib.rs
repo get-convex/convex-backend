@@ -204,9 +204,7 @@ impl From<ConvexObject> for ConvexValue {
 
 impl From<ResolvedDocumentId> for ConvexValue {
     fn from(value: ResolvedDocumentId) -> Self {
-        DocumentIdV6::try_from(value)
-            .expect("Could not create IDV6 from DocumentId")
-            .into()
+        DocumentIdV6::from(value).into()
     }
 }
 

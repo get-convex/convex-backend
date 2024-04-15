@@ -119,9 +119,9 @@ impl TryFrom<FragmentedVectorSegment> for pb::searchlight::FragmentedVectorSegme
 
     fn try_from(value: FragmentedVectorSegment) -> Result<Self, Self::Error> {
         Ok(Self {
-            segment_key: value.segment_key.try_into()?,
-            id_tracker_key: value.id_tracker_key.try_into()?,
-            deleted_bitset_key: value.deleted_bitset_key.try_into()?,
+            segment_key: value.segment_key.into(),
+            id_tracker_key: value.id_tracker_key.into(),
+            deleted_bitset_key: value.deleted_bitset_key.into(),
             num_vectors: value.num_vectors,
             num_deleted: value.num_deleted,
             id: value.id,

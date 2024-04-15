@@ -58,7 +58,7 @@ pub struct LogEvent {
 impl LogEvent {
     pub fn default_for_verification<RT: Runtime>(runtime: &RT) -> anyhow::Result<Self> {
         let mut payload = serde_json::Map::new();
-        payload.insert("message".to_string(), "Convex connection test".try_into()?);
+        payload.insert("message".to_string(), "Convex connection test".into());
         Ok(Self {
             topic: LogTopic::Verification,
             source: EventSource::System,
@@ -124,16 +124,16 @@ impl TryFrom<LogEvent> for serde_json::Map<String, JsonValue> {
         // Global system fields
         fields.insert("_topic".to_string(), event.topic.try_into()?);
         let ms = event.timestamp.as_ms_since_epoch()?;
-        fields.insert("_timestamp".to_string(), ms.try_into()?);
+        fields.insert("_timestamp".to_string(), ms.into());
         // Source system fields
         match event.source {
             EventSource::Function(f) => {
-                fields.insert("_functionPath".to_string(), f.path.try_into()?);
+                fields.insert("_functionPath".to_string(), f.path.into());
                 fields.insert(
                     "_functionType".to_string(),
                     serde_json::to_value(f.udf_type)?,
                 );
-                fields.insert("_functionCached".to_string(), f.cached.try_into()?);
+                fields.insert("_functionCached".to_string(), f.cached.into());
             },
             EventSource::System => {},
         }
