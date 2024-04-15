@@ -307,6 +307,8 @@ export async function entryPoints(
       log(chalk.yellow(`Skipping ${fpath} declaration file`));
     } else if (base.endsWith(".json")) {
       log(chalk.yellow(`Skipping ${fpath} json file`));
+    } else if (base.endsWith(".jsonl")) {
+      log(chalk.yellow(`Skipping ${fpath} jsonl file`));
     } else {
       log(chalk.green(`Preparing ${fpath}`));
       entryPoints.push(fpath);
