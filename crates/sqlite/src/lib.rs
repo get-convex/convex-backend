@@ -377,42 +377,6 @@ impl Persistence for SqlitePersistence {
         Ok(rows)
     }
 
-    async fn index_entries_to_delete(
-        &self,
-        expired_entries: &Vec<IndexEntry>,
-    ) -> anyhow::Result<Vec<IndexEntry>> {
-        let connection = &self.inner.lock().connection;
-        let mut all_entries = BTreeSet::new();
-        for expired_entry in expired_entries {
-            let params = params![
-                &expired_entry.index_id[..],
-                &expired_entry.key_prefix[..],
-                &u64::from(expired_entry.ts),
-            ];
-            let mut entries_query = connection.prepare(INDEX_ENTRIES_TO_DELETE)?;
-            let row_iter = entries_query.query_map(params, |row| {
-                let index_id: Vec<u8> = row.get(0)?;
-                let key: Vec<u8> = row.get(1)?;
-                let ts =
-                    Timestamp::try_from(row.get::<_, u64>(2)?).expect("timestamp out of bounds");
-                let deleted = row.get::<_, u32>(3)? != 0;
-                Ok((index_id, key, ts, deleted))
-            })?;
-            for row in row_iter {
-                let (index_id, key, ts, deleted) = row?;
-                all_entries.insert(IndexEntry {
-                    index_id: index_id.try_into()?,
-                    key_prefix: key.clone(),
-                    key_suffix: None,
-                    key_sha256: key,
-                    ts,
-                    deleted,
-                });
-            }
-        }
-        Ok(all_entries.into_iter().collect())
-    }
-
     async fn delete_index_entries(&self, expired_rows: Vec<IndexEntry>) -> anyhow::Result<usize> {
         let mut inner = self.inner.lock();
         let tx = inner.connection.transaction()?;
@@ -694,10 +658,6 @@ const WRITE_PERSISTENCE_GLOBAL: &str = "INSERT OR REPLACE INTO persistence_globa
 const WALK_INDEXES: &str =
     "SELECT index_id, key, ts, deleted FROM indexes ORDER BY index_id ASC, key ASC, ts ASC";
 
-const INDEX_ENTRIES_TO_DELETE: &str = r#"SELECT index_id, key, ts, deleted
-FROM indexes WHERE index_id = ? AND key = ? AND ts <= ?
-ORDER BY index_id DESC, key DESC, ts DESC
-"#;
 const DELETE_INDEX: &str = "DELETE FROM indexes WHERE index_id = ? AND ts <= ? AND key = ?";
 
 const DOCUMENTS_TO_DELETE: &str = r#"SELECT table_id, id, ts

@@ -678,9 +678,7 @@ pub static ISOLATE_MAX_HEAP_EXTRA_SIZE: LazyLock<usize> =
 /// keeping the number of distinct queries small (for query plan caching).
 pub static MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE", 8));
-/// Also 1, 2, 4, 8, 16, 32, ..., MAX_SMART_CHUNK_SIZE doubling.
-pub static MYSQL_MAX_SMART_CHUNK_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("MYSQL_MAX_SMART_CHUNK_SIZE", 64));
+/// More chunks sizes: 1, 2, 4, 8, 16, 32, ..., MYSQL_CHUNK_SIZE doubling.
 /// Max packet size is 16MiB.
 pub static MYSQL_MAX_CHUNK_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MYSQL_MAX_CHUNK_BYTES", 10 << 20));

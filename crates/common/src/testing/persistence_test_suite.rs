@@ -1483,8 +1483,6 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
         .is_expired(min_snapshot_ts, None)?;
     assert!(!last_is_expired);
     assert_eq!(expired.len(), 7);
-    let all_expired = p.index_entries_to_delete(&expired).await?;
-    assert_eq!(all_expired, expired);
     assert_eq!(p.delete_index_entries(expired).await?, 7);
 
     let reader = p.reader();

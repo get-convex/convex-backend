@@ -908,39 +908,26 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         mut new_cursor: Timestamp,
     ) -> anyhow::Result<(Timestamp, usize)> {
         let _timer = retention_delete_chunk_timer();
-        let delete_chunk = delete_chunk.to_vec();
-        let index_entries_to_delete = persistence.index_entries_to_delete(&delete_chunk).await?;
-        let total_index_entries_to_delete = index_entries_to_delete.len();
-        tracing::trace!("delete: got entries to delete {total_index_entries_to_delete:?}");
-        // If there are more entries to delete than we see in the delete chunk,
-        // it means retention skipped deleting entries before, and we
-        // incorrectly bumped RetentionConfirmedDeletedTimestamp anyway.
-        if index_entries_to_delete.len() > delete_chunk.len() {
-            report_error(&mut anyhow::anyhow!(
-                "retention wanted to delete {} entries but found {total_index_entries_to_delete} \
-                 to delete",
-                delete_chunk.len(),
-            ));
-        }
-        for index_entry_to_delete in index_entries_to_delete.iter() {
+        let count_entries_to_delete = delete_chunk.len();
+        for index_entry_to_delete in delete_chunk.iter() {
             // If we're deleting an index entry, we've definitely deleted
             // index entries for documents at all prior timestamps.
             if index_entry_to_delete.ts > Timestamp::MIN {
                 new_cursor = cmp::max(new_cursor, index_entry_to_delete.ts.pred()?);
             }
         }
-        let deleted_rows = if total_index_entries_to_delete > 0 {
-            persistence
-                .delete_index_entries(index_entries_to_delete)
-                .await?
-        } else {
-            0
-        };
+        let deleted_rows = persistence.delete_index_entries(delete_chunk).await?;
+        // If there are more entries to delete than we see in the delete chunk,
+        // it means retention skipped deleting entries before, and we
+        // incorrectly bumped RetentionConfirmedDeletedTimestamp anyway.
+        if deleted_rows > count_entries_to_delete {
+            report_error(&mut anyhow::anyhow!(
+                "retention wanted to delete {count_entries_to_delete} entries but found \
+                 {deleted_rows} to delete"
+            ));
+        }
 
-        tracing::trace!(
-            "delete: deleted rows {deleted_rows:?} for {total_index_entries_to_delete} index \
-             entries"
-        );
+        tracing::trace!("delete: deleted {deleted_rows:?} index entries");
         log_retention_index_entries_deleted(deleted_rows);
         Ok((new_cursor, deleted_rows))
     }

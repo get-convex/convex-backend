@@ -193,10 +193,6 @@ pub trait Persistence: Sync + Send + 'static {
         chunk_size: usize,
     ) -> anyhow::Result<Vec<IndexEntry>>;
 
-    async fn index_entries_to_delete(
-        &self,
-        expired_entries: &Vec<IndexEntry>,
-    ) -> anyhow::Result<Vec<IndexEntry>>;
     async fn delete_index_entries(&self, entries: Vec<IndexEntry>) -> anyhow::Result<usize>;
 
     // Retrieves expired documents
