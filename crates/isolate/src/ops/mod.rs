@@ -23,6 +23,7 @@ use std::{
 };
 
 use ::errors::ErrorMetadata;
+use anyhow::anyhow;
 use bytes::Bytes;
 use common::{
     log_lines::LogLevel,
@@ -37,7 +38,6 @@ use common::{
 };
 use deno_core::{
     v8,
-    JsBuffer,
     ModuleSpecifier,
 };
 use rand_chacha::ChaCha12Rng;
@@ -93,6 +93,8 @@ use self::{
         op_throw_uncatchable_developer_error,
     },
     http::{
+        async_op_fetch,
+        async_op_parse_multi_part,
         op_headers_get_mime_type,
         op_headers_normalize_name,
         op_url_get_url_info,
@@ -100,7 +102,12 @@ use self::{
         op_url_stringify_url_search_params,
         op_url_update_url_info,
     },
+    storage::{
+        async_op_storage_get,
+        async_op_storage_store,
+    },
     stream::{
+        async_op_stream_read_part,
         op_stream_create,
         op_stream_extend,
     },
@@ -112,7 +119,10 @@ use self::{
         op_text_encoder_encode_into,
         op_text_encoder_normalize_label,
     },
-    time::op_now,
+    time::{
+        async_op_sleep,
+        op_now,
+    },
     validate_args::op_validate_args,
 };
 pub use self::{
@@ -120,10 +130,17 @@ pub use self::{
     random::op_random,
 };
 use crate::{
-    environment::IsolateEnvironment,
+    environment::{
+        AsyncOpRequest,
+        IsolateEnvironment,
+    },
     execution_scope::ExecutionScope,
     helpers::to_rust_string,
     metrics,
+    request_scope::{
+        ReadableStream,
+        StreamListener,
+    },
 };
 
 pub trait OpProvider<'b> {
@@ -139,17 +156,32 @@ pub trait OpProvider<'b> {
     ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>>;
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
     fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp>;
+
+    fn start_async_op(
+        &mut self,
+        request: AsyncOpRequest,
+        resolver: v8::Global<v8::PromiseResolver>,
+    ) -> anyhow::Result<()>;
+
     fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid>;
     fn get_blob_part(&mut self, uuid: &Uuid) -> anyhow::Result<Option<Bytes>>;
+
     fn create_stream(&mut self) -> anyhow::Result<Uuid>;
     fn extend_stream(
         &mut self,
         id: Uuid,
-        bytes: Option<JsBuffer>,
+        bytes: Option<Bytes>,
         new_done: bool,
     ) -> anyhow::Result<()>;
+    fn new_stream_listener(
+        &mut self,
+        stream_id: Uuid,
+        listener: StreamListener,
+    ) -> anyhow::Result<()>;
+
     fn get_environment_variable(&mut self, name: EnvVarName)
         -> anyhow::Result<Option<EnvVarValue>>;
+
     fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)>;
     fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
 }
@@ -196,6 +228,15 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
         Ok(state.unix_timestamp_non_deterministic())
     }
 
+    fn start_async_op(
+        &mut self,
+        request: AsyncOpRequest,
+        resolver: v8::Global<v8::PromiseResolver>,
+    ) -> anyhow::Result<()> {
+        let state = self.state_mut()?;
+        state.environment.start_async_op(request, resolver)
+    }
+
     fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid> {
         let state = self.state_mut()?;
         state.create_blob_part(bytes)
@@ -213,10 +254,47 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
     fn extend_stream(
         &mut self,
         id: Uuid,
-        bytes: Option<JsBuffer>,
+        bytes: Option<Bytes>,
         new_done: bool,
     ) -> anyhow::Result<()> {
-        ExecutionScope::extend_stream(self, id, bytes.map(|b| b.into()), new_done)
+        let state = self.state_mut()?;
+        let new_part_id = match bytes {
+            Some(bytes) => Some(state.create_blob_part(bytes)?),
+            None => None,
+        };
+        state.streams.mutate(&id, |stream| -> anyhow::Result<()> {
+            let Some(Ok(ReadableStream { parts, done })) = stream else {
+                anyhow::bail!("unrecognized stream id {id}");
+            };
+            if *done {
+                anyhow::bail!("stream {id} is already done");
+            }
+            if let Some(new_part_id) = new_part_id {
+                parts.push_back(new_part_id);
+            }
+            if new_done {
+                *done = true;
+            }
+            Ok(())
+        })?;
+        self.update_stream_listeners()?;
+        Ok(())
+    }
+
+    fn new_stream_listener(
+        &mut self,
+        stream_id: Uuid,
+        listener: StreamListener,
+    ) -> anyhow::Result<()> {
+        if self
+            .state_mut()?
+            .stream_listeners
+            .insert(stream_id, listener)
+            .is_some()
+        {
+            anyhow::bail!("cannot read from the same stream twice");
+        }
+        self.update_stream_listeners()
     }
 
     fn get_environment_variable(
@@ -315,5 +393,40 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         },
     }
     timer.finish();
+    Ok(())
+}
+
+pub fn start_async_op<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    args: v8::FunctionCallbackArguments,
+    mut rv: v8::ReturnValue,
+) -> anyhow::Result<()> {
+    if args.length() < 1 {
+        anyhow::bail!("asyncOp(op, ...args) takes at least one argument");
+    }
+    let op_name: v8::Local<v8::String> = args.get(0).try_into()?;
+    let op_name = to_rust_string(provider.scope(), &op_name)?;
+
+    let resolver = v8::PromiseResolver::new(provider.scope())
+        .ok_or_else(|| anyhow!("Failed to create PromiseResolver"))?;
+    let promise = resolver.get_promise(provider.scope());
+    let resolver = v8::Global::new(provider.scope(), resolver);
+
+    match &op_name[..] {
+        "fetch" => async_op_fetch(provider, args, resolver)?,
+        "form/parseMultiPart" => async_op_parse_multi_part(provider, args, resolver)?,
+        "sleep" => async_op_sleep(provider, args, resolver)?,
+        "storage/store" => async_op_storage_store(provider, args, resolver)?,
+        "storage/get" => async_op_storage_get(provider, args, resolver)?,
+        "stream/readPart" => async_op_stream_read_part(provider, args, resolver)?,
+        _ => {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "UnknownAsyncOperation",
+                format!("Unknown async operation {op_name}")
+            ));
+        },
+    };
+
+    rv.set(promise.into());
     Ok(())
 }

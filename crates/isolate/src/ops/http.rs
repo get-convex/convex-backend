@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use anyhow::Context;
-use common::runtime::Runtime;
 use deno_core::{
     serde_v8,
     v8::{
@@ -30,12 +29,50 @@ use crate::{
     environment::{
         helpers::with_argument_error,
         AsyncOpRequest,
-        IsolateEnvironment,
     },
-    execution_scope::ExecutionScope,
     http::HttpRequestV8,
     request_scope::StreamListener,
 };
+
+pub fn async_op_fetch<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    args: v8::FunctionCallbackArguments,
+    resolver: v8::Global<v8::PromiseResolver>,
+) -> anyhow::Result<()> {
+    let arg: HttpRequestV8 = serde_v8::from_v8(provider.scope(), args.get(1))?;
+
+    let request = with_argument_error("fetch", || HttpRequestV8::into_stream(arg, provider))?;
+    let response_body_stream_id = provider.create_stream()?;
+    provider.start_async_op(
+        AsyncOpRequest::Fetch {
+            request,
+            response_body_stream_id,
+        },
+        resolver,
+    )
+}
+
+pub fn async_op_parse_multi_part<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    args: v8::FunctionCallbackArguments,
+    resolver: v8::Global<v8::PromiseResolver>,
+) -> anyhow::Result<()> {
+    let content_type: String = serde_v8::from_v8(provider.scope(), args.get(1))?;
+    let request_stream_id: uuid::Uuid = serde_v8::from_v8(provider.scope(), args.get(2))?;
+    let (request_sender, request_receiver) = mpsc::unbounded();
+    provider.new_stream_listener(
+        request_stream_id,
+        StreamListener::RustStream(request_sender),
+    )?;
+
+    provider.start_async_op(
+        AsyncOpRequest::ParseMultiPart {
+            content_type,
+            request_stream: Box::pin(request_receiver),
+        },
+        resolver,
+    )
+}
 
 #[convex_macro::v8_op]
 pub fn op_url_get_url_info<'b, P: OpProvider<'b>>(
@@ -193,51 +230,6 @@ pub fn op_headers_normalize_name<'b, P: OpProvider<'b>>(
         Err(_) => None,
     };
     Ok(result)
-}
-
-impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
-    pub fn async_op_fetch(
-        &mut self,
-        args: v8::FunctionCallbackArguments,
-        resolver: v8::Global<v8::PromiseResolver>,
-    ) -> anyhow::Result<()> {
-        let arg: HttpRequestV8 = serde_v8::from_v8(self, args.get(1))?;
-
-        let request = with_argument_error("fetch", || HttpRequestV8::into_stream(arg, self))?;
-        let state = self.state_mut()?;
-        let response_body_stream_id = state.create_stream()?;
-        state.environment.start_async_op(
-            AsyncOpRequest::Fetch {
-                request,
-                response_body_stream_id,
-            },
-            resolver,
-        )
-    }
-
-    #[allow(non_snake_case)]
-    pub fn async_op_parseMultiPart(
-        &mut self,
-        args: v8::FunctionCallbackArguments,
-        resolver: v8::Global<v8::PromiseResolver>,
-    ) -> anyhow::Result<()> {
-        let content_type: String = serde_v8::from_v8(self, args.get(1))?;
-        let request_stream_id: uuid::Uuid = serde_v8::from_v8(self, args.get(2))?;
-        let (request_sender, request_receiver) = mpsc::unbounded();
-        self.new_stream_listener(
-            request_stream_id,
-            StreamListener::RustStream(request_sender),
-        )?;
-
-        let state = self.state_mut()?;
-        state.environment.start_async_op(
-            AsyncOpRequest::ParseMultiPart {
-                content_type,
-                request_stream: Box::pin(request_receiver),
-            },
-            resolver,
-        )
-    }
 }
 
 #[derive(Deserialize, Serialize)]

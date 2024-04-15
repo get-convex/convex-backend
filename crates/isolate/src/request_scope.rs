@@ -49,6 +49,7 @@ use crate::{
     module_map::ModuleMap,
     ops::{
         run_op,
+        start_async_op,
         CryptoOps,
     },
     strings,
@@ -255,7 +256,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
         rv: v8::ReturnValue,
     ) {
         let mut scope = ExecutionScope::<RT, E>::new(scope);
-        if let Err(e) = scope.async_op(args, rv) {
+        if let Err(e) = start_async_op(&mut scope, args, rv) {
             Self::handle_syscall_or_op_error(&mut scope, e)
         }
     }

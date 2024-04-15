@@ -619,7 +619,6 @@ mod op_provider {
     };
     use deno_core::{
         v8,
-        JsBuffer,
         ModuleSpecifier,
     };
     use rand_chacha::ChaCha12Rng;
@@ -633,7 +632,11 @@ mod op_provider {
     };
 
     use super::EnteredContext;
-    use crate::ops::OpProvider;
+    use crate::{
+        environment::AsyncOpRequest,
+        ops::OpProvider,
+        request_scope::StreamListener,
+    };
 
     impl<'enter, 'scope: 'enter> OpProvider<'scope> for EnteredContext<'enter, 'scope> {
         fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
@@ -670,6 +673,14 @@ mod op_provider {
             todo!()
         }
 
+        fn start_async_op(
+            &mut self,
+            _request: AsyncOpRequest,
+            _resolver: v8::Global<v8::PromiseResolver>,
+        ) -> anyhow::Result<()> {
+            todo!();
+        }
+
         fn create_blob_part(&mut self, _bytes: Bytes) -> anyhow::Result<Uuid> {
             todo!()
         }
@@ -685,10 +696,18 @@ mod op_provider {
         fn extend_stream(
             &mut self,
             _id: Uuid,
-            _bytes: Option<JsBuffer>,
+            _bytes: Option<Bytes>,
             _new_done: bool,
         ) -> anyhow::Result<()> {
             todo!()
+        }
+
+        fn new_stream_listener(
+            &mut self,
+            _stream_id: Uuid,
+            _listener: StreamListener,
+        ) -> anyhow::Result<()> {
+            todo!();
         }
 
         fn get_environment_variable(

@@ -20,11 +20,17 @@ use crate::{
         IsolateEnvironment,
     },
     execution_scope::ExecutionScope,
-    request_scope::{
-        ReadableStream,
-        StreamListener,
-    },
+    request_scope::StreamListener,
 };
+
+pub fn async_op_stream_read_part<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    args: v8::FunctionCallbackArguments,
+    resolver: v8::Global<v8::PromiseResolver>,
+) -> anyhow::Result<()> {
+    let stream_id = serde_v8::from_v8(provider.scope(), args.get(1))?;
+    provider.new_stream_listener(stream_id, StreamListener::JsPromise(resolver))
+}
 
 #[convex_macro::v8_op]
 pub fn op_stream_create<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<Uuid> {
@@ -38,78 +44,14 @@ pub fn op_stream_extend<'b, P: OpProvider<'b>>(
     bytes: Option<JsBuffer>,
     new_done: bool,
 ) -> anyhow::Result<()> {
-    provider.extend_stream(id, bytes, new_done)
+    provider.extend_stream(id, bytes.map(|b| b.into()), new_done)
 }
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
-    #[allow(non_snake_case)]
-    pub fn async_op_stream_readPart(
-        &mut self,
-        args: v8::FunctionCallbackArguments,
-        resolver: v8::Global<v8::PromiseResolver>,
-    ) -> anyhow::Result<()> {
-        let stream_id = serde_v8::from_v8(self, args.get(1))?;
-        self.new_stream_listener(stream_id, StreamListener::JsPromise(resolver))
-    }
-
-    pub fn new_stream_listener(
-        &mut self,
-        stream_id: uuid::Uuid,
-        listener: StreamListener,
-    ) -> anyhow::Result<()> {
-        if self
-            .state_mut()?
-            .stream_listeners
-            .insert(stream_id, listener)
-            .is_some()
-        {
-            anyhow::bail!("cannot read from the same stream twice");
-        }
-        self.update_stream_listeners()
-    }
-
     pub fn error_stream(&mut self, id: uuid::Uuid, error: anyhow::Error) -> anyhow::Result<()> {
         let state = self.state_mut()?;
         state.streams.insert(id, Err(error));
         self.update_stream_listeners()
-    }
-
-    pub fn extend_stream(
-        &mut self,
-        id: uuid::Uuid,
-        bytes: Option<bytes::Bytes>,
-        new_done: bool,
-    ) -> anyhow::Result<()> {
-        let state = self.state_mut()?;
-        let new_part_id = match bytes {
-            Some(bytes) => Some(state.create_blob_part(bytes)?),
-            None => None,
-        };
-        state.streams.mutate(&id, |stream| -> anyhow::Result<()> {
-            let Some(Ok(ReadableStream { parts, done })) = stream else {
-                anyhow::bail!("unrecognized stream id {id}");
-            };
-            if *done {
-                anyhow::bail!("stream {id} is already done");
-            }
-            if let Some(new_part_id) = new_part_id {
-                parts.push_back(new_part_id);
-            }
-            if new_done {
-                *done = true;
-            }
-            Ok(())
-        })?;
-        self.update_stream_listeners()?;
-        Ok(())
-    }
-
-    #[allow(unused)]
-    pub fn create_complete_stream(&mut self, bytes: bytes::Bytes) -> anyhow::Result<uuid::Uuid> {
-        let stream_id = self.state_mut()?.create_stream()?;
-        self.extend_stream(stream_id, Some(bytes), false)?;
-        self.extend_stream(stream_id, None, true)?;
-        Ok(stream_id)
     }
 
     /// Call this when a stream has a new chunk or there is a new stream

@@ -524,41 +524,6 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         Ok(v8::Local::new(&mut scope, handle))
     }
 
-    pub fn async_op(
-        &mut self,
-        args: v8::FunctionCallbackArguments,
-        mut rv: v8::ReturnValue,
-    ) -> anyhow::Result<()> {
-        if args.length() < 1 {
-            anyhow::bail!("asyncOp(op, ...args) takes at least one argument");
-        }
-        let op_name: v8::Local<v8::String> = args.get(0).try_into()?;
-        let op_name = to_rust_string(self, &op_name)?;
-
-        let resolver = v8::PromiseResolver::new(self)
-            .ok_or_else(|| anyhow!("Failed to create PromiseResolver"))?;
-        let promise = resolver.get_promise(self);
-        let resolver = v8::Global::new(self, resolver);
-
-        match &op_name[..] {
-            "fetch" => self.async_op_fetch(args, resolver)?,
-            "form/parseMultiPart" => self.async_op_parseMultiPart(args, resolver)?,
-            "sleep" => self.async_op_sleep(args, resolver)?,
-            "storage/store" => self.async_op_storageStore(args, resolver)?,
-            "storage/get" => self.async_op_storageGet(args, resolver)?,
-            "stream/readPart" => self.async_op_stream_readPart(args, resolver)?,
-            _ => {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "UnknownAsyncOperation",
-                    format!("Unknown async operation {op_name}")
-                ));
-            },
-        };
-
-        rv.set(promise.into());
-        Ok(())
-    }
-
     pub fn syscall(
         &mut self,
         args: v8::FunctionCallbackArguments,

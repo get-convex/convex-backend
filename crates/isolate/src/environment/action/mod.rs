@@ -150,6 +150,7 @@ use crate::{
         self,
         log_unawaited_pending_op,
     },
+    ops::OpProvider,
     request_scope::{
         RequestScope,
         StreamListener,

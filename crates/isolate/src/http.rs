@@ -1,12 +1,9 @@
 use std::str::FromStr;
 
-use common::{
-    http::{
-        HttpRequestStream,
-        HttpResponse,
-        HttpResponseStream,
-    },
-    runtime::Runtime,
+use common::http::{
+    HttpRequestStream,
+    HttpResponse,
+    HttpResponseStream,
 };
 use futures::{
     channel::mpsc,
@@ -27,8 +24,7 @@ use serde::{
 use url::Url;
 
 use crate::{
-    environment::IsolateEnvironment,
-    execution_scope::ExecutionScope,
+    ops::OpProvider,
     request_scope::StreamListener,
     HttpActionRequestHead,
 };
@@ -43,9 +39,9 @@ pub struct HttpRequestV8 {
 }
 
 impl HttpRequestV8 {
-    pub fn into_stream<RT: Runtime, E: IsolateEnvironment<RT>>(
+    pub fn into_stream<'b, P: OpProvider<'b>>(
         self,
-        scope: &mut ExecutionScope<RT, E>,
+        provider: &mut P,
     ) -> anyhow::Result<HttpRequestStream> {
         let mut header_map = HeaderMap::new();
         for (name, value) in &self.header_pairs {
@@ -54,7 +50,7 @@ impl HttpRequestV8 {
         let (body_sender, body_receiver) = mpsc::unbounded();
         match self.stream_id {
             Some(stream_id) => {
-                scope.new_stream_listener(stream_id, StreamListener::RustStream(body_sender))?;
+                provider.new_stream_listener(stream_id, StreamListener::RustStream(body_sender))?;
             },
             None => body_sender.close_channel(),
         };
