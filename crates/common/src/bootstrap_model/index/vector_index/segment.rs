@@ -114,18 +114,16 @@ impl FragmentedVectorSegment {
     }
 }
 
-impl TryFrom<FragmentedVectorSegment> for pb::searchlight::FragmentedVectorSegment {
-    type Error = anyhow::Error;
-
-    fn try_from(value: FragmentedVectorSegment) -> Result<Self, Self::Error> {
-        Ok(Self {
+impl From<FragmentedVectorSegment> for pb::searchlight::FragmentedVectorSegment {
+    fn from(value: FragmentedVectorSegment) -> Self {
+        Self {
             segment_key: value.segment_key.into(),
             id_tracker_key: value.id_tracker_key.into(),
             deleted_bitset_key: value.deleted_bitset_key.into(),
             num_vectors: value.num_vectors,
             num_deleted: value.num_deleted,
             id: value.id,
-        })
+        }
     }
 }
 

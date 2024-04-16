@@ -1192,7 +1192,7 @@ mod tests {
         let document = ResolvedDocument::new(
             ResolvedDocumentId::min(),
             (1234.0).try_into()?,
-            ConvexObject::for_value("a".parse()?, 33.try_into()?)?,
+            ConvexObject::for_value("a".parse()?, 33.into())?,
         )?;
         let table_upload = table_upload.write(document).await?;
         let key = table_upload.complete().await?;
@@ -1222,7 +1222,7 @@ mod tests {
         let document = ResolvedDocument::new(
             ResolvedDocumentId::min(),
             (1234.0).try_into()?,
-            ConvexObject::for_value("a".parse()?, 33.try_into()?)?,
+            ConvexObject::for_value("a".parse()?, 33.into())?,
         )?;
         let table_upload = table_upload.write(document.clone()).await?;
         let table_upload = table_upload.write(document).await?;
