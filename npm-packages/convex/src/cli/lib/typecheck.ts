@@ -93,11 +93,7 @@ async function runTsc(
   handleResult: TypecheckResultHandler,
 ): Promise<void> {
   // Check if tsc is even installed
-  const tscPath = path.join(
-    "node_modules",
-    ".bin",
-    process.platform === "win32" ? "tsc.CMD" : "tsc",
-  );
+  const tscPath = path.join("node_modules", "typescript", "bin", "tsc");
   if (!ctx.fs.exists(tscPath)) {
     return handleResult("cantTypeCheck", () => {
       logError(
@@ -108,7 +104,10 @@ async function runTsc(
   }
 
   // Check the TypeScript version matches the recommendation from Convex
-  const versionResult = await spawnAsync(ctx, tscPath, ["--version"]);
+  const versionResult = await spawnAsync(ctx, process.execPath, [
+    tscPath,
+    "--version",
+  ]);
 
   const version = versionResult.stdout.match(/Version (.*)/)?.[1] ?? null;
   const hasOlderTypeScriptVersion = version && semver.lt(version, "4.8.4");
@@ -136,7 +135,11 @@ async function runTscInner(
   // be very useful if there's an error, but we'll run it again to get a nice
   // user-facing error in this exceptional case.
   // The `--listFiles` command prints out files touched on success or error.
-  const result = await spawnAsync(ctx, tscPath, tscArgs.concat("--listFiles"));
+  const result = await spawnAsync(ctx, process.execPath, [
+    tscPath,
+    ...tscArgs,
+    "--listFiles",
+  ]);
   if (result.status === null) {
     return handleResult("typecheckFailed", () => {
       logFailure(ctx, `TypeScript typecheck timed out.`);
@@ -192,9 +195,14 @@ async function runTscInner(
     },
     async () => {
       showSpinner(ctx, "Collecting TypeScript errors");
-      await spawnAsync(ctx, tscPath, [...tscArgs, "--pretty", "true"], {
-        stdio: "inherit",
-      });
+      await spawnAsync(
+        ctx,
+        process.execPath,
+        [tscPath, ...tscArgs, "--pretty", "true"],
+        {
+          stdio: "inherit",
+        },
+      );
       // If this passes, we had a concurrent file change that'll overlap with
       // our observations in the first run. Invalidate our context's filesystem
       // but allow the rest of the system to observe the success.
