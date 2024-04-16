@@ -503,8 +503,7 @@ impl CryptoOps {
                 .to_vec()
             },
             Algorithm::Ecdsa => {
-                let curve: &EcdsaSigningAlgorithm =
-                    named_curve.ok_or_else(not_supported)?.try_into()?;
+                let curve: &EcdsaSigningAlgorithm = named_curve.ok_or_else(not_supported)?.into();
 
                 let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, secure_rng_unavailable()?)
                     .map_err(|e| anyhow::anyhow!(e))?;
@@ -607,9 +606,9 @@ impl CryptoOps {
             },
             Algorithm::Ecdsa => {
                 let signing_alg: &EcdsaSigningAlgorithm =
-                    named_curve.ok_or_else(not_supported)?.try_into()?;
+                    named_curve.ok_or_else(not_supported)?.into();
                 let verify_alg: &EcdsaVerificationAlgorithm =
-                    named_curve.ok_or_else(not_supported)?.try_into()?;
+                    named_curve.ok_or_else(not_supported)?.into();
 
                 let private_key;
 

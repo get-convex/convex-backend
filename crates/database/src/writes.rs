@@ -285,7 +285,7 @@ impl Writes {
 
     /// Iterate over the coalesced writes (so no `DocumentId` appears twice).
     pub fn coalesced_writes(&self) -> impl Iterator<Item = (&ResolvedDocumentId, &DocumentUpdate)> {
-        self.updates.iter().map(|(id, write)| (id, write))
+        self.updates.iter()
     }
 
     pub fn into_coalesced_writes(

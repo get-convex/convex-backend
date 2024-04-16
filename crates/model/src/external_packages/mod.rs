@@ -94,7 +94,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
         let id = SystemMetadataModel::new(self.tx)
             .insert(&EXTERNAL_PACKAGES_TABLE, external_deps_package.try_into()?)
             .await?;
-        let doc_id: DocumentIdV6 = id.try_into()?;
+        let doc_id: DocumentIdV6 = id.into();
         Ok(doc_id.into())
     }
 

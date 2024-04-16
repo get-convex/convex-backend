@@ -197,7 +197,7 @@ impl TryFrom<ConvexObject> for SourcePackage {
         };
         let external_package_id = match object_fields.remove("externalPackageId") {
             Some(ConvexValue::Null) | None => None,
-            Some(ConvexValue::String(s)) => Some(DocumentIdV6::decode(&s)?.try_into()?),
+            Some(ConvexValue::String(s)) => Some(DocumentIdV6::decode(&s)?.into()),
             _ => anyhow::bail!("Invalid 'externalPackageId' in {object_fields:?}"),
         };
         let package_size: PackageSize = match object_fields.remove("packageSize") {

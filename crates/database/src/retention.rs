@@ -1214,7 +1214,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             RetentionType::Index => PersistenceGlobalKey::RetentionConfirmedDeletedTimestamp,
         };
         persistence
-            .write_persistence_global(key, ConvexValue::from(i64::from(cursor)).try_into()?)
+            .write_persistence_global(key, ConvexValue::from(i64::from(cursor)).into())
             .await?;
         checkpoint_writer.write().advance_checkpoint(cursor);
         Ok(())

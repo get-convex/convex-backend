@@ -287,7 +287,7 @@ impl TryFrom<VectorSearch> for JsonValue {
     fn try_from(value: VectorSearch) -> Result<Self, Self::Error> {
         let expression_json = if !value.expressions.is_empty() {
             let expression = VectorSearchExpression::to_expression(value.expressions);
-            Some(expression.try_into()?)
+            Some(expression.into())
         } else {
             None
         };

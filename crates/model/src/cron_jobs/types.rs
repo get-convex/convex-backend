@@ -213,7 +213,7 @@ impl TryFrom<CronSpec> for ConvexObject {
     fn try_from(spec: CronSpec) -> anyhow::Result<Self, Self::Error> {
         // Serialize the udf arguments as binary since we restrict what
         // field names can be used in a `Document`'s top-level object.
-        let udf_args_json = JsonValue::try_from(spec.udf_args)?;
+        let udf_args_json = JsonValue::from(spec.udf_args);
         let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
         obj!(
             "udfPath" => String::from(spec.udf_path),
@@ -795,7 +795,7 @@ impl TryFrom<CronJobLog> for ConvexObject {
     fn try_from(log: CronJobLog) -> anyhow::Result<Self, Self::Error> {
         // Serialize the udf arguments as binary since we restrict what
         // field names can be used in a `Document`'s top-level object.
-        let udf_args_json = JsonValue::try_from(log.udf_args)?;
+        let udf_args_json = JsonValue::from(log.udf_args);
         let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
 
         obj!(
@@ -942,7 +942,7 @@ impl TryFrom<ConvexObject> for CronJobStatus {
                         fields
                     ),
                 };
-                Ok(CronJobStatus::Err(err.try_into()?))
+                Ok(CronJobStatus::Err(err.into()))
             },
             "canceled" => {
                 let num_canceled = match fields.remove("num_canceled") {
@@ -1016,7 +1016,7 @@ impl TryFrom<ConvexObject> for CronJobResult {
                         fields
                     ),
                 };
-                Ok(CronJobResult::Truncated(truncated_log.try_into()?))
+                Ok(CronJobResult::Truncated(truncated_log.into()))
             },
             _ => anyhow::bail!("Invalid CronJobResult `type`: {}", result_t),
         };

@@ -44,7 +44,7 @@ impl TryFrom<ScheduledJob> for ConvexObject {
     fn try_from(job: ScheduledJob) -> anyhow::Result<Self> {
         // Serialize the udf arguments as binary since we restrict what
         // field names can be used in a `Document`'s top-level object.
-        let udf_args_json = JsonValue::try_from(job.udf_args)?;
+        let udf_args_json = JsonValue::from(job.udf_args);
         let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
         let mut obj: BTreeMap<FieldName, ConvexValue> = BTreeMap::new();
         obj.insert(

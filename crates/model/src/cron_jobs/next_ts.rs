@@ -54,7 +54,7 @@ pub fn compute_next_ts(
             .context("Cron Schedule: Cron parsing from Saffron failed")?,
     };
     let prev_ts = prev_ts.unwrap_or(now);
-    let prev_ts_nanos: i64 = prev_ts.try_into()?;
+    let prev_ts_nanos: i64 = prev_ts.into();
     let prev_ts_utc = Utc.timestamp_nanos(prev_ts_nanos);
     let next_ts_utc = match cron.next_after(prev_ts_utc) {
         Some(next_ts_utc) => next_ts_utc,

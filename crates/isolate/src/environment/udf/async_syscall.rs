@@ -449,7 +449,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let result = u32::try_from(result)?;
         // Return as f64, which converts to number type in Javascript.
         let result = f64::from(result);
-        Ok(ConvexValue::try_from(result)?.into())
+        Ok(ConvexValue::from(result).into())
     }
 
     #[convex_macro::instrument_future]

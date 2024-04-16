@@ -336,7 +336,7 @@ impl TryFrom<DeploymentAuditLogEvent> for serde_json::Map<String, JsonValue> {
             "actionMetadata".to_string(),
             // Note that this serialization format might be ugly for certain types until the clean
             // export serialization project is complete.
-            value.metadata()?.try_into()?,
+            value.metadata()?.into(),
         );
         Ok(map)
     }

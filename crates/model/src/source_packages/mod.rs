@@ -63,7 +63,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
         let document_id = SystemMetadataModel::new(self.tx)
             .insert(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)
             .await?;
-        let id: DocumentIdV6 = document_id.try_into()?;
+        let id: DocumentIdV6 = document_id.into();
         Ok(id.into())
     }
 

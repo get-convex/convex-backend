@@ -324,7 +324,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             },
         };
         let new_version = ModuleVersionMetadata {
-            module_id: module_id.try_into()?,
+            module_id: module_id.into(),
             source,
             source_package_id,
             source_map,

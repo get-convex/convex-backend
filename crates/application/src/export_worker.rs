@@ -822,7 +822,7 @@ impl<'a> ZipSnapshotUpload<'a> {
         entry_writer.compat_mut_write().write_all(b"\n").await?;
         for (override_id, override_export_context) in generated_schema.overrides.into_iter() {
             let override_json =
-                json!({override_id.encode(): JsonValue::try_from(override_export_context)?});
+                json!({override_id.encode(): JsonValue::from(override_export_context)});
             entry_writer
                 .compat_mut_write()
                 .write_all(serde_json::to_string(&override_json)?.as_bytes())

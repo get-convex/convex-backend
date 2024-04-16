@@ -412,10 +412,7 @@ impl<RT: Runtime> Transaction<RT> {
             );
         }
 
-        let mut updates = updates
-            .into_iter()
-            .map(|(id, write)| (id, write))
-            .collect::<Vec<_>>();
+        let mut updates = updates.into_iter().collect::<Vec<_>>();
         updates.sort_by_key(|(id, update)| {
             table_dependency_sort_key(
                 self.bootstrap_tables(),

@@ -799,7 +799,7 @@ impl TryFrom<ConvexObject> for ModuleVersionMetadata {
         };
         let source_package_id = match fields.remove("sourcePackageId") {
             Some(ConvexValue::Null) | None => None,
-            Some(ConvexValue::String(s)) => Some(DocumentIdV6::decode(&s)?.try_into()?),
+            Some(ConvexValue::String(s)) => Some(DocumentIdV6::decode(&s)?.into()),
             v => anyhow::bail!(
                 "Invalid sourcePackageId field for ModuleVersionMetadata: {:?}",
                 v

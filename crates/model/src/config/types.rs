@@ -226,7 +226,7 @@ impl TryFrom<ConfigDiff> for ConvexObject {
     fn try_from(value: ConfigDiff) -> Result<Self, Self::Error> {
         let server_version_value: ConvexValue = match value.udf_server_version_diff {
             Some(server_version_diff) => {
-                ConvexValue::try_from(ConvexObject::try_from(server_version_diff)?)?
+                ConvexValue::from(ConvexObject::try_from(server_version_diff)?)
             },
             None => ConvexValue::Null,
         };
@@ -237,7 +237,7 @@ impl TryFrom<ConfigDiff> for ConvexObject {
             "crons" => ConvexObject::try_from(value.cron_diff)?,
             "indexes" => ConvexObject::try_from(value.index_diff)?,
             "schema" => match value.schema_diff {
-                Some(schema_diff) => ConvexObject::try_from(schema_diff)?.try_into()?,
+                Some(schema_diff) => ConvexObject::try_from(schema_diff)?.into(),
                 None => ConvexValue::Null,
             },
         )
