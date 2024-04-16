@@ -21,7 +21,6 @@ use axum::{
 use common::{
     assert_obj,
     http::{
-        serve_http,
         ConvexHttpService,
         NoopRouteMapper,
     },
@@ -64,14 +63,14 @@ async fn test_fetch_not_allowed_in_queries(rt: TestRuntime) -> anyhow::Result<()
 
 async fn serve(router: Router, port: u16) {
     let (_shutdown_tx, mut shutdown_rx) = async_broadcast::broadcast::<()>(1);
-    _ = serve_http(
-        ConvexHttpService::new(
-            router,
-            "0.0.1".to_owned(),
-            1,
-            Duration::from_secs(125),
-            NoopRouteMapper,
-        ),
+    _ = ConvexHttpService::new(
+        router,
+        "0.0.1".to_owned(),
+        1,
+        Duration::from_secs(125),
+        NoopRouteMapper,
+    )
+    .serve(
         SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port).into(),
         async move {
             let _ = shutdown_rx.recv().await;

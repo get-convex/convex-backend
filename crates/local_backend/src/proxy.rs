@@ -11,7 +11,6 @@ use axum::{
 };
 use common::{
     http::{
-        serve_http,
         ConvexHttpService,
         HttpResponseError,
         NoopRouteMapper,
@@ -63,7 +62,7 @@ pub async fn dev_site_proxy(
         Duration::from_secs(125),
         NoopRouteMapper,
     );
-    let proxy_server = serve_http(service, addr.into(), async move {
+    let proxy_server = service.serve(addr.into(), async move {
         let _ = shutdown_rx.recv().await;
         tracing::info!("Shut down proxy");
     });

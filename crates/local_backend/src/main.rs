@@ -10,10 +10,7 @@ use clap::Parser;
 use cmd_util::env::config_service;
 use common::{
     errors::MainError,
-    http::{
-        serve_http,
-        ConvexHttpService,
-    },
+    http::ConvexHttpService,
     runtime::Runtime,
     version::SERVER_VERSION_STR,
 };
@@ -96,13 +93,9 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         Duration::from_secs(125),
         BackendRouteMapper,
     );
-    let serve_http_future = serve_http(
-        http_service,
-        config.http_bind_address().into(),
-        async move {
-            let _ = shutdown_rx_.recv().await;
-        },
-    );
+    let serve_http_future = http_service.serve(config.http_bind_address().into(), async move {
+        let _ = shutdown_rx_.recv().await;
+    });
     let proxy_future = dev_site_proxy(
         config.site_bind_address(),
         config.convex_origin_url(),

@@ -375,10 +375,7 @@ mod tests {
         routing::get,
         Router,
     };
-    use common::http::{
-        serve_http,
-        ConvexHttpService,
-    };
+    use common::http::ConvexHttpService;
     use futures::{
         SinkExt,
         StreamExt,
@@ -419,7 +416,7 @@ mod tests {
         let port = portpicker::pick_unused_port().expect("No ports free");
         let addr = format!("127.0.0.1:{port}").parse()?;
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
-        let proxy_server = tokio::spawn(serve_http(app, addr, async move {
+        let proxy_server = tokio::spawn(app.serve(addr, async move {
             shutdown_rx.await.unwrap();
         }));
 

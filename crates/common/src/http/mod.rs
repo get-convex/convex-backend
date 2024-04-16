@@ -29,6 +29,7 @@ use axum::{
     },
     error_handling::HandleErrorLayer,
     extract::{
+        connect_info::IntoMakeServiceWithConnectInfo,
         FromRequestParts,
         State,
     },
@@ -583,6 +584,17 @@ impl ConvexHttpService {
         Self { router }
     }
 
+    pub async fn serve<F: Future<Output = ()>>(
+        self,
+        addr: SocketAddr,
+        shutdown: F,
+    ) -> anyhow::Result<()> {
+        let make_svc = self
+            .router
+            .into_make_service_with_connect_info::<SocketAddr>();
+        serve_http(make_svc, addr, shutdown).await
+    }
+
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_test(router: Router<(), Body>) -> Self {
         Self { router }
@@ -628,7 +640,7 @@ where
 
 /// Serves an HTTP server using the given service.
 pub async fn serve_http<F>(
-    service: ConvexHttpService,
+    service: IntoMakeServiceWithConnectInfo<Router, SocketAddr>,
     addr: SocketAddr,
     shutdown: F,
 ) -> anyhow::Result<()>
@@ -652,13 +664,10 @@ where
     incoming_sockets.set_sleep_on_errors(true);
     let addr = incoming_sockets.local_addr();
 
-    let make_svc = service
-        .router
-        .into_make_service_with_connect_info::<SocketAddr>();
     tracing::info!("Listening on http://{}", addr);
     hyper::Server::builder(incoming_sockets)
         .http2_max_concurrent_streams(MAX_HTTP2_STREAMS)
-        .serve(make_svc)
+        .serve(service)
         .with_graceful_shutdown(shutdown)
         .await?;
     tracing::info!("HTTP server shutdown complete");
