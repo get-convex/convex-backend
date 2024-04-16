@@ -9,7 +9,6 @@ mod syscall_trace;
 pub mod validation;
 mod version;
 
-use common::runtime::Runtime;
 use deno_core::{
     serde_v8,
     v8,
@@ -27,10 +26,6 @@ pub use self::{
     syscall_stats::SyscallStats,
     syscall_trace::SyscallTrace,
     version::parse_version,
-};
-use crate::{
-    environment::IsolateEnvironment,
-    execution_scope::ExecutionScope,
 };
 
 pub const MAX_LOG_LINE_LENGTH: usize = 32768;
@@ -65,8 +60,8 @@ pub enum Phase {
     Executing,
 }
 
-pub fn json_to_v8<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>>(
-    scope: &mut ExecutionScope<'a, 'b, RT, E>,
+pub fn json_to_v8<'a>(
+    scope: &mut v8::HandleScope<'a>,
     json: JsonValue,
 ) -> anyhow::Result<v8::Local<'a, v8::Value>> {
     let value_v8 = serde_v8::to_v8(scope, json)?;

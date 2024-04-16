@@ -6,9 +6,8 @@ use common::{
     types::UdfType,
 };
 use deno_core::{
-    v8::{
-        self,
-    },
+    serde_v8,
+    v8,
     ModuleSpecifier,
 };
 use errors::ErrorMetadata;
@@ -23,17 +22,22 @@ use super::{
         AsyncSyscallCompletion,
         EvaluateResult,
         PendingAsyncSyscall,
+        ReadyEvaluateResult,
     },
     context_state::ContextState,
 };
 use crate::{
     bundled_js::system_udf_file,
+    environment::helpers::resolve_promise,
+    error::extract_source_mapped_error,
     helpers::{
         self,
         to_rust_string,
     },
     isolate::SETUP_URL,
     isolate2::context::Context,
+    metrics,
+    ops::OpProvider,
     strings,
 };
 
@@ -70,9 +74,10 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
 
     pub fn run_setup_module(&mut self) -> anyhow::Result<()> {
         let setup_url = ModuleSpecifier::parse(SETUP_URL)?;
-        let (source, _) =
+        let (source, source_map) =
             system_udf_file("setup.js").ok_or_else(|| anyhow!("Setup module not found"))?;
-        let unresolved_imports = self.register_module(&setup_url, source)?;
+        let unresolved_imports =
+            self.register_module(&setup_url, source, source_map.map(|s| s.to_string()))?;
         anyhow::ensure!(
             unresolved_imports.is_empty(),
             "Unexpected import specifiers for setup module"
@@ -128,9 +133,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         if let Some((_promise, error_global)) = promise_rejection {
             let error = v8::Local::new(self.scope, error_global);
             let err = self.format_traceback(error)?;
-
-            // XXX: how do we want to plumb this to the termination stuff?
-            anyhow::bail!("Unhandled promise rejection: {err:?}");
+            return Err(err.into());
         }
         Ok(r)
     }
@@ -139,6 +142,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         &mut self,
         url: &ModuleSpecifier,
         source: &str,
+        source_map: Option<String>,
     ) -> anyhow::Result<Vec<ModuleSpecifier>> {
         {
             let context_state = self.context_state_mut()?;
@@ -176,7 +180,9 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         let unresolved_imports = {
             let context_state = self.context_state_mut()?;
             import_specifiers.retain(|s| !context_state.module_map.contains_module(s));
-            context_state.module_map.register(url.clone(), module)?;
+            context_state
+                .module_map
+                .register(url.clone(), module, source_map)?;
             import_specifiers
         };
         Ok(unresolved_imports)
@@ -190,8 +196,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             let context_state = self.context_state()?;
             context_state
                 .module_map
-                .modules
-                .get(url)
+                .lookup_module(url)
                 .ok_or_else(|| anyhow!("Module not registered"))?
                 .clone()
         };
@@ -248,15 +253,13 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             let context_state = self.context_state()?;
             let referrer_name = context_state
                 .module_map
-                .by_v8_module
-                .get(&referrer_global)
+                .lookup_by_v8_module(&referrer_global)
                 .ok_or_else(|| anyhow!("Module not registered"))?
                 .to_string();
             let resolved_specifier = deno_core::resolve_import(&specifier_str, &referrer_name)?;
             let module = context_state
                 .module_map
-                .modules
-                .get(&resolved_specifier)
+                .lookup_module(&resolved_specifier)
                 .ok_or_else(|| anyhow!("Couldn't find {resolved_specifier}"))?
                 .clone();
             v8::Local::new(self.scope, module)
@@ -308,8 +311,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             context_state.environment.start_execution()?;
             context_state
                 .module_map
-                .modules
-                .get(url)
+                .lookup_module(url)
                 .ok_or_else(|| anyhow!("Module not registered"))?
                 .clone()
         };
@@ -414,21 +416,11 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             completed
         };
         for (resolver, result) in completed {
-            let resolver = v8::Local::new(self.scope, resolver);
-            match result {
-                Ok(v) => {
-                    let s = serde_json::to_string(&v)?;
-                    let v = v8::String::new(self.scope, &s)
-                        .ok_or_else(|| anyhow!("Failed to create result string"))?;
-                    resolver.resolve(self.scope, v.into());
-                },
-                Err(e) => {
-                    let message = v8::String::new(self.scope, &e.message)
-                        .ok_or_else(|| anyhow!("Failed to create error message string"))?;
-                    let exception = v8::Exception::error(self.scope, message);
-                    resolver.reject(self.scope, exception);
-                },
+            let result_v8 = match result {
+                Ok(v) => Ok(serde_v8::to_v8(self.scope, v)?),
+                Err(e) => Err(e),
             };
+            resolve_promise(self.scope, resolver, result_v8)?;
         }
 
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
@@ -454,7 +446,10 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                 let result_json: JsonValue = serde_json::from_str(&result)?;
                 let result = ConvexValue::try_from(result_json)?;
                 let outcome = self.context_state_mut()?.environment.finish_execution()?;
-                Ok(EvaluateResult::Ready { result, outcome })
+                Ok(EvaluateResult::Ready(ReadyEvaluateResult {
+                    result,
+                    outcome,
+                }))
             },
             v8::PromiseState::Rejected => {
                 todo!()
@@ -586,13 +581,30 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
     }
 
     pub fn format_traceback(&mut self, exception: v8::Local<v8::Value>) -> anyhow::Result<JsError> {
-        // XXX: check if terminated
-        // XXX: collect unsourcemapped error here and let the tokio thread do
-        // sourcemapping if needed.
-        let message = v8::Exception::create_message(self.scope, exception);
-        let message = message.get(self.scope);
-        let message = to_rust_string(self.scope, &message)?;
-        Ok(JsError::from_message(message))
+        // Check if we hit a system error or timeout and can't run any JavaScript now.
+        // Abort with a system error here, and we'll (in the best case) pull out
+        // the original system error that initiated the termination.
+        if self.scope.is_execution_terminating() {
+            anyhow::bail!("Execution terminated");
+        }
+        let err: anyhow::Result<_> = try {
+            let (message, frame_data, custom_data) =
+                extract_source_mapped_error(self.scope, exception)?;
+            JsError::from_frames(message, frame_data, custom_data, |s| {
+                self.lookup_source_map(s)
+            })?
+        };
+        let err = match err {
+            Ok(e) => e,
+            Err(e) => {
+                let message = v8::Exception::create_message(self.scope, exception);
+                let message = message.get(self.scope);
+                let message = to_rust_string(self.scope, &message)?;
+                metrics::log_source_map_failure(&message, &e);
+                JsError::from_message(message)
+            },
+        };
+        Ok(err)
     }
 }
 
@@ -641,9 +653,13 @@ mod op_provider {
 
         fn lookup_source_map(
             &mut self,
-            _specifier: &ModuleSpecifier,
+            specifier: &ModuleSpecifier,
         ) -> anyhow::Result<Option<SourceMap>> {
-            todo!()
+            let context_state = self.context_state()?;
+            let Some(source_map) = context_state.module_map.lookup_source_map(specifier) else {
+                return Ok(None);
+            };
+            Ok(Some(SourceMap::from_slice(source_map.as_bytes())?))
         }
 
         fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {

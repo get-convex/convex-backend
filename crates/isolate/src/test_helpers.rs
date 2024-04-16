@@ -979,11 +979,11 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
         Fut: Future<Output = anyhow::Result<()>>,
     {
         let test = Self::default(rt.clone()).await?;
-        f(test).await?;
+        f(test).await.context("test failed on isolate1")?;
 
         let mut test = Self::default(rt.clone()).await?;
         test.enable_isolate_v2();
-        f(test).await?;
+        f(test).await.context("test failed on isolate2")?;
 
         Ok(())
     }

@@ -1,24 +1,17 @@
 use anyhow::anyhow;
-use common::{
-    errors::{
-        report_error,
-        JsError,
-    },
-    runtime::Runtime,
+use common::errors::{
+    report_error,
+    JsError,
 };
 use deno_core::v8;
 use errors::ErrorMetadataAnyhowExt;
 use serde_json::Value as JsonValue;
 
 use super::json_to_v8;
-use crate::{
-    environment::IsolateEnvironment,
-    execution_scope::ExecutionScope,
-    strings,
-};
+use crate::strings;
 
-pub fn resolve_promise<RT: Runtime, E: IsolateEnvironment<RT>>(
-    scope: &mut ExecutionScope<RT, E>,
+pub fn resolve_promise(
+    scope: &mut v8::HandleScope<'_>,
     resolver: v8::Global<v8::PromiseResolver>,
     result: anyhow::Result<v8::Local<v8::Value>>,
 ) -> anyhow::Result<()> {
@@ -27,16 +20,16 @@ pub fn resolve_promise<RT: Runtime, E: IsolateEnvironment<RT>>(
 
 // Like `resolve_promise` but returns JS error even when the
 // error might have been caused by Convex, not by the user.
-pub fn resolve_promise_allow_all_errors<RT: Runtime, E: IsolateEnvironment<RT>>(
-    scope: &mut ExecutionScope<RT, E>,
+pub fn resolve_promise_allow_all_errors(
+    scope: &mut v8::HandleScope<'_>,
     resolver: v8::Global<v8::PromiseResolver>,
     result: anyhow::Result<v8::Local<v8::Value>>,
 ) -> anyhow::Result<()> {
     resolve_promise_inner(scope, resolver, result, true)
 }
 
-fn resolve_promise_inner<RT: Runtime, E: IsolateEnvironment<RT>>(
-    scope: &mut ExecutionScope<RT, E>,
+fn resolve_promise_inner(
+    scope: &mut v8::HandleScope<'_>,
     resolver: v8::Global<v8::PromiseResolver>,
     result: anyhow::Result<v8::Local<v8::Value>>,
     allow_all_errors: bool,

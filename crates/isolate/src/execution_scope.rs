@@ -19,7 +19,6 @@ use common::{
     types::UdfType,
 };
 use deno_core::{
-    serde_v8,
     v8::{
         self,
         HeapStatistics,
@@ -372,33 +371,6 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         }
 
         Ok(id)
-    }
-
-    pub fn start_dynamic_import<'s>(
-        &mut self,
-        resource_name: v8::Local<'s, v8::Value>,
-        specifier: v8::Local<'s, v8::String>,
-    ) -> anyhow::Result<v8::Local<'_, v8::Promise>> {
-        let promise_resolver = v8::PromiseResolver::new(self)
-            .ok_or_else(|| anyhow::anyhow!("Failed to create v8::PromiseResolver"))?;
-
-        let promise = promise_resolver.get_promise(self);
-        let resolver = v8::Global::new(self, promise_resolver);
-
-        let referrer_name: String = serde_v8::from_v8(self, resource_name)?;
-        let specifier_str = helpers::to_rust_string(self, &specifier)?;
-
-        let resolved_specifier = deno_core::resolve_import(&specifier_str, &referrer_name)
-            .map_err(|e| ErrorMetadata::bad_request("InvalidImport", e.to_string()))?;
-
-        let dynamic_imports = self.pending_dynamic_imports_mut();
-        anyhow::ensure!(
-            dynamic_imports.allow_dynamic_imports,
-            "dynamic_import_callback registered without allow_dynamic_imports?"
-        );
-        dynamic_imports.push(resolved_specifier, resolver);
-
-        Ok(promise)
     }
 
     async fn lookup_source(

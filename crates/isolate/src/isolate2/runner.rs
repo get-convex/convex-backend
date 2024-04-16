@@ -1,3 +1,15 @@
+// TODO:
+// - QueryManager, lazy query initialization
+// - Source maps on V8 thread
+// - Sending table mappings to V8 thread
+// - Environment variables and lazy read set size check
+// - Log streaming
+// - Changing invocation API to be less UDF centric
+// - Timer for logging user time from tokio thread
+// - Error handling
+// - Regular actions
+// - HTTP actions
+// - Other environments (schema, auth.config.js, analyze)
 use std::{
     cmp::Ordering,
     sync::Arc,
@@ -5,6 +17,7 @@ use std::{
 };
 
 use common::{
+    errors::JsError,
     execution_context::ExecutionContext,
     log_lines::{
         LogLevel,
@@ -55,6 +68,7 @@ use super::{
         EvaluateResult,
         IsolateThreadClient,
         IsolateThreadRequest,
+        ReadyEvaluateResult,
     },
     context::Context,
     environment::{
@@ -89,6 +103,7 @@ use crate::{
     },
     JsonPackedValue,
     ModuleLoader,
+    ModuleNotFoundError,
     SyscallTrace,
     UdfOutcome,
 };
@@ -102,17 +117,24 @@ fn handle_request(
         IsolateThreadRequest::RegisterModule {
             name,
             source,
+            source_map,
             response,
         } => {
-            let imports = context.enter(session, |mut ctx| ctx.register_module(&name, &source))?;
-            let _ = response.send(imports);
+            let result = context.enter(session, |mut ctx| {
+                ctx.register_module(&name, &source, source_map)
+            });
+            response
+                .send(result)
+                .map_err(|_| anyhow::anyhow!("Canceled"))?;
         },
         IsolateThreadRequest::EvaluateModule { name, response } => {
-            context.enter(session, |mut ctx| {
+            let result = context.enter(session, |mut ctx| {
                 ctx.evaluate_module(&name)?;
                 anyhow::Ok(())
-            })?;
-            let _ = response.send(());
+            });
+            response
+                .send(result)
+                .map_err(|_| anyhow::anyhow!("Canceled"))?;
         },
         IsolateThreadRequest::StartFunction {
             udf_type,
@@ -121,16 +143,16 @@ fn handle_request(
             args,
             response,
         } => {
-            let r = context.start_function(session, udf_type, &module, &name, args)?;
-            let _ = response.send(r);
+            let r = context.start_function(session, udf_type, &module, &name, args);
+            response.send(r).map_err(|_| anyhow::anyhow!("Canceled"))?;
         },
         IsolateThreadRequest::PollFunction {
             function_id,
             completions,
             response,
         } => {
-            let r = context.poll_function(session, function_id, completions)?;
-            let _ = response.send(r);
+            let r = context.poll_function(session, function_id, completions);
+            response.send(r).map_err(|_| anyhow::anyhow!("Canceled"))?;
         },
     }
     Ok(())
@@ -343,25 +365,57 @@ async fn run_request<RT: Runtime>(
     udf_path: CanonicalizedUdfPath,
     args: ConvexObject,
 ) -> anyhow::Result<UdfOutcome> {
-    let mut stack = vec![udf_path.module().clone()];
+    // Phase 1: Load and register all source needed, and evaluate the UDF's module.
+    let r: anyhow::Result<_> = try {
+        let mut stack = vec![udf_path.module().clone()];
 
-    while let Some(module_path) = stack.pop() {
-        let module_specifier = module_specifier_from_path(&module_path)?;
-        let Some(module_metadata) = module_loader.get_module(tx, module_path.clone()).await? else {
-            anyhow::bail!("Module not found: {module_path:?}")
-        };
-        let requests = client
-            .register_module(module_specifier, module_metadata.source.clone())
-            .await?;
-        for requested_module_specifier in requests {
-            let module_path = path_from_module_specifier(&requested_module_specifier)?;
-            stack.push(module_path);
+        while let Some(module_path) = stack.pop() {
+            let module_specifier = module_specifier_from_path(&module_path)?;
+            let Some(module_metadata) = module_loader.get_module(tx, module_path.clone()).await?
+            else {
+                let err = ModuleNotFoundError::new(module_path.as_str());
+                Err(JsError::from_message(format!("{err}")))?
+            };
+            let requests = client
+                .register_module(
+                    module_specifier,
+                    module_metadata.source.clone(),
+                    module_metadata.source_map.clone(),
+                )
+                .await?;
+            for requested_module_specifier in requests {
+                let module_path = path_from_module_specifier(&requested_module_specifier)?;
+                stack.push(module_path);
+            }
         }
-    }
 
-    let udf_module_specifier = module_specifier_from_path(udf_path.module())?;
-
-    client.evaluate_module(udf_module_specifier.clone()).await?;
+        let udf_module_specifier = module_specifier_from_path(udf_path.module())?;
+        client.evaluate_module(udf_module_specifier.clone()).await?;
+        udf_module_specifier
+    };
+    let udf_module_specifier = match r {
+        Ok(m) => m,
+        Err(e) => match e.downcast::<JsError>() {
+            Ok(js_error) => {
+                let outcome = UdfOutcome {
+                    udf_path,
+                    arguments: vec![ConvexValue::Object(args)].try_into()?,
+                    identity: tx.inert_identity(),
+                    rng_seed: execution_time_seed.rng_seed,
+                    observed_rng: false,
+                    unix_timestamp: execution_time_seed.unix_timestamp,
+                    observed_time: false,
+                    log_lines: vec![].into(),
+                    journal: QueryJournal::new(),
+                    result: Err(js_error),
+                    syscall_trace: SyscallTrace::new(),
+                    udf_server_version: None,
+                };
+                return Ok(outcome);
+            },
+            Err(e) => return Err(e),
+        },
+    };
 
     let mut provider = Isolate2SyscallProvider {
         tx,
@@ -373,90 +427,99 @@ async fn run_request<RT: Runtime>(
         is_system: udf_path.is_system(),
     };
 
-    let (function_id, mut result) = client
-        .start_function(
-            udf_type,
-            udf_module_specifier.clone(),
-            udf_path.function_name().to_string(),
-            args.clone(),
-        )
-        .await?;
+    // Phase 2: Start the UDF, execute its async syscalls, and poll until
+    // completion.
+    let r: anyhow::Result<_> = try {
+        let (function_id, mut result) = client
+            .start_function(
+                udf_type,
+                udf_module_specifier.clone(),
+                udf_path.function_name().to_string(),
+                args.clone(),
+            )
+            .await?;
+        loop {
+            let async_syscalls = match result {
+                EvaluateResult::Ready(r) => break r,
+                EvaluateResult::Pending { async_syscalls } => async_syscalls,
+            };
+            let mut completions = vec![];
 
-    loop {
-        let async_syscalls = match result {
-            EvaluateResult::Ready { result, outcome } => {
-                return Ok(UdfOutcome {
-                    udf_path,
-                    arguments: vec![ConvexValue::Object(args)].try_into()?,
-                    identity: provider.tx.inert_identity(),
-                    rng_seed: execution_time_seed.rng_seed,
-                    observed_rng: outcome.observed_rng,
-                    unix_timestamp: execution_time_seed.unix_timestamp,
-                    observed_time: outcome.observed_time,
-                    log_lines: vec![].into(),
-                    journal: provider.next_journal,
-                    result: Ok(JsonPackedValue::pack(result)),
-                    syscall_trace: SyscallTrace::new(),
-                    udf_server_version: None,
-                });
-            },
-            EvaluateResult::Pending { async_syscalls } => async_syscalls,
-        };
+            let mut syscall_batch = None;
+            let mut batch_promise_ids = vec![];
 
-        let mut completions = vec![];
+            for async_syscall in async_syscalls {
+                let promise_id = async_syscall.promise_id;
+                match syscall_batch {
+                    None => {
+                        syscall_batch = Some(AsyncSyscallBatch::new(
+                            async_syscall.name,
+                            async_syscall.args,
+                        ));
+                        assert!(batch_promise_ids.is_empty());
+                        batch_promise_ids.push(promise_id);
+                    },
+                    Some(ref mut batch)
+                        if batch.can_push(&async_syscall.name, &async_syscall.args) =>
+                    {
+                        batch.push(async_syscall.name, async_syscall.args)?;
+                        batch_promise_ids.push(promise_id);
+                    },
+                    Some(batch) => {
+                        let results =
+                            DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch)
+                                .await?;
+                        assert_eq!(results.len(), batch_promise_ids.len());
 
-        let mut syscall_batch = None;
-        let mut batch_promise_ids = vec![];
+                        for (promise_id, result) in batch_promise_ids.drain(..).zip(results) {
+                            completions.push(AsyncSyscallCompletion { promise_id, result });
+                        }
 
-        for async_syscall in async_syscalls {
-            let promise_id = async_syscall.promise_id;
-            match syscall_batch {
-                None => {
-                    syscall_batch = Some(AsyncSyscallBatch::new(
-                        async_syscall.name,
-                        async_syscall.args,
-                    ));
-                    assert!(batch_promise_ids.is_empty());
-                    batch_promise_ids.push(promise_id);
-                },
-                Some(ref mut batch) if batch.can_push(&async_syscall.name, &async_syscall.args) => {
-                    batch.push(async_syscall.name, async_syscall.args)?;
-                    batch_promise_ids.push(promise_id);
-                },
-                Some(batch) => {
-                    let results =
-                        DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await?;
-                    assert_eq!(results.len(), batch_promise_ids.len());
-
-                    for (promise_id, result) in batch_promise_ids.drain(..).zip(results) {
-                        // TODO: Avoid reparsing the result here.
-                        let result: JsonValue = serde_json::from_str(&(result?))?;
-                        completions.push(AsyncSyscallCompletion {
-                            promise_id,
-                            result: Ok(result),
-                        });
-                    }
-
-                    syscall_batch = None;
-                },
+                        syscall_batch = None;
+                    },
+                }
             }
-        }
-        if let Some(batch) = syscall_batch {
-            let results = DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await?;
-            assert_eq!(results.len(), batch_promise_ids.len());
+            if let Some(batch) = syscall_batch {
+                let results =
+                    DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await?;
+                assert_eq!(results.len(), batch_promise_ids.len());
 
-            for (promise_id, result) in batch_promise_ids.into_iter().zip(results) {
-                // TODO: Avoid reparsing the result here.
-                let result: JsonValue = serde_json::from_str(&(result?))?;
-                completions.push(AsyncSyscallCompletion {
-                    promise_id,
-                    result: Ok(result),
-                });
+                for (promise_id, result) in batch_promise_ids.into_iter().zip(results) {
+                    completions.push(AsyncSyscallCompletion { promise_id, result });
+                }
             }
-        }
 
-        result = client.poll_function(function_id, completions).await?;
-    }
+            result = client.poll_function(function_id, completions).await?;
+        }
+    };
+
+    let (result, outcome) = match r {
+        Ok(ReadyEvaluateResult { result, outcome }) => (Ok(JsonPackedValue::pack(result)), outcome),
+        Err(e) => {
+            let js_error = e.downcast::<JsError>()?;
+            // TODO: Ask the V8 thread for its outcome.
+            let outcome = EnvironmentOutcome {
+                observed_rng: false,
+                observed_time: false,
+            };
+            (Err(js_error), outcome)
+        },
+    };
+    let outcome = UdfOutcome {
+        udf_path,
+        arguments: vec![ConvexValue::Object(args)].try_into()?,
+        identity: provider.tx.inert_identity(),
+        rng_seed: execution_time_seed.rng_seed,
+        observed_rng: outcome.observed_rng,
+        unix_timestamp: execution_time_seed.unix_timestamp,
+        observed_time: outcome.observed_time,
+        log_lines: vec![].into(),
+        journal: provider.next_journal,
+        result,
+        syscall_trace: SyscallTrace::new(),
+        udf_server_version: None,
+    };
+    Ok(outcome)
 }
 
 struct Isolate2SyscallProvider<'a, RT: Runtime> {

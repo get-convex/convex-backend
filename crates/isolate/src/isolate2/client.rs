@@ -7,7 +7,6 @@ use std::{
 };
 
 use common::{
-    errors::JsError,
     runtime::Runtime,
     types::UdfType,
 };
@@ -36,36 +35,39 @@ pub enum IsolateThreadRequest {
     RegisterModule {
         name: ModuleSpecifier,
         source: String,
-        response: oneshot::Sender<Vec<ModuleSpecifier>>,
+        source_map: Option<String>,
+        response: oneshot::Sender<anyhow::Result<Vec<ModuleSpecifier>>>,
     },
     EvaluateModule {
         name: ModuleSpecifier,
-        // XXX: how do we want to pipe through JS errors across threads?
-        response: oneshot::Sender<()>,
+        response: oneshot::Sender<anyhow::Result<()>>,
     },
     StartFunction {
         udf_type: UdfType,
         module: ModuleSpecifier,
         name: String,
         args: ConvexObject,
-        response: oneshot::Sender<(FunctionId, EvaluateResult)>,
+        response: oneshot::Sender<anyhow::Result<(FunctionId, EvaluateResult)>>,
     },
     PollFunction {
         function_id: FunctionId,
         completions: Vec<AsyncSyscallCompletion>,
-        response: oneshot::Sender<EvaluateResult>,
+        response: oneshot::Sender<anyhow::Result<EvaluateResult>>,
     },
 }
 
 #[derive(Debug)]
 pub enum EvaluateResult {
-    Ready {
-        result: ConvexValue,
-        outcome: EnvironmentOutcome,
-    },
+    Ready(ReadyEvaluateResult),
     Pending {
         async_syscalls: Vec<PendingAsyncSyscall>,
     },
+}
+
+#[derive(Debug)]
+pub struct ReadyEvaluateResult {
+    pub result: ConvexValue,
+    pub outcome: EnvironmentOutcome,
 }
 
 #[derive(Debug)]
@@ -77,7 +79,7 @@ pub struct PendingAsyncSyscall {
 
 pub struct AsyncSyscallCompletion {
     pub promise_id: PromiseId,
-    pub result: Result<JsonValue, JsError>,
+    pub result: anyhow::Result<String>,
 }
 
 pub struct IsolateThreadClient<RT: Runtime> {
@@ -105,7 +107,7 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
     pub async fn send<T>(
         &mut self,
         request: IsolateThreadRequest,
-        mut rx: oneshot::Receiver<T>,
+        mut rx: oneshot::Receiver<anyhow::Result<T>>,
     ) -> anyhow::Result<T> {
         if self.user_time_remaining.is_zero() {
             anyhow::bail!("User time exhausted");
@@ -136,19 +138,21 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
         // Tokio thread to talk to its V8 thread.
         drop(permit);
 
-        Ok(result?)
+        result?
     }
 
     pub async fn register_module(
         &mut self,
         name: ModuleSpecifier,
         source: String,
+        source_map: Option<String>,
     ) -> anyhow::Result<Vec<ModuleSpecifier>> {
         let (tx, rx) = oneshot::channel();
         self.send(
             IsolateThreadRequest::RegisterModule {
                 name,
                 source,
+                source_map,
                 response: tx,
             },
             rx,
