@@ -61,7 +61,7 @@ impl TryFrom<JsonValue> for Value {
                     .context("Arbitrary precision JSON integers unsupported")?;
                 Value::from(n)
             },
-            JsonValue::String(s) => Self::try_from(s)?,
+            JsonValue::String(s) => Self::from(s),
             JsonValue::Array(arr) => {
                 let mut out = Vec::with_capacity(arr.len());
                 for a in arr {

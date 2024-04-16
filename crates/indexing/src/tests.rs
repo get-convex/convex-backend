@@ -408,7 +408,7 @@ fn test_metadata_index_updates() -> anyhow::Result<()> {
             },
             DatabaseIndexUpdate {
                 index_id: by_author,
-                key: IndexKey::new(vec![33.try_into()?], doc_id.into()),
+                key: IndexKey::new(vec![33.into()], doc_id.into()),
                 value: DatabaseIndexValue::NonClustered(doc_id),
                 is_system_index: false,
             },
@@ -449,7 +449,7 @@ fn test_metadata_index_updates() -> anyhow::Result<()> {
             // will become quite complicated. We can reconsider in the long run.
             DatabaseIndexUpdate {
                 index_id: by_author,
-                key: IndexKey::new(vec![33.try_into()?], doc_id.into()),
+                key: IndexKey::new(vec![33.into()], doc_id.into()),
                 value: DatabaseIndexValue::NonClustered(doc_id),
                 is_system_index: false,
             },
@@ -492,7 +492,7 @@ fn test_metadata_index_updates() -> anyhow::Result<()> {
             },
             DatabaseIndexUpdate {
                 index_id: by_author,
-                key: IndexKey::new(vec![33.try_into()?], doc_id.into()),
+                key: IndexKey::new(vec![33.into()], doc_id.into()),
                 value: DatabaseIndexValue::NonClustered(doc_id),
                 is_system_index: false,
             },
@@ -523,7 +523,7 @@ fn test_metadata_index_updates() -> anyhow::Result<()> {
             },
             DatabaseIndexUpdate {
                 index_id: by_author,
-                key: IndexKey::new(vec![33.try_into()?], doc_id.into()),
+                key: IndexKey::new(vec![33.into()], doc_id.into()),
                 value: DatabaseIndexValue::Deleted,
                 is_system_index: false,
             },

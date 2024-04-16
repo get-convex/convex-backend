@@ -1131,7 +1131,7 @@ mod tests {
             Validator::Boolean => assert_val!(false),
             Validator::String => assert_val!(""),
             Validator::Bytes => ConvexValue::Bytes(vec![1, 2, 3].try_into()?),
-            Validator::Literal(literal) => literal.try_into()?,
+            Validator::Literal(literal) => literal.into(),
             Validator::Array(v) => {
                 assert_val!([value_from_validator(*v, id_generator)?])
             },
@@ -1516,7 +1516,7 @@ mod tests {
         // generate an ID so it's in the table mapping
         id_generator.generate(&table1);
         let document_id = id_generator.generate(&table2);
-        let id_v6 = DocumentIdV6::try_from(document_id)?;
+        let id_v6 = DocumentIdV6::from(document_id);
         let value: ConvexValue = id_v6.into();
 
         let err = id_validator

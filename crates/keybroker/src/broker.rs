@@ -991,7 +991,7 @@ mod tests {
         let mut journal_with_cursor = QueryJournal::new();
         journal_with_cursor.end_cursor = Some(Cursor {
             position: CursorPosition::After(
-                IndexKey::new(vec![100.try_into()?], DeveloperDocumentId::min()).into_bytes(),
+                IndexKey::new(vec![100.into()], DeveloperDocumentId::min()).into_bytes(),
             ),
             query_fingerprint: query.fingerprint(&IndexedFields::creation_time())?,
         });
@@ -1053,7 +1053,7 @@ mod tests {
 
         #[test]
         fn test_identity_proto_roundtrips(identity in any::<Identity>()) {
-            let proto: pb::convex_identity::Identity = identity.clone().try_into().unwrap();
+            let proto: pb::convex_identity::Identity = identity.clone().into();
             let roundtripped = Identity::from_proto_unchecked(proto).unwrap();
             assert_eq!(identity, roundtripped);
         }
@@ -1062,8 +1062,7 @@ mod tests {
         fn test_admin_identity_proto_roundtrips(admin_identity in any::<AdminIdentity>()) {
             let proto: pb::convex_identity::AdminIdentity = admin_identity
                 .clone()
-                .try_into()
-                .unwrap();
+                .into();
             let roundtripped = AdminIdentity::from_proto_unchecked(proto).unwrap();
             assert_eq!(admin_identity, roundtripped);
         }

@@ -95,11 +95,11 @@ fn test_id_strings() -> anyhow::Result<()> {
     // Create three IDs from three different tables
     let message_id: DocumentIdV6 = id_generator
         .generate(&TableName::from_str("messages")?)
-        .try_into()?;
+        .into();
     let deleted1_table = TableName::from_str("deleted1")?;
     let deleted2_table = TableName::from_str("deleted2")?;
-    let deleted1_id: DocumentIdV6 = id_generator.generate(&deleted1_table).try_into()?;
-    let deleted2_id: DocumentIdV6 = id_generator.generate(&deleted2_table).try_into()?;
+    let deleted1_id: DocumentIdV6 = id_generator.generate(&deleted1_table).into();
+    let deleted2_id: DocumentIdV6 = id_generator.generate(&deleted2_table).into();
 
     // Delete two of the tables
     let deleted1_table_id = id_generator.id(&deleted1_table)?;

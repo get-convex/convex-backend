@@ -142,8 +142,8 @@ async fn main() -> anyhow::Result<()> {
             .mutation(
                 "messages:send",
                 btreemap! {
-                    "body".to_string() => line.try_into()?,
-                    "author".to_string() => sender.clone().try_into()?
+                    "body".to_string() => line.into(),
+                    "author".to_string() => sender.clone().into(),
                 },
             )
             .await?;
