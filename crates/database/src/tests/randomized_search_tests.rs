@@ -4,6 +4,10 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    fmt::{
+        Display,
+        Formatter,
+    },
     ops::Range,
     sync::Arc,
 };
@@ -459,9 +463,9 @@ enum TestKey {
     D,
 }
 
-impl ToString for TestKey {
-    fn to_string(&self) -> String {
-        format!("{self:?}")
+impl Display for TestKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
     }
 }
 
@@ -473,9 +477,9 @@ enum TestValue {
     D,
 }
 
-impl ToString for TestValue {
-    fn to_string(&self) -> String {
-        format!("{self:?}")
+impl Display for TestValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
     }
 }
 

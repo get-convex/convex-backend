@@ -1,4 +1,10 @@
-use std::str::FromStr;
+use std::{
+    fmt::{
+        Display,
+        Formatter,
+    },
+    str::FromStr,
+};
 
 use anyhow::Context;
 use rand::Rng;
@@ -114,9 +120,9 @@ impl FromStr for RequestId {
     }
 }
 
-impl ToString for RequestId {
-    fn to_string(&self) -> String {
-        self.0.clone()
+impl Display for RequestId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -165,9 +171,9 @@ impl FromStr for ExecutionId {
     }
 }
 
-impl ToString for ExecutionId {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl Display for ExecutionId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

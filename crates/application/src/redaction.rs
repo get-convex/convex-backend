@@ -136,11 +136,7 @@ impl RedactedJsError {
 
 impl fmt::Display for RedactedJsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "[Request ID: {}] Server Error",
-            self.request_id.to_string()
-        )?;
+        write!(f, "[Request ID: {}] Server Error", self.request_id)?;
         if !self.block_logging {
             write!(f, "\n{}", self.error)?;
         }
@@ -155,7 +151,7 @@ impl From<RedactedJsError> for HttpActionResponse {
         } else {
             format!("Server Error: {}", value.error.message.to_owned())
         };
-        let code = format!("[Request ID: {}] {}", value.request_id.to_string(), code);
+        let code = format!("[Request ID: {}] {}", value.request_id, code);
         let mut body = json!({
             "code": code,
         });
@@ -192,7 +188,7 @@ pub mod tests {
         ) {
             let redacted = RedactedJsError::from_js_error(js_error, true, request_id.clone());
             let formatted = format!("{redacted}");
-            assert_eq!(formatted, format!("[Request ID: {}] Server Error", request_id.to_string()));
+            assert_eq!(formatted, format!("[Request ID: {}] Server Error", request_id));
         }
 
         #[test]
@@ -204,7 +200,7 @@ pub mod tests {
             let formatted = format!("{redacted}");
             assert_eq!(
                 formatted,
-                format!("[Request ID: {}] Server Error\n{}", request_id.to_string(), js_error)
+                format!("[Request ID: {}] Server Error\n{}", request_id, js_error)
             );
         }
 
@@ -217,7 +213,7 @@ pub mod tests {
             let http_response = HttpActionResponse::from(redacted);
             let code = get_code(http_response);
 
-            assert_eq!(code, format!("[Request ID: {}] Server Error", request_id.to_string()));
+            assert_eq!(code, format!("[Request ID: {}] Server Error", request_id));
         }
 
         #[test]
@@ -233,7 +229,7 @@ pub mod tests {
                 code,
                 format!(
                     "[Request ID: {}] Server Error: {}",
-                    request_id.to_string(),
+                    request_id,
                     js_error.message
                 )
             );
