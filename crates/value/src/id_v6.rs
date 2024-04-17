@@ -83,6 +83,14 @@ impl DocumentIdV6 {
         base32::encode(&buf[..pos])
     }
 
+    /// Is the given string an ID that's not in its canonical encoding?
+    pub fn is_noncanonical_id(s: &str) -> bool {
+        let Ok(id) = Self::decode(s) else {
+            return false;
+        };
+        s != id.encode()
+    }
+
     pub fn decode(s: &str) -> Result<Self, IdDecodeError> {
         // NB: We want error paths to be as quick as possible, even if `s` is very long.
         // So, be sure to do the length check before decoding the base32.
