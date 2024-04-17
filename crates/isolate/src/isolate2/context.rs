@@ -11,6 +11,7 @@ use deno_core::{
 use value::ConvexObject;
 
 use super::{
+    callback_context::CallbackContext,
     client::{
         AsyncSyscallCompletion,
         EvaluateResult,
@@ -21,10 +22,7 @@ use super::{
     session::Session,
     FunctionId,
 };
-use crate::{
-    ops::run_op,
-    strings,
-};
+use crate::strings;
 
 // Each isolate session can have multiple contexts, which we'll eventually use
 // for subtransactions. Each context executes with a particular environment,
@@ -49,14 +47,15 @@ impl Context {
 
             let convex_value = v8::Object::new(&mut scope);
 
-            let syscall_template = v8::FunctionTemplate::new(&mut scope, Self::syscall);
+            let syscall_template = v8::FunctionTemplate::new(&mut scope, CallbackContext::syscall);
             let syscall_value = syscall_template
                 .get_function(&mut scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
             let syscall_key = strings::syscall.create(&mut scope)?;
             convex_value.set(&mut scope, syscall_key.into(), syscall_value.into());
 
-            let async_syscall_template = v8::FunctionTemplate::new(&mut scope, Self::async_syscall);
+            let async_syscall_template =
+                v8::FunctionTemplate::new(&mut scope, CallbackContext::async_syscall);
             let async_syscall_value = async_syscall_template
                 .get_function(&mut scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
@@ -67,7 +66,7 @@ impl Context {
                 async_syscall_value.into(),
             );
 
-            let op_template = v8::FunctionTemplate::new(&mut scope, Self::op);
+            let op_template = v8::FunctionTemplate::new(&mut scope, CallbackContext::op);
             let op_value = op_template
                 .get_function(&mut scope)
                 .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
@@ -133,67 +132,5 @@ impl Context {
             self.pending_functions.insert(function_id, promise);
         }
         Ok(result)
-    }
-
-    pub fn syscall(
-        scope: &mut v8::HandleScope,
-        args: v8::FunctionCallbackArguments,
-        mut rv: v8::ReturnValue,
-    ) {
-        let mut ctx = EnteredContext::from_callback(scope);
-        match ctx.syscall(args) {
-            Ok(v) => rv.set(v),
-            Err(_e) => {
-                // XXX: Handle syscall or op error.
-                // let message = strings::syscallError.create(scope).unwrap();
-                // let exception = v8::Exception::error(scope, message);
-                // scope.throw_exception(exception);
-                todo!();
-            },
-        }
-    }
-
-    pub fn async_syscall(
-        scope: &mut v8::HandleScope,
-        args: v8::FunctionCallbackArguments,
-        mut rv: v8::ReturnValue,
-    ) {
-        let mut ctx = EnteredContext::from_callback(scope);
-        match ctx.start_async_syscall(args) {
-            Ok(p) => rv.set(p.into()),
-            Err(_e) => {
-                // XXX: Handle syscall or op error.
-                // let message = strings::syscallError.create(scope).unwrap();
-                // let exception = v8::Exception::error(scope, message);
-                // scope.throw_exception(exception);
-                todo!();
-            },
-        }
-    }
-
-    pub fn op(
-        scope: &mut v8::HandleScope,
-        args: v8::FunctionCallbackArguments,
-        rv: v8::ReturnValue,
-    ) {
-        let mut ctx = EnteredContext::from_callback(scope);
-        if let Err(e) = run_op(&mut ctx, args, rv) {
-            // XXX: Handle syscall or op error.
-            // let message = strings::syscallError.create(scope).unwrap();
-            // let exception = v8::Exception::error(scope, message);
-            // scope.throw_exception(exception);
-            panic!("Unexpected error: {e:?}");
-        }
-    }
-
-    pub fn module_resolve_callback<'callback>(
-        context: v8::Local<'callback, v8::Context>,
-        specifier: v8::Local<'callback, v8::String>,
-        _import_assertions: v8::Local<'callback, v8::FixedArray>,
-        referrer: v8::Local<'callback, v8::Module>,
-    ) -> Option<v8::Local<'callback, v8::Module>> {
-        let mut scope = unsafe { v8::CallbackScope::new(context) };
-        let mut ctx = EnteredContext::from_callback(&mut scope);
-        ctx.resolve_module(specifier, referrer)
     }
 }

@@ -1,3 +1,4 @@
+pub mod callback_context;
 pub mod client;
 pub mod context;
 pub mod context_state;

@@ -196,8 +196,7 @@ async fn test_insert_increase_and_delete(rt: TestRuntime) -> anyhow::Result<()> 
 
 #[convex_macro::test_runtime]
 async fn test_insert_and_delete(rt: TestRuntime) -> anyhow::Result<()> {
-    // TODO: Port to isolate2 when we support the QueryManager.
-    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let value = assert_val!("I am a phantom");
         must_let!(let ConvexValue::Object(obj) = t.mutation(
                 "basic:insertAndDeleteObject",
@@ -271,8 +270,7 @@ async fn test_count(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_patch(rt: TestRuntime) -> anyhow::Result<()> {
-    // TODO: Port to isolate2 when we fix creation time assignment.
-    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         // Insert an object.
         must_let!(let ConvexValue::Object(obj) = t.mutation(
             "basic:insertObject",
@@ -382,8 +380,7 @@ async fn test_replace(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_query_missing_table(rt: TestRuntime) -> anyhow::Result<()> {
-    // TODO: Port to isolate2 when we support the QueryManager.
-    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         // Tables are implicitly created when we insert the first record.
         // This means that query before that is querying a missing table.
         // A user will expect no results instead of an error here.
@@ -395,8 +392,7 @@ async fn test_query_missing_table(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_time_constructor_args(rt: TestRuntime) -> anyhow::Result<()> {
-    // TODO: Port to isolate2 when we support JsErrors.
-    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let ms_in: f64 = 1234567890123.0;
         must_let!(let ConvexValue::Float64(ms_out) = t.query("basic:createTimeMs",  assert_obj!("args" => [ms_in] )).await?);
         assert_eq!(ms_in, ms_out);

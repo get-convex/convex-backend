@@ -55,17 +55,22 @@ pub enum IsolateThreadRequest {
 
 #[derive(Debug)]
 pub enum EvaluateResult {
-    Ready(ReadyEvaluateResult),
-    Pending {
-        async_syscalls: Vec<PendingAsyncSyscall>,
-    },
+    Ready(EvaluateReady),
+    Pending(EvaluatePending),
 }
 
 #[derive(Debug)]
-pub struct ReadyEvaluateResult {
+pub struct EvaluateReady {
     pub result: ConvexValue,
     pub outcome: EnvironmentOutcome,
 }
+
+#[derive(Debug)]
+pub struct EvaluatePending {
+    pub async_syscalls: Vec<PendingAsyncSyscall>,
+}
+
+pub type QueryId = u32;
 
 #[derive(Debug)]
 pub struct PendingAsyncSyscall {

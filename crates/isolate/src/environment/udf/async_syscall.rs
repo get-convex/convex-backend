@@ -23,6 +23,7 @@ use common::{
     },
     types::PersistenceVersion,
     value::ConvexValue,
+    version::Version,
 };
 use database::{
     query::{
@@ -76,6 +77,7 @@ use crate::{
         ArgName,
     },
     helpers::UdfArgsJson,
+    isolate2::client::QueryId,
     metrics::async_syscall_timer,
 };
 
@@ -214,6 +216,14 @@ impl<RT: Runtime> QueryManager<RT> {
     }
 }
 
+pub enum ManagedQuery<RT: Runtime> {
+    Pending {
+        query: Query,
+        version: Option<Version>,
+    },
+    Active(DeveloperQuery<RT>),
+}
+
 // Trait for allowing code reuse between `DatabaseUdfEnvironment` and isolate2.
 #[allow(async_fn_in_trait)]
 pub trait AsyncSyscallProvider<RT: Runtime> {
@@ -229,7 +239,9 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
 
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool);
 
-    fn query_manager(&mut self) -> &mut QueryManager<RT>;
+    fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>>;
+    fn insert_query(&mut self, query_id: QueryId, query: DeveloperQuery<RT>);
+    fn cleanup_query(&mut self, query_id: QueryId) -> bool;
 
     fn prev_journal(&mut self) -> &mut QueryJournal;
     fn next_journal(&mut self) -> &mut QueryJournal;
@@ -291,8 +303,18 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             .log_async_syscall(name, duration, is_success);
     }
 
-    fn query_manager(&mut self) -> &mut QueryManager<RT> {
-        &mut self.query_manager
+    fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>> {
+        self.query_manager
+            .take_developer(query_id)
+            .map(ManagedQuery::Active)
+    }
+
+    fn insert_query(&mut self, query_id: QueryId, query: DeveloperQuery<RT>) {
+        self.query_manager.insert_developer(query_id, query);
+    }
+
+    fn cleanup_query(&mut self, query_id: QueryId) -> bool {
+        self.query_manager.cleanup_developer(query_id)
     }
 
     fn prev_journal(&mut self) -> &mut QueryJournal {
@@ -707,13 +729,24 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                             let args: QueryStreamNextArgs = serde_json::from_value(args)?;
                             Ok(args.query_id)
                         })?;
-                        let local_query = provider
-                            .query_manager()
-                            .take_developer(query_id)
-                            .context(ErrorMetadata::not_found(
-                                "QueryNotFound",
-                                "in-progress query not found",
-                            ))?;
+                        let managed_query =
+                            provider
+                                .take_query(query_id)
+                                .context(ErrorMetadata::not_found(
+                                    "QueryNotFound",
+                                    "in-progress query not found",
+                                ))?;
+                        let local_query = match managed_query {
+                            ManagedQuery::Pending { query, version } => {
+                                DeveloperQuery::new_with_version(
+                                    provider.tx()?,
+                                    query,
+                                    version,
+                                    table_filter,
+                                )?
+                            },
+                            ManagedQuery::Active(local_query) => local_query,
+                        };
                         Some((Some(query_id), local_query))
                     },
                     AsyncRead::Get(args) => {
@@ -790,9 +823,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         for (batch_key, (query_id, local_query)) in queries_to_fetch {
             let result: anyhow::Result<_> = try {
                 if let Some(query_id) = query_id {
-                    provider
-                        .query_manager()
-                        .insert_developer(query_id, local_query);
+                    provider.insert_query(query_id, local_query);
                 }
                 let maybe_next = fetch_results
                     .remove(&batch_key)
@@ -806,7 +837,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
                 if let Some(query_id) = query_id {
                     if done {
-                        provider.query_manager().cleanup_developer(query_id);
+                        provider.cleanup_query(query_id);
                     }
                     serde_json::to_value(QueryStreamNextResult {
                         value: value.into(),

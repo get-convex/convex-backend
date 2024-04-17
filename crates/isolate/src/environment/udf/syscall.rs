@@ -5,11 +5,11 @@ use common::{
     query::Query,
     runtime::Runtime,
     static_span,
+    version::Version,
 };
 use database::{
     query::TableFilter,
     DeveloperQuery,
-    Transaction,
 };
 use errors::ErrorMetadata;
 use serde::{
@@ -23,13 +23,12 @@ use serde_json::{
 use value::{
     id_v6::DocumentIdV6,
     InternalId,
+    TableIdAndTableNumber,
     TableName,
+    TableNumber,
 };
 
-use super::{
-    async_syscall::QueryManager,
-    DatabaseUdfEnvironment,
-};
+use super::DatabaseUdfEnvironment;
 use crate::environment::helpers::{
     parse_version,
     with_argument_error,
@@ -38,8 +37,12 @@ use crate::environment::helpers::{
 
 pub trait SyscallProvider<RT: Runtime> {
     fn table_filter(&self) -> TableFilter;
-    fn query_manager(&mut self) -> &mut QueryManager<RT>;
-    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata>;
+
+    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>>;
+    fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>>;
+
+    fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<u32>;
+    fn cleanup_query(&mut self, query_id: u32) -> bool;
 }
 
 impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
@@ -51,12 +54,29 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         }
     }
 
-    fn query_manager(&mut self) -> &mut QueryManager<RT> {
-        &mut self.query_manager
+    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>> {
+        let table_mapping = self.phase.tx()?.table_mapping();
+        Ok(table_mapping.id_and_number_if_exists(name))
     }
 
-    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
-        self.phase.tx()
+    fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
+        let virtual_table_mapping = self.phase.tx()?.virtual_table_mapping();
+        Ok(virtual_table_mapping.number_if_exists(name))
+    }
+
+    fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<u32> {
+        let table_filter = self.table_filter();
+        let tx = self.phase.tx()?;
+        // TODO: Are all invalid query pipelines developer errors? These could be bugs
+        // in convex/server.
+        let compiled_query =
+            { DeveloperQuery::new_with_version(tx, query, version, table_filter)? };
+        let query_id = self.query_manager.put_developer(compiled_query);
+        Ok(query_id)
+    }
+
+    fn cleanup_query(&mut self, query_id: u32) -> bool {
+        self.query_manager.cleanup_developer(query_id)
     }
 }
 
@@ -111,18 +131,11 @@ fn syscall_normalize_id<RT: Runtime, P: SyscallProvider<RT>>(
         let table_name: TableName = args.table.parse().context(ArgName("table"))?;
         Ok((table_name, args.id_string))
     })?;
-    let virtual_table_number = provider
-        .tx()?
-        .virtual_table_mapping()
-        .number_if_exists(&table_name);
+    let virtual_table_number = provider.lookup_virtual_table(&table_name)?;
     let table_number = match virtual_table_number {
         Some(table_number) => Some(table_number),
         None => {
-            let physical_table_number = provider
-                .tx()?
-                .table_mapping()
-                .id_and_number_if_exists(&table_name)
-                .map(|t| t.table_number);
+            let physical_table_number = provider.lookup_table(&table_name)?.map(|t| t.table_number);
             match provider.table_filter() {
                 TableFilter::IncludePrivateSystemTables => physical_table_number,
                 TableFilter::ExcludePrivateSystemTables if table_name.is_system() => None,
@@ -155,9 +168,7 @@ fn syscall_query_stream<RT: Runtime, P: SyscallProvider<RT>>(
     provider: &mut P,
     args: JsonValue,
 ) -> anyhow::Result<JsonValue> {
-    let _s: common::tracing::NoopSpan = static_span!();
-    let table_filter = provider.table_filter();
-    let tx = provider.tx()?;
+    let _s = static_span!();
 
     #[derive(Deserialize)]
     struct QueryStreamArgs {
@@ -170,11 +181,7 @@ fn syscall_query_stream<RT: Runtime, P: SyscallProvider<RT>>(
         let version = parse_version(args.version)?;
         Ok((parsed_query, version))
     })?;
-    // TODO: Are all invalid query pipelines developer errors? These could be bugs
-    // in convex/server.
-    let compiled_query =
-        { DeveloperQuery::new_with_version(tx, parsed_query, version, table_filter)? };
-    let query_id = provider.query_manager().put_developer(compiled_query);
+    let query_id = provider.start_query(parsed_query, version)?;
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -197,6 +204,6 @@ fn syscall_query_cleanup<RT: Runtime, P: SyscallProvider<RT>>(
     }
     let args: QueryCleanupArgs =
         with_argument_error("queryCleanup", || Ok(serde_json::from_value(args)?))?;
-    let cleaned_up = provider.query_manager().cleanup_developer(args.query_id);
+    let cleaned_up = provider.cleanup_query(args.query_id);
     Ok(serde_json::to_value(cleaned_up)?)
 }

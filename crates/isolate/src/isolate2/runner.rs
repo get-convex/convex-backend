@@ -1,17 +1,6 @@
-// TODO:
-// - QueryManager, lazy query initialization
-// - Source maps on V8 thread
-// - Sending table mappings to V8 thread
-// - Environment variables and lazy read set size check
-// - Log streaming
-// - Changing invocation API to be less UDF centric
-// - Timer for logging user time from tokio thread
-// - Error handling
-// - Regular actions
-// - HTTP actions
-// - Other environments (schema, auth.config.js, analyze)
 use std::{
     cmp::Ordering,
+    collections::BTreeMap,
     sync::Arc,
     time::Duration,
 };
@@ -24,6 +13,7 @@ use common::{
         LogLine,
         LogLines,
     },
+    query::Query,
     query_journal::QueryJournal,
     runtime::{
         Runtime,
@@ -34,9 +24,11 @@ use common::{
         PersistenceVersion,
         UdfType,
     },
+    version::Version,
 };
 use database::{
     query::TableFilter,
+    DeveloperQuery,
     Transaction,
 };
 use errors::ErrorMetadata;
@@ -49,6 +41,11 @@ use futures::{
     StreamExt,
 };
 use keybroker::KeyBroker;
+use model::file_storage::{
+    types::FileStorageEntry,
+    FileStorageId,
+};
+use parking_lot::Mutex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
@@ -58,17 +55,24 @@ use sync_types::{
 };
 use tokio::sync::Semaphore;
 use value::{
+    ConvexArray,
     ConvexObject,
     ConvexValue,
+    TableIdAndTableNumber,
+    TableMapping,
+    TableName,
+    TableNumber,
+    VirtualTableMapping,
 };
 
 use super::{
     client::{
         AsyncSyscallCompletion,
+        EvaluateReady,
         EvaluateResult,
         IsolateThreadClient,
         IsolateThreadRequest,
-        ReadyEvaluateResult,
+        QueryId,
     },
     context::Context,
     environment::{
@@ -93,7 +97,7 @@ use crate::{
                 AsyncSyscallBatch,
                 AsyncSyscallProvider,
                 DatabaseSyscallsV1,
-                QueryManager,
+                ManagedQuery,
             },
             syscall::{
                 syscall_impl,
@@ -185,12 +189,16 @@ pub struct SeedData {
 
 struct UdfEnvironment<RT: Runtime> {
     rt: RT,
+    is_system: bool,
+
     log_lines: LogLines,
 
     import_time_seed: SeedData,
     execution_time_seed: SeedData,
 
     phase: UdfPhase,
+
+    shared: UdfShared<RT>,
 }
 
 #[derive(Debug)]
@@ -207,31 +215,67 @@ enum UdfPhase {
 }
 
 impl<RT: Runtime> UdfEnvironment<RT> {
-    pub fn new(rt: RT, import_time_seed: SeedData, execution_time_seed: SeedData) -> Self {
+    pub fn new(
+        rt: RT,
+        is_system: bool,
+        import_time_seed: SeedData,
+        execution_time_seed: SeedData,
+        shared: UdfShared<RT>,
+    ) -> Self {
         let rng = ChaCha12Rng::from_seed(import_time_seed.rng_seed);
         Self {
             rt,
+            is_system,
             log_lines: vec![].into(),
 
             import_time_seed,
             execution_time_seed,
 
             phase: UdfPhase::Importing { rng },
+
+            shared,
         }
+    }
+
+    fn check_executing(&self) -> anyhow::Result<()> {
+        let UdfPhase::Executing { .. } = self.phase else {
+            // TODO: Is this right? Should we just be using JsError?
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "NoDbDuringImport",
+                "Can't use database at import time",
+            ))
+        };
+        Ok(())
     }
 }
 
 impl<RT: Runtime> SyscallProvider<RT> for UdfEnvironment<RT> {
     fn table_filter(&self) -> TableFilter {
-        todo!();
+        if self.is_system {
+            TableFilter::IncludePrivateSystemTables
+        } else {
+            TableFilter::ExcludePrivateSystemTables
+        }
     }
 
-    fn query_manager(&mut self) -> &mut QueryManager<RT> {
-        todo!();
+    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>> {
+        self.check_executing()?;
+        self.shared.lookup_table(name)
     }
 
-    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
-        todo!();
+    fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
+        self.check_executing()?;
+        self.shared.lookup_virtual_table(name)
+    }
+
+    fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<QueryId> {
+        self.check_executing()?;
+        let query_id = self.shared.start_query(query, version);
+        Ok(query_id)
+    }
+
+    fn cleanup_query(&mut self, query_id: u32) -> bool {
+        self.shared.cleanup_query(query_id)
     }
 }
 
@@ -364,6 +408,7 @@ async fn run_request<RT: Runtime>(
     udf_type: UdfType,
     udf_path: CanonicalizedUdfPath,
     args: ConvexObject,
+    shared: UdfShared<RT>,
 ) -> anyhow::Result<UdfOutcome> {
     // Phase 1: Load and register all source needed, and evaluate the UDF's module.
     let r: anyhow::Result<_> = try {
@@ -417,15 +462,15 @@ async fn run_request<RT: Runtime>(
         },
     };
 
-    let mut provider = Isolate2SyscallProvider {
+    let mut provider = Isolate2SyscallProvider::new(
         tx,
         rt,
-        query_manager: QueryManager::new(),
-        unix_timestamp: execution_time_seed.unix_timestamp,
-        prev_journal: QueryJournal::new(),
-        next_journal: QueryJournal::new(),
-        is_system: udf_path.is_system(),
-    };
+        execution_time_seed.unix_timestamp,
+        QueryJournal::new(),
+        QueryJournal::new(),
+        udf_path.is_system(),
+        shared,
+    );
 
     // Phase 2: Start the UDF, execute its async syscalls, and poll until
     // completion.
@@ -439,16 +484,16 @@ async fn run_request<RT: Runtime>(
             )
             .await?;
         loop {
-            let async_syscalls = match result {
+            let pending = match result {
                 EvaluateResult::Ready(r) => break r,
-                EvaluateResult::Pending { async_syscalls } => async_syscalls,
+                EvaluateResult::Pending(p) => p,
             };
             let mut completions = vec![];
 
             let mut syscall_batch = None;
             let mut batch_promise_ids = vec![];
 
-            for async_syscall in async_syscalls {
+            for async_syscall in pending.async_syscalls {
                 let promise_id = async_syscall.promise_id;
                 match syscall_batch {
                     None => {
@@ -494,7 +539,7 @@ async fn run_request<RT: Runtime>(
     };
 
     let (result, outcome) = match r {
-        Ok(ReadyEvaluateResult { result, outcome }) => (Ok(JsonPackedValue::pack(result)), outcome),
+        Ok(EvaluateReady { result, outcome }) => (Ok(JsonPackedValue::pack(result)), outcome),
         Err(e) => {
             let js_error = e.downcast::<JsError>()?;
             // TODO: Ask the V8 thread for its outcome.
@@ -516,17 +561,85 @@ async fn run_request<RT: Runtime>(
         log_lines: vec![].into(),
         journal: provider.next_journal,
         result,
-        syscall_trace: SyscallTrace::new(),
+        syscall_trace: provider.syscall_trace,
         udf_server_version: None,
     };
     Ok(outcome)
+}
+
+struct UdfShared<RT: Runtime> {
+    inner: Arc<Mutex<UdfSharedInner<RT>>>,
+}
+
+impl<RT: Runtime> Clone for UdfShared<RT> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<RT: Runtime> UdfShared<RT> {
+    pub fn new(table_mapping: TableMapping, virtual_table_mapping: VirtualTableMapping) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(UdfSharedInner {
+                next_query_id: 0,
+                queries: BTreeMap::new(),
+                table_mapping,
+                virtual_table_mapping,
+            })),
+        }
+    }
+
+    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>> {
+        let inner = self.inner.lock();
+        Ok(inner.table_mapping.id_and_number_if_exists(name))
+    }
+
+    fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
+        let inner = self.inner.lock();
+        Ok(inner.virtual_table_mapping.number_if_exists(name))
+    }
+
+    fn start_query(&self, query: Query, version: Option<Version>) -> QueryId {
+        let mut inner = self.inner.lock();
+        let query_id = inner.next_query_id;
+        inner.next_query_id += 1;
+        inner
+            .queries
+            .insert(query_id, ManagedQuery::Pending { query, version });
+        query_id
+    }
+
+    fn take_query(&self, query_id: QueryId) -> Option<ManagedQuery<RT>> {
+        let mut inner = self.inner.lock();
+        inner.queries.remove(&query_id)
+    }
+
+    fn insert_query(&self, query_id: QueryId, query: DeveloperQuery<RT>) {
+        let mut inner = self.inner.lock();
+        inner.queries.insert(query_id, ManagedQuery::Active(query));
+    }
+
+    fn cleanup_query(&self, query_id: u32) -> bool {
+        let mut inner = self.inner.lock();
+        inner.queries.remove(&query_id).is_some()
+    }
+}
+
+struct UdfSharedInner<RT: Runtime> {
+    next_query_id: QueryId,
+    queries: BTreeMap<QueryId, ManagedQuery<RT>>,
+
+    table_mapping: TableMapping,
+    virtual_table_mapping: VirtualTableMapping,
 }
 
 struct Isolate2SyscallProvider<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
     rt: RT,
 
-    query_manager: QueryManager<RT>,
+    shared: UdfShared<RT>,
 
     unix_timestamp: UnixTimestamp,
 
@@ -534,6 +647,31 @@ struct Isolate2SyscallProvider<'a, RT: Runtime> {
     next_journal: QueryJournal,
 
     is_system: bool,
+
+    syscall_trace: SyscallTrace,
+}
+
+impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
+    fn new(
+        tx: &'a mut Transaction<RT>,
+        rt: RT,
+        unix_timestamp: UnixTimestamp,
+        prev_journal: QueryJournal,
+        next_journal: QueryJournal,
+        is_system: bool,
+        shared: UdfShared<RT>,
+    ) -> Self {
+        Self {
+            tx,
+            rt,
+            shared,
+            unix_timestamp,
+            prev_journal,
+            next_journal,
+            is_system,
+            syscall_trace: SyscallTrace::new(),
+        }
+    }
 }
 
 impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, RT> {
@@ -542,7 +680,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     }
 
     fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
-        // TODO: phases.
+        // TODO: Check that we're during the execution phase.
         Ok(self.tx)
     }
 
@@ -555,7 +693,8 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     }
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
-        // TODO: phases.
+        // TODO: Switch between the import time and execution time timestamps based on
+        // phase.
         Ok(self.unix_timestamp)
     }
 
@@ -571,10 +710,9 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
         }
     }
 
-    fn log_async_syscall(&mut self, _name: String, _duration: Duration, _is_success: bool) {}
-
-    fn query_manager(&mut self) -> &mut QueryManager<RT> {
-        &mut self.query_manager
+    fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool) {
+        self.syscall_trace
+            .log_async_syscall(name, duration, is_success);
     }
 
     fn prev_journal(&mut self) -> &mut QueryJournal {
@@ -590,7 +728,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
         _udf_path: UdfPath,
         _args: Vec<JsonValue>,
         _scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(UdfPath, value::ConvexArray)> {
+    ) -> anyhow::Result<(UdfPath, ConvexArray)> {
         todo!()
     }
 
@@ -600,23 +738,32 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
 
     async fn file_storage_get_url(
         &mut self,
-        _storage_id: model::file_storage::FileStorageId,
+        _storage_id: FileStorageId,
     ) -> anyhow::Result<Option<String>> {
         todo!()
     }
 
-    async fn file_storage_delete(
-        &mut self,
-        _storage_id: model::file_storage::FileStorageId,
-    ) -> anyhow::Result<()> {
+    async fn file_storage_delete(&mut self, _storage_id: FileStorageId) -> anyhow::Result<()> {
         todo!()
     }
 
     async fn file_storage_get_entry(
         &mut self,
-        _storage_id: model::file_storage::FileStorageId,
-    ) -> anyhow::Result<Option<model::file_storage::types::FileStorageEntry>> {
+        _storage_id: FileStorageId,
+    ) -> anyhow::Result<Option<FileStorageEntry>> {
         todo!()
+    }
+
+    fn insert_query(&mut self, query_id: QueryId, query: DeveloperQuery<RT>) {
+        self.shared.insert_query(query_id, query)
+    }
+
+    fn take_query(&mut self, query_id: QueryId) -> Option<ManagedQuery<RT>> {
+        self.shared.take_query(query_id)
+    }
+
+    fn cleanup_query(&mut self, query_id: u32) -> bool {
+        self.shared.cleanup_query(query_id)
     }
 }
 
@@ -631,6 +778,7 @@ async fn tokio_thread<RT: Runtime>(
     udf_type: UdfType,
     udf_path: CanonicalizedUdfPath,
     args: ConvexObject,
+    shared: UdfShared<RT>,
 ) {
     let request = run_request(
         rt.clone(),
@@ -641,6 +789,7 @@ async fn tokio_thread<RT: Runtime>(
         udf_type,
         udf_path,
         args,
+        shared,
     );
 
     let r = futures::select_biased! {
@@ -656,7 +805,7 @@ async fn tokio_thread<RT: Runtime>(
 
 pub async fn run_isolate_v2_udf<RT: Runtime>(
     rt: RT,
-    tx: Transaction<RT>,
+    mut tx: Transaction<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
     import_time_seed: SeedData,
     execution_time_seed: SeedData,
@@ -677,7 +826,18 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     // based on a tx timestamp that may be out of retention.
     let total_timeout = Duration::from_secs(10);
 
-    let environment = UdfEnvironment::new(rt.clone(), import_time_seed, execution_time_seed);
+    // TODO: This unconditionally takes a table mapping dep.
+    let shared = UdfShared::new(
+        tx.table_mapping().clone(),
+        tx.virtual_table_mapping().clone(),
+    );
+    let environment = UdfEnvironment::new(
+        rt.clone(),
+        udf_path.is_system(),
+        import_time_seed,
+        execution_time_seed,
+        shared.clone(),
+    );
 
     // The protocol is synchronous, so there should never be more than
     // one pending request at a time.
@@ -703,6 +863,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
             udf_type,
             udf_path,
             args,
+            shared,
         ),
     );
 

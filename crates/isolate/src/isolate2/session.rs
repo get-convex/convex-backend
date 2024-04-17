@@ -8,10 +8,9 @@ use deno_core::v8::{
 };
 
 use super::{
-    entered_context::EnteredContext,
+    callback_context::CallbackContext,
     thread::Thread,
 };
-use crate::helpers;
 
 // Isolate-level struct scoped to a "session," which enables isolate reuse
 // across sessions.
@@ -37,9 +36,10 @@ impl<'a> Session<'a> {
             heap_ctx_ptr as *mut ffi::c_void,
         );
 
-        handle_scope.set_promise_reject_callback(Self::promise_reject_callback);
+        handle_scope.set_promise_reject_callback(CallbackContext::promise_reject_callback);
 
-        handle_scope.set_host_import_module_dynamically_callback(Self::dynamic_import_callback);
+        handle_scope
+            .set_host_import_module_dynamically_callback(CallbackContext::dynamic_import_callback);
 
         Self {
             handle_scope,
@@ -59,39 +59,6 @@ impl<'a> Session<'a> {
 
         // Double heap limit to avoid a hard OOM.
         current_heap_limit * 2
-    }
-
-    extern "C" fn promise_reject_callback(message: v8::PromiseRejectMessage) {
-        let mut scope = unsafe { v8::CallbackScope::new(&message) };
-
-        // NB: If we didn't `Context::enter` above in the stack, it's possible
-        // that our scope will be attached to the default context at the top of the
-        // stack, which then won't have the `RequestState` slot. This will then cause
-        // the call into `ctx.push_unhandled_promise_rejection` to fail with a system
-        // error, which we'll just trace out here.
-        let mut ctx = EnteredContext::from_callback(&mut scope);
-
-        if let Err(e) = ctx.push_unhandled_promise_rejection(message) {
-            tracing::error!("Error in promise_reject_callback: {:?}", e);
-        }
-    }
-
-    fn dynamic_import_callback<'s>(
-        scope: &mut v8::HandleScope<'s>,
-        _host_defined_options: v8::Local<'s, v8::Data>,
-        resource_name: v8::Local<'s, v8::Value>,
-        specifier: v8::Local<'s, v8::String>,
-        _import_assertions: v8::Local<'s, v8::FixedArray>,
-    ) -> Option<v8::Local<'s, v8::Promise>> {
-        let mut ctx = EnteredContext::from_callback(scope);
-        match ctx.start_dynamic_import(resource_name, specifier) {
-            Ok(promise) => Some(promise),
-            Err(e) => {
-                // XXX: distinguish between system and user errors here.
-                helpers::throw_type_error(scope, format!("{:?}", e));
-                None
-            },
-        }
     }
 }
 
