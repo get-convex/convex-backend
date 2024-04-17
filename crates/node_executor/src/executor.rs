@@ -165,7 +165,7 @@ fn construct_js_error(
                 Ok(Some(sourcemap::SourceMap::from_slice(
                     source_map.as_bytes(),
                 )?))
-            })?
+            })
         },
         None => JsError::from_message(message),
     };
@@ -318,7 +318,7 @@ impl Actions {
                 if let Some(frames) = frames {
                     Ok(Err(JsError::from_frames(message, frames, None, |_| {
                         Ok(None)
-                    })?))
+                    })))
                 } else {
                     Ok(Err(JsError::from_message(message)))
                 }

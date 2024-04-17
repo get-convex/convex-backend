@@ -49,9 +49,12 @@ impl<'a, 'b, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, 
         exception: v8::Local<v8::Value>,
     ) -> anyhow::Result<JsError> {
         let (message, frame_data, custom_data) = extract_source_mapped_error(self, exception)?;
-        JsError::from_frames(message, frame_data, custom_data, |s| {
-            self.lookup_source_map(s)
-        })
+        Ok(JsError::from_frames(
+            message,
+            frame_data,
+            custom_data,
+            |s| self.lookup_source_map(s),
+        ))
     }
 
     pub fn lookup_source_map(

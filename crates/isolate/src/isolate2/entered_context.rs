@@ -592,7 +592,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                 extract_source_mapped_error(self.scope, exception)?;
             JsError::from_frames(message, frame_data, custom_data, |s| {
                 self.lookup_source_map(s)
-            })?
+            })
         };
         let err = match err {
             Ok(e) => e,

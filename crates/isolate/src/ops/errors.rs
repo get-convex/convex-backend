@@ -16,7 +16,7 @@ pub fn op_throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
 ) -> anyhow::Result<()> {
     let js_error = JsError::from_frames(message.clone(), frame_data, None, |s| {
         provider.lookup_source_map(s)
-    })?;
+    });
     report_error(&mut anyhow::anyhow!(format!(
         "UncatchableDeveloperError: {}",
         message
@@ -34,7 +34,7 @@ pub fn op_error_stack<'b, P: OpProvider<'b>>(
 ) -> anyhow::Result<String> {
     let js_error = JsError::from_frames(String::new(), frame_data, None, |s| {
         provider.lookup_source_map(s)
-    })?;
+    });
     Ok(js_error
         .frames
         .expect("JsError::from_frames has frames=None")

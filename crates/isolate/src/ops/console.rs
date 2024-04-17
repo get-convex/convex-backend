@@ -27,7 +27,7 @@ pub fn op_console_trace<'b, P: OpProvider<'b>>(
 ) -> anyhow::Result<()> {
     let js_error = JsError::from_frames("".to_string(), frame_data, None, |s| {
         provider.lookup_source_map(s)
-    })?;
+    });
     messages.push(js_error.to_string());
     provider.trace(LogLevel::Log, messages)?;
     Ok(())

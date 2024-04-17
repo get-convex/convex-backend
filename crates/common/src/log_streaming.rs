@@ -107,7 +107,7 @@ impl LogEvent {
             cached: None,
         });
         Self::construct_exception(
-            &JsError::from_frames_for_test("test_message", vec!["test_frame_1", "test_frame_2"])?,
+            &JsError::from_frames_for_test("test_message", vec!["test_frame_1", "test_frame_2"]),
             runtime.unix_timestamp(),
             source,
             Some("1.5.1"),

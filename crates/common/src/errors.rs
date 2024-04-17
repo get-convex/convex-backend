@@ -468,7 +468,7 @@ impl JsError {
         frame_data: Vec<FrameData>,
         custom_data: Option<ConvexValue>,
         mut lookup_source_map: impl FnMut(&ModuleSpecifier) -> anyhow::Result<Option<SourceMap>>,
-    ) -> anyhow::Result<Self> {
+    ) -> Self {
         let mut source_maps = BTreeMap::new();
         let mut mapped_frames = Vec::with_capacity(frame_data.len());
         for mut frame in frame_data {
@@ -479,10 +479,24 @@ impl JsError {
                 ..
             } = frame
             {
-                let specifier = ModuleSpecifier::parse(f)?;
+                let Ok(specifier) = ModuleSpecifier::parse(f) else {
+                    // We expect the file_name to be fully qualified URL but seems
+                    // this is not always the case. Lets log warning here.
+                    tracing::warn!("Skipping frame with invalid file_name: {f}");
+                    continue;
+                };
                 let source_map = match source_maps.entry(specifier) {
                     Entry::Vacant(e) => {
-                        let Some(source_map) = lookup_source_map(e.key())? else {
+                        let maybe_source_map = match lookup_source_map(e.key()) {
+                            Ok(maybe_source_map) => maybe_source_map,
+                            Err(err) => {
+                                // This is not expected so report an error.
+                                let mut err = err.context("Failed to lookup source_map");
+                                report_error(&mut err);
+                                continue;
+                            },
+                        };
+                        let Some(source_map) = maybe_source_map else {
                             tracing::debug!("Missing source map for {}", e.key());
                             continue;
                         };
@@ -518,15 +532,15 @@ impl JsError {
             mapped_frames.pop();
         }
 
-        Ok(JsError {
+        JsError {
             message,
             custom_data,
             frames: Some(JsFrames(mapped_frames.into())),
-        })
+        }
     }
 
     #[cfg(any(test, feature = "testing"))]
-    pub fn from_frames_for_test(message: &str, frames: Vec<&str>) -> anyhow::Result<Self> {
+    pub fn from_frames_for_test(message: &str, frames: Vec<&str>) -> Self {
         let frame_data = frames
             .into_iter()
             .map(|filename| FrameData {
