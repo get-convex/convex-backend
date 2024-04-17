@@ -81,6 +81,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .map(|(document, _)| document))
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn get_with_ts(
         &mut self,
@@ -117,6 +118,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     /// of the batch will throw similar errors.
     /// TODO(lee) dedupe duplicate fetches within a batch, which requires
     /// cloning errors.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn get_batch(
         &mut self,
@@ -184,6 +186,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     }
 
     /// Creates a new document with given value in the specified table.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn insert(
         &mut self,
@@ -238,6 +241,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
     /// Merges the existing document with the given object. Will overwrite any
     /// conflicting fields.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn patch(
         &mut self,
@@ -265,6 +269,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     }
 
     /// Replace the document with the given value.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn replace(
         &mut self,
@@ -289,6 +294,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
     /// Delete the document at the given path -- called from user facing APIs
     /// (e.g. syscalls)
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn delete(&mut self, id: DeveloperDocumentId) -> anyhow::Result<DeveloperDocument> {
         if self.tx.is_system(*id.table())
@@ -373,6 +379,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
     /// NOTE: returns a page of results. Callers must call record_read_document
     /// for all documents returned from the index stream.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn index_range_batch(
         &mut self,

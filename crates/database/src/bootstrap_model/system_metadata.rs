@@ -34,6 +34,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
 
     /// Creates a new document with given value in the specified table,
     /// enforcing that the transaction's identity is system or admin.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn insert(
         &mut self,
@@ -62,6 +63,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
 
     /// Creates a new document with given value in the specified table without
     /// checking authorization. This also inserts table metadata.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn insert_metadata(
         &mut self,
@@ -80,6 +82,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
 
     /// Merges the existing document with the given object. Will overwrite any
     /// conflicting fields.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn patch(
         &mut self,
@@ -91,6 +94,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         self.tx.patch_inner(id, value).await
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn replace(
         &mut self,
@@ -102,6 +106,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
     }
 
     /// Delete the document at the given path.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn delete(&mut self, id: ResolvedDocumentId) -> anyhow::Result<ResolvedDocument> {
         anyhow::ensure!(self.tx.table_mapping().is_system(id.table().table_number));

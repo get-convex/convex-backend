@@ -479,7 +479,6 @@ impl<RT: Runtime> Transaction<RT> {
         self.get_inner(id, table_name).await
     }
 
-    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub(crate) async fn patch_inner(
         &mut self,
@@ -513,7 +512,6 @@ impl<RT: Runtime> Transaction<RT> {
             || self.virtual_table_mapping().number_exists(&table_number)
     }
 
-    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub(crate) async fn replace_inner(
         &mut self,
@@ -542,7 +540,6 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(new_document)
     }
 
-    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn delete_inner(
         &mut self,
@@ -1007,6 +1004,7 @@ impl<RT: Runtime> Transaction<RT> {
 
     /// NOTE: returns a page of results. Callers must call record_read_document
     /// for all documents returned from the index stream.
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn index_range_batch(
         &mut self,

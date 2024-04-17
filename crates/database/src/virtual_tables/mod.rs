@@ -47,6 +47,7 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         Self { tx }
     }
 
+    #[minitrace::trace]
     pub async fn get_batch(
         &mut self,
         mut ids: BTreeMap<BatchKey, (DeveloperDocumentId, Option<Version>)>,
@@ -99,6 +100,7 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         results
     }
 
+    #[minitrace::trace]
     pub async fn index_range(
         &mut self,
         range_request: RangeRequest,
