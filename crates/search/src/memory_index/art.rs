@@ -778,9 +778,7 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
     {
         // We need to keep track of the last 2 states encountered during `seek`
         let mut parent_state_and_transition = None;
-        let Some(mut curr_state) = self.root else {
-            return None;
-        };
+        let mut curr_state = self.root?;
 
         let seek_succeeded = self.seek(key.as_ref(), |state, last_transition, _| {
             parent_state_and_transition = Some((curr_state, last_transition));
@@ -790,10 +788,7 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
             // We found the node corresponding to the key, let's delete its value if it
             // exists.
             let child = self.get_validated_node_mut(curr_state);
-            let prev_value = child.get_value_mut().take();
-            let Some(prev_value) = prev_value else {
-                return None;
-            };
+            let prev_value = child.get_value_mut().take()?;
 
             // If the child node is a leaf, delete it.
             if let ARTNode::Leaf(_) = child {
@@ -850,10 +845,7 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
         K: Borrow<Q>,
         Q: AsRef<[u8]>,
     {
-        let Some(mut last_state) = self.root else {
-            return None;
-        };
-
+        let mut last_state = self.root?;
         let seek_succeeded = self.seek(key.as_ref(), |state, _, _| {
             last_state = state;
         });
@@ -869,9 +861,7 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
         K: Borrow<Q>,
         Q: AsRef<[u8]>,
     {
-        let Some(mut last_state) = self.root else {
-            return None;
-        };
+        let mut last_state = self.root?;
 
         let seek_succeeded = self.seek(key.as_ref(), |state, _, _| {
             last_state = state;
