@@ -102,6 +102,9 @@ macro_rules! db_schema_with_search_indexes {
     };
 }
 
+type FnGenSchema =
+    Box<dyn Fn(&str, &str, &str, Option<DocumentSchema>) -> anyhow::Result<DatabaseSchema>>;
+
 const TABLE_NAME: &str = "table";
 const INDEX_NAME: &str = "index";
 
@@ -141,7 +144,7 @@ where
         document_type: Option<DocumentSchema>,
     ) -> anyhow::Result<DatabaseSchema> {
         Ok(with_document_type(
-            db_schema_with_indexes!(table_name => [(index_name, vec![field])]),
+            db_schema_with_indexes!(&table_name => [(index_name, vec![field])]),
             table_name,
             document_type,
         ))
@@ -154,7 +157,7 @@ where
         document_type: Option<DocumentSchema>,
     ) -> anyhow::Result<DatabaseSchema> {
         Ok(with_document_type(
-            db_schema_with_search_indexes!(table_name => [(index_name, field)]),
+            db_schema_with_search_indexes!(&table_name => [(index_name, field)]),
             table_name,
             document_type,
         ))
@@ -168,8 +171,8 @@ where
 async fn prepare_new_mutated_indexes_with_new_index_marks_index_backfilling_and_returns_it(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
-        let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
+        let schema: DatabaseSchema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = new_tx(rt).await?;
         let result = IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(&schema)
@@ -187,11 +190,10 @@ async fn prepare_new_mutated_indexes_with_new_index_marks_index_backfilling_and_
 async fn prepare_new_mutated_indexes_with_removed_index_does_not_remove_it_but_does_return_it(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         deploy_schema(&rt, tp.clone(), &db, schema).await?;
-
         let mut tx = db.begin_system().await?;
         let schema = db_schema_with_indexes!(TABLE_NAME =>[]);
         let result = IndexModel::new(&mut tx)
@@ -208,7 +210,7 @@ async fn prepare_new_mutated_indexes_with_removed_index_does_not_remove_it_but_d
 async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_removes_the_old_version(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = new_tx(rt).await?;
         IndexModel::new(&mut tx)
@@ -238,7 +240,7 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_removes_
 async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_stores_new_version(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = new_tx(rt).await?;
         let mut index_model = IndexModel::new(&mut tx);
@@ -263,7 +265,7 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_stores_n
 async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_backfills_and_returns_it(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = new_tx(rt).await?;
         IndexModel::new(&mut tx)
@@ -285,7 +287,7 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_backfill
 async fn prepare_new_mutated_indexes_with_enabled_and_pending_mutated_index_removes_pending_version(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db , ..} = DbFixtures::new(&rt).await?.with_model().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         deploy_schema(&rt, tp.clone(), &db, schema).await?;
@@ -423,7 +425,7 @@ async fn test_editing_backfilled_mutated_search_index(rt: TestRuntime) -> anyhow
 async fn prepare_new_mutated_indexes_with_enabled_mutated_index_does_not_remove_or_return_it(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         deploy_schema(&rt, tp.clone(), &db, schema).await?;
@@ -434,8 +436,8 @@ async fn prepare_new_mutated_indexes_with_enabled_mutated_index_does_not_remove_
             .prepare_new_and_mutated_indexes(&schema)
             .await?;
         expect_diff!(result ;
-            added:[(TABLE_NAME, INDEX_NAME, vec!["b"])],
-            dropped: [(TABLE_NAME, INDEX_NAME, vec!["a"])]);
+        added:[(TABLE_NAME, INDEX_NAME, vec!["b"])],
+        dropped: [(TABLE_NAME, INDEX_NAME, vec!["a"])]);
         db.commit(tx).await?;
 
         let all_index_data: Vec<IndexConfig> =
@@ -457,7 +459,7 @@ async fn prepare_new_mutated_indexes_with_enabled_mutated_index_does_not_remove_
 async fn backfill_indexes_with_pending_and_enabled_mutated_indexes_does_not_modify_enabled_index(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         deploy_schema(&rt, tp.clone(), &db, schema).await?;
@@ -489,7 +491,7 @@ async fn backfill_indexes_with_pending_and_enabled_mutated_indexes_does_not_modi
 async fn apply_config_with_pending_and_enabled_mutated_indexes_removes_enabled_and_enables_pending(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         deploy_schema(&rt, tp.clone(), &db, schema).await?;
@@ -514,9 +516,8 @@ async fn apply_config_with_pending_and_enabled_mutated_indexes_removes_enabled_a
 async fn prepare_new_mutated_indexes_with_enabled_identical_index_does_not_backfill_a_second_copy(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
-
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         deploy_schema(&rt, tp.clone(), &db, schema.clone()).await?;
 
@@ -557,12 +558,11 @@ async fn test_two_indexes_on_one_table(rt: TestRuntime) -> anyhow::Result<()> {
 async fn prepare_new_mutated_indexes_with_backfilled_identical_index_does_not_backfill_it_again(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         prepare_schema(&db, schema.clone()).await?;
         backfill_indexes(rt, db.clone(), tp).await?;
-
         let mut tx = db.begin_system().await?;
         let result = IndexModel::new(&mut tx)
             .prepare_new_and_mutated_indexes(&schema)
@@ -581,7 +581,7 @@ async fn prepare_new_mutated_indexes_with_backfilled_identical_index_does_not_ba
 async fn prepare_schema_with_dropped_index_does_not_remove_it(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         deploy_schema(&rt, tp.clone(), &db, schema).await?;
@@ -602,7 +602,7 @@ async fn prepare_schema_with_dropped_index_does_not_remove_it(
 async fn prepare_schema_with_added_index_does_not_enable_it_after_backfill(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
 
@@ -660,7 +660,7 @@ async fn apply_config_with_backfilling_search_index_throws(rt: TestRuntime) -> a
 async fn apply_config_with_backfilled_index_sets_it_to_enabled(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -676,7 +676,7 @@ async fn apply_config_with_backfilled_index_sets_it_to_enabled(
 async fn apply_config_with_index_not_present_in_schema_drops_index(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -701,7 +701,7 @@ async fn apply_config_with_index_not_present_in_schema_drops_index(
 async fn apply_config_with_partially_committed_index_not_present_in_schema_drops_index(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -720,7 +720,6 @@ async fn apply_config_with_partially_committed_index_not_present_in_schema_drops
             index_result,
             &format!("Missing index: {TABLE_NAME}.{INDEX_NAME}"),
         );
-
         Ok(())
     })
     .await
@@ -730,7 +729,7 @@ async fn apply_config_with_partially_committed_index_not_present_in_schema_drops
 // indexes that are mutated again commits the final version.
 #[convex_macro::test_runtime]
 async fn test_mutating_partially_committed_mutated_index(rt: TestRuntime) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -758,7 +757,7 @@ async fn test_mutating_partially_committed_mutated_index(rt: TestRuntime) -> any
 // that's been mutated again commits the final version.
 #[convex_macro::test_runtime]
 async fn test_stacked_schema_edits(rt: TestRuntime) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -785,7 +784,7 @@ async fn test_stacked_schema_edits(rt: TestRuntime) -> anyhow::Result<()> {
 async fn deploy_schema_with_partially_committed_mutated_index_in_backfilled_state_commits_index(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -813,7 +812,7 @@ async fn deploy_schema_with_partially_committed_mutated_index_in_backfilled_stat
 async fn deploy_schema_with_partially_committed_mutated_index_in_backfilling_state_commits_index(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -840,7 +839,7 @@ async fn deploy_schema_with_partially_committed_mutated_index_in_backfilling_sta
 async fn apply_config_with_existing_index_and_removed_schema_drops_index(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -857,7 +856,6 @@ async fn apply_config_with_existing_index_and_removed_schema_drops_index(
             index_result,
             &format!("Missing index: {TABLE_NAME}.{INDEX_NAME}"),
         );
-
         Ok(())
     })
     .await
@@ -865,7 +863,7 @@ async fn apply_config_with_existing_index_and_removed_schema_drops_index(
 
 #[convex_macro::test_runtime]
 async fn apply_config_with_enabled_index_ignores_it(rt: TestRuntime) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -895,7 +893,7 @@ async fn apply_config_with_enabled_index_ignores_it(rt: TestRuntime) -> anyhow::
 async fn apply_config_with_backfilled_mutated_index_sets_it_to_enabled(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -917,7 +915,7 @@ async fn apply_config_with_backfilled_mutated_index_sets_it_to_enabled(
 async fn apply_config_with_backfilled_mutated_index_stores_updated_definition(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
@@ -943,9 +941,8 @@ async fn apply_config_with_backfilled_mutated_index_stores_updated_definition(
 async fn apply_config_with_enabled_mutated_index_does_not_fail(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
-
         // CLI pushes a new schema with an index
         let original_field_name = "a";
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, original_field_name, None)?;
@@ -969,9 +966,8 @@ async fn apply_config_with_enabled_mutated_index_does_not_fail(
 async fn build_indexes_with_backfilled_but_not_enabled_index_does_not_fail(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index| {
+    test_search_and_db_indexes(rt, async move |rt, new_schema_with_index: FnGenSchema| {
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
-
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx).build_indexes(&schema).await?;
@@ -1135,7 +1131,7 @@ mod check_index_references {
     async fn returns_an_error_if_index_references_an_non_existing_column_on_an_enforced_schema(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        test_search_and_db_indexes(rt, async move |_, new_schema_with_index| {
+        test_search_and_db_indexes(rt, async move |_, new_schema_with_index: FnGenSchema| {
             let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "non_existent_field", Some(DocumentSchema::Union(vec![
                 object_validator!("field" => FieldValidator::required_field_type(Validator::String)),
             ])))?;
@@ -1152,7 +1148,7 @@ mod check_index_references {
     async fn does_not_return_an_error_when_referencing_a_non_existing_field_in_an_unenforced_schema(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        test_search_and_db_indexes(rt, async move |_, new_schema_with_index| {
+        test_search_and_db_indexes(rt, async move |_, new_schema_with_index: FnGenSchema | {
             let mut schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "non_existent_field", Some(DocumentSchema::Union(vec![
                 object_validator!("field" => FieldValidator::required_field_type(Validator::String)),
             ])))?;
@@ -1170,12 +1166,22 @@ mod check_index_references {
     async fn does_not_return_an_error_when_referencing_a_field_on_a_nested_path(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        test_search_and_db_indexes(rt, async move |_, new_schema_with_index| {
-            let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "field.subfield", Some(DocumentSchema::Union(vec![
-                object_validator!("field" => FieldValidator::required_field_type(Validator::Object(
-                    object_validator!("subfield" => FieldValidator::required_field_type(Validator::String)),
-                ))),
-            ])))?;
+        test_search_and_db_indexes(rt, async move |_, new_schema_with_index: FnGenSchema| {
+            let schema: DatabaseSchema = new_schema_with_index(
+                TABLE_NAME,
+                INDEX_NAME,
+                "field.subfield",
+                Some(DocumentSchema::Union(vec![object_validator!(
+                    "field" => FieldValidator::required_field_type(
+                        Validator::Object(
+                            object_validator!(
+                                "subfield" =>
+                                FieldValidator::required_field_type(Validator::String)
+                            ),
+                        )
+                    )
+                )])),
+            )?;
 
             let result = schema.check_index_references();
             result.unwrap();
