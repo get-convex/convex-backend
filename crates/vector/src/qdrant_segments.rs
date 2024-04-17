@@ -510,10 +510,14 @@ impl SegmentConfigExt for SegmentConfig {
 
 #[cfg(test)]
 mod tests {
-
     use std::{
         fs,
-        sync::Arc,
+        fs::File,
+        io::BufWriter,
+        sync::{
+            atomic::AtomicBool,
+            Arc,
+        },
     };
 
     use anyhow::Context;
@@ -526,6 +530,8 @@ mod tests {
             vectors::QueryVector,
         },
         entry::entry_point::SegmentEntry,
+        id_tracker::IdTracker,
+        segment::Segment,
         types::{
             Condition,
             ExtendedPointId,
@@ -538,6 +544,7 @@ mod tests {
             PayloadSelector,
             PayloadSelectorInclude,
             PointIdType,
+            SegmentConfig,
             ValueVariants,
             WithPayload,
             WithVector,
@@ -552,10 +559,24 @@ mod tests {
     use uuid::Uuid;
     use value::base64;
 
-    use super::*;
-    use crate::id_tracker::{
-        DeletedBitset,
-        OP_NUM,
+    use crate::{
+        id_tracker::{
+            DeletedBitset,
+            MemoryIdTracker,
+            StaticIdTracker,
+            OP_NUM,
+        },
+        qdrant_segments::{
+            build_disk_segment,
+            create_mutable_segment,
+            merge_disk_segments,
+            segment_config,
+            snapshot_segment,
+            unsafe_load_disk_segment,
+            DiskSegmentPaths,
+            DiskSegmentValues,
+            DEFAULT_VECTOR_NAME,
+        },
     };
 
     const DIMENSIONS: usize = 1536;

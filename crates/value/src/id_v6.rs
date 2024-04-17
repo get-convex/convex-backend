@@ -329,12 +329,22 @@ fn fletcher16(buf: &[u8]) -> u16 {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp;
+
     use proptest::prelude::*;
 
-    use super::*;
     use crate::{
+        document_id::DocumentIdV6,
+        id_v6::{
+            vint_decode,
+            vint_encode,
+            vint_len,
+            VirtualTableNumberMap,
+            MAX_BASE32_LEN,
+        },
         DeveloperDocumentId,
         InternalId,
+        TableNumber,
     };
 
     #[test]

@@ -603,11 +603,24 @@ impl IdTracker for StaticIdTracker {
 
 #[cfg(test)]
 mod tests {
+    use bitvec::vec::BitVec;
     use must_let::must_let;
     use proptest::prelude::*;
+    use qdrant_segment::{
+        id_tracker::IdTracker,
+        types::{
+            ExtendedPointId,
+            PointIdType,
+        },
+    };
+    use uuid::Uuid;
 
-    use super::*;
-    use crate::id_tracker::OP_NUM;
+    use crate::id_tracker::{
+        DeletedBitset,
+        MemoryIdTracker,
+        StaticIdTracker,
+        OP_NUM,
+    };
 
     prop_compose! {
         fn uuids_with_some_deleted() (

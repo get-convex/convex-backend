@@ -21,7 +21,9 @@ use pb::{
     funrun::UdfOutcome as UdfOutcomeProto,
 };
 #[cfg(any(test, feature = "testing"))]
-use proptest::prelude::*;
+use proptest::prelude::Arbitrary;
+#[cfg(any(test, feature = "testing"))]
+use proptest::prelude::Strategy;
 use rand::Rng;
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;

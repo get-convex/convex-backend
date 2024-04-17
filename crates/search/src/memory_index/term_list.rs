@@ -275,9 +275,7 @@ impl TermList {
         term_weights: &[Bm25Weight],
         fieldnorm: u32,
     ) -> Option<(Score, BTreeMap<TermId, Vec<u32>>)> {
-        let Some(ref inner) = self.inner else {
-            return None;
-        };
+        let inner = self.inner.as_ref()?;
 
         let sorted_terms = query.sorted_terms.as_slice();
         let intersection_ids = &query.intersection_terms;
@@ -445,8 +443,19 @@ mod tests {
     use itertools::Itertools;
     use proptest::prelude::*;
     use proptest_derive::Arbitrary;
+    use tantivy::{
+        fieldnorm::FieldNormReader,
+        query::Bm25Weight,
+    };
 
-    use super::*;
+    use crate::{
+        memory_index::{
+            term_list::TermList,
+            TermId,
+        },
+        query::TermListBitsetQuery,
+        FieldPosition,
+    };
 
     fn test_term_iter(terms: Vec<(u32, u32)>) {
         if terms.is_empty() {

@@ -195,7 +195,7 @@ mod tests {
 
     use proptest::prelude::*;
 
-    use super::*;
+    use crate::memory_index::small_slice::SmallSlice;
 
     #[test]
     fn test_small_size_size() {
