@@ -31,6 +31,7 @@ use common::{
     persistence::Persistence,
     query_journal::QueryJournal,
     runtime::{
+        testing::TestRuntime,
         Runtime,
         SpawnHandle,
         UnixTimestamp,
@@ -959,6 +960,10 @@ pub struct UdfTestConfig {
     pub isolate_config: IsolateConfig,
     pub udf_server_version: Version,
 }
+
+/// Rust can't seem to determine the type of the function argument in these
+/// tests, so we specify it explicitly.
+pub type UdfTestType = UdfTest<TestRuntime, TestPersistence>;
 
 impl<RT: Runtime> UdfTest<RT, TestPersistence> {
     pub async fn run_test_with_isolate<F, Fut>(rt: RT, mut f: F) -> anyhow::Result<()>

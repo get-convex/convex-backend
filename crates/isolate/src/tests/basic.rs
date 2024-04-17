@@ -3,7 +3,6 @@
 use common::{
     assert_obj,
     document::CreationTime,
-    testing::TestPersistence,
     types::FieldName,
     value::{
         ConvexObject,
@@ -16,9 +15,10 @@ use runtime::testing::TestRuntime;
 use value::assert_val;
 
 use super::assert_contains;
-use crate::test_helpers::UdfTest;
-
-type UdfTestType = UdfTest<TestRuntime, TestPersistence>;
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
+};
 
 #[convex_macro::test_runtime]
 async fn test_basic(rt: TestRuntime) -> anyhow::Result<()> {

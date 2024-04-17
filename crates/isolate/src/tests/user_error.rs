@@ -25,11 +25,14 @@ use value::{
 };
 
 use super::assert_contains;
-use crate::test_helpers::UdfTest;
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
+};
 
 #[convex_macro::test_runtime]
 async fn test_not_found(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let err = t
             .query_js_error_no_validation("nonexistent", assert_obj!())
             .await?;
@@ -57,7 +60,7 @@ async fn test_not_found(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_bad_arguments_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.query("userError:badArgumentsError", assert_obj!()).await);
         assert!(s.contains("Invalid argument `id` for `db.get`"), "{s}");
         Ok(())
@@ -66,7 +69,7 @@ async fn test_bad_arguments_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_bad_id_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.query("userError:badIdError", assert_obj!()).await);
         // A system UDF (listById) relies on this error message being invariant.
         assert!(s.contains("Unable to decode ID"), "{s}");
@@ -76,7 +79,7 @@ async fn test_bad_id_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_insertion_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:insertError", assert_obj!()).await);
         assert!(
             s.contains("System tables (prefixed with `_`) are read-only."),
@@ -90,7 +93,7 @@ async fn test_insertion_error(rt: TestRuntime) -> anyhow::Result<()> {
 // specifically. Ensure that the error is catchable in JavaScript.
 #[convex_macro::test_runtime]
 async fn test_insert_error_with_bigint(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:insertErrorWithBigint", assert_obj!()).await);
         assert!(
             s.contains("undefined is not a valid Convex value (present at path .bad"),
@@ -102,7 +105,7 @@ async fn test_insert_error_with_bigint(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_patch_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:patchError", assert_obj!()).await);
         assert!(s.contains("Update on nonexistent document ID"), "{s}");
         Ok(())
@@ -112,7 +115,7 @@ async fn test_patch_error(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_patch_value_not_an_object(rt: TestRuntime) -> anyhow::Result<()> {
     // TODO: Reenable isolate2 when we implement table filter.
-    UdfTest::run_test_with_isolate(rt, async move |t| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:patchValueNotAnObject", assert_obj!()).await);
         assert!(
             s.contains("Invalid argument `value` for `db.patch`: Value must be an Object"),
@@ -124,7 +127,7 @@ async fn test_patch_value_not_an_object(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_replace_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:replaceError", assert_obj!()).await);
         assert!(s.contains("Replace on nonexistent document ID"), "{s}");
         Ok(())
@@ -133,7 +136,7 @@ async fn test_replace_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_delete_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:deleteError", assert_obj!()).await);
         assert!(s.contains("Delete on nonexistent document ID"), "{s}");
         Ok(())
@@ -143,7 +146,7 @@ async fn test_delete_error(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_nonexistent_table(rt: TestRuntime) -> anyhow::Result<()> {
     // TODO: Reenable isolate2 when we implement table filter.
-    UdfTest::run_test_with_isolate(rt, async move |t| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         t.create_index("boatVotes.by_boat", "boat").await?;
         t.backfill_indexes().await?;
         let mut tx = t.database.begin(Identity::system()).await?;
@@ -161,7 +164,7 @@ async fn test_nonexistent_table(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let mut tx = t.database.begin(Identity::system()).await?;
         let table_number = 8000.try_into()?;
         let table_name: TableName = "_my_system_table".parse()?;
@@ -221,7 +224,7 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_private_system_table(rt: TestRuntime) -> anyhow::Result<()> {
     // TODO: Reenable isolate2 when we implement table filter.
-    UdfTest::run_test_with_isolate(rt, async move |t| {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
         let mut tx = t.database.begin(Identity::system()).await?;
 
         // backend state automatically created by with_model().
@@ -251,7 +254,7 @@ async fn test_private_system_table(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_unhandled_promise_rejection(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         // Check that an unhandled promise rejection fails the UDF.
         let e = t
             .mutation_js_error("userError:unhandledRejection", assert_obj!())
@@ -264,7 +267,7 @@ async fn test_unhandled_promise_rejection(rt: TestRuntime) -> anyhow::Result<()>
 
 #[convex_macro::test_runtime]
 async fn test_catching_async_exception_thrown_before_await(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:asyncExceptionBeforeAwait", assert_obj!()).await);
         assert!(s.contains("This is a custom exception"), "{s}");
         Ok(())
@@ -273,7 +276,7 @@ async fn test_catching_async_exception_thrown_before_await(rt: TestRuntime) -> a
 
 #[convex_macro::test_runtime]
 async fn test_catching_async_exception_thrown_after_await(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:asyncExceptionAfterAwait", assert_obj!()).await);
         assert!(s.contains("This is a custom exception"), "{s}");
         Ok(())
@@ -282,7 +285,7 @@ async fn test_catching_async_exception_thrown_after_await(rt: TestRuntime) -> an
 
 #[convex_macro::test_runtime]
 async fn test_throw_string(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:throwString", assert_obj!()).await);
         assert!(s.contains("string - a string"), "{s}");
         Ok(())
@@ -291,7 +294,7 @@ async fn test_throw_string(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_async_syscall_error(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let e = t
             .mutation_js_error("userError:syscallError", assert_obj!())
             .await?;
@@ -308,7 +311,7 @@ async fn test_async_syscall_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_insert_with_creation_time(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let e = t
             .mutation_js_error("adversarial:insertWithCreationTime", assert_obj!())
             .await?;
@@ -320,7 +323,7 @@ async fn test_insert_with_creation_time(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_insert_with_id(rt: TestRuntime) -> anyhow::Result<()> {
-    UdfTest::run_test_with_isolate2(rt, async move |t| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let e = t
             .mutation_js_error("adversarial:insertWithId", assert_obj!())
             .await?;
