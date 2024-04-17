@@ -1,5 +1,4 @@
 use common::{
-    self,
     bootstrap_model::index::database_index::IndexedFields,
     types::ModuleEnvironment,
 };

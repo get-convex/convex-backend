@@ -2,7 +2,6 @@ use std::cmp;
 
 use async_trait::async_trait;
 use common::{
-    self,
     query::CursorPosition,
     runtime::Runtime,
 };

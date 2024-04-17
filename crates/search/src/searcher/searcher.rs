@@ -12,7 +12,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bytesize::ByteSize;
 use common::{
-    self,
     bounded_thread_pool::BoundedThreadPool,
     runtime::Runtime,
     types::ObjectKey,

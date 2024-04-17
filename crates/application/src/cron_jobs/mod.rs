@@ -5,7 +5,6 @@ use std::{
 };
 
 use common::{
-    self,
     backoff::Backoff,
     document::ParsedDocument,
     errors::{

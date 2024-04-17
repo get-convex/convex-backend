@@ -9,7 +9,6 @@ use futures::{
     FutureExt,
 };
 use metrics::{
-    self,
     log_counter,
     log_counter_with_labels,
     log_distribution,

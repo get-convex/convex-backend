@@ -13,7 +13,6 @@ use std::{
 };
 
 use common::{
-    self,
     backoff::Backoff,
     bootstrap_model::index::{
         database_index::{

@@ -852,7 +852,6 @@ where
 mod tests {
     use proptest::prelude::*;
     use serde_json::{
-        self,
         json,
         Value as JsonValue,
     };

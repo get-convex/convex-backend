@@ -15,7 +15,6 @@ use async_broadcast::{
     Sender,
 };
 use common::{
-    self,
     execution_context::ExecutionContext,
     identity::IdentityCacheKey,
     knobs::{

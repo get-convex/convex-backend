@@ -13,7 +13,6 @@ use itertools::{
     Itertools,
 };
 use pb::{
-    self,
     convex_cursor::IndexKey as IndexKeyProto,
     funrun::cursor::Position as PositionProto,
 };
@@ -1172,7 +1171,6 @@ impl Query {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
 
     use proptest::prelude::*;
     use sync_types::testing::assert_roundtrips;

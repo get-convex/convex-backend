@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use common::{
-    self,
     runtime::Runtime,
     sha256::Sha256Digest,
     types::ConvexOrigin,
