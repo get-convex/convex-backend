@@ -1,7 +1,4 @@
-use std::{
-    convert::TryFrom,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use application::{
     test_helpers::ApplicationTestExt,

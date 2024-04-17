@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use crate::ConvexBytes;
 
 /// Helper functions for encoding `Bytes`s as `String`s.

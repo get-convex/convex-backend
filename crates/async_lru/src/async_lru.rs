@@ -1,7 +1,6 @@
 use core::hash::Hash;
 use std::{
     fmt::Debug,
-    marker::Sync,
     sync::Arc,
 };
 

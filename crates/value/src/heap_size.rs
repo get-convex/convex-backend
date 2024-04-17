@@ -24,7 +24,6 @@ use std::{
     ptr::NonNull,
 };
 
-use ::bytes;
 use futures::channel::oneshot;
 #[cfg(any(test, feature = "testing"))]
 use proptest::{

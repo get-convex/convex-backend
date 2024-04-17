@@ -80,10 +80,7 @@ use futures::{
     TryStreamExt,
 };
 use indexing::index_registry::IndexRegistry;
-use minitrace::{
-    collector::SpanContext,
-    prelude::*,
-};
+use minitrace::prelude::*;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use usage_tracking::{

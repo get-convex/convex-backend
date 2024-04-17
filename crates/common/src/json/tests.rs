@@ -1,7 +1,4 @@
-use std::{
-    convert::TryFrom,
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use proptest::prelude::*;
 use serde_json::{

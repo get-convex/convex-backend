@@ -14,10 +14,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use enum_iterator::{
-    self,
-    Sequence,
-};
+use enum_iterator::Sequence;
 use futures::{
     future,
     stream::BoxStream,

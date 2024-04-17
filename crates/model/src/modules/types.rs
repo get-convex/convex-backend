@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    convert::TryFrom,
-};
+use std::collections::BTreeMap;
 
 use common::obj;
 use sync_types::{

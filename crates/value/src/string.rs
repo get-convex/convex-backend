@@ -1,8 +1,6 @@
 use std::{
-    convert::TryFrom,
     fmt,
     ops::Deref,
-    string::String,
 };
 
 use super::size::Size;

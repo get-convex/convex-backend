@@ -1,7 +1,4 @@
-use std::convert::TryInto;
-
 use anyhow::anyhow;
-use base64;
 
 /// Helper functions for encoding `Int64`s as `String`s.
 pub enum JsonInteger {}

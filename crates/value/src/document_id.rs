@@ -4,7 +4,6 @@ use std::{
         Ordering,
         PartialOrd,
     },
-    convert::TryInto,
     fmt::{
         self,
         Debug,

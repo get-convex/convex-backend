@@ -3,7 +3,6 @@
 use std::{
     collections::HashMap,
     future::Future,
-    marker::Send,
     ops::{
         Add,
         Sub,

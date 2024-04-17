@@ -1,8 +1,6 @@
 use std::{
     collections::BTreeSet,
-    convert::TryFrom,
     fmt,
-    iter::IntoIterator,
     ops::Deref,
 };
 

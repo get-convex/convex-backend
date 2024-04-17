@@ -1,9 +1,6 @@
-use common::{
-    self,
-    types::{
-        ModuleEnvironment,
-        UdfType,
-    },
+use common::types::{
+    ModuleEnvironment,
+    UdfType,
 };
 use model::{
     config::types::ModuleConfig,

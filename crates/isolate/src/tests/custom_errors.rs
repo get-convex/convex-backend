@@ -1,9 +1,6 @@
 #![allow(clippy::float_cmp)]
 
-use common::{
-    self,
-    value::ConvexValue,
-};
+use common::value::ConvexValue;
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use value::assert_obj;

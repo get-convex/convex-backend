@@ -3,7 +3,6 @@
 
 use std::{
     future::Future,
-    marker::Send,
     num::TryFromIntError,
     ops::{
         Add,
@@ -35,6 +34,7 @@ use governor::{
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
+#[cfg(not(any(test, feature = "testing")))]
 use rand::{
     Rng,
     RngCore,

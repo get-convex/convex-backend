@@ -1,9 +1,6 @@
 #![allow(clippy::float_cmp)]
 
-use std::{
-    convert::TryInto,
-    time::Duration,
-};
+use std::time::Duration;
 
 use common::{
     assert_obj,

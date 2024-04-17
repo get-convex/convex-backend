@@ -1,5 +1,4 @@
 use std::{
-    convert::TryFrom,
     fmt,
     ops::Deref,
 };

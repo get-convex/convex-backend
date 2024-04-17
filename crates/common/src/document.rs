@@ -2,13 +2,8 @@
 //!
 //! This is the authoritative representation of a document within the database.
 use std::{
-    cmp::{
-        Ord,
-        Ordering,
-        PartialOrd,
-    },
+    cmp::Ordering,
     collections::BTreeMap,
-    convert::TryInto,
     fmt::{
         self,
         Debug,

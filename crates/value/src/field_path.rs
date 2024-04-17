@@ -1,10 +1,6 @@
 //! Types for representing paths to fields.
 
 use std::{
-    convert::{
-        TryFrom,
-        TryInto,
-    },
     fmt,
     fmt::{
         Debug,

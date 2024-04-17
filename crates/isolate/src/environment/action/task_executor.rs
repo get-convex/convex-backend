@@ -1,5 +1,4 @@
 use std::{
-    convert::TryInto,
     sync::Arc,
     time::Duration,
 };

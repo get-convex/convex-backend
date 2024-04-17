@@ -11,12 +11,9 @@ use common::{
     types::UdfType,
 };
 use deno_core::ModuleSpecifier;
-use futures::{
-    self,
-    channel::{
-        mpsc,
-        oneshot,
-    },
+use futures::channel::{
+    mpsc,
+    oneshot,
 };
 use serde_json::Value as JsonValue;
 use tokio::sync::Semaphore;

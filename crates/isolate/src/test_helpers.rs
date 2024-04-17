@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeMap,
-    convert::TryFrom,
     fs::File,
     io::Read,
     sync::{

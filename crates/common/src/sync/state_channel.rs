@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     future::Future,
     hash::Hash,
-    marker::Unpin,
     pin::Pin,
     sync::Arc,
     task::{

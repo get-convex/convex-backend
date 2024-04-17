@@ -1,10 +1,7 @@
-use std::{
-    collections::{
-        BTreeMap,
-        BTreeSet,
-        VecDeque,
-    },
-    iter::FromIterator,
+use std::collections::{
+    BTreeMap,
+    BTreeSet,
+    VecDeque,
 };
 
 use convex_sync_types::{

@@ -1,7 +1,4 @@
-use std::{
-    convert::TryFrom,
-    env,
-};
+use std::env;
 
 use common::types::MemberId;
 use keybroker::{

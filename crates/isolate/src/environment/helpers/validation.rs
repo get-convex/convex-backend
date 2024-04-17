@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use common::{
-    self,
     errors::JsError,
     knobs::FUNCTION_MAX_ARGS_SIZE,
     runtime::{

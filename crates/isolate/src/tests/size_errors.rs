@@ -1,9 +1,6 @@
 #![allow(clippy::float_cmp)]
 
-use common::{
-    self,
-    value::ConvexValue,
-};
+use common::value::ConvexValue;
 use runtime::testing::TestRuntime;
 use value::{
     array,

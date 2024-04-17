@@ -162,8 +162,6 @@ pub struct DatabaseSchema {
 macro_rules! db_schema {
     ($($table:expr => $document_schema:expr),* $(,)?) => {
         {
-            #[allow(unused)]
-            use std::convert::TryFrom;
             use std::collections::BTreeMap;
             #[allow(unused)]
             use $crate::types::TableName;
@@ -196,8 +194,6 @@ macro_rules! db_schema {
 macro_rules! db_schema_not_validated {
     ($($table:expr => $document_schema:expr),* $(,)?) => {
         {
-            #[allow(unused)]
-            use std::convert::TryFrom;
             use std::collections::BTreeMap;
             #[allow(unused)]
             use $crate::types::TableName;

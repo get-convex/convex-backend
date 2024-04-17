@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+#![allow(non_snake_case)]
 
 use anyhow::Context;
 use common::{

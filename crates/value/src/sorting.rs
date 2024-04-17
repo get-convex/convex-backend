@@ -565,9 +565,7 @@ mod tests {
             BTreeMap,
             BTreeSet,
         },
-        convert::TryInto,
         fmt::Debug,
-        string::String,
     };
 
     use cmd_util::env::env_config;

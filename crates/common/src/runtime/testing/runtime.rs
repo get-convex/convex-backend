@@ -2,7 +2,6 @@
 
 use std::{
     future::Future,
-    marker::Send,
     mem,
     ops::{
         Add,
