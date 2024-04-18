@@ -131,12 +131,14 @@ function processLogs(
     if (log.logLines) {
       const id = log.identifier;
       const udfType = log.udfType;
+      const timestampMs = log.timestamp * 1000;
+      const executionTimeMs = log.executionTime * 1000;
 
       for (let j = 0; j < log.logLines.length; j++) {
         logToTerminal(
           ctx,
           "info",
-          log.timestamp,
+          timestampMs,
           udfType,
           id,
           log.logLines[j],
@@ -145,22 +147,14 @@ function processLogs(
       }
 
       if (log.error) {
-        logToTerminal(
-          ctx,
-          "error",
-          log.timestamp,
-          udfType,
-          id,
-          log.error!,
-          dest,
-        );
+        logToTerminal(ctx, "error", timestampMs, udfType, id, log.error!, dest);
       } else if (log.kind === "Completion" && shouldShowSuccessLogs) {
         logFunctionExecution(
           ctx,
-          log.timestamp,
+          timestampMs,
           log.udfType,
           id,
-          log.executionTime,
+          executionTimeMs,
           dest,
         );
       }
@@ -170,10 +164,10 @@ function processLogs(
 
 function logFunctionExecution(
   ctx: Context,
-  timestamp: number,
+  timestampMs: number,
   udfType: UdfType,
   udfPath: string,
-  executionTime: number,
+  executionTimeMs: number,
   dest: LogDestination,
 ) {
   logToDestination(
@@ -181,10 +175,10 @@ function logFunctionExecution(
     dest,
     chalk.green(
       `${prefixLog(
-        timestamp,
+        timestampMs,
         udfType,
         udfPath,
-      )} Function executed in ${Math.ceil(executionTime * 1000)} ms`,
+      )} Function executed in ${Math.ceil(executionTimeMs)} ms`,
     ),
   );
 }
@@ -192,7 +186,7 @@ function logFunctionExecution(
 function logToTerminal(
   ctx: Context,
   type: "info" | "error",
-  timestamp: number,
+  timestampMs: number,
   udfType: UdfType,
   udfPath: string,
   message: LogLine,
@@ -218,14 +212,14 @@ function logToTerminal(
       logToDestination(
         ctx,
         dest,
-        chalk.cyan(`${prefixLog(timestamp, udfType, udfPath)} [${level}]`),
+        chalk.cyan(`${prefixLog(timestampMs, udfType, udfPath)} [${level}]`),
         args,
       );
     } else {
       logToDestination(
         ctx,
         dest,
-        chalk.red(`${prefixLog(timestamp, udfType, udfPath)} ${message}`),
+        chalk.red(`${prefixLog(timestampMs, udfType, udfPath)} ${message}`),
       );
     }
   } else {
@@ -235,6 +229,7 @@ function logToTerminal(
       ctx,
       dest,
       chalk.cyan(
+        // timestamp is in ms since epoch
         `${prefixLog(message.timestamp, udfType, udfPath)} [${level}]`,
       ),
       formattedMessage,
@@ -253,9 +248,9 @@ function logToDestination(ctx: Context, dest: LogDestination, ...logged: any) {
   }
 }
 
-function prefixLog(timestamp: number, udfType: UdfType, udfPath: string) {
+function prefixLog(timestampMs: number, udfType: UdfType, udfPath: string) {
   const prefix = prefixForSource(udfType);
-  const localizedTimestamp = new Date(timestamp * 1000).toLocaleString();
+  const localizedTimestamp = new Date(timestampMs).toLocaleString();
 
   return `${localizedTimestamp} [CONVEX ${prefix}(${udfPath})]`;
 }
