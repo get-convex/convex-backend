@@ -283,7 +283,6 @@ impl TransactionIndex {
         Ok(results.revisions_with_keys)
     }
 
-    #[minitrace::trace]
     pub async fn range_batch(
         &mut self,
         reads: &mut TransactionReadSet,
