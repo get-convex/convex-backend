@@ -278,6 +278,7 @@ impl Actions {
         })
     }
 
+    #[minitrace::trace]
     pub async fn build_deps(
         &self,
         request: BuildDepsRequest,

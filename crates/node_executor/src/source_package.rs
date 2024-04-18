@@ -67,6 +67,7 @@ struct MetadataJson {
     external_deps_storage_key: Option<String>,
 }
 
+#[minitrace::trace]
 async fn write_package(
     package: BTreeMap<CanonicalizedModulePath, &ModuleConfig>,
     mut out: impl AsyncWrite + Sync + Send + Unpin,
@@ -132,6 +133,7 @@ async fn write_package(
     Ok((unzipped_size_bytes, files))
 }
 
+#[minitrace::trace]
 pub async fn upload_package(
     package: BTreeMap<CanonicalizedModulePath, &ModuleConfig>,
     storage: Arc<dyn Storage>,

@@ -1819,6 +1819,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(object_key)
     }
 
+    #[minitrace::trace]
     pub async fn upload_package(
         &self,
         modules: &Vec<ModuleConfig>,
