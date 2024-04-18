@@ -4,7 +4,7 @@ description = "Client library for Convex (convex.dev)"
 authors = [ "Convex, Inc. <no-reply@convex.dev>" ]
 version = "0.6.0"
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.71.0"
 resolver = "2"
 license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-rs"
@@ -14,7 +14,7 @@ homepage = "https://www.convex.dev/"
 anyhow = { version = "1" }
 async-trait = { version = "0.1" }
 base64 = { version = "0.13" }
-bytes = { version = "1.1.0" }
+bytes = { version = "1.5.0" }
 convex_sync_types = { path = "./sync_types", version = "=0.6.0" }
 futures = { version = "0.3" }
 imbl = { version = "2.0.0" }

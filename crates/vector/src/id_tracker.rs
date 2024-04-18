@@ -22,17 +22,19 @@ use byteorder::{
     WriteBytesExt,
 };
 use csf::ls::Map as CsfMap;
+use qdrant_common::types::PointOffsetType;
 use qdrant_segment::{
-    common::Flusher,
-    entry::entry_point::{
-        OperationError,
-        OperationResult,
+    common::{
+        operation_error::{
+            OperationError,
+            OperationResult,
+        },
+        Flusher,
     },
     id_tracker::IdTracker,
     types::{
         ExtendedPointId,
         PointIdType,
-        PointOffsetType,
         SeqNumberType,
     },
 };

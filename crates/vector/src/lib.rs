@@ -15,7 +15,10 @@ use common::{
     types::IndexName,
 };
 use errors::ErrorMetadata;
-use qdrant_segment::data_types::vectors::QueryVector;
+use qdrant_segment::data_types::vectors::{
+    QueryVector,
+    Vector,
+};
 use value::FieldPath;
 
 pub mod id_tracker;
@@ -64,15 +67,19 @@ pub const DEFAULT_VECTOR_LIMIT: u32 = 10;
 pub const MAX_FILTER_LENGTH: usize = 64;
 
 #[derive(Clone, Debug)]
-pub struct IndexedVector(QueryVector);
+pub struct IndexedVector(Vec<f32>);
+
+impl From<IndexedVector> for QueryVector {
+    fn from(value: IndexedVector) -> Self {
+        QueryVector::Nearest(Vector::Dense(value.0))
+    }
+}
 
 impl Deref for IndexedVector {
     type Target = [f32];
 
     fn deref(&self) -> &Self::Target {
-        match self.0 {
-            QueryVector::Nearest(ref vec) => &vec[..],
-        }
+        &self.0
     }
 }
 
@@ -84,15 +91,13 @@ impl TryFrom<Vec<f32>> for IndexedVector {
             value.len() <= MAX_VECTOR_DIMENSIONS as usize,
             vector_dimensions_mismatch_error(value.len() as u32, MAX_VECTOR_DIMENSIONS)
         );
-        Ok(IndexedVector(QueryVector::Nearest(value)))
+        Ok(IndexedVector(value))
     }
 }
 
 impl From<IndexedVector> for Vec<f32> {
     fn from(value: IndexedVector) -> Self {
-        match value.0 {
-            QueryVector::Nearest(vec) => vec,
-        }
+        value.0
     }
 }
 

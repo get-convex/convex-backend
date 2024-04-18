@@ -370,6 +370,7 @@ mod tests {
                 Message,
                 WebSocket,
             },
+            State,
             WebSocketUpgrade,
         },
         routing::get,
@@ -389,10 +390,14 @@ mod tests {
     /// backend in `is_connection_closed_error` to work around axum sloppiness.
     #[tokio::test]
     async fn test_ws_tungstenite_version_match() -> anyhow::Result<()> {
-        let (mut ws_shutdown_tx, mut ws_shutdown_rx) = futures::channel::mpsc::channel(1);
+        let (ws_shutdown_tx, mut ws_shutdown_rx) = futures::channel::mpsc::channel(1);
 
-        let ws_handler = async move |ws: WebSocketUpgrade| {
+        async fn ws_handler(
+            ws: WebSocketUpgrade,
+            st: State<futures::channel::mpsc::Sender<bool>>,
+        ) -> axum::response::Response {
             ws.on_upgrade(move |mut ws: WebSocket| async move {
+                let mut ws_shutdown_tx = st.0;
                 assert_eq!(ws.recv().await.unwrap().unwrap(), Message::Close(None));
                 let e = ws
                     .send(Message::Text("Hello".to_string()))
@@ -410,9 +415,13 @@ mod tests {
                     TungsteniteError::ConnectionClosed
                 );
             })
-        };
+        }
 
-        let app = ConvexHttpService::new_for_test(Router::new().route("/test", get(ws_handler)));
+        let app = ConvexHttpService::new_for_test(
+            Router::new()
+                .route("/test", get(ws_handler))
+                .with_state(ws_shutdown_tx),
+        );
         let port = portpicker::pick_unused_port().expect("No ports free");
         let addr = format!("127.0.0.1:{port}").parse()?;
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();

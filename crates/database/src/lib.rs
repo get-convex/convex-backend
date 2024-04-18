@@ -7,15 +7,14 @@
 #![feature(lazy_cell)]
 #![feature(const_option)]
 #![feature(is_sorted)]
-#![feature(bound_map)]
 #![feature(iterator_try_collect)]
 #![feature(never_type)]
 #![feature(try_blocks)]
 #![feature(exclusive_range_pattern)]
 #![feature(async_closure)]
-#![feature(trait_upcasting)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(cow_is_borrowed)]
+#![feature(trait_upcasting)]
 
 mod bootstrap_model;
 mod committer;
