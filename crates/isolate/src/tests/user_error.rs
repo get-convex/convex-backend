@@ -114,8 +114,7 @@ async fn test_patch_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_patch_value_not_an_object(rt: TestRuntime) -> anyhow::Result<()> {
-    // TODO: Reenable isolate2 when we implement table filter.
-    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let Ok(ConvexValue::String(s)) = t.mutation("userError:patchValueNotAnObject", assert_obj!()).await);
         assert!(
             s.contains("Invalid argument `value` for `db.patch`: Value must be an Object"),
@@ -145,8 +144,7 @@ async fn test_delete_error(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_nonexistent_table(rt: TestRuntime) -> anyhow::Result<()> {
-    // TODO: Reenable isolate2 when we implement table filter.
-    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         t.create_index("boatVotes.by_boat", "boat").await?;
         t.backfill_indexes().await?;
         let mut tx = t.database.begin(Identity::system()).await?;
@@ -223,8 +221,7 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_private_system_table(rt: TestRuntime) -> anyhow::Result<()> {
-    // TODO: Reenable isolate2 when we implement table filter.
-    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let mut tx = t.database.begin(Identity::system()).await?;
 
         // backend state automatically created by with_model().

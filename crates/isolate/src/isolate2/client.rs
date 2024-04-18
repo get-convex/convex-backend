@@ -16,9 +16,10 @@ use futures::channel::{
     oneshot,
 };
 use serde_json::Value as JsonValue;
+use sync_types::CanonicalizedUdfPath;
 use tokio::sync::Semaphore;
 use value::{
-    ConvexObject,
+    ConvexArray,
     ConvexValue,
 };
 
@@ -41,9 +42,8 @@ pub enum IsolateThreadRequest {
     },
     StartFunction {
         udf_type: UdfType,
-        module: ModuleSpecifier,
-        name: String,
-        args: ConvexObject,
+        udf_path: CanonicalizedUdfPath,
+        arguments: ConvexArray,
         response: oneshot::Sender<anyhow::Result<(FunctionId, EvaluateResult)>>,
     },
     PollFunction {
@@ -68,6 +68,12 @@ pub struct EvaluateReady {
 #[derive(Debug)]
 pub struct EvaluatePending {
     pub async_syscalls: Vec<PendingAsyncSyscall>,
+}
+
+impl EvaluatePending {
+    pub fn is_empty(&self) -> bool {
+        self.async_syscalls.is_empty()
+    }
 }
 
 pub type QueryId = u32;
@@ -174,17 +180,15 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
     pub async fn start_function(
         &mut self,
         udf_type: UdfType,
-        module: ModuleSpecifier,
-        name: String,
-        args: ConvexObject,
+        udf_path: CanonicalizedUdfPath,
+        arguments: ConvexArray,
     ) -> anyhow::Result<(FunctionId, EvaluateResult)> {
         let (tx, rx) = oneshot::channel();
         self.send(
             IsolateThreadRequest::StartFunction {
                 udf_type,
-                module,
-                name,
-                args,
+                udf_path,
+                arguments,
                 response: tx,
             },
             rx,

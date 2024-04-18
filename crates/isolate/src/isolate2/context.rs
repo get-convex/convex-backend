@@ -2,13 +2,11 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use common::types::UdfType;
-use deno_core::{
-    v8::{
-        self,
-    },
-    ModuleSpecifier,
+use deno_core::v8::{
+    self,
 };
-use value::ConvexObject;
+use sync_types::CanonicalizedUdfPath;
+use value::ConvexArray;
 
 use super::{
     callback_context::CallbackContext,
@@ -102,15 +100,14 @@ impl Context {
         &mut self,
         session: &mut Session,
         udf_type: UdfType,
-        module: &ModuleSpecifier,
-        name: &str,
-        args: ConvexObject,
+        udf_path: CanonicalizedUdfPath,
+        arguments: ConvexArray,
     ) -> anyhow::Result<(FunctionId, EvaluateResult)> {
         let function_id = self.next_function_id;
         self.next_function_id += 1;
 
         let (promise, result) = self.enter(session, |mut ctx| {
-            ctx.start_evaluate_function(udf_type, module, name, args)
+            ctx.start_evaluate_function(udf_type, udf_path, arguments)
         })?;
         if let EvaluateResult::Pending { .. } = result {
             self.pending_functions.insert(function_id, promise);

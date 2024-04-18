@@ -5,6 +5,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context as AnyhowContext;
 use common::{
     errors::JsError,
     execution_context::ExecutionContext,
@@ -41,23 +42,25 @@ use futures::{
     StreamExt,
 };
 use keybroker::KeyBroker;
-use model::file_storage::{
-    types::FileStorageEntry,
-    FileStorageId,
+use model::{
+    environment_variables::{
+        EnvironmentVariablesModel,
+        PreloadedEnvironmentVariables,
+    },
+    file_storage::{
+        types::FileStorageEntry,
+        FileStorageId,
+    },
+    udf_config::UdfConfigModel,
 };
 use parking_lot::Mutex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use sync_types::{
-    CanonicalizedUdfPath,
-    UdfPath,
-};
+use sync_types::UdfPath;
 use tokio::sync::Semaphore;
 use value::{
     ConvexArray,
-    ConvexObject,
-    ConvexValue,
     TableIdAndTableNumber,
     TableMapping,
     TableName,
@@ -110,6 +113,7 @@ use crate::{
     ModuleNotFoundError,
     SyscallTrace,
     UdfOutcome,
+    ValidatedUdfPathAndArgs,
 };
 
 fn handle_request(
@@ -142,12 +146,11 @@ fn handle_request(
         },
         IsolateThreadRequest::StartFunction {
             udf_type,
-            module,
-            name,
-            args,
+            udf_path,
+            arguments,
             response,
         } => {
-            let r = context.start_function(session, udf_type, &module, &name, args);
+            let r = context.start_function(session, udf_type, udf_path, arguments);
             response.send(r).map_err(|_| anyhow::anyhow!("Canceled"))?;
         },
         IsolateThreadRequest::PollFunction {
@@ -199,6 +202,9 @@ struct UdfEnvironment<RT: Runtime> {
     phase: UdfPhase,
 
     shared: UdfShared<RT>,
+
+    #[allow(unused)]
+    env_vars: PreloadedEnvironmentVariables,
 }
 
 #[derive(Debug)]
@@ -221,6 +227,7 @@ impl<RT: Runtime> UdfEnvironment<RT> {
         import_time_seed: SeedData,
         execution_time_seed: SeedData,
         shared: UdfShared<RT>,
+        env_vars: PreloadedEnvironmentVariables,
     ) -> Self {
         let rng = ChaCha12Rng::from_seed(import_time_seed.rng_seed);
         Self {
@@ -234,6 +241,7 @@ impl<RT: Runtime> UdfEnvironment<RT> {
             phase: UdfPhase::Importing { rng },
 
             shared,
+            env_vars,
         }
     }
 
@@ -366,8 +374,7 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         &mut self,
         _name: common::types::EnvVarName,
     ) -> anyhow::Result<Option<common::types::EnvVarValue>> {
-        // TODO!
-        Ok(None)
+        todo!()
     }
 
     fn start_execution(&mut self) -> anyhow::Result<()> {
@@ -406,10 +413,11 @@ async fn run_request<RT: Runtime>(
     execution_time_seed: SeedData,
     client: &mut IsolateThreadClient<RT>,
     udf_type: UdfType,
-    udf_path: CanonicalizedUdfPath,
-    args: ConvexObject,
+    path_and_args: ValidatedUdfPathAndArgs,
     shared: UdfShared<RT>,
 ) -> anyhow::Result<UdfOutcome> {
+    let (udf_path, arguments, udf_server_version) = path_and_args.consume();
+
     // Phase 1: Load and register all source needed, and evaluate the UDF's module.
     let r: anyhow::Result<_> = try {
         let mut stack = vec![udf_path.module().clone()];
@@ -436,32 +444,29 @@ async fn run_request<RT: Runtime>(
 
         let udf_module_specifier = module_specifier_from_path(udf_path.module())?;
         client.evaluate_module(udf_module_specifier.clone()).await?;
-        udf_module_specifier
+        anyhow::Ok(())
     };
-    let udf_module_specifier = match r {
-        Ok(m) => m,
-        Err(e) => match e.downcast::<JsError>() {
-            Ok(js_error) => {
-                let outcome = UdfOutcome {
-                    udf_path,
-                    arguments: vec![ConvexValue::Object(args)].try_into()?,
-                    identity: tx.inert_identity(),
-                    rng_seed: execution_time_seed.rng_seed,
-                    observed_rng: false,
-                    unix_timestamp: execution_time_seed.unix_timestamp,
-                    observed_time: false,
-                    log_lines: vec![].into(),
-                    journal: QueryJournal::new(),
-                    result: Err(js_error),
-                    syscall_trace: SyscallTrace::new(),
-                    udf_server_version: None,
-                };
-                return Ok(outcome);
-            },
-            Err(e) => return Err(e),
-        },
-    };
+    if let Err(e) = r {
+        let js_error = e.downcast::<JsError>()?;
+        let outcome = UdfOutcome {
+            udf_path,
+            arguments,
+            identity: tx.inert_identity(),
+            rng_seed: execution_time_seed.rng_seed,
+            observed_rng: false,
+            unix_timestamp: execution_time_seed.unix_timestamp,
+            observed_time: false,
+            log_lines: vec![].into(),
+            journal: QueryJournal::new(),
+            result: Err(js_error),
+            syscall_trace: SyscallTrace::new(),
+            udf_server_version,
+        };
+        return Ok(outcome);
+    }
 
+    // Phase 2: Start the UDF, execute its async syscalls, and poll until
+    // completion.
     let mut provider = Isolate2SyscallProvider::new(
         tx,
         rt,
@@ -471,17 +476,12 @@ async fn run_request<RT: Runtime>(
         udf_path.is_system(),
         shared,
     );
-
-    // Phase 2: Start the UDF, execute its async syscalls, and poll until
-    // completion.
     let r: anyhow::Result<_> = try {
+        // Update our shared state with the updated table mappings before reentering
+        // user code.
+        provider.shared.update_table_mappings(provider.tx);
         let (function_id, mut result) = client
-            .start_function(
-                udf_type,
-                udf_module_specifier.clone(),
-                udf_path.function_name().to_string(),
-                args.clone(),
-            )
+            .start_function(udf_type, udf_path.clone(), arguments.clone())
             .await?;
         loop {
             let pending = match result {
@@ -534,6 +534,7 @@ async fn run_request<RT: Runtime>(
                 }
             }
 
+            provider.shared.update_table_mappings(provider.tx);
             result = client.poll_function(function_id, completions).await?;
         }
     };
@@ -552,7 +553,7 @@ async fn run_request<RT: Runtime>(
     };
     let outcome = UdfOutcome {
         udf_path,
-        arguments: vec![ConvexValue::Object(args)].try_into()?,
+        arguments,
         identity: provider.tx.inert_identity(),
         rng_seed: execution_time_seed.rng_seed,
         observed_rng: outcome.observed_rng,
@@ -562,7 +563,7 @@ async fn run_request<RT: Runtime>(
         journal: provider.next_journal,
         result,
         syscall_trace: provider.syscall_trace,
-        udf_server_version: None,
+        udf_server_version,
     };
     Ok(outcome)
 }
@@ -591,12 +592,19 @@ impl<RT: Runtime> UdfShared<RT> {
         }
     }
 
-    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>> {
+    fn update_table_mappings(&self, tx: &mut Transaction<RT>) {
+        let mut inner = self.inner.lock();
+        // TODO: Avoid cloning here if the table mapping hasn't changed.
+        inner.table_mapping = tx.table_mapping().clone();
+        inner.virtual_table_mapping = tx.virtual_table_mapping().clone();
+    }
+
+    fn lookup_table(&self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>> {
         let inner = self.inner.lock();
         Ok(inner.table_mapping.id_and_number_if_exists(name))
     }
 
-    fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
+    fn lookup_virtual_table(&self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
         let inner = self.inner.lock();
         Ok(inner.virtual_table_mapping.number_if_exists(name))
     }
@@ -680,7 +688,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     }
 
     fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
-        // TODO: Check that we're during the execution phase.
+        // We only process syscalls during the execution phase.
         Ok(self.tx)
     }
 
@@ -693,8 +701,6 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     }
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
-        // TODO: Switch between the import time and execution time timestamps based on
-        // phase.
         Ok(self.unix_timestamp)
     }
 
@@ -776,8 +782,7 @@ async fn tokio_thread<RT: Runtime>(
     total_timeout: Duration,
     mut sender: oneshot::Sender<anyhow::Result<(Transaction<RT>, UdfOutcome)>>,
     udf_type: UdfType,
-    udf_path: CanonicalizedUdfPath,
-    args: ConvexObject,
+    path_and_args: ValidatedUdfPathAndArgs,
     shared: UdfShared<RT>,
 ) {
     let request = run_request(
@@ -787,8 +792,7 @@ async fn tokio_thread<RT: Runtime>(
         execution_time_seed,
         &mut client,
         udf_type,
-        udf_path,
-        args,
+        path_and_args,
         shared,
     );
 
@@ -807,15 +811,10 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     rt: RT,
     mut tx: Transaction<RT>,
     module_loader: Arc<dyn ModuleLoader<RT>>,
-    import_time_seed: SeedData,
     execution_time_seed: SeedData,
     udf_type: UdfType,
-    udf_path: &str,
-    args: ConvexObject,
+    path_and_args: ValidatedUdfPathAndArgs,
 ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
-    let udf_path: UdfPath = udf_path.parse()?;
-    let udf_path = udf_path.canonicalize();
-
     initialize_v8();
 
     let semaphore = Arc::new(Semaphore::new(8));
@@ -826,6 +825,20 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     // based on a tx timestamp that may be out of retention.
     let total_timeout = Duration::from_secs(10);
 
+    // TODO: Move these into the timeout.
+    let udf_config = UdfConfigModel::new(&mut tx).get().await?;
+    let import_time_seed = SeedData {
+        rng_seed: udf_config
+            .as_ref()
+            .map(|c| c.import_phase_rng_seed)
+            .context("Missing import phase RNG seed")?,
+        unix_timestamp: udf_config
+            .as_ref()
+            .map(|c| c.import_phase_unix_timestamp)
+            .context("Missing import phase unix timestamp")?,
+    };
+    let env_vars = EnvironmentVariablesModel::new(&mut tx).preload().await?;
+
     // TODO: This unconditionally takes a table mapping dep.
     let shared = UdfShared::new(
         tx.table_mapping().clone(),
@@ -833,10 +846,11 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     );
     let environment = UdfEnvironment::new(
         rt.clone(),
-        udf_path.is_system(),
+        path_and_args.udf_path.is_system(),
         import_time_seed,
         execution_time_seed,
         shared.clone(),
+        env_vars,
     );
 
     // The protocol is synchronous, so there should never be more than
@@ -861,8 +875,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
             total_timeout,
             sender,
             udf_type,
-            udf_path,
-            args,
+            path_and_args,
             shared,
         ),
     );

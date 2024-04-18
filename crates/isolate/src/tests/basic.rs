@@ -136,7 +136,7 @@ async fn test_names(rt: TestRuntime) -> anyhow::Result<()> {
         let err = t
             .query_js_error_no_validation("name:f", assert_obj!())
             .await?;
-        assert!(format!("{}", err).contains(r#"Couldn't find "f" in module "name.js""#));
+        assert_contains(&err, r#"Couldn't find "f" in module "name.js""#);
 
         // i is exported but is not a query or mutation
         let err = t
@@ -148,16 +148,18 @@ async fn test_names(rt: TestRuntime) -> anyhow::Result<()> {
         let err = t
             .query_js_error_no_validation("notARealModule", assert_obj!())
             .await?;
-        assert!(
-            format!("{}", err).contains(r#"Couldn't find JavaScript module 'notARealModule.js'"#)
+        assert_contains(
+            &err,
+            r#"Couldn't find JavaScript module 'notARealModule.js'"#,
         );
 
         // Module exists but the function doesn't
         let err = t
             .query_js_error_no_validation("name:notARealFunction", assert_obj!())
             .await?;
-        assert!(
-            format!("{}", err).contains(r#"Couldn't find "notARealFunction" in module "name.js""#)
+        assert_contains(
+            &err,
+            r#"Couldn't find "notARealFunction" in module "name.js""#,
         );
         Ok(())
     })

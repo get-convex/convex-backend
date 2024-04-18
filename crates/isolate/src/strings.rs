@@ -22,6 +22,10 @@ impl StaticString {
         v8::String::new_from_onebyte_const(scope, &self.v8)
             .ok_or_else(|| anyhow::anyhow!("Failed to create static string for {:?}", self.string))
     }
+
+    pub fn rust_str(&self) -> &'static str {
+        self.string
+    }
 }
 
 macro_rules! declare_strings {

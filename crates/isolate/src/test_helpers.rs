@@ -455,8 +455,37 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         args: Vec<ConvexValue>,
         identity: Identity,
     ) -> anyhow::Result<UdfOutcome> {
+        let mut tx = self.database.begin(identity.clone()).await?;
+        let path: UdfPath = udf_path.parse()?;
+        let canonicalized_path = path.canonicalize();
+
+        let args_array = ConvexArray::try_from(args)?;
+
+        let validated_path_or_err = ValidatedUdfPathAndArgs::new(
+            AllowedVisibility::PublicOnly,
+            &mut tx,
+            canonicalized_path.clone(),
+            args_array.clone(),
+            UdfType::Mutation,
+            self.module_loader.clone(),
+        )
+        .await?;
+
+        let path_and_args = match validated_path_or_err {
+            Err(js_error) => {
+                return Ok(UdfOutcome::from_error(
+                    js_error,
+                    canonicalized_path,
+                    args_array,
+                    identity.into(),
+                    self.rt.clone(),
+                    None,
+                ))
+            },
+            Ok(path_and_args) => path_and_args,
+        };
+
         if self.isolate_v2_enabled {
-            let tx = self.database.begin(identity.clone()).await?;
             let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
@@ -465,16 +494,8 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     rng_seed: self.rt.with_rng(|rng| rng.gen()),
                     unix_timestamp: self.rt.unix_timestamp(),
                 },
-                SeedData {
-                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
-                    unix_timestamp: self.rt.unix_timestamp(),
-                },
                 UdfType::Mutation,
-                udf_path,
-                args.first()
-                    .cloned()
-                    .ok_or_else(|| anyhow::anyhow!("Missing argument"))?
-                    .try_into()?,
+                path_and_args,
             )
             .await?;
             let path: UdfPath = udf_path.parse()?;
@@ -484,36 +505,6 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 .await?;
             Ok(outcome)
         } else {
-            let mut tx = self.database.begin(identity.clone()).await?;
-            let path: UdfPath = udf_path.parse()?;
-            let canonicalized_path = path.canonicalize();
-
-            let args_array = ConvexArray::try_from(args)?;
-
-            let validated_path_or_err = ValidatedUdfPathAndArgs::new(
-                AllowedVisibility::PublicOnly,
-                &mut tx,
-                canonicalized_path.clone(),
-                args_array.clone(),
-                UdfType::Mutation,
-                self.module_loader.clone(),
-            )
-            .await?;
-
-            let path_and_args = match validated_path_or_err {
-                Err(js_error) => {
-                    return Ok(UdfOutcome::from_error(
-                        js_error,
-                        canonicalized_path,
-                        args_array,
-                        identity.into(),
-                        self.rt.clone(),
-                        None,
-                    ))
-                },
-                Ok(path_and_args) => path_and_args,
-            };
-
             let (tx, outcome) = self
                 .isolate
                 .execute_udf(
@@ -608,8 +599,35 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         identity: Identity,
         journal: Option<QueryJournal>,
     ) -> anyhow::Result<UdfOutcome> {
+        let mut tx = self.database.begin(identity.clone()).await?;
+        let path: UdfPath = udf_path.parse()?;
+        let canonicalized_path = path.canonicalize();
+        let args_array = ConvexArray::try_from(args)?;
+        let validated_path_or_err = ValidatedUdfPathAndArgs::new(
+            AllowedVisibility::PublicOnly,
+            &mut tx,
+            canonicalized_path.clone(),
+            args_array.clone(),
+            UdfType::Query,
+            self.module_loader.clone(),
+        )
+        .await?;
+
+        let path_and_args = match validated_path_or_err {
+            Err(js_error) => {
+                return Ok(UdfOutcome::from_error(
+                    js_error,
+                    canonicalized_path,
+                    args_array,
+                    identity.into(),
+                    self.rt.clone(),
+                    None,
+                ))
+            },
+            Ok(path_and_args) => path_and_args,
+        };
+
         if self.isolate_v2_enabled {
-            let tx = self.database.begin(identity.clone()).await?;
             let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
@@ -618,51 +636,14 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     rng_seed: self.rt.with_rng(|rng| rng.gen()),
                     unix_timestamp: self.rt.unix_timestamp(),
                 },
-                SeedData {
-                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
-                    unix_timestamp: self.rt.unix_timestamp(),
-                },
                 UdfType::Query,
-                udf_path,
-                args.first()
-                    .cloned()
-                    .ok_or_else(|| anyhow::anyhow!("Missing argument"))?
-                    .try_into()?,
+                path_and_args,
             )
             .await?;
             // Ensure the transaction is readonly by turning it into a subscription token.
             let _ = tx.into_token()?;
             Ok(outcome)
         } else {
-            let mut tx = self.database.begin(identity.clone()).await?;
-            let path: UdfPath = udf_path.parse()?;
-            let canonicalized_path = path.canonicalize();
-
-            let args_array = ConvexArray::try_from(args)?;
-
-            let validated_path_or_err = ValidatedUdfPathAndArgs::new(
-                AllowedVisibility::PublicOnly,
-                &mut tx,
-                canonicalized_path.clone(),
-                args_array.clone(),
-                UdfType::Query,
-                self.module_loader.clone(),
-            )
-            .await?;
-
-            let path_and_args = match validated_path_or_err {
-                Err(js_error) => {
-                    return Ok(UdfOutcome::from_error(
-                        js_error,
-                        canonicalized_path,
-                        args_array,
-                        identity.into(),
-                        self.rt.clone(),
-                        None,
-                    ))
-                },
-                Ok(path_and_args) => path_and_args,
-            };
             let (tx, outcome) = self
                 .isolate
                 .execute_udf(
@@ -699,25 +680,43 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             .clone();
 
         let path: UdfPath = udf_path.parse()?;
-        let (_, outcome) = self
-            .isolate
-            .execute_udf(
-                UdfType::Query,
-                ValidatedUdfPathAndArgs::new_for_tests(
-                    path.canonicalize(),
-                    ConvexArray::try_from(vec![ConvexValue::Object(args)])?,
-                    Some(npm_version),
-                ),
+        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+            path.canonicalize(),
+            ConvexArray::try_from(vec![ConvexValue::Object(args)])?,
+            Some(npm_version),
+        );
+
+        if self.isolate_v2_enabled {
+            let (_, outcome) = run_isolate_v2_udf(
+                self.rt.clone(),
                 tx,
-                QueryJournal::new(),
-                ExecutionContext::new_for_test(),
+                Arc::new(TransactionModuleLoader),
+                SeedData {
+                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
+                    unix_timestamp: self.rt.unix_timestamp(),
+                },
+                UdfType::Query,
+                path_and_args,
             )
             .await?;
-        match outcome {
-            FunctionOutcome::Query(query_outcome) => Ok(query_outcome.result.unwrap_err()),
-            _ => Err(anyhow::anyhow!(
-                "Called query_js_error_no_validation on a non-query"
-            )),
+            Ok(outcome.result.unwrap_err())
+        } else {
+            let (_, outcome) = self
+                .isolate
+                .execute_udf(
+                    UdfType::Query,
+                    path_and_args,
+                    tx,
+                    QueryJournal::new(),
+                    ExecutionContext::new_for_test(),
+                )
+                .await?;
+            match outcome {
+                FunctionOutcome::Query(query_outcome) => Ok(query_outcome.result.unwrap_err()),
+                _ => Err(anyhow::anyhow!(
+                    "Called query_js_error_no_validation on a non-query"
+                )),
+            }
         }
     }
 
