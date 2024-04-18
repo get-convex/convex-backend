@@ -326,7 +326,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         )
     }
 
-    async fn start_index_range(
+    fn start_index_range(
         &mut self,
         request: IndexRangeRequest,
     ) -> anyhow::Result<Result<IndexRangeResponse<TableNumber>, RangeRequest>> {
@@ -339,42 +339,34 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
         let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
 
-        let tablet_index_name = match request.stable_index_name {
-            StableIndexName::Physical(tablet_index_name) => tablet_index_name,
+        match request.stable_index_name {
+            StableIndexName::Physical(tablet_index_name) => {
+                let index_name = tablet_index_name
+                    .clone()
+                    .map_table(&self.tx.table_mapping().tablet_to_name())?;
+                Ok(Err(RangeRequest {
+                    index_name: tablet_index_name.clone(),
+                    printable_index_name: index_name,
+                    interval: request.interval.clone(),
+                    order: request.order,
+                    max_size: max_rows,
+                }))
+            },
             StableIndexName::Virtual(index_name, tablet_index_name) => {
                 log_virtual_table_query();
-                // TODO(lee) batch virtual table queryStreamNext
-                let virtual_result = VirtualTable::new(self.tx)
-                    .index_range(
-                        RangeRequest {
-                            index_name: tablet_index_name.clone(),
-                            printable_index_name: index_name.clone(),
-                            interval: request.interval.clone(),
-                            order: request.order,
-                            max_size: max_rows,
-                        },
-                        request.version,
-                    )
-                    .await?;
-                return Ok(Ok(virtual_result));
+                Ok(Err(RangeRequest {
+                    index_name: tablet_index_name.clone(),
+                    printable_index_name: index_name.clone(),
+                    interval: request.interval.clone(),
+                    order: request.order,
+                    max_size: max_rows,
+                }))
             },
-            StableIndexName::Missing => {
-                return Ok(Ok(IndexRangeResponse {
-                    page: vec![],
-                    cursor: CursorPosition::End,
-                }));
-            },
-        };
-        let index_name = tablet_index_name
-            .clone()
-            .map_table(&self.tx.table_mapping().tablet_to_name())?;
-        Ok(Err(RangeRequest {
-            index_name: tablet_index_name.clone(),
-            printable_index_name: index_name,
-            interval: request.interval.clone(),
-            order: request.order,
-            max_size: max_rows,
-        }))
+            StableIndexName::Missing => Ok(Ok(IndexRangeResponse {
+                page: vec![],
+                cursor: CursorPosition::End,
+            })),
+        }
     }
 
     /// NOTE: returns a page of results. Callers must call record_read_document
@@ -388,8 +380,12 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let batch_size = requests.len();
         let mut results = BTreeMap::new();
         let mut fetch_requests = BTreeMap::new();
+        let mut virtual_table_versions = BTreeMap::new();
         for (batch_key, request) in requests {
-            match self.start_index_range(request).await {
+            if matches!(request.stable_index_name, StableIndexName::Virtual(_, _)) {
+                virtual_table_versions.insert(batch_key, request.version.clone());
+            }
+            match self.start_index_range(request) {
                 Err(e) => {
                     results.insert(batch_key, Err(e));
                 },
@@ -409,15 +405,26 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .await;
 
         for (batch_key, fetch_result) in fetch_results {
-            let result = fetch_result.map(|IndexRangeResponse { page, cursor }| {
-                let developer_results = page
-                    .into_iter()
-                    .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
-                    .collect();
-                IndexRangeResponse {
+            let virtual_table_version = virtual_table_versions.get(&batch_key).cloned();
+            let result = fetch_result.and_then(|IndexRangeResponse { page, cursor }| {
+                let developer_results = match virtual_table_version {
+                    Some(version) => page
+                        .into_iter()
+                        .map(|(key, doc, ts)| {
+                            let doc = VirtualTable::new(self.tx)
+                                .map_system_doc_to_virtual_doc(doc, version.clone())?;
+                            anyhow::Ok((key, doc, ts))
+                        })
+                        .try_collect()?,
+                    None => page
+                        .into_iter()
+                        .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
+                        .collect(),
+                };
+                anyhow::Ok(IndexRangeResponse {
                     page: developer_results,
                     cursor,
-                }
+                })
             });
             results.insert(batch_key, result);
         }

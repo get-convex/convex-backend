@@ -18,10 +18,7 @@ use common::{
 };
 use errors::ErrorMetadata;
 use imbl::OrdMap;
-use indexing::backend_in_memory_indexes::{
-    BatchKey,
-    RangeRequest,
-};
+use indexing::backend_in_memory_indexes::BatchKey;
 use value::{
     id_v6::DocumentIdV6,
     DeveloperDocumentId,
@@ -29,14 +26,10 @@ use value::{
     TableIdentifier,
     TableMapping,
     TableName,
-    TableNumber,
     VirtualTableMapping,
 };
 
-use crate::{
-    query::IndexRangeResponse,
-    Transaction,
-};
+use crate::Transaction;
 
 pub struct VirtualTable<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
@@ -100,39 +93,19 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         results
     }
 
-    #[minitrace::trace]
-    pub async fn index_range(
+    pub fn map_system_doc_to_virtual_doc(
         &mut self,
-        range_request: RangeRequest,
+        doc: ResolvedDocument,
         version: Option<Version>,
-    ) -> anyhow::Result<IndexRangeResponse<TableNumber>> {
+    ) -> anyhow::Result<DeveloperDocument> {
         let table_mapping = self.tx.table_mapping().clone();
         let virtual_table_mapping = self.tx.virtual_table_mapping().clone();
-
-        let IndexRangeResponse {
-            page: results,
-            cursor,
-        } = self
-            .tx
-            .index
-            .range(&mut self.tx.reads, range_request)
-            .await?;
-        let virtual_results = results
-            .into_iter()
-            .map(|(index_key, doc, ts)| {
-                let doc = self.tx.virtual_system_mapping().system_to_virtual_doc(
-                    doc,
-                    &table_mapping,
-                    &virtual_table_mapping,
-                    version.clone(),
-                )?;
-                anyhow::Ok((index_key, doc, ts))
-            })
-            .try_collect()?;
-        Ok(IndexRangeResponse {
-            page: virtual_results,
-            cursor,
-        })
+        self.tx.virtual_system_mapping().system_to_virtual_doc(
+            doc,
+            &table_mapping,
+            &virtual_table_mapping,
+            version,
+        )
     }
 }
 
