@@ -131,7 +131,12 @@ export type {
   IndexTiebreakerField,
 } from "./system_fields.js";
 export { httpRouter, HttpRouter, ROUTABLE_HTTP_METHODS } from "./router.js";
-export type { RoutableMethod } from "./router.js";
+export type {
+  RoutableMethod,
+  RouteSpec,
+  RouteSpecWithPath,
+  RouteSpecWithPathPrefix,
+} from "./router.js";
 export {
   anyApi,
   getFunctionName,

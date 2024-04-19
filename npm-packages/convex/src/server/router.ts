@@ -46,17 +46,59 @@ export function normalizeMethod(
  */
 export const httpRouter = () => new HttpRouter();
 
-type RouteSpec =
-  | {
-      path: string;
-      method: RoutableMethod;
-      handler: PublicHttpAction;
-    }
-  | {
-      pathPrefix: string;
-      method: RoutableMethod;
-      handler: PublicHttpAction;
-    };
+/**
+ * A type representing a route to an HTTP action using an exact request URL path match.
+ *
+ * Used by {@link HttpRouter} to route requests to HTTP actions.
+ *
+ * @public
+ */
+export type RouteSpecWithPath = {
+  /**
+   * Exact HTTP request path to route.
+   */
+  path: string;
+  /**
+   * HTTP method ("GET", "POST", ...) to route.
+   */
+  method: RoutableMethod;
+  /**
+   * The HTTP action to execute.
+   */
+  handler: PublicHttpAction;
+};
+
+/**
+ * A type representing a route to an HTTP action using a request URL path prefix match.
+ *
+ * Used by {@link HttpRouter} to route requests to HTTP actions.
+ *
+ * @public
+ */
+export type RouteSpecWithPathPrefix = {
+  /**
+   * An HTTP request path prefix to route. Requests with a path starting with this value
+   * will be routed to the HTTP action.
+   */
+  pathPrefix: string;
+  /**
+   * HTTP method ("GET", "POST", ...) to route.
+   */
+  method: RoutableMethod;
+  /**
+   * The HTTP action to execute.
+   */
+  handler: PublicHttpAction;
+};
+
+/**
+ * A type representing a route to an HTTP action.
+ *
+ * Used by {@link HttpRouter} to route requests to HTTP actions.
+ *
+ * @public
+ */
+export type RouteSpec = RouteSpecWithPath | RouteSpecWithPathPrefix;
 
 /**
  * HTTP router for specifying the paths and methods of {@link httpActionGeneric}s
@@ -152,7 +194,9 @@ export class HttpRouter {
       this.exactRoutes.set(spec.path, methods);
     } else if ("pathPrefix" in spec) {
       if (!spec.pathPrefix.startsWith("/")) {
-        throw new Error(`path '${spec.pathPrefix}' does not start with a /`);
+        throw new Error(
+          `pathPrefix '${spec.pathPrefix}' does not start with a /`,
+        );
       }
       if (!spec.pathPrefix.endsWith("/")) {
         throw new Error(`pathPrefix ${spec.pathPrefix} must end with a /`);
