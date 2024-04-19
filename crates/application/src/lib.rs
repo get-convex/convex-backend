@@ -45,16 +45,11 @@ use common::{
         report_error,
         JsError,
     },
-    execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::{
-        APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
-        BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
         MAX_JOBS_CANCEL_BATCH,
         SNAPSHOT_LIST_LIMIT,
-        UDF_ISOLATE_MAX_EXEC_THREADS,
     },
-    log_lines::run_function_and_collect_log_lines,
     log_streaming::LogSender,
     paths::FieldPath,
     pause::PauseClient,
@@ -62,7 +57,6 @@ use common::{
     query_journal::QueryJournal,
     runtime::{
         Runtime,
-        RuntimeInstant,
         SpawnHandle,
         UnixTimestamp,
     },
@@ -126,28 +120,20 @@ use function_log::{
 };
 use function_runner::FunctionRunner;
 use futures::{
-    channel::mpsc,
     stream::BoxStream,
-    FutureExt,
     Stream,
 };
 use headers::{
     ContentLength,
     ContentType,
 };
-use http::StatusCode;
 use http_client::cached_http_client;
 use isolate::{
     parse_udf_args,
     AuthConfig,
-    BackendIsolateWorker,
-    ConcurrencyLimiter,
     HttpActionRequest,
     HttpActionResponse,
-    IsolateClient,
-    IsolateConfig,
     UdfOutcome,
-    ValidatedHttpPath,
     CONVEX_ORIGIN,
     CONVEX_SITE,
 };
@@ -392,7 +378,6 @@ pub struct Application<RT: Runtime> {
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
-    database_isolate: IsolateClient<RT>,
     file_storage: FileStorage<RT>,
     files_storage: Arc<dyn Storage>,
     modules_storage: Arc<dyn Storage>,
@@ -402,8 +387,6 @@ pub struct Application<RT: Runtime> {
     usage_tracking: UsageCounter,
     key_broker: KeyBroker,
     instance_name: String,
-    actions_isolate: IsolateClient<RT>,
-    fetch_client: Arc<dyn FetchClient>,
     scheduled_job_runner: ScheduledJobRunner<RT>,
     cron_job_executor: Arc<Mutex<RT::Handle>>,
     index_worker: Arc<Mutex<RT::Handle>>,
@@ -426,7 +409,6 @@ impl<RT: Runtime> Clone for Application<RT> {
             runtime: self.runtime.clone(),
             database: self.database.clone(),
             runner: self.runner.clone(),
-            database_isolate: self.database_isolate.clone(),
             function_log: self.function_log.clone(),
             file_storage: self.file_storage.clone(),
             files_storage: self.files_storage.clone(),
@@ -437,8 +419,6 @@ impl<RT: Runtime> Clone for Application<RT> {
             usage_tracking: self.usage_tracking.clone(),
             key_broker: self.key_broker.clone(),
             instance_name: self.instance_name.clone(),
-            actions_isolate: self.actions_isolate.clone(),
-            fetch_client: self.fetch_client.clone(),
             scheduled_job_runner: self.scheduled_job_runner.clone(),
             cron_job_executor: self.cron_job_executor.clone(),
             index_worker: self.index_worker.clone(),
@@ -476,7 +456,7 @@ impl<RT: Runtime> Application<RT> {
         convex_site: ConvexSite,
         searcher: Arc<dyn Searcher>,
         persistence: Arc<dyn Persistence>,
-        actions: Actions,
+        node_actions: Actions,
         fetch_client: Arc<dyn FetchClient>,
         log_sender: Arc<dyn LogSender>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
@@ -490,34 +470,6 @@ impl<RT: Runtime> Application<RT> {
             CONVEX_ORIGIN.clone() => convex_origin.parse()?,
             CONVEX_SITE.clone() => convex_site.parse()?
         };
-
-        // We limit the isolates to only consume fraction of the available
-        // cores leaving the rest for tokio. This is still over-provisioning
-        // in case there are multiple active backends per server.
-        let isolate_concurrency_limit =
-            *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT * num_cpus::get_physical() / 100;
-        let limiter = ConcurrencyLimiter::new(isolate_concurrency_limit);
-        tracing::info!(
-            "Limiting isolate concurrency to {} ({}% out of {} physical cores)",
-            isolate_concurrency_limit,
-            *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
-            num_cpus::get_physical(),
-        );
-        let actions_isolate_worker = BackendIsolateWorker::new(
-            runtime.clone(),
-            IsolateConfig::new("actions", limiter.clone()),
-        );
-        let actions_isolate = IsolateClient::new(
-            runtime.clone(),
-            actions_isolate_worker,
-            *APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
-            true,
-            instance_name.clone(),
-            instance_secret,
-            file_storage.transactional_file_storage.clone(),
-            system_env_vars.clone(),
-            module_loader.clone(),
-        );
 
         let index_worker = IndexWorker::new(
             runtime.clone(),
@@ -548,42 +500,26 @@ impl<RT: Runtime> Application<RT> {
             SchemaWorker::start(runtime.clone(), database.clone()),
         )));
 
-        let database_isolate_worker = BackendIsolateWorker::new(
-            runtime.clone(),
-            IsolateConfig::new("database_executor", limiter),
-        );
-        let database_isolate = IsolateClient::new(
-            runtime.clone(),
-            database_isolate_worker,
-            *UDF_ISOLATE_MAX_EXEC_THREADS,
-            false,
-            instance_name.clone(),
-            instance_secret,
-            file_storage.transactional_file_storage.clone(),
-            system_env_vars.clone(),
-            module_loader.clone(),
-        );
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
             database.usage_counter(),
             log_sender.clone(),
         );
-        let runner = Arc::new(
-            ApplicationFunctionRunner::new(
-                runtime.clone(),
-                database.clone(),
-                key_broker.clone(),
-                database_isolate.clone(),
-                function_runner.clone(),
-                actions,
-                file_storage.transactional_file_storage.clone(),
-                modules_storage.clone(),
-                module_loader,
-                function_log.clone(),
-                system_env_vars.clone(),
-            )
-            .await,
-        );
+        let runner = Arc::new(ApplicationFunctionRunner::new(
+            instance_name.clone(),
+            instance_secret,
+            runtime.clone(),
+            database.clone(),
+            key_broker.clone(),
+            function_runner.clone(),
+            node_actions,
+            file_storage.transactional_file_storage.clone(),
+            modules_storage.clone(),
+            module_loader,
+            function_log.clone(),
+            system_env_vars.clone(),
+            fetch_client,
+        ));
         function_runner.set_action_callbacks(runner.clone());
 
         let scheduled_job_runner = ScheduledJobRunner::start(
@@ -630,7 +566,6 @@ impl<RT: Runtime> Application<RT> {
             database,
             runner,
             function_log,
-            database_isolate,
             file_storage,
             files_storage,
             modules_storage,
@@ -639,8 +574,6 @@ impl<RT: Runtime> Application<RT> {
             snapshot_imports_storage,
             usage_tracking,
             key_broker,
-            actions_isolate,
-            fetch_client,
             scheduled_job_runner,
             cron_job_executor,
             instance_name,
@@ -667,10 +600,6 @@ impl<RT: Runtime> Application<RT> {
         &self.modules_storage
     }
 
-    pub fn actions_isolate(&self) -> &IsolateClient<RT> {
-        &self.actions_isolate
-    }
-
     pub fn key_broker(&self) -> &KeyBroker {
         &self.key_broker
     }
@@ -681,10 +610,6 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn function_log(&self) -> FunctionExecutionLog<RT> {
         self.function_log.clone()
-    }
-
-    pub fn database_isolate(&self) -> IsolateClient<RT> {
-        self.database_isolate.clone()
     }
 
     pub fn now_ts_for_reads(&self) -> RepeatableTimestamp {
@@ -1025,7 +950,15 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
         match self
-            .http_action_udf_inner(request_id, name, http_request, identity, caller)
+            .runner
+            .run_http_action(
+                request_id,
+                name,
+                http_request,
+                identity,
+                caller,
+                self.runner.clone(),
+            )
             .await
         {
             Ok(Ok(result)) => Ok(result),
@@ -1043,86 +976,6 @@ impl<RT: Runtime> Application<RT> {
             },
             Err(e) => anyhow::bail!(e),
         }
-    }
-
-    async fn http_action_udf_inner(
-        &self,
-        request_id: RequestId,
-        name: UdfPath,
-        http_request: HttpActionRequest,
-        identity: Identity,
-        caller: FunctionCaller,
-    ) -> anyhow::Result<Result<isolate::HttpActionResponse, JsError>> {
-        let runner = self.runner.clone();
-        let start = self.runtime().monotonic_now();
-        let usage_tracker = FunctionUsageTracker::new();
-        let mut tx = self
-            .database
-            .begin_with_usage(identity.clone(), usage_tracker.clone())
-            .await?;
-
-        // Before any developer-visible logging takes place, bail out if it's
-        // clear the application has no HTTP actions routed.
-        // This should spares developer not using HTTP from the deluge of
-        // logspam and other bot traffic.
-        if !self.runner.module_cache.has_http(&mut tx).await? {
-            drop(tx);
-            return Ok(Ok(isolate::HttpActionResponse::from_text(
-                StatusCode::NOT_FOUND,
-                "This Convex deployment does not have HTTP actions enabled.".into(),
-            )));
-        }
-        let validated_path = match ValidatedHttpPath::new(
-            &mut tx,
-            name.canonicalize().clone(),
-            self.runner.module_cache.as_ref(),
-        )
-        .await?
-        {
-            Ok(validated_path) => validated_path,
-            Err(e) => return Ok(Err(e)),
-        };
-        let unix_timestamp = self.runtime.unix_timestamp();
-        let context = ExecutionContext::new(request_id, &caller);
-
-        let route = http_request.head.route_for_failure()?;
-        let (log_line_sender, log_line_receiver) = mpsc::unbounded();
-        let outcome_future = self
-            .actions_isolate
-            .execute_http_action(
-                validated_path,
-                http_request,
-                identity,
-                runner,
-                self.fetch_client.clone(),
-                log_line_sender,
-                tx,
-                context.clone(),
-            )
-            .boxed();
-
-        let (outcome_result, log_lines) =
-            run_function_and_collect_log_lines(outcome_future, log_line_receiver, |log_line| {
-                self.function_log.log_http_action_progress(
-                    route.clone(),
-                    unix_timestamp,
-                    context.clone(),
-                    vec![log_line].into(),
-                    // http actions are always run in Isolate
-                    ModuleEnvironment::Isolate,
-                )
-            })
-            .await;
-        let outcome = outcome_result?;
-        self.function_log.log_http_action(
-            outcome.clone(),
-            log_lines,
-            start.elapsed(),
-            caller,
-            usage_tracker,
-            context,
-        );
-        Ok(outcome.result)
     }
 
     /// Run a function of an arbitrary type from its name
@@ -2533,8 +2386,6 @@ impl<RT: Runtime> Application<RT> {
         self.runner.shutdown().await?;
         self.scheduled_job_runner.shutdown();
         self.cron_job_executor.lock().shutdown();
-        self.actions_isolate.shutdown().await?;
-        self.database_isolate.shutdown().await?;
         self.module_cache.shutdown();
         self.database.shutdown().await?;
         tracing::info!("Application shut down");

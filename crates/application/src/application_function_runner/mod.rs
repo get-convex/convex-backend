@@ -16,17 +16,21 @@ use common::{
     backoff::Backoff,
     errors::JsError,
     execution_context::ExecutionContext,
+    http::fetch::FetchClient,
     identity::InertIdentity,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
+        APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
         APPLICATION_MAX_CONCURRENT_MUTATIONS,
         APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
         APPLICATION_MAX_CONCURRENT_QUERIES,
         APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
+        BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
         ISOLATE_MAX_USER_HEAP_SIZE,
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
+        UDF_ISOLATE_MAX_EXEC_THREADS,
     },
     log_lines::{
         run_function_and_collect_log_lines,
@@ -77,22 +81,30 @@ use futures::{
     try_join,
     FutureExt,
 };
+use http::StatusCode;
 use isolate::{
     parse_udf_args,
     validate_schedule_args,
     ActionCallbacks,
     ActionOutcome,
     AuthConfig,
+    BackendIsolateWorker,
+    ConcurrencyLimiter,
     FunctionOutcome,
     FunctionResult,
+    HttpActionRequest,
     IsolateClient,
+    IsolateConfig,
+    IsolateHeapStats,
     JsonPackedValue,
     ModuleLoader,
     UdfOutcome,
+    ValidatedHttpPath,
     ValidatedUdfPathAndArgs,
 };
 use keybroker::{
     Identity,
+    InstanceSecret,
     KeyBroker,
 };
 use model::{
@@ -198,9 +210,6 @@ static BUILD_DEPS_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| Duration::from_
 /// route requests.
 #[derive(Clone)]
 pub struct FunctionRouter<RT: Runtime> {
-    // Execute within local process.
-    udf_isolate: IsolateClient<RT>,
-
     function_runner: Arc<dyn FunctionRunner<RT>>,
     query_limiter: Arc<Limiter>,
     mutation_limiter: Arc<Limiter>,
@@ -213,14 +222,12 @@ pub struct FunctionRouter<RT: Runtime> {
 
 impl<RT: Runtime> FunctionRouter<RT> {
     pub fn new(
-        udf_isolate: IsolateClient<RT>,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         rt: RT,
         database: Database<RT>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> Self {
         Self {
-            udf_isolate,
             function_runner,
             rt,
             database,
@@ -241,11 +248,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 *APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
             )),
         }
-    }
-
-    pub async fn shutdown(&self) -> anyhow::Result<()> {
-        self.udf_isolate.shutdown().await?;
-        Ok(())
     }
 }
 
@@ -503,6 +505,9 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     key_broker: KeyBroker,
 
     isolate_functions: FunctionRouter<RT>,
+    // Used for analyze, schema, etc.
+    analyze_isolate: IsolateClient<RT>,
+    http_actions: IsolateClient<RT>,
     node_actions: Actions,
 
     pub(crate) module_cache: Arc<dyn ModuleLoader<RT>>,
@@ -514,6 +519,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     cache_manager: CacheManager<RT>,
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     node_action_limiter: Limiter,
+    fetch_client: Arc<dyn FetchClient>,
 }
 
 impl<RT: Runtime> HeapSize for ApplicationFunctionRunner<RT> {
@@ -523,11 +529,12 @@ impl<RT: Runtime> HeapSize for ApplicationFunctionRunner<RT> {
 }
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
-    pub async fn new(
+    pub fn new(
+        instance_name: String,
+        instance_secret: InstanceSecret,
         runtime: RT,
         database: Database<RT>,
         key_broker: KeyBroker,
-        udf_isolate: IsolateClient<RT>,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         node_actions: Actions,
         file_storage: TransactionalFileStorage<RT>,
@@ -535,9 +542,54 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         module_cache: Arc<dyn ModuleLoader<RT>>,
         function_log: FunctionExecutionLog<RT>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        fetch_client: Arc<dyn FetchClient>,
     ) -> Self {
+        // We limit the isolates to only consume fraction of the available
+        // cores leaving the rest for tokio. This is still over-provisioning
+        // in case there are multiple active backends per server.
+        let isolate_concurrency_limit =
+            *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT * num_cpus::get_physical() / 100;
+        let limiter = ConcurrencyLimiter::new(isolate_concurrency_limit);
+        tracing::info!(
+            "Limiting isolate concurrency to {} ({}% out of {} physical cores)",
+            isolate_concurrency_limit,
+            *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
+            num_cpus::get_physical(),
+        );
+
+        let http_actions_worker = BackendIsolateWorker::new(
+            runtime.clone(),
+            IsolateConfig::new("actions", limiter.clone()),
+        );
+        let http_actions = IsolateClient::new(
+            runtime.clone(),
+            http_actions_worker,
+            *APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
+            true,
+            instance_name.clone(),
+            instance_secret,
+            file_storage.clone(),
+            system_env_vars.clone(),
+            module_cache.clone(),
+        );
+
+        let analyze_isolate_worker = BackendIsolateWorker::new(
+            runtime.clone(),
+            IsolateConfig::new("database_executor", limiter),
+        );
+        let analyze_isolate = IsolateClient::new(
+            runtime.clone(),
+            analyze_isolate_worker,
+            *UDF_ISOLATE_MAX_EXEC_THREADS,
+            false,
+            instance_name,
+            instance_secret,
+            file_storage.clone(),
+            system_env_vars.clone(),
+            module_cache.clone(),
+        );
+
         let isolate_functions = FunctionRouter::new(
-            udf_isolate,
             function_runner,
             runtime.clone(),
             database.clone(),
@@ -556,6 +608,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             database,
             key_broker,
             isolate_functions,
+            analyze_isolate,
+            http_actions,
             node_actions,
             module_cache,
             modules_storage,
@@ -568,13 +622,23 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 UdfType::Action,
                 *APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
             ),
+            fetch_client,
         }
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
-        self.isolate_functions.shutdown().await?;
+        self.analyze_isolate.shutdown().await?;
+        self.http_actions.shutdown().await?;
         self.node_actions.shutdown();
         Ok(())
+    }
+
+    pub fn database_heap_size(&self) -> IsolateHeapStats {
+        self.analyze_isolate.aggregate_heap_stats()
+    }
+
+    pub fn http_actions_heap_size(&self) -> IsolateHeapStats {
+        self.http_actions.aggregate_heap_stats()
     }
 
     // Only used for running queries from REPLs.
@@ -1275,6 +1339,86 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
     }
 
+    pub async fn run_http_action(
+        &self,
+        request_id: RequestId,
+        name: UdfPath,
+        http_request: HttpActionRequest,
+        identity: Identity,
+        caller: FunctionCaller,
+        action_callbacks: Arc<dyn ActionCallbacks>,
+    ) -> anyhow::Result<Result<isolate::HttpActionResponse, JsError>> {
+        let start = self.runtime.monotonic_now();
+        let usage_tracker = FunctionUsageTracker::new();
+        let mut tx = self
+            .database
+            .begin_with_usage(identity.clone(), usage_tracker.clone())
+            .await?;
+
+        // Before any developer-visible logging takes place, bail out if it's
+        // clear the application has no HTTP actions routed.
+        // This should spares developer not using HTTP from the deluge of
+        // logspam and other bot traffic.
+        if !self.module_cache.has_http(&mut tx).await? {
+            drop(tx);
+            return Ok(Ok(isolate::HttpActionResponse::from_text(
+                StatusCode::NOT_FOUND,
+                "This Convex deployment does not have HTTP actions enabled.".into(),
+            )));
+        }
+        let validated_path = match ValidatedHttpPath::new(
+            &mut tx,
+            name.canonicalize().clone(),
+            self.module_cache.as_ref(),
+        )
+        .await?
+        {
+            Ok(validated_path) => validated_path,
+            Err(e) => return Ok(Err(e)),
+        };
+        let unix_timestamp = self.runtime.unix_timestamp();
+        let context = ExecutionContext::new(request_id, &caller);
+
+        let route = http_request.head.route_for_failure()?;
+        let (log_line_sender, log_line_receiver) = mpsc::unbounded();
+        let outcome_future = self
+            .http_actions
+            .execute_http_action(
+                validated_path,
+                http_request,
+                identity,
+                action_callbacks,
+                self.fetch_client.clone(),
+                log_line_sender,
+                tx,
+                context.clone(),
+            )
+            .boxed();
+
+        let (outcome_result, log_lines) =
+            run_function_and_collect_log_lines(outcome_future, log_line_receiver, |log_line| {
+                self.function_log.log_http_action_progress(
+                    route.clone(),
+                    unix_timestamp,
+                    context.clone(),
+                    vec![log_line].into(),
+                    // http actions are always run in Isolate
+                    ModuleEnvironment::Isolate,
+                )
+            })
+            .await;
+        let outcome = outcome_result?;
+        self.function_log.log_http_action(
+            outcome.clone(),
+            log_lines,
+            start.elapsed(),
+            caller,
+            usage_tracker,
+            context,
+        );
+        Ok(outcome.result)
+    }
+
     #[minitrace::trace]
     pub async fn build_deps(
         &self,
@@ -1320,8 +1464,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let mut result = BTreeMap::new();
         match self
-            .isolate_functions
-            .udf_isolate
+            .analyze_isolate
             .analyze(udf_config, isolate_modules, environment_variables.clone())
             .await?
         {
@@ -1460,8 +1603,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         source_map: Option<SourceMap>,
         rng_seed: [u8; 32],
     ) -> anyhow::Result<DatabaseSchema> {
-        self.isolate_functions
-            .udf_isolate
+        self.analyze_isolate
             .evaluate_schema(schema_bundle, source_map, rng_seed)
             .await
     }
@@ -1473,8 +1615,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mut environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<AuthConfig> {
         environment_variables.extend(self.system_env_vars.clone());
-        self.isolate_functions
-            .udf_isolate
+        self.analyze_isolate
             .evaluate_auth_config(auth_config_bundle, source_map, environment_variables)
             .await
     }
