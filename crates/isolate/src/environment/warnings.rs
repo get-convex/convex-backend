@@ -6,15 +6,18 @@ use common::{
         LogLevel,
         SystemLogMetadata,
     },
-    runtime::Runtime,
 };
 use sync_types::CanonicalizedUdfPath;
 
-use super::IsolateEnvironment;
 use crate::metrics::log_function_limit_warning;
 
-pub fn add_warning_if_approaching_limit<RT: Runtime, E: IsolateEnvironment<RT>>(
-    environment: &mut E,
+pub struct SystemWarning {
+    pub level: LogLevel,
+    pub messages: Vec<String>,
+    pub system_log_metadata: SystemLogMetadata,
+}
+
+pub fn approaching_limit_warning(
     actual: usize,
     limit: usize,
     short_code: &'static str,
@@ -22,13 +25,14 @@ pub fn add_warning_if_approaching_limit<RT: Runtime, E: IsolateEnvironment<RT>>(
     message_suffix: Option<&str>,
     unit: Option<&str>,
     system_udf_path: Option<&CanonicalizedUdfPath>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<SystemWarning>> {
     let warning_limit = (*FUNCTION_LIMIT_WARNING_RATIO * (limit as f64)) as usize;
     let should_warn = actual > warning_limit && actual <= limit;
     if !should_warn {
-        return Ok(());
+        return Ok(None);
     }
     log_function_limit_warning(short_code, system_udf_path);
+
     let message = get_message();
     let full_message = format!(
         "{message} (actual: {actual}{}, limit: {limit}{}).{}",
@@ -38,36 +42,37 @@ pub fn add_warning_if_approaching_limit<RT: Runtime, E: IsolateEnvironment<RT>>(
             .map(|suffix| format!(" {}", suffix))
             .unwrap_or("".to_string()),
     );
-    environment.trace_system(
-        LogLevel::Warn,
-        vec![full_message],
-        SystemLogMetadata {
+    let warning = SystemWarning {
+        level: LogLevel::Warn,
+        messages: vec![full_message],
+        system_log_metadata: SystemLogMetadata {
             code: format!("warning:{short_code}"),
         },
-    )
+    };
+    Ok(Some(warning))
 }
 
-pub fn add_warning_if_approaching_duration_limit<RT: Runtime, E: IsolateEnvironment<RT>>(
-    environment: &mut E,
+pub fn approaching_duration_limit_warning(
     actual: Duration,
     limit: Duration,
     short_code: &'static str,
     message: &str,
     system_udf_path: Option<&CanonicalizedUdfPath>,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<SystemWarning>> {
     let warning_limit = limit.mul_f64(*FUNCTION_LIMIT_WARNING_RATIO);
     let should_warn = actual > warning_limit && actual <= limit;
     if !should_warn {
-        return Ok(());
+        return Ok(None);
     }
     log_function_limit_warning(short_code, system_udf_path);
-    environment.trace_system(
-        LogLevel::Warn,
-        vec![format!(
+    let warning = SystemWarning {
+        level: LogLevel::Warn,
+        messages: vec![format!(
             "{message}. (maximum duration: {limit:?}, actual duration: {actual:?})."
         )],
-        SystemLogMetadata {
+        system_log_metadata: SystemLogMetadata {
             code: format!("warning:{short_code}"),
         },
-    )
+    };
+    Ok(Some(warning))
 }

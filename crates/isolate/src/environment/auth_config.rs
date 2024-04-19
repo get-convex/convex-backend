@@ -10,10 +10,7 @@ use common::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
     },
-    log_lines::{
-        LogLevel,
-        SystemLogMetadata,
-    },
+    log_lines::LogLevel,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -79,19 +76,6 @@ pub struct AuthConfig {
 
 impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
-        tracing::warn!(
-            "Unexpected Console access when evaluating auth config file: {}",
-            messages.join(" ")
-        );
-        Ok(())
-    }
-
-    fn trace_system(
-        &mut self,
-        _level: LogLevel,
-        messages: Vec<String>,
-        _system_log_metadata: SystemLogMetadata,
-    ) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access when evaluating auth config file: {}",
             messages.join(" ")

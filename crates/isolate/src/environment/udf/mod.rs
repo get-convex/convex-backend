@@ -43,7 +43,6 @@ use common::{
         LogLevel,
         LogLine,
         LogLines,
-        SystemLogMetadata,
     },
     query_journal::QueryJournal,
     runtime::{
@@ -60,6 +59,8 @@ use common::{
     },
 };
 use database::{
+    BiggestDocumentWrites,
+    FunctionExecutionSize,
     Transaction,
     OVER_LIMIT_HELP,
 };
@@ -105,8 +106,9 @@ use self::{
 use super::{
     helpers::permit::with_release_permit,
     warnings::{
-        add_warning_if_approaching_duration_limit,
-        add_warning_if_approaching_limit,
+        approaching_duration_limit_warning,
+        approaching_limit_warning,
+        SystemWarning,
     },
 };
 use crate::{
@@ -227,23 +229,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
             },
             Ordering::Greater => (),
         };
-        Ok(())
-    }
-
-    fn trace_system(
-        &mut self,
-        level: LogLevel,
-        messages: Vec<String>,
-        system_log_metadata: SystemLogMetadata,
-    ) -> anyhow::Result<()> {
-        self.log_lines.push(LogLine::new_system_log_line(
-            level,
-            messages,
-            // Note: accessing the current time here is still deterministic since
-            // we don't externalize the time to the function.
-            self.rt.unix_timestamp(),
-            system_log_metadata,
-        ));
         Ok(())
     }
 
@@ -436,7 +421,24 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Ok(Ok(v)) => Some(v),
             _ => None,
         };
-        self.add_warnings_to_log_lines(execution_time, success_result_value)?;
+        Self::add_warnings_to_log_lines(
+            &self.udf_path,
+            &self.arguments,
+            execution_time,
+            self.phase.execution_size(),
+            self.phase.biggest_document_writes(),
+            success_result_value,
+            |warning| {
+                self.log_lines.push(LogLine::new_system_log_line(
+                    warning.level,
+                    warning.messages,
+                    // Note: accessing the current time here is still deterministic since
+                    // we don't externalize the time to the function.
+                    self.rt.unix_timestamp(),
+                    warning.system_log_metadata,
+                ));
+            },
+        )?;
         let outcome = match self.udf_type {
             UdfType::Query => FunctionOutcome::Query(UdfOutcome {
                 udf_path: self.udf_path,
@@ -762,31 +764,34 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     }
 
     // Called when a function finishes
-    fn add_warnings_to_log_lines(
-        &mut self,
+    pub fn add_warnings_to_log_lines(
+        udf_path: &CanonicalizedUdfPath,
+        arguments: &ConvexArray,
         execution_time: FunctionExecutionTime,
+        execution_size: FunctionExecutionSize,
+        biggest_writes: Option<BiggestDocumentWrites>,
         result: Option<&ConvexValue>,
+        mut trace_system_warning: impl FnMut(SystemWarning),
     ) -> anyhow::Result<()> {
-        let execution_size = self.phase.execution_size();
-        let biggest_writes = self.phase.biggest_document_writes();
-
-        let system_udf_path = if self.udf_path.is_system() {
-            Some(self.udf_path.clone())
+        // let execution_size = self.phase.execution_size();
+        // let biggest_writes = self.phase.biggest_document_writes();
+        let system_udf_path = if udf_path.is_system() {
+            Some(udf_path.clone())
         } else {
             None
         };
-        add_warning_if_approaching_limit(
-            self,
-            self.arguments.size(),
+        if let Some(warning) = approaching_limit_warning(
+            arguments.size(),
             *FUNCTION_MAX_ARGS_SIZE,
             "TooLargeFunctionArguments",
             || "Large size of the function arguments".to_string(),
             None,
             Some(" bytes"),
             system_udf_path.as_ref(),
-        )?;
-        add_warning_if_approaching_limit(
-            self,
+        )? {
+            trace_system_warning(warning);
+        }
+        if let Some(warning) = approaching_limit_warning(
             execution_size.read_size.total_document_count,
             *TRANSACTION_MAX_READ_SIZE_ROWS,
             "TooManyDocumentsRead",
@@ -794,9 +799,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Some(OVER_LIMIT_HELP),
             None,
             system_udf_path.as_ref(),
-        )?;
-        add_warning_if_approaching_limit(
-            self,
+        )? {
+            trace_system_warning(warning);
+        }
+        if let Some(warning) = approaching_limit_warning(
             execution_size.num_intervals,
             *TRANSACTION_MAX_READ_SET_INTERVALS,
             "TooManyReads",
@@ -804,9 +810,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Some(OVER_LIMIT_HELP),
             None,
             system_udf_path.as_ref(),
-        )?;
-        add_warning_if_approaching_limit(
-            self,
+        )? {
+            trace_system_warning(warning);
+        }
+        if let Some(warning) = approaching_limit_warning(
             execution_size.read_size.total_document_size,
             *TRANSACTION_MAX_READ_SIZE_BYTES,
             "TooManyBytesRead",
@@ -814,9 +821,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             Some(OVER_LIMIT_HELP),
             Some(" bytes"),
             system_udf_path.as_ref(),
-        )?;
-        add_warning_if_approaching_limit(
-            self,
+        )? {
+            trace_system_warning(warning);
+        }
+        if let Some(warning) = approaching_limit_warning(
             execution_size.write_size.num_writes,
             *TRANSACTION_MAX_NUM_USER_WRITES,
             "TooManyWrites",
@@ -824,9 +832,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             None,
             system_udf_path.as_ref(),
-        )?;
-        add_warning_if_approaching_limit(
-            self,
+        )? {
+            trace_system_warning(warning);
+        }
+        if let Some(warning) = approaching_limit_warning(
             execution_size.write_size.size,
             *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
             "TooManyBytesWritten",
@@ -834,9 +843,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             Some(" bytes"),
             system_udf_path.as_ref(),
-        )?;
-        add_warning_if_approaching_limit(
-            self,
+        )? {
+            trace_system_warning(warning);
+        }
+        if let Some(warning) = approaching_limit_warning(
             execution_size.scheduled_size.num_writes,
             *TRANSACTION_MAX_NUM_SCHEDULED,
             "TooManyFunctionsScheduled",
@@ -844,9 +854,10 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             None,
             system_udf_path.as_ref(),
-        )?;
-        add_warning_if_approaching_limit(
-            self,
+        )? {
+            trace_system_warning(warning);
+        }
+        if let Some(warning) = approaching_limit_warning(
             execution_size.scheduled_size.size,
             *TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
             "ScheduledFunctionsArgumentsTooLarge",
@@ -857,11 +868,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             None,
             Some(" bytes"),
             system_udf_path.as_ref(),
-        )?;
+        )? {
+            trace_system_warning(warning);
+        }
+
         if let Some(biggest_writes) = biggest_writes {
             let (max_size_document_id, max_size) = biggest_writes.max_size;
-            add_warning_if_approaching_limit(
-                self,
+            if let Some(warning) = approaching_limit_warning(
                 max_size,
                 MAX_USER_SIZE,
                 VALUE_TOO_LARGE_SHORT_MSG,
@@ -869,11 +882,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 system_udf_path.as_ref(),
-            )?;
-
+            )? {
+                trace_system_warning(warning);
+            }
             let (max_nesting_document_id, max_nesting) = biggest_writes.max_nesting;
-            add_warning_if_approaching_limit(
-                self,
+            if let Some(warning) = approaching_limit_warning(
                 max_nesting,
                 MAX_DOCUMENT_NESTING,
                 "TooNested",
@@ -881,11 +894,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 None,
                 Some(" levels"),
                 system_udf_path.as_ref(),
-            )?;
-        };
+            )? {
+                trace_system_warning(warning);
+            }
+        }
+
         if let Some(result) = result {
-            add_warning_if_approaching_limit(
-                self,
+            if let Some(warning) = approaching_limit_warning(
                 result.size(),
                 *FUNCTION_MAX_RESULT_SIZE,
                 "TooLargeFunctionResult",
@@ -893,16 +908,19 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 system_udf_path.as_ref(),
-            )?;
+            )? {
+                trace_system_warning(warning);
+            }
         };
-        add_warning_if_approaching_duration_limit(
-            self,
+        if let Some(warning) = approaching_duration_limit_warning(
             execution_time.elapsed,
             execution_time.limit,
             "UserTimeout",
             "Function execution took a long time",
             system_udf_path.as_ref(),
-        )?;
+        )? {
+            trace_system_warning(warning);
+        }
         Ok(())
     }
 }

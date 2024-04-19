@@ -28,9 +28,12 @@ use super::{
     FunctionId,
     PromiseId,
 };
-use crate::environment::{
-    action::TaskResponseEnum,
-    AsyncOpRequest,
+use crate::{
+    environment::{
+        action::TaskResponseEnum,
+        AsyncOpRequest,
+    },
+    timeout::FunctionExecutionTime,
 };
 
 pub enum IsolateThreadRequest {
@@ -131,6 +134,7 @@ pub type QueryId = u32;
 pub struct IsolateThreadClient<RT: Runtime> {
     rt: RT,
     sender: mpsc::Sender<IsolateThreadRequest>,
+    user_timeout: Duration,
     user_time_remaining: Duration,
     semaphore: Arc<Semaphore>,
 }
@@ -145,9 +149,21 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
         Self {
             rt,
             sender,
+            user_timeout,
             user_time_remaining: user_timeout,
             semaphore,
         }
+    }
+
+    pub fn execution_time(&self) -> anyhow::Result<FunctionExecutionTime> {
+        if self.user_time_remaining.is_zero() {
+            anyhow::bail!("User time exhausted");
+        }
+        let elapsed = self.user_timeout - self.user_time_remaining;
+        Ok(FunctionExecutionTime {
+            elapsed,
+            limit: self.user_timeout,
+        })
     }
 
     pub async fn send<T>(

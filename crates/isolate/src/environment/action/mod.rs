@@ -111,8 +111,9 @@ use self::{
     task_executor::TaskExecutor,
 };
 use super::warnings::{
-    add_warning_if_approaching_duration_limit,
-    add_warning_if_approaching_limit,
+    approaching_duration_limit_warning,
+    approaching_limit_warning,
+    SystemWarning,
 };
 use crate::{
     client::{
@@ -942,8 +943,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         arguments: &ConvexArray,
         result: Option<&ConvexValue>,
     ) -> anyhow::Result<()> {
-        add_warning_if_approaching_limit(
-            self,
+        if let Some(warning) = approaching_limit_warning(
             arguments.size(),
             *FUNCTION_MAX_ARGS_SIZE,
             "FunctionArgumentsTooLarge",
@@ -951,12 +951,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             None,
             Some(" bytes"),
             None,
-        )?;
+        )? {
+            self.trace_system(warning)?;
+        }
         self.add_warnings_to_log_lines(execution_time)?;
 
         if let Some(result) = result {
-            add_warning_if_approaching_limit(
-                self,
+            if let Some(warning) = approaching_limit_warning(
                 result.size(),
                 *FUNCTION_MAX_RESULT_SIZE,
                 "TooLargeFunctionResult",
@@ -964,7 +965,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 None,
-            )?
+            )? {
+                self.trace_system(warning)?;
+            }
         };
         Ok(())
     }
@@ -980,8 +983,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             return Ok(());
         };
         if let Some(body) = response.body.as_ref() {
-            add_warning_if_approaching_limit(
-                self,
+            if let Some(warning) = approaching_limit_warning(
                 body.len(),
                 HTTP_ACTION_BODY_LIMIT,
                 "HttpResponseTooLarge",
@@ -989,7 +991,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 None,
                 Some(" bytes"),
                 None,
-            )?;
+            )? {
+                self.trace_system(warning)?;
+            }
         };
         Ok(())
     }
@@ -1003,21 +1007,30 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             let total_dangling_tasks = dangling_task_counts.values().sum();
             let task_names = dangling_task_counts.keys().join(", ");
             log_unawaited_pending_op(total_dangling_tasks, "action");
-            self.trace_system(LogLevel::Warn, vec![format!(
-                    "{total_dangling_tasks} unawaited operation{}: [{task_names}]. Async operations should be awaited or they might not run. \
-                     See https://docs.convex.dev/functions/actions#dangling-promises for more information.",
-                    if total_dangling_tasks == 1 { "" } else { "s" },
-                )], SystemLogMetadata { code: "UnawaitedOperations".to_string() })?;
+            let message = format!(
+                "{total_dangling_tasks} unawaited operation{}: [{task_names}]. Async operations should be awaited or they might not run. \
+                 See https://docs.convex.dev/functions/actions#dangling-promises for more information.",
+                if total_dangling_tasks == 1 { "" } else { "s" },
+            );
+            let warning = SystemWarning {
+                level: LogLevel::Warn,
+                messages: vec![message],
+                system_log_metadata: SystemLogMetadata {
+                    code: "UnawaitedOperations".to_string(),
+                },
+            };
+            self.trace_system(warning)?;
         }
-
-        add_warning_if_approaching_duration_limit(
-            self,
+        if let Some(warning) = approaching_duration_limit_warning(
             execution_time.elapsed,
             execution_time.limit,
             "UserTimeout",
             "Function execution took a long time",
             None,
-        )
+        )? {
+            self.trace_system(warning)?;
+        }
+        Ok(())
     }
 
     fn dangling_task_counts(&self) -> BTreeMap<String, usize> {
@@ -1051,6 +1064,17 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .expect("TaskExecutor went away?");
         Ok(())
     }
+
+    fn trace_system(&mut self, warning: SystemWarning) -> anyhow::Result<()> {
+        self.log_line_sender
+            .unbounded_send(LogLine::new_system_log_line(
+                warning.level,
+                warning.messages,
+                self.rt.unix_timestamp(),
+                warning.system_log_metadata,
+            ))?;
+        Ok(())
+    }
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
@@ -1081,22 +1105,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
             },
             Ordering::Greater => (),
         };
-        Ok(())
-    }
-
-    fn trace_system(
-        &mut self,
-        level: LogLevel,
-        messages: Vec<String>,
-        system_log_metadata: SystemLogMetadata,
-    ) -> anyhow::Result<()> {
-        self.log_line_sender
-            .unbounded_send(LogLine::new_system_log_line(
-                level,
-                messages,
-                self.rt.unix_timestamp(),
-                system_log_metadata,
-            ))?;
         Ok(())
     }
 

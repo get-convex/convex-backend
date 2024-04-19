@@ -108,6 +108,7 @@ use crate::{
                 syscall_impl,
                 SyscallProvider,
             },
+            DatabaseUdfEnvironment,
         },
     },
     validate_schedule_args,
@@ -476,7 +477,7 @@ async fn run_request<RT: Runtime>(
     // Spawn a separate Tokio thread to receive log lines.
     let (log_line_tx, log_line_rx) = oneshot::channel();
     let log_line_processor = rt.spawn("log_line_processor", async move {
-        let mut log_lines = vec![];
+        let mut log_lines: Vec<LogLine> = vec![];
         while let Some(line) = log_line_receiver.next().await {
             log_lines.push(line);
         }
@@ -537,7 +538,7 @@ async fn run_request<RT: Runtime>(
     // completion.
     let mut provider = Isolate2SyscallProvider::new(
         tx,
-        rt,
+        rt.clone(),
         execution_time_seed.unix_timestamp,
         query_journal,
         udf_path.is_system(),
@@ -632,7 +633,7 @@ async fn run_request<RT: Runtime>(
     };
 
     let result = match r {
-        Ok(result) => Ok(JsonPackedValue::pack(result)),
+        Ok(result) => Ok(result),
         Err(e) => {
             let js_error = e.downcast::<JsError>()?;
             Err(js_error)
@@ -640,7 +641,25 @@ async fn run_request<RT: Runtime>(
     };
     let outcome = client.shutdown().await?;
     log_line_processor.into_join_future().await?;
-    let log_lines = log_line_rx.await?.into();
+    let mut log_lines = log_line_rx.await?;
+    DatabaseUdfEnvironment::<RT>::add_warnings_to_log_lines(
+        &udf_path,
+        &arguments,
+        client.execution_time()?,
+        provider.tx.execution_size(),
+        provider.tx.biggest_document_writes(),
+        result.as_ref().ok(),
+        |warning| {
+            log_lines.push(LogLine::new_system_log_line(
+                warning.level,
+                warning.messages,
+                // Note: accessing the current time here is still deterministic since
+                // we don't externalize the time to the function.
+                rt.unix_timestamp(),
+                warning.system_log_metadata,
+            ));
+        },
+    )?;
     let outcome = UdfOutcome {
         udf_path,
         arguments,
@@ -649,9 +668,9 @@ async fn run_request<RT: Runtime>(
         observed_rng: outcome.observed_rng,
         unix_timestamp: execution_time_seed.unix_timestamp,
         observed_time: outcome.observed_time,
-        log_lines,
+        log_lines: log_lines.into(),
         journal: provider.next_journal,
-        result,
+        result: result.map(JsonPackedValue::pack),
         syscall_trace: provider.syscall_trace,
         udf_server_version,
     };

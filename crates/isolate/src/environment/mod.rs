@@ -11,14 +11,11 @@ pub mod auth_config;
 pub mod helpers;
 pub mod schema;
 pub mod udf;
-mod warnings;
+pub mod warnings;
 
 use common::{
     errors::JsError,
-    log_lines::{
-        LogLevel,
-        SystemLogMetadata,
-    },
+    log_lines::LogLevel,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -79,12 +76,6 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
     ) -> anyhow::Result<()>;
 
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()>;
-    fn trace_system(
-        &mut self,
-        level: LogLevel,
-        messages: Vec<String>,
-        system_log_metadata: SystemLogMetadata,
-    ) -> anyhow::Result<()>;
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp>;
 

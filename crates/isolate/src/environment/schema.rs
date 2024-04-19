@@ -6,10 +6,7 @@ use common::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
     },
-    log_lines::{
-        LogLevel,
-        SystemLogMetadata,
-    },
+    log_lines::LogLevel,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -75,19 +72,6 @@ pub struct SchemaEnvironment {
 
 impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
     fn trace(&mut self, _level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
-        tracing::warn!(
-            "Unexpected Console access at schema evaluation time: {}",
-            messages.join(" ")
-        );
-        Ok(())
-    }
-
-    fn trace_system(
-        &mut self,
-        _level: LogLevel,
-        messages: Vec<String>,
-        _system_log_metadata: SystemLogMetadata,
-    ) -> anyhow::Result<()> {
         tracing::warn!(
             "Unexpected Console access at schema evaluation time: {}",
             messages.join(" ")
