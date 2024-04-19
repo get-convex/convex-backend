@@ -80,6 +80,7 @@ use crate::{
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into mutations)
+#[minitrace::trace]
 #[debug_handler]
 pub async fn internal_query_post(
     State(st): State<LocalAppState>,
@@ -122,6 +123,7 @@ pub async fn internal_query_post(
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into mutations)
+#[minitrace::trace]
 #[debug_handler]
 pub async fn internal_mutation_post(
     State(st): State<LocalAppState>,
@@ -169,6 +171,7 @@ pub async fn internal_mutation_post(
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into actions)
+#[minitrace::trace]
 #[debug_handler]
 pub async fn internal_action_post(
     State(st): State<LocalAppState>,

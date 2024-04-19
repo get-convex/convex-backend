@@ -199,6 +199,7 @@ pub fn export_value(
     Ok(exported)
 }
 
+#[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_get(
     State(st): State<LocalAppState>,
     Query(req): Query<UdfArgsQuery>,
@@ -235,6 +236,7 @@ pub async fn public_query_get(
     Ok(Json(response))
 }
 
+#[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
     State(st): State<LocalAppState>,
     ExtractRequestId(request_id): ExtractRequestId,
@@ -322,6 +324,7 @@ pub async fn public_query_batch_post(
     Ok(Json(QueryBatchResponse { results }))
 }
 
+#[minitrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
     State(st): State<LocalAppState>,
     ExtractRequestId(request_id): ExtractRequestId,
@@ -359,6 +362,7 @@ pub async fn public_mutation_post(
     Ok(Json(response))
 }
 
+#[minitrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
     State(st): State<LocalAppState>,
     ExtractRequestId(request_id): ExtractRequestId,
