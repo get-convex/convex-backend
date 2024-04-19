@@ -1,22 +1,40 @@
+use std::collections::BTreeMap;
+
 use anyhow::anyhow;
-use deno_core::v8;
+use deno_core::{
+    serde_v8,
+    v8,
+    ToJsBuffer,
+};
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use serde::Serialize;
 use serde_json::Value as JsonValue;
+use uuid::Uuid;
 
 use super::{
-    client::PendingAsyncSyscall,
+    client::{
+        PendingAsyncSyscall,
+        PendingDynamicImport,
+    },
     context_state::ContextState,
 };
 use crate::{
-    environment::UncatchableDeveloperError,
+    environment::{
+        helpers::resolve_promise,
+        UncatchableDeveloperError,
+    },
     helpers::{
         self,
         to_rust_string,
     },
-    ops::run_op,
+    ops::{
+        run_op,
+        start_async_op,
+    },
+    request_scope::StreamListener,
 };
 
 pub struct CallbackContext<'callback, 'scope: 'callback> {
@@ -24,7 +42,7 @@ pub struct CallbackContext<'callback, 'scope: 'callback> {
     context: v8::Local<'scope, v8::Context>,
 }
 
-impl<'callback, 'scope> CallbackContext<'callback, 'scope> {
+impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
     fn new(scope: &'callback mut v8::HandleScope<'scope>) -> Self {
         let context = scope.get_current_context();
         Self { scope, context }
@@ -120,10 +138,7 @@ impl<'callback, 'scope> CallbackContext<'callback, 'scope> {
         let resolver = v8::Global::new(self.scope, promise_resolver);
         {
             let context_state = self.context_state()?;
-
-            let promise_id = context_state.next_promise_id;
-            context_state.next_promise_id += 1;
-
+            let promise_id = context_state.register_promise(resolver);
             let pending_async_syscall = PendingAsyncSyscall {
                 promise_id,
                 name,
@@ -132,8 +147,6 @@ impl<'callback, 'scope> CallbackContext<'callback, 'scope> {
             context_state
                 .pending_async_syscalls
                 .push(pending_async_syscall);
-
-            context_state.promise_resolvers.insert(promise_id, resolver);
         };
         Ok(promise)
     }
@@ -145,6 +158,17 @@ impl<'callback, 'scope> CallbackContext<'callback, 'scope> {
     ) {
         let mut ctx = CallbackContext::new(scope);
         if let Err(e) = run_op(&mut ctx, args, rv) {
+            ctx.handle_syscall_or_op_error(e);
+        }
+    }
+
+    pub fn start_async_op(
+        scope: &mut v8::HandleScope,
+        args: v8::FunctionCallbackArguments,
+        rv: v8::ReturnValue,
+    ) {
+        let mut ctx = CallbackContext::new(scope);
+        if let Err(e) = start_async_op(&mut ctx, args, rv) {
             ctx.handle_syscall_or_op_error(e);
         }
     }
@@ -285,9 +309,13 @@ impl<'callback, 'scope> CallbackContext<'callback, 'scope> {
         let resolved_specifier = deno_core::resolve_import(&specifier_str, &referrer_name)
             .map_err(|e| ErrorMetadata::bad_request("InvalidImport", e.to_string()))?;
 
-        self.context_state()?
-            .pending_dynamic_imports
-            .push((resolved_specifier, resolver));
+        let state = self.context_state()?;
+        let promise_id = state.register_promise(resolver);
+        let pending = PendingDynamicImport {
+            promise_id,
+            specifier: resolved_specifier,
+        };
+        state.pending_dynamic_imports.push(pending);
 
         Ok(promise)
     }
@@ -312,6 +340,91 @@ impl<'callback, 'scope> CallbackContext<'callback, 'scope> {
 
         // TODO: Handle system errors.
         todo!();
+    }
+
+    fn update_stream_listeners(&mut self) -> anyhow::Result<()> {
+        #[derive(Serialize, Debug)]
+        #[serde(rename_all = "camelCase")]
+        struct JsStreamChunk {
+            done: bool,
+            value: Option<ToJsBuffer>,
+        }
+        loop {
+            let mut ready = BTreeMap::new();
+
+            let state = self.context_state()?;
+            for stream_id in state.stream_listeners.keys() {
+                let chunk = state.streams.mutate(
+                    stream_id,
+                    |stream| -> anyhow::Result<Result<(Option<Uuid>, bool), ()>> {
+                        let stream = stream
+                            .ok_or_else(|| anyhow::anyhow!("listening on nonexistent stream"))?;
+                        let result = match stream {
+                            Ok(stream) => Ok((stream.parts.pop_front(), stream.done)),
+                            Err(_) => Err(()),
+                        };
+                        Ok(result)
+                    },
+                )?;
+                match chunk {
+                    Err(_) => {
+                        ready.insert(
+                            *stream_id,
+                            Err(state.streams.remove(stream_id).unwrap().unwrap_err()),
+                        );
+                    },
+                    Ok((chunk, stream_done)) => {
+                        if let Some(chunk) = chunk {
+                            let ready_chunk = state
+                                .blob_parts
+                                .remove(&chunk)
+                                .ok_or_else(|| anyhow::anyhow!("stream chunk missing"))?;
+                            ready.insert(*stream_id, Ok(Some(ready_chunk)));
+                        } else if stream_done {
+                            ready.insert(*stream_id, Ok(None));
+                        }
+                    },
+                }
+            }
+            if ready.is_empty() {
+                // Nothing to notify -- all caught up.
+                return Ok(());
+            }
+            for (stream_id, update) in ready {
+                if let Some(listener) = self.context_state()?.stream_listeners.remove(&stream_id) {
+                    match listener {
+                        StreamListener::JsPromise(resolver) => {
+                            let result = match update {
+                                Ok(update) => Ok(serde_v8::to_v8(
+                                    self.scope,
+                                    JsStreamChunk {
+                                        done: update.is_none(),
+                                        value: update.map(|chunk| chunk.to_vec().into()),
+                                    },
+                                )?),
+                                Err(e) => Err(e),
+                            };
+                            // TODO: Is this okay? We're throwing a JsError here from within
+                            // the callback context, which then needs to propagate it.
+                            resolve_promise(self.scope, resolver, result)?;
+                        },
+                        StreamListener::RustStream(stream) => match update {
+                            Ok(None) => stream.close_channel(),
+                            Ok(Some(bytes)) => {
+                                let _ = stream.unbounded_send(Ok(bytes));
+                                self.context_state()?
+                                    .stream_listeners
+                                    .insert(stream_id, StreamListener::RustStream(stream));
+                            },
+                            Err(e) => {
+                                let _ = stream.unbounded_send(Err(e));
+                                stream.close_channel();
+                            },
+                        },
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -344,6 +457,7 @@ mod op_provider {
     use super::CallbackContext;
     use crate::{
         environment::AsyncOpRequest,
+        isolate2::client::PendingAsyncOp,
         ops::OpProvider,
         request_scope::StreamListener,
     };
@@ -376,7 +490,7 @@ mod op_provider {
         fn console_timers(
             &mut self,
         ) -> anyhow::Result<&mut WithHeapSize<BTreeMap<String, UnixTimestamp>>> {
-            todo!()
+            Ok(&mut self.context_state()?.console_timers)
         }
 
         fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
@@ -384,44 +498,60 @@ mod op_provider {
         }
 
         fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp> {
-            todo!()
+            self.context_state()?
+                .environment
+                .unix_timestamp_non_deterministic()
         }
 
         fn start_async_op(
             &mut self,
-            _request: AsyncOpRequest,
-            _resolver: v8::Global<v8::PromiseResolver>,
+            request: AsyncOpRequest,
+            resolver: v8::Global<v8::PromiseResolver>,
         ) -> anyhow::Result<()> {
-            todo!();
+            let state = self.context_state()?;
+            let promise_id = state.register_promise(resolver);
+            let pending_async_op = PendingAsyncOp {
+                promise_id,
+                request,
+            };
+            state.pending_async_ops.push(pending_async_op);
+            Ok(())
         }
 
-        fn create_blob_part(&mut self, _bytes: Bytes) -> anyhow::Result<Uuid> {
-            todo!()
+        fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid> {
+            let state = self.context_state()?;
+            state.create_blob_part(bytes)
         }
 
-        fn get_blob_part(&mut self, _uuid: &Uuid) -> anyhow::Result<Option<Bytes>> {
-            todo!()
+        fn get_blob_part(&mut self, uuid: &Uuid) -> anyhow::Result<Option<Bytes>> {
+            let state = self.context_state()?;
+            Ok(state.get_blob_part(uuid))
         }
 
         fn create_stream(&mut self) -> anyhow::Result<Uuid> {
-            todo!()
+            let state = self.context_state()?;
+            state.create_stream()
         }
 
         fn extend_stream(
             &mut self,
-            _id: Uuid,
-            _bytes: Option<Bytes>,
-            _new_done: bool,
+            id: Uuid,
+            bytes: Option<Bytes>,
+            new_done: bool,
         ) -> anyhow::Result<()> {
-            todo!()
+            let state = self.context_state()?;
+            state.extend_stream(id, bytes, new_done)?;
+            self.update_stream_listeners()
         }
 
         fn new_stream_listener(
             &mut self,
-            _stream_id: Uuid,
-            _listener: StreamListener,
+            stream_id: Uuid,
+            listener: StreamListener,
         ) -> anyhow::Result<()> {
-            todo!();
+            let state = self.context_state()?;
+            state.new_stream_listener(stream_id, listener)?;
+            self.update_stream_listeners()
         }
 
         fn get_environment_variable(
@@ -434,11 +564,13 @@ mod op_provider {
         fn get_all_table_mappings(
             &mut self,
         ) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
-            todo!()
+            self.context_state()?.environment.get_all_table_mappings()
         }
 
         fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-            todo!()
+            self.context_state()?
+                .environment
+                .get_table_mapping_without_system_tables()
         }
     }
 }

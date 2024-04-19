@@ -496,6 +496,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 },
                 UdfType::Mutation,
                 path_and_args,
+                self.key_broker.clone(),
+                ExecutionContext::new_for_test(),
+                QueryJournal::new(),
             )
             .await?;
             let path: UdfPath = udf_path.parse()?;
@@ -638,6 +641,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 },
                 UdfType::Query,
                 path_and_args,
+                self.key_broker.clone(),
+                ExecutionContext::new_for_test(),
+                journal.unwrap_or_else(QueryJournal::new),
             )
             .await?;
             // Ensure the transaction is readonly by turning it into a subscription token.
@@ -697,6 +703,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 },
                 UdfType::Query,
                 path_and_args,
+                self.key_broker.clone(),
+                ExecutionContext::new_for_test(),
+                QueryJournal::new(),
             )
             .await?;
             Ok(outcome.result.unwrap_err())

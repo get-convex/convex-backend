@@ -28,6 +28,10 @@ use super::{
     FunctionId,
     PromiseId,
 };
+use crate::environment::{
+    action::TaskResponseEnum,
+    AsyncOpRequest,
+};
 
 pub enum IsolateThreadRequest {
     RegisterModule {
@@ -48,35 +52,48 @@ pub enum IsolateThreadRequest {
     },
     PollFunction {
         function_id: FunctionId,
-        completions: Vec<AsyncSyscallCompletion>,
+        completions: Completions,
         response: oneshot::Sender<anyhow::Result<EvaluateResult>>,
+    },
+    Shutdown {
+        response: oneshot::Sender<anyhow::Result<EnvironmentOutcome>>,
     },
 }
 
-#[derive(Debug)]
 pub enum EvaluateResult {
-    Ready(EvaluateReady),
-    Pending(EvaluatePending),
+    Ready(ConvexValue),
+    Pending(Pending),
 }
 
 #[derive(Debug)]
-pub struct EvaluateReady {
-    pub result: ConvexValue,
-    pub outcome: EnvironmentOutcome,
-}
-
-#[derive(Debug)]
-pub struct EvaluatePending {
+pub struct Pending {
     pub async_syscalls: Vec<PendingAsyncSyscall>,
+    pub async_ops: Vec<PendingAsyncOp>,
+    pub dynamic_imports: Vec<PendingDynamicImport>,
 }
 
-impl EvaluatePending {
+impl Pending {
     pub fn is_empty(&self) -> bool {
         self.async_syscalls.is_empty()
+            && self.async_ops.is_empty()
+            && self.dynamic_imports.is_empty()
     }
 }
 
-pub type QueryId = u32;
+#[derive(Debug)]
+pub struct Completions {
+    pub async_syscalls: Vec<AsyncSyscallCompletion>,
+    pub async_ops: Vec<AsyncOpCompletion>,
+}
+
+impl Completions {
+    pub fn new() -> Self {
+        Self {
+            async_syscalls: vec![],
+            async_ops: vec![],
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct PendingAsyncSyscall {
@@ -85,10 +102,31 @@ pub struct PendingAsyncSyscall {
     pub args: JsonValue,
 }
 
+#[derive(Debug)]
 pub struct AsyncSyscallCompletion {
     pub promise_id: PromiseId,
     pub result: anyhow::Result<String>,
 }
+
+#[derive(Debug)]
+pub struct PendingAsyncOp {
+    pub promise_id: PromiseId,
+    pub request: AsyncOpRequest,
+}
+
+#[derive(Debug)]
+pub struct AsyncOpCompletion {
+    pub promise_id: PromiseId,
+    pub result: anyhow::Result<TaskResponseEnum>,
+}
+
+#[derive(Debug)]
+pub struct PendingDynamicImport {
+    pub promise_id: PromiseId,
+    pub specifier: ModuleSpecifier,
+}
+
+pub type QueryId = u32;
 
 pub struct IsolateThreadClient<RT: Runtime> {
     rt: RT,
@@ -199,7 +237,7 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
     pub async fn poll_function(
         &mut self,
         function_id: FunctionId,
-        completions: Vec<AsyncSyscallCompletion>,
+        completions: Completions,
     ) -> anyhow::Result<EvaluateResult> {
         let (tx, rx) = oneshot::channel();
         self.send(
@@ -211,5 +249,11 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
             rx,
         )
         .await
+    }
+
+    pub async fn shutdown(&mut self) -> anyhow::Result<EnvironmentOutcome> {
+        let (tx, rx) = oneshot::channel();
+        self.send(IsolateThreadRequest::Shutdown { response: tx }, rx)
+            .await
     }
 }

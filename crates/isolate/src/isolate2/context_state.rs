@@ -1,30 +1,59 @@
-use std::collections::{
-    BTreeMap,
-    HashMap,
+use std::{
+    collections::{
+        BTreeMap,
+        HashMap,
+    },
+    mem,
 };
 
-use common::errors::JsError;
+use anyhow::Context;
+use bytes::Bytes;
+use common::{
+    errors::JsError,
+    runtime::UnixTimestamp,
+};
 use deno_core::{
-    v8::{
-        self,
-    },
+    v8,
     ModuleSpecifier,
 };
+use uuid::Uuid;
+use value::heap_size::WithHeapSize;
 
 use super::{
-    client::PendingAsyncSyscall,
+    client::{
+        Pending,
+        PendingAsyncOp,
+        PendingAsyncSyscall,
+        PendingDynamicImport,
+    },
     environment::Environment,
     PromiseId,
+};
+use crate::{
+    ops::CryptoOps,
+    request_scope::{
+        ReadableStream,
+        StreamListener,
+    },
 };
 
 pub struct ContextState {
     pub module_map: ModuleMap,
     pub unhandled_promise_rejections: HashMap<v8::Global<v8::Promise>, v8::Global<v8::Value>>,
-    pub pending_dynamic_imports: Vec<(ModuleSpecifier, v8::Global<v8::PromiseResolver>)>,
 
-    pub next_promise_id: u64,
+    pub next_promise_id: PromiseId,
+    pub promise_resolvers: BTreeMap<PromiseId, v8::Global<v8::PromiseResolver>>,
+
     pub pending_async_syscalls: Vec<PendingAsyncSyscall>,
-    pub promise_resolvers: HashMap<PromiseId, v8::Global<v8::PromiseResolver>>,
+    pub pending_async_ops: Vec<PendingAsyncOp>,
+    pub pending_dynamic_imports: Vec<PendingDynamicImport>,
+
+    pub blob_parts: WithHeapSize<BTreeMap<Uuid, Bytes>>,
+
+    pub streams: WithHeapSize<BTreeMap<Uuid, anyhow::Result<ReadableStream>>>,
+    pub stream_listeners: WithHeapSize<BTreeMap<Uuid, StreamListener>>,
+
+    pub console_timers: WithHeapSize<BTreeMap<String, UnixTimestamp>>,
 
     pub environment: Box<dyn Environment>,
 
@@ -36,16 +65,104 @@ impl ContextState {
         Self {
             module_map: ModuleMap::new(),
             unhandled_promise_rejections: HashMap::new(),
-            pending_dynamic_imports: vec![],
 
             next_promise_id: 0,
+            promise_resolvers: BTreeMap::new(),
+
             pending_async_syscalls: vec![],
-            promise_resolvers: HashMap::new(),
+            pending_async_ops: vec![],
+            pending_dynamic_imports: vec![],
+
+            blob_parts: BTreeMap::new().into(),
+
+            streams: BTreeMap::new().into(),
+            stream_listeners: BTreeMap::new().into(),
+
+            console_timers: BTreeMap::new().into(),
 
             environment,
 
             failure: None,
         }
+    }
+
+    pub fn take_pending(&mut self) -> Pending {
+        Pending {
+            async_syscalls: mem::take(&mut self.pending_async_syscalls),
+            async_ops: mem::take(&mut self.pending_async_ops),
+            dynamic_imports: mem::take(&mut self.pending_dynamic_imports),
+        }
+    }
+
+    pub fn register_promise(&mut self, promise: v8::Global<v8::PromiseResolver>) -> PromiseId {
+        let id = self.next_promise_id;
+        self.next_promise_id += 1;
+        self.promise_resolvers.insert(id, promise);
+        id
+    }
+
+    pub fn take_promise(
+        &mut self,
+        id: PromiseId,
+    ) -> anyhow::Result<v8::Global<v8::PromiseResolver>> {
+        self.promise_resolvers
+            .remove(&id)
+            .context("Promise resolver not found")
+    }
+
+    pub fn create_blob_part(&mut self, bytes: Bytes) -> anyhow::Result<Uuid> {
+        let uuid = CryptoOps::random_uuid(self.environment.rng()?)?;
+        self.blob_parts.insert(uuid, bytes);
+        Ok(uuid)
+    }
+
+    pub fn get_blob_part(&self, id: &Uuid) -> Option<Bytes> {
+        self.blob_parts.get(id).cloned()
+    }
+
+    pub fn create_stream(&mut self) -> anyhow::Result<Uuid> {
+        let id = CryptoOps::random_uuid(self.environment.rng()?)?;
+        self.streams.insert(id, Ok(ReadableStream::default()));
+        Ok(id)
+    }
+
+    pub fn extend_stream(
+        &mut self,
+        id: Uuid,
+        bytes: Option<Bytes>,
+        new_done: bool,
+    ) -> anyhow::Result<()> {
+        let new_part_id = match bytes {
+            Some(bytes) => Some(self.create_blob_part(bytes)?),
+            None => None,
+        };
+        self.streams.mutate(&id, |stream| -> anyhow::Result<()> {
+            let Some(Ok(ReadableStream { parts, done })) = stream else {
+                anyhow::bail!("unrecognized stream id {id}");
+            };
+            if *done {
+                anyhow::bail!("stream {id} is already done");
+            }
+            if let Some(new_part_id) = new_part_id {
+                parts.push_back(new_part_id);
+            }
+            if new_done {
+                *done = true;
+            }
+            Ok(())
+        })?;
+        Ok(())
+    }
+
+    pub fn new_stream_listener(
+        &mut self,
+        id: Uuid,
+        listener: StreamListener,
+    ) -> anyhow::Result<()> {
+        if self.stream_listeners.insert(id, listener).is_some() {
+            anyhow::bail!("cannot read from the same stream twice");
+        }
+        Ok(())
     }
 }
 

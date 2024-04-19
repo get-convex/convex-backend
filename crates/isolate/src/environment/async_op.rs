@@ -1,3 +1,5 @@
+use std::fmt;
+
 use common::{
     http::HttpRequestStream,
     runtime::UnixTimestamp,
@@ -56,5 +58,11 @@ impl AsyncOpRequest {
             Self::StorageGet { .. } => "storage.get()".to_string(),
             Self::SendStream { .. } => "stream".to_string(),
         }
+    }
+}
+
+impl fmt::Debug for AsyncOpRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.name_for_error().fmt(f)
     }
 }

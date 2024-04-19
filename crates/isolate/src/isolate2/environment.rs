@@ -11,6 +11,11 @@ use common::{
 };
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
+use value::{
+    TableMapping,
+    TableMappingValue,
+    VirtualTableMapping,
+};
 
 #[derive(Debug)]
 pub struct EnvironmentOutcome {
@@ -31,6 +36,7 @@ pub trait Environment {
 
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
+    fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp>;
 
     fn get_environment_variable(&mut self, name: EnvVarName)
         -> anyhow::Result<Option<EnvVarValue>>;
@@ -40,4 +46,7 @@ pub trait Environment {
 
     // Signal that we've finished execution.
     fn finish_execution(&mut self) -> anyhow::Result<EnvironmentOutcome>;
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)>;
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
 }

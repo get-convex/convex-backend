@@ -92,6 +92,10 @@ use value::{
     VirtualTableMapping,
 };
 
+pub use self::task::{
+    TaskResponse,
+    TaskResponseEnum,
+};
 use self::{
     outcome::{
         ActionOutcome,
@@ -102,7 +106,6 @@ use self::{
         TaskId,
         TaskRequest,
         TaskRequestEnum,
-        TaskResponse,
         TaskType,
     },
     task_executor::TaskExecutor,

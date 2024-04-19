@@ -3,10 +3,7 @@
 
 use common::{
     minitrace_helpers::EncodedSpan,
-    runtime::{
-        Runtime,
-        UnixTimestamp,
-    },
+    runtime::UnixTimestamp,
 };
 use deno_core::{
     serde_v8,
@@ -24,9 +21,7 @@ use crate::{
             syscall_name_for_error,
         },
         AsyncOpRequest,
-        IsolateEnvironment,
     },
-    execution_scope::ExecutionScope,
     http::HttpResponseV8,
 };
 
@@ -138,9 +133,9 @@ pub enum TaskResponseEnum {
 }
 
 impl TaskResponseEnum {
-    pub fn into_v8<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>>(
+    pub fn into_v8<'a>(
         self,
-        scope: &mut ExecutionScope<'a, 'b, RT, E>,
+        scope: &mut v8::HandleScope<'a>,
     ) -> anyhow::Result<v8::Local<'a, v8::Value>> {
         let value_v8 = match self {
             Self::Fetch(response) => serde_v8::to_v8(scope, response)?,

@@ -26,31 +26,149 @@ use value::{
     TableName,
 };
 
-use crate::test_helpers::UdfTest;
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
+};
 
 #[convex_macro::test_runtime]
 async fn test_table_mapping_from_system_udf(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default(rt).await?;
-    let mut tx = t.database.begin(Identity::system()).await?;
-    let document = TestFacingModel::new(&mut tx)
-        .insert_and_get("table".parse()?, assert_obj!())
-        .await?;
-    let table_number = document.id().table().table_number;
-    let table_number_field: FieldName = FieldName::from_str(table_number.to_string().as_ref())?;
-    t.database.commit(tx).await?;
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let mut tx = t.database.begin(Identity::system()).await?;
+        let document = TestFacingModel::new(&mut tx)
+            .insert_and_get("table".parse()?, assert_obj!())
+            .await?;
+        let table_number = document.id().table().table_number;
+        let table_number_field: FieldName = FieldName::from_str(table_number.to_string().as_ref())?;
+        t.database.commit(tx).await?;
 
-    let value = t.query("idStrings:getTableMapping", assert_obj!()).await?;
-    must_let!(let ConvexValue::Object(entries) = value);
+        let value = t.query("idStrings:getTableMapping", assert_obj!()).await?;
+        must_let!(let ConvexValue::Object(entries) = value);
 
-    assert_eq!(1, entries.len());
-    assert_eq!(
-        &ConvexValue::String("table".try_into()?),
-        entries.get(&table_number_field).unwrap()
-    );
+        assert_eq!(1, entries.len());
+        assert_eq!(
+            &ConvexValue::String("table".try_into()?),
+            entries.get(&table_number_field).unwrap()
+        );
 
-    Ok(())
+        Ok(())
+    })
+    .await
 }
 
+#[convex_macro::test_runtime]
+async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+
+        let internal_id = InternalId::MIN;
+        let mut tx = t.database.begin(Identity::system()).await?;
+        let user_table_name: TableName = "boats".parse()?;
+        UserFacingModel::new(&mut tx)
+            .insert(user_table_name.clone(), assert_obj!())
+            .await?;
+        let user_table_number = tx.table_mapping().id(&user_table_name)?.table_number;
+
+        let storage_virtual_table_number = tx.virtual_table_mapping().number(&"_storage".parse()?)?;
+        let storage_table_number = tx
+            .table_mapping()
+            .id(&"_file_storage".parse()?)?
+            .table_number;
+        let indexes_table_number = tx.table_mapping().id(&"_index".parse()?)?.table_number;
+
+        // Set the UDF server version to a version with string IDs
+        UdfConfigModel::new(&mut tx)
+            .set(UdfConfig::new_for_test(&t.rt, Version::parse("1000.0.0")?))
+            .await?;
+        t.database.commit(tx).await?;
+
+        let id_v6 = DocumentIdV6::new(storage_virtual_table_number, internal_id);
+
+        // Correct virtual table name and number.
+        must_let!(let ConvexValue::String(normalized_id) = t.query("idStrings:normalizeSystemId", assert_obj!(
+            "id" => id_v6.encode(),
+            "table" => "_storage",
+        )).await?);
+        assert_eq!(normalized_id.to_string(), id_v6.encode());
+
+        // Correct virtual table name and internal id.
+        must_let!(let ConvexValue::String(normalized_id) = t.query("idStrings:normalizeSystemId", assert_obj!(
+            "id" => internal_id.to_string(),
+            "table" => "_storage",
+        )).await?);
+        assert_eq!(normalized_id.to_string(), id_v6.encode());
+
+        // Incorrect virtual table name.
+        must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
+            "id" => id_v6.encode(),
+            "table" => "_scheduled_functions",
+        )).await?);
+
+        // Physical table name and virtual table number doesn't work.
+        must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
+            "id" => id_v6.encode(),
+            "table" => "_file_storage",
+        )).await?);
+
+        // Virtual table name and physical table number doesn't work.
+        must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
+            "id" => DocumentIdV6::new(storage_table_number, internal_id).encode(),
+            "table" => "_storage",
+        )).await?);
+
+        // Physical table name and physical table number doesn't work.
+        must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
+            "id" => DocumentIdV6::new(storage_table_number, internal_id).encode(),
+            "table" => "_file_storage",
+        )).await?);
+
+        // System table that doesn't even have a virtual table doesn't work.
+        must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
+            "id" => DocumentIdV6::new(indexes_table_number, internal_id).encode(),
+            "table" => "_index",
+        )).await?);
+
+        // Virtual table with db.normalizeId throws error.
+        t.query_js_error(
+            "idStrings:normalizeId",
+            assert_obj!(
+                "id" => id_v6.encode(),
+                "table" => "_storage",
+            ),
+        )
+            .await?;
+
+        // User table with db.system.normalizeId throws error.
+        t.query_js_error(
+            "idStrings:normalizeSystemId",
+            assert_obj!(
+                "id" => DocumentIdV6::new(user_table_number, internal_id).encode(),
+                "table" => user_table_name.to_string(),
+            ),
+        )
+            .await?;
+
+        Ok(())
+    }).await
+}
+
+#[convex_macro::test_runtime]
+async fn test_virtual_id_query(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let scheduled_id = t.mutation("idStrings:schedule", assert_obj!()).await?;
+
+        t.query(
+            "idStrings:queryVirtualId",
+            assert_obj!("id" => scheduled_id),
+        )
+        .await?;
+
+        Ok(())
+    })
+    .await
+}
+
+// Since we run this test with proptest, don't run it in both isolate1 and
+// isolate2.
 async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     // Initialize table mapping with two tables
@@ -98,114 +216,6 @@ async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::
     // Test internal ID and incorrect table name
     must_let!(let ConvexValue::Object(obj) = t.query("idStrings:normalizeId", assert_obj!("id" => internal_id.to_string(), "table" => table_name_a.to_string() )).await?);
     must_let!(let Some(ConvexValue::String(_)) = obj.get("normalized"));
-
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
-    let internal_id = InternalId::MIN;
-
-    let t = UdfTest::default(rt).await?;
-    let mut tx = t.database.begin(Identity::system()).await?;
-    let user_table_name: TableName = "boats".parse()?;
-    UserFacingModel::new(&mut tx)
-        .insert(user_table_name.clone(), assert_obj!())
-        .await?;
-    let user_table_number = tx.table_mapping().id(&user_table_name)?.table_number;
-
-    let storage_virtual_table_number = tx.virtual_table_mapping().number(&"_storage".parse()?)?;
-    let storage_table_number = tx
-        .table_mapping()
-        .id(&"_file_storage".parse()?)?
-        .table_number;
-    let indexes_table_number = tx.table_mapping().id(&"_index".parse()?)?.table_number;
-
-    // Set the UDF server version to a version with string IDs
-    UdfConfigModel::new(&mut tx)
-        .set(UdfConfig::new_for_test(&t.rt, Version::parse("1000.0.0")?))
-        .await?;
-    t.database.commit(tx).await?;
-
-    let id_v6 = DocumentIdV6::new(storage_virtual_table_number, internal_id);
-
-    // Correct virtual table name and number.
-    must_let!(let ConvexValue::String(normalized_id) = t.query("idStrings:normalizeSystemId", assert_obj!(
-        "id" => id_v6.encode(),
-        "table" => "_storage",
-    )).await?);
-    assert_eq!(normalized_id.to_string(), id_v6.encode());
-
-    // Correct virtual table name and internal id.
-    must_let!(let ConvexValue::String(normalized_id) = t.query("idStrings:normalizeSystemId", assert_obj!(
-        "id" => internal_id.to_string(),
-        "table" => "_storage",
-    )).await?);
-    assert_eq!(normalized_id.to_string(), id_v6.encode());
-
-    // Incorrect virtual table name.
-    must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
-        "id" => id_v6.encode(),
-        "table" => "_scheduled_functions",
-    )).await?);
-
-    // Physical table name and virtual table number doesn't work.
-    must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
-        "id" => id_v6.encode(),
-        "table" => "_file_storage",
-    )).await?);
-
-    // Virtual table name and physical table number doesn't work.
-    must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
-        "id" => DocumentIdV6::new(storage_table_number, internal_id).encode(),
-        "table" => "_storage",
-    )).await?);
-
-    // Physical table name and physical table number doesn't work.
-    must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
-        "id" => DocumentIdV6::new(storage_table_number, internal_id).encode(),
-        "table" => "_file_storage",
-    )).await?);
-
-    // System table that doesn't even have a virtual table doesn't work.
-    must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
-        "id" => DocumentIdV6::new(indexes_table_number, internal_id).encode(),
-        "table" => "_index",
-    )).await?);
-
-    // Virtual table with db.normalizeId throws error.
-    t.query_js_error(
-        "idStrings:normalizeId",
-        assert_obj!(
-            "id" => id_v6.encode(),
-            "table" => "_storage",
-        ),
-    )
-    .await?;
-
-    // User table with db.system.normalizeId throws error.
-    t.query_js_error(
-        "idStrings:normalizeSystemId",
-        assert_obj!(
-            "id" => DocumentIdV6::new(user_table_number, internal_id).encode(),
-            "table" => user_table_name.to_string(),
-        ),
-    )
-    .await?;
-
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn test_virtual_id_query(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default(rt).await?;
-    let scheduled_id = t.mutation("idStrings:schedule", assert_obj!()).await?;
-
-    t.query(
-        "idStrings:queryVirtualId",
-        assert_obj!("id" => scheduled_id),
-    )
-    .await?;
 
     Ok(())
 }

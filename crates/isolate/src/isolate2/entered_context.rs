@@ -1,5 +1,3 @@
-use std::mem;
-
 use anyhow::anyhow;
 use common::{
     errors::JsError,
@@ -13,22 +11,20 @@ use deno_core::{
 use serde_json::Value as JsonValue;
 use sourcemap::SourceMap;
 use sync_types::CanonicalizedUdfPath;
-use value::{
-    ConvexArray,
-    ConvexValue,
-};
+use value::ConvexArray;
 
 use super::{
     client::{
-        AsyncSyscallCompletion,
-        EvaluatePending,
-        EvaluateReady,
+        Completions,
         EvaluateResult,
     },
+    context::PendingFunction,
     context_state::ContextState,
+    environment::EnvironmentOutcome,
 };
 use crate::{
     bundled_js::system_udf_file,
+    deserialize_udf_result,
     environment::helpers::{
         module_loader::module_specifier_from_path,
         resolve_promise,
@@ -246,7 +242,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
     pub fn start_evaluate_function(
         &mut self,
         udf_type: UdfType,
-        udf_path: CanonicalizedUdfPath,
+        udf_path: &CanonicalizedUdfPath,
         arguments: ConvexArray,
     ) -> anyhow::Result<(v8::Global<v8::Promise>, EvaluateResult)> {
         let module_url = module_specifier_from_path(udf_path.module())?;
@@ -292,7 +288,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                 JsError::from_message(err.to_string())
             })?
             .try_into()?;
-        let invoke_str = self.classify_function(udf_type, &udf_path, &function)?;
+        let invoke_str = self.classify_function(udf_type, udf_path, &function)?;
 
         let args_str = serde_json::to_string(&JsonValue::from(arguments))?;
         let args_v8_str = v8::String::new(self.scope, &args_str)
@@ -319,7 +315,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         // before collecting what it's blocked on.
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
-        let evaluate_result = self.check_promise_result(&promise)?;
+        let evaluate_result = self.check_promise_result(udf_path, &promise)?;
         Ok((v8::Global::new(self.scope, promise), evaluate_result))
     }
 
@@ -387,24 +383,33 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
 
     pub fn poll_function(
         &mut self,
-        completions: Vec<AsyncSyscallCompletion>,
-        promise: &v8::Global<v8::Promise>,
+        pending_function: &PendingFunction,
+        completions: Completions,
     ) -> anyhow::Result<EvaluateResult> {
-        let completed = {
+        let (async_syscalls, async_ops) = {
             let context_state = self.context_state_mut()?;
-            let mut completed = vec![];
-            for completion in completions {
-                let resolver = context_state
-                    .promise_resolvers
-                    .remove(&completion.promise_id)
-                    .ok_or_else(|| anyhow!("Promise resolver not found"))?;
-                completed.push((resolver, completion.result));
+            let mut async_syscalls = vec![];
+            for completion in completions.async_syscalls {
+                let resolver = context_state.take_promise(completion.promise_id)?;
+                async_syscalls.push((resolver, completion.result));
             }
-            completed
+            let mut async_ops = vec![];
+            for completion in completions.async_ops {
+                let resolver = context_state.take_promise(completion.promise_id)?;
+                async_ops.push((resolver, completion.result));
+            }
+            (async_syscalls, async_ops)
         };
-        for (resolver, result) in completed {
+        for (resolver, result) in async_syscalls {
             let result_v8 = match result {
                 Ok(v) => Ok(serde_v8::to_v8(self.scope, v)?),
+                Err(e) => Err(e),
+            };
+            resolve_promise(self.scope, resolver, result_v8)?;
+        }
+        for (resolver, result) in async_ops {
+            let result_v8 = match result {
+                Ok(v) => Ok(v.into_v8(self.scope)?),
                 Err(e) => Err(e),
             };
             resolve_promise(self.scope, resolver, result_v8)?;
@@ -412,18 +417,17 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
 
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
-        let promise = v8::Local::new(self.scope, promise);
-        self.check_promise_result(&promise)
+        let promise = v8::Local::new(self.scope, &pending_function.promise);
+        self.check_promise_result(&pending_function.udf_path, &promise)
     }
 
     fn check_promise_result(
         &mut self,
+        udf_path: &CanonicalizedUdfPath,
         promise: &v8::Local<v8::Promise>,
     ) -> anyhow::Result<EvaluateResult> {
         let context = self.context_state_mut()?;
-        let async_syscalls = mem::take(&mut context.pending_async_syscalls);
-        let pending = EvaluatePending { async_syscalls };
-
+        let pending = context.take_pending();
         match promise.state() {
             v8::PromiseState::Pending if pending.is_empty() => {
                 anyhow::bail!(JsError::from_message(
@@ -435,18 +439,21 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                 anyhow::bail!(self.format_traceback(e)?);
             },
             v8::PromiseState::Fulfilled if pending.is_empty() => {
-                let result: v8::Local<v8::String> = promise.result(self.scope).try_into()?;
-                let result = helpers::to_rust_string(self.scope, &result)?;
-                // TODO: `deserialize_udf_result`
-                let result_json: JsonValue = serde_json::from_str(&result)?;
-                let result = ConvexValue::try_from(result_json)?;
-                let outcome = self.context_state_mut()?.environment.finish_execution()?;
-                Ok(EvaluateResult::Ready(EvaluateReady { result, outcome }))
+                let v8_result: v8::Local<v8::String> = promise.result(self.scope).try_into()?;
+                let result_str = helpers::to_rust_string(self.scope, &v8_result)?;
+                let result = deserialize_udf_result(udf_path, &result_str)??;
+                Ok(EvaluateResult::Ready(result))
             },
             v8::PromiseState::Pending | v8::PromiseState::Fulfilled => {
                 Ok(EvaluateResult::Pending(pending))
             },
         }
+    }
+
+    pub fn shutdown(&mut self) -> anyhow::Result<EnvironmentOutcome> {
+        let context_state = self.context_state_mut()?;
+        let outcome = context_state.environment.finish_execution()?;
+        Ok(outcome)
     }
 
     pub fn format_traceback(&mut self, exception: v8::Local<v8::Value>) -> anyhow::Result<JsError> {

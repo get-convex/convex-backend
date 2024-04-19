@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use anyhow::anyhow;
 use common::types::UdfType;
@@ -11,7 +11,7 @@ use value::ConvexArray;
 use super::{
     callback_context::CallbackContext,
     client::{
-        AsyncSyscallCompletion,
+        Completions,
         EvaluateResult,
     },
     context_state::ContextState,
@@ -29,7 +29,7 @@ pub struct Context {
     context: v8::Global<v8::Context>,
 
     next_function_id: FunctionId,
-    pending_functions: HashMap<FunctionId, v8::Global<v8::Promise>>,
+    pending_functions: BTreeMap<FunctionId, PendingFunction>,
 }
 
 impl Context {
@@ -71,6 +71,14 @@ impl Context {
             let op_key = strings::op.create(&mut scope)?;
             convex_value.set(&mut scope, op_key.into(), op_value.into());
 
+            let async_op_template =
+                v8::FunctionTemplate::new(&mut scope, CallbackContext::start_async_op);
+            let async_op_value = async_op_template
+                .get_function(&mut scope)
+                .ok_or_else(|| anyhow!("Failed to retrieve function from FunctionTemplate"))?;
+            let async_op_key = strings::asyncOp.create(&mut scope)?;
+            convex_value.set(&mut scope, async_op_key.into(), async_op_value.into());
+
             let convex_key = strings::Convex.create(&mut scope)?;
 
             let global = context.global(&mut scope);
@@ -82,7 +90,7 @@ impl Context {
         let mut ctx = Self {
             context,
             next_function_id: 0,
-            pending_functions: HashMap::new(),
+            pending_functions: BTreeMap::new(),
         };
         ctx.enter(session, |mut ctx| ctx.run_setup_module())?;
         Ok(ctx)
@@ -107,10 +115,11 @@ impl Context {
         self.next_function_id += 1;
 
         let (promise, result) = self.enter(session, |mut ctx| {
-            ctx.start_evaluate_function(udf_type, udf_path, arguments)
+            ctx.start_evaluate_function(udf_type, &udf_path, arguments)
         })?;
         if let EvaluateResult::Pending { .. } = result {
-            self.pending_functions.insert(function_id, promise);
+            self.pending_functions
+                .insert(function_id, PendingFunction { udf_path, promise });
         };
         Ok((function_id, result))
     }
@@ -119,15 +128,22 @@ impl Context {
         &mut self,
         session: &mut Session,
         function_id: FunctionId,
-        completions: Vec<AsyncSyscallCompletion>,
+        completions: Completions,
     ) -> anyhow::Result<EvaluateResult> {
-        let Some(promise) = self.pending_functions.remove(&function_id) else {
+        let Some(pending_function) = self.pending_functions.remove(&function_id) else {
             anyhow::bail!("Function {function_id} not found");
         };
-        let result = self.enter(session, |mut ctx| ctx.poll_function(completions, &promise))?;
+        let result = self.enter(session, |mut ctx| {
+            ctx.poll_function(&pending_function, completions)
+        })?;
         if let EvaluateResult::Pending { .. } = result {
-            self.pending_functions.insert(function_id, promise);
+            self.pending_functions.insert(function_id, pending_function);
         }
         Ok(result)
     }
+}
+
+pub struct PendingFunction {
+    pub udf_path: CanonicalizedUdfPath,
+    pub promise: v8::Global<v8::Promise>,
 }

@@ -12,7 +12,6 @@ use common::{
     log_lines::{
         LogLevel,
         LogLine,
-        LogLines,
     },
     query::Query,
     query_journal::QueryJournal,
@@ -63,6 +62,7 @@ use value::{
     ConvexArray,
     TableIdAndTableNumber,
     TableMapping,
+    TableMappingValue,
     TableName,
     TableNumber,
     VirtualTableMapping,
@@ -70,11 +70,13 @@ use value::{
 
 use super::{
     client::{
+        AsyncOpCompletion,
         AsyncSyscallCompletion,
-        EvaluateReady,
+        Completions,
         EvaluateResult,
         IsolateThreadClient,
         IsolateThreadRequest,
+        PendingAsyncSyscall,
         QueryId,
     },
     context::Context,
@@ -108,6 +110,7 @@ use crate::{
             },
         },
     },
+    validate_schedule_args,
     JsonPackedValue,
     ModuleLoader,
     ModuleNotFoundError,
@@ -161,6 +164,10 @@ fn handle_request(
             let r = context.poll_function(session, function_id, completions);
             response.send(r).map_err(|_| anyhow::anyhow!("Canceled"))?;
         },
+        IsolateThreadRequest::Shutdown { response } => {
+            let r = context.enter(session, |mut ctx| ctx.shutdown());
+            response.send(r).map_err(|_| anyhow::anyhow!("Canceled"))?;
+        },
     }
     Ok(())
 }
@@ -190,23 +197,6 @@ pub struct SeedData {
     pub unix_timestamp: UnixTimestamp,
 }
 
-struct UdfEnvironment<RT: Runtime> {
-    rt: RT,
-    is_system: bool,
-
-    log_lines: LogLines,
-
-    import_time_seed: SeedData,
-    execution_time_seed: SeedData,
-
-    phase: UdfPhase,
-
-    shared: UdfShared<RT>,
-
-    #[allow(unused)]
-    env_vars: PreloadedEnvironmentVariables,
-}
-
 #[derive(Debug)]
 enum UdfPhase {
     Importing {
@@ -220,6 +210,24 @@ enum UdfPhase {
     Finalized,
 }
 
+struct UdfEnvironment<RT: Runtime> {
+    rt: RT,
+    is_system: bool,
+
+    log_line_sender: mpsc::Sender<LogLine>,
+    lines_logged: usize,
+
+    import_time_seed: SeedData,
+    execution_time_seed: SeedData,
+
+    phase: UdfPhase,
+
+    shared: UdfShared<RT>,
+
+    #[allow(unused)]
+    env_vars: PreloadedEnvironmentVariables,
+}
+
 impl<RT: Runtime> UdfEnvironment<RT> {
     pub fn new(
         rt: RT,
@@ -228,12 +236,15 @@ impl<RT: Runtime> UdfEnvironment<RT> {
         execution_time_seed: SeedData,
         shared: UdfShared<RT>,
         env_vars: PreloadedEnvironmentVariables,
+        log_line_sender: mpsc::Sender<LogLine>,
     ) -> Self {
         let rng = ChaCha12Rng::from_seed(import_time_seed.rng_seed);
         Self {
             rt,
             is_system,
-            log_lines: vec![].into(),
+
+            log_line_sender,
+            lines_logged: 0,
 
             import_time_seed,
             execution_time_seed,
@@ -253,6 +264,25 @@ impl<RT: Runtime> UdfEnvironment<RT> {
                 "Can't use database at import time",
             ))
         };
+        Ok(())
+    }
+
+    fn emit_log_line(&mut self, line: LogLine) -> anyhow::Result<()> {
+        anyhow::ensure!(self.lines_logged < MAX_LOG_LINES);
+        self.lines_logged += 1;
+        if let Err(e) = self.log_line_sender.try_send(line) {
+            // In this case it's not much use to continue executing JS since the Tokio
+            // thread has gone away.
+            if e.is_disconnected() {
+                anyhow::bail!("Log line receiver disconnected");
+            }
+            // If the Tokio thread is processing messages slower than we're streaming them
+            // out, fail with a system error to shed load.
+            if e.is_full() {
+                anyhow::bail!("Log lines produced faster than Tokio thread can consume them");
+            }
+            anyhow::bail!(e.into_send_error());
+        }
         Ok(())
     }
 }
@@ -297,18 +327,19 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         level: common::log_lines::LogLevel,
         messages: Vec<String>,
     ) -> anyhow::Result<()> {
-        // - 1 to reserve for the [ERROR] log line
-        match self.log_lines.len().cmp(&(&MAX_LOG_LINES - 1)) {
-            Ordering::Less => self.log_lines.push(LogLine::new_developer_log_line(
-                level,
-                messages,
-                // Note: accessing the current time here is still deterministic since
-                // we don't externalize the time to the function.
-                self.rt.unix_timestamp(),
-            )),
+        let line = match self.lines_logged.cmp(&(MAX_LOG_LINES - 1)) {
+            Ordering::Less => {
+                LogLine::new_developer_log_line(
+                    level,
+                    messages,
+                    // Note: accessing the current time here is still deterministic since
+                    // we don't externalize the time to the function.
+                    self.rt.unix_timestamp(),
+                )
+            },
             Ordering::Equal => {
                 // Add a message about omitting log lines once
-                self.log_lines.push(LogLine::new_developer_log_line(
+                LogLine::new_developer_log_line(
                     LogLevel::Error,
                     vec![format!(
                         "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
@@ -316,11 +347,13 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
                     // Note: accessing the current time here is still deterministic since
                     // we don't externalize the time to the function.
                     self.rt.unix_timestamp(),
-                ))
+                )
             },
-            Ordering::Greater => (),
+            Ordering::Greater => {
+                return Ok(());
+            },
         };
-        Ok(())
+        self.emit_log_line(line)
     }
 
     fn trace_system(
@@ -329,15 +362,15 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         messages: Vec<String>,
         system_log_metadata: common::log_lines::SystemLogMetadata,
     ) -> anyhow::Result<()> {
-        self.log_lines.push(LogLine::new_system_log_line(
+        let line = LogLine::new_system_log_line(
             level,
             messages,
             // Note: accessing the current time here is still deterministic since
             // we don't externalize the time to the function.
             self.rt.unix_timestamp(),
             system_log_metadata,
-        ));
-        Ok(())
+        );
+        self.emit_log_line(line)
     }
 
     fn rng(&mut self) -> anyhow::Result<&mut rand_chacha::ChaCha12Rng> {
@@ -370,6 +403,10 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         Ok(result)
     }
 
+    fn unix_timestamp_non_deterministic(&mut self) -> anyhow::Result<UnixTimestamp> {
+        Ok(self.rt.unix_timestamp())
+    }
+
     fn get_environment_variable(
         &mut self,
         _name: common::types::EnvVarName,
@@ -390,19 +427,33 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
     }
 
     fn finish_execution(&mut self) -> anyhow::Result<EnvironmentOutcome> {
-        let UdfPhase::Executing {
-            observed_time,
-            observed_rng,
-            ..
-        } = self.phase
-        else {
-            anyhow::bail!("Phase was not executing")
+        let (observed_time, observed_rng) = match self.phase {
+            UdfPhase::Importing { .. } => (false, false),
+            UdfPhase::Executing {
+                observed_time,
+                observed_rng,
+                ..
+            } => (observed_time, observed_rng),
+            UdfPhase::Finalized => {
+                anyhow::bail!("Phase was already finalized")
+            },
         };
         self.phase = UdfPhase::Finalized;
+        self.log_line_sender.close_channel();
         Ok(EnvironmentOutcome {
             observed_rng,
             observed_time,
         })
+    }
+
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+        self.check_executing()?;
+        Ok(self.shared.get_all_table_mappings())
+    }
+
+    fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
+        self.check_executing()?;
+        Ok(self.shared.get_table_mapping_without_system_tables())
     }
 }
 
@@ -415,8 +466,22 @@ async fn run_request<RT: Runtime>(
     udf_type: UdfType,
     path_and_args: ValidatedUdfPathAndArgs,
     shared: UdfShared<RT>,
+    mut log_line_receiver: mpsc::Receiver<LogLine>,
+    key_broker: KeyBroker,
+    execution_context: ExecutionContext,
+    query_journal: QueryJournal,
 ) -> anyhow::Result<UdfOutcome> {
     let (udf_path, arguments, udf_server_version) = path_and_args.consume();
+
+    // Spawn a separate Tokio thread to receive log lines.
+    let (log_line_tx, log_line_rx) = oneshot::channel();
+    let log_line_processor = rt.spawn("log_line_processor", async move {
+        let mut log_lines = vec![];
+        while let Some(line) = log_line_receiver.next().await {
+            log_lines.push(line);
+        }
+        let _ = log_line_tx.send(log_lines);
+    });
 
     // Phase 1: Load and register all source needed, and evaluate the UDF's module.
     let r: anyhow::Result<_> = try {
@@ -448,6 +513,9 @@ async fn run_request<RT: Runtime>(
     };
     if let Err(e) = r {
         let js_error = e.downcast::<JsError>()?;
+        client.shutdown().await?;
+        log_line_processor.into_join_future().await?;
+        let log_lines = log_line_rx.await?.into();
         let outcome = UdfOutcome {
             udf_path,
             arguments,
@@ -456,7 +524,7 @@ async fn run_request<RT: Runtime>(
             observed_rng: false,
             unix_timestamp: execution_time_seed.unix_timestamp,
             observed_time: false,
-            log_lines: vec![].into(),
+            log_lines,
             journal: QueryJournal::new(),
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
@@ -471,10 +539,12 @@ async fn run_request<RT: Runtime>(
         tx,
         rt,
         execution_time_seed.unix_timestamp,
-        QueryJournal::new(),
-        QueryJournal::new(),
+        query_journal,
         udf_path.is_system(),
         shared,
+        key_broker,
+        execution_context,
+        module_loader,
     );
     let r: anyhow::Result<_> = try {
         // Update our shared state with the updated table mappings before reentering
@@ -488,41 +558,41 @@ async fn run_request<RT: Runtime>(
                 EvaluateResult::Ready(r) => break r,
                 EvaluateResult::Pending(p) => p,
             };
-            let mut completions = vec![];
+            let mut completions = Completions::new();
 
-            let mut syscall_batch = None;
+            // TODO: The current implementation returns control to JS after each batch.
+            let mut syscall_batch: Option<AsyncSyscallBatch> = None;
             let mut batch_promise_ids = vec![];
 
-            for async_syscall in pending.async_syscalls {
-                let promise_id = async_syscall.promise_id;
-                match syscall_batch {
-                    None => {
-                        syscall_batch = Some(AsyncSyscallBatch::new(
-                            async_syscall.name,
-                            async_syscall.args,
-                        ));
-                        assert!(batch_promise_ids.is_empty());
-                        batch_promise_ids.push(promise_id);
-                    },
-                    Some(ref mut batch)
-                        if batch.can_push(&async_syscall.name, &async_syscall.args) =>
-                    {
-                        batch.push(async_syscall.name, async_syscall.args)?;
-                        batch_promise_ids.push(promise_id);
-                    },
-                    Some(batch) => {
-                        let results =
-                            DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch)
-                                .await?;
-                        assert_eq!(results.len(), batch_promise_ids.len());
-
-                        for (promise_id, result) in batch_promise_ids.drain(..).zip(results) {
-                            completions.push(AsyncSyscallCompletion { promise_id, result });
-                        }
-
-                        syscall_batch = None;
-                    },
+            for PendingAsyncSyscall {
+                promise_id,
+                name,
+                args,
+            } in pending.async_syscalls
+            {
+                if let Some(ref mut batch) = syscall_batch
+                    && batch.can_push(&name, &args)
+                {
+                    batch.push(name, args)?;
+                    batch_promise_ids.push(promise_id);
+                    continue;
                 }
+
+                if let Some(batch) = syscall_batch.take() {
+                    let results =
+                        DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await?;
+                    assert_eq!(results.len(), batch_promise_ids.len());
+
+                    for (promise_id, result) in batch_promise_ids.drain(..).zip(results) {
+                        completions
+                            .async_syscalls
+                            .push(AsyncSyscallCompletion { promise_id, result });
+                    }
+                }
+
+                syscall_batch = Some(AsyncSyscallBatch::new(name, args));
+                assert!(batch_promise_ids.is_empty());
+                batch_promise_ids.push(promise_id);
             }
             if let Some(batch) = syscall_batch {
                 let results =
@@ -530,8 +600,30 @@ async fn run_request<RT: Runtime>(
                 assert_eq!(results.len(), batch_promise_ids.len());
 
                 for (promise_id, result) in batch_promise_ids.into_iter().zip(results) {
-                    completions.push(AsyncSyscallCompletion { promise_id, result });
+                    completions
+                        .async_syscalls
+                        .push(AsyncSyscallCompletion { promise_id, result });
                 }
+            }
+
+            // Async ops don't do anything within UDFs.
+            for async_op in pending.async_ops {
+                let err = ErrorMetadata::bad_request(
+                    format!("No{}InQueriesOrMutations", async_op.request.name_for_error()),
+                    format!(
+                        "Can't use {} in queries and mutations. Please consider using an action. See https://docs.convex.dev/functions/actions for more details.",
+                        async_op.request.description_for_error()
+                    ),
+                );
+                completions.async_ops.push(AsyncOpCompletion {
+                    promise_id: async_op.promise_id,
+                    result: Err(err.into()),
+                });
+            }
+
+            // Dynamic imports aren't allowed in UDFs either.
+            if !pending.dynamic_imports.is_empty() {
+                anyhow::bail!("TODO: Propagate error to dynamic import");
             }
 
             provider.shared.update_table_mappings(provider.tx);
@@ -539,18 +631,16 @@ async fn run_request<RT: Runtime>(
         }
     };
 
-    let (result, outcome) = match r {
-        Ok(EvaluateReady { result, outcome }) => (Ok(JsonPackedValue::pack(result)), outcome),
+    let result = match r {
+        Ok(result) => Ok(JsonPackedValue::pack(result)),
         Err(e) => {
             let js_error = e.downcast::<JsError>()?;
-            // TODO: Ask the V8 thread for its outcome.
-            let outcome = EnvironmentOutcome {
-                observed_rng: false,
-                observed_time: false,
-            };
-            (Err(js_error), outcome)
+            Err(js_error)
         },
     };
+    let outcome = client.shutdown().await?;
+    log_line_processor.into_join_future().await?;
+    let log_lines = log_line_rx.await?.into();
     let outcome = UdfOutcome {
         udf_path,
         arguments,
@@ -559,7 +649,7 @@ async fn run_request<RT: Runtime>(
         observed_rng: outcome.observed_rng,
         unix_timestamp: execution_time_seed.unix_timestamp,
         observed_time: outcome.observed_time,
-        log_lines: vec![].into(),
+        log_lines,
         journal: provider.next_journal,
         result,
         syscall_trace: provider.syscall_trace,
@@ -633,6 +723,19 @@ impl<RT: Runtime> UdfShared<RT> {
         let mut inner = self.inner.lock();
         inner.queries.remove(&query_id).is_some()
     }
+
+    fn get_all_table_mappings(&self) -> (TableMapping, VirtualTableMapping) {
+        let inner = self.inner.lock();
+        (
+            inner.table_mapping.clone(),
+            inner.virtual_table_mapping.clone(),
+        )
+    }
+
+    fn get_table_mapping_without_system_tables(&self) -> TableMappingValue {
+        let inner = self.inner.lock();
+        inner.table_mapping.clone().into()
+    }
 }
 
 struct UdfSharedInner<RT: Runtime> {
@@ -657,6 +760,11 @@ struct Isolate2SyscallProvider<'a, RT: Runtime> {
     is_system: bool,
 
     syscall_trace: SyscallTrace,
+
+    key_broker: KeyBroker,
+    context: ExecutionContext,
+
+    module_loader: Arc<dyn ModuleLoader<RT>>,
 }
 
 impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
@@ -665,9 +773,11 @@ impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
         rt: RT,
         unix_timestamp: UnixTimestamp,
         prev_journal: QueryJournal,
-        next_journal: QueryJournal,
         is_system: bool,
         shared: UdfShared<RT>,
+        key_broker: KeyBroker,
+        context: ExecutionContext,
+        module_loader: Arc<dyn ModuleLoader<RT>>,
     ) -> Self {
         Self {
             tx,
@@ -675,9 +785,12 @@ impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
             shared,
             unix_timestamp,
             prev_journal,
-            next_journal,
+            next_journal: QueryJournal::new(),
             is_system,
             syscall_trace: SyscallTrace::new(),
+            key_broker,
+            context,
+            module_loader,
         }
     }
 }
@@ -693,11 +806,11 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     }
 
     fn key_broker(&self) -> &KeyBroker {
-        todo!()
+        &self.key_broker
     }
 
     fn context(&self) -> &ExecutionContext {
-        todo!()
+        &self.context
     }
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
@@ -705,7 +818,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     }
 
     fn persistence_version(&self) -> PersistenceVersion {
-        todo!()
+        self.tx.persistence_version()
     }
 
     fn table_filter(&self) -> TableFilter {
@@ -731,11 +844,19 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
 
     async fn validate_schedule_args(
         &mut self,
-        _udf_path: UdfPath,
-        _args: Vec<JsonValue>,
-        _scheduled_ts: UnixTimestamp,
+        udf_path: UdfPath,
+        args: Vec<JsonValue>,
+        scheduled_ts: UnixTimestamp,
     ) -> anyhow::Result<(UdfPath, ConvexArray)> {
-        todo!()
+        validate_schedule_args(
+            udf_path,
+            args,
+            scheduled_ts,
+            self.unix_timestamp,
+            &self.module_loader,
+            self.tx,
+        )
+        .await
     }
 
     fn file_storage_generate_upload_url(&self) -> anyhow::Result<String> {
@@ -784,6 +905,10 @@ async fn tokio_thread<RT: Runtime>(
     udf_type: UdfType,
     path_and_args: ValidatedUdfPathAndArgs,
     shared: UdfShared<RT>,
+    log_line_receiver: mpsc::Receiver<LogLine>,
+    key_broker: KeyBroker,
+    execution_context: ExecutionContext,
+    query_journal: QueryJournal,
 ) {
     let request = run_request(
         rt.clone(),
@@ -794,6 +919,10 @@ async fn tokio_thread<RT: Runtime>(
         udf_type,
         path_and_args,
         shared,
+        log_line_receiver,
+        key_broker,
+        execution_context,
+        query_journal,
     );
 
     let r = futures::select_biased! {
@@ -814,6 +943,9 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     execution_time_seed: SeedData,
     udf_type: UdfType,
     path_and_args: ValidatedUdfPathAndArgs,
+    key_broker: KeyBroker,
+    context: ExecutionContext,
+    query_journal: QueryJournal,
 ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
     initialize_v8();
 
@@ -823,7 +955,8 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     // We actually don't really care about "system timeout" but rather "total
     // timeout", both for how long we're tying up a request thread + serving
     // based on a tx timestamp that may be out of retention.
-    let total_timeout = Duration::from_secs(10);
+    // TODO: Decrease this for prod, maybe disable it entirely for tests?
+    let total_timeout = Duration::from_secs(128);
 
     // TODO: Move these into the timeout.
     let udf_config = UdfConfigModel::new(&mut tx).get().await?;
@@ -844,6 +977,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
         tx.table_mapping().clone(),
         tx.virtual_table_mapping().clone(),
     );
+    let (log_line_sender, log_line_receiver) = mpsc::channel(32);
     let environment = UdfEnvironment::new(
         rt.clone(),
         path_and_args.udf_path.is_system(),
@@ -851,6 +985,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
         execution_time_seed,
         shared.clone(),
         env_vars,
+        log_line_sender,
     );
 
     // The protocol is synchronous, so there should never be more than
@@ -877,6 +1012,10 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
             udf_type,
             path_and_args,
             shared,
+            log_line_receiver,
+            key_broker,
+            context,
+            query_journal,
         ),
     );
 
