@@ -240,11 +240,6 @@ impl TermShortlistBuilder {
         }
     }
 
-    fn add_empty(&mut self, term: QueryTerm) {
-        // TODO(CX-5637): Remove the call to add_empty
-        self.query_term_shortlist_items.entry(term).or_default();
-    }
-
     fn add_match(
         &mut self,
         term: QueryTerm,
@@ -301,8 +296,6 @@ pub(crate) fn shortlist_and_id_mapping(
     let mut shortlist_id_to_term_id = BTreeMap::new();
     let mut builder = TermShortlistBuilder::new();
     for (query_term, matches) in term_matches {
-        // TODO(CX-5637): Remove the call to add_empty
-        builder.add_empty(query_term.clone());
         for (distance, match_term, term_id) in matches {
             let new_shortlist_id = builder.add_match(query_term.clone(), match_term, distance);
             if let Some(new_shortlist_id) = new_shortlist_id {
@@ -317,8 +310,6 @@ impl TermShortlist {
     pub fn new(term_matches: BTreeMap<QueryTerm, BTreeSet<(EditDistance, Term)>>) -> Self {
         let mut builder = TermShortlistBuilder::new();
         for (query_term, matches) in term_matches {
-            // TODO(CX-5637): Remove the call to add_empty
-            builder.add_empty(query_term.clone());
             for (distance, match_term) in matches {
                 builder.add_match(query_term.clone(), match_term, distance);
             }
