@@ -211,7 +211,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                     }
                     let too_large =
                         (index_size > self.index_size_soft_limit).then_some(BuildReason::TooLarge);
-                    too_old.or(too_large)
+                    // Order matters! Too large is more urgent than too old.
+                    too_large.or(too_old)
                 },
             };
             if let Some(build_reason) = needs_backfill {
