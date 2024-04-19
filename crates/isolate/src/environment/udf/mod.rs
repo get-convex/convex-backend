@@ -718,7 +718,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                     results = with_release_permit(
                         &mut state.timeout,
                         &mut state.permit,
-                        DatabaseSyscallsV1::run_async_syscall_batch(&mut state.environment, batch),
+                        DatabaseSyscallsV1::run_async_syscall_batch(
+                            &mut state.environment, batch,
+                        ).map(Ok),
                     ).fuse() => results?,
                 };
                 (resolvers, results)

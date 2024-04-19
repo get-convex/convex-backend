@@ -27,7 +27,10 @@ use common::{
 };
 use database::{
     defaults::system_index,
-    query::TableFilter,
+    query::{
+        query_batch_next,
+        TableFilter,
+    },
     unauthorized_error,
     ResolvedQuery,
     SystemMetadataModel,
@@ -62,6 +65,8 @@ use crate::{
 
 pub mod types;
 pub mod virtual_table;
+
+pub type BatchKey = usize;
 
 pub static FILE_STORAGE_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_file_storage"
@@ -208,84 +213,93 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
     pub async fn get_file(
         &mut self,
         storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<FileStorageEntry>> {
-        let entry = match storage_id {
-            FileStorageId::LegacyStorageId(storage_id) => {
-                self._get_file_by_storage_id(storage_id).await?
-            },
+    ) -> anyhow::Result<Option<ParsedDocument<FileStorageEntry>>> {
+        self.get_file_batch(btreemap! {0 => storage_id})
+            .await
+            .remove(&0)
+            .context("batch_key missing")?
+    }
+
+    pub async fn get_file_batch(
+        &mut self,
+        storage_ids: BTreeMap<BatchKey, FileStorageId>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<ParsedDocument<FileStorageEntry>>>> {
+        let batch_size = storage_ids.len();
+        let mut results = BTreeMap::new();
+        let mut queries = BTreeMap::new();
+        for (batch_key, storage_id) in storage_ids {
+            match self.query_for_storage_id(storage_id) {
+                Ok(query) => {
+                    queries.insert(batch_key, query);
+                },
+                Err(e) => {
+                    results.insert(batch_key, Err(e));
+                },
+            }
+        }
+        let queries_to_fetch = queries
+            .iter_mut()
+            .map(|(batch_key, query)| (*batch_key, (query, Some(1))))
+            .collect();
+        for (batch_key, fetch_result) in query_batch_next(queries_to_fetch, self.tx).await {
+            let parsed_result = match fetch_result {
+                Err(e) => Err(e),
+                Ok(None) => Ok(None),
+                Ok(Some((doc, _))) => ParsedDocument::try_from(doc).map(Some),
+            };
+            results.insert(batch_key, parsed_result);
+        }
+        assert_eq!(results.len(), batch_size);
+        results
+    }
+
+    fn query_for_storage_id(
+        &mut self,
+        storage_id: FileStorageId,
+    ) -> anyhow::Result<ResolvedQuery<RT>> {
+        let index_query = match storage_id {
+            FileStorageId::LegacyStorageId(storage_id) => Query::index_range(IndexRange {
+                index_name: FILE_STORAGE_ID_INDEX.clone(),
+                range: vec![IndexRangeExpression::Eq(
+                    FILE_STORAGE_ID_FIELD.clone(),
+                    ConvexValue::try_from(storage_id)?.into(),
+                )],
+                order: Order::Asc,
+            }),
             FileStorageId::DocumentId(document_id) => {
-                self._get_file_by_document_id(document_id).await?
+                let table_name = self
+                    .tx
+                    .resolve_idv6(document_id, TableFilter::ExcludePrivateSystemTables)
+                    .context(ErrorMetadata::bad_request(
+                        "InvalidArgument",
+                        format!(
+                            "Invalid storage ID. Storage ID cannot be an ID on any table other \
+                             than '_storage'.",
+                        ),
+                    ))?;
+                anyhow::ensure!(
+                    table_name == *FILE_STORAGE_VIRTUAL_TABLE,
+                    ErrorMetadata::bad_request(
+                        "InvalidArgument",
+                        format!(
+                            "Invalid storage ID. Storage ID cannot be an ID on any table other \
+                             than '_storage'.",
+                        ),
+                    )
+                );
+                let table_mapping = self.tx.table_mapping().clone();
+                let document_id = self
+                    .tx
+                    .virtual_system_mapping()
+                    .virtual_id_v6_to_system_resolved_doc_id(
+                        &document_id,
+                        &table_mapping,
+                        &self.tx.virtual_table_mapping().clone(),
+                    )?;
+                Query::get(FILE_STORAGE_TABLE.clone(), document_id.into())
             },
-        }
-        .map(|f| f.into_value());
-        Ok(entry)
-    }
-
-    async fn _get_file_by_storage_id(
-        &mut self,
-        storage_id: StorageUuid,
-    ) -> anyhow::Result<Option<ParsedDocument<FileStorageEntry>>> {
-        let index_query = Query::index_range(IndexRange {
-            index_name: FILE_STORAGE_ID_INDEX.clone(),
-            range: vec![IndexRangeExpression::Eq(
-                FILE_STORAGE_ID_FIELD.clone(),
-                ConvexValue::try_from(storage_id.clone())?.into(),
-            )],
-            order: Order::Asc,
-        });
-        let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
-        let maybe_entry: Option<ParsedDocument<FileStorageEntry>> = query_stream
-            .expect_at_most_one(self.tx)
-            .await?
-            .map(|f| f.try_into())
-            .transpose()?;
-        if let Some(entry) = maybe_entry.as_ref() {
-            anyhow::ensure!(
-                entry.storage_id == storage_id,
-                "The storage_id doesn't match the stored one"
-            )
-        }
-        Ok(maybe_entry)
-    }
-
-    async fn _get_file_by_document_id(
-        &mut self,
-        document_id: DocumentIdV6,
-    ) -> anyhow::Result<Option<ParsedDocument<FileStorageEntry>>> {
-        let table_name = self
-            .tx
-            .resolve_idv6(document_id, TableFilter::ExcludePrivateSystemTables)
-            .context(ErrorMetadata::bad_request(
-                "InvalidArgument",
-                format!(
-                    "Invalid storage ID. Storage ID cannot be an ID on any table other than \
-                     '_storage'.",
-                ),
-            ))?;
-        anyhow::ensure!(
-            table_name == *FILE_STORAGE_VIRTUAL_TABLE,
-            ErrorMetadata::bad_request(
-                "InvalidArgument",
-                format!(
-                    "Invalid storage ID. Storage ID cannot be an ID on any table other than \
-                     '_storage'.",
-                ),
-            )
-        );
-        let table_mapping = self.tx.table_mapping().clone();
-        let document_id = self
-            .tx
-            .virtual_system_mapping()
-            .virtual_id_v6_to_system_resolved_doc_id(
-                &document_id,
-                &table_mapping,
-                &self.tx.virtual_table_mapping().clone(),
-            )?;
-        let result: Option<ResolvedDocument> = self.tx.get(document_id).await?;
-        Ok(match result {
-            Some(doc) => Some(doc.try_into()?),
-            None => None,
-        })
+        };
+        ResolvedQuery::new(self.tx, index_query)
     }
 
     pub async fn delete_file(
@@ -299,14 +313,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
         if !identity.is_system() {
             anyhow::bail!(unauthorized_error("delete_file"))
         }
-        let Some(entry) = (match storage_id {
-            FileStorageId::LegacyStorageId(storage_id) => {
-                self._get_file_by_storage_id(storage_id).await?
-            },
-            FileStorageId::DocumentId(document_id) => {
-                self._get_file_by_document_id(document_id).await?
-            },
-        }) else {
+        let Some(entry) = self.get_file(storage_id).await? else {
             return Ok(None);
         };
         let document_id = entry.id();

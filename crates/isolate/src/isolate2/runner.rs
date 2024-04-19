@@ -48,6 +48,7 @@ use model::{
     },
     file_storage::{
         types::FileStorageEntry,
+        BatchKey,
         FileStorageId,
     },
     udf_config::UdfConfigModel,
@@ -581,7 +582,7 @@ async fn run_request<RT: Runtime>(
 
                 if let Some(batch) = syscall_batch.take() {
                     let results =
-                        DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await?;
+                        DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await;
                     assert_eq!(results.len(), batch_promise_ids.len());
 
                     for (promise_id, result) in batch_promise_ids.drain(..).zip(results) {
@@ -597,7 +598,7 @@ async fn run_request<RT: Runtime>(
             }
             if let Some(batch) = syscall_batch {
                 let results =
-                    DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await?;
+                    DatabaseSyscallsV1::run_async_syscall_batch(&mut provider, batch).await;
                 assert_eq!(results.len(), batch_promise_ids.len());
 
                 for (promise_id, result) in batch_promise_ids.into_iter().zip(results) {
@@ -882,10 +883,10 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
         todo!()
     }
 
-    async fn file_storage_get_url(
+    async fn file_storage_get_url_batch(
         &mut self,
-        _storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<String>> {
+        _storage_ids: BTreeMap<BatchKey, FileStorageId>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>> {
         todo!()
     }
 

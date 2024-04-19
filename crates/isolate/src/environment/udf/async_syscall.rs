@@ -48,6 +48,7 @@ use keybroker::KeyBroker;
 use model::{
     file_storage::{
         types::FileStorageEntry,
+        BatchKey,
         FileStorageId,
     },
     scheduled_jobs::VirtualSchedulerModel,
@@ -122,6 +123,7 @@ pub fn system_table_guard(name: &TableName, expect_system_table: bool) -> anyhow
 #[derive(Debug)]
 pub enum AsyncSyscallBatch {
     Reads(Vec<AsyncRead>),
+    StorageGetUrls(Vec<JsonValue>),
     Unbatched { name: String, args: JsonValue },
 }
 
@@ -136,6 +138,7 @@ impl AsyncSyscallBatch {
         match &*name {
             "1.0/get" => Self::Reads(vec![AsyncRead::Get(args)]),
             "1.0/queryStreamNext" => Self::Reads(vec![AsyncRead::QueryStreamNext(args)]),
+            "1.0/storageGetUrl" => Self::StorageGetUrls(vec![args]),
             _ => Self::Unbatched { name, args },
         }
     }
@@ -148,6 +151,8 @@ impl AsyncSyscallBatch {
             (Self::Reads(_), "1.0/get") => true,
             (Self::Reads(_), "1.0/queryStreamNext") => true,
             (Self::Reads(_), _) => false,
+            (Self::StorageGetUrls(_), "1.0/storageGetUrl") => true,
+            (Self::StorageGetUrls(_), _) => false,
             (Self::Unbatched { .. }, _) => false,
         }
     }
@@ -158,6 +163,9 @@ impl AsyncSyscallBatch {
             (Self::Reads(batch_args), "1.0/queryStreamNext") => {
                 batch_args.push(AsyncRead::QueryStreamNext(args))
             },
+            (Self::StorageGetUrls(batch_args), "1.0/storageGetUrl") => {
+                batch_args.push(args);
+            },
             _ => anyhow::bail!("cannot push {name} onto {self:?}"),
         }
         Ok(())
@@ -167,6 +175,7 @@ impl AsyncSyscallBatch {
         match self {
             // 1.0/get is grouped in with 1.0/queryStreamNext.
             Self::Reads(_) => "1.0/queryStreamNext",
+            Self::StorageGetUrls(_) => "1.0/storageGetUrl",
             Self::Unbatched { name, .. } => name,
         }
     }
@@ -174,6 +183,7 @@ impl AsyncSyscallBatch {
     pub fn len(&self) -> usize {
         match self {
             Self::Reads(args) => args.len(),
+            Self::StorageGetUrls(args) => args.len(),
             Self::Unbatched { .. } => 1,
         }
     }
@@ -254,10 +264,10 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
     ) -> anyhow::Result<(UdfPath, ConvexArray)>;
 
     fn file_storage_generate_upload_url(&self) -> anyhow::Result<String>;
-    async fn file_storage_get_url(
+    async fn file_storage_get_url_batch(
         &mut self,
-        storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<String>>;
+        storage_ids: BTreeMap<BatchKey, FileStorageId>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>>;
     async fn file_storage_delete(&mut self, storage_id: FileStorageId) -> anyhow::Result<()>;
     async fn file_storage_get_entry(
         &mut self,
@@ -350,13 +360,20 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         Ok(post_url)
     }
 
-    async fn file_storage_get_url(
+    async fn file_storage_get_url_batch(
         &mut self,
-        storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<String>> {
-        self.file_storage
-            .get_url(self.phase.tx()?, storage_id)
-            .await
+        storage_ids: BTreeMap<BatchKey, FileStorageId>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>> {
+        let tx = match self.phase.tx() {
+            Ok(tx) => tx,
+            Err(e) => {
+                return storage_ids
+                    .into_keys()
+                    .map(|batch_key| (batch_key, Err(e.clone().into())))
+                    .collect();
+            },
+        };
+        self.file_storage.get_url_batch(tx, storage_ids).await
     }
 
     async fn file_storage_delete(&mut self, storage_id: FileStorageId) -> anyhow::Result<()> {
@@ -389,7 +406,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     pub async fn run_async_syscall_batch(
         provider: &mut P,
         batch: AsyncSyscallBatch,
-    ) -> anyhow::Result<Vec<anyhow::Result<String>>> {
+    ) -> Vec<anyhow::Result<String>> {
         let start = provider.rt().monotonic_now();
         let batch_name = batch.name().to_string();
         let timer = async_syscall_timer(&batch_name);
@@ -398,6 +415,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         // errors.
         let results = match batch {
             AsyncSyscallBatch::Reads(batch_args) => Self::query_batch(provider, batch_args).await,
+            AsyncSyscallBatch::StorageGetUrls(batch_args) => {
+                Self::storage_get_url_batch(provider, batch_args).await
+            },
             AsyncSyscallBatch::Unbatched { name, args } => {
                 let result = match &name[..] {
                     // Database
@@ -415,7 +435,6 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     "1.0/storageGenerateUploadUrl" => {
                         Self::storage_generate_upload_url(provider, args).await
                     },
-                    "1.0/storageGetUrl" => Self::storage_get_url(provider, args).await,
                     // Scheduling
                     "1.0/schedule" => Self::schedule(provider, args).await,
                     "1.0/cancel_job" => Self::cancel_job(provider, args).await,
@@ -444,10 +463,10 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             results.iter().all(|result| result.is_ok()),
         );
         timer.finish();
-        Ok(results
+        results
             .into_iter()
             .map(|result| anyhow::Ok(serde_json::to_string(&result?)?))
-            .collect())
+            .collect()
     }
 
     #[convex_macro::instrument_future]
@@ -493,18 +512,40 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     }
 
     #[convex_macro::instrument_future]
-    async fn storage_get_url(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn storage_get_url_batch(
+        provider: &mut P,
+        batch_args: Vec<JsonValue>,
+    ) -> Vec<anyhow::Result<JsonValue>> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct GetUrlArgs {
             storage_id: String,
         }
-        let storage_id: FileStorageId = with_argument_error("storage.getUrl", || {
-            let GetUrlArgs { storage_id } = serde_json::from_value(args)?;
-            storage_id.parse().context(ArgName("storageId"))
-        })?;
-        let url = provider.file_storage_get_url(storage_id).await?;
-        Ok(url.into())
+        let batch_size = batch_args.len();
+        let mut results = BTreeMap::new();
+        let mut storage_ids = BTreeMap::new();
+        for (idx, args) in batch_args.into_iter().enumerate() {
+            let storage_id_result = with_argument_error("storage.getUrl", || {
+                let GetUrlArgs { storage_id } = serde_json::from_value(args)?;
+                storage_id.parse().context(ArgName("storageId"))
+            });
+            match storage_id_result {
+                Ok(storage_id) => {
+                    storage_ids.insert(idx, storage_id);
+                },
+                Err(e) => {
+                    assert!(results.insert(idx, Err(e)).is_none());
+                },
+            }
+        }
+        let urls = provider.file_storage_get_url_batch(storage_ids).await;
+        for (batch_key, url) in urls {
+            assert!(results
+                .insert(batch_key, url.map(JsonValue::from))
+                .is_none());
+        }
+        assert_eq!(results.len(), batch_size);
+        results.into_values().collect()
     }
 
     #[convex_macro::instrument_future]

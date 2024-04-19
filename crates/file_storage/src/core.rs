@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     ops::Bound,
     sync::Arc,
 };
@@ -32,12 +33,14 @@ use keybroker::{
     Identity,
     KeyBroker,
 };
+use maplit::btreemap;
 use mime::Mime;
 use model::file_storage::{
     types::{
         FileStorageEntry,
         StorageUuid,
     },
+    BatchKey,
     FileStorageId,
     FileStorageModel,
 };
@@ -92,15 +95,30 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         tx: &mut Transaction<RT>,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<String>> {
+        self.get_url_batch(tx, btreemap! { 0 => storage_id })
+            .await
+            .remove(&0)
+            .context("batch_key missing")?
+    }
+
+    pub async fn get_url_batch(
+        &self,
+        tx: &mut Transaction<RT>,
+        storage_ids: BTreeMap<BatchKey, FileStorageId>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>> {
         let origin = &self.convex_origin;
-        let file: Option<FileStorageEntry> = self.get_file_entry(tx, storage_id.clone()).await?;
-        Ok(match file {
-            Some(entry) => {
-                let storage_id = entry.storage_id;
-                Some(format!("{origin}/api/storage/{storage_id}"))
-            },
-            None => None,
-        })
+        let files = self.get_file_entry_batch(tx, storage_ids).await;
+        files
+            .into_iter()
+            .map(|(batch_key, result)| {
+                (
+                    batch_key,
+                    result.map(|file| {
+                        file.map(|entry| format!("{origin}/api/storage/{}", entry.storage_id))
+                    }),
+                )
+            })
+            .collect()
     }
 
     pub async fn delete(
@@ -123,7 +141,23 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         tx: &mut Transaction<RT>,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<FileStorageEntry>> {
-        FileStorageModel::new(tx).get_file(storage_id).await
+        self.get_file_entry_batch(tx, btreemap! { 0 => storage_id })
+            .await
+            .remove(&0)
+            .context("batch_key missing")?
+    }
+
+    pub async fn get_file_entry_batch(
+        &self,
+        tx: &mut Transaction<RT>,
+        storage_ids: BTreeMap<BatchKey, FileStorageId>,
+    ) -> BTreeMap<BatchKey, anyhow::Result<Option<FileStorageEntry>>> {
+        FileStorageModel::new(tx)
+            .get_file_batch(storage_ids)
+            .await
+            .into_iter()
+            .map(|(batch_key, result)| (batch_key, result.map(|r| r.map(|r| r.into_value()))))
+            .collect()
     }
 
     pub async fn get_file_stream(

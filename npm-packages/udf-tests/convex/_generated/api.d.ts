@@ -70,6 +70,7 @@ import type * as search from "../search.js";
 import type * as shapes from "../shapes.js";
 import type * as size_errors from "../size_errors.js";
 import type * as sourceMaps from "../sourceMaps.js";
+import type * as storage from "../storage.js";
 import type * as sync from "../sync.js";
 import type * as unicode from "../unicode.js";
 import type * as userError from "../userError.js";
@@ -141,6 +142,7 @@ declare const fullApi: ApiFromModules<{
   shapes: typeof shapes;
   size_errors: typeof size_errors;
   sourceMaps: typeof sourceMaps;
+  storage: typeof storage;
   sync: typeof sync;
   unicode: typeof unicode;
   userError: typeof userError;

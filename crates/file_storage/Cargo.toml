@@ -17,6 +17,7 @@ errors = { path = "../errors" }
 futures = { workspace = true }
 headers = { workspace = true }
 keybroker = { path = "../keybroker" }
+maplit = { workspace = true }
 metrics = { path = "../metrics" }
 mime = { workspace = true }
 model = { path = "../model" }

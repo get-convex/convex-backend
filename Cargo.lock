@@ -2199,6 +2199,7 @@ dependencies = [
  "futures",
  "headers",
  "keybroker",
+ "maplit",
  "metrics",
  "mime",
  "model",
