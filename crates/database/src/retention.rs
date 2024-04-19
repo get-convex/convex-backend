@@ -116,11 +116,13 @@ use crate::{
         latest_min_document_snapshot_timer,
         latest_min_snapshot_timer,
         log_document_retention_cursor_age,
+        log_document_retention_no_cursor,
         log_document_retention_scanned_document,
         log_retention_cursor_age,
         log_retention_documents_deleted,
         log_retention_expired_index_entry,
         log_retention_index_entries_deleted,
+        log_retention_no_cursor,
         log_retention_scanned_document,
         log_snapshot_verification_age,
         retention_advance_timestamp_timer,
@@ -1249,13 +1251,22 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         retention_type: RetentionType,
     ) -> anyhow::Result<Timestamp> {
         let checkpoint = Self::get_checkpoint_no_logging(persistence, retention_type).await?;
-        match retention_type {
-            RetentionType::Document => log_document_retention_cursor_age(
-                (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
-            ),
-            RetentionType::Index => log_retention_cursor_age(
-                (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
-            ),
+        if checkpoint > Timestamp::MIN {
+            // Only log if the checkpoint has been written once, to avoid logging time since
+            // epoch when the instance is first starting up.
+            match retention_type {
+                RetentionType::Document => log_document_retention_cursor_age(
+                    (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
+                ),
+                RetentionType::Index => log_retention_cursor_age(
+                    (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
+                ),
+            }
+        } else {
+            match retention_type {
+                RetentionType::Document => log_document_retention_no_cursor(),
+                RetentionType::Index => log_retention_no_cursor(),
+            }
         }
         Ok(checkpoint)
     }

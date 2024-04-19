@@ -410,6 +410,22 @@ pub fn log_document_retention_cursor_age(age_secs: f64) {
     log_gauge(&DOCUMENT_RETENTION_CURSOR_AGE_SECONDS, age_secs)
 }
 
+register_convex_gauge!(
+    RETENTION_MISSING_CURSOR_INFO,
+    "Index retention has no cursor"
+);
+pub fn log_retention_no_cursor() {
+    log_gauge(&RETENTION_MISSING_CURSOR_INFO, 1.0)
+}
+
+register_convex_gauge!(
+    DOCUMENT_RETENTION_MISSING_CURSOR_INFO,
+    "Document retention has no cursor"
+);
+pub fn log_document_retention_no_cursor() {
+    log_gauge(&DOCUMENT_RETENTION_MISSING_CURSOR_INFO, 1.0)
+}
+
 register_convex_counter!(
     RETENTION_SCANNED_DOCUMENT_TOTAL,
     "Count of documents scanned by retention",
