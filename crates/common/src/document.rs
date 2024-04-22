@@ -773,16 +773,20 @@ impl<D> ParsedDocument<D> {
     }
 }
 
-impl<D, E> TryFrom<ResolvedDocument> for ParsedDocument<D>
+impl<D> TryFrom<ResolvedDocument> for ParsedDocument<D>
 where
-    D: TryFrom<ConvexObject, Error = E>,
+    D: TryFrom<ConvexObject, Error = anyhow::Error>,
 {
-    type Error = E;
+    type Error = anyhow::Error;
 
-    fn try_from(document: ResolvedDocument) -> Result<Self, E> {
+    fn try_from(document: ResolvedDocument) -> anyhow::Result<Self> {
         let id = document.id;
         let creation_time = document.creation_time;
-        let value: D = document.into_value().0.try_into()?;
+        let value: D = document
+            .into_value()
+            .0
+            .try_into()
+            .with_context(|| format!("Failed to parse document id: {id}"))?;
         Ok(Self {
             id,
             creation_time,
