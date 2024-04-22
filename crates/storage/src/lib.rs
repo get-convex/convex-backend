@@ -625,7 +625,6 @@ impl StorageExt for Arc<dyn Storage> {
 
 const STORAGE_GET_RETRIES: usize = 5;
 
-#[allow(clippy::blocks_in_conditions)]
 #[try_stream(ok = Bytes, error = futures::io::Error)]
 async fn stream_object_with_retries(
     mut stream: BoxStream<'static, futures::io::Result<Bytes>>,

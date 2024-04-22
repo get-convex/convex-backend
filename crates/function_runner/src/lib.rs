@@ -1,4 +1,5 @@
 #![feature(lazy_cell)]
+#![feature(arc_unwrap_or_clone)]
 #![feature(iterator_try_collect)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(try_blocks)]

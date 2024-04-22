@@ -224,7 +224,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
             let start = Instant::now();
             let result = schema.search(
                 &segment,
-                query,
+                &query,
                 overfetch_delta,
                 slow_query_threshold,
                 require_exact,
@@ -232,11 +232,12 @@ impl<RT: Runtime> SearcherImpl<RT> {
             let query_duration = Instant::now().duration_since(start);
             if query_duration > Duration::from_millis(slow_query_threshold) {
                 tracing::warn!(
-                    "Slow vector query, duration: {}ms, results: {:?} schema: {:?}, \
+                    "Slow vector query, duration: {}ms, results: {:?} schema: {:?}, query: {:?}, \
                      overfetch_delta: {overfetch_delta}",
                     query_duration.as_millis(),
                     result.as_ref().map(|value| value.len()),
                     schema,
+                    query,
                 )
             }
             timer.finish();

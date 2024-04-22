@@ -1,5 +1,6 @@
 #![feature(async_closure)]
 #![feature(bound_as_ref)]
+#![feature(bound_map)]
 #![feature(coroutines)]
 #![feature(proc_macro_hygiene)]
 #![feature(stmt_expr_attributes)]

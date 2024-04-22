@@ -1,6 +1,7 @@
 #![feature(iter_from_coroutine, coroutines)]
 #![feature(let_chains)]
 #![feature(lazy_cell)]
+#![feature(slice_group_by)]
 #![feature(try_blocks)]
 #![feature(is_sorted)]
 #![feature(ptr_metadata)]

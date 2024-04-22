@@ -10,6 +10,7 @@
 #![feature(never_type)]
 #![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
+#![feature(arc_unwrap_or_clone)]
 #![feature(round_char_boundary)]
 
 pub mod bundled_js;
