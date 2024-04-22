@@ -36,7 +36,6 @@ use common::{
     types::{
         AllowedVisibility,
         FunctionCaller,
-        ModuleEnvironment,
         UdfType,
     },
     RequestId,
@@ -46,16 +45,15 @@ use database::{
     ResolvedQuery,
     Transaction,
 };
-use errors::ErrorMetadataAnyhowExt;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use futures::{
     future::Either,
     select_biased,
     Future,
     FutureExt,
-};
-use isolate::{
-    ActionOutcome,
-    SyscallTrace,
 };
 use keybroker::Identity;
 use model::{
@@ -82,10 +80,7 @@ use value::ResolvedDocumentId;
 
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
-    function_log::{
-        ActionCompletion,
-        FunctionExecutionLog,
-    },
+    function_log::FunctionExecutionLog,
 };
 
 mod metrics;
@@ -419,11 +414,11 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         {
             Ok(analyzed_function) => analyzed_function.udf_type,
             Err(error) => {
-                // We don't know what the UdfType is since this is an invalid module.
-                // Log as mutation for now.
-                let udf_type = UdfType::Mutation;
                 SchedulerModel::new(&mut tx)
-                    .complete(job_id, ScheduledJobState::Failed(error.clone()))
+                    .complete(
+                        job_id,
+                        ScheduledJobState::Failed(error.user_facing_message()),
+                    )
                     .await?;
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_analyze_failure")
@@ -431,14 +426,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // NOTE: We didn't actually run anything, so we are creating a request context
                 // just report the error.
                 let context = ExecutionContext::new(request_id, &caller);
-                self.function_log.log_error(
+                // We don't know what the UdfType is since this is an invalid module.
+                // Log as mutation for now.
+                self.function_log.log_mutation_system_error(
+                    &error,
                     job.udf_path,
-                    udf_type,
-                    self.rt.unix_timestamp(),
-                    error,
-                    caller,
-                    None,
+                    job.udf_args,
                     identity,
+                    self.rt.monotonic_now(),
+                    caller,
                     context,
                 );
                 return Ok(job_id);
@@ -474,16 +470,45 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // NOTE: We didn't actually run anything, so we are creating a request context
                 // just report the error.
                 let context = ExecutionContext::new(request_id, &caller);
-                self.function_log.log_error(
-                    job.udf_path,
-                    udf_type,
-                    self.rt.unix_timestamp(),
-                    message,
-                    caller,
-                    None,
-                    identity,
-                    context,
-                );
+                match udf_type {
+                    UdfType::Query => {
+                        self.function_log.log_query_system_error(
+                            &ErrorMetadata::bad_request(
+                                "UnsupportedScheduledFunctionType",
+                                message,
+                            )
+                            .into(),
+                            job.udf_path,
+                            job.udf_args,
+                            identity,
+                            self.rt.monotonic_now(),
+                            caller,
+                            context,
+                        );
+                    },
+                    UdfType::HttpAction => {
+                        // It would be more correct to log this as an HTTP action, but
+                        // we don't have things like a URL or method to log with, so log
+                        // it as an action with an error message.
+                        self.function_log.log_action_system_error(
+                            &ErrorMetadata::bad_request(
+                                "UnsupportedScheduledFunctionType",
+                                message,
+                            )
+                            .into(),
+                            job.udf_path,
+                            job.udf_args,
+                            identity,
+                            self.rt.monotonic_now(),
+                            caller,
+                            vec![].into(),
+                            context,
+                        );
+                    },
+                    // Should be unreachable given the outer match statement
+                    UdfType::Mutation => unreachable!(),
+                    UdfType::Action => unreachable!(),
+                }
             },
         };
 
@@ -515,17 +540,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let (mut tx, mut outcome) = match result {
             Ok(r) => r,
             Err(e) => {
-                self.runner
-                    .log_udf_system_error(
-                        job.udf_path.clone(),
-                        job.udf_args.clone(),
-                        identity,
-                        start,
-                        caller,
-                        &e,
-                        context,
-                    )
-                    .await?;
+                self.function_log.log_mutation_system_error(
+                    &e,
+                    job.udf_path.clone(),
+                    job.udf_args.clone(),
+                    identity,
+                    start,
+                    caller,
+                    context,
+                );
                 return Err(e);
             },
         };
@@ -577,7 +600,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             stats,
             execution_time,
             caller,
-            false,
             usage_tracker,
             context,
         );
@@ -640,8 +662,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     report_error(&mut err);
                     self.rt.wait(delay).await;
                 }
-                self.function_log
-                    .log_action(completion, false, usage_tracker);
+                self.function_log.log_action(completion, usage_tracker);
             },
             ScheduledJobState::InProgress => {
                 // This case can happen if there is a system error while executing
@@ -655,33 +676,20 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_action_error")
                     .await?;
-                let outcome = ActionOutcome {
-                    unix_timestamp: self.rt.unix_timestamp(),
-                    udf_path: job.udf_path,
-                    arguments: job.udf_args.clone(),
-                    identity: identity.into(),
-                    result: Err(JsError::from_message(message)),
-                    syscall_trace: SyscallTrace::new(),
-                    udf_server_version: None,
-                };
                 // TODO: This is wrong. We don't know the executionId the action has been
                 // started with. We generate a new executionId and use it to log the failures. I
                 // guess the correct behavior here is to store the executionId in the state so
                 // we can log correctly here.
                 let context = ExecutionContext::new(request_id, &caller);
-                self.function_log.log_action(
-                    ActionCompletion {
-                        outcome,
-                        execution_time: Duration::from_secs(0),
-                        environment: ModuleEnvironment::Invalid,
-                        memory_in_mb: 0,
-                        context,
-                        unix_timestamp: self.rt.unix_timestamp(),
-                        caller,
-                        log_lines: vec![].into(),
-                    },
-                    true,
-                    usage_tracker,
+                self.function_log.log_action_system_error(
+                    &JsError::from_message(message).into(),
+                    job.udf_path,
+                    job.udf_args.clone(),
+                    identity.into(),
+                    self.rt.monotonic_now(),
+                    caller,
+                    vec![].into(),
+                    context,
                 );
             },
             state => {

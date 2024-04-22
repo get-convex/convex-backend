@@ -30,7 +30,6 @@ use common::{
     types::{
         AllowedVisibility,
         FunctionCaller,
-        ModuleEnvironment,
         UdfType,
     },
     RequestId,
@@ -49,11 +48,7 @@ use futures::{
     FutureExt,
     StreamExt,
 };
-use isolate::{
-    ActionOutcome,
-    JsonPackedValue,
-    SyscallTrace,
-};
+use isolate::JsonPackedValue;
 use keybroker::Identity;
 use model::{
     backend_state::{
@@ -78,10 +73,7 @@ use value::ResolvedDocumentId;
 
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
-    function_log::{
-        ActionCompletion,
-        FunctionExecutionLog,
-    },
+    function_log::FunctionExecutionLog,
 };
 
 mod metrics;
@@ -357,17 +349,15 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let (mut tx, mut outcome) = match mutation_result {
             Ok(r) => r,
             Err(e) => {
-                self.runner
-                    .log_udf_system_error(
-                        job.cron_spec.udf_path.clone(),
-                        job.cron_spec.udf_args.clone(),
-                        identity,
-                        start,
-                        caller,
-                        &e,
-                        context,
-                    )
-                    .await?;
+                self.function_log.log_mutation_system_error(
+                    &e,
+                    job.cron_spec.udf_path.clone(),
+                    job.cron_spec.udf_args.clone(),
+                    identity,
+                    start,
+                    caller,
+                    context,
+                );
                 return Err(e);
             },
         };
@@ -446,7 +436,6 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             stats,
             execution_time,
             caller,
-            false,
             usage_tracker,
             context,
         );
@@ -524,8 +513,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     report_error(&mut err);
                     self.rt.wait(delay).await;
                 }
-                self.function_log
-                    .log_action(completion, false, usage_tracker);
+                self.function_log.log_action(completion, usage_tracker);
             },
             CronJobState::InProgress => {
                 // This case can happen if there is a system error while executing
@@ -562,29 +550,15 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 self.database
                     .commit_with_write_source(tx, "cron_finish_action")
                     .await?;
-                let unix_timestamp = self.rt.unix_timestamp();
-                let outcome = ActionOutcome {
-                    unix_timestamp,
-                    udf_path: job.cron_spec.udf_path,
-                    arguments: job.cron_spec.udf_args.clone(),
+                self.function_log.log_action_system_error(
+                    &err.into(),
+                    job.cron_spec.udf_path,
+                    job.cron_spec.udf_args.clone(),
                     identity,
-                    result: Err(err),
-                    syscall_trace: SyscallTrace::new(),
-                    udf_server_version: None,
-                };
-                self.function_log.log_action(
-                    ActionCompletion {
-                        outcome,
-                        execution_time: Duration::from_secs(0),
-                        environment: ModuleEnvironment::Invalid,
-                        memory_in_mb: 0,
-                        context,
-                        unix_timestamp,
-                        caller,
-                        log_lines: vec![].into(),
-                    },
-                    true,
-                    usage_tracker,
+                    self.rt.monotonic_now(),
+                    caller,
+                    vec![].into(),
+                    context,
                 );
             },
         }
@@ -675,19 +649,45 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 "Skipping {num_skipped} run(s) of {name} because multiple scheduled runs are in \
                  the past"
             );
-            self.function_log.log_error(
-                job.cron_spec.udf_path.clone(),
-                udf_type,
-                self.rt.unix_timestamp(),
-                format!(
-                    "Skipping {num_skipped} run(s) of {name} because multiple scheduled runs are \
-                     in the past"
-                ),
-                FunctionCaller::Cron,
-                None,
-                identity,
-                context,
-            );
+            match udf_type {
+                // These aren't system errors in the sense that they represent an issue with Convex
+                // (e.g. they can occur due to the developer pausing their deployment)
+                // but they get logged similarly, since they shouldn't count towards usage and
+                // should appear as errors
+                UdfType::Mutation => {
+                    self.function_log.log_mutation_system_error(
+                        &anyhow::anyhow!(
+                            "Skipping {num_skipped} run(s) of {name} because multiple scheduled \
+                             runs are in the past"
+                        ),
+                        job.cron_spec.udf_path.clone(),
+                        job.cron_spec.udf_args.clone(),
+                        identity,
+                        self.rt.monotonic_now(),
+                        FunctionCaller::Cron,
+                        context,
+                    );
+                },
+                UdfType::Action => {
+                    self.function_log.log_action_system_error(
+                        &anyhow::anyhow!(
+                            "Skipping {num_skipped} run(s) of {name} because multiple scheduled \
+                             runs are in the past"
+                        ),
+                        job.cron_spec.udf_path.clone(),
+                        job.cron_spec.udf_args.clone(),
+                        identity,
+                        self.rt.monotonic_now(),
+                        FunctionCaller::Cron,
+                        vec![].into(),
+                        context,
+                    );
+                },
+                UdfType::Query | UdfType::HttpAction => {
+                    anyhow::bail!("Executing unexpected function type as a cron")
+                },
+            }
+
             let status = CronJobStatus::Canceled {
                 num_canceled: num_skipped,
             };

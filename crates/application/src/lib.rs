@@ -921,14 +921,6 @@ impl<RT: Runtime> Application<RT> {
             .await
         {
             Ok(result) => Ok(result),
-            Err(e) if e.is_deterministic_user_error() => Ok(Err(ActionError {
-                error: RedactedJsError::from_js_error(
-                    JsError::from_error(e),
-                    block_logging,
-                    request_id,
-                ),
-                log_lines: RedactedLogLines::empty(),
-            })),
             Err(e) => anyhow::bail!(e),
         }
     }
@@ -967,13 +959,6 @@ impl<RT: Runtime> Application<RT> {
                 block_logging,
                 RequestId::new(),
             ))),
-            Err(e) if e.is_deterministic_user_error() => {
-                Ok(HttpActionResponse::from(RedactedJsError::from_js_error(
-                    JsError::from_error(e),
-                    block_logging,
-                    RequestId::new(),
-                )))
-            },
             Err(e) => anyhow::bail!(e),
         }
     }

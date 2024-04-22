@@ -92,6 +92,7 @@ use isolate::{
     ConcurrencyLimiter,
     FunctionOutcome,
     FunctionResult,
+    HttpActionOutcome,
     HttpActionRequest,
     IsolateClient,
     IsolateConfig,
@@ -813,16 +814,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let (mut tx, mut outcome) = match result {
                 Ok(r) => r,
                 Err(e) => {
-                    self.log_udf_system_error(
+                    self.function_log.log_mutation_system_error(
+                        &e,
                         udf_path,
                         arguments,
                         identity,
                         start,
                         caller,
-                        &e,
                         context.clone(),
-                    )
-                    .await?;
+                    );
                     return Err(e);
                 },
             };
@@ -847,7 +847,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         stats,
                         execution_time,
                         caller,
-                        false,
                         usage_tracker,
                         context.clone(),
                     );
@@ -903,13 +902,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         }
                         outcome.result = Err(JsError::from_error_ref(&e));
 
-                        self.function_log.log_mutation(
-                            outcome.clone(),
+                        self.function_log.log_mutation_occ_error(
+                            outcome,
                             stats,
                             execution_time,
                             caller,
-                            true,
-                            usage_tracker,
                             context.clone(),
                         );
                         log_occ_retries(backoff.failures() as usize);
@@ -923,7 +920,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 stats,
                 execution_time,
                 caller,
-                false,
                 usage_tracker,
                 context.clone(),
             );
@@ -1046,22 +1042,38 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let context = ExecutionContext::new(request_id.clone(), &caller);
         let name = name.canonicalize();
         let usage_tracking = FunctionUsageTracker::new();
-        let completion = self
+        let start = self.runtime.monotonic_now();
+        let completion_result = self
             .run_action_no_udf_log(
-                name,
-                arguments,
+                name.clone(),
+                arguments.clone(),
                 identity.clone(),
                 allowed_visibility,
-                caller,
+                caller.clone(),
                 usage_tracking.clone(),
-                context,
+                context.clone(),
             )
-            .await?;
+            .await;
+        let completion = match completion_result {
+            Ok(c) => c,
+            Err(e) => {
+                self.function_log.log_action_system_error(
+                    &e,
+                    name,
+                    arguments,
+                    identity.into(),
+                    start,
+                    caller,
+                    vec![].into(),
+                    context,
+                );
+                anyhow::bail!(e)
+            },
+        };
         let log_lines =
             RedactedLogLines::from_log_lines(completion.log_lines().clone(), block_logging);
         let result = completion.outcome.result.clone();
-        self.function_log
-            .log_action(completion, false, usage_tracking);
+        self.function_log.log_action(completion, usage_tracking);
 
         let value = match result {
             Ok(ref value) => value.unpack(),
@@ -1173,6 +1185,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 });
             },
         };
+        let udf_server_version = path_and_args.npm_version().clone();
         // We should not be missing the module given we validated the path above
         // which requires the module to exist.
         let module_version = self
@@ -1182,8 +1195,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .context("Missing a valid module_version")?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
 
+        let inert_identity = tx.inert_identity();
         let timer = function_total_timer(module_version.environment, UdfType::Action);
-        match module_version.environment {
+        let completion_result = match module_version.environment {
             ModuleEnvironment::Isolate => {
                 // TODO: This is the only use case of clone. We should get rid of clone,
                 // when we deprecate that codepath.
@@ -1205,19 +1219,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     },
                 )
                 .await;
-                let outcome = outcome_result?;
                 let memory_in_mb: u64 = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
                     .try_into()
                     .unwrap();
                 timer.finish();
-                Ok(ActionCompletion {
+                outcome_result.map(|outcome| ActionCompletion {
                     outcome,
                     execution_time: start.elapsed(),
                     environment: ModuleEnvironment::Isolate,
                     memory_in_mb,
-                    context,
+                    context: context.clone(),
                     unix_timestamp,
-                    caller,
+                    caller: caller.clone(),
                     log_lines,
                 })
             },
@@ -1309,33 +1322,63 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     },
                 )
                 .await;
-                let node_outcome = node_outcome_result?;
-
-                let outcome = ActionOutcome {
-                    udf_path: name.clone(),
-                    arguments,
-                    identity: tx.inert_identity(),
-                    unix_timestamp,
-                    result: node_outcome.result.map(JsonPackedValue::pack),
-                    syscall_trace: node_outcome.syscall_trace,
-                    udf_server_version,
-                };
                 timer.finish();
-                let memory_in_mb = node_outcome.memory_used_in_mb;
-                Ok(ActionCompletion {
-                    outcome,
-                    execution_time: start.elapsed(),
-                    environment: ModuleEnvironment::Node,
-                    memory_in_mb,
-                    context,
-                    unix_timestamp,
-                    caller,
-                    log_lines,
+                node_outcome_result.map(|node_outcome| {
+                    let outcome = ActionOutcome {
+                        udf_path: name.clone(),
+                        arguments: arguments.clone(),
+                        identity: tx.inert_identity(),
+                        unix_timestamp,
+                        result: node_outcome.result.map(JsonPackedValue::pack),
+                        syscall_trace: node_outcome.syscall_trace,
+                        udf_server_version,
+                    };
+                    ActionCompletion {
+                        outcome,
+                        execution_time: start.elapsed(),
+                        environment: ModuleEnvironment::Node,
+                        memory_in_mb: node_outcome.memory_used_in_mb,
+                        context: context.clone(),
+                        unix_timestamp,
+                        caller: caller.clone(),
+                        log_lines,
+                    }
                 })
             },
             ModuleEnvironment::Invalid => {
-                anyhow::bail!("Attempting to run an invalid function")
+                Err(anyhow::anyhow!("Attempting to run an invalid function"))
             },
+        };
+        match completion_result {
+            Ok(c) => Ok(c),
+            Err(e) if e.is_deterministic_user_error() => {
+                let outcome = ActionOutcome::from_error(
+                    JsError::from_error(e),
+                    name,
+                    arguments,
+                    inert_identity,
+                    self.runtime.clone(),
+                    udf_server_version,
+                );
+                Ok(ActionCompletion {
+                    outcome,
+                    execution_time: start.elapsed(),
+                    environment: module_version.environment,
+                    memory_in_mb: match module_version.environment {
+                        ModuleEnvironment::Isolate => (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
+                            .try_into()
+                            .unwrap(),
+                        // This isn't correct but we don't have a value to use here.
+                        ModuleEnvironment::Node => 0,
+                        ModuleEnvironment::Invalid => 0,
+                    },
+                    context,
+                    unix_timestamp,
+                    caller,
+                    log_lines: vec![].into(),
+                })
+            },
+            Err(e) => Err(e),
         }
     }
 
@@ -1379,7 +1422,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let unix_timestamp = self.runtime.unix_timestamp();
         let context = ExecutionContext::new(request_id, &caller);
 
-        let route = http_request.head.route_for_failure()?;
+        let route = http_request.head.route_for_failure();
+        let http_request_head = http_request.head.clone();
+        let inert_identity = InertIdentity::from(identity.clone());
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
         let outcome_future = self
             .http_actions
@@ -1407,16 +1452,53 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 )
             })
             .await;
-        let outcome = outcome_result?;
-        self.function_log.log_http_action(
-            outcome.clone(),
-            log_lines,
-            start.elapsed(),
-            caller,
-            usage_tracker,
-            context,
-        );
-        Ok(outcome.result)
+        match outcome_result {
+            Ok(outcome) => {
+                let result = outcome.result.clone();
+                self.function_log.log_http_action(
+                    outcome,
+                    log_lines,
+                    start.elapsed(),
+                    caller,
+                    usage_tracker,
+                    context,
+                );
+                Ok(result)
+            },
+            Err(e) if e.is_deterministic_user_error() => {
+                let result = Err(JsError::from_error(e));
+                let outcome = HttpActionOutcome::new(
+                    None,
+                    http_request_head,
+                    inert_identity,
+                    unix_timestamp,
+                    result.clone(),
+                    None,
+                    None,
+                );
+                self.function_log.log_http_action(
+                    outcome.clone(),
+                    log_lines,
+                    start.elapsed(),
+                    caller,
+                    usage_tracker,
+                    context,
+                );
+                Ok(result)
+            },
+            Err(e) => {
+                self.function_log.log_http_action_system_error(
+                    &e,
+                    http_request_head,
+                    inert_identity,
+                    start,
+                    caller,
+                    log_lines,
+                    context,
+                );
+                Err(e)
+            },
+        }
     }
 
     #[minitrace::trace]
@@ -1748,39 +1830,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             None => return Ok(None),
         };
         Ok(Some(result))
-    }
-
-    pub async fn log_udf_system_error(
-        &self,
-        udf_path: CanonicalizedUdfPath,
-        arguments: ConvexArray,
-        identity: InertIdentity,
-        start: RT::Instant,
-        caller: FunctionCaller,
-        e: &anyhow::Error,
-        context: ExecutionContext,
-    ) -> anyhow::Result<()> {
-        // TODO: We currently synthesize a `UdfOutcome` for
-        // an internal system error. If we decide we want to keep internal system errors
-        // in the UDF execution log, we may want to plumb through stuff like log lines.
-        let outcome = UdfOutcome::from_error(
-            JsError::from_error_ref(e),
-            udf_path,
-            arguments,
-            identity,
-            self.runtime.clone(),
-            None,
-        );
-        self.function_log.log_mutation(
-            outcome,
-            BTreeMap::new(),
-            start.elapsed(),
-            caller,
-            true,
-            FunctionUsageTracker::new(),
-            context,
-        );
-        Ok(())
     }
 
     #[minitrace::trace]

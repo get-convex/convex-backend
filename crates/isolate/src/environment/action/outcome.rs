@@ -2,6 +2,7 @@ use anyhow::Context;
 use common::{
     errors::JsError,
     identity::InertIdentity,
+    knobs::ISOLATE_MAX_USER_HEAP_SIZE,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -178,9 +179,38 @@ pub struct HttpActionOutcome {
 
     pub udf_server_version: Option<semver::Version>,
 
-    pub memory_in_mb: u64,
+    memory_in_mb: u64,
 }
 
+impl HttpActionOutcome {
+    pub fn new(
+        route: Option<HttpActionRoute>,
+        http_request_head: HttpActionRequestHead,
+        identity: InertIdentity,
+        unix_timestamp: UnixTimestamp,
+        result: Result<HttpActionResponse, JsError>,
+        syscall_trace: Option<SyscallTrace>,
+        udf_server_version: Option<semver::Version>,
+    ) -> Self {
+        Self {
+            route: route.unwrap_or(http_request_head.route_for_failure()),
+            http_request: http_request_head,
+            identity,
+            unix_timestamp,
+            result,
+            syscall_trace: syscall_trace.unwrap_or_default(),
+            udf_server_version,
+
+            memory_in_mb: (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
+                .try_into()
+                .unwrap(),
+        }
+    }
+
+    pub fn memory_in_mb(&self) -> u64 {
+        self.memory_in_mb
+    }
+}
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;

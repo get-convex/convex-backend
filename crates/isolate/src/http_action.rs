@@ -2,7 +2,10 @@ use core::fmt;
 
 use common::{
     http::HttpResponse,
-    types::HttpActionRoute,
+    types::{
+        HttpActionRoute,
+        RoutableMethod,
+    },
 };
 use futures::stream::BoxStream;
 use headers::{
@@ -43,12 +46,19 @@ impl HttpActionRequestHead {
     // HttpActionRoutes should normally come from the router, but in cases where
     // we fail to do so, we use this to construct a route we can use for the
     // purposes of logging
-    pub fn route_for_failure(&self) -> anyhow::Result<HttpActionRoute> {
+    pub fn route_for_failure(&self) -> HttpActionRoute {
         let path = self.url.path();
-        Ok(HttpActionRoute {
-            method: self.method.to_string().parse()?,
+        HttpActionRoute {
+            // TODO: we want this to be infallible so we can always log something, so pick `Get`
+            // if the method doesn't parse. The better solution is to have a separate struct for
+            // logging that allows `method` to be any string.
+            method: self
+                .method
+                .to_string()
+                .parse()
+                .unwrap_or(RoutableMethod::Get),
             path: path.to_string(),
-        })
+        }
     }
 }
 

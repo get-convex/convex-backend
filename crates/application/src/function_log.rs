@@ -33,6 +33,7 @@ use common::{
     },
     runtime::{
         Runtime,
+        RuntimeInstant,
         UnixTimestamp,
     },
     types::{
@@ -55,6 +56,7 @@ use http::{
 use isolate::{
     ActionOutcome,
     HttpActionOutcome,
+    HttpActionRequestHead,
     SyscallTrace,
     UdfOutcome,
 };
@@ -72,11 +74,13 @@ use usage_tracking::{
     FunctionUsageTracker,
     UsageCounter,
 };
-use value::heap_size::{
-    HeapSize,
-    WithHeapSize,
+use value::{
+    heap_size::{
+        HeapSize,
+        WithHeapSize,
+    },
+    ConvexArray,
 };
-
 /// A function's execution is summarized by this structure and stored in the
 /// UdfExecutionLog
 #[derive(Debug, Clone)]
@@ -445,6 +449,12 @@ impl From<HttpActionStatusCode> for serde_json::Value {
     }
 }
 
+pub enum TrackUsage {
+    Track(FunctionUsageTracker),
+    // We don't count usage for system errors since they're not the user's fault
+    SystemError,
+}
+
 pub type Timeseries = Vec<(SystemTime, Option<f64>)>;
 
 /// Integer in [0, 100].
@@ -556,7 +566,6 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
     }
 
-    #[minitrace::trace]
     pub fn log_query(
         &self,
         outcome: UdfOutcome,
@@ -564,21 +573,81 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         was_cached: bool,
         execution_time: Duration,
         caller: FunctionCaller,
-        usage: FunctionUsageTracker,
+        usage_tracking: FunctionUsageTracker,
         context: ExecutionContext,
     ) {
-        let usage_stats = usage.gather_user_stats();
-        let aggregated = usage_stats.aggregate();
-        self.usage_tracking.track_call(
-            UdfIdentifier::Function(outcome.udf_path.clone()),
-            context.execution_id.clone(),
-            if was_cached {
-                CallType::CachedQuery
-            } else {
-                CallType::UncachedQuery
-            },
-            usage_stats,
+        self._log_query(
+            outcome,
+            tables_touched,
+            was_cached,
+            execution_time,
+            caller,
+            TrackUsage::Track(usage_tracking),
+            context,
+        )
+    }
+
+    pub fn log_query_system_error(
+        &self,
+        e: &anyhow::Error,
+        udf_path: CanonicalizedUdfPath,
+        arguments: ConvexArray,
+        identity: InertIdentity,
+        start: RT::Instant,
+        caller: FunctionCaller,
+        context: ExecutionContext,
+    ) {
+        // TODO: We currently synthesize a `UdfOutcome` for
+        // an internal system error. If we decide we want to keep internal system errors
+        // in the UDF execution log, we may want to plumb through stuff like log lines.
+        let outcome = UdfOutcome::from_error(
+            JsError::from_error_ref(e),
+            udf_path,
+            arguments,
+            identity,
+            self.rt.clone(),
+            None,
         );
+        self._log_query(
+            outcome,
+            BTreeMap::new(),
+            false,
+            start.elapsed(),
+            caller,
+            TrackUsage::SystemError,
+            context,
+        );
+    }
+
+    #[minitrace::trace]
+    fn _log_query(
+        &self,
+        outcome: UdfOutcome,
+        tables_touched: BTreeMap<TableName, TableStats>,
+        was_cached: bool,
+        execution_time: Duration,
+        caller: FunctionCaller,
+        usage: TrackUsage,
+        context: ExecutionContext,
+    ) {
+        let aggregated = match usage {
+            TrackUsage::Track(usage_tracker) => {
+                let usage_stats = usage_tracker.gather_user_stats();
+                let aggregated = usage_stats.aggregate();
+                self.usage_tracking.track_call(
+                    UdfIdentifier::Function(outcome.udf_path.clone()),
+                    context.execution_id.clone(),
+                    if was_cached {
+                        CallType::CachedQuery
+                    } else {
+                        CallType::UncachedQuery
+                    },
+                    usage_stats,
+                );
+                aggregated
+            },
+            TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
+        };
         if outcome.udf_path.is_system() {
             return;
         }
@@ -608,29 +677,97 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.log_execution(execution, true);
     }
 
-    // Set exclude_from_usage=true for any cases where we hit internal system errors
-    // We still want these logs to show up in the UDF execution logs but not get
-    // counted in user quota used for charging since it's not their fault.
     pub fn log_mutation(
         &self,
         outcome: UdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
         execution_time: Duration,
         caller: FunctionCaller,
-        exclude_call_from_usage_tracking: bool,
         usage: FunctionUsageTracker,
         context: ExecutionContext,
     ) {
-        let usage_stats = usage.gather_user_stats();
-        let aggregated = usage_stats.aggregate();
-        if !exclude_call_from_usage_tracking {
-            self.usage_tracking.track_call(
-                UdfIdentifier::Function(outcome.udf_path.clone()),
-                context.execution_id.clone(),
-                CallType::Mutation,
-                usage_stats,
-            );
-        }
+        self._log_mutation(
+            outcome,
+            tables_touched,
+            execution_time,
+            caller,
+            TrackUsage::Track(usage),
+            context,
+        )
+    }
+
+    pub fn log_mutation_system_error(
+        &self,
+        e: &anyhow::Error,
+        udf_path: CanonicalizedUdfPath,
+        arguments: ConvexArray,
+        identity: InertIdentity,
+        start: RT::Instant,
+        caller: FunctionCaller,
+        context: ExecutionContext,
+    ) {
+        // TODO: We currently synthesize a `UdfOutcome` for
+        // an internal system error. If we decide we want to keep internal system errors
+        // in the UDF execution log, we may want to plumb through stuff like log lines.
+        let outcome = UdfOutcome::from_error(
+            JsError::from_error_ref(e),
+            udf_path,
+            arguments,
+            identity,
+            self.rt.clone(),
+            None,
+        );
+        self._log_mutation(
+            outcome,
+            BTreeMap::new(),
+            start.elapsed(),
+            caller,
+            TrackUsage::SystemError,
+            context,
+        );
+    }
+
+    pub fn log_mutation_occ_error(
+        &self,
+        outcome: UdfOutcome,
+        tables_touched: BTreeMap<TableName, TableStats>,
+        execution_time: Duration,
+        caller: FunctionCaller,
+        context: ExecutionContext,
+    ) {
+        self._log_mutation(
+            outcome,
+            tables_touched,
+            execution_time,
+            caller,
+            TrackUsage::SystemError,
+            context,
+        );
+    }
+
+    fn _log_mutation(
+        &self,
+        outcome: UdfOutcome,
+        tables_touched: BTreeMap<TableName, TableStats>,
+        execution_time: Duration,
+        caller: FunctionCaller,
+        usage: TrackUsage,
+        context: ExecutionContext,
+    ) {
+        let aggregated = match usage {
+            TrackUsage::Track(usage_tracker) => {
+                let usage_stats = usage_tracker.gather_user_stats();
+                let aggregated = usage_stats.aggregate();
+                self.usage_tracking.track_call(
+                    UdfIdentifier::Function(outcome.udf_path.clone()),
+                    context.execution_id.clone(),
+                    CallType::Mutation,
+                    usage_stats,
+                );
+                aggregated
+            },
+            TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
+        };
         if outcome.udf_path.is_system() {
             return;
         }
@@ -660,76 +797,64 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.log_execution(execution, true);
     }
 
-    pub fn log_http_action(
-        &self,
-        outcome: HttpActionOutcome,
-        log_lines: LogLines,
-        execution_time: Duration,
-        caller: FunctionCaller,
-        usage: FunctionUsageTracker,
-        context: ExecutionContext,
-    ) {
-        let usage_stats = usage.gather_user_stats();
-        let aggregated = usage_stats.aggregate();
-        self.usage_tracking.track_call(
-            UdfIdentifier::Http(outcome.route.clone()),
-            context.execution_id.clone(),
-            CallType::HttpAction {
-                duration: execution_time,
-                memory_in_mb: outcome.memory_in_mb,
-            },
-            usage_stats,
-        );
-        let execution = FunctionExecution {
-            params: UdfParams::Http {
-                result: match outcome.result {
-                    Ok(v) => Ok(HttpActionStatusCode(v.status())),
-                    Err(e) => Err(e),
-                },
-                identifier: outcome.route.clone(),
-            },
-            unix_timestamp: self.rt.unix_timestamp(),
-            execution_timestamp: outcome.unix_timestamp,
-            udf_type: UdfType::HttpAction,
-            log_lines,
-            tables_touched: WithHeapSize::default(),
-            cached_result: false,
-            execution_time: execution_time.as_secs_f64(),
-            caller,
-            environment: ModuleEnvironment::Isolate,
-            syscall_trace: outcome.syscall_trace,
-            usage_stats: aggregated,
-            udf_server_version: outcome.udf_server_version,
-            identity: outcome.identity,
-            context,
-        };
-        self.log_execution(execution, /* send_console_events */ false);
+    pub fn log_action(&self, completion: ActionCompletion, usage: FunctionUsageTracker) {
+        self._log_action(completion, TrackUsage::Track(usage))
     }
 
-    // Set exclude_from_usage=true for any cases where we hit internal system errors
-    // We still want these logs to show up in the UDF execution logs but not get
-    // counted in user quota used for charging since it's not their fault.
-    pub fn log_action(
+    pub fn log_action_system_error(
         &self,
-        completion: ActionCompletion,
-        exclude_call_from_usage_tracking: bool,
-        usage: FunctionUsageTracker,
+        e: &anyhow::Error,
+        udf_path: CanonicalizedUdfPath,
+        arguments: ConvexArray,
+        identity: InertIdentity,
+        start: RT::Instant,
+        caller: FunctionCaller,
+        log_lines: LogLines,
+        context: ExecutionContext,
     ) {
-        let usage_stats = usage.gather_user_stats();
-        let aggregated = usage_stats.aggregate();
+        // Synthesize an `ActionCompletion` for system errors.
+        let unix_timestamp = self.rt.unix_timestamp();
+        let completion = ActionCompletion {
+            outcome: ActionOutcome {
+                udf_path,
+                arguments,
+                identity,
+                unix_timestamp,
+                result: Err(JsError::from_error_ref(e)),
+                syscall_trace: SyscallTrace::new(),
+                udf_server_version: None,
+            },
+            execution_time: start.elapsed(),
+            environment: ModuleEnvironment::Invalid,
+            memory_in_mb: 0,
+            context,
+            unix_timestamp: self.rt.unix_timestamp(),
+            caller,
+            log_lines,
+        };
+        self._log_action(completion, TrackUsage::SystemError);
+    }
+
+    fn _log_action(&self, completion: ActionCompletion, usage: TrackUsage) {
         let udf_path = completion.outcome.udf_path.clone();
-        if !exclude_call_from_usage_tracking {
-            self.usage_tracking.track_call(
-                UdfIdentifier::Function(udf_path.clone()),
-                completion.context.execution_id.clone(),
-                CallType::Action {
-                    env: completion.environment,
-                    duration: completion.execution_time,
-                    memory_in_mb: completion.memory_in_mb,
-                },
-                usage_stats,
-            );
-        }
+        let aggregated = match usage {
+            TrackUsage::Track(usage_tracker) => {
+                let usage_stats = usage_tracker.gather_user_stats();
+                let aggregated = usage_stats.aggregate();
+                self.usage_tracking.track_call(
+                    UdfIdentifier::Function(udf_path.clone()),
+                    completion.context.execution_id.clone(),
+                    CallType::Action {
+                        env: completion.environment,
+                        duration: completion.execution_time,
+                        memory_in_mb: completion.memory_in_mb,
+                    },
+                    usage_stats,
+                );
+                aggregated
+            },
+            TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
+        };
         if udf_path.is_system() {
             return;
         }
@@ -762,30 +887,6 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.log_execution(execution, /* send_console_events */ false)
     }
 
-    pub fn log_error(
-        &self,
-        udf_path: CanonicalizedUdfPath,
-        udf_type: UdfType,
-        unix_timestamp: UnixTimestamp,
-        error: String,
-        caller: FunctionCaller,
-        udf_server_version: Option<semver::Version>,
-        identity: InertIdentity,
-        context: ExecutionContext,
-    ) {
-        let execution = FunctionExecution::for_error(
-            udf_path,
-            udf_type,
-            unix_timestamp,
-            error,
-            caller,
-            udf_server_version,
-            identity,
-            context,
-        );
-        self.log_execution(execution, true)
-    }
-
     pub fn log_action_progress(
         &self,
         identifier: CanonicalizedUdfPath,
@@ -806,6 +907,106 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         };
 
         self.log_execution_progress(log_lines, event_source, unix_timestamp)
+    }
+
+    pub fn log_http_action(
+        &self,
+        outcome: HttpActionOutcome,
+        log_lines: LogLines,
+        execution_time: Duration,
+        caller: FunctionCaller,
+        usage: FunctionUsageTracker,
+        context: ExecutionContext,
+    ) {
+        self._log_http_action(
+            outcome,
+            log_lines,
+            execution_time,
+            caller,
+            TrackUsage::Track(usage),
+            context,
+        )
+    }
+
+    pub fn log_http_action_system_error(
+        &self,
+        error: &anyhow::Error,
+        http_request: HttpActionRequestHead,
+        identity: InertIdentity,
+        start: RT::Instant,
+        caller: FunctionCaller,
+        log_lines: LogLines,
+        context: ExecutionContext,
+    ) {
+        let outcome = HttpActionOutcome::new(
+            None,
+            http_request,
+            identity,
+            self.rt.unix_timestamp(),
+            Err(JsError::from_error_ref(error)),
+            None,
+            None,
+        );
+        self._log_http_action(
+            outcome,
+            log_lines,
+            start.elapsed(),
+            caller,
+            TrackUsage::SystemError,
+            context,
+        )
+    }
+
+    fn _log_http_action(
+        &self,
+        outcome: HttpActionOutcome,
+        log_lines: LogLines,
+        execution_time: Duration,
+        caller: FunctionCaller,
+        usage: TrackUsage,
+        context: ExecutionContext,
+    ) {
+        let aggregated = match usage {
+            TrackUsage::Track(usage_tracker) => {
+                let usage_stats = usage_tracker.gather_user_stats();
+                let aggregated = usage_stats.aggregate();
+                self.usage_tracking.track_call(
+                    UdfIdentifier::Http(outcome.route.clone()),
+                    context.execution_id.clone(),
+                    CallType::HttpAction {
+                        duration: execution_time,
+                        memory_in_mb: outcome.memory_in_mb(),
+                    },
+                    usage_stats,
+                );
+                aggregated
+            },
+            TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
+        };
+        let execution = FunctionExecution {
+            params: UdfParams::Http {
+                result: match outcome.result {
+                    Ok(v) => Ok(HttpActionStatusCode(v.status())),
+                    Err(e) => Err(e),
+                },
+                identifier: outcome.route.clone(),
+            },
+            unix_timestamp: self.rt.unix_timestamp(),
+            execution_timestamp: outcome.unix_timestamp,
+            udf_type: UdfType::HttpAction,
+            log_lines,
+            tables_touched: WithHeapSize::default(),
+            cached_result: false,
+            execution_time: execution_time.as_secs_f64(),
+            caller,
+            environment: ModuleEnvironment::Isolate,
+            syscall_trace: outcome.syscall_trace,
+            usage_stats: aggregated,
+            udf_server_version: outcome.udf_server_version,
+            identity: outcome.identity,
+            context,
+        };
+        self.log_execution(execution, /* send_console_events */ false);
     }
 
     pub fn log_http_action_progress(

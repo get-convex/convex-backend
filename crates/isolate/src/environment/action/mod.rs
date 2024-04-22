@@ -27,7 +27,6 @@ use common::{
         ACTION_USER_TIMEOUT,
         FUNCTION_MAX_ARGS_SIZE,
         FUNCTION_MAX_RESULT_SIZE,
-        ISOLATE_MAX_USER_HEAP_SIZE,
         V8_ACTION_SYSTEM_TIMEOUT,
     },
     log_lines::{
@@ -284,7 +283,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         match handle.take_termination_error() {
             Ok(Ok(..)) => (),
             Ok(Err(e)) => {
-                result = Ok((request_head.route_for_failure()?, Err(e)));
+                result = Ok((request_head.route_for_failure(), Err(e)));
             },
             Err(e) => {
                 result = Err(e);
@@ -307,18 +306,15 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 .and_then(|(_, response)| response.as_ref().ok()),
         )?;
         let (route, result) = result?;
-        let outcome = HttpActionOutcome {
-            route,
-            http_request: request_head,
-            unix_timestamp: start_unix_timestamp,
-            identity: self.identity.into(),
+        let outcome = HttpActionOutcome::new(
+            Some(route),
+            request_head,
+            self.identity.into(),
+            start_unix_timestamp,
             result,
-            syscall_trace: self.syscall_trace.lock().clone(),
-            udf_server_version: validated_path.npm_version().clone(),
-            memory_in_mb: (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
-                .try_into()
-                .unwrap(),
-        };
+            Some(self.syscall_trace.lock().clone()),
+            validated_path.npm_version().clone(),
+        );
         Ok(outcome)
     }
 
@@ -361,7 +357,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let router: Result<_, JsError> = Self::get_router(&mut scope, router_path.clone()).await?;
 
         if let Err(e) = router {
-            return Ok((http_request.head.route_for_failure()?, Err(e)));
+            return Ok((http_request.head.route_for_failure(), Err(e)));
         };
         let router = router?;
 
@@ -375,7 +371,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             None => {
                 handle.check_terminated()?;
                 return Ok((
-                    http_request.head.route_for_failure()?,
+                    http_request.head.route_for_failure(),
                     Ok(HttpActionResponse::from_text(
                         StatusCode::NOT_FOUND,
                         "No matching routes found".into(),

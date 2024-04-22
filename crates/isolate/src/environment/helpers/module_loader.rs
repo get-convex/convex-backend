@@ -8,6 +8,7 @@ use common::{
 };
 use database::Transaction;
 use deno_core::ModuleSpecifier;
+use errors::ErrorMetadata;
 use model::modules::{
     module_versions::{
         AnalyzedFunction,
@@ -55,12 +56,13 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
         &self,
         tx: &mut Transaction<RT>,
         udf_path: &CanonicalizedUdfPath,
-    ) -> anyhow::Result<Result<AnalyzedFunction, String>> {
+    ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
         let Some(module) = self.get_module(tx, udf_path.module().clone()).await? else {
-            return Ok(Err(format!(
-                "{}",
-                ModuleNotFoundError::new(udf_path.module().as_str())
-            )));
+            return Ok(Err(ErrorMetadata::bad_request(
+                "ModuleNotFound",
+                ModuleNotFoundError::new(udf_path.module().as_str()).to_string(),
+            )
+            .into()));
         };
 
         // Dependency modules don't have AnalyzedModule.
@@ -78,10 +80,12 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
             }
         }
 
-        Ok(Err(format!(
-            "{}",
+        Ok(Err(ErrorMetadata::bad_request(
+            "FunctionNotFound",
             FunctionNotFoundError::new(udf_path.function_name(), udf_path.module().as_str())
-        )))
+                .to_string(),
+        )
+        .into()))
     }
 
     async fn has_http(&self, tx: &mut Transaction<RT>) -> anyhow::Result<bool> {
