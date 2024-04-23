@@ -585,6 +585,10 @@ pub static REUSE_ISOLATES: LazyLock<bool> = LazyLock::new(|| env_config("REUSE_I
 pub static ISOLATE_IDLE_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("ISOLATE_IDLE_TIMEOUT_SECONDS", 600)));
 
+/// The maximum amount of time an isolate can be used before being recreated.
+pub static ISOLATE_MAX_LIFETIME: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("ISOLATE_MAX_LIFETIME_SECONDS", 60 * 60)));
+
 /// Timeout for V8 actions.
 pub static V8_ACTION_SYSTEM_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_SYSTEM_TIMEOUT_SECONDS", 15)));

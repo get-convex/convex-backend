@@ -56,6 +56,8 @@ pub struct Isolate<RT: Runtime> {
     // we reclaim after removing the callback.
     heap_ctx_ptr: *mut HeapContext,
     limiter: ConcurrencyLimiter,
+
+    created: RT::Instant,
 }
 
 /// Set a 64KB initial heap size
@@ -186,6 +188,7 @@ impl<RT: Runtime> Isolate<RT> {
         assert!(v8_isolate.set_slot(handle.clone()));
 
         Self {
+            created: rt.monotonic_now(),
             rt,
             v8_isolate,
             handle,
@@ -300,6 +303,10 @@ impl<RT: Runtime> Isolate<RT> {
 
     pub fn handle_scope(&mut self) -> v8::HandleScope<()> {
         v8::HandleScope::new(&mut self.v8_isolate)
+    }
+
+    pub fn created(&self) -> &RT::Instant {
+        &self.created
     }
 }
 

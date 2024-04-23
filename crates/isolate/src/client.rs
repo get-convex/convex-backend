@@ -29,6 +29,7 @@ use common::{
     identity::InertIdentity,
     knobs::{
         ISOLATE_IDLE_TIMEOUT,
+        ISOLATE_MAX_LIFETIME,
         ISOLATE_QUEUE_SIZE,
         REUSE_ISOLATES,
         V8_THREADS,
@@ -1466,6 +1467,12 @@ pub(crate) fn should_recreate_isolate<RT: Runtime>(
         metrics::log_recreate_isolate(e.reason());
         return true;
     }
+
+    if isolate.created().elapsed() > *ISOLATE_MAX_LIFETIME {
+        metrics::log_recreate_isolate("max_lifetime");
+        return true;
+    }
+
     false
 }
 
