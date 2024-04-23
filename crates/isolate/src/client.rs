@@ -28,6 +28,7 @@ use common::{
     http::fetch::FetchClient,
     identity::InertIdentity,
     knobs::{
+        HEAP_WORKER_REPORT_INTERVAL_SECONDS,
         ISOLATE_IDLE_TIMEOUT,
         ISOLATE_MAX_LIFETIME,
         ISOLATE_QUEUE_SIZE,
@@ -153,6 +154,7 @@ use crate::{
     metrics::{
         self,
         is_developer_ok,
+        log_aggregated_heap_stats,
         log_pool_allocated_count,
         log_pool_running_count,
         log_worker_stolen,
@@ -1138,6 +1140,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
 
     pub async fn run(mut self, receiver: CoDelQueueReceiver<RT, Request<RT>>) {
         let mut receiver = receiver.fuse();
+        let mut report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);
         loop {
             select_biased! {
                 completed_worker = self.in_progress_workers.select_next_some() => {
@@ -1194,7 +1197,12 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         self.worker.config().name,
                         self.in_progress_workers.len()
                     );
-                }
+                },
+                _ = report_stats => {
+                    let heap_stats = self.aggregate_heap_stats();
+                    log_aggregated_heap_stats(&heap_stats);
+                    report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);
+                },
             }
         }
     }
@@ -1292,6 +1300,14 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             self.available_workers.remove(&key);
         }
         Some(worker_id.worker_id)
+    }
+
+    fn aggregate_heap_stats(&self) -> IsolateHeapStats {
+        let mut total = IsolateHeapStats::default();
+        for handle in self.handles.lock().iter() {
+            total += handle.heap_stats.get();
+        }
+        total
     }
 }
 

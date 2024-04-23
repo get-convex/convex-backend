@@ -13,6 +13,7 @@ use metrics::{
     log_counter,
     log_counter_with_labels,
     log_distribution,
+    log_gauge,
     log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
@@ -32,6 +33,7 @@ use crate::{
     ActionOutcome,
     FunctionOutcome,
     HttpActionOutcome,
+    IsolateHeapStats,
 };
 
 register_convex_histogram!(
@@ -350,24 +352,21 @@ pub fn log_promise_handler_added_after_reject() {
 
 register_convex_histogram!(ISOLATE_USED_HEAP_SIZE_BYTES, "Isolate used heap size");
 register_convex_histogram!(ISOLATE_HEAP_SIZE_LIMIT_BYTES, "Isolate heap size limit");
+register_convex_histogram!(ISOLATE_AVAILABLE_SIZE_BYTES, "Isolate available size");
+register_convex_histogram!(ISOLATE_HEAP_SIZE_BYTES, "Isolate heap size");
 register_convex_histogram!(
-    ISOLATE_TOTAL_AVAILABLE_SIZE_BYTES,
-    "Isolate total available size"
-);
-register_convex_histogram!(ISOLATE_TOTAL_HEAP_SIZE_BYTES, "Isolate total heap size");
-register_convex_histogram!(
-    ISOLATE_TOTAL_HEAP_SIZE_EXECUTABLE_BYTES,
-    "Isolate total executable heap size "
+    ISOLATE_HEAP_SIZE_EXECUTABLE_BYTES,
+    "Isolate executable heap size "
 );
 register_convex_histogram!(ISOLATE_EXTERNAL_MEMORY_BYTES, "Isolate external memory");
-register_convex_histogram!(ISOLATE_TOTAL_PHYSICAL_SIZE_BYTES, "Isolate physical size");
+register_convex_histogram!(ISOLATE_PHYSICAL_SIZE_BYTES, "Isolate physical size");
 register_convex_histogram!(ISOLATE_MALLOCED_MEMORY_BYTES, "Isolate malloc'd memory");
 register_convex_histogram!(
     ISOLATE_PEAK_MALLOCED_MEMORY_BYTES,
     "Isolate peak malloc'd memory"
 );
 register_convex_histogram!(
-    ISOLATE_TOTAL_GLOBAL_HANDLES_SIZE_BYTES,
+    ISOLATE_GLOBAL_HANDLES_SIZE_BYTES,
     "Isolate size of all global handles"
 );
 register_convex_histogram!(
@@ -387,15 +386,12 @@ pub fn log_heap_statistics(stats: &v8::HeapStatistics) {
         stats.heap_size_limit() as f64,
     );
     log_distribution(
-        &ISOLATE_TOTAL_AVAILABLE_SIZE_BYTES,
+        &ISOLATE_AVAILABLE_SIZE_BYTES,
         stats.total_available_size() as f64,
     );
+    log_distribution(&ISOLATE_HEAP_SIZE_BYTES, stats.total_heap_size() as f64);
     log_distribution(
-        &ISOLATE_TOTAL_HEAP_SIZE_BYTES,
-        stats.total_heap_size() as f64,
-    );
-    log_distribution(
-        &ISOLATE_TOTAL_HEAP_SIZE_EXECUTABLE_BYTES,
+        &ISOLATE_HEAP_SIZE_EXECUTABLE_BYTES,
         stats.total_heap_size_executable() as f64,
     );
     log_distribution(
@@ -403,7 +399,7 @@ pub fn log_heap_statistics(stats: &v8::HeapStatistics) {
         stats.external_memory() as f64,
     );
     log_distribution(
-        &ISOLATE_TOTAL_PHYSICAL_SIZE_BYTES,
+        &ISOLATE_PHYSICAL_SIZE_BYTES,
         stats.total_physical_size() as f64,
     );
     log_distribution(
@@ -415,7 +411,7 @@ pub fn log_heap_statistics(stats: &v8::HeapStatistics) {
         stats.peak_malloced_memory() as f64,
     );
     log_distribution(
-        &ISOLATE_TOTAL_GLOBAL_HANDLES_SIZE_BYTES,
+        &ISOLATE_GLOBAL_HANDLES_SIZE_BYTES,
         stats.total_global_handles_size() as f64,
     );
 
@@ -426,6 +422,58 @@ pub fn log_heap_statistics(stats: &v8::HeapStatistics) {
     log_distribution(
         &ISOLATE_DETACHED_CONTEXT_TOTAL,
         stats.number_of_detached_contexts() as f64,
+    );
+}
+
+register_convex_gauge!(
+    ISOLATE_TOTAL_USED_HEAP_SIZE_BYTES,
+    "Total isolate used heap size across all isolates"
+);
+register_convex_gauge!(
+    ISOLATE_TOTAL_HEAP_SIZE_BYTES,
+    "Total isolate heap size across all isolates"
+);
+register_convex_gauge!(
+    ISOLATE_TOTAL_HEAP_SIZE_EXECUTABLE_BYTES,
+    "Total isolate executable heap siz across all isolates "
+);
+register_convex_gauge!(
+    ISOLATE_TOTAL_EXTERNAL_MEMORY_BYTES,
+    "Total isolate external memory across all isolates"
+);
+register_convex_gauge!(
+    ISOLATE_TOTAL_PHYSICAL_SIZE_BYTES,
+    "Total isolate physical size across all isolates"
+);
+register_convex_gauge!(
+    ISOLATE_TOTAL_MALLOCED_MEMORY_BYTES,
+    "Total isolate malloc'd memory across all isolates"
+);
+
+pub fn log_aggregated_heap_stats(stats: &IsolateHeapStats) {
+    log_gauge(
+        &ISOLATE_TOTAL_USED_HEAP_SIZE_BYTES,
+        stats.v8_used_heap_size as f64,
+    );
+    log_gauge(
+        &ISOLATE_TOTAL_HEAP_SIZE_BYTES,
+        stats.v8_total_heap_size as f64,
+    );
+    log_gauge(
+        &ISOLATE_TOTAL_HEAP_SIZE_EXECUTABLE_BYTES,
+        stats.v8_total_heap_size_executable as f64,
+    );
+    log_gauge(
+        &ISOLATE_TOTAL_EXTERNAL_MEMORY_BYTES,
+        stats.v8_external_memory_bytes as f64,
+    );
+    log_gauge(
+        &ISOLATE_TOTAL_PHYSICAL_SIZE_BYTES,
+        stats.v8_total_physical_size as f64,
+    );
+    log_gauge(
+        &ISOLATE_TOTAL_MALLOCED_MEMORY_BYTES,
+        stats.v8_malloced_memory as f64,
     );
 }
 

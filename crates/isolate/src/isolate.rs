@@ -108,6 +108,8 @@ pub struct IsolateHeapStats {
     pub v8_total_physical_size: usize,
     pub v8_used_heap_size: usize,
 
+    pub v8_external_memory_bytes: usize,
+
     // Malloced memory from v8. This is the heap size. See
     // https://stackoverflow.com/questions/69418109/why-is-malloced-memory-lower-than-used-heap-size-in-node-js.
     pub v8_malloced_memory: usize,
@@ -131,6 +133,7 @@ impl IsolateHeapStats {
             v8_total_physical_size: stats.total_physical_size(),
             v8_used_heap_size: stats.used_heap_size(),
             v8_malloced_memory: stats.malloced_memory(),
+            v8_external_memory_bytes: stats.external_memory(),
             environment_heap_size: 0,
             blobs_heap_size,
             streams_heap_size,
