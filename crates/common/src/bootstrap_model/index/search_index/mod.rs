@@ -9,6 +9,7 @@ pub use self::{
     },
     index_snapshot::{
         SearchIndexSnapshot,
+        SearchIndexSnapshotData,
         SearchSnapshotVersion,
     },
     index_state::{

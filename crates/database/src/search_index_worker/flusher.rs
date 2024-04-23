@@ -8,6 +8,7 @@ use common::{
         search_index::{
             DeveloperSearchIndexConfig,
             SearchIndexSnapshot,
+            SearchIndexSnapshotData,
             SearchIndexState,
             SearchSnapshotVersion,
         },
@@ -220,7 +221,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         // 3. Update the search index metadata.
         let mut tx = self.database.begin(Identity::system()).await?;
         let snapshot_data = SearchIndexSnapshot {
-            index: archive_name.clone(),
+            data: SearchIndexSnapshotData::SingleSegment(archive_name.clone()),
             ts: snapshot_ts,
             version: SearchSnapshotVersion::new(tx.persistence_version()),
         };

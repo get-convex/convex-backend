@@ -15,6 +15,7 @@ use common::{
     bootstrap_model::index::{
         search_index::{
             SearchIndexSnapshot,
+            SearchIndexSnapshotData,
             SearchIndexState,
         },
         vector_index::VectorIndexState,
@@ -177,12 +178,12 @@ impl IndexesToBootstrap {
                             SearchIndex::Backfilling { memory_index }
                         },
                         SearchIndexState::Backfilled(SearchIndexSnapshot {
-                            index,
+                            data,
                             ts: disk_ts,
                             version,
                         })
                         | SearchIndexState::SnapshottedAt(SearchIndexSnapshot {
-                            index,
+                            data,
                             ts: disk_ts,
                             version,
                         }) => {
@@ -191,6 +192,9 @@ impl IndexesToBootstrap {
                             oldest_index_ts = min(oldest_index_ts, current_index_ts);
                             let memory_index =
                                 MemorySearchIndex::new(WriteTimestamp::Committed(disk_ts.succ()?));
+                            let SearchIndexSnapshotData::SingleSegment(index) = data else {
+                                anyhow::bail!("Unsupported segment type: {:?}", data);
+                            };
                             let snapshot = SnapshotInfo {
                                 disk_index: index,
                                 disk_index_ts: current_index_ts,

@@ -4,6 +4,7 @@ use common::{
     bootstrap_model::index::{
         search_index::{
             SearchIndexSnapshot,
+            SearchIndexSnapshotData,
             SearchIndexState,
             SearchSnapshotVersion,
         },
@@ -370,7 +371,7 @@ impl SearchIndexManager {
                             _ => (None, None),
                         };
                     if let Some(SearchIndexSnapshot {
-                        index: disk_index,
+                        data: disk_index,
                         ts: disk_index_ts,
                         version: disk_index_version,
                     }) = new_snapshot
@@ -407,6 +408,10 @@ impl SearchIndexManager {
                                 );
                             }
 
+                            let SearchIndexSnapshotData::SingleSegment(disk_index) = disk_index
+                            else {
+                                anyhow::bail!("Unrecognized segment: {:?}", disk_index);
+                            };
                             let mut memory_index = memory_index.clone();
                             memory_index.truncate(disk_index_ts.succ()?)?;
                             let snapshot = SnapshotInfo {
