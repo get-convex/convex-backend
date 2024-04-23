@@ -1,4 +1,4 @@
-import { test, expect } from "@jest/globals";
+import { jest, expect, test } from "@jest/globals";
 import { oneoffContext } from "./context.js";
 
 // Although these tests are run as ESM by ts-lint, this file is built as both
@@ -8,6 +8,8 @@ const dirname = "src/bundler";
 
 import {
   bundle,
+  doesImportConvexHttpRouter,
+  entryPoints,
   entryPointsByEnvironment,
   useNodeDirectiveRegex,
   mustBeIsolate,
@@ -23,21 +25,26 @@ const sorted = <T>(arr: T[], key: (el: T) => any): T[] => {
   return newArr.sort(cmp);
 };
 
+afterEach(() => {
+  jest.resetAllMocks();
+});
+
 test("bundle function is present", () => {
   expect(typeof bundle).toEqual("function");
 });
 
 test("bundle finds JavaScript functions", async () => {
+  const fixtureDir = dirname + "/test_fixtures/js/project01";
   const entryPoints = await entryPointsByEnvironment(
     oneoffContext,
-    dirname + "/test_fixtures/js",
+    fixtureDir,
     false,
   );
   const bundles = sorted(
     (
       await bundle(
         oneoffContext,
-        dirname + "/test_fixtures/js",
+        fixtureDir,
         entryPoints.isolate,
         false,
         "browser",
@@ -48,6 +55,85 @@ test("bundle finds JavaScript functions", async () => {
   expect(bundles).toHaveLength(2);
   expect(bundles[0].path).toEqual("bar.js");
   expect(bundles[1].path).toEqual("foo.js");
+});
+
+test("returns true when simple import httpRouter found", async () => {
+  const result = await doesImportConvexHttpRouter(`
+    import { httpRouter } from "convex/server";
+
+    export const val = 1;
+    `);
+  expect(result).toBeTruthy();
+});
+
+test("returns false when httpRouter is not imported", async () => {
+  const result = await doesImportConvexHttpRouter(`
+    export const val = 1;
+    `);
+  expect(result).toBeFalsy();
+});
+
+test("returns true when multiline import httpRouter found", async () => {
+  const result = await doesImportConvexHttpRouter(`
+    import {
+      httpRouter
+    } from "convex/server";
+
+    export const val = 1;
+    `);
+  expect(result).toBeTruthy();
+});
+
+test("returns true when httpRouter is imported with alias", async () => {
+  const result = await doesImportConvexHttpRouter(`
+    import { httpRouter as router } from "convex/server";
+
+    export const val = 1;
+    `);
+  expect(result).toBeTruthy();
+});
+
+test("returns true when httpRouter is imported with alias and multiline", async () => {
+  const result = await doesImportConvexHttpRouter(`
+    import {
+      httpRouter as router
+    } from "convex/server";
+
+    export const val = 1;
+    `);
+  expect(result).toBeTruthy();
+});
+
+test("returns true when multiple imports and httpRouter is imported", async () => {
+  const result = await doesImportConvexHttpRouter(`
+    import { cronJobs, httpRouter } from "convex/server";
+
+    export const val = 1;
+    `);
+  expect(result).toBeTruthy();
+});
+
+test("bundle warns about https.js|ts at top level", async () => {
+  const fixtureDir = dirname + "/test_fixtures/js/project_with_https";
+  const logSpy = jest.spyOn(console, "error");
+  await entryPoints(oneoffContext, fixtureDir, false);
+  expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("https"));
+});
+
+test("bundle does not warn about https.js|ts which is not at top level", async () => {
+  const fixtureDir =
+    dirname + "/test_fixtures/js/project_with_https_not_at_top_level";
+  const logSpy = jest.spyOn(console, "error");
+  await entryPoints(oneoffContext, fixtureDir, false);
+  expect(logSpy).toHaveBeenCalledTimes(0);
+});
+
+test("bundle does not warn about https.js|ts which does not import httpRouter", async () => {
+  const fixtureDir =
+    dirname + "/test_fixtures/js/project_with_https_without_router";
+  const logSpy = jest.spyOn(console, "error");
+  await entryPoints(oneoffContext, fixtureDir, false);
+  expect(logSpy).toHaveBeenCalledTimes(0);
 });
 
 test("use node regex", () => {

@@ -1,7 +1,9 @@
-import { parse as parseAST } from "@babel/parser";
 import path from "path";
 import chalk from "chalk";
 import esbuild from "esbuild";
+import { parse as parseAST } from "@babel/parser";
+import { Identifier, ImportSpecifier } from "@babel/types";
+import * as Sentry from "@sentry/node";
 import { Filesystem } from "./fs.js";
 import { Context, logFailure, logWarning } from "./context.js";
 import { wasmPlugin } from "./wasm.js";
@@ -16,20 +18,22 @@ export type { Filesystem } from "./fs.js";
 
 export const actionsDir = "actions";
 
-// Returns a generator of { isDir, path } for all paths
+// Returns a generator of { isDir, path, depth } for all paths
 // within dirPath in some topological order (not including
 // dirPath itself).
 export function* walkDir(
   fs: Filesystem,
   dirPath: string,
-): Generator<{ isDir: boolean; path: string }, void, void> {
+  depth?: number,
+): Generator<{ isDir: boolean; path: string; depth: number }, void, void> {
+  depth = depth ?? 0;
   for (const dirEntry of fs.listDir(dirPath).sort()) {
     const childPath = path.join(dirPath, dirEntry.name);
     if (dirEntry.isDirectory()) {
-      yield { isDir: true, path: childPath };
-      yield* walkDir(fs, childPath);
+      yield { isDir: true, path: childPath, depth };
+      yield* walkDir(fs, childPath, depth + 1);
     } else if (dirEntry.isFile()) {
-      yield { isDir: false, path: childPath };
+      yield { isDir: false, path: childPath, depth };
     }
   }
 }
@@ -259,6 +263,29 @@ export async function bundleAuthConfig(ctx: Context, dir: string) {
   return result.modules;
 }
 
+export async function doesImportConvexHttpRouter(source: string) {
+  try {
+    const ast = parseAST(source, {
+      sourceType: "module",
+      plugins: ["typescript"],
+    });
+    return ast.program.body.some((node) => {
+      if (node.type !== "ImportDeclaration") return false;
+      return node.specifiers.some((s) => {
+        const specifier = s as ImportSpecifier;
+        const imported = specifier.imported as Identifier;
+        return imported.name === "httpRouter";
+      });
+    });
+  } catch {
+    return (
+      source.match(
+        /import\s*\{\s*httpRouter.*\}\s*from\s*"\s*convex\/server\s*"/,
+      ) !== null
+    );
+  }
+}
+
 export async function entryPoints(
   ctx: Context,
   dir: string,
@@ -272,12 +299,14 @@ export async function entryPoints(
     }
   };
 
-  for (const { isDir, path: fpath } of walkDir(ctx.fs, dir)) {
+  for (const { isDir, path: fpath, depth } of walkDir(ctx.fs, dir)) {
     if (isDir) {
       continue;
     }
     const relPath = path.relative(dir, fpath);
-    const base = path.parse(fpath).base;
+    const parsedPath = path.parse(fpath);
+    const base = parsedPath.base;
+    const extension = parsedPath.ext.toLowerCase();
 
     if (relPath.startsWith("_deps" + path.sep)) {
       logFailure(
@@ -285,7 +314,24 @@ export async function entryPoints(
         `The path "${fpath}" is within the "_deps" directory, which is reserved for dependencies. Please move your code to another directory.`,
       );
       return await ctx.crash(1, "invalid filesystem data");
-    } else if (relPath.startsWith("_generated" + path.sep)) {
+    }
+
+    if (depth === 0 && base.toLowerCase().startsWith("https.")) {
+      const source = ctx.fs.readUtf8File(fpath);
+      if (await doesImportConvexHttpRouter(source))
+        logWarning(
+          ctx,
+          chalk.yellow(
+            `Found ${fpath}. HTTP action routes will not be imported from this file. Did you mean to include http${extension}?`,
+          ),
+        );
+      Sentry.captureMessage(
+        `User code top level directory contains file ${base} which imports httpRouter.`,
+        "warning",
+      );
+    }
+
+    if (relPath.startsWith("_generated" + path.sep)) {
       log(chalk.yellow(`Skipping ${fpath}`));
     } else if (base.startsWith(".")) {
       log(chalk.yellow(`Skipping dotfile ${fpath}`));
