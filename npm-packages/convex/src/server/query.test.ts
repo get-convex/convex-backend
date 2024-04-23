@@ -40,6 +40,7 @@ test("take returns the correct types", () => {
   type Expected = Promise<Message[]>;
   assert<Equals<Result, Expected>>();
 });
+
 test("first returns the correct types", () => {
   function first(db: DB) {
     return db.query("messages").first();

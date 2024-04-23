@@ -16,7 +16,7 @@ import {
   SearchFilterBuilderImpl,
   SerializedSearchFilter,
 } from "./search_filter_builder_impl.js";
-import { validateArg } from "./validate.js";
+import { validateArg, validateArgIsNonNegativeInteger } from "./validate.js";
 import { version } from "../../index.js";
 
 type QueryOperator = { filter: JSONValue } | { limit: number };
@@ -311,6 +311,7 @@ export class QueryImpl implements Query<GenericTableInfo> {
 
   async take(n: number): Promise<Array<any>> {
     validateArg(n, 1, "take", "n");
+    validateArgIsNonNegativeInteger(n, 1, "take", "n");
     return this.limit(n).collect();
   }
 
