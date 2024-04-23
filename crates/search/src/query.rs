@@ -240,34 +240,35 @@ impl TermShortlistBuilder {
         }
     }
 
-    fn add_match(
+    /// Adds the given set of matches for the given term to the short list.
+    /// Returns a vec[] containing a 1-1 mapping between each term in
+    /// `matches` and the corresponding shortlist id.
+    ///
+    /// The returned vec will return Some at each position where the
+    /// corresponding term was newly added to the shortlist, and None at
+    /// each position where the term already existed in the shortlist.
+    fn add_matches(
         &mut self,
         term: QueryTerm,
-        match_term: Term,
-        distance: EditDistance,
-    ) -> Option<ShortlistId> {
-        let (shortlist_id, is_new) = match self.term_to_shortlist.get(&match_term) {
-            Some(id) => (*id, false),
-            None => {
+        matches: BTreeSet<(EditDistance, Term)>,
+    ) -> Vec<Option<ShortlistId>> {
+        let shortlist_items = self.query_term_shortlist_items.entry(term).or_default();
+        let mut shortlist_ids = vec![];
+
+        for (distance, term) in matches {
+            let maybe_new_shortlist_id = if self.term_to_shortlist.get(&term).is_none() {
                 let shortlist_id = ShortlistId(self.shortlist.len() as u16);
-                self.term_to_shortlist
-                    .insert(match_term.clone(), shortlist_id);
-                self.shortlist.push(match_term);
+                self.term_to_shortlist.insert(term.clone(), shortlist_id);
+                self.shortlist.push(term);
+                shortlist_items.push((distance, shortlist_id));
 
-                (shortlist_id, true)
-            },
-        };
-
-        self.query_term_shortlist_items
-            .entry(term)
-            .or_default()
-            .push((distance, shortlist_id));
-
-        if is_new {
-            Some(shortlist_id)
-        } else {
-            None
+                Some(shortlist_id)
+            } else {
+                None
+            };
+            shortlist_ids.push(maybe_new_shortlist_id);
         }
+        shortlist_ids
     }
 }
 
@@ -296,12 +297,14 @@ pub(crate) fn shortlist_and_id_mapping(
     let mut shortlist_id_to_term_id = BTreeMap::new();
     let mut builder = TermShortlistBuilder::new();
     for (query_term, matches) in term_matches {
-        for (distance, match_term, term_id) in matches {
-            let new_shortlist_id = builder.add_match(query_term.clone(), match_term, distance);
-            if let Some(new_shortlist_id) = new_shortlist_id {
-                shortlist_id_to_term_id.insert(new_shortlist_id, term_id);
-            }
-        }
+        let (matches, term_ids): (BTreeSet<_>, Vec<TermId>) = matches
+            .into_iter()
+            .map(|(distance, match_term, term_id)| ((distance, match_term), term_id))
+            .unzip();
+        let shortlist_ids = builder.add_matches(query_term, matches);
+        shortlist_id_to_term_id.extend(shortlist_ids.into_iter().zip(term_ids).filter_map(
+            |(shortlist_id, term_id)| shortlist_id.map(|shortlist_id| (shortlist_id, term_id)),
+        ));
     }
     (builder.build(), shortlist_id_to_term_id)
 }
@@ -310,9 +313,7 @@ impl TermShortlist {
     pub fn new(term_matches: BTreeMap<QueryTerm, BTreeSet<(EditDistance, Term)>>) -> Self {
         let mut builder = TermShortlistBuilder::new();
         for (query_term, matches) in term_matches {
-            for (distance, match_term) in matches {
-                builder.add_match(query_term.clone(), match_term, distance);
-            }
+            builder.add_matches(query_term, matches);
         }
         builder.build()
     }
