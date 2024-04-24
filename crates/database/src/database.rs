@@ -221,6 +221,9 @@ static NUM_READ_SET_STACKS: LazyLock<usize> =
 const INITIAL_OCC_BACKOFF: Duration = Duration::from_millis(10);
 const MAX_OCC_BACKOFF: Duration = Duration::from_secs(2);
 pub const MAX_OCC_FAILURES: u32 = 3;
+pub const MAX_OVERLOADED_FAILURES: u32 = 20;
+const INITIAL_OVERLOADED_BACKOFF: Duration = Duration::from_millis(10);
+const MAX_OVERLOADED_BACKOFF: Duration = Duration::from_secs(30);
 
 /// In memory vector changes are asynchronously backfilled on startup. Attempts
 /// to query before backfill is finished will result in failure, so we need to
@@ -1337,6 +1340,37 @@ impl<RT: Runtime> Database<RT> {
         self.execute_with_retries(
             identity,
             MAX_OCC_FAILURES,
+            backoff,
+            usage,
+            is_retriable,
+            pause_client,
+            write_source,
+            f,
+        )
+        .await
+    }
+
+    /// When the database is overloaded,
+    /// sometimes it takes a while to clear up. As a rule of thumb, use this
+    /// method if it's okay to wait for a search index to backfill.
+    /// Also retries if it hits OCCs.
+    pub async fn execute_with_overloaded_retries<'a, T, F>(
+        &'a self,
+        identity: Identity,
+        usage: FunctionUsageTracker,
+        pause_client: PauseClient,
+        write_source: impl Into<WriteSource>,
+        f: F,
+    ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
+    where
+        T: Send,
+        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'_, 'a, 'b, anyhow::Result<T>>,
+    {
+        let backoff = Backoff::new(INITIAL_OVERLOADED_BACKOFF, MAX_OVERLOADED_BACKOFF);
+        let is_retriable = |e: &Error| e.is_occ() || e.is_overloaded();
+        self.execute_with_retries(
+            identity,
+            MAX_OVERLOADED_FAILURES,
             backoff,
             usage,
             is_retriable,

@@ -270,7 +270,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         match self.info_message_for_import(snapshot_import).await {
             Ok((info_message, require_manual_confirmation)) => {
                 self.database
-                    .execute_with_occ_retries(
+                    .execute_with_overloaded_retries(
                         Identity::system(),
                         FunctionUsageTracker::new(),
                         PauseClient::new(),
@@ -296,7 +296,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 let e = wrap_import_err(e);
                 if e.is_bad_request() {
                     self.database
-                        .execute_with_occ_retries(
+                        .execute_with_overloaded_retries(
                             Identity::system(),
                             FunctionUsageTracker::new(),
                             PauseClient::new(),
@@ -540,7 +540,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         match self.attempt_perform_import(snapshot_import).await {
             Ok((ts, num_rows_written)) => {
                 self.database
-                    .execute_with_occ_retries(
+                    .execute_with_overloaded_retries(
                         Identity::system(),
                         FunctionUsageTracker::new(),
                         PauseClient::new(),
@@ -562,7 +562,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 let e = wrap_import_err(e);
                 if e.is_bad_request() {
                     self.database
-                        .execute_with_occ_retries(
+                        .execute_with_overloaded_retries(
                             Identity::system(),
                             FunctionUsageTracker::new(),
                             PauseClient::new(),
@@ -1099,8 +1099,9 @@ pub async fn store_uploaded_import<RT: Runtime>(
     mode: ImportMode,
     object_key: ObjectKey,
 ) -> anyhow::Result<DocumentIdV6> {
-    let (_, id) = application
-        .execute_with_occ_retries(
+    let (_, id, _) = application
+        .database
+        .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
             PauseClient::new(),
@@ -1128,7 +1129,8 @@ pub async fn perform_import<RT: Runtime>(
         anyhow::bail!(ImportError::Unauthorized);
     }
     application
-        .execute_with_occ_retries(
+        .database
+        .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
             PauseClient::new(),
@@ -1305,7 +1307,7 @@ async fn add_checkpoint_message<RT: Runtime>(
     checkpoint_message: String,
 ) -> anyhow::Result<()> {
     database
-        .execute_with_occ_retries(
+        .execute_with_overloaded_retries(
             identity.clone(),
             FunctionUsageTracker::new(),
             PauseClient::new(),
@@ -1492,7 +1494,7 @@ async fn finalize_import<RT: Runtime>(
     // now populated and active.
     // If we inserted into an Hidden table, make it Active.
     let (ts, documents_deleted, _) = database
-        .execute_with_occ_retries(
+        .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
             PauseClient::new(),
@@ -1720,7 +1722,7 @@ async fn import_storage_table<RT: Runtime>(
         }
         let file_size = entry.size as u64;
         database
-            .execute_with_occ_retries(
+            .execute_with_overloaded_retries(
                 identity.clone(),
                 FunctionUsageTracker::new(),
                 PauseClient::new(),
@@ -2022,7 +2024,7 @@ async fn insert_import_objects<RT: Runtime>(
     usage: FunctionUsageTracker,
 ) -> anyhow::Result<()> {
     database
-        .execute_with_occ_retries(
+        .execute_with_overloaded_retries(
             identity.clone(),
             usage,
             PauseClient::new(),
@@ -2081,7 +2083,7 @@ async fn prepare_table_for_import<RT: Runtime>(
     } else {
         let table_number = table_number.or(existing_table_id.map(|id| id.table_number));
         let (_, table_id, _) = database
-            .execute_with_occ_retries(
+            .execute_with_overloaded_retries(
                 identity.clone(),
                 FunctionUsageTracker::new(),
                 PauseClient::new(),
@@ -2132,7 +2134,7 @@ async fn backfill_and_enable_indexes_on_table<RT: Runtime>(
     }
     // Enable the indexes now that they are backfilled.
     database
-        .execute_with_occ_retries(
+        .execute_with_overloaded_retries(
             identity.clone(),
             FunctionUsageTracker::new(),
             PauseClient::new(),
