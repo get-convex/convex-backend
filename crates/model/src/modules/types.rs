@@ -20,8 +20,6 @@ pub struct ModuleMetadata {
     pub path: CanonicalizedModulePath,
     /// What is the latest version of the module?
     pub latest_version: ModuleVersion,
-    /// Has the module been deleted?
-    pub deleted: bool,
 }
 
 impl TryFrom<ModuleMetadata> for ConvexObject {
@@ -31,7 +29,8 @@ impl TryFrom<ModuleMetadata> for ConvexObject {
         obj!(
             "path" => String::from(m.path),
             "latestVersion" => m.latest_version,
-            "deleted" => m.deleted,
+            // TODO(lee) remove once it's no longer expected on the read path.
+            "deleted" => false,
         )
     }
 }
@@ -62,14 +61,9 @@ impl TryFrom<ConvexObject> for ModuleMetadata {
             Some(ConvexValue::Int64(i)) => i,
             v => anyhow::bail!("Invalid latest_version field for ModuleMetadata: {:?}", v),
         };
-        let deleted = match fields.remove("deleted") {
-            Some(ConvexValue::Boolean(s)) => s,
-            v => anyhow::bail!("Invalid deleted field for ModuleMetadata: {:?}", v),
-        };
         Ok(Self {
             path,
             latest_version,
-            deleted,
         })
     }
 }

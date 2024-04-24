@@ -180,9 +180,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         let mut modules = Vec::new();
         while let Some(metadata_document) = query_stream.next(self.tx, None).await? {
             let metadata: ParsedDocument<ModuleMetadata> = metadata_document.try_into()?;
-            if !metadata.deleted {
-                modules.push(metadata);
-            }
+            modules.push(metadata);
         }
         Ok(modules)
     }
@@ -250,8 +248,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         if path.is_system() && !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("get_module"))
         }
-        let include_deleted = false;
-        let module_metadata = match self.module_metadata(path, include_deleted).await? {
+        let module_metadata = match self.module_metadata(path).await? {
             Some(r) => r,
             None => return Ok(None),
         };
@@ -279,19 +276,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             path.is_deps() || analyze_result.is_some(),
             "AnalyzedModule is required for non-dependency modules"
         );
-        // If there was a previously deleted document, it is important to replace
-        // it instead of adding a new one, in order to have at most one document
-        // for each path.
-        let include_deleted = true;
-        let (module_id, version) = match self.module_metadata(path.clone(), include_deleted).await?
-        {
+        let (module_id, version) = match self.module_metadata(path.clone()).await? {
             Some(module_metadata) => {
                 let previous_version = module_metadata.latest_version;
                 let latest_version = previous_version + 1;
                 let new_metadata = ModuleMetadata {
                     path,
                     latest_version,
-                    deleted: false,
                 };
                 SystemMetadataModel::new(self.tx)
                     .replace(module_metadata.id(), new_metadata.try_into()?)
@@ -313,7 +304,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 let new_metadata = ModuleMetadata {
                     path,
                     latest_version: version,
-                    deleted: false,
                 };
 
                 let document_id = SystemMetadataModel::new(self.tx)
@@ -357,8 +347,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("delete_module"));
         }
-        let include_deleted = false;
-        if let Some(module_metadata) = self.module_metadata(path, include_deleted).await? {
+        if let Some(module_metadata) = self.module_metadata(path).await? {
             let module_id = module_metadata.id();
             SystemMetadataModel::new(self.tx).delete(module_id).await?;
 
@@ -377,7 +366,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     async fn module_metadata(
         &mut self,
         path: CanonicalizedModulePath,
-        include_deleted: bool,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
         let index_range = IndexRange {
             index_name: MODULE_INDEX_BY_PATH.clone(),
@@ -394,9 +382,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 Some(v) => v.try_into()?,
                 None => return Ok(None),
             };
-        if !include_deleted && module_document.deleted {
-            return Ok(None);
-        }
         Ok(Some(module_document))
     }
 
