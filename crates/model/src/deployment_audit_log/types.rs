@@ -7,9 +7,8 @@ use std::{
 use common::{
     bootstrap_model::index::DeveloperIndexConfig,
     log_streaming::{
-        EventSource,
         LogEvent,
-        LogTopic,
+        StructuredLogEvent,
     },
     runtime::UnixTimestamp,
     types::IndexName,
@@ -234,12 +233,16 @@ impl DeploymentAuditLogEvent {
         event: DeploymentAuditLogEvent,
         timestamp: UnixTimestamp,
     ) -> anyhow::Result<LogEvent> {
-        let payload = event.try_into()?;
+        let action = event.action().to_string();
+        let JsonValue::Object(metadata_fields) = event.metadata()?.into() else {
+            anyhow::bail!("DeploymentAuditLogEvent metdata was not a JSON object")
+        };
         Ok(LogEvent {
-            topic: LogTopic::DeploymentAuditLog,
             timestamp,
-            source: EventSource::System,
-            payload,
+            event: StructuredLogEvent::DeploymentAuditLog {
+                action,
+                metadata: metadata_fields,
+            },
         })
     }
 }
@@ -345,7 +348,10 @@ impl TryFrom<DeploymentAuditLogEvent> for serde_json::Map<String, JsonValue> {
 #[cfg(test)]
 mod tests {
     use cmd_util::env::env_config;
-    use common::runtime::UnixTimestamp;
+    use common::{
+        log_streaming::LogEventFormatVersion,
+        runtime::UnixTimestamp,
+    };
     use proptest::prelude::*;
     use serde_json::json;
     use value::ConvexObject;
@@ -375,7 +381,7 @@ mod tests {
             },
             UnixTimestamp::from_millis(0),
         )?;
-        let event_json = serde_json::Map::try_from(event)?;
+        let event_json = event.to_json_map(LogEventFormatVersion::default())?;
         let value = serde_json::to_value(&event_json)?;
         assert_eq!(
             value,

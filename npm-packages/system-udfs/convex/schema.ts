@@ -195,6 +195,7 @@ export const datadogConfig = v.object({
   ),
   ddApiKey: v.string(),
   ddTags: v.array(v.string()),
+  version: v.optional(v.string()),
 });
 
 export const webhookConfig = v.object({
@@ -212,6 +213,7 @@ export const axiomConfig = v.object({
       value: v.string(),
     }),
   ),
+  version: v.optional(v.string()),
 });
 
 export const sentryConfig = v.object({

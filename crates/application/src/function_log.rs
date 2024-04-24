@@ -25,11 +25,11 @@ use common::{
         LogLines,
     },
     log_streaming::{
-        EventSource,
+        self,
         FunctionEventSource,
         LogEvent,
         LogSender,
-        LogTopic,
+        StructuredLogEvent,
     },
     runtime::{
         Runtime,
@@ -212,68 +212,47 @@ impl FunctionExecution {
                     LogLine::Unstructured(_) => self.unix_timestamp,
                     LogLine::Structured { timestamp, .. } => *timestamp,
                 };
-                let JsonValue::Object(payload) = json!({
-                    "message": line.clone().to_pretty_string()
-                }) else {
-                    anyhow::bail!("could not create JSON object");
-                };
-                Ok::<_, anyhow::Error>(LogEvent {
-                    topic: LogTopic::Console,
-                    source: EventSource::Function(self.event_source()),
-                    payload,
+                LogEvent {
                     timestamp,
-                })
-            })
-            .filter_map(|event| match event {
-                Err(mut e) => {
-                    tracing::error!("Dropping log event due to failed payload conversion: {e:?}");
-                    report_error(&mut e);
-                    None
-                },
-                Ok(ev) => Some(ev),
+                    event: StructuredLogEvent::Console {
+                        source: self.event_source(),
+                        log_line: line.clone(),
+                    },
+                }
             })
             .collect()
     }
 
     fn udf_execution_record_log_events(&self) -> anyhow::Result<Vec<LogEvent>> {
-        let execution_time: u64 = Duration::from_secs_f64(self.execution_time)
-            .as_millis()
-            .try_into()?;
-        let (reason, status) = match self.params.err() {
-            Some(err) => (json!(err.to_string()), "failure"),
-            None => (JsonValue::Null, "success"),
-        };
-
-        let JsonValue::Object(payload) = json!({
-            "status": status,
-            "reason": reason,
-            "executionTimeMs": execution_time,
-            "databaseReadBytes": self.usage_stats.database_read_bytes,
-            "databaseWriteBytes": self.usage_stats.database_write_bytes,
-            "storageReadBytes": self.usage_stats.storage_read_bytes,
-            "storageWriteBytes": self.usage_stats.storage_write_bytes,
-        }) else {
-            anyhow::bail!("could not create JSON object for UdfExecutionRecord");
-        };
+        let execution_time = Duration::from_secs_f64(self.execution_time);
 
         let mut events = vec![LogEvent {
-            topic: LogTopic::UdfExecutionRecord,
             timestamp: self.unix_timestamp,
-            source: EventSource::Function(self.event_source()),
-            payload,
+            event: StructuredLogEvent::FunctionExecution {
+                source: self.event_source(),
+                error: self.params.err().cloned(),
+                execution_time,
+                usage_stats: log_streaming::AggregatedFunctionUsageStats {
+                    database_read_bytes: self.usage_stats.database_read_bytes,
+                    database_write_bytes: self.usage_stats.database_write_bytes,
+                    storage_read_bytes: self.usage_stats.storage_read_bytes,
+                    storage_write_bytes: self.usage_stats.storage_write_bytes,
+                    vector_index_read_bytes: self.usage_stats.vector_index_read_bytes,
+                    vector_index_write_bytes: self.usage_stats.vector_index_write_bytes,
+                },
+            },
         }];
 
         if let Some(err) = self.params.err() {
-            events.push(LogEvent::construct_exception(
-                err,
-                self.unix_timestamp,
-                EventSource::Function(self.event_source()),
-                self.udf_server_version
-                    .as_ref()
-                    .map(|v| v.to_string())
-                    .as_deref(),
-                &self.identity,
-            )?);
+            events.push(LogEvent {
+                timestamp: self.unix_timestamp,
+                event: StructuredLogEvent::Exception {
+                    error: err.clone(),
+                    user_identifier: self.identity.user_identifier().cloned(),
+                    source: self.event_source(),
+                    udf_server_version: self.udf_server_version.clone(),
+                },
+            });
         }
 
         Ok(events)
@@ -304,25 +283,13 @@ impl FunctionExecutionProgress {
                     LogLine::Unstructured(_) => self.function_start_timestamp,
                     LogLine::Structured { timestamp, .. } => *timestamp,
                 };
-                let JsonValue::Object(payload) = json!({
-                    "message": line.to_pretty_string()
-                }) else {
-                    anyhow::bail!("could not create JSON object");
-                };
-                Ok::<_, anyhow::Error>(LogEvent {
-                    topic: LogTopic::Console,
-                    source: EventSource::Function(self.event_source.clone()),
-                    payload,
+                LogEvent {
                     timestamp,
-                })
-            })
-            .filter_map(|event| match event {
-                Err(mut e) => {
-                    tracing::error!("Dropping log event due to failed payload conversion: {e:?}");
-                    report_error(&mut e);
-                    None
-                },
-                Ok(ev) => Some(ev),
+                    event: StructuredLogEvent::Console {
+                        source: self.event_source.clone(),
+                        log_line: line,
+                    },
+                }
             })
             .collect()
     }
