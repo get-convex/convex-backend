@@ -1663,14 +1663,13 @@ impl<RT: Runtime> Application<RT> {
         modules: &Vec<ModuleConfig>,
         external_deps_id_and_pkg: Option<(ExternalDepsPackageId, ExternalDepsPackage)>,
     ) -> anyhow::Result<Option<SourcePackage>> {
-        // If there aren't any node modules, skip
-        if !modules
+        // If there are any node actions, turn on the lambdas.
+        if modules
             .iter()
             .any(|m| m.environment == ModuleEnvironment::Node)
         {
-            return Ok(None);
+            self.runner().enable_actions()?;
         }
-        self.runner().enable_actions()?;
 
         tracing::info!(
             "Uploading package with {} modules to Storage",
