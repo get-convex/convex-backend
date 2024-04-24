@@ -13,6 +13,7 @@
 
 mod archive;
 mod constants;
+mod convex_query;
 pub mod disk_index;
 pub mod fragmented_segment;
 mod intersection;
@@ -197,7 +198,7 @@ pub struct TantivySearchIndexSchema {
     search_field_path: FieldPath,
     pub search_field: Field,
 
-    filter_fields: BTreeMap<FieldPath, Field>,
+    pub filter_fields: BTreeMap<FieldPath, Field>,
 
     pub(crate) schema: Schema,
 }

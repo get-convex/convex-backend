@@ -5992,6 +5992,7 @@ dependencies = [
  "storage",
  "sucds",
  "tantivy",
+ "tantivy-common",
  "tempfile",
  "tokio",
  "tracing",

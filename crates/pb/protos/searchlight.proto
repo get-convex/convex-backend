@@ -198,3 +198,99 @@ message StorageType {
     LocalStorage local = 2;
   }
 }
+
+service IncrementalSearchlight {
+  // Query a set of tokens against the term dictionary, optionally allowing
+  // for fuzzy matching and prefix matching. Take the top `K` results with
+  // respect to to `(edit distance, term)` lexicographical order.
+  rpc QueryTokens(QueryTokensRequest) returns (QueryTokensResponse);
+
+  // For the given index, compute the total number of documents and terms
+  // in the index. Also, given a list of pointers to terms within the index,
+  // compute the document frequency of each term.
+  rpc QueryBm25Stats(QueryBm25StatsRequest) returns (QueryBm25StatsResponse);
+
+  // Given a AND + OR query of term pointers and BM25 statistics for the OR
+  // terms, return the top `K` results with respect to BM25 score.
+  rpc QueryPostingLists(QueryPostingListsRequest) returns (QueryPostingListsResponse);
+}
+
+message QueryTokensRequest {
+  StorageType storage_type = 1;
+  FragmentedTextSegmentPaths segment = 2;
+  SearchIndexConfig index_config = 3;
+  repeated TokenQuery token_queries = 4;
+  uint32 max_results = 5;
+}
+
+message FragmentedTextSegmentPaths {
+  StorageKey segment = 1;
+  StorageKey id_tracker = 2;
+  StorageKey deletions = 3;
+}
+
+message TokenQuery {
+  convex_token.FieldPath field_path = 1;
+  bytes token = 2;
+  uint32 max_distance = 3;
+  bool prefix = 4;
+}
+
+message QueryTokensResponse {
+  repeated TokenMatch token_matches = 2;
+}
+
+message TokenMatch {
+  uint32 distance = 1;
+  bool prefix = 2;
+  bytes tantivy_bytes = 3;
+  // Offset into `QueryTokensRequest.token_queries`.
+  uint32 token_ord = 4;
+}
+
+message QueryBm25StatsRequest {
+  StorageType storage_type = 1;
+  FragmentedTextSegmentPaths segment = 2;
+  repeated bytes terms = 3;
+}
+
+message QueryBm25StatsResponse {
+  uint64 num_terms = 1;
+  uint64 num_documents = 2;
+  repeated DocFrequency doc_frequencies = 3;
+}
+
+message DocFrequency {
+  bytes term = 1;
+  uint64 frequency = 2;
+}
+
+message QueryPostingListsRequest {
+  StorageType storage_type = 1;
+  FragmentedTextSegmentPaths segment = 2;
+  PostingListQuery query = 3;
+}
+
+message PostingListQuery {
+  repeated bytes deleted_internal_ids = 1;
+
+  repeated bytes or_terms = 2;
+  repeated bytes and_terms = 3;
+
+  uint64 num_terms = 4;
+  uint64 num_documents = 5;
+  repeated DocFrequency doc_frequencies = 6;
+
+  uint32 max_results = 7;
+}
+
+message QueryPostingListsResponse {
+  repeated PostingListMatch matches = 1;
+}
+
+message PostingListMatch {
+  bytes internal_id = 1;
+  uint64 ts = 2;
+  double creation_time = 3;
+  float bm25_score = 4;
+}
