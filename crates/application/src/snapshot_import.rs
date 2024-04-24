@@ -166,6 +166,7 @@ use value::{
 use crate::{
     export_worker::FileStorageZipMetadata,
     metrics::{
+        log_snapshot_import_age,
         log_worker_starting,
         snapshot_import_timer,
     },
@@ -177,6 +178,10 @@ static IMPORT_SIZE_LIMIT: LazyLock<String> =
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
+// If an import is taking longer than a day, it's a problem (and our fault).
+// But the customer is probably no longer waiting so we should fail the import.
+// If an import takes more than a week, the file may be deleted from S3.
+const MAX_IMPORT_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub struct SnapshotImportWorker<RT: Runtime> {
     runtime: RT,
@@ -591,6 +596,25 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         &mut self,
         snapshot_import: ParsedDocument<SnapshotImport>,
     ) -> anyhow::Result<(Timestamp, usize)> {
+        if let Some(creation_time) = snapshot_import.creation_time() {
+            let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
+            let age = Duration::from_millis((f64::from(now) - f64::from(creation_time)) as u64);
+            log_snapshot_import_age(age);
+            if age > MAX_IMPORT_AGE / 2 {
+                tracing::warn!(
+                    "SnapshotImport {} running too long ({:?})",
+                    snapshot_import.id(),
+                    age
+                );
+            }
+            if age > MAX_IMPORT_AGE {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "ImportFailed",
+                    "Import took too long. Try again or contact Convex."
+                ));
+            }
+        }
+
         let (initial_schemas, objects) = self.parse_import(snapshot_import.id()).await?;
 
         let usage = FunctionUsageTracker::new();
@@ -1159,7 +1183,7 @@ fn wrap_import_err(e: anyhow::Error) -> anyhow::Error {
     }
 }
 
-async fn wait_for_export_worker<RT: Runtime>(
+async fn wait_for_import_worker<RT: Runtime>(
     application: &Application<RT>,
     identity: Identity,
     import_id: DocumentIdV6,
@@ -1201,7 +1225,7 @@ pub async fn do_import<RT: Runtime>(
     let import_id =
         upload_import_file(application, identity.clone(), format, mode, body_stream).await?;
 
-    let snapshot_import = wait_for_export_worker(application, identity.clone(), import_id).await?;
+    let snapshot_import = wait_for_import_worker(application, identity.clone(), import_id).await?;
     match &snapshot_import.state {
         ImportState::Uploaded | ImportState::InProgress { .. } | ImportState::Completed { .. } => {
             anyhow::bail!("should be WaitingForConfirmation, is {snapshot_import:?}")
@@ -1214,7 +1238,7 @@ pub async fn do_import<RT: Runtime>(
 
     perform_import(application, identity.clone(), import_id).await?;
 
-    let snapshot_import = wait_for_export_worker(application, identity.clone(), import_id).await?;
+    let snapshot_import = wait_for_import_worker(application, identity.clone(), import_id).await?;
     match &snapshot_import.state {
         ImportState::Uploaded
         | ImportState::WaitingForConfirmation { .. }
@@ -2337,7 +2361,7 @@ mod tests {
     use crate::{
         snapshot_import::{
             upload_import_file,
-            wait_for_export_worker,
+            wait_for_import_worker,
         },
         test_helpers::{
             ApplicationFixtureArgs,
@@ -2705,7 +2729,7 @@ a
         )
         .await?;
 
-        let snapshot_import = wait_for_export_worker(&app, new_admin_id(), import_id).await?;
+        let snapshot_import = wait_for_import_worker(&app, new_admin_id(), import_id).await?;
 
         let state = snapshot_import.state.clone();
         must_let!(let ImportState::WaitingForConfirmation {

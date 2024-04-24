@@ -1,5 +1,8 @@
+use std::time::Duration;
+
 use metrics::{
     log_counter_with_labels,
+    log_distribution,
     log_distribution_with_labels,
     log_gauge_with_labels,
     register_convex_counter,
@@ -54,6 +57,14 @@ register_convex_histogram!(
 );
 pub fn snapshot_import_timer() -> StatusTimer {
     StatusTimer::new(&SNAPSHOT_IMPORT_TIMER_SECONDS)
+}
+
+register_convex_histogram!(
+    SNAPSHOT_IMPORT_AGE_SECONDS,
+    "Age of in-progress snapshot import",
+);
+pub fn log_snapshot_import_age(age: Duration) {
+    log_distribution(&SNAPSHOT_IMPORT_AGE_SECONDS, age.as_secs_f64());
 }
 
 register_convex_histogram!(
