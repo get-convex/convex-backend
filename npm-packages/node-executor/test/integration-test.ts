@@ -72,6 +72,7 @@ async function executeWrapper(
             isRoot: true,
             parentScheduledJob: null,
           },
+          null,
         ),
     );
     return { response, logLines };
@@ -336,6 +337,7 @@ async function test_execute_invalid_syscall() {
         isRoot: true,
         parentScheduledJob: null,
       },
+      null,
     ),
   );
   printResponse(response);

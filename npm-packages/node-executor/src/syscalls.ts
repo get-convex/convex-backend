@@ -84,6 +84,8 @@ export class SyscallsImpl {
 
   pendingSyscallCount: Record<string, number>;
 
+  encodedParentTrace: string | null;
+
   constructor(
     udfPath: UdfPath,
     lambdaExecuteId: string,
@@ -92,6 +94,7 @@ export class SyscallsImpl {
     authHeader: string | null,
     userIdentity: UserIdentity | null,
     executionContext: ExecutionContext,
+    encodedParentTrace: string | null,
   ) {
     this.udfPath = udfPath;
     this.lambdaExecuteId = lambdaExecuteId;
@@ -102,6 +105,7 @@ export class SyscallsImpl {
     this.syscallTrace = {};
     this.pendingSyscallCount = {};
     this.executionContext = executionContext;
+    this.encodedParentTrace = encodedParentTrace;
   }
 
   async actionCallback<ResponseValidator extends z.ZodType>(args: {
@@ -157,6 +161,9 @@ export class SyscallsImpl {
     }
     if (this.authHeader !== null) {
       headers["Authorization"] = this.authHeader;
+    }
+    if (this.encodedParentTrace !== null) {
+      headers["Convex-Encoded-Parent-Trace"] = this.encodedParentTrace;
     }
     return headers;
   }

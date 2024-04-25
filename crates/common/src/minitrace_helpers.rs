@@ -91,10 +91,10 @@ impl FromStr for SamplingConfig {
 }
 
 /// Creates a root span from an encoded parent trace
-pub fn initialize_root_from_parent(span_name: &'static str, encoded_parent: EncodedSpan) -> Span {
+pub fn initialize_root_from_parent(span_name: &str, encoded_parent: EncodedSpan) -> Span {
     if let Some(p) = encoded_parent.0 {
         if let Some(ctx) = SpanContext::decode_w3c_traceparent(p.as_str()) {
-            return Span::root(span_name, ctx);
+            return Span::root(span_name.to_string(), ctx);
         }
     }
     Span::noop()

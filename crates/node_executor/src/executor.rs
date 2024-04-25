@@ -522,6 +522,7 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                     "environmentVariables": JsonValue::Array(environment_variables),
                     "npmVersion": npm_version.map(|v| v.to_string()),
                     "executionContext": JsonValue::from(r.context),
+                    "encodedParentTrace": JsonValue::from(r.encoded_parent_trace),
                 })
             },
             ExecutorRequest::Analyze(r) => {
@@ -618,6 +619,7 @@ pub struct ExecuteRequest {
 
     pub callback_token: ActionCallbackToken,
     pub context: ExecutionContext,
+    pub encoded_parent_trace: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]

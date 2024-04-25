@@ -108,6 +108,7 @@ use keybroker::{
     InstanceSecret,
     KeyBroker,
 };
+use minitrace::collector::SpanContext;
 use model::{
     config::types::ModuleConfig,
     environment_variables::{
@@ -1302,6 +1303,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     environment_variables,
                     callback_token: self.key_broker.issue_action_token(),
                     context: context.clone(),
+                    encoded_parent_trace: SpanContext::current_local_parent()
+                        .map(|ctx| ctx.encode_w3c_traceparent()),
                 };
 
                 let node_outcome_future = self

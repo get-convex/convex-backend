@@ -26,6 +26,10 @@ use common::{
         HttpResponseError,
     },
     knobs::ACTION_USER_TIMEOUT,
+    minitrace_helpers::{
+        initialize_root_from_parent,
+        EncodedSpan,
+    },
     pause::PauseClient,
     runtime::UnixTimestamp,
     types::{
@@ -42,6 +46,7 @@ use isolate::{
     UdfArgsJson,
 };
 use keybroker::Identity;
+use minitrace::future::FutureExt;
 use model::file_storage::types::FileStorageEntry;
 use serde::{
     Deserialize,
@@ -418,6 +423,17 @@ async fn check_actions_token(
         .check_action_token(&token.to_owned(), validity)
 }
 
+fn get_encoded_span(headers: &HeaderMap) -> anyhow::Result<EncodedSpan> {
+    Ok(EncodedSpan(
+        headers
+            .get("Convex-Encoded-Parent-Trace")
+            .map(|value| value.to_str())
+            .transpose()
+            .context("Convex-Encoded-Parent-Trace must be a string")?
+            .map(|s| s.to_string()),
+    ))
+}
+
 pub async fn action_callbacks_middleware(
     State(st): State<LocalAppState>,
     req: http::request::Request<Body>,
@@ -427,7 +443,10 @@ pub async fn action_callbacks_middleware(
     // actions_callback router.
     check_actions_token(&st, req.headers()).await?;
 
-    let resp = next.run(req).await;
+    let encoded_parent = get_encoded_span(req.headers())?;
+    let root = initialize_root_from_parent(req.uri().path(), encoded_parent);
+
+    let resp = next.run(req).in_span(root).await;
     Ok(resp)
 }
 

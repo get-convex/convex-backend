@@ -117,6 +117,7 @@ export type ExecuteRequest = {
   timeoutSecs: number;
   npmVersion: string | null;
   executionContext: ExecutionContext;
+  encodedParentTrace: string | null;
 };
 
 export type ExecutionContext = {
@@ -182,6 +183,7 @@ export async function execute(
     request.authHeader,
     request.userIdentity,
     request.executionContext,
+    request.encodedParentTrace,
   );
 
   let innerResult: ExecuteResponseInner;
