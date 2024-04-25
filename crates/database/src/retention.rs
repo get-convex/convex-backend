@@ -441,7 +441,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         Self::get_checkpoint(
             persistence.reader().as_ref(),
             snapshot_reader.clone(),
-            RetentionType::Index,
+            retention_type,
         )
         .await?;
         Ok(Some(new_min_snapshot_ts))
