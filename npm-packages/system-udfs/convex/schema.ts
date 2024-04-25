@@ -275,9 +275,7 @@ export default defineSchema({
     path: v.string(),
     latestVersion: v.int64(),
     deleted: v.boolean(),
-  })
-    .index("by_path", ["path"])
-    .index("by_deleted", ["deleted", "path"]),
+  }).index("by_path", ["path"]),
   _module_versions: defineTable({
     module_id: v.id("_modules"),
     source: v.string(),

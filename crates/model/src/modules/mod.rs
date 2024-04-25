@@ -13,7 +13,6 @@ use common::{
         BinaryKey,
         Interval,
     },
-    maybe_val,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -166,15 +165,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub async fn get_all_metadata(
         &mut self,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
-        let index_range = IndexRange {
-            index_name: MODULE_INDEX_BY_DELETED.clone(),
-            range: vec![IndexRangeExpression::Eq(
-                DELETED_FIELD.clone(),
-                maybe_val!(false),
-            )],
-            order: Order::Asc,
-        };
-        let index_query = Query::index_range(index_range);
+        let index_query = Query::full_table_scan(MODULES_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
 
         let mut modules = Vec::new();

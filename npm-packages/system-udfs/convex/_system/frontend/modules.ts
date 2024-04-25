@@ -13,7 +13,7 @@ export const getSourceCode = queryPrivateSystem({
   handler: async ({ db }, { path }): Promise<string | null> => {
     const module = await db
       .query("_modules")
-      .withIndex("by_deleted", (q) => q.eq("deleted", false).eq("path", path))
+      .withIndex("by_path", (q) => q.eq("path", path))
       .unique();
     if (!module) {
       return null;
@@ -53,9 +53,7 @@ export const list = queryPrivateSystem({
   args: {},
   handler: async ({ db }): Promise<[string, Module][]> => {
     const result: [string, Module][] = [];
-    for await (const module of db
-      .query("_modules")
-      .withIndex("by_deleted", (q) => q.eq("deleted", false))) {
+    for await (const module of db.query("_modules")) {
       if (module.path.startsWith("_")) {
         continue;
       }
