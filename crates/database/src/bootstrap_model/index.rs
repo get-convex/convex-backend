@@ -40,6 +40,7 @@ use common::{
     schemas::{
         DatabaseSchema,
         TableDefinition,
+        MAX_INDEXES_PER_TABLE,
     },
     types::{
         IndexDiff,
@@ -80,9 +81,6 @@ use crate::{
     Transaction,
 };
 
-// NB: This excludes the default index we add to every table.
-pub const MAX_USER_INDEXES: usize = 256;
-
 pub struct IndexTable;
 impl SystemTable for IndexTable {
     fn table_name(&self) -> &'static TableName {
@@ -119,10 +117,15 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             unauthorized_error("add_index")
         );
         anyhow::ensure!(!index.name.is_system_owned(), "Can't change system indexes");
-        let num_user_indexes = self.get_application_indexes().await?.len();
+        let num_user_indexes_on_table = self
+            .get_application_indexes()
+            .await?
+            .into_iter()
+            .filter(|application_index| application_index.name.table() == index.name.table())
+            .count();
         anyhow::ensure!(
-            num_user_indexes < MAX_USER_INDEXES,
-            index_validation_error::too_many_total_user_indexes(MAX_USER_INDEXES),
+            num_user_indexes_on_table < MAX_INDEXES_PER_TABLE,
+            index_validation_error::too_many_indexes(index.name.table(), MAX_INDEXES_PER_TABLE)
         );
         self._add_index(index).await
     }

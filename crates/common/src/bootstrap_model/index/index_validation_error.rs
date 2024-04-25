@@ -183,12 +183,6 @@ pub fn table_name_reserved(table_name: &TableName) -> ErrorMetadata {
         format!("{table_name} is a reserved table name."),
     )
 }
-pub fn too_many_total_user_indexes(num_total_indexes: usize) -> ErrorMetadata {
-    ErrorMetadata::bad_request(
-        "TooManyTotalIndexes",
-        format!("Number of total indexes cannot exceed {num_total_indexes}."),
-    )
-}
 
 // TODO move elsewhere - it's not indexing related
 pub fn too_many_tables(num_tables: usize) -> ErrorMetadata {

@@ -48,6 +48,7 @@ use common::{
         DocumentSchema,
         IndexSchema,
         TableDefinition,
+        MAX_INDEXES_PER_TABLE,
     },
     types::{
         unchecked_repeatable_ts,
@@ -85,7 +86,6 @@ use value::{
 };
 
 use crate::{
-    bootstrap_model::index::MAX_USER_INDEXES,
     index_worker::{
         IndexSelector,
         IndexWriter,
@@ -1470,7 +1470,7 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
     let begin_ts = tx.begin_timestamp();
 
     // Add the maximum allowed number of indexes.
-    for i in 0..MAX_USER_INDEXES {
+    for i in 0..MAX_INDEXES_PER_TABLE {
         let field_name = format!("field_{}", i);
         IndexModel::new(&mut tx)
             .add_application_index(IndexMetadata::new_backfilling(
@@ -1492,7 +1492,9 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
         .expect_err("Succesfully added index field_max!")
         .to_string();
     assert!(
-        err.contains("Number of total indexes cannot exceed"),
+        err.contains(&format!(
+            "Table \"table\" cannot have more than {MAX_INDEXES_PER_TABLE} indexes."
+        )),
         "Unexpected error {}",
         err
     );
@@ -1521,7 +1523,9 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
         .expect_err("Succesfully added index field_max!")
         .to_string();
     assert!(
-        err.contains("Number of total indexes cannot exceed"),
+        err.contains(&format!(
+            "Table \"table\" cannot have more than {MAX_INDEXES_PER_TABLE} indexes."
+        )),
         "Unexpected error {}",
         err
     );
