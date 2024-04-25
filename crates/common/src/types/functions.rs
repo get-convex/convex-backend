@@ -178,6 +178,21 @@ impl FunctionCaller {
             FunctionCaller::Action { .. } => false,
         }
     }
+
+    pub fn run_until_completion_if_cancelled(&self) -> bool {
+        // If the action is called from a web socket or http we want to continue
+        // to run it even if the client goes away. However, we preserve the right
+        // to interrupt actions if the backend restarts.
+        match self {
+            FunctionCaller::SyncWorker(_)
+            | FunctionCaller::HttpApi(_)
+            | FunctionCaller::HttpEndpoint
+            | FunctionCaller::Tester(_) => true,
+            FunctionCaller::Cron
+            | FunctionCaller::Scheduler { .. }
+            | FunctionCaller::Action { .. } => false,
+        }
+    }
 }
 
 impl fmt::Display for FunctionCaller {

@@ -120,6 +120,7 @@ use function_log::{
 };
 use function_runner::FunctionRunner;
 use futures::{
+    channel::oneshot,
     stream::BoxStream,
     Stream,
 };
@@ -907,19 +908,40 @@ impl<RT: Runtime> Application<RT> {
                 allowed_visibility.clone(),
             )
             .await?;
-        match self
-            .runner
-            .run_action(
-                request_id.clone(),
-                name,
-                args,
-                identity,
-                allowed_visibility,
-                caller,
-                block_logging,
-            )
-            .await
-        {
+
+        let should_spawn = caller.run_until_completion_if_cancelled();
+        let runner: Arc<ApplicationFunctionRunner<RT>> = self.runner.clone();
+        let request_id_ = request_id.clone();
+        let run_action = async move {
+            runner
+                .run_action(
+                    request_id_,
+                    name,
+                    args,
+                    identity,
+                    allowed_visibility,
+                    caller,
+                    block_logging,
+                )
+                .await
+        };
+        let result = if should_spawn {
+            // Spawn running the action in a separate future. This way, even if we
+            // get cancelled, it will continue to run to completion.
+            let (tx, rx) = oneshot::channel();
+            self.runtime.spawn("run_action", async move {
+                let result = run_action.await;
+                // Don't log errors if the caller has gone away.
+                _ = tx.send(result);
+            });
+            rx.await
+                .context("run_action one shot sender dropped prematurely?")?
+        } else {
+            // Await the action future. This means if we get cancelled the action
+            // future will get dropped.
+            run_action.await
+        };
+        match result {
             Ok(result) => Ok(result),
             Err(e) => anyhow::bail!(e),
         }
@@ -941,18 +963,29 @@ impl<RT: Runtime> Application<RT> {
                 AllowedVisibility::PublicOnly,
             )
             .await?;
-        match self
-            .runner
-            .run_http_action(
-                request_id,
-                name,
-                http_request,
-                identity,
-                caller,
-                self.runner.clone(),
-            )
+
+        // Spawn running the action in a separate future. This way, even if we
+        // get cancelled, it will continue to run to completion.
+        let (tx, rx) = oneshot::channel();
+        let runner = self.runner.clone();
+        self.runtime.spawn("run_http_action", async move {
+            let result = runner
+                .run_http_action(
+                    request_id,
+                    name,
+                    http_request,
+                    identity,
+                    caller,
+                    runner.clone(),
+                )
+                .await;
+            // Don't log errors if the caller has gone away.
+            _ = tx.send(result);
+        });
+        let result = rx
             .await
-        {
+            .context("run_action one shot sender dropped prematurely?")?;
+        match result {
             Ok(Ok(result)) => Ok(result),
             Ok(Err(error)) => Ok(HttpActionResponse::from(RedactedJsError::from_js_error(
                 error,
