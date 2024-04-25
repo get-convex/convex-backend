@@ -34,7 +34,10 @@ use file_storage::{
     FileStorage,
     TransactionalFileStorage,
 };
-use function_runner::server::InProcessFunctionRunner;
+use function_runner::server::{
+    InProcessFunctionRunner,
+    InstanceStorage,
+};
 use isolate::test_helpers::{
     TEST_SOURCE,
     TEST_SOURCE_ISOLATE_ONLY,
@@ -188,7 +191,10 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 convex_origin.clone(),
                 rt.clone(),
                 persistence.reader(),
-                files_storage.clone(),
+                InstanceStorage {
+                    files_storage: files_storage.clone(),
+                    modules_storage: modules_storage.clone(),
+                },
                 database.clone(),
                 fetch_client.clone(),
             )

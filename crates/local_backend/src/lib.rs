@@ -45,7 +45,10 @@ use file_storage::{
     TransactionalFileStorage,
 };
 use function_runner::{
-    server::InProcessFunctionRunner,
+    server::{
+        InProcessFunctionRunner,
+        InstanceStorage,
+    },
     FunctionRunner,
 };
 use model::{
@@ -209,7 +212,10 @@ pub async fn make_app(
             config.convex_origin_url(),
             runtime.clone(),
             persistence.reader(),
-            files_storage.clone(),
+            InstanceStorage {
+                files_storage: files_storage.clone(),
+                modules_storage: modules_storage.clone(),
+            },
             database.clone(),
             fetch_client.clone(),
         )

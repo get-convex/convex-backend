@@ -36,6 +36,7 @@ use model::modules::{
     MODULE_VERSIONS_TABLE,
 };
 use parking_lot::Mutex;
+use storage::Storage;
 use value::ResolvedDocumentId;
 
 mod metrics;
@@ -46,11 +47,16 @@ const MAX_BACKOFF: Duration = Duration::from_secs(30);
 pub struct ModuleCacheWorker<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
+    modules_storage: Arc<dyn Storage>,
     cache: AsyncLru<RT, (ResolvedDocumentId, ModuleVersion), ModuleVersionMetadata>,
 }
 
 impl<RT: Runtime> ModuleCacheWorker<RT> {
-    pub async fn start(rt: RT, database: Database<RT>) -> ModuleCache<RT> {
+    pub async fn start(
+        rt: RT,
+        database: Database<RT>,
+        modules_storage: Arc<dyn Storage>,
+    ) -> ModuleCache<RT> {
         let cache = AsyncLru::new(
             rt.clone(),
             *MODULE_CACHE_MAX_SIZE_BYTES,
@@ -60,12 +66,14 @@ impl<RT: Runtime> ModuleCacheWorker<RT> {
         let worker = Self {
             rt: rt.clone(),
             database: database.clone(),
+            modules_storage: modules_storage.clone(),
             cache: cache.clone(),
         };
 
         let worker_handle = rt.spawn("module_cache_worker", worker.go());
         ModuleCache {
             database,
+            modules_storage,
             cache,
             worker: Arc::new(Mutex::new(worker_handle)),
         }
@@ -103,6 +111,7 @@ impl<RT: Runtime> ModuleCacheWorker<RT> {
             for key in referenced_versions {
                 let fetcher = ModuleVersionFetcher {
                     database: self.database.clone(),
+                    modules_storage: self.modules_storage.clone(),
                 };
                 self.cache
                     .get(key, fetcher.generate_value(key).boxed())
@@ -127,6 +136,9 @@ impl<RT: Runtime> ModuleCacheWorker<RT> {
 #[derive(Clone)]
 pub struct ModuleVersionFetcher<RT: Runtime> {
     database: Database<RT>,
+    // TODO(lee) read module source from storage.
+    #[allow(unused)]
+    modules_storage: Arc<dyn Storage>,
 }
 
 impl<RT: Runtime> ModuleVersionFetcher<RT> {
@@ -145,6 +157,8 @@ impl<RT: Runtime> ModuleVersionFetcher<RT> {
 pub struct ModuleCache<RT: Runtime> {
     database: Database<RT>,
 
+    modules_storage: Arc<dyn Storage>,
+
     cache: AsyncLru<RT, (ResolvedDocumentId, ModuleVersion), ModuleVersionMetadata>,
 
     worker: Arc<Mutex<RT::Handle>>,
@@ -160,6 +174,7 @@ impl<RT: Runtime> Clone for ModuleCache<RT> {
     fn clone(&self) -> Self {
         Self {
             database: self.database.clone(),
+            modules_storage: self.modules_storage.clone(),
             cache: self.cache.clone(),
             worker: self.worker.clone(),
         }
@@ -189,6 +204,7 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
         let key = (module_metadata.id(), module_metadata.latest_version);
         let fetcher = ModuleVersionFetcher {
             database: self.database.clone(),
+            modules_storage: self.modules_storage.clone(),
         };
         let result = self
             .cache

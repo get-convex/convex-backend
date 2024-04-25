@@ -17,6 +17,7 @@ use model::modules::{
     types::ModuleMetadata,
     ModuleModel,
 };
+use storage::Storage;
 use sync_types::{
     CanonicalizedModulePath,
     CanonicalizedUdfPath,
@@ -114,6 +115,8 @@ impl<RT: Runtime> ModuleLoader<RT> for TransactionModuleLoader {
 
 pub async fn get_module<RT: Runtime>(
     mut tx: Transaction<RT>,
+    // TODO(lee) fetch from module storage
+    _modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
 ) -> anyhow::Result<ModuleVersionMetadata> {
     let _timer = module_load_timer();

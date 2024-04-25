@@ -521,7 +521,7 @@ impl StorageExt for Arc<dyn Storage> {
         let full_size = self
             .get_object_attributes(object_key)
             .await?
-            .context("object does not exist")?
+            .with_context(|| format!("object {object_key:?} does not exist in {self:?}"))?
             .size;
         let inner =
             StorageObjectReader::new_inner_reader_starting_at(self.clone(), object_key.clone(), 0);

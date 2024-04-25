@@ -464,7 +464,9 @@ impl<RT: Runtime> Application<RT> {
         snapshot_import_pause_client: PauseClient,
         scheduled_jobs_pause_client: PauseClient,
     ) -> anyhow::Result<Self> {
-        let module_cache = ModuleCacheWorker::start(runtime.clone(), database.clone()).await;
+        let module_cache =
+            ModuleCacheWorker::start(runtime.clone(), database.clone(), modules_storage.clone())
+                .await;
         let module_loader = Arc::new(module_cache.clone());
 
         let system_env_vars = btreemap! {

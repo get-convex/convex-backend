@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    fmt::Debug,
     sync::{
         Arc,
         Weak,
@@ -91,7 +92,10 @@ use parking_lot::{
     Mutex,
     RwLock,
 };
-use storage::Storage;
+use storage::{
+    Storage,
+    StorageUseCase,
+};
 use sync_types::Timestamp;
 use usage_tracking::{
     FunctionUsageStats,
@@ -118,23 +122,35 @@ const MAX_ISOLATE_WORKERS: usize = 128;
 const ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY: Duration = Duration::from_secs(10);
 
 #[async_trait]
-pub trait StorageForInstance<RT: Runtime>: Clone + Send + Sync + 'static {
+pub trait StorageForInstance<RT: Runtime>: Debug + Clone + Send + Sync + 'static {
     /// Gets a storage impl for a instance. Agnostic to what kind of storage -
     /// local or s3, or how it was loaded (e.g. passed directly within backend,
     /// loaded from a transaction created in Funrun)
     async fn storage_for_instance(
         &self,
         transaction: &mut Transaction<RT>,
+        use_case: StorageUseCase,
     ) -> anyhow::Result<Arc<dyn Storage>>;
 }
 
+#[derive(Clone, Debug)]
+pub struct InstanceStorage {
+    pub files_storage: Arc<dyn Storage>,
+    pub modules_storage: Arc<dyn Storage>,
+}
+
 #[async_trait]
-impl<RT: Runtime> StorageForInstance<RT> for Arc<dyn Storage> {
+impl<RT: Runtime> StorageForInstance<RT> for InstanceStorage {
     async fn storage_for_instance(
         &self,
         _transaction: &mut Transaction<RT>,
+        use_case: StorageUseCase,
     ) -> anyhow::Result<Arc<dyn Storage>> {
-        Ok(self.clone())
+        match use_case {
+            StorageUseCase::Files => Ok(self.files_storage.clone()),
+            StorageUseCase::Modules => Ok(self.modules_storage.clone()),
+            _ => anyhow::bail!("function runner storage does not support {use_case}"),
+        }
     }
 }
 
@@ -357,8 +373,15 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             )
             .await?;
         let mut transaction = transaction_ingredients.clone().try_into()?;
-        let storage = self.storage.storage_for_instance(&mut transaction).await?;
+        let storage = self
+            .storage
+            .storage_for_instance(&mut transaction, StorageUseCase::Files)
+            .await?;
         let file_storage = TransactionalFileStorage::new(self.rt.clone(), storage, convex_origin);
+        let modules_storage = self
+            .storage
+            .storage_for_instance(&mut transaction, StorageUseCase::Modules)
+            .await?;
 
         let key_broker = KeyBroker::new(&instance_name, instance_secret)?;
         let environment_data = EnvironmentData {
@@ -369,6 +392,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 instance_name: instance_name.clone(),
                 cache: self.module_cache.clone(),
                 transaction_ingredients,
+                modules_storage,
             }),
         };
 
@@ -434,7 +458,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
 }
 
 pub struct InProcessFunctionRunner<RT: Runtime> {
-    server: FunctionRunnerCore<RT, Arc<dyn Storage>>,
+    server: FunctionRunnerCore<RT, InstanceStorage>,
     persistence_reader: Arc<dyn PersistenceReader>,
 
     // Static information about the backend.
@@ -455,7 +479,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
         convex_origin: ConvexOrigin,
         rt: RT,
         persistence_reader: Arc<dyn PersistenceReader>,
-        storage: Arc<dyn Storage>,
+        storage: InstanceStorage,
         database: Database<RT>,
         fetch_client: Arc<dyn FetchClient>,
     ) -> anyhow::Result<Self> {
@@ -567,16 +591,19 @@ mod tests {
     };
     use model::initialize_application_system_tables;
     use runtime::testing::TestRuntime;
-    use storage::{
-        LocalDirStorage,
-        Storage,
-    };
+    use storage::LocalDirStorage;
 
-    use crate::server::FunctionRunnerCore;
+    use crate::server::{
+        FunctionRunnerCore,
+        InstanceStorage,
+    };
     #[convex_macro::test_runtime]
     async fn test_scheduler_workers_limit_requests(rt: TestRuntime) -> anyhow::Result<()> {
         initialize_v8();
-        let storage = Arc::new(LocalDirStorage::new(rt.clone())?) as Arc<dyn Storage>;
+        let storage = InstanceStorage {
+            files_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
+            modules_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
+        };
         let function_runner_core = FunctionRunnerCore::_new(rt.clone(), storage, 100, 1).await?;
         let (mut pause1, pause_client1) = PauseController::new([PAUSE_REQUEST]);
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
@@ -591,7 +618,7 @@ mod tests {
         let request2 = bogus_udf_request(&db, client1, None, sender).await?;
         function_runner_core.send_request(request2)?;
         let response =
-            FunctionRunnerCore::<TestRuntime, Arc<dyn Storage>>::receive_response(rx2).await?;
+            FunctionRunnerCore::<TestRuntime, InstanceStorage>::receive_response(rx2).await?;
         let err = response.unwrap_err();
         assert!(err.is_rejected_before_execution());
         assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));
@@ -603,7 +630,10 @@ mod tests {
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         initialize_v8();
-        let storage = Arc::new(LocalDirStorage::new(rt.clone())?) as Arc<dyn Storage>;
+        let storage = InstanceStorage {
+            files_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
+            modules_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
+        };
         let function_runner_core = FunctionRunnerCore::_new(rt.clone(), storage, 50, 2).await?;
         let (mut pause1, pause_client1) = PauseController::new([PAUSE_REQUEST]);
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
@@ -619,14 +649,17 @@ mod tests {
         let client2 = "client2";
         let request2 = bogus_udf_request(&db, client2, None, sender).await?;
         function_runner_core.send_request(request2)?;
-        FunctionRunnerCore::<TestRuntime, Arc<dyn Storage>>::receive_response(rx2).await??;
+        FunctionRunnerCore::<TestRuntime, InstanceStorage>::receive_response(rx2).await??;
         Ok(())
     }
 
     #[convex_macro::test_runtime]
     async fn test_scheduler_throttles_same_client(rt: TestRuntime) -> anyhow::Result<()> {
         initialize_v8();
-        let storage = Arc::new(LocalDirStorage::new(rt.clone())?) as Arc<dyn Storage>;
+        let storage = InstanceStorage {
+            files_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
+            modules_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
+        };
         let function_runner_core = FunctionRunnerCore::_new(rt.clone(), storage, 50, 2).await?;
         let (mut pause1, pause_client1) = PauseController::new([PAUSE_REQUEST]);
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
@@ -642,7 +675,7 @@ mod tests {
         let request2 = bogus_udf_request(&db, client, None, sender).await?;
         function_runner_core.send_request(request2)?;
         let response =
-            FunctionRunnerCore::<TestRuntime, Arc<dyn Storage>>::receive_response(rx2).await?;
+            FunctionRunnerCore::<TestRuntime, InstanceStorage>::receive_response(rx2).await?;
         let err = response.unwrap_err();
         assert!(err.is_rejected_before_execution());
         assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));

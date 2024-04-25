@@ -25,6 +25,7 @@ use model::modules::{
     ModuleModel,
     MODULE_VERSIONS_TABLE,
 };
+use storage::Storage;
 use value::ResolvedDocumentId;
 
 use crate::in_memory_indexes::TransactionIngredients;
@@ -54,6 +55,7 @@ pub(crate) struct FunctionRunnerModuleLoader<RT: Runtime> {
     pub cache: ModuleCache<RT>,
     pub instance_name: String,
     pub transaction_ingredients: TransactionIngredients<RT>,
+    pub modules_storage: Arc<dyn Storage>,
 }
 
 #[async_trait]
@@ -89,7 +91,7 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             .0
             .get(
                 key.clone(),
-                get_module(transaction, module_metadata).boxed(),
+                get_module(transaction, self.modules_storage.clone(), module_metadata).boxed(),
             )
             .await?;
         // Record read dependency on the module version so the transactions
