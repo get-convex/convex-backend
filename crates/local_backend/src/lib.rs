@@ -102,8 +102,7 @@ pub struct LocalAppState {
     pub application: Application<ProdRuntime>,
     // Number of sync protocol workers.
     pub live_ws_count: Arc<AtomicU64>,
-    pub shutdown_rx: async_broadcast::Receiver<()>,
-    pub shutdown_tx: ShutdownSignal,
+    pub zombify_rx: async_broadcast::Receiver<()>,
 }
 
 impl LocalAppState {
@@ -122,8 +121,7 @@ impl Clone for LocalAppState {
             instance_name: self.instance_name.clone(),
             application: self.application.clone(),
             live_ws_count: self.live_ws_count.clone(),
-            shutdown_rx: self.shutdown_rx.clone(),
-            shutdown_tx: self.shutdown_tx.clone(),
+            zombify_rx: self.zombify_rx.clone(),
         }
     }
 }
@@ -135,8 +133,8 @@ pub async fn make_app(
     runtime: ProdRuntime,
     config: LocalConfig,
     persistence: Arc<dyn Persistence>,
-    shutdown_rx: async_broadcast::Receiver<()>,
-    shutdown_tx: ShutdownSignal,
+    zombify_rx: async_broadcast::Receiver<()>,
+    preempt_tx: ShutdownSignal,
 ) -> anyhow::Result<LocalAppState> {
     let key_broker = config.key_broker()?;
     let searcher: Arc<dyn Searcher> = Arc::new(InProcessSearcher::new(runtime.clone()).await?);
@@ -144,7 +142,7 @@ pub async fn make_app(
         persistence.clone(),
         runtime.clone(),
         searcher.clone(),
-        shutdown_tx.clone(),
+        preempt_tx,
         virtual_system_mapping(),
         Arc::new(NoOpUsageEventLogger),
     )
@@ -257,8 +255,7 @@ pub async fn make_app(
         instance_name,
         application,
         live_ws_count: Arc::new(AtomicU64::new(0)),
-        shutdown_rx,
-        shutdown_tx,
+        zombify_rx,
     };
 
     Ok(app_state)

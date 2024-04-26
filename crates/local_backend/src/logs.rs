@@ -82,7 +82,7 @@ pub async fn stream_udf_execution(
     let entries_future = st
         .application
         .stream_udf_execution(identity, query_args.cursor);
-    let mut shutdown_rx = st.shutdown_rx.clone();
+    let mut zombify_rx = st.zombify_rx.clone();
     futures::select_biased! {
         entries_future_r = entries_future.fuse() => {
             let (log_entries, new_cursor) = entries_future_r?;
@@ -103,7 +103,7 @@ pub async fn stream_udf_execution(
             };
             Ok(Json(response))
         },
-        _ = shutdown_rx.recv().fuse() => {
+        _ = zombify_rx.recv().fuse() => {
             // Return an error so the client reconnects after we come back up.
             Err(anyhow::anyhow!(ErrorMetadata::operational_internal_server_error()).context("Shutting down long poll request").into())
         },
@@ -139,7 +139,7 @@ pub async fn stream_function_logs(
     let entries_future = st
         .application
         .stream_function_logs(identity, query_args.cursor);
-    let mut shutdown_rx = st.shutdown_rx.clone();
+    let mut zombify_rx = st.zombify_rx.clone();
     let request_id = match (query_args.session_id, query_args.client_request_counter) {
         (Some(session_id), Some(client_request_counter)) => Some(RequestId::new_for_ws_session(
             session_id.parse().context("Invalid session ID")?,
@@ -218,7 +218,7 @@ pub async fn stream_function_logs(
             };
             Ok(Json(response))
         },
-        _ = shutdown_rx.recv().fuse() => {
+        _ = zombify_rx.recv().fuse() => {
             // Return an error so the client reconnects after we come back up.
             Err(anyhow::anyhow!(ErrorMetadata::operational_internal_server_error()).context("Shutting down long poll request").into())
         },

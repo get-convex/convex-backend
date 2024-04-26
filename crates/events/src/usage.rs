@@ -134,6 +134,9 @@ pub trait UsageEventLogger: Send + Sync + std::fmt::Debug {
 
     /// Dump events into a buffer, waiting for the buffer to empty if it's full.
     async fn record_async(&self, events: Vec<UsageEvent>);
+
+    /// Cleanly shutdown, flushing events
+    async fn shutdown(&self) -> anyhow::Result<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -144,4 +147,8 @@ impl UsageEventLogger for NoOpUsageEventLogger {
     fn record(&self, _events: Vec<UsageEvent>) {}
 
     async fn record_async(&self, _events: Vec<UsageEvent>) {}
+
+    async fn shutdown(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }

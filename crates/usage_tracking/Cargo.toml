@@ -17,6 +17,7 @@ parking_lot = { workspace = true, features = ["hardware-lock-elision"] }
 pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
+tracing = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]

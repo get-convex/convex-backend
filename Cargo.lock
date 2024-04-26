@@ -2176,6 +2176,7 @@ dependencies = [
 name = "events"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "proptest",
  "proptest-derive",
@@ -7709,6 +7710,7 @@ dependencies = [
  "pb",
  "proptest",
  "proptest-derive",
+ "tracing",
  "value",
 ]
 
