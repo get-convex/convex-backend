@@ -32,6 +32,7 @@ pub mod bounds;
 pub mod client_pool;
 pub mod codel_queue;
 pub mod comparators;
+pub mod deleted_bitset;
 pub mod document;
 pub mod errors;
 pub mod execution_context;

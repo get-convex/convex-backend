@@ -1060,6 +1060,8 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "bitvec",
+ "byteorder",
  "bytes",
  "cmd_util",
  "convex_sync_types",

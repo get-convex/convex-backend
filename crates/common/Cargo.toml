@@ -16,6 +16,8 @@ development = ["proptest", "proptest-derive"]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true }
+bitvec = { workspace = true }
+byteorder = { workspace = true }
 bytes = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 crossbeam = { workspace = true, optional = true }

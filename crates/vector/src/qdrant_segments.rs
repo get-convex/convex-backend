@@ -16,6 +16,7 @@ use std::{
 };
 
 use atomic_refcell::AtomicRefCell;
+use common::deleted_bitset::DeletedBitset;
 use parking_lot::{
     Mutex,
     RwLock,
@@ -76,7 +77,6 @@ use qdrant_segment::{
 use rocksdb::DB;
 
 use crate::id_tracker::{
-    DeletedBitset,
     MemoryIdTracker,
     StaticIdTracker,
 };
@@ -522,6 +522,7 @@ mod tests {
 
     use anyhow::Context;
     use atomic_refcell::AtomicRefCell;
+    use common::deleted_bitset::DeletedBitset;
     use futures::try_join;
     use must_let::must_let;
     use qdrant_segment::{
@@ -561,7 +562,6 @@ mod tests {
 
     use crate::{
         id_tracker::{
-            DeletedBitset,
             MemoryIdTracker,
             StaticIdTracker,
             OP_NUM,

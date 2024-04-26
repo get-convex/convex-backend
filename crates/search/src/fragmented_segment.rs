@@ -12,6 +12,7 @@ use common::{
         ExpiredInQueue,
         QueueFull,
     },
+    deleted_bitset::DeletedBitset,
     errors::report_error,
     runtime::Runtime,
     types::ObjectKey,
@@ -31,10 +32,7 @@ use qdrant_segment::{
 use storage::Storage;
 use tempfile::TempDir;
 use vector::{
-    id_tracker::{
-        DeletedBitset,
-        StaticIdTracker,
-    },
+    id_tracker::StaticIdTracker,
     qdrant_segments::{
         load_disk_segment,
         merge_disk_segments_hnsw,
