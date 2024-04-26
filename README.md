@@ -181,7 +181,7 @@ _The following CLI commands may be useful when interacting with your backend:_
 
 ## Documentation
 
-For full documentation visit [docs.convex.dev](https://www.docs.convex.dev).
+For full documentation visit [docs.convex.dev](https://docs.convex.dev).
 
 To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
 
