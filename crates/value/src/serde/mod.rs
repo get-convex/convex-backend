@@ -27,7 +27,7 @@ macro_rules! codegen_convex_serialization {
             type Error = anyhow::Error;
 
             fn try_from(s: $struct) -> anyhow::Result<value::ConvexObject> {
-                Ok(value::serde::to_object($serialized_struct::try_from(s)?)?)
+                value::serde::to_object($serialized_struct::try_from(s)?)
             }
         }
 

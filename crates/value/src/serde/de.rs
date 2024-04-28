@@ -768,10 +768,18 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer {
     }
 }
 
-pub fn from_value<T: DeserializeOwned>(value: ConvexValue) -> Result<T, Error> {
-    T::deserialize(value)
+pub fn from_value<T: DeserializeOwned>(value: ConvexValue) -> anyhow::Result<T> {
+    match T::deserialize(value) {
+        Err(Error::Anyhow(e)) => Err(e),
+        Err(e) => Err(e.into()),
+        Ok(value) => Ok(value),
+    }
 }
 
-pub fn from_object<T: DeserializeOwned>(value: ConvexObject) -> Result<T, Error> {
-    T::deserialize(ConvexValue::Object(value))
+pub fn from_object<T: DeserializeOwned>(value: ConvexObject) -> anyhow::Result<T> {
+    match T::deserialize(ConvexValue::Object(value)) {
+        Err(Error::Anyhow(e)) => Err(e),
+        Err(e) => Err(e.into()),
+        Ok(value) => Ok(value),
+    }
 }

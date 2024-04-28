@@ -22,7 +22,7 @@ use crate::{
 };
 
 #[derive(thiserror::Error)]
-pub enum Error {
+enum Error {
     #[error("Integer isn't in range for ConvexValue::Int64: {0:?}.")]
     IntegerOutofRange(#[from] TryFromIntError),
 
@@ -668,10 +668,14 @@ impl serde::ser::SerializeStruct for SerializeObject {
     }
 }
 
-pub fn to_value<T: Serialize>(value: T) -> Result<ConvexValue> {
-    value.serialize(Serializer)
+pub fn to_value<T: Serialize>(value: T) -> anyhow::Result<ConvexValue> {
+    match value.serialize(Serializer) {
+        Err(Error::Anyhow(e)) => Err(e),
+        Err(e) => Err(e.into()),
+        Ok(value) => Ok(value),
+    }
 }
 
-pub fn to_object<T: Serialize>(value: T) -> Result<ConvexObject> {
-    Ok(to_value(value)?.try_into()?)
+pub fn to_object<T: Serialize>(value: T) -> anyhow::Result<ConvexObject> {
+    to_value(value)?.try_into()
 }

@@ -192,7 +192,9 @@ impl<'de> Deserialize<'de> for FieldName {
 
 #[cfg(test)]
 mod tests {
+    use errors::ErrorMetadataAnyhowExt;
     use proptest::prelude::*;
+    use serde_json::json;
 
     use crate::{
         serde::{
@@ -224,5 +226,14 @@ mod tests {
             let deserialized: ConvexValue = from_value(serialized).unwrap();
             assert_eq!(start, deserialized);
         }
+    }
+
+    #[test]
+    fn test_error_metadata() {
+        // Regression test, checking that error metadata is piped through.
+        let big_json = json!("a".repeat(64_000_000));
+        let serialize_result = to_value(big_json);
+        let anyhow_err: anyhow::Error = serialize_result.unwrap_err();
+        assert!(anyhow_err.is_bad_request());
     }
 }
