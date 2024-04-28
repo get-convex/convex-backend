@@ -335,6 +335,8 @@ export async function entryPoints(
       log(chalk.yellow(`Skipping ${fpath}`));
     } else if (base.startsWith(".")) {
       log(chalk.yellow(`Skipping dotfile ${fpath}`));
+    } else if (base.startsWith("#")) {
+      log(chalk.yellow(`Skipping likely emacs tempfile ${fpath}`));
     } else if (base === "README.md") {
       log(chalk.yellow(`Skipping ${fpath}`));
     } else if (base === "_generated.ts") {
