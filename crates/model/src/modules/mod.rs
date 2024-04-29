@@ -274,6 +274,9 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 let new_metadata = ModuleMetadata {
                     path,
                     latest_version,
+                    source_package_id,
+                    environment: Some(environment),
+                    analyze_result: analyze_result.clone(),
                 };
                 SystemMetadataModel::new(self.tx)
                     .replace(module_metadata.id(), new_metadata.try_into()?)
@@ -295,6 +298,9 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 let new_metadata = ModuleMetadata {
                     path,
                     latest_version: version,
+                    source_package_id,
+                    environment: Some(environment),
+                    analyze_result: analyze_result.clone(),
                 };
 
                 let document_id = SystemMetadataModel::new(self.tx)

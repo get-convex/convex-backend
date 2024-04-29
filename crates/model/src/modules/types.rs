@@ -1,3 +1,4 @@
+use common::types::ModuleEnvironment;
 use serde::{
     Deserialize,
     Serialize,
@@ -6,9 +7,17 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
-use value::codegen_convex_serialization;
+use value::{
+    codegen_convex_serialization,
+    DeveloperDocumentId,
+};
 
-use super::module_versions::ModuleVersion;
+use super::module_versions::{
+    AnalyzedModule,
+    ModuleVersion,
+    SerializedAnalyzedModule,
+};
+use crate::source_packages::types::SourcePackageId;
 
 /// In-memory representation of a module's metadata.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -18,6 +27,14 @@ pub struct ModuleMetadata {
     pub path: CanonicalizedModulePath,
     /// What is the latest version of the module?
     pub latest_version: ModuleVersion,
+
+    // Fields previously in ModuleVersionMetadata.
+    // In migration phase, fields are duplicated here but not read.
+    pub source_package_id: Option<SourcePackageId>,
+    // TODO(lee): environment should not be optional.
+    // Remove Option once environment is backfilled from ModuleVersionMetadata.
+    pub environment: Option<ModuleEnvironment>,
+    pub analyze_result: Option<AnalyzedModule>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -26,6 +43,9 @@ pub struct SerializedModuleMetadata {
     pub path: String,
     pub latest_version: ModuleVersion,
     pub deleted: Option<bool>,
+    pub source_package_id: Option<String>,
+    pub environment: Option<String>,
+    pub analyze_result: Option<SerializedAnalyzedModule>,
 }
 
 impl TryFrom<SerializedModuleMetadata> for ModuleMetadata {
@@ -40,6 +60,13 @@ impl TryFrom<SerializedModuleMetadata> for ModuleMetadata {
                 path.canonicalize()
             },
             latest_version: m.latest_version,
+            source_package_id: m
+                .source_package_id
+                .map(|s| DeveloperDocumentId::decode(&s))
+                .transpose()?
+                .map(|id| id.into()),
+            environment: m.environment.map(|s| s.parse()).transpose()?,
+            analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
         })
     }
 }
@@ -52,6 +79,11 @@ impl TryFrom<ModuleMetadata> for SerializedModuleMetadata {
             path: String::from(m.path),
             latest_version: m.latest_version,
             deleted: Some(false),
+            source_package_id: m
+                .source_package_id
+                .map(|s| DeveloperDocumentId::from(s).to_string()),
+            environment: m.environment.map(|s| s.to_string()),
+            analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
         })
     }
 }
