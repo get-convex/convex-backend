@@ -207,7 +207,7 @@
     "@types/inquirer": "^8.2.0",
     "@types/jest": "^27.0.0",
     "@types/jwt-encode": "~1.0.0",
-    "@types/node": "^16.11.12",
+    "@types/node": "^18.17.0",
     "@types/node-fetch": "^2.6.1",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",

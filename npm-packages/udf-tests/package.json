@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "typescript": "~5.0.3",
-    "@types/node": "^16.11.12",
+    "@types/node": "^18.17.0",
     "@types/chai": "~4.3.5"
   },
   "scripts": {

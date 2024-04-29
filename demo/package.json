@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@types/babel__core": "^7.20.0",
-    "@types/node": "^16.11.12",
+    "@types/node": "^18.17.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@vitejs/plugin-react": "^4.1.1",
