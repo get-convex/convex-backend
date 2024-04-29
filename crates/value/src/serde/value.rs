@@ -194,9 +194,11 @@ impl<'de> Deserialize<'de> for FieldName {
 mod tests {
     use errors::ErrorMetadataAnyhowExt;
     use proptest::prelude::*;
+    use serde::Deserialize;
     use serde_json::json;
 
     use crate::{
+        assert_val,
         serde::{
             from_value,
             to_value,
@@ -235,5 +237,27 @@ mod tests {
         let serialize_result = to_value(big_json);
         let anyhow_err: anyhow::Error = serialize_result.unwrap_err();
         assert!(anyhow_err.is_bad_request());
+    }
+
+    #[derive(Deserialize, PartialEq, Eq, Debug)]
+    struct TestStruct {
+        a: i64,
+    }
+
+    #[test]
+    fn test_unrecognized_field() -> anyhow::Result<()> {
+        let obj = assert_val!({"a" => 1});
+        let value: TestStruct = from_value(obj)?;
+        assert_eq!(value, TestStruct { a: 1 });
+        // Extra field is ignored.
+        let obj = assert_val!({"a" => 1, "b" => 2});
+        let value: TestStruct = from_value(obj)?;
+        assert_eq!(value, TestStruct { a: 1 });
+        // Extra field within nested object is also ignored. This is a
+        // regression test -- previously we would throw an error.
+        let obj = assert_val!({"a" => 1, "b" => {"c" => 2}});
+        let value: TestStruct = from_value(obj)?;
+        assert_eq!(value, TestStruct { a: 1 });
+        Ok(())
     }
 }

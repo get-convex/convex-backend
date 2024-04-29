@@ -758,13 +758,12 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer {
         self.deserialize_string(visitor)
     }
 
-    fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value, Error>
+    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
-        Err(Error::InvalidField {
-            field_type: "ignored any",
-        })
+        drop(self);
+        visitor.visit_unit()
     }
 }
 
