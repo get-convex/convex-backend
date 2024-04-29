@@ -249,6 +249,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn run_http_action(
         mut self,
         client_id: String,

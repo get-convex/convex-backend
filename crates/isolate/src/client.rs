@@ -638,6 +638,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     }
 
     /// Execute a UDF within a transaction.
+    #[minitrace::trace]
     pub async fn execute_udf(
         &self,
         udf_type: UdfType,
@@ -670,7 +671,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::empty(),
+            EncodedSpan::from_parent(SpanContext::current_local_parent()),
         ))?;
         let (tx, outcome) = Self::receive_response(rx).await??;
         metrics::finish_execute_timer(timer, &outcome);
@@ -680,6 +681,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     /// Execute an HTTP action.
     /// HTTP actions can run other UDFs, so they take in a ActionCallbacks from
     /// the application layer. This creates a transient reference cycle.
+    #[minitrace::trace]
     pub async fn execute_http_action(
         &self,
         router_path: ValidatedHttpPath,
@@ -720,12 +722,10 @@ impl<RT: Runtime> IsolateClient<RT> {
                 module_loader: self.module_loader.clone(),
             },
         };
-        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
-        // http actions
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::empty(),
+            EncodedSpan::from_parent(SpanContext::current_local_parent()),
         ))?;
         let outcome = Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
@@ -738,6 +738,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         Ok(outcome)
     }
 
+    #[minitrace::trace]
     pub async fn execute_action(
         &self,
         path_and_args: ValidatedUdfPathAndArgs,
@@ -775,12 +776,10 @@ impl<RT: Runtime> IsolateClient<RT> {
                 module_loader: self.module_loader.clone(),
             },
         };
-        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
-        // actions
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::empty(),
+            EncodedSpan::from_parent(SpanContext::current_local_parent()),
         ))?;
         let outcome = Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
@@ -829,6 +828,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     }
 
     /// Evaluate a (bundled) schema module.
+    #[minitrace::trace]
     pub async fn evaluate_schema(
         &self,
         schema_bundle: ModuleSource,
@@ -842,12 +842,10 @@ impl<RT: Runtime> IsolateClient<RT> {
             rng_seed,
             response: tx,
         };
-        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
-        // other requests besides udfs
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::empty(),
+            EncodedSpan::from_parent(SpanContext::current_local_parent()),
         ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
@@ -859,6 +857,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     }
 
     /// Evaluate a (bundled) auth config module.
+    #[minitrace::trace]
     pub async fn evaluate_auth_config(
         &self,
         auth_config_bundle: ModuleSource,
@@ -877,7 +876,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::empty(),
+            EncodedSpan::from_parent(SpanContext::current_local_parent()),
         ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {

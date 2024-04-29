@@ -1385,6 +1385,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn run_http_action(
         &self,
         request_id: RequestId,

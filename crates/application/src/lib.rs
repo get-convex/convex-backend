@@ -144,6 +144,12 @@ use keybroker::{
     KeyBroker,
 };
 use maplit::btreemap;
+use minitrace::{
+    collector::SpanContext,
+    full_name,
+    future::FutureExt,
+    Span,
+};
 use model::{
     auth::AuthInfoModel,
     config::{
@@ -914,6 +920,9 @@ impl<RT: Runtime> Application<RT> {
         let should_spawn = caller.run_until_completion_if_cancelled();
         let runner: Arc<ApplicationFunctionRunner<RT>> = self.runner.clone();
         let request_id_ = request_id.clone();
+        let span = SpanContext::current_local_parent()
+            .map(|ctx| Span::root(format!("{}::actions_future", full_name!()), ctx))
+            .unwrap_or(Span::noop());
         let run_action = async move {
             runner
                 .run_action(
@@ -925,6 +934,7 @@ impl<RT: Runtime> Application<RT> {
                     caller,
                     block_logging,
                 )
+                .in_span(span)
                 .await
         };
         let result = if should_spawn {
@@ -949,6 +959,7 @@ impl<RT: Runtime> Application<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn http_action_udf(
         &self,
         request_id: RequestId,
@@ -970,6 +981,9 @@ impl<RT: Runtime> Application<RT> {
         // get cancelled, it will continue to run to completion.
         let (tx, rx) = oneshot::channel();
         let runner = self.runner.clone();
+        let span = SpanContext::current_local_parent()
+            .map(|ctx| Span::root(format!("{}::http_actions_future", full_name!()), ctx))
+            .unwrap_or(Span::noop());
         self.runtime.spawn("run_http_action", async move {
             let result = runner
                 .run_http_action(
@@ -980,6 +994,7 @@ impl<RT: Runtime> Application<RT> {
                     caller,
                     runner.clone(),
                 )
+                .in_span(span)
                 .await;
             // Don't log errors if the caller has gone away.
             _ = tx.send(result);
