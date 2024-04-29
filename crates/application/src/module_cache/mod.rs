@@ -1,5 +1,8 @@
 use std::{
-    collections::BTreeSet,
+    collections::{
+        BTreeSet,
+        HashMap,
+    },
     sync::Arc,
     time::Duration,
 };
@@ -108,13 +111,16 @@ impl<RT: Runtime> ModuleCacheWorker<RT> {
             // if the number of modules is high and lots of UDFs are using old
             // versions, but on average they should be populated and remain.
             let num_loaded = referenced_versions.len();
-            for key in referenced_versions {
-                let fetcher = ModuleVersionFetcher {
-                    database: self.database.clone(),
-                    modules_storage: self.modules_storage.clone(),
-                };
+            let fetcher = ModuleVersionFetcher {
+                database: self.database.clone(),
+                modules_storage: self.modules_storage.clone(),
+            };
+            if let Some(first_key) = referenced_versions.first().cloned() {
                 self.cache
-                    .get(key, fetcher.generate_value(key).boxed())
+                    .get_and_prepopulate(
+                        first_key,
+                        fetcher.generate_values(referenced_versions).boxed(),
+                    )
                     .await?;
             }
 
@@ -151,6 +157,26 @@ impl<RT: Runtime> ModuleVersionFetcher<RT> {
             .get_version(key.0, key.1)
             .await?
             .into_value())
+    }
+
+    async fn generate_values(
+        self,
+        keys: BTreeSet<(ResolvedDocumentId, ModuleVersion)>,
+    ) -> HashMap<(ResolvedDocumentId, ModuleVersion), anyhow::Result<ModuleVersionMetadata>> {
+        let mut hashmap = HashMap::new();
+        for key in keys {
+            hashmap.insert(
+                key,
+                try {
+                    let mut tx = self.database.begin(Identity::system()).await?;
+                    ModuleModel::new(&mut tx)
+                        .get_version(key.0, key.1)
+                        .await?
+                        .into_value()
+                },
+            );
+        }
+        hashmap
     }
 }
 

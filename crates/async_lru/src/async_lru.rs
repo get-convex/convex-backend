@@ -1,5 +1,6 @@
 use core::hash::Hash;
 use std::{
+    collections::HashMap,
     fmt::Debug,
     sync::Arc,
 };
@@ -68,7 +69,8 @@ pub struct AsyncLru<RT: Runtime, Key, Value> {
     pause_client: Option<Arc<tokio::sync::Mutex<PauseClient>>>,
 }
 
-pub type ValueGenerator<Value> = BoxFuture<'static, anyhow::Result<Value>>;
+pub type SingleValueGenerator<Value> = BoxFuture<'static, anyhow::Result<Value>>;
+pub type ValueGenerator<Key, Value> = BoxFuture<'static, HashMap<Key, anyhow::Result<Value>>>;
 
 impl<RT: Runtime, Key, Value> Clone for AsyncLru<RT, Key, Value> {
     fn clone(&self) -> Self {
@@ -142,7 +144,7 @@ type BuildValueResult<Value> = Result<Arc<Value>, Arc<anyhow::Error>>;
 
 type BuildValueRequest<Key, Value> = (
     Key,
-    ValueGenerator<Value>,
+    ValueGenerator<Key, Value>,
     async_broadcast::Sender<BuildValueResult<Value>>,
 );
 
@@ -247,8 +249,8 @@ impl<
                 inner.current_size += new_value.size();
                 // Ideally we'd not change the LRU order by putting here...
                 if let Some(old_value) = inner.cache.put(key, new_value) {
-                    anyhow::ensure!(!matches!(old_value, CacheResult::Ready { .. }));
-                    // Just in case we ever assign a size to our Waiting entries.
+                    // Allow overwriting entries (Waiting or Ready) which may have been populated
+                    // by racing requests with prefetches.
                     inner.current_size -= old_value.size();
                 }
                 Self::trim_to_size(&mut inner);
@@ -300,10 +302,10 @@ impl<
         inner.current_size
     }
 
-    pub async fn get(
+    pub async fn get_and_prepopulate(
         &self,
         key: Key,
-        value_generator: ValueGenerator<Value>,
+        value_generator: ValueGenerator<Key, Value>,
     ) -> anyhow::Result<Arc<Value>> {
         let timer = async_lru_get_timer(self.label);
         let result = self._get(&key, value_generator).await;
@@ -311,10 +313,34 @@ impl<
         result
     }
 
+    pub async fn get(
+        &self,
+        key: Key,
+        value_generator: SingleValueGenerator<Value>,
+    ) -> anyhow::Result<Arc<Value>>
+    where
+        Key: Clone,
+    {
+        let timer = async_lru_get_timer(self.label);
+        let key_ = key.clone();
+        let result = self
+            ._get(
+                &key_,
+                Box::pin(async move {
+                    let mut hashmap = HashMap::new();
+                    hashmap.insert(key, value_generator.await);
+                    hashmap
+                }),
+            )
+            .await;
+        timer.finish(result.is_ok());
+        result
+    }
+
     async fn _get(
         &self,
         key: &Key,
-        value_generator: ValueGenerator<Value>,
+        value_generator: ValueGenerator<Key, Value>,
     ) -> anyhow::Result<Arc<Value>> {
         match self.get_sync(key, value_generator)? {
             Status::Ready(value) => Ok(value),
@@ -336,7 +362,7 @@ impl<
     fn get_sync(
         &self,
         key: &Key,
-        value_generator: ValueGenerator<Value>,
+        value_generator: ValueGenerator<Key, Value>,
     ) -> anyhow::Result<Status<Value>> {
         let mut inner = self.inner.lock();
         log_async_lru_size(inner.cache.len(), inner.current_size, self.label);
@@ -407,10 +433,16 @@ impl<
                     return;
                 }
 
-                let value = generator.await;
+                let values = generator.await;
 
-                let to_broadcast = Self::update_value(rt, inner, key, value).map_err(Arc::new);
-                let _ = tx.broadcast(to_broadcast).await;
+                for (k, value) in values {
+                    let is_requested_key = k == key;
+                    let to_broadcast =
+                        Self::update_value(rt.clone(), inner.clone(), k, value).map_err(Arc::new);
+                    if is_requested_key {
+                        let _ = tx.broadcast(to_broadcast).await;
+                    }
+                }
             }
         })
         .await;
@@ -420,7 +452,10 @@ impl<
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{
+        collections::HashMap,
+        sync::Arc,
+    };
 
     use common::{
         pause::PauseController,
@@ -533,6 +568,36 @@ mod tests {
         let initial_values = get_all_values().await?;
         let second_values = get_all_values().await?;
         assert_eq!(initial_values, second_values);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_get_and_prepopulate(rt: TestRuntime) -> anyhow::Result<()> {
+        let cache = AsyncLru::new(rt, 10, 1, "label");
+        let first = cache
+            .get_and_prepopulate(
+                "k1",
+                async move {
+                    let mut hashmap = HashMap::new();
+                    hashmap.insert("k1", Ok(1));
+                    hashmap.insert("k2", Ok(2));
+                    hashmap.insert("k3", Err(anyhow::anyhow!("k3 failed")));
+                    hashmap
+                }
+                .boxed(),
+            )
+            .await?;
+        assert_eq!(*first, 1);
+        let k1_again = cache
+            .get("k1", GenerateRandomValue::generate_value("k1").boxed())
+            .await?;
+        assert_eq!(*k1_again, 1);
+        let k2_prepopulated = cache
+            .get("k2", GenerateRandomValue::generate_value("k2").boxed())
+            .await?;
+        assert_eq!(*k2_prepopulated, 2);
+        let k3_prepopulated = cache.get("k3", async move { Ok(3) }.boxed()).await?;
+        assert_eq!(*k3_prepopulated, 3);
         Ok(())
     }
 
