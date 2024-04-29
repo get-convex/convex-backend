@@ -69,7 +69,16 @@ use search::{
         TermShortlist,
     },
     scoring::Bm25StatisticsDiff,
-    searcher::InProcessSearcher,
+    searcher::{
+        Bm25Stats,
+        FragmentedTextSegmentStorageKeys,
+        InProcessSearcher,
+        PostingListMatch,
+        PostingListQuery,
+        Term,
+        TokenMatch,
+        TokenQuery,
+    },
     SearchQueryResult,
     Searcher,
     TantivySearchIndexSchema,
@@ -936,6 +945,34 @@ impl Searcher for BrokenSearcher {
         _: usize,
     ) -> anyhow::Result<SearchQueryResult> {
         anyhow::bail!("要");
+    }
+
+    async fn query_tokens(
+        &self,
+        _: Arc<dyn Storage>,
+        _: FragmentedTextSegmentStorageKeys,
+        _: Vec<TokenQuery>,
+        _: usize,
+    ) -> anyhow::Result<Vec<TokenMatch>> {
+        anyhow::bail!("recherche")
+    }
+
+    async fn query_bm25_stats(
+        &self,
+        _: Arc<dyn Storage>,
+        _: FragmentedTextSegmentStorageKeys,
+        _: Vec<Term>,
+    ) -> anyhow::Result<Bm25Stats> {
+        anyhow::bail!("plein")
+    }
+
+    async fn query_posting_lists(
+        &self,
+        _: Arc<dyn Storage>,
+        _: FragmentedTextSegmentStorageKeys,
+        _: PostingListQuery,
+    ) -> anyhow::Result<Vec<PostingListMatch>> {
+        anyhow::bail!("texte");
     }
 }
 

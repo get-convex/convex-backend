@@ -1,4 +1,5 @@
 pub mod art;
+mod bitset64;
 mod iter_set_bits;
 mod slab;
 mod small_slice;
@@ -44,8 +45,19 @@ use self::term_list::{
 };
 pub use crate::memory_index::term_table::TermId;
 use crate::{
-    constants::MAX_FUZZY_MATCHES_PER_QUERY_TERM,
-    memory_index::term_table::TermTable,
+    aggregation::{
+        PostingListMatchAggregator,
+        TokenMatchAggregator,
+    },
+    constants::{
+        MAX_FUZZY_MATCHES_PER_QUERY_TERM,
+        MAX_UNIQUE_QUERY_TERMS,
+    },
+    convex_query::OrTerm,
+    memory_index::{
+        bitset64::Bitset64,
+        term_table::TermTable,
+    },
     metrics,
     query::{
         shortlist_and_id_mapping,
@@ -61,6 +73,11 @@ use crate::{
         bm25_weight_boost_for_edit_distance,
         Bm25StatisticsDiff,
     },
+    searcher::{
+        Bm25Stats,
+        PostingListMatch,
+        TokenQuery,
+    },
     CandidateRevision,
     DocumentTerm,
     EditDistance,
@@ -71,7 +88,7 @@ use crate::{
 pub struct Document {
     ts: WriteTimestamp,
     term_list: TermList,
-    fieldnorm: u32,
+    num_search_tokens: u32,
     creation_time: CreationTime,
 }
 
@@ -345,7 +362,8 @@ impl MemorySearchIndex {
             let num_search_tokens = terms
                 .iter()
                 .filter(|doc_term| doc_term.field_id() == SEARCH_FIELD_ID)
-                .count();
+                .count()
+                .try_into()?;
             let term_ids = terms
                 .iter()
                 .map(|doc_term| (self.term_table.incref(doc_term.term()), doc_term.position()))
@@ -355,7 +373,7 @@ impl MemorySearchIndex {
                 ts,
                 term_list,
                 creation_time,
-                fieldnorm: num_search_tokens.try_into()?,
+                num_search_tokens,
             };
             self.documents_terms_size += document.term_list.heap_allocations();
             assert!(self.documents.insert(id, document).is_none());
@@ -411,6 +429,175 @@ impl MemorySearchIndex {
             query_term_matches.insert(query_term.clone(), term_matches);
         }
         shortlist_and_id_mapping(query_term_matches)
+    }
+
+    pub fn query_tokens(
+        &self,
+        queries: &[TokenQuery],
+        results: &mut TokenMatchAggregator,
+    ) -> anyhow::Result<()> {
+        for (token_ord, query) in queries.iter().enumerate() {
+            let token_ord = token_ord as u32;
+            self.term_table
+                .visit_top_terms_for_query(token_ord, query, results)?;
+        }
+        Ok(())
+    }
+
+    pub fn update_bm25_stats(
+        &self,
+        snapshot_ts: Timestamp,
+        terms: &[Term],
+        mut stats: Bm25Stats,
+    ) -> anyhow::Result<Bm25Stats> {
+        anyhow::ensure!(
+            self.min_ts <= WriteTimestamp::Committed(snapshot_ts.succ()?),
+            "Timestamps are out of order!  min ts:{:?} snapshot_ts:{snapshot_ts}",
+            self.min_ts,
+        );
+        let mut term_ids = Vec::with_capacity(terms.len());
+        for term in terms {
+            if let Some(term_id) = self.term_table.get(term) {
+                term_ids.push((term, term_id));
+            }
+        }
+        let commit_iter = self.statistics.range((
+            Bound::Excluded(WriteTimestamp::Committed(snapshot_ts)),
+            Bound::Unbounded,
+        ));
+        for (_, commit_stats) in commit_iter {
+            stats
+                .num_documents
+                .checked_add_signed(commit_stats.total_docs_diff as i64)
+                .context("num_documents underflow")?;
+            stats
+                .num_terms
+                .checked_add_signed(commit_stats.total_term_diff as i64)
+                .context("num_terms underflow")?;
+            for (term, term_id) in &term_ids {
+                let Some(&increment) = commit_stats.term_freq_diffs.get(term_id) else {
+                    continue;
+                };
+                let existing = stats.doc_frequencies.entry((*term).clone()).or_insert(0);
+                *existing = existing
+                    .checked_add_signed(increment as i64)
+                    .context("Doc frequency underflow")?;
+            }
+        }
+        Ok(stats)
+    }
+
+    pub fn prepare_posting_list_query(
+        &self,
+        and_terms: &[Term],
+        or_terms: &[OrTerm],
+        stats: &Bm25Stats,
+    ) -> anyhow::Result<Option<PreparedMemoryPostingListQuery>> {
+        let mut all_term_ids = BTreeSet::new();
+        let mut intersection_term_ids = BTreeSet::new();
+        for term in and_terms {
+            let Some(term_id) = self.term_table.get(term) else {
+                return Ok(None);
+            };
+            all_term_ids.insert(term_id);
+            intersection_term_ids.insert(term_id);
+        }
+        let average_fieldnorm = stats.num_terms as f32 / stats.num_documents as f32;
+        let mut weights_by_union_id = BTreeMap::new();
+        for or_term in or_terms {
+            let Some(term_id) = self.term_table.get(&or_term.term) else {
+                continue;
+            };
+            all_term_ids.insert(term_id);
+            let weight = Bm25Weight::for_one_term(
+                or_term.doc_frequency,
+                stats.num_documents,
+                average_fieldnorm,
+            )
+            .boost_by(or_term.bm25_boost);
+            weights_by_union_id.insert(term_id, weight);
+        }
+        if weights_by_union_id.is_empty() {
+            return Ok(None);
+        }
+
+        anyhow::ensure!(all_term_ids.len() <= MAX_UNIQUE_QUERY_TERMS);
+        let mut intersection_terms = Bitset64::new();
+        let mut union_terms = Bitset64::new();
+        let mut union_weights = Vec::with_capacity(weights_by_union_id.len());
+        for (i, term_id) in all_term_ids.iter().enumerate() {
+            if intersection_term_ids.contains(term_id) {
+                intersection_terms.insert(i);
+            }
+            if let Some(bm25_weight) = weights_by_union_id.remove(term_id) {
+                union_terms.insert(i);
+                union_weights.push(bm25_weight);
+            }
+        }
+        let prepared = PreparedMemoryPostingListQuery {
+            sorted_terms: all_term_ids.into_iter().collect(),
+            intersection_terms,
+            union_terms,
+            union_weights,
+        };
+        Ok(Some(prepared))
+    }
+
+    pub fn query_tombstones(
+        &self,
+        snapshot_ts: Timestamp,
+        query: &PreparedMemoryPostingListQuery,
+    ) -> anyhow::Result<BTreeSet<InternalId>> {
+        anyhow::ensure!(
+            self.min_ts <= WriteTimestamp::Committed(snapshot_ts.succ()?),
+            "Timestamps are out of order! min ts:{:?} snapshot_ts:{snapshot_ts}",
+            self.min_ts,
+        );
+        let mut results = BTreeSet::new();
+        for (ts, tombstone) in self.tombstones.iter() {
+            if *ts <= WriteTimestamp::Committed(snapshot_ts) {
+                continue;
+            }
+            if tombstone.term_list.matches2(query) {
+                results.insert(tombstone.id);
+            }
+        }
+        Ok(results)
+    }
+
+    pub fn query_posting_lists(
+        &self,
+        snapshot_ts: Timestamp,
+        query: &PreparedMemoryPostingListQuery,
+        results: &mut PostingListMatchAggregator,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.min_ts <= WriteTimestamp::Committed(snapshot_ts.succ()?),
+            "Timestamps are out of order!  min ts:{:?} snapshot_ts:{snapshot_ts}",
+            self.min_ts,
+        );
+        for (&internal_id, document) in &self.documents {
+            if document.ts <= WriteTimestamp::Committed(snapshot_ts) {
+                continue;
+            };
+            let maybe_score = document
+                .term_list
+                .matches2_with_score(query, document.num_search_tokens);
+            let Some(bm25_score) = maybe_score else {
+                continue;
+            };
+            let m = PostingListMatch {
+                internal_id,
+                ts: document.ts,
+                creation_time: document.creation_time,
+                bm25_score,
+            };
+            // NB: Since we're scanning over all of `self.documents` and they're not in BM25
+            // score order, we can't early return if we've filled up `results` and
+            // `results.insert()` returns `false`.
+            results.insert(m);
+        }
+        Ok(())
     }
 
     pub fn build_term_list_bitset_query(
@@ -470,7 +657,7 @@ impl MemorySearchIndex {
     pub fn tombstoned_matches(
         &self,
         snapshot_ts: Timestamp,
-        query: TermListBitsetQuery,
+        query: &TermListBitsetQuery,
     ) -> anyhow::Result<BTreeSet<InternalId>> {
         let timer = metrics::updated_matches_timer();
         anyhow::ensure!(
@@ -487,7 +674,7 @@ impl MemorySearchIndex {
             if *ts <= WriteTimestamp::Committed(snapshot_ts) {
                 continue;
             }
-            if tombstone.term_list.matches(&query) {
+            if tombstone.term_list.matches(query) {
                 results.insert(tombstone.id);
             }
         }
@@ -560,7 +747,7 @@ impl MemorySearchIndex {
             let maybe_score = document.term_list.matches_with_score_and_positions(
                 query,
                 term_weights,
-                document.fieldnorm,
+                document.num_search_tokens,
             );
             let Some((score, positions)) = maybe_score else {
                 continue;
@@ -711,6 +898,32 @@ pub fn build_term_weights(
         .collect::<anyhow::Result<Vec<Bm25Weight>>>()?;
 
     Ok(term_weights)
+}
+
+pub struct PreparedMemoryPostingListQuery {
+    /// Stores a sorted list of term IDs in this query
+    pub sorted_terms: Vec<TermId>,
+    /// Is `sorted_terms[i]` a filter term?
+    pub intersection_terms: Bitset64,
+    /// Is `union_terms[i]` a search term?
+    pub union_terms: Bitset64,
+
+    // BM25 weights corresponding to each element in `union_terms`.
+    pub union_weights: Vec<Bm25Weight>,
+}
+
+impl PreparedMemoryPostingListQuery {
+    pub fn intersection_terms(&self) -> impl Iterator<Item = TermId> + '_ {
+        self.intersection_terms
+            .iter_ones()
+            .map(move |idx| self.sorted_terms[idx])
+    }
+
+    pub fn union_terms(&self) -> impl Iterator<Item = TermId> + '_ {
+        self.union_terms
+            .iter_ones()
+            .map(move |idx| self.sorted_terms[idx])
+    }
 }
 
 #[cfg(test)]

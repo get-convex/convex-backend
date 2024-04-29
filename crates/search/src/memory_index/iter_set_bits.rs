@@ -1,6 +1,5 @@
-#[allow(unused)]
 // Adapted from https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
-pub fn iter_set_bits(mut bitset: u64) -> impl Iterator<Item = u32> {
+pub fn iter_set_bits(mut bitset: u64) -> impl Iterator<Item = usize> {
     std::iter::from_coroutine(move || {
         while bitset != 0 {
             // The main trick for this algorithm is that `t` has all bits off except for the
@@ -51,7 +50,7 @@ pub fn iter_set_bits(mut bitset: u64) -> impl Iterator<Item = u32> {
             // Therefore, `AND`ing the two together only leaves the least
             // significant bit on.
             let t = bitset & bitset.wrapping_neg();
-            yield bitset.trailing_zeros();
+            yield bitset.trailing_zeros() as usize;
             bitset ^= t;
         }
     })

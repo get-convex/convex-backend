@@ -34,6 +34,10 @@ use xorf::{
     Filter,
 };
 
+use super::{
+    bitset64::Bitset64,
+    PreparedMemoryPostingListQuery,
+};
 use crate::{
     constants::MAX_POSITIONS_PER_MATCHED_TERM,
     memory_index::term_table::TermId,
@@ -258,6 +262,60 @@ impl TermList {
             && union_ids.iter_ones().any(|i| matches[i])
     }
 
+    pub fn matches2(&self, query: &PreparedMemoryPostingListQuery) -> bool {
+        let Some(ref inner) = self.inner else {
+            return false;
+        };
+        if !inner.term_filter_matches2(query) {
+            return false;
+        }
+        // Build up a bitset of which terms match.
+        let mut matching_terms = Bitset64::new();
+        for (i, _) in inner.term_matches(&query.sorted_terms) {
+            matching_terms.insert(i);
+        }
+
+        // Check that all of the intersection bits and any of the union bits are set.
+        let all_intersection =
+            matching_terms.intersect(query.intersection_terms) == query.intersection_terms;
+        let any_union = !matching_terms.intersect(query.union_terms).is_empty();
+        all_intersection && any_union
+    }
+
+    pub fn matches2_with_score(
+        &self,
+        query: &PreparedMemoryPostingListQuery,
+        num_search_tokens: u32,
+    ) -> Option<Score> {
+        let inner = self.inner.as_ref()?;
+        if !inner.term_filter_matches2(query) {
+            return None;
+        }
+
+        let mut score = 0.;
+        let fieldnorm_id = FieldNormReader::fieldnorm_to_id(num_search_tokens);
+
+        // Build up a bitset of which terms match.
+        let mut matching_terms = Bitset64::new();
+        for (i, pos) in inner.term_matches(&query.sorted_terms) {
+            matching_terms.insert(i);
+            if query.union_terms.contains(i) {
+                let term_freq = inner
+                    .cumulative_freqs
+                    .delta(pos)
+                    .expect("term position missing from cumulative_freqs");
+                let union_rank = query.union_terms.rank(i);
+                let bm25_weight = &query.union_weights[union_rank];
+                score += bm25_weight.score(fieldnorm_id, term_freq as u32);
+            }
+        }
+        // Check that all of the intersection bits and any of the union bits are set.
+        let all_intersection =
+            matching_terms.intersect(query.intersection_terms) == query.intersection_terms;
+        let any_union = !matching_terms.intersect(query.union_terms).is_empty();
+        (all_intersection && any_union).then_some(score)
+    }
+
     // Check if a query matches the given document, and compute its BM25 score if
     // so.
     //
@@ -361,6 +419,20 @@ impl NonemptyTermList {
         is_union
             .iter_ones()
             .map(|i| sorted_terms[i] as u64)
+            .any(|term_id| self.term_filter.contains(&term_id))
+    }
+
+    fn term_filter_matches2(&self, query: &PreparedMemoryPostingListQuery) -> bool {
+        let any_intersection_missing = query
+            .intersection_terms()
+            .map(|t| t as u64)
+            .any(|term_id| !self.term_filter.contains(&term_id));
+        if any_intersection_missing {
+            return false;
+        }
+        query
+            .union_terms()
+            .map(|t| t as u64)
             .any(|term_id| self.term_filter.contains(&term_id))
     }
 

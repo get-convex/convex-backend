@@ -7,9 +7,11 @@ use tantivy::{
     query::{
         intersect_scorers,
         BooleanQuery,
+        BoostQuery,
         EmptyScorer,
         EnableScoring,
         Explanation,
+        Occur,
         Query,
         Scorer,
         TermQuery,
@@ -41,11 +43,19 @@ pub struct ConvexSearchQuery {
 impl ConvexSearchQuery {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
-        or_terms: Vec<Term>,
+        or_terms: Vec<OrTerm>,
         and_terms: Vec<Term>,
         deleted_documents: DeletedDocuments,
     ) -> Box<dyn Query> {
-        let or_query = BooleanQuery::new_multiterms_query(or_terms);
+        let or_queries = or_terms
+            .into_iter()
+            .map(|t| {
+                let term_query = TermQuery::new(t.term, IndexRecordOption::WithFreqs);
+                let boosted = BoostQuery::new(Box::new(term_query), t.bm25_boost);
+                (Occur::Should, Box::new(boosted) as Box<dyn Query>)
+            })
+            .collect();
+        let or_query = BooleanQuery::new(or_queries);
         let and_queries: Vec<_> = and_terms
             .into_iter()
             .map(|filter_term| TermQuery::new(filter_term, IndexRecordOption::Basic))
@@ -342,5 +352,36 @@ where
         } else {
             self.right.score()
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct OrTerm {
+    pub term: Term,
+    pub doc_frequency: u64,
+    pub bm25_boost: f32,
+}
+
+impl TryFrom<pb::searchlight::OrTerm> for OrTerm {
+    type Error = anyhow::Error;
+
+    fn try_from(value: pb::searchlight::OrTerm) -> Result<Self, Self::Error> {
+        Ok(OrTerm {
+            term: Term::wrap(value.term),
+            doc_frequency: value.doc_frequency,
+            bm25_boost: value.bm25_boost,
+        })
+    }
+}
+
+impl TryFrom<OrTerm> for pb::searchlight::OrTerm {
+    type Error = anyhow::Error;
+
+    fn try_from(value: OrTerm) -> Result<Self, Self::Error> {
+        Ok(pb::searchlight::OrTerm {
+            term: value.term.as_slice().to_vec(),
+            doc_frequency: value.doc_frequency,
+            bm25_boost: value.bm25_boost,
+        })
     }
 }

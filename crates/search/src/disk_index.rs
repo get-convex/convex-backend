@@ -71,7 +71,7 @@ use crate::{
 static SEARCH_INDEXING_MEMORY_ARENA_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("SEARCH_INDEXING_MEMORY_ARENA_BYTES", 50_000_000));
 
-pub fn index_reader_for_directory<P: AsRef<Path>>(directory: &P) -> anyhow::Result<IndexReader> {
+pub fn index_reader_for_directory<P: AsRef<Path>>(directory: P) -> anyhow::Result<IndexReader> {
     let timer = metrics::index_reader_for_directory_timer();
     let index = tantivy::Index::open_in_dir(directory)?;
     index
@@ -83,7 +83,7 @@ pub fn index_reader_for_directory<P: AsRef<Path>>(directory: &P) -> anyhow::Resu
 }
 
 pub fn index_writer_for_directory<P: AsRef<Path>>(
-    directory: &P,
+    directory: P,
     tantivy_schema: &TantivySearchIndexSchema,
 ) -> anyhow::Result<IndexWriter> {
     let index = Index::create_in_dir(directory, tantivy_schema.schema.clone())?;

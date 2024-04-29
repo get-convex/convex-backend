@@ -35,6 +35,12 @@ pub const MAX_FUZZY_MATCHES_PER_QUERY_TERM: usize = 16;
 /// The max number of positions we return for each term matched by a query term
 pub const MAX_POSITIONS_PER_MATCHED_TERM: usize = 16;
 
+pub const MAX_EDIT_DISTANCE: u32 = 2;
+
+/// The maximum terms we'll return from QueryTokens. This corresponds to the
+/// maximum number of posting lists we'll want to consider in a single query.
+pub const MAX_UNIQUE_QUERY_TERMS: usize = 64;
+
 pub fn convex_en() -> TextAnalyzer {
     TextAnalyzer::from(SimpleTokenizer)
         .filter(RemoveLongFilter::limit(MAX_TEXT_TERM_LENGTH))

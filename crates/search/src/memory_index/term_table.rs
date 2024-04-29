@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeSet,
     mem,
     ops::Deref,
     sync::{
@@ -14,6 +15,7 @@ use tantivy::{
 };
 
 use crate::{
+    aggregation::TokenMatchAggregator,
     levenshtein_dfa::build_fuzzy_dfa,
     memory_index::{
         art::ART,
@@ -24,6 +26,10 @@ use crate::{
         small_slice::SmallSlice,
     },
     scoring::term_from_str,
+    searcher::{
+        TokenMatch,
+        TokenQuery,
+    },
     EditDistance,
 };
 
@@ -130,6 +136,62 @@ impl TermTable {
                 debug_assert_eq!(term.typ(), Type::Str);
                 (*key, dist, term)
             })
+    }
+
+    pub fn visit_top_terms_for_query(
+        &self,
+        token_ord: u32,
+        query: &TokenQuery,
+        results: &mut TokenMatchAggregator,
+    ) -> anyhow::Result<()> {
+        let mut seen_terms = BTreeSet::new();
+        'query: for distance in [0, 1, 2] {
+            for prefix in [false, true] {
+                if distance > query.max_distance || (!query.prefix && prefix) {
+                    continue;
+                }
+                if distance == 0 && !prefix {
+                    if self.get(&query.term).is_some() {
+                        anyhow::ensure!(seen_terms.insert(query.term.clone()));
+                        let m = TokenMatch {
+                            distance,
+                            prefix,
+                            term: query.term.clone(),
+                            token_ord,
+                        };
+                        if !results.insert(m) {
+                            break 'query;
+                        }
+                    }
+                } else {
+                    // TODO: There's a bug here where skipping a prefix allows
+                    // matching terms for other fields!
+                    assert!(query.term.as_str().is_some());
+                    for (_, match_distance, match_term) in
+                        self.get_fuzzy(&query.term, distance as u8, prefix)
+                    {
+                        let match_distance = match_distance as u32;
+                        if seen_terms.contains(&match_term) {
+                            continue;
+                        }
+                        if distance != match_distance {
+                            continue;
+                        }
+                        seen_terms.insert(match_term.clone());
+                        let m = TokenMatch {
+                            distance,
+                            prefix,
+                            term: match_term,
+                            token_ord,
+                        };
+                        if !results.insert(m) {
+                            break 'query;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn refcount(&self, term_id: TermId) -> u32 {

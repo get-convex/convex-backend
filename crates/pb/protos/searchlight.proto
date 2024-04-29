@@ -1,14 +1,29 @@
 syntax = "proto3";
 
-package searchlight;
-
+import "google/protobuf/empty.proto";
 import "convex_token.proto";
+
+package searchlight;
 
 service Searchlight {
   rpc ExecuteQuery(QueryRequest) returns (QueryResponse);
   rpc ExecuteVectorQuery(VectorQueryRequest) returns (VectorQueryResponse);
   rpc ExecuteVectorCompaction(VectorCompactionRequest) returns (VectorCompactionResponse);
   rpc QueueVectorPrefetch(VectorPrefetchRequest) returns (VectorPrefetchResponse);
+
+  // Query a set of tokens against the term dictionary, optionally allowing
+  // for fuzzy matching and prefix matching. Take the top `K` results with
+  // respect to to `(edit distance, term)` lexicographical order.
+  rpc QueryTokens(QueryTokensRequest) returns (QueryTokensResponse);
+
+  // For the given index, compute the total number of documents and terms
+  // in the index. Also, given a list of pointers to terms within the index,
+  // compute the document frequency of each term.
+  rpc QueryBm25Stats(QueryBm25StatsRequest) returns (QueryBm25StatsResponse);
+
+  // Given a AND + OR query of term pointers and BM25 statistics for the OR
+  // terms, return the top `K` results with respect to BM25 score.
+  rpc QueryPostingLists(QueryPostingListsRequest) returns (QueryPostingListsResponse);
 }
 
 message QueryRequest {
@@ -199,28 +214,11 @@ message StorageType {
   }
 }
 
-service IncrementalSearchlight {
-  // Query a set of tokens against the term dictionary, optionally allowing
-  // for fuzzy matching and prefix matching. Take the top `K` results with
-  // respect to to `(edit distance, term)` lexicographical order.
-  rpc QueryTokens(QueryTokensRequest) returns (QueryTokensResponse);
-
-  // For the given index, compute the total number of documents and terms
-  // in the index. Also, given a list of pointers to terms within the index,
-  // compute the document frequency of each term.
-  rpc QueryBm25Stats(QueryBm25StatsRequest) returns (QueryBm25StatsResponse);
-
-  // Given a AND + OR query of term pointers and BM25 statistics for the OR
-  // terms, return the top `K` results with respect to BM25 score.
-  rpc QueryPostingLists(QueryPostingListsRequest) returns (QueryPostingListsResponse);
-}
-
 message QueryTokensRequest {
   StorageType storage_type = 1;
   FragmentedTextSegmentPaths segment = 2;
-  SearchIndexConfig index_config = 3;
-  repeated TokenQuery token_queries = 4;
-  uint32 max_results = 5;
+  repeated TokenQuery token_queries = 3;
+  uint32 max_results = 4;
 }
 
 message FragmentedTextSegmentPaths {
@@ -230,10 +228,9 @@ message FragmentedTextSegmentPaths {
 }
 
 message TokenQuery {
-  convex_token.FieldPath field_path = 1;
-  bytes token = 2;
-  uint32 max_distance = 3;
-  bool prefix = 4;
+  bytes term = 1;
+  uint32 max_distance = 2;
+  bool prefix = 3;
 }
 
 message QueryTokensResponse {
@@ -274,14 +271,20 @@ message QueryPostingListsRequest {
 message PostingListQuery {
   repeated bytes deleted_internal_ids = 1;
 
-  repeated bytes or_terms = 2;
-  repeated bytes and_terms = 3;
+  // Global BM25 stats
+  uint64 num_terms = 2;
+  uint64 num_documents = 3;
 
-  uint64 num_terms = 4;
-  uint64 num_documents = 5;
-  repeated DocFrequency doc_frequencies = 6;
+  repeated OrTerm or_terms = 4;
+  repeated bytes and_terms = 5;
 
-  uint32 max_results = 7;
+  uint32 max_results = 6;
+}
+
+message OrTerm {
+  bytes term = 1;
+  uint64 doc_frequency = 2;
+  float bm25_boost = 3;
 }
 
 message QueryPostingListsResponse {
@@ -290,7 +293,10 @@ message QueryPostingListsResponse {
 
 message PostingListMatch {
   bytes internal_id = 1;
-  uint64 ts = 2;
-  double creation_time = 3;
-  float bm25_score = 4;
+  oneof ts {
+    uint64 committed = 2;
+    google.protobuf.Empty pending = 3;
+  }
+  double creation_time = 4;
+  float bm25_score = 5;
 }

@@ -1,8 +1,13 @@
 use std::{
+    cmp::Ordering,
     collections::{
         BTreeMap,
         BTreeSet,
         BinaryHeap,
+    },
+    ops::{
+        Add,
+        AddAssign,
     },
     path::Path,
     sync::Arc,
@@ -22,6 +27,7 @@ use common::{
     types::{
         ObjectKey,
         Timestamp,
+        WriteTimestamp,
     },
 };
 use futures::TryStreamExt;
@@ -33,6 +39,7 @@ use pb::searchlight::{
     StorageKey,
 };
 use storage::Storage;
+pub use tantivy::Term;
 use tantivy::{
     collector::{
         Collector,
@@ -49,16 +56,12 @@ use tantivy::{
     },
     DocId,
     SegmentReader,
-    Term,
 };
 use tantivy_common::{
     BitSet,
     ReadOnlyBitSet,
 };
-use value::{
-    FieldPath,
-    InternalId,
-};
+use value::InternalId;
 use vector::{
     qdrant_segments::UntarredDiskSegmentPaths,
     CompiledVectorSearch,
@@ -79,10 +82,16 @@ use super::{
     },
 };
 use crate::{
+    aggregation::TokenMatchAggregator,
     archive::cache::ArchiveCacheManager,
+    constants::{
+        MAX_EDIT_DISTANCE,
+        MAX_UNIQUE_QUERY_TERMS,
+    },
     convex_query::{
         ConvexSearchQuery,
         DeletedDocuments,
+        OrTerm,
     },
     disk_index::index_reader_for_directory,
     fragmented_segment::{
@@ -128,6 +137,28 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
         shortlisted_terms: TermShortlist,
         limit: usize,
     ) -> anyhow::Result<SearchQueryResult>;
+
+    async fn query_tokens(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        queries: Vec<TokenQuery>,
+        max_results: usize,
+    ) -> anyhow::Result<Vec<TokenMatch>>;
+
+    async fn query_bm25_stats(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        terms: Vec<Term>,
+    ) -> anyhow::Result<Bm25Stats>;
+
+    async fn query_posting_lists(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        query: PostingListQuery,
+    ) -> anyhow::Result<Vec<PostingListMatch>>;
 }
 
 pub struct SearcherImpl<RT: Runtime> {
@@ -331,6 +362,74 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         timer.finish();
         Ok(results)
     }
+
+    async fn query_tokens(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        queries: Vec<TokenQuery>,
+        max_results: usize,
+    ) -> anyhow::Result<Vec<TokenMatch>> {
+        let archive_path = self
+            .archive_cache
+            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
+            .await?;
+        let query = move || {
+            let reader = index_reader_for_directory(&archive_path)?;
+            let searcher = reader.searcher();
+            anyhow::ensure!(searcher.segment_readers().len() == 1);
+            let segment = searcher.segment_reader(0);
+            let deletion_tracker = DeletionTracker::load(&archive_path)?;
+            Self::query_tokens_impl(segment, &deletion_tracker, queries, max_results)
+        };
+        let resp = self.text_search_pool.execute(query).await??;
+        Ok(resp)
+    }
+
+    async fn query_bm25_stats(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        terms: Vec<Term>,
+    ) -> anyhow::Result<Bm25Stats> {
+        let archive_path = self
+            .archive_cache
+            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
+            .await?;
+        let query = move || {
+            let reader = index_reader_for_directory(&archive_path)?;
+            let searcher = reader.searcher();
+            anyhow::ensure!(searcher.segment_readers().len() == 1);
+            let segment = searcher.segment_reader(0);
+            let deletion_tracker = DeletionTracker::load(&archive_path)?;
+            Self::query_bm25_stats_impl(segment, &deletion_tracker, terms)
+        };
+        let resp = self.text_search_pool.execute(query).await??;
+        Ok(resp)
+    }
+
+    async fn query_posting_lists(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        query: PostingListQuery,
+    ) -> anyhow::Result<Vec<PostingListMatch>> {
+        let archive_path = self
+            .archive_cache
+            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
+            .await?;
+        let query = move || {
+            let reader = index_reader_for_directory(&archive_path)?;
+            let searcher = reader.searcher();
+            anyhow::ensure!(searcher.segment_readers().len() == 1);
+            let segment = searcher.segment_reader(0);
+            let id_tracker = IdTracker::load(&archive_path)?;
+            let deleted_tracker = DeletionTracker::load(&archive_path)?;
+            Self::query_posting_lists_impl(&searcher, segment, &id_tracker, &deleted_tracker, query)
+        };
+        let resp = self.text_search_pool.execute(query).await??;
+        Ok(resp)
+    }
 }
 
 #[async_trait]
@@ -422,347 +521,269 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
 }
 
 impl<RT: Runtime> SearcherImpl<RT> {
-    pub async fn query_tokens(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
-        schema: TantivySearchIndexSchema,
+    fn query_tokens_impl(
+        segment: &SegmentReader,
+        deletion_tracker: &DeletionTracker,
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
-        let archive_path = self
-            .archive_cache
-            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
-            .await?;
-        let query = move || {
-            let reader = index_reader_for_directory(&archive_path)?;
-            let searcher = reader.searcher();
-            anyhow::ensure!(searcher.segment_readers().len() == 1);
-            let segment = searcher.segment_reader(0);
+        anyhow::ensure!(max_results <= MAX_UNIQUE_QUERY_TERMS);
 
-            let deletion_tracker = DeletionTracker::load(&archive_path)?;
+        // The goal of this algorithm is to deterministically choose a set of terms
+        // from our database that are the "best" matches for a given set of query
+        // tokens. For two strings `q` and `t`, define their score to be the
+        // better of fuzzy matching with and without prefix matching:
+        // ```rust
+        // fn score(q: &str, t: &str) -> (u32, bool) {
+        //    let with_prefix_distance = levenshtein_distance_with_prefix(q, t);
+        //    let without_prefix_distance = levenshtein_distance(q, t);
+        //    if with_prefix_distance < without_prefix_distance {
+        //        (with_prefix_distance, true)
+        //    else {
+        //        (without_prefix_distance, false)
+        //    }
+        // }
+        //
+        // // The levenshtein distance with prefix is defined as the minimum edit
+        // // distance over all prefixes of the query string.
+        // fn levenshtein_distance_with_prefix(q: &str, t: &str) -> u32 {
+        //     q.prefixes().map(|prefix| levenshtein_distance(prefix, t)).min()
+        // }
+        // ```
+        // Then, for each query token `q_i`, we can totally order all of the terms in
+        // the database by sorting them by `(score(q_i, t_j), t_j, i)`,
+        // breaking ties by the term contents and the query token index.
+        // ```
+        // q_i: (score(q_i, t_1), t_1, i), (score(q_i, t_2), t_2, i), ..., (score(q_i, t_n), t_n, i)
+        // ```
+        // Note that each query token `q_i` chooses a different order on our terms:
+        // ```
+        // q_0: (score(q_0, t_1), t_1, 0), (score(q_0, t_2), t_2, 0), ..., (score(q_0, t_n), t_n, 0)
+        // q_1: (score(q_1, t_1), t_1, 1), (score(q_1, t_2), t_2, 1), ..., (score(q_1, t_n), t_n, 1)
+        // ...
+        // q_k: (score(q_k, t_1), t_1, k), (score(q_k, t_2), t_2, k), ..., (score(q_k, t_n), t_n, k)
+        // ```
+        // Logically, our algorithm merges these `k` streams, resorts them, and then
+        // takes some number of the best values. Instead of taking the top
+        // `max_results` values, we continue taking these tuples until we
+        // have seen `max_results` unique terms.
+        //
+        // Since `n` may be very large, our implementation pushes down this sorting into
+        // each query term. So, we take tuples from each `q_i` until we've seen
+        // `max_results` unique terms (yielding at most `max_results * k` tuples), merge
+        // and sort the results, and then take the best tuples until we have seen
+        // `max_results` unique terms in the merged stream.
+        let mut match_aggregator = TokenMatchAggregator::new(max_results);
 
-            let mut token_queries = vec![];
-            for (token_ord, query) in queries.into_iter().enumerate() {
-                // TODO: Use a uniform Tantivy schema for search and filter fields.
-                let tantivy_term = if query.field_path == schema.search_field_path {
-                    let token_str = std::str::from_utf8(&query.token)?;
-                    Term::from_field_text(schema.search_field, token_str)
-                } else {
-                    let Some(tantivy_field) = schema.filter_fields.get(&query.field_path) else {
-                        anyhow::bail!("Field path not found: {:?}", query.field_path);
-                    };
-                    Term::from_field_bytes(*tantivy_field, &query.token)
-                };
-                token_queries.push((tantivy_term, token_ord as u32, query));
-            }
+        for (token_ord, token_query) in queries.into_iter().enumerate() {
+            let token_ord = token_ord as u32;
+            anyhow::ensure!(token_query.max_distance <= MAX_EDIT_DISTANCE);
 
-            // The goal of this algorithm is to deterministically choose a set of terms
-            // from our database that are the "best" matches for a given set of query
-            // tokens. For two strings `q` and `t`, define their score to be the
-            // better of fuzzy matching with and without prefix matching:
-            // ```rust
-            // fn score(q: &str, t: &str) -> (u32, bool) {
-            //    let with_prefix_distance = levenshtein_distance_with_prefix(q, t);
-            //    let without_prefix_distance = levenshtein_distance(q, t);
-            //    if with_prefix_distance < without_prefix_distance {
-            //        (with_prefix_distance, true)
-            //    else {
-            //        (without_prefix_distance, false)
-            //    }
-            // }
-            //
-            // // The levenshtein distance with prefix is defined as the minimum edit
-            // // distance over all prefixes of the query string.
-            // fn levenshtein_distance_with_prefix(q: &str, t: &str) -> u32 {
-            //     q.prefixes().map(|prefix| levenshtein_distance(prefix, t)).min()
-            // }
-            // ```
-            // Then, for each query token `q_i`, we can totally order all of the terms in
-            // the database by sorting them by `(score(q_i, t_j), t_j, i)`,
-            // breaking ties by the term contents and the query token index.
-            // ```
-            // q_i: (score(q_i, t_1), t_1, i), (score(q_i, t_2), t_2, i), ..., (score(q_i, t_n), t_n, i)
-            // ```
-            // Note that each query token `q_i` chooses a different order on our terms:
-            // ```
-            // q_0: (score(q_0, t_1), t_1, 0), (score(q_0, t_2), t_2, 0), ..., (score(q_0, t_n), t_n, 0)
-            // q_1: (score(q_1, t_1), t_1, 1), (score(q_1, t_2), t_2, 1), ..., (score(q_1, t_n), t_n, 1)
-            // ...
-            // q_k: (score(q_k, t_1), t_1, k), (score(q_k, t_2), t_2, k), ..., (score(q_k, t_n), t_n, k)
-            // ```
-            // Logically, our algorithm merges these `k` streams, resorts them, and then
-            // takes some number of the best values. Instead of taking the top
-            // `max_results` values, we continue taking these tuples until we
-            // have seen `max_results` unique terms.
-            //
-            // Since `n` may be very large, our implementation pushes down this sorting into
-            // each query term. So, we take tuples from each `q_i` until we've seen
-            // `max_results` unique terms (yielding at most `max_results * k` tuples), merge
-            // and sort the results, and then take the best tuples until we have seen
-            // `max_results` unique terms in the merged stream.
+            // Query the top scoring tuples for just our query term.
+            Self::visit_top_terms_for_query(
+                segment,
+                deletion_tracker,
+                token_ord,
+                &token_query,
+                &mut match_aggregator,
+            )?;
+        }
 
-            let mut all_matches = vec![];
-
-            for (tantivy_term, token_ord, token_query) in token_queries {
-                // Query the top scoring tuples for just our query term.
-                let matches = Self::top_terms_for_query(
-                    segment,
-                    &deletion_tracker,
-                    token_ord,
-                    &tantivy_term,
-                    &token_query,
-                    max_results,
-                )?;
-                all_matches.extend(matches);
-            }
-
-            // Merge the top results from each query term and take the best results,
-            // limiting ourselves to `max_results` terms.
-            all_matches.sort();
-
-            let mut seen_terms = BTreeSet::new();
-            let mut merged_matches = vec![];
-
-            for query_match in all_matches {
-                let new_term = !seen_terms.contains(&query_match.term);
-                if seen_terms.len() >= max_results && new_term {
-                    break;
-                }
-                if new_term {
-                    seen_terms.insert(query_match.term.clone());
-                }
-                merged_matches.push(query_match);
-            }
-            Ok(merged_matches)
-        };
-
-        let resp = self.text_search_pool.execute(query).await??;
-        Ok(resp)
+        Ok(match_aggregator.into_results())
     }
 
-    fn top_terms_for_query(
+    fn visit_top_terms_for_query(
         segment: &SegmentReader,
         deletion_tracker: &DeletionTracker,
         token_ord: u32,
-        query_term: &Term,
         query: &TokenQuery,
-        max_results: usize,
-    ) -> anyhow::Result<Vec<TokenMatch>> {
-        let inverted_index = segment.inverted_index(query_term.field())?;
+        results: &mut TokenMatchAggregator,
+    ) -> anyhow::Result<()> {
+        let inverted_index = segment.inverted_index(query.term.field())?;
         let term_dict = inverted_index.terms();
-
-        let mut results = vec![];
         let mut seen_terms = BTreeSet::new();
-
-        'query: for edit_distance in [0, 1, 2] {
+        'query: for distance in [0, 1, 2] {
             for prefix in [false, true] {
-                if edit_distance > query.max_distance || prefix != query.prefix {
+                if distance > query.max_distance || (!query.prefix && prefix) {
                     continue;
                 }
-                if seen_terms.len() >= max_results {
-                    break 'query;
-                }
-                if edit_distance == 0 && !prefix {
-                    if let Some(term_ord) = term_dict.term_ord(query_term.value_bytes())? {
+                if distance == 0 && !prefix {
+                    if let Some(term_ord) = term_dict.term_ord(query.term.value_bytes())? {
                         if deletion_tracker.doc_frequency(term_dict, term_ord)? == 0 {
                             continue;
                         }
-                        anyhow::ensure!(!seen_terms.contains(query_term));
+                        anyhow::ensure!(seen_terms.insert(query.term.clone()));
                         let m = TokenMatch {
-                            distance: edit_distance,
+                            distance,
                             prefix,
-                            term: query_term.clone(),
+                            term: query.term.clone(),
                             token_ord,
                         };
-                        results.push(m);
-                        seen_terms.insert(query_term.clone());
+                        if !results.insert(m) {
+                            break 'query;
+                        }
                     }
                 } else {
-                    let term_str = query_term
+                    let term_str = query
+                        .term
                         .as_str()
                         .context("Non-exact match for non-string field")?;
-                    let dfa = build_fuzzy_dfa(term_str, edit_distance as u8, prefix);
+                    let dfa = build_fuzzy_dfa(term_str, distance as u8, prefix);
                     let dfa_compat = LevenshteinDfaWrapper(&dfa);
                     let mut term_stream = term_dict.search(dfa_compat).into_stream()?;
                     while term_stream.advance() {
-                        let matched_term_bytes = term_stream.key();
-                        let match_str = std::str::from_utf8(matched_term_bytes)?;
-                        let match_term = Term::from_field_text(query_term.field(), match_str);
+                        let match_term_bytes = term_stream.key();
+                        let match_str = std::str::from_utf8(match_term_bytes)?;
+                        let match_term = Term::from_field_text(query.term.field(), match_str);
 
                         let term_ord = term_stream.term_ord();
                         if deletion_tracker.doc_frequency(term_dict, term_ord)? == 0 {
                             continue;
                         }
 
-                        // We need to skip terms we've already processed so we can
-                        // stop after seeing `results_remaining` new terms.
+                        // We need to skip terms we've already processed since we perform
+                        // overlapping edit distance queries.
                         if seen_terms.contains(&match_term) {
                             continue;
                         }
 
-                        // TODO: Copy comment from tantivy_query.rs.
+                        // TODO: extend Tantivy::TermStreamer to a TermStreamerWithState to avoid
+                        // recomputing distance again here.
+                        // This comment on a Tantivy open issue describes how to approach this:
+                        // https://github.com/quickwit-oss/tantivy/issues/563#issuecomment-801444469
                         // TODO: Ideally we could make DFAs that only match a particular
-                        // edit distance.
-                        // TODO: What does the `to_u8` mean?
-                        let matched_distance = dfa.eval(matched_term_bytes).to_u8() as u32;
-                        if edit_distance != matched_distance {
-                            anyhow::ensure!(matched_distance <= edit_distance);
+                        // edit distance so we don't have to skip duplicates above.
+                        let match_distance = dfa.eval(match_term_bytes).to_u8() as u32;
+                        if distance != match_distance {
                             continue;
                         }
 
+                        seen_terms.insert(match_term.clone());
                         let m = TokenMatch {
-                            distance: edit_distance,
+                            distance,
                             prefix,
-                            term: match_term.clone(),
+                            term: match_term,
                             token_ord,
                         };
-                        results.push(m);
-                        seen_terms.insert(match_term);
-
-                        if seen_terms.len() >= max_results {
+                        if !results.insert(m) {
                             break 'query;
                         }
                     }
                 }
             }
         }
-
-        anyhow::ensure!(results.is_sorted());
-
-        Ok(results)
+        Ok(())
     }
 
-    pub async fn query_bm25_stats(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+    fn query_bm25_stats_impl(
+        segment: &SegmentReader,
+        deletion_tracker: &DeletionTracker,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
-        let archive_path = self
-            .archive_cache
-            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
-            .await?;
-        let query = move || {
-            let reader = index_reader_for_directory(&archive_path)?;
-            let searcher = reader.searcher();
-            anyhow::ensure!(searcher.segment_readers().len() == 1);
-            let segment = searcher.segment_reader(0);
+        let field = terms
+            .iter()
+            .map(|t| t.field())
+            .dedup()
+            .exactly_one()
+            .map_err(|_| anyhow::anyhow!("All terms must be in the same field"))?;
 
-            let deletion_tracker = DeletionTracker::load(&archive_path)?;
-
-            let field = terms
-                .iter()
-                .map(|t| t.field())
-                .dedup()
-                .exactly_one()
-                .map_err(|_| anyhow::anyhow!("All terms must be in the same field"))?;
-
-            // TODO: Update stats with deletions.
-            let inverted_index = segment.inverted_index(field)?;
-            let term_dict = inverted_index.terms();
-            let num_terms = inverted_index
-                .total_num_tokens()
-                .checked_sub(deletion_tracker.num_terms_deleted()?)
-                .context("num_terms underflow")?;
-            let num_documents = (segment.max_doc() as u64)
-                .checked_sub(deletion_tracker.num_documents_deleted()?)
-                .context("num_documents underflow")?;
-            let mut doc_frequencies = BTreeMap::new();
-            for term in terms {
-                let Some(term_ord) = term_dict.term_ord(term.value_bytes())? else {
-                    anyhow::bail!("Term not found: {:?}", term);
-                };
-                let doc_freq = deletion_tracker.doc_frequency(term_dict, term_ord)?;
-                doc_frequencies.insert(term, doc_freq);
-            }
-            let stats = Bm25Stats {
-                num_terms,
-                num_documents,
-                doc_frequencies,
+        let inverted_index = segment.inverted_index(field)?;
+        let term_dict = inverted_index.terms();
+        let num_terms = inverted_index
+            .total_num_tokens()
+            .checked_sub(deletion_tracker.num_terms_deleted()?)
+            .context("num_terms underflow")?;
+        let num_documents = (segment.max_doc() as u64)
+            .checked_sub(deletion_tracker.num_documents_deleted()?)
+            .context("num_documents underflow")?;
+        let mut doc_frequencies = BTreeMap::new();
+        for term in terms {
+            let Some(term_ord) = term_dict.term_ord(term.value_bytes())? else {
+                anyhow::bail!("Term not found: {:?}", term);
             };
-            Ok(stats)
+            let doc_freq = deletion_tracker.doc_frequency(term_dict, term_ord)?;
+            doc_frequencies.insert(term, doc_freq);
+        }
+        let stats = Bm25Stats {
+            num_terms,
+            num_documents,
+            doc_frequencies,
         };
-        let resp = self.text_search_pool.execute(query).await??;
-        Ok(resp)
+        Ok(stats)
     }
 
-    pub async fn query_posting_lists(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+    fn query_posting_lists_impl(
+        searcher: &tantivy::Searcher,
+        segment: &SegmentReader,
+        id_tracker: &IdTracker,
+        deleted_tracker: &DeletionTracker,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
-        let archive_path = self
-            .archive_cache
-            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
-            .await?;
-        let query = move || {
-            let reader = index_reader_for_directory(&archive_path)?;
-            let searcher = reader.searcher();
-            anyhow::ensure!(searcher.segment_readers().len() == 1);
-            let segment = searcher.segment_reader(0);
-
-            let id_tracker = IdTracker::load(&archive_path)?;
-            let deleted_tracker = DeletionTracker::load(&archive_path)?;
-
-            let search_field = query
+        let search_field = query
+            .or_terms
+            .iter()
+            .map(|t| t.term.field())
+            .dedup()
+            .exactly_one()
+            .map_err(|_| anyhow::anyhow!("All terms must be in the same field"))?;
+        let stats_provider = StatsProvider {
+            search_field,
+            num_terms: query.num_terms,
+            num_documents: query.num_documents,
+            doc_frequencies: query
                 .or_terms
                 .iter()
-                .map(|t| t.field())
-                .dedup()
-                .exactly_one()
-                .map_err(|_| anyhow::anyhow!("All terms must be in the same field"))?;
-            let stats_provider = StatsProvider {
-                search_field,
-                num_terms: query.num_terms,
-                num_documents: query.num_documents,
-                doc_frequencies: query.doc_frequencies,
-            };
-
-            let mut memory_deleted = BTreeSet::new();
-            for internal_id in query.deleted_internal_ids {
-                let Some(doc_id) = id_tracker.lookup_id(&internal_id)? else {
-                    continue;
-                };
-                memory_deleted.insert(doc_id);
-            }
-            let deleted_documents = DeletedDocuments {
-                memory_deleted,
-                segment_deleted: deleted_tracker.deleted_documents(),
-                num_segment_deleted: deleted_tracker.num_documents_deleted()? as usize,
-            };
-            let search_query =
-                ConvexSearchQuery::new(query.or_terms, query.and_terms, deleted_documents);
-            let enable_scoring =
-                EnableScoring::enabled_from_statistics_provider(&stats_provider, &searcher);
-            let search_weight = search_query.weight(enable_scoring)?;
-            let collector = TopDocs::with_limit(query.max_results);
-            let segment_results = collector.collect_segment(&*search_weight, 0, segment)?;
-
-            let fast_fields = segment.fast_fields();
-            let internal_ids = fast_fields.bytes(INTERNAL_ID_FIELD_NAME)?;
-            let timestamps = fast_fields.u64(TS_FIELD_NAME)?;
-            let creation_times = fast_fields.f64(CREATION_TIME_FIELD_NAME)?;
-
-            let mut results = Vec::with_capacity(segment_results.len());
-            for (bm25_score, doc_address) in segment_results {
-                let internal_id = internal_ids.get_bytes(doc_address.doc_id).try_into()?;
-                let ts = Timestamp::try_from(timestamps.get_val(doc_address.doc_id))?;
-                let creation_time =
-                    CreationTime::try_from(creation_times.get_val(doc_address.doc_id))?;
-                let posting_list_match = PostingListMatch {
-                    internal_id,
-                    ts,
-                    creation_time,
-                    bm25_score,
-                };
-                results.push(posting_list_match);
-            }
-            Ok(results)
+                .map(|t| (t.term.clone(), t.doc_frequency))
+                .collect(),
         };
-        let resp = self.text_search_pool.execute(query).await??;
-        Ok(resp)
+
+        let mut memory_deleted = BTreeSet::new();
+        for internal_id in query.deleted_internal_ids {
+            let Some(doc_id) = id_tracker.lookup_id(&internal_id)? else {
+                continue;
+            };
+            memory_deleted.insert(doc_id);
+        }
+        let deleted_documents = DeletedDocuments {
+            memory_deleted,
+            segment_deleted: deleted_tracker.deleted_documents(),
+            num_segment_deleted: deleted_tracker.num_documents_deleted()? as usize,
+        };
+        let search_query =
+            ConvexSearchQuery::new(query.or_terms, query.and_terms, deleted_documents);
+        let enable_scoring =
+            EnableScoring::enabled_from_statistics_provider(&stats_provider, searcher);
+        let search_weight = search_query.weight(enable_scoring)?;
+
+        let collector = TopDocs::with_limit(query.max_results);
+        let segment_results = collector.collect_segment(&*search_weight, 0, segment)?;
+
+        let fast_fields = segment.fast_fields();
+        let internal_ids = fast_fields.bytes(INTERNAL_ID_FIELD_NAME)?;
+        let timestamps = fast_fields.u64(TS_FIELD_NAME)?;
+        let creation_times = fast_fields.f64(CREATION_TIME_FIELD_NAME)?;
+
+        let mut results = Vec::with_capacity(segment_results.len());
+        for (bm25_score, doc_address) in segment_results {
+            let internal_id = internal_ids.get_bytes(doc_address.doc_id).try_into()?;
+            let ts = Timestamp::try_from(timestamps.get_val(doc_address.doc_id))?;
+            let creation_time = CreationTime::try_from(creation_times.get_val(doc_address.doc_id))?;
+            let posting_list_match = PostingListMatch {
+                internal_id,
+                ts: WriteTimestamp::Committed(ts),
+                creation_time,
+                bm25_score,
+            };
+            results.push(posting_list_match);
+        }
+        anyhow::ensure!(results.len() <= query.max_results);
+
+        // TODO: The collector sorts only on score, unlike PostingListMatchAggregator,
+        // so we have to resort the results here, sweeping this nondeterminism
+        // under the rug.
+        results.sort_by(|a, b| a.cmp(b).reverse());
+
+        Ok(results)
     }
 }
 
@@ -796,9 +817,9 @@ impl Bm25StatisticsProvider for StatsProvider {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct TokenQuery {
-    pub field_path: FieldPath,
-    pub token: Vec<u8>,
+    pub term: Term,
     pub max_distance: u32,
     pub prefix: bool,
 }
@@ -808,8 +829,7 @@ impl TryFrom<pb::searchlight::TokenQuery> for TokenQuery {
 
     fn try_from(value: pb::searchlight::TokenQuery) -> Result<Self, Self::Error> {
         Ok(TokenQuery {
-            field_path: value.field_path.context("Missing field_path")?.try_into()?,
-            token: value.token,
+            term: Term::wrap(value.term),
             max_distance: value.max_distance,
             prefix: value.prefix,
         })
@@ -821,15 +841,14 @@ impl TryFrom<TokenQuery> for pb::searchlight::TokenQuery {
 
     fn try_from(value: TokenQuery) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::TokenQuery {
-            field_path: Some(value.field_path.into()),
-            token: value.token,
+            term: value.term.as_slice().to_vec(),
             max_distance: value.max_distance,
             prefix: value.prefix,
         })
     }
 }
 
-#[derive(Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub struct TokenMatch {
     pub distance: u32,
     pub prefix: bool,
@@ -863,6 +882,7 @@ impl TryFrom<TokenMatch> for pb::searchlight::TokenMatch {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct FragmentedTextSegmentStorageKeys {
     pub segment: ObjectKey,
     pub id_tracker: ObjectKey,
@@ -886,6 +906,24 @@ impl TryFrom<FragmentedTextSegmentPaths> for FragmentedTextSegmentStorageKeys {
     }
 }
 
+impl TryFrom<FragmentedTextSegmentStorageKeys> for FragmentedTextSegmentPaths {
+    type Error = anyhow::Error;
+
+    fn try_from(value: FragmentedTextSegmentStorageKeys) -> Result<Self, Self::Error> {
+        Ok(FragmentedTextSegmentPaths {
+            segment: Some(StorageKey {
+                storage_key: value.segment.into(),
+            }),
+            id_tracker: Some(StorageKey {
+                storage_key: value.id_tracker.into(),
+            }),
+            deletions: Some(StorageKey {
+                storage_key: value.deletions.into(),
+            }),
+        })
+    }
+}
+
 impl TryFrom<FragmentedVectorSegmentPaths> for FragmentedSegmentStorageKeys {
     type Error = anyhow::Error;
 
@@ -903,10 +941,40 @@ impl TryFrom<FragmentedVectorSegmentPaths> for FragmentedSegmentStorageKeys {
     }
 }
 
+#[derive(Debug)]
 pub struct Bm25Stats {
     pub num_terms: u64,
     pub num_documents: u64,
     pub doc_frequencies: BTreeMap<Term, u64>,
+}
+
+impl Bm25Stats {
+    pub fn empty() -> Self {
+        Self {
+            num_terms: 0,
+            num_documents: 0,
+            doc_frequencies: BTreeMap::new(),
+        }
+    }
+}
+
+impl Add for Bm25Stats {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self.add_assign(rhs);
+        self
+    }
+}
+
+impl AddAssign for Bm25Stats {
+    fn add_assign(&mut self, rhs: Self) {
+        self.num_terms += rhs.num_terms;
+        self.num_documents += rhs.num_documents;
+        for (term, count) in rhs.doc_frequencies {
+            *self.doc_frequencies.entry(term).or_insert(0) += count;
+        }
+    }
 }
 
 impl TryFrom<Bm25Stats> for QueryBm25StatsResponse {
@@ -946,15 +1014,15 @@ impl TryFrom<QueryBm25StatsResponse> for Bm25Stats {
     }
 }
 
+#[derive(Clone)]
 pub struct PostingListQuery {
     pub deleted_internal_ids: BTreeSet<InternalId>,
 
-    pub or_terms: Vec<Term>,
-    pub and_terms: Vec<Term>,
-
     pub num_terms: u64,
     pub num_documents: u64,
-    pub doc_frequencies: BTreeMap<Term, u64>,
+
+    pub or_terms: Vec<OrTerm>,
+    pub and_terms: Vec<Term>,
 
     pub max_results: usize,
 }
@@ -968,20 +1036,18 @@ impl TryFrom<pb::searchlight::PostingListQuery> for PostingListQuery {
             .into_iter()
             .map(|b| InternalId::try_from(&b[..]))
             .collect::<anyhow::Result<_>>()?;
-        let or_terms = value.or_terms.into_iter().map(Term::wrap).collect();
-        let and_terms = value.and_terms.into_iter().map(Term::wrap).collect();
-        let doc_frequencies = value
-            .doc_frequencies
+        let or_terms = value
+            .or_terms
             .into_iter()
-            .map(|df| (Term::wrap(df.term), df.frequency))
-            .collect();
+            .map(|t| t.try_into())
+            .try_collect()?;
+        let and_terms = value.and_terms.into_iter().map(Term::wrap).collect();
         Ok(PostingListQuery {
             deleted_internal_ids,
-            or_terms,
-            and_terms,
             num_terms: value.num_terms,
             num_documents: value.num_documents,
-            doc_frequencies,
+            or_terms,
+            and_terms,
             max_results: value.max_results as usize,
         })
     }
@@ -999,39 +1065,55 @@ impl TryFrom<PostingListQuery> for pb::searchlight::PostingListQuery {
         let or_terms = value
             .or_terms
             .into_iter()
-            .map(|t| t.as_slice().to_vec())
-            .collect();
+            .map(|t| t.try_into())
+            .try_collect()?;
         let and_terms = value
             .and_terms
             .into_iter()
             .map(|t| t.as_slice().to_vec())
             .collect();
-        let doc_frequencies = value
-            .doc_frequencies
-            .into_iter()
-            .map(|(term, frequency)| pb::searchlight::DocFrequency {
-                term: term.as_slice().to_vec(),
-                frequency,
-            })
-            .collect();
         Ok(pb::searchlight::PostingListQuery {
             deleted_internal_ids,
-            or_terms,
-            and_terms,
             num_terms: value.num_terms,
             num_documents: value.num_documents,
-            doc_frequencies,
+            or_terms,
+            and_terms,
             max_results: value.max_results as u32,
         })
     }
 }
 
+#[derive(Debug)]
 pub struct PostingListMatch {
     pub internal_id: InternalId,
-    pub ts: Timestamp,
+    pub ts: WriteTimestamp,
     pub creation_time: CreationTime,
     pub bm25_score: f32,
 }
+
+impl Ord for PostingListMatch {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.bm25_score
+            .total_cmp(&other.bm25_score)
+            .then(self.creation_time.cmp(&other.creation_time))
+            .then(self.internal_id.cmp(&other.internal_id))
+            .then(self.ts.cmp(&other.ts))
+    }
+}
+
+impl PartialOrd for PostingListMatch {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl PartialEq for PostingListMatch {
+    fn eq(&self, other: &Self) -> bool {
+        self.cmp(other).is_eq()
+    }
+}
+
+impl Eq for PostingListMatch {}
 
 impl TryFrom<pb::searchlight::PostingListMatch> for PostingListMatch {
     type Error = anyhow::Error;
@@ -1039,7 +1121,15 @@ impl TryFrom<pb::searchlight::PostingListMatch> for PostingListMatch {
     fn try_from(value: pb::searchlight::PostingListMatch) -> Result<Self, Self::Error> {
         Ok(PostingListMatch {
             internal_id: InternalId::try_from(&value.internal_id[..])?,
-            ts: value.ts.try_into()?,
+            ts: match value.ts {
+                Some(pb::searchlight::posting_list_match::Ts::Committed(ts)) => {
+                    WriteTimestamp::Committed(ts.try_into()?)
+                },
+                Some(pb::searchlight::posting_list_match::Ts::Pending(())) => {
+                    WriteTimestamp::Pending
+                },
+                _ => anyhow::bail!("Missing ts field"),
+            },
             creation_time: value.creation_time.try_into()?,
             bm25_score: value.bm25_score,
         })
@@ -1052,7 +1142,14 @@ impl TryFrom<PostingListMatch> for pb::searchlight::PostingListMatch {
     fn try_from(value: PostingListMatch) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::PostingListMatch {
             internal_id: value.internal_id.into(),
-            ts: value.ts.into(),
+            ts: match value.ts {
+                WriteTimestamp::Committed(ts) => Some(
+                    pb::searchlight::posting_list_match::Ts::Committed(ts.try_into()?),
+                ),
+                WriteTimestamp::Pending => {
+                    Some(pb::searchlight::posting_list_match::Ts::Pending(()))
+                },
+            },
             creation_time: value.creation_time.into(),
             bm25_score: value.bm25_score,
         })
@@ -1076,7 +1173,7 @@ impl IdTracker {
 pub struct DeletionTracker;
 
 impl DeletionTracker {
-    pub fn load(_archive_path: &Path) -> anyhow::Result<Self> {
+    pub fn load<P: AsRef<Path>>(_archive_path: P) -> anyhow::Result<Self> {
         // TODO: Load the file's header into memory.
         Ok(Self)
     }
@@ -1115,5 +1212,230 @@ impl DeletionTracker {
         // TODO: Load this from disk.
         let empty = BitSet::with_max_value(0);
         (&empty).into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        cmp,
+        collections::{
+            BTreeMap,
+            BTreeSet,
+        },
+        env,
+        io::{
+            BufRead,
+            BufReader,
+        },
+    };
+
+    use common::{
+        bootstrap_model::index::search_index::DeveloperSearchIndexConfig,
+        document::{
+            CreationTime,
+            ResolvedDocument,
+        },
+        testing::TestIdGenerator,
+        types::Timestamp,
+    };
+    use runtime::testing::TestRuntime;
+    use tantivy::{
+        IndexBuilder,
+        Term,
+    };
+    use tempfile::TempDir;
+    use value::{
+        assert_obj,
+        FieldPath,
+        ResolvedDocumentId,
+    };
+
+    use crate::{
+        constants::CONVEX_EN_TOKENIZER,
+        convex_en,
+        convex_query::OrTerm,
+        disk_index::index_reader_for_directory,
+        searcher::{
+            searcher::{
+                DeletionTracker,
+                IdTracker,
+                PostingListQuery,
+                TokenQuery,
+            },
+            SearcherImpl,
+        },
+        TantivySearchIndexSchema,
+        EXACT_SEARCH_MAX_WORD_LENGTH,
+        SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
+    };
+
+    #[test]
+    #[ignore]
+    fn test_incremental_search() -> anyhow::Result<()> {
+        let start = std::time::Instant::now();
+        let test_dir = TempDir::new()?;
+
+        let dataset_path = std::env::var("DATASET")?;
+        let query = std::env::var("QUERY")?;
+        let max_terms = env::var("MAX_TERMS")?.parse()?;
+        let max_results = env::var("MAX_RESULTS")?.parse()?;
+
+        let mut id_generator = TestIdGenerator::new();
+        let table_name = "test".parse()?;
+        let table = id_generator.table_id(&table_name);
+        let field_path: FieldPath = "mySearchField".parse()?;
+        let schema = TantivySearchIndexSchema::new(&DeveloperSearchIndexConfig {
+            search_field: field_path.clone(),
+            filter_fields: BTreeSet::new(),
+        });
+        let ts = Timestamp::try_from(100u64)?;
+
+        #[derive(serde::Deserialize)]
+        struct SearchDocument {
+            text: String,
+        }
+        let f = std::fs::File::open(&dataset_path)?;
+        let f = BufReader::new(f);
+        let mut strings = vec![];
+        for line in f.lines() {
+            let d: SearchDocument = serde_json::from_str(&line?)?;
+            strings.push(d.text);
+        }
+
+        let index = IndexBuilder::new()
+            .schema(schema.schema.clone())
+            .create_in_dir(test_dir.path())?;
+        index
+            .tokenizers()
+            .register(CONVEX_EN_TOKENIZER, convex_en());
+        let mut index_writer = index.writer_with_num_threads(1, 50_000_000)?;
+
+        let mut strings_by_id = BTreeMap::new();
+
+        for string in strings {
+            let id = ResolvedDocumentId::new(table, id_generator.generate_internal());
+            strings_by_id.insert(id, string.clone());
+            let creation_time = CreationTime::try_from(10.)?;
+            let document =
+                ResolvedDocument::new(id, creation_time, assert_obj!("mySearchField" => string))?;
+            let tantivy_doc = schema.index_into_tantivy_document(&document, ts);
+            index_writer.add_document(tantivy_doc)?;
+        }
+
+        index_writer.commit()?;
+        index_writer.wait_merging_threads()?;
+
+        println!("Indexed {dataset_path} in {:?}", start.elapsed());
+
+        let index_reader = index_reader_for_directory(test_dir.path())?;
+        let searcher = index_reader.searcher();
+
+        let mut token_stream = schema.analyzer.token_stream(&query);
+        let mut tokens = vec![];
+        while let Some(token) = token_stream.next() {
+            tokens.push(token.text.clone());
+        }
+        let num_tokens = tokens.len();
+        let mut token_queries = vec![];
+        for (i, token) in tokens.into_iter().enumerate() {
+            let char_count = token.chars().count();
+            let max_distance = if char_count <= EXACT_SEARCH_MAX_WORD_LENGTH {
+                0
+            } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
+                1
+            } else {
+                2
+            };
+            let term = Term::from_field_text(schema.search_field, &token);
+            let query = TokenQuery {
+                term,
+                max_distance,
+                prefix: i == num_tokens - 1,
+            };
+            token_queries.push(query);
+        }
+
+        anyhow::ensure!(searcher.segment_readers().len() == 1);
+        let segment = &searcher.segment_readers()[0];
+        let deletion_tracker = DeletionTracker::load(test_dir.path())?;
+        let start = std::time::Instant::now();
+        let results = SearcherImpl::<TestRuntime>::query_tokens_impl(
+            segment,
+            &deletion_tracker,
+            token_queries,
+            max_terms,
+        )?;
+
+        if results.is_empty() {
+            println!("No results found");
+            return Ok(());
+        }
+
+        println!("{} term results ({:?}):", results.len(), start.elapsed());
+        for result in &results {
+            println!(
+                "{:?}: dist {}, prefix? {}",
+                result.term, result.distance, result.prefix
+            );
+        }
+
+        let start = std::time::Instant::now();
+        let terms = results.iter().map(|r| r.term.clone()).collect();
+        let stats =
+            SearcherImpl::<TestRuntime>::query_bm25_stats_impl(segment, &deletion_tracker, terms)?;
+        println!("\nBM25 stats ({:?}): {stats:?}", start.elapsed());
+
+        let mut results_by_term = BTreeMap::new();
+        for result in results {
+            let sort_key = (result.distance, result.prefix, result.token_ord);
+            let existing_key = results_by_term.entry(result.term).or_insert(sort_key);
+            *existing_key = cmp::min(*existing_key, sort_key);
+        }
+
+        let mut or_terms = vec![];
+        for (term, (distance, prefix, _)) in results_by_term {
+            let doc_frequency = stats.doc_frequencies[&term];
+            // TODO: Come up with a smarter way to boost scores based on edit distance.
+            let mut boost = 1. / (1. + distance as f32);
+            if prefix {
+                boost *= 0.5;
+            }
+            let or_term = OrTerm {
+                term,
+                doc_frequency,
+                bm25_boost: boost,
+            };
+            or_terms.push(or_term);
+        }
+
+        let start = std::time::Instant::now();
+        let query = PostingListQuery {
+            deleted_internal_ids: BTreeSet::new(),
+            or_terms,
+            and_terms: vec![],
+            num_terms: stats.num_terms,
+            num_documents: stats.num_documents,
+            max_results,
+        };
+        let posting_list_matches = SearcherImpl::<TestRuntime>::query_posting_lists_impl(
+            &searcher,
+            segment,
+            &IdTracker,
+            &deletion_tracker,
+            query,
+        )?;
+        println!(
+            "\n{} posting list results ({:?}):",
+            posting_list_matches.len(),
+            start.elapsed()
+        );
+        for result in &posting_list_matches {
+            println!("{:?} @ {}", result.internal_id, result.bm25_score);
+            let id = ResolvedDocumentId::new(table, result.internal_id);
+            println!("  {}", strings_by_id[&id]);
+        }
+
+        Ok(())
     }
 }

@@ -1,7 +1,10 @@
 /// Searcher trait and implementations
 /// - Stub implementation
 /// - InProcessSearcher implementation
-use std::sync::Arc;
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use common::{
@@ -11,6 +14,7 @@ use common::{
 };
 use pb::searchlight::FragmentedVectorSegmentPaths;
 use storage::Storage;
+use tantivy::Term;
 use tempfile::TempDir;
 use vector::{
     CompiledVectorSearch,
@@ -19,6 +23,14 @@ use vector::{
     VectorSearcher,
 };
 
+use super::searcher::{
+    Bm25Stats,
+    FragmentedTextSegmentStorageKeys,
+    PostingListMatch,
+    PostingListQuery,
+    TokenMatch,
+    TokenQuery,
+};
 use crate::{
     query::{
         CompiledQuery,
@@ -47,6 +59,38 @@ impl Searcher for SearcherStub {
         _limit: usize,
     ) -> anyhow::Result<SearchQueryResult> {
         Ok(SearchQueryResult::empty())
+    }
+
+    async fn query_tokens(
+        &self,
+        _search_storage: Arc<dyn Storage>,
+        _storage_keys: FragmentedTextSegmentStorageKeys,
+        _queries: Vec<TokenQuery>,
+        _max_results: usize,
+    ) -> anyhow::Result<Vec<TokenMatch>> {
+        Ok(vec![])
+    }
+
+    async fn query_bm25_stats(
+        &self,
+        _search_storage: Arc<dyn Storage>,
+        _storage_keys: FragmentedTextSegmentStorageKeys,
+        _terms: Vec<Term>,
+    ) -> anyhow::Result<Bm25Stats> {
+        Ok(Bm25Stats {
+            num_terms: 0,
+            num_documents: 0,
+            doc_frequencies: BTreeMap::new(),
+        })
+    }
+
+    async fn query_posting_lists(
+        &self,
+        _search_storage: Arc<dyn Storage>,
+        _storage_keys: FragmentedTextSegmentStorageKeys,
+        _query: PostingListQuery,
+    ) -> anyhow::Result<Vec<PostingListMatch>> {
+        Ok(vec![])
     }
 }
 
@@ -114,6 +158,40 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
                 memory_shortlisted_terms,
                 limit,
             )
+            .await
+    }
+
+    async fn query_tokens(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        queries: Vec<TokenQuery>,
+        max_results: usize,
+    ) -> anyhow::Result<Vec<TokenMatch>> {
+        self.searcher
+            .query_tokens(search_storage, storage_keys, queries, max_results)
+            .await
+    }
+
+    async fn query_bm25_stats(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        terms: Vec<Term>,
+    ) -> anyhow::Result<Bm25Stats> {
+        self.searcher
+            .query_bm25_stats(search_storage, storage_keys, terms)
+            .await
+    }
+
+    async fn query_posting_lists(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        query: PostingListQuery,
+    ) -> anyhow::Result<Vec<PostingListMatch>> {
+        self.searcher
+            .query_posting_lists(search_storage, storage_keys, query)
             .await
     }
 }

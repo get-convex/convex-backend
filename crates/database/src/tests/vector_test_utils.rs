@@ -49,8 +49,15 @@ use search::{
     },
     scoring::Bm25StatisticsDiff,
     searcher::{
+        Bm25Stats,
+        FragmentedTextSegmentStorageKeys,
         InProcessSearcher,
+        PostingListMatch,
+        PostingListQuery,
         Searcher,
+        Term,
+        TokenMatch,
+        TokenQuery,
     },
     SearchQueryResult,
     TantivySearchIndexSchema,
@@ -528,6 +535,40 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
                 shortlisted_terms,
                 limit,
             )
+            .await
+    }
+
+    async fn query_tokens(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        queries: Vec<TokenQuery>,
+        max_results: usize,
+    ) -> anyhow::Result<Vec<TokenMatch>> {
+        self.searcher
+            .query_tokens(search_storage, storage_keys, queries, max_results)
+            .await
+    }
+
+    async fn query_bm25_stats(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        terms: Vec<Term>,
+    ) -> anyhow::Result<Bm25Stats> {
+        self.searcher
+            .query_bm25_stats(search_storage, storage_keys, terms)
+            .await
+    }
+
+    async fn query_posting_lists(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: FragmentedTextSegmentStorageKeys,
+        query: PostingListQuery,
+    ) -> anyhow::Result<Vec<PostingListMatch>> {
+        self.searcher
+            .query_posting_lists(search_storage, storage_keys, query)
             .await
     }
 }

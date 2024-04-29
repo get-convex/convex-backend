@@ -130,6 +130,27 @@ impl QueryTerm {
         }
     }
 
+    pub fn into_term(self) -> Term {
+        match self {
+            QueryTerm::Exact(term) => term,
+            QueryTerm::Fuzzy { term, .. } => term,
+        }
+    }
+
+    pub fn max_distance(&self) -> u32 {
+        match self {
+            QueryTerm::Exact(..) => 0,
+            QueryTerm::Fuzzy { max_distance, .. } => *max_distance as u32,
+        }
+    }
+
+    pub fn prefix(&self) -> bool {
+        match self {
+            QueryTerm::Exact(..) => false,
+            QueryTerm::Fuzzy { prefix, .. } => *prefix,
+        }
+    }
+
     pub fn try_from_text_query_term_proto(
         value: pb::searchlight::TextQueryTerm,
         search_field: Field,
@@ -1030,8 +1051,8 @@ impl FieldTokens {
                 continue;
             }
             for (i, _) in token.char_indices()
-                // Skip the first index because 0 up to but not including the 
-                // first character index is either the empty String or includes 
+                // Skip the first index because 0 up to but not including the
+                // first character index is either the empty String or includes
                 // a partial character, neither of which is a valid prefix.
                 .skip(1)
             {

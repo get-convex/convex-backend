@@ -10,6 +10,13 @@ pub use in_process::{
     SearcherStub,
 };
 pub use searcher::{
+    Bm25Stats,
+    FragmentedTextSegmentStorageKeys,
+    PostingListMatch,
+    PostingListQuery,
     Searcher,
     SearcherImpl,
+    Term,
+    TokenMatch,
+    TokenQuery,
 };

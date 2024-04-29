@@ -11,6 +11,7 @@
 #![feature(impl_trait_in_assoc_type)]
 #![feature(trait_alias)]
 
+mod aggregation;
 mod archive;
 mod constants;
 mod convex_query;
@@ -28,10 +29,16 @@ pub mod searcher;
 mod tantivy_query;
 
 use std::{
-    collections::BTreeMap,
+    cmp,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     sync::Arc,
 };
 
+use aggregation::PostingListMatchAggregator;
+use anyhow::Context;
 use common::{
     bootstrap_model::index::{
         search_index::DeveloperSearchIndexConfig,
@@ -60,8 +67,10 @@ pub use constants::{
     MAX_QUERY_TERMS,
     SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
 };
+use convex_query::OrTerm;
 use errors::ErrorMetadata;
 use indexing::index_registry::Index;
+use itertools::Itertools;
 use metrics::log_search_token_limit_exceeded;
 pub use query::{
     CandidateRevision,
@@ -74,6 +83,7 @@ use query::{
     RevisionWithKeys,
     TextQueryTerm,
 };
+use searcher::FragmentedTextSegmentStorageKeys;
 use storage::Storage;
 pub use tantivy::Document as TantivyDocument;
 use tantivy::{
@@ -118,7 +128,16 @@ pub use self::{
     },
     searcher::Searcher,
 };
-use crate::ranking::Ranker;
+use crate::{
+    aggregation::TokenMatchAggregator,
+    constants::MAX_UNIQUE_QUERY_TERMS,
+    ranking::Ranker,
+    searcher::{
+        Bm25Stats,
+        PostingListQuery,
+        TokenQuery,
+    },
+};
 
 /// The field ID of the search field in tantivy. DON'T CHANGE THIS!
 const SEARCH_FIELD_ID: u32 = 3;
@@ -368,6 +387,182 @@ impl TantivySearchIndexSchema {
         }
     }
 
+    pub async fn search2(
+        &self,
+        compiled_query: CompiledQuery,
+        memory_index: &MemorySearchIndex,
+        search_storage: Arc<dyn Storage>,
+        segments: Vec<FragmentedTextSegmentStorageKeys>,
+        disk_index_ts: Timestamp,
+        searcher: Arc<dyn Searcher>,
+    ) -> anyhow::Result<RevisionWithKeys> {
+        // Step 1: Map the old `CompiledQuery` struct onto `TokenQuery`s.
+        let mut token_queries = vec![];
+        let num_text_query_terms = compiled_query.text_query.len() as u32;
+        for query_term in compiled_query.text_query {
+            let query = TokenQuery {
+                max_distance: query_term.max_distance(),
+                prefix: query_term.prefix(),
+                term: query_term.into_term(),
+            };
+            token_queries.push(query);
+        }
+        for CompiledFilterCondition::Must(term) in compiled_query.filter_conditions {
+            let query = TokenQuery {
+                term,
+                max_distance: 0,
+                prefix: false,
+            };
+            token_queries.push(query);
+        }
+
+        // Step 2: Execute the token queries across both the memory and disk indexes,
+        // and merge the results to get the top terms.
+        let mut match_aggregator = TokenMatchAggregator::new(MAX_UNIQUE_QUERY_TERMS);
+        memory_index.query_tokens(&token_queries, &mut match_aggregator)?;
+        for segment in &segments {
+            let segment_token_matches = searcher
+                .query_tokens(
+                    search_storage.clone(),
+                    segment.clone(),
+                    token_queries.clone(),
+                    MAX_UNIQUE_QUERY_TERMS,
+                )
+                .await?;
+            anyhow::ensure!(segment_token_matches.is_sorted());
+            for m in segment_token_matches {
+                // Since each segment returns results in sorted order, we can stop early once we
+                // know that we've already seen `MAX_UNIQUE_QUERY_TERMS` better results.
+                if !match_aggregator.insert(m) {
+                    break;
+                }
+            }
+        }
+        // Deduplicate terms, using the best distance for each term.
+        let mut results_by_term = BTreeMap::new();
+        for token_match in match_aggregator.into_results() {
+            let sort_key = (
+                token_match.distance,
+                token_match.prefix,
+                token_match.token_ord,
+            );
+            let existing_key = results_by_term.entry(token_match.term).or_insert(sort_key);
+
+            // NB: Since OR and AND queries are on different fields, we can assume their
+            // terms are disjoint. Assert this condition here since we're deduplicating
+            // terms and taking their minimum `token_ord`, which could potentially lose
+            // intersection conditions otherwise.
+            let (_, _, existing_token_ord) = *existing_key;
+            let existing_is_intersection = existing_token_ord >= num_text_query_terms;
+            let is_intersection = token_match.token_ord >= num_text_query_terms;
+            anyhow::ensure!(existing_is_intersection == is_intersection);
+
+            *existing_key = cmp::min(*existing_key, sort_key);
+        }
+        let terms = results_by_term.keys().cloned().collect_vec();
+
+        // Step 3: Given the terms we decided on, query BM25 statistics across all of
+        // the indexes and merge their results.
+        let mut bm25_stats = Bm25Stats::empty();
+        for segment in &segments {
+            bm25_stats += searcher
+                .query_bm25_stats(search_storage.clone(), segment.clone(), terms.clone())
+                .await?;
+        }
+        bm25_stats = memory_index.update_bm25_stats(disk_index_ts, &terms, bm25_stats)?;
+
+        // Step 4: Decide on our posting list queries given the previous results.
+        let mut or_terms = vec![];
+        let mut and_terms = vec![];
+        for (term, (distance, prefix, token_ord)) in results_by_term {
+            if token_ord >= num_text_query_terms {
+                anyhow::ensure!(distance == 0 && !prefix);
+                and_terms.push(term);
+            } else {
+                let doc_frequency = *bm25_stats
+                    .doc_frequencies
+                    .get(&term)
+                    .context("Missing term frequency")?;
+                // TODO: Come up with a smarter way to boost scores based on edit distance.
+                // Eventually this will be in user space so developers can tweak
+                // it as they desire.
+                let mut boost = 1. / (1. + distance as f32);
+                if prefix {
+                    boost *= 0.5;
+                }
+                let or_term = OrTerm {
+                    term,
+                    doc_frequency,
+                    bm25_boost: boost,
+                };
+                or_terms.push(or_term);
+            }
+        }
+
+        // Step 5: Execute the posting list query against the memory index's tombstones
+        // to know which `InternalId`s to exclude when querying the disk
+        // indexes.
+        let prepared_memory_query =
+            memory_index.prepare_posting_list_query(&and_terms, &or_terms, &bm25_stats)?;
+        let mut deleted_internal_ids = BTreeSet::new();
+        if let Some(ref prepared_query) = prepared_memory_query {
+            deleted_internal_ids = memory_index.query_tombstones(disk_index_ts, prepared_query)?;
+        }
+        let query = PostingListQuery {
+            deleted_internal_ids,
+            num_terms: bm25_stats.num_terms,
+            num_documents: bm25_stats.num_documents,
+            or_terms,
+            and_terms,
+            max_results: MAX_CANDIDATE_REVISIONS,
+        };
+
+        // Step 6: Query the posting lists across the indexes and take the best
+        // results.
+        let mut match_aggregator = PostingListMatchAggregator::new(MAX_CANDIDATE_REVISIONS);
+        if let Some(ref prepared_query) = prepared_memory_query {
+            memory_index.query_posting_lists(
+                disk_index_ts,
+                prepared_query,
+                &mut match_aggregator,
+            )?;
+        }
+        for segment in &segments {
+            let segment_matches = searcher
+                .query_posting_lists(search_storage.clone(), segment.clone(), query.clone())
+                .await?;
+            for m in segment_matches {
+                if !match_aggregator.insert(m) {
+                    break;
+                }
+            }
+        }
+
+        // Step 7: Convert the matches into the final result format.
+        let mut result = vec![];
+        for m in match_aggregator.into_results() {
+            let candidate = CandidateRevision {
+                score: m.bm25_score,
+                id: m.internal_id,
+                ts: m.ts,
+                creation_time: m.creation_time,
+            };
+            let index_fields = vec![
+                Some(ConvexValue::Float64(-f64::from(m.bm25_score))),
+                Some(ConvexValue::Float64(-f64::from(m.creation_time))),
+                Some(ConvexValue::Bytes(
+                    Vec::<u8>::from(m.internal_id)
+                        .try_into()
+                        .expect("Could not convert internal ID to value"),
+                )),
+            ];
+            let bytes = values_to_bytes(&index_fields);
+            let index_key_bytes = IndexKeyBytes(bytes);
+            result.push((candidate, index_key_bytes));
+        }
+        Ok(result)
+    }
+
     pub async fn search(
         &self,
         compiled_query: CompiledQuery,
@@ -397,7 +592,7 @@ impl TantivySearchIndexSchema {
                 &term_shortlist,
                 &term_shortlist_ids,
             );
-            memory_index.tombstoned_matches(disk_index_ts, term_list_query)?
+            memory_index.tombstoned_matches(disk_index_ts, &term_list_query)?
         };
         let overfetch_delta = tombstoned_matches.len();
         metrics::log_searchlight_overfetch_delta(overfetch_delta);
