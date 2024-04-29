@@ -1,14 +1,12 @@
-use std::collections::BTreeMap;
-
-use common::obj;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
-use value::{
-    ConvexObject,
-    ConvexValue,
-};
+use value::codegen_convex_serialization;
 
 use super::module_versions::ModuleVersion;
 
@@ -22,67 +20,40 @@ pub struct ModuleMetadata {
     pub latest_version: ModuleVersion,
 }
 
-impl TryFrom<ModuleMetadata> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(m: ModuleMetadata) -> anyhow::Result<Self> {
-        obj!(
-            "path" => String::from(m.path),
-            "latestVersion" => m.latest_version,
-            // TODO(lee) remove once it's no longer expected on the read path.
-            "deleted" => false,
-        )
-    }
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedModuleMetadata {
+    pub path: String,
+    pub latest_version: ModuleVersion,
+    pub deleted: Option<bool>,
 }
 
-impl TryFrom<ModuleMetadata> for ConvexValue {
+impl TryFrom<SerializedModuleMetadata> for ModuleMetadata {
     type Error = anyhow::Error;
 
-    fn try_from(value: ModuleMetadata) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
-    }
-}
-
-impl TryFrom<ConvexObject> for ModuleMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(object: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = object.into();
-        let path = match fields.remove("path") {
-            Some(ConvexValue::String(s)) => {
-                let path: ModulePath = s.parse()?;
+    fn try_from(m: SerializedModuleMetadata) -> anyhow::Result<Self> {
+        Ok(Self {
+            path: {
+                let path: ModulePath = m.path.parse()?;
                 // TODO: Remove this canonicalization once we've fully backfilled canonicalized
                 // module paths.
                 path.canonicalize()
             },
-            v => anyhow::bail!("Invalid path field for ModuleMetadata: {:?}", v),
-        };
-        let latest_version = match fields.remove("latestVersion") {
-            Some(ConvexValue::Int64(i)) => i,
-            v => anyhow::bail!("Invalid latest_version field for ModuleMetadata: {:?}", v),
-        };
-        Ok(Self {
-            path,
-            latest_version,
+            latest_version: m.latest_version,
         })
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use common::testing::assert_roundtrips;
-    use proptest::prelude::*;
-    use value::ConvexObject;
+impl TryFrom<ModuleMetadata> for SerializedModuleMetadata {
+    type Error = anyhow::Error;
 
-    use super::ModuleMetadata;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_module_roundtrips(v in any::<ModuleMetadata>()) {
-            assert_roundtrips::<ModuleMetadata, ConvexObject>(v);
-        }
+    fn try_from(m: ModuleMetadata) -> anyhow::Result<Self> {
+        Ok(Self {
+            path: String::from(m.path),
+            latest_version: m.latest_version,
+            deleted: Some(false),
+        })
     }
 }
+
+codegen_convex_serialization!(ModuleMetadata, SerializedModuleMetadata);

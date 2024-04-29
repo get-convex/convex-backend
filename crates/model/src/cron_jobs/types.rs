@@ -25,6 +25,7 @@ use sync_types::{
     UdfPath,
 };
 use value::{
+    codegen_convex_serialization,
     heap_size::HeapSize,
     json_deserialize,
     json_serialize,
@@ -59,73 +60,45 @@ pub struct CronJob {
     pub next_ts: Timestamp,
 }
 
-impl TryFrom<CronJob> for ConvexObject {
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedCronJob {
+    name: String,
+    cron_spec: SerializedCronSpec,
+    state: CronJobState,
+    prev_ts: Option<i64>,
+    next_ts: i64,
+}
+
+impl TryFrom<CronJob> for SerializedCronJob {
     type Error = anyhow::Error;
 
     fn try_from(job: CronJob) -> anyhow::Result<Self, Self::Error> {
-        let prev_ts = match job.prev_ts {
-            None => ConvexValue::Null,
-            Some(ts) => ConvexValue::Int64(ts.into()),
-        };
-        obj!(
-            "name" => job.name.to_string(),
-            "cronSpec" => ConvexValue::Object(job.cron_spec.try_into()?),
-            "state" => ConvexValue::Object(job.state.try_into()?),
-            "prevTs" => prev_ts,
-            "nextTs" => ConvexValue::Int64(job.next_ts.into()),
-        )
-    }
-}
-
-impl TryFrom<ConvexObject> for CronJob {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> anyhow::Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = value.into();
-
-        let name = match fields.remove("name") {
-            Some(ConvexValue::String(s)) => CronIdentifier::from_str(s.to_string().as_str())?,
-            _ => anyhow::bail!("Missing or invalid `name` field for CronJob: {:?}", fields),
-        };
-
-        let cron_spec = match fields.remove("cronSpec") {
-            Some(ConvexValue::Object(o)) => o.try_into()?,
-            _ => anyhow::bail!(
-                "Missing or invalid `cronSpec` field for CronJob: {:?}",
-                fields
-            ),
-        };
-        let state = match fields.remove("state") {
-            Some(ConvexValue::Object(o)) => o.try_into()?,
-            _ => anyhow::bail!("Missing or invalid `state` field for CronJob: {:?}", fields),
-        };
-
-        let prev_ts = match fields.remove("prevTs") {
-            Some(ConvexValue::Int64(ts)) => Some(ts.try_into()?),
-            Some(ConvexValue::Null) => None,
-            _ => anyhow::bail!(
-                "Missing or invalid `nextTs` field for CronJob: {:?}",
-                fields
-            ),
-        };
-
-        let next_ts = match fields.remove("nextTs") {
-            Some(ConvexValue::Int64(ts)) => ts.try_into()?,
-            _ => anyhow::bail!(
-                "Missing or invalid `nextTs` field for CronJob: {:?}",
-                fields
-            ),
-        };
-
         Ok(Self {
-            name,
-            cron_spec,
-            state,
-            prev_ts,
-            next_ts,
+            name: job.name.to_string(),
+            cron_spec: job.cron_spec.try_into()?,
+            state: job.state,
+            prev_ts: job.prev_ts.map(|ts| ts.into()),
+            next_ts: job.next_ts.into(),
         })
     }
 }
+
+impl TryFrom<SerializedCronJob> for CronJob {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedCronJob) -> anyhow::Result<Self, Self::Error> {
+        Ok(Self {
+            name: value.name.parse()?,
+            cron_spec: value.cron_spec.try_into()?,
+            state: value.state,
+            prev_ts: value.prev_ts.map(|ts| ts.try_into()).transpose()?,
+            next_ts: value.next_ts.try_into()?,
+        })
+    }
+}
+
+codegen_convex_serialization!(CronJob, SerializedCronJob);
 
 /// Check that a string can be used as a CronIdentifier.
 pub fn check_valid_cron_identifier(s: &str) -> anyhow::Result<()> {
@@ -207,7 +180,16 @@ impl HeapSize for CronSpec {
     }
 }
 
-impl TryFrom<CronSpec> for ConvexObject {
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedCronSpec {
+    udf_path: String,
+    #[serde(with = "serde_bytes")]
+    udf_args: Option<Vec<u8>>,
+    cron_schedule: SerializedCronSchedule,
+}
+
+impl TryFrom<CronSpec> for SerializedCronSpec {
     type Error = anyhow::Error;
 
     fn try_from(spec: CronSpec) -> anyhow::Result<Self, Self::Error> {
@@ -215,56 +197,44 @@ impl TryFrom<CronSpec> for ConvexObject {
         // field names can be used in a `Document`'s top-level object.
         let udf_args_json = JsonValue::from(spec.udf_args);
         let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
-        obj!(
-            "udfPath" => String::from(spec.udf_path),
-            "udfArgs" => udf_args_bytes,
-            "cronSchedule" => ConvexValue::Object(spec.cron_schedule.try_into()?),
-        )
+        Ok(Self {
+            udf_path: String::from(spec.udf_path),
+            udf_args: Some(udf_args_bytes),
+            cron_schedule: spec.cron_schedule.try_into()?,
+        })
     }
 }
 
-impl TryFrom<ConvexObject> for CronSpec {
+impl TryFrom<SerializedCronSpec> for CronSpec {
     type Error = anyhow::Error;
 
-    fn try_from(value: ConvexObject) -> anyhow::Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = value.into();
-
-        let udf_path = match fields.remove("udfPath") {
-            Some(ConvexValue::String(s)) => s,
-            _ => anyhow::bail!(
-                "Missing or invalid `udfPath` field for CronJob: {:?}",
-                fields
-            ),
-        };
-        let udf_path: CanonicalizedUdfPath = udf_path
-            .parse()
-            .context(format!("Failed to deserialize udf_path {}", udf_path))?;
-        let udf_args = match fields.remove("udfArgs") {
-            Some(ConvexValue::Bytes(b)) => {
+    fn try_from(value: SerializedCronSpec) -> anyhow::Result<Self, Self::Error> {
+        let udf_path = value.udf_path.parse()?;
+        let udf_args = match value.udf_args {
+            Some(b) => {
                 let udf_args_json: JsonValue = serde_json::from_slice(&b)?;
                 udf_args_json.try_into()?
             },
             None => ConvexArray::try_from(vec![])?,
-            _ => anyhow::bail!(
-                "Missing or invalid `udfArgs` field for CronJob: {:?}",
-                fields
-            ),
         };
-
-        let cron_schedule = match fields.remove("cronSchedule") {
-            Some(ConvexValue::Object(o)) => o.try_into()?,
-            _ => anyhow::bail!(
-                "Missing or invalid `cronSchedule` field for CronJob: {:?}",
-                fields
-            ),
-        };
-
+        let cron_schedule = value.cron_schedule.try_into()?;
         Ok(Self {
             udf_path,
             udf_args,
             cron_schedule,
         })
     }
+}
+
+mod codegen_cron_spec {
+    use value::codegen_convex_serialization;
+
+    use super::{
+        CronSpec,
+        SerializedCronSpec,
+    };
+
+    codegen_convex_serialization!(CronSpec, SerializedCronSpec);
 }
 
 impl TryFrom<JsonValue> for CronSpec {
@@ -476,8 +446,9 @@ impl TryFrom<JsonValue> for CronSpec {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[serde(rename_all = "camelCase", tag = "type")]
 pub enum CronJobState {
     // Yet to be attempted.
     Pending,
@@ -485,40 +456,7 @@ pub enum CronJobState {
     InProgress,
 }
 
-impl TryFrom<CronJobState> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(state: CronJobState) -> anyhow::Result<Self, Self::Error> {
-        match state {
-            CronJobState::Pending => obj!("type" => "pending"),
-            CronJobState::InProgress => obj!("type" => "inProgress"),
-        }
-    }
-}
-
-impl TryFrom<ConvexObject> for CronJobState {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> anyhow::Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = value.into();
-        let state_t = match fields.remove("type") {
-            Some(ConvexValue::String(s)) => s,
-            _ => anyhow::bail!(
-                "Missing or invalid `type` field for CronJobState: {:?}",
-                fields
-            ),
-        };
-
-        let state = match state_t.as_ref() {
-            "pending" => CronJobState::Pending,
-            "inProgress" => CronJobState::InProgress,
-            _ => anyhow::bail!("Invalid CronJobState `type`: {}", state_t),
-        };
-        Ok(state)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum CronSchedule {
     Interval {
@@ -558,178 +496,189 @@ impl HeapSize for CronSchedule {
     }
 }
 
-impl TryFrom<CronSchedule> for ConvexObject {
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+enum SerializedCronSchedule {
+    Interval {
+        seconds: i64,
+    },
+    Hourly {
+        #[serde(rename = "minuteUTC")]
+        minute_utc: i64,
+    },
+    Daily {
+        #[serde(rename = "hourUTC")]
+        hour_utc: i64,
+        #[serde(rename = "minuteUTC")]
+        minute_utc: i64,
+    },
+    Weekly {
+        #[serde(rename = "dayOfWeek")]
+        day_of_week: i64,
+        #[serde(rename = "hourUTC")]
+        hour_utc: i64,
+        #[serde(rename = "minuteUTC")]
+        minute_utc: i64,
+    },
+    Monthly {
+        day: i64,
+        #[serde(rename = "hourUTC")]
+        hour_utc: i64,
+        #[serde(rename = "minuteUTC")]
+        minute_utc: i64,
+    },
+    #[serde(rename_all = "camelCase")]
+    Cron {
+        cron_expr: String,
+    },
+}
+
+impl TryFrom<CronSchedule> for SerializedCronSchedule {
     type Error = anyhow::Error;
 
-    fn try_from(cron_schedule: CronSchedule) -> anyhow::Result<Self, Self::Error> {
-        match cron_schedule {
-            CronSchedule::Interval { seconds } => obj!(
-                "type" => "interval",
-                "seconds" => seconds,
-            ),
-            CronSchedule::Hourly { minute_utc } => obj!(
-                "type" => "hourly",
-                "minuteUTC" => minute_utc,
-            ),
+    fn try_from(schedule: CronSchedule) -> anyhow::Result<Self, Self::Error> {
+        match schedule {
+            CronSchedule::Interval { seconds } => Ok(Self::Interval { seconds }),
+            CronSchedule::Hourly { minute_utc } => Ok(Self::Hourly { minute_utc }),
             CronSchedule::Daily {
                 hour_utc,
                 minute_utc,
-            } => obj!(
-                "type" => "daily",
-                "hourUTC" => hour_utc,
-                "minuteUTC" => minute_utc,
-            ),
+            } => Ok(Self::Daily {
+                hour_utc,
+                minute_utc,
+            }),
             CronSchedule::Weekly {
                 day_of_week,
                 hour_utc,
                 minute_utc,
-            } => obj!(
-                "type" => "weekly",
-                "dayOfWeek" => day_of_week,
-                "hourUTC" => hour_utc,
-                "minuteUTC" => minute_utc,
-            ),
+            } => Ok(Self::Weekly {
+                day_of_week,
+                hour_utc,
+                minute_utc,
+            }),
             CronSchedule::Monthly {
                 day,
                 hour_utc,
                 minute_utc,
-            } => obj!(
-                "type" => "monthly",
-                "day" => day,
-                "hourUTC" => hour_utc,
-                "minuteUTC" => minute_utc,
-            ),
-            CronSchedule::Cron { cron_expr } => obj!(
-                "type" => "cron",
-                "cronExpr" => cron_expr,
-            ),
+            } => Ok(Self::Monthly {
+                day,
+                hour_utc,
+                minute_utc,
+            }),
+            CronSchedule::Cron { cron_expr } => Ok(Self::Cron { cron_expr }),
         }
     }
 }
 
-impl TryFrom<ConvexObject> for CronSchedule {
+impl TryFrom<SerializedCronSchedule> for CronSchedule {
     type Error = anyhow::Error;
 
-    fn try_from(value: ConvexObject) -> anyhow::Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = value.into();
-        let type_t = match fields.remove("type") {
-            Some(ConvexValue::String(s)) => s,
-            _ => anyhow::bail!(
-                "Missing or invalid `type` field for CronSchedule: {:?}",
-                fields
-            ),
-        };
+    fn try_from(value: SerializedCronSchedule) -> anyhow::Result<Self, Self::Error> {
+        match value {
+            SerializedCronSchedule::Interval { seconds } => Ok(CronSchedule::Interval { seconds }),
+            SerializedCronSchedule::Hourly { minute_utc } => {
+                Ok(CronSchedule::Hourly { minute_utc })
+            },
+            SerializedCronSchedule::Daily {
+                hour_utc,
+                minute_utc,
+            } => Ok(CronSchedule::Daily {
+                hour_utc,
+                minute_utc,
+            }),
+            SerializedCronSchedule::Weekly {
+                day_of_week,
+                hour_utc,
+                minute_utc,
+            } => Ok(CronSchedule::Weekly {
+                day_of_week,
+                hour_utc,
+                minute_utc,
+            }),
+            SerializedCronSchedule::Monthly {
+                day,
+                hour_utc,
+                minute_utc,
+            } => Ok(CronSchedule::Monthly {
+                day,
+                hour_utc,
+                minute_utc,
+            }),
+            SerializedCronSchedule::Cron { cron_expr } => Ok(CronSchedule::Cron { cron_expr }),
+        }
+    }
+}
 
-        let schedule = match type_t.as_ref() {
-            "interval" => {
-                let seconds = match fields.remove("seconds") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `seconds` field for CronSchedule Interval: {:?}",
-                        fields
-                    ),
-                };
-                CronSchedule::Interval { seconds }
+mod codegen_cron_schedule {
+    use value::codegen_convex_serialization;
+
+    use super::{
+        CronSchedule,
+        SerializedCronSchedule,
+    };
+
+    codegen_convex_serialization!(CronSchedule, SerializedCronSchedule);
+}
+
+#[derive(Debug, Serialize)]
+pub enum CronScheduleProductAnalysis {
+    Interval {
+        seconds: i64,
+    },
+    Hourly {
+        minute_utc: i64,
+    },
+    Daily {
+        hour_utc: i64,
+        minute_utc: i64,
+    },
+    Weekly {
+        day_of_week: i64,
+        hour_utc: i64,
+        minute_utc: i64,
+    },
+    Monthly {
+        day: i64,
+        hour_utc: i64,
+        minute_utc: i64,
+    },
+    Cron {
+        cron_expr: String,
+    },
+}
+
+impl From<CronSchedule> for CronScheduleProductAnalysis {
+    fn from(schedule: CronSchedule) -> Self {
+        match schedule {
+            CronSchedule::Interval { seconds } => Self::Interval { seconds },
+            CronSchedule::Hourly { minute_utc } => Self::Hourly { minute_utc },
+            CronSchedule::Daily {
+                hour_utc,
+                minute_utc,
+            } => Self::Daily {
+                hour_utc,
+                minute_utc,
             },
-            "hourly" => {
-                let minute_utc = match fields.remove("minuteUTC") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `minute_utc` field for CronSchedule Hourly: {:?}",
-                        fields
-                    ),
-                };
-                CronSchedule::Hourly { minute_utc }
+            CronSchedule::Weekly {
+                day_of_week,
+                hour_utc,
+                minute_utc,
+            } => Self::Weekly {
+                day_of_week,
+                hour_utc,
+                minute_utc,
             },
-            "daily" => {
-                let hour_utc = match fields.remove("hourUTC") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `hour_utc` field for CronSchedule Daily: {:?}",
-                        fields
-                    ),
-                };
-                let minute_utc = match fields.remove("minuteUTC") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `minute_utc` field for CronSchedule Daily: {:?}",
-                        fields
-                    ),
-                };
-                CronSchedule::Daily {
-                    hour_utc,
-                    minute_utc,
-                }
+            CronSchedule::Monthly {
+                day,
+                hour_utc,
+                minute_utc,
+            } => Self::Monthly {
+                day,
+                hour_utc,
+                minute_utc,
             },
-            "weekly" => {
-                let day_of_week = match fields.remove("dayOfWeek") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `day_of_week` field for CronSchedule Weekly: {:?}",
-                        fields
-                    ),
-                };
-                let hour_utc = match fields.remove("hourUTC") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `hour_utc` field for CronSchedule Weekly: {:?}",
-                        fields
-                    ),
-                };
-                let minute_utc = match fields.remove("minuteUTC") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `minute_utc` field for CronSchedule Weekly: {:?}",
-                        fields
-                    ),
-                };
-                CronSchedule::Weekly {
-                    day_of_week,
-                    hour_utc,
-                    minute_utc,
-                }
-            },
-            "monthly" => {
-                let day = match fields.remove("day") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `day` field for CronSchedule Monthly: {:?}",
-                        fields
-                    ),
-                };
-                let hour_utc = match fields.remove("hourUTC") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `hour_utc` field for CronSchedule Monthly: {:?}",
-                        fields
-                    ),
-                };
-                let minute_utc = match fields.remove("minuteUTC") {
-                    Some(ConvexValue::Int64(i)) => i,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `minute_utc` field for CronSchedule Weekly: {:?}",
-                        fields
-                    ),
-                };
-                CronSchedule::Monthly {
-                    day,
-                    hour_utc,
-                    minute_utc,
-                }
-            },
-            "cron" => {
-                let cron_expr: String = match fields.remove("cronExpr") {
-                    Some(s) => s.try_into()?,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `cron_expr` field for CronSchedule Cron: {:?}",
-                        fields
-                    ),
-                };
-                CronSchedule::Cron { cron_expr }
-            },
-            _ => anyhow::bail!("Invalid CronSchedule `type`: {}", type_t),
-        };
-        Ok(schedule)
+            CronSchedule::Cron { cron_expr } => Self::Cron { cron_expr },
+        }
     }
 }
 
@@ -1079,7 +1028,11 @@ impl TryFrom<ConvexObject> for CronJobLogLines {
 mod tests {
     use proptest::prelude::*;
     use sync_types::testing::assert_roundtrips;
-    use value::ConvexObject;
+    use value::{
+        assert_obj,
+        ConvexObject,
+        ConvexValue,
+    };
 
     use crate::cron_jobs::types::{
         CronJob,
@@ -1087,39 +1040,7 @@ mod tests {
         CronJobLogLines,
         CronJobResult,
         CronJobStatus,
-        CronSchedule,
-        CronSpec,
     };
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_cron_job_roundtrips(v in any::<CronJob>()) {
-            assert_roundtrips::<CronJob, ConvexObject>(v);
-        }
-    }
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_cron_spec_roundtrips(v in any::<CronSpec>()) {
-            assert_roundtrips::<CronSpec, ConvexObject>(v);
-        }
-    }
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_cron_schedule_roundtrips(v in any::<CronSchedule>()) {
-            assert_roundtrips::<CronSchedule, ConvexObject>(v);
-        }
-    }
 
     proptest! {
         #![proptest_config(
@@ -1159,5 +1080,24 @@ mod tests {
         fn test_cron_job_log_lines_roundtrips(v in any::<CronJobLogLines>()) {
             assert_roundtrips::<CronJobLogLines, ConvexObject>(v);
         }
+    }
+
+    #[test]
+    fn test_cron_args_bytes() {
+        // Regression test with an example cron job from prod that has udf_args as
+        // bytes.
+        let cron_job_obj = assert_obj!(
+            "cronSpec" => {
+                "cronSchedule" => {"hourUTC" => 4, "minuteUTC" => 20, "type" => "daily"},
+                // b"W3t9XQ=="
+                "udfArgs" => ConvexValue::Bytes(b"[{}]".to_vec().try_into().unwrap()),
+                "udfPath" => "crons.js:vacuumOldEntries"
+            },
+            "name" => "vacuum old entries",
+            "nextTs" => 1702354800000000000,
+            "prevTs" => 1702268400000000000,
+            "state" => {"type" => "pending"},
+        );
+        assert_roundtrips::<_, CronJob>(cron_job_obj);
     }
 }

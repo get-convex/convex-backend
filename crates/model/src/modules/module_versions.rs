@@ -14,20 +14,23 @@ use common::types::{
 use errors::ErrorMetadata;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use serde_json::Value as JsonValue;
 use sync_types::{
     identifier::check_valid_identifier,
     CanonicalizedModulePath,
 };
 use value::{
+    codegen_convex_serialization,
     heap_size::{
         HeapSize,
         WithHeapSize,
     },
     id_v6::DocumentIdV6,
-    obj,
-    ConvexObject,
-    ConvexValue,
+    DeveloperDocumentId,
 };
 
 use super::args_validator::ArgsValidator;
@@ -35,6 +38,7 @@ use crate::{
     cron_jobs::types::{
         CronIdentifier,
         CronSpec,
+        SerializedCronSpec,
     },
     source_packages::types::SourcePackageId,
 };
@@ -134,152 +138,93 @@ impl HeapSize for AnalyzedModule {
     }
 }
 
-impl TryFrom<AnalyzedModule> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: AnalyzedModule) -> Result<Self, Self::Error> {
-        obj!(
-            "functions" => value.functions.into_iter().map(ConvexValue::try_from).try_collect::<Vec<_>>()?,
-            "sourceMapped" => value.source_mapped.map(ConvexValue::try_from).transpose()?.unwrap_or(ConvexValue::Null),
-            "httpRoutes" => match value.http_routes {
-                None => ConvexValue::Null,
-                Some(http_routes) => http_routes
-                    .into_iter()
-                    .map(ConvexValue::try_from)
-                    .try_collect::<Vec<_>>()?
-                    .try_into()?,
-            },
-            "cronSpecs" => match value.cron_specs {
-                None => ConvexValue::Null,
-                Some(specs) => {
-                    // Array of objects with { identifier: string, spec: CronSpec }
-                    let mut arr: Vec<ConvexValue> = vec![];
-                    for (identifier, cron_spec) in specs {
-                        let spec_object = ConvexObject::try_from(cron_spec)?;
-                        let identifier = ConvexValue::try_from(identifier.to_string())?;
-                        let obj = obj!(
-                            "identifier" => identifier,
-                            "spec" => spec_object,
-                        )?;
-                        arr.push(ConvexValue::from(obj));
-                    }
-                    ConvexValue::try_from(arr)?
-                }
-            }
-        )
-    }
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedAnalyzedModule {
+    functions: Vec<SerializedAnalyzedFunction>,
+    http_routes: Option<Vec<SerializedAnalyzedHttpRoute>>,
+    cron_specs: Option<Vec<SerializedNamedCronSpec>>,
+    source_mapped: Option<SerializedMappedModule>,
 }
 
-impl TryFrom<AnalyzedModule> for ConvexValue {
+impl TryFrom<AnalyzedModule> for SerializedAnalyzedModule {
     type Error = anyhow::Error;
 
-    fn try_from(value: AnalyzedModule) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
-    }
-}
-
-impl TryFrom<ConvexObject> for AnalyzedModule {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(value);
-        let functions = match fields.remove("functions") {
-            Some(ConvexValue::Array(s)) => s
-                .into_iter()
-                .map(|v| AnalyzedFunction::try_from(ConvexObject::try_from(v)?))
-                .collect::<anyhow::Result<WithHeapSize<Vec<_>>>>()?,
-            v => anyhow::bail!("Invalid name field for AnalyzedModule: {v:?}"),
-        };
-        let source_mapped = match fields.remove("sourceMapped") {
-            Some(ConvexValue::Object(o)) => Some(o.try_into()?),
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid sourceMapped field for AnalyzedModule: {v:?}"),
-        };
-        let http_routes = match fields.remove("httpRoutes") {
-            Some(ConvexValue::Array(v)) => {
-                let mut routes: WithHeapSize<Vec<AnalyzedHttpRoute>> = WithHeapSize::default();
-                for item in v.into_iter() {
-                    let obj = ConvexObject::try_from(item)?;
-                    let route: anyhow::Result<_> = AnalyzedHttpRoute::try_from(obj);
-                    routes.push(route?);
-                }
-                Some(routes)
-            },
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid httpRoutes field for AnalyzedModule: {v:?}"),
-        };
-        let cron_specs = match fields.remove("cronSpecs") {
-            Some(ConvexValue::Array(arr)) => {
-                let mut specs: WithHeapSize<BTreeMap<CronIdentifier, CronSpec>> =
-                    WithHeapSize::default();
-                for item in arr {
-                    let obj = ConvexObject::try_from(item)?;
-                    let mut fields = BTreeMap::from(obj);
-                    let identifier: CronIdentifier = match fields.remove("identifier") {
-                        Some(ConvexValue::String(s)) => s.parse()?,
-                        _ => anyhow::bail!("Invalid identifier field for cronSpecs"),
-                    };
-                    let spec: CronSpec = match fields.remove("spec") {
-                        Some(ConvexValue::Object(o)) => CronSpec::try_from(o)?,
-                        _ => anyhow::bail!("Invalid spec field for cronSpecs"),
-                    };
-                    specs.insert(identifier, spec);
-                }
-                Some(specs)
-            },
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid cronSpecs field for AnalyzedModule: {v:?}"),
-        };
+    fn try_from(m: AnalyzedModule) -> anyhow::Result<Self> {
         Ok(Self {
-            functions,
-            http_routes,
-            cron_specs,
-            source_mapped,
+            functions: m
+                .functions
+                .into_iter()
+                .map(TryFrom::try_from)
+                .try_collect()?,
+            http_routes: m
+                .http_routes
+                .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
+                .transpose()?,
+            cron_specs: m
+                .cron_specs
+                .map(|specs| specs.into_iter().map(TryFrom::try_from).try_collect())
+                .transpose()?,
+            source_mapped: m.source_mapped.map(TryFrom::try_from).transpose()?,
         })
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+impl TryFrom<SerializedAnalyzedModule> for AnalyzedModule {
+    type Error = anyhow::Error;
+
+    fn try_from(m: SerializedAnalyzedModule) -> anyhow::Result<Self> {
+        Ok(Self {
+            functions: m
+                .functions
+                .into_iter()
+                .map(TryFrom::try_from)
+                .try_collect()?,
+            http_routes: m
+                .http_routes
+                .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
+                .transpose()?,
+            cron_specs: m
+                .cron_specs
+                .map(|specs| specs.into_iter().map(TryFrom::try_from).try_collect())
+                .transpose()?,
+            source_mapped: m.source_mapped.map(TryFrom::try_from).transpose()?,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedNamedCronSpec {
+    identifier: String,
+    spec: SerializedCronSpec,
+}
+
+impl TryFrom<(CronIdentifier, CronSpec)> for SerializedNamedCronSpec {
+    type Error = anyhow::Error;
+
+    fn try_from((identifier, spec): (CronIdentifier, CronSpec)) -> anyhow::Result<Self> {
+        Ok(Self {
+            identifier: identifier.to_string(),
+            spec: SerializedCronSpec::try_from(spec)?,
+        })
+    }
+}
+
+impl TryFrom<SerializedNamedCronSpec> for (CronIdentifier, CronSpec) {
+    type Error = anyhow::Error;
+
+    fn try_from(s: SerializedNamedCronSpec) -> anyhow::Result<Self> {
+        Ok((s.identifier.parse()?, CronSpec::try_from(s.spec)?))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[serde(rename_all = "camelCase", tag = "kind")]
 pub enum Visibility {
     Public,
     Internal,
-}
-impl TryFrom<ConvexObject> for Visibility {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(value);
-        let visibility = match fields.remove("kind") {
-            Some(ConvexValue::String(s)) => match String::from(s).as_str() {
-                "public" => Visibility::Public,
-                "internal" => Visibility::Internal,
-                v => anyhow::bail!("Invalid kind field for Visibility: {v:?}"),
-            },
-            v => anyhow::bail!("Invalid kind field for Visibility: {v:?}"),
-        };
-
-        Ok(visibility)
-    }
-}
-
-impl TryFrom<Visibility> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Visibility) -> Result<Self, Self::Error> {
-        match value {
-            Visibility::Public => obj!("kind" => "public"),
-            Visibility::Internal => obj!("kind" => "internal"),
-        }
-    }
-}
-
-impl TryFrom<Visibility> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Visibility) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
@@ -297,48 +242,34 @@ impl HeapSize for AnalyzedSourcePosition {
     }
 }
 
-impl TryFrom<AnalyzedSourcePosition> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: AnalyzedSourcePosition) -> Result<Self, Self::Error> {
-        obj!(
-            "path" => value.path.as_str(),
-            "start_lineno" => (value.start_lineno as i64),
-            "start_col" => (value.start_col as i64),
-        )
-    }
+#[derive(Serialize, Deserialize)]
+// NOTE: serde not renamed to camelCase.
+struct SerializedAnalyzedSourcePosition {
+    path: String,
+    start_lineno: u32,
+    start_col: u32,
 }
 
-impl TryFrom<AnalyzedSourcePosition> for ConvexValue {
+impl TryFrom<AnalyzedSourcePosition> for SerializedAnalyzedSourcePosition {
     type Error = anyhow::Error;
 
-    fn try_from(value: AnalyzedSourcePosition) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
-    }
-}
-
-impl TryFrom<ConvexObject> for AnalyzedSourcePosition {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(value);
-        let path = match fields.remove("path") {
-            Some(ConvexValue::String(s)) => s.parse()?,
-            v => anyhow::bail!("Invalid path for AnalyzedSourcePosition: {v:?}"),
-        };
-        let start_lineno = match fields.remove("start_lineno") {
-            Some(ConvexValue::Int64(i)) => u32::try_from(i)?,
-            v => anyhow::bail!("Invalid start_lineno for AnalyzedSourcePosition: {v:?}"),
-        };
-        let start_col = match fields.remove("start_col") {
-            Some(ConvexValue::Int64(i)) => u32::try_from(i)?,
-            v => anyhow::bail!("Invalid start_col for AnalyzedSourcePosition: {v:?}"),
-        };
-
+    fn try_from(p: AnalyzedSourcePosition) -> anyhow::Result<Self> {
         Ok(Self {
-            path,
-            start_lineno,
-            start_col,
+            path: p.path.as_str().to_string(),
+            start_lineno: p.start_lineno,
+            start_col: p.start_col,
+        })
+    }
+}
+
+impl TryFrom<SerializedAnalyzedSourcePosition> for AnalyzedSourcePosition {
+    type Error = anyhow::Error;
+
+    fn try_from(p: SerializedAnalyzedSourcePosition) -> anyhow::Result<Self> {
+        Ok(Self {
+            path: p.path.parse()?,
+            start_lineno: p.start_lineno,
+            start_col: p.start_col,
         })
     }
 }
@@ -428,115 +359,88 @@ impl HeapSize for AnalyzedFunction {
     }
 }
 
-impl TryFrom<AnalyzedFunction> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: AnalyzedFunction) -> Result<Self, Self::Error> {
-        let args_json = JsonValue::try_from(value.args)?;
-
-        obj!(
-            "name" => String::from(value.name),
-            "pos" => match value.pos {
-                None => ConvexValue::Null,
-                Some(pos) => ConvexValue::try_from(pos)?,
-            },
-            "udfType" => value.udf_type.to_string(),
-            "visibility" => match value.visibility {
-                None => ConvexValue::Null,
-                Some(visibility) => ConvexValue::try_from(visibility)?
-            },
-            "args" => serde_json::to_string(&args_json)?
-        )
-    }
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedAnalyzedFunction {
+    name: String,
+    pos: Option<SerializedAnalyzedSourcePosition>,
+    udf_type: String,
+    visibility: Option<Visibility>,
+    args: Option<String>,
 }
 
-impl TryFrom<AnalyzedFunction> for ConvexValue {
+impl TryFrom<AnalyzedFunction> for SerializedAnalyzedFunction {
     type Error = anyhow::Error;
 
-    fn try_from(value: AnalyzedFunction) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
-    }
-}
-
-impl TryFrom<ConvexObject> for AnalyzedFunction {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(value);
-        let name = match fields.remove("name") {
-            Some(ConvexValue::String(s)) => s.parse()?,
-            v => anyhow::bail!("Invalid name field for AnalyzedFunction: {v:?}"),
-        };
-        let pos = match fields.remove("pos") {
-            Some(ConvexValue::Object(o)) => Some(AnalyzedSourcePosition::try_from(o)?),
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid pos field for AnalyzedFunction: {v:?}"),
-        };
-        let udf_type = match fields.remove("udfType") {
-            Some(ConvexValue::String(s)) => s.parse()?,
-            v => anyhow::bail!("Invalid udfType for AnalyzedFunction: {v:?}"),
-        };
-        let visibility = match fields.remove("visibility") {
-            Some(ConvexValue::Object(o)) => Some(Visibility::try_from(o)?),
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid visibility field for AnalyzedFunction: {v:?}"),
-        };
-        let args = match fields.remove("args") {
-            Some(ConvexValue::String(s)) => {
-                let deserialized_value: JsonValue = serde_json::from_str(&s)?;
-                ArgsValidator::try_from(deserialized_value)?
-            },
-            // If this function was defined using the npm package before 0.13.0
-            // there will be no args validator. Default to unvalidated.
-            None => ArgsValidator::Unvalidated,
-            v => anyhow::bail!("Invalid args field for AnalyzedFunction: {v:?}"),
-        };
-
+    fn try_from(f: AnalyzedFunction) -> anyhow::Result<Self> {
+        let args_json = JsonValue::try_from(f.args)?;
         Ok(Self {
-            name,
-            pos,
-            udf_type,
-            visibility,
-            args,
+            name: f.name.to_string(),
+            pos: f.pos.map(TryFrom::try_from).transpose()?,
+            udf_type: f.udf_type.to_string(),
+            visibility: f.visibility,
+            args: Some(serde_json::to_string(&args_json)?),
         })
     }
 }
 
-struct HttpActionRoutePersisted(HttpActionRoute);
-
-impl TryFrom<HttpActionRoutePersisted> for ConvexObject {
+impl TryFrom<SerializedAnalyzedFunction> for AnalyzedFunction {
     type Error = anyhow::Error;
 
-    fn try_from(value: HttpActionRoutePersisted) -> Result<Self, Self::Error> {
-        obj!(
-            "path" => value.0.path,
-            "method" => value.0.method.to_string(),
-        )
+    fn try_from(f: SerializedAnalyzedFunction) -> anyhow::Result<Self> {
+        Ok(Self {
+            name: FunctionName::from_str(&f.name)?,
+            pos: f.pos.map(AnalyzedSourcePosition::try_from).transpose()?,
+            udf_type: f.udf_type.parse()?,
+            visibility: f.visibility,
+            args: match f.args {
+                Some(args) => {
+                    let deserialized_value: JsonValue = serde_json::from_str(&args)?;
+                    ArgsValidator::try_from(deserialized_value)?
+                },
+                None => ArgsValidator::Unvalidated,
+            },
+        })
     }
 }
 
-impl TryFrom<HttpActionRoutePersisted> for ConvexValue {
+mod codegen_analyzed_function {
+    use value::codegen_convex_serialization;
+
+    use super::{
+        AnalyzedFunction,
+        SerializedAnalyzedFunction,
+    };
+
+    codegen_convex_serialization!(AnalyzedFunction, SerializedAnalyzedFunction);
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedHttpActionRoute {
+    path: String,
+    method: String,
+}
+
+impl TryFrom<HttpActionRoute> for SerializedHttpActionRoute {
     type Error = anyhow::Error;
 
-    fn try_from(value: HttpActionRoutePersisted) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
+    fn try_from(r: HttpActionRoute) -> anyhow::Result<Self> {
+        Ok(Self {
+            path: r.path,
+            method: r.method.to_string(),
+        })
     }
 }
 
-impl TryFrom<ConvexObject> for HttpActionRoutePersisted {
+impl TryFrom<SerializedHttpActionRoute> for HttpActionRoute {
     type Error = anyhow::Error;
 
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(value);
-        let path = match fields.remove("path") {
-            Some(ConvexValue::String(s)) => s.into(),
-            v => anyhow::bail!("Invalid path field for HttpActionRoute: {v:?}"),
-        };
-        let method = match fields.remove("method") {
-            Some(ConvexValue::String(s)) => s.parse()?,
-            v => anyhow::bail!("Invalid method for HttpActionRoute: {v:?}"),
-        };
-        Ok(Self(HttpActionRoute { path, method }))
+    fn try_from(r: SerializedHttpActionRoute) -> anyhow::Result<Self> {
+        Ok(Self {
+            path: r.path,
+            method: r.method.parse()?,
+        })
     }
 }
 
@@ -547,48 +451,38 @@ pub struct AnalyzedHttpRoute {
     pub pos: Option<AnalyzedSourcePosition>,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedAnalyzedHttpRoute {
+    route: SerializedHttpActionRoute,
+    pos: Option<SerializedAnalyzedSourcePosition>,
+}
+
 impl HeapSize for AnalyzedHttpRoute {
     fn heap_size(&self) -> usize {
         self.route.heap_size() + self.pos.heap_size()
     }
 }
-impl TryFrom<AnalyzedHttpRoute> for ConvexObject {
+
+impl TryFrom<AnalyzedHttpRoute> for SerializedAnalyzedHttpRoute {
     type Error = anyhow::Error;
 
-    fn try_from(value: AnalyzedHttpRoute) -> Result<Self, Self::Error> {
-        obj!(
-            "route" => HttpActionRoutePersisted(value.route),
-            "pos" => match value.pos {
-                None =>  ConvexValue::Null,
-                Some(pos) => ConvexValue::try_from(pos)?,
-            },
-        )
+    fn try_from(r: AnalyzedHttpRoute) -> anyhow::Result<Self> {
+        Ok(Self {
+            route: SerializedHttpActionRoute::try_from(r.route)?,
+            pos: r.pos.map(TryFrom::try_from).transpose()?,
+        })
     }
 }
 
-impl TryFrom<AnalyzedHttpRoute> for ConvexValue {
+impl TryFrom<SerializedAnalyzedHttpRoute> for AnalyzedHttpRoute {
     type Error = anyhow::Error;
 
-    fn try_from(value: AnalyzedHttpRoute) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
-    }
-}
-
-impl TryFrom<ConvexObject> for AnalyzedHttpRoute {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(value);
-        let route = match fields.remove("route") {
-            Some(ConvexValue::Object(o)) => HttpActionRoutePersisted::try_from(o)?.0,
-            v => anyhow::bail!("Invalid route field for AnalyzedHttpRoute: {:?}", v),
-        };
-        let pos = match fields.remove("pos") {
-            Some(ConvexValue::Object(pos)) => Some(pos.try_into()?),
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid lineno field for AnalyzedHttpRoute: {v:?}"),
-        };
-        Ok(Self { route, pos })
+    fn try_from(r: SerializedAnalyzedHttpRoute) -> anyhow::Result<Self> {
+        Ok(Self {
+            route: HttpActionRoute::try_from(r.route)?,
+            pos: r.pos.map(AnalyzedSourcePosition::try_from).transpose()?,
+        })
     }
 }
 
@@ -635,223 +529,123 @@ impl HeapSize for MappedModule {
     }
 }
 
-impl TryFrom<MappedModule> for ConvexObject {
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedMappedModule {
+    source_index: Option<u32>,
+    functions: Vec<SerializedAnalyzedFunction>,
+    http_routes: Option<Vec<SerializedAnalyzedHttpRoute>>,
+    cron_specs: Option<Vec<SerializedNamedCronSpec>>,
+}
+
+impl TryFrom<MappedModule> for SerializedMappedModule {
     type Error = anyhow::Error;
 
-    fn try_from(value: MappedModule) -> Result<Self, Self::Error> {
-        obj!(
-            "sourceIndex" => match value.source_index {
-                None => ConvexValue::Null,
-                Some(index) => ConvexValue::from(index as i64),
-            },
-            "functions" => value
+    fn try_from(m: MappedModule) -> anyhow::Result<Self> {
+        Ok(Self {
+            source_index: m.source_index,
+            functions: m
                 .functions
                 .into_iter()
-                .map(ConvexValue::try_from)
-                .try_collect::<Vec<_>>()?,
-            "httpRoutes" => match value.http_routes {
-                None => ConvexValue::Null,
-                Some(http_routes) => http_routes
-                    .into_iter()
-                    .map(ConvexValue::try_from)
-                    .try_collect::<Vec<_>>()?
-                    .try_into()?,
-            },
-            "cronSpecs" => match value.cron_specs {
-                None => ConvexValue::Null,
-                Some(specs) => {
-                    // Array of objects with { identifier: string, spec: CronSpec }
-                    let mut arr: Vec<ConvexValue> = vec![];
-                    for (identifier, cron_spec) in specs {
-                        let spec_object = ConvexObject::try_from(cron_spec)?;
-                        let identifier = ConvexValue::try_from(identifier.to_string())?;
-                        let obj = obj!(
-                            "identifier" => identifier,
-                            "spec" => spec_object,
-                        )?;
-                        arr.push(ConvexValue::from(obj));
-                    }
-                    ConvexValue::try_from(arr)?
-                }
-            }
-        )
-    }
-}
-
-impl TryFrom<MappedModule> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(value: MappedModule) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
-    }
-}
-
-impl TryFrom<ConvexObject> for MappedModule {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields = BTreeMap::from(value);
-        let source_index = match fields.remove("sourceIndex") {
-            Some(ConvexValue::Int64(index)) => Some(index.try_into()?),
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid functions field for MappedModule: {v:?}"),
-        };
-        let functions = match fields.remove("functions") {
-            Some(ConvexValue::Array(v)) => v
-                .into_iter()
-                .map(|v| AnalyzedFunction::try_from(ConvexObject::try_from(v)?))
-                .collect::<anyhow::Result<WithHeapSize<_>>>()?,
-            v => anyhow::bail!("Invalid functions field for MappedModule: {v:?}"),
-        };
-        let http_routes = match fields.remove("httpRoutes") {
-            Some(ConvexValue::Array(v)) => {
-                let mut routes: WithHeapSize<Vec<AnalyzedHttpRoute>> = WithHeapSize::default();
-                for item in v.into_iter() {
-                    let obj = ConvexObject::try_from(item)?;
-                    let route: anyhow::Result<_> = AnalyzedHttpRoute::try_from(obj);
-                    routes.push(route?);
-                }
-                Some(routes)
-            },
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid httpRoutes field for MappedModule: {v:?}"),
-        };
-        let cron_specs = match fields.remove("cronSpecs") {
-            Some(ConvexValue::Array(arr)) => {
-                let mut specs: WithHeapSize<BTreeMap<CronIdentifier, CronSpec>> =
-                    WithHeapSize::default();
-                for item in arr {
-                    let obj = ConvexObject::try_from(item)?;
-                    let mut fields = BTreeMap::from(obj);
-                    let identifier: CronIdentifier = match fields.remove("identifier") {
-                        Some(ConvexValue::String(s)) => s.parse()?,
-                        _ => anyhow::bail!("Invalid identifier field for cronSpecs"),
-                    };
-                    let spec: CronSpec = match fields.remove("spec") {
-                        Some(ConvexValue::Object(o)) => CronSpec::try_from(o)?,
-                        _ => anyhow::bail!("Invalid spec field for cronSpecs"),
-                    };
-                    specs.insert(identifier, spec);
-                }
-                Some(specs)
-            },
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid cronSpecs field for MappedModule: {v:?}"),
-        };
-        Ok(Self {
-            source_index,
-            functions,
-            http_routes,
-            cron_specs,
+                .map(TryFrom::try_from)
+                .try_collect()?,
+            http_routes: m
+                .http_routes
+                .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
+                .transpose()?,
+            cron_specs: m
+                .cron_specs
+                .map(|specs| specs.into_iter().map(TryFrom::try_from).try_collect())
+                .transpose()?,
         })
     }
 }
 
-impl TryFrom<ModuleVersionMetadata> for ConvexObject {
+impl TryFrom<SerializedMappedModule> for MappedModule {
+    type Error = anyhow::Error;
+
+    fn try_from(m: SerializedMappedModule) -> anyhow::Result<Self> {
+        Ok(Self {
+            source_index: m.source_index,
+            functions: m
+                .functions
+                .into_iter()
+                .map(TryFrom::try_from)
+                .try_collect()?,
+            http_routes: m
+                .http_routes
+                .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
+                .transpose()?,
+            cron_specs: m
+                .cron_specs
+                .map(|specs| specs.into_iter().map(TryFrom::try_from).try_collect())
+                .transpose()?,
+        })
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedModuleVersionMetadata {
+    #[serde(rename = "module_id")]
+    module_id: String,
+    source: String,
+    source_package_id: Option<String>,
+    source_map: Option<String>,
+    version: ModuleVersion,
+    analyze_result: Option<SerializedAnalyzedModule>,
+    environment: String,
+}
+
+impl TryFrom<ModuleVersionMetadata> for SerializedModuleVersionMetadata {
     type Error = anyhow::Error;
 
     fn try_from(m: ModuleVersionMetadata) -> anyhow::Result<Self> {
-        obj!(
-            "module_id" => m.module_id,
-            "source" => m.source,
-            "sourceMap" => m.source_map.map(ConvexValue::try_from).transpose()?.unwrap_or(ConvexValue::Null),
-            "version" => m.version,
-            "sourcePackageId" => m.source_package_id.map(ConvexValue::try_from).transpose()?.unwrap_or(ConvexValue::Null),
-            "analyzeResult" => m.analyze_result.map(ConvexValue::try_from).transpose()?.unwrap_or(ConvexValue::Null),
-            "environment" => m.environment.to_string(),
-        )
-    }
-}
-
-impl TryFrom<ModuleVersionMetadata> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ModuleVersionMetadata) -> Result<Self, Self::Error> {
-        Ok(ConvexObject::try_from(value)?.into())
-    }
-}
-
-impl TryFrom<ConvexObject> for ModuleVersionMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = value.into();
-        let module_id = match fields.remove("module_id") {
-            Some(value) => value.try_into()?,
-            v => anyhow::bail!("Invalid module_id field for ModuleVersionMetadata: {:?}", v),
-        };
-        let source_map = match fields.remove("sourceMap") {
-            Some(ConvexValue::String(s)) => Some(s.into()),
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!("Invalid sourceMap field for ModuleVersionMetadata: {:?}", v),
-        };
-        let version = match fields.remove("version") {
-            Some(ConvexValue::Int64(s)) => s,
-            v => anyhow::bail!("Invalid version field for ModuleVersionMetadata: {:?}", v),
-        };
-        let source = match fields.remove("source") {
-            Some(ConvexValue::String(s)) => s.into(),
-            v => anyhow::bail!("Invalid source field: {v:?}"),
-        };
-        let source_package_id = match fields.remove("sourcePackageId") {
-            Some(ConvexValue::Null) | None => None,
-            Some(ConvexValue::String(s)) => Some(DocumentIdV6::decode(&s)?.into()),
-            v => anyhow::bail!(
-                "Invalid sourcePackageId field for ModuleVersionMetadata: {:?}",
-                v
-            ),
-        };
-        let analyze_result = match fields.remove("analyzeResult") {
-            Some(ConvexValue::Object(o)) => Some(o.try_into()?),
-            Some(ConvexValue::Null) | None => None,
-            v => anyhow::bail!(
-                "Invalid analyzeResult field for ModuleVersionMetadata: {:?}",
-                v
-            ),
-        };
-        let environment = match fields.remove("environment") {
-            Some(ConvexValue::String(s)) => s.parse()?,
-            v => anyhow::bail!(
-                "Invalid environment field for ModuleVersionMetadata: {:?}",
-                v
-            ),
-        };
         Ok(Self {
-            module_id,
-            source,
-            source_package_id,
-            source_map,
-            version,
-            analyze_result,
-            environment,
+            module_id: m.module_id.encode(),
+            source: m.source,
+            source_package_id: m
+                .source_package_id
+                .map(|id| DeveloperDocumentId::from(id).encode()),
+            source_map: m.source_map,
+            version: m.version,
+            analyze_result: m.analyze_result.map(TryFrom::try_from).transpose()?,
+            environment: m.environment.to_string(),
         })
     }
 }
 
+impl TryFrom<SerializedModuleVersionMetadata> for ModuleVersionMetadata {
+    type Error = anyhow::Error;
+
+    fn try_from(m: SerializedModuleVersionMetadata) -> anyhow::Result<Self> {
+        Ok(Self {
+            module_id: DocumentIdV6::decode(&m.module_id)?,
+            source: m.source,
+            source_package_id: m
+                .source_package_id
+                .map(|id| DocumentIdV6::decode(&id))
+                .transpose()?
+                .map(From::from),
+            source_map: m.source_map,
+            version: m.version,
+            analyze_result: m.analyze_result.map(TryFrom::try_from).transpose()?,
+            environment: m.environment.parse()?,
+        })
+    }
+}
+
+codegen_convex_serialization!(ModuleVersionMetadata, SerializedModuleVersionMetadata);
+
 #[cfg(test)]
 mod tests {
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
     use value::{
         obj,
         ConvexObject,
     };
 
-    use super::{
-        AnalyzedFunction,
-        ModuleVersionMetadata,
-    };
+    use super::AnalyzedFunction;
     use crate::modules::args_validator::ArgsValidator;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_module_version_roundtrips(v in any::<ModuleVersionMetadata>()) {
-            assert_roundtrips::<ModuleVersionMetadata, ConvexObject>(v);
-        }
-    }
 
     #[test]
     fn test_analyzed_function_backwards_compatibility() -> anyhow::Result<()> {

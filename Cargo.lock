@@ -4085,6 +4085,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "async_lru",
+ "bytes",
  "chrono",
  "cmd_util",
  "common 0.1.0",
@@ -4107,6 +4108,7 @@ dependencies = [
  "saffron",
  "semver 1.0.19",
  "serde",
+ "serde_bytes",
  "serde_json",
  "storage",
  "strum 0.26.2",
@@ -6266,6 +6268,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
 dependencies = [
  "ordered-float 2.10.0",
+ "serde",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b8497c313fd43ab992087548117643f6fcd935cbf36f176ffda0aacf9591734"
+dependencies = [
  "serde",
 ]
 
