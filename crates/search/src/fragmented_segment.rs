@@ -14,6 +14,7 @@ use common::{
     },
     deleted_bitset::DeletedBitset,
     errors::report_error,
+    id_tracker::StaticIdTracker,
     runtime::Runtime,
     types::ObjectKey,
 };
@@ -32,7 +33,7 @@ use qdrant_segment::{
 use storage::Storage;
 use tempfile::TempDir;
 use vector::{
-    id_tracker::StaticIdTracker,
+    id_tracker::VectorStaticIdTracker,
     qdrant_segments::{
         load_disk_segment,
         merge_disk_segments_hnsw,
@@ -255,7 +256,7 @@ pub struct MutableFragmentedSegmentMetadata {
     // The original set of ObjectKeys that match the segment.
     original: FragmentedVectorSegment,
     // The loaded id tracker from the segment.
-    id_tracker: StaticIdTracker,
+    id_tracker: VectorStaticIdTracker,
     // The loaded ldeleted bitset from the segment that may be modified with
     // additional deletes for the segment.
     mutated_deleted_bitset: DeletedBitset,
@@ -266,7 +267,7 @@ pub struct MutableFragmentedSegmentMetadata {
 impl MutableFragmentedSegmentMetadata {
     fn new(
         original: FragmentedVectorSegment,
-        id_tracker: StaticIdTracker,
+        id_tracker: VectorStaticIdTracker,
         deleted_bitset: DeletedBitset,
     ) -> Self {
         Self {
@@ -297,7 +298,10 @@ impl MutableFragmentedSegmentMetadata {
         // inconsistent if one or more vectors are deleted via maybe_delete.
         // For now we don't care about the inconsistency because the loaded id tracker
         // is only used as part of maybe_delete, which is idempotent.
-        let id_tracker = StaticIdTracker::load_from_path(id_tracker_path, deleted_bitset.clone())?;
+        let id_tracker = VectorStaticIdTracker(StaticIdTracker::load_from_path(
+            id_tracker_path,
+            deleted_bitset.clone(),
+        )?);
 
         Ok(Self::new(original, id_tracker, deleted_bitset))
     }
@@ -336,7 +340,7 @@ impl MutableFragmentedSegmentMetadata {
             // We need to ignore deletes for already deleted points.
             // Check the mutated bitset in case the document was updated / deleted multiple times
             // in one round.
-            && !self.mutated_deleted_bitset.is_deleted_point(internal_id)
+            && !self.mutated_deleted_bitset.is_deleted(internal_id)
         {
             self.mutated_deleted_bitset.delete(internal_id)?;
             self.is_modified = true;

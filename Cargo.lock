@@ -1067,6 +1067,7 @@ dependencies = [
  "convex_sync_types",
  "crossbeam",
  "crossbeam-channel",
+ "csf",
  "cstr",
  "deno_core",
  "derive_more",

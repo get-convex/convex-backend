@@ -16,7 +16,10 @@ use std::{
 };
 
 use atomic_refcell::AtomicRefCell;
-use common::deleted_bitset::DeletedBitset;
+use common::{
+    deleted_bitset::DeletedBitset,
+    id_tracker::StaticIdTracker,
+};
 use parking_lot::{
     Mutex,
     RwLock,
@@ -78,7 +81,7 @@ use rocksdb::DB;
 
 use crate::id_tracker::{
     MemoryIdTracker,
-    StaticIdTracker,
+    VectorStaticIdTracker,
 };
 
 const UUID_TABLE_FILENAME: &str = "uuids.table";
@@ -420,7 +423,10 @@ pub fn load_disk_segment(paths: UntarredDiskSegmentPaths) -> anyhow::Result<Segm
     let payload_storage = OnDiskPayloadStorage::open(database.clone())?;
 
     let deleted_bitset = DeletedBitset::load_from_path(paths.deleted_bitset)?;
-    let id_tracker = StaticIdTracker::load_from_path(paths.uuids, deleted_bitset)?;
+    let id_tracker = VectorStaticIdTracker(StaticIdTracker::load_from_path(
+        paths.uuids,
+        deleted_bitset,
+    )?);
     let id_tracker = Arc::new(AtomicRefCell::new(id_tracker));
 
     let payload_index_path = untarred_path.join(PAYLOAD_INDEX_PATH);
@@ -522,7 +528,10 @@ mod tests {
 
     use anyhow::Context;
     use atomic_refcell::AtomicRefCell;
-    use common::deleted_bitset::DeletedBitset;
+    use common::{
+        deleted_bitset::DeletedBitset,
+        id_tracker::StaticIdTracker,
+    };
     use futures::try_join;
     use must_let::must_let;
     use qdrant_segment::{
@@ -563,7 +572,7 @@ mod tests {
     use crate::{
         id_tracker::{
             MemoryIdTracker,
-            StaticIdTracker,
+            VectorStaticIdTracker,
             OP_NUM,
         },
         qdrant_segments::{
@@ -1237,8 +1246,10 @@ mod tests {
         } = &disk_segment_paths;
 
         // As if we were in the index worker, load the id tracker and bitset files.
-        let id_tracker =
-            StaticIdTracker::load_from_path(uuids.clone(), DeletedBitset::new(vectors.len()))?;
+        let id_tracker = VectorStaticIdTracker(StaticIdTracker::load_from_path(
+            uuids.clone(),
+            DeletedBitset::new(vectors.len()),
+        )?);
 
         // Then delete a vector.
         let mut deleted_bitset = DeletedBitset::load_from_path(deleted_bitset_path.clone())?;
@@ -1337,8 +1348,10 @@ mod tests {
 
         let mut deleted_bitset =
             DeletedBitset::load_from_path(initial_paths.deleted_bitset.clone())?;
-        let id_tracker =
-            StaticIdTracker::load_from_path(initial_paths.uuids.clone(), deleted_bitset.clone())?;
+        let id_tracker = VectorStaticIdTracker(StaticIdTracker::load_from_path(
+            initial_paths.uuids.clone(),
+            deleted_bitset.clone(),
+        )?);
         let internal_id_to_delete = id_tracker
             .internal_id(vector.first().unwrap().0)
             .expect("Missing internal id");

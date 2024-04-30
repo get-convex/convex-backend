@@ -62,12 +62,12 @@ impl DeletedBitset {
         self.deleted.is_empty()
     }
 
-    pub fn is_deleted_point(&self, id: u32) -> bool {
+    pub fn is_deleted(&self, id: u32) -> bool {
         let offset = id as usize;
         offset >= self.deleted.len() || self.deleted[offset]
     }
 
-    pub fn deleted_point_bitslice(&self) -> &BitSlice {
+    pub fn deleted_id_bitslice(&self) -> &BitSlice {
         &self.deleted
     }
 
@@ -82,7 +82,7 @@ impl DeletedBitset {
 
     pub fn delete(&mut self, internal_id: u32) -> anyhow::Result<()> {
         anyhow::ensure!(
-            !self.is_deleted_point(internal_id),
+            !self.is_deleted(internal_id),
             "Trying to delete {internal_id:?} twice"
         );
         self.deleted.set(internal_id as usize, true);
