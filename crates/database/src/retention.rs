@@ -39,7 +39,7 @@ use common::{
     interval::Interval,
     knobs::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
-        DOCUMENT_RETENTION_BATCHES_PER_MINUTE,
+        DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS,
         DOCUMENT_RETENTION_DELAY,
         DOCUMENT_RETENTION_DRY_RUN,
         INDEX_RETENTION_DELAY,
@@ -476,7 +476,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // On startup wait with jitter to avoid a thundering herd. This does mean that
         // we will ignore commit timestamps for a while, but it saves us from
         // having every machine polling a very precise interval.
-        Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
+        Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).await;
 
         loop {
             {
@@ -1140,7 +1140,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
         let rate_limiter = new_rate_limiter(
             rt.clone(),
-            Quota::per_minute(*DOCUMENT_RETENTION_BATCHES_PER_MINUTE),
+            Quota::with_period(*DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).unwrap(),
         );
 
         loop {

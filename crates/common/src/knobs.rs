@@ -382,12 +382,9 @@ pub static RETENTION_FAIL_START_MULTIPLIER: LazyLock<usize> =
 pub static RETENTION_FAIL_ALL_MULTIPLIER: LazyLock<usize> =
     LazyLock::new(|| env_config("RETENTION_FAIL_ALL_MULTIPLIER", 40));
 
-/// Maximum number of batches of documents that can be deleted in a minute
-pub static DOCUMENT_RETENTION_BATCHES_PER_MINUTE: LazyLock<NonZeroU32> = LazyLock::new(|| {
-    env_config(
-        "DOCUMENT_RETENTION_BATCHES_PER_MINUTE",
-        NonZeroU32::new(1).unwrap(),
-    )
+/// Time in between batches of deletes for document retention
+pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config("DOCUMENT_RETENTION_BATCHES_PER_MINUTE", 10 * 60))
 });
 
 /// Whether or not we run document retention in dry run mode
