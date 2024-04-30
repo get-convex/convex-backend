@@ -68,6 +68,7 @@ pub struct SchemaEnvironment {
     schema_bundle: ModuleSource,
     source_map: Option<SourceMap>,
     rng: ChaCha12Rng,
+    unix_timestamp: UnixTimestamp,
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
@@ -84,10 +85,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
     }
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "NoDateInSchema",
-            "Date unsupported when evaluating schema"
-        ))
+        Ok(self.unix_timestamp)
     }
 
     fn get_environment_variable(
@@ -181,12 +179,14 @@ impl SchemaEnvironment {
         schema_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
     ) -> anyhow::Result<DatabaseSchema> {
         let rng = ChaCha12Rng::from_seed(rng_seed);
         let environment = Self {
             schema_bundle,
             source_map,
             rng,
+            unix_timestamp,
         };
         let client_id = Arc::new(client_id);
         let (handle, state) = isolate.start_request(client_id, environment).await?;

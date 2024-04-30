@@ -1469,9 +1469,10 @@ impl<RT: Runtime> Application<RT> {
 
     async fn _evaluate_schema(&self, schema: ModuleConfig) -> anyhow::Result<DatabaseSchema> {
         let rng_seed = self.runtime().with_rng(|rng| rng.gen());
+        let unix_timestamp = self.runtime().unix_timestamp();
         let mut schema = self
             .runner()
-            .evaluate_schema(schema.source, schema.source_map, rng_seed)
+            .evaluate_schema(schema.source, schema.source_map, rng_seed, unix_timestamp)
             .await?;
 
         for table_schema in schema.tables.values_mut() {

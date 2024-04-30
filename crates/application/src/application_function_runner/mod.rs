@@ -1688,9 +1688,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         schema_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
     ) -> anyhow::Result<DatabaseSchema> {
         self.analyze_isolate
-            .evaluate_schema(schema_bundle, source_map, rng_seed)
+            .evaluate_schema(schema_bundle, source_map, rng_seed, unix_timestamp)
             .await
     }
 

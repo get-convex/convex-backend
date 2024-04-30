@@ -428,6 +428,7 @@ pub enum RequestType<RT: Runtime> {
         schema_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
         response: oneshot::Sender<anyhow::Result<DatabaseSchema>>,
     },
     EvaluateAuthConfig {
@@ -834,12 +835,14 @@ impl<RT: Runtime> IsolateClient<RT> {
         schema_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
     ) -> anyhow::Result<DatabaseSchema> {
         let (tx, rx) = oneshot::channel();
         let request = RequestType::EvaluateSchema {
             schema_bundle,
             source_map,
             rng_seed,
+            unix_timestamp,
             response: tx,
         };
         self.send_request(Request::new(
@@ -1655,6 +1658,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 schema_bundle,
                 source_map,
                 rng_seed,
+                unix_timestamp,
                 response,
             } => {
                 let r = SchemaEnvironment::evaluate_schema(
@@ -1663,6 +1667,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     schema_bundle,
                     source_map,
                     rng_seed,
+                    unix_timestamp,
                 )
                 .await;
 

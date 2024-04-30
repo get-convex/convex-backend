@@ -222,11 +222,12 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
 "#;
 
     let rng_seed = rt.with_rng(|rng| rng.gen());
+    let unix_timestamp = rt.unix_timestamp();
     let t = UdfTest::default_with_modules(vec![], rt).await??;
 
     let schema = t
         .isolate
-        .evaluate_schema(source.to_string(), None, rng_seed)
+        .evaluate_schema(source.to_string(), None, rng_seed, unix_timestamp)
         .await?;
 
     let name1: TableName = "noIndexes".parse()?;
