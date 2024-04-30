@@ -1550,7 +1550,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             RequestType::HttpAction {
                 request,
                 environment_data,
-                response,
+                mut response,
                 queue_timer,
                 action_callbacks,
                 fetch_client,
@@ -1578,6 +1578,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                         isolate_clean,
                         request.router_path,
                         request.http_request,
+                        response.cancellation().boxed(),
                     )
                     .await;
                 let status = match &r {
@@ -1597,7 +1598,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             RequestType::Action {
                 request,
                 environment_data,
-                response,
+                mut response,
                 queue_timer,
                 action_callbacks,
                 fetch_client,
@@ -1617,7 +1618,13 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     request.context,
                 );
                 let r = environment
-                    .run_action(client_id, isolate, isolate_clean, request.params.clone())
+                    .run_action(
+                        client_id,
+                        isolate,
+                        isolate_clean,
+                        request.params.clone(),
+                        response.cancellation().boxed(),
+                    )
                     .await;
                 let status = match &r {
                     Ok(outcome) => {

@@ -50,6 +50,7 @@ use database::Transaction;
 use deno_core::v8;
 use futures::{
     channel::mpsc,
+    future::BoxFuture,
     select_biased,
     stream::BoxStream,
     Future,
@@ -154,6 +155,7 @@ use crate::{
     },
     metrics::{
         self,
+        log_isolate_request_cancelled,
         log_unawaited_pending_op,
     },
     ops::OpProvider,
@@ -257,6 +259,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate_clean: &mut bool,
         validated_path: ValidatedHttpPath,
         request: HttpActionRequest,
+        cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<HttpActionOutcome> {
         let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
@@ -278,6 +281,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             &mut isolate_context,
             validated_path.canonicalized_udf_path(),
             request,
+            cancellation,
         )
         .await;
         // Override the returned result if we hit a termination error.
@@ -325,6 +329,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         router_path: &CanonicalizedUdfPath,
         http_request: HttpActionRequest,
+        cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<(HttpActionRoute, Result<HttpActionResponse, JsError>)> {
         let handle = isolate.handle();
         let mut v8_scope = isolate.scope();
@@ -415,6 +420,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             v8_function,
             &v8_args,
             Self::collect_http_result,
+            cancellation,
         )
         .await?;
         Ok((route, result))
@@ -478,6 +484,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
         request_params: ActionRequestParams,
+        cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<ActionOutcome> {
         let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
@@ -493,8 +500,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let mut isolate_context =
             RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;
 
-        let mut result =
-            Self::run_action_inner(client_id, &mut isolate_context, request_params.clone()).await;
+        let mut result = Self::run_action_inner(
+            client_id,
+            &mut isolate_context,
+            request_params.clone(),
+            cancellation,
+        )
+        .await;
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -539,6 +551,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         request_params: ActionRequestParams,
+        cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<Result<ConvexValue, JsError>> {
         let handle = isolate.handle();
         let mut v8_scope = isolate.scope();
@@ -625,6 +638,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 let result = deserialize_udf_result(&udf_path, &result_str)?;
                 Ok(async move { Ok(result) })
             },
+            cancellation,
         )
         .await
     }
@@ -752,6 +766,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             &mut ExecutionScope<'a, 'b, RT, Self>,
             String,
         ) -> anyhow::Result<Fut>,
+        cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<Result<T, JsError>>
     where
         Fut: Future<Output = anyhow::Result<Result<T, JsError>>> + Send + 'static,
@@ -784,6 +799,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // collecting a result. Using None would be nice, but `select_biased!`
         // does not like Options.
         let mut collecting_result = (async { std::future::pending().await }).boxed().fuse();
+        let mut cancellation = cancellation.fuse();
         let result = loop {
             // Advance the user's promise as far as it can go by draining the microtask
             // queue.
@@ -913,6 +929,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 // isolate loop over to run js to handle the timeout.
                 _ = timeout.fuse() => {
                     continue;
+                },
+                _ = cancellation => {
+                    log_isolate_request_cancelled();
+                    anyhow::bail!("Cancelled");
                 },
             }
             let permit_acquire = scope.with_state_mut(|state| {

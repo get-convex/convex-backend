@@ -122,7 +122,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
             RequestType::Action {
                 request,
                 environment_data,
-                response,
+                mut response,
                 queue_timer,
                 action_callbacks,
                 fetch_client,
@@ -143,7 +143,13 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                     request.context,
                 );
                 let r = environment
-                    .run_action(client_id, isolate, isolate_clean, request.params.clone())
+                    .run_action(
+                        client_id,
+                        isolate,
+                        isolate_clean,
+                        request.params.clone(),
+                        response.cancellation().boxed(),
+                    )
                     .await;
 
                 let status = match &r {
