@@ -2047,6 +2047,17 @@ async fn insert_import_objects<RT: Runtime>(
     table_mapping_for_schema: &TableMapping,
     usage: FunctionUsageTracker,
 ) -> anyhow::Result<()> {
+    let object_ids: Vec<_> = objects_to_insert
+        .iter()
+        .filter_map(|object| object.get(&**ID_FIELD))
+        .collect();
+    let object_ids_dedup: BTreeSet<_> = object_ids.iter().collect();
+    if object_ids_dedup.len() < object_ids.len() {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "DuplicateId",
+            format!("Objects in table \"{table_name}\" have duplicate _id fields")
+        ));
+    }
     database
         .execute_with_overloaded_retries(
             identity.clone(),
@@ -2499,6 +2510,27 @@ a,b,c
             }),
         ];
         assert_eq!(objects, expected);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_duplicate_id(rt: TestRuntime) -> anyhow::Result<()> {
+        let app = Application::new_for_tests(&rt).await?;
+        let table_name = "table1";
+        let test_csv = r#"
+_id,value
+"jd7f2yq3tcc5h4ce9qhqdk0ach6hbmyb","hi"
+"jd7f2yq3tcc5h4ce9qhqdk0ach6hbmyb","there"
+"#;
+        let err = run_csv_import(&app, table_name, test_csv)
+            .await
+            .unwrap_err();
+        assert!(err.is_bad_request());
+        assert!(
+            err.to_string()
+                .contains("Objects in table \"table1\" have duplicate _id fields"),
+            "{err}"
+        );
         Ok(())
     }
 
