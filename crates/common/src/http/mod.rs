@@ -99,7 +99,6 @@ use crate::{
     version::{
         ClientVersion,
         ClientVersionState,
-        COMPILED_REVISION,
     },
     RequestId,
 };
@@ -582,7 +581,6 @@ impl ConvexHttpService {
             // Middleware needn't apply to these routes
             .route("/version", get(move || async move { version }))
             .route("/metrics", get(metrics))
-            .route("/rev", get(|| async { COMPILED_REVISION }))
             .layer(sentry_layer);
 
         Self { router }
