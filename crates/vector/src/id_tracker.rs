@@ -1,22 +1,17 @@
 use std::{
-    collections::BTreeMap,
     io::Write,
     iter,
+    ops::RangeFrom,
 };
 
 use bitvec::slice::BitSlice;
-use byteorder::{
-    LittleEndian,
-    WriteBytesExt,
-};
 use common::{
     deleted_bitset::DeletedBitset,
     id_tracker::{
+        MemoryIdTracker,
         StaticIdTracker,
-        ID_TABLE_VERSION,
     },
 };
-use csf::ls::Map as CsfMap;
 use qdrant_segment::{
     common::Flusher,
     entry::entry_point::{
@@ -43,21 +38,19 @@ pub const OP_NUM: SeqNumberType = 1;
 /// 1. All operation numbers are OP_NUM.
 /// 2. The application only uses UUID point IDs.
 /// 3. The set of offsets used is dense (i.e. `0..self.len()`).
-pub struct MemoryIdTracker {
-    by_offset: BTreeMap<u32, Uuid>,
-    by_uuid: BTreeMap<Uuid, u32>,
+pub struct VectorMemoryIdTracker {
+    memory_id_tracker: MemoryIdTracker,
 
     // We don't actually support deletes here but keep this empty bitset around
     // to use in `deleted_point_bitslice`.
     deleted: DeletedBitset,
 }
 
-impl MemoryIdTracker {
+impl VectorMemoryIdTracker {
     pub fn new() -> Self {
         Self {
+            memory_id_tracker: MemoryIdTracker::default(),
             deleted: DeletedBitset::new(0),
-            by_offset: BTreeMap::new(),
-            by_uuid: BTreeMap::new(),
         }
     }
 
@@ -72,13 +65,13 @@ impl MemoryIdTracker {
     }
 
     fn _internal_to_external_id(&self, internal_id: PointOffsetType) -> Option<PointIdType> {
-        self.by_offset
-            .get(&internal_id)
-            .map(|uuid| PointIdType::Uuid(*uuid))
+        self.memory_id_tracker
+            .convex_id(internal_id)
+            .map(|bytes| PointIdType::Uuid(Uuid::from_slice(&bytes).unwrap()))
     }
 }
 
-impl IdTracker for MemoryIdTracker {
+impl IdTracker for VectorMemoryIdTracker {
     fn internal_version(&self, internal_id: PointOffsetType) -> Option<SeqNumberType> {
         self.external_id(internal_id).map(|_| OP_NUM)
     }
@@ -100,7 +93,9 @@ impl IdTracker for MemoryIdTracker {
         let PointIdType::Uuid(uuid) = external_id else {
             panic!("Invalid external ID: {external_id}");
         };
-        self.by_uuid.get(&uuid).map(|ix| *ix as PointOffsetType)
+        self.memory_id_tracker
+            .index_id(*uuid.as_bytes())
+            .map(|ix| ix as PointOffsetType)
     }
 
     fn external_id(&self, internal_id: PointOffsetType) -> Option<PointIdType> {
@@ -118,8 +113,7 @@ impl IdTracker for MemoryIdTracker {
         let PointIdType::Uuid(uuid) = external_id else {
             panic!("Invalid external ID: {external_id}");
         };
-        self.by_offset.insert(internal_id, uuid);
-        self.by_uuid.insert(uuid, internal_id);
+        self.memory_id_tracker.insert(internal_id, *uuid.as_bytes());
         self.deleted.resize(internal_id as usize + 1);
         Ok(())
     }
@@ -138,15 +132,16 @@ impl IdTracker for MemoryIdTracker {
 
     fn iter_external(&self) -> Box<dyn Iterator<Item = PointIdType> + '_> {
         Box::new(
-            self.by_offset
+            self.memory_id_tracker
+                .by_index_id
                 .iter()
                 .filter(|(key, _)| !self.is_deleted_point(**key))
-                .map(|(_, uuid)| PointIdType::Uuid(*uuid)),
+                .map(|(_, uuid)| PointIdType::Uuid(Uuid::from_slice(uuid).unwrap())),
         )
     }
 
     fn iter_internal(&self) -> Box<dyn Iterator<Item = PointOffsetType> + '_> {
-        Box::new(self.by_offset.keys().copied())
+        Box::new(self.memory_id_tracker.by_index_id.keys().copied())
     }
 
     fn iter_from(
@@ -155,25 +150,32 @@ impl IdTracker for MemoryIdTracker {
     ) -> Box<dyn Iterator<Item = (PointIdType, PointOffsetType)> + '_> {
         // All `NumId`s sort before all `Uuid`s in qdrant's order, so effectively ignore
         // a `NumId` lower bound.
-        let Some(minimum) = self.by_uuid.keys().next().copied() else {
+        let Some(minimum) = self.memory_id_tracker.by_convex_id.keys().next().copied() else {
             return Box::new(iter::empty());
         };
         let lower_bound = external_id
             .and_then(|id| match id {
                 ExtendedPointId::NumId(..) => None,
-                ExtendedPointId::Uuid(uuid) => Some(uuid),
+                ExtendedPointId::Uuid(uuid) => Some(uuid.into_bytes()),
             })
             .unwrap_or(minimum);
         let iter = self
-            .by_uuid
-            .range(lower_bound..)
-            .map(|(k, v)| (PointIdType::Uuid(*k), *v as PointOffsetType));
+            .memory_id_tracker
+            .by_convex_id
+            .range::<[u8; 16], RangeFrom<&[u8; 16]>>(&lower_bound..)
+            .map(|(k, v)| {
+                (
+                    PointIdType::Uuid(Uuid::from_slice(k).unwrap()),
+                    *v as PointOffsetType,
+                )
+            });
         Box::new(iter)
     }
 
     fn iter_ids(&self) -> Box<dyn Iterator<Item = PointOffsetType> + '_> {
         Box::new(
-            self.by_offset
+            self.memory_id_tracker
+                .by_index_id
                 .keys()
                 .filter(|internal_id| !self.deleted.is_deleted(**internal_id))
                 .copied(),
@@ -194,7 +196,7 @@ impl IdTracker for MemoryIdTracker {
     }
 
     fn total_point_count(&self) -> usize {
-        self.by_offset.len()
+        self.memory_id_tracker.by_index_id.len()
     }
 
     fn deleted_point_count(&self) -> usize {
@@ -210,49 +212,9 @@ impl IdTracker for MemoryIdTracker {
     }
 }
 
-impl MemoryIdTracker {
-    pub fn check_invariants(&mut self) -> anyhow::Result<()> {
-        if let Some(last_offset) = self.by_offset.keys().next_back() {
-            anyhow::ensure!(
-                *last_offset as usize == self.by_offset.len() - 1,
-                "Non-contiguous offsets"
-            );
-        }
-
-        self.deleted.check_invariants()?;
-
-        Ok(())
-    }
-
-    /// Write out a static file with the ID tracker's UUIDs and offsets.
-    pub fn write_uuids(&mut self, mut out: impl Write) -> anyhow::Result<()> {
-        self.check_invariants()?;
-
-        // Build up a flat array of the UUIDs in offset order.
-        let uuids = self
-            .by_offset
-            .values()
-            .map(|uuid| uuid.as_bytes())
-            .collect::<Vec<_>>();
-
-        // Compute the number of bits needed to represent each offset.
-        let offset_bits = uuids.len().next_power_of_two().trailing_zeros();
-
-        // Build the perfect hash table.
-        let map = CsfMap::try_with_fn::<_, _, ()>(&uuids, |i, _| i as u64, offset_bits as u8)
-            .ok_or_else(|| anyhow::anyhow!("Failed to create CsfMap"))?;
-
-        out.write_u8(ID_TABLE_VERSION)?;
-        out.write_u32::<LittleEndian>(uuids.len().try_into()?)?;
-        out.write_u32::<LittleEndian>(map.write_bytes().try_into()?)?;
-        for uuid in &uuids {
-            out.write_all(&uuid[..])?;
-        }
-        map.write(&mut out)?;
-
-        out.flush()?;
-
-        Ok(())
+impl VectorMemoryIdTracker {
+    pub fn write_uuids(&mut self, out: impl Write) -> anyhow::Result<()> {
+        self.memory_id_tracker.write_id_tracker(out)
     }
 
     pub fn write_deleted_bitset(&mut self, out: impl Write) -> anyhow::Result<()> {
@@ -371,8 +333,8 @@ mod tests {
     use uuid::Uuid;
 
     use crate::id_tracker::{
-        MemoryIdTracker,
         StaticIdTracker,
+        VectorMemoryIdTracker,
         VectorStaticIdTracker,
         OP_NUM,
     };
@@ -455,8 +417,8 @@ mod tests {
         }
     }
 
-    fn memory_id_tracker(all: Vec<Uuid>, deleted: Vec<Uuid>) -> MemoryIdTracker {
-        let mut tracker = MemoryIdTracker::new();
+    fn memory_id_tracker(all: Vec<Uuid>, deleted: Vec<Uuid>) -> VectorMemoryIdTracker {
+        let mut tracker = VectorMemoryIdTracker::new();
         for (i, uuid) in all.iter().enumerate() {
             let internal_id = i as u32;
             let external_id = PointIdType::Uuid(*uuid);
@@ -668,7 +630,7 @@ mod tests {
 
         #[test]
         fn memory_tracker_supports_delete_point((all, deleted) in uuids_with_some_deleted()) {
-            let mut tracker = MemoryIdTracker::new();
+            let mut tracker = VectorMemoryIdTracker::new();
             for (i, uuid) in all.iter().enumerate() {
                 let internal_id = i as u32;
                 let external_id = PointIdType::Uuid(*uuid);
@@ -681,7 +643,7 @@ mod tests {
 
         #[test]
         fn test_deleted_bitset((all, deleted) in uuids_with_some_deleted()) {
-            let mut memory_ids = MemoryIdTracker::new();
+            let mut memory_ids = VectorMemoryIdTracker::new();
             let mut deleted_bitset = DeletedBitset::new(all.len());
             for (i, uuid) in all.iter().enumerate() {
                 let internal_id = i as u32;
@@ -722,7 +684,7 @@ mod tests {
                 })
                 .prop_shuffle()
         ) {
-            let mut memory_ids = MemoryIdTracker::new();
+            let mut memory_ids = VectorMemoryIdTracker::new();
             for (i, uuid) in uuids.iter().enumerate() {
                 memory_ids.set_link(PointIdType::Uuid(*uuid), i as u32).unwrap();
             }

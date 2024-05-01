@@ -79,7 +79,7 @@ use value::{
 };
 
 use crate::{
-    id_tracker::MemoryIdTracker,
+    id_tracker::VectorMemoryIdTracker,
     incorrect_vector_filter_field_error,
     metrics::{
         self,
@@ -342,7 +342,7 @@ impl QdrantSchema {
         // temporary index. Since we don't know which index type we're going to use
         // upfront, always set up the more complex directory.
         let memory_dir: PathBuf = tmpdir.path().join("memory");
-        let id_tracker = Arc::new(AtomicRefCell::new(MemoryIdTracker::new()));
+        let id_tracker = Arc::new(AtomicRefCell::new(VectorMemoryIdTracker::new()));
         let mutable_config = segment_config(self.dimension, true, index_threads);
         let mut memory_segment = create_mutable_segment(
             &memory_dir,

@@ -80,7 +80,7 @@ use qdrant_segment::{
 use rocksdb::DB;
 
 use crate::id_tracker::{
-    MemoryIdTracker,
+    VectorMemoryIdTracker,
     VectorStaticIdTracker,
 };
 
@@ -139,7 +139,7 @@ pub(crate) fn segment_config(
 
 pub fn create_mutable_segment(
     path: &Path,
-    id_tracker: Arc<AtomicRefCell<MemoryIdTracker>>,
+    id_tracker: Arc<AtomicRefCell<VectorMemoryIdTracker>>,
     dimension: usize,
     segment_config: SegmentConfig,
 ) -> anyhow::Result<Segment> {
@@ -289,7 +289,7 @@ pub fn merge_disk_segments(
     // duplicate the logic SegmentBuilder is using to create the segment.
     // Ideally the performance penalty here is small relative to the overall
     // build cost and is worth the simpler code.
-    let mut memory_tracker = MemoryIdTracker::new();
+    let mut memory_tracker = VectorMemoryIdTracker::new();
     let borrowed_tracker = disk_segment.id_tracker.borrow();
     // All deletes should be hard deletes. Deleted vectors should be excluded
     // entirely, not marked as soft deleted.
@@ -329,7 +329,7 @@ pub fn merge_disk_segments(
 }
 
 pub fn snapshot_segment(
-    id_tracker: &Arc<AtomicRefCell<MemoryIdTracker>>,
+    id_tracker: &Arc<AtomicRefCell<VectorMemoryIdTracker>>,
     segment: &Segment,
     tmp_path: &Path,
     index_path: &Path,
@@ -571,7 +571,7 @@ mod tests {
 
     use crate::{
         id_tracker::{
-            MemoryIdTracker,
+            VectorMemoryIdTracker,
             VectorStaticIdTracker,
             OP_NUM,
         },
@@ -618,9 +618,9 @@ mod tests {
         dimensions: usize,
         test_dir: &TempDir,
         vectors: impl Iterator<Item = (ExtendedPointId, Vec<f32>)>,
-    ) -> anyhow::Result<(Segment, Arc<AtomicRefCell<MemoryIdTracker>>)> {
+    ) -> anyhow::Result<(Segment, Arc<AtomicRefCell<VectorMemoryIdTracker>>)> {
         let memory_path = test_dir.path().join("memory");
-        let id_tracker = Arc::new(AtomicRefCell::new(MemoryIdTracker::new()));
+        let id_tracker = Arc::new(AtomicRefCell::new(VectorMemoryIdTracker::new()));
         let mutable_config = segment_config(dimensions, true, 4);
         let mut memory_segment =
             create_mutable_segment(&memory_path, id_tracker.clone(), dimensions, mutable_config)?;
@@ -637,9 +637,9 @@ mod tests {
         dimensions: usize,
         test_dir: &TempDir,
         vectors: impl Iterator<Item = (ExtendedPointId, Vec<f32>, JsonValue)>,
-    ) -> anyhow::Result<(Segment, Arc<AtomicRefCell<MemoryIdTracker>>)> {
+    ) -> anyhow::Result<(Segment, Arc<AtomicRefCell<VectorMemoryIdTracker>>)> {
         let memory_path = test_dir.path().join("memory");
-        let id_tracker = Arc::new(AtomicRefCell::new(MemoryIdTracker::new()));
+        let id_tracker = Arc::new(AtomicRefCell::new(VectorMemoryIdTracker::new()));
         let mutable_config = segment_config(dimensions, true, 4);
         let mut memory_segment =
             create_mutable_segment(&memory_path, id_tracker.clone(), dimensions, mutable_config)?;
