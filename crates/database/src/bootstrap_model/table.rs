@@ -169,19 +169,26 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .enforce_table_deletion(table_name.clone())
             .await?;
 
-        let table_id = self.tx.table_mapping().id(&table_name)?;
+        let table_id_and_number = self.tx.table_mapping().id(&table_name)?;
+        self.delete_table_by_id(table_id_and_number.table_id).await
+    }
+
+    pub async fn delete_hidden_table(&mut self, table_id: TableId) -> anyhow::Result<()> {
+        let table_metadata = self.get_table_metadata(table_id).await?;
+        // We don't need to validate hidden table with the schema.
+        anyhow::ensure!(table_metadata.state == TableState::Hidden);
         self.delete_table_by_id(table_id).await
     }
 
-    async fn delete_table_by_id(&mut self, table_id: TableIdAndTableNumber) -> anyhow::Result<()> {
+    async fn delete_table_by_id(&mut self, table_id: TableId) -> anyhow::Result<()> {
         for index in IndexModel::new(self.tx)
-            .all_indexes_on_table(table_id.table_id)
+            .all_indexes_on_table(table_id)
             .await?
         {
             let index_id = index.id();
             SystemMetadataModel::new(self.tx).delete(index_id).await?;
         }
-        let table_metadata = self.get_table_metadata(table_id.table_id).await?;
+        let table_metadata = self.get_table_metadata(table_id).await?;
         let table_doc_id = table_metadata.id();
         let table_metadata = table_metadata.into_value();
         let updated_table_metadata = TableMetadata {
@@ -326,7 +333,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         if self.table_exists(table_name) {
             let existing_table_by_name = self.tx.table_mapping().id(table_name)?;
             documents_deleted += self.count(table_name).await?;
-            self.delete_table_by_id(existing_table_by_name).await?;
+            self.delete_table_by_id(existing_table_by_name.table_id)
+                .await?;
         }
         let table_metadata =
             TableMetadata::new_with_state(table_name.clone(), table_number, TableState::Active);

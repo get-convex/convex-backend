@@ -181,7 +181,7 @@ const MAX_BACKOFF: Duration = Duration::from_secs(60);
 // If an import is taking longer than a day, it's a problem (and our fault).
 // But the customer is probably no longer waiting so we should fail the import.
 // If an import takes more than a week, the file may be deleted from S3.
-const MAX_IMPORT_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+pub const MAX_IMPORT_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub struct SnapshotImportWorker<RT: Runtime> {
     runtime: RT,
