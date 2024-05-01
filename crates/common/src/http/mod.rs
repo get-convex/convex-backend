@@ -148,10 +148,10 @@ mod metrics {
         // pretty high cardinality. If this gets too expensive we can split out
         // separate logging just for client version.
         let labels = vec![
-            MetricLabel::new("endpoint", route.to_owned()),
-            MetricLabel::new("method", method.to_owned()),
-            MetricLabel::new("status", status.to_owned()),
-            MetricLabel::new("client_version", client_version.to_owned()),
+            MetricLabel::new("endpoint", route),
+            MetricLabel::new("method", method),
+            MetricLabel::new("status", status),
+            MetricLabel::new("client_version", client_version),
             MetricLabel::new("server_version", &*SERVER_VERSION_STR),
         ];
         log_distribution_with_labels(

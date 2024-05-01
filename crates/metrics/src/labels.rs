@@ -1,47 +1,54 @@
 use std::borrow::Cow;
 
-pub type Labels = Vec<MetricLabel>;
+/// Type alias for when you need to make a `MetricLabel` from an unowned string,
+/// and you'd rather just make it owned than propagate lifetimes.
+pub type StaticMetricLabel = MetricLabel<'static>;
+
+pub type Labels<'a> = Vec<MetricLabel<'a>>;
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Clone, Debug)]
-pub struct MetricLabel {
+pub struct MetricLabel<'a> {
     pub key: &'static str,
-    pub value: Cow<'static, str>,
+    // Allows passing in an owned `String` or an `&'a str` -- the latter is useful if you have a
+    // `&str` and need to create the `MetricLabel` to immediately report a metric, such that the
+    // label doesn't need to outlive the current scope.
+    pub value: Cow<'a, str>,
 }
 
-impl MetricLabel {
-    pub const STATUS_CANCELED: MetricLabel = MetricLabel {
+impl<'a> MetricLabel<'a> {
+    pub const STATUS_CANCELED: StaticMetricLabel = MetricLabel {
         key: "status",
         value: Cow::Borrowed("canceled"),
     };
-    pub const STATUS_DEVELOPER_ERROR: MetricLabel = MetricLabel {
+    pub const STATUS_DEVELOPER_ERROR: StaticMetricLabel = MetricLabel {
         key: "status",
         value: Cow::Borrowed("developer_error"),
     };
-    pub const STATUS_ERROR: MetricLabel = MetricLabel {
+    pub const STATUS_ERROR: StaticMetricLabel = MetricLabel {
         key: "status",
         value: Cow::Borrowed("error"),
     };
-    pub const STATUS_SUCCESS: MetricLabel = MetricLabel {
+    pub const STATUS_SUCCESS: StaticMetricLabel = MetricLabel {
         key: "status",
         value: Cow::Borrowed("success"),
     };
 
-    pub fn new(key: &'static str, value: impl Into<Cow<'static, str>>) -> Self {
+    pub fn new(key: &'static str, value: impl Into<Cow<'a, str>>) -> Self {
         Self {
             key,
             value: value.into(),
         }
     }
 
-    pub const fn new_const(key: &'static str, value: &'static str) -> Self {
-        Self {
+    pub const fn new_const(key: &'static str, value: &'static str) -> StaticMetricLabel {
+        MetricLabel {
             key,
             value: Cow::Borrowed(value),
         }
     }
 
     /// Common labels. Use these instead of custom defined ones when possible.
-    pub fn status(is_ok: bool) -> MetricLabel {
+    pub fn status(is_ok: bool) -> MetricLabel<'static> {
         if is_ok {
             Self::STATUS_SUCCESS
         } else {

@@ -14,7 +14,7 @@ use prometheus::{
 
 use crate::{
     get_desc,
-    labels::MetricLabel,
+    labels::StaticMetricLabel,
     log_distribution,
     log_distribution_with_labels,
 };
@@ -22,7 +22,7 @@ use crate::{
 pub struct Timer<T: 'static> {
     start: Instant,
     histogram: &'static T,
-    labels: BTreeSet<MetricLabel>,
+    labels: BTreeSet<StaticMetricLabel>,
 }
 
 trait DropInner {
@@ -50,15 +50,15 @@ impl Timer<VMHistogramVec> {
         }
     }
 
-    pub fn add_label(&mut self, label: MetricLabel) {
+    pub fn add_label(&mut self, label: StaticMetricLabel) {
         self.labels.insert(label);
     }
 
-    pub fn remove_label(&mut self, label: MetricLabel) {
+    pub fn remove_label(&mut self, label: StaticMetricLabel) {
         self.labels.remove(&label);
     }
 
-    pub fn replace_label(&mut self, old_label: MetricLabel, new_label: MetricLabel) {
+    pub fn replace_label(&mut self, old_label: StaticMetricLabel, new_label: StaticMetricLabel) {
         self.labels.remove(&old_label);
         self.labels.insert(new_label);
     }
@@ -118,26 +118,28 @@ pub struct StatusTimer(Timer<VMHistogramVec>);
 impl StatusTimer {
     pub fn new(histogram: &'static VMHistogramVec) -> Self {
         let mut timer = Timer::new_with_labels(histogram);
-        timer.add_label(MetricLabel::STATUS_ERROR);
+        timer.add_label(StaticMetricLabel::STATUS_ERROR);
         Self(timer)
     }
 
-    pub fn add_label(&mut self, label: MetricLabel) {
+    pub fn add_label(&mut self, label: StaticMetricLabel) {
         self.0.labels.insert(label);
     }
 
     /// Finish the timer with status success
     pub fn finish(mut self) -> Duration {
-        self.0
-            .replace_label(MetricLabel::STATUS_ERROR, MetricLabel::STATUS_SUCCESS);
+        self.0.replace_label(
+            StaticMetricLabel::STATUS_ERROR,
+            StaticMetricLabel::STATUS_SUCCESS,
+        );
         self.0.elapsed()
     }
 
     /// Finish the timer with developer error
     pub fn finish_developer_error(mut self) -> Duration {
         self.0.replace_label(
-            MetricLabel::STATUS_ERROR,
-            MetricLabel::STATUS_DEVELOPER_ERROR,
+            StaticMetricLabel::STATUS_ERROR,
+            StaticMetricLabel::STATUS_DEVELOPER_ERROR,
         );
         self.0.elapsed()
     }
@@ -148,8 +150,8 @@ impl StatusTimer {
     /// .finish_with(e.metric_status_label_value())
     pub fn finish_with(mut self, status: &'static str) -> Duration {
         self.0.replace_label(
-            MetricLabel::STATUS_ERROR,
-            MetricLabel::new("status", status),
+            StaticMetricLabel::STATUS_ERROR,
+            StaticMetricLabel::new("status", status),
         );
         self.0.elapsed()
     }
@@ -163,21 +165,23 @@ pub struct CancelableTimer(Timer<VMHistogramVec>);
 impl CancelableTimer {
     pub fn new(histogram: &'static VMHistogramVec) -> Self {
         let mut timer = Timer::new_with_labels(histogram);
-        timer.add_label(MetricLabel::STATUS_CANCELED);
+        timer.add_label(StaticMetricLabel::STATUS_CANCELED);
         Self(timer)
     }
 
     pub fn finish(mut self, is_ok: bool) -> Duration {
-        self.0
-            .replace_label(MetricLabel::STATUS_CANCELED, MetricLabel::status(is_ok));
+        self.0.replace_label(
+            StaticMetricLabel::STATUS_CANCELED,
+            StaticMetricLabel::status(is_ok),
+        );
         self.0.elapsed()
     }
 
     /// Finish the timer with developer error
     pub fn finish_developer_error(mut self) -> Duration {
         self.0.replace_label(
-            MetricLabel::STATUS_CANCELED,
-            MetricLabel::STATUS_DEVELOPER_ERROR,
+            StaticMetricLabel::STATUS_CANCELED,
+            StaticMetricLabel::STATUS_DEVELOPER_ERROR,
         );
         self.0.elapsed()
     }
@@ -188,8 +192,8 @@ impl CancelableTimer {
     /// .finish_with(e.metric_status_label_value())
     pub fn finish_with(mut self, status: &'static str) -> Duration {
         self.0.replace_label(
-            MetricLabel::STATUS_CANCELED,
-            MetricLabel::new("status", status),
+            StaticMetricLabel::STATUS_CANCELED,
+            StaticMetricLabel::new("status", status),
         );
         self.0.elapsed()
     }

@@ -5,7 +5,7 @@ pub mod storage {
         log_counter,
         log_counter_with_labels,
         register_convex_counter,
-        MetricLabel,
+        StaticMetricLabel,
     };
 
     register_convex_counter!(STORAGE_INGRESS_BYTES, "Number of storage ingress bytes ");
@@ -33,7 +33,7 @@ pub mod storage {
         log_counter_with_labels(
             &USAGE_ACTION_COMPUTE_TOTAL,
             1,
-            vec![MetricLabel::new("environment", env.to_string())],
+            vec![StaticMetricLabel::new("environment", env.to_string())],
         )
     }
 }

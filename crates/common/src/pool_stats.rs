@@ -8,7 +8,7 @@ use std::sync::{
 
 use metrics::{
     log_gauge_with_labels,
-    MetricLabel,
+    StaticMetricLabel,
 };
 use prometheus::GaugeVec;
 
@@ -21,14 +21,14 @@ pub struct ConnectionPoolStats {
     active_count_gauge: &'static GaugeVec,
     max_count_gauge: &'static GaugeVec,
 
-    labels: Vec<MetricLabel>,
+    labels: Vec<StaticMetricLabel>,
 }
 
 impl ConnectionPoolStats {
     pub fn new(
         active_count_gauge: &'static GaugeVec,
         max_count_gauge: &'static GaugeVec,
-        labels: Vec<MetricLabel>,
+        labels: Vec<StaticMetricLabel>,
     ) -> Self {
         Self {
             active_count: Arc::new(AtomicU64::new(0)),
@@ -45,7 +45,7 @@ pub struct ConnectionTracker {
     active_count: Arc<AtomicU64>,
     active_count_gauge: &'static GaugeVec,
 
-    labels: Vec<MetricLabel>,
+    labels: Vec<StaticMetricLabel>,
 }
 
 impl ConnectionTracker {

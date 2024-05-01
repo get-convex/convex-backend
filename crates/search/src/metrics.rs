@@ -7,7 +7,7 @@ use metrics::{
     register_convex_gauge,
     register_convex_histogram,
     IntoLabel,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     Timer,
     STATUS_LABEL,
@@ -363,7 +363,7 @@ pub fn log_query_reads_outcome(overlaps: bool) {
     log_counter_with_labels(
         &SEARCH_QUERY_READS_OVERLAPS_TOTAL,
         1,
-        vec![MetricLabel::new("overlaps", overlaps.as_label())],
+        vec![StaticMetricLabel::new("overlaps", overlaps.as_label())],
     );
 }
 
@@ -419,7 +419,7 @@ pub fn log_compacted_segment_size_bytes(size_bytes: u64) {
 pub const SEARCH_FILE_TYPE: &str = "search_file_type";
 
 impl SearchFileType {
-    pub fn metric_label(&self) -> MetricLabel {
+    pub fn metric_label(&self) -> StaticMetricLabel {
         let search_type_str = match self {
             SearchFileType::VectorSegment => "vector_segment",
             SearchFileType::VectorDeletedBitset => "vector_deleted_bitset",
@@ -427,7 +427,7 @@ impl SearchFileType {
             SearchFileType::Text => "text",
             SearchFileType::FragmentedVectorSegment => "fragmented_vector_segment",
         };
-        MetricLabel::new(SEARCH_FILE_TYPE, search_type_str)
+        StaticMetricLabel::new(SEARCH_FILE_TYPE, search_type_str)
     }
 }
 
@@ -449,12 +449,12 @@ pub enum SearchType {
 }
 
 pub const SEARCH_TYPE_LABEL: [&str; 1] = ["search_type"];
-pub fn search_type_label(search_type: SearchType) -> MetricLabel {
+pub fn search_type_label(search_type: SearchType) -> StaticMetricLabel {
     let type_str = match search_type {
         SearchType::Vector => "vector",
         SearchType::Text => "text",
     };
-    MetricLabel::new("search_type", type_str)
+    StaticMetricLabel::new("search_type", type_str)
 }
 
 register_convex_counter!(
@@ -471,8 +471,8 @@ pub fn log_async_lru_cache_hit(label: &str) {
 }
 
 pub const ASYNC_LRU_LABEL: &str = "label";
-pub fn async_lru_label(label: &str) -> MetricLabel {
-    MetricLabel::new(ASYNC_LRU_LABEL, label.to_owned())
+pub fn async_lru_label(label: &str) -> StaticMetricLabel {
+    StaticMetricLabel::new(ASYNC_LRU_LABEL, label.to_owned())
 }
 
 register_convex_counter!(

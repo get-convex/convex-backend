@@ -9,18 +9,20 @@ use prometheus::{
 };
 
 use crate::{
-    labels::{
-        Labels,
-        MetricLabel,
-    },
+    labels::Labels,
     log_invalid_metric,
+    MetricLabel,
 };
 
 pub fn log_counter(prometheus_counter: &IntCounter, increment: u64) {
     prometheus_counter.inc_by(increment);
 }
 
-pub fn log_counter_with_labels(prometheus_counter: &IntCounterVec, increment: u64, labels: Labels) {
+pub fn log_counter_with_labels(
+    prometheus_counter: &IntCounterVec,
+    increment: u64,
+    labels: Labels<'_>,
+) {
     match prometheus_counter
         .get_metric_with(&labels.iter().map(MetricLabel::split_key_value).collect())
     {
@@ -35,7 +37,7 @@ pub fn log_gauge(prometheus_gauge: &Gauge, value: f64) {
     prometheus_gauge.set(value);
 }
 
-pub fn log_gauge_with_labels(prometheus_gauge: &GaugeVec, value: f64, labels: Labels) {
+pub fn log_gauge_with_labels(prometheus_gauge: &GaugeVec, value: f64, labels: Labels<'_>) {
     match prometheus_gauge
         .get_metric_with(&labels.iter().map(MetricLabel::split_key_value).collect())
     {
@@ -53,7 +55,7 @@ pub fn log_distribution(prometheus_histogram: &VMHistogram, value: f64) {
 pub fn log_distribution_with_labels(
     prometheus_histogram: &VMHistogramVec,
     value: f64,
-    labels: Labels,
+    labels: Labels<'_>,
 ) {
     match prometheus_histogram
         .get_metric_with(&labels.iter().map(MetricLabel::split_key_value).collect())

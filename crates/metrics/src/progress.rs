@@ -5,7 +5,7 @@ use prometheus::IntCounterVec;
 use crate::{
     get_desc,
     log_counter_with_labels,
-    MetricLabel,
+    StaticMetricLabel,
 };
 
 /// Logs a counter of the number of results left unprocessed if the counter is
@@ -24,14 +24,14 @@ pub struct ProgressCounter {
     processed_count: usize,
     complete: bool,
     unfinished_progress_counter: &'static IntCounterVec,
-    labels: Vec<MetricLabel>,
+    labels: Vec<StaticMetricLabel>,
 }
 
 impl ProgressCounter {
     pub fn new(
         unfinished_progress_counter: &'static IntCounterVec,
         estimated_max_total: usize,
-        labels: Vec<MetricLabel>,
+        labels: Vec<StaticMetricLabel>,
     ) -> Self {
         Self {
             estimated_max_total,

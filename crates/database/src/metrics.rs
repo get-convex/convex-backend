@@ -14,7 +14,7 @@ use metrics::{
     register_convex_gauge,
     register_convex_histogram,
     IntoLabel,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     Timer,
     STATUS_LABEL,
@@ -436,7 +436,7 @@ pub fn log_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
         &RETENTION_SCANNED_DOCUMENT_TOTAL,
         1,
         vec![
-            MetricLabel::new(
+            StaticMetricLabel::new(
                 "tombstone",
                 if is_tombstone {
                     "is_tombstone"
@@ -444,7 +444,7 @@ pub fn log_retention_scanned_document(is_tombstone: bool, has_prev_rev: bool) {
                     "is_document"
                 },
             ),
-            MetricLabel::new(
+            StaticMetricLabel::new(
                 "prev_rev",
                 if has_prev_rev {
                     "has_prev_rev"
@@ -466,7 +466,7 @@ pub fn log_document_retention_scanned_document(is_tombstone: bool, has_prev_rev:
         &DOCUMENT_RETENTION_SCANNED_DOCUMENT_TOTAL,
         1,
         vec![
-            MetricLabel::new(
+            StaticMetricLabel::new(
                 "tombstone",
                 if is_tombstone {
                     "is_tombstone"
@@ -474,7 +474,7 @@ pub fn log_document_retention_scanned_document(is_tombstone: bool, has_prev_rev:
                     "is_document"
                 },
             ),
-            MetricLabel::new(
+            StaticMetricLabel::new(
                 "prev_rev",
                 if has_prev_rev {
                     "has_prev_rev"
@@ -495,7 +495,7 @@ pub fn log_retention_expired_index_entry(is_tombstone: bool, is_key_change_tombs
     log_counter_with_labels(
         &RETENTION_EXPIRED_INDEX_ENTRY_TOTAL,
         1,
-        vec![MetricLabel::new(
+        vec![StaticMetricLabel::new(
             "reason",
             if is_tombstone {
                 if is_key_change_tombstone {
@@ -550,8 +550,8 @@ pub fn log_snapshot_verification_age<RT: Runtime>(
     leader: bool,
 ) {
     let labels = vec![
-        MetricLabel::new("optimistic", optimistic.as_label()),
-        MetricLabel::new("leader", leader.as_label()),
+        StaticMetricLabel::new("optimistic", optimistic.as_label()),
+        StaticMetricLabel::new("leader", leader.as_label()),
     ];
     if snapshot < min_snapshot_ts {
         log_counter_with_labels(&OUTSIDE_RETENTION_TOTAL, 1, labels.clone());
@@ -644,7 +644,7 @@ fn log_worker_status(is_working: bool, name: &'static str) {
     log_gauge_with_labels(
         &DATABASE_WORKER_IN_PROGRESS_TOTAL,
         if is_working { 1f64 } else { 0f64 },
-        vec![MetricLabel::new("worker", name)],
+        vec![StaticMetricLabel::new("worker", name)],
     )
 }
 
@@ -785,7 +785,7 @@ pub mod vector {
         log_distribution,
         register_convex_histogram,
         CancelableTimer,
-        MetricLabel,
+        StaticMetricLabel,
         StatusTimer,
         Timer,
         STATUS_LABEL,
@@ -856,14 +856,14 @@ pub mod vector {
     }
 
     impl CompactionReason {
-        fn metric_label(&self) -> MetricLabel {
+        fn metric_label(&self) -> StaticMetricLabel {
             let label = match self {
                 CompactionReason::Unknown => "unknown",
                 CompactionReason::SmallSegments => "small",
                 CompactionReason::LargeSegments => "large",
                 CompactionReason::Deletes => "deletes",
             };
-            MetricLabel::new(COMPACTION_REASON_LABEL, label)
+            StaticMetricLabel::new(COMPACTION_REASON_LABEL, label)
         }
     }
 
@@ -916,12 +916,12 @@ pub mod vector {
     const VECTOR_WRITER_WAITER_LABEL: &str = "waiter";
 
     impl VectorWriterLockWaiter {
-        fn tag(&self) -> MetricLabel {
+        fn tag(&self) -> StaticMetricLabel {
             let label = match self {
                 VectorWriterLockWaiter::Compactor => "compactor",
                 VectorWriterLockWaiter::Flusher => "flusher",
             };
-            MetricLabel::new(VECTOR_WRITER_WAITER_LABEL, label)
+            StaticMetricLabel::new(VECTOR_WRITER_WAITER_LABEL, label)
         }
     }
 
@@ -946,13 +946,13 @@ pub mod vector {
     }
 
     impl VectorIndexMergeType {
-        fn metric_label(&self) -> MetricLabel {
+        fn metric_label(&self) -> StaticMetricLabel {
             let label = match self {
                 VectorIndexMergeType::Unknown => "unknown",
                 VectorIndexMergeType::Required => "required",
                 VectorIndexMergeType::NotRequired => "not_required",
             };
-            MetricLabel::new(MERGE_LABEL, label)
+            StaticMetricLabel::new(MERGE_LABEL, label)
         }
     }
 

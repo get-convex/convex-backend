@@ -1,7 +1,7 @@
 use metrics::{
     log_distribution_with_labels,
     register_convex_histogram,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -26,10 +26,10 @@ pub(crate) enum GetFileType {
 }
 
 impl GetFileType {
-    fn tag(&self) -> MetricLabel {
+    fn tag(&self) -> StaticMetricLabel {
         match self {
-            GetFileType::All => MetricLabel::new(GET_FILE_TYPE_LABEL, "all"),
-            GetFileType::Range => MetricLabel::new(GET_FILE_TYPE_LABEL, "range"),
+            GetFileType::All => StaticMetricLabel::new(GET_FILE_TYPE_LABEL, "all"),
+            GetFileType::Range => StaticMetricLabel::new(GET_FILE_TYPE_LABEL, "range"),
         }
     }
 }

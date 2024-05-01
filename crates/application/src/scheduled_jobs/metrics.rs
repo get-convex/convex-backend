@@ -8,7 +8,7 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricLabel,
+    StaticMetricLabel,
     STATUS_LABEL,
 };
 
@@ -25,7 +25,7 @@ pub fn log_scheduled_job_success(prev_failures: u32) {
     log_counter_with_labels(
         &SCHEDULED_JOB_RESULT_TOTAL,
         1,
-        vec![MetricLabel::STATUS_SUCCESS],
+        vec![StaticMetricLabel::STATUS_SUCCESS],
     );
     log_distribution(&SCHEDULED_JOB_PREV_FAILURES_TOTAL, prev_failures as f64);
 }
@@ -34,7 +34,7 @@ pub fn log_scheduled_job_failure(e: &anyhow::Error) {
     log_counter_with_labels(
         &SCHEDULED_JOB_RESULT_TOTAL,
         1,
-        vec![MetricLabel::new("status", label_value)],
+        vec![StaticMetricLabel::new("status", label_value)],
     )
 }
 

@@ -31,7 +31,7 @@ use crate::{
     log_gauge,
     register_convex_counter,
     register_convex_gauge,
-    MetricLabel,
+    StaticMetricLabel,
 };
 
 const ALLOWED_SUFFIXES: &[&str] = &[
@@ -211,7 +211,7 @@ pub fn log_invalid_metric(name: String, error: prometheus::Error) {
     log_counter_with_labels(
         &INVALID_METRIC_TOTAL,
         1,
-        vec![MetricLabel::new("metric_name", name.clone())],
+        vec![StaticMetricLabel::new("metric_name", name.clone())],
     );
     if METRICS_ERROR_ONCE.read().contains(&name) {
         return;

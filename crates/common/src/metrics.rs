@@ -17,7 +17,7 @@ use metrics::{
     register_convex_gauge,
     register_convex_histogram,
     IntoLabel,
-    MetricLabel,
+    StaticMetricLabel,
     Timer,
     CONVEX_METRICS_REGISTRY,
 };
@@ -76,8 +76,8 @@ pub fn log_index_expiration_checked(expired: bool, reason: &'static str) {
         &CHECKED_INDEX_EXPIRATION_DOCUMENTS,
         1,
         vec![
-            MetricLabel::new("expired", expired.as_label()),
-            MetricLabel::new("reason", reason),
+            StaticMetricLabel::new("expired", expired.as_label()),
+            StaticMetricLabel::new("reason", reason),
         ],
     );
 }
@@ -91,7 +91,7 @@ pub fn log_client_version_unsupported(version: String) {
     log_counter_with_labels(
         &CLIENT_VERSION_UNSUPPORTED_TOTAL,
         1,
-        vec![MetricLabel::new("version", version)],
+        vec![StaticMetricLabel::new("version", version)],
     );
 }
 
@@ -102,7 +102,7 @@ register_convex_histogram!(
 );
 pub fn static_repeatable_ts_timer(is_recent: bool) -> Timer<VMHistogramVec> {
     let mut timer = Timer::new_with_labels(&STATIC_REPEATABLE_TS_SECONDS);
-    timer.add_label(MetricLabel::new(
+    timer.add_label(StaticMetricLabel::new(
         "recent",
         if is_recent { "recent" } else { "at_ts" },
     ));
@@ -110,7 +110,7 @@ pub fn static_repeatable_ts_timer(is_recent: bool) -> Timer<VMHistogramVec> {
 }
 
 register_convex_counter!(ERRORS_REPORTED_TOTAL, "Count of errors reported", &["type"]);
-pub fn log_errors_reported_total(tag: MetricLabel) {
+pub fn log_errors_reported_total(tag: StaticMetricLabel) {
     log_counter_with_labels(&ERRORS_REPORTED_TOTAL, 1, vec![tag]);
 }
 

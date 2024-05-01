@@ -7,7 +7,7 @@ use metrics::{
     register_convex_gauge,
     register_convex_histogram,
     CancelableTimer,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -22,8 +22,8 @@ pub fn log_async_lru_cache_hit(label: &str) {
 }
 
 pub const ASYNC_LRU_LABEL: &str = "label";
-pub fn async_lru_label(label: &str) -> MetricLabel {
-    MetricLabel::new(ASYNC_LRU_LABEL, label.to_owned())
+pub fn async_lru_label(label: &str) -> StaticMetricLabel {
+    StaticMetricLabel::new(ASYNC_LRU_LABEL, label.to_owned())
 }
 
 register_convex_counter!(

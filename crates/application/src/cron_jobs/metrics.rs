@@ -8,7 +8,7 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricLabel,
+    StaticMetricLabel,
     STATUS_LABEL,
 };
 
@@ -22,7 +22,11 @@ register_convex_histogram!(
     "Num previous failures retried before success",
 );
 pub fn log_cron_job_success(prev_failures: u32) {
-    log_counter_with_labels(&CRON_JOB_RESULT_TOTAL, 1, vec![MetricLabel::STATUS_SUCCESS]);
+    log_counter_with_labels(
+        &CRON_JOB_RESULT_TOTAL,
+        1,
+        vec![StaticMetricLabel::STATUS_SUCCESS],
+    );
     log_distribution(&CRON_JOB_PREV_FAILURES_TOTAL, prev_failures as f64);
 }
 pub fn log_cron_job_failure(e: &anyhow::Error) {
@@ -30,7 +34,7 @@ pub fn log_cron_job_failure(e: &anyhow::Error) {
     log_counter_with_labels(
         &CRON_JOB_RESULT_TOTAL,
         1,
-        vec![MetricLabel::new("status", label_value)],
+        vec![StaticMetricLabel::new("status", label_value)],
     )
 }
 

@@ -10,7 +10,7 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -37,7 +37,7 @@ pub fn log_udf_executor_result(udf_type: UdfType, result: UdfExecutorResult) {
         1,
         vec![
             udf_type.metric_label(),
-            MetricLabel::new("result", result_value),
+            StaticMetricLabel::new("result", result_value),
         ],
     );
 }
@@ -81,7 +81,7 @@ pub fn log_outstanding_functions(
     udf_type: UdfType,
     state: OutstandingFunctionState,
 ) {
-    let state_label = MetricLabel::new(
+    let state_label = StaticMetricLabel::new(
         "state",
         match state {
             OutstandingFunctionState::Running => "running",
@@ -109,17 +109,17 @@ pub fn function_total_timer(env: ModuleEnvironment, udf_type: UdfType) -> Status
 }
 
 trait ModuleEnvironmentExt {
-    fn metric_label(&self) -> MetricLabel;
+    fn metric_label(&self) -> StaticMetricLabel;
 }
 
 impl ModuleEnvironmentExt for ModuleEnvironment {
-    fn metric_label(&self) -> MetricLabel {
+    fn metric_label(&self) -> StaticMetricLabel {
         let value = match self {
             ModuleEnvironment::Isolate => "isolate",
             ModuleEnvironment::Node => "node",
             ModuleEnvironment::Invalid => "invalid",
         };
-        MetricLabel::new("env_type", value)
+        StaticMetricLabel::new("env_type", value)
     }
 }
 

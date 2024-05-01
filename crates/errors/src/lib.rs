@@ -7,7 +7,7 @@ use std::{
     sync::LazyLock,
 };
 
-use ::metrics::MetricLabel;
+use ::metrics::StaticMetricLabel;
 use http::StatusCode;
 use prometheus::IntCounter;
 use tungstenite::protocol::{
@@ -341,9 +341,9 @@ impl ErrorMetadata {
         }
     }
 
-    pub fn metric_server_error_label(&self) -> Option<MetricLabel> {
+    pub fn metric_server_error_label(&self) -> Option<StaticMetricLabel> {
         self.metric_server_error_label_value()
-            .map(|v| MetricLabel::new("type", v))
+            .map(|v| StaticMetricLabel::new("type", v))
     }
 
     pub fn custom_metric(&self) -> Option<&'static IntCounter> {
@@ -454,7 +454,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn user_facing_message(&self) -> String;
     fn short_msg(&self) -> &str;
     fn msg(&self) -> &str;
-    fn metric_server_error_label(&self) -> Option<MetricLabel>;
+    fn metric_server_error_label(&self) -> Option<StaticMetricLabel>;
     fn metric_status_label_value(&self) -> &'static str;
     fn close_frame(&self) -> Option<CloseFrame<'static>>;
     fn http_status(&self) -> StatusCode;
@@ -578,11 +578,11 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     }
 
     /// Return the tag to use on a server error metric
-    fn metric_server_error_label(&self) -> Option<MetricLabel> {
+    fn metric_server_error_label(&self) -> Option<StaticMetricLabel> {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.metric_server_error_label();
         }
-        Some(MetricLabel::new("type", "internal"))
+        Some(StaticMetricLabel::new("type", "internal"))
     }
 
     /// Return the tag to use on a server status metric
@@ -590,10 +590,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return match e.metric_server_error_label_value() {
                 Some(v) => v,
-                None => MetricLabel::STATUS_DEVELOPER_ERROR.split_key_value().1,
+                None => {
+                    StaticMetricLabel::STATUS_DEVELOPER_ERROR
+                        .split_key_value()
+                        .1
+                },
             };
         }
-        MetricLabel::STATUS_ERROR.split_key_value().1
+        StaticMetricLabel::STATUS_ERROR.split_key_value().1
     }
 
     /// Return the CloseCode to use on websocket

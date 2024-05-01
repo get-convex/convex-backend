@@ -8,7 +8,7 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -25,7 +25,7 @@ pub fn log_external_deps_package(is_cache_hit: bool) {
     log_counter_with_labels(
         &EXTERNAL_DEPS_PACKAGES_TOTAL,
         1,
-        vec![MetricLabel::new("cache_status", cache_label)],
+        vec![StaticMetricLabel::new("cache_status", cache_label)],
     );
 }
 
@@ -35,8 +35,8 @@ register_convex_histogram!(
     &["compressed"],
 );
 pub fn log_source_package_size_bytes_total(pkg_size: PackageSize) {
-    let zipped_label = MetricLabel::new("compressed", "true");
-    let unzipped_label = MetricLabel::new("compressed", "false");
+    let zipped_label = StaticMetricLabel::new("compressed", "true");
+    let unzipped_label = StaticMetricLabel::new("compressed", "false");
 
     log_distribution_with_labels(
         &SOURCE_PACKAGE_SIZE_BYTES_TOTAL,
@@ -100,6 +100,6 @@ fn log_worker_status(is_working: bool, name: &'static str) {
     log_gauge_with_labels(
         &APP_WORKER_IN_PROGRESS_TOTAL,
         if is_working { 1f64 } else { 0f64 },
-        vec![MetricLabel::new("worker", name)],
+        vec![StaticMetricLabel::new("worker", name)],
     )
 }

@@ -1,7 +1,7 @@
 use metrics::{
     log_counter_with_labels,
     register_convex_counter,
-    MetricLabel,
+    StaticMetricLabel,
 };
 
 register_convex_counter!(
@@ -15,8 +15,8 @@ pub fn log_serialized_set() {
         &VALUE_SERIALIZATION_TOTAL,
         1,
         vec![
-            MetricLabel::new("action", "serialize"),
-            MetricLabel::new("type", "set"),
+            StaticMetricLabel::new("action", "serialize"),
+            StaticMetricLabel::new("type", "set"),
         ],
     );
 }
@@ -26,8 +26,8 @@ pub fn log_serialized_map() {
         &VALUE_SERIALIZATION_TOTAL,
         1,
         vec![
-            MetricLabel::new("action", "serialize"),
-            MetricLabel::new("type", "map"),
+            StaticMetricLabel::new("action", "serialize"),
+            StaticMetricLabel::new("type", "map"),
         ],
     );
 }
@@ -37,8 +37,8 @@ pub fn log_deserialized_set() {
         &VALUE_SERIALIZATION_TOTAL,
         1,
         vec![
-            MetricLabel::new("action", "deserialize"),
-            MetricLabel::new("type", "set"),
+            StaticMetricLabel::new("action", "deserialize"),
+            StaticMetricLabel::new("type", "set"),
         ],
     );
 }
@@ -48,8 +48,8 @@ pub fn log_deserialized_map() {
         &VALUE_SERIALIZATION_TOTAL,
         1,
         vec![
-            MetricLabel::new("action", "serialize"),
-            MetricLabel::new("type", "map"),
+            StaticMetricLabel::new("action", "serialize"),
+            StaticMetricLabel::new("type", "map"),
         ],
     );
 }

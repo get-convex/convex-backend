@@ -5,6 +5,7 @@ use metrics::{
     register_convex_counter,
     register_convex_histogram,
     MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -45,7 +46,7 @@ pub fn finish_index_manager_update_timer(
     mut timer: StatusTimer,
     index_update_type: IndexUpdateType,
 ) {
-    timer.add_label(MetricLabel::new(
+    timer.add_label(StaticMetricLabel::new(
         "index_update_type",
         index_update_type.tag(),
     ));
@@ -121,7 +122,7 @@ fn log_vector_search_total(filter: &str) {
     log_counter_with_labels(
         &VECTOR_SEARCH_COMPILE_TOTAL,
         1,
-        vec![MetricLabel::new("filter_type", filter.to_owned())],
+        vec![MetricLabel::new("filter_type", filter)],
     );
 }
 
@@ -220,12 +221,12 @@ pub fn log_index_deleted() {
 const QDRANT_VECTOR_INDEX_TYPE: &str = "index_type";
 
 impl QdrantVectorIndexType {
-    fn metric_label(&self) -> MetricLabel {
+    fn metric_label(&self) -> StaticMetricLabel {
         let index_string = match self {
             QdrantVectorIndexType::Plain => "plain",
             QdrantVectorIndexType::HNSW => "hnsw",
         };
-        MetricLabel::new(QDRANT_VECTOR_INDEX_TYPE, index_string)
+        StaticMetricLabel::new(QDRANT_VECTOR_INDEX_TYPE, index_string)
     }
 }
 
@@ -256,11 +257,11 @@ pub enum VectorIndexType {
 }
 
 pub const VECTOR_INDEX_TYPE_LABEL: &str = "vector_index_type";
-pub fn vector_index_type_label(vector_index_type: VectorIndexType) -> MetricLabel {
+pub fn vector_index_type_label(vector_index_type: VectorIndexType) -> StaticMetricLabel {
     let type_str = match vector_index_type {
         VectorIndexType::SingleSegment => "single_segment",
         VectorIndexType::MultiSegment => "multi_segment",
         VectorIndexType::Unknown => "unknown",
     };
-    MetricLabel::new(VECTOR_INDEX_TYPE_LABEL, type_str)
+    StaticMetricLabel::new(VECTOR_INDEX_TYPE_LABEL, type_str)
 }

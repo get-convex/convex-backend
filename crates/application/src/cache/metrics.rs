@@ -6,7 +6,7 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -21,20 +21,20 @@ pub fn get_timer() -> StatusTimer {
     // `succeed_udf_read_timer`, which replaces it with the success tag. This
     // way the success case is the deliberate one, and we'll default to
     // accidentally logging errors over successes.
-    t.add_label(MetricLabel::new("cache_status", "unknown"));
+    t.add_label(StaticMetricLabel::new("cache_status", "unknown"));
     t
 }
 
 pub fn succeed_get_timer(mut timer: StatusTimer, is_cache_hit: bool) {
     if is_cache_hit {
         timer.replace_label(
-            MetricLabel::new("cache_status", "unknown"),
-            MetricLabel::new("cache_status", "hit"),
+            StaticMetricLabel::new("cache_status", "unknown"),
+            StaticMetricLabel::new("cache_status", "hit"),
         );
     } else {
         timer.replace_label(
-            MetricLabel::new("cache_status", "unknown"),
-            MetricLabel::new("cache_status", "miss"),
+            StaticMetricLabel::new("cache_status", "unknown"),
+            StaticMetricLabel::new("cache_status", "miss"),
         );
     }
     timer.finish();
@@ -83,8 +83,8 @@ register_convex_counter!(
 );
 pub fn log_plan_go(reason: GoReason) {
     let label = match reason {
-        GoReason::NoCacheResult => MetricLabel::new("reason", "no_cache_result"),
-        GoReason::PeerTimestampTooNew => MetricLabel::new("reason", "peer_timestamp_too_new"),
+        GoReason::NoCacheResult => StaticMetricLabel::new("reason", "no_cache_result"),
+        GoReason::PeerTimestampTooNew => StaticMetricLabel::new("reason", "peer_timestamp_too_new"),
     };
     log_counter_with_labels(&CACHE_PLAN_GO_TOTAL, 1, vec![label]);
 }
@@ -110,7 +110,11 @@ register_convex_counter!(
     &STATUS_LABEL
 );
 pub fn log_perform_go(is_ok: bool) {
-    log_counter_with_labels(&CACHE_PERFORM_GO_TOTAL, 1, vec![MetricLabel::status(is_ok)]);
+    log_counter_with_labels(
+        &CACHE_PERFORM_GO_TOTAL,
+        1,
+        vec![StaticMetricLabel::status(is_ok)],
+    );
 }
 
 register_convex_counter!(

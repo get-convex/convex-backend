@@ -4,6 +4,7 @@ use metrics::{
     register_convex_counter,
     register_convex_histogram,
     MetricLabel,
+    StaticMetricLabel,
     Timer,
 };
 use prometheus::{
@@ -11,10 +12,10 @@ use prometheus::{
     VMHistogramVec,
 };
 
-fn cache_metric_labels(table_name: &str, instance_name: &str) -> Vec<MetricLabel> {
+fn cache_metric_labels<'a>(table_name: &'a str, instance_name: &'a str) -> Vec<MetricLabel<'a>> {
     vec![
-        MetricLabel::new("table", table_name.to_owned()),
-        MetricLabel::new("instance_name", instance_name.to_owned()),
+        MetricLabel::new("table", table_name),
+        MetricLabel::new("instance_name", instance_name),
     ]
 }
 
@@ -38,8 +39,11 @@ register_convex_histogram!(
 );
 pub fn load_index_timer(table_name: &str, instance_name: &str) -> Timer<VMHistogramVec> {
     let mut t = Timer::new_with_labels(&MEMORY_INDEX_CACHE_LOAD_INDEX_SECONDS);
-    t.add_label(MetricLabel::new("table", table_name.to_owned()));
-    t.add_label(MetricLabel::new("instance_name", instance_name.to_owned()));
+    t.add_label(StaticMetricLabel::new("table", table_name.to_owned()));
+    t.add_label(StaticMetricLabel::new(
+        "instance_name",
+        instance_name.to_owned(),
+    ));
     t
 }
 

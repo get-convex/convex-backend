@@ -6,7 +6,7 @@ use metrics::{
     log_distribution_with_labels,
     register_convex_counter,
     register_convex_histogram,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
 };
 use model::source_packages::types::PackageSize;
@@ -18,7 +18,7 @@ register_convex_histogram!(
 );
 pub fn node_executor(method: &'static str) -> StatusTimer {
     let mut t = StatusTimer::new(&NODE_EXECUTOR_TOTAL_SECONDS);
-    t.add_label(MetricLabel::new("method", method));
+    t.add_label(StaticMetricLabel::new("method", method));
     t
 }
 
@@ -104,8 +104,8 @@ register_convex_histogram!(
     &["compressed"],
 );
 pub fn log_external_deps_size_bytes_total(pkg_size: PackageSize) {
-    let zipped_label = MetricLabel::new("compressed", "true");
-    let unzipped_label = MetricLabel::new("compressed", "false");
+    let zipped_label = StaticMetricLabel::new("compressed", "true");
+    let unzipped_label = StaticMetricLabel::new("compressed", "false");
 
     log_distribution_with_labels(
         &EXTERNAL_DEPS_SIZE_BYTES_TOTAL,

@@ -9,7 +9,7 @@ use metrics::{
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
-    MetricLabel,
+    StaticMetricLabel,
     StatusTimer,
     STATUS_LABEL,
 };
@@ -74,7 +74,7 @@ pub fn log_websocket_message_out(message: &ServerMessage, delay: Duration) {
         ServerMessage::FatalError { .. } => "FatalError",
         ServerMessage::Ping { .. } => "Ping",
     };
-    let labels = vec![MetricLabel::new("endpoint", endpoint)];
+    let labels = vec![StaticMetricLabel::new("endpoint", endpoint)];
     log_distribution_with_labels(
         &BACKEND_WS_SEND_DELAY_SECONDS,
         delay.as_secs_f64(),
@@ -96,7 +96,7 @@ register_convex_counter!(
     "Count of websocket server errors",
     &["type"]
 );
-pub fn log_websocket_server_error(tag: MetricLabel) {
+pub fn log_websocket_server_error(tag: StaticMetricLabel) {
     log_counter_with_labels(&BACKEND_WS_SERVER_ERROR_TOTAL, 1, vec![tag]);
 }
 
