@@ -269,7 +269,7 @@ pub static TRANSACTION_MAX_READ_SET_INTERVALS: LazyLock<usize> =
 pub static MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config(
         "MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY",
-        5 * 60,
+        10 * 60,
     ))
 });
 
