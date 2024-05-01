@@ -4,12 +4,9 @@ use std::{
 };
 
 use clap::Parser;
-use common::{
-    types::{
-        ConvexOrigin,
-        ConvexSite,
-    },
-    version::COMPILED_REVISION,
+use common::types::{
+    ConvexOrigin,
+    ConvexSite,
 };
 use keybroker::{
     InstanceSecret,
@@ -17,10 +14,11 @@ use keybroker::{
     DEV_INSTANCE_NAME,
     DEV_SECRET,
 };
+use metrics::SERVER_VERSION_STR;
 use url::Url;
 
 #[derive(Parser, Clone)]
-#[clap(version = COMPILED_REVISION, author = "Convex, Inc. <no-reply@convex.dev>")]
+#[clap(version = &**SERVER_VERSION_STR, author = "Convex, Inc. <no-reply@convex.dev>")]
 pub struct LocalConfig {
     /// File path for SQLite
     #[clap(default_value = "convex_local_backend.sqlite3")]

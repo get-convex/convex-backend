@@ -5,6 +5,7 @@ use vergen::EmitBuilder;
 fn main() -> anyhow::Result<()> {
     println!("cargo:rerun-if-env-changed=PROFILE");
     println!("cargo:rerun-if-env-changed=FORCE_EMIT");
+    println!("cargo:rerun-if-env-changed=CONVEX_RELEASE_VERSION");
 
     if cfg!(not(debug_assertions)) || env::var("FORCE_EMIT").is_ok() {
         // Emit git sha
