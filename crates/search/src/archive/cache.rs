@@ -377,6 +377,9 @@ fn is_immutable(search_file_type: SearchFileType) -> bool {
         SearchFileType::VectorIdTracker => true,
         // Text indexes do not appear to be read in readonly mode.
         SearchFileType::Text => false,
+        SearchFileType::TextIdTracker => true,
+        SearchFileType::TextDeletedBitset => true,
+        SearchFileType::TextDeletedTerms => true,
     }
 }
 

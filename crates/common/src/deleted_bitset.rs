@@ -7,7 +7,10 @@ use std::{
         Write,
     },
     mem,
-    path::PathBuf,
+    path::{
+        Path,
+        PathBuf,
+    },
 };
 
 use bitvec::{
@@ -30,7 +33,7 @@ use byteorder::{
 /// - bitset blocks (dense array of little-endian u64s): bitset contents
 pub const DELETED_BITSET_VERSION: u8 = 1;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct DeletedBitset {
     deleted: BitVec,
     num_deleted: usize,
@@ -121,7 +124,10 @@ impl DeletedBitset {
         Ok(())
     }
 
-    pub fn load_from_path(path: PathBuf) -> anyhow::Result<Self> {
+    pub fn load_from_path<P>(path: P) -> anyhow::Result<Self>
+    where
+        P: AsRef<Path>,
+    {
         let deleted_file = File::open(path)?;
         Self::load(
             deleted_file.metadata()?.len() as usize,

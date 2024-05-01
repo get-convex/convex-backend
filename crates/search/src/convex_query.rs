@@ -3,6 +3,7 @@ use std::{
     fmt,
 };
 
+use common::deleted_bitset::DeletedBitset;
 use tantivy::{
     query::{
         intersect_scorers,
@@ -25,7 +26,6 @@ use tantivy::{
     Term,
     TERMINATED,
 };
-use tantivy_common::ReadOnlyBitSet;
 
 /// A query for documents that:
 /// 1. Contain at least one of the OR terms.
@@ -151,10 +151,7 @@ impl Weight for ConvexSearchWeight {
 #[derive(Clone)]
 pub struct DeletedDocuments {
     pub memory_deleted: BTreeSet<DocId>,
-    pub segment_deleted: ReadOnlyBitSet,
-    // NB: `ReadOnlyBitSet::len` is linear time, so use our precomputed count
-    // of the number of documents deleted.
-    pub num_segment_deleted: usize,
+    pub segment_deleted: DeletedBitset,
 }
 
 impl fmt::Debug for DeletedDocuments {
@@ -162,18 +159,18 @@ impl fmt::Debug for DeletedDocuments {
         f.debug_struct("DeletedDocuments")
             .field("memory_deleted", &self.memory_deleted)
             .field("segment_deleted", &"<bitset>")
-            .field("num_segment_deleted", &self.num_segment_deleted)
+            .field("num_segment_deleted", &self.segment_deleted.num_deleted())
             .finish()
     }
 }
 
 impl DeletedDocuments {
     pub fn contains(&self, doc: DocId) -> bool {
-        self.memory_deleted.contains(&doc) || self.segment_deleted.contains(doc)
+        self.memory_deleted.contains(&doc) || self.segment_deleted.is_deleted(doc)
     }
 
     pub fn len(&self) -> usize {
-        self.memory_deleted.len() + self.num_segment_deleted
+        self.memory_deleted.len() + self.segment_deleted.num_deleted()
     }
 }
 

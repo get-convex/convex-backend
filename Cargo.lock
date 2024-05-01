@@ -2250,7 +2250,7 @@ checksum = "25c7df09945d65ea8d70b3321547ed414bbc540aad5bac6883d021b970f35b04"
 [[package]]
 name = "fastfield_codecs"
 version = "0.3.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "fastdivide",
  "itertools 0.10.5",
@@ -4632,7 +4632,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 [[package]]
 name = "ownedbytes"
 version = "0.5.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "stable_deref_trait",
 ]
@@ -6000,6 +6000,7 @@ dependencies = [
  "tantivy",
  "tantivy-common",
  "tempfile",
+ "text_search",
  "tokio",
  "tracing",
  "uuid",
@@ -6895,7 +6896,7 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 [[package]]
 name = "tantivy"
 version = "0.19.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "aho-corasick 0.7.20",
  "arc-swap",
@@ -6947,12 +6948,12 @@ dependencies = [
 [[package]]
 name = "tantivy-bitpacker"
 version = "0.3.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 
 [[package]]
 name = "tantivy-columnar"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "fastdivide",
  "fnv",
@@ -6967,7 +6968,7 @@ dependencies = [
 [[package]]
 name = "tantivy-common"
 version = "0.5.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "async-trait",
  "byteorder",
@@ -6988,7 +6989,7 @@ dependencies = [
 [[package]]
 name = "tantivy-query-grammar"
 version = "0.19.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "combine",
  "once_cell",
@@ -6998,7 +6999,7 @@ dependencies = [
 [[package]]
 name = "tantivy-sstable"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "ciborium",
  "serde",
@@ -7009,7 +7010,7 @@ dependencies = [
 [[package]]
 name = "tantivy-stacker"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "byteorder",
  "murmurhash32",
@@ -7019,7 +7020,7 @@ dependencies = [
 [[package]]
 name = "tantivy-tokenizer-api"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?branch=rakeeb/reexport-tantivy-fst#b503e5fdda1fd3566b67354420f200aead9f38fd"
+source = "git+https://github.com/get-convex/tantivy?rev=a0f4d3c3843dd255ac6a7210830b3f91cf16db8f#a0f4d3c3843dd255ac6a7210830b3f91cf16db8f"
 dependencies = [
  "serde",
 ]
@@ -7080,6 +7081,21 @@ checksum = "8e6bf6f19e9f8ed8d4048dc22981458ebcf406d67e94cd422e5ecd73d63b3237"
 dependencies = [
  "rustix 0.37.27",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "text_search"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "byteorder",
+ "common 0.1.0",
+ "csf",
+ "sucds",
+ "tantivy",
+ "tantivy-common",
+ "tempfile",
+ "value",
 ]
 
 [[package]]

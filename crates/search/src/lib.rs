@@ -875,6 +875,9 @@ pub enum SearchFileType {
     VectorDeletedBitset,
     VectorIdTracker,
     Text,
+    TextIdTracker,
+    TextDeletedBitset,
+    TextDeletedTerms,
 }
 
 #[cfg(test)]

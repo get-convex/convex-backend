@@ -22,7 +22,9 @@ use async_trait::async_trait;
 use bytesize::ByteSize;
 use common::{
     bounded_thread_pool::BoundedThreadPool,
+    deleted_bitset::DeletedBitset,
     document::CreationTime,
+    id_tracker::StaticIdTracker,
     runtime::Runtime,
     types::{
         ObjectKey,
@@ -30,7 +32,10 @@ use common::{
         WriteTimestamp,
     },
 };
-use futures::TryStreamExt;
+use futures::{
+    try_join,
+    TryStreamExt,
+};
 use itertools::Itertools;
 use pb::searchlight::{
     FragmentedTextSegmentPaths,
@@ -50,17 +55,9 @@ use tantivy::{
         EnableScoring,
     },
     schema::Field,
-    termdict::{
-        TermDictionary,
-        TermOrdinal,
-    },
-    DocId,
     SegmentReader,
 };
-use tantivy_common::{
-    BitSet,
-    ReadOnlyBitSet,
-};
+use text_search::tracker::StaticDeletionTracker;
 use value::InternalId;
 use vector::{
     qdrant_segments::UntarredDiskSegmentPaths,
@@ -370,16 +367,26 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
-        let archive_path = self
-            .archive_cache
-            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
-            .await?;
+        let (deleted_tantivy_ids_path, deleted_terms_path) = try_join!(
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::TextDeletedBitset
+            ),
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::TextDeletedTerms
+            )
+        )?;
         let query = move || {
-            let reader = index_reader_for_directory(&archive_path)?;
+            let reader = index_reader_for_directory(&deleted_tantivy_ids_path)?;
             let searcher = reader.searcher();
             anyhow::ensure!(searcher.segment_readers().len() == 1);
             let segment = searcher.segment_reader(0);
-            let deletion_tracker = DeletionTracker::load(&archive_path)?;
+            let deleted_tantivy_ids = DeletedBitset::load_from_path(&deleted_tantivy_ids_path)?;
+            let deletion_tracker =
+                StaticDeletionTracker::load(deleted_tantivy_ids, &deleted_terms_path)?;
             Self::query_tokens_impl(segment, &deletion_tracker, queries, max_results)
         };
         let resp = self.text_search_pool.execute(query).await??;
@@ -392,16 +399,31 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         storage_keys: FragmentedTextSegmentStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
-        let archive_path = self
-            .archive_cache
-            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
-            .await?;
+        let (archive_path, deleted_tantivy_ids_path, deleted_terms_path) = try_join!(
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::Text
+            ),
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::TextDeletedBitset
+            ),
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::TextDeletedTerms
+            )
+        )?;
         let query = move || {
             let reader = index_reader_for_directory(&archive_path)?;
             let searcher = reader.searcher();
             anyhow::ensure!(searcher.segment_readers().len() == 1);
             let segment = searcher.segment_reader(0);
-            let deletion_tracker = DeletionTracker::load(&archive_path)?;
+            let deleted_tantivy_ids = DeletedBitset::load_from_path(&deleted_tantivy_ids_path)?;
+            let deletion_tracker =
+                StaticDeletionTracker::load(deleted_tantivy_ids, &deleted_terms_path)?;
             Self::query_bm25_stats_impl(segment, &deletion_tracker, terms)
         };
         let resp = self.text_search_pool.execute(query).await??;
@@ -414,17 +436,36 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         storage_keys: FragmentedTextSegmentStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
-        let archive_path = self
-            .archive_cache
-            .get(search_storage, &storage_keys.segment, SearchFileType::Text)
-            .await?;
+        let (archive_path, id_path, deleted_tantivy_ids_path, deleted_terms_path) = try_join!(
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::Text,
+            ),
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::TextIdTracker
+            ),
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::TextDeletedBitset
+            ),
+            self.archive_cache.get(
+                search_storage.clone(),
+                &storage_keys.segment,
+                SearchFileType::TextDeletedTerms
+            )
+        )?;
         let query = move || {
             let reader = index_reader_for_directory(&archive_path)?;
             let searcher = reader.searcher();
             anyhow::ensure!(searcher.segment_readers().len() == 1);
             let segment = searcher.segment_reader(0);
-            let id_tracker = IdTracker::load(&archive_path)?;
-            let deleted_tracker = DeletionTracker::load(&archive_path)?;
+            let deleted_bitset = DeletedBitset::load_from_path(&deleted_tantivy_ids_path)?;
+            let id_tracker = StaticIdTracker::load_from_path(id_path, deleted_bitset.clone())?;
+            let deleted_tracker = StaticDeletionTracker::load(deleted_bitset, &deleted_terms_path)?;
             Self::query_posting_lists_impl(&searcher, segment, &id_tracker, &deleted_tracker, query)
         };
         let resp = self.text_search_pool.execute(query).await??;
@@ -523,7 +564,7 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
 impl<RT: Runtime> SearcherImpl<RT> {
     fn query_tokens_impl(
         segment: &SegmentReader,
-        deletion_tracker: &DeletionTracker,
+        deletion_tracker: &StaticDeletionTracker,
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
@@ -594,7 +635,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
 
     fn visit_top_terms_for_query(
         segment: &SegmentReader,
-        deletion_tracker: &DeletionTracker,
+        deletion_tracker: &StaticDeletionTracker,
         token_ord: u32,
         query: &TokenQuery,
         results: &mut TokenMatchAggregator,
@@ -677,7 +718,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
 
     fn query_bm25_stats_impl(
         segment: &SegmentReader,
-        deletion_tracker: &DeletionTracker,
+        deletion_tracker: &StaticDeletionTracker,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
         let field = terms
@@ -691,10 +732,10 @@ impl<RT: Runtime> SearcherImpl<RT> {
         let term_dict = inverted_index.terms();
         let num_terms = inverted_index
             .total_num_tokens()
-            .checked_sub(deletion_tracker.num_terms_deleted()?)
+            .checked_sub(deletion_tracker.num_terms_deleted() as u64)
             .context("num_terms underflow")?;
         let num_documents = (segment.max_doc() as u64)
-            .checked_sub(deletion_tracker.num_documents_deleted()?)
+            .checked_sub(deletion_tracker.num_documents_deleted() as u64)
             .context("num_documents underflow")?;
         let mut doc_frequencies = BTreeMap::new();
         for term in terms {
@@ -715,8 +756,8 @@ impl<RT: Runtime> SearcherImpl<RT> {
     fn query_posting_lists_impl(
         searcher: &tantivy::Searcher,
         segment: &SegmentReader,
-        id_tracker: &IdTracker,
-        deleted_tracker: &DeletionTracker,
+        id_tracker: &StaticIdTracker,
+        deletion_tracker: &StaticDeletionTracker,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         let search_field = query
@@ -739,15 +780,14 @@ impl<RT: Runtime> SearcherImpl<RT> {
 
         let mut memory_deleted = BTreeSet::new();
         for internal_id in query.deleted_internal_ids {
-            let Some(doc_id) = id_tracker.lookup_id(&internal_id)? else {
+            let Some(doc_id) = id_tracker.lookup(internal_id.0) else {
                 continue;
             };
             memory_deleted.insert(doc_id);
         }
         let deleted_documents = DeletedDocuments {
             memory_deleted,
-            segment_deleted: deleted_tracker.deleted_documents(),
-            num_segment_deleted: deleted_tracker.num_documents_deleted()? as usize,
+            segment_deleted: deletion_tracker.deleted_documents().clone(),
         };
         let search_query =
             ConvexSearchQuery::new(query.or_terms, query.and_terms, deleted_documents);
@@ -1156,65 +1196,6 @@ impl TryFrom<PostingListMatch> for pb::searchlight::PostingListMatch {
     }
 }
 
-// Mapping from `InternalId` to `DocId` for all documents in a segment.
-// Immutable over the segment's lifetime.
-pub struct IdTracker;
-
-impl IdTracker {
-    pub fn load(_archive_path: &Path) -> anyhow::Result<Self> {
-        anyhow::bail!("Not implemented")
-    }
-
-    pub fn lookup_id(&self, _id: &InternalId) -> anyhow::Result<Option<DocId>> {
-        anyhow::bail!("Not implemented")
-    }
-}
-
-pub struct DeletionTracker;
-
-impl DeletionTracker {
-    pub fn load<P: AsRef<Path>>(_archive_path: P) -> anyhow::Result<Self> {
-        // TODO: Load the file's header into memory.
-        Ok(Self)
-    }
-
-    pub fn doc_frequency(
-        &self,
-        term_dict: &TermDictionary,
-        term_ord: TermOrdinal,
-    ) -> anyhow::Result<u64> {
-        let term_info = term_dict.term_info_from_ord(term_ord);
-        (term_info.doc_freq as u64)
-            .checked_sub(self.term_documents_deleted(term_ord)?)
-            .context("doc_frequency underflow")
-    }
-
-    /// How many terms have been completely deleted from the segment?
-    pub fn num_terms_deleted(&self) -> anyhow::Result<u64> {
-        // TODO: Read this from the header.
-        Ok(0)
-    }
-
-    /// How many documents have been deleted from the segment?
-    pub fn num_documents_deleted(&self) -> anyhow::Result<u64> {
-        // TODO: Read this from the header.
-        Ok(0)
-    }
-
-    /// How many of a term's documents have been deleted?
-    pub fn term_documents_deleted(&self, _term_ord: TermOrdinal) -> anyhow::Result<u64> {
-        // TODO: Load this from the perfect hash table, defaulting to zero if missing.
-        Ok(0)
-    }
-
-    /// Which documents have been deleted in the segment?
-    pub fn deleted_documents(&self) -> ReadOnlyBitSet {
-        // TODO: Load this from disk.
-        let empty = BitSet::with_max_value(0);
-        (&empty).into()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{
@@ -1232,10 +1213,12 @@ mod tests {
 
     use common::{
         bootstrap_model::index::search_index::DeveloperSearchIndexConfig,
+        deleted_bitset::DeletedBitset,
         document::{
             CreationTime,
             ResolvedDocument,
         },
+        id_tracker::StaticIdTracker,
         testing::TestIdGenerator,
         types::Timestamp,
     };
@@ -1245,6 +1228,7 @@ mod tests {
         Term,
     };
     use tempfile::TempDir;
+    use text_search::tracker::StaticDeletionTracker;
     use value::{
         assert_obj,
         FieldPath,
@@ -1258,8 +1242,6 @@ mod tests {
         disk_index::index_reader_for_directory,
         searcher::{
             searcher::{
-                DeletionTracker,
-                IdTracker,
                 PostingListQuery,
                 TokenQuery,
             },
@@ -1358,7 +1340,11 @@ mod tests {
 
         anyhow::ensure!(searcher.segment_readers().len() == 1);
         let segment = &searcher.segment_readers()[0];
-        let deletion_tracker = DeletionTracker::load(test_dir.path())?;
+        let deleted_tantivy_ids_path = test_dir.path().join("deleted_tantivy_ids");
+        let deleted_terms_path = test_dir.path().join("deleted_terms");
+        let deleted_tantivy_ids = DeletedBitset::load_from_path(deleted_tantivy_ids_path)?;
+        let deletion_tracker =
+            StaticDeletionTracker::load(deleted_tantivy_ids, &deleted_terms_path)?;
         let start = std::time::Instant::now();
         let results = SearcherImpl::<TestRuntime>::query_tokens_impl(
             segment,
@@ -1418,10 +1404,14 @@ mod tests {
             num_documents: stats.num_documents,
             max_results,
         };
+        let deleted_tantivy_ids_path = test_dir.path().join("deleted_tantivy_ids");
+        let deleted_tantivy_ids = DeletedBitset::load_from_path(deleted_tantivy_ids_path)?;
+        let id_tracker_path = test_dir.path().join("id_tracker");
+        let id_tracker = StaticIdTracker::load_from_path(id_tracker_path, deleted_tantivy_ids)?;
         let posting_list_matches = SearcherImpl::<TestRuntime>::query_posting_lists_impl(
             &searcher,
             segment,
-            &IdTracker,
+            &id_tracker,
             &deletion_tracker,
             query,
         )?;

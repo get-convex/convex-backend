@@ -40,6 +40,7 @@ sucds = { workspace = true }
 tantivy = { workspace = true }
 tantivy-common = { workspace = true }
 tempfile = { workspace = true }
+text_search = { path = "../text_search" }
 tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
@@ -60,6 +61,7 @@ proptest-derive = { workspace = true }
 rand = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
+text_search = { path = "../text_search", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 vector = { path = "../vector", features = ["testing"] }
 
@@ -72,6 +74,7 @@ testing = [
     "proptest",
     "proptest-derive",
     "storage/testing",
+    "text_search/testing",
     "value/testing",
     "vector/testing",
 ]

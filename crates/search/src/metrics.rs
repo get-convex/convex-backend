@@ -425,6 +425,9 @@ impl SearchFileType {
             SearchFileType::VectorDeletedBitset => "vector_deleted_bitset",
             SearchFileType::VectorIdTracker => "vector_id_tracker",
             SearchFileType::Text => "text",
+            SearchFileType::TextIdTracker => "text_id_tracker",
+            SearchFileType::TextDeletedBitset => "text_deleted_bitset",
+            SearchFileType::TextDeletedTerms => "text_deleted_terms",
             SearchFileType::FragmentedVectorSegment => "fragmented_vector_segment",
         };
         StaticMetricLabel::new(SEARCH_FILE_TYPE, search_type_str)
