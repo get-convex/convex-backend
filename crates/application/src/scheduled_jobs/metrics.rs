@@ -45,3 +45,11 @@ register_convex_gauge!(
 pub fn log_scheduled_job_execution_lag(lag: Duration) {
     log_gauge(&SCHEDULED_JOB_EXECUTION_LAG_SECONDS, lag.as_secs_f64());
 }
+
+register_convex_gauge!(
+    SCHEDULED_JOB_NUM_RUNNING_TOTAL,
+    "Number of currently executing scheduled jobs"
+);
+pub fn log_num_running_jobs(num_running: usize) {
+    log_gauge(&SCHEDULED_JOB_NUM_RUNNING_TOTAL, num_running as f64);
+}

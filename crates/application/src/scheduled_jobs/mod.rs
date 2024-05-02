@@ -257,6 +257,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                     .await?
             };
 
+            metrics::log_num_running_jobs(running_job_ids.len());
             let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
                 let now = self.rt.generate_timestamp()?;
                 Either::Left(if next_job_ts < now {
@@ -265,9 +266,11 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                     // track how far we're behind in our metrics.
                     self.rt.wait(Duration::from_secs(5))
                 } else {
+                    metrics::log_scheduled_job_execution_lag(Duration::from_secs(0));
                     self.rt.wait(next_job_ts - now)
                 })
             } else {
+                metrics::log_scheduled_job_execution_lag(Duration::from_secs(0));
                 Either::Right(std::future::pending())
             };
 
