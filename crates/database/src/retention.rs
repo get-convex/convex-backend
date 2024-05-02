@@ -703,7 +703,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         Ok(())
     }
 
-    #[try_stream(ok = (Timestamp, InternalDocumentId), error = anyhow::Error)]
+    /// Finds expired documents in the documents log and returns a tuple of the
+    /// form (scanned_document_ts, (expired_document_ts,
+    /// internal_document_ts))
+    #[try_stream(ok = (Timestamp, (Timestamp, InternalDocumentId)), error = anyhow::Error)]
     async fn expired_documents(
         rt: &RT,
         reader: RepeatablePersistence,
@@ -724,7 +727,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             .try_chunks2(*RETENTION_READ_CHUNK)
             .map(move |chunk| async move {
                 let chunk = chunk?.to_vec();
-                let mut entries_to_delete: Vec<(Timestamp, InternalDocumentId)> = vec![];
+                let mut entries_to_delete: Vec<(Timestamp, (Timestamp, InternalDocumentId))> =
+                    vec![];
                 // Prev revs are the documents we are deleting.
                 // Each prev rev has 1 or 2 entries to delete per document -- one entry at
                 // the prev rev's ts, and a tombstone at the current rev's ts if
@@ -752,7 +756,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                                  the retention window"
                             );
 
-                            entries_to_delete.push((ts, id));
+                            entries_to_delete.push((ts, (ts, id)));
                         }
                         log_document_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
@@ -775,11 +779,11 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                          the retention window"
                     );
 
-                    entries_to_delete.push((*prev_rev_ts, id));
+                    entries_to_delete.push((ts, (*prev_rev_ts, id)));
 
                     // Deletes tombstones
                     if maybe_doc.is_none() {
-                        entries_to_delete.push((ts, id));
+                        entries_to_delete.push((ts, (ts, id)));
                     }
 
                     log_document_retention_scanned_document(maybe_doc.is_none(), true);
@@ -889,8 +893,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// Partitions documents into RETENTION_DELETE_PARALLEL parts where each
     /// document id only exists in one part
     fn partition_document_chunk(
-        to_partition: Vec<(Timestamp, InternalDocumentId)>,
-    ) -> Vec<Vec<(Timestamp, InternalDocumentId)>> {
+        to_partition: Vec<(Timestamp, (Timestamp, InternalDocumentId))>,
+    ) -> Vec<Vec<(Timestamp, (Timestamp, InternalDocumentId))>> {
         let mut parts = Vec::new();
         for _ in 0..*RETENTION_DELETE_PARALLEL {
             parts.push(vec![]);
@@ -948,7 +952,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     }
 
     async fn delete_document_chunk(
-        delete_chunk: Vec<(Timestamp, InternalDocumentId)>,
+        delete_chunk: Vec<(Timestamp, (Timestamp, InternalDocumentId))>,
         persistence: Arc<dyn Persistence>,
         mut new_cursor: Timestamp,
     ) -> anyhow::Result<(Timestamp, usize)> {
@@ -957,34 +961,21 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             return Ok((new_cursor, delete_chunk.len()));
         }
         let _timer = retention_delete_document_chunk_timer();
-        let delete_chunk = delete_chunk.to_vec();
-        let documents_to_delete = persistence.documents_to_delete(&delete_chunk).await?;
-        let total_documents_to_delete = documents_to_delete.len();
-        tracing::trace!("delete_documents: got documents to delete {total_documents_to_delete:?}");
-        // If there are more entries to delete than we see in the delete chunk,
-        // it means retention skipped deleting entries before, and we
-        // incorrectly bumped DocumentRetentionConfirmedDeletedTimestamp anyway.
-        if documents_to_delete.len() > delete_chunk.len() {
-            report_error(&mut anyhow::anyhow!(
-                "retention wanted to delete {} documents but found {total_documents_to_delete} to \
-                 delete",
-                delete_chunk.len(),
-            ));
-            anyhow::bail!(
-                "Retention wanted to delete {} documents but found {total_documents_to_delete} to
-                delete. Likely DocumentRetentionConfirmedDeletedTimestamp was bumped incorrectly",
-                delete_chunk.len()
-            )
-        }
-        for document_to_delete in documents_to_delete.iter() {
-            // If we're deleting a document, we've definitely deleted
-            // entries for documents at all prior timestamps.
+        let total_documents_to_delete = delete_chunk.len();
+        tracing::trace!(
+            "delete_documents: there are {total_documents_to_delete:?} documents to delete"
+        );
+        for document_to_delete in delete_chunk.iter() {
+            // If we're deleting the previous revision of a document, we've definitely
+            // deleted entries for documents at all prior timestamps.
             if document_to_delete.0 > Timestamp::MIN {
                 new_cursor = cmp::max(new_cursor, document_to_delete.0.pred()?);
             }
         }
         let deleted_rows = if total_documents_to_delete > 0 {
-            persistence.delete(documents_to_delete).await?
+            persistence
+                .delete(delete_chunk.into_iter().map(|doc| doc.1).collect())
+                .await?
         } else {
             0
         };
@@ -1811,7 +1802,11 @@ mod tests {
         let expired: Vec<_> = expired_stream.try_collect().await?;
 
         assert_eq!(expired.len(), 5);
-        assert_eq!(p.delete(expired).await?, 5);
+        assert_eq!(
+            p.delete(expired.into_iter().map(|doc| doc.1).collect())
+                .await?,
+            5
+        );
 
         let reader = p.reader();
 

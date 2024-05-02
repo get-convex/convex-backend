@@ -220,21 +220,6 @@ impl Persistence for TestPersistence {
         Ok(total_deleted)
     }
 
-    async fn documents_to_delete(
-        &self,
-        expired_documents: &Vec<(Timestamp, InternalDocumentId)>,
-    ) -> anyhow::Result<Vec<(Timestamp, InternalDocumentId)>> {
-        let inner = self.inner.lock();
-        let log = &inner.log;
-        let mut new_expired_rows = Vec::new();
-        for expired_doc in expired_documents {
-            if log.get(expired_doc).is_some() {
-                new_expired_rows.push(*expired_doc);
-            }
-        }
-        Ok(new_expired_rows)
-    }
-
     async fn delete(
         &self,
         documents: Vec<(Timestamp, InternalDocumentId)>,

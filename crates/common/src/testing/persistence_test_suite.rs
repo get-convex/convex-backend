@@ -1570,10 +1570,7 @@ pub async fn persistence_delete_documents<P: Persistence>(p: Arc<P>) -> anyhow::
         .map(|(ts, id, _)| (*ts, *id))
         .collect_vec();
 
-    let expired_docs = p.documents_to_delete(&docs_to_delete).await?;
-    assert_eq!(docs_to_delete, expired_docs);
-
-    assert_eq!(p.delete(expired_docs).await?, 3);
+    assert_eq!(p.delete(docs_to_delete).await?, 3);
 
     let stream = reader.load_all_documents();
     pin_mut!(stream);
