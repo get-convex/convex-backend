@@ -1,34 +1,26 @@
 # Changelog
 
-## Upcoming
+## 1.11.3
 
-## 1.5.0
+- Fix bug when filling out an empty env file
+- Exclude files beginning with # from convex directory entry points
+- Warn when pushing with an https.ts file
+- throw if argument to Query.take() is not an integer
 
-- Preview deployments
+## 1.11.2
 
-## 1.4.0
+- Fix timestamps in npm convex logs
 
-- External packages in Node.js
-- `npx convex run` now does not push code, `npx convex run --push` instead
+## 1.11.1
 
-## 1.3.0
-
-- `ConvexClient` callback-based WebSocket client
-- `ConvexError`
-- `npx convex dev --tail-logs`
-
-## 1.2.0
-
-- Vector support (beta)
-
-## 1.1.0
-
-- "skip" support for `useQuery`
-- esbuild upgrade from
-  [0.15.18](https://github.com/evanw/esbuild/blob/main/CHANGELOG-2022.md#01518)
-  to [0.17.5](https://github.com/evanw/esbuild/blob/main/CHANGELOG.md#0175k0)
+- Allow Clerk 5 (currently in beta) in convex peerDependencies
+- Fix typechecking bug on Windows caused by the Node.js patch for CVE-2024-27980
+  that makes running tsc.CMD directly no longer work
+- Exclude jsonl from convex directory entry points
+- Add autocomplete for project selection in new project flow
+- output debugBundlePath as full bundle instead of as a single file
 
 ---
 
-Find release notes for versions before 1.1.0 on the
+Find release notes for versions before 1.11.3 on the
 [Convex Blog](https://news.convex.dev/tag/releases/).
