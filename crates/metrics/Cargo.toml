@@ -17,10 +17,6 @@ prometheus = { workspace = true }
 sentry = { workspace = true }
 tracing = { workspace = true }
 
-[build-dependencies]
-anyhow = { workspace = true }
-vergen = { workspace = true, features = ["git", "gitcl"] }
-
 [features]
 testing = []
 

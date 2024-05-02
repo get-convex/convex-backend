@@ -9,10 +9,7 @@ use std::{
 
 use cmd_util::env::env_config;
 use errors::ErrorMetadata;
-pub use metrics::{
-    COMPILED_REVISION,
-    SERVER_VERSION_STR,
-};
+pub use metrics::SERVER_VERSION_STR;
 pub use semver::Version;
 use serde::{
     Deserialize,

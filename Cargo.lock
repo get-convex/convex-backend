@@ -3946,7 +3946,6 @@ dependencies = [
  "prometheus",
  "sentry",
  "tracing",
- "vergen",
 ]
 
 [[package]]
@@ -7902,17 +7901,6 @@ dependencies = [
  "usage_tracking",
  "uuid",
  "value",
-]
-
-[[package]]
-name = "vergen"
-version = "8.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00f9f3c0ac17bba2cce5ba26fc17a26cb93e099626b6c3260882cecb08a1e2b4"
-dependencies = [
- "anyhow",
- "rustversion",
- "time",
 ]
 
 [[package]]

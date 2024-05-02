@@ -69,8 +69,6 @@ fn initialize_server_version() -> String {
 }
 pub static SERVER_VERSION_STR: LazyLock<String> = LazyLock::new(initialize_server_version);
 
-pub const COMPILED_REVISION: &str = env!("VERGEN_GIT_SHA");
-
 register_convex_gauge!(
     CONVEX_BINARY_VERSIONS_TOTAL,
     "Gauge representing the existence of a certain process at a certain version, as indicated in \

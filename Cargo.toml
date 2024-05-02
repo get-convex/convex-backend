@@ -132,7 +132,6 @@ tracy-client = { version = "0.16.0", default-features = false, features = [ "fib
 tungstenite = "0.20.0"
 url = "2"
 uuid = { version = "1.6", features = [ "serde", "v4" ] }
-vergen = { version = "8.1.0" }
 walkdir = "2"
 xorf = { git = "https://github.com/sujayakar/xorf.git", rev = "62a32de47bb3ad8b34d6d4feac034a24be2c881a" }
 
