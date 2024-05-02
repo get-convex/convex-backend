@@ -170,8 +170,14 @@ async function envVarWriteConfig(
     if (oldValue === value) {
       return null;
     }
-    if (Object.values(config).filter((v) => v === oldValue).length !== 1) {
-      chalk.yellow(`Can't safely modify ${envFile}, please edit manually.`);
+    if (
+      oldValue !== "" &&
+      Object.values(config).filter((v) => v === oldValue).length !== 1
+    ) {
+      logWarning(
+        ctx,
+        chalk.yellow(`Can't safely modify ${envFile}, please edit manually.`),
+      );
       return null;
     }
     return { envFile, envVar: existingEnvVar, existingFileContent };
