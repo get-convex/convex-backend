@@ -164,10 +164,6 @@ mod metrics {
 #[allow(clippy::declare_interior_mutable_const)]
 pub const APPLICATION_JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
 
-#[allow(clippy::declare_interior_mutable_const)]
-pub const GOOGLE_ANALYTICS_CLIENT_ID: HeaderName =
-    HeaderName::from_static("google-analytics-client-id");
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct HttpRequest {
     pub headers: HeaderMap,
