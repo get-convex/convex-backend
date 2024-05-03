@@ -41,7 +41,10 @@ use database::{
 };
 use errors::ErrorMetadata;
 use maplit::btreemap;
-use sync_types::UdfPath;
+use sync_types::{
+    Timestamp,
+    UdfPath,
+};
 use value::{
     id_v6::DocumentIdV6,
     ConvexArray,
@@ -209,14 +212,18 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
         self.check_scheduling_limits(&args)?;
 
-        let scheduled_ts = ts.as_system_time().try_into()?;
+        let now: Timestamp = self.tx.runtime().generate_timestamp()?;
+        let original_scheduled_ts: Timestamp = ts.as_system_time().try_into()?;
         let scheduled_job = ScheduledJob {
             udf_path: udf_path.clone().canonicalize(),
             udf_args: args.clone(),
             state: ScheduledJobState::Pending,
-            next_ts: Some(scheduled_ts),
+            // Don't set next_ts in the past to avoid scheduler incorrectly logging
+            // it is falling behind. We should keep `original_scheduled_ts` intact
+            // since this is exposed to the developer via the virtual table.
+            next_ts: Some(original_scheduled_ts.max(now)),
             completed_ts: None,
-            original_scheduled_ts: scheduled_ts,
+            original_scheduled_ts,
         };
         let job = if let Some(parent_scheduled_job) = context.parent_scheduled_job {
             let table_mapping = self.tx.table_mapping();
