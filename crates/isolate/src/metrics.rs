@@ -20,6 +20,7 @@ use metrics::{
     register_convex_histogram,
     CancelableTimer,
     IntoLabel,
+    MetricLabel,
     StaticMetricLabel,
     StatusTimer,
     Timer,
@@ -54,13 +55,16 @@ pub fn execute_timer(udf_type: &UdfType, npm_version: &Option<Version>) -> Statu
 register_convex_gauge!(
     ISOLATE_POOL_RUNNING_COUNT_INFO,
     "How many isolate workers are currently running work",
-    &["pool_name"]
+    &["pool_name", "client_id"]
 );
-pub fn log_pool_running_count(name: &'static str, count: usize) {
+pub fn log_pool_running_count(name: &'static str, count: usize, client_id: &str) {
     log_gauge_with_labels(
         &ISOLATE_POOL_RUNNING_COUNT_INFO,
         count as f64,
-        vec![StaticMetricLabel::new("pool_name", name)],
+        vec![
+            StaticMetricLabel::new("pool_name", name),
+            MetricLabel::new("client_id", client_id),
+        ],
     );
 }
 

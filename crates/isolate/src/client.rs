@@ -1013,7 +1013,8 @@ impl<RT: Runtime, W: IsolateWorker<RT>> IsolateScheduler<RT, W> {
                     completed_worker = in_progress_workers.select_next_some() => {
                         log_pool_running_count(
                             self.worker.config().name,
-                            in_progress_workers.len()
+                            in_progress_workers.len(),
+                            "" // This is a single tenant scheduler used in the backend.
                         );
                         let Ok(completed_worker) = completed_worker else {
                             // Worker has shut down, so we should shut down too.
@@ -1049,7 +1050,13 @@ impl<RT: Runtime, W: IsolateWorker<RT>> IsolateScheduler<RT, W> {
                 return;
             }
             in_progress_workers.push(done_receiver);
-            log_pool_running_count(self.worker.config().name, in_progress_workers.len());
+            // This is a single tenant scheduler used in the backend.
+            let client_id = "";
+            log_pool_running_count(
+                self.worker.config().name,
+                in_progress_workers.len(),
+                client_id,
+            );
         }
     }
 }
@@ -1115,22 +1122,30 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
     }
 
     fn handle_completed_worker(&mut self, completed_worker: ActiveWorkerState) {
-        match self
+        let new_count = match self
             .in_progress_count
             .remove_entry(&completed_worker.client_id)
         {
             Some((client_id, count)) if count > 1 => {
                 self.in_progress_count.insert(client_id, count - 1);
+                count - 1
             },
             Some((_, 1)) => {
                 // Nothing to do; we've already removed the entry above.
+                0
             },
             _ => panic!(
                 "Inconsistent state in `in_progress_count` map; the count of active workers for \
                  client {} must be >= 1",
                 completed_worker.client_id
             ),
-        }
+        };
+        log_pool_running_count(
+            self.worker.config().name,
+            new_count,
+            &completed_worker.client_id,
+        );
+
         self.available_workers
             .entry(completed_worker.client_id)
             .or_default()
@@ -1146,10 +1161,6 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
         loop {
             select_biased! {
                 completed_worker = self.in_progress_workers.select_next_some() => {
-                    log_pool_running_count(
-                        self.worker.config().name,
-                        self.in_progress_workers.len()
-                    );
                     let Ok(completed_worker): Result<ActiveWorkerState, _> = completed_worker else {
                         tracing::warn!("Worker has shut down uncleanly. Shutting down {} scheduler.", self.worker.config().name);
                         return;
@@ -1171,10 +1182,16 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                     };
                     let (done_sender, done_receiver) = oneshot::channel();
                     self.in_progress_workers.push(done_receiver);
-                    *self
+                    let entry = self
                         .in_progress_count
                         .entry(request.client_id.clone())
-                        .or_default() += 1;
+                        .or_default();
+                    *entry += 1;
+                    log_pool_running_count(
+                        self.worker.config().name,
+                        *entry,
+                        &request.client_id,
+                    );
                     let client_id = request.client_id.clone();
                     if self.worker_senders[worker_id]
                         .try_send((
@@ -1195,10 +1212,6 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
                         );
                         return;
                     }
-                    log_pool_running_count(
-                        self.worker.config().name,
-                        self.in_progress_workers.len()
-                    );
                 },
                 _ = report_stats => {
                     let heap_stats = self.aggregate_heap_stats();
