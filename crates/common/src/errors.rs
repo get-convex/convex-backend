@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{
         btree_map::Entry,
         BTreeMap,
@@ -37,10 +38,20 @@ use value::{
 
 use crate::metrics::log_errors_reported_total;
 
-/// Regex to match PII where we show the object that doesn't match the
-/// validator.
-static SCHEMA_VALIDATION_OBJECT_PII: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?s)Object:.*Validator").unwrap());
+/// Replacers for PII in errors before reporting to thirdparty services
+/// (sentry/datadog)
+static PII_REPLACEMENTS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(|| {
+    vec![
+        // Regex to match PII where we show the object that doesn't match the
+        // validator.
+        (Regex::new(r"(?s)Object:.*Validator").unwrap(), "Validator"),
+        // Regex to match emails
+        (
+            Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b").unwrap(),
+            "*****@*****.***",
+        ),
+    ]
+});
 
 /// Return Result<(), MainError> from main functions to report returned errors
 /// to Sentry.
@@ -63,9 +74,12 @@ impl std::fmt::Debug for MainError {
 
 fn strip_pii(err: &mut anyhow::Error) {
     if let Some(error_metadata) = err.downcast_mut::<ErrorMetadata>() {
-        let stripped_msg =
-            SCHEMA_VALIDATION_OBJECT_PII.replace_all(&error_metadata.msg, "Validator");
-        error_metadata.msg = stripped_msg.to_string().into();
+        for (regex, replacement) in PII_REPLACEMENTS.iter() {
+            match regex.replace_all(&error_metadata.msg, *replacement) {
+                Cow::Borrowed(b) if b == error_metadata.msg => (),
+                cow => error_metadata.msg = Cow::Owned(cow.into_owned()),
+            }
+        }
     }
 }
 
@@ -654,7 +668,7 @@ mod tests {
     }
 
     #[test]
-    fn test_strip_pii() -> anyhow::Result<()> {
+    fn test_strip_pii_obj() -> anyhow::Result<()> {
         let object = obj!("foo" => "bar")?;
         let validation_error = ValidationError::ExtraField {
             object: object.clone(),
@@ -675,6 +689,17 @@ mod tests {
         let err_string = anyhow_err.to_string();
         assert!(!err_string.contains(&object.to_string()));
         assert!(err_string.contains("Object contains extra field"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_pii_email() -> anyhow::Result<()> {
+        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request(
+            "DIY",
+            "Need DIY advice? Email totally-not-james@convex.dev"
+        ));
+        strip_pii(&mut e);
+        assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
         Ok(())
     }
 
