@@ -177,32 +177,6 @@ impl Persistence for TestPersistence {
         Ok(index_entries)
     }
 
-    async fn index_entries_to_delete(
-        &self,
-        expired_entries: &Vec<IndexEntry>,
-    ) -> anyhow::Result<Vec<IndexEntry>> {
-        let inner = self.inner.lock();
-        let index = &inner.index;
-        let mut new_expired_rows = BTreeSet::new();
-        for expired_row in expired_entries {
-            if let Some(index) = index.get(&expired_row.index_id) {
-                for ((bytes, ts), value) in index.iter() {
-                    if &bytes.0 == &expired_row.key_prefix && *ts <= expired_row.ts {
-                        new_expired_rows.insert(IndexEntry {
-                            index_id: expired_row.index_id,
-                            key_prefix: expired_row.key_prefix.clone(),
-                            key_sha256: expired_row.key_sha256.clone(),
-                            ts: *ts,
-                            key_suffix: None,
-                            deleted: value.is_delete(),
-                        });
-                    }
-                }
-            }
-        }
-        Ok(new_expired_rows.into_iter().collect())
-    }
-
     async fn delete_index_entries(&self, expired_rows: Vec<IndexEntry>) -> anyhow::Result<usize> {
         let mut inner = self.inner.lock();
         let index = &mut inner.index;

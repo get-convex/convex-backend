@@ -506,7 +506,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         }
     }
 
-    #[try_stream(ok = IndexEntry, error = anyhow::Error)]
+    /// Finds expired index entries in the index table and returns a tuple of
+    /// the form (scanned_index_ts, expired_index_entry)
+    #[try_stream(ok = (Timestamp, IndexEntry), error = anyhow::Error)]
     async fn expired_index_entries(
         reader: RepeatablePersistence,
         cursor: Timestamp,
@@ -563,14 +565,17 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         let key_sha256 = Sha256::hash(&index_key);
                         let key = SplitKey::new(index_key.clone().0);
                         log_retention_expired_index_entry(false, false);
-                        entries_to_delete.push(IndexEntry {
-                            index_id: *index_id,
-                            key_prefix: key.prefix.clone(),
-                            key_suffix: key.suffix.clone(),
-                            key_sha256: key_sha256.to_vec(),
-                            ts: *prev_rev_ts,
-                            deleted: false,
-                        });
+                        entries_to_delete.push((
+                            ts,
+                            IndexEntry {
+                                index_id: *index_id,
+                                key_prefix: key.prefix.clone(),
+                                key_suffix: key.suffix.clone(),
+                                key_sha256: key_sha256.to_vec(),
+                                ts: *prev_rev_ts,
+                                deleted: false,
+                            },
+                        ));
                         match maybe_doc.as_ref() {
                             Some(doc) => {
                                 let next_index_key = doc
@@ -583,14 +588,17 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                             },
                             None => log_retention_expired_index_entry(true, false),
                         }
-                        entries_to_delete.push(IndexEntry {
-                            index_id: *index_id,
-                            key_prefix: key.prefix,
-                            key_suffix: key.suffix,
-                            key_sha256: key_sha256.to_vec(),
+                        entries_to_delete.push((
                             ts,
-                            deleted: true,
-                        });
+                            IndexEntry {
+                                index_id: *index_id,
+                                key_prefix: key.prefix,
+                                key_suffix: key.suffix,
+                                key_sha256: key_sha256.to_vec(),
+                                ts,
+                                deleted: true,
+                            },
+                        ));
                     }
                 }
                 anyhow::Ok(entries_to_delete)
@@ -876,14 +884,16 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
     /// Partitions IndexEntry into RETENTION_DELETE_PARALLEL parts where each
     /// index key only exists in one part.
-    fn partition_chunk(to_partition: Vec<IndexEntry>) -> Vec<Vec<IndexEntry>> {
+    fn partition_chunk(
+        to_partition: Vec<(Timestamp, IndexEntry)>,
+    ) -> Vec<Vec<(Timestamp, IndexEntry)>> {
         let mut parts = Vec::new();
         for _ in 0..*RETENTION_DELETE_PARALLEL {
             parts.push(vec![]);
         }
         for entry in to_partition {
             let mut hash = DefaultHasher::new();
-            entry.key_sha256.hash(&mut hash);
+            entry.1.key_sha256.hash(&mut hash);
             let i = (hash.finish() as usize) % *RETENTION_DELETE_PARALLEL;
             parts[i].push(entry);
         }
@@ -909,44 +919,39 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     }
 
     async fn delete_chunk(
-        delete_chunk: Vec<IndexEntry>,
+        delete_chunk: Vec<(Timestamp, IndexEntry)>,
         persistence: Arc<dyn Persistence>,
         mut new_cursor: Timestamp,
     ) -> anyhow::Result<(Timestamp, usize)> {
         let _timer = retention_delete_chunk_timer();
-        let delete_chunk = delete_chunk.to_vec();
-        let index_entries_to_delete = persistence.index_entries_to_delete(&delete_chunk).await?;
-        let total_index_entries_to_delete = index_entries_to_delete.len();
-        tracing::trace!("delete: got entries to delete {total_index_entries_to_delete:?}");
-        // If there are more entries to delete than we see in the delete chunk,
-        // it means retention skipped deleting entries before, and we
-        // incorrectly bumped RetentionConfirmedDeletedTimestamp anyway.
-        if index_entries_to_delete.len() > delete_chunk.len() {
-            report_error(&mut anyhow::anyhow!(
-                "retention wanted to delete {} entries but found {total_index_entries_to_delete} \
-                 to delete",
-                delete_chunk.len(),
-            ));
-        }
-        for index_entry_to_delete in index_entries_to_delete.iter() {
-            // If we're deleting an index entry, we've definitely deleted
-            // index entries for documents at all prior timestamps.
-            if index_entry_to_delete.ts > Timestamp::MIN {
-                new_cursor = cmp::max(new_cursor, index_entry_to_delete.ts.pred()?);
+        let index_entries_to_delete = delete_chunk.len();
+        tracing::trace!("delete: got entries to delete {index_entries_to_delete:?}");
+        for index_entry_to_delete in delete_chunk.iter() {
+            // If we're deleting the previous revision of an index entry, we've definitely
+            // deleted index entries for documents at all prior timestamps.
+            if index_entry_to_delete.0 > Timestamp::MIN {
+                new_cursor = cmp::max(new_cursor, index_entry_to_delete.0.pred()?);
             }
         }
-        let deleted_rows = if total_index_entries_to_delete > 0 {
+        let deleted_rows = if index_entries_to_delete > 0 {
             persistence
-                .delete_index_entries(index_entries_to_delete)
+                .delete_index_entries(delete_chunk.into_iter().map(|ind| ind.1).collect())
                 .await?
         } else {
             0
         };
 
-        tracing::trace!(
-            "delete: deleted rows {deleted_rows:?} for {total_index_entries_to_delete} index \
-             entries"
-        );
+        // If there are more entries to delete than we see in the delete chunk,
+        // it means retention skipped deleting entries before, and we
+        // incorrectly bumped RetentionConfirmedDeletedTimestamp anyway.
+        if deleted_rows > index_entries_to_delete {
+            report_error(&mut anyhow::anyhow!(
+                "retention wanted to delete {index_entries_to_delete} entries but found \
+                 {deleted_rows} to delete"
+            ));
+        }
+
+        tracing::trace!("delete: deleted {deleted_rows:?} rows");
         log_retention_index_entries_deleted(deleted_rows);
         Ok((new_cursor, deleted_rows))
     }
@@ -961,10 +966,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             return Ok((new_cursor, delete_chunk.len()));
         }
         let _timer = retention_delete_document_chunk_timer();
-        let total_documents_to_delete = delete_chunk.len();
-        tracing::trace!(
-            "delete_documents: there are {total_documents_to_delete:?} documents to delete"
-        );
+        let documents_to_delete = delete_chunk.len();
+        tracing::trace!("delete_documents: there are {documents_to_delete:?} documents to delete");
         for document_to_delete in delete_chunk.iter() {
             // If we're deleting the previous revision of a document, we've definitely
             // deleted entries for documents at all prior timestamps.
@@ -972,7 +975,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 new_cursor = cmp::max(new_cursor, document_to_delete.0.pred()?);
             }
         }
-        let deleted_rows = if total_documents_to_delete > 0 {
+        let deleted_rows = if documents_to_delete > 0 {
             persistence
                 .delete(delete_chunk.into_iter().map(|doc| doc.1).collect())
                 .await?
@@ -980,9 +983,17 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             0
         };
 
-        tracing::trace!(
-            "delete: deleted rows {deleted_rows:?} for {total_documents_to_delete} index entries"
-        );
+        // If there are more documents to delete than we see in the delete chunk,
+        // it means retention skipped deleting documents before, and we
+        // incorrectly bumped DocumentRetentionConfirmedDeletedTimestamp anyway.
+        if deleted_rows > documents_to_delete {
+            report_error(&mut anyhow::anyhow!(
+                "retention wanted to delete {documents_to_delete} documents but found \
+                 {deleted_rows} to delete"
+            ));
+        }
+
+        tracing::trace!("delete_documents: deleted {deleted_rows:?} rows");
         log_retention_documents_deleted(deleted_rows);
         Ok((new_cursor, deleted_rows))
     }
@@ -1725,7 +1736,11 @@ mod tests {
         let expired: Vec<_> = expired_stream.try_collect().await?;
 
         assert_eq!(expired.len(), 7);
-        assert_eq!(p.delete_index_entries(expired).await?, 7);
+        assert_eq!(
+            p.delete_index_entries(expired.into_iter().map(|ind| ind.1).collect())
+                .await?,
+            7
+        );
 
         let reader = p.reader();
         let reader = RepeatablePersistence::new(reader, repeatable_ts, retention_validator);
