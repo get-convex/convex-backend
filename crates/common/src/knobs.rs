@@ -387,6 +387,10 @@ pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyL
     Duration::from_secs(env_config("DOCUMENT_RETENTION_BATCHES_PER_MINUTE", 10 * 60))
 });
 
+/// Maximum scanned documents within a single run for document retention
+pub static DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS: LazyLock<usize> =
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS", 10000));
+
 /// Whether or not we run document retention in dry run mode
 pub static DOCUMENT_RETENTION_DRY_RUN: LazyLock<bool> =
     LazyLock::new(|| env_config("DOCUMENT_RETENTION_DRY_RUN", true));

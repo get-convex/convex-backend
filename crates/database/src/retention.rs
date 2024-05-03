@@ -42,6 +42,7 @@ use common::{
         DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS,
         DOCUMENT_RETENTION_DELAY,
         DOCUMENT_RETENTION_DRY_RUN,
+        DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS,
         INDEX_RETENTION_DELAY,
         MAX_RETENTION_DELAY_SECONDS,
         RETENTION_DELETES_ENABLED,
@@ -799,9 +800,13 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 anyhow::Ok(entries_to_delete)
             })
             .buffered(*RETENTION_READ_PARALLEL);
-        while let Some(chunk) = document_chunks.try_next().await? {
+        let mut scanned_documents = 0;
+        while let Some(chunk) = document_chunks.try_next().await?
+            && scanned_documents < *DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS
+        {
             for entry in chunk {
                 yield entry;
+                scanned_documents += 1;
             }
         }
     }
@@ -858,7 +863,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if let Some(max_new_cursor) = chunk_new_cursors.into_iter().max() {
                 new_cursor = max_new_cursor;
             }
-            if new_cursor > cursor && total_expired_entries > *RETENTION_DELETE_BATCH {
+            if new_cursor > cursor {
                 tracing::debug!(
                     "delete_documents: returning early with {new_cursor:?}, total expired \
                      documents read: {total_expired_entries:?}, total rows deleted: \
