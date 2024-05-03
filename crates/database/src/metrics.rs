@@ -403,11 +403,27 @@ pub fn log_retention_cursor_age(age_secs: f64) {
 }
 
 register_convex_gauge!(
+    RETENTION_CURSOR_LAG_SECONDS,
+    "Lag between the retention cursor and the min index snapshot"
+);
+pub fn log_retention_cursor_lag(age_secs: f64) {
+    log_gauge(&RETENTION_CURSOR_LAG_SECONDS, age_secs)
+}
+
+register_convex_gauge!(
     DOCUMENT_RETENTION_CURSOR_AGE_SECONDS,
     "Age of the document retention cursor"
 );
 pub fn log_document_retention_cursor_age(age_secs: f64) {
     log_gauge(&DOCUMENT_RETENTION_CURSOR_AGE_SECONDS, age_secs)
+}
+
+register_convex_gauge!(
+    DOCUMENT_RETENTION_CURSOR_LAG_SECONDS,
+    "Lag between the retention cursor and the min document snapshot"
+);
+pub fn log_document_retention_cursor_lag(age_secs: f64) {
+    log_gauge(&DOCUMENT_RETENTION_CURSOR_LAG_SECONDS, age_secs)
 }
 
 register_convex_gauge!(
