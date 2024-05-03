@@ -1,5 +1,8 @@
 use std::{
-    collections::HashSet,
+    collections::{
+        BTreeMap,
+        HashSet,
+    },
     sync::Arc,
     time::Duration,
 };
@@ -18,6 +21,7 @@ use common::{
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
     log_lines::LogLines,
+    minitrace_helpers::get_sampled_span,
     query::{
         IndexRange,
         Order,
@@ -50,6 +54,7 @@ use futures::{
 };
 use isolate::JsonPackedValue;
 use keybroker::Identity;
+use minitrace::future::FutureExt as _;
 use model::{
     backend_state::{
         types::BackendState,
@@ -186,7 +191,10 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     next_job_wait = Some(Duration::from_secs(5));
                     break;
                 }
-                futures.push(self.execute_job(job, job_id));
+                let root = self
+                    .rt
+                    .with_rng(|rng| get_sampled_span("crons/execute_job", rng, BTreeMap::new()));
+                futures.push(self.execute_job(job, job_id).in_span(root));
                 running_job_ids.insert(job_id);
             }
 

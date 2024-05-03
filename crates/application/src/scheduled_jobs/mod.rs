@@ -1,5 +1,8 @@
 use std::{
-    collections::HashSet,
+    collections::{
+        BTreeMap,
+        HashSet,
+    },
     ops::Deref,
     sync::Arc,
     time::Duration,
@@ -19,6 +22,7 @@ use common::{
         SCHEDULED_JOB_RETENTION,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
+    minitrace_helpers::get_sampled_span,
     pause::PauseClient,
     query::{
         IndexRange,
@@ -56,6 +60,7 @@ use futures::{
     FutureExt,
 };
 use keybroker::Identity;
+use minitrace::future::FutureExt as _;
 use model::{
     backend_state::{
         types::BackendState,
@@ -337,10 +342,18 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
             let context = self.context.clone();
             let tx = job_finished_tx.clone();
-            self.rt.spawn("spawn_scheduled_job", async move {
-                let result = context.execute_job(job, job_id).await;
-                let _ = tx.send(result).await;
-            });
+
+            let root = self
+                .rt
+                .with_rng(|rng| get_sampled_span("scheduler/execute_job", rng, BTreeMap::new()));
+            self.rt.spawn(
+                "spawn_scheduled_job",
+                async move {
+                    let result = context.execute_job(job, job_id).await;
+                    let _ = tx.send(result).await;
+                }
+                .in_span(root),
+            );
 
             running_job_ids.insert(job_id);
 
