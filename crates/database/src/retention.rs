@@ -1137,7 +1137,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         snapshot_reader: Reader<SnapshotManager>,
     ) {
         // Wait with jitter on startup to avoid thundering herd
-        Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
+        Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).await;
 
         let reader = persistence.reader();
 
@@ -1184,7 +1184,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
                 tracing::trace!("go_delete_documents: loaded checkpoint: {cursor:?}");
-                let (new_cursor, expired_index_entries_processed) = Self::delete_documents(
+                let (new_cursor, expired_documents_processed) = Self::delete_documents(
                     min_document_snapshot_ts,
                     persistence.clone(),
                     &rt,
@@ -1204,10 +1204,11 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
                 // If we deleted >= the delete batch size, we probably returned
                 // early and have more work to do, so run again immediately.
-                is_working = expired_index_entries_processed >= *RETENTION_DELETE_BATCH;
+                is_working =
+                    expired_documents_processed >= *DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS;
                 if is_working {
                     tracing::trace!(
-                        "go_delete_documents: processed {expired_index_entries_processed:?} rows, \
+                        "go_delete_documents: processed {expired_documents_processed:?} rows, \
                          more to go"
                     );
                 }

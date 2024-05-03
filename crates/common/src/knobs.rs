@@ -382,9 +382,14 @@ pub static RETENTION_FAIL_START_MULTIPLIER: LazyLock<usize> =
 pub static RETENTION_FAIL_ALL_MULTIPLIER: LazyLock<usize> =
     LazyLock::new(|| env_config("RETENTION_FAIL_ALL_MULTIPLIER", 40));
 
-/// Time in between batches of deletes for document retention
+/// Time in between batches of deletes for document retention. This value is
+/// also used to jitter document retention on startup to avoid a thundering
+/// herd.
 pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config("DOCUMENT_RETENTION_BATCHES_PER_MINUTE", 10 * 60))
+    Duration::from_secs(env_config(
+        "DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS",
+        10 * 60,
+    ))
 });
 
 /// Maximum scanned documents within a single run for document retention
