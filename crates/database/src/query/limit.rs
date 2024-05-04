@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use common::{
     query::CursorPosition,
     runtime::Runtime,
+    types::TabletIndexName,
 };
 
 use super::{
@@ -68,5 +69,9 @@ impl<T: QueryType> QueryStream<T> for Limit<T> {
 
     fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
         self.inner.feed(index_range_response)
+    }
+
+    fn tablet_index_name(&self) -> Option<&TabletIndexName> {
+        self.inner.tablet_index_name()
     }
 }

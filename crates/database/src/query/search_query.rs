@@ -9,7 +9,11 @@ use common::{
         SearchVersion,
     },
     runtime::Runtime,
-    types::WriteTimestamp,
+    types::{
+        StableIndexName,
+        TabletIndexName,
+        WriteTimestamp,
+    },
     version::{
         Version,
         MIN_NPM_VERSION_FOR_FUZZY_SEARCH,
@@ -39,6 +43,11 @@ use crate::{
 
 /// A `QueryStream` that begins by querying a search index.
 pub struct SearchQuery<T: QueryType> {
+    // The tablet index being searched.
+    // Table names in `query` are just for error messages and usage, and may
+    // get out of sync with this.
+    stable_index_name: StableIndexName,
+
     query: Search,
     // Results are generated on the first call to SearchQuery::next.
     results: Option<SearchResultIterator<T>>,
@@ -50,8 +59,14 @@ pub struct SearchQuery<T: QueryType> {
 }
 
 impl<T: QueryType> SearchQuery<T> {
-    pub fn new(query: Search, cursor_interval: CursorInterval, version: Option<Version>) -> Self {
+    pub fn new(
+        stable_index_name: StableIndexName,
+        query: Search,
+        cursor_interval: CursorInterval,
+        version: Option<Version>,
+    ) -> Self {
         Self {
+            stable_index_name,
             query,
             results: None,
             cursor_interval,
@@ -71,7 +86,9 @@ impl<T: QueryType> SearchQuery<T> {
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<SearchResultIterator<T>> {
         let search_version = self.get_cli_gated_search_version();
-        let revisions = tx.search(&self.query, search_version).await?;
+        let revisions = tx
+            .search(&self.stable_index_name, &self.query, search_version)
+            .await?;
         let revisions_in_range = revisions
             .into_iter()
             .filter(|(_, index_key)| self.cursor_interval.contains(index_key))
@@ -144,6 +161,10 @@ impl<T: QueryType> QueryStream<T> for SearchQuery<T> {
 
     fn feed(&mut self, _index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
         anyhow::bail!("cannot feed an index range response into a search query");
+    }
+
+    fn tablet_index_name(&self) -> Option<&TabletIndexName> {
+        self.stable_index_name.tablet_index_name()
     }
 }
 

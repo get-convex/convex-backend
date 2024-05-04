@@ -231,8 +231,9 @@ async fn test_private_system_table(rt: TestRuntime) -> anyhow::Result<()> {
             &mut tx,
             Query::full_table_scan(BACKEND_STATE_TABLE.clone(), Order::Asc),
         )?
-        .expect_one(&mut tx)
-        .await?;
+        .expect_at_most_one(&mut tx)
+        .await?
+        .expect("backend state should exist");
 
         // But developer UDFs can't query it because it's a private system table.
         must_let!(let ConvexValue::Array(results) = t.query(

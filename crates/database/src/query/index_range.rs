@@ -20,6 +20,7 @@ use common::{
     types::{
         IndexName,
         StableIndexName,
+        TabletIndexName,
         WriteTimestamp,
     },
     version::Version,
@@ -262,6 +263,10 @@ impl<T: QueryType> QueryStream<T> for IndexRange<T> {
 
     fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
         self.process_fetch(index_range_response.page, index_range_response.cursor)
+    }
+
+    fn tablet_index_name(&self) -> Option<&TabletIndexName> {
+        self.stable_index_name.tablet_index_name()
     }
 }
 

@@ -131,7 +131,10 @@ impl<'a, RT: Runtime> SessionRequestModel<'a, RT> {
             let Some((doc, ts)) = query_stream.next_with_ts(self.tx, None).await? else {
                 return Ok(None);
             };
-            query_stream.expect_none(self.tx).await?;
+            anyhow::ensure!(
+                query_stream.next(self.tx, Some(1)).await?.is_none(),
+                "Expected at most one session request record."
+            );
             let WriteTimestamp::Committed(ts) = ts else {
                 anyhow::bail!(
                     "Wrote a session request record in the same transaction as the get? Not \

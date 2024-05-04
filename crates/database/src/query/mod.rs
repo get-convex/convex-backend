@@ -10,7 +10,11 @@ use common::{
         database_index::IndexedFields,
         INDEX_TABLE,
     },
-    document::GenericDocument,
+    document::{
+        DeveloperDocument,
+        GenericDocument,
+        ResolvedDocument,
+    },
     index::IndexKeyBytes,
     interval::Interval,
     query::{
@@ -24,6 +28,7 @@ use common::{
     runtime::Runtime,
     types::{
         IndexName,
+        TabletIndexName,
         WriteTimestamp,
     },
     version::Version,
@@ -110,6 +115,10 @@ trait QueryStream<T: QueryType>: Send {
         prefetch_hint: Option<usize>,
     ) -> anyhow::Result<QueryStreamNext<T>>;
     fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()>;
+
+    /// All queries walk an index of some kind, as long as the table exists.
+    /// This is that index name, tied to a tablet.
+    fn tablet_index_name(&self) -> Option<&TabletIndexName>;
 }
 
 pub struct IndexRangeResponse<T: TableIdentifier> {
@@ -391,9 +400,12 @@ impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
                     version,
                 ))
             },
-            QuerySource::Search(search) => {
-                QueryNode::Search(SearchQuery::new(search, cursor_interval, version))
-            },
+            QuerySource::Search(search) => QueryNode::Search(SearchQuery::new(
+                stable_index_name,
+                search,
+                cursor_interval,
+                version,
+            )),
         };
         for operator in query.operators {
             let next_node = match operator {
@@ -445,11 +457,21 @@ impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
         }
     }
 
+    pub fn fingerprint(&self) -> &QueryFingerprint {
+        &self.query_fingerprint
+    }
+
+    pub fn is_approaching_data_limit(&self) -> bool {
+        self.root.is_approaching_data_limit()
+    }
+}
+
+impl<RT: Runtime> DeveloperQuery<RT> {
     pub async fn next(
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<GenericDocument<T::T>>> {
+    ) -> anyhow::Result<Option<DeveloperDocument>> {
         match self.next_with_ts(tx, prefetch_hint).await? {
             None => Ok(None),
             Some((document, _)) => Ok(Some(document)),
@@ -461,32 +483,56 @@ impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
+    ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
         query_batch_next(btreemap! {0 => (self, prefetch_hint)}, tx)
             .await
             .remove(&0)
             .context("batch_key missing")?
     }
+}
 
-    pub async fn expect_one(
+impl<RT: Runtime> ResolvedQuery<RT> {
+    pub async fn next(
         &mut self,
         tx: &mut Transaction<RT>,
-    ) -> anyhow::Result<GenericDocument<T::T>> {
-        let v = self
-            .next(tx, Some(2))
-            .await?
-            .ok_or_else(|| anyhow::anyhow!("Expected one value for query, received zero"))?;
-
-        if self.next(tx, Some(1)).await?.is_some() {
-            anyhow::bail!("Received more than one value for query");
+        prefetch_hint: Option<usize>,
+    ) -> anyhow::Result<Option<ResolvedDocument>> {
+        match self.next_with_ts(tx, prefetch_hint).await? {
+            None => Ok(None),
+            Some((document, _)) => Ok(Some(document)),
         }
-        Ok(v)
+    }
+
+    #[convex_macro::instrument_future]
+    pub async fn next_with_ts(
+        &mut self,
+        tx: &mut Transaction<RT>,
+        prefetch_hint: Option<usize>,
+    ) -> anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>> {
+        let tablet_id = self
+            .root
+            .tablet_index_name()
+            .map(|index_name| *index_name.table());
+        let result = query_batch_next(btreemap! {0 => (self, prefetch_hint)}, tx)
+            .await
+            .remove(&0)
+            .context("batch_key missing")??;
+        if let Some((document, _)) = &result {
+            // TODO(lee) inject tablet id here which will allow the rest of the query
+            // pipeline to use DeveloperDocuments only. To ensure this will be
+            // correct, we do an assertion temporarily.
+            anyhow::ensure!(
+                document.table().table_id
+                    == tablet_id.context("document must come from some tablet")?
+            );
+        }
+        Ok(result)
     }
 
     pub async fn expect_at_most_one(
         &mut self,
         tx: &mut Transaction<RT>,
-    ) -> anyhow::Result<Option<GenericDocument<T::T>>> {
+    ) -> anyhow::Result<Option<ResolvedDocument>> {
         let v = match self.next(tx, Some(2)).await? {
             Some(v) => v,
             None => return Ok(None),
@@ -495,22 +541,6 @@ impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
             anyhow::bail!("Received more than one value for query");
         }
         Ok(Some(v))
-    }
-
-    pub async fn expect_none(&mut self, tx: &mut Transaction<RT>) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.next(tx, Some(1)).await?.is_none(),
-            "Expected no value for this query, but received one."
-        );
-        Ok(())
-    }
-
-    pub fn fingerprint(&self) -> &QueryFingerprint {
-        &self.query_fingerprint
-    }
-
-    pub fn is_approaching_data_limit(&self) -> bool {
-        self.root.is_approaching_data_limit()
     }
 }
 
@@ -621,6 +651,15 @@ impl<T: QueryType> QueryStream<T> for QueryNode<T> {
             QueryNode::Search(r) => r.feed(index_range_response),
             QueryNode::Filter(r) => r.feed(index_range_response),
             QueryNode::Limit(r) => r.feed(index_range_response),
+        }
+    }
+
+    fn tablet_index_name(&self) -> Option<&TabletIndexName> {
+        match self {
+            QueryNode::IndexRange(r) => r.tablet_index_name(),
+            QueryNode::Search(r) => r.tablet_index_name(),
+            QueryNode::Filter(r) => r.tablet_index_name(),
+            QueryNode::Limit(r) => r.tablet_index_name(),
         }
     }
 }

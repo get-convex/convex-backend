@@ -33,7 +33,6 @@ use value::{
     ConvexObject,
     ConvexValue,
     TableId,
-    TableIdAndTableNumber,
 };
 
 use crate::{
@@ -52,6 +51,7 @@ use crate::{
         IndexName,
         MaybeValue,
         TableName,
+        TabletIndexName,
     },
     value::{
         sha256::Sha256 as CommonSha256,
@@ -581,12 +581,9 @@ pub struct Search {
 }
 
 impl Search {
-    pub fn to_internal(
-        self,
-        f: &impl Fn(TableName) -> anyhow::Result<TableIdAndTableNumber>,
-    ) -> anyhow::Result<InternalSearch> {
+    pub fn to_internal(self, tablet_index_name: TabletIndexName) -> anyhow::Result<InternalSearch> {
         Ok(InternalSearch {
-            index_name: self.index_name.to_resolved(f)?.into(),
+            index_name: tablet_index_name,
             table_name: self.table,
             filters: self
                 .filters

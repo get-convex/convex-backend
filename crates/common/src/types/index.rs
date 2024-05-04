@@ -115,7 +115,7 @@ pub type TabletIndexName = GenericIndexName<TableId>;
 
 /// Like TabletIndexName in that it refers to a stable underlying index,
 /// but it works for virtual tables too.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum StableIndexName {
     Physical(TabletIndexName),
     Virtual(IndexName, TabletIndexName),
@@ -123,6 +123,14 @@ pub enum StableIndexName {
 }
 
 impl StableIndexName {
+    pub fn tablet_index_name(&self) -> Option<&TabletIndexName> {
+        match self {
+            StableIndexName::Physical(tablet_index_name) => Some(tablet_index_name),
+            StableIndexName::Virtual(_, tablet_index_name) => Some(tablet_index_name),
+            StableIndexName::Missing => None,
+        }
+    }
+
     pub fn virtual_table_number_map(
         &self,
         table_mapping: &TableMapping,

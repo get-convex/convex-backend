@@ -7,7 +7,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    document::GenericDocument,
+    document::DeveloperDocument,
     execution_context::ExecutionContext,
     knobs::MAX_SYSCALL_BATCH_SIZE,
     query::{
@@ -28,8 +28,6 @@ use common::{
 use database::{
     query::{
         query_batch_next,
-        CompiledQuery,
-        QueryType,
         TableFilter,
     },
     soft_data_limit,
@@ -957,11 +955,11 @@ struct QueryPageMetadata {
 }
 
 impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
-    async fn read_page_from_query<T: QueryType>(
-        mut query: CompiledQuery<RT, T>,
+    async fn read_page_from_query(
+        mut query: DeveloperQuery<RT>,
         tx: &mut Transaction<RT>,
         page_size: usize,
-    ) -> anyhow::Result<(Vec<GenericDocument<T::T>>, QueryPageMetadata)> {
+    ) -> anyhow::Result<(Vec<DeveloperDocument>, QueryPageMetadata)> {
         let end_cursor = query.end_cursor();
         let has_end_cursor = end_cursor.is_some();
         let mut page = Vec::with_capacity(page_size);

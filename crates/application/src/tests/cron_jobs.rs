@@ -194,7 +194,7 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     let mut table_model = TableModel::new(&mut tx);
     assert!(table_model.table_is_empty(&OBJECTS_TABLE).await?);
     let mut logs_query = cron_log_query(&mut tx)?;
-    logs_query.expect_none(&mut tx).await?;
+    assert!(logs_query.next(&mut tx, Some(1)).await?.is_none());
 
     // Resuming the backend should make the jobs execute.
     let mut model = BackendStateModel::new(&mut tx);

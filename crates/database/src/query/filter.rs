@@ -5,6 +5,7 @@ use common::{
         Expression,
     },
     runtime::Runtime,
+    types::TabletIndexName,
 };
 
 use super::{
@@ -70,5 +71,9 @@ impl<T: QueryType> QueryStream<T> for Filter<T> {
 
     fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
         self.inner.feed(index_range_response)
+    }
+
+    fn tablet_index_name(&self) -> Option<&TabletIndexName> {
+        self.inner.tablet_index_name()
     }
 }

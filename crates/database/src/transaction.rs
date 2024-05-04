@@ -905,20 +905,16 @@ impl<RT: Runtime> Transaction<RT> {
 
     pub async fn search(
         &mut self,
+        stable_index_name: &StableIndexName,
         search: &Search,
         version: SearchVersion,
     ) -> anyhow::Result<Vec<(CandidateRevision, IndexKeyBytes)>> {
-        // If the table doesn't exist, short circuit to avoid erroring in the
-        // table_mapping. Also take a dependency on the table not existing.
-        if !TableModel::new(self).table_exists(search.index_name.table()) {
+        let Some(tablet_index_name) = stable_index_name.tablet_index_name() else {
             return Ok(vec![]);
-        }
-        let search = search
-            .clone()
-            .to_internal(&self.table_mapping().name_to_id_user_input())?;
-        let index_name = search.index_name.clone();
+        };
+        let search = search.clone().to_internal(tablet_index_name.clone())?;
         self.index
-            .search(&mut self.reads, &search, index_name, version)
+            .search(&mut self.reads, &search, tablet_index_name.clone(), version)
             .await
     }
 

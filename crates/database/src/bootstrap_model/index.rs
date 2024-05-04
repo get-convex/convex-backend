@@ -487,11 +487,9 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         stable_index_name: &StableIndexName,
         printable_index_name: &IndexName,
     ) -> anyhow::Result<IndexedFields> {
-        let resolved_index_name = match stable_index_name {
-            StableIndexName::Physical(index_name) => index_name,
-            StableIndexName::Virtual(_, index_name) => index_name,
-            StableIndexName::Missing => anyhow::bail!(index_not_found_error(printable_index_name)),
-        };
+        let resolved_index_name = stable_index_name
+            .tablet_index_name()
+            .with_context(|| index_not_found_error(printable_index_name))?;
         let metadata =
             self.require_enabled_index_metadata(printable_index_name, resolved_index_name)?;
         match metadata.config.clone() {

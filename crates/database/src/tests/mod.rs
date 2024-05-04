@@ -1833,7 +1833,7 @@ async fn test_retries(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = db.begin_system().await?;
     let query = Query::full_table_scan("table".parse()?, Order::Asc);
     let mut compiled_query = CompiledResolvedQuery::new(&mut tx, query)?;
-    compiled_query.expect_none(&mut tx).await?;
+    assert!(compiled_query.next(&mut tx, None).await?.is_none());
     Ok(())
 }
 
