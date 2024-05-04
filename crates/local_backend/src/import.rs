@@ -39,7 +39,7 @@ use storage::{
     ClientDrivenUploadToken,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     TableName,
 };
 
@@ -258,7 +258,7 @@ pub async fn perform_import(
     ExtractIdentity(identity): ExtractIdentity,
     Json(PerformImportArgs { import_id }): Json<PerformImportArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let import_id = DocumentIdV6::decode(&import_id).context(ErrorMetadata::bad_request(
+    let import_id = DeveloperDocumentId::decode(&import_id).context(ErrorMetadata::bad_request(
         "InvalidImport",
         format!("invalid import id {import_id}"),
     ))?;

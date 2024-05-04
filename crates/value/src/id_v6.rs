@@ -15,7 +15,7 @@ use std::{
 
 use thiserror::Error;
 
-pub use crate::document_id::DocumentIdV6;
+pub use crate::document_id::DeveloperDocumentId;
 use crate::{
     base32::{
         self,
@@ -60,7 +60,7 @@ pub enum IdDecodeError {
     InvalidIdVersion(u16, u16),
 }
 
-impl DocumentIdV6 {
+impl DeveloperDocumentId {
     pub fn encoded_len(&self) -> usize {
         let byte_length = vint_len((*self.table()).into()) + 16 + 2;
         base32::encoded_len(byte_length)
@@ -133,7 +133,7 @@ impl DocumentIdV6 {
             return Err(IdDecodeError::InvalidLength(s.len()));
         }
 
-        Ok(DocumentIdV6::new(table_number, internal_id))
+        Ok(DeveloperDocumentId::new(table_number, internal_id))
     }
 
     pub fn to_resolved(
@@ -232,19 +232,19 @@ pub struct VirtualTableNumberMap {
     pub physical_table_number: TableNumber,
 }
 
-impl From<ResolvedDocumentId> for DocumentIdV6 {
+impl From<ResolvedDocumentId> for DeveloperDocumentId {
     fn from(document_id: ResolvedDocumentId) -> Self {
         let internal_id = document_id.internal_id();
         let table_number = document_id.table().table_number;
-        DocumentIdV6::new(table_number, internal_id)
+        DeveloperDocumentId::new(table_number, internal_id)
     }
 }
 
-impl FromStr for DocumentIdV6 {
+impl FromStr for DeveloperDocumentId {
     type Err = IdDecodeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        DocumentIdV6::decode(s)
+        DeveloperDocumentId::decode(s)
     }
 }
 
@@ -342,7 +342,6 @@ mod tests {
     use proptest::prelude::*;
 
     use crate::{
-        document_id::DocumentIdV6,
         id_v6::{
             vint_decode,
             vint_encode,
@@ -362,7 +361,7 @@ mod tests {
             internal_id[i] = internal_id[i - 1].wrapping_mul(251);
         }
         let document_id =
-            DocumentIdV6::new(1017.try_into().unwrap(), InternalId::from(internal_id));
+            DeveloperDocumentId::new(1017.try_into().unwrap(), InternalId::from(internal_id));
         assert_eq!(
             document_id.encode(),
             "z43zp6c3e75gkmz1kfwj6mbbx5sw281h".to_string()
@@ -375,7 +374,7 @@ mod tests {
         // table code ends up taking two bytes, which then causes parsing to
         // fail downstream. This is a regression test where we used to panic in
         // this condition.
-        let _ = DocumentIdV6::decode("sssswsgggggggggsgcsssfafffsffks");
+        let _ = DeveloperDocumentId::decode("sssswsgggggggggsgcsssfafffsffks");
     }
 
     #[test]
@@ -484,35 +483,35 @@ mod tests {
         }
 
         #[test]
-        fn proptest_document_idv6(id in any::<DocumentIdV6>()) {
-            assert_eq!(DocumentIdV6::decode(&id.encode()).unwrap(), id);
+        fn proptest_document_idv6(id in any::<DeveloperDocumentId>()) {
+            assert_eq!(DeveloperDocumentId::decode(&id.encode()).unwrap(), id);
         }
 
         #[test]
-        fn proptest_encoded_len(id in any::<DocumentIdV6>()) {
+        fn proptest_encoded_len(id in any::<DeveloperDocumentId>()) {
             assert_eq!(id.encode().len(), id.encoded_len());
         }
 
         #[test]
         fn proptest_decode_invalid_string(s in any::<String>()) {
             // Check that we don't panic on any input string.
-            let _ = DocumentIdV6::decode(&s);
+            let _ = DeveloperDocumentId::decode(&s);
         }
 
         #[test]
         fn proptest_decode_invalid_bytes(bytes in prop::collection::vec(any::<u8>(), 19..=23)) {
             // Generate bytestrings that pass the first few checks in decode to get more code
             // coverage for later panics.
-            let _ = DocumentIdV6::decode(&crate::base32::encode(&bytes));
+            let _ = DeveloperDocumentId::decode(&crate::base32::encode(&bytes));
         }
 
         #[test]
-        fn proptest_decode_lossy_lossless(id in any::<DocumentIdV6>()) {
+        fn proptest_decode_lossy_lossless(id in any::<DeveloperDocumentId>()) {
             test_decode_lossy_ordering(id.encode().as_str(), id);
         }
 
         #[test]
-        fn proptest_decode_lossy_any_str(s in any::<String>(), id in any::<DocumentIdV6>()) {
+        fn proptest_decode_lossy_any_str(s in any::<String>(), id in any::<DeveloperDocumentId>()) {
             test_decode_lossy_ordering(&s, id);
         }
 
@@ -520,14 +519,14 @@ mod tests {
         fn proptest_decode_lossy_truncated(
             s in any::<String>(),
             len in 0usize..=MAX_BASE32_LEN,
-            id in any::<DocumentIdV6>(),
+            id in any::<DeveloperDocumentId>(),
         ) {
             let truncated = s.chars().take(len).collect::<String>();
             test_decode_lossy_ordering(&truncated, id);
         }
 
         #[test]
-        fn proptest_decode_lossy_alphanumeric(s in "[0-9a-z]*", id in any::<DocumentIdV6>()) {
+        fn proptest_decode_lossy_alphanumeric(s in "[0-9a-z]*", id in any::<DeveloperDocumentId>()) {
             test_decode_lossy_ordering(&s, id);
         }
 

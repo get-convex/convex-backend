@@ -287,7 +287,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             {
                 let mut query = ResolvedQuery::new(&mut tx, index_scan)?;
                 while let Some(document) = query.next(&mut tx, None).await? {
-                    index_documents.insert(*document.id(), document);
+                    index_documents.insert(document.id(), document);
                 }
             }
             let mut to_backfill = vec![];

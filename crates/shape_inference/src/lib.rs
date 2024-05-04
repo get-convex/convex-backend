@@ -43,7 +43,7 @@ pub use union::{
     UnionShape,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexObject,
     ConvexValue,
     FieldName,
@@ -366,7 +366,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 ShapeEnum::StringLiteral(s2.clone())
             },
             (ConvexValue::String(ref s), ShapeEnum::Id(table_number)) => {
-                if let Ok(id) = DocumentIdV6::decode(s)
+                if let Ok(id) = DeveloperDocumentId::decode(s)
                     && id.table() == table_number
                 {
                     ShapeEnum::Id(*table_number)

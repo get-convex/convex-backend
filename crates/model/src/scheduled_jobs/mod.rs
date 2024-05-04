@@ -46,7 +46,7 @@ use sync_types::{
     UdfPath,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexArray,
     ConvexValue,
     FieldPath,
@@ -388,7 +388,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         while count < limit
             && let Some(doc) = query_stream.next(self.tx, None).await?
         {
-            self.cancel(*doc.id()).await?;
+            self.cancel(doc.id()).await?;
             count += 1;
         }
         Ok(count)
@@ -439,7 +439,7 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,
-    ) -> anyhow::Result<DocumentIdV6> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let system_id = SchedulerModel::new(self.tx)
             .schedule(udf_path, args, ts, context)
             .await?;
@@ -448,13 +448,13 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
         self.tx
             .virtual_system_mapping()
             .system_resolved_id_to_virtual_developer_id(
-                &system_id,
+                system_id,
                 &table_mapping,
                 &virtual_table_mapping,
             )
     }
 
-    pub async fn cancel(&mut self, virtual_id: DocumentIdV6) -> anyhow::Result<()> {
+    pub async fn cancel(&mut self, virtual_id: DeveloperDocumentId) -> anyhow::Result<()> {
         let table_mapping = self.tx.table_mapping().clone();
         let system_id = self
             .tx

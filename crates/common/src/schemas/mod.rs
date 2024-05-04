@@ -24,7 +24,7 @@ use shape_inference::{
 #[cfg(any(test, feature = "testing"))]
 use value::TableType;
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexObject,
     ConvexValue,
     IdentifierFieldName,
@@ -73,7 +73,7 @@ pub enum SchemaValidationError {
     ExistingDocument {
         validation_error: ValidationError,
         table_name: TableName,
-        id: DocumentIdV6,
+        id: DeveloperDocumentId,
     },
 
     // TODO: Figure out if it's possible to surface the document ID here,
@@ -375,7 +375,7 @@ impl DatabaseSchema {
             .map_err(|validation_error| SchemaValidationError::ExistingDocument {
                 validation_error,
                 table_name,
-                id: (*doc.id()).into(),
+                id: doc.developer_id(),
             })
     }
 

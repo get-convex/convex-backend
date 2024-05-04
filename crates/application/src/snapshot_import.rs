@@ -149,7 +149,7 @@ use usage_tracking::{
     UsageCounter,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     sha256::Sha256Digest,
     val,
     ConvexObject,
@@ -776,7 +776,7 @@ enum ImportUnit {
     Object(JsonValue),
     NewTable(TableName),
     GeneratedSchema(TableName, GeneratedSchema<ProdConfigWithOptionalFields>),
-    StorageFileChunk(DocumentIdV6, Bytes),
+    StorageFileChunk(DeveloperDocumentId, Bytes),
 }
 
 static GENERATED_SCHEMA_PATTERN: LazyLock<Regex> =
@@ -949,12 +949,13 @@ where
                                 continue;
                             }
                             let entry_reader = zip_reader.entry_reader(i).await?;
-                            let storage_id = DocumentIdV6::decode(storage_id_str).map_err(|e| {
-                                ErrorMetadata::bad_request(
-                                    "InvalidStorageId",
-                                    format!("_storage id '{storage_id_str}' invalid: {e}"),
-                                )
-                            })?;
+                            let storage_id =
+                                DeveloperDocumentId::decode(storage_id_str).map_err(|e| {
+                                    ErrorMetadata::bad_request(
+                                        "InvalidStorageId",
+                                        format!("_storage id '{storage_id_str}' invalid: {e}"),
+                                    )
+                                })?;
                             tracing::info!(
                                 "importing zip file containing storage file {}",
                                 storage_id.encode()
@@ -1079,7 +1080,7 @@ async fn parse_generated_schema<'a, T: ShapeConfig, R: AsyncRead + Unpin>(
         let export_context = ExportContext::try_from(value.clone())
             .map_err(|e| ImportError::InvalidConvexValue(lineno, e))?;
         overrides.insert(
-            DocumentIdV6::decode(key)
+            DeveloperDocumentId::decode(key)
                 .map_err(|e| ImportError::InvalidConvexValue(lineno, e.into()))?,
             export_context,
         );
@@ -1108,7 +1109,7 @@ pub async fn upload_import_file<RT: Runtime>(
     format: ImportFormat,
     mode: ImportMode,
     body_stream: BoxStream<'_, anyhow::Result<Bytes>>,
-) -> anyhow::Result<DocumentIdV6> {
+) -> anyhow::Result<DeveloperDocumentId> {
     if !identity.is_admin() {
         anyhow::bail!(ImportError::Unauthorized);
     }
@@ -1122,7 +1123,7 @@ pub async fn store_uploaded_import<RT: Runtime>(
     format: ImportFormat,
     mode: ImportMode,
     object_key: ObjectKey,
-) -> anyhow::Result<DocumentIdV6> {
+) -> anyhow::Result<DeveloperDocumentId> {
     let (_, id, _) = application
         .database
         .execute_with_overloaded_retries(
@@ -1147,7 +1148,7 @@ pub async fn store_uploaded_import<RT: Runtime>(
 pub async fn perform_import<RT: Runtime>(
     application: &Application<RT>,
     identity: Identity,
-    import_id: DocumentIdV6,
+    import_id: DeveloperDocumentId,
 ) -> anyhow::Result<()> {
     if !identity.is_admin() {
         anyhow::bail!(ImportError::Unauthorized);
@@ -1186,7 +1187,7 @@ fn wrap_import_err(e: anyhow::Error) -> anyhow::Error {
 async fn wait_for_import_worker<RT: Runtime>(
     application: &Application<RT>,
     identity: Identity,
-    import_id: DocumentIdV6,
+    import_id: DeveloperDocumentId,
 ) -> anyhow::Result<ParsedDocument<SnapshotImport>> {
     let snapshot_import = loop {
         let mut tx = application.begin(identity.clone()).await?;
@@ -1669,7 +1670,7 @@ async fn import_storage_table<RT: Runtime>(
         lineno += 1;
         let metadata: FileStorageZipMetadata = serde_json::from_value(exported_value)
             .map_err(|e| ImportError::InvalidConvexValue(lineno, e.into()))?;
-        let id = DocumentIdV6::decode(&metadata.id)
+        let id = DeveloperDocumentId::decode(&metadata.id)
             .map_err(|e| ImportError::InvalidConvexValue(lineno, e.into()))?;
         anyhow::ensure!(
             *id.table() == virtual_table_number,
@@ -2206,7 +2207,7 @@ async fn table_number_for_import(
             let JsonValue::String(id) = first_id else {
                 return None;
             };
-            let id_v6 = DocumentIdV6::decode(id).ok()?;
+            let id_v6 = DeveloperDocumentId::decode(id).ok()?;
             Some(*id_v6.table())
         },
         ImportUnit::NewTable(_) => None,
@@ -2351,7 +2352,7 @@ mod tests {
     use value::{
         assert_obj,
         assert_val,
-        id_v6::DocumentIdV6,
+        id_v6::DeveloperDocumentId,
         ConvexObject,
         FieldName,
         TableName,
@@ -2987,7 +2988,7 @@ a
         let identity = new_admin_id();
 
         let storage_id = "kg21pzwemsm55e1fnt2kcsvgjh6h6gtf";
-        let storage_idv6 = DocumentIdV6::decode(storage_id)?;
+        let storage_idv6 = DeveloperDocumentId::decode(storage_id)?;
 
         let objects = stream::iter(vec![
             Ok(ImportUnit::NewTable("_storage".parse()?)),

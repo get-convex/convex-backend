@@ -257,7 +257,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         while let Some(doc) = query_stream.next(self.tx, None).await? {
             num_logs += 1;
             if num_logs > limit {
-                to_delete.push(*doc.id());
+                to_delete.push(doc.id());
             }
         }
         for doc_id in to_delete.into_iter() {

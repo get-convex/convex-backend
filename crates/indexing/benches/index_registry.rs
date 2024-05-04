@@ -44,7 +44,7 @@ fn index_documents(
     let ts = Timestamp::must(0);
     for metadata in indexes {
         let doc = gen_index_document(id_generator, metadata.clone())?;
-        index_documents.insert(*doc.id(), (ts, doc));
+        index_documents.insert(doc.id(), (ts, doc));
     }
     Ok(index_documents)
 }

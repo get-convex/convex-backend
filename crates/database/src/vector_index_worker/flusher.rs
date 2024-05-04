@@ -470,7 +470,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                     .scan(0_u64, |total_size, res| {
                         let updated_cursor = if let Ok((doc, _)) = &res {
                             *total_size += qdrant_vector_size;
-                            Some(*doc.id())
+                            Some(doc.id())
                         } else {
                             None
                         };
@@ -488,7 +488,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                             },
                         )
                     })
-                    .map_ok(|(doc, ts)| (ts, (*doc.id()).into(), Some(doc)))
+                    .map_ok(|(doc, ts)| (ts, doc.id_with_table_id(), Some(doc)))
                     .boxed();
                 (documents, previous_segments)
             },

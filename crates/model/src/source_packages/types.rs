@@ -14,7 +14,7 @@ use humansize::{
 };
 use value::{
     heap_size::HeapSize,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     sha256::Sha256Digest,
     ConvexObject,
     ConvexValue,
@@ -122,7 +122,7 @@ impl TryFrom<PackageSize> for ConvexObject {
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq, Copy, PartialOrd, Ord)]
-pub struct SourcePackageId(DocumentIdV6);
+pub struct SourcePackageId(DeveloperDocumentId);
 
 impl HeapSize for SourcePackageId {
     fn heap_size(&self) -> usize {
@@ -130,15 +130,15 @@ impl HeapSize for SourcePackageId {
     }
 }
 
-impl From<DocumentIdV6> for SourcePackageId {
-    fn from(id: DocumentIdV6) -> Self {
+impl From<DeveloperDocumentId> for SourcePackageId {
+    fn from(id: DeveloperDocumentId) -> Self {
         Self(id)
     }
 }
 
 impl From<SourcePackageId> for ConvexValue {
     fn from(value: SourcePackageId) -> Self {
-        let id: DocumentIdV6 = value.into();
+        let id: DeveloperDocumentId = value.into();
         id.into()
     }
 }
@@ -147,13 +147,13 @@ impl TryFrom<ConvexValue> for SourcePackageId {
     type Error = anyhow::Error;
 
     fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        let id: DocumentIdV6 = value.try_into()?;
+        let id: DeveloperDocumentId = value.try_into()?;
         Ok(SourcePackageId(id))
     }
 }
 
-impl From<SourcePackageId> for DocumentIdV6 {
-    fn from(id: SourcePackageId) -> DocumentIdV6 {
+impl From<SourcePackageId> for DeveloperDocumentId {
+    fn from(id: SourcePackageId) -> DeveloperDocumentId {
         id.0
     }
 }
@@ -197,7 +197,7 @@ impl TryFrom<ConvexObject> for SourcePackage {
         };
         let external_package_id = match object_fields.remove("externalPackageId") {
             Some(ConvexValue::Null) | None => None,
-            Some(ConvexValue::String(s)) => Some(DocumentIdV6::decode(&s)?.into()),
+            Some(ConvexValue::String(s)) => Some(DeveloperDocumentId::decode(&s)?.into()),
             _ => anyhow::bail!("Invalid 'externalPackageId' in {object_fields:?}"),
         };
         let package_size: PackageSize = match object_fields.remove("packageSize") {

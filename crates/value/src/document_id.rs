@@ -32,7 +32,6 @@ use crate::{
 
 pub type ResolvedDocumentId = GenericDocumentId<TableIdAndTableNumber>;
 pub type InternalDocumentId = GenericDocumentId<TableId>;
-pub type DocumentIdV6 = GenericDocumentId<TableNumber>;
 pub type DeveloperDocumentId = GenericDocumentId<TableNumber>;
 
 /// A raw reference to a document. `DocumentId`s can appear in `Value`s as

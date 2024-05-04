@@ -4,7 +4,7 @@ use sync_types::{
     UdfPath,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ResolvedDocumentId,
     TableMapping,
     TableName,
@@ -37,7 +37,7 @@ pub fn parse_document_id(
     table_mapping: &TableMapping,
     table_name: &TableName,
 ) -> anyhow::Result<ResolvedDocumentId> {
-    let id = DocumentIdV6::decode(id)?.to_resolved(&table_mapping.inject_table_id())?;
+    let id = DeveloperDocumentId::decode(id)?.to_resolved(&table_mapping.inject_table_id())?;
     anyhow::ensure!(
         table_mapping.number_matches_name(id.table().table_number, table_name),
         invalid_id_error(table_name)
@@ -49,7 +49,7 @@ pub fn parse_document_id(
 mod tests {
     use common::testing::TestIdGenerator;
     use model::environment_variables::ENVIRONMENT_VARIABLES_TABLE;
-    use value::id_v6::DocumentIdV6;
+    use value::id_v6::DeveloperDocumentId;
 
     use super::parse_document_id;
 
@@ -58,7 +58,7 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
 
         let id_v5 = id_generator.generate(&ENVIRONMENT_VARIABLES_TABLE);
-        let id_v6: DocumentIdV6 = id_v5.into();
+        let id_v6: DeveloperDocumentId = id_v5.into();
 
         let table_mapping = id_generator.clone();
         let id_v6_string = id_v6.encode();

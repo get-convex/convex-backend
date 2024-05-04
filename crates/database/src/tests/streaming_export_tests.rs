@@ -6,7 +6,7 @@ use keybroker::Identity;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use sync_types::Timestamp;
-use value::id_v6::DocumentIdV6;
+use value::id_v6::DeveloperDocumentId;
 
 use crate::{
     test_helpers::DbFixtures,
@@ -49,19 +49,19 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
             deltas: vec![
                 (
                     ts1,
-                    doc1sort.id_v6(),
+                    doc1sort.developer_id(),
                     table_mapping.tablet_name(doc1sort.table().table_id)?,
                     Some(doc1sort.clone())
                 ),
                 (
                     ts1,
-                    doc2sort.id_v6(),
+                    doc2sort.developer_id(),
                     table_mapping.tablet_name(doc2sort.table().table_id)?,
                     Some(doc2sort.clone())
                 ),
                 (
                     ts2,
-                    doc3.id_v6(),
+                    doc3.developer_id(),
                     table_mapping.tablet_name(doc3.table().table_id)?,
                     Some(doc3.clone())
                 ),
@@ -79,7 +79,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         DocumentDeltas {
             deltas: vec![(
                 ts2,
-                doc3.id_v6(),
+                doc3.developer_id(),
                 table_mapping.tablet_name(doc3.table().table_id)?,
                 Some(doc3.clone())
             )],
@@ -96,7 +96,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
         DocumentDeltas {
             deltas: vec![(
                 ts1,
-                doc1.id_v6(),
+                doc1.developer_id(),
                 table_mapping.tablet_name(doc1.table().table_id)?,
                 Some(doc1.clone())
             )],
@@ -116,13 +116,13 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
             deltas: vec![
                 (
                     ts1,
-                    doc1sort.id_v6(),
+                    doc1sort.developer_id(),
                     table_mapping.tablet_name(doc1sort.table().table_id)?,
                     Some(doc1sort.clone())
                 ),
                 (
                     ts1,
-                    doc2sort.id_v6(),
+                    doc2sort.developer_id(),
                     table_mapping.tablet_name(doc2sort.table().table_id)?,
                     Some(doc2sort.clone())
                 ),
@@ -200,7 +200,7 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
         DocumentDeltas {
             deltas: vec![(
                 ts_insert,
-                remaining_doc.id_v6(),
+                remaining_doc.developer_id(),
                 table_mapping.tablet_name(remaining_doc.table().table_id)?,
                 Some(remaining_doc.clone())
             ),],
@@ -228,13 +228,13 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
         (ts1, "table1".parse()?, doc1.clone()),
         (ts1, "table2".parse()?, doc2.clone()),
     ];
-    docs1sorted.sort_by_key(|(_, _, d)| *d.id());
+    docs1sorted.sort_by_key(|(_, _, d)| d.id());
     let mut tx = db.begin(Identity::system()).await?;
     let doc3 = TestFacingModel::new(&mut tx)
         .insert_and_get("table3".parse()?, assert_obj!("f" => 3))
         .await?;
     let doc4 = UserFacingModel::new(&mut tx)
-        .patch((*doc2.id()).into(), assert_obj!("f" => 4).into())
+        .patch(doc2.developer_id(), assert_obj!("f" => 4).into())
         .await?;
     let doc4 = doc4.to_resolved(&tx.table_mapping().inject_table_id())?;
     let ts2 = db.commit(tx).await?;
@@ -243,45 +243,46 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
         (ts2, "table2".parse()?, doc4.clone()),
         (ts2, "table3".parse()?, doc3),
     ];
-    docs2sorted.sort_by_key(|(_, _, d)| *d.id());
+    docs2sorted.sort_by_key(|(_, _, d)| d.id());
 
     let db_ = db.clone();
-    let snapshot_list_all = move |mut snapshot: Option<Timestamp>,
-                                  table_filter: Option<TableName>,
-                                  mut cursor: Option<DocumentIdV6>| {
-        let db = db_.clone();
-        async move {
-            let mut has_more = true;
-            let mut documents = Vec::new();
-            let mut pages = 0;
-            while has_more && pages < 10 {
-                let page = db
-                    .clone()
-                    .list_snapshot(
-                        Identity::system(),
-                        snapshot,
-                        cursor.map(DocumentIdV6::from),
-                        table_filter.clone(),
-                        100,
-                        5,
-                    )
-                    .await?;
-                has_more = page.has_more;
-                cursor = page.cursor;
-                if let Some(s) = snapshot {
-                    assert_eq!(page.snapshot, s);
+    let snapshot_list_all =
+        move |mut snapshot: Option<Timestamp>,
+              table_filter: Option<TableName>,
+              mut cursor: Option<DeveloperDocumentId>| {
+            let db = db_.clone();
+            async move {
+                let mut has_more = true;
+                let mut documents = Vec::new();
+                let mut pages = 0;
+                while has_more && pages < 10 {
+                    let page = db
+                        .clone()
+                        .list_snapshot(
+                            Identity::system(),
+                            snapshot,
+                            cursor.map(DeveloperDocumentId::from),
+                            table_filter.clone(),
+                            100,
+                            5,
+                        )
+                        .await?;
+                    has_more = page.has_more;
+                    cursor = page.cursor;
+                    if let Some(s) = snapshot {
+                        assert_eq!(page.snapshot, s);
+                    }
+                    snapshot = Some(page.snapshot);
+                    documents.extend(page.documents.into_iter());
+                    pages += 1;
                 }
-                snapshot = Some(page.snapshot);
-                documents.extend(page.documents.into_iter());
-                pages += 1;
+                assert!(
+                    !has_more,
+                    "infinite looping with cursor {cursor:?} after {documents:?}"
+                );
+                anyhow::Ok((documents, snapshot.unwrap()))
             }
-            assert!(
-                !has_more,
-                "infinite looping with cursor {cursor:?} after {documents:?}"
-            );
-            anyhow::Ok((documents, snapshot.unwrap()))
-        }
-    };
+        };
 
     let snapshot_page = snapshot_list_all(None, None, None).await?;
     assert_eq!(snapshot_page.0, docs2sorted);
@@ -310,13 +311,13 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
         SnapshotPage {
             documents: vec![docs1sorted[0].clone()],
             snapshot: ts1,
-            cursor: Some(docs1sorted[0].2.id_v6()),
+            cursor: Some(docs1sorted[0].2.developer_id()),
             has_more: true,
         },
     );
 
     let snapshot_cursor =
-        snapshot_list_all(Some(ts1), None, Some(docs1sorted[0].2.id_v6())).await?;
+        snapshot_list_all(Some(ts1), None, Some(docs1sorted[0].2.developer_id())).await?;
     assert_eq!(snapshot_cursor.0, vec![docs1sorted[1].clone()]);
     assert_eq!(snapshot_cursor.1, ts1);
 

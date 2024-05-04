@@ -5,7 +5,7 @@ use common::types::{
     ObjectKey,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     obj,
     sha256::Sha256Digest,
     ConvexObject,
@@ -25,15 +25,15 @@ pub struct ExternalDepsPackage {
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExternalDepsPackageId(DocumentIdV6);
+pub struct ExternalDepsPackageId(DeveloperDocumentId);
 
-impl From<DocumentIdV6> for ExternalDepsPackageId {
-    fn from(id: DocumentIdV6) -> Self {
+impl From<DeveloperDocumentId> for ExternalDepsPackageId {
+    fn from(id: DeveloperDocumentId) -> Self {
         Self(id)
     }
 }
 
-impl From<ExternalDepsPackageId> for DocumentIdV6 {
+impl From<ExternalDepsPackageId> for DeveloperDocumentId {
     fn from(value: ExternalDepsPackageId) -> Self {
         value.0
     }
@@ -49,7 +49,7 @@ impl TryFrom<ConvexValue> for ExternalDepsPackageId {
     type Error = anyhow::Error;
 
     fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        let id: DocumentIdV6 = value.try_into()?;
+        let id: DeveloperDocumentId = value.try_into()?;
         Ok(Self(id))
     }
 }

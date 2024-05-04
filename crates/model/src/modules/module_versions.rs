@@ -29,7 +29,6 @@ use value::{
         HeapSize,
         WithHeapSize,
     },
-    id_v6::DocumentIdV6,
     DeveloperDocumentId,
 };
 
@@ -57,7 +56,7 @@ pub type SourceMap = String;
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ModuleVersionMetadata {
     /// Metadata document for the module we're versioning.
-    pub module_id: DocumentIdV6,
+    pub module_id: DeveloperDocumentId,
 
     /// Immutable source code for a module version.
     pub source: ModuleSource,
@@ -620,11 +619,11 @@ impl TryFrom<SerializedModuleVersionMetadata> for ModuleVersionMetadata {
 
     fn try_from(m: SerializedModuleVersionMetadata) -> anyhow::Result<Self> {
         Ok(Self {
-            module_id: DocumentIdV6::decode(&m.module_id)?,
+            module_id: DeveloperDocumentId::decode(&m.module_id)?,
             source: m.source,
             source_package_id: m
                 .source_package_id
-                .map(|id| DocumentIdV6::decode(&id))
+                .map(|id| DeveloperDocumentId::decode(&id))
                 .transpose()?
                 .map(From::from),
             source_map: m.source_map,

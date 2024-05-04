@@ -572,7 +572,7 @@ mod tests {
     use proptest::prelude::*;
 
     use crate::{
-        id_v6::DocumentIdV6,
+        id_v6::DeveloperDocumentId,
         sorting::{
             sorting_decode::bytes_to_values,
             TotalOrdF64,
@@ -598,7 +598,7 @@ mod tests {
         // The random portion of this ID starts with the 0xFF byte which
         // used to break our sorting serialization.
         let id_str = "074wwt1x3qmwz35bvscy44eq2yngrt8";
-        let id = DocumentIdV6::decode(id_str)?;
+        let id = DeveloperDocumentId::decode(id_str)?;
         let trophies = vec![ConvexValue::from(-1), ConvexValue::from(id)];
         for v in trophies {
             assert_eq!(
@@ -647,7 +647,7 @@ mod tests {
         }
 
         #[test]
-        fn test_id_roundtrips(v in any::<DocumentIdV6>()) {
+        fn test_id_roundtrips(v in any::<DeveloperDocumentId>()) {
             let v: ConvexValue = v.into();
             assert_eq!(ConvexValue::read_sort_key(&mut &v.sort_key()[..]).unwrap(), v);
         }
@@ -684,7 +684,10 @@ mod tests {
         }
 
         #[test]
-        fn test_compatible_with_id_string(l in any::<DocumentIdV6>(), r in any::<DocumentIdV6>())  {
+        fn test_compatible_with_id_string(
+            l in any::<DeveloperDocumentId>(),
+            r in any::<DeveloperDocumentId>(),
+        )  {
             test_compatible_with_ord(l.encode(), r.encode())
         }
 

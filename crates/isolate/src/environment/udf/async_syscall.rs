@@ -64,7 +64,7 @@ use serde_json::{
 use sync_types::UdfPath;
 use value::{
     heap_size::HeapSize,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexArray,
     TableName,
 };
@@ -645,7 +645,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         let virtual_id_v6 = with_argument_error("db.cancel_job", || {
             let args: CancelJobArgs = serde_json::from_value(args)?;
-            let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
+            let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
             Ok(id)
         })?;
 
@@ -695,7 +695,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let (id, value, table_name) = with_argument_error("db.patch", || {
             let args: UpdateArgs = serde_json::from_value(args)?;
 
-            let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
+            let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
             let table_name = tx.resolve_idv6(id, table_filter).context(ArgName("id"))?;
 
             let value = PatchValue::try_from(args.value).context(ArgName("value"))?;
@@ -722,7 +722,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let (id, value, table_name) = with_argument_error("db.replace", || {
             let args: ReplaceArgs = serde_json::from_value(args)?;
 
-            let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
+            let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
             let table_name = tx.resolve_idv6(id, table_filter).context(ArgName("id"))?;
 
             let value = ConvexValue::try_from(args.value).context(ArgName("value"))?;
@@ -794,7 +794,8 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         let tx = provider.tx()?;
                         let (id, is_system, version) = with_argument_error("db.get", || {
                             let args: GetArgs = serde_json::from_value(args)?;
-                            let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
+                            let id =
+                                DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
                             let version = parse_version(args.version)?;
                             Ok((id, args.is_system, version))
                         })?;
@@ -913,7 +914,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let tx = provider.tx()?;
         let (id, table_name) = with_argument_error("db.delete", || {
             let args: RemoveArgs = serde_json::from_value(args)?;
-            let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
+            let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
             let table_name = tx.resolve_idv6(id, table_filter).context(ArgName("id"))?;
             Ok((id, table_name))
         })?;

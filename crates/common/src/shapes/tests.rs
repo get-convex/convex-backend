@@ -12,7 +12,7 @@ use shape_inference::{
 };
 use value::{
     assert_obj,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexValue,
     TableName,
     VirtualTableMapping,
@@ -89,13 +89,13 @@ fn test_id_strings() -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
 
     // Create three IDs from three different tables
-    let message_id: DocumentIdV6 = id_generator
+    let message_id: DeveloperDocumentId = id_generator
         .generate(&TableName::from_str("messages")?)
         .into();
     let deleted1_table = TableName::from_str("deleted1")?;
     let deleted2_table = TableName::from_str("deleted2")?;
-    let deleted1_id: DocumentIdV6 = id_generator.generate(&deleted1_table).into();
-    let deleted2_id: DocumentIdV6 = id_generator.generate(&deleted2_table).into();
+    let deleted1_id: DeveloperDocumentId = id_generator.generate(&deleted1_table).into();
+    let deleted2_id: DeveloperDocumentId = id_generator.generate(&deleted2_table).into();
 
     // Delete two of the tables
     let deleted1_table_id = id_generator.id(&deleted1_table)?;

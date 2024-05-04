@@ -19,7 +19,7 @@ use model::{
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     InternalId,
     TableName,
 };
@@ -149,7 +149,7 @@ async fn test_nonexistent_table(rt: TestRuntime) -> anyhow::Result<()> {
         t.backfill_indexes().await?;
         let mut tx = t.database.begin(Identity::system()).await?;
         let table_number = TableModel::new(&mut tx).next_user_table_number().await?;
-        let nonexistent_id = DocumentIdV6::new(table_number, InternalId::MIN);
+        let nonexistent_id = DeveloperDocumentId::new(table_number, InternalId::MIN);
         t.mutation(
             "userError:nonexistentTable",
             assert_obj!("nonexistentId" => nonexistent_id),
@@ -171,17 +171,19 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
             tx.create_system_table_testing(&table_name, Some(table_number))
                 .await?
         );
-        let nonexistent_system_table_id = DocumentIdV6::new(table_number, InternalId::MIN);
+        let nonexistent_system_table_id = DeveloperDocumentId::new(table_number, InternalId::MIN);
 
         let virtual_table_number = tx
             .virtual_table_mapping()
             .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
-        let nonexistent_virtual_table_id = DocumentIdV6::new(virtual_table_number, InternalId::MIN);
+        let nonexistent_virtual_table_id = DeveloperDocumentId::new(
+            virtual_table_number, InternalId::MIN);
         let user_document = TestFacingModel::new(&mut tx)
             .insert_and_get("table".parse()?, assert_obj!())
             .await?;
         let user_table_number = user_document.id().table().table_number;
-        let nonexistent_user_table_id = DocumentIdV6::new(user_table_number, InternalId::MIN);
+        let nonexistent_user_table_id = DeveloperDocumentId::new(
+            user_table_number, InternalId::MIN);
         t.database.commit(tx).await?;
         t.mutation(
             "userError:nonexistentId",

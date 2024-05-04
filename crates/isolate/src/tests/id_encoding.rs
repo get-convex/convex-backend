@@ -9,12 +9,12 @@ use proptest::prelude::*;
 use runtime::testing::TestDriver;
 use value::{
     base32,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
 };
 
 use crate::test_helpers::UdfTest;
 
-async fn test_idv6_js_decode(rt: TestRuntime, id: DocumentIdV6) -> anyhow::Result<()> {
+async fn test_idv6_js_decode(rt: TestRuntime, id: DeveloperDocumentId) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     must_let!(let ConvexValue::Object(obj) = t.query("idEncoding:decode", assert_obj!("id" => id.encode())).await?);
     must_let!(let Some(ConvexValue::Float64(ref table_number)) = obj.get("tableNumber"));
@@ -28,7 +28,7 @@ async fn test_idv6_js_is_id(rt: TestRuntime, id: String) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     must_let!(let ConvexValue::Object(obj) = t.query("idEncoding:isId", assert_obj!("id" => id.clone())).await?);
     must_let!(let Some(ConvexValue::Boolean(is_id)) = obj.get("result"));
-    assert_eq!(&DocumentIdV6::decode(&id).is_ok(), is_id);
+    assert_eq!(&DeveloperDocumentId::decode(&id).is_ok(), is_id);
     Ok(())
 }
 
@@ -36,7 +36,7 @@ proptest! {
     #![proptest_config(ProptestConfig { cases: 32 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
 
     #[test]
-    fn proptest_idv6_js_decode(id in any::<DocumentIdV6>()) {
+    fn proptest_idv6_js_decode(id in any::<DeveloperDocumentId>()) {
         let mut td = TestDriver::new();
         let rt = td.rt();
         td.run_until(test_idv6_js_decode(rt, id)).unwrap();

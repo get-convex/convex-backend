@@ -62,7 +62,7 @@ use common::{
         WriteTimestamp,
     },
     value::{
-        id_v6::DocumentIdV6,
+        id_v6::DeveloperDocumentId,
         ConvexObject,
         ResolvedDocumentId,
         Size,
@@ -268,7 +268,7 @@ impl<RT: Runtime> Transaction<RT> {
 
     pub fn resolve_idv6(
         &mut self,
-        id: DocumentIdV6,
+        id: DeveloperDocumentId,
         table_filter: TableFilter,
     ) -> anyhow::Result<TableName> {
         match self.all_tables_number_to_name(table_filter)(*id.table()) {
@@ -533,7 +533,7 @@ impl<RT: Runtime> Transaction<RT> {
         SchemaModel::new(self).enforce(&new_document).await?;
 
         self.apply_validated_write(
-            *new_document.id(),
+            new_document.id(),
             Some(old_document),
             Some(new_document.clone()),
         )?;
@@ -554,7 +554,7 @@ impl<RT: Runtime> Transaction<RT> {
                     format!("Delete on nonexistent document ID {id}"),
                 ))?;
 
-        self.apply_validated_write(*document.id(), Some(document.clone()), None)?;
+        self.apply_validated_write(document.id(), Some(document.clone()), None)?;
         Ok(document)
     }
 
@@ -898,7 +898,7 @@ impl<RT: Runtime> Transaction<RT> {
         document: ResolvedDocument,
     ) -> anyhow::Result<ResolvedDocumentId> {
         SchemaModel::new(self).enforce(&document).await?;
-        let document_id = *document.id();
+        let document_id = document.id();
         self.apply_validated_write(document_id, None, Some(document))?;
         Ok(document_id)
     }

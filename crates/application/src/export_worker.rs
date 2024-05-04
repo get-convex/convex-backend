@@ -115,7 +115,7 @@ use usage_tracking::{
 };
 use value::{
     export::ValueFormat,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     TableId,
     TableNumber,
     VirtualTableMapping,
@@ -502,8 +502,10 @@ impl<RT: Runtime> ExportWorker<RT> {
             pin_mut!(stream);
             while let Some((doc, _ts)) = stream.try_next().await? {
                 let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
-                let virtual_storage_id =
-                    DocumentIdV6::new(virtual_table_id, file_storage_entry.id().internal_id());
+                let virtual_storage_id = DeveloperDocumentId::new(
+                    virtual_table_id,
+                    file_storage_entry.id().internal_id(),
+                );
                 let creation_time = f64::from(
                     file_storage_entry
                         .creation_time()
@@ -528,8 +530,10 @@ impl<RT: Runtime> ExportWorker<RT> {
             pin_mut!(stream);
             while let Some((doc, _ts)) = stream.try_next().await? {
                 let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
-                let virtual_storage_id =
-                    DocumentIdV6::new(virtual_table_id, file_storage_entry.id().internal_id());
+                let virtual_storage_id = DeveloperDocumentId::new(
+                    virtual_table_id,
+                    file_storage_entry.id().internal_id(),
+                );
                 // Add an extension, which isn't necessary for anything and might be incorrect,
                 // but allows the file to be viewed at a glance in most cases.
                 let extension_guess = file_storage_entry
@@ -550,7 +554,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     .with_context(|| {
                         format!(
                             "file missing from storage: {} with key {:?}",
-                            file_storage_entry.id_v6().encode(),
+                            file_storage_entry.developer_id().encode(),
                             file_storage_entry.storage_key,
                         )
                     })?;
@@ -581,7 +585,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 );
                 pin_mut!(stream);
                 while let Some((doc, _ts)) = stream.try_next().await? {
-                    generated_schema.insert(doc.value(), doc.id_v6());
+                    generated_schema.insert(doc.value(), doc.developer_id());
                 }
             }
 
@@ -985,7 +989,7 @@ mod tests {
             };
             let doc = UserFacingModel::new(&mut tx).get(id, None).await?.unwrap();
             let doc = doc.to_resolved(&tx.table_mapping().inject_table_id())?;
-            let id_v6 = doc.id_v6().encode();
+            let id_v6 = doc.developer_id().encode();
             expected_export_entries.insert(
                 format!("table_{i}/documents.jsonl"),
                 format!(

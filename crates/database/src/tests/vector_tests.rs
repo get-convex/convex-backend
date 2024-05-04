@@ -58,7 +58,6 @@ use search::searcher::{
 use storage::Storage;
 use value::{
     assert_obj,
-    id_v6::DocumentIdV6,
     ConvexObject,
     ConvexValue,
     DeveloperDocumentId,
@@ -914,7 +913,7 @@ async fn test_recall_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
     let mut expected: Vec<_> = by_id
         .iter()
         .map(|(id, vector)| PublicVectorSearchQueryResult {
-            id: DocumentIdV6::new(table_number, *id),
+            id: DeveloperDocumentId::new(table_number, *id),
             score: cosine_similarity(&query, vector),
         })
         .collect();

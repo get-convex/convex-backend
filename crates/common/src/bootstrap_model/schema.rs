@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use errors::ErrorMetadata;
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     GenericDocumentId,
     ResolvedDocumentId,
     TableId,
@@ -23,7 +23,7 @@ pub fn parse_schema_id(
         Ok(s) => s.map_table(table_mapping.inject_table_number()),
         Err(_) => {
             // Try parsing as an IDv6 ID
-            let id = DocumentIdV6::decode(schema_id)?;
+            let id = DeveloperDocumentId::decode(schema_id)?;
             id.to_resolved(&table_mapping.inject_table_id())
         },
     }

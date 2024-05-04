@@ -22,7 +22,7 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use value::id_v6::DocumentIdV6;
+use value::id_v6::DeveloperDocumentId;
 use vector::VectorSearchRequest;
 
 use super::task_executor::TaskExecutor;
@@ -198,7 +198,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         }
         let virtual_id_v6 = with_argument_error("db.cancel_job", || {
             let args: CancelJobArgs = serde_json::from_value(args)?;
-            let id = DocumentIdV6::decode(&args.id).context(ArgName("id"))?;
+            let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
             Ok(id)
         })?;
 

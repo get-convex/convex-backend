@@ -144,7 +144,7 @@ impl TableRegistry {
                                 .all(|t| t.table_name() != &new_metadata.name),
                             "cannot delete bootstrap system table"
                         );
-                        anyhow::ensure!(index_registry.has_no_indexes(&table_id));
+                        anyhow::ensure!(index_registry.has_no_indexes(table_id));
                         Some(TableUpdate {
                             table_id_and_number: old_table_id_and_number,
                             table_name: old_metadata.name,

@@ -248,7 +248,7 @@ use usage_tracking::{
     UsageCounter,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     sha256::Sha256Digest,
     ConvexValue,
     Namespace,
@@ -681,7 +681,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         snapshot: Option<Timestamp>,
-        cursor: Option<DocumentIdV6>,
+        cursor: Option<DeveloperDocumentId>,
         table_filter: Option<TableName>,
     ) -> anyhow::Result<SnapshotPage> {
         self.database
@@ -1681,7 +1681,7 @@ impl<RT: Runtime> Application<RT> {
         mode: ImportMode,
         upload_token: ClientDrivenUploadToken,
         part_tokens: Vec<ClientDrivenUploadPartToken>,
-    ) -> anyhow::Result<DocumentIdV6> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         if !identity.is_admin() {
             anyhow::bail!(ErrorMetadata::forbidden(
                 "InvalidImport",
@@ -2012,7 +2012,7 @@ impl<RT: Runtime> Application<RT> {
         content_type: Option<ContentType>,
         expected_sha256: Option<Sha256Digest>,
         body: impl Stream<Item = anyhow::Result<Bytes>> + Send,
-    ) -> anyhow::Result<DocumentIdV6> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let storage_id = self
             .file_storage
             .store_file(

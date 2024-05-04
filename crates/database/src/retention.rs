@@ -1781,7 +1781,7 @@ mod tests {
             .try_collect::<Vec<_>>()
             .await?
             .into_iter()
-            .map(|(_, ts, doc)| (*doc.id(), i64::from(ts)))
+            .map(|(_, ts, doc)| (doc.id(), i64::from(ts)))
             .collect();
         assert_eq!(results, vec![(id3, 5), (id4, 6), (id5, 7), (id1, 3)]);
 

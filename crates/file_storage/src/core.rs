@@ -54,7 +54,7 @@ use usage_tracking::{
     StorageCallTracker,
     StorageUsageTracker,
 };
-use value::id_v6::DocumentIdV6;
+use value::id_v6::DeveloperDocumentId;
 
 use crate::{
     metrics::{
@@ -342,13 +342,13 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         &self,
         tx: &mut Transaction<RT>,
         entry: FileStorageEntry,
-    ) -> anyhow::Result<DocumentIdV6> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let table_mapping = tx.table_mapping().clone();
         let system_doc_id = FileStorageModel::new(tx).store_file(entry).await?;
         let virtual_id = tx
             .virtual_system_mapping()
             .system_resolved_id_to_virtual_developer_id(
-                &system_doc_id,
+                system_doc_id,
                 &table_mapping,
                 &tx.virtual_table_mapping().clone(),
             )?;
@@ -365,7 +365,7 @@ impl<RT: Runtime> FileStorage<RT> {
         file: impl Stream<Item = anyhow::Result<impl Into<Bytes>>> + Send,
         expected_sha256: Option<Sha256Digest>,
         usage_tracker: &dyn StorageUsageTracker,
-    ) -> anyhow::Result<DocumentIdV6> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let entry = self
             .transactional_file_storage
             .upload_file(content_length, content_type, file, expected_sha256)

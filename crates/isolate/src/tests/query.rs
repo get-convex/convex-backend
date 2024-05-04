@@ -24,7 +24,7 @@ use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use value::{
     assert_val,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexObject,
 };
 
@@ -488,17 +488,17 @@ async fn test_pagination_max_bytes_read(rt: TestRuntime) -> anyhow::Result<()> {
         must_let!(let ConvexValue::String(id5) = t.mutation("query:insert", object.clone()).await?);
 
         let expected = vec![
-            DocumentIdV6::decode(&id1)?,
-            DocumentIdV6::decode(&id2)?,
-            DocumentIdV6::decode(&id3)?,
-            DocumentIdV6::decode(&id4)?,
-            DocumentIdV6::decode(&id5)?,
+            DeveloperDocumentId::decode(&id1)?,
+            DeveloperDocumentId::decode(&id2)?,
+            DeveloperDocumentId::decode(&id3)?,
+            DeveloperDocumentId::decode(&id4)?,
+            DeveloperDocumentId::decode(&id5)?,
         ];
 
         async fn read_to_end(
             t: &UdfTest<TestRuntime, TestPersistence>,
             max_bytes_read: usize,
-        ) -> anyhow::Result<(Vec<DocumentIdV6>, usize)> {
+        ) -> anyhow::Result<(Vec<DeveloperDocumentId>, usize)> {
             let mut results = Vec::new();
             let mut num_pages = 0;
             let mut cursor = ConvexValue::Null;
@@ -520,7 +520,7 @@ async fn test_pagination_max_bytes_read(rt: TestRuntime) -> anyhow::Result<()> {
                 for value in page.into_iter() {
                     must_let!(let ConvexValue::Object(object) = value);
                     must_let!(let Some(ConvexValue::String(id)) = object.get("_id"));
-                    results.push(DocumentIdV6::decode(id)?);
+                    results.push(DeveloperDocumentId::decode(id)?);
                 }
             }
             Ok((results, num_pages))

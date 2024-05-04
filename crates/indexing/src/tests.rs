@@ -103,7 +103,7 @@ fn index_documents(
     let ts = Timestamp::must(0);
     for metadata in indexes {
         let doc = gen_index_document(id_generator, metadata.clone())?;
-        index_documents.insert(*doc.id(), (ts, doc));
+        index_documents.insert(doc.id(), (ts, doc));
     }
     Ok(index_documents)
 }
@@ -177,7 +177,7 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
 
     // Renaming of table scan index is not allowed.
     let rename = ResolvedDocument::new(
-        *original.id(),
+        original.id(),
         CreationTime::ONE,
         IndexMetadata::new_enabled(by_first_id.clone(), vec!["name".parse()?].try_into()?)
             .try_into()?,
@@ -210,7 +210,7 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
 
     // Rename `by_name` to `by_first_name`.
     let rename = ResolvedDocument::new(
-        *original.id(),
+        original.id(),
         CreationTime::ONE,
         IndexMetadata::new_enabled(by_first_name.clone(), vec!["name".parse()?].try_into()?)
             .try_into()?,
@@ -252,7 +252,7 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
 
     // Changing fields is not allowed.
     let changed_fields = ResolvedDocument::new(
-        *original.id(),
+        original.id(),
         CreationTime::ONE,
         IndexMetadata::new_enabled(by_name.clone(), vec!["first_name".parse()?].try_into()?)
             .try_into()?,
@@ -269,7 +269,7 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
 
     // Changing which table the index is indexing is not allowed.
     let changed_table = ResolvedDocument::new(
-        *original.id(),
+        original.id(),
         CreationTime::ONE,
         IndexMetadata::new_enabled(authors_by_name.clone(), vec!["name".parse()?].try_into()?)
             .try_into()?,
@@ -647,7 +647,7 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
     must_let!(let IndexConfig::Database { ref mut on_disk_state, ..} = index_metadata.config);
     *on_disk_state = DatabaseIndexState::Enabled;
     let updated_index_doc = ResolvedDocument::new(
-        *index_doc.id(),
+        index_doc.id(),
         CreationTime::ONE,
         index_metadata.try_into()?,
     )?;
@@ -837,7 +837,7 @@ pub fn same_indexes_same_docs_different_states_are_same() -> anyhow::Result<()> 
     let table_id = table_id(&mut id_generator)?;
     let first_doc = new_pending_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
     let second_doc = new_enabled_doc(
-        &mut ConstantId(*first_doc.id()),
+        &mut ConstantId(first_doc.id()),
         table_id,
         "by_author",
         vec!["author"],

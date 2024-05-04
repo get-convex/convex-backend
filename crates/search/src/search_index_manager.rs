@@ -451,7 +451,7 @@ impl SearchIndexManager {
         }
 
         // Handle index updates for our existing search indexes.
-        for index in index_registry.search_indexes_by_table(&id.table().table_id) {
+        for index in index_registry.search_indexes_by_table(id.table().table_id) {
             let IndexConfig::Search {
                 ref developer_config,
                 ..

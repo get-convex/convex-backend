@@ -108,7 +108,7 @@ use storage::{
 use sync_types::UdfPath;
 use usage_tracking::FunctionUsageStats;
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexArray,
     ConvexObject,
     TableName,
@@ -1143,7 +1143,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         &self,
         identity: Identity,
         entry: FileStorageEntry,
-    ) -> anyhow::Result<DocumentIdV6> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let mut tx = self.database.begin(identity).await?;
         let id = self.file_storage.store_file_entry(&mut tx, entry).await?;
         self.database.commit(tx).await?;
@@ -1170,7 +1170,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
-    ) -> anyhow::Result<DocumentIdV6> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let mut tx: database::Transaction<RT> = self.database.begin(identity).await?;
         let (udf_path, udf_args) = validate_schedule_args(
             udf_path,
@@ -1192,7 +1192,11 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         Ok(virtual_id)
     }
 
-    async fn cancel_job(&self, identity: Identity, virtual_id: DocumentIdV6) -> anyhow::Result<()> {
+    async fn cancel_job(
+        &self,
+        identity: Identity,
+        virtual_id: DeveloperDocumentId,
+    ) -> anyhow::Result<()> {
         let mut tx = self.database.begin(identity).await?;
         VirtualSchedulerModel::new(&mut tx)
             .cancel(virtual_id)

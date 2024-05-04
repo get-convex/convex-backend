@@ -139,7 +139,7 @@ use usage_tracking::{
 };
 use value::{
     heap_size::HeapSize,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     Size,
     TableNumber,
 };
@@ -288,7 +288,12 @@ pub struct DocumentDeltas {
     /// Document deltas returned in increasing (ts, table_id, id) order.
     /// We use ResolvedDocument here rather than DeveloperDocument
     /// because streaming export always uses string IDs
-    pub deltas: Vec<(Timestamp, DocumentIdV6, TableName, Option<ResolvedDocument>)>,
+    pub deltas: Vec<(
+        Timestamp,
+        DeveloperDocumentId,
+        TableName,
+        Option<ResolvedDocument>,
+    )>,
     /// Exclusive cursor timestamp to pass in to the next call to
     /// document_deltas.
     pub cursor: Timestamp,
@@ -300,7 +305,7 @@ pub struct DocumentDeltas {
 pub struct SnapshotPage {
     pub documents: Vec<(Timestamp, TableName, ResolvedDocument)>,
     pub snapshot: Timestamp,
-    pub cursor: Option<DocumentIdV6>,
+    pub cursor: Option<DeveloperDocumentId>,
     pub has_more: bool,
 }
 
@@ -381,7 +386,7 @@ impl DatabaseSnapshot {
     ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>> {
         persistence_snapshot
             .index_scan(index_id, table_id, &Interval::all(), Order::Asc, usize::MAX)
-            .map_ok(|(_, ts, doc)| (*doc.id(), (ts, doc)))
+            .map_ok(|(_, ts, doc)| (doc.id(), (ts, doc)))
             .try_collect()
             .await
     }
@@ -1593,7 +1598,7 @@ impl<RT: Runtime> Database<RT> {
                 // Ignore the row if it comes from a deleted table
                 continue;
             };
-            let id: DocumentIdV6 = id.map_table(table_mapping.inject_table_number())?.into();
+            let id: DeveloperDocumentId = id.map_table(table_mapping.inject_table_number())?.into();
             if Self::user_table_filter(&table_filter, &table_name) {
                 deltas.push((ts, id, table_name, maybe_doc));
                 if new_cursor.is_none() && deltas.len() >= rows_returned_limit {
@@ -1614,7 +1619,7 @@ impl<RT: Runtime> Database<RT> {
         &self,
         identity: Identity,
         snapshot: Option<Timestamp>,
-        cursor: Option<DocumentIdV6>,
+        cursor: Option<DeveloperDocumentId>,
         table_filter: Option<TableName>,
         rows_read_limit: usize,
         rows_returned_limit: usize,
@@ -1672,7 +1677,7 @@ impl<RT: Runtime> Database<RT> {
         let mut rows_read = 0;
         while let Some((doc, ts)) = document_stream.try_next().await? {
             rows_read += 1;
-            let id = doc.id_v6();
+            let id = doc.developer_id();
             let table_name = table_mapping.tablet_name(doc.id().table().table_id)?;
             documents.push((ts, table_name, doc));
             if rows_read >= rows_read_limit || documents.len() >= rows_returned_limit {
@@ -1681,7 +1686,9 @@ impl<RT: Runtime> Database<RT> {
             }
         }
         let new_cursor = new_cursor.or_else(|| match table_numbers.next() {
-            Some(next_table_number) => Some(DocumentIdV6::new(next_table_number, InternalId::MIN)),
+            Some(next_table_number) => {
+                Some(DeveloperDocumentId::new(next_table_number, InternalId::MIN))
+            },
             None => None,
         });
         let has_more = new_cursor.is_some();

@@ -5,8 +5,8 @@ use std::{
 
 use derive_more::Deref;
 use value::{
+    id_v6::DeveloperDocumentId,
     ConvexValue,
-    DeveloperDocumentId,
     InternalId,
     Size,
 };
@@ -193,8 +193,8 @@ impl PartialOrd for IndexKey {
 mod proptest {
     use proptest::prelude::*;
     use value::{
+        id_v6::DeveloperDocumentId,
         ConvexValue,
-        DeveloperDocumentId,
     };
 
     use super::IndexKey;

@@ -61,7 +61,6 @@ use anyhow::{
     Error,
 };
 use heap_size::HeapSize;
-use id_v6::DocumentIdV6;
 pub use sync_types::identifier;
 
 pub use crate::{
@@ -199,12 +198,12 @@ impl From<ConvexObject> for ConvexValue {
 
 impl From<ResolvedDocumentId> for ConvexValue {
     fn from(value: ResolvedDocumentId) -> Self {
-        DocumentIdV6::from(value).into()
+        DeveloperDocumentId::from(value).into()
     }
 }
 
-impl From<DocumentIdV6> for ConvexValue {
-    fn from(value: DocumentIdV6) -> Self {
+impl From<DeveloperDocumentId> for ConvexValue {
+    fn from(value: DeveloperDocumentId) -> Self {
         ConvexValue::String(
             value
                 .encode()
@@ -214,12 +213,12 @@ impl From<DocumentIdV6> for ConvexValue {
     }
 }
 
-impl TryFrom<ConvexValue> for DocumentIdV6 {
+impl TryFrom<ConvexValue> for DeveloperDocumentId {
     type Error = anyhow::Error;
 
     fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
         if let ConvexValue::String(s) = value {
-            DocumentIdV6::decode(&s).map_err(|e| anyhow::anyhow!(e))
+            DeveloperDocumentId::decode(&s).map_err(|e| anyhow::anyhow!(e))
         } else {
             Err(anyhow::anyhow!("Value is not an ID"))
         }
@@ -614,7 +613,7 @@ pub mod proptest {
         S: Strategy<Value = FieldName> + 'static,
     {
         use crate::{
-            id_v6::DocumentIdV6,
+            id_v6::DeveloperDocumentId,
             resolved_object_strategy,
             ConvexArray,
             ConvexMap,
@@ -623,7 +622,7 @@ pub mod proptest {
 
         // https://altsysrq.github.io/proptest-book/proptest/tutorial/recursive.html
         let leaf = prop_oneof![
-            1 => any::<DocumentIdV6>()
+            1 => any::<DeveloperDocumentId>()
                 .prop_map(|id| {
                     let s = id.encode().try_into().expect("Could not create String value from ID");
                     ConvexValue::String(s)
@@ -633,7 +632,7 @@ pub mod proptest {
             1 => (prop::num::f64::ANY | prop::num::f64::SIGNALING_NAN)
                 .prop_map(ConvexValue::from),
             1 => any::<bool>().prop_map(ConvexValue::from),
-            1 => any::<ConvexString>().prop_filter_map("String ID", |s| match DocumentIdV6::decode(&s) {
+            1 => any::<ConvexString>().prop_filter_map("String ID", |s| match DeveloperDocumentId::decode(&s) {
                 Ok(_) => None,
                 Err(_) => Some(ConvexValue::String(s))
             }),

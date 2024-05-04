@@ -230,7 +230,7 @@ mod tests {
     };
     use value::{
         array,
-        id_v6::DocumentIdV6,
+        id_v6::DeveloperDocumentId,
         ConvexArray,
         ConvexObject,
     };
@@ -286,7 +286,7 @@ mod tests {
         ExecuteRequest {
             path_and_args,
             source_package,
-            source_package_id: DocumentIdV6::min().into(),
+            source_package_id: DeveloperDocumentId::min().into(),
             user_identity: None,
             auth_header: None,
             environment_variables: btreemap! {},
@@ -401,7 +401,7 @@ mod tests {
                     VERSION.clone(),
                 ),
                 source_package,
-                source_package_id: DocumentIdV6::min().into(),
+                source_package_id: DeveloperDocumentId::min().into(),
                 user_identity: Some(identity.attributes.clone()),
                 auth_header: None,
                 environment_variables: btreemap! {},
@@ -641,7 +641,7 @@ mod tests {
                     VERSION.clone(),
                 ),
                 source_package,
-                source_package_id: DocumentIdV6::min().into(),
+                source_package_id: DeveloperDocumentId::min().into(),
                 user_identity: None,
                 auth_header: None,
                 environment_variables,

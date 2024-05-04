@@ -118,7 +118,7 @@ impl IndexRegistry {
         let mut regular_indexes = vec![];
 
         for document in index_documents {
-            anyhow::ensure!(*document.table() == index_table);
+            anyhow::ensure!(document.table() == index_table);
             let metadata = TabletIndexMetadata::from_document(document.clone())?;
             if metadata.name == meta_index_name {
                 anyhow::ensure!(meta_index.is_none());
@@ -159,7 +159,7 @@ impl IndexRegistry {
         document: &'a ResolvedDocument,
     ) -> impl Iterator<Item = (&'a Index, IndexKey)> + 'a {
         iter::from_coroutine(move || {
-            for index in self.indexes_by_table(&document.table().table_id) {
+            for index in self.indexes_by_table(document.table().table_id) {
                 // Only yield fields from database indexes.
                 if let IndexConfig::Database {
                     developer_config: DeveloperDatabaseIndexConfig { fields },
@@ -201,7 +201,7 @@ impl IndexRegistry {
                     DatabaseIndexUpdate {
                         index_id: index.id(),
                         key: index_key,
-                        value: DatabaseIndexValue::NonClustered(*new_document.id()),
+                        value: DatabaseIndexValue::NonClustered(new_document.id()),
                         is_system_index: index.name().descriptor().is_reserved(),
                     },
                 );
@@ -260,7 +260,7 @@ impl IndexRegistry {
         }
         // Checks performed when updating or adding a document.
         if let Some(new_document) = new_document {
-            let table_id = *new_document.table();
+            let table_id = new_document.table();
             anyhow::ensure!(
                 self.enabled_indexes
                     .contains_key(&GenericIndexName::by_id(table_id.table_id)),
@@ -352,7 +352,7 @@ impl IndexRegistry {
         if let Some(new_document) = insertion {
             // The default index should exist for a table before adding
             // any documents.
-            let table_id = *new_document.table();
+            let table_id = new_document.table();
             if table_id == self.index_table() {
                 let metadata = TabletIndexMetadata::from_document(new_document.clone()).unwrap();
                 let index = Index::new(metadata.id().internal_id(), metadata.clone());
@@ -441,25 +441,25 @@ impl IndexRegistry {
 
     /// Returns true if there are neither pending nor enabled indexes for the
     /// given table.
-    pub fn has_no_indexes(&self, table_id: &TableId) -> bool {
+    pub fn has_no_indexes(&self, table_id: TableId) -> bool {
         let table_indexes: Vec<&Index> = self.indexes_by_table(table_id).collect();
         table_indexes.is_empty()
     }
 
-    pub fn search_indexes_by_table<'a>(
-        &'a self,
-        table_id: &'a TableId,
-    ) -> impl Iterator<Item = &'a Index> + 'a {
+    pub fn search_indexes_by_table(
+        &self,
+        table_id: TableId,
+    ) -> impl Iterator<Item = &'_ Index> + '_ {
         // We only support storing one search index with a given name at at time, so
         // unlike database indexes, we're not overly concerned with the state.
         self.indexes_by_table(table_id)
             .filter(|index| index.metadata.is_search_index())
     }
 
-    pub fn vector_indexes_by_table<'a>(
-        &'a self,
-        table_id: &'a TableId,
-    ) -> impl Iterator<Item = &'a Index> + 'a {
+    pub fn vector_indexes_by_table(
+        &self,
+        table_id: TableId,
+    ) -> impl Iterator<Item = &'_ Index> + '_ {
         self.indexes_by_table(table_id)
             .filter(|index| index.metadata.is_vector_index())
     }
@@ -468,15 +468,15 @@ impl IndexRegistry {
     ///
     /// Multiple Indexes with a given name will be returned if an index is
     /// mutated but the mutated version is not yet enabled.
-    pub(crate) fn indexes_by_table<'a>(
-        &'a self,
-        table_id: &'a TableId,
-    ) -> impl Iterator<Item = &'a Index> + 'a {
-        let s = (table_id, &IndexDescriptor::min());
+    pub(crate) fn indexes_by_table(
+        &self,
+        table_id: TableId,
+    ) -> impl Iterator<Item = &'_ Index> + '_ {
+        let s = (&table_id, &IndexDescriptor::min());
         let range = (StdBound::Included(s.as_comparator()), StdBound::Unbounded);
         self.indexes_by_table
             .range::<_, dyn TupleKey<TableId, IndexDescriptor>>(range)
-            .take_while(move |(t, _)| t == table_id)
+            .take_while(move |(t, _)| *t == table_id)
             .flat_map(move |(t, d)| {
                 let index_name = if d == &*INDEX_BY_ID_DESCRIPTOR {
                     GenericIndexName::by_id(*t)

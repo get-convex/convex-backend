@@ -24,12 +24,14 @@ use sha2::{
 };
 use value::{
     heap_size::HeapSize,
-    id_v6::VirtualTableNumberMap,
+    id_v6::{
+        DeveloperDocumentId,
+        VirtualTableNumberMap,
+    },
     utils::display_sequence,
     val,
     ConvexObject,
     ConvexValue,
-    DeveloperDocumentId,
     TableId,
     TableIdAndTableNumber,
 };

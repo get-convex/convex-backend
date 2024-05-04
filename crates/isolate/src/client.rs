@@ -125,7 +125,7 @@ use sync_types::{
 };
 use usage_tracking::FunctionUsageStats;
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexValue,
 };
 use vector::PublicVectorSearchQueryResult;
@@ -316,7 +316,7 @@ pub trait ActionCallbacks: Send + Sync {
         &self,
         identity: Identity,
         entry: FileStorageEntry,
-    ) -> anyhow::Result<DocumentIdV6>;
+    ) -> anyhow::Result<DeveloperDocumentId>;
 
     // Scheduler
     async fn schedule_job(
@@ -326,9 +326,13 @@ pub trait ActionCallbacks: Send + Sync {
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
-    ) -> anyhow::Result<DocumentIdV6>;
+    ) -> anyhow::Result<DeveloperDocumentId>;
 
-    async fn cancel_job(&self, identity: Identity, virtual_id: DocumentIdV6) -> anyhow::Result<()>;
+    async fn cancel_job(
+        &self,
+        identity: Identity,
+        virtual_id: DeveloperDocumentId,
+    ) -> anyhow::Result<()>;
 
     // Vector Search
     async fn vector_search(

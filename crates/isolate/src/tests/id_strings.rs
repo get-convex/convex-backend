@@ -19,7 +19,7 @@ use runtime::testing::{
 };
 use value::{
     assert_obj,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexValue,
     FieldName,
     InternalId,
@@ -81,7 +81,7 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
             .await?;
         t.database.commit(tx).await?;
 
-        let id_v6 = DocumentIdV6::new(storage_virtual_table_number, internal_id);
+        let id_v6 = DeveloperDocumentId::new(storage_virtual_table_number, internal_id);
 
         // Correct virtual table name and number.
         must_let!(let ConvexValue::String(normalized_id) = t.query("idStrings:normalizeSystemId", assert_obj!(
@@ -111,19 +111,19 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
 
         // Virtual table name and physical table number doesn't work.
         must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
-            "id" => DocumentIdV6::new(storage_table_number, internal_id).encode(),
+            "id" => DeveloperDocumentId::new(storage_table_number, internal_id).encode(),
             "table" => "_storage",
         )).await?);
 
         // Physical table name and physical table number doesn't work.
         must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
-            "id" => DocumentIdV6::new(storage_table_number, internal_id).encode(),
+            "id" => DeveloperDocumentId::new(storage_table_number, internal_id).encode(),
             "table" => "_file_storage",
         )).await?);
 
         // System table that doesn't even have a virtual table doesn't work.
         must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
-            "id" => DocumentIdV6::new(indexes_table_number, internal_id).encode(),
+            "id" => DeveloperDocumentId::new(indexes_table_number, internal_id).encode(),
             "table" => "_index",
         )).await?);
 
@@ -141,7 +141,7 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
         t.query_js_error(
             "idStrings:normalizeSystemId",
             assert_obj!(
-                "id" => DocumentIdV6::new(user_table_number, internal_id).encode(),
+                "id" => DeveloperDocumentId::new(user_table_number, internal_id).encode(),
                 "table" => user_table_name.to_string(),
             ),
         )
@@ -189,7 +189,7 @@ async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::
         .await?;
     t.database.commit(tx).await?;
 
-    let id_v6 = DocumentIdV6::new(table_number, internal_id);
+    let id_v6 = DeveloperDocumentId::new(table_number, internal_id);
 
     // Test IDv6 and correct table name
     must_let!(let ConvexValue::Object(obj) = t.query("idStrings:normalizeId", assert_obj!(

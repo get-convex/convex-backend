@@ -46,7 +46,7 @@ use pb::storage::{
     FileStorageId as FileStorageIdProto,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexValue,
     FieldPath,
     ResolvedDocumentId,
@@ -134,14 +134,14 @@ impl SystemTable for FileStorageTable {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum FileStorageId {
     LegacyStorageId(StorageUuid),
-    DocumentId(DocumentIdV6),
+    DocumentId(DeveloperDocumentId),
 }
 
 impl FromStr for FileStorageId {
     type Err = anyhow::Error;
 
     fn from_str(storage_id: &str) -> Result<Self, Self::Err> {
-        let decoded_id = DocumentIdV6::decode(storage_id);
+        let decoded_id = DeveloperDocumentId::decode(storage_id);
         match decoded_id {
             Ok(decoded_id) => Ok(FileStorageId::DocumentId(decoded_id)),
             Err(_) => Ok(FileStorageId::LegacyStorageId(storage_id.parse().context(
@@ -166,7 +166,7 @@ impl TryFrom<FileStorageIdProto> for FileStorageId {
                 FileStorageId::LegacyStorageId(storage_id.parse()?)
             },
             Some(FileStorageIdTypeProto::DocumentId(storage_id)) => {
-                FileStorageId::DocumentId(DocumentIdV6::decode(storage_id.as_str())?)
+                FileStorageId::DocumentId(DeveloperDocumentId::decode(storage_id.as_str())?)
             },
             None => anyhow::bail!("Missing `storage_id_type` field"),
         };

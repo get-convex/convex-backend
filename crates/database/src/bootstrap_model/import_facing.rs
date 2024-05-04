@@ -11,7 +11,6 @@ use common::{
 use errors::ErrorMetadata;
 use value::{
     check_user_size,
-    id_v6::DocumentIdV6,
     ConvexObject,
     ConvexValue,
     DeveloperDocumentId,
@@ -81,7 +80,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         self.tx.retention_validator.fail_if_falling_behind()?;
         let id_field = FieldName::from(ID_FIELD.clone());
         let internal_id = if let Some(ConvexValue::String(s)) = value.get(&id_field) {
-            let id_v6 = DocumentIdV6::decode(s).context(ErrorMetadata::bad_request(
+            let id_v6 = DeveloperDocumentId::decode(s).context(ErrorMetadata::bad_request(
                 "InvalidId",
                 format!("invalid _id '{s}'"),
             ))?;

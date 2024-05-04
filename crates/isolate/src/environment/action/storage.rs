@@ -21,7 +21,7 @@ use headers::{
 };
 use model::file_storage::FileStorageId;
 use usage_tracking::StorageUsageTracker;
-use value::id_v6::DocumentIdV6;
+use value::id_v6::DeveloperDocumentId;
 
 use super::task_executor::TaskExecutor;
 use crate::environment::{
@@ -45,7 +45,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         content_type: Option<String>,
         content_length: Option<String>,
         digest: Option<String>,
-    ) -> anyhow::Result<DocumentIdV6> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let content_length = content_length
             .map(|c| -> anyhow::Result<headers::ContentLength> {
                 Ok(headers::ContentLength(c.parse()?))

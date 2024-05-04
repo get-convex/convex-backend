@@ -20,7 +20,6 @@ use errors::ErrorMetadata;
 use imbl::OrdMap;
 use indexing::backend_in_memory_indexes::BatchKey;
 use value::{
-    id_v6::DocumentIdV6,
     DeveloperDocumentId,
     ResolvedDocumentId,
     TableIdentifier,
@@ -176,10 +175,10 @@ impl VirtualSystemMapping {
         }
     }
 
-    // Converts a virtual table DocumentIdV6 to the system table ResolvedId.
+    // Converts a virtual table DeveloperDocumentId to the system table ResolvedId.
     pub fn virtual_id_v6_to_system_resolved_doc_id(
         &self,
-        virtual_id_v6: &DocumentIdV6,
+        virtual_id_v6: &DeveloperDocumentId,
         table_mapping: &TableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> anyhow::Result<ResolvedDocumentId> {
@@ -193,7 +192,7 @@ impl VirtualSystemMapping {
     // DeveloperDocumentId by mapping the TableName and using the same InternalId
     pub fn system_resolved_id_to_virtual_developer_id(
         &self,
-        system_doc_id: &ResolvedDocumentId,
+        system_doc_id: ResolvedDocumentId,
         table_mapping: &TableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> anyhow::Result<DeveloperDocumentId> {

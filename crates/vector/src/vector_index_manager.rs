@@ -38,9 +38,8 @@ use indexing::index_registry::{
 use storage::Storage;
 use usage_tracking::DocInVectorIndex;
 use value::{
-    GenericDocumentId,
     InternalId,
-    TableIdAndTableNumber,
+    ResolvedDocumentId,
 };
 
 use crate::{
@@ -221,14 +220,14 @@ impl VectorIndexManager {
 
     fn update_vector_index_contents(
         &mut self,
-        id: &GenericDocumentId<TableIdAndTableNumber>,
+        id: ResolvedDocumentId,
         index_registry: &IndexRegistry,
         deletion: Option<&ResolvedDocument>,
         insertion: Option<&ResolvedDocument>,
         ts: WriteTimestamp,
     ) -> anyhow::Result<bool> {
         let mut at_least_one_matching_index = false;
-        for index in index_registry.vector_indexes_by_table(&id.table().table_id) {
+        for index in index_registry.vector_indexes_by_table(id.table().table_id) {
             let IndexConfig::Vector {
                 ref developer_config,
                 ..
@@ -250,7 +249,7 @@ impl VectorIndexManager {
 
     fn update_vector_index_metadata(
         &mut self,
-        id: &GenericDocumentId<TableIdAndTableNumber>,
+        id: ResolvedDocumentId,
         index_registry: &IndexRegistry,
         deletion: Option<&ResolvedDocument>,
         insertion: Option<&ResolvedDocument>,

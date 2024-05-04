@@ -774,9 +774,9 @@ mod tests {
             let mut prev_doc_id = None;
             while let Some((revision, ts)) = revision_stream.try_next().await? {
                 assert!(ts <= *snapshot_ts);
-                assert!(prev_doc_id.as_ref() < Some(revision.id()));
-                prev_doc_id = Some(*revision.id());
-                actual.insert(*revision.id(), revision.to_developer());
+                assert!(prev_doc_id < Some(revision.id()));
+                prev_doc_id = Some(revision.id());
+                actual.insert(revision.id(), revision.to_developer());
             }
             Ok(actual)
         };

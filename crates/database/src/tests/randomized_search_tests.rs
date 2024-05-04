@@ -277,7 +277,7 @@ impl Scenario {
             must_let!(
                 let Some(ConvexValue::Float64(negative_score)) = index_key_values[0].clone()
             );
-            returned.push((*value.id(), -negative_score))
+            returned.push((value.id(), -negative_score))
         }
         Ok(returned)
     }

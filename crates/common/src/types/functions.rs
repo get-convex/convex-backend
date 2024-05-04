@@ -15,7 +15,7 @@ use serde::{
 use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::HeapSize,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
 };
 
 use super::HttpActionRoute;
@@ -132,10 +132,10 @@ pub enum FunctionCaller {
     HttpEndpoint,
     Cron,
     Scheduler {
-        job_id: DocumentIdV6,
+        job_id: DeveloperDocumentId,
     },
     Action {
-        parent_scheduled_job: Option<DocumentIdV6>,
+        parent_scheduled_job: Option<DeveloperDocumentId>,
     },
 }
 
@@ -153,7 +153,7 @@ impl FunctionCaller {
         .cloned()
     }
 
-    pub fn parent_scheduled_job(&self) -> Option<DocumentIdV6> {
+    pub fn parent_scheduled_job(&self) -> Option<DeveloperDocumentId> {
         match self {
             FunctionCaller::SyncWorker(_)
             | FunctionCaller::HttpApi(_)

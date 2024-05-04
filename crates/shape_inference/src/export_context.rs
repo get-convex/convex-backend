@@ -24,7 +24,7 @@ use serde_json::{
     Value as JsonValue,
 };
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexObject,
     ConvexValue,
     FieldName,
@@ -1036,7 +1036,7 @@ mod tests {
 #[derive(Debug, Clone)]
 pub struct GeneratedSchema<T: ShapeConfig> {
     pub inferred_shape: StructuralShape<T>,
-    pub overrides: BTreeMap<DocumentIdV6, ExportContext>,
+    pub overrides: BTreeMap<DeveloperDocumentId, ExportContext>,
 }
 
 impl<T: ShapeConfig> GeneratedSchema<T> {
@@ -1047,7 +1047,7 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
         }
     }
 
-    pub fn insert(&mut self, object: &ConvexObject, id: DocumentIdV6) {
+    pub fn insert(&mut self, object: &ConvexObject, id: DeveloperDocumentId) {
         let export_context = ExportContext::of_object(object, &self.inferred_shape);
         if !export_context.is_infer() {
             self.overrides.insert(id, export_context);
@@ -1064,7 +1064,7 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
         let export_context = if let Some(schema) = schema
             && let Some(JsonValue::String(id_str)) = exported_object.get("_id")
         {
-            let id = DocumentIdV6::decode(id_str)?;
+            let id = DeveloperDocumentId::decode(id_str)?;
             schema.overrides.remove(&id).unwrap_or(ExportContext::Infer)
         } else {
             ExportContext::Infer
@@ -1090,7 +1090,7 @@ mod test_generated_schema {
     use value::{
         assert_val,
         export::ValueFormat,
-        id_v6::DocumentIdV6,
+        id_v6::DeveloperDocumentId,
         ConvexObject,
     };
 
@@ -1106,7 +1106,7 @@ mod test_generated_schema {
         })]
         #[test]
         fn generated_schema_object_roundtrip(
-            objects in prop::collection::vec(any::<(ConvexObject, DocumentIdV6)>(), 1..3),
+            objects in prop::collection::vec(any::<(ConvexObject, DeveloperDocumentId)>(), 1..3),
         ) {
             let mut inferred_shape = CountedShape::<SmallTestConfig>::empty();
             let mut id_to_object = BTreeMap::new();

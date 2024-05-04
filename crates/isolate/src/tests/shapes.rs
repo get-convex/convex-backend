@@ -20,7 +20,7 @@ use shape_inference::{
 };
 use value::{
     assert_val,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     val,
     ResolvedDocumentId,
 };
@@ -39,7 +39,7 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
             r#"Id<"test">"#,
         ),
         (
-            ConvexValue::from(DocumentIdV6::new(table_number, InternalId::MIN)),
+            ConvexValue::from(DeveloperDocumentId::new(table_number, InternalId::MIN)),
             r#"Id<"test2">"#,
         ),
         (val!(null), "null"),

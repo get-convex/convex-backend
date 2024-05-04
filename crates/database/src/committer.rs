@@ -89,7 +89,7 @@ use usage_tracking::{
 };
 use value::{
     heap_size::WithHeapSize,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     GenericDocumentId,
     InternalDocumentId,
     TableId,
@@ -974,7 +974,7 @@ impl<RT: Runtime> CommitterClient<RT> {
                     .generated_ids
                     .iter()
                     .find(|id| GenericDocumentId::<TableId>::from(**id) == document_id)
-                    .map(|id| DocumentIdV6::from(*id).encode())
+                    .map(|id| DeveloperDocumentId::from(*id).encode())
                     .unwrap_or(document_id.to_string());
                 if maybe_doc.is_none() {
                     anyhow::bail!(ErrorMetadata::bad_request(

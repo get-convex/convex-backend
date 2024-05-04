@@ -119,7 +119,7 @@ impl BackendInMemoryIndexes {
             .context("Missing meta index")?;
         let mut meta_index_map = DatabaseIndexMap::new_at(ts);
         for (ts, index_doc) in index_documents.into_values() {
-            let index_key = IndexKey::new(vec![], (*index_doc.id()).into());
+            let index_key = IndexKey::new(vec![], index_doc.developer_id());
             meta_index_map.insert(index_key.into_bytes(), ts, index_doc);
         }
 
@@ -225,7 +225,7 @@ impl BackendInMemoryIndexes {
         insertion: Option<ResolvedDocument>,
     ) -> Vec<DatabaseIndexUpdate> {
         if let (Some(old_document), None) = (&deletion, &insertion) {
-            if *old_document.table() == index_registry.index_table() {
+            if old_document.table() == index_registry.index_table() {
                 // Drop the index from memory.
                 self.in_memory_indexes
                     .remove(&old_document.id().internal_id());
@@ -247,7 +247,7 @@ impl BackendInMemoryIndexes {
                         // from the update itself.
                         match insertion {
                             Some(ref doc) => {
-                                assert_eq!(doc_id, doc.id());
+                                assert_eq!(*doc_id, doc.id());
                                 key_set.insert(update.key.clone().into_bytes(), ts, doc.clone());
                             },
                             None => panic!("Unexpected index update: {:?}", update.value),

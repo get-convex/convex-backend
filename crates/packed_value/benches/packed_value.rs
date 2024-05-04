@@ -23,7 +23,7 @@ use serde_json::Value as JsonValue;
 use value::{
     assert_obj,
     assert_val,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     val,
     ConvexValue,
     FieldName,
@@ -32,7 +32,7 @@ use value::{
 };
 
 fn benchmark_values() -> anyhow::Result<Vec<(&'static str, ConvexValue)>> {
-    let idv6 = DocumentIdV6::new(TableNumber::try_from(123)?, InternalId([0x16; 16]));
+    let idv6 = DeveloperDocumentId::new(TableNumber::try_from(123)?, InternalId([0x16; 16]));
 
     let string_short = "some text a person would insert in their document";
     let string_fr =

@@ -8,7 +8,7 @@ use std::{
 };
 
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ResolvedDocumentId,
     TableId,
     TableIdAndTableNumber,
@@ -160,7 +160,7 @@ impl TestIdGenerator {
         table_id.id(self.generate_internal())
     }
 
-    pub fn generate_virtual(&mut self, table_name: &TableName) -> DocumentIdV6 {
+    pub fn generate_virtual(&mut self, table_name: &TableName) -> DeveloperDocumentId {
         let table_num = self.generate_virtual_table(table_name);
         table_num.id(self.generate_internal())
     }

@@ -1,5 +1,5 @@
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexValue,
     FieldName,
 };
@@ -33,7 +33,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 s[..] == literal[..]
             },
             (ConvexValue::String(ref s), ShapeEnum::Id(ref table)) => {
-                if let Ok(ref id) = DocumentIdV6::decode(s) {
+                if let Ok(ref id) = DeveloperDocumentId::decode(s) {
                     id.table() == table
                 } else {
                     false

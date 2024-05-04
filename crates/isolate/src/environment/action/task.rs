@@ -12,7 +12,7 @@ use deno_core::{
 };
 use serde::Serialize;
 use serde_json::Value as JsonValue;
-use value::id_v6::DocumentIdV6;
+use value::id_v6::DeveloperDocumentId;
 
 use crate::{
     environment::{
@@ -128,7 +128,7 @@ pub enum TaskResponseEnum {
     Fetch(HttpResponseV8),
     ParseMultiPart(Vec<FormPart>),
     Sleep(UnixTimestamp),
-    StorageStore(DocumentIdV6),
+    StorageStore(DeveloperDocumentId),
     StorageGet(Option<FileResponse>),
 }
 

@@ -25,7 +25,7 @@ use shape_inference::{
 };
 use value::{
     export::ValueFormat,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     sorting::TotalOrdF64,
     utils::{
         all_tables_number_to_name,
@@ -163,7 +163,7 @@ impl Validator {
     ) -> Result<(), ValidationError> {
         match (self, value) {
             (Validator::Id(validator_table), ConvexValue::String(s)) => {
-                if let Ok(id) = DocumentIdV6::decode(s)
+                if let Ok(id) = DeveloperDocumentId::decode(s)
                     && let Ok(table_name) = all_tables_number_to_name(*id.table())
                 {
                     if &table_name != validator_table {
@@ -1000,7 +1000,7 @@ pub enum ValidationError {
         found_table_name
     )]
     TableNamesDoNotMatch {
-        id: DocumentIdV6,
+        id: DeveloperDocumentId,
         found_table_name: TableName,
         validator_table: TableName,
         context: ValidationContext,
@@ -1011,7 +1011,7 @@ pub enum ValidationError {
         "id.encode()"
     )]
     SystemTableReference {
-        id: DocumentIdV6,
+        id: DeveloperDocumentId,
         validator_table: TableName,
         context: ValidationContext,
     },
@@ -1082,10 +1082,9 @@ mod tests {
         assert_obj,
         assert_val,
         export::ValueFormat,
-        id_v6::DocumentIdV6,
+        id_v6::DeveloperDocumentId,
         ConvexObject,
         ConvexValue,
-        DeveloperDocumentId,
         ExcludeSetsAndMaps,
         FieldName,
         FieldType,
@@ -1516,7 +1515,7 @@ mod tests {
         // generate an ID so it's in the table mapping
         id_generator.generate(&table1);
         let document_id = id_generator.generate(&table2);
-        let id_v6 = DocumentIdV6::from(document_id);
+        let id_v6 = DeveloperDocumentId::from(document_id);
         let value: ConvexValue = id_v6.into();
 
         let err = id_validator

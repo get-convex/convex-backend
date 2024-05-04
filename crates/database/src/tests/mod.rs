@@ -79,7 +79,7 @@ use sync_types::{
 use value::{
     array,
     assert_val,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     val,
     TableIdentifier,
     TableMapping,
@@ -175,7 +175,7 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     let value1_doc = TestFacingModel::new(&mut tx)
         .insert_and_get(table1.clone(), value1)
         .await?;
-    let value1_id = *value1_doc.id();
+    let value1_id = value1_doc.id();
     summary1 = summary1.insert(value1_doc.value());
     db.commit(tx).await?;
 
@@ -454,11 +454,11 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
     let mut tx = database.begin(Identity::system()).await?;
     // Pretend we create another document with the same ID as the first. We can't do
     // this through the normal Transaction interface so we pretend it's an import.
-    let id_v6 = DocumentIdV6::from(*document.id()).encode();
+    let id_v6 = DeveloperDocumentId::from(document.id()).encode();
     let table_mapping_for_schema = tx.table_mapping().clone();
     ImportFacingModel::new(&mut tx)
         .insert(
-            *document.table(),
+            document.table(),
             &"table".parse()?,
             assert_obj!("_id" => id_v6),
             &table_mapping_for_schema,
@@ -1028,8 +1028,8 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
     let mut tx = database.begin(Identity::system()).await?;
     let doc1 = tx.get_inner(doc1_id, table_name.clone()).await?.unwrap().0;
     let doc2 = tx.get_inner(doc2_id, table_name.clone()).await?.unwrap().0;
-    assert_eq!(doc1.id(), &doc1_id);
-    assert_eq!(doc2.id(), &doc2_id);
+    assert_eq!(doc1.id(), doc1_id);
+    assert_eq!(doc2.id(), doc2_id);
     assert!(doc1.creation_time().is_some());
     assert_eq!(
         doc2.creation_time(),
@@ -1306,7 +1306,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
         .insert(table_name.clone(), object.clone())
         .await?;
     let doc0_id = doc_id_user_facing.map_table(tx.table_mapping().inject_table_id())?;
-    let doc0_id_str: String = DocumentIdV6::from(doc0_id).encode();
+    let doc0_id_str: String = DeveloperDocumentId::from(doc0_id).encode();
     database.commit(tx).await?;
     let object_with_id = assert_obj!("_id" => &*doc0_id_str, "value" => 2);
 
@@ -1338,8 +1338,8 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = database.begin(Identity::system()).await?;
     let doc0 = tx.get_inner(doc0_id, table_name.clone()).await?.unwrap().0;
     let doc1 = tx.get_inner(doc1_id, table_name.clone()).await?.unwrap().0;
-    assert_eq!(doc0.id(), &doc0_id);
-    assert_eq!(doc1.id(), &doc1_id);
+    assert_eq!(doc0.id(), doc0_id);
+    assert_eq!(doc1.id(), doc1_id);
     assert_eq!(doc0.value().0.get("value"), Some(&val!(1)));
     assert_eq!(doc1.value().0.get("value"), Some(&val!(2)));
     let (doc_user_facing, _) = UserFacingModel::new(&mut tx)

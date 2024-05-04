@@ -541,7 +541,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let index_update = DatabaseIndexUpdate {
         index_id: index_id.internal_id(),
         key: key.clone(),
-        value: DatabaseIndexValue::NonClustered(*doc.id()),
+        value: DatabaseIndexValue::NonClustered(doc.id()),
         is_system_index: false,
     };
     p.write(
@@ -728,7 +728,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
                 DatabaseIndexUpdate {
                     index_id: index1_id,
                     key: doc1.index_key(&index_fields, p.reader().version()),
-                    value: DatabaseIndexValue::NonClustered(*doc1.id()),
+                    value: DatabaseIndexValue::NonClustered(doc1.id()),
                     is_system_index: false,
                 }
             ),
@@ -737,7 +737,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
                 DatabaseIndexUpdate {
                     index_id: index2_id,
                     key: doc1.index_key(&index_fields, p.reader().version()),
-                    value: DatabaseIndexValue::NonClustered(*doc2.id()),
+                    value: DatabaseIndexValue::NonClustered(doc2.id()),
                     is_system_index: false,
                 }
             )
@@ -1059,7 +1059,7 @@ pub async fn query_dangling_reference<P: Persistence>(p: Arc<P>) -> anyhow::Resu
     let index_update = DatabaseIndexUpdate {
         index_id,
         key: document.index_key(&index_fields, p.reader().version()),
-        value: DatabaseIndexValue::NonClustered(*document.id()),
+        value: DatabaseIndexValue::NonClustered(document.id()),
         is_system_index: false,
     };
 
@@ -1108,7 +1108,7 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
     let index_update = DatabaseIndexUpdate {
         index_id,
         key: document.index_key(&index_fields, p.reader().version()),
-        value: DatabaseIndexValue::NonClustered(*document.id()),
+        value: DatabaseIndexValue::NonClustered(document.id()),
         is_system_index: false,
     };
 
@@ -1165,7 +1165,7 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
         let index_update = DatabaseIndexUpdate {
             index_id,
             key: document.index_key(&index_fields, p.reader().version()),
-            value: DatabaseIndexValue::NonClustered(*document.id()),
+            value: DatabaseIndexValue::NonClustered(document.id()),
             is_system_index: false,
         };
         p.write(
@@ -1501,7 +1501,7 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
         .try_collect::<Vec<_>>()
         .await?
         .into_iter()
-        .map(|(_, ts, doc)| (*doc.id(), i64::from(ts)))
+        .map(|(_, ts, doc)| (doc.id(), i64::from(ts)))
         .collect();
     assert_eq!(results, vec![(id3, 5), (id4, 6), (id5, 7), (id1, 3)]);
 

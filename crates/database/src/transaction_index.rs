@@ -507,7 +507,7 @@ impl TransactionIndex {
                     // from the update itself.
                     match new_document {
                         Some(ref doc) => {
-                            assert_eq!(doc.id(), doc_id);
+                            assert_eq!(doc.id(), *doc_id);
                             Some(doc.clone())
                         },
                         None => panic!("Unexpected index update: {:?}", update.value),
@@ -523,13 +523,13 @@ impl TransactionIndex {
         // If we are updating a document, the old and new ids must be the same.
         let document_id = new_document
             .as_ref()
-            .map(|d| *d.id())
-            .or(old_document.as_ref().map(|d| *d.id()));
+            .map(|d| d.id())
+            .or(old_document.as_ref().map(|d| d.id()));
         if let Some(id) = document_id {
             // Add the update to all affected text search indexes.
             for index in self
                 .index_registry
-                .search_indexes_by_table(&id.table().table_id)
+                .search_indexes_by_table(id.table().table_id)
             {
                 self.search_index_updates
                     .entry(index.id)
@@ -905,8 +905,8 @@ mod tests {
         let ts = Timestamp::MIN;
         for metadata in indexes {
             let doc = gen_index_document(id_generator, metadata.clone())?;
-            index_id_by_name.insert(metadata.name.clone(), *doc.id());
-            index_documents.insert(*doc.id(), (ts, doc));
+            index_id_by_name.insert(metadata.name.clone(), doc.id());
+            index_documents.insert(doc.id(), (ts, doc));
         }
 
         let index_registry = IndexRegistry::bootstrap(

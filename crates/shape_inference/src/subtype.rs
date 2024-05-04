@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use value::{
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     FieldName,
 };
 
@@ -45,7 +45,7 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             },
             // A string literal type is a subtype of an `id<t>` type if it's a valid ID in `t`.
             (ShapeEnum::StringLiteral(ref s), ShapeEnum::Id(table_number)) => {
-                match DocumentIdV6::decode(s) {
+                match DeveloperDocumentId::decode(s) {
                     Ok(id) => id.table() == table_number,
                     Err(_) => false,
                 }
@@ -237,7 +237,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 ShapeEnum::StringLiteral(s.clone())
             },
             (ShapeEnum::StringLiteral(ref s), ShapeEnum::Id(table_number)) => {
-                let Ok(id) = DocumentIdV6::decode(s) else {
+                let Ok(id) = DeveloperDocumentId::decode(s) else {
                     return None;
                 };
                 if id.table() != table_number {

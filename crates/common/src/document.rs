@@ -41,10 +41,9 @@ use value::{
     check_nesting_for_documents,
     export::ValueFormat,
     heap_size::HeapSize,
-    id_v6::DocumentIdV6,
+    id_v6::DeveloperDocumentId,
     ConvexObject,
     ConvexValue,
-    DeveloperDocumentId,
     FieldName,
     FieldPath,
     GenericDocumentId,
@@ -225,18 +224,8 @@ pub struct GenericDocument<T: TableIdentifier> {
 }
 
 impl<T: TableIdentifier> GenericDocument<T> {
-    /// The [`Document`]'s globally unique ID
-    pub fn id(&self) -> &GenericDocumentId<T> {
-        &self.id
-    }
-
     pub fn creation_time(&self) -> Option<CreationTime> {
         self.creation_time
-    }
-
-    /// Name of the table this document resides in.
-    pub fn table(&self) -> &T {
-        self.id.table()
     }
 
     /// The [`InternalId`] associated with the document's ID.
@@ -453,12 +442,12 @@ impl ResolvedDocument {
 
         match self.value.get(&FieldName::from(ID_FIELD.clone())) {
             Some(ConvexValue::String(s)) => {
-                if let Ok(document_id) = DocumentIdV6::decode(s) {
+                if let Ok(document_id) = DeveloperDocumentId::decode(s) {
                     if *document_id.table() != self.id.table().table_number {
                         violations.push(DocumentValidationError::IdWrongTable);
                     } else if document_id.internal_id() != self.internal_id() {
                         violations.push(DocumentValidationError::IdMismatch(
-                            *self.id(),
+                            self.id(),
                             ConvexValue::String(s.clone()),
                         ));
                     }
@@ -516,7 +505,7 @@ impl ResolvedDocument {
                 values.push(None);
             }
         }
-        IndexKey::new_allow_missing(values, (*self.id()).into())
+        IndexKey::new_allow_missing(values, self.developer_id())
     }
 
     /// Recreate a `Document` from an already-written value to the database.
@@ -526,7 +515,7 @@ impl ResolvedDocument {
         let object: ConvexObject = value.try_into()?;
         let id = match object.get(&FieldName::from(ID_FIELD.clone())) {
             Some(ConvexValue::String(s)) => {
-                let document_id = DocumentIdV6::decode(s)?;
+                let document_id = DeveloperDocumentId::decode(s)?;
                 let table = TableIdAndTableNumber {
                     table_id,
                     table_number: *document_id.table(),
@@ -572,7 +561,7 @@ impl ResolvedDocument {
     }
 
     pub fn to_developer(self) -> DeveloperDocument {
-        let id_v6: DocumentIdV6 = self.id.into();
+        let id_v6: DeveloperDocumentId = self.id.into();
         DeveloperDocument::new(id_v6, self.creation_time, self.value.0)
     }
 
@@ -580,8 +569,16 @@ impl ResolvedDocument {
         self.id.into()
     }
 
-    pub fn id_v6(&self) -> DocumentIdV6 {
+    pub fn developer_id(&self) -> DeveloperDocumentId {
         self.id.into()
+    }
+
+    pub fn id(&self) -> ResolvedDocumentId {
+        self.id
+    }
+
+    pub fn table(&self) -> TableIdAndTableNumber {
+        *self.id.table()
     }
 
     pub fn export(self, format: ValueFormat) -> JsonValue {
@@ -669,6 +666,14 @@ impl DeveloperDocument {
             value: self.value,
         })
     }
+
+    pub fn id(&self) -> DeveloperDocumentId {
+        self.id
+    }
+
+    pub fn table(&self) -> TableNumber {
+        *self.id.table()
+    }
 }
 
 /// Two packed values, the actual document value and the document ID. The
@@ -745,7 +750,7 @@ impl<D> ParsedDocument<D> {
         self.id
     }
 
-    pub fn id_v6(&self) -> DocumentIdV6 {
+    pub fn developer_id(&self) -> DeveloperDocumentId {
         self.id.into()
     }
 
@@ -896,7 +901,7 @@ mod tests {
     use proptest::prelude::*;
     use sync_types::testing::assert_roundtrips;
     use value::{
-        id_v6::DocumentIdV6,
+        id_v6::DeveloperDocumentId,
         ConvexValue,
         GenericDocumentId,
         InternalId,
@@ -962,7 +967,7 @@ mod tests {
             GenericDocumentId::min(),
             CreationTime::ONE,
             assert_obj!(
-                "_id" => DocumentIdV6::min(),
+                "_id" => DeveloperDocumentId::min(),
                 "foo" => {
                     "bar" => 5,
                     "baz" => false,
@@ -973,7 +978,7 @@ mod tests {
             GenericDocumentId::min(),
             CreationTime::ONE,
             assert_obj!(
-                "_id" => DocumentIdV6::min(),
+                "_id" => DeveloperDocumentId::min(),
                 "foo" => {"bar" => 5},
             ),
         )?;
