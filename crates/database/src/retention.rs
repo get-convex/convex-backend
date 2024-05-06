@@ -480,7 +480,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // On startup wait with jitter to avoid a thundering herd. This does mean that
         // we will ignore commit timestamps for a while, but it saves us from
         // having every machine polling a very precise interval.
-        Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).await;
+        Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
 
         loop {
             {
@@ -1145,7 +1145,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
         let reader = persistence.reader();
 
-        let mut error_backoff = Backoff::new(INITIAL_BACKOFF, *MAX_RETENTION_DELAY_SECONDS);
+        let mut error_backoff =
+            Backoff::new(INITIAL_BACKOFF, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS);
         let mut min_document_snapshot_ts = Timestamp::default();
         let mut is_working = false;
 
@@ -1161,7 +1162,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         report_error(&mut err.into());
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
-                        Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
+                        Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS)
+                            .await;
                         bounds_reader.lock().min_snapshot_ts
                     },
                     Ok(()) => *min_document_snapshot_rx.borrow_and_update(),
