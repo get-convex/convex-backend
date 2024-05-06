@@ -2039,12 +2039,14 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         virtual_id: DeveloperDocumentId,
     ) -> anyhow::Result<()> {
-        let mut tx = self.database.begin(identity).await?;
-        VirtualSchedulerModel::new(&mut tx)
-            .cancel(virtual_id)
-            .await?;
         self.database
-            .commit_with_write_source(tx, "app_funrun_cancel_job")
+            .execute_with_occ_retries(
+                identity,
+                FunctionUsageTracker::new(),
+                PauseClient::new(),
+                "app_funrun_cancel_job",
+                |tx| async { VirtualSchedulerModel::new(tx).cancel(virtual_id).await }.into(),
+            )
             .await?;
         Ok(())
     }
