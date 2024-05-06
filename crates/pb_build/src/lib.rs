@@ -2,7 +2,10 @@ use std::{
     ffi::OsStr,
     fs,
     io::Result,
-    path::Path,
+    path::{
+        Path,
+        PathBuf,
+    },
 };
 
 cfg_if::cfg_if! {
@@ -32,6 +35,7 @@ pub fn pb_build() -> Result<()> {
     println!("cargo:rerun-if-changed=protos");
     let mut paths = vec![];
     let mut packages = vec![];
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     for dent in std::fs::read_dir("protos")? {
         let dent = dent?;
         let path = dent.path();
@@ -44,7 +48,9 @@ pub fn pb_build() -> Result<()> {
             ));
         }
     }
-    tonic_build::configure().compile(&paths, &["protos/"])?;
+    tonic_build::configure()
+        .file_descriptor_set_path(out_dir.join("descriptors.bin"))
+        .compile(&paths, &["protos/"])?;
 
     // We sort the package names just so we're generating the lib.rs
     // deterministically to avoid NOOP commits.
@@ -75,6 +81,11 @@ pub fn pb_build() -> Result<()> {
              \"/{package_name}.rs\"));\n}}\n",
         ));
     }
+
+    lib_file_contents.push_str(&format!(
+        "\npub const FILE_DESCRIPTOR_BYTES: &[u8] =\n    \
+         include_bytes!(concat!(env!(\"OUT_DIR\"), \"/descriptors.bin\"));\n"
+    ));
 
     let out_file = Path::new("src/lib.rs");
     if fs::read_to_string(out_file)? != lib_file_contents {

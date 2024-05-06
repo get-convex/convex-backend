@@ -3,6 +3,7 @@
 
 use std::{
     future::Future,
+    hash::Hash,
     num::TryFromIntError,
     ops::{
         Add,
@@ -27,6 +28,7 @@ pub use governor::nanos::Nanos;
 use governor::{
     middleware::NoOpMiddleware,
     state::{
+        keyed::DefaultKeyedStateStore,
         InMemoryState,
         NotKeyed,
     },
@@ -312,8 +314,22 @@ pub type RateLimiter<RT> = governor::RateLimiter<
     NoOpMiddleware<<RuntimeClock<RT> as governor::clock::Clock>::Instant>,
 >;
 
+pub type KeyedRateLimiter<K, RT> = governor::RateLimiter<
+    K,
+    DefaultKeyedStateStore<K>,
+    RuntimeClock<RT>,
+    NoOpMiddleware<<RuntimeClock<RT> as governor::clock::Clock>::Instant>,
+>;
+
 pub fn new_rate_limiter<RT: Runtime>(runtime: RT, quota: Quota) -> RateLimiter<RT> {
     RateLimiter::direct_with_clock(quota, &RuntimeClock { runtime })
+}
+
+pub fn new_keyed_rate_limiter<RT: Runtime, K: Hash + Eq + Clone>(
+    runtime: RT,
+    quota: Quota,
+) -> KeyedRateLimiter<K, RT> {
+    KeyedRateLimiter::dashmap_with_clock(quota, &RuntimeClock { runtime })
 }
 
 impl<RT: Runtime> governor::clock::Clock for RuntimeClock<RT> {

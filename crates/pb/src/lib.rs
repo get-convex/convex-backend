@@ -43,3 +43,6 @@ pub mod storage {
 pub mod usage {
     include!(concat!(env!("OUT_DIR"), "/usage.rs"));
 }
+
+pub const FILE_DESCRIPTOR_BYTES: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/descriptors.bin"));
