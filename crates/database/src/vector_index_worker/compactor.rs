@@ -454,17 +454,6 @@ struct VectorCompaction {
     on_disk_state: VectorIndexState,
 }
 
-#[derive(PartialEq)]
-pub enum MergeResult {
-    Success,
-    TypeChanged,
-    StartedBackfilling,
-    VersionChanged,
-    SegmentsRemoved,
-    IndexRemoved,
-    DeveloperConfigChanged,
-}
-
 #[cfg(test)]
 mod tests {
 
