@@ -14,8 +14,8 @@ use std::{
 };
 
 use anyhow::Context;
-use common::sha256::Sha256;
 use serde::Deserialize;
+use value::sha256::Sha256;
 
 const PACKAGES_DIR: &str = "../../npm-packages";
 const NPM_DIR: &str = "../../npm-packages/convex";
@@ -25,6 +25,16 @@ const UDF_TESTS_DIR: &str = "../../npm-packages/udf-tests";
 const NODE_EXECUTOR_DIST_DIR: &str = "../../npm-packages/node-executor/dist";
 
 const ADMIN_KEY: &str = include_str!("../keybroker/dev/admin_key.txt");
+
+#[cfg(not(target_os = "windows"))]
+const RUSH: &str = "../scripts/node_modules/.bin/rush";
+#[cfg(target_os = "windows")]
+const RUSH: &str = "../../scripts/node_modules/.bin/rush.cmd";
+#[cfg(not(target_os = "windows"))]
+const NPM: &str = "npm";
+#[cfg(target_os = "windows")]
+const NPM: &str = "npm.cmd";
+const CONVEX: &str = "node_modules/convex/bin/main.js";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -109,8 +119,8 @@ fn main() -> anyhow::Result<()> {
 
     // Step 1: Ensure the `server`, `dashboard`, and `cli` deps are installed.
     for _ in 0..3 {
-        let output = Command::new("../scripts/node_modules/.bin/rush")
-            .current_dir(PACKAGES_DIR)
+        let output = Command::new(RUSH)
+            .current_dir(Path::new(PACKAGES_DIR))
             .args(["install"])
             .output()
             .context("Failed on rush install")?;
@@ -127,7 +137,7 @@ fn main() -> anyhow::Result<()> {
         anyhow::ensure!(output.status.success(), "Failed to 'rush install'");
         break;
     }
-    let status = Command::new("../scripts/node_modules/.bin/rush")
+    let status = Command::new(RUSH)
         .current_dir(PACKAGES_DIR)
         .args([
             "build",
@@ -144,7 +154,7 @@ fn main() -> anyhow::Result<()> {
         .context("Failed on rush build")?;
     anyhow::ensure!(status.success(), "Failed to 'rush build'");
     // Step 2: Use `build-server` to package up our builtin `_system` UDFs.
-    let output = Command::new("npm")
+    let output = Command::new(NPM)
         .current_dir(NPM_DIR)
         .arg("run")
         .arg("--silent")
@@ -202,10 +212,10 @@ fn write_udf_test_bundle(out_dir: &Path) -> anyhow::Result<()> {
     if Path::exists(&bundle_dir) {
         fs::remove_dir_all(bundle_dir.clone())?;
     }
-    let output = Command::new("npx")
+    let output = Command::new("node")
         .current_dir(UDF_TESTS_DIR)
         .args([
-            "convex",
+            CONVEX,
             "deploy",
             "--debug-bundle-path",
             bundle_dir.to_str().unwrap(),

@@ -15,6 +15,9 @@ cfg_if::cfg_if! {
         const PROTOC_BINARY_NAME: &str = "protoc-linux-aarch64";
     } else if #[cfg(all(target_os = "linux", target_arch = "x86_64"))] {
         const PROTOC_BINARY_NAME: &str = "protoc-linux-x86_64";
+    } else if #[cfg(all(target_os = "windows"))] {
+        // works on arm too
+        const PROTOC_BINARY_NAME: &str = "protoc-windows-x86_64";
     } else {
         panic!("no protoc binary available for this architecture");
     }

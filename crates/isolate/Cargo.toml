@@ -85,9 +85,9 @@ vector = { path = "../vector" }
 
 [build-dependencies]
 anyhow = { workspace = true }
-common = { path = "../common" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+value = { path = "../value" }
 
 [dev-dependencies]
 async-broadcast = { workspace = true }
