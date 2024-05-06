@@ -477,11 +477,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         min_document_snapshot_sender: Sender<Timestamp>,
         snapshot_reader: Reader<SnapshotManager>,
     ) {
-        // On startup wait with jitter to avoid a thundering herd. This does mean that
-        // we will ignore commit timestamps for a while, but it saves us from
-        // having every machine polling a very precise interval.
-        Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
-
         loop {
             {
                 let _timer = retention_advance_timestamp_timer();
@@ -506,7 +501,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 .await;
                 Self::emit_timestamp(&min_document_snapshot_sender, document_ts).await;
             }
-            rt.wait(ADVANCE_RETENTION_TS_FREQUENCY).await;
+            // We jitter every loop to avoid synchronization of polling the database
+            // across different instances
+            Self::wait_with_jitter(&rt, ADVANCE_RETENTION_TS_FREQUENCY).await;
         }
     }
 
@@ -1376,7 +1373,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     }
 }
 
-const ADVANCE_RETENTION_TS_FREQUENCY: Duration = Duration::from_secs(15);
+const ADVANCE_RETENTION_TS_FREQUENCY: Duration = Duration::from_secs(30);
 
 #[async_trait]
 impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
