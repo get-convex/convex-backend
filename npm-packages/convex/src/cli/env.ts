@@ -23,18 +23,26 @@ import {
 import { version } from "./version.js";
 
 const envSet = new Command("set")
-  .arguments("<name> <value>")
+  // Pretend value is required
+  .usage("[options] <name> <value>")
+  .arguments("<name> [value]")
   .summary("Set a variable")
   .description(
     "Set a variable: `npx convex env set NAME value`\n" +
-      "If the variable already exists, its value is updated.",
+      "If the variable already exists, its value is updated.\n\n" +
+      "A single `NAME=value` argument is also supported.",
   )
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
-  .action(async (name, value, _options, cmd) => {
+  .action(async (originalName, originalValue, _options, cmd) => {
     const options = cmd.optsWithGlobals();
     const ctx = oneoffContext;
     await ensureHasConvexDependency(ctx, "env set");
+    const [name, value] = await allowEqualsSyntax(
+      ctx,
+      originalName,
+      originalValue,
+    );
     const where = await callUpdateEnvironmentVariables(ctx, options, [
       { name, value },
     ]);
@@ -44,6 +52,22 @@ const envSet = new Command("set")
       `Successfully set ${chalk.bold(name)} to ${chalk.bold(formatted)}${where}`,
     );
   });
+
+async function allowEqualsSyntax(
+  ctx: Context,
+  name: string,
+  value: string | undefined,
+) {
+  if (value === undefined) {
+    if (/^[a-zA-Z][a-zA-Z0-9_]+=/.test(name)) {
+      return name.split("=", 2);
+    } else {
+      logFailure(ctx, "error: missing required argument 'value'");
+      return await ctx.crash(1);
+    }
+  }
+  return [name, value];
+}
 
 const envGet = new Command("get")
   .arguments("<name>")
