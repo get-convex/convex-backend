@@ -10,7 +10,7 @@ use super::module_path::{
     CanonicalizedModulePath,
     ModulePath,
 };
-use crate::identifier::check_valid_identifier;
+use crate::function_name::FunctionName;
 
 /// User-specified path to a function, consisting of a module path and an
 /// optional function name, separated by a colon. If a function name isn't
@@ -18,7 +18,7 @@ use crate::identifier::check_valid_identifier;
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct UdfPath {
     module: ModulePath,
-    function: Option<String>,
+    function: Option<FunctionName>,
 }
 
 impl UdfPath {
@@ -33,8 +33,8 @@ impl UdfPath {
     }
 
     /// What is the function name for this UDF?
-    pub fn function_name(&self) -> &str {
-        self.function.as_ref().map(|s| &s[..]).unwrap_or("default")
+    pub fn function_name(&self) -> Option<&FunctionName> {
+        self.function.as_ref()
     }
 
     pub fn assume_canonicalized(self) -> anyhow::Result<CanonicalizedUdfPath> {
@@ -47,7 +47,7 @@ impl UdfPath {
 
     pub fn canonicalize(self) -> CanonicalizedUdfPath {
         let module = self.module.canonicalize();
-        let function = self.function.unwrap_or_else(|| "default".to_string());
+        let function = self.function.unwrap_or_else(FunctionName::default_export);
         CanonicalizedUdfPath { module, function }
     }
 }
@@ -57,10 +57,7 @@ impl FromStr for UdfPath {
 
     fn from_str(p: &str) -> Result<Self, Self::Err> {
         let (module, function) = match p.rsplit_once(':') {
-            Some((module, function)) => {
-                check_valid_identifier(function)?;
-                (module.parse()?, Some(function.to_owned()))
-            },
+            Some((module, function)) => (module.parse()?, Some(function.parse()?)),
             None => (p.parse()?, None),
         };
         Ok(Self { module, function })
@@ -133,11 +130,11 @@ impl proptest::arbitrary::Arbitrary for UdfPath {
 #[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct CanonicalizedUdfPath {
     module: CanonicalizedModulePath,
-    function: String,
+    function: FunctionName,
 }
 
 impl CanonicalizedUdfPath {
-    pub fn new(module: CanonicalizedModulePath, function: String) -> Self {
+    pub fn new(module: CanonicalizedModulePath, function: FunctionName) -> Self {
         Self { module, function }
     }
 
@@ -149,12 +146,12 @@ impl CanonicalizedUdfPath {
         &self.module
     }
 
-    pub fn function_name(&self) -> &str {
+    pub fn function_name(&self) -> &FunctionName {
         &self.function
     }
 
     pub fn strip(self) -> UdfPath {
-        let function = if self.function == "default" {
+        let function = if self.function.is_default_export() {
             None
         } else {
             Some(self.function)

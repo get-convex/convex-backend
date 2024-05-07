@@ -49,11 +49,11 @@ use model::{
     modules::{
         args_validator::ArgsValidator,
         module_versions::{
+            invalid_function_name_error,
             AnalyzedFunction,
             AnalyzedHttpRoute,
             AnalyzedModule,
             AnalyzedSourcePosition,
-            FunctionName,
             MappedModule,
             ModuleSource,
             SourceMap,
@@ -67,6 +67,7 @@ use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use sync_types::{
     CanonicalizedModulePath,
+    FunctionName,
     ModulePath,
 };
 use value::{
@@ -564,7 +565,9 @@ fn udf_analyze<RT: Runtime>(
             )
         };
 
-        let canonicalized_name = FunctionName::from_untrusted(&property_name)?;
+        let canonicalized_name: FunctionName = property_name
+            .parse()
+            .map_err(|e| invalid_function_name_error(&e))?;
         if let Some(Some(token)) = fn_source_map.as_ref().map(|sm| sm.lookup_token(lineno, linecol))
             // This condition is in place so that we don't have to jump to source in source mappings
             // to get back to the original source. This logic gets complicated and is not strictly necessary now

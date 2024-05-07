@@ -37,6 +37,7 @@ use serde_json::Value as JsonValue;
 use sync_types::{
     CanonicalizedUdfPath,
     ErrorPayload,
+    FunctionName,
     LogLinesMessage,
     ServerMessage,
     SessionId,
@@ -829,6 +830,15 @@ impl HeapSize for SessionId {
         0
     }
 }
+
+impl HeapSize for FunctionName {
+    fn heap_size(&self) -> usize {
+        // This isn't strictly correct (we should be checking capacity) but is close
+        // enough.
+        self.len()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{

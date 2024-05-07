@@ -75,11 +75,11 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
 
     for (i, (name, expected_type, mapped_lineno)) in expected.iter().enumerate() {
         let function = &module.functions[i];
-        assert_eq!(&function.name.as_ref(), name);
+        assert_eq!(&function.name[..], *name);
         assert_eq!(&function.udf_type, expected_type);
 
         let mapped_function = &source_mapped.functions[i];
-        assert_eq!(&mapped_function.name.as_ref(), name);
+        assert_eq!(&mapped_function.name[..], *name);
         assert_eq!(
             mapped_function.pos.as_ref().unwrap().start_lineno,
             *mapped_lineno

@@ -79,13 +79,13 @@ async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
     assert_eq!(modules[&"a.js".parse()?].functions.len(), 1);
     let module = &modules[&"a.js".parse()?].functions[0];
     assert_eq!(module.udf_type, UdfType::Query);
-    assert_eq!(module.name.as_ref(), "isolateFunction");
+    assert_eq!(&module.name[..], "isolateFunction");
     assert!(module.pos.is_none());
 
     assert_eq!(modules[&"b.js".parse()?].functions.len(), 1);
     let module = &modules[&"b.js".parse()?].functions[0];
     assert_eq!(module.udf_type, UdfType::Action);
-    assert_eq!(module.name.as_ref(), "nodeFunction");
+    assert_eq!(&module.name[..], "nodeFunction");
     assert!(module.pos.is_none());
 
     Ok(())
@@ -178,19 +178,19 @@ export { hello, internalHello };
 
     assert_eq!(modules[&"isolate_source.js".parse()?].functions.len(), 2);
     let module = &modules[&"isolate_source.js".parse()?];
-    assert_eq!(module.functions[0].name.as_ref(), "hello");
+    assert_eq!(&module.functions[0].name[..], "hello");
     assert_eq!(module.functions[0].udf_type, UdfType::Action);
     assert_eq!(module.functions[0].pos.as_ref().unwrap().start_lineno, 28);
-    assert_eq!(module.functions[1].name.as_ref(), "internalHello");
+    assert_eq!(&module.functions[1].name[..], "internalHello");
     assert_eq!(module.functions[1].udf_type, UdfType::Action);
     assert_eq!(module.functions[1].pos.as_ref().unwrap().start_lineno, 31);
 
     assert_eq!(modules[&"node_source.js".parse()?].functions.len(), 2);
     let module = &modules[&"node_source.js".parse()?];
-    assert_eq!(module.functions[0].name.as_ref(), "hello");
+    assert_eq!(&module.functions[0].name[..], "hello");
     assert_eq!(module.functions[0].udf_type, UdfType::Action);
     assert_eq!(module.functions[0].pos.as_ref().unwrap().start_lineno, 28);
-    assert_eq!(module.functions[1].name.as_ref(), "internalHello");
+    assert_eq!(&module.functions[1].name[..], "internalHello");
     assert_eq!(module.functions[1].udf_type, UdfType::Action);
     assert_eq!(module.functions[1].pos.as_ref().unwrap().start_lineno, 31);
 
@@ -231,13 +231,13 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     assert_eq!(modules[&"a.js".parse()?].functions.len(), 1);
     let module = &modules[&"a.js".parse()?].functions[0];
     assert_eq!(module.udf_type, UdfType::Query);
-    assert_eq!(module.name.as_ref(), "isolateFunction");
+    assert_eq!(&module.name[..], "isolateFunction");
     assert!(module.pos.is_none());
 
     assert_eq!(modules[&"b.js".parse()?].functions.len(), 1);
     let module = &modules[&"b.js".parse()?].functions[0];
     assert_eq!(module.udf_type, UdfType::Action);
-    assert_eq!(module.name.as_ref(), "nodeFunction");
+    assert_eq!(&module.name[..], "nodeFunction");
     assert!(module.pos.is_none());
 
     let application = Application::new_for_tests(&rt).await?;

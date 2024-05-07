@@ -1650,10 +1650,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     ))));
                 };
                 let name = cron_spec.udf_path.function_name();
-                let Some(scheduled_function) = scheduled_module
-                    .functions
-                    .iter()
-                    .find(|f| f.name.as_ref() == name)
+                let Some(scheduled_function) =
+                    scheduled_module.functions.iter().find(|f| &f.name == name)
                 else {
                     return Ok(Err(JsError::from_message(format!(
                         "The cron job '{identifier}' schedules a function that does not exist: {}",

@@ -108,7 +108,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
         let found = analyze_result
             .functions
             .iter()
-            .any(|f| f.name.as_ref() == function_name);
+            .any(|f| &f.name == function_name);
         if !found {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "InvalidScheduledFunction",

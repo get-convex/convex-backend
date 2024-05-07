@@ -236,6 +236,7 @@ use sync_types::{
     AuthenticationToken,
     CanonicalizedModulePath,
     CanonicalizedUdfPath,
+    FunctionName,
     UdfPath,
 };
 use table_summary_worker::{
@@ -1831,7 +1832,7 @@ impl<RT: Runtime> Application<RT> {
         // 2. get the function type
         let mut analyzed_function = None;
         for function in &analyzed_module.functions {
-            if function.name.as_ref() == "default" {
+            if function.name.is_default_export() {
                 analyzed_function = Some(function.clone());
             } else {
                 anyhow::bail!("Only `export default` is supported.");
@@ -1852,7 +1853,7 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         // 4. run the function within the transaction
-        let path = CanonicalizedUdfPath::new(module_path, "default".to_owned());
+        let path = CanonicalizedUdfPath::new(module_path, FunctionName::default_export());
         let arguments = parse_udf_args(&path.clone().into(), args)?;
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => self

@@ -46,10 +46,10 @@ use model::{
     modules::{
         args_validator::ArgsValidator,
         module_versions::{
+            invalid_function_name_error,
             AnalyzedFunction,
             AnalyzedModule,
             AnalyzedSourcePosition,
-            FunctionName,
             MappedModule,
             SourceMap,
             Visibility,
@@ -67,6 +67,7 @@ use serde_json::{
 };
 use sync_types::{
     CanonicalizedModulePath,
+    FunctionName,
     UserIdentityAttributes,
 };
 use value::{
@@ -442,7 +443,10 @@ impl Actions {
 
                     None
                 };
-                let function_name = FunctionName::from_untrusted(&f.name)?;
+                let function_name: FunctionName = f
+                    .name
+                    .parse()
+                    .map_err(|e| invalid_function_name_error(&e))?;
                 functions.push(AnalyzedFunction {
                     name: function_name,
                     pos,
@@ -509,7 +513,7 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                     "type": "execute",
                     "udfPath": {
                         "canonicalizedPath": udf_path.module().as_str(),
-                        "function": udf_path.function_name(),
+                        "function": &udf_path.function_name()[..],
                     },
                     // The executor expects the args to be a serialized string.
                     "args": serialize_udf_args(args)?,

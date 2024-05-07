@@ -1,7 +1,6 @@
 use std::{
     collections::BTreeMap,
     mem,
-    ops::Deref,
     str::FromStr,
 };
 
@@ -20,8 +19,8 @@ use serde::{
 };
 use serde_json::Value as JsonValue;
 use sync_types::{
-    identifier::check_valid_identifier,
     CanonicalizedModulePath,
+    FunctionName,
 };
 use value::{
     codegen_convex_serialization,
@@ -273,69 +272,11 @@ impl TryFrom<SerializedAnalyzedSourcePosition> for AnalyzedSourcePosition {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
-pub struct FunctionName(String);
-
-impl FromStr for FunctionName {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        check_valid_identifier(s)?;
-        Ok(FunctionName(s.to_string()))
-    }
-}
-
-impl Deref for FunctionName {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        &self.0[..]
-    }
-}
-
-impl AsRef<str> for FunctionName {
-    fn as_ref(&self) -> &str {
-        &self.0[..]
-    }
-}
-
-impl From<FunctionName> for String {
-    fn from(function_name: FunctionName) -> Self {
-        function_name.0
-    }
-}
-
-impl HeapSize for FunctionName {
-    fn heap_size(&self) -> usize {
-        self.0.heap_size()
-    }
-}
-
-impl FunctionName {
-    pub fn from_untrusted(s: &str) -> anyhow::Result<Self> {
-        match check_valid_identifier(s) {
-            Ok(_) => Ok(Self(s.to_string())),
-            Err(e) => Err(anyhow::anyhow!(ErrorMetadata::bad_request(
-                "InvalidFunctionName",
-                format!("Invalid function name: {}", e),
-            ))),
-        }
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for FunctionName {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = FunctionName>;
-
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        use common::identifier::arbitrary_regexes::IDENTIFIER_REGEX;
-        use proptest::prelude::*;
-        IDENTIFIER_REGEX.prop_filter_map("Invalid IdentifierFieldName", |s| {
-            FunctionName::from_str(&s).ok()
-        })
-    }
+pub fn invalid_function_name_error(e: &anyhow::Error) -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        "InvalidFunctionName",
+        format!("Invalid function name: {}", e),
+    )
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

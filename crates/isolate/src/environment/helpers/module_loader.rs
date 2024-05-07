@@ -75,7 +75,7 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
                 .ok_or_else(|| anyhow::anyhow!("Expected analyze result for {udf_path:?}"))?;
 
             for function in &analyzed_module.functions {
-                if function.name.as_ref() == udf_path.function_name() {
+                if &function.name == udf_path.function_name() {
                     return Ok(Ok(function.clone()));
                 }
             }
