@@ -4,6 +4,7 @@ pub mod headers;
 pub mod identifier;
 pub mod json;
 pub mod module_path;
+pub mod path;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 pub mod timestamp;
