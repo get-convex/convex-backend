@@ -42,6 +42,11 @@ fn prod_override<T>(local_value: T, prod_value: T) -> T {
     local_value
 }
 
+/// Set a consistent thread stack size regardless of environment. This is
+/// 2x Rust's default: https://doc.rust-lang.org/nightly/std/thread/index.html#stack-size
+pub static RUNTIME_STACK_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("RUNTIME_STACK_SIZE", 4 * 1024 * 1024));
+
 /// 0 -> default (number of cores)
 pub static RUNTIME_WORKER_THREADS: LazyLock<usize> =
     LazyLock::new(|| env_config("RUNTIME_WORKER_THREADS", 0));

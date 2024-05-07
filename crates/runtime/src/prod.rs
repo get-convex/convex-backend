@@ -22,6 +22,7 @@ use common::{
     heap_size::HeapSize,
     knobs::{
         RUNTIME_DISABLE_LIFO_SLOT,
+        RUNTIME_STACK_SIZE,
         RUNTIME_WORKER_THREADS,
     },
     runtime::{
@@ -54,10 +55,6 @@ use tokio::{
 use tokio_metrics_collector::TaskMonitor;
 
 static INSTANT_EPOCH: LazyLock<Instant> = LazyLock::new(Instant::now);
-
-/// Set a consistent thread stack size regardless of environment. This is
-/// 2x Rust's default: https://doc.rust-lang.org/nightly/std/thread/index.html#stack-size
-pub const STACK_SIZE: usize = 4 * 1024 * 1024;
 
 pub struct FutureHandle {
     handle: tokio::task::JoinHandle<()>,
@@ -152,7 +149,7 @@ impl ProdRuntime {
              `#[tokio::main]` or `#[tokio::test]`?"
         );
         let mut tokio_builder = Builder::new_multi_thread();
-        tokio_builder.thread_stack_size(STACK_SIZE);
+        tokio_builder.thread_stack_size(*RUNTIME_STACK_SIZE);
         if *RUNTIME_WORKER_THREADS > 0 {
             tokio_builder.worker_threads(*RUNTIME_WORKER_THREADS);
         }

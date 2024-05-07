@@ -44,7 +44,8 @@ pub fn prod_rt_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
         fn #name() #output {
             #ast
             // Set a consistent thread stack size regardless of environment.
-            let builder = std::thread::Builder::new().stack_size(::runtime::prod::STACK_SIZE);
+            let builder = std::thread::Builder::new().stack_size(
+                *::common::knobs::RUNTIME_STACK_SIZE);
             let handler = builder
                 .spawn(|| {
                     let tokio = ::runtime::prod::ProdRuntime::init_tokio()?;
@@ -89,7 +90,8 @@ pub fn test_runtime(_attr: TokenStream, item: TokenStream) -> TokenStream {
         fn #name() #output {
             #ast
             // Set a consistent thread stack size regardless of environment.
-            let builder = std::thread::Builder::new().stack_size(::runtime::prod::STACK_SIZE);
+            let builder = std::thread::Builder::new().stack_size(
+                *::common::knobs::RUNTIME_STACK_SIZE);
             let handler = builder
                 .spawn(|| {
                     let mut __test_driver = ::runtime::testing::TestDriver::new();
