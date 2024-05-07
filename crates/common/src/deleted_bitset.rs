@@ -33,7 +33,7 @@ use byteorder::{
 /// - bitset blocks (dense array of little-endian u64s): bitset contents
 pub const DELETED_BITSET_VERSION: u8 = 1;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct DeletedBitset {
     deleted: BitVec,
     num_deleted: usize,

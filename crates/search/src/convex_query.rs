@@ -60,15 +60,11 @@ impl ConvexSearchQuery {
             .into_iter()
             .map(|filter_term| TermQuery::new(filter_term, IndexRecordOption::Basic))
             .collect();
-        if and_queries.is_empty() {
-            Box::new(or_query)
-        } else {
-            Box::new(Self {
-                or_query,
-                and_queries,
-                deleted_documents,
-            })
-        }
+        Box::new(Self {
+            or_query,
+            and_queries,
+            deleted_documents,
+        })
     }
 }
 
@@ -118,10 +114,14 @@ impl Weight for ConvexSearchWeight {
             .iter()
             .map(|filter_weight| filter_weight.scorer(reader, boost))
             .collect::<tantivy::Result<Vec<_>>>()?;
-        let query_scorer = intersect_scorers_and_use_one_for_scores(
-            self.or_weight.scorer(reader, boost)?,
-            intersect_scorers(and_scorers),
-        );
+        let query_scorer = if !and_scorers.is_empty() {
+            intersect_scorers_and_use_one_for_scores(
+                self.or_weight.scorer(reader, boost)?,
+                intersect_scorers(and_scorers),
+            )
+        } else {
+            self.or_weight.scorer(reader, boost)?
+        };
         Ok(Box::new(ExcludeDeleted::new(
             query_scorer,
             self.deleted_documents.clone(),

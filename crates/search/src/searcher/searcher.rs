@@ -1219,27 +1219,35 @@ mod tests {
             ResolvedDocument,
         },
         id_tracker::StaticIdTracker,
+        persistence_helpers::{
+            DocumentRevision,
+            RevisionPair,
+        },
         testing::TestIdGenerator,
         types::Timestamp,
     };
+    use futures::StreamExt;
     use runtime::testing::TestRuntime;
-    use tantivy::{
-        IndexBuilder,
-        Term,
-    };
+    use tantivy::Term;
     use tempfile::TempDir;
     use text_search::tracker::StaticDeletionTracker;
     use value::{
         assert_obj,
         FieldPath,
+        InternalId,
         ResolvedDocumentId,
     };
 
+    use super::PostingListMatch;
     use crate::{
-        constants::CONVEX_EN_TOKENIZER,
-        convex_en,
         convex_query::OrTerm,
         disk_index::index_reader_for_directory,
+        incremental_index::{
+            build_index,
+            DELETED_TANTIVY_IDS_PATH,
+            DELETED_TERMS_PATH,
+            ID_TRACKER_PATH,
+        },
         searcher::{
             searcher::{
                 PostingListQuery,
@@ -1252,9 +1260,9 @@ mod tests {
         SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
     };
 
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn test_incremental_search() -> anyhow::Result<()> {
+    async fn test_incremental_search() -> anyhow::Result<()> {
         let start = std::time::Instant::now();
         let test_dir = TempDir::new()?;
 
@@ -1271,7 +1279,6 @@ mod tests {
             search_field: field_path.clone(),
             filter_fields: BTreeSet::new(),
         });
-        let ts = Timestamp::try_from(100u64)?;
 
         #[derive(serde::Deserialize)]
         struct SearchDocument {
@@ -1285,29 +1292,25 @@ mod tests {
             strings.push(d.text);
         }
 
-        let index = IndexBuilder::new()
-            .schema(schema.schema.clone())
-            .create_in_dir(test_dir.path())?;
-        index
-            .tokenizers()
-            .register(CONVEX_EN_TOKENIZER, convex_en());
-        let mut index_writer = index.writer_with_num_threads(1, 50_000_000)?;
-
         let mut strings_by_id = BTreeMap::new();
-
-        for string in strings {
+        let revisions = strings.into_iter().map(|s| {
             let id = ResolvedDocumentId::new(table, id_generator.generate_internal());
-            strings_by_id.insert(id, string.clone());
+            strings_by_id.insert(id, s.clone());
             let creation_time = CreationTime::try_from(10.)?;
-            let document =
-                ResolvedDocument::new(id, creation_time, assert_obj!("mySearchField" => string))?;
-            let tantivy_doc = schema.index_into_tantivy_document(&document, ts);
-            index_writer.add_document(tantivy_doc)?;
-        }
-
-        index_writer.commit()?;
-        index_writer.wait_merging_threads()?;
-
+            let new_doc =
+                ResolvedDocument::new(id, creation_time, assert_obj!("mySearchField" => s))?;
+            let revision_pair = RevisionPair {
+                id: id.into(),
+                rev: DocumentRevision {
+                    ts: Timestamp::MIN,
+                    document: Some(new_doc),
+                },
+                prev_rev: None,
+            };
+            Ok(revision_pair)
+        });
+        let revision_stream = futures::stream::iter(revisions).boxed();
+        build_index(revision_stream, schema.clone(), test_dir.path()).await?;
         println!("Indexed {dataset_path} in {:?}", start.elapsed());
 
         let index_reader = index_reader_for_directory(test_dir.path())?;
@@ -1340,9 +1343,9 @@ mod tests {
 
         anyhow::ensure!(searcher.segment_readers().len() == 1);
         let segment = &searcher.segment_readers()[0];
-        let deleted_tantivy_ids_path = test_dir.path().join("deleted_tantivy_ids");
-        let deleted_terms_path = test_dir.path().join("deleted_terms");
-        let deleted_tantivy_ids = DeletedBitset::load_from_path(deleted_tantivy_ids_path)?;
+        let deleted_tantivy_ids_path = test_dir.path().join(DELETED_TANTIVY_IDS_PATH);
+        let deleted_tantivy_ids = DeletedBitset::load_from_path(&deleted_tantivy_ids_path)?;
+        let deleted_terms_path = test_dir.path().join(DELETED_TERMS_PATH);
         let deletion_tracker =
             StaticDeletionTracker::load(deleted_tantivy_ids, &deleted_terms_path)?;
         let start = std::time::Instant::now();
@@ -1404,9 +1407,8 @@ mod tests {
             num_documents: stats.num_documents,
             max_results,
         };
-        let deleted_tantivy_ids_path = test_dir.path().join("deleted_tantivy_ids");
-        let deleted_tantivy_ids = DeletedBitset::load_from_path(deleted_tantivy_ids_path)?;
-        let id_tracker_path = test_dir.path().join("id_tracker");
+        let deleted_tantivy_ids = DeletedBitset::load_from_path(&deleted_tantivy_ids_path)?;
+        let id_tracker_path = test_dir.path().join(ID_TRACKER_PATH);
         let id_tracker = StaticIdTracker::load_from_path(id_tracker_path, deleted_tantivy_ids)?;
         let posting_list_matches = SearcherImpl::<TestRuntime>::query_posting_lists_impl(
             &searcher,
@@ -1426,6 +1428,233 @@ mod tests {
             println!("  {}", strings_by_id[&id]);
         }
 
+        Ok(())
+    }
+
+    struct StringRevision {
+        id: InternalId,
+        prev_str: Option<String>,
+        new_str: Option<String>,
+    }
+    async fn incremental_search_with_deletions_helper(
+        query: &str,
+        revisions: Vec<StringRevision>,
+    ) -> anyhow::Result<Vec<(PostingListMatch, String)>> {
+        // Create a revision stream with some documents matching the search term that
+        // are deleted
+        let mut id_generator = TestIdGenerator::new();
+        let table_name = "test".parse()?;
+        let table = id_generator.table_id(&table_name);
+        let field_path: FieldPath = "mySearchField".parse()?;
+        let schema = TantivySearchIndexSchema::new(&DeveloperSearchIndexConfig {
+            search_field: field_path.clone(),
+            filter_fields: BTreeSet::new(),
+        });
+        let mut strings_by_id = BTreeMap::new();
+        let revisions = revisions.into_iter().map(
+            |StringRevision {
+                 id,
+                 prev_str,
+                 new_str,
+             }| {
+                let id = ResolvedDocumentId::new(table, id);
+                strings_by_id.entry(id).or_insert(new_str.clone());
+                let creation_time = CreationTime::try_from(10.)?;
+                let old_doc = prev_str
+                    .map(|s| {
+                        ResolvedDocument::new(id, creation_time, assert_obj!("mySearchField" => s))
+                    })
+                    .transpose()?;
+                let new_doc = new_str
+                    .map(|s| {
+                        ResolvedDocument::new(id, creation_time, assert_obj!("mySearchField" => s))
+                    })
+                    .transpose()?;
+                let revision_pair = RevisionPair {
+                    id: id.into(),
+                    rev: DocumentRevision {
+                        ts: Timestamp::MIN,
+                        document: new_doc,
+                    },
+                    prev_rev: old_doc.map(|d| DocumentRevision {
+                        ts: Timestamp::MIN,
+                        document: Some(d),
+                    }),
+                };
+                Ok(revision_pair)
+            },
+        );
+        let revision_stream = futures::stream::iter(revisions).boxed();
+        let test_dir = TempDir::new()?;
+        build_index(revision_stream, schema.clone(), test_dir.path()).await?;
+
+        let index_reader = index_reader_for_directory(test_dir.path())?;
+        let searcher = index_reader.searcher();
+
+        let mut token_stream = schema.analyzer.token_stream(query);
+        let mut tokens = vec![];
+        while let Some(token) = token_stream.next() {
+            tokens.push(token.text.clone());
+        }
+        let num_tokens = tokens.len();
+        let mut token_queries = vec![];
+        for (i, token) in tokens.into_iter().enumerate() {
+            let char_count = token.chars().count();
+            let max_distance = if char_count <= EXACT_SEARCH_MAX_WORD_LENGTH {
+                0
+            } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
+                1
+            } else {
+                2
+            };
+            let term = Term::from_field_text(schema.search_field, &token);
+            let query = TokenQuery {
+                term,
+                max_distance,
+                prefix: i == num_tokens - 1,
+            };
+            token_queries.push(query);
+        }
+
+        anyhow::ensure!(searcher.segment_readers().len() == 1);
+        let segment = &searcher.segment_readers()[0];
+        let deleted_tantivy_ids_path = test_dir.path().join(DELETED_TANTIVY_IDS_PATH);
+        let deleted_tantivy_ids = DeletedBitset::load_from_path(&deleted_tantivy_ids_path)?;
+        let deleted_terms_path = test_dir.path().join(DELETED_TERMS_PATH);
+        let deletion_tracker =
+            StaticDeletionTracker::load(deleted_tantivy_ids, &deleted_terms_path)?;
+        let start = std::time::Instant::now();
+        let results = SearcherImpl::<TestRuntime>::query_tokens_impl(
+            segment,
+            &deletion_tracker,
+            token_queries,
+            16,
+        )?;
+
+        if results.is_empty() {
+            println!("No results found");
+            return Ok(vec![]);
+        }
+
+        println!("{} term results ({:?}):", results.len(), start.elapsed());
+        for result in &results {
+            println!(
+                "{:?}: dist {}, prefix? {}",
+                result.term, result.distance, result.prefix
+            );
+        }
+
+        let start = std::time::Instant::now();
+        let terms = results.iter().map(|r| r.term.clone()).collect();
+        let stats =
+            SearcherImpl::<TestRuntime>::query_bm25_stats_impl(segment, &deletion_tracker, terms)?;
+        println!("\nBM25 stats ({:?}): {stats:?}", start.elapsed());
+
+        let mut results_by_term = BTreeMap::new();
+        for result in results {
+            let sort_key = (result.distance, result.prefix, result.token_ord);
+            let existing_key = results_by_term.entry(result.term).or_insert(sort_key);
+            *existing_key = cmp::min(*existing_key, sort_key);
+        }
+
+        let mut or_terms = vec![];
+        for (term, (distance, prefix, _)) in results_by_term {
+            let doc_frequency = stats.doc_frequencies[&term];
+            // TODO: Come up with a smarter way to boost scores based on edit distance.
+            let mut boost = 1. / (1. + distance as f32);
+            if prefix {
+                boost *= 0.5;
+            }
+            let or_term = OrTerm {
+                term,
+                doc_frequency,
+                bm25_boost: boost,
+            };
+            or_terms.push(or_term);
+        }
+
+        let start = std::time::Instant::now();
+        let max_results = 10;
+        let query = PostingListQuery {
+            deleted_internal_ids: BTreeSet::new(),
+            or_terms,
+            and_terms: vec![],
+            num_terms: stats.num_terms,
+            num_documents: stats.num_documents,
+            max_results,
+        };
+        let deleted_tantivy_ids = DeletedBitset::load_from_path(&deleted_tantivy_ids_path)?;
+        let id_tracker_path = test_dir.path().join(ID_TRACKER_PATH);
+        let id_tracker = StaticIdTracker::load_from_path(id_tracker_path, deleted_tantivy_ids)?;
+        let posting_list_matches = SearcherImpl::<TestRuntime>::query_posting_lists_impl(
+            &searcher,
+            segment,
+            &id_tracker,
+            &deletion_tracker,
+            query,
+        )?;
+        println!(
+            "\n{} posting list results ({:?}):",
+            posting_list_matches.len(),
+            start.elapsed()
+        );
+        let mut posting_list_matches_and_strings = vec![];
+        for result in posting_list_matches {
+            println!("{:?} @ {}", result.internal_id, result.bm25_score);
+            let id = ResolvedDocumentId::new(table, result.internal_id);
+            let s = strings_by_id[&id].as_ref().unwrap();
+            println!("  {s}",);
+            posting_list_matches_and_strings.push((result, s.clone()));
+        }
+        Ok(posting_list_matches_and_strings)
+    }
+
+    #[tokio::test]
+    async fn test_incremental_search_with_deletion() -> anyhow::Result<()> {
+        let query = "emma";
+        let mut id_generator = TestIdGenerator::new();
+        let id1 = id_generator.generate_internal();
+        let id2 = id_generator.generate_internal();
+        let revisions = vec![
+            (id1, Some("emma works at convex"), None), // Delete
+            (id2, None, Some("sujay lives in ny")),
+            (id1, None, Some("emma works at convex")),
+        ]
+        .into_iter()
+        .map(|(id, prev_str, new_str)| StringRevision {
+            id,
+            prev_str: prev_str.map(|s| s.to_string()),
+            new_str: new_str.map(|s| s.to_string()),
+        })
+        .collect();
+        let posting_list_matches =
+            incremental_search_with_deletions_helper(query, revisions).await?;
+        assert!(posting_list_matches.is_empty());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_incremental_search_with_replace() -> anyhow::Result<()> {
+        let query = "emma";
+        let mut id_generator = TestIdGenerator::new();
+        let id = id_generator.generate_internal();
+        let revisions = vec![
+            (id, Some("emma is awesome!"), Some("emma is gr8")), // Replace
+            (id, None, Some("emma is awesome!")),
+        ]
+        .into_iter()
+        .map(|(id, prev_str, new_str)| StringRevision {
+            id,
+            prev_str: prev_str.map(|s| s.to_string()),
+            new_str: new_str.map(|s| s.to_string()),
+        })
+        .collect();
+        let posting_list_matches =
+            incremental_search_with_deletions_helper(query, revisions).await?;
+        assert_eq!(posting_list_matches.len(), 1);
+        let (posting_list_match, s) = posting_list_matches.first().unwrap();
+        assert_eq!(posting_list_match.internal_id, id);
+        assert_eq!(s, "emma is gr8");
         Ok(())
     }
 }

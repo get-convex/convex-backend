@@ -17,6 +17,7 @@ mod constants;
 mod convex_query;
 pub mod disk_index;
 pub mod fragmented_segment;
+mod incremental_index;
 mod intersection;
 mod levenshtein_dfa;
 mod memory_index;
@@ -175,6 +176,15 @@ impl DocumentTerm {
 
     pub fn field_id(&self) -> u32 {
         self.term().field().field_id()
+    }
+}
+
+impl From<DocumentTerm> for Term {
+    fn from(doc_term: DocumentTerm) -> Self {
+        match doc_term {
+            DocumentTerm::Search { term, .. } => term,
+            DocumentTerm::Filter { term } => term,
+        }
     }
 }
 

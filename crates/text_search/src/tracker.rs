@@ -71,11 +71,11 @@ struct DeletedTermsTable {
 }
 
 impl DeletedTermsTable {
-    fn term_documents_deleted(&self, term_ord: TermOrdinal) -> anyhow::Result<u64> {
+    fn term_documents_deleted(&self, term_ord: TermOrdinal) -> anyhow::Result<u32> {
         if let Some(pos) = self.term_ordinals.binsearch(term_ord as usize) {
             self.term_documents_deleted
                 .access(pos)
-                .map(|x| x as u64)
+                .map(|x| x as u32)
                 .with_context(|| {
                     format!(
                         "No documents deleted count found for term {term_ord} in position {pos}"
@@ -113,7 +113,7 @@ impl StaticDeletionTracker {
         let term_info = term_dict.term_info_from_ord(term_ord);
         let term_documents_deleted = self.term_documents_deleted(term_ord)?;
         (term_info.doc_freq as u64)
-            .checked_sub(term_documents_deleted)
+            .checked_sub(term_documents_deleted as u64)
             .context("doc_frequency underflow")
     }
 
@@ -128,7 +128,7 @@ impl StaticDeletionTracker {
     }
 
     /// How many of a term's documents have been deleted?
-    pub fn term_documents_deleted(&self, term_ord: TermOrdinal) -> anyhow::Result<u64> {
+    pub fn term_documents_deleted(&self, term_ord: TermOrdinal) -> anyhow::Result<u32> {
         if let Some(deleted_terms) = &self.deleted_terms_table {
             deleted_terms.term_documents_deleted(term_ord)
         } else {
@@ -191,7 +191,7 @@ impl StaticDeletionTracker {
 pub struct MemoryIdAndDeletionTracker {
     memory_id_tracker: MemoryIdTracker,
     deleted_tantivy_ids: DeletedBitset,
-    term_to_deleted_documents: BTreeMap<TermOrdinal, u64>,
+    term_to_deleted_documents: BTreeMap<TermOrdinal, u32>,
     num_deleted_terms: u32,
 }
 
@@ -210,22 +210,24 @@ impl MemoryIdAndDeletionTracker {
         let tantivy_id = self
             .memory_id_tracker
             .index_id(convex_id.0)
-            .with_context(|| format!("Id not found in SearchIdTracker: {:?}", convex_id))?;
+            .with_context(|| {
+                format!(
+                    "Id not found in MemoryIdAndDeletionTracker: {:?}",
+                    convex_id
+                )
+            })?;
         self.deleted_tantivy_ids.delete(tantivy_id)?;
         Ok(())
     }
 
-    pub fn insert_term_documents(&mut self, term_ord: TermOrdinal, num_deleted_docs: u64) {
+    pub fn increment_deleted_documents_for_term(&mut self, term_ord: TermOrdinal, count: u32) {
         self.term_to_deleted_documents
-            .insert(term_ord, num_deleted_docs);
+            .entry(term_ord)
+            .and_modify(|n| *n += count)
+            .or_insert(count);
     }
 
-    pub fn set_term_stats(
-        &mut self,
-        term_to_deleted_documents: BTreeMap<TermOrdinal, u64>,
-        num_deleted_terms: u32,
-    ) {
-        self.term_to_deleted_documents = term_to_deleted_documents;
+    pub fn set_num_deleted_terms(&mut self, num_deleted_terms: u32) {
         self.num_deleted_terms = num_deleted_terms;
     }
 
@@ -235,7 +237,6 @@ impl MemoryIdAndDeletionTracker {
         deleted_tantivy_ids_path: P,
         deleted_terms_path: P,
     ) -> anyhow::Result<()> {
-        self.check_invariants()?;
         {
             let mut out = BufWriter::new(File::create(id_tracker_path)?);
             self.write_id_tracker(&mut out)?;
@@ -258,21 +259,12 @@ impl MemoryIdAndDeletionTracker {
         Ok(())
     }
 
-    fn check_invariants(&mut self) -> anyhow::Result<()> {
-        self.deleted_tantivy_ids.check_invariants()?;
-        anyhow::ensure!(
-            self.term_to_deleted_documents.len() == self.num_deleted_terms as usize,
-            "Deleted terms count mismatch"
-        );
-        Ok(())
-    }
-
     fn write_id_tracker(&mut self, out: impl Write) -> anyhow::Result<()> {
         self.memory_id_tracker.write_id_tracker(out)
     }
 
     fn write_deleted_terms(
-        term_to_deleted_documents: BTreeMap<TermOrdinal, u64>,
+        term_to_deleted_documents: BTreeMap<TermOrdinal, u32>,
         num_deleted_terms: u32,
         mut out: impl Write,
     ) -> anyhow::Result<()> {
@@ -335,11 +327,9 @@ mod tests {
     fn test_deleted_term_table_roundtrips() -> anyhow::Result<()> {
         let mut memory_tracker = MemoryIdAndDeletionTracker::default();
         let term_ord_1 = 5;
-        let num_deleted_docs_1 = 10;
-        memory_tracker.insert_term_documents(term_ord_1, num_deleted_docs_1);
+        memory_tracker.increment_deleted_documents_for_term(term_ord_1, 2);
         let term_ord_2 = 3;
-        let num_deleted_docs_2 = 1;
-        memory_tracker.insert_term_documents(term_ord_2, num_deleted_docs_2);
+        memory_tracker.increment_deleted_documents_for_term(term_ord_2, 1);
 
         let mut buf = Vec::new();
         MemoryIdAndDeletionTracker::write_deleted_terms(
@@ -353,14 +343,8 @@ mod tests {
             StaticDeletionTracker::load_deleted_terms_table(file_len, &buf[..])?;
         assert_eq!(num_deleted_terms, 0);
         let deleted_terms_table = deleted_terms_table.unwrap();
-        assert_eq!(
-            deleted_terms_table.term_documents_deleted(term_ord_1)?,
-            num_deleted_docs_1
-        );
-        assert_eq!(
-            deleted_terms_table.term_documents_deleted(term_ord_2)?,
-            num_deleted_docs_2
-        );
+        assert_eq!(deleted_terms_table.term_documents_deleted(term_ord_1)?, 2);
+        assert_eq!(deleted_terms_table.term_documents_deleted(term_ord_2)?, 1);
         Ok(())
     }
 }

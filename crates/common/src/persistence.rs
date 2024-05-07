@@ -38,6 +38,7 @@ use crate::{
     interval::Interval,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
     metrics::static_repeatable_ts_timer,
+    persistence_helpers::RevisionPair,
     query::Order,
     runtime::Runtime,
     types::{
@@ -53,6 +54,8 @@ use crate::{
 pub type DocumentLogEntry = (Timestamp, InternalDocumentId, Option<ResolvedDocument>);
 
 pub type DocumentStream<'a> = BoxStream<'a, anyhow::Result<DocumentLogEntry>>;
+
+pub type DocumentRevisionStream<'a> = BoxStream<'a, anyhow::Result<RevisionPair>>;
 
 /// No tombstones included
 pub type LatestDocumentStream<'a> = BoxStream<'a, anyhow::Result<(Timestamp, ResolvedDocument)>>;
