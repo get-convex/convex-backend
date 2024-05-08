@@ -84,11 +84,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
         let mut source_package_ids = vec![];
 
         for module in ModuleModel::new(self.tx).get_all_metadata().await? {
-            let module_version = ModuleModel::new(self.tx)
-                .get_version(module.id(), module.latest_version)
-                .await?
-                .into_value();
-            source_package_ids.push(module_version.source_package_id);
+            source_package_ids.push(module.source_package_id);
         }
 
         // If there are no modules, or if all the modules lack a source_package_id -

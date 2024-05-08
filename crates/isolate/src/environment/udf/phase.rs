@@ -31,7 +31,10 @@ use model::{
         EnvironmentVariablesModel,
         PreloadedEnvironmentVariables,
     },
-    modules::module_versions::ModuleVersionMetadata,
+    modules::{
+        module_versions::ModuleVersionMetadata,
+        ModuleModel,
+    },
     udf_config::UdfConfigModel,
 };
 use rand::SeedableRng;
@@ -145,6 +148,12 @@ impl<RT: Runtime> UdfPhase<RT> {
                 format!("Can't dynamically import {module_path:?} in a query or mutation")
             ));
         }
+        let module = with_release_permit(
+            timeout,
+            permit_slot,
+            ModuleModel::new(&mut self.tx).get_metadata(module_path.clone().canonicalize()),
+        )
+        .await?;
         let module_version = with_release_permit(
             timeout,
             permit_slot,
@@ -153,12 +162,12 @@ impl<RT: Runtime> UdfPhase<RT> {
         )
         .await?;
 
-        if let Some(module_version) = module_version.as_ref() {
+        if let Some(module) = module.as_ref() {
             anyhow::ensure!(
-                module_version.environment == ModuleEnvironment::Isolate,
+                module.environment == ModuleEnvironment::Isolate,
                 "Trying to execute {:?} in isolate, but it is bundled for {:?}.",
                 module_path,
-                module_version.environment
+                module.environment
             );
         };
 

@@ -126,10 +126,13 @@ use model::{
         types::FileStorageEntry,
         FileStorageId,
     },
-    modules::module_versions::{
-        AnalyzedModule,
-        ModuleSource,
-        SourceMap,
+    modules::{
+        module_versions::{
+            AnalyzedModule,
+            ModuleSource,
+            SourceMap,
+        },
+        ModuleModel,
     },
     scheduled_jobs::VirtualSchedulerModel,
     session_requests::{
@@ -1189,16 +1192,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let udf_server_version = path_and_args.npm_version().clone();
         // We should not be missing the module given we validated the path above
         // which requires the module to exist.
-        let module_version = self
-            .module_cache
-            .get_module(&mut tx, name.module().clone())
+        let module = ModuleModel::new(&mut tx)
+            .get_metadata(name.module().clone())
             .await?
-            .context("Missing a valid module_version")?;
+            .context("Missing a valid module")?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
 
         let inert_identity = tx.inert_identity();
-        let timer = function_total_timer(module_version.environment, UdfType::Action);
-        let completion_result = match module_version.environment {
+        let timer = function_total_timer(module.environment, UdfType::Action);
+        let completion_result = match module.environment {
             ModuleEnvironment::Isolate => {
                 // TODO: This is the only use case of clone. We should get rid of clone,
                 // when we deprecate that codepath.
@@ -1215,7 +1217,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             unix_timestamp,
                             context.clone(),
                             vec![log_line].into(),
-                            module_version.environment,
+                            module.environment,
                         )
                     },
                 )
@@ -1236,6 +1238,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 })
             },
             ModuleEnvironment::Node => {
+                // We should not be missing the module given we validated the path above
+                // which requires the module to exist.
+                let module_version = self
+                    .module_cache
+                    .get_module(&mut tx, name.module().clone())
+                    .await?
+                    .context("Missing a valid module_version")?;
                 let _request_guard = self
                     .node_action_limiter
                     .acquire_permit_with_timeout(&self.runtime)
@@ -1245,7 +1254,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     source_maps.insert(name.module().clone(), source_map);
                 }
 
-                let source_package_id = module_version.source_package_id.ok_or_else(|| {
+                let source_package_id = module.source_package_id.ok_or_else(|| {
                     anyhow::anyhow!("Source package is required to execute actions")
                 })?;
                 let source_package = SourcePackageModel::new(&mut tx)
@@ -1320,7 +1329,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             unix_timestamp,
                             context.clone(),
                             vec![log_line].into(),
-                            module_version.environment,
+                            module.environment,
                         )
                     },
                 )
@@ -1366,8 +1375,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 Ok(ActionCompletion {
                     outcome,
                     execution_time: start.elapsed(),
-                    environment: module_version.environment,
-                    memory_in_mb: match module_version.environment {
+                    environment: module.environment,
+                    memory_in_mb: match module.environment {
                         ModuleEnvironment::Isolate => (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
                             .try_into()
                             .unwrap(),
@@ -2017,7 +2026,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             // Scheduling from actions is not transaction and happens at latest
             // timestamp.
             self.database.runtime().unix_timestamp(),
-            &self.module_cache,
             &mut tx,
         )
         .await?;

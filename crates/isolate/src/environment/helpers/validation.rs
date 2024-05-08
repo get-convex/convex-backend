@@ -34,7 +34,10 @@ use model::{
         DISABLED_ERROR_MESSAGE,
         PAUSED_ERROR_MESSAGE,
     },
-    modules::module_versions::Visibility,
+    modules::{
+        module_versions::Visibility,
+        ModuleModel,
+    },
     udf_config::UdfConfigModel,
 };
 #[cfg(any(test, feature = "testing"))]
@@ -61,7 +64,6 @@ pub async fn validate_schedule_args<RT: Runtime>(
     udf_args: Vec<JsonValue>,
     scheduled_ts: UnixTimestamp,
     udf_ts: UnixTimestamp,
-    module_loader: &Arc<dyn ModuleLoader<RT>>,
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<(UdfPath, ConvexArray)> {
     // We validate the following mostly so the developer don't get the timestamp
@@ -88,8 +90,8 @@ pub async fn validate_schedule_args<RT: Runtime>(
     // We do it here instead of within transaction in order to leverage the module
     // cache.
     let canonicalized = udf_path.clone().canonicalize();
-    let module_version = module_loader
-        .get_module(tx, canonicalized.module().clone())
+    let module = ModuleModel::new(tx)
+        .get_metadata(canonicalized.module().clone())
         .await?
         .with_context(|| {
             let p = String::from(udf_path.module().clone());
@@ -104,7 +106,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
     // of analyze, we should always validate in practice. We will tighten
     // the interface and make AnalyzedResult non-optional in the future.
     let function_name = canonicalized.function_name();
-    if let Some(analyze_result) = &module_version.analyze_result {
+    if let Some(analyze_result) = &module.analyze_result {
         let found = analyze_result
             .functions
             .iter()

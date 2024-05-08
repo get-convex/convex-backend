@@ -192,7 +192,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     path: path.clone().into(),
                     source: module_version.source,
                     source_map: module_version.source_map,
-                    environment: module_version.environment,
+                    environment: metadata.environment,
                 };
                 if modules.insert(path.clone(), module_config).is_some() {
                     panic!("Duplicate application module at {:?}", path);
@@ -211,10 +211,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         let module_id_value: ConvexValue = module_id.into();
         let index_range = IndexRange {
             index_name: MODULE_VERSION_INDEX.clone(),
-            range: vec![
-                IndexRangeExpression::Eq(MODULE_ID_FIELD.clone(), module_id_value.into()),
-                IndexRangeExpression::Eq(VERSION_FIELD.clone(), ConvexValue::from(version).into()),
-            ],
+            range: vec![IndexRangeExpression::Eq(
+                MODULE_ID_FIELD.clone(),
+                module_id_value.into(),
+            )],
             order: Order::Asc,
         };
         let module_query = Query::index_range(index_range);
@@ -275,7 +275,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     path,
                     latest_version,
                     source_package_id,
-                    environment: Some(environment),
+                    environment,
                     analyze_result: analyze_result.clone(),
                 };
                 SystemMetadataModel::new(self.tx)
@@ -299,7 +299,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     path,
                     latest_version: version,
                     source_package_id,
-                    environment: Some(environment),
+                    environment,
                     analyze_result: analyze_result.clone(),
                 };
 
@@ -385,13 +385,9 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub fn record_module_version_read_dependency(
         &mut self,
         module_id: ResolvedDocumentId,
-        version: ModuleVersion,
     ) -> anyhow::Result<()> {
-        let fields = vec![MODULE_ID_FIELD.clone(), VERSION_FIELD.clone()];
-        let values = vec![
-            Some(ConvexValue::from(module_id)),
-            Some(ConvexValue::from(version)),
-        ];
+        let fields = vec![MODULE_ID_FIELD.clone()];
+        let values = vec![Some(ConvexValue::from(module_id))];
         let module_index_name = MODULE_VERSION_INDEX
             .clone()
             .map_table(&self.tx.table_mapping().name_to_id())?

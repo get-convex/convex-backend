@@ -63,8 +63,7 @@ pub struct ModuleVersionMetadata {
 
     // Source map for `source` field above.
     pub source_map: Option<SourceMap>,
-
-    /// Version number for this module version.
+    // Version number for this module version.
     pub version: ModuleVersion,
 
     // Which environment this module was bundled for.
@@ -89,12 +88,7 @@ impl SizedValue for ModuleVersionMetadata {
 
 impl HeapSize for ModuleVersionMetadata {
     fn heap_size(&self) -> usize {
-        self.module_id.heap_size()
-            + self.source.heap_size()
-            + self.source_package_id.heap_size()
-            + self.source_map.heap_size()
-            + self.version.heap_size()
-            + self.analyze_result.heap_size()
+        self.module_id.heap_size() + self.source.heap_size() + self.source_map.heap_size()
     }
 }
 

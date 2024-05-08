@@ -31,9 +31,7 @@ pub struct ModuleMetadata {
     // Fields previously in ModuleVersionMetadata.
     // In migration phase, fields are duplicated here but not read.
     pub source_package_id: Option<SourcePackageId>,
-    // TODO(lee): environment should not be optional.
-    // Remove Option once environment is backfilled from ModuleVersionMetadata.
-    pub environment: Option<ModuleEnvironment>,
+    pub environment: ModuleEnvironment,
     pub analyze_result: Option<AnalyzedModule>,
 }
 
@@ -44,7 +42,7 @@ pub struct SerializedModuleMetadata {
     pub latest_version: ModuleVersion,
     pub deleted: Option<bool>,
     pub source_package_id: Option<String>,
-    pub environment: Option<String>,
+    pub environment: String,
     pub analyze_result: Option<SerializedAnalyzedModule>,
 }
 
@@ -65,7 +63,7 @@ impl TryFrom<SerializedModuleMetadata> for ModuleMetadata {
                 .map(|s| DeveloperDocumentId::decode(&s))
                 .transpose()?
                 .map(|id| id.into()),
-            environment: m.environment.map(|s| s.parse()).transpose()?,
+            environment: m.environment.parse()?,
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
         })
     }
@@ -82,7 +80,7 @@ impl TryFrom<ModuleMetadata> for SerializedModuleMetadata {
             source_package_id: m
                 .source_package_id
                 .map(|s| DeveloperDocumentId::from(s).to_string()),
-            environment: m.environment.map(|s| s.to_string()),
+            environment: m.environment.to_string(),
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
         })
     }

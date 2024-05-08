@@ -20,14 +20,12 @@ export const getSourceCode = queryPrivateSystem({
     }
     const moduleVersion = await db
       .query("_module_versions")
-      .withIndex("by_module_and_version", (q) =>
-        q.eq("module_id", module._id).eq("version", module.latestVersion),
-      )
+      .withIndex("by_module_and_version", (q) => q.eq("module_id", module._id))
       .unique();
     if (!moduleVersion) {
       return null;
     }
-    const analyzeResult = moduleVersion?.analyzeResult;
+    const analyzeResult = module.analyzeResult;
     if (!analyzeResult) {
       return null;
     }
@@ -57,13 +55,7 @@ export const list = queryPrivateSystem({
       if (module.path.startsWith("_")) {
         continue;
       }
-      const moduleVersion = await db
-        .query("_module_versions")
-        .withIndex("by_module_and_version", (q) =>
-          q.eq("module_id", module._id).eq("version", module.latestVersion),
-        )
-        .unique();
-      const analyzeResult = moduleVersion?.analyzeResult;
+      const analyzeResult = module.analyzeResult;
       if (!analyzeResult) {
         // `Skipping ${module.path}`
         continue;
@@ -77,6 +69,17 @@ export const list = queryPrivateSystem({
       }
 
       const cronSpecs = processCronSpecs(analyzeResult.cronSpecs);
+
+      const moduleVersion = await db
+        .query("_module_versions")
+        .withIndex("by_module_and_version", (q) =>
+          q.eq("module_id", module._id),
+        )
+        .unique();
+      // The _modules entry exists so _module_versions most exist.
+      if (!moduleVersion) {
+        throw new Error(`Module version for ${module._id} not found`);
+      }
 
       result.push([
         module.path,

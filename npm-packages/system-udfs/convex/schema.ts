@@ -275,11 +275,15 @@ export default defineSchema({
     path: v.string(),
     latestVersion: v.int64(),
     deleted: v.boolean(),
+    analyzeResult: v.union(analyzedModule, v.null()),
   }).index("by_path", ["path"]),
   _module_versions: defineTable({
     module_id: v.id("_modules"),
     source: v.string(),
     sourceMap: v.union(v.string(), v.null()),
+
+    // version and analyzeResult should never be read.
+    // read them from _modules instead.
     version: v.int64(),
     analyzeResult: v.union(analyzedModule, v.null()),
   }).index("by_module_and_version", ["module_id", "version"]),

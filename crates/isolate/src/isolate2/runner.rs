@@ -546,7 +546,6 @@ async fn run_request<RT: Runtime>(
         shared,
         key_broker,
         execution_context,
-        module_loader,
     );
     let r: anyhow::Result<_> = try {
         // Update our shared state with the updated table mappings before reentering
@@ -783,8 +782,6 @@ struct Isolate2SyscallProvider<'a, RT: Runtime> {
 
     key_broker: KeyBroker,
     context: ExecutionContext,
-
-    module_loader: Arc<dyn ModuleLoader<RT>>,
 }
 
 impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
@@ -797,7 +794,6 @@ impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
         shared: UdfShared<RT>,
         key_broker: KeyBroker,
         context: ExecutionContext,
-        module_loader: Arc<dyn ModuleLoader<RT>>,
     ) -> Self {
         Self {
             tx,
@@ -810,7 +806,6 @@ impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
             syscall_trace: SyscallTrace::new(),
             key_broker,
             context,
-            module_loader,
         }
     }
 }
@@ -868,15 +863,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
     ) -> anyhow::Result<(UdfPath, ConvexArray)> {
-        validate_schedule_args(
-            udf_path,
-            args,
-            scheduled_ts,
-            self.unix_timestamp,
-            &self.module_loader,
-            self.tx,
-        )
-        .await
+        validate_schedule_args(udf_path, args, scheduled_ts, self.unix_timestamp, self.tx).await
     }
 
     fn file_storage_generate_upload_url(&self) -> anyhow::Result<String> {

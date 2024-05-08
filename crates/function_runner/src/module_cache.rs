@@ -98,8 +98,7 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         // read same is the same regardless if we hit the cache or not.
         // This is not technically needed since the module version is immutable,
         // but better safe and consistent that sorry.
-        ModuleModel::new(tx)
-            .record_module_version_read_dependency(key.module_id, key.module_version)?;
+        ModuleModel::new(tx).record_module_version_read_dependency(key.module_id)?;
 
         Ok(Some(result))
     }

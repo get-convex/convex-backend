@@ -58,7 +58,10 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
         tx: &mut Transaction<RT>,
         udf_path: &CanonicalizedUdfPath,
     ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
-        let Some(module) = self.get_module(tx, udf_path.module().clone()).await? else {
+        let Some(module) = ModuleModel::new(tx)
+            .get_metadata(udf_path.module().clone())
+            .await?
+        else {
             return Ok(Err(ErrorMetadata::bad_request(
                 "ModuleNotFound",
                 ModuleNotFoundError::new(udf_path.module().as_str()).to_string(),
@@ -69,7 +72,6 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
         // Dependency modules don't have AnalyzedModule.
         if !udf_path.module().is_deps() {
             let analyzed_module = module
-                .as_ref()
                 .analyze_result
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Expected analyze result for {udf_path:?}"))?;

@@ -344,7 +344,6 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             args,
             scheduled_ts,
             self.phase.unix_timestamp()?,
-            &self.module_loader,
             self.phase.tx()?,
         )
         .await

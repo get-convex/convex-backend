@@ -1179,7 +1179,6 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
             // Scheduling from actions is not transaction and happens at latest
             // timestamp.
             self.database.runtime().unix_timestamp(),
-            &self.module_loader,
             &mut tx,
         )
         .await?;

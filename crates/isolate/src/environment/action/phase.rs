@@ -23,6 +23,7 @@ use model::{
     },
     modules::{
         module_versions::ModuleVersionMetadata,
+        types::ModuleMetadata,
         ModuleModel,
     },
     udf_config::UdfConfigModel,
@@ -71,7 +72,7 @@ enum ActionPreloaded<RT: Runtime> {
     },
     Preloading,
     Ready {
-        modules: BTreeMap<CanonicalizedModulePath, Arc<ModuleVersionMetadata>>,
+        modules: BTreeMap<CanonicalizedModulePath, (ModuleMetadata, Arc<ModuleVersionMetadata>)>,
         env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         rng: Option<ChaCha12Rng>,
         import_time_unix_timestamp: Option<UnixTimestamp>,
@@ -136,10 +137,10 @@ impl<RT: Runtime> ActionPhase<RT> {
             }
             let path = metadata.path.clone();
             if let Some(module) = module_loader
-                .get_module_with_metadata(&mut tx, metadata)
+                .get_module_with_metadata(&mut tx, metadata.clone())
                 .await?
             {
-                modules.insert(path, module);
+                modules.insert(path, (metadata.into_value(), module));
             }
         }
 
@@ -171,20 +172,20 @@ impl<RT: Runtime> ActionPhase<RT> {
         let ActionPreloaded::Ready { ref modules, .. } = self.preloaded else {
             anyhow::bail!("Phase not initialized");
         };
-        let module_version = modules
+        let module = modules
             .get(&module_path.clone().canonicalize())
-            .map(|m| (**m).clone());
+            .map(|(module, source)| (module, (**source).clone()));
 
-        if let Some(module_version) = module_version.as_ref() {
+        if let Some((module, _)) = module.as_ref() {
             anyhow::ensure!(
-                module_version.environment == ModuleEnvironment::Isolate,
+                module.environment == ModuleEnvironment::Isolate,
                 "Trying to execute {:?} in isolate, but it is bundled for {:?}.",
                 module_path,
-                module_version.environment
+                module.environment
             );
         };
 
-        Ok(module_version)
+        Ok(module.map(|(_, source)| source))
     }
 
     pub fn begin_execution(&mut self) -> anyhow::Result<()> {

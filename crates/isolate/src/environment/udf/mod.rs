@@ -179,7 +179,6 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     udf_server_version: Option<semver::Version>,
 
     phase: UdfPhase<RT>,
-    module_loader: Arc<dyn ModuleLoader<RT>>,
     file_storage: TransactionalFileStorage<RT>,
 
     query_manager: QueryManager<RT>,
@@ -353,7 +352,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             udf_server_version,
 
             phase: UdfPhase::new(transaction, rt, module_loader.clone(), system_env_vars),
-            module_loader,
             file_storage,
 
             query_manager: QueryManager::new(),
