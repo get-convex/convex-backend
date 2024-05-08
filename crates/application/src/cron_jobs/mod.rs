@@ -306,7 +306,8 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         if value_str.len() <= CRON_LOG_MAX_RESULT_LENGTH {
             CronJobResult::Default(value)
         } else {
-            value_str.truncate(CRON_LOG_MAX_RESULT_LENGTH);
+            value_str =
+                value_str[..value_str.floor_char_boundary(CRON_LOG_MAX_RESULT_LENGTH)].to_string();
             CronJobResult::Truncated(value_str)
         }
     }

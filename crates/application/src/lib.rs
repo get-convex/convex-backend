@@ -3,6 +3,7 @@
 #![feature(iterator_try_collect)]
 #![feature(let_chains)]
 #![feature(coroutines)]
+#![feature(round_char_boundary)]
 
 use std::{
     collections::{
