@@ -274,37 +274,6 @@ impl TableIdentifier for TabletIdAndTableNumber {
     }
 }
 
-// This is a Never type, which we use in `ConvexValue` to prevent
-// construction of `ConvexValue::Id`
-#[derive(PartialEq, Eq, Debug, Clone, Copy, Hash, PartialOrd, Ord)]
-pub enum NeverTable {}
-
-impl HeapSize for NeverTable {
-    fn heap_size(&self) -> usize {
-        0
-    }
-}
-
-impl Display for NeverTable {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt("NeverTable", f)
-    }
-}
-
-impl TableIdentifier for NeverTable {
-    fn min() -> Self {
-        panic!("Called min on NeverTable")
-    }
-
-    fn write_sorted<W: Write>(&self, _writer: &mut W) -> io::Result<()> {
-        panic!("Called write_sorted on NeverTable")
-    }
-
-    fn document_id_to_string(&self, _internal_id: InternalId) -> String {
-        panic!("Called document_id_to_string on NeverTable")
-    }
-}
-
 pub trait TableIdentifier:
     Debug + Display + Clone + HeapSize + Size + Ord + Eq + Sync + Send + 'static
 {
