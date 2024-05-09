@@ -129,6 +129,8 @@ pub enum FunctionCaller {
     SyncWorker(ClientVersion),
     HttpApi(ClientVersion),
     Tester(ClientVersion),
+    // This is a user defined http actions called externally. If the http action
+    // calls other functions, their caller would be `Action`.
     HttpEndpoint,
     Cron,
     Scheduler {
@@ -191,6 +193,22 @@ impl FunctionCaller {
             FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
             | FunctionCaller::Action { .. } => false,
+        }
+    }
+
+    pub fn allowed_visibility(&self) -> AllowedVisibility {
+        match self {
+            FunctionCaller::SyncWorker(_) | FunctionCaller::HttpApi(_) => {
+                AllowedVisibility::PublicOnly
+            },
+            // NOTE: Allowed visibility doesn't make sense in the context of an
+            // user defined http action since all http actions are public, and
+            // we shouldn't be checking visibility. We define this for completeness.
+            FunctionCaller::HttpEndpoint => AllowedVisibility::PublicOnly,
+            FunctionCaller::Tester(_)
+            | FunctionCaller::Cron
+            | FunctionCaller::Scheduler { .. }
+            | FunctionCaller::Action { .. } => AllowedVisibility::All,
         }
     }
 }

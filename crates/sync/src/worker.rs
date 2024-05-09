@@ -33,7 +33,6 @@ use common::{
         WithTimeout,
     },
     types::{
-        AllowedVisibility,
         FunctionCaller,
         UdfType,
     },
@@ -454,7 +453,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 args,
                                 identity,
                                 mutation_identifier,
-                                AllowedVisibility::PublicOnly,
                                 FunctionCaller::SyncWorker(client_version),
                                 PauseClient::new(),
                             )
@@ -516,7 +514,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                             udf_path,
                             args,
                             identity,
-                            AllowedVisibility::PublicOnly,
                             FunctionCaller::SyncWorker(client_version),
                         )
                         .in_span(root)
@@ -670,7 +667,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 identity_,
                                 new_ts,
                                 query.journal,
-                                AllowedVisibility::PublicOnly,
                                 FunctionCaller::SyncWorker(client_version),
                             )
                             .await?;

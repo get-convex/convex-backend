@@ -5,10 +5,7 @@ use common::{
         PauseClient,
         PauseController,
     },
-    types::{
-        AllowedVisibility,
-        FunctionCaller,
-    },
+    types::FunctionCaller,
     RequestId,
 };
 use errors::ErrorMetadataAnyhowExt;
@@ -36,7 +33,6 @@ async fn insert_object(
             vec![obj],
             Identity::system(),
             None,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::Action {
                 parent_scheduled_job: None,
             },
@@ -58,7 +54,6 @@ async fn insert_and_count(
             vec![obj],
             Identity::system(),
             None,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::Action {
                 parent_scheduled_job: None,
             },

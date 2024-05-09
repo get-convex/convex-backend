@@ -11,7 +11,6 @@ use common::{
         Runtime,
     },
     types::{
-        AllowedVisibility,
         FunctionCaller,
         MemberId,
         SessionId,
@@ -824,7 +823,6 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
             Identity::Unknown,
             ts2,
             None,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::SyncWorker(ClientVersion::unknown()),
         )
         .await?;
@@ -839,7 +837,6 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
             Identity::Unknown,
             ts1,
             None,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::SyncWorker(ClientVersion::unknown()),
         )
         .await?;

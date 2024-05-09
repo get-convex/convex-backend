@@ -65,7 +65,6 @@ use common::{
     types::{
         env_var_limit_met,
         env_var_name_not_unique,
-        AllowedVisibility,
         ConvexOrigin,
         ConvexSite,
         CursorMs,
@@ -756,21 +755,11 @@ impl<RT: Runtime> Application<RT> {
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
     ) -> anyhow::Result<QueryReturn> {
         let ts = *self.now_ts_for_reads();
-        self.read_only_udf_at_ts(
-            request_id,
-            name,
-            args,
-            identity,
-            ts,
-            None,
-            allowed_visibility,
-            caller,
-        )
-        .await
+        self.read_only_udf_at_ts(request_id, name, args, identity, ts, None, caller)
+            .await
     }
 
     #[minitrace::trace]
@@ -782,7 +771,6 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         ts: Timestamp,
         journal: Option<Option<String>>,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
     ) -> anyhow::Result<QueryReturn> {
         let block_logging = self
@@ -790,7 +778,7 @@ impl<RT: Runtime> Application<RT> {
             .should_redact_logs_and_error(
                 &mut self.begin(identity.clone()).await?,
                 identity.clone(),
-                allowed_visibility.clone(),
+                caller.allowed_visibility(),
             )
             .await?;
         let journal = match journal
@@ -828,7 +816,6 @@ impl<RT: Runtime> Application<RT> {
                 identity,
                 ts,
                 journal,
-                allowed_visibility,
                 caller,
                 block_logging,
             )
@@ -861,7 +848,6 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         pause_client: PauseClient,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
@@ -870,7 +856,7 @@ impl<RT: Runtime> Application<RT> {
             .should_redact_logs_and_error(
                 &mut self.begin(identity.clone()).await?,
                 identity.clone(),
-                allowed_visibility.clone(),
+                caller.allowed_visibility(),
             )
             .await?;
         match self
@@ -881,7 +867,6 @@ impl<RT: Runtime> Application<RT> {
                 args,
                 identity,
                 mutation_identifier,
-                allowed_visibility,
                 caller,
                 pause_client,
                 block_logging,
@@ -908,7 +893,6 @@ impl<RT: Runtime> Application<RT> {
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
         let block_logging = self
@@ -916,7 +900,7 @@ impl<RT: Runtime> Application<RT> {
             .should_redact_logs_and_error(
                 &mut self.begin(identity.clone()).await?,
                 identity.clone(),
-                allowed_visibility.clone(),
+                caller.allowed_visibility(),
             )
             .await?;
 
@@ -928,15 +912,7 @@ impl<RT: Runtime> Application<RT> {
             .unwrap_or(Span::noop());
         let run_action = async move {
             runner
-                .run_action(
-                    request_id_,
-                    name,
-                    args,
-                    identity,
-                    allowed_visibility,
-                    caller,
-                    block_logging,
-                )
+                .run_action(request_id_, name, args, identity, caller, block_logging)
                 .in_span(span)
                 .await
         };
@@ -977,7 +953,7 @@ impl<RT: Runtime> Application<RT> {
             .should_redact_logs_and_error(
                 &mut self.begin(identity.clone()).await?,
                 identity.clone(),
-                AllowedVisibility::PublicOnly,
+                caller.allowed_visibility(),
             )
             .await?;
 
@@ -1030,7 +1006,6 @@ impl<RT: Runtime> Application<RT> {
         name: UdfPath,
         args: Vec<JsonValue>,
         identity: Identity,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
         let block_logging = self
@@ -1038,7 +1013,7 @@ impl<RT: Runtime> Application<RT> {
             .should_redact_logs_and_error(
                 &mut self.begin(identity.clone()).await?,
                 identity.clone(),
-                allowed_visibility.clone(),
+                caller.allowed_visibility(),
             )
             .await?;
 
@@ -1078,7 +1053,7 @@ impl<RT: Runtime> Application<RT> {
 
         match analyzed_function.udf_type {
             UdfType::Query => self
-                .read_only_udf(request_id, name, args, identity, allowed_visibility, caller)
+                .read_only_udf(request_id, name, args, identity, caller)
                 .await
                 .map(
                     |QueryReturn {
@@ -1097,7 +1072,6 @@ impl<RT: Runtime> Application<RT> {
                     args,
                     identity,
                     None,
-                    allowed_visibility,
                     caller,
                     PauseClient::new(),
                 )
@@ -1115,7 +1089,7 @@ impl<RT: Runtime> Application<RT> {
                     )
                 }),
             UdfType::Action => self
-                .action_udf(request_id, name, args, identity, allowed_visibility, caller)
+                .action_udf(request_id, name, args, identity, caller)
                 .await
                 .map(|res| {
                     res.map(
@@ -1797,7 +1771,7 @@ impl<RT: Runtime> Application<RT> {
             .should_redact_logs_and_error(
                 &mut self.begin(identity.clone()).await?,
                 identity.clone(),
-                AllowedVisibility::All,
+                caller.allowed_visibility(),
             )
             .await?;
 
@@ -1867,14 +1841,7 @@ impl<RT: Runtime> Application<RT> {
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => self
                 .runner
-                .run_query_without_caching(
-                    request_id.clone(),
-                    tx,
-                    path,
-                    arguments,
-                    AllowedVisibility::All,
-                    caller,
-                )
+                .run_query_without_caching(request_id.clone(), tx, path, arguments, caller)
                 .await
                 .map(
                     |UdfOutcome {

@@ -660,7 +660,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mut tx: Transaction<RT>,
         udf_path: CanonicalizedUdfPath,
         arguments: ConvexArray,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
     ) -> anyhow::Result<UdfOutcome> {
         if !(tx.identity().is_admin() || tx.identity().is_system()) {
@@ -670,7 +669,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let identity = tx.inert_identity();
         let start = self.runtime.monotonic_now();
         let validate_result = ValidatedUdfPathAndArgs::new(
-            allowed_visibility,
+            caller.allowed_visibility(),
             &mut tx,
             udf_path.clone(),
             arguments.clone(),
@@ -731,7 +730,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: Vec<JsonValue>,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         pause_client: PauseClient,
         block_logging: bool,
@@ -744,7 +742,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 arguments,
                 identity,
                 mutation_identifier,
-                allowed_visibility,
                 caller,
                 pause_client,
                 block_logging,
@@ -766,7 +763,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: Vec<JsonValue>,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         mut pause_client: PauseClient,
         block_logging: bool,
@@ -818,7 +814,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     tx,
                     udf_path.clone(),
                     arguments.clone(),
-                    allowed_visibility.clone(),
+                    caller.allowed_visibility(),
                     context.clone(),
                 )
                 .await;
@@ -1034,7 +1030,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         name: UdfPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         block_logging: bool,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
@@ -1059,7 +1054,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 name.clone(),
                 arguments.clone(),
                 identity.clone(),
-                allowed_visibility,
                 caller.clone(),
                 usage_tracking.clone(),
                 context.clone(),
@@ -1109,21 +1103,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         name: CanonicalizedUdfPath,
         arguments: ConvexArray,
         identity: Identity,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
         context: ExecutionContext,
     ) -> anyhow::Result<ActionCompletion> {
         let result = self
-            .run_action_inner(
-                name,
-                arguments,
-                identity,
-                allowed_visibility,
-                caller,
-                usage_tracking,
-                context,
-            )
+            .run_action_inner(name, arguments, identity, caller, usage_tracking, context)
             .await;
         match result.as_ref() {
             Ok(completion) => {
@@ -1151,7 +1136,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         name: CanonicalizedUdfPath,
         arguments: ConvexArray,
         identity: Identity,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
         context: ExecutionContext,
@@ -1166,7 +1150,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .begin_with_usage(identity.clone(), usage_tracking)
             .await?;
         let validate_result = ValidatedUdfPathAndArgs::new(
-            allowed_visibility,
+            caller.allowed_visibility(),
             &mut tx,
             name.clone(),
             arguments.clone(),
@@ -1821,7 +1805,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         block_logging: bool,
     ) -> anyhow::Result<QueryReturn> {
@@ -1833,7 +1816,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 identity,
                 ts,
                 journal,
-                allowed_visibility,
                 caller,
                 block_logging,
             )
@@ -1866,7 +1848,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         block_logging: bool,
     ) -> anyhow::Result<QueryReturn> {
@@ -1900,7 +1881,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 identity.clone(),
                 ts,
                 journal,
-                allowed_visibility,
                 caller,
                 block_logging,
                 usage_tracker.clone(),
@@ -1986,7 +1966,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 identity,
                 *ts,
                 None,
-                AllowedVisibility::All,
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },
@@ -2013,7 +1992,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 args,
                 identity,
                 None,
-                AllowedVisibility::All,
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },
@@ -2044,7 +2022,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 name,
                 args,
                 identity,
-                AllowedVisibility::All,
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },

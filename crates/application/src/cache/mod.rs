@@ -205,7 +205,6 @@ impl<RT: Runtime> CacheManager<RT> {
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         block_logging: bool,
         usage_tracker: FunctionUsageTracker,
@@ -219,7 +218,6 @@ impl<RT: Runtime> CacheManager<RT> {
                 identity,
                 ts,
                 journal,
-                allowed_visibility,
                 caller,
                 block_logging,
                 usage_tracker,
@@ -245,7 +243,6 @@ impl<RT: Runtime> CacheManager<RT> {
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
-        allowed_visibility: AllowedVisibility,
         caller: FunctionCaller,
         block_logging: bool,
         usage_tracker: FunctionUsageTracker,
@@ -257,7 +254,7 @@ impl<RT: Runtime> CacheManager<RT> {
             args: args.clone(),
             identity: identity_cache_key,
             journal: journal.unwrap_or_else(QueryJournal::new),
-            allowed_visibility,
+            allowed_visibility: caller.allowed_visibility(),
         };
         let context = ExecutionContext::new(request_id, &caller);
 

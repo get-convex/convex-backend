@@ -33,7 +33,6 @@ use common::{
     pause::PauseClient,
     runtime::UnixTimestamp,
     types::{
-        AllowedVisibility,
         FunctionCaller,
         UdfIdentifier,
     },
@@ -102,7 +101,6 @@ pub async fn internal_query_post(
             udf_path,
             req.args.into_arg_vec(),
             identity,
-            AllowedVisibility::All,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
             },
@@ -146,7 +144,6 @@ pub async fn internal_mutation_post(
             req.args.into_arg_vec(),
             identity,
             None,
-            AllowedVisibility::All,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
             },
@@ -193,7 +190,6 @@ pub async fn internal_action_post(
             udf_path,
             req.args.into_arg_vec(),
             identity,
-            AllowedVisibility::All,
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
             },

@@ -21,10 +21,7 @@ use common::{
         HttpResponseError,
     },
     pause::PauseClient,
-    types::{
-        AllowedVisibility,
-        FunctionCaller,
-    },
+    types::FunctionCaller,
     version::ClientVersion,
 };
 use errors::ErrorMetadata;
@@ -157,7 +154,6 @@ pub async fn public_function_post(
             udf_path,
             req.args.into_arg_vec(),
             identity,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;
@@ -220,7 +216,6 @@ pub async fn public_query_get(
             udf_path,
             args,
             identity,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;
@@ -256,7 +251,6 @@ pub async fn public_query_post(
             udf_path,
             req.args.into_arg_vec(),
             identity,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;
@@ -304,7 +298,6 @@ pub async fn public_query_batch_post(
                 identity.clone(),
                 ts,
                 None,
-                AllowedVisibility::PublicOnly,
                 FunctionCaller::HttpApi(client_version.clone()),
             )
             .await?;
@@ -342,7 +335,6 @@ pub async fn public_mutation_post(
             req.args.into_arg_vec(),
             identity,
             None,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
             PauseClient::new(),
         )
@@ -379,7 +371,6 @@ pub async fn public_action_post(
             udf_path,
             req.args.into_arg_vec(),
             identity,
-            AllowedVisibility::PublicOnly,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;

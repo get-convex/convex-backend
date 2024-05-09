@@ -32,7 +32,6 @@ use common::{
         RuntimeInstant,
     },
     types::{
-        AllowedVisibility,
         FunctionCaller,
         UdfType,
     },
@@ -351,7 +350,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 tx,
                 job.cron_spec.udf_path.clone(),
                 job.cron_spec.udf_args.clone(),
-                AllowedVisibility::All,
+                caller.allowed_visibility(),
                 context.clone(),
             )
             .await;
@@ -482,7 +481,6 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                         job.clone().cron_spec.udf_path,
                         job.cron_spec.udf_args,
                         identity.clone(),
-                        AllowedVisibility::All,
                         caller,
                         usage_tracker.clone(),
                         context.clone(),

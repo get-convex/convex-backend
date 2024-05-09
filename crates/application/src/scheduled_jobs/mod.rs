@@ -38,7 +38,6 @@ use common::{
     sync::mpsc,
     tokio::task::yield_now,
     types::{
-        AllowedVisibility,
         FunctionCaller,
         UdfType,
     },
@@ -549,7 +548,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 tx,
                 job.udf_path.clone(),
                 job.udf_args.clone(),
-                AllowedVisibility::All,
+                caller.allowed_visibility(),
                 context.clone(),
             )
             .await;
@@ -654,7 +653,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         job.clone().udf_path,
                         job.udf_args,
                         identity,
-                        AllowedVisibility::All,
                         caller,
                         usage_tracker.clone(),
                         context.clone(),

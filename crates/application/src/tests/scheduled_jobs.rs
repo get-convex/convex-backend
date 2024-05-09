@@ -10,10 +10,7 @@ use common::{
         PauseController,
     },
     runtime::Runtime,
-    types::{
-        AllowedVisibility,
-        FunctionCaller,
-    },
+    types::FunctionCaller,
     RequestId,
 };
 use database::{
@@ -298,7 +295,6 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
             vec![],
             Identity::system(),
             None,
-            AllowedVisibility::All,
             FunctionCaller::Action {
                 parent_scheduled_job,
             },
@@ -313,7 +309,6 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
             UdfPath::from_str("action:schedule")?,
             vec![],
             Identity::system(),
-            AllowedVisibility::All,
             FunctionCaller::Action {
                 parent_scheduled_job,
             },
