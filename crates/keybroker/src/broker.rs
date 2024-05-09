@@ -49,7 +49,7 @@ use pb::{
         IndexKey as IndexKeyProto,
     },
     convex_identity::{
-        identity::Identity as IdentityProto,
+        unchecked_identity::Identity as UncheckedIdentityProto,
         ActingUser,
     },
     convex_keys::{
@@ -133,21 +133,23 @@ impl From<Identity> for AuthenticationToken {
     }
 }
 
-impl From<Identity> for pb::convex_identity::Identity {
+impl From<Identity> for pb::convex_identity::UncheckedIdentity {
     fn from(i: Identity) -> Self {
         let identity = match i {
             Identity::InstanceAdmin(admin_identity) => {
-                IdentityProto::AdminIdentity(admin_identity.into())
+                UncheckedIdentityProto::AdminIdentity(admin_identity.into())
             },
-            Identity::System(_) => IdentityProto::System(()),
-            Identity::User(user_identity) => IdentityProto::UserIdentity(user_identity.into()),
+            Identity::System(_) => UncheckedIdentityProto::System(()),
+            Identity::User(user_identity) => {
+                UncheckedIdentityProto::UserIdentity(user_identity.into())
+            },
             Identity::ActingUser(admin_identity, attributes) => {
-                IdentityProto::ActingUser(ActingUser {
+                UncheckedIdentityProto::ActingUser(ActingUser {
                     admin_identity: Some(admin_identity.into()),
                     attributes: Some(attributes.into()),
                 })
             },
-            Identity::Unknown => IdentityProto::Unknown(()),
+            Identity::Unknown => UncheckedIdentityProto::Unknown(()),
         };
         Self {
             identity: Some(identity),
@@ -156,19 +158,21 @@ impl From<Identity> for pb::convex_identity::Identity {
 }
 
 impl Identity {
-    pub fn from_proto_unchecked(msg: pb::convex_identity::Identity) -> anyhow::Result<Self> {
+    pub fn from_proto_unchecked(
+        msg: pb::convex_identity::UncheckedIdentity,
+    ) -> anyhow::Result<Self> {
         let identity = msg
             .identity
             .ok_or_else(|| anyhow::anyhow!("Missing nested identity"))?;
         match identity {
-            IdentityProto::AdminIdentity(admin_identity) => Ok(Identity::InstanceAdmin(
+            UncheckedIdentityProto::AdminIdentity(admin_identity) => Ok(Identity::InstanceAdmin(
                 AdminIdentity::from_proto_unchecked(admin_identity)?,
             )),
-            IdentityProto::System(()) => Ok(Identity::System(SystemIdentity)),
-            IdentityProto::UserIdentity(user_identity) => Ok(Identity::User(
+            UncheckedIdentityProto::System(()) => Ok(Identity::System(SystemIdentity)),
+            UncheckedIdentityProto::UserIdentity(user_identity) => Ok(Identity::User(
                 UserIdentity::from_proto_unchecked(user_identity)?,
             )),
-            IdentityProto::ActingUser(ActingUser {
+            UncheckedIdentityProto::ActingUser(ActingUser {
                 admin_identity,
                 attributes,
             }) => {
@@ -179,7 +183,7 @@ impl Identity {
                     attributes.ok_or_else(|| anyhow::anyhow!("Missing user attributes"))?;
                 Ok(Identity::ActingUser(admin_identity, attributes.try_into()?))
             },
-            IdentityProto::Unknown(()) => Ok(Identity::Unknown),
+            UncheckedIdentityProto::Unknown(()) => Ok(Identity::Unknown),
         }
     }
 }
@@ -1052,7 +1056,7 @@ mod tests {
 
         #[test]
         fn test_identity_proto_roundtrips(identity in any::<Identity>()) {
-            let proto: pb::convex_identity::Identity = identity.clone().into();
+            let proto: pb::convex_identity::UncheckedIdentity = identity.clone().into();
             let roundtripped = Identity::from_proto_unchecked(proto).unwrap();
             assert_eq!(identity, roundtripped);
         }

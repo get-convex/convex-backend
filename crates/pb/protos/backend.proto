@@ -69,7 +69,7 @@ message TableCountAtTsResponse {
 message ExecuteQueryRequest {
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
@@ -87,7 +87,7 @@ message ExecuteMutationRequest {
 
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
@@ -105,7 +105,7 @@ message ExecuteActionRequest {
 
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
@@ -121,7 +121,7 @@ message ExecuteActionResponse {
 message StorageGetUrlRequest {
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     storage.FileStorageId storage_id = 3;
 }
 
@@ -132,7 +132,7 @@ message StorageGetUrlResponse {
 message StorageGetFileEntryRequest {
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     storage.FileStorageId storage_id = 3;
 }
 
@@ -143,7 +143,7 @@ message StorageGetFileEntryResponse {
 message StorageStoreFileEntryRequest {
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     storage.FileStorageEntry entry = 3;
 }
 
@@ -154,7 +154,7 @@ message StorageStoreFileEntryResponse {
 message StorageDeleteRequest {
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     storage.FileStorageId storage_id = 3;
 }
 
@@ -165,7 +165,7 @@ message ScheduleJobRequest {
     reserved 5;
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional double scheduled_ts = 4;
     optional common.ExecutionContext execution_context = 6;
@@ -178,7 +178,7 @@ message ScheduleJobResponse {
 message CancelJobRequest {
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     optional string id = 3;
 }
 
@@ -188,7 +188,7 @@ message CancelJobResponse {
 message VectorSearchRequest {
     RequestHeader header = 1;
 
-    convex_identity.Identity identity = 2;
+    convex_identity.UncheckedIdentity identity = 2;
     optional bytes query_json = 3;
 }
 
