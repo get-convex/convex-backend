@@ -9,11 +9,10 @@ use common::{
 };
 
 use super::{
-    IndexRangeResponse,
+    DeveloperIndexRangeResponse,
     QueryNode,
     QueryStream,
     QueryStreamNext,
-    QueryType,
 };
 use crate::Transaction;
 
@@ -23,19 +22,19 @@ use crate::Transaction;
 const FILTER_QUERY_PREFETCH: usize = 100;
 
 /// See Query.filter().
-pub(super) struct Filter<T: QueryType> {
-    inner: QueryNode<T>,
+pub(super) struct Filter {
+    inner: QueryNode,
     expr: Expression,
 }
 
-impl<T: QueryType> Filter<T> {
-    pub fn new(inner: QueryNode<T>, expr: Expression) -> Self {
+impl Filter {
+    pub fn new(inner: QueryNode, expr: Expression) -> Self {
         Self { inner, expr }
     }
 }
 
 #[async_trait]
-impl<T: QueryType> QueryStream<T> for Filter<T> {
+impl QueryStream for Filter {
     fn cursor_position(&self) -> &Option<CursorPosition> {
         self.inner.cursor_position()
     }
@@ -52,7 +51,7 @@ impl<T: QueryType> QueryStream<T> for Filter<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         _prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<QueryStreamNext<T>> {
+    ) -> anyhow::Result<QueryStreamNext> {
         loop {
             let (document, write_timestamp) =
                 match self.inner.next(tx, Some(FILTER_QUERY_PREFETCH)).await? {
@@ -69,7 +68,7 @@ impl<T: QueryType> QueryStream<T> for Filter<T> {
         }
     }
 
-    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
         self.inner.feed(index_range_response)
     }
 

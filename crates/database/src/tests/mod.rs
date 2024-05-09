@@ -91,8 +91,7 @@ use crate::{
         IndexWriter,
     },
     query::{
-        CompiledQuery,
-        Resolved,
+        ResolvedQuery,
         TableFilter,
     },
     table_summary::{
@@ -874,7 +873,7 @@ async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
     let cursor1 = compiled_query1.cursor();
 
     //G We can use this to continue query 1 without any errors.
-    CompiledQuery::<TestRuntime, Resolved>::new_bounded(
+    ResolvedQuery::<TestRuntime>::new_bounded(
         &mut tx,
         query1,
         cursor1.clone(),
@@ -887,7 +886,7 @@ async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
     )?;
 
     // Using it on a different query generates an error.
-    let err = CompiledQuery::<TestRuntime, Resolved>::new_bounded(
+    let err = ResolvedQuery::<TestRuntime>::new_bounded(
         &mut tx,
         query2,
         cursor1,

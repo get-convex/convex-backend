@@ -5,7 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
-    document::GenericDocument,
+    document::DeveloperDocument,
     index::IndexKeyBytes,
     interval::Interval,
     knobs::{
@@ -29,10 +29,9 @@ use common::{
 use super::{
     query_scanned_too_many_documents_error,
     query_scanned_too_much_data,
-    IndexRangeResponse,
+    DeveloperIndexRangeResponse,
     QueryStream,
     QueryStreamNext,
-    QueryType,
     DEFAULT_QUERY_PREFETCH,
     MAX_QUERY_FETCH,
 };
@@ -40,10 +39,11 @@ use crate::{
     metrics,
     transaction::IndexRangeRequest,
     Transaction,
+    UserFacingModel,
 };
 
 /// A `QueryStream` that scans a range of an index.
-pub struct IndexRange<T: QueryType> {
+pub struct IndexRange {
     stable_index_name: StableIndexName,
     /// For usage and error messages. If the table mapping has changed, this
     /// might get out of sync with `stable_index_name`, which is the index
@@ -60,7 +60,7 @@ pub struct IndexRange<T: QueryType> {
     /// `cursor_interval` must always be a subset of `interval`.
     cursor_interval: CursorInterval,
     intermediate_cursors: Option<Vec<CursorPosition>>,
-    page: VecDeque<(IndexKeyBytes, GenericDocument<T::T>, WriteTimestamp)>,
+    page: VecDeque<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
     /// The interval which we have yet to fetch.
     /// This starts as an intersection of the IndexRange's `interval` and
     /// `cursor_interval`, and gets smaller as results are fetched into `page`.
@@ -81,7 +81,7 @@ pub struct IndexRange<T: QueryType> {
     version: Option<Version>,
 }
 
-impl<T: QueryType> IndexRange<T> {
+impl IndexRange {
     pub fn new(
         stable_index_name: StableIndexName,
         printable_index_name: IndexName,
@@ -146,7 +146,7 @@ impl<T: QueryType> IndexRange<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<QueryStreamNext<T>> {
+    ) -> anyhow::Result<QueryStreamNext> {
         // If we have an end cursor, for correctness we need to process
         // the entire interval, so ignore `maximum_rows_read` and `maximum_bytes_read`.
         let enforce_limits = self.cursor_interval.end_inclusive.is_none();
@@ -169,7 +169,7 @@ impl<T: QueryType> IndexRange<T> {
             }
             self.cursor_interval.curr_exclusive = Some(CursorPosition::After(index_position));
             self.returned_results += 1;
-            T::record_read_document(tx, &v, self.printable_index_name.table())?;
+            UserFacingModel::new(tx).record_read_document(&v, self.printable_index_name.table())?;
             // Database bandwidth for index reads
             tx.usage_tracker.track_database_egress_size(
                 self.printable_index_name.table().to_string(),
@@ -216,7 +216,7 @@ impl<T: QueryType> IndexRange<T> {
 
     fn process_fetch(
         &mut self,
-        page: Vec<(IndexKeyBytes, GenericDocument<T::T>, WriteTimestamp)>,
+        page: Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
         fetch_cursor: CursorPosition,
     ) -> anyhow::Result<()> {
         let (_, new_unfetched_interval) = self.unfetched_interval.split(fetch_cursor, self.order);
@@ -234,7 +234,7 @@ pub const fn soft_data_limit(hard_limit: usize) -> usize {
 }
 
 #[async_trait]
-impl<T: QueryType> QueryStream<T> for IndexRange<T> {
+impl QueryStream for IndexRange {
     fn cursor_position(&self) -> &Option<CursorPosition> {
         &self.cursor_interval.curr_exclusive
     }
@@ -257,11 +257,11 @@ impl<T: QueryType> QueryStream<T> for IndexRange<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<QueryStreamNext<T>> {
+    ) -> anyhow::Result<QueryStreamNext> {
         self.start_next(tx, prefetch_hint)
     }
 
-    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
         self.process_fetch(index_range_response.page, index_range_response.cursor)
     }
 
@@ -270,7 +270,7 @@ impl<T: QueryType> QueryStream<T> for IndexRange<T> {
     }
 }
 
-impl<T: QueryType> Drop for IndexRange<T> {
+impl Drop for IndexRange {
     fn drop(&mut self) {
         metrics::log_index_range(
             self.returned_results,

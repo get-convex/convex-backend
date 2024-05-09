@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     marker::PhantomData,
+    ops::Deref,
 };
 
 use anyhow::Context;
@@ -12,7 +13,6 @@ use common::{
     },
     document::{
         DeveloperDocument,
-        GenericDocument,
         ResolvedDocument,
     },
     index::IndexKeyBytes,
@@ -34,15 +34,12 @@ use common::{
     version::Version,
 };
 use errors::ErrorMetadata;
+use futures::{
+    future::BoxFuture,
+    FutureExt,
+};
 use indexing::backend_in_memory_indexes::BatchKey;
 use maplit::btreemap;
-use value::{
-    GenericDocumentId,
-    TableIdAndTableNumber,
-    TableIdentifier,
-    TableName,
-    TableNumber,
-};
 
 use self::{
     filter::Filter,
@@ -76,7 +73,7 @@ const DEFAULT_QUERY_PREFETCH: usize = 100;
 
 /// The implementation of `interface Query` from the npm package.
 #[async_trait]
-trait QueryStream<T: QueryType>: Send {
+trait QueryStream: Send {
     /// Return a position for a continuation cursor. A query defines a result
     /// set, independent of pagination, and assuming no concurrent
     /// transactions overlap with this result set, re-executing a query with
@@ -113,129 +110,34 @@ trait QueryStream<T: QueryType>: Send {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<QueryStreamNext<T>>;
-    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()>;
+    ) -> anyhow::Result<QueryStreamNext>;
+    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()>;
 
     /// All queries walk an index of some kind, as long as the table exists.
     /// This is that index name, tied to a tablet.
     fn tablet_index_name(&self) -> Option<&TabletIndexName>;
 }
 
-pub struct IndexRangeResponse<T: TableIdentifier> {
-    pub page: Vec<(IndexKeyBytes, GenericDocument<T>, WriteTimestamp)>,
+pub struct DeveloperIndexRangeResponse {
+    pub page: Vec<(IndexKeyBytes, DeveloperDocument, WriteTimestamp)>,
     pub cursor: CursorPosition,
 }
 
-pub enum QueryStreamNext<T: QueryType> {
-    Ready(Option<(GenericDocument<T::T>, WriteTimestamp)>),
+pub struct IndexRangeResponse {
+    pub page: Vec<(IndexKeyBytes, ResolvedDocument, WriteTimestamp)>,
+    pub cursor: CursorPosition,
+}
+
+pub enum QueryStreamNext {
+    Ready(Option<(DeveloperDocument, WriteTimestamp)>),
     WaitingOn(IndexRangeRequest),
 }
 
-#[async_trait]
-pub trait QueryType {
-    type T: TableIdentifier;
-
-    async fn index_range_batch<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<Self::T>>>;
-
-    async fn get_with_ts<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        id: GenericDocumentId<Self::T>,
-        version: Option<Version>,
-    ) -> anyhow::Result<Option<(GenericDocument<Self::T>, WriteTimestamp)>>;
-
-    fn record_read_document<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        doc: &GenericDocument<Self::T>,
-        table_name: &TableName,
-    ) -> anyhow::Result<()>;
-
-    fn table_identifier<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        table: &TableName,
-    ) -> anyhow::Result<Self::T>;
-}
-
-pub enum Resolved {}
-pub enum Developer {}
-
-#[async_trait]
-impl QueryType for Resolved {
-    type T = TableIdAndTableNumber;
-
-    async fn index_range_batch<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<Self::T>>> {
-        tx.index_range_batch(requests).await
-    }
-
-    async fn get_with_ts<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        id: GenericDocumentId<Self::T>,
-        _version: Option<Version>,
-    ) -> anyhow::Result<Option<(GenericDocument<Self::T>, WriteTimestamp)>> {
-        tx.get_with_ts(id).await
-    }
-
-    fn record_read_document<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        doc: &GenericDocument<Self::T>,
-        table_name: &TableName,
-    ) -> anyhow::Result<()> {
-        tx.record_read_document(doc, table_name)
-    }
-
-    fn table_identifier<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        table: &TableName,
-    ) -> anyhow::Result<Self::T> {
-        tx.table_mapping().id(table)
-    }
-}
-
-#[async_trait]
-impl QueryType for Developer {
-    type T = TableNumber;
-
-    async fn index_range_batch<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<Self::T>>> {
-        UserFacingModel::new(tx).index_range_batch(requests).await
-    }
-
-    async fn get_with_ts<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        id: GenericDocumentId<Self::T>,
-        version: Option<Version>,
-    ) -> anyhow::Result<Option<(GenericDocument<Self::T>, WriteTimestamp)>> {
-        UserFacingModel::new(tx).get_with_ts(id, version).await
-    }
-
-    fn record_read_document<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        doc: &GenericDocument<Self::T>,
-        table_name: &TableName,
-    ) -> anyhow::Result<()> {
-        UserFacingModel::new(tx).record_read_document(doc, table_name)
-    }
-
-    fn table_identifier<RT: Runtime>(
-        tx: &mut Transaction<RT>,
-        table: &TableName,
-    ) -> anyhow::Result<Self::T> {
-        Ok(tx.table_mapping().id(table)?.table_number)
-    }
-}
-
-pub struct CompiledQuery<RT: Runtime, T: QueryType> {
-    root: QueryNode<T>,
+pub struct DeveloperQuery<RT: Runtime> {
+    root: QueryNode,
     query_fingerprint: QueryFingerprint,
     end_cursor: Option<Cursor>,
-    _marker: PhantomData<(RT, T)>,
+    _marker: PhantomData<RT>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -244,10 +146,47 @@ pub enum TableFilter {
     ExcludePrivateSystemTables,
 }
 
-pub type ResolvedQuery<RT> = CompiledQuery<RT, Resolved>;
-pub type DeveloperQuery<RT> = CompiledQuery<RT, Developer>;
+/// ResolvedQuery is a handy way to query for documents in private system
+/// tables. It wraps DeveloperQuery, attaching the tablet id on returned
+/// documents, so they can be passed to internal functions.
+///
+/// You may notice that DeveloperQuery calls Transaction methods that return
+/// ResolvedDocuments, so ResolvedQuery is re-attaching a tablet id that
+/// was previously discarded. You may think that DeveloperQuery should wrap
+/// ResolvedQuery, and convert virtual table documents after querying the
+/// documents. However, this doesn't work with Filters on virtual tables, which
+/// should execute on the fields of the virtual table.
+pub struct ResolvedQuery<RT: Runtime> {
+    developer: DeveloperQuery<RT>,
+}
 
 impl<RT: Runtime> ResolvedQuery<RT> {
+    pub fn new_bounded(
+        tx: &mut Transaction<RT>,
+        query: Query,
+        start_cursor: Option<Cursor>,
+        end_cursor: Option<Cursor>,
+        maximum_rows_read: Option<usize>,
+        maximum_bytes_read: Option<usize>,
+        should_compute_split_cursor: bool,
+        version: Option<Version>,
+        table_filter: TableFilter,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            developer: DeveloperQuery::new_bounded(
+                tx,
+                query,
+                start_cursor,
+                end_cursor,
+                maximum_rows_read,
+                maximum_bytes_read,
+                should_compute_split_cursor,
+                version,
+                table_filter,
+            )?,
+        })
+    }
+
     pub fn new(tx: &mut Transaction<RT>, query: Query) -> anyhow::Result<Self> {
         Self::new_bounded(
             tx,
@@ -281,6 +220,20 @@ impl<RT: Runtime> ResolvedQuery<RT> {
     }
 }
 
+impl<RT: Runtime> Deref for ResolvedQuery<RT> {
+    type Target = DeveloperQuery<RT>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.developer
+    }
+}
+
+impl<RT: Runtime> AsMut<DeveloperQuery<RT>> for ResolvedQuery<RT> {
+    fn as_mut(&mut self) -> &mut DeveloperQuery<RT> {
+        &mut self.developer
+    }
+}
+
 impl<RT: Runtime> DeveloperQuery<RT> {
     pub fn new(
         tx: &mut Transaction<RT>,
@@ -310,7 +263,7 @@ impl<RT: Runtime> DeveloperQuery<RT> {
     }
 }
 
-impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
+impl<RT: Runtime> DeveloperQuery<RT> {
     pub fn new_bounded(
         tx: &mut Transaction<RT>,
         query: Query,
@@ -464,9 +417,7 @@ impl<RT: Runtime, T: QueryType> CompiledQuery<RT, T> {
     pub fn is_approaching_data_limit(&self) -> bool {
         self.root.is_approaching_data_limit()
     }
-}
 
-impl<RT: Runtime> DeveloperQuery<RT> {
     pub async fn next(
         &mut self,
         tx: &mut Transaction<RT>,
@@ -509,24 +460,10 @@ impl<RT: Runtime> ResolvedQuery<RT> {
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
     ) -> anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>> {
-        let tablet_id = self
-            .root
-            .tablet_index_name()
-            .map(|index_name| *index_name.table());
-        let result = query_batch_next(btreemap! {0 => (self, prefetch_hint)}, tx)
+        resolved_query_batch_next(btreemap! {0 => (self, prefetch_hint)}, tx)
             .await
             .remove(&0)
-            .context("batch_key missing")??;
-        if let Some((document, _)) = &result {
-            // TODO(lee) inject tablet id here which will allow the rest of the query
-            // pipeline to use DeveloperDocuments only. To ensure this will be
-            // correct, we do an assertion temporarily.
-            anyhow::ensure!(
-                document.table().table_id
-                    == tablet_id.context("document must come from some tablet")?
-            );
-        }
-        Ok(result)
+            .context("batch_key missing")?
     }
 
     pub async fn expect_at_most_one(
@@ -544,10 +481,18 @@ impl<RT: Runtime> ResolvedQuery<RT> {
     }
 }
 
-pub async fn query_batch_next<RT: Runtime, T: QueryType>(
-    mut batch: BTreeMap<BatchKey, (&mut CompiledQuery<RT, T>, Option<usize>)>,
+pub fn query_batch_next<'a, RT: Runtime>(
+    batch: BTreeMap<BatchKey, (&'a mut DeveloperQuery<RT>, Option<usize>)>,
+    tx: &'a mut Transaction<RT>,
+) -> BoxFuture<'a, BTreeMap<BatchKey, anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>>>>
+{
+    query_batch_next_(batch, tx).boxed()
+}
+
+pub async fn query_batch_next_<RT: Runtime>(
+    mut batch: BTreeMap<BatchKey, (&mut DeveloperQuery<RT>, Option<usize>)>,
     tx: &mut Transaction<RT>,
-) -> BTreeMap<BatchKey, anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>>> {
+) -> BTreeMap<BatchKey, anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>>> {
     let batch_size = batch.len();
     // Algorithm overview:
     // Call `next` on every query.
@@ -572,7 +517,7 @@ pub async fn query_batch_next<RT: Runtime, T: QueryType>(
                 },
             }
         }
-        let mut responses = T::index_range_batch(tx, requests).await;
+        let mut responses = UserFacingModel::new(tx).index_range_batch(requests).await;
         let mut next_batch = BTreeMap::new();
         for (batch_key, (query, prefetch_hint)) in batch_to_feed {
             let result: anyhow::Result<_> = try {
@@ -596,15 +541,61 @@ pub async fn query_batch_next<RT: Runtime, T: QueryType>(
     results
 }
 
-enum QueryNode<T: QueryType> {
-    IndexRange(IndexRange<T>),
-    Search(SearchQuery<T>),
-    Filter(Box<Filter<T>>),
-    Limit(Box<Limit<T>>),
+pub async fn resolved_query_batch_next<RT: Runtime>(
+    batch: BTreeMap<BatchKey, (&mut ResolvedQuery<RT>, Option<usize>)>,
+    tx: &mut Transaction<RT>,
+) -> BTreeMap<BatchKey, anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>>> {
+    let tablet_ids: BTreeMap<_, _> = batch
+        .iter()
+        .map(|(batch_key, (query, _))| {
+            (
+                *batch_key,
+                query
+                    .developer
+                    .root
+                    .tablet_index_name()
+                    .map(|index_name| *index_name.table()),
+            )
+        })
+        .collect();
+    let results = query_batch_next(
+        batch
+            .into_iter()
+            .map(|(batch_key, (query, prefetch_hint))| (batch_key, (query.as_mut(), prefetch_hint)))
+            .collect(),
+        tx,
+    )
+    .await;
+    results
+        .into_iter()
+        .map(|(batch_key, result)| {
+            let resolved_result: anyhow::Result<_> = try {
+                match result? {
+                    Some((document, ts)) => {
+                        let tablet_id = tablet_ids
+                            .get(&batch_key)
+                            .context("tablet_id missing")?
+                            .context("document must come from some tablet")?;
+                        let document = document.to_resolved(tablet_id);
+                        Some((document, ts))
+                    },
+                    None => None,
+                }
+            };
+            (batch_key, resolved_result)
+        })
+        .collect()
+}
+
+enum QueryNode {
+    IndexRange(IndexRange),
+    Search(SearchQuery),
+    Filter(Box<Filter>),
+    Limit(Box<Limit>),
 }
 
 #[async_trait]
-impl<T: QueryType> QueryStream<T> for QueryNode<T> {
+impl QueryStream for QueryNode {
     fn cursor_position(&self) -> &Option<CursorPosition> {
         match self {
             QueryNode::IndexRange(r) => r.cursor_position(),
@@ -636,7 +627,7 @@ impl<T: QueryType> QueryStream<T> for QueryNode<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<QueryStreamNext<T>> {
+    ) -> anyhow::Result<QueryStreamNext> {
         match self {
             QueryNode::IndexRange(r) => r.next(tx, prefetch_hint).await,
             QueryNode::Search(r) => r.next(tx, prefetch_hint).await,
@@ -645,7 +636,7 @@ impl<T: QueryType> QueryStream<T> for QueryNode<T> {
         }
     }
 
-    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
         match self {
             QueryNode::IndexRange(r) => r.feed(index_range_response),
             QueryNode::Search(r) => r.feed(index_range_response),

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use common::{
-    document::GenericDocument,
+    document::DeveloperDocument,
     index::IndexKeyBytes,
     knobs::TRANSACTION_MAX_READ_SIZE_BYTES,
     query::{
@@ -24,25 +24,28 @@ use search::{
     CandidateRevision,
     MAX_CANDIDATE_REVISIONS,
 };
-use value::TableIdentifier;
+use value::{
+    TableIdentifier,
+    TableNumber,
+};
 
 use super::{
     index_range::{
         soft_data_limit,
         CursorInterval,
     },
-    IndexRangeResponse,
+    DeveloperIndexRangeResponse,
     QueryStream,
     QueryStreamNext,
-    QueryType,
 };
 use crate::{
     metrics,
     Transaction,
+    UserFacingModel,
 };
 
 /// A `QueryStream` that begins by querying a search index.
-pub struct SearchQuery<T: QueryType> {
+pub struct SearchQuery {
     // The tablet index being searched.
     // Table names in `query` are just for error messages and usage, and may
     // get out of sync with this.
@@ -50,7 +53,7 @@ pub struct SearchQuery<T: QueryType> {
 
     query: Search,
     // Results are generated on the first call to SearchQuery::next.
-    results: Option<SearchResultIterator<T>>,
+    results: Option<SearchResultIterator>,
 
     /// The interval defined by the optional start and end cursors.
     /// The start cursor will move as we produce results.
@@ -58,7 +61,7 @@ pub struct SearchQuery<T: QueryType> {
     version: Option<Version>,
 }
 
-impl<T: QueryType> SearchQuery<T> {
+impl SearchQuery {
     pub fn new(
         stable_index_name: StableIndexName,
         query: Search,
@@ -84,7 +87,7 @@ impl<T: QueryType> SearchQuery<T> {
     async fn search<RT: Runtime>(
         &self,
         tx: &mut Transaction<RT>,
-    ) -> anyhow::Result<SearchResultIterator<T>> {
+    ) -> anyhow::Result<SearchResultIterator> {
         let search_version = self.get_cli_gated_search_version();
         let revisions = tx
             .search(&self.stable_index_name, &self.query, search_version)
@@ -93,10 +96,10 @@ impl<T: QueryType> SearchQuery<T> {
             .into_iter()
             .filter(|(_, index_key)| self.cursor_interval.contains(index_key))
             .collect();
-        let table_id = T::table_identifier(tx, &self.query.table)?;
+        let table_number = tx.table_mapping().id(&self.query.table)?.table_number;
         Ok(SearchResultIterator::new(
             revisions_in_range,
-            table_id,
+            table_number,
             self.version.clone(),
         ))
     }
@@ -105,7 +108,7 @@ impl<T: QueryType> SearchQuery<T> {
     async fn _next<RT: Runtime>(
         &mut self,
         tx: &mut Transaction<RT>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, WriteTimestamp)>> {
+    ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
         let iterator = match &mut self.results {
             Some(results) => results,
             None => self.results.get_or_insert(self.search(tx).await?),
@@ -133,7 +136,7 @@ impl<T: QueryType> SearchQuery<T> {
 }
 
 #[async_trait]
-impl<T: QueryType> QueryStream<T> for SearchQuery<T> {
+impl QueryStream for SearchQuery {
     fn cursor_position(&self) -> &Option<CursorPosition> {
         &self.cursor_interval.curr_exclusive
     }
@@ -155,11 +158,11 @@ impl<T: QueryType> QueryStream<T> for SearchQuery<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         _prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<QueryStreamNext<T>> {
+    ) -> anyhow::Result<QueryStreamNext> {
         self._next(tx).await.map(QueryStreamNext::Ready)
     }
 
-    fn feed(&mut self, _index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+    fn feed(&mut self, _index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
         anyhow::bail!("cannot feed an index range response into a search query");
     }
 
@@ -169,22 +172,22 @@ impl<T: QueryType> QueryStream<T> for SearchQuery<T> {
 }
 
 #[derive(Clone)]
-struct SearchResultIterator<T: QueryType> {
-    table_identifier: T::T,
+struct SearchResultIterator {
+    table_number: TableNumber,
     candidates: Vec<(CandidateRevision, IndexKeyBytes)>,
     next_index: usize,
     bytes_read: usize,
     version: Option<Version>,
 }
 
-impl<T: QueryType> SearchResultIterator<T> {
+impl SearchResultIterator {
     fn new(
         candidates: Vec<(CandidateRevision, IndexKeyBytes)>,
-        table_identifier: T::T,
+        table_number: TableNumber,
         version: Option<Version>,
     ) -> Self {
         Self {
-            table_identifier,
+            table_number,
             candidates,
             next_index: 0,
             bytes_read: 0,
@@ -201,7 +204,7 @@ impl<T: QueryType> SearchResultIterator<T> {
     async fn next<RT: Runtime>(
         &mut self,
         tx: &mut Transaction<RT>,
-    ) -> anyhow::Result<Option<(GenericDocument<T::T>, IndexKeyBytes, WriteTimestamp)>> {
+    ) -> anyhow::Result<Option<(DeveloperDocument, IndexKeyBytes, WriteTimestamp)>> {
         let timer = metrics::search::iterator_next_timer();
 
         if self.next_index == MAX_CANDIDATE_REVISIONS {
@@ -223,8 +226,9 @@ impl<T: QueryType> SearchResultIterator<T> {
 
         self.next_index += 1;
 
-        let id = self.table_identifier.clone().id(candidate.id);
-        let (document, existing_doc_ts) = T::get_with_ts(tx, id.clone(), self.version.clone())
+        let id = self.table_number.id(candidate.id);
+        let (document, existing_doc_ts) = UserFacingModel::new(tx)
+            .get_with_ts(id, self.version.clone())
             .await?
             .ok_or_else(|| {
                 anyhow::anyhow!("Unable to load search result {id}@{:?}", candidate.ts)

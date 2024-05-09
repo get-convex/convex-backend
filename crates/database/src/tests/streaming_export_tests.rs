@@ -236,7 +236,8 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let doc4 = UserFacingModel::new(&mut tx)
         .patch(doc2.developer_id(), assert_obj!("f" => 4).into())
         .await?;
-    let doc4 = doc4.to_resolved(&tx.table_mapping().inject_table_id())?;
+    let table_id = tx.table_mapping().inject_table_id()(doc4.table())?.table_id;
+    let doc4 = doc4.to_resolved(table_id);
     let ts2 = db.commit(tx).await?;
     let mut docs2sorted = vec![
         (ts1, "table1".parse()?, doc1),

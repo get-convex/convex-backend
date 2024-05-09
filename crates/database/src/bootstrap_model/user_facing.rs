@@ -29,7 +29,6 @@ use value::{
     DeveloperDocumentId,
     Size,
     TableName,
-    TableNumber,
 };
 
 use crate::{
@@ -37,7 +36,10 @@ use crate::{
         log_virtual_table_get,
         log_virtual_table_query,
     },
-    query::IndexRangeResponse,
+    query::{
+        DeveloperIndexRangeResponse,
+        IndexRangeResponse,
+    },
     transaction::{
         IndexRangeRequest,
         MAX_PAGE_SIZE,
@@ -329,9 +331,9 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     fn start_index_range(
         &mut self,
         request: IndexRangeRequest,
-    ) -> anyhow::Result<Result<IndexRangeResponse<TableNumber>, RangeRequest>> {
+    ) -> anyhow::Result<Result<DeveloperIndexRangeResponse, RangeRequest>> {
         if request.interval.is_empty() {
-            return Ok(Ok(IndexRangeResponse {
+            return Ok(Ok(DeveloperIndexRangeResponse {
                 page: vec![],
                 cursor: CursorPosition::End,
             }));
@@ -362,7 +364,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                     max_size: max_rows,
                 }))
             },
-            StableIndexName::Missing => Ok(Ok(IndexRangeResponse {
+            StableIndexName::Missing => Ok(Ok(DeveloperIndexRangeResponse {
                 page: vec![],
                 cursor: CursorPosition::End,
             })),
@@ -376,7 +378,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     pub async fn index_range_batch(
         &mut self,
         requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<TableNumber>>> {
+    ) -> BTreeMap<BatchKey, anyhow::Result<DeveloperIndexRangeResponse>> {
         let batch_size = requests.len();
         let mut results = BTreeMap::new();
         let mut fetch_requests = BTreeMap::new();
@@ -421,7 +423,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                         .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
                         .collect(),
                 };
-                anyhow::Ok(IndexRangeResponse {
+                anyhow::Ok(DeveloperIndexRangeResponse {
                     page: developer_results,
                     cursor,
                 })

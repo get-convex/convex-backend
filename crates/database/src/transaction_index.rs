@@ -67,7 +67,6 @@ use storage::Storage;
 use value::{
     DeveloperDocumentId,
     FieldPath,
-    TableIdAndTableNumber,
 };
 
 use crate::{
@@ -287,7 +286,7 @@ impl TransactionIndex {
         &mut self,
         reads: &mut TransactionReadSet,
         ranges: BTreeMap<BatchKey, RangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<TableIdAndTableNumber>>> {
+    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse>> {
         let batch_size = ranges.len();
         let mut results = BTreeMap::new();
         let mut ranges_to_fetch = BTreeMap::new();
@@ -403,7 +402,7 @@ impl TransactionIndex {
         &mut self,
         reads: &mut TransactionReadSet,
         range_request: RangeRequest,
-    ) -> anyhow::Result<IndexRangeResponse<TableIdAndTableNumber>> {
+    ) -> anyhow::Result<IndexRangeResponse> {
         self.range_batch(reads, btreemap! {0 => range_request})
             .await
             .remove(&0)

@@ -8,24 +8,23 @@ use common::{
 };
 
 use super::{
-    IndexRangeResponse,
+    DeveloperIndexRangeResponse,
     QueryNode,
     QueryStream,
     QueryStreamNext,
-    QueryType,
     DEFAULT_QUERY_PREFETCH,
 };
 use crate::Transaction;
 
 /// See Query.limit().
-pub(super) struct Limit<T: QueryType> {
-    inner: QueryNode<T>,
+pub(super) struct Limit {
+    inner: QueryNode,
     limit: usize,
     rows_emitted: usize,
 }
 
-impl<T: QueryType> Limit<T> {
-    pub fn new(inner: QueryNode<T>, limit: usize) -> Self {
+impl Limit {
+    pub fn new(inner: QueryNode, limit: usize) -> Self {
         Self {
             inner,
             limit,
@@ -35,7 +34,7 @@ impl<T: QueryType> Limit<T> {
 }
 
 #[async_trait]
-impl<T: QueryType> QueryStream<T> for Limit<T> {
+impl QueryStream for Limit {
     fn cursor_position(&self) -> &Option<CursorPosition> {
         self.inner.cursor_position()
     }
@@ -52,7 +51,7 @@ impl<T: QueryType> QueryStream<T> for Limit<T> {
         &mut self,
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
-    ) -> anyhow::Result<QueryStreamNext<T>> {
+    ) -> anyhow::Result<QueryStreamNext> {
         if self.rows_emitted >= self.limit {
             return Ok(QueryStreamNext::Ready(None));
         }
@@ -67,7 +66,7 @@ impl<T: QueryType> QueryStream<T> for Limit<T> {
         Ok(result)
     }
 
-    fn feed(&mut self, index_range_response: IndexRangeResponse<T::T>) -> anyhow::Result<()> {
+    fn feed(&mut self, index_range_response: DeveloperIndexRangeResponse) -> anyhow::Result<()> {
         self.inner.feed(index_range_response)
     }
 

@@ -655,16 +655,16 @@ impl DeveloperDocument {
         }
     }
 
-    pub fn to_resolved(
-        self,
-        f: &impl Fn(TableNumber) -> anyhow::Result<TableIdAndTableNumber>,
-    ) -> anyhow::Result<ResolvedDocument> {
-        let id = self.id.map_table(f)?;
-        Ok(ResolvedDocument {
-            id,
+    pub fn to_resolved(self, tablet_id: TableId) -> ResolvedDocument {
+        ResolvedDocument {
+            id: TableIdAndTableNumber {
+                table_id: tablet_id,
+                table_number: *self.id.table(),
+            }
+            .id(self.id.internal_id()),
             creation_time: self.creation_time,
             value: self.value,
-        })
+        }
     }
 
     pub fn id(&self) -> DeveloperDocumentId {

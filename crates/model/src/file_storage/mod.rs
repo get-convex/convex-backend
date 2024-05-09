@@ -28,7 +28,7 @@ use common::{
 use database::{
     defaults::system_index,
     query::{
-        query_batch_next,
+        resolved_query_batch_next,
         TableFilter,
     },
     unauthorized_error,
@@ -241,7 +241,8 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
             .iter_mut()
             .map(|(batch_key, query)| (*batch_key, (query, Some(1))))
             .collect();
-        for (batch_key, fetch_result) in query_batch_next(queries_to_fetch, self.tx).await {
+        for (batch_key, fetch_result) in resolved_query_batch_next(queries_to_fetch, self.tx).await
+        {
             let parsed_result = match fetch_result {
                 Err(e) => Err(e),
                 Ok(None) => Ok(None),

@@ -988,7 +988,8 @@ mod tests {
                 },
             };
             let doc = UserFacingModel::new(&mut tx).get(id, None).await?.unwrap();
-            let doc = doc.to_resolved(&tx.table_mapping().inject_table_id())?;
+            let tablet_id = tx.table_mapping().inject_table_id()(doc.table())?.table_id;
+            let doc = doc.to_resolved(tablet_id);
             let id_v6 = doc.developer_id().encode();
             expected_export_entries.insert(
                 format!("table_{i}/documents.jsonl"),

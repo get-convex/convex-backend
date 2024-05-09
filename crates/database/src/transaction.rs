@@ -89,7 +89,6 @@ use sync_types::{
 use usage_tracking::FunctionUsageTracker;
 use value::{
     TableId,
-    TableIdAndTableNumber,
     TableNumber,
 };
 
@@ -1005,7 +1004,7 @@ impl<RT: Runtime> Transaction<RT> {
     pub async fn index_range_batch(
         &mut self,
         requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse<TableIdAndTableNumber>>> {
+    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse>> {
         let batch_size = requests.len();
         let mut results = BTreeMap::new();
         let mut fetch_requests = BTreeMap::new();
@@ -1067,7 +1066,7 @@ pub struct IndexRangeRequest {
 }
 
 pub enum RangeResponse {
-    Ready(IndexRangeResponse<TableIdAndTableNumber>),
+    Ready(IndexRangeResponse),
     WaitingOn(RangeRequest),
 }
 
