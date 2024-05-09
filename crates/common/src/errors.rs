@@ -45,9 +45,9 @@ static PII_REPLACEMENTS: LazyLock<Vec<(Regex, &'static str)>> = LazyLock::new(||
         // Regex to match PII where we show the object that doesn't match the
         // validator.
         (Regex::new(r"(?s)Object:.*Validator").unwrap(), "Validator"),
-        // Regex to match emails
+        // Regex to match emails from https://emailregex.com/
         (
-            Regex::new(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b").unwrap(),
+            Regex::new(r#"(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])"#).unwrap(),
             "*****@*****.***",
         ),
     ]
@@ -80,6 +80,17 @@ fn strip_pii(err: &mut anyhow::Error) {
                 cow => error_metadata.msg = Cow::Owned(cow.into_owned()),
             }
         }
+    }
+
+    let s = format!("{err:#}");
+    let mut transformed = s.clone();
+    for (regex, replacement) in PII_REPLACEMENTS.iter() {
+        transformed = regex.replace_all(&transformed, *replacement).to_string();
+    }
+    if s != transformed {
+        // How to get the backtrace properly into the anyhow? This is not what we want,
+        // but works.
+        *err = anyhow::anyhow!(err.backtrace().to_string()).context(transformed);
     }
 }
 
@@ -700,6 +711,35 @@ mod tests {
         ));
         strip_pii(&mut e);
         assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_pii_weird_email() -> anyhow::Result<()> {
+        let test = "receipts+memo+====@site.com";
+        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request(
+            "DIY",
+            format!("Need DIY advice? Email {test}"),
+        ));
+        strip_pii(&mut e);
+        assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_pii_without_error_metadata() -> anyhow::Result<()> {
+        let test = "receipts+memo+====@site.com";
+        let mut e = anyhow::anyhow!("Need DIY advice? Email {test}");
+        strip_pii(&mut e);
+        assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
+        Ok(())
+    }
+
+    #[test]
+    fn test_dont_mess_with_non_pii() -> anyhow::Result<()> {
+        let mut e = anyhow::anyhow!("Need DIY advice?").context("You're on your own");
+        strip_pii(&mut e);
+        assert_eq!(format!("{e:#}"), "You're on your own: Need DIY advice?");
         Ok(())
     }
 
