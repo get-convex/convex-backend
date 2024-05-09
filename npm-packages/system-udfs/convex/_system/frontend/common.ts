@@ -84,7 +84,6 @@ export type AnalyzedModuleFunction = {
 export type Module = {
   functions: AnalyzedModuleFunction[];
   cronSpecs?: [string, CronSpec][];
-  creationTime: number;
 };
 
 export type CronJob = Doc<"_cron_jobs">;

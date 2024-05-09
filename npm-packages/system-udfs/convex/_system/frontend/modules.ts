@@ -87,7 +87,7 @@ export const list = queryPrivateSystem({
           functions,
           ...(cronSpecs !== null ? { cronSpecs } : {}),
           creationTime: moduleVersion._creationTime,
-        },
+        } as Module,
       ]);
     }
     return result;
