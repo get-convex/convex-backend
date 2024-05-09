@@ -19,6 +19,8 @@ jobs:
           - target: aarch64-apple-darwin
             # xlarge are on arm
             os: "'macos-latest-xlarge'"
+          - target: x86_64-pc-windows-msvc
+            os: "'windows-latest'"
           #- target: aarch64-unknown-linux-gnu
           #  os: ubuntu-latest
     name: Build Convex Backend
@@ -65,28 +67,39 @@ jobs:
           just rush install
           just rush build
 
-      - name: Build backend
+      - name: Precompute release name
+        id: release_name
+        shell: bash
         run: |
+          echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          ZIP_NAME=convex-local-backend-${{ matrix.target }}.zip
+          BINARY_NAME=convex-local-backend${{ runner.os == 'Windows' && '.exe' || '' }}
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_OUTPUT
+          echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_OUTPUT
+
+      - name: Build backend
+        shell: bash
+        run: |
+          set -ex
           unset ROCKSDB_LIB_DIR
           unset SODIUM_USE_PKG_CONFIG
           unset SNAPPY_LIB_DIR
           cargo build --release -p local_backend --bin convex-local-backend
+          mv target/release/${{ steps.release_name.outputs.BINARY_NAME }} .
 
       - name: Zip backend into arch
-        run: |
-          mv target/release/convex-local-backend .
-          zip -r convex-local-backend-${{ matrix.target }} convex-local-backend
-
-      - name: Precompute release name
-        id: release_name
-        run: echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        uses: thedoctor0/zip-release@0.7.5
+        with:
+          type: zip
+          filename: ${{ steps.release_name.outputs.ZIP_NAME }}
+          path: ${{ steps.release_name.outputs.BINARY_NAME }}
 
       - name: Create Upload Precompiled Artifacts
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            convex-local-backend-${{ matrix.target }}.zip
+            ${{ steps.release_name.outputs.ZIP_NAME }}
             LICENSE.md
           tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
           name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
