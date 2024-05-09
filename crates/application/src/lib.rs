@@ -134,7 +134,8 @@ use isolate::{
     parse_udf_args,
     AuthConfig,
     HttpActionRequest,
-    HttpActionResponse,
+    HttpActionResponseStreamer,
+    HttpActionResult,
     UdfOutcome,
     CONVEX_ORIGIN,
     CONVEX_SITE,
@@ -969,7 +970,8 @@ impl<RT: Runtime> Application<RT> {
         http_request: HttpActionRequest,
         identity: Identity,
         caller: FunctionCaller,
-    ) -> anyhow::Result<HttpActionResponse> {
+        mut response_streamer: HttpActionResponseStreamer,
+    ) -> anyhow::Result<()> {
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -986,12 +988,14 @@ impl<RT: Runtime> Application<RT> {
         let span = SpanContext::current_local_parent()
             .map(|ctx| Span::root(format!("{}::http_actions_future", full_name!()), ctx))
             .unwrap_or(Span::noop());
+        let response_streamer_ = response_streamer.clone();
         self.runtime.spawn("run_http_action", async move {
             let result = runner
                 .run_http_action(
                     request_id,
                     name,
                     http_request,
+                    response_streamer_,
                     identity,
                     caller,
                     runner.clone(),
@@ -1003,16 +1007,20 @@ impl<RT: Runtime> Application<RT> {
         });
         let result = rx
             .await
-            .context("run_action one shot sender dropped prematurely?")?;
+            .context("run_http_action one shot sender dropped prematurely?")?;
         match result {
-            Ok(Ok(result)) => Ok(result),
-            Ok(Err(error)) => Ok(HttpActionResponse::from(RedactedJsError::from_js_error(
-                error,
-                block_logging,
-                RequestId::new(),
-            ))),
+            Ok(HttpActionResult::Error(error)) => {
+                let response_parts =
+                    RedactedJsError::from_js_error(error, block_logging, RequestId::new())
+                        .to_http_response_parts();
+                for part in response_parts {
+                    response_streamer.send_part(part)?;
+                }
+            },
+            Ok(HttpActionResult::Streamed) => (),
             Err(e) => anyhow::bail!(e),
-        }
+        };
+        Ok(())
     }
 
     /// Run a function of an arbitrary type from its name

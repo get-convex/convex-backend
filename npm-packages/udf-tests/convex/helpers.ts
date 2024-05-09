@@ -12,3 +12,7 @@ export function fibonacci(n: number): number {
 export function doesntWork() {
   throw new Error("Doesn't has an apostrophe.");
 }
+
+export const sleep = (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};

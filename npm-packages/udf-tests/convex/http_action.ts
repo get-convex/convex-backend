@@ -2,6 +2,7 @@ import { httpRouter } from "convex/server";
 import { imported } from "./http_no_default";
 import { api } from "./_generated/api";
 import { httpAction, query } from "./_generated/server";
+import { sleep } from "./helpers";
 
 const basic = httpAction(
   async ({ runQuery, runMutation, runAction }, request: Request) => {
@@ -222,6 +223,38 @@ http.route({
     const size = +(await request.text());
     const stringLength = size * 1024 * 1024;
     return new Response("a".repeat(stringLength));
+  }),
+});
+
+http.route({
+  method: "POST",
+  path: "/streaming",
+  handler: httpAction(async (ctx, request) => {
+    const { errorBeforeResponse, errorWhileStreaming } = await request.json();
+    if (errorBeforeResponse) {
+      throw new Error("Hit error before response");
+    }
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+    const streamData = async () => {
+      for (let i = 0; i < 5; i += 1) {
+        await sleep(200);
+        if (errorWhileStreaming && i === 3) {
+          throw new Error("Hit error while streaming");
+        }
+        await writer.write(encoder.encode(`Streaming message ${i + 1}`));
+      }
+      await writer.close();
+    };
+    void streamData();
+    return new Response(readable, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=UTF-8",
+        "Transfer-Encoding": "chunked",
+      },
+    });
   }),
 });
 

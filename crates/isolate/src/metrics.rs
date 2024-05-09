@@ -86,7 +86,12 @@ pub fn is_developer_ok(outcome: &FunctionOutcome) -> bool {
         FunctionOutcome::Query(UdfOutcome { result, .. }) => result.is_ok(),
         FunctionOutcome::Mutation(UdfOutcome { result, .. }) => result.is_ok(),
         FunctionOutcome::Action(ActionOutcome { result, .. }) => result.is_ok(),
-        FunctionOutcome::HttpAction(HttpActionOutcome { result, .. }) => result.is_ok(),
+        FunctionOutcome::HttpAction(HttpActionOutcome { result, .. }) => match result {
+            // The developer might hit errors after beginning to stream the response that wouldn't
+            // be captured here
+            crate::HttpActionResult::Streamed => true,
+            crate::HttpActionResult::Error(_) => false,
+        },
     }
 }
 

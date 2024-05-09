@@ -23,15 +23,13 @@ use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
 use value::ConvexValue;
 
+use super::HttpActionResult;
 use crate::{
     environment::helpers::{
         JsonPackedValue,
         SyscallTrace,
     },
-    http_action::{
-        HttpActionRequestHead,
-        HttpActionResponse,
-    },
+    http_action::HttpActionRequestHead,
     ValidatedUdfPathAndArgs,
 };
 
@@ -173,8 +171,7 @@ pub struct HttpActionOutcome {
 
     pub unix_timestamp: UnixTimestamp,
 
-    pub result: Result<HttpActionResponse, JsError>,
-
+    pub result: HttpActionResult,
     pub syscall_trace: SyscallTrace,
 
     pub udf_server_version: Option<semver::Version>,
@@ -188,7 +185,7 @@ impl HttpActionOutcome {
         http_request_head: HttpActionRequestHead,
         identity: InertIdentity,
         unix_timestamp: UnixTimestamp,
-        result: Result<HttpActionResponse, JsError>,
+        result: HttpActionResult,
         syscall_trace: Option<SyscallTrace>,
         udf_server_version: Option<semver::Version>,
     ) -> Self {
@@ -211,6 +208,7 @@ impl HttpActionOutcome {
         self.memory_in_mb
     }
 }
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;

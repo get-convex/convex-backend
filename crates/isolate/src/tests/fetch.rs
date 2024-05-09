@@ -228,24 +228,24 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
     assert!(log_lines.is_empty());
 
     // Interaction between fetch and Request/Response blobs.
-    let (response, _log_lines) = t
-        .raw_http_action(
+    let response = t
+        .http_action(
             "http_action",
             http_request("proxy_response"),
             Identity::system(),
         )
         .await?;
-    must_let!(let Some(body) = response.result?.body().clone());
+    must_let!(let Some(body) = response.body().clone());
     assert_eq!(std::str::from_utf8(&body)?, "Hello World");
     let round_trip_test = |endpoint: &'static str| async {
-        let (response, _log_lines) = t
-            .raw_http_action(
+        let response = t
+            .http_action(
                 "http_action",
                 http_post_request(endpoint, "[0,\"Hello\"]".as_bytes().to_vec()),
                 Identity::system(),
             )
             .await?;
-        must_let!(let Some(body) = response.result?.body().clone());
+        must_let!(let Some(body) = response.body().clone());
         assert_eq!(std::str::from_utf8(&body)?, "[0,\"Hello\"]");
         anyhow::Ok(())
     };

@@ -1,6 +1,11 @@
+use application::Application;
 use async_trait::async_trait;
 use axum::{
-    body::BoxBody,
+    body::{
+        BoxBody,
+        Bytes,
+        StreamBody,
+    },
     debug_handler,
     extract::{
         FromRequest,
@@ -21,18 +26,32 @@ use common::{
         ExtractRequestId,
         HttpResponseError,
     },
+    runtime::Runtime,
     types::FunctionCaller,
+    RequestId,
 };
-use futures::TryStreamExt;
+use futures::{
+    channel::mpsc,
+    stream::BoxStream,
+    FutureExt,
+    StreamExt,
+    TryStreamExt,
+};
+use futures_async_stream::try_stream;
 use http::{
+    HeaderMap,
     Method,
+    StatusCode,
     Uri,
 };
 use isolate::{
     HttpActionRequest,
     HttpActionRequestHead,
+    HttpActionResponsePart,
+    HttpActionResponseStreamer,
 };
 use keybroker::Identity;
+use sync_types::UdfPath;
 use url::Url;
 
 use crate::{
@@ -95,28 +114,81 @@ pub async fn http_any_method(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     // All HTTP actions run the default export of the http.js path.
     let udf_path = "http.js".parse()?;
+    let mut http_response_stream = stream_http_response(
+        udf_path,
+        request_id,
+        http_request_metadata,
+        identity_result,
+        st.application,
+    );
+    let head = http_response_stream.try_next().await?;
+    let Some(HttpActionResponsePart::Head(response_head)) = head else {
+        return Err(anyhow::anyhow!("Did not receive HTTP response head first").into());
+    };
+    let body = http_response_stream.map(|p| match p {
+        Ok(HttpActionResponsePart::BodyChunk(bytes)) => Ok(bytes),
+        Err(e) => Err(e),
+        _ => Err(anyhow::anyhow!(
+            "Unexpected element in HTTP response stream"
+        )),
+    });
+
+    Ok(HttpActionResponse {
+        status: response_head.status,
+        headers: response_head.headers,
+        body: Box::pin(body),
+    })
+}
+
+#[try_stream(ok=HttpActionResponsePart, error=anyhow::Error, boxed)]
+async fn stream_http_response<RT: Runtime>(
+    udf_path: UdfPath,
+    request_id: RequestId,
+    http_request_metadata: HttpActionRequest,
+    identity_result: anyhow::Result<Identity>,
+    application: Application<RT>,
+) {
     // The `Authorization` header for the request may contain a token corresponding
     // to Convex auth, or it could be something separate managed by the developer.
     // Try to extract the identity based on the Convex auth, but allow the request
     // to go through if the header does not seem to specify Convex auth.
     let identity = identity_result.unwrap_or(Identity::Unknown);
-
-    let udf_return = st
-        .application
-        .http_action_udf(
-            request_id,
-            udf_path,
-            http_request_metadata,
-            identity,
-            FunctionCaller::HttpEndpoint,
-        )
-        .await?;
-
-    // TODO: For other endpoints, log_lines is conditioned on the `debug` query
-    // param, and we likely want something similar here.
-    // For now, just omit them.
-
-    Ok(HttpActionResponse(udf_return))
+    let (http_response_sender, mut http_response_receiver) = mpsc::unbounded();
+    let mut run_action_fut = Box::pin(
+        application
+            .http_action_udf(
+                request_id,
+                udf_path,
+                http_request_metadata,
+                identity,
+                FunctionCaller::HttpEndpoint,
+                HttpActionResponseStreamer::new(http_response_sender),
+            )
+            .fuse(),
+    );
+    loop {
+        let next_part = async {
+            let v: Option<HttpActionResponsePart> = futures::select! {
+                result = http_response_receiver.select_next_some() => {
+                    Some(result)
+                },
+                func_result = run_action_fut => {
+                    match func_result {
+                        Ok(_) => None,
+                        Err(e) => return Err(e)
+                    }
+                }
+            };
+            Ok(v)
+        };
+        match next_part.await? {
+            Some(part) => yield part,
+            None => break,
+        }
+    }
+    while let Some(part) = http_response_receiver.next().await {
+        yield part
+    }
 }
 
 pub fn http_action_handler() -> MethodRouter<LocalAppState> {
@@ -128,16 +200,17 @@ pub fn http_action_handler() -> MethodRouter<LocalAppState> {
         .options(http_any_method)
 }
 
-pub struct HttpActionResponse(isolate::HttpActionResponse);
+pub struct HttpActionResponse {
+    pub body: BoxStream<'static, Result<Bytes, anyhow::Error>>,
+    pub status: StatusCode,
+    pub headers: HeaderMap,
+}
 
 impl IntoResponse for HttpActionResponse {
     fn into_response(self) -> Response<BoxBody> {
-        let response = self.0;
-        let status = response.status();
-        let headers = response.headers;
-        match response.body {
-            Some(body) => (status, headers, body).into_response(),
-            None => (status, headers).into_response(),
-        }
+        let status = self.status;
+        let headers = self.headers;
+        let body = StreamBody::new(self.body);
+        (status, headers, body).into_response()
     }
 }

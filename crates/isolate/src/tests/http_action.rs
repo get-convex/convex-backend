@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    assert_matches::assert_matches,
+    time::Duration,
+};
 
 use common::{
     assert_obj,
@@ -8,11 +11,16 @@ use common::{
     version::Version,
 };
 use futures::{
+    channel::mpsc,
     stream,
     StreamExt,
 };
 use headers::HeaderMap;
-use http::Method;
+use http::{
+    Method,
+    StatusCode,
+};
+use itertools::Itertools;
 use keybroker::Identity;
 use model::scheduled_jobs::{
     types::ScheduledJobState,
@@ -39,6 +47,8 @@ use crate::{
     },
     tests::assert_contains,
     HttpActionRequestHead,
+    HttpActionResponseStreamer,
+    HttpActionResult,
     IsolateConfig,
 };
 
@@ -95,15 +105,15 @@ pub async fn http_action_udf_test(
 async fn test_http_basic(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let response = t
+        .http_action(
             "http_action",
             http_post_request("basic", "hi".as_bytes().to_vec()),
             Identity::system(),
         )
         .await?;
 
-    must_let!(let Some(value) = outcome.result?.body().clone());
+    must_let!(let Some(value) = response.body().clone());
     let expected = json!({
         "requestBody": "hi",
         "countBefore": 0,
@@ -120,15 +130,15 @@ async fn test_http_basic(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_response_stream(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let response = t
+        .http_action(
             "http_action",
             http_request("stream_response"),
             Identity::system(),
         )
         .await?;
 
-    must_let!(let Some(value) = outcome.result?.body().clone());
+    must_let!(let Some(value) = response.body().clone());
     assert_eq!(std::str::from_utf8(&value)?, "<html></html>");
     Ok(())
 }
@@ -137,16 +147,19 @@ async fn test_http_response_stream(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_dangling_response_stream(rt: ProdRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test_timeout(rt, Some(Duration::from_secs(1))).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let (_outcome, mut log_lines) = t
+        .http_action_with_log_lines(
             "http_action",
             http_request("stream_dangling_response"),
             Identity::system(),
         )
         .await?;
 
-    let e = outcome.result.unwrap_err();
-    assert_contains(&e, "Function execution timed out");
+    let last_line = log_lines.pop().unwrap();
+    assert_contains(
+        &last_line.to_pretty_string(),
+        "Function execution timed out",
+    );
     Ok(())
 }
 
@@ -154,11 +167,9 @@ async fn test_http_dangling_response_stream(rt: ProdRuntime) -> anyhow::Result<(
 async fn test_http_slow(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test_timeout(rt, Some(Duration::from_secs(1))).await?;
 
-    let (outcome, log_lines) = t
-        .raw_http_action("http_action", http_request("slow"), Identity::system())
+    let (_response, log_lines) = t
+        .http_action_with_log_lines("http_action", http_request("slow"), Identity::system())
         .await?;
-
-    assert!(outcome.result.is_ok());
 
     let mut log_lines = log_lines;
     let last_line = log_lines.pop().unwrap().to_pretty_string();
@@ -170,15 +181,15 @@ async fn test_http_slow(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_echo(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let response = t
+        .http_action(
             "http_action",
             http_post_request("echo", "hi".as_bytes().to_vec()),
             Identity::system(),
         )
         .await?;
 
-    must_let!(let Some(value) = outcome.result?.body().clone());
+    must_let!(let Some(value) = response.body().clone());
     assert_eq!(std::str::from_utf8(&value)?, "hi");
     Ok(())
 }
@@ -187,11 +198,17 @@ async fn test_http_echo(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_scheduler(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
+    let (http_response_sender, _http_response_receiver) = mpsc::unbounded();
     let (outcome, _log_lines) = t
-        .raw_http_action("http_action", http_request("schedule"), Identity::system())
+        .raw_http_action(
+            "http_action",
+            http_request("schedule"),
+            Identity::system(),
+            HttpActionResponseStreamer::new(http_response_sender),
+        )
         .await?;
 
-    must_let!(let Some(_) = outcome.result?.body().clone());
+    assert_matches!(outcome.result, HttpActionResult::Streamed);
 
     let result = t.query("scheduler:getScheduledJobs", assert_obj!()).await?;
     must_let!(let ConvexValue::Array(scheduled_jobs) = result);
@@ -212,14 +229,14 @@ async fn test_http_scheduler(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_error_in_run(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let err = t
+        .http_action_js_error(
             "http_action",
             http_request("errorInRun"),
             Identity::system(),
         )
         .await?;
-    must_let!(let JsError { message, .. } = outcome.result.unwrap_err());
+    must_let!(let JsError { message, .. } = err);
     assert!(message.contains("Oh no! Called erroring query"));
     Ok(())
 }
@@ -228,15 +245,15 @@ async fn test_http_error_in_run(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_no_router(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let err = t
+        .http_action_js_error(
             "http_no_default",
             http_request("no routes here"),
             Identity::system(),
         )
         .await?;
 
-    must_let!(let JsError { message, .. } = outcome.result.unwrap_err());
+    must_let!(let JsError { message, .. } = err);
     assert!(message.contains("Couldn't find default export in"));
     Ok(())
 }
@@ -245,15 +262,15 @@ async fn test_http_no_router(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_bad_router(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let err = t
+        .http_action_js_error(
             "http_object_default",
             http_request("no routes here"),
             Identity::system(),
         )
         .await?;
 
-    must_let!(let JsError { message, .. } = outcome.result.unwrap_err());
+    must_let!(let JsError { message, .. } = err);
     assert!(message.contains("The default export of `convex/http.js` is not a Router"));
     Ok(())
 }
@@ -262,11 +279,9 @@ async fn test_http_bad_router(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_error_in_run_catch(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action("http", http_request("errorInRunCatch"), Identity::system())
+    // Test that this runs successfully and doesn't error
+    t.http_action("http", http_request("errorInRunCatch"), Identity::system())
         .await?;
-
-    assert!(outcome.result?.body().is_some());
     Ok(())
 }
 
@@ -274,14 +289,14 @@ async fn test_http_error_in_run_catch(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_error_in_endpoint(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let err = t
+        .http_action_js_error(
             "http_action",
             http_request("errorInEndpoint"),
             Identity::system(),
         )
         .await?;
-    must_let!(let JsError { message, .. } = outcome.result.unwrap_err());
+    must_let!(let JsError { message, .. } = err);
     assert!(message.contains("Oh no!"));
     Ok(())
 }
@@ -290,24 +305,24 @@ async fn test_http_error_in_endpoint(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_env_var(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let response = t
+        .http_action(
             "http_action",
             http_request("convexCloudSystemVar"),
             Identity::system(),
         )
         .await?;
-    must_let!(let Some(value) = outcome.result?.body().clone());
+    must_let!(let Some(value) = response.body().clone());
     assert_eq!(String::from_utf8(value)?, "https://carnitas.convex.cloud");
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let response = t
+        .http_action(
             "http_action",
             http_request("convexSiteSystemVar"),
             Identity::system(),
         )
         .await?;
-    must_let!(let Some(value) = outcome.result?.body().clone());
+    must_let!(let Some(value) = response.body().clone());
     assert_eq!(String::from_utf8(value)?, "https://carnitas.convex.site");
     Ok(())
 }
@@ -316,19 +331,18 @@ async fn test_http_env_var(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_action_response_size_too_large(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, _log_lines) = t
-        .raw_http_action(
+    let (_outcome, mut log_lines) = t
+        .http_action_with_log_lines(
             "http_action",
             // Ask for 23MiB
             http_post_request("largeResponse", "23".as_bytes().to_vec()),
             Identity::system(),
         )
         .await?;
-    let error = outcome.result.unwrap_err();
+    let last_line = log_lines.pop().unwrap().to_pretty_string();
     assert_contains(
-        &error,
-        "InternalServerError: HTTP actions support responses up to 20 MiB (returned response was \
-         23 MiB bytes)",
+        &last_line,
+        "[ERROR] HttpResponseTooLarge: HTTP actions support responses up to 20 MiB",
     );
     Ok(())
 }
@@ -337,20 +351,76 @@ async fn test_http_action_response_size_too_large(rt: TestRuntime) -> anyhow::Re
 async fn test_http_action_response_size_large(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (outcome, log_lines) = t
-        .raw_http_action(
+    let (_outcome, mut log_lines) = t
+        .http_action_with_log_lines(
             "http_action",
             // Ask for 23MiB
             http_post_request("largeResponse", "19".as_bytes().to_vec()),
             Identity::system(),
         )
         .await?;
-    assert!(outcome.result.is_ok());
-    let mut log_lines = log_lines;
     let last_line = log_lines.pop().unwrap().to_pretty_string();
     assert_contains(
         &last_line,
         "[WARN] Large response returned from an HTTP action ",
     );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_http_streaming(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = http_action_udf_test(rt).await?;
+
+    let response = t
+        .http_action(
+            "http_action",
+            http_post_request(
+                "streaming",
+                "{ \"errorBeforeResponse\": false, \"errorWhileStreaming\": false }"
+                    .as_bytes()
+                    .to_vec(),
+            ),
+            Identity::system(),
+        )
+        .await?;
+    must_let!(let Some(value) = response.body().clone());
+    let expected: String = (1..6).map(|v| format!("Streaming message {v}")).join("");
+    assert_eq!(String::from_utf8(value)?, expected);
+
+    let err = t
+        .http_action_js_error(
+            "http_action",
+            http_post_request(
+                "streaming",
+                "{ \"errorBeforeResponse\": true, \"errorWhileStreaming\": false }"
+                    .as_bytes()
+                    .to_vec(),
+            ),
+            Identity::system(),
+        )
+        .await?;
+    must_let!(let JsError { message, .. } = err);
+    assert!(message.contains("Hit error before response"));
+
+    // Hitting an error while streaming still results in a successful response, but
+    // we should get a log line with the error message
+    let (response, mut log_lines) = t
+        .http_action_with_log_lines(
+            "http_action",
+            http_post_request(
+                "streaming",
+                "{ \"errorBeforeResponse\": false, \"errorWhileStreaming\": true }"
+                    .as_bytes()
+                    .to_vec(),
+            ),
+            Identity::system(),
+        )
+        .await?;
+    must_let!(let Some(value) = response.body().clone());
+    assert_eq!(response.status, StatusCode::OK);
+    let expected: String = (1..4).map(|v| format!("Streaming message {v}")).join("");
+    assert_eq!(String::from_utf8(value)?, expected);
+    let last_line = log_lines.pop().unwrap();
+    assert_contains(&last_line.to_pretty_string(), "Hit error while streaming");
     Ok(())
 }

@@ -1,6 +1,7 @@
 use common::runtime::Runtime;
 use database::Database;
 use errors::ErrorMetadata;
+use futures::channel::mpsc;
 use keybroker::Identity;
 use model::backend_state::{
     types::BackendState,
@@ -20,6 +21,7 @@ use crate::{
             http_post_request,
         },
     },
+    HttpActionResponseStreamer,
 };
 
 #[convex_macro::test_runtime]
@@ -108,11 +110,13 @@ async fn test_http_action_helper(
 ) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
     toggle_backend_state(&t.database, backend_state.clone()).await?;
+    let (http_response_sender, _http_response_receiver) = mpsc::unbounded();
     let error = t
         .raw_http_action(
             "http_action",
             http_post_request("basic", "hi".as_bytes().to_vec()),
             Identity::system(),
+            HttpActionResponseStreamer::new(http_response_sender),
         )
         .await
         .unwrap_err();

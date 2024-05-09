@@ -133,7 +133,10 @@ use vector::PublicVectorSearchQueryResult;
 use crate::{
     concurrency_limiter::ConcurrencyLimiter,
     environment::{
-        action::ActionEnvironment,
+        action::{
+            ActionEnvironment,
+            HttpActionResult,
+        },
         analyze::AnalyzeEnvironment,
         auth_config::{
             AuthConfig,
@@ -146,7 +149,10 @@ use crate::{
         schema::SchemaEnvironment,
         udf::DatabaseUdfEnvironment,
     },
-    http_action,
+    http_action::{
+        self,
+        HttpActionResponseStreamer,
+    },
     isolate::{
         Isolate,
         IsolateHeapStats,
@@ -419,6 +425,7 @@ pub enum RequestType<RT: Runtime> {
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
+        http_response_streamer: HttpActionResponseStreamer,
     },
     Analyze {
         udf_config: UdfConfig,
@@ -695,6 +702,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
+        http_response_streamer: HttpActionResponseStreamer,
         transaction: Transaction<RT>,
         context: ExecutionContext,
     ) -> anyhow::Result<HttpActionOutcome> {
@@ -720,6 +728,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             action_callbacks,
             fetch_client,
             log_line_sender,
+            http_response_streamer,
             environment_data: EnvironmentData {
                 key_broker,
                 system_env_vars: self.system_env_vars.clone(),
@@ -1572,6 +1581,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 action_callbacks,
                 fetch_client,
                 log_line_sender,
+                http_response_streamer,
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&UdfType::HttpAction);
@@ -1585,6 +1595,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     action_callbacks,
                     fetch_client,
                     log_line_sender,
+                    Some(http_response_streamer),
                     heap_stats.clone(),
                     request.context,
                 );
@@ -1599,12 +1610,10 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     )
                     .await;
                 let status = match &r {
-                    Ok(outcome) => {
-                        if outcome.result.is_ok() {
-                            RequestStatus::Success
-                        } else {
-                            RequestStatus::DeveloperError
-                        }
+                    Ok(outcome) => match outcome.result {
+                        // Note that the stream could potentially encounter errors later
+                        HttpActionResult::Streamed => RequestStatus::Success,
+                        HttpActionResult::Error(_) => RequestStatus::DeveloperError,
                     },
                     Err(_) => RequestStatus::SystemError,
                 };
@@ -1631,6 +1640,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     action_callbacks,
                     fetch_client,
                     log_line_sender,
+                    None,
                     heap_stats.clone(),
                     request.context,
                 );

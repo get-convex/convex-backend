@@ -17,10 +17,7 @@ use std::{
 
 use anyhow::anyhow;
 use common::{
-    errors::{
-        JsError,
-        INTERNAL_SERVER_ERROR,
-    },
+    errors::JsError,
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::{
@@ -53,8 +50,8 @@ use futures::{
     future::BoxFuture,
     select_biased,
     stream::BoxStream,
-    Future,
     FutureExt,
+    Stream,
     StreamExt,
     TryStreamExt,
 };
@@ -147,7 +144,9 @@ use crate::{
     },
     http_action::{
         HttpActionRequest,
-        HttpActionResponse,
+        HttpActionResponseHead,
+        HttpActionResponsePart,
+        HttpActionResponseStreamer,
     },
     isolate::{
         Isolate,
@@ -178,10 +177,40 @@ use crate::{
     HTTP_ACTION_BODY_LIMIT,
 };
 
+#[derive(Debug, Clone)]
+pub enum HttpActionResult {
+    Streamed,
+    Error(JsError),
+}
+
+// `CollectResult` starts off as a future that is forever pending,
+// so it never triggers the `select_biased!` until we are actually
+// collecting a result. Using None would be nice, but `select_biased!`
+// does not like Options.
+struct CollectResult<'a, T: Send + 'a> {
+    has_started: bool,
+    result_stream: BoxStream<'a, anyhow::Result<Result<T, JsError>>>,
+}
+
+impl<'a, T: Send> CollectResult<'a, T> {
+    fn new() -> Self {
+        Self {
+            has_started: false,
+            result_stream: futures::stream::pending().boxed(),
+        }
+    }
+
+    fn start(&mut self, stream: BoxStream<'a, anyhow::Result<Result<T, JsError>>>) {
+        self.has_started = true;
+        self.result_stream = stream;
+    }
+}
+
 pub struct ActionEnvironment<RT: Runtime> {
     identity: Identity,
     total_log_lines: usize,
     log_line_sender: mpsc::UnboundedSender<LogLine>,
+    http_response_streamer: Option<HttpActionResponseStreamer>,
 
     rt: RT,
 
@@ -213,6 +242,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
+        http_response_streamer: Option<HttpActionResponseStreamer>,
         heap_stats: SharedIsolateHeapStats,
         context: ExecutionContext,
     ) -> Self {
@@ -239,6 +269,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             rt: rt.clone(),
             total_log_lines: 0,
             log_line_sender,
+            http_response_streamer,
 
             next_task_id: TaskId(0),
             pending_task_sender,
@@ -285,15 +316,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         )
         .await;
         // Override the returned result if we hit a termination error.
-        match handle.take_termination_error() {
-            Ok(Ok(..)) => (),
-            Ok(Err(e)) => {
-                result = Ok((request_head.route_for_failure(), Err(e)));
-            },
-            Err(e) => {
-                result = Err(e);
-            },
-        }
+        let termination_error = handle.take_termination_error();
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -303,13 +326,26 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let execution_time;
         (self, execution_time) = isolate_context.take_environment();
-        self.add_warnings_to_log_lines_http_action(
-            execution_time,
-            result
-                .as_ref()
-                .ok()
-                .and_then(|(_, response)| response.as_ref().ok()),
-        )?;
+        let http_response_streamer = self
+            .http_response_streamer
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No HTTP response streamer for HTTP action"))?;
+        let total_bytes_sent = http_response_streamer.total_bytes_sent();
+        match termination_error {
+            Ok(Ok(..)) => (),
+            Ok(Err(e)) => {
+                if !http_response_streamer.has_started() {
+                    result = Ok((request_head.route_for_failure(), HttpActionResult::Error(e)));
+                } else {
+                    Self::handle_http_streamed_part(&mut self, Err(e))?;
+                    result = Ok((request_head.route_for_failure(), HttpActionResult::Streamed))
+                }
+            },
+            Err(e) => {
+                result = Err(e);
+            },
+        }
+        self.add_warnings_to_log_lines_http_action(execution_time, total_bytes_sent)?;
         let (route, result) = result?;
         let outcome = HttpActionOutcome::new(
             Some(route),
@@ -330,7 +366,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         router_path: &CanonicalizedUdfPath,
         http_request: HttpActionRequest,
         cancellation: BoxFuture<'_, ()>,
-    ) -> anyhow::Result<(HttpActionRoute, Result<HttpActionResponse, JsError>)> {
+    ) -> anyhow::Result<(HttpActionRoute, HttpActionResult)> {
         let handle = isolate.handle();
         let mut v8_scope = isolate.scope();
         let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
@@ -363,7 +399,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let router: Result<_, JsError> = Self::get_router(&mut scope, router_path.clone()).await?;
 
         if let Err(e) = router {
-            return Ok((http_request.head.route_for_failure(), Err(e)));
+            return Ok((
+                http_request.head.route_for_failure(),
+                HttpActionResult::Error(e),
+            ));
         };
         let router = router?;
 
@@ -376,12 +415,18 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let route = match route_lookup {
             None => {
                 handle.check_terminated()?;
+                let state = scope.state_mut()?;
+                let environment = &mut state.environment;
+                let response_parts = HttpActionResponsePart::from_text(
+                    StatusCode::NOT_FOUND,
+                    "No matching routes found".into(),
+                );
+                for part in response_parts {
+                    Self::handle_http_streamed_part(environment, Ok(part))?;
+                }
                 return Ok((
                     http_request.head.route_for_failure(),
-                    Ok(HttpActionResponse::from_text(
-                        StatusCode::NOT_FOUND,
-                        "No matching routes found".into(),
-                    )),
+                    HttpActionResult::Streamed,
                 ));
             },
             Some(route) => route,
@@ -419,47 +464,85 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             UdfType::HttpAction,
             v8_function,
             &v8_args,
-            Self::collect_http_result,
             cancellation,
+            Self::stream_http_result,
+            Self::handle_http_streamed_part,
         )
         .await?;
-        Ok((route, result))
+        match result {
+            Ok(()) => Ok((route, HttpActionResult::Streamed)),
+            Err(e) => Ok((route, HttpActionResult::Error(e))),
+        }
     }
 
-    fn collect_http_result<'a, 'b: 'a>(
+    fn stream_http_result<'a, 'b: 'a>(
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
         result_str: String,
     ) -> anyhow::Result<
-        impl Future<Output = anyhow::Result<Result<HttpActionResponse, JsError>>> + 'static,
+        impl Stream<Item = anyhow::Result<Result<HttpActionResponsePart, JsError>>> + 'static,
     > {
         let json_value: JsonValue = serde_json::from_str(&result_str)?;
         let v8_response: HttpResponseV8 = serde_json::from_value(json_value)?;
-        let (mut raw_response, stream_id) = v8_response.into_response()?;
-        let (body_sender, mut body_receiver) = mpsc::unbounded();
+        let (raw_response, stream_id) = v8_response.into_response()?;
+        let (body_sender, body_receiver) = mpsc::unbounded();
         match stream_id {
             Some(stream_id) => {
                 scope.new_stream_listener(stream_id, StreamListener::RustStream(body_sender))?
             },
             None => body_sender.close_channel(),
         };
-        Ok(async move {
-            let mut body = Vec::new();
-            while let Some(chunk) = TryStreamExt::try_next(&mut body_receiver).await? {
-                body.extend(chunk.into_iter());
-            }
-            raw_response.body = Some(body);
-            match &raw_response.body {
-                Some(body) if body.len() > HTTP_ACTION_BODY_LIMIT => {
-                    Ok(Err(JsError::from_message(format!(
-                        "{INTERNAL_SERVER_ERROR}: HTTP actions support responses up to {} \
-                         (returned response was {} bytes)",
-                        HTTP_ACTION_BODY_LIMIT.format_size(BINARY),
-                        body.len().format_size(BINARY),
-                    ))))
+        let head = futures::stream::once(async move {
+            Ok(Ok(HttpActionResponsePart::Head(HttpActionResponseHead {
+                status: raw_response.status,
+                headers: raw_response.headers,
+            })))
+        });
+
+        Ok(head.chain(body_receiver.map_ok(|b| Ok(HttpActionResponsePart::BodyChunk(b)))))
+    }
+
+    fn handle_http_streamed_part(
+        environment: &mut ActionEnvironment<RT>,
+        part: Result<HttpActionResponsePart, JsError>,
+    ) -> anyhow::Result<()> {
+        let streamer = environment
+            .http_response_streamer
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("No HTTP response streamer for HTTP action"))?;
+        match part {
+            Ok(HttpActionResponsePart::Head(h)) => {
+                streamer.send_part(HttpActionResponsePart::Head(h))?;
+            },
+            Ok(HttpActionResponsePart::BodyChunk(b)) => {
+                if streamer.total_bytes_sent() > HTTP_ACTION_BODY_LIMIT {
+                    // We've already hit the body size limit so should not continue sending more
+                    return Ok(());
+                }
+                if streamer.total_bytes_sent() + b.len() > HTTP_ACTION_BODY_LIMIT {
+                    let e = JsError::from_message(format!(
+                        "HttpResponseTooLarge: HTTP actions support responses up to {}",
+                        HTTP_ACTION_BODY_LIMIT.format_size(BINARY)
+                    ));
+                    environment.trace_system(SystemWarning {
+                        level: LogLevel::Error,
+                        messages: vec![e.to_string()],
+                        system_log_metadata: SystemLogMetadata {
+                            code: "error:httpAction".to_string(),
+                        },
+                    })?;
+                } else {
+                    streamer.send_part(HttpActionResponsePart::BodyChunk(b))?;
+                }
+            },
+            Err(e) => environment.trace_system(SystemWarning {
+                level: LogLevel::Error,
+                messages: vec![e.to_string()],
+                system_log_metadata: SystemLogMetadata {
+                    code: "error:httpAction".to_string(),
                 },
-                _ => Ok(Ok(HttpActionResponse::from_http_response(raw_response))),
-            }
-        })
+            })?,
+        };
+        Ok(())
     }
 
     fn send_stream(
@@ -627,20 +710,32 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .ok_or_else(|| anyhow!("Failed to create request id string"))?;
         let v8_args = [request_id_v8_str.into(), args_v8_str.into()];
 
-        Self::run_inner(
+        let mut result = None;
+
+        let run_inner_result = Self::run_inner(
             client_id,
             &mut scope,
             handle,
             UdfType::Action,
             v8_function,
             &v8_args,
+            cancellation,
             |_, result_str| {
                 let result = deserialize_udf_result(&udf_path, &result_str)?;
-                Ok(async move { Ok(result) })
+                Ok(futures::stream::once(async move { Ok(result) }))
             },
-            cancellation,
+            |_, r| {
+                result = Some(r);
+                Ok(())
+            },
         )
-        .await
+        .await?;
+
+        match run_inner_result {
+            Ok(()) => (),
+            Err(e) => result = Some(Err(e)),
+        }
+        result.ok_or_else(|| anyhow::anyhow!("`run_inner` did not populate a result"))
     }
 
     fn lookup_route(
@@ -754,22 +849,40 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
     }
 
+    /// This method is shared between HTTP and non-HTTP actions with
+    /// functionality injected via `get_result_stream` and
+    /// `handle_result_part`.
+    ///
+    /// In particular, HTTP actions allow streaming the response while normal
+    /// actions do not.
+    ///
+    /// The outer `Result` in the return type holds any system errors while the
+    /// inner `Result` holds any developer errors (JsErrors) that happen
+    /// before collecting the result.
+    ///
+    /// Errors from collecting the result will be surfaced via
+    /// `get_result_stream` -> `handle_result_part`
     #[minitrace::trace]
-    async fn run_inner<'a, 'b: 'a, T, Fut>(
+    async fn run_inner<'a, 'b: 'a, T, S>(
         client_id: Arc<String>,
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
         handle: IsolateHandle,
         udf_type: UdfType,
         v8_function: v8::Local<'_, v8::Function>,
         v8_args: &[v8::Local<'_, v8::Value>],
-        collect_result: impl FnOnce(
+        cancellation: BoxFuture<'_, ()>,
+        get_result_stream: impl FnOnce(
             &mut ExecutionScope<'a, 'b, RT, Self>,
             String,
-        ) -> anyhow::Result<Fut>,
-        cancellation: BoxFuture<'_, ()>,
-    ) -> anyhow::Result<Result<T, JsError>>
+        ) -> anyhow::Result<S>,
+        mut handle_result_part: impl FnMut(
+            &mut ActionEnvironment<RT>,
+            Result<T, JsError>,
+        ) -> anyhow::Result<()>,
+    ) -> anyhow::Result<Result<(), JsError>>
     where
-        Fut: Future<Output = anyhow::Result<Result<T, JsError>>> + Send + 'static,
+        T: Send,
+        S: Stream<Item = anyhow::Result<Result<T, JsError>>> + Send + 'static,
     {
         // Switch our phase to executing right before calling into the UDF.
         {
@@ -791,16 +904,15 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let promise: v8::Local<v8::Promise> = match promise_r? {
             Ok(Some(v)) => v.try_into()?,
             Ok(None) => anyhow::bail!("Successful invocation returned None"),
-            Err(e) => return Ok(Err(e)),
+            Err(e) => {
+                return Ok(Err(e));
+            },
         };
-        let mut collect_result = Some(collect_result);
-        // `collecting_result` starts off as a future that is forever pending,
-        // so it never triggers the `select_biased!` below until we are actually
-        // collecting a result. Using None would be nice, but `select_biased!`
-        // does not like Options.
-        let mut collecting_result = (async { std::future::pending().await }).boxed().fuse();
+        let mut get_result_stream = Some(get_result_stream);
+
+        let mut collecting_result = CollectResult::new();
         let mut cancellation = cancellation.fuse();
-        let result = loop {
+        let result: Result<(), JsError> = loop {
             // Advance the user's promise as far as it can go by draining the microtask
             // queue.
             scope.perform_microtask_checkpoint();
@@ -852,12 +964,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                     // `collecting_result` it returns. If the future is pending,
                     // proceed as if the js future hasn't resolved.
                     // If the future is done, that's our result.
-                    if let Some(collect_result) = collect_result.take() {
+                    if let Some(get_result_stream) = get_result_stream.take() {
                         let promise_result_v8 = promise.result(scope);
                         let result_v8_str: v8::Local<v8::String> = promise_result_v8.try_into()?;
                         let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
                         metrics::log_result_length(&result_str);
-                        collecting_result = collect_result(scope, result_str)?.boxed().fuse();
+                        collecting_result.start(get_result_stream(scope, result_str)?.boxed());
                         // collect_result may have fulfilled promises, so we can go back to
                         // JS now.
                         continue;
@@ -865,9 +977,17 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 },
                 v8::PromiseState::Rejected => {
                     let e = promise.result(scope);
-                    break Err(scope.format_traceback(e)?);
+                    let err = scope.format_traceback(e)?;
+                    if collecting_result.has_started {
+                        let state = scope.state_mut()?;
+                        let environment = &mut state.environment;
+                        handle_result_part(environment, Err(err))?;
+                        break Ok(());
+                    } else {
+                        break Err(err);
+                    }
                 },
-            }
+            };
 
             // If the user's promise is blocked, something must be pending:
             // 1. An async syscall, in which case we can execute one syscall before
@@ -889,8 +1009,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
             let environment = &mut scope.state_mut()?.environment;
             select_biased! {
-                result = collecting_result => {
-                    break result?;
+                result = collecting_result.result_stream.next().fuse() => {
+                    match result {
+                        None => break Ok(()),
+                        Some(inner_result) => {
+                            handle_result_part(environment, inner_result?)?;
+                        }
+                    }
                 },
                 // Normally we'd pause the user-code timeout for the duration of
                 // the syscall.
@@ -992,26 +1117,20 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     fn add_warnings_to_log_lines_http_action(
         &mut self,
         execution_time: FunctionExecutionTime,
-        http_result: Option<&HttpActionResponse>,
+        total_bytes_sent: usize,
     ) -> anyhow::Result<()> {
+        if let Some(warning) = approaching_limit_warning(
+            total_bytes_sent,
+            HTTP_ACTION_BODY_LIMIT,
+            "HttpResponseTooLarge",
+            || "Large response returned from an HTTP action".to_string(),
+            None,
+            Some(" bytes"),
+            None,
+        )? {
+            self.trace_system(warning)?;
+        }
         self.add_warnings_to_log_lines(execution_time)?;
-
-        let Some(response) = http_result else {
-            return Ok(());
-        };
-        if let Some(body) = response.body.as_ref() {
-            if let Some(warning) = approaching_limit_warning(
-                body.len(),
-                HTTP_ACTION_BODY_LIMIT,
-                "HttpResponseTooLarge",
-                || "Large response returned from an HTTP action".to_string(),
-                None,
-                Some(" bytes"),
-                None,
-            )? {
-                self.trace_system(warning)?;
-            }
-        };
         Ok(())
     }
 

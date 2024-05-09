@@ -17,7 +17,6 @@ use common::{
     errors::JsError,
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
-    identity::InertIdentity,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
         APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
@@ -34,7 +33,10 @@ use common::{
     },
     log_lines::{
         run_function_and_collect_log_lines,
+        LogLevel,
         LogLine,
+        LogLines,
+        SystemLogMetadata,
     },
     pause::PauseClient,
     query_journal::QueryJournal,
@@ -80,6 +82,7 @@ use futures::{
     select_biased,
     try_join,
     FutureExt,
+    StreamExt,
 };
 use http::StatusCode;
 use isolate::{
@@ -94,6 +97,9 @@ use isolate::{
     FunctionResult,
     HttpActionOutcome,
     HttpActionRequest,
+    HttpActionResponsePart,
+    HttpActionResponseStreamer,
+    HttpActionResult,
     IsolateClient,
     IsolateConfig,
     IsolateHeapStats,
@@ -195,6 +201,7 @@ use crate::{
     function_log::{
         ActionCompletion,
         FunctionExecutionLog,
+        HttpActionStatusCode,
     },
     redaction::{
         RedactedJsError,
@@ -1400,10 +1407,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         request_id: RequestId,
         name: UdfPath,
         http_request: HttpActionRequest,
+        mut response_streamer: HttpActionResponseStreamer,
         identity: Identity,
         caller: FunctionCaller,
         action_callbacks: Arc<dyn ActionCallbacks>,
-    ) -> anyhow::Result<Result<isolate::HttpActionResponse, JsError>> {
+    ) -> anyhow::Result<isolate::HttpActionResult> {
         let start = self.runtime.monotonic_now();
         let usage_tracker = FunctionUsageTracker::new();
         let mut tx = self
@@ -1417,10 +1425,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // logspam and other bot traffic.
         if !self.module_cache.has_http(&mut tx).await? {
             drop(tx);
-            return Ok(Ok(isolate::HttpActionResponse::from_text(
+            let response_parts = isolate::HttpActionResponsePart::from_text(
                 StatusCode::NOT_FOUND,
                 "This Convex deployment does not have HTTP actions enabled.".into(),
-            )));
+            );
+            for part in response_parts {
+                response_streamer.send_part(part)?;
+            }
+            return Ok(isolate::HttpActionResult::Streamed);
         }
         let validated_path = match ValidatedHttpPath::new(
             &mut tx,
@@ -1430,46 +1442,93 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         .await?
         {
             Ok(validated_path) => validated_path,
-            Err(e) => return Ok(Err(e)),
+            Err(e) => return Ok(isolate::HttpActionResult::Error(e)),
         };
         let unix_timestamp = self.runtime.unix_timestamp();
         let context = ExecutionContext::new(request_id, &caller);
 
+        let request_head = http_request.head.clone();
         let route = http_request.head.route_for_failure();
-        let http_request_head = http_request.head.clone();
-        let inert_identity = InertIdentity::from(identity.clone());
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
+        // We want to intercept the response head so we can log it on function
+        // completion, but still stream the response as it comes in, so we
+        // create another channel here.
+        let (isolate_response_sender, mut isolate_response_receiver) = mpsc::unbounded();
         let outcome_future = self
             .http_actions
             .execute_http_action(
                 validated_path,
                 http_request,
-                identity,
+                identity.clone(),
                 action_callbacks,
                 self.fetch_client.clone(),
                 log_line_sender,
+                HttpActionResponseStreamer::new(isolate_response_sender),
                 tx,
                 context.clone(),
             )
             .boxed();
 
-        let (outcome_result, log_lines) =
+        let context_ = context.clone();
+        let mut outcome_and_log_lines_fut = Box::pin(
             run_function_and_collect_log_lines(outcome_future, log_line_receiver, |log_line| {
                 self.function_log.log_http_action_progress(
                     route.clone(),
                     unix_timestamp,
-                    context.clone(),
+                    context_.clone(),
                     vec![log_line].into(),
                     // http actions are always run in Isolate
                     ModuleEnvironment::Isolate,
                 )
             })
-            .await;
+            .fuse(),
+        );
+
+        let mut result_for_logging = None;
+        let (outcome_result, mut log_lines): (anyhow::Result<HttpActionOutcome>, LogLines) = loop {
+            select_biased! {
+                result = isolate_response_receiver.select_next_some() => {
+                    match result {
+                        HttpActionResponsePart::Head(h) => {
+                            result_for_logging = Some(Ok(HttpActionStatusCode(h.status)));
+                            response_streamer.send_part(HttpActionResponsePart::Head(h))?;
+                        },
+                        HttpActionResponsePart::BodyChunk(bytes) => {
+                            response_streamer.send_part(HttpActionResponsePart::BodyChunk(bytes))?;
+                        }
+                    }
+                },
+                outcome_and_log_lines = outcome_and_log_lines_fut => {
+                    break outcome_and_log_lines
+                }
+            }
+        };
+
+        while let Some(part) = isolate_response_receiver.next().await {
+            match part {
+                HttpActionResponsePart::Head(h) => {
+                    result_for_logging = Some(Ok(HttpActionStatusCode(h.status)));
+                    response_streamer.send_part(HttpActionResponsePart::Head(h))?;
+                },
+                HttpActionResponsePart::BodyChunk(bytes) => {
+                    response_streamer.send_part(HttpActionResponsePart::BodyChunk(bytes))?;
+                },
+            }
+        }
         match outcome_result {
             Ok(outcome) => {
                 let result = outcome.result.clone();
+                let result_for_logging = match &result {
+                    HttpActionResult::Error(e) => Err(e.clone()),
+                    HttpActionResult::Streamed => result_for_logging.ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "Result should be populated for successfully completed HTTP action"
+                        )
+                    })?,
+                };
                 self.function_log.log_http_action(
                     outcome,
+                    result_for_logging,
                     log_lines,
                     start.elapsed(),
                     caller,
@@ -1479,31 +1538,66 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 Ok(result)
             },
             Err(e) if e.is_deterministic_user_error() => {
-                let result = Err(JsError::from_error(e));
-                let outcome = HttpActionOutcome::new(
-                    None,
-                    http_request_head,
-                    inert_identity,
-                    unix_timestamp,
-                    result.clone(),
-                    None,
-                    None,
-                );
-                self.function_log.log_http_action(
-                    outcome.clone(),
-                    log_lines,
-                    start.elapsed(),
-                    caller,
-                    usage_tracker,
-                    context,
-                );
-                Ok(result)
+                let js_err = JsError::from_error(e);
+                match result_for_logging {
+                    Some(r) => {
+                        let outcome = HttpActionOutcome::new(
+                            None,
+                            request_head,
+                            identity.into(),
+                            unix_timestamp,
+                            HttpActionResult::Streamed,
+                            None,
+                            None,
+                        );
+                        log_lines.push(LogLine::new_system_log_line(
+                            LogLevel::Warn,
+                            vec![js_err.to_string()],
+                            outcome.unix_timestamp,
+                            SystemLogMetadata {
+                                code: "error:httpAction".to_string(),
+                            },
+                        ));
+                        self.function_log.log_http_action(
+                            outcome.clone(),
+                            r,
+                            log_lines,
+                            start.elapsed(),
+                            caller,
+                            usage_tracker,
+                            context,
+                        );
+                        Ok(HttpActionResult::Streamed)
+                    },
+                    None => {
+                        let result = isolate::HttpActionResult::Error(js_err.clone());
+                        let outcome = HttpActionOutcome::new(
+                            None,
+                            request_head,
+                            identity.into(),
+                            unix_timestamp,
+                            result.clone(),
+                            None,
+                            None,
+                        );
+                        self.function_log.log_http_action(
+                            outcome.clone(),
+                            Err(js_err),
+                            log_lines,
+                            start.elapsed(),
+                            caller,
+                            usage_tracker,
+                            context,
+                        );
+                        Ok(result)
+                    },
+                }
             },
             Err(e) => {
                 self.function_log.log_http_action_system_error(
                     &e,
-                    http_request_head,
-                    inert_identity,
+                    request_head,
+                    identity.into(),
                     start,
                     caller,
                     log_lines,

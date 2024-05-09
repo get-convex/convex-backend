@@ -399,7 +399,7 @@ impl From<HttpActionRequest> for serde_json::Value {
 }
 
 #[derive(Debug, Clone)]
-pub struct HttpActionStatusCode(StatusCode);
+pub struct HttpActionStatusCode(pub StatusCode);
 
 impl HeapSize for HttpActionStatusCode {
     fn heap_size(&self) -> usize {
@@ -879,6 +879,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn log_http_action(
         &self,
         outcome: HttpActionOutcome,
+        result: Result<HttpActionStatusCode, JsError>,
         log_lines: LogLines,
         execution_time: Duration,
         caller: FunctionCaller,
@@ -887,6 +888,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     ) {
         self._log_http_action(
             outcome,
+            result,
             log_lines,
             execution_time,
             caller,
@@ -905,17 +907,19 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         log_lines: LogLines,
         context: ExecutionContext,
     ) {
+        let js_err = JsError::from_error_ref(error);
         let outcome = HttpActionOutcome::new(
             None,
             http_request,
             identity,
             self.rt.unix_timestamp(),
-            Err(JsError::from_error_ref(error)),
+            isolate::HttpActionResult::Error(js_err.clone()),
             None,
             None,
         );
         self._log_http_action(
             outcome,
+            Err(js_err),
             log_lines,
             start.elapsed(),
             caller,
@@ -927,6 +931,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     fn _log_http_action(
         &self,
         outcome: HttpActionOutcome,
+        result: Result<HttpActionStatusCode, JsError>,
         log_lines: LogLines,
         execution_time: Duration,
         caller: FunctionCaller,
@@ -952,10 +957,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         };
         let execution = FunctionExecution {
             params: UdfParams::Http {
-                result: match outcome.result {
-                    Ok(v) => Ok(HttpActionStatusCode(v.status())),
-                    Err(e) => Err(e),
-                },
+                result,
                 identifier: outcome.route.clone(),
             },
             unix_timestamp: self.rt.unix_timestamp(),

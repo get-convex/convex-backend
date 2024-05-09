@@ -140,7 +140,11 @@ use crate::{
         },
         udf::outcome::UdfOutcome,
     },
-    http_action::HttpActionRequest,
+    http_action::{
+        HttpActionRequest,
+        HttpActionResponsePart,
+        HttpActionResponseStreamer,
+    },
     isolate2::runner::{
         run_isolate_v2_udf,
         SeedData,
@@ -151,6 +155,8 @@ use crate::{
     ActionCallbacks,
     BackendIsolateWorker,
     HttpActionOutcome,
+    HttpActionResponse,
+    HttpActionResult,
     IsolateClient,
     IsolateConfig,
     ModuleLoader,
@@ -796,11 +802,87 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         Ok(())
     }
 
+    pub async fn http_action(
+        &self,
+        udf_path: &str,
+        http_request: HttpActionRequest,
+        identity: Identity,
+    ) -> anyhow::Result<HttpActionResponse> {
+        let (result, _log_lines) = self._http_action(udf_path, http_request, identity).await?;
+        match result {
+            Ok(r) => Ok(r),
+            Err(e) => anyhow::bail!(
+                "action failed with user error. If that is intended, call http_action_js_error or \
+                 raw_http_action instead. {e:?}"
+            ),
+        }
+    }
+
+    pub async fn http_action_with_log_lines(
+        &self,
+        udf_path: &str,
+        http_request: HttpActionRequest,
+        identity: Identity,
+    ) -> anyhow::Result<(HttpActionResponse, LogLines)> {
+        let (result, log_lines) = self._http_action(udf_path, http_request, identity).await?;
+        match result {
+            Ok(r) => Ok((r, log_lines)),
+            Err(e) => anyhow::bail!(
+                "action failed with user error. If that is intended, call http_action_js_error or \
+                 raw_http_action instead. {e:?}"
+            ),
+        }
+    }
+
+    pub async fn http_action_js_error(
+        &self,
+        udf_path: &str,
+        http_request: HttpActionRequest,
+        identity: Identity,
+    ) -> anyhow::Result<JsError> {
+        let (result, _log_lines) = self._http_action(udf_path, http_request, identity).await?;
+        Ok(result.unwrap_err())
+    }
+
+    async fn _http_action(
+        &self,
+        udf_path: &str,
+        http_request: HttpActionRequest,
+        identity: Identity,
+    ) -> anyhow::Result<(Result<HttpActionResponse, JsError>, LogLines)> {
+        let (response_sender, mut response_receiver) = mpsc::unbounded();
+        let http_response_streamer = HttpActionResponseStreamer::new(response_sender);
+        let (outcome, log_lines) = self
+            .raw_http_action(udf_path, http_request, identity, http_response_streamer)
+            .await?;
+        let mut response_head = None;
+        let mut body = vec![];
+        while let Some(part) = response_receiver.next().await {
+            match part {
+                HttpActionResponsePart::BodyChunk(bytes) => body.extend(bytes),
+                HttpActionResponsePart::Head(head) => response_head = Some(head),
+            }
+        }
+        let response = match outcome.result {
+            HttpActionResult::Error(e) => Err(e),
+            HttpActionResult::Streamed => {
+                let response_head = response_head.unwrap();
+                Ok(HttpActionResponse {
+                    body: Some(body),
+                    status: response_head.status,
+                    headers: response_head.headers,
+                })
+            },
+        };
+        Ok((response, log_lines))
+    }
+
     pub async fn raw_http_action(
         &self,
         udf_path: &str,
         http_request: HttpActionRequest,
         identity: Identity,
+        http_response_streamer: HttpActionResponseStreamer,
     ) -> anyhow::Result<(HttpActionOutcome, LogLines)> {
         let app = Arc::new(self.clone());
         let mut tx = self.database.begin(identity.clone()).await?;
@@ -817,6 +899,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 app.clone(),
                 fetch_client,
                 log_line_sender,
+                http_response_streamer,
                 tx,
                 ExecutionContext::new_for_test(),
             )

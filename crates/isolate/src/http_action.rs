@@ -1,13 +1,14 @@
 use core::fmt;
 
-use common::{
-    http::HttpResponse,
-    types::{
-        HttpActionRoute,
-        RoutableMethod,
-    },
+use bytes::Bytes;
+use common::types::{
+    HttpActionRoute,
+    RoutableMethod,
 };
-use futures::stream::BoxStream;
+use futures::{
+    channel::mpsc,
+    stream::BoxStream,
+};
 use headers::{
     HeaderMap,
     HeaderValue,
@@ -103,58 +104,20 @@ impl proptest::arbitrary::Arbitrary for HttpActionRequest {
     }
 }
 
+/// HTTP Action responses are usually streamed via HttpActionResponsePart, so
+/// this struct is only used in tests for convenience
+#[cfg(any(test, feature = "testing"))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HttpActionResponse {
     pub body: Option<Vec<u8>>,
-    status: StatusCode,
+    pub status: StatusCode,
     pub headers: HeaderMap,
 }
 
+#[cfg(any(test, feature = "testing"))]
 impl HttpActionResponse {
-    pub fn from_http_response(response: HttpResponse) -> Self {
-        Self {
-            body: response.body,
-            status: response.status,
-            headers: response.headers,
-        }
-    }
-
-    pub fn from_text(status: StatusCode, body: String) -> Self {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
-        );
-        HttpActionResponse {
-            body: Some(body.into_bytes()),
-            status,
-            headers,
-        }
-    }
-
-    pub fn from_json(status: StatusCode, body: JsonValue) -> Self {
-        let mut headers = HeaderMap::new();
-        headers.insert(
-            CONTENT_TYPE,
-            HeaderValue::from_static(mime::APPLICATION_JSON.as_ref()),
-        );
-        HttpActionResponse {
-            body: Some(body.to_string().into_bytes()),
-            status,
-            headers,
-        }
-    }
-
     pub fn body(&self) -> &Option<Vec<u8>> {
         &self.body
-    }
-
-    pub fn status(&self) -> StatusCode {
-        self.status
-    }
-
-    pub fn headers(&self) -> &HeaderMap {
-        &self.headers
     }
 }
 
@@ -184,5 +147,99 @@ impl proptest::arbitrary::Arbitrary for HttpActionResponse {
             }
         };
         inner().prop_filter_map("Invalid HttpActionRequest", |r| r.ok())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum HttpActionResponsePart {
+    Head(HttpActionResponseHead),
+    BodyChunk(Bytes),
+}
+
+impl HttpActionResponsePart {
+    pub fn from_text(status: StatusCode, message: String) -> Vec<Self> {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static(mime::TEXT_PLAIN_UTF_8.as_ref()),
+        );
+        let head = Self::Head(HttpActionResponseHead { status, headers });
+        let body = Self::BodyChunk(message.into_bytes().into());
+        vec![head, body]
+    }
+
+    pub fn from_json(status: StatusCode, body: JsonValue) -> Vec<Self> {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            CONTENT_TYPE,
+            HeaderValue::from_static(mime::APPLICATION_JSON.as_ref()),
+        );
+        let head = Self::Head(HttpActionResponseHead { status, headers });
+        let body_chunk = HttpActionResponsePart::BodyChunk(body.to_string().into_bytes().into());
+        vec![head, body_chunk]
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HttpActionResponseHead {
+    pub status: StatusCode,
+    pub headers: HeaderMap,
+}
+
+#[derive(Debug, Clone)]
+pub struct HttpActionResponseStreamer {
+    head: Option<HttpActionResponseHead>,
+    total_bytes_sent: usize,
+    pub sender: mpsc::UnboundedSender<HttpActionResponsePart>,
+}
+
+impl HttpActionResponseStreamer {
+    pub fn new(sender: mpsc::UnboundedSender<HttpActionResponsePart>) -> Self {
+        Self {
+            head: None,
+            total_bytes_sent: 0,
+            sender,
+        }
+    }
+
+    pub fn has_started(&self) -> bool {
+        self.head.is_some()
+    }
+
+    pub fn head(&self) -> Option<&HttpActionResponseHead> {
+        self.head.as_ref()
+    }
+
+    pub fn total_bytes_sent(&self) -> usize {
+        self.total_bytes_sent
+    }
+
+    fn send_head(&mut self, head: HttpActionResponseHead) -> anyhow::Result<()> {
+        if self.has_started() {
+            anyhow::bail!("Sending HTTP response head after other response parts");
+        };
+        self.head = Some(head.clone());
+        self.sender
+            .unbounded_send(HttpActionResponsePart::Head(head))?;
+        Ok(())
+    }
+
+    fn send_body(&mut self, bytes: Bytes) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.has_started(),
+            "Sending response body before response head"
+        );
+        self.total_bytes_sent += bytes.len();
+        self.sender
+            .unbounded_send(HttpActionResponsePart::BodyChunk(bytes))?;
+        Ok(())
+    }
+
+    pub fn send_part(&mut self, part: HttpActionResponsePart) -> anyhow::Result<()> {
+        match part {
+            HttpActionResponsePart::Head(h) => self.send_head(h)?,
+            HttpActionResponsePart::BodyChunk(b) => self.send_body(b)?,
+        }
+        Ok(())
     }
 }

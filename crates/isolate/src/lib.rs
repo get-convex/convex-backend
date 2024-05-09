@@ -38,7 +38,8 @@ mod user_error;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod test_helpers;
-
+#[cfg(any(test, feature = "testing"))]
+pub use self::http_action::HttpActionResponse;
 pub use self::{
     client::{
         ActionCallbacks,
@@ -51,9 +52,12 @@ pub use self::{
     },
     concurrency_limiter::ConcurrencyLimiter,
     environment::{
-        action::outcome::{
-            ActionOutcome,
-            HttpActionOutcome,
+        action::{
+            outcome::{
+                ActionOutcome,
+                HttpActionOutcome,
+            },
+            HttpActionResult,
         },
         auth_config::AuthConfig,
         helpers::{
@@ -88,7 +92,9 @@ pub use self::{
     http_action::{
         HttpActionRequest,
         HttpActionRequestHead,
-        HttpActionResponse,
+        HttpActionResponseHead,
+        HttpActionResponsePart,
+        HttpActionResponseStreamer,
         HTTP_ACTION_BODY_LIMIT,
     },
     isolate::IsolateHeapStats,

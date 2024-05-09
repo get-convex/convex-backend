@@ -3775,6 +3775,7 @@ dependencies = [
  "file_storage",
  "function_runner",
  "futures",
+ "futures-async-stream",
  "hex",
  "http",
  "hyper",

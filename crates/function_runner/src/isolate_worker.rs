@@ -139,6 +139,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                     action_callbacks,
                     fetch_client,
                     log_line_sender,
+                    None,
                     heap_stats.clone(),
                     request.context,
                 );

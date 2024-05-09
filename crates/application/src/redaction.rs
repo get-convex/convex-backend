@@ -6,7 +6,7 @@ use common::{
     RequestId,
 };
 use http::StatusCode;
-use isolate::HttpActionResponse;
+use isolate::HttpActionResponsePart;
 use serde::{
     Deserialize,
     Serialize,
@@ -132,6 +132,25 @@ impl RedactedJsError {
             format!("{}", self.error)
         }
     }
+
+    pub fn to_http_response_parts(self) -> Vec<HttpActionResponsePart> {
+        let code = if self.block_logging {
+            "Server Error".to_string()
+        } else {
+            format!("Server Error: {}", self.error.message.to_owned())
+        };
+        let code = format!("[Request ID: {}] {}", self.request_id, code);
+        let mut body = json!({
+            "code": code,
+        });
+        if !self.block_logging {
+            body["trace"] = self.error.to_string().into();
+        }
+        if let Some(custom_data) = self.custom_data_if_any() {
+            body["data"] = custom_data.into();
+        }
+        HttpActionResponsePart::from_json(StatusCode::INTERNAL_SERVER_ERROR, body)
+    }
 }
 
 impl fmt::Display for RedactedJsError {
@@ -144,34 +163,13 @@ impl fmt::Display for RedactedJsError {
     }
 }
 
-impl From<RedactedJsError> for HttpActionResponse {
-    fn from(value: RedactedJsError) -> Self {
-        let code = if value.block_logging {
-            "Server Error".to_string()
-        } else {
-            format!("Server Error: {}", value.error.message.to_owned())
-        };
-        let code = format!("[Request ID: {}] {}", value.request_id, code);
-        let mut body = json!({
-            "code": code,
-        });
-        if !value.block_logging {
-            body["trace"] = value.error.to_string().into();
-        }
-        if let Some(custom_data) = value.custom_data_if_any() {
-            body["data"] = custom_data.into();
-        }
-        HttpActionResponse::from_json(StatusCode::INTERNAL_SERVER_ERROR, body)
-    }
-}
-
 #[cfg(test)]
 pub mod tests {
     use common::{
         errors::JsError,
         RequestId,
     };
-    use isolate::HttpActionResponse;
+    use isolate::HttpActionResponsePart;
     use must_let::must_let;
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
@@ -210,8 +208,8 @@ pub mod tests {
         ) {
             let redacted =
                 RedactedJsError::from_js_error(js_error.clone(), true, request_id.clone());
-            let http_response = HttpActionResponse::from(redacted);
-            let code = get_code(http_response);
+            let http_response_parts = redacted.to_http_response_parts();
+            let code = get_code(http_response_parts);
 
             assert_eq!(code, format!("[Request ID: {}] Server Error", request_id));
         }
@@ -222,8 +220,8 @@ pub mod tests {
         ) {
             let redacted =
                 RedactedJsError::from_js_error(js_error.clone(), false, request_id.clone());
-            let http_response = HttpActionResponse::from(redacted);
-            let code = get_code(http_response);
+            let http_response_parts = redacted.to_http_response_parts();
+            let code = get_code(http_response_parts);
 
             assert_eq!(
                 code,
@@ -236,8 +234,15 @@ pub mod tests {
         }
     }
 
-    fn get_code(http_response: HttpActionResponse) -> String {
-        let json = serde_json::from_slice(http_response.body().as_ref().unwrap()).unwrap();
+    fn get_code(http_response_parts: Vec<HttpActionResponsePart>) -> String {
+        let mut body_bytes = vec![];
+        for part in http_response_parts {
+            match part {
+                HttpActionResponsePart::BodyChunk(b) => body_bytes.extend(b),
+                HttpActionResponsePart::Head(_) => (),
+            }
+        }
+        let json = serde_json::from_slice(&body_bytes).unwrap();
         must_let!(let JsonValue::Object(map) = json);
         must_let!(let JsonValue::String(ref code) = map.get("code").unwrap());
         code.clone()
