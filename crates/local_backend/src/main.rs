@@ -27,7 +27,7 @@ use local_backend::{
     make_app,
     proxy::dev_site_proxy,
     router::router,
-    BackendRouteMapper,
+    HttpActionRouteMapper,
     MAX_CONCURRENT_REQUESTS,
 };
 use runtime::prod::ProdRuntime;
@@ -91,7 +91,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         SERVER_VERSION_STR.to_string(),
         MAX_CONCURRENT_REQUESTS,
         Duration::from_secs(125),
-        BackendRouteMapper,
+        HttpActionRouteMapper,
     );
     let serve_http_future = http_service.serve(config.http_bind_address().into(), async move {
         let _ = shutdown_rx_.recv().await;

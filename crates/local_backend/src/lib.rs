@@ -263,9 +263,9 @@ pub async fn make_app(
 }
 
 #[derive(Clone)]
-pub struct BackendRouteMapper;
+pub struct HttpActionRouteMapper;
 
-impl RouteMapper for BackendRouteMapper {
+impl RouteMapper for HttpActionRouteMapper {
     fn map_route(&self, route: String) -> String {
         // Backend can receive arbitrary HTTP requests, so group all of these
         // under one tag.
