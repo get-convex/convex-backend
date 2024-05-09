@@ -14,9 +14,9 @@ use common::{
     value::{
         ConvexObject,
         ResolvedDocumentId,
-        TableId,
-        TableIdAndTableNumber,
         TableMapping,
+        TabletId,
+        TabletIdAndTableNumber,
         VirtualTableMapping,
     },
 };
@@ -38,7 +38,7 @@ use crate::{
 /// all of the data in the system.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TableRegistry {
-    table_states: OrdMap<TableId, TableState>,
+    tablet_states: OrdMap<TabletId, TableState>,
     table_mapping: TableMapping,
     persistence_version: PersistenceVersion,
 
@@ -51,14 +51,14 @@ impl TableRegistry {
     /// exactly one record for the `_tables` table.
     pub fn bootstrap(
         table_mapping: TableMapping,
-        table_states: OrdMap<TableId, TableState>,
+        table_states: OrdMap<TabletId, TableState>,
         persistence_version: PersistenceVersion,
         virtual_table_mapping: VirtualTableMapping,
     ) -> anyhow::Result<Self> {
         let _timer = bootstrap_table_registry_timer();
         Ok(Self {
             table_mapping,
-            table_states,
+            tablet_states: table_states,
             persistence_version,
             virtual_table_mapping,
         })
@@ -90,13 +90,13 @@ impl TableRegistry {
             .table_mapping
             .number_matches_name(id.table().table_number, &TABLES_TABLE)
         {
-            let table_id = TableId(id.internal_id());
+            let tablet_id = TabletId(id.internal_id());
             match (old_value, new_value) {
                 // Table creation
                 (None, Some(new_value)) => {
                     let metadata = TableMetadata::try_from(new_value.clone())?;
-                    let table_id_and_code = TableIdAndTableNumber {
-                        table_id,
+                    let table_id_and_code = TabletIdAndTableNumber {
+                        tablet_id,
                         table_number: metadata.number,
                     };
                     if metadata.is_active() {
@@ -120,8 +120,8 @@ impl TableRegistry {
                     let new_metadata = TableMetadata::try_from(new_value.clone())?;
                     let old_metadata = TableMetadata::try_from(old_value.clone())?;
 
-                    let old_table_id_and_number = TableIdAndTableNumber {
-                        table_id,
+                    let old_table_id_and_number = TabletIdAndTableNumber {
+                        tablet_id,
                         table_number: old_metadata.number,
                     };
                     anyhow::ensure!(
@@ -144,7 +144,7 @@ impl TableRegistry {
                                 .all(|t| t.table_name() != &new_metadata.name),
                             "cannot delete bootstrap system table"
                         );
-                        anyhow::ensure!(index_registry.has_no_indexes(table_id));
+                        anyhow::ensure!(index_registry.has_no_indexes(tablet_id));
                         Some(TableUpdate {
                             table_id_and_number: old_table_id_and_number,
                             table_name: old_metadata.name,
@@ -212,15 +212,15 @@ impl TableRegistry {
         Ok(())
     }
 
-    pub fn table_state(&self, table_id: TableId) -> Option<TableState> {
-        self.table_states.get(&table_id).cloned()
+    pub fn table_state(&self, tablet_id: TabletId) -> Option<TableState> {
+        self.tablet_states.get(&tablet_id).cloned()
     }
 
     pub fn user_table_names(&self) -> impl Iterator<Item = &TableName> {
         self.table_mapping
             .iter()
             .filter(|(table_id, _, name)| {
-                matches!(self.table_states.get(table_id), Some(TableState::Active))
+                matches!(self.tablet_states.get(table_id), Some(TableState::Active))
                     && !name.is_system()
             })
             .map(|(_, _, name)| name)
@@ -232,23 +232,23 @@ impl TableRegistry {
 
     pub fn iter_active_user_tables(
         &self,
-    ) -> impl Iterator<Item = (TableId, TableNumber, &TableName)> {
+    ) -> impl Iterator<Item = (TabletId, TableNumber, &TableName)> {
         self.table_mapping
             .iter()
             .filter(|(table_id, _, table_name)| {
                 !table_name.is_system()
-                    && matches!(self.table_states.get(table_id), Some(TableState::Active))
+                    && matches!(self.tablet_states.get(table_id), Some(TableState::Active))
             })
     }
 
     pub fn iter_active_system_tables(
         &self,
-    ) -> impl Iterator<Item = (TableId, TableNumber, &TableName)> {
+    ) -> impl Iterator<Item = (TabletId, TableNumber, &TableName)> {
         self.table_mapping
             .iter()
             .filter(|(table_id, _, table_name)| {
                 table_name.is_system()
-                    && matches!(self.table_states.get(table_id), Some(TableState::Active))
+                    && matches!(self.tablet_states.get(table_id), Some(TableState::Active))
             })
     }
 
@@ -256,8 +256,8 @@ impl TableRegistry {
         &self.table_mapping
     }
 
-    pub(crate) fn table_states(&self) -> &OrdMap<TableId, TableState> {
-        &self.table_states
+    pub(crate) fn tablet_states(&self) -> &OrdMap<TabletId, TableState> {
+        &self.tablet_states
     }
 
     pub fn virtual_table_mapping(&self) -> &VirtualTableMapping {
@@ -283,7 +283,7 @@ impl TableRegistry {
 }
 
 pub(crate) struct TableUpdate {
-    pub table_id_and_number: TableIdAndTableNumber,
+    pub table_id_and_number: TabletIdAndTableNumber,
     pub table_name: TableName,
     pub state: TableState,
     pub mode: TableUpdateMode,
@@ -314,7 +314,7 @@ impl<'a> Update<'a> {
         if let Some(ref table_update) = self.table_update {
             if table_update.activates() {
                 self.metadata.table_mapping.insert(
-                    table_update.table_id_and_number.table_id,
+                    table_update.table_id_and_number.tablet_id,
                     table_update.table_id_and_number.table_number,
                     table_update.table_name.clone(),
                 );
@@ -329,7 +329,7 @@ impl<'a> Update<'a> {
                 TableUpdateMode::Activate => {},
                 TableUpdateMode::Create => {
                     self.metadata.table_mapping.insert_tablet(
-                        table_id_and_number.table_id,
+                        table_id_and_number.tablet_id,
                         table_id_and_number.table_number,
                         table_name.clone(),
                     );
@@ -337,12 +337,12 @@ impl<'a> Update<'a> {
                 TableUpdateMode::Drop => {
                     self.metadata
                         .table_mapping
-                        .remove(table_id_and_number.table_id);
+                        .remove(table_id_and_number.tablet_id);
                 },
             }
             self.metadata
-                .table_states
-                .insert(table_id_and_number.table_id, *state);
+                .tablet_states
+                .insert(table_id_and_number.tablet_id, *state);
         }
         if let Some((table_number, table_name)) = self.virtual_table_creation.take() {
             self.metadata

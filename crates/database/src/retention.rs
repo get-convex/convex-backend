@@ -90,8 +90,8 @@ use common::{
     },
     value::{
         ConvexValue,
-        TableId,
-        TableIdAndTableNumber,
+        TabletId,
+        TabletIdAndTableNumber,
     },
 };
 use errors::ErrorMetadata;
@@ -177,7 +177,7 @@ impl Checkpoint {
 pub struct LeaderRetentionManager<RT: Runtime> {
     rt: RT,
     bounds_reader: Reader<SnapshotBounds>,
-    index_table_id: TableIdAndTableNumber,
+    index_table_id: TabletIdAndTableNumber,
     checkpoint_reader: Reader<Checkpoint>,
     document_checkpoint_reader: Reader<Checkpoint>,
     handles: Arc<Mutex<Vec<RT::Handle>>>,
@@ -250,7 +250,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let index_registry = snapshot.index_registry;
         let meta_index_id = index_registry
             .enabled_index_metadata(&TabletIndexName::by_id(
-                index_registry.index_table().table_id,
+                index_registry.index_table().tablet_id,
             ))
             .expect("meta index id must exist")
             .id()
@@ -269,7 +269,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             let reader = reader.read_snapshot(snapshot_ts)?;
             let mut meta_index_scan = reader.index_scan(
                 meta_index_id,
-                index_registry.index_table().table_id,
+                index_registry.index_table().tablet_id,
                 &Interval::all(),
                 Order::Asc,
                 usize::MAX,
@@ -514,7 +514,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         reader: RepeatablePersistence,
         cursor: Timestamp,
         min_snapshot_ts: Timestamp,
-        all_indexes: &BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
+        all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         persistence_version: PersistenceVersion,
     ) {
         tracing::trace!(
@@ -624,7 +624,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         rt: &RT,
         cursor: Timestamp,
-        all_indexes: &BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
+        all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<(Timestamp, usize)> {
         if !*RETENTION_DELETES_ENABLED || min_snapshot_ts == Timestamp::MIN {
@@ -691,7 +691,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         min_snapshot_ts: Timestamp,
         persistence: Arc<dyn Persistence>,
         rt: &RT,
-        all_indexes: &BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
+        all_indexes: &BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<()> {
         while cursor_ts.succ()? < min_snapshot_ts {
@@ -1015,8 +1015,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         bounds_reader: Reader<SnapshotBounds>,
         rt: RT,
         persistence: Arc<dyn Persistence>,
-        mut all_indexes: BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
-        index_table_id: TableIdAndTableNumber,
+        mut all_indexes: BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
+        index_table_id: TabletIdAndTableNumber,
         mut index_cursor: Timestamp,
         retention_validator: Arc<dyn RetentionValidator>,
         mut min_snapshot_rx: Receiver<Timestamp>,
@@ -1315,8 +1315,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
     fn accumulate_index_document(
         maybe_doc: Option<ResolvedDocument>,
-        all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
-        index_table_id: TableIdAndTableNumber,
+        all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
+        index_table_id: TabletIdAndTableNumber,
     ) -> anyhow::Result<()> {
         let Some(doc) = maybe_doc else {
             return Ok(());
@@ -1325,7 +1325,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             return Ok(());
         }
         let index_id = doc.id().internal_id();
-        let index: ParsedDocument<IndexMetadata<TableId>> = doc.try_into()?;
+        let index: ParsedDocument<IndexMetadata<TabletId>> = doc.try_into()?;
         let index = index.into_value();
         let IndexConfig::Database {
             developer_config,
@@ -1352,10 +1352,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
     async fn accumulate_indexes(
         persistence: &dyn Persistence,
-        all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TableId>, IndexedFields)>,
+        all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
         cursor: &mut Timestamp,
         latest_ts: RepeatableTimestamp,
-        index_table_id: TableIdAndTableNumber,
+        index_table_id: TabletIdAndTableNumber,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<()> {
         let reader = persistence.reader();
@@ -1648,7 +1648,7 @@ mod tests {
         let by_id_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
         let by_val_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
         let table: TableName = str::parse("table")?;
-        let table_id = id_generator.table_id(&table).table_id;
+        let table_id = id_generator.table_id(&table).tablet_id;
 
         let by_id = |id: ResolvedDocumentId,
                      ts: i32,

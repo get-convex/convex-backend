@@ -53,9 +53,9 @@ use itertools::Itertools;
 use maplit::btreemap;
 use value::{
     ResolvedDocumentId,
-    TableId,
     TableMapping,
     TableName,
+    TabletId,
 };
 
 use crate::{
@@ -73,7 +73,7 @@ pub trait InMemoryIndexes: Send + Sync {
         index_id: IndexId,
         interval: &Interval,
         order: Order,
-        table_id: TableId,
+        tablet_id: TabletId,
         table_name: TableName,
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>>>;
 }
@@ -95,7 +95,7 @@ impl InMemoryIndexes for BackendInMemoryIndexes {
         index_id: IndexId,
         interval: &Interval,
         order: Order,
-        _table_id: TableId,
+        _tablet_id: TabletId,
         _table_name: TableName,
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>>> {
         Ok(self
@@ -114,7 +114,7 @@ impl BackendInMemoryIndexes {
         // Load the indexes by_id index
         let meta_index = index_registry
             .get_enabled(&TabletIndexName::by_id(
-                index_registry.index_table().table_id,
+                index_registry.index_table().tablet_id,
             ))
             .context("Missing meta index")?;
         let mut meta_index_map = DatabaseIndexMap::new_at(ts);
@@ -378,7 +378,7 @@ impl DatabaseIndexSnapshot {
             // table.
             Err(_)
                 if range_request.index_name.table()
-                    != &self.index_registry.index_table().table_id
+                    != &self.index_registry.index_table().tablet_id
                     && range_request.index_name.is_by_id_or_creation_time() =>
             {
                 return Ok(Ok((vec![], CursorPosition::End)));
@@ -555,7 +555,7 @@ impl DatabaseIndexSnapshot {
         &mut self,
         id: ResolvedDocumentId,
     ) -> anyhow::Result<Option<(ResolvedDocument, Timestamp)>> {
-        let index_name = GenericIndexName::by_id(id.table().table_id);
+        let index_name = GenericIndexName::by_id(id.table().tablet_id);
         let printable_index_name = index_name
             .clone()
             .map_table(&self.table_mapping.tablet_to_name())?;

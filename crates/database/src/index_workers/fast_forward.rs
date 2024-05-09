@@ -44,8 +44,8 @@ use value::{
     values_to_bytes,
     ConvexValue,
     ResolvedDocumentId,
-    TableId,
     TableMapping,
+    TabletId,
 };
 
 use super::retriable_worker::retry_loop_expect_occs_and_overloaded;
@@ -267,7 +267,7 @@ pub async fn load_metadata_fast_forward_ts(
     let metadata_index_id = (*INDEX_DOC_ID_INDEX)
         .clone()
         .map_table(&table_mapping.name_to_id())?;
-    let metadata_index_id: GenericIndexName<TableId> = metadata_index_id.into();
+    let metadata_index_id: GenericIndexName<TabletId> = metadata_index_id.into();
     let metadata_index_internal_id = registry.get_enabled(&metadata_index_id).unwrap().id();
 
     let id_value = ConvexValue::String(index.internal_id().to_string().try_into()?);
@@ -276,7 +276,7 @@ pub async fn load_metadata_fast_forward_ts(
 
     let stream = snapshot.index_scan(
         metadata_index_internal_id,
-        metadata_table_id.table_id,
+        metadata_table_id.tablet_id,
         &interval,
         Order::Asc,
         100,

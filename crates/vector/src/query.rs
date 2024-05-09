@@ -42,10 +42,10 @@ use value::{
     FieldPath,
     InternalId,
     Size,
-    TableId,
     TableMapping,
     TableName,
     TableNumber,
+    TabletId,
 };
 
 use crate::IndexedVector;
@@ -346,7 +346,7 @@ impl VectorSearch {
         let index_name = self
             .index_name
             .to_resolved(table_mapping.name_to_id())?
-            .map_table(&|t| Ok(t.table_id))?;
+            .map_table(&|t| Ok(t.tablet_id))?;
         let result = InternalVectorSearch {
             index_name,
             vector: self.vector,
@@ -359,7 +359,7 @@ impl VectorSearch {
 }
 
 pub struct InternalVectorSearch {
-    pub index_name: GenericIndexName<TableId>,
+    pub index_name: GenericIndexName<TabletId>,
     pub limit: Option<u32>,
     pub vector: Vec<f32>,
     pub expressions: Vec<VectorSearchExpression>,

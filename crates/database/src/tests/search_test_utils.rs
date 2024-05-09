@@ -109,7 +109,7 @@ pub(crate) async fn create_search_index_with_document(
         .add_application_index(index_metadata.clone())
         .await?;
     add_document(&mut tx, index_name.table(), "A long text field").await?;
-    let table_id = tx.table_mapping().id(index_name.table())?.table_id;
+    let table_id = tx.table_mapping().id(index_name.table())?.tablet_id;
     db.commit(tx).await?;
 
     let resolved_index_name = TabletIndexName::new(table_id, index_name.descriptor().clone())?;

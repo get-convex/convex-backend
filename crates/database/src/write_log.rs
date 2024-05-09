@@ -590,7 +590,7 @@ mod tests {
     fn test_is_stale() -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
         let mut log = WriteLog::new(Timestamp::must(1000), PersistenceVersion::default());
-        let table_id = id_generator.table_id(&"t".parse()?).table_id;
+        let table_id = id_generator.table_id(&"t".parse()?).tablet_id;
         let id = id_generator.generate(&"t".parse()?);
         let index_key = IndexKey::new(vec![val!(5)], id.into());
         let index_key_binary: BinaryKey = index_key.into_bytes().into();

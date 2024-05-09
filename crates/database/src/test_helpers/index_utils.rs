@@ -62,7 +62,7 @@ pub fn assert_backfilling(
     table_name: &str,
     index_name: &str,
 ) -> anyhow::Result<()> {
-    let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TableId> =
+    let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TabletId> =
         get_recent_index_metadata(&mut tx, table_name, index_name)?;
     match index_metadata.config {
         IndexConfig::Database { on_disk_state, .. } => {
@@ -84,7 +84,7 @@ pub async fn assert_backfilled(
     index_name: &str,
 ) -> anyhow::Result<()> {
     let mut tx = db.begin_system().await?;
-    let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TableId> =
+    let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TabletId> =
         get_recent_index_metadata(&mut tx, table_name, index_name)?;
     match index_metadata.config {
         IndexConfig::Database { on_disk_state, .. } => {
@@ -106,7 +106,7 @@ pub async fn assert_enabled(
     index_name: &str,
 ) -> anyhow::Result<()> {
     let mut tx = db.begin_system().await?;
-    let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TableId> =
+    let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TabletId> =
         get_recent_index_metadata(&mut tx, table_name, index_name)?;
     match index_metadata.config {
         IndexConfig::Database { on_disk_state, .. } => {

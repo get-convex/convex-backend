@@ -1,7 +1,7 @@
 use value::{
     ResolvedDocumentId,
-    TableId,
-    TableIdAndTableNumber,
+    TabletId,
+    TabletIdAndTableNumber,
 };
 
 use crate::common::{
@@ -35,12 +35,12 @@ impl TryFrom<ResolvedDocumentIdProto> for ResolvedDocumentId {
     }
 }
 
-impl From<TableIdAndTableNumber> for TableIdAndTableNumberProto {
+impl From<TabletIdAndTableNumber> for TableIdAndTableNumberProto {
     fn from(
-        TableIdAndTableNumber {
+        TabletIdAndTableNumber {
             table_number,
-            table_id,
-        }: TableIdAndTableNumber,
+            tablet_id: table_id,
+        }: TabletIdAndTableNumber,
     ) -> Self {
         Self {
             table_number: Some(table_number.into()),
@@ -49,7 +49,7 @@ impl From<TableIdAndTableNumber> for TableIdAndTableNumberProto {
     }
 }
 
-impl TryFrom<TableIdAndTableNumberProto> for TableIdAndTableNumber {
+impl TryFrom<TableIdAndTableNumberProto> for TabletIdAndTableNumber {
     type Error = anyhow::Error;
 
     fn try_from(
@@ -62,7 +62,7 @@ impl TryFrom<TableIdAndTableNumberProto> for TableIdAndTableNumber {
             table_number: table_number
                 .ok_or_else(|| anyhow::anyhow!("Missing table_number"))?
                 .try_into()?,
-            table_id: TableId(
+            tablet_id: TabletId(
                 table_id
                     .ok_or_else(|| anyhow::anyhow!("Missing table_id"))?
                     .try_into()?,

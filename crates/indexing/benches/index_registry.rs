@@ -38,7 +38,7 @@ fn index_documents(
     let index_table = id_generator.table_id(&INDEX_TABLE);
     // Add the _index.by_id index.
     indexes.push(IndexMetadata::new_enabled(
-        GenericIndexName::by_id(index_table.table_id),
+        GenericIndexName::by_id(index_table.tablet_id),
         IndexedFields::by_id(),
     ));
     let ts = Timestamp::must(0);
@@ -57,7 +57,7 @@ fn index_registry_bootstrap(bencher: divan::Bencher, num_indexes: usize) {
         .map(|i| {
             let table_id = id_generator.table_id(&format!("messages_{i}").parse().unwrap());
             IndexMetadata::new_enabled(
-                GenericIndexName::by_id(table_id.table_id),
+                GenericIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
             )
         })

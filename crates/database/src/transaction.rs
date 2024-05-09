@@ -88,8 +88,8 @@ use sync_types::{
 };
 use usage_tracking::FunctionUsageTracker;
 use value::{
-    TableId,
     TableNumber,
+    TabletId,
 };
 
 use crate::{
@@ -156,7 +156,7 @@ pub struct Transaction<RT: Runtime> {
     /// The change in the number of documents in table that have had writes in
     /// this transaction. If there is no entry for a table, assume deltas
     /// are zero.
-    pub(crate) table_count_deltas: BTreeMap<TableId, i64>,
+    pub(crate) table_count_deltas: BTreeMap<TabletId, i64>,
 
     pub(crate) stats: BTreeMap<TableNumber, TableStats>,
 
@@ -182,7 +182,7 @@ impl<RT: Runtime> Debug for Transaction<RT> {
 pub trait TableCountSnapshot: Send + Sync + 'static {
     /// Returns the number of documents in the table at the timestamp of the
     /// snapshot.
-    async fn count(&self, table: TableId) -> anyhow::Result<u64>;
+    async fn count(&self, table: TabletId) -> anyhow::Result<u64>;
 }
 
 impl<RT: Runtime> Transaction<RT> {
@@ -468,7 +468,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
     ) -> anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>> {
-        let table_name = match self.table_mapping().tablet_name(id.table().table_id) {
+        let table_name = match self.table_mapping().tablet_name(id.table().tablet_id) {
             Ok(t) => t,
             Err(_) => return Ok(None),
         };
@@ -484,7 +484,7 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         value: PatchValue,
     ) -> anyhow::Result<ResolvedDocument> {
-        let table_name = self.table_mapping().tablet_name(id.table().table_id)?;
+        let table_name = self.table_mapping().tablet_name(id.table().tablet_id)?;
 
         let (old_document, _) =
             self.get_inner(id, table_name.clone())
@@ -517,7 +517,7 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocument> {
-        let table_name = self.table_mapping().tablet_name(id.table().table_id)?;
+        let table_name = self.table_mapping().tablet_name(id.table().tablet_id)?;
         let (old_document, _) =
             self.get_inner(id, table_name)
                 .await?
@@ -544,7 +544,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
     ) -> anyhow::Result<ResolvedDocument> {
-        let table_name = self.table_mapping().tablet_name(id.table().table_id)?;
+        let table_name = self.table_mapping().tablet_name(id.table().tablet_id)?;
         let (document, _) =
             self.get_inner(id, table_name)
                 .await?
@@ -601,7 +601,7 @@ impl<RT: Runtime> Transaction<RT> {
                 .table_mapping()
                 .id(&TABLES_TABLE)
                 .expect("_tables should exist")
-                .table_id,
+                .tablet_id,
         );
         self.reads
             .record_indexed_derived(tables_by_id, IndexedFields::by_id(), Interval::all());
@@ -680,17 +680,17 @@ impl<RT: Runtime> Transaction<RT> {
             let table_doc_id = SystemMetadataModel::new(self)
                 .insert(&TABLES_TABLE, metadata.try_into()?)
                 .await?;
-            let table_id = TableId(table_doc_id.internal_id());
+            let tablet_id = TabletId(table_doc_id.internal_id());
 
             let by_id_index = IndexMetadata::new_enabled(
-                GenericIndexName::by_id(table_id),
+                GenericIndexName::by_id(tablet_id),
                 IndexedFields::by_id(),
             );
             SystemMetadataModel::new(self)
                 .insert(&INDEX_TABLE, by_id_index.try_into()?)
                 .await?;
             let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_creation_time(table_id),
+                GenericIndexName::by_creation_time(tablet_id),
                 IndexedFields::creation_time(),
             );
             SystemMetadataModel::new(self)
@@ -758,7 +758,7 @@ impl<RT: Runtime> Transaction<RT> {
         let mut ranges = BTreeMap::new();
         let batch_size = ids.len();
         for (batch_key, (id, table_name)) in ids.iter() {
-            let index_name = TabletIndexName::by_id(id.table().table_id);
+            let index_name = TabletIndexName::by_id(id.table().tablet_id);
             let printable_index_name = IndexName::by_id(table_name.clone());
             let index_key = IndexKey::new(vec![], (*id).into());
             let interval = Interval::prefix(index_key.into_bytes().into());
@@ -887,7 +887,7 @@ impl<RT: Runtime> Transaction<RT> {
 
         *self
             .table_count_deltas
-            .entry(id.table().table_id)
+            .entry(id.table().tablet_id)
             .or_default() += delta;
         Ok(())
     }
@@ -1131,7 +1131,7 @@ impl FinalTransaction {
         let modified_tables: BTreeSet<_> = transaction
             .writes
             .coalesced_writes()
-            .map(|(id, _)| id.table().table_id)
+            .map(|(id, _)| id.table().tablet_id)
             .collect();
         Self::validate_memory_index_size(
             table_mapping,
@@ -1155,7 +1155,7 @@ impl FinalTransaction {
     fn validate_memory_index_size<RT: Runtime>(
         table_mapping: &TableMapping,
         transaction: &Transaction<RT>,
-        modified_tables: &BTreeSet<TableId>,
+        modified_tables: &BTreeSet<TabletId>,
         iterator: impl Iterator<Item = (IndexId, usize)>,
         hard_limit: usize,
         index_type: &'static str,

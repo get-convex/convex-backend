@@ -136,7 +136,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         document: &ResolvedDocument,
         table_mapping_for_schema: &TableMapping,
     ) -> anyhow::Result<()> {
-        let table_name = table_mapping_for_schema.tablet_name(document.table().table_id)?;
+        let table_name = table_mapping_for_schema.tablet_name(document.table().tablet_id)?;
         if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await? {
             if let Err(schema_error) = active_schema.check_new_document(
                 document,

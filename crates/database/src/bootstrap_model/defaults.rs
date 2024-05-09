@@ -23,14 +23,14 @@ use common::{
         TableName,
     },
     value::{
-        TableIdAndTableNumber,
         TableMapping,
+        TabletIdAndTableNumber,
     },
 };
 use maplit::btreemap;
 use value::{
-    TableId,
     TableNumber,
+    TabletId,
 };
 
 use crate::{
@@ -135,8 +135,8 @@ mod test_bootstrap_system_tables {
 /// "authoritative" table mapping.
 #[derive(Clone, Copy)]
 pub struct BootstrapTableIds {
-    pub tables_id: TableIdAndTableNumber,
-    pub index_id: TableIdAndTableNumber,
+    pub tables_id: TabletIdAndTableNumber,
+    pub index_id: TabletIdAndTableNumber,
 }
 
 impl BootstrapTableIds {
@@ -151,19 +151,19 @@ impl BootstrapTableIds {
         }
     }
 
-    pub fn is_index_table(&self, table_id: TableIdAndTableNumber) -> bool {
+    pub fn is_index_table(&self, table_id: TabletIdAndTableNumber) -> bool {
         self.index_id == table_id
     }
 
-    pub fn is_tables_table(&self, table_id: TableIdAndTableNumber) -> bool {
+    pub fn is_tables_table(&self, table_id: TabletIdAndTableNumber) -> bool {
         self.tables_id == table_id
     }
 
-    pub fn is_index_table_id(&self, table_id: TableId) -> bool {
-        self.index_id.table_id == table_id
+    pub fn is_index_tablet_id(&self, tablet_id: TabletId) -> bool {
+        self.index_id.tablet_id == tablet_id
     }
 
-    pub fn is_tables_table_id(&self, table_id: TableId) -> bool {
-        self.tables_id.table_id == table_id
+    pub fn is_tables_tablet_id(&self, tablet_id: TabletId) -> bool {
+        self.tables_id.tablet_id == tablet_id
     }
 }

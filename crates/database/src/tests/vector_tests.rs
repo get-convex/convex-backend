@@ -210,7 +210,7 @@ impl<RT: Runtime> Scenario<RT> {
 
     async fn backfill(&self) -> anyhow::Result<()> {
         let snapshot = self.database.latest_snapshot()?;
-        let table_id = snapshot.table_mapping().id(&TABLE_NAME.parse()?)?.table_id;
+        let table_id = snapshot.table_mapping().id(&TABLE_NAME.parse()?)?.tablet_id;
         VectorIndexFlusher::build_index_in_test(
             TabletIndexName::new(table_id, INDEX_DESCRIPTOR.parse()?)?,
             TABLE_NAME.parse()?,

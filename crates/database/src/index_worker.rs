@@ -70,8 +70,8 @@ use common::{
     },
     value::{
         ResolvedDocumentId,
-        TableId,
         TableMapping,
+        TabletId,
     },
 };
 use futures::{
@@ -163,7 +163,7 @@ impl IndexSelector {
         }
     }
 
-    fn iterate_tables(&self) -> impl Iterator<Item = TableId> {
+    fn iterate_tables(&self) -> impl Iterator<Item = TabletId> {
         match self {
             Self::All(index_registry) => index_registry
                 .all_tables_with_indexes()
@@ -292,7 +292,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             }
             let mut to_backfill = vec![];
             for (id, doc) in &index_documents {
-                let index_metadata: ParsedDocument<IndexMetadata<TableId>> =
+                let index_metadata: ParsedDocument<IndexMetadata<TabletId>> =
                     doc.clone().try_into()?;
                 if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config {
                     if matches!(*on_disk_state, DatabaseIndexState::Backfilling(_)) {
@@ -638,7 +638,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         snapshot_ts: RepeatableTimestamp,
         index_selector: &IndexSelector,
         index_registry: &IndexRegistry,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> anyhow::Result<()> {
         let table_iterator = TableIterator::new(
             self.runtime.clone(),
@@ -649,9 +649,9 @@ impl<RT: Runtime> IndexWriter<RT> {
             None,
         );
 
-        let by_id = index_registry.must_get_by_id(table_id)?.id();
+        let by_id = index_registry.must_get_by_id(tablet_id)?.id();
         let stream = table_iterator
-            .stream_documents_in_table(table_id, by_id, None, &self.rate_limiter)
+            .stream_documents_in_table(tablet_id, by_id, None, &self.rate_limiter)
             .fuse();
         pin_mut!(stream);
         let mut index_updates_written = 0;
@@ -679,14 +679,14 @@ impl<RT: Runtime> IndexWriter<RT> {
             }
             if last_logged.elapsed()? >= Duration::from_secs(60) {
                 tracing::info!(
-                    "backfilled {index_updates_written} index rows for table {table_id} at \
+                    "backfilled {index_updates_written} index rows for table {tablet_id} at \
                      snapshot {snapshot_ts}",
                 );
                 last_logged = self.runtime.system_time();
             }
         }
         tracing::info!(
-            "backfilled {index_updates_written} index rows for table {table_id} at snapshot \
+            "backfilled {index_updates_written} index rows for table {tablet_id} at snapshot \
              {snapshot_ts}"
         );
         Ok(())

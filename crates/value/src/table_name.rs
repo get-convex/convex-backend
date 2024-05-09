@@ -157,9 +157,9 @@ impl From<TableName> for FieldName {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, FromStr, Display, Hash)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct TableId(pub InternalId);
+pub struct TabletId(pub InternalId);
 
-impl HeapSize for TableId {
+impl HeapSize for TabletId {
     fn heap_size(&self) -> usize {
         0
     }
@@ -230,37 +230,37 @@ impl TableNumber {
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct TableIdAndTableNumber {
+pub struct TabletIdAndTableNumber {
     pub table_number: TableNumber,
-    pub table_id: TableId,
+    pub tablet_id: TabletId,
 }
 
-impl TableIdAndTableNumber {
+impl TabletIdAndTableNumber {
     #[cfg(any(test, feature = "testing"))]
-    pub fn new_for_test(table_id: TableId, table_number: TableNumber) -> Self {
-        TableIdAndTableNumber {
-            table_id,
+    pub fn new_for_test(tablet_id: TabletId, table_number: TableNumber) -> Self {
+        TabletIdAndTableNumber {
+            tablet_id,
             table_number,
         }
     }
 }
 
-impl HeapSize for TableIdAndTableNumber {
+impl HeapSize for TabletIdAndTableNumber {
     fn heap_size(&self) -> usize {
         0
     }
 }
 
-impl Display for TableIdAndTableNumber {
+impl Display for TabletIdAndTableNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.table_number, f)
     }
 }
 
-impl TableIdentifier for TableIdAndTableNumber {
+impl TableIdentifier for TabletIdAndTableNumber {
     fn min() -> Self {
         Self {
-            table_id: <TableId as TableIdentifier>::min(),
+            tablet_id: <TabletId as TableIdentifier>::min(),
             table_number: <TableNumber as TableIdentifier>::min(),
         }
     }
@@ -333,9 +333,9 @@ impl<T: TableIdentifier> Size for T {
     }
 }
 
-impl TableIdentifier for TableId {
+impl TableIdentifier for TabletId {
     fn min() -> Self {
-        TableId(InternalId::MIN)
+        TabletId(InternalId::MIN)
     }
 
     fn write_sorted<W: Write>(&self, writer: &mut W) -> io::Result<()> {
@@ -384,10 +384,10 @@ impl TableIdentifier for TableName {
 mod tests {
     use super::{
         InternalId,
-        TableId,
-        TableIdAndTableNumber,
         TableName,
         TableNumber,
+        TabletId,
+        TabletIdAndTableNumber,
     };
 
     #[test]
@@ -414,22 +414,22 @@ mod tests {
     }
 
     #[test]
-    fn test_table_id_and_table_number_cmp() {
-        let id1 = TableIdAndTableNumber {
+    fn test_tablet_id_and_table_number_cmp() {
+        let id1 = TabletIdAndTableNumber {
             table_number: TableNumber(1),
-            table_id: TableId(InternalId::MIN),
+            tablet_id: TabletId(InternalId::MIN),
         };
-        let id2 = TableIdAndTableNumber {
+        let id2 = TabletIdAndTableNumber {
             table_number: TableNumber(1),
-            table_id: TableId(InternalId::MAX),
+            tablet_id: TabletId(InternalId::MAX),
         };
-        let id3 = TableIdAndTableNumber {
+        let id3 = TabletIdAndTableNumber {
             table_number: TableNumber(2),
-            table_id: TableId(InternalId::MIN),
+            tablet_id: TabletId(InternalId::MIN),
         };
-        let id4 = TableIdAndTableNumber {
+        let id4 = TabletIdAndTableNumber {
             table_number: TableNumber(2),
-            table_id: TableId(InternalId::MAX),
+            tablet_id: TabletId(InternalId::MAX),
         };
         // Not equal despite same table number.
         assert_ne!(id1, id2);

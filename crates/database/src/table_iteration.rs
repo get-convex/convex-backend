@@ -54,7 +54,7 @@ use futures_async_stream::try_stream;
 use value::{
     InternalDocumentId,
     InternalId,
-    TableId,
+    TabletId,
 };
 
 /// A cursor for use while scanning a table by ID.
@@ -125,13 +125,13 @@ impl<RT: Runtime> TableIterator<RT> {
     #[try_stream(ok = (ResolvedDocument, Timestamp), error = anyhow::Error)]
     pub async fn stream_documents_in_table(
         self,
-        table_id: TableId,
+        tablet_id: TabletId,
         by_id: IndexId,
         cursor: Option<ResolvedDocumentId>,
         rate_limiter: &RateLimiter<RT>,
     ) {
         let stream = self.stream_documents_in_table_by_index(
-            table_id,
+            tablet_id,
             by_id,
             IndexedFields::by_id(),
             cursor.map(|id| CursorPosition::After(IndexKey::new(vec![], id.into()).into_bytes())),
@@ -161,7 +161,7 @@ impl<RT: Runtime> TableIterator<RT> {
     #[try_stream(ok = (IndexKeyBytes, Timestamp, ResolvedDocument), error = anyhow::Error)]
     pub async fn stream_documents_in_table_by_index(
         mut self,
-        table_id: TableId,
+        tablet_id: TabletId,
         index_id: IndexId,
         indexed_fields: IndexedFields,
         cursor: Option<CursorPosition>,
@@ -188,7 +188,7 @@ impl<RT: Runtime> TableIterator<RT> {
                 self.runtime.wait(delay).await;
             }
             let page_start = cursor.index_key.clone();
-            let (page, new_end_ts) = self.fetch_page(index_id, table_id, &mut cursor).await?;
+            let (page, new_end_ts) = self.fetch_page(index_id, tablet_id, &mut cursor).await?;
             anyhow::ensure!(*new_end_ts >= end_ts);
             let page_end = cursor
                 .index_key
@@ -208,7 +208,7 @@ impl<RT: Runtime> TableIterator<RT> {
             // These documents are returned with index keys and revisions as
             // they existed at snapshot_ts.
             self.fetch_skipped_keys(
-                table_id,
+                tablet_id,
                 &indexed_fields,
                 page_start.as_ref(),
                 *end_ts,
@@ -282,7 +282,7 @@ impl<RT: Runtime> TableIterator<RT> {
     /// range.
     async fn fetch_skipped_keys(
         &self,
-        table_id: TableId,
+        tablet_id: TabletId,
         indexed_fields: &IndexedFields,
         lower_bound: Option<&CursorPosition>,
         start_ts: Timestamp,
@@ -292,7 +292,7 @@ impl<RT: Runtime> TableIterator<RT> {
     ) -> anyhow::Result<()> {
         let reader = self.persistence.clone();
         let persistence_version = reader.version();
-        let skipped_revs = self.walk_document_log(table_id, start_ts, end_ts, rate_limiter);
+        let skipped_revs = self.walk_document_log(tablet_id, start_ts, end_ts, rate_limiter);
         let revisions_at_snapshot = self.load_revisions_at_snapshot_ts(skipped_revs);
         pin_mut!(revisions_at_snapshot);
         while let Some((doc, ts)) = revisions_at_snapshot.try_next().await? {
@@ -309,7 +309,7 @@ impl<RT: Runtime> TableIterator<RT> {
     #[try_stream(ok = InternalDocumentId, error = anyhow::Error)]
     async fn walk_document_log<'a>(
         &'a self,
-        table_id: TableId,
+        tablet_id: TabletId,
         start_ts: Timestamp,
         end_ts: RepeatableTimestamp,
         rate_limiter: &'a RateLimiter<RT>,
@@ -327,7 +327,7 @@ impl<RT: Runtime> TableIterator<RT> {
                 self.runtime.wait(delay).await;
             }
             for (_, id, _) in chunk {
-                if *id.table() == table_id {
+                if *id.table() == tablet_id {
                     yield id;
                 }
             }
@@ -361,7 +361,7 @@ impl<RT: Runtime> TableIterator<RT> {
     async fn fetch_page(
         &self,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
         cursor: &mut TableScanCursor,
     ) -> anyhow::Result<(
         Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
@@ -376,7 +376,7 @@ impl<RT: Runtime> TableIterator<RT> {
         let reader = repeatable_persistence.read_snapshot(ts)?;
         let stream = reader.index_scan(
             index_id,
-            table_id,
+            tablet_id,
             &cursor.interval(),
             Order::Asc,
             self.page_size,
@@ -655,11 +655,11 @@ mod tests {
                 .unwrap();
             database.commit(tx).await?;
             let iterator = database.table_iterator(database.now_ts_for_reads(), 2, None);
-            let table_id = table_mapping.id(&table_name)?.table_id;
+            let tablet_id = table_mapping.id(&table_name)?.tablet_id;
             let rate_limiter =
                 new_rate_limiter(runtime, Quota::per_second(NonZeroU32::new(1000).unwrap()));
             let revision_stream = iterator.stream_documents_in_table(
-                table_id,
+                tablet_id,
                 by_id_metadata.id().internal_id(),
                 None,
                 &rate_limiter,
@@ -707,9 +707,9 @@ mod tests {
         let iterator = database.table_iterator(snapshot_ts, 2, Some(pause_client));
         let rate_limiter =
             new_rate_limiter(runtime, Quota::per_second(NonZeroU32::new(1000).unwrap()));
-        let table_id = table_mapping.id(&table_name)?.table_id;
+        let tablet_id = table_mapping.id(&table_name)?.tablet_id;
         let revision_stream = iterator.stream_documents_in_table(
-            table_id,
+            tablet_id,
             by_id_metadata.id().internal_id(),
             None,
             &rate_limiter,
@@ -861,10 +861,10 @@ mod tests {
             rt.clone(),
             Quota::per_second(NonZeroU32::new(1000).unwrap()),
         );
-        let table_id = table_mapping.id(&table_name)?.table_id;
+        let tablet_id = table_mapping.id(&table_name)?.tablet_id;
         let revisions: Vec<_> = iterator
             .stream_documents_in_table_by_index(
-                table_id,
+                tablet_id,
                 by_k_id,
                 index_fields,
                 None,

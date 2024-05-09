@@ -49,8 +49,8 @@ use common::{
     value::{
         ConvexValue,
         InternalDocumentId,
-        TableId,
         TableIdentifier,
+        TabletId,
     },
 };
 use futures::{
@@ -124,7 +124,7 @@ impl SqlitePersistence {
     fn _index_scan_inner(
         &self,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
         read_timestamp: Timestamp,
         interval: &Interval,
         order: Order,
@@ -196,14 +196,14 @@ ORDER BY B.key {order}
             let table = table.ok_or_else(|| {
                 anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
             })?;
-            let table = TableId(table.try_into()?);
+            let table = TabletId(table.try_into()?);
             let _document_id = table.id(InternalId::try_from(document_id)?);
             let json_value = json_value.ok_or_else(|| {
                 anyhow::anyhow!("Index reference to deleted document {:?} {:?}", key, ts)
             })?;
             let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
             let value: ConvexValue = json_value.try_into()?;
-            let document = ResolvedDocument::from_database(table_id, value)?;
+            let document = ResolvedDocument::from_database(tablet_id, value)?;
             triples.push(Ok((key, ts, document)));
         }
         Ok(triples)
@@ -300,7 +300,7 @@ impl Persistence for SqlitePersistence {
                         &u64::from(ts),
                         key,
                         &0,
-                        &doc_id.table().table_id.0[..],
+                        &doc_id.table().tablet_id.0[..],
                         &doc_id.internal_id()[..],
                     ])?;
                 },
@@ -407,11 +407,13 @@ impl Persistence for SqlitePersistence {
         let mut count_deleted = 0;
 
         for (ts, internal_id) in documents {
-            let table_id: &TableId = internal_id.table();
+            let tablet_id: &TabletId = internal_id.table();
             let id = internal_id.internal_id();
-            count_deleted +=
-                delete_document_query
-                    .execute(params![&table_id.0[..], &id[..], &u64::from(ts),])?;
+            count_deleted += delete_document_query.execute(params![
+                &tablet_id.0[..],
+                &id[..],
+                &u64::from(ts),
+            ])?;
         }
         drop(delete_document_query);
         tx.commit()?;
@@ -438,7 +440,7 @@ impl PersistenceReader for SqlitePersistence {
                 let (id, ts, table, json_value, deleted) = row?;
                 let id = InternalId::try_from(id)?;
                 let ts = Timestamp::try_from(ts)?;
-                let table = TableId(table.try_into()?);
+                let table = TabletId(table.try_into()?);
                 let document_id = table.id(id);
                 let document = if !deleted {
                     let json_value = json_value.ok_or_else(|| {
@@ -484,7 +486,7 @@ impl PersistenceReader for SqlitePersistence {
                 if let Some(row) = row_iter.next() {
                     let (id, prev_ts, table, json_value, deleted) = row?;
                     let id = InternalId::try_from(id)?;
-                    let table = TableId(table.try_into()?);
+                    let table = TabletId(table.try_into()?);
                     let prev_ts = Timestamp::try_from(prev_ts)?;
                     let document_id = table.id(id);
                     let document = if !deleted {
@@ -512,14 +514,14 @@ impl PersistenceReader for SqlitePersistence {
     fn index_scan(
         &self,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
         read_timestamp: Timestamp,
         interval: &Interval,
         order: Order,
         _size_hint: usize,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> IndexStream<'_> {
-        let triples = self._index_scan_inner(index_id, table_id, read_timestamp, interval, order);
+        let triples = self._index_scan_inner(index_id, tablet_id, read_timestamp, interval, order);
         // index_scan isn't async so we have to validate snapshot as part of the stream.
         let validate = self.validate_snapshot(read_timestamp, retention_validator);
         match triples {

@@ -9,10 +9,10 @@ use value::{
     codegen_convex_serialization,
     ConvexValue,
     FieldPath,
-    TableId,
-    TableIdAndTableNumber,
     TableIdentifier,
     TableName,
+    TabletId,
+    TabletIdAndTableNumber,
 };
 
 use super::{
@@ -46,8 +46,8 @@ use crate::{
     },
 };
 
-pub type ResolvedIndexMetadata = IndexMetadata<TableIdAndTableNumber>;
-pub type TabletIndexMetadata = IndexMetadata<TableId>;
+pub type ResolvedIndexMetadata = IndexMetadata<TabletIdAndTableNumber>;
+pub type TabletIndexMetadata = IndexMetadata<TabletId>;
 pub type DeveloperIndexMetadata = IndexMetadata<TableName>;
 
 /// In-memory representation of an index's metadata.
@@ -175,7 +175,7 @@ impl From<ResolvedIndexMetadata> for TabletIndexMetadata {
 
 impl ResolvedIndexMetadata {
     pub fn from_document(
-        f: impl Fn(TableId) -> anyhow::Result<TableIdAndTableNumber>,
+        f: impl Fn(TabletId) -> anyhow::Result<TabletIdAndTableNumber>,
         document: ResolvedDocument,
     ) -> anyhow::Result<ParsedDocument<Self>> {
         let index_metadata_: ParsedDocument<TabletIndexMetadata> = document.try_into()?;
@@ -190,8 +190,8 @@ impl TabletIndexMetadata {
     }
 }
 
-pub fn index_metadata_serialize_table_id(table_id: &TableId) -> anyhow::Result<ConvexValue> {
-    ConvexValue::try_from(table_id.to_string())
+pub fn index_metadata_serialize_tablet_id(tablet_id: &TabletId) -> anyhow::Result<ConvexValue> {
+    ConvexValue::try_from(tablet_id.to_string())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -218,7 +218,7 @@ impl TryFrom<SerializedTabletIndexMetadata> for TabletIndexMetadata {
     type Error = anyhow::Error;
 
     fn try_from(s: SerializedTabletIndexMetadata) -> anyhow::Result<Self> {
-        let table_id: TableId = s.table_id.parse()?;
+        let table_id: TabletId = s.table_id.parse()?;
         let descriptor: IndexDescriptor = s.descriptor.parse()?;
         let name = if descriptor.is_reserved() {
             GenericIndexName::new_reserved(table_id, descriptor)

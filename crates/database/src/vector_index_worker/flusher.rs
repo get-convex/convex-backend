@@ -701,7 +701,7 @@ mod tests {
         assert_val,
         ConvexValue,
         GenericDocumentId,
-        TableIdAndTableNumber,
+        TabletIdAndTableNumber,
     };
     use vector::{
         PublicVectorSearchQueryResult,
@@ -1242,8 +1242,8 @@ mod tests {
     async fn verify_segment_state(
         fixtures: &VectorFixtures,
         segment: &FragmentedVectorSegment,
-        expected_deletes: Vec<GenericDocumentId<TableIdAndTableNumber>>,
-        expected_non_deleted: Vec<GenericDocumentId<TableIdAndTableNumber>>,
+        expected_deletes: Vec<GenericDocumentId<TabletIdAndTableNumber>>,
+        expected_non_deleted: Vec<GenericDocumentId<TabletIdAndTableNumber>>,
     ) -> anyhow::Result<()> {
         assert_eq!(segment.num_deleted as usize, expected_deletes.len());
         assert_eq!(

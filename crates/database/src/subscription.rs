@@ -339,7 +339,7 @@ impl SubscriptionManager {
         persistence_version: PersistenceVersion,
     ) {
         for (index, (fields, range_map)) in &self.subscriptions.indexed {
-            if *index.table() == document.table().table_id {
+            if *index.table() == document.table().tablet_id {
                 let index_key = document.index_key(fields, persistence_version);
                 for subscriber_id in range_map.query(index_key.into_bytes()) {
                     to_notify.insert(subscriber_id);
@@ -541,9 +541,9 @@ mod tests {
         FieldPath,
         GenericDocumentId,
         ResolvedDocumentId,
-        TableId,
-        TableIdAndTableNumber,
         TableNumber,
+        TabletId,
+        TabletIdAndTableNumber,
     };
 
     use crate::{
@@ -675,13 +675,13 @@ mod tests {
                 // All we need is the table id of the index to match the table id of the doc.
                 let internal_id = id_generator.generate_internal();
                 let id = GenericDocumentId::new(
-                    TableIdAndTableNumber::new_for_test(
+                    TabletIdAndTableNumber::new_for_test(
                         *index_name.table(),
                         TableNumber::try_from(1).unwrap(),
                     ),
                     internal_id,
                 );
-                assert_eq!(*index_name.table(), id.table().table_id);
+                assert_eq!(*index_name.table(), id.table().tablet_id);
 
                 let document = pack(create_document(
                     query.field_path.clone(),
@@ -691,7 +691,7 @@ mod tests {
                     },
                     id,
                 ));
-                assert_eq!(*index_name.table(), document.table().table_id);
+                assert_eq!(*index_name.table(), document.table().tablet_id);
                 result.push(document)
             }
         }
@@ -731,11 +731,11 @@ mod tests {
     }
 
     fn create_search_token(
-        table_id: TableIdAndTableNumber,
+        table_id: TabletIdAndTableNumber,
         terms: Vec<TextQueryTerm>,
     ) -> anyhow::Result<Token> {
-        let index_name: GenericIndexName<TableId> = GenericIndexName::new(
-            table_id.table_id,
+        let index_name: GenericIndexName<TabletId> = GenericIndexName::new(
+            table_id.tablet_id,
             IndexDescriptor::from_str("index").unwrap(),
         )?;
         let field_path = FieldPath::from_str("path")?;

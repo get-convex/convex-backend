@@ -39,15 +39,15 @@ use common::{
         TabletIndexName,
     },
     value::{
-        TableIdAndTableNumber,
         TableIdentifier,
+        TabletIdAndTableNumber,
     },
 };
 use errors::ErrorMetadata;
 use value::{
     FieldPath,
-    TableId,
     TableNumber,
+    TabletId,
 };
 
 use crate::{
@@ -114,11 +114,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     /// Returns the number of documents in the table, up-to-date with the
     /// current transaction.
     pub async fn count(&mut self, table: &TableName) -> anyhow::Result<u64> {
-        let count = if let Some(table_id) = self.tx.table_mapping().id_if_exists(table) {
+        let count = if let Some(tablet_id) = self.tx.table_mapping().id_if_exists(table) {
             // Get table count at the beginning of the transaction, then add the delta from
             // the transaction so far.
-            let snapshot_count = self.tx.count_snapshot.count(table_id).await?;
-            let transaction_delta = self.tx.table_count_deltas.get(&table_id).unwrap_or(&0);
+            let snapshot_count = self.tx.count_snapshot.count(tablet_id).await?;
+            let transaction_delta = self.tx.table_count_deltas.get(&tablet_id).unwrap_or(&0);
             if *transaction_delta < 0 {
                 snapshot_count
                     .checked_sub(transaction_delta.unsigned_abs())
@@ -137,7 +137,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         if self.table_exists(table) {
             let table_id = self.tx.table_mapping().id(table)?;
             self.tx.reads.record_indexed_directly(
-                TabletIndexName::by_id(table_id.table_id),
+                TabletIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
                 Interval::all(),
             )?;
@@ -170,25 +170,25 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .await?;
 
         let table_id_and_number = self.tx.table_mapping().id(&table_name)?;
-        self.delete_table_by_id(table_id_and_number.table_id).await
+        self.delete_table_by_id(table_id_and_number.tablet_id).await
     }
 
-    pub async fn delete_hidden_table(&mut self, table_id: TableId) -> anyhow::Result<()> {
-        let table_metadata = self.get_table_metadata(table_id).await?;
+    pub async fn delete_hidden_table(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
+        let table_metadata = self.get_table_metadata(tablet_id).await?;
         // We don't need to validate hidden table with the schema.
         anyhow::ensure!(table_metadata.state == TableState::Hidden);
-        self.delete_table_by_id(table_id).await
+        self.delete_table_by_id(tablet_id).await
     }
 
-    async fn delete_table_by_id(&mut self, table_id: TableId) -> anyhow::Result<()> {
+    async fn delete_table_by_id(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
         for index in IndexModel::new(self.tx)
-            .all_indexes_on_table(table_id)
+            .all_indexes_on_table(tablet_id)
             .await?
         {
             let index_id = index.id();
             SystemMetadataModel::new(self.tx).delete(index_id).await?;
         }
-        let table_metadata = self.get_table_metadata(table_id).await?;
+        let table_metadata = self.get_table_metadata(tablet_id).await?;
         let table_doc_id = table_metadata.id();
         let table_metadata = table_metadata.into_value();
         let updated_table_metadata = TableMetadata {
@@ -204,13 +204,13 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
     async fn get_table_metadata(
         &mut self,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> anyhow::Result<ParsedDocument<TableMetadata>> {
-        let table_doc_id = self.tx.bootstrap_tables().tables_id.id(table_id.0);
+        let table_doc_id = self.tx.bootstrap_tables().tables_id.id(tablet_id.0);
         self.tx
             .get(table_doc_id)
             .await?
-            .context(format!("Couldn't find table metadata for {table_id}"))?
+            .context(format!("Couldn't find table metadata for {tablet_id}"))?
             .try_into()
     }
 
@@ -317,7 +317,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
     pub async fn activate_table(
         &mut self,
-        tablet_id: TableId,
+        tablet_id: TabletId,
         table_name: &TableName,
         table_number: TableNumber,
         tables_in_import: &BTreeSet<TableName>,
@@ -333,7 +333,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         if self.table_exists(table_name) {
             let existing_table_by_name = self.tx.table_mapping().id(table_name)?;
             documents_deleted += self.count(table_name).await?;
-            self.delete_table_by_id(existing_table_by_name.table_id)
+            self.delete_table_by_id(existing_table_by_name.tablet_id)
                 .await?;
         }
         let table_metadata =
@@ -364,7 +364,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         table: &TableName,
         table_number: Option<TableNumber>,
         tables_in_import: &BTreeSet<TableName>,
-    ) -> anyhow::Result<TableIdAndTableNumber> {
+    ) -> anyhow::Result<TabletIdAndTableNumber> {
         anyhow::ensure!(
             bootstrap_system_tables()
                 .iter()
@@ -387,7 +387,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         table: &TableName,
         table_number: Option<TableNumber>,
         state: TableState,
-    ) -> anyhow::Result<TableIdAndTableNumber> {
+    ) -> anyhow::Result<TabletIdAndTableNumber> {
         if state == TableState::Active && self.table_exists(table) {
             let table_id = self.tx.table_mapping().id(table)?;
             anyhow::ensure!(table_number.is_none() || table_number == Some(table_id.table_number));
@@ -414,22 +414,22 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             let table_doc_id = SystemMetadataModel::new(self.tx)
                 .insert_metadata(&TABLES_TABLE, table_metadata.try_into()?)
                 .await?;
-            let table_id = TableIdAndTableNumber {
-                table_id: TableId(table_doc_id.internal_id()),
+            let table_id = TabletIdAndTableNumber {
+                tablet_id: TabletId(table_doc_id.internal_id()),
                 table_number,
             };
 
             // Add the system defined indexes for the newly created table. Since the newly
             // created table is empty, we can start these indexes as `Enabled`.
             let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_id(table_id.table_id),
+                GenericIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
             );
             SystemMetadataModel::new(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
             let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_creation_time(table_id.table_id),
+                GenericIndexName::by_creation_time(table_id.tablet_id),
                 IndexedFields::creation_time(),
             );
             SystemMetadataModel::new(self.tx)

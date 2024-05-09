@@ -116,8 +116,8 @@ use usage_tracking::{
 use value::{
     export::ValueFormat,
     id_v6::DeveloperDocumentId,
-    TableId,
     TableNumber,
+    TabletId,
     VirtualTableMapping,
 };
 
@@ -326,13 +326,13 @@ impl<RT: Runtime> ExportWorker<RT> {
             let tables: BTreeMap<_, _> = snapshot
                 .table_registry
                 .iter_active_user_tables()
-                .map(|(table_id, table_number, table_name)| {
+                .map(|(tablet_id, table_number, table_name)| {
                     (
-                        table_id,
+                        tablet_id,
                         (
                             table_number,
                             table_name.clone(),
-                            snapshot.table_summaries.tablet_summary(&table_id),
+                            snapshot.table_summaries.tablet_summary(&tablet_id),
                         ),
                     )
                 })
@@ -351,7 +351,8 @@ impl<RT: Runtime> ExportWorker<RT> {
                 virtual_tables,
             )
         };
-        let table_ids: BTreeSet<TableId> = tables.iter().map(|(table_id, ..)| *table_id).collect();
+        let tablet_ids: BTreeSet<TabletId> =
+            tables.iter().map(|(tablet_id, ..)| *tablet_id).collect();
 
         match format {
             ExportFormat::Zip { include_storage } => {
@@ -386,28 +387,28 @@ impl<RT: Runtime> ExportWorker<RT> {
                     .try_collect()
                     .await?;
 
-                for table_id in table_ids.iter() {
+                for tablet_id in tablet_ids.iter() {
                     let by_id = by_id_indexes
-                        .get(table_id)
-                        .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", table_id))?;
+                        .get(tablet_id)
+                        .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
                     let table_iterator = self.database.table_iterator(ts, 1000, None);
                     let stream = table_iterator.stream_documents_in_table(
-                        *table_id,
+                        *tablet_id,
                         *by_id,
                         None,
                         &rate_limiter,
                     );
                     pin_mut!(stream);
 
-                    let (table_id, mut table_upload) = table_uploads
-                        .remove_entry(table_id)
-                        .ok_or_else(|| anyhow::anyhow!("No table with id {} found", table_id))?;
+                    let (tablet_id, mut table_upload) = table_uploads
+                        .remove_entry(tablet_id)
+                        .ok_or_else(|| anyhow::anyhow!("No table with id {} found", tablet_id))?;
 
                     // Write documents from stream to table uploads
                     while let Some((doc, _ts)) = stream.try_next().await? {
                         table_upload = table_upload.write(doc).await?;
                     }
-                    table_uploads.insert(table_id, table_upload);
+                    table_uploads.insert(tablet_id, table_upload);
                 }
 
                 let tables_ = &tables;
@@ -415,10 +416,10 @@ impl<RT: Runtime> ExportWorker<RT> {
                 let complete_upload_futs =
                     table_uploads
                         .into_iter()
-                        .map(|(table_id, upload)| async move {
+                        .map(|(tablet_id, upload)| async move {
                             anyhow::Ok((
                                 tables_
-                                    .get(&table_id)
+                                    .get(&tablet_id)
                                     .expect("export table id missing")
                                     .1
                                     .clone(),
@@ -431,7 +432,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     .await?;
                 tracing::info!(
                     "Export succeeded! {} snapshots written to storage. Format: {format:?}",
-                    table_ids.len()
+                    tablet_ids.len()
                 );
                 Ok((
                     *ts,
@@ -445,10 +446,10 @@ impl<RT: Runtime> ExportWorker<RT> {
     async fn construct_zip_snapshot(
         &self,
         mut writer: ChannelWriter,
-        mut tables: BTreeMap<TableId, (TableNumber, TableName, TableSummary)>,
+        mut tables: BTreeMap<TabletId, (TableNumber, TableName, TableSummary)>,
         snapshot_ts: RepeatableTimestamp,
-        by_id_indexes: BTreeMap<TableId, IndexId>,
-        system_tables: BTreeMap<TableName, TableId>,
+        by_id_indexes: BTreeMap<TabletId, IndexId>,
+        system_tables: BTreeMap<TableName, TabletId>,
         virtual_tables: VirtualTableMapping,
         include_storage: bool,
         usage: FunctionUsageTracker,
@@ -456,7 +457,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         let mut zip_snapshot_upload = ZipSnapshotUpload::new(&mut writer).await?;
         let rate_limiter =
             new_rate_limiter(self.runtime.clone(), Quota::per_second(1000.try_into()?));
-        let table_ids: BTreeSet<_> = tables.keys().cloned().collect();
+        let tablet_ids: BTreeSet<_> = tables.keys().cloned().collect();
 
         {
             // _tables
@@ -484,13 +485,13 @@ impl<RT: Runtime> ExportWorker<RT> {
 
         if include_storage {
             // _storage
-            let table_id = system_tables
+            let tablet_id = system_tables
                 .get(&FILE_STORAGE_TABLE)
                 .context("_file_storage does not exist")?;
             let by_id = by_id_indexes
-                .get(table_id)
+                .get(tablet_id)
                 .context("_file_storage.by_id does not exist")?;
-            let virtual_table_id = virtual_tables.number(&FILE_STORAGE_VIRTUAL_TABLE)?;
+            let virtual_table_number = virtual_tables.number(&FILE_STORAGE_VIRTUAL_TABLE)?;
 
             // First write metadata to _storage/documents.jsonl
             let mut table_upload = zip_snapshot_upload
@@ -498,12 +499,12 @@ impl<RT: Runtime> ExportWorker<RT> {
                 .await?;
             let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
             let stream =
-                table_iterator.stream_documents_in_table(*table_id, *by_id, None, &rate_limiter);
+                table_iterator.stream_documents_in_table(*tablet_id, *by_id, None, &rate_limiter);
             pin_mut!(stream);
             while let Some((doc, _ts)) = stream.try_next().await? {
                 let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
                 let virtual_storage_id = DeveloperDocumentId::new(
-                    virtual_table_id,
+                    virtual_table_number,
                     file_storage_entry.id().internal_id(),
                 );
                 let creation_time = f64::from(
@@ -526,12 +527,12 @@ impl<RT: Runtime> ExportWorker<RT> {
 
             let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
             let stream =
-                table_iterator.stream_documents_in_table(*table_id, *by_id, None, &rate_limiter);
+                table_iterator.stream_documents_in_table(*tablet_id, *by_id, None, &rate_limiter);
             pin_mut!(stream);
             while let Some((doc, _ts)) = stream.try_next().await? {
                 let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
                 let virtual_storage_id = DeveloperDocumentId::new(
-                    virtual_table_id,
+                    virtual_table_number,
                     file_storage_entry.id().internal_id(),
                 );
                 // Add an extension, which isn't necessary for anything and might be incorrect,
@@ -567,18 +568,18 @@ impl<RT: Runtime> ExportWorker<RT> {
             }
         }
 
-        for table_id in table_ids.iter() {
+        for tablet_id in tablet_ids.iter() {
             let (_, table_name, table_summary) =
-                tables.remove(table_id).expect("table should have details");
+                tables.remove(tablet_id).expect("table should have details");
             let by_id = by_id_indexes
-                .get(table_id)
-                .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", table_id))?;
+                .get(tablet_id)
+                .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
 
             let mut generated_schema = GeneratedSchema::new(table_summary.inferred_type().into());
             if ExportContext::is_ambiguous(table_summary.inferred_type()) {
                 let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
                 let stream = table_iterator.stream_documents_in_table(
-                    *table_id,
+                    *tablet_id,
                     *by_id,
                     None,
                     &rate_limiter,
@@ -595,7 +596,7 @@ impl<RT: Runtime> ExportWorker<RT> {
 
             let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
             let stream =
-                table_iterator.stream_documents_in_table(*table_id, *by_id, None, &rate_limiter);
+                table_iterator.stream_documents_in_table(*tablet_id, *by_id, None, &rate_limiter);
             pin_mut!(stream);
 
             // Write documents from stream to table uploads
@@ -988,7 +989,7 @@ mod tests {
                 },
             };
             let doc = UserFacingModel::new(&mut tx).get(id, None).await?.unwrap();
-            let tablet_id = tx.table_mapping().inject_table_id()(doc.table())?.table_id;
+            let tablet_id = tx.table_mapping().inject_table_id()(doc.table())?.tablet_id;
             let doc = doc.to_resolved(tablet_id);
             let id_v6 = doc.developer_id().encode();
             expected_export_entries.insert(

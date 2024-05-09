@@ -14,7 +14,7 @@ pub use self::{
     developer_index_config::DeveloperIndexConfig,
     index_config::IndexConfig,
     index_metadata::{
-        index_metadata_serialize_table_id,
+        index_metadata_serialize_tablet_id,
         DeveloperIndexMetadata,
         IndexMetadata,
         ResolvedIndexMetadata,

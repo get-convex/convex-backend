@@ -203,7 +203,7 @@ impl Scenario {
 
     async fn backfill(&mut self) -> anyhow::Result<()> {
         let snapshot = self.database.latest_snapshot()?;
-        let table_id = snapshot.table_mapping().id(&"test".parse()?)?.table_id;
+        let table_id = snapshot.table_mapping().id(&"test".parse()?)?.tablet_id;
         SearchIndexFlusher::build_index_in_test(
             TabletIndexName::new(table_id, "by_text".parse()?)?,
             "test".parse()?,

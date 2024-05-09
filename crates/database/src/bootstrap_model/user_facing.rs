@@ -141,7 +141,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                         continue;
                     }
                     let id_ = id.map_table(self.tx.table_mapping().inject_table_id())?;
-                    let table_name = self.tx.table_mapping().tablet_name(id_.table().table_id)?;
+                    let table_name = self.tx.table_mapping().tablet_name(id_.table().tablet_id)?;
                     ids_to_fetch.insert(batch_key, (id_, table_name));
                 }
             };

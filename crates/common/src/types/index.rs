@@ -15,11 +15,11 @@ use value::{
     FieldName,
     InternalId,
     ResolvedDocumentId,
-    TableId,
-    TableIdAndTableNumber,
     TableIdentifier,
     TableMapping,
     TableName,
+    TabletId,
+    TabletIdAndTableNumber,
     VirtualTableMapping,
 };
 
@@ -110,8 +110,8 @@ pub struct GenericIndexName<T: TableIdentifier> {
 
 pub type IndexName = GenericIndexName<TableName>;
 
-pub type ResolvedIndexName = GenericIndexName<TableIdAndTableNumber>;
-pub type TabletIndexName = GenericIndexName<TableId>;
+pub type ResolvedIndexName = GenericIndexName<TabletIdAndTableNumber>;
+pub type TabletIndexName = GenericIndexName<TabletId>;
 
 /// Like TabletIndexName in that it refers to a stable underlying index,
 /// but it works for virtual tables too.
@@ -299,10 +299,10 @@ impl<T: TableIdentifier> GenericIndexName<T> {
     }
 }
 
-impl From<ResolvedIndexName> for GenericIndexName<TableId> {
+impl From<ResolvedIndexName> for GenericIndexName<TabletId> {
     fn from(value: ResolvedIndexName) -> Self {
         GenericIndexName {
-            table: value.table.table_id,
+            table: value.table.tablet_id,
             descriptor: value.descriptor().clone(),
         }
     }
@@ -319,7 +319,7 @@ impl IndexName {
 
     pub fn to_resolved(
         self,
-        f: impl Fn(TableName) -> anyhow::Result<TableIdAndTableNumber>,
+        f: impl Fn(TableName) -> anyhow::Result<TabletIdAndTableNumber>,
     ) -> anyhow::Result<ResolvedIndexName> {
         Ok(GenericIndexName {
             table: f(self.table)?,
@@ -373,7 +373,7 @@ impl DatabaseIndexValue {
 
 mod protobuf {
     use pb::convex_token::ResolvedIndexName as IndexNameProto;
-    use value::TableId;
+    use value::TabletId;
 
     use super::{
         GenericIndexName,
@@ -382,8 +382,8 @@ mod protobuf {
         INDEX_BY_ID_DESCRIPTOR,
     };
 
-    impl From<GenericIndexName<TableId>> for IndexNameProto {
-        fn from(n: GenericIndexName<TableId>) -> Self {
+    impl From<GenericIndexName<TabletId>> for IndexNameProto {
+        fn from(n: GenericIndexName<TabletId>) -> Self {
             IndexNameProto {
                 table_id: n.table().to_string(),
                 index_descriptor: n.descriptor().clone().into(),
@@ -391,7 +391,7 @@ mod protobuf {
         }
     }
 
-    impl TryFrom<IndexNameProto> for GenericIndexName<TableId> {
+    impl TryFrom<IndexNameProto> for GenericIndexName<TabletId> {
         type Error = anyhow::Error;
 
         fn try_from(value: IndexNameProto) -> Result<Self, Self::Error> {
@@ -413,7 +413,7 @@ mod tests {
     use pb::convex_token::ResolvedIndexName as IndexNameProto;
     use proptest::prelude::*;
     use sync_types::testing::assert_roundtrips;
-    use value::TableId;
+    use value::TabletId;
 
     use crate::types::GenericIndexName;
 
@@ -423,8 +423,8 @@ mod tests {
         )]
 
         #[test]
-        fn test_index_name_roundtrips(index_name in any::<GenericIndexName<TableId>>()) {
-            assert_roundtrips::<GenericIndexName<TableId>, IndexNameProto>(index_name);
+        fn test_index_name_roundtrips(index_name in any::<GenericIndexName<TabletId>>()) {
+            assert_roundtrips::<GenericIndexName<TabletId>, IndexNameProto>(index_name);
         }
     }
 

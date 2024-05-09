@@ -27,8 +27,8 @@ use value::{
     ConvexValue,
     InternalDocumentId,
     ResolvedDocumentId,
-    TableId,
     TableMapping,
+    TabletId,
 };
 
 use crate::{
@@ -260,7 +260,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
 
     test_load_documents_from_table(
         &p,
-        doc1.table().table_id,
+        doc1.table().tablet_id,
         TimestampRange::all(),
         Order::Asc,
         vec![
@@ -276,7 +276,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
 
     test_load_documents_from_table(
         &p,
-        doc2.table().table_id,
+        doc2.table().tablet_id,
         TimestampRange::all(),
         Order::Asc,
         vec![
@@ -292,7 +292,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
 
     test_load_documents_from_table(
         &p,
-        doc1.table().table_id,
+        doc1.table().tablet_id,
         TimestampRange::new(Timestamp::must(1)..)?,
         Order::Asc,
         vec![(Timestamp::must(1), doc1.id_with_table_id(), None)],
@@ -301,7 +301,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
 
     test_load_documents_from_table(
         &p,
-        doc2.table().table_id,
+        doc2.table().tablet_id,
         TimestampRange::new(Timestamp::must(1)..)?,
         Order::Asc,
         vec![(Timestamp::must(1), doc2.id_with_table_id(), None)],
@@ -310,7 +310,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
 
     test_load_documents_from_table(
         &p,
-        doc1.table().table_id,
+        doc1.table().tablet_id,
         TimestampRange::new(..Timestamp::must(1))?,
         Order::Asc,
         vec![(
@@ -323,7 +323,7 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
 
     test_load_documents_from_table(
         &p,
-        doc2.table().table_id,
+        doc2.table().tablet_id,
         TimestampRange::new(..Timestamp::must(1))?,
         Order::Asc,
         vec![(
@@ -528,7 +528,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let ts = Timestamp::must(1);
     let table: TableName = str::parse("table")?;
     let doc_id = id_generator.generate(&table);
-    let table_id = doc_id.table().table_id;
+    let tablet_id = doc_id.table().tablet_id;
     let value = val!(testing::generate::<Vec<u8>>());
 
     let doc = ResolvedDocument::new(
@@ -581,7 +581,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
         .reader()
         .index_scan(
             index_id.internal_id(),
-            table_id,
+            tablet_id,
             ts,
             &Interval::all(),
             Order::Asc,
@@ -600,7 +600,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
 
 pub async fn test_load_documents_from_table<P: Persistence>(
     p: &Arc<P>,
-    table_id: TableId,
+    tablet_id: TabletId,
     range: TimestampRange,
     order: Order,
     expected: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,
@@ -609,7 +609,7 @@ pub async fn test_load_documents_from_table<P: Persistence>(
         let docs: Vec<_> = p
             .reader()
             .load_documents_from_table(
-                table_id,
+                tablet_id,
                 range,
                 order,
                 page_size,
@@ -751,7 +751,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
         .reader()
         .index_scan(
             index1_id,
-            table1_id.table_id,
+            table1_id.tablet_id,
             ts,
             &Interval::all(),
             Order::Asc,
@@ -772,7 +772,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
         .reader()
         .index_scan(
             index2_id,
-            table2_id.table_id,
+            table2_id.tablet_id,
             ts,
             &Interval::all(),
             Order::Asc,
@@ -797,7 +797,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
 
     let table: TableName = str::parse("table")?;
     let doc_id = id_generator.generate(&table);
-    let table_id = doc_id.table().table_id;
+    let tablet_id = doc_id.table().tablet_id;
 
     let mut ts_to_value: BTreeMap<Timestamp, ConvexValue> = BTreeMap::new();
     for ts in 0..=100 {
@@ -846,7 +846,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             .reader()
             .index_scan(
                 index_id,
-                table_id,
+                tablet_id,
                 ts,
                 &Interval::all(),
                 Order::Asc,
@@ -880,7 +880,7 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
     let index_id = id_generator.generate(&INDEX_TABLE).internal_id();
 
     let table: TableName = str::parse("table")?;
-    let table_id = id_generator.table_id(&table).table_id;
+    let tablet_id = id_generator.table_id(&table).tablet_id;
     let fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let ts = Timestamp::must(1702);
 
@@ -921,7 +921,7 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
                     .reader()
                     .index_scan(
                         index_id,
-                        table_id,
+                        tablet_id,
                         ts,
                         &Interval {
                             start: Start::Included(keys[i].clone().into_bytes().into()),
@@ -980,7 +980,7 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
     let ts = Timestamp::must(1702);
 
     let mut id_generator = TestIdGenerator::new();
-    let table_id = id_generator.table_id(&table).table_id;
+    let tablet_id = id_generator.table_id(&table).tablet_id;
     let mut documents = Vec::new();
     let mut indexes = BTreeSet::new();
     let mut index_to_results: BTreeMap<_, Vec<_>> = BTreeMap::new();
@@ -1023,7 +1023,7 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
             .reader()
             .index_scan(
                 index_id,
-                table_id,
+                tablet_id,
                 ts,
                 &Interval::all(),
                 Order::Asc,
@@ -1049,7 +1049,7 @@ pub async fn query_dangling_reference<P: Persistence>(p: Arc<P>) -> anyhow::Resu
     let ts = Timestamp::must(1702);
     let mut id_generator = TestIdGenerator::new();
 
-    let table_id = id_generator.table_id(&table).table_id;
+    let tablet_id = id_generator.table_id(&table).tablet_id;
 
     let index_id = id_generator.generate(&INDEX_TABLE).internal_id();
 
@@ -1075,7 +1075,7 @@ pub async fn query_dangling_reference<P: Persistence>(p: Arc<P>) -> anyhow::Resu
         .reader()
         .index_scan(
             index_id,
-            table_id,
+            tablet_id,
             ts,
             &Interval::all(),
             Order::Asc,
@@ -1099,7 +1099,7 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
 
     let mut id_generator = TestIdGenerator::new();
 
-    let table_id = id_generator.table_id(&table).table_id;
+    let tablet_id = id_generator.table_id(&table).tablet_id;
     let index_id = id_generator.generate(&INDEX_TABLE).internal_id();
 
     let index_fields: IndexedFields = vec!["value".parse()?].try_into()?;
@@ -1124,7 +1124,7 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
         .reader()
         .index_scan(
             index_id,
-            table_id,
+            tablet_id,
             ts,
             &Interval::all(),
             Order::Asc,
@@ -1150,7 +1150,7 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
 
     let mut id_generator = TestIdGenerator::new();
     let index_id = id_generator.generate(&INDEX_TABLE).internal_id();
-    let table_id = id_generator.table_id(&table).table_id;
+    let tablet_id = id_generator.table_id(&table).tablet_id;
 
     let index_fields: IndexedFields = vec!["value".parse()?].try_into()?;
     let mut documents = Vec::new();
@@ -1184,7 +1184,7 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
             .reader()
             .index_scan(
                 index_id,
-                table_id,
+                tablet_id,
                 ts,
                 &Interval::all(),
                 Order::Asc,
@@ -1356,7 +1356,7 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
     let by_id_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
     let by_val_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
     let table: TableName = str::parse("table")?;
-    let table_id = id_generator.table_id(&table).table_id;
+    let tablet_id = id_generator.table_id(&table).tablet_id;
 
     let by_id = |id: ResolvedDocumentId,
                  ts: i32,
@@ -1490,7 +1490,7 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
     // All documents are still visible at snapshot ts=8.
     let stream = reader.index_scan(
         by_val_index_id,
-        table_id,
+        tablet_id,
         Timestamp::must(8),
         &Interval::all(),
         Order::Asc,
@@ -1508,7 +1508,7 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
     // Old versions of documents at snapshot ts=2 are not visible.
     let stream = reader.index_scan(
         by_val_index_id,
-        table_id,
+        tablet_id,
         Timestamp::must(2),
         &Interval::all(),
         Order::Asc,

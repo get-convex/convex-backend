@@ -196,7 +196,7 @@ impl VirtualSystemMapping {
         table_mapping: &TableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        let system_table_name = table_mapping.tablet_name(system_doc_id.table().table_id)?;
+        let system_table_name = table_mapping.tablet_name(system_doc_id.table().tablet_id)?;
         let virtual_table_name = match self.system_to_virtual.get(&system_table_name) {
             Some(virtual_table) => virtual_table.clone(),
             None => {
@@ -224,7 +224,7 @@ impl VirtualSystemMapping {
             .into());
         }
         let version = version.unwrap();
-        let system_table_name = table_mapping.tablet_name(doc.table().table_id)?;
+        let system_table_name = table_mapping.tablet_name(doc.table().tablet_id)?;
         let Some(mapper) = self.system_to_virtual_doc_mapper.get(&system_table_name) else {
             anyhow::bail!("System document cannot be converted to a virtual document")
         };

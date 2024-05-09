@@ -10,11 +10,11 @@ use std::{
 use value::{
     id_v6::DeveloperDocumentId,
     ResolvedDocumentId,
-    TableId,
-    TableIdAndTableNumber,
     TableIdentifier,
     TableMapping,
     TableNumber,
+    TabletId,
+    TabletIdAndTableNumber,
     VirtualTableMapping,
 };
 
@@ -91,23 +91,23 @@ impl TestIdGenerator {
     }
 
     // For adding to physical table mapping
-    pub fn table_id(&mut self, table_name: &TableName) -> TableIdAndTableNumber {
+    pub fn table_id(&mut self, table_name: &TableName) -> TabletIdAndTableNumber {
         if let Ok(table_id) = self.id(table_name) {
             return table_id;
         }
-        let table_id = TableId(self.generate_internal());
+        let tablet_id = TabletId(self.generate_internal());
         let table_number = self.curr_table_number;
         self.curr_table_number = self
             .curr_table_number
             .increment()
             .expect("Could not increment table number");
         self.table_mapping
-            .insert(table_id, table_number, table_name.clone());
+            .insert(tablet_id, table_number, table_name.clone());
         self.table_id(&TABLES_TABLE);
         self.table_id(&INDEX_TABLE);
-        TableIdAndTableNumber {
+        TabletIdAndTableNumber {
             table_number,
-            table_id,
+            tablet_id,
         }
     }
 

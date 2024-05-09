@@ -11,8 +11,8 @@ use crate::{
     InternalId,
     ResolvedDocumentId,
     Size,
-    TableIdAndTableNumber,
     TableIdentifier,
+    TabletIdAndTableNumber,
 };
 
 #[test]
@@ -26,7 +26,7 @@ fn test_value_size() -> anyhow::Result<()> {
     // inconsistent, so when changing this you need to also rewrite all
     // TableSummary snapshots.
     let value: ConvexValue = ResolvedDocumentId::new(
-        <TableIdAndTableNumber as TableIdentifier>::min(),
+        <TabletIdAndTableNumber as TableIdentifier>::min(),
         InternalId::MIN,
     )
     .into();

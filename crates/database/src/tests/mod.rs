@@ -1007,7 +1007,11 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
         .insert_table_for_import(&table_name, None, &BTreeSet::new())
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
-    table_mapping_for_schema.insert(table_id.table_id, table_id.table_number, table_name.clone());
+    table_mapping_for_schema.insert(
+        table_id.tablet_id,
+        table_id.table_number,
+        table_name.clone(),
+    );
     let doc1_id = ImportFacingModel::new(&mut tx)
         .insert(table_id, &table_name, object, &table_mapping_for_schema)
         .await?;
@@ -1069,7 +1073,11 @@ async fn test_importing_table_schema_validated(rt: TestRuntime) -> anyhow::Resul
 
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
-    table_mapping_for_schema.insert(table_id.table_id, table_id.table_number, table_name.clone());
+    table_mapping_for_schema.insert(
+        table_id.tablet_id,
+        table_id.table_number,
+        table_name.clone(),
+    );
     ImportFacingModel::new(&mut tx)
         .insert(
             table_id,
@@ -1104,12 +1112,16 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
     let table_id = table_model
         .insert_table_for_import(&table_name, None, &BTreeSet::new())
         .await?;
-    table_mapping_for_import.insert(table_id.table_id, table_id.table_number, table_name.clone());
+    table_mapping_for_import.insert(
+        table_id.tablet_id,
+        table_id.table_number,
+        table_name.clone(),
+    );
     let foreign_table_id = table_model
         .insert_table_for_import(&foreign_table_name, None, &BTreeSet::new())
         .await?;
     table_mapping_for_import.insert(
-        foreign_table_id.table_id,
+        foreign_table_id.tablet_id,
         foreign_table_id.table_number,
         foreign_table_name.clone(),
     );
@@ -1199,7 +1211,11 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
             &tables_in_import,
         )
         .await?;
-    table_mapping_for_import.insert(table_id.table_id, table_id.table_number, table_name.clone());
+    table_mapping_for_import.insert(
+        table_id.tablet_id,
+        table_id.table_number,
+        table_name.clone(),
+    );
     let foreign_table_id = table_model
         .insert_table_for_import(
             &foreign_table_name,
@@ -1208,7 +1224,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
         )
         .await?;
     table_mapping_for_import.insert(
-        foreign_table_id.table_id,
+        foreign_table_id.tablet_id,
         foreign_table_id.table_number,
         foreign_table_name.clone(),
     );
@@ -1319,7 +1335,11 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
         )
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
-    table_mapping_for_schema.insert(table_id.table_id, table_id.table_number, table_name.clone());
+    table_mapping_for_schema.insert(
+        table_id.tablet_id,
+        table_id.table_number,
+        table_name.clone(),
+    );
     let doc1_id = ImportFacingModel::new(&mut tx)
         .insert(
             table_id,
@@ -1332,7 +1352,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     database.commit(tx).await?;
     assert_eq!(doc1_id.internal_id(), doc0_id.internal_id());
     assert_eq!(doc1_id.table().table_number, doc0_id.table().table_number);
-    assert!(doc1_id.table().table_id != doc0_id.table().table_id);
+    assert!(doc1_id.table().tablet_id != doc0_id.table().tablet_id);
 
     let mut tx = database.begin(Identity::system()).await?;
     let doc0 = tx.get_inner(doc0_id, table_name.clone()).await?.unwrap().0;
@@ -1352,7 +1372,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
 
     TableModel::new(&mut tx)
         .activate_table(
-            table_id.table_id,
+            table_id.tablet_id,
             &table_name,
             table_id.table_number,
             &BTreeSet::new(),
@@ -1395,7 +1415,11 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
         .insert_table_for_import(&table_name, None, &BTreeSet::new())
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
-    table_mapping_for_schema.insert(table_id.table_id, table_id.table_number, table_name.clone());
+    table_mapping_for_schema.insert(
+        table_id.tablet_id,
+        table_id.table_number,
+        table_name.clone(),
+    );
     let doc1_id = ImportFacingModel::new(&mut tx)
         .insert(
             table_id,
@@ -1448,7 +1472,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     assert_eq!(
         enabled_indexes
             .iter()
-            .filter(|index| index.name.is_by_id() && index.name.table() == &table_id.table_id)
+            .filter(|index| index.name.is_by_id() && index.name.table() == &table_id.tablet_id)
             .count(),
         1
     );

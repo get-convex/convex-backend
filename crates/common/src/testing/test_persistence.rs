@@ -20,7 +20,7 @@ use serde_json::Value as JsonValue;
 use value::{
     InternalDocumentId,
     ResolvedDocumentId,
-    TableId,
+    TabletId,
 };
 
 #[cfg(test)]
@@ -259,7 +259,7 @@ impl PersistenceReader for TestPersistence {
     fn index_scan(
         &self,
         index_id: IndexId,
-        _table_id: TableId,
+        _tablet_id: TabletId,
         read_timestamp: Timestamp,
         interval: &Interval,
         order: Order,

@@ -92,10 +92,10 @@ use common::{
         ConvexObject,
         GenericDocumentId,
         ResolvedDocumentId,
-        TableId,
-        TableIdAndTableNumber,
         TableIdentifier,
         TableMapping,
+        TabletId,
+        TabletIdAndTableNumber,
         VirtualTableMapping,
     },
 };
@@ -285,7 +285,7 @@ pub struct DatabaseSnapshot {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct DocumentDeltas {
-    /// Document deltas returned in increasing (ts, table_id, id) order.
+    /// Document deltas returned in increasing (ts, tablet_id, id) order.
     /// We use ResolvedDocument here rather than DeveloperDocument
     /// because streaming export always uses string IDs
     pub deltas: Vec<(
@@ -317,8 +317,8 @@ pub struct SnapshotPage {
 pub struct BootstrapMetadata {
     pub tables_by_id: IndexId,
     pub index_by_id: IndexId,
-    pub tables_table_id: TableId,
-    pub index_table_id: TableId,
+    pub tables_tablet_id: TabletId,
+    pub index_tablet_id: TabletId,
 }
 
 impl From<BootstrapMetadata> for BootstrapMetadataProto {
@@ -326,15 +326,15 @@ impl From<BootstrapMetadata> for BootstrapMetadataProto {
         BootstrapMetadata {
             tables_by_id,
             index_by_id,
-            tables_table_id,
-            index_table_id,
+            tables_tablet_id,
+            index_tablet_id,
         }: BootstrapMetadata,
     ) -> Self {
         Self {
             tables_by_id: Some(tables_by_id.into()),
             index_by_id: Some(index_by_id.into()),
-            tables_table_id: Some(tables_table_id.0.into()),
-            index_table_id: Some(index_table_id.0.into()),
+            tables_table_id: Some(tables_tablet_id.0.into()),
+            index_table_id: Some(index_tablet_id.0.into()),
         }
     }
 }
@@ -352,12 +352,12 @@ impl TryFrom<BootstrapMetadataProto> for BootstrapMetadata {
     ) -> anyhow::Result<Self> {
         let tables_by_id = tables_by_id.context("Missing tables_by_id")?.try_into()?;
         let index_by_id = index_by_id.context("Missing index_by_id")?.try_into()?;
-        let tables_table_id = TableId(
+        let tables_tablet_id = TabletId(
             tables_table_id
                 .context("Missing tables_table_id")?
                 .try_into()?,
         );
-        let index_table_id = TableId(
+        let index_tablet_id = TabletId(
             index_table_id
                 .context("Missing index_table_id")?
                 .try_into()?,
@@ -365,8 +365,8 @@ impl TryFrom<BootstrapMetadataProto> for BootstrapMetadata {
         Ok(BootstrapMetadata {
             tables_by_id,
             index_by_id,
-            tables_table_id,
-            index_table_id,
+            tables_tablet_id,
+            index_tablet_id,
         })
     }
 }
@@ -382,10 +382,16 @@ impl DatabaseSnapshot {
     pub async fn load_raw_table_documents(
         persistence_snapshot: &PersistenceSnapshot,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>> {
         persistence_snapshot
-            .index_scan(index_id, table_id, &Interval::all(), Order::Asc, usize::MAX)
+            .index_scan(
+                index_id,
+                tablet_id,
+                &Interval::all(),
+                Order::Asc,
+                usize::MAX,
+            )
             .map_ok(|(_, ts, doc)| (doc.id(), (ts, doc)))
             .try_collect()
             .await
@@ -394,9 +400,9 @@ impl DatabaseSnapshot {
     async fn load_table_documents<D: TryFrom<ConvexObject, Error = anyhow::Error>>(
         persistence_snapshot: &PersistenceSnapshot,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> anyhow::Result<Vec<ParsedDocument<D>>> {
-        Self::load_raw_table_documents(persistence_snapshot, index_id, table_id)
+        Self::load_raw_table_documents(persistence_snapshot, index_id, tablet_id)
             .await?
             .into_values()
             .map(|(_, doc)| doc.try_into())
@@ -405,20 +411,22 @@ impl DatabaseSnapshot {
 
     pub fn table_mapping_and_states(
         table_documents: Vec<ParsedDocument<TableMetadata>>,
-    ) -> (TableMapping, OrdMap<TableId, TableState>) {
+    ) -> (TableMapping, OrdMap<TabletId, TableState>) {
         let mut table_mapping = TableMapping::new();
         let mut table_states = OrdMap::new();
         for table_doc in table_documents {
-            let table_id = TableId(table_doc.id().internal_id());
-            table_states.insert(table_id, table_doc.state);
+            let tablet_id = TabletId(table_doc.id().internal_id());
+            table_states.insert(tablet_id, table_doc.state);
             let table_number = table_doc.number;
             match table_doc.state {
                 TableState::Active => {
-                    table_mapping.insert(table_id, table_number, table_doc.into_value().name)
+                    table_mapping.insert(tablet_id, table_number, table_doc.into_value().name)
                 },
-                TableState::Hidden => {
-                    table_mapping.insert_tablet(table_id, table_number, table_doc.into_value().name)
-                },
+                TableState::Hidden => table_mapping.insert_tablet(
+                    tablet_id,
+                    table_number,
+                    table_doc.into_value().name,
+                ),
                 TableState::Deleting => {},
             }
         }
@@ -429,7 +437,7 @@ impl DatabaseSnapshot {
         persistence_snapshot: &PersistenceSnapshot,
     ) -> anyhow::Result<(
         TableMapping,
-        OrdMap<TableId, TableState>,
+        OrdMap<TabletId, TableState>,
         IndexRegistry,
         BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>,
         BootstrapMetadata,
@@ -439,17 +447,17 @@ impl DatabaseSnapshot {
         let BootstrapMetadata {
             tables_by_id,
             index_by_id,
-            tables_table_id,
-            index_table_id,
+            tables_tablet_id,
+            index_tablet_id,
         }: BootstrapMetadata = bootstrap_metadata;
 
         let index_documents =
-            Self::load_raw_table_documents(persistence_snapshot, index_by_id, index_table_id)
+            Self::load_raw_table_documents(persistence_snapshot, index_by_id, index_tablet_id)
                 .await?;
         let table_documents = Self::load_table_documents::<TableMetadata>(
             persistence_snapshot,
             tables_by_id,
-            tables_table_id,
+            tables_tablet_id,
         )
         .await?;
 
@@ -483,18 +491,18 @@ impl DatabaseSnapshot {
     pub async fn load_table_registry(
         persistence_snapshot: &PersistenceSnapshot,
         table_mapping: TableMapping,
-        table_states: OrdMap<TableId, TableState>,
+        table_states: OrdMap<TabletId, TableState>,
         index_registry: &IndexRegistry,
     ) -> anyhow::Result<TableRegistry> {
         let load_virtual_tables_timer = load_virtual_table_metadata_timer();
         let virtual_tables_table = table_mapping.id(&VIRTUAL_TABLES_TABLE)?;
         let virtual_tables_by_id = index_registry
-            .must_get_by_id(virtual_tables_table.table_id)?
+            .must_get_by_id(virtual_tables_table.tablet_id)?
             .id();
         let virtual_tables = Self::load_table_documents::<VirtualTableMetadata>(
             persistence_snapshot,
             virtual_tables_by_id,
-            virtual_tables_table.table_id,
+            virtual_tables_table.tablet_id,
         )
         .await?;
         let virtual_table_mapping = Self::virtual_table_mapping(virtual_tables);
@@ -524,13 +532,13 @@ impl DatabaseSnapshot {
     pub async fn full_table_scan<'a, RT: Runtime>(
         &'a self,
         runtime: &RT,
-        table_id: TableId,
+        tablet_id: TabletId,
         rate_limiter: &'a RateLimiter<RT>,
     ) -> anyhow::Result<LatestDocumentStream<'a>> {
-        let table_by_id = self.index_registry().must_get_by_id(table_id)?.id();
+        let table_by_id = self.index_registry().must_get_by_id(tablet_id)?.id();
         let table_iterator = self.table_iterator(runtime.clone());
         let stream =
-            table_iterator.stream_documents_in_table(table_id, table_by_id, None, rate_limiter);
+            table_iterator.stream_documents_in_table(tablet_id, table_by_id, None, rate_limiter);
         Ok(stream.map_ok(|(document, ts)| (ts, document)).boxed())
     }
 
@@ -552,15 +560,15 @@ impl DatabaseSnapshot {
             .as_str()
             .context("_index.by_id is not string")?
             .parse()?;
-        let tables_table_id: TableId = persistence
-            .get_persistence_global(PersistenceGlobalKey::TablesTableId)
+        let tables_tablet_id: TabletId = persistence
+            .get_persistence_global(PersistenceGlobalKey::TablesTabletId)
             .await?
             .context("missing _tables table ID global")?
             .as_str()
             .context("_tables table ID is not string")?
             .parse()?;
-        let index_table_id = persistence
-            .get_persistence_global(PersistenceGlobalKey::IndexTableId)
+        let index_tablet_id = persistence
+            .get_persistence_global(PersistenceGlobalKey::IndexTabletId)
             .await?
             .context("missing _index table ID global")?
             .as_str()
@@ -569,8 +577,8 @@ impl DatabaseSnapshot {
         Ok(BootstrapMetadata {
             tables_by_id,
             index_by_id,
-            tables_table_id,
-            index_table_id,
+            tables_tablet_id,
+            index_tablet_id,
         })
     }
 
@@ -671,10 +679,10 @@ impl DatabaseSnapshot {
     ) -> anyhow::Result<()> {
         let _timer = verify_invariants_timer();
         // Verify that all tables have table scan index.
-        for (table_id, _, table_name) in table_registry.table_mapping().iter() {
+        for (tablet_id, _, table_name) in table_registry.table_mapping().iter() {
             anyhow::ensure!(
                 index_registry
-                    .get_enabled(&TabletIndexName::by_id(table_id))
+                    .get_enabled(&TabletIndexName::by_id(tablet_id))
                     .is_some(),
                 "Missing `by_id` index for {}",
                 table_name,
@@ -682,11 +690,11 @@ impl DatabaseSnapshot {
         }
 
         // Verify that all indexes are defined on tables that exist.
-        for table_id in index_registry.all_tables_with_indexes() {
+        for tablet_id in index_registry.all_tables_with_indexes() {
             anyhow::ensure!(
-                table_registry.table_mapping().table_id_exists(table_id),
+                table_registry.table_mapping().tablet_id_exists(tablet_id),
                 "Table {:?} is missing but has one or more indexes",
-                table_id,
+                tablet_id,
             );
         }
 
@@ -936,13 +944,13 @@ impl<RT: Runtime> Database<RT> {
     /// rate_limiter must be based on rows per second.
     pub fn load_documents_in_table<'a>(
         &'a self,
-        table_id: TableId,
+        tablet_id: TabletId,
         timestamp_range: TimestampRange,
         rate_limiter: &'a RateLimiter<RT>,
     ) -> DocumentStream<'a> {
         self.reader
             .load_documents_from_table(
-                table_id,
+                tablet_id,
                 timestamp_range,
                 Order::Asc,
                 *DEFAULT_DOCUMENTS_PAGE_SIZE,
@@ -969,12 +977,12 @@ impl<RT: Runtime> Database<RT> {
     ) -> anyhow::Result<impl Stream<Item = anyhow::Result<ResolvedDocument>> + 'b> {
         let iterator = self.table_iterator(snapshot_ts, 100, None);
         let table_mapping = self.snapshot_table_mapping(snapshot_ts).await?;
-        let table_id = table_mapping.id(table_name)?.table_id;
+        let tablet_id = table_mapping.id(table_name)?.tablet_id;
         let by_id_indexes = self.snapshot_by_id_indexes(snapshot_ts).await?;
         let by_id = *by_id_indexes
-            .get(&table_id)
+            .get(&tablet_id)
             .ok_or_else(|| anyhow::anyhow!("by_id not found for {table_name}"))?;
-        let stream = iterator.stream_documents_in_table(table_id, by_id, None, rate_limiter);
+        let stream = iterator.stream_documents_in_table(tablet_id, by_id, None, rate_limiter);
         Ok(stream.map_ok(|(doc, _)| doc))
     }
 
@@ -1007,19 +1015,19 @@ impl<RT: Runtime> Database<RT> {
     ) -> anyhow::Result<TableMapping> {
         let table_iterator = self.table_iterator(ts, 100, None);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
-        let tables_table_id = snapshot
+        let tables_tablet_id = snapshot
             .table_registry
             .table_mapping()
             .id(&TABLES_TABLE)?
-            .table_id;
+            .tablet_id;
         let tables_by_id = snapshot
             .index_registry
-            .must_get_by_id(tables_table_id)?
+            .must_get_by_id(tables_tablet_id)?
             .id();
         let rate_limiter =
             new_rate_limiter(self.runtime.clone(), Quota::per_second(1000.try_into()?));
         let stream = table_iterator.stream_documents_in_table(
-            tables_table_id,
+            tables_tablet_id,
             tables_by_id,
             None,
             &rate_limiter,
@@ -1030,7 +1038,7 @@ impl<RT: Runtime> Database<RT> {
             let table_doc: ParsedDocument<TableMetadata> = table_doc.try_into()?;
             if table_doc.is_active() {
                 table_mapping.insert(
-                    TableId(table_doc.id().internal_id()),
+                    TabletId(table_doc.id().internal_id()),
                     table_doc.number,
                     table_doc.into_value().name,
                 );
@@ -1042,18 +1050,18 @@ impl<RT: Runtime> Database<RT> {
     pub async fn snapshot_by_id_indexes(
         &self,
         ts: RepeatableTimestamp,
-    ) -> anyhow::Result<BTreeMap<TableId, IndexId>> {
+    ) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
         let table_iterator = self.table_iterator(ts, 100, None);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
-        let index_table_id = snapshot.index_registry.index_table();
+        let index_tablet_id = snapshot.index_registry.index_table();
         let index_by_id = snapshot
             .index_registry
-            .must_get_by_id(index_table_id.table_id)?
+            .must_get_by_id(index_tablet_id.tablet_id)?
             .id();
         let rate_limiter =
             new_rate_limiter(self.runtime.clone(), Quota::per_second(1000.try_into()?));
         let stream = table_iterator.stream_documents_in_table(
-            index_table_id.table_id,
+            index_tablet_id.tablet_id,
             index_by_id,
             None,
             &rate_limiter,
@@ -1084,7 +1092,7 @@ impl<RT: Runtime> Database<RT> {
             let table_number = *DEFAULT_BOOTSTRAP_TABLE_NUMBERS
                 .get(table_name)
                 .context(format!("Table name {table_name} not found"))?;
-            let table_id = TableId(id_generator.generate_internal());
+            let tablet_id = TabletId(id_generator.generate_internal());
             let existing_tn = table_mapping.name_by_number_if_exists(table_number);
             anyhow::ensure!(
                 existing_tn.is_none(),
@@ -1098,7 +1106,7 @@ impl<RT: Runtime> Database<RT> {
                 table_number >= TableNumber::try_from(NUM_RESERVED_LEGACY_TABLE_NUMBERS)?,
                 "{table_number} picked for system table {table_name} is reserved for legacy tables"
             );
-            table_mapping.insert(table_id, table_number, table_name.clone());
+            table_mapping.insert(tablet_id, table_number, table_name.clone());
         }
 
         // Get table ids for tables we will be populating.
@@ -1107,14 +1115,14 @@ impl<RT: Runtime> Database<RT> {
 
         persistence
             .write_persistence_global(
-                PersistenceGlobalKey::TablesTableId,
-                tables_table_id.table_id.to_string().into(),
+                PersistenceGlobalKey::TablesTabletId,
+                tables_table_id.tablet_id.to_string().into(),
             )
             .await?;
         persistence
             .write_persistence_global(
-                PersistenceGlobalKey::IndexTableId,
-                index_table_id.table_id.to_string().into(),
+                PersistenceGlobalKey::IndexTabletId,
+                index_table_id.tablet_id.to_string().into(),
             )
             .await?;
 
@@ -1123,8 +1131,8 @@ impl<RT: Runtime> Database<RT> {
         for table in bootstrap_system_tables() {
             let table_name = table.table_name();
             let table_id = table_mapping.id(table_name)?;
-            let document_id: GenericDocumentId<TableIdAndTableNumber> =
-                tables_table_id.id(table_id.table_id.0);
+            let document_id: GenericDocumentId<TabletIdAndTableNumber> =
+                tables_table_id.id(table_id.tablet_id.0);
             let metadata = TableMetadata::new(table_name.clone(), table_id.table_number);
             let document = ResolvedDocument::new(
                 document_id,
@@ -1138,7 +1146,7 @@ impl<RT: Runtime> Database<RT> {
             let index_id = id_generator.generate(&index_table_id);
             system_by_id.insert(table_name.clone(), index_id.internal_id());
             let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_id(table_id.table_id),
+                GenericIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
             );
             let document =
@@ -1150,7 +1158,7 @@ impl<RT: Runtime> Database<RT> {
             if table_name != &*INDEX_TABLE {
                 let index_id = id_generator.generate(&index_table_id);
                 let metadata = IndexMetadata::new_enabled(
-                    GenericIndexName::by_creation_time(table_id.table_id),
+                    GenericIndexName::by_creation_time(table_id.tablet_id),
                     IndexedFields::creation_time(),
                 );
                 let document = ResolvedDocument::new(
@@ -1650,8 +1658,8 @@ impl<RT: Runtime> Database<RT> {
             .map(|(_, table_number, _)| table_number)
             .collect();
         let mut table_numbers = table_numbers.into_iter();
-        let table_id = match table_numbers.next() {
-            Some(first_table) => table_mapping.inject_table_id()(first_table)?.table_id,
+        let tablet_id = match table_numbers.next() {
+            Some(first_table) => table_mapping.inject_table_id()(first_table)?.tablet_id,
             None => {
                 return Ok(SnapshotPage {
                     documents: vec![],
@@ -1662,13 +1670,13 @@ impl<RT: Runtime> Database<RT> {
             },
         };
         let by_id = *by_id_indexes
-            .get(&table_id)
-            .ok_or_else(|| anyhow::anyhow!("by_id index for {table_id:?} missing"))?;
+            .get(&tablet_id)
+            .ok_or_else(|| anyhow::anyhow!("by_id index for {tablet_id:?} missing"))?;
         let table_iterator = self.table_iterator(snapshot, 100, None);
         let rate_limiter =
             new_rate_limiter(self.runtime.clone(), Quota::per_second(100.try_into()?));
         let document_stream =
-            table_iterator.stream_documents_in_table(table_id, by_id, cursor, &rate_limiter);
+            table_iterator.stream_documents_in_table(tablet_id, by_id, cursor, &rate_limiter);
         pin_mut!(document_stream);
         // new_cursor is set once, when we know the final internal_id.
         let mut new_cursor = None;
@@ -1678,7 +1686,7 @@ impl<RT: Runtime> Database<RT> {
         while let Some((doc, ts)) = document_stream.try_next().await? {
             rows_read += 1;
             let id = doc.developer_id();
-            let table_name = table_mapping.tablet_name(doc.id().table().table_id)?;
+            let table_name = table_mapping.tablet_name(doc.id().table().tablet_id)?;
             documents.push((ts, table_name, doc));
             if rows_read >= rows_read_limit || documents.len() >= rows_returned_limit {
                 new_cursor = Some(id);
@@ -1748,8 +1756,8 @@ impl<RT: Runtime> Database<RT> {
             BTreeMap::new(),
             |mut map, index| {
                 let (_, value) = index.into_id_and_value();
-                let table_id = *value.name.table();
-                let table_name = table_mapping.tablet_name(table_id)?.deref().into();
+                let tablet_id = *value.name.table();
+                let table_name = table_mapping.tablet_name(tablet_id)?.deref().into();
                 let size = value.config.estimate_pricing_size_bytes()?;
                 map.entry(table_name)
                     .and_modify(|sum| *sum += size)

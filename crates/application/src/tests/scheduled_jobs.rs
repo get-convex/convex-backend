@@ -37,7 +37,7 @@ use serde_json::Value as JsonValue;
 use sync_types::UdfPath;
 use value::{
     GenericDocumentId,
-    TableIdAndTableNumber,
+    TabletIdAndTableNumber,
 };
 
 use crate::{
@@ -58,7 +58,7 @@ async fn create_scheduled_job<'a>(
     rt: &'a TestRuntime,
     tx: &'a mut Transaction<TestRuntime>,
 ) -> anyhow::Result<(
-    GenericDocumentId<TableIdAndTableNumber>,
+    GenericDocumentId<TabletIdAndTableNumber>,
     SchedulerModel<'a, TestRuntime>,
 )> {
     let mut map = serde_json::Map::new();

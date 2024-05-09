@@ -71,8 +71,8 @@ use value::{
         WithHeapSize,
     },
     InternalId,
-    TableId,
     TableName,
+    TabletId,
 };
 
 use super::metrics::{
@@ -176,12 +176,18 @@ async fn load_index(
     instance_name: String,
     index_id: IndexId,
     persistence_snapshot: PersistenceSnapshot,
-    table_id: TableId,
+    tablet_id: TabletId,
     table_name: String,
 ) -> anyhow::Result<CacheValue> {
     let _timer = load_index_timer(&table_name, &instance_name);
     let index_map: BTreeMap<Vec<u8>, (Timestamp, PackedDocument)> = persistence_snapshot
-        .index_scan(index_id, table_id, &Interval::all(), Order::Asc, usize::MAX)
+        .index_scan(
+            index_id,
+            tablet_id,
+            &Interval::all(),
+            Order::Asc,
+            usize::MAX,
+        )
         .map_ok(|(key, ts, doc)| (key.0, (ts, PackedDocument::pack(doc))))
         .try_collect()
         .await?;
@@ -211,7 +217,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         index_id: IndexId,
         last_modified: &BTreeMap<IndexId, Timestamp>,
         persistence_snapshot: PersistenceSnapshot,
-        table_id: TableId,
+        tablet_id: TabletId,
         table_name: TableName,
     ) -> anyhow::Result<Option<CacheValue>> {
         let Some(key) = last_modified.get(&index_id).map(|ts| CacheKey {
@@ -230,7 +236,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                     instance_name.clone(),
                     index_id,
                     persistence_snapshot,
-                    table_id,
+                    tablet_id,
                     table_name.clone(),
                 )
                 .boxed(),
@@ -247,7 +253,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         index_id: IndexId,
         last_modified: &BTreeMap<IndexId, Timestamp>,
         persistence_snapshot: PersistenceSnapshot,
-        table_id: TableId,
+        tablet_id: TabletId,
         table_name: TableName,
     ) -> anyhow::Result<impl Iterator<Item = ResolvedDocument>> {
         let index_map = self
@@ -256,7 +262,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                 index_id,
                 last_modified,
                 persistence_snapshot,
-                table_id,
+                tablet_id,
                 table_name.clone(),
             )
             .await?
@@ -272,8 +278,8 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         BootstrapMetadata {
             tables_by_id,
             index_by_id,
-            tables_table_id,
-            index_table_id,
+            tables_tablet_id,
+            index_tablet_id,
         }: BootstrapMetadata,
     ) -> anyhow::Result<(TableRegistry, IndexRegistry, DatabaseIndexSnapshot)> {
         let index_documents_fut = self.must_get_or_load_unpacked(
@@ -281,7 +287,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             index_by_id,
             &in_memory_index_last_modified,
             persistence_snapshot.clone(),
-            index_table_id,
+            index_tablet_id,
             INDEX_TABLE.clone(),
         );
         let table_documents_fut = self.must_get_or_load_unpacked(
@@ -289,7 +295,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             tables_by_id,
             &in_memory_index_last_modified,
             persistence_snapshot.clone(),
-            tables_table_id,
+            tables_tablet_id,
             TABLES_TABLE.clone(),
         );
         let (index_documents, table_documents) =
@@ -305,7 +311,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
 
         let virtual_tables_table = table_mapping.id(&VIRTUAL_TABLES_TABLE)?;
         let virtual_tables_by_id = index_registry
-            .must_get_by_id(virtual_tables_table.table_id)?
+            .must_get_by_id(virtual_tables_table.tablet_id)?
             .id();
         let virtual_tables = self
             .must_get_or_load_unpacked(
@@ -313,7 +319,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                 virtual_tables_by_id,
                 &in_memory_index_last_modified,
                 persistence_snapshot.clone(),
-                virtual_tables_table.table_id,
+                virtual_tables_table.tablet_id,
                 VIRTUAL_TABLES_TABLE.clone(),
             )
             .await?
@@ -415,7 +421,7 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
         index_id: IndexId,
         interval: &Interval,
         order: Order,
-        table_id: TableId,
+        tablet_id: TabletId,
         table_name: TableName,
     ) -> anyhow::Result<Option<Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>>> {
         let Some(index_map) = self
@@ -425,7 +431,7 @@ impl<RT: Runtime> InMemoryIndexes for FunctionRunnerInMemoryIndexes<RT> {
                 index_id,
                 &self.backend_last_modified,
                 self.persistence_snapshot.clone(),
-                table_id,
+                tablet_id,
                 table_name,
             )
             .await?

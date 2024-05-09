@@ -157,10 +157,10 @@ use value::{
     IdentifierFieldName,
     ResolvedDocumentId,
     Size,
-    TableId,
-    TableIdAndTableNumber,
     TableMapping,
     TableNumber,
+    TabletId,
+    TabletIdAndTableNumber,
 };
 
 use crate::{
@@ -1638,7 +1638,7 @@ async fn import_tables_table<RT: Runtime>(
         )
         .await?;
         table_mapping_for_import.insert(
-            table_id.table_id,
+            table_id.tablet_id,
             table_id.table_number,
             table_name.clone(),
         );
@@ -1650,7 +1650,7 @@ async fn import_storage_table<RT: Runtime>(
     database: &Database<RT>,
     file_storage: &FileStorage<RT>,
     identity: &Identity,
-    table_id: TableIdAndTableNumber,
+    table_id: TabletIdAndTableNumber,
     mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
     usage: &dyn StorageUsageTracker,
     import_id: Option<ResolvedDocumentId>,
@@ -1934,7 +1934,7 @@ async fn import_single_table<RT: Runtime>(
             )
             .await?;
             table_mapping_for_import.insert(
-                table_id.table_id,
+                table_id.tablet_id,
                 table_id.table_number,
                 table_name.clone(),
             );
@@ -2044,7 +2044,7 @@ async fn insert_import_objects<RT: Runtime>(
     identity: &Identity,
     objects_to_insert: Vec<ConvexObject>,
     table_name: &TableName,
-    table_id: TableIdAndTableNumber,
+    table_id: TabletIdAndTableNumber,
     table_mapping_for_schema: &TableMapping,
     usage: FunctionUsageTracker,
 ) -> anyhow::Result<()> {
@@ -2093,7 +2093,7 @@ async fn prepare_table_for_import<RT: Runtime>(
     table_name: &TableName,
     table_number: Option<TableNumber>,
     tables_in_import: &BTreeSet<TableName>,
-) -> anyhow::Result<TableIdAndTableNumber> {
+) -> anyhow::Result<TabletIdAndTableNumber> {
     anyhow::ensure!(
         table_name == &*FILE_STORAGE_TABLE || !table_name.is_system(),
         ErrorMetadata::bad_request(
@@ -2131,7 +2131,7 @@ async fn prepare_table_for_import<RT: Runtime>(
                             .insert_table_for_import(table_name, table_number, tables_in_import)
                             .await?;
                         IndexModel::new(tx)
-                            .copy_indexes_to_table(table_name, table_id.table_id)
+                            .copy_indexes_to_table(table_name, table_id.tablet_id)
                             .await?;
                         Ok(table_id)
                     }
@@ -2140,7 +2140,7 @@ async fn prepare_table_for_import<RT: Runtime>(
             )
             .await?;
         // The new table is empty, so all of its indexes should be backfilled quickly.
-        backfill_and_enable_indexes_on_table(database, identity, table_id.table_id).await?;
+        backfill_and_enable_indexes_on_table(database, identity, table_id.tablet_id).await?;
 
         table_id
     };
@@ -2152,12 +2152,12 @@ async fn prepare_table_for_import<RT: Runtime>(
 async fn backfill_and_enable_indexes_on_table<RT: Runtime>(
     database: &Database<RT>,
     identity: &Identity,
-    table_id: TableId,
+    tablet_id: TabletId,
 ) -> anyhow::Result<()> {
     loop {
         let mut tx = database.begin(identity.clone()).await?;
         let still_backfilling = IndexModel::new(&mut tx)
-            .all_indexes_on_table(table_id)
+            .all_indexes_on_table(tablet_id)
             .await?
             .into_iter()
             .any(|index| index.config.is_backfilling());
@@ -2179,7 +2179,7 @@ async fn backfill_and_enable_indexes_on_table<RT: Runtime>(
                 async {
                     let mut index_model = IndexModel::new(tx);
                     let mut backfilled_indexes = vec![];
-                    for index in index_model.all_indexes_on_table(table_id).await? {
+                    for index in index_model.all_indexes_on_table(tablet_id).await? {
                         if !index.config.is_enabled() {
                             backfilled_indexes.push(index.into_value());
                         }

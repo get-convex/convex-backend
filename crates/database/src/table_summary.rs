@@ -39,8 +39,8 @@ use common::{
         ConvexObject,
         JsonInteger,
         Size,
-        TableId,
         TableMapping,
+        TabletId,
     },
 };
 use futures::{
@@ -230,7 +230,7 @@ impl Arbitrary for TableSummary {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableSummarySnapshot {
-    pub tables: BTreeMap<TableId, TableSummary>,
+    pub tables: BTreeMap<TabletId, TableSummary>,
     pub ts: Timestamp,
 }
 
@@ -244,7 +244,7 @@ impl proptest::arbitrary::Arbitrary for TableSummarySnapshot {
         use proptest::prelude::*;
         (
             any::<Timestamp>(),
-            proptest::collection::btree_map(any::<TableId>(), any::<TableSummary>(), 0..4),
+            proptest::collection::btree_map(any::<TabletId>(), any::<TableSummary>(), 0..4),
         )
             .prop_map(|(ts, tables)| TableSummarySnapshot { tables, ts })
     }
@@ -371,22 +371,22 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         snapshot_ts: Timestamp,
         table_iterator: impl Fn() -> TableIterator<RT>,
         table_mapping: &TableMapping,
-        by_id_indexes: &BTreeMap<TableId, IndexId>,
+        by_id_indexes: &BTreeMap<TabletId, IndexId>,
         rate_limiter: &RateLimiter<RT>,
     ) -> anyhow::Result<TableSummarySnapshot> {
         let mut snapshot = BTreeMap::new();
-        for (table_id, ..) in table_mapping.iter() {
-            let by_id_index = by_id_indexes.get(&table_id).expect("by_id should exist");
+        for (tablet_id, ..) in table_mapping.iter() {
+            let by_id_index = by_id_indexes.get(&tablet_id).expect("by_id should exist");
             // table_iterator, table_mapping, and by_id_indexes should all be
             // computed at the same snapshot.
             let revision_stream = table_iterator().stream_documents_in_table(
-                table_id,
+                tablet_id,
                 *by_id_index,
                 None,
                 rate_limiter,
             );
             let summary = Self::collect_table_revisions(revision_stream).await?;
-            snapshot.insert(table_id, summary);
+            snapshot.insert(tablet_id, summary);
         }
         Ok(TableSummarySnapshot {
             tables: snapshot,
@@ -560,7 +560,7 @@ fn time_reverse_revision_pair(revision_pair: RevisionPair) -> RevisionPair {
 
 fn add_revision(
     table_mapping: BootstrapTableIds,
-    tables: &mut BTreeMap<TableId, TableSummary>,
+    tables: &mut BTreeMap<TabletId, TableSummary>,
     revision_pair: &RevisionPair,
 ) -> anyhow::Result<()> {
     // First, create tables for all new tables within the transaction.
@@ -568,18 +568,18 @@ fn add_revision(
     // Since our table metadata is fixed at `start_ts`, we know that all
     // subsequent table creations aren't in `snapshot` and must be
     // included.
-    let table_id = TableId(revision_pair.id.internal_id());
-    if table_mapping.is_tables_table_id(*revision_pair.id.table()) {
+    let tablet_id = TabletId(revision_pair.id.internal_id());
+    if table_mapping.is_tables_tablet_id(*revision_pair.id.table()) {
         match (revision_pair.prev_document(), revision_pair.document()) {
             (None, Some(_)) => {
                 // Table creation creates a TableSummary::empty, if none exists.
                 // In historical instances, some _tables rows were created after the records for
                 // that table had been inserted.
-                tables.entry(table_id).or_insert_with(TableSummary::empty);
+                tables.entry(tablet_id).or_insert_with(TableSummary::empty);
             },
             (Some(_), None) => {
                 // Table deletion removes table summary.
-                tables.remove(&table_id);
+                tables.remove(&tablet_id);
             },
             _ => {},
         }
@@ -693,7 +693,10 @@ mod tests {
         // Bootstrap at ts2 by walking by_id, and write the snapshot that later
         // test cases will use.
         let (snapshot, _) = bootstrap(&rt, persistence.reader(), rv.clone(), ts2, false).await?;
-        assert_eq!(snapshot.tables.get(&table_id.table_id), Some(&expected_ts2));
+        assert_eq!(
+            snapshot.tables.get(&table_id.tablet_id),
+            Some(&expected_ts2)
+        );
         assert_eq!(snapshot.ts, *ts2);
         write_snapshot(persistence.as_ref(), &snapshot).await?;
 
@@ -701,26 +704,38 @@ mod tests {
         let (snapshot, walked) =
             bootstrap(&rt, persistence.reader(), rv.clone(), ts2, false).await?;
         assert_eq!(walked, 0);
-        assert_eq!(snapshot.tables.get(&table_id.table_id), Some(&expected_ts2));
+        assert_eq!(
+            snapshot.tables.get(&table_id.tablet_id),
+            Some(&expected_ts2)
+        );
         assert_eq!(snapshot.ts, *ts2);
 
         // Bootstrap at ts3 by reading the snapshot and walking forwards.
         let (snapshot, walked) =
             bootstrap(&rt, persistence.reader(), rv.clone(), ts3, false).await?;
         assert_eq!(walked, 1);
-        assert_eq!(snapshot.tables.get(&table_id.table_id), Some(&expected_ts3));
+        assert_eq!(
+            snapshot.tables.get(&table_id.tablet_id),
+            Some(&expected_ts3)
+        );
         assert_eq!(snapshot.ts, *ts3);
 
         // Bootstrap at ts1 by reading the snapshot and walking backwards.
         let (snapshot, walked) =
             bootstrap(&rt, persistence.reader(), rv.clone(), ts1, false).await?;
         assert_eq!(walked, 1);
-        assert_eq!(snapshot.tables.get(&table_id.table_id), Some(&expected_ts1));
+        assert_eq!(
+            snapshot.tables.get(&table_id.tablet_id),
+            Some(&expected_ts1)
+        );
         assert_eq!(snapshot.ts, *ts1);
 
         // Bootstrap from scratch at ts3 by walking by_id.
         let (snapshot, _) = bootstrap(&rt, persistence.reader(), rv.clone(), ts3, true).await?;
-        assert_eq!(snapshot.tables.get(&table_id.table_id), Some(&expected_ts3));
+        assert_eq!(
+            snapshot.tables.get(&table_id.tablet_id),
+            Some(&expected_ts3)
+        );
         assert_eq!(snapshot.ts, *ts3);
 
         Ok(())
@@ -778,7 +793,7 @@ mod tests {
 
             if !is_empty {
                 let table_id = table_mapping.id(&table_name)?;
-                assert_eq!(computed.tables.get(&table_id.table_id), Some(&expected));
+                assert_eq!(computed.tables.get(&table_id.tablet_id), Some(&expected));
             }
 
             Ok::<_, anyhow::Error>(())
@@ -825,7 +840,7 @@ mod tests {
                 if !values.is_empty() {
                     let table_id = table_mapping.id(table_name)?;
                     let expected = expected.get(&table_id).unwrap();
-                    assert_eq!(expected, computed.tables.get(&table_id.table_id).unwrap());
+                    assert_eq!(expected, computed.tables.get(&table_id.tablet_id).unwrap());
                 }
             }
             Ok::<_, anyhow::Error>(())

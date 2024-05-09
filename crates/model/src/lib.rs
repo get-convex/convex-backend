@@ -239,7 +239,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
         }
     } else {
         // Create new indexes as backfilling.
-        let table_id = tx.table_mapping().id(table.table_name())?.table_id;
+        let table_id = tx.table_mapping().id(table.table_name())?.tablet_id;
         let mut index_model = IndexModel::new(tx);
         let existing_indexes: BTreeMap<_, _> = index_model
             .all_indexes_on_table(table_id)

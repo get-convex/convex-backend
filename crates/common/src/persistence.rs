@@ -25,7 +25,7 @@ use futures::{
 use serde_json::Value as JsonValue;
 use value::{
     InternalDocumentId,
-    TableId,
+    TabletId,
 };
 
 use crate::{
@@ -106,11 +106,11 @@ pub enum PersistenceGlobalKey {
     /// Internal id of _tables.by_id index, for bootstrapping.
     TablesByIdIndex,
     /// Internal id of _tables table, for bootstrapping.
-    TablesTableId,
+    TablesTabletId,
     /// Internal id of _index.by_id index, for bootstrapping.
     IndexByIdIndex,
     /// Internal id of _index table, for bootstrapping.
-    IndexTableId,
+    IndexTabletId,
 }
 
 impl From<PersistenceGlobalKey> for String {
@@ -129,9 +129,10 @@ impl From<PersistenceGlobalKey> for String {
             PersistenceGlobalKey::MaxRepeatableTimestamp => "max_repeatable_ts".to_string(),
             PersistenceGlobalKey::TableSummary => "table_summary_v2".to_string(),
             PersistenceGlobalKey::TablesByIdIndex => "tables_by_id".to_string(),
-            PersistenceGlobalKey::TablesTableId => "tables_table_id".to_string(),
             PersistenceGlobalKey::IndexByIdIndex => "index_by_id".to_string(),
-            PersistenceGlobalKey::IndexTableId => "index_table_id".to_string(),
+            // NB: For compatibility, these are referred to as "table_id"s, not "tablet_id"s.
+            PersistenceGlobalKey::TablesTabletId => "tables_table_id".to_string(),
+            PersistenceGlobalKey::IndexTabletId => "index_table_id".to_string(),
         }
     }
 }
@@ -147,9 +148,9 @@ impl FromStr for PersistenceGlobalKey {
             "max_repeatable_ts" => Ok(Self::MaxRepeatableTimestamp),
             "table_summary_v2" => Ok(Self::TableSummary),
             "tables_by_id" => Ok(Self::TablesByIdIndex),
-            "tables_table_id" => Ok(Self::TablesTableId),
+            "tables_table_id" => Ok(Self::TablesTabletId),
             "index_by_id" => Ok(Self::IndexByIdIndex),
-            "index_table_id" => Ok(Self::IndexTableId),
+            "index_table_id" => Ok(Self::IndexTabletId),
             _ => anyhow::bail!("unrecognized persistence global key"),
         }
     }
@@ -323,14 +324,14 @@ pub trait PersistenceReader: Send + Sync + 'static {
     /// version of this query, but have not yet done so.
     fn load_documents_from_table(
         &self,
-        table_id: TableId,
+        tablet_id: TabletId,
         range: TimestampRange,
         order: Order,
         page_size: u32,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
         self.load_documents(range, order, page_size, retention_validator)
-            .try_filter(move |(_, doc_id, _)| future::ready(*doc_id.table() == table_id))
+            .try_filter(move |(_, doc_id, _)| future::ready(*doc_id.table() == tablet_id))
             .boxed()
     }
 
@@ -358,7 +359,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
     fn index_scan(
         &self,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
         read_timestamp: Timestamp,
         range: &Interval,
         order: Order,
@@ -375,14 +376,14 @@ pub trait PersistenceReader: Send + Sync + 'static {
     async fn index_get(
         &self,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
         read_timestamp: Timestamp,
         key: IndexKey,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<Option<(Timestamp, ResolvedDocument)>> {
         let mut stream = self.index_scan(
             index_id,
-            table_id,
+            tablet_id,
             read_timestamp,
             &Interval::prefix(key.into_bytes().into()),
             Order::Asc,
@@ -431,7 +432,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
 
     fn version(&self) -> PersistenceVersion;
 
-    /// Returns all timestamps and documents in ascending (ts, table_id, id)
+    /// Returns all timestamps and documents in ascending (ts, tablet_id, id)
     /// order. Only should be used for testing
     #[cfg(any(test, feature = "testing"))]
     fn load_all_documents(&self) -> DocumentStream {
@@ -658,7 +659,7 @@ impl PersistenceSnapshot {
     pub fn index_scan(
         &self,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
         interval: &Interval,
         order: Order,
         size_hint: usize,
@@ -666,7 +667,7 @@ impl PersistenceSnapshot {
         self.reader
             .index_scan(
                 index_id,
-                table_id,
+                tablet_id,
                 *self.at,
                 interval,
                 order,
@@ -680,14 +681,14 @@ impl PersistenceSnapshot {
     pub async fn index_get(
         &self,
         index_id: IndexId,
-        table_id: TableId,
+        tablet_id: TabletId,
         key: IndexKey,
     ) -> anyhow::Result<Option<(Timestamp, ResolvedDocument)>> {
         let result = self
             .reader
             .index_get(
                 index_id,
-                table_id,
+                tablet_id,
                 *self.at,
                 key,
                 self.retention_validator.clone(),

@@ -16,10 +16,10 @@ use value::{
     DeveloperDocumentId,
     FieldName,
     Size,
-    TableIdAndTableNumber,
     TableIdentifier,
     TableMapping,
     TableName,
+    TabletIdAndTableNumber,
 };
 
 use crate::{
@@ -48,7 +48,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
     #[convex_macro::instrument_future]
     pub async fn insert(
         &mut self,
-        table_id: TableIdAndTableNumber,
+        table_id: TabletIdAndTableNumber,
         table_name: &TableName,
         value: ConvexObject,
         table_mapping_for_schema: &TableMapping,

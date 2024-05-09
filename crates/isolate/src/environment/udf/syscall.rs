@@ -23,9 +23,9 @@ use serde_json::{
 use value::{
     id_v6::DeveloperDocumentId,
     InternalId,
-    TableIdAndTableNumber,
     TableName,
     TableNumber,
+    TabletIdAndTableNumber,
 };
 
 use super::DatabaseUdfEnvironment;
@@ -38,7 +38,7 @@ use crate::environment::helpers::{
 pub trait SyscallProvider<RT: Runtime> {
     fn table_filter(&self) -> TableFilter;
 
-    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>>;
+    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>>;
     fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>>;
 
     fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<u32>;
@@ -54,7 +54,7 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         }
     }
 
-    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>> {
+    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>> {
         let table_mapping = self.phase.tx()?.table_mapping();
         Ok(table_mapping.id_and_number_if_exists(name))
     }

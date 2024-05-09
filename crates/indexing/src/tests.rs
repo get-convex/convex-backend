@@ -47,7 +47,7 @@ use value::{
     assert_obj,
     FieldPath,
     ResolvedDocumentId,
-    TableId,
+    TabletId,
 };
 
 trait IdGenerator {
@@ -97,7 +97,7 @@ fn index_documents(
     let index_table = id_generator.table_id(&INDEX_TABLE);
     // Add the _index.by_id index.
     indexes.push(IndexMetadata::new_enabled(
-        GenericIndexName::by_id(index_table.table_id),
+        GenericIndexName::by_id(index_table.tablet_id),
         IndexedFields::by_id(),
     ));
     let ts = Timestamp::must(0);
@@ -121,8 +121,8 @@ fn test_metadata_add_and_drop_index() -> anyhow::Result<()> {
     assert_eq!(index_registry.all_enabled_indexes().len(), 1);
 
     let table_id = id_generator.table_id(&"messages".parse()?);
-    let by_id = GenericIndexName::by_id(table_id.table_id);
-    let by_name = GenericIndexName::new(table_id.table_id, "by_name".parse()?)?;
+    let by_id = GenericIndexName::by_id(table_id.tablet_id);
+    let by_name = GenericIndexName::new(table_id.tablet_id, "by_name".parse()?)?;
     // Add `messages.by_id`.
     let by_id = gen_index_document(
         &mut id_generator,
@@ -160,10 +160,10 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
         PersistenceVersion::default(),
     )?;
     let table = id_generator.table_id(&"messages".parse()?);
-    let by_id = GenericIndexName::by_id(table.table_id);
-    let by_first_id = GenericIndexName::new(table.table_id, "by_first_id".parse()?)?;
-    let by_name = GenericIndexName::new(table.table_id, "by_name".parse()?)?;
-    let by_first_name = GenericIndexName::new(table.table_id, "by_first_name".parse()?)?;
+    let by_id = GenericIndexName::by_id(table.tablet_id);
+    let by_first_id = GenericIndexName::new(table.tablet_id, "by_first_id".parse()?)?;
+    let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
+    let by_first_name = GenericIndexName::new(table.tablet_id, "by_first_name".parse()?)?;
 
     // Add messages table_scan index.
     let original = gen_index_document(
@@ -188,7 +188,7 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
     assert!(
         format!("{:?}", err).contains(&format!(
             "Can't rename system defined index {}.by_id",
-            table.table_id
+            table.tablet_id
         )),
         "{err}"
     );
@@ -230,10 +230,10 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
 fn test_metadata_change_index() -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table = id_generator.table_id(&"messages".parse()?);
-    let by_id = GenericIndexName::by_id(table.table_id);
-    let by_name = GenericIndexName::new(table.table_id, "by_name".parse()?)?;
+    let by_id = GenericIndexName::by_id(table.tablet_id);
+    let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
     let authors_table = id_generator.table_id(&"authors".parse()?);
-    let authors_by_name = GenericIndexName::new(authors_table.table_id, "by_name".parse()?)?;
+    let authors_by_name = GenericIndexName::new(authors_table.tablet_id, "by_name".parse()?)?;
 
     let indexes = vec![IndexMetadata::new_enabled(by_id, IndexedFields::by_id())];
     let index_documents = index_documents(&mut id_generator, indexes)?;
@@ -296,7 +296,7 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
     assert!(
         format!("{}", result.unwrap_err().root_cause()).contains(&format!(
             "Cannot create a second enabled index with name {}.by_name",
-            table.table_id
+            table.tablet_id
         ))
     );
     let current_metadata = index_registry.enabled_index_metadata(&by_name).unwrap();
@@ -324,7 +324,7 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
     let table = id_generator.table_id(&"messages".parse()?);
 
     // Creating a new index with the same name and state is not allowed.
-    let by_name = GenericIndexName::new(table.table_id, "by_name".parse()?)?;
+    let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
     let pending = gen_index_document(
         &mut id_generator,
         IndexMetadata::new_backfilling(
@@ -350,7 +350,7 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
     assert!(
         format!("{}", result.unwrap_err().root_cause()).contains(&format!(
             "Cannot create a second pending index with name {}.by_name",
-            table.table_id
+            table.tablet_id
         ))
     );
     let current_index = index_registry.get_pending(&by_name).unwrap();
@@ -365,9 +365,9 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
 fn test_metadata_index_updates() -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table = id_generator.table_id(&"messages".parse()?);
-    let by_id = GenericIndexName::by_id(table.table_id);
-    let by_author = GenericIndexName::new(table.table_id, "by_author".parse()?)?;
-    let by_content = GenericIndexName::new(table.table_id, "by_content".parse()?)?;
+    let by_id = GenericIndexName::by_id(table.tablet_id);
+    let by_author = GenericIndexName::new(table.tablet_id, "by_author".parse()?)?;
+    let by_content = GenericIndexName::new(table.tablet_id, "by_content".parse()?)?;
     let indexes = vec![
         IndexMetadata::new_enabled(by_id.clone(), IndexedFields::by_id()),
         IndexMetadata::new_enabled(by_author.clone(), vec!["author".parse()?].try_into()?),
@@ -543,8 +543,8 @@ fn test_metadata_index_updates() -> anyhow::Result<()> {
 async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table = id_generator.table_id(&"messages".parse()?);
-    let by_id = GenericIndexName::by_id(table.table_id);
-    let by_author = GenericIndexName::new(table.table_id, "by_author".parse()?)?;
+    let by_id = GenericIndexName::by_id(table.tablet_id);
+    let by_author = GenericIndexName::new(table.tablet_id, "by_author".parse()?)?;
 
     let indexes = vec![IndexMetadata::new_enabled(
         by_id.clone(),
@@ -706,11 +706,11 @@ pub fn same_indexes_empty_registry_are_identical() -> anyhow::Result<()> {
 
 fn new_enabled_doc(
     id_generator: &mut dyn IdGenerator,
-    table_id: TableId,
+    tablet_id: TabletId,
     name: &str,
     fields: Vec<&str>,
 ) -> anyhow::Result<ResolvedDocument> {
-    let index_name = GenericIndexName::new(table_id, name.parse()?)?;
+    let index_name = GenericIndexName::new(tablet_id, name.parse()?)?;
     let field_paths = fields
         .into_iter()
         .map(|field| field.parse())
@@ -722,11 +722,11 @@ fn new_enabled_doc(
 
 fn new_pending_doc(
     id_generator: &mut dyn IdGenerator,
-    table_id: TableId,
+    tablet_id: TabletId,
     name: &str,
     fields: Vec<&str>,
 ) -> anyhow::Result<ResolvedDocument> {
-    let index_name = GenericIndexName::new(table_id, name.parse()?)?;
+    let index_name = GenericIndexName::new(tablet_id, name.parse()?)?;
     let field_paths = fields
         .into_iter()
         .map(|field| field.parse())
@@ -737,8 +737,8 @@ fn new_pending_doc(
     gen_index_document(id_generator, metadata)
 }
 
-fn table_id(id_generator: &mut TestIdGenerator) -> anyhow::Result<TableId> {
-    Ok(id_generator.table_id(&"table".parse()?).table_id)
+fn tablet_id(id_generator: &mut TestIdGenerator) -> anyhow::Result<TabletId> {
+    Ok(id_generator.table_id(&"table".parse()?).tablet_id)
 }
 
 #[test]
@@ -748,8 +748,8 @@ pub fn same_indexes_one_enabled_one_empty_are_not_same() -> anyhow::Result<()> {
     let mut first = default_registry(&mut id_generator)?;
     let second = first.clone();
 
-    let table_id = table_id(&mut id_generator)?;
-    let index_doc = new_enabled_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
+    let tablet_id = tablet_id(&mut id_generator)?;
+    let index_doc = new_enabled_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
     first.update(None, Some(&index_doc))?;
 
     assert!(!first.same_indexes(&second));
@@ -764,8 +764,8 @@ pub fn same_indexes_identical_enabled_doc_are_same() -> anyhow::Result<()> {
     let mut first = default_registry(&mut id_generator)?;
     let mut second = first.clone();
 
-    let table_id = table_id(&mut id_generator)?;
-    let index_doc = new_enabled_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
+    let tablet_id = tablet_id(&mut id_generator)?;
+    let index_doc = new_enabled_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
     first.update(None, Some(&index_doc))?;
     second.update(None, Some(&index_doc))?;
 
@@ -781,9 +781,9 @@ pub fn same_indexes_different_enabled_doc_id_are_not_same() -> anyhow::Result<()
     let mut first = default_registry(&mut id_generator)?;
     let mut second = first.clone();
 
-    let table_id = table_id(&mut id_generator)?;
-    let first_doc = new_enabled_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
-    let second_doc = new_enabled_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
+    let tablet_id = tablet_id(&mut id_generator)?;
+    let first_doc = new_enabled_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
+    let second_doc = new_enabled_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
     first.update(None, Some(&first_doc))?;
     second.update(None, Some(&second_doc))?;
 
@@ -799,8 +799,8 @@ pub fn same_indexes_identical_pending_doc_are_same() -> anyhow::Result<()> {
     let mut first = default_registry(&mut id_generator)?;
     let mut second = first.clone();
 
-    let table_id = table_id(&mut id_generator)?;
-    let index_doc = new_pending_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
+    let tablet_id = tablet_id(&mut id_generator)?;
+    let index_doc = new_pending_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
     first.update(None, Some(&index_doc))?;
     second.update(None, Some(&index_doc))?;
 
@@ -816,9 +816,9 @@ pub fn same_indexes_different_pending_docs_are_not_same() -> anyhow::Result<()> 
     let mut first = default_registry(&mut id_generator)?;
     let mut second = first.clone();
 
-    let table_id = table_id(&mut id_generator)?;
-    let first_doc = new_pending_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
-    let second_doc = new_pending_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
+    let tablet_id = tablet_id(&mut id_generator)?;
+    let first_doc = new_pending_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
+    let second_doc = new_pending_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
     first.update(None, Some(&first_doc))?;
     second.update(None, Some(&second_doc))?;
 
@@ -834,11 +834,11 @@ pub fn same_indexes_same_docs_different_states_are_same() -> anyhow::Result<()> 
     let mut first = default_registry(&mut id_generator)?;
     let mut second = first.clone();
 
-    let table_id = table_id(&mut id_generator)?;
-    let first_doc = new_pending_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
+    let tablet_id = tablet_id(&mut id_generator)?;
+    let first_doc = new_pending_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
     let second_doc = new_enabled_doc(
         &mut ConstantId(first_doc.id()),
-        table_id,
+        tablet_id,
         "by_author",
         vec!["author"],
     )?;
@@ -858,17 +858,21 @@ pub fn same_indexes_same_docs_different_update_order_are_same() -> anyhow::Resul
     let mut first = default_registry(&mut id_generator)?;
     let mut second = first.clone();
 
-    let table_id = table_id(&mut id_generator)?;
-    let first_enabled = new_enabled_doc(&mut id_generator, table_id, "by_author", vec!["author"])?;
-    let second_enabled = new_enabled_doc(&mut id_generator, table_id, "by_title", vec!["title"])?;
+    let tablet_id = tablet_id(&mut id_generator)?;
+    let first_enabled = new_enabled_doc(&mut id_generator, tablet_id, "by_author", vec!["author"])?;
+    let second_enabled = new_enabled_doc(&mut id_generator, tablet_id, "by_title", vec!["title"])?;
     let first_pending = new_pending_doc(
         &mut id_generator,
-        table_id,
+        tablet_id,
         "by_publisher",
         vec!["publisher"],
     )?;
-    let second_pending =
-        new_pending_doc(&mut id_generator, table_id, "by_subtitle", vec!["subtitle"])?;
+    let second_pending = new_pending_doc(
+        &mut id_generator,
+        tablet_id,
+        "by_subtitle",
+        vec!["subtitle"],
+    )?;
     first.update(None, Some(&first_enabled))?;
     first.update(None, Some(&second_enabled))?;
     first.update(None, Some(&first_pending))?;

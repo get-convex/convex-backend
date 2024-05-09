@@ -92,9 +92,9 @@ use value::{
     id_v6::DeveloperDocumentId,
     GenericDocumentId,
     InternalDocumentId,
-    TableId,
     TableMapping,
     TableName,
+    TabletId,
 };
 
 use crate::{
@@ -519,7 +519,7 @@ impl<RT: Runtime> Committer<RT> {
         ordered_updates.sort_by_key(|(id, update)| {
             table_dependency_sort_key(
                 BootstrapTableIds::new(&transaction.table_mapping),
-                GenericDocumentId::<TableId>::from(*id),
+                GenericDocumentId::<TabletId>::from(*id),
                 update.new_document.as_ref(),
             )
         });
@@ -751,7 +751,7 @@ impl<RT: Runtime> Committer<RT> {
     ) {
         for (_, index_write) in index_writes {
             if let DatabaseIndexValue::NonClustered(doc) = index_write.value {
-                if let Ok(table_name) = table_mapping.tablet_name(doc.table().table_id) {
+                if let Ok(table_name) = table_mapping.tablet_name(doc.table().tablet_id) {
                     // Index metadata is never a vector
                     // Database bandwidth for index writes
                     usage_tracker.track_database_ingress_size(
@@ -773,7 +773,7 @@ impl<RT: Runtime> Committer<RT> {
             } = validated_write;
             if let Some(document) = document {
                 let document_write_size = document_id.size() + document.size();
-                if let Ok(table_name) = table_mapping.tablet_name(document.table().table_id) {
+                if let Ok(table_name) = table_mapping.tablet_name(document.table().tablet_id) {
                     // Database bandwidth for document writes
                     if *doc_in_vector_index == DocInVectorIndex::Absent {
                         usage_tracker.track_database_ingress_size(
@@ -962,7 +962,7 @@ impl<RT: Runtime> CommitterClient<RT> {
                 .writes
                 .generated_ids
                 .iter()
-                .map(|id| (GenericDocumentId::<TableId>::from(*id), ts))
+                .map(|id| (GenericDocumentId::<TabletId>::from(*id), ts))
                 .collect();
             let mut previous_revisions_of_ids = repeatable_persistence
                 .previous_revisions(generated_ids)
@@ -973,7 +973,7 @@ impl<RT: Runtime> CommitterClient<RT> {
                     .writes
                     .generated_ids
                     .iter()
-                    .find(|id| GenericDocumentId::<TableId>::from(**id) == document_id)
+                    .find(|id| GenericDocumentId::<TabletId>::from(**id) == document_id)
                     .map(|id| DeveloperDocumentId::from(*id).encode())
                     .unwrap_or(document_id.to_string());
                 if maybe_doc.is_none() {
@@ -1037,7 +1037,7 @@ pub fn table_dependency_sort_key(
     update: Option<&ResolvedDocument>,
 ) -> (usize, InternalDocumentId) {
     let table = *id.table();
-    let sort_key = if table == bootstrap_tables.tables_id.table_id {
+    let sort_key = if table == bootstrap_tables.tables_id.tablet_id {
         match update {
             Some(insertion) => {
                 let table_metadata: ParsedDocument<TableMetadata> =
@@ -1063,7 +1063,7 @@ pub fn table_dependency_sort_key(
             // Legacy method of deleting _tables, supported here when walking the log.
             None => 1,
         }
-    } else if table == bootstrap_tables.index_id.table_id {
+    } else if table == bootstrap_tables.index_id.tablet_id {
         if update.is_none() {
             // Index deletes come first, in case one is being deleted and another
             // created with the same name.

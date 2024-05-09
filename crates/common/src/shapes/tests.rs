@@ -99,9 +99,9 @@ fn test_id_strings() -> anyhow::Result<()> {
 
     // Delete two of the tables
     let deleted1_table_id = id_generator.id(&deleted1_table)?;
-    id_generator.remove(deleted1_table_id.table_id);
+    id_generator.remove(deleted1_table_id.tablet_id);
     let deleted2_table_id = id_generator.id(&deleted2_table)?;
-    id_generator.remove(deleted2_table_id.table_id);
+    id_generator.remove(deleted2_table_id.tablet_id);
 
     // Insert all of these into a type
     let inferred_type = CountedShape::<TestConfig>::empty()

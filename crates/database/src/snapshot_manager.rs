@@ -29,9 +29,9 @@ use search::SearchIndexManager;
 use usage_tracking::DocInVectorIndex;
 use value::{
     ResolvedDocumentId,
-    TableId,
     TableMapping,
     TableName,
+    TabletId,
 };
 use vector::VectorIndexManager;
 
@@ -63,14 +63,14 @@ pub struct SnapshotManager {
 /// This is a wrapper on [TableSummarySnapshot] that is filtered to tables that
 /// exist and tracks the user document and size counts.
 pub struct TableSummaries {
-    pub tables: OrdMap<TableId, TableSummary>,
+    pub tables: OrdMap<TabletId, TableSummary>,
     pub num_user_documents: usize,
     pub user_size: usize,
 }
 
 #[async_trait]
 impl TableCountSnapshot for TableSummaries {
-    async fn count(&self, table: TableId) -> anyhow::Result<u64> {
+    async fn count(&self, table: TabletId) -> anyhow::Result<u64> {
         let count = self
             .tables
             .get(&table)
@@ -86,9 +86,9 @@ impl TableSummaries {
     ) -> Self {
         // Filter out non-existent tables before counting. Otherwise is_system_table
         // will return false and count non-existent tables toward user document counts.
-        let tables: OrdMap<TableId, TableSummary> = tables
+        let tables: OrdMap<TabletId, TableSummary> = tables
             .into_iter()
-            .filter(|(table_id, _table_summary)| table_mapping.table_id_exists(*table_id))
+            .filter(|(table_id, _table_summary)| table_mapping.tablet_id_exists(*table_id))
             .collect::<OrdMap<_, _>>();
         let (num_user_documents, user_size) = tables
             .iter()
@@ -106,7 +106,7 @@ impl TableSummaries {
         }
     }
 
-    pub fn tablet_summary(&self, table: &TableId) -> TableSummary {
+    pub fn tablet_summary(&self, table: &TabletId) -> TableSummary {
         self.tables
             .get(table)
             .cloned()
@@ -123,7 +123,7 @@ impl TableSummaries {
     ) -> anyhow::Result<()> {
         let mut table_summary = self
             .tables
-            .get(&document_id.table().table_id)
+            .get(&document_id.table().tablet_id)
             .ok_or_else(|| anyhow::anyhow!("Updating non-existent table {}", document_id.table()))?
             .clone();
         if let Some(old_value) = old {
@@ -143,12 +143,12 @@ impl TableSummaries {
                 TableUpdateMode::Create => {
                     assert!(self
                         .tables
-                        .insert(table_id_and_number.table_id, TableSummary::empty())
+                        .insert(table_id_and_number.tablet_id, TableSummary::empty())
                         .is_none());
                 },
                 TableUpdateMode::Activate => {},
                 TableUpdateMode::Drop => {
-                    self.tables.remove(&table_id_and_number.table_id);
+                    self.tables.remove(&table_id_and_number.tablet_id);
                 },
             }
         }
@@ -156,7 +156,7 @@ impl TableSummaries {
         let new_info_total_size = table_summary.total_size();
         match self
             .tables
-            .insert(document_id.table().table_id, table_summary)
+            .insert(document_id.table().tablet_id, table_summary)
         {
             Some(old_summary) => {
                 if !table_mapping.is_system(document_id.table().table_number) {
@@ -247,7 +247,7 @@ impl Snapshot {
             .iter()
             .filter(|(table_id, _)| {
                 matches!(
-                    self.table_registry.table_states().get(table_id),
+                    self.table_registry.tablet_states().get(table_id),
                     Some(TableState::Active)
                 )
             })
@@ -271,7 +271,7 @@ impl Snapshot {
             Ok(table_id) => table_id,
             Err(_) => return TableSummary::empty(),
         };
-        self.table_summaries.tablet_summary(&table_id.table_id)
+        self.table_summaries.tablet_summary(&table_id.tablet_id)
     }
 }
 

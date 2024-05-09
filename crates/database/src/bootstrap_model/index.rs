@@ -62,8 +62,8 @@ use indexing::{
 };
 use value::{
     ResolvedDocumentId,
-    TableId,
     TableMapping,
+    TabletId,
 };
 
 use crate::{
@@ -629,7 +629,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     }
 
     /// Returns by_id indexes for *all tablets*, including hidden ones.
-    pub async fn by_id_indexes(&mut self) -> anyhow::Result<BTreeMap<TableId, IndexId>> {
+    pub async fn by_id_indexes(&mut self) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
         let all_indexes = self.get_all_indexes().await?;
         Ok(all_indexes
             .into_iter()
@@ -640,25 +640,25 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     pub async fn by_id_index_metadata(
         &mut self,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> anyhow::Result<ParsedDocument<TabletIndexMetadata>> {
-        self.all_indexes_on_table(table_id)
+        self.all_indexes_on_table(tablet_id)
             .await?
             .into_iter()
             .find(|index| index.name.is_by_id())
-            .ok_or_else(|| anyhow::anyhow!("by_id index missing for {table_id}"))
+            .ok_or_else(|| anyhow::anyhow!("by_id index missing for {tablet_id}"))
     }
 
     /// All indexes (system and developer-defined and
     /// backfilling/backfilled/enabled) for a single table.
     pub async fn all_indexes_on_table(
         &mut self,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> anyhow::Result<Vec<ParsedDocument<TabletIndexMetadata>>> {
         let all_indexes = self.get_all_indexes().await?;
         Ok(all_indexes
             .into_iter()
-            .filter(|index| *index.name.table() == table_id)
+            .filter(|index| *index.name.table() == tablet_id)
             .collect())
     }
 
@@ -760,7 +760,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     pub async fn copy_indexes_to_table(
         &mut self,
         source_table: &TableName,
-        target_table: TableId,
+        target_table: TabletId,
     ) -> anyhow::Result<()> {
         // Copy over enabled indexes from existing active table, if any.
         let Some(active_table_id) = self.tx.table_mapping().id_if_exists(source_table) else {

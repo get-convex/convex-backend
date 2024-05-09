@@ -64,8 +64,8 @@ use sync_types::{
     Timestamp,
 };
 use value::{
-    TableId,
     TableMapping,
+    TabletId,
 };
 use vector::{
     IndexState,
@@ -99,8 +99,8 @@ const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
 const MAX_BACKOFF: Duration = Duration::from_secs(5);
 
 struct IndexesToBootstrap {
-    table_to_search_indexes: BTreeMap<TableId, Vec<SearchIndexBootstrapData>>,
-    table_to_vector_indexes: BTreeMap<TableId, Vec<VectorIndexBootstrapData>>,
+    table_to_search_indexes: BTreeMap<TabletId, Vec<SearchIndexBootstrapData>>,
+    table_to_vector_indexes: BTreeMap<TabletId, Vec<VectorIndexBootstrapData>>,
     /// Timestamp to walk the document log from to get all of the revisions
     /// since the last write to disk.
     oldest_index_ts: Timestamp,
@@ -109,7 +109,7 @@ struct IndexesToBootstrap {
 pub struct BootstrappedSearchAndVectorIndexes {
     pub search_index_manager: SearchIndexManager,
     pub vector_index_manager: VectorIndexManager,
-    pub tables_with_indexes: BTreeSet<TableId>,
+    pub tables_with_indexes: BTreeSet<TabletId>,
 }
 
 impl IndexesToBootstrap {
@@ -235,7 +235,7 @@ impl IndexesToBootstrap {
         })
     }
 
-    fn tables_with_indexes(&self) -> BTreeSet<TableId> {
+    fn tables_with_indexes(&self) -> BTreeSet<TabletId> {
         self.table_to_search_indexes
             .keys()
             .chain(self.table_to_vector_indexes.keys())
@@ -433,7 +433,7 @@ impl VectorIndexBootstrapData {
 
 /// Streams revision pairs for documents in the indexed tables.
 pub fn stream_revision_pairs_for_indexes<'a>(
-    tables_with_indexes: &'a BTreeSet<TableId>,
+    tables_with_indexes: &'a BTreeSet<TabletId>,
     persistence: &'a RepeatablePersistence,
     range: TimestampRange,
 ) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
@@ -1156,7 +1156,7 @@ mod tests {
         db.commit(tx).await?;
 
         let snapshot = db.latest_snapshot()?;
-        let table_id = snapshot.table_mapping().id(&"test".parse()?)?.table_id;
+        let table_id = snapshot.table_mapping().id(&"test".parse()?)?.tablet_id;
         let index_name = TabletIndexName::new(table_id, "by_text".parse()?)?;
         SearchIndexFlusher::build_index_in_test(
             index_name.clone(),

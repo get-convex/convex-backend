@@ -7,7 +7,7 @@ use std::collections::{
 use common::{
     bootstrap_model::index::{
         database_index::IndexedFields,
-        index_metadata_serialize_table_id,
+        index_metadata_serialize_tablet_id,
         TABLE_ID_FIELD_PATH,
     },
     document::{
@@ -29,7 +29,7 @@ use common::{
     value::{
         ResolvedDocumentId,
         Size,
-        TableIdAndTableNumber,
+        TabletIdAndTableNumber,
     },
 };
 use errors::ErrorMetadata;
@@ -67,7 +67,7 @@ pub struct Writes {
     // Size of writes to system tables
     system_tx_size: TransactionWriteSize,
     // When we write to module versions we cannot use the module cache.
-    written_tables: BTreeSet<TableIdAndTableNumber>,
+    written_tables: BTreeSet<TabletIdAndTableNumber>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -96,7 +96,7 @@ impl Writes {
         self.updates.is_empty()
     }
 
-    pub fn has_written_to(&self, table_id: &TableIdAndTableNumber) -> bool {
+    pub fn has_written_to(&self, table_id: &TabletIdAndTableNumber) -> bool {
         self.written_tables.contains(table_id)
     }
 
@@ -193,7 +193,7 @@ impl Writes {
     fn record_reads_for_write(
         table_mapping: BootstrapTableIds,
         reads: &mut TransactionReadSet,
-        table: TableIdAndTableNumber,
+        table: TabletIdAndTableNumber,
     ) -> anyhow::Result<()> {
         // by_name index on _indexes table.
         if table_mapping.is_index_table(table) || table_mapping.is_tables_table(table) {
@@ -205,12 +205,12 @@ impl Writes {
             // For example, fast forwarding a vector search checkpoint does not
             // need this dependency.
             reads.record_indexed_derived(
-                TabletIndexName::by_id(table_mapping.tables_id.table_id),
+                TabletIndexName::by_id(table_mapping.tables_id.tablet_id),
                 IndexedFields::by_id(),
                 Interval::all(),
             );
             reads.record_indexed_derived(
-                TabletIndexName::by_id(table_mapping.index_id.table_id),
+                TabletIndexName::by_id(table_mapping.index_id.tablet_id),
                 IndexedFields::by_id(),
                 Interval::all(),
             );
@@ -218,11 +218,11 @@ impl Writes {
             // Writes to a table require the table still exists.
             let table_id_bytes = IndexKey::new(
                 vec![],
-                table_mapping.tables_id.table_number.id(table.table_id.0),
+                table_mapping.tables_id.table_number.id(table.tablet_id.0),
             )
             .into_bytes();
             reads.record_indexed_derived(
-                TabletIndexName::by_id(table_mapping.tables_id.table_id),
+                TabletIndexName::by_id(table_mapping.tables_id.tablet_id),
                 IndexedFields::by_id(),
                 Interval::prefix(table_id_bytes.into()),
             );
@@ -234,9 +234,9 @@ impl Writes {
             // need to read the index. We only care about the name always mapping
             // to the same fields.
             let table_name_bytes =
-                values_to_bytes(&[Some(index_metadata_serialize_table_id(&table.table_id)?)]);
+                values_to_bytes(&[Some(index_metadata_serialize_tablet_id(&table.tablet_id)?)]);
             reads.record_indexed_derived(
-                TabletIndexName::new(table_mapping.index_id.table_id, "by_table_id".parse()?)?,
+                TabletIndexName::new(table_mapping.index_id.tablet_id, "by_table_id".parse()?)?,
                 vec![TABLE_ID_FIELD_PATH.clone()].try_into()?,
                 // Note that should really be exact point instead of a prefix,
                 // but our read set interval does not support this.
@@ -264,7 +264,7 @@ impl Writes {
         // We check in CommitterClient that it never existed before the transaction's
         // begin timestamp, and here we take a dependency on the ID to make sure
         // it cannot be created by a parallel commit.
-        let index_name = TabletIndexName::by_id(document_id.table().table_id);
+        let index_name = TabletIndexName::by_id(document_id.table().tablet_id);
         let id_bytes = IndexKey::new(vec![], document_id.into()).into_bytes();
         reads.record_indexed_derived(
             index_name,
@@ -354,7 +354,7 @@ mod tests {
         Writes::record_reads_for_write(bootstrap_tables, &mut user_table1_write, user_table1)?;
 
         let user_table1_table_metadata_change = PackedDocument::pack(ResolvedDocument::new(
-            ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table1.table_id.0),
+            ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table1.tablet_id.0),
             CreationTime::ONE,
             TableMetadata::new("big_table".parse()?, user_table1.table_number).try_into()?,
         )?);
@@ -371,7 +371,7 @@ mod tests {
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
                 Timestamp::MIN,
-                TabletIndexName::new(user_table1.table_id, "by_likes".parse()?)?,
+                TabletIndexName::new(user_table1.tablet_id, "by_likes".parse()?)?,
                 IndexedFields::by_id(),
             )
             .try_into()?,
@@ -384,7 +384,7 @@ mod tests {
         // Writes to a table should *not* OCC with modification of the table metadata
         // or an index of unrelated same table.
         let user_table2_table_metadata_change = PackedDocument::pack(ResolvedDocument::new(
-            ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table2.table_id.0),
+            ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table2.tablet_id.0),
             CreationTime::ONE,
             TableMetadata::new("small_table".parse()?, user_table2.table_number).try_into()?,
         )?);
@@ -401,7 +401,7 @@ mod tests {
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
                 Timestamp::MIN,
-                TabletIndexName::new(user_table2.table_id, "by_likes".parse()?)?,
+                TabletIndexName::new(user_table2.tablet_id, "by_likes".parse()?)?,
                 IndexedFields::by_id(),
             )
             .try_into()?,

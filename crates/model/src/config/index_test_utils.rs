@@ -13,7 +13,7 @@ use common::{
     schemas::DatabaseSchema,
     value::{
         GenericDocumentId,
-        TableIdAndTableNumber,
+        TabletIdAndTableNumber,
     },
     version::Version,
 };
@@ -144,7 +144,7 @@ pub async fn deploy_schema(
 pub async fn prepare_schema(
     db: &Database<TestRuntime>,
     schema: DatabaseSchema,
-) -> anyhow::Result<GenericDocumentId<TableIdAndTableNumber>> {
+) -> anyhow::Result<GenericDocumentId<TabletIdAndTableNumber>> {
     let mut tx = db.begin_system().await?;
     IndexModel::new(&mut tx)
         .prepare_new_and_mutated_indexes(&schema)
@@ -161,7 +161,7 @@ pub async fn prepare_schema(
 
 pub async fn apply_config(
     db: Database<TestRuntime>,
-    schema_id: Option<GenericDocumentId<TableIdAndTableNumber>>,
+    schema_id: Option<GenericDocumentId<TabletIdAndTableNumber>>,
 ) -> anyhow::Result<()> {
     // This is a kind of arbitrary version that supports schema validation. I'm not
     // even sure that the value here matters at all.

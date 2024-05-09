@@ -5,8 +5,8 @@ use value::{
     id_v6::DeveloperDocumentId,
     GenericDocumentId,
     ResolvedDocumentId,
-    TableId,
     TableMapping,
+    TabletId,
 };
 
 pub use super::{
@@ -19,7 +19,7 @@ pub fn parse_schema_id(
     table_mapping: &TableMapping,
 ) -> anyhow::Result<ResolvedDocumentId> {
     // Try parsing as a document ID with TableId first
-    match GenericDocumentId::<TableId>::from_str(schema_id) {
+    match GenericDocumentId::<TabletId>::from_str(schema_id) {
         Ok(s) => s.map_table(table_mapping.inject_table_number()),
         Err(_) => {
             // Try parsing as an IDv6 ID

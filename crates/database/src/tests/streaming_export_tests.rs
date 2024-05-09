@@ -50,19 +50,19 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
                 (
                     ts1,
                     doc1sort.developer_id(),
-                    table_mapping.tablet_name(doc1sort.table().table_id)?,
+                    table_mapping.tablet_name(doc1sort.table().tablet_id)?,
                     Some(doc1sort.clone())
                 ),
                 (
                     ts1,
                     doc2sort.developer_id(),
-                    table_mapping.tablet_name(doc2sort.table().table_id)?,
+                    table_mapping.tablet_name(doc2sort.table().tablet_id)?,
                     Some(doc2sort.clone())
                 ),
                 (
                     ts2,
                     doc3.developer_id(),
-                    table_mapping.tablet_name(doc3.table().table_id)?,
+                    table_mapping.tablet_name(doc3.table().tablet_id)?,
                     Some(doc3.clone())
                 ),
             ],
@@ -80,7 +80,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
             deltas: vec![(
                 ts2,
                 doc3.developer_id(),
-                table_mapping.tablet_name(doc3.table().table_id)?,
+                table_mapping.tablet_name(doc3.table().tablet_id)?,
                 Some(doc3.clone())
             )],
             cursor: ts2,
@@ -97,7 +97,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
             deltas: vec![(
                 ts1,
                 doc1.developer_id(),
-                table_mapping.tablet_name(doc1.table().table_id)?,
+                table_mapping.tablet_name(doc1.table().tablet_id)?,
                 Some(doc1.clone())
             )],
             cursor: ts2,
@@ -117,13 +117,13 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
                 (
                     ts1,
                     doc1sort.developer_id(),
-                    table_mapping.tablet_name(doc1sort.table().table_id)?,
+                    table_mapping.tablet_name(doc1sort.table().tablet_id)?,
                     Some(doc1sort.clone())
                 ),
                 (
                     ts1,
                     doc2sort.developer_id(),
-                    table_mapping.tablet_name(doc2sort.table().table_id)?,
+                    table_mapping.tablet_name(doc2sort.table().tablet_id)?,
                     Some(doc2sort.clone())
                 ),
             ],
@@ -201,7 +201,7 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
             deltas: vec![(
                 ts_insert,
                 remaining_doc.developer_id(),
-                table_mapping.tablet_name(remaining_doc.table().table_id)?,
+                table_mapping.tablet_name(remaining_doc.table().tablet_id)?,
                 Some(remaining_doc.clone())
             ),],
             cursor: ts_latest,
@@ -236,8 +236,8 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let doc4 = UserFacingModel::new(&mut tx)
         .patch(doc2.developer_id(), assert_obj!("f" => 4).into())
         .await?;
-    let table_id = tx.table_mapping().inject_table_id()(doc4.table())?.table_id;
-    let doc4 = doc4.to_resolved(table_id);
+    let tablet_id = tx.table_mapping().inject_table_id()(doc4.table())?.tablet_id;
+    let doc4 = doc4.to_resolved(tablet_id);
     let ts2 = db.commit(tx).await?;
     let mut docs2sorted = vec![
         (ts1, "table1".parse()?, doc1),

@@ -49,9 +49,9 @@ use imbl::{
 use itertools::Itertools;
 use value::{
     InternalId,
-    TableId,
-    TableIdAndTableNumber,
     TableMapping,
+    TabletId,
+    TabletIdAndTableNumber,
 };
 
 /// [`IndexRegistry`] maintains the metadata for indexes, indicating
@@ -71,13 +71,13 @@ use value::{
 /// that should not be used by applications.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct IndexRegistry {
-    index_table: TableIdAndTableNumber,
+    index_table: TabletIdAndTableNumber,
     // Indexes that are enabled and ready to be queried against.
     enabled_indexes: OrdMap<TabletIndexName, Index>,
     // Indexes that are not yet enabled for queries, typically backfilling or waiting to be
     // committed.
     pending_indexes: OrdMap<TabletIndexName, Index>,
-    indexes_by_table: OrdSet<(TableId, IndexDescriptor)>,
+    indexes_by_table: OrdSet<(TabletId, IndexDescriptor)>,
 
     persistence_version: PersistenceVersion,
 }
@@ -91,7 +91,7 @@ impl IndexRegistry {
         self.persistence_version = persistence_version
     }
 
-    pub fn index_table(&self) -> TableIdAndTableNumber {
+    pub fn index_table(&self) -> TabletIdAndTableNumber {
         self.index_table
     }
 
@@ -113,7 +113,7 @@ impl IndexRegistry {
             persistence_version,
         };
 
-        let meta_index_name = GenericIndexName::by_id(index_table.table_id);
+        let meta_index_name = GenericIndexName::by_id(index_table.tablet_id);
         let mut meta_index = None;
         let mut regular_indexes = vec![];
 
@@ -159,7 +159,7 @@ impl IndexRegistry {
         document: &'a ResolvedDocument,
     ) -> impl Iterator<Item = (&'a Index, IndexKey)> + 'a {
         iter::from_coroutine(move || {
-            for index in self.indexes_by_table(document.table().table_id) {
+            for index in self.indexes_by_table(document.table().tablet_id) {
                 // Only yield fields from database indexes.
                 if let IndexConfig::Database {
                     developer_config: DeveloperDatabaseIndexConfig { fields },
@@ -253,7 +253,7 @@ impl IndexRegistry {
                     anyhow::bail!("Updating nonexistent index {}", metadata.name);
                 }
             }
-            let table_key = (&old_document.table().table_id, &*INDEX_BY_ID_DESCRIPTOR);
+            let table_key = (&old_document.table().tablet_id, &*INDEX_BY_ID_DESCRIPTOR);
             if !self.indexes_by_table.contains(table_key.as_comparator()) {
                 anyhow::bail!("Removing document that doesn't exist in index");
             }
@@ -263,7 +263,7 @@ impl IndexRegistry {
             let table_id = new_document.table();
             anyhow::ensure!(
                 self.enabled_indexes
-                    .contains_key(&GenericIndexName::by_id(table_id.table_id)),
+                    .contains_key(&GenericIndexName::by_id(table_id.tablet_id)),
                 "Missing `by_id` index for table {}",
                 table_id,
             );
@@ -275,7 +275,7 @@ impl IndexRegistry {
                 // memory first when bootstrapping. After loading these records at the latest
                 // snapshot, it doesn't make sense to retraverse the `_index` table
                 // historically.
-                if metadata.name.table() == &self.index_table.table_id {
+                if metadata.name.table() == &self.index_table.tablet_id {
                     anyhow::ensure!(metadata.name.is_by_id());
                 }
 
@@ -364,7 +364,7 @@ impl IndexRegistry {
         modified
     }
 
-    pub fn all_tables_with_indexes(&self) -> Vec<TableId> {
+    pub fn all_tables_with_indexes(&self) -> Vec<TabletId> {
         self.all_indexes()
             .map(|index| *index.name.table())
             .sorted()
@@ -431,7 +431,7 @@ impl IndexRegistry {
             .collect()
     }
 
-    pub fn by_id_indexes(&self) -> BTreeMap<TableId, IndexId> {
+    pub fn by_id_indexes(&self) -> BTreeMap<TabletId, IndexId> {
         self.all_enabled_indexes()
             .into_iter()
             .filter(|index| index.name.is_by_id())
@@ -441,26 +441,26 @@ impl IndexRegistry {
 
     /// Returns true if there are neither pending nor enabled indexes for the
     /// given table.
-    pub fn has_no_indexes(&self, table_id: TableId) -> bool {
-        let table_indexes: Vec<&Index> = self.indexes_by_table(table_id).collect();
+    pub fn has_no_indexes(&self, tablet_id: TabletId) -> bool {
+        let table_indexes: Vec<&Index> = self.indexes_by_table(tablet_id).collect();
         table_indexes.is_empty()
     }
 
     pub fn search_indexes_by_table(
         &self,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> impl Iterator<Item = &'_ Index> + '_ {
         // We only support storing one search index with a given name at at time, so
         // unlike database indexes, we're not overly concerned with the state.
-        self.indexes_by_table(table_id)
+        self.indexes_by_table(tablet_id)
             .filter(|index| index.metadata.is_search_index())
     }
 
     pub fn vector_indexes_by_table(
         &self,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> impl Iterator<Item = &'_ Index> + '_ {
-        self.indexes_by_table(table_id)
+        self.indexes_by_table(tablet_id)
             .filter(|index| index.metadata.is_vector_index())
     }
 
@@ -470,13 +470,13 @@ impl IndexRegistry {
     /// mutated but the mutated version is not yet enabled.
     pub(crate) fn indexes_by_table(
         &self,
-        table_id: TableId,
+        tablet_id: TabletId,
     ) -> impl Iterator<Item = &'_ Index> + '_ {
-        let s = (&table_id, &IndexDescriptor::min());
+        let s = (&tablet_id, &IndexDescriptor::min());
         let range = (StdBound::Included(s.as_comparator()), StdBound::Unbounded);
         self.indexes_by_table
-            .range::<_, dyn TupleKey<TableId, IndexDescriptor>>(range)
-            .take_while(move |(t, _)| *t == table_id)
+            .range::<_, dyn TupleKey<TabletId, IndexDescriptor>>(range)
+            .take_while(move |(t, _)| *t == tablet_id)
             .flat_map(move |(t, d)| {
                 let index_name = if d == &*INDEX_BY_ID_DESCRIPTOR {
                     GenericIndexName::by_id(*t)
@@ -532,9 +532,9 @@ impl IndexRegistry {
         self.pending_indexes.get(index_name)
     }
 
-    pub fn must_get_by_id(&self, table_id: TableId) -> anyhow::Result<&Index> {
-        self.get_enabled(&TabletIndexName::by_id(table_id))
-            .ok_or_else(|| anyhow::anyhow!("No `by_id` index for table {}", table_id))
+    pub fn must_get_by_id(&self, tablet_id: TabletId) -> anyhow::Result<&Index> {
+        self.get_enabled(&TabletIndexName::by_id(tablet_id))
+            .ok_or_else(|| anyhow::anyhow!("No `by_id` index for table {}", tablet_id))
     }
 
     fn insert(&mut self, index: Index) -> Option<Index> {

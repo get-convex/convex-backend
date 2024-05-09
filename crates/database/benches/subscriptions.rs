@@ -56,8 +56,8 @@ use value::{
     FieldPath,
     InternalId,
     ResolvedDocumentId,
-    TableId,
-    TableIdAndTableNumber,
+    TabletId,
+    TabletIdAndTableNumber,
 };
 
 const MAX_LOAD_SIZE: usize = 4 << 20;
@@ -85,7 +85,7 @@ fn prefix_and_max_distances() -> Vec<(bool, FuzzyDistance)> {
 }
 
 fn load_datasets(
-    table_id: TableIdAndTableNumber,
+    table_id: TabletIdAndTableNumber,
     max_size: usize,
 ) -> anyhow::Result<BTreeMap<String, (Vec<PackedDocument>, Vec<String>)>> {
     let mut next_id = 0u64;
@@ -158,13 +158,13 @@ fn load_datasets(
 }
 
 fn create_subscription_token(
-    table_id: TableIdAndTableNumber,
+    table_id: TabletIdAndTableNumber,
     prefix: bool,
     max_distance: FuzzyDistance,
     token: String,
 ) -> Token {
-    let index_name: GenericIndexName<TableId> = GenericIndexName::new(
-        table_id.table_id,
+    let index_name: GenericIndexName<TabletId> = GenericIndexName::new(
+        table_id.tablet_id,
         IndexDescriptor::from_str("index").unwrap(),
     )
     .unwrap();
@@ -181,7 +181,7 @@ fn create_subscription_token(
 }
 
 fn create_tokens(
-    table_id: TableIdAndTableNumber,
+    table_id: TabletIdAndTableNumber,
     terms_by_frequency: &Vec<String>,
     prefix: bool,
     max_distance: FuzzyDistance,
@@ -203,7 +203,7 @@ fn create_tokens(
 }
 
 fn create_subscriptions(
-    table_id: TableIdAndTableNumber,
+    table_id: TabletIdAndTableNumber,
     terms_by_frequency: &Vec<String>,
     prefix: bool,
     max_distance: FuzzyDistance,

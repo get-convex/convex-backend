@@ -61,11 +61,11 @@ use sync_types::UdfPath;
 use tokio::sync::Semaphore;
 use value::{
     ConvexArray,
-    TableIdAndTableNumber,
     TableMapping,
     TableMappingValue,
     TableName,
     TableNumber,
+    TabletIdAndTableNumber,
     VirtualTableMapping,
 };
 
@@ -298,7 +298,7 @@ impl<RT: Runtime> SyscallProvider<RT> for UdfEnvironment<RT> {
         }
     }
 
-    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>> {
+    fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>> {
         self.check_executing()?;
         self.shared.lookup_table(name)
     }
@@ -708,7 +708,7 @@ impl<RT: Runtime> UdfShared<RT> {
         inner.virtual_table_mapping = tx.virtual_table_mapping().clone();
     }
 
-    fn lookup_table(&self, name: &TableName) -> anyhow::Result<Option<TableIdAndTableNumber>> {
+    fn lookup_table(&self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>> {
         let inner = self.inner.lock();
         Ok(inner.table_mapping.id_and_number_if_exists(name))
     }

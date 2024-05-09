@@ -25,13 +25,13 @@ use crate::{
     heap_size::HeapSize,
     sha256::Sha256,
     table_name::TableIdentifier,
-    TableId,
-    TableIdAndTableNumber,
     TableNumber,
+    TabletId,
+    TabletIdAndTableNumber,
 };
 
-pub type ResolvedDocumentId = GenericDocumentId<TableIdAndTableNumber>;
-pub type InternalDocumentId = GenericDocumentId<TableId>;
+pub type ResolvedDocumentId = GenericDocumentId<TabletIdAndTableNumber>;
+pub type InternalDocumentId = GenericDocumentId<TabletId>;
 pub type DeveloperDocumentId = GenericDocumentId<TableNumber>;
 
 /// A raw reference to a document. `DocumentId`s can appear in `Value`s as
@@ -174,7 +174,7 @@ impl DeveloperDocumentId {
 
 impl From<ResolvedDocumentId> for InternalDocumentId {
     fn from(value: ResolvedDocumentId) -> Self {
-        GenericDocumentId::new(value.table.table_id, value.internal_id)
+        GenericDocumentId::new(value.table.tablet_id, value.internal_id)
     }
 }
 

@@ -51,10 +51,10 @@ use value::{
     InternalDocumentId,
     Namespace,
     ResolvedDocumentId,
-    TableId,
-    TableIdAndTableNumber,
     TableIdentifier,
     TableNumber,
+    TabletId,
+    TabletIdAndTableNumber,
     MAX_DOCUMENT_NESTING,
 };
 
@@ -272,7 +272,7 @@ impl<T: TableIdentifier> From<GenericDocument<T>> for JsonValue {
     }
 }
 
-pub type ResolvedDocument = GenericDocument<TableIdAndTableNumber>;
+pub type ResolvedDocument = GenericDocument<TabletIdAndTableNumber>;
 
 impl TryFrom<ResolvedDocument> for ResolvedDocumentProto {
     type Error = anyhow::Error;
@@ -511,13 +511,13 @@ impl ResolvedDocument {
     /// Recreate a `Document` from an already-written value to the database.
     /// This method assumes that system-provided fields, like `_id`, have
     /// already been inserted into `value`.
-    pub fn from_database(table_id: TableId, value: ConvexValue) -> anyhow::Result<Self> {
+    pub fn from_database(tablet_id: TabletId, value: ConvexValue) -> anyhow::Result<Self> {
         let object: ConvexObject = value.try_into()?;
         let id = match object.get(&FieldName::from(ID_FIELD.clone())) {
             Some(ConvexValue::String(s)) => {
                 let document_id = DeveloperDocumentId::decode(s)?;
-                let table = TableIdAndTableNumber {
-                    table_id,
+                let table = TabletIdAndTableNumber {
+                    tablet_id,
                     table_number: *document_id.table(),
                 };
                 ResolvedDocumentId::new(table, document_id.internal_id())
@@ -577,7 +577,7 @@ impl ResolvedDocument {
         self.id
     }
 
-    pub fn table(&self) -> TableIdAndTableNumber {
+    pub fn table(&self) -> TabletIdAndTableNumber {
         *self.id.table()
     }
 
@@ -655,10 +655,10 @@ impl DeveloperDocument {
         }
     }
 
-    pub fn to_resolved(self, tablet_id: TableId) -> ResolvedDocument {
+    pub fn to_resolved(self, tablet_id: TabletId) -> ResolvedDocument {
         ResolvedDocument {
-            id: TableIdAndTableNumber {
-                table_id: tablet_id,
+            id: TabletIdAndTableNumber {
+                tablet_id,
                 table_number: *self.id.table(),
             }
             .id(self.id.internal_id()),
@@ -704,7 +704,7 @@ impl PackedDocument {
 
     /// Same behavior as ResolvedDocument::table but you don't have to fully
     /// unpack.
-    pub fn table(&self) -> TableIdAndTableNumber {
+    pub fn table(&self) -> TabletIdAndTableNumber {
         *self.id().table()
     }
 
@@ -905,10 +905,10 @@ mod tests {
         ConvexValue,
         GenericDocumentId,
         InternalId,
-        TableIdAndTableNumber,
         TableIdentifier,
         TableMapping,
         TableName,
+        TabletIdAndTableNumber,
     };
 
     use super::{
@@ -928,10 +928,14 @@ mod tests {
     #[test]
     fn test_map_table() -> anyhow::Result<()> {
         let internal_id = InternalId::MAX;
-        let table_id = <TableIdAndTableNumber as TableIdentifier>::min();
+        let table_id = <TabletIdAndTableNumber as TableIdentifier>::min();
         let table_name: TableName = "hewo".parse()?;
         let mut table_mapping = TableMapping::new();
-        table_mapping.insert(table_id.table_id, table_id.table_number, table_name.clone());
+        table_mapping.insert(
+            table_id.tablet_id,
+            table_id.table_number,
+            table_name.clone(),
+        );
         let doc = ResolvedDocument::new_internal(
             GenericDocumentId::new(table_id, internal_id),
             Some(CreationTime::ONE),

@@ -45,9 +45,9 @@ use value::{
     assert_obj,
     InternalId,
     ResolvedDocumentId,
-    TableId,
-    TableIdAndTableNumber,
     TableNumber,
+    TabletId,
+    TabletIdAndTableNumber,
 };
 
 // Comment this out if you don't need memory profiling.
@@ -85,12 +85,12 @@ impl Dataset {
             InternalId(result)
         };
 
-        let table_id = TableIdAndTableNumber::new_for_test(
-            TableId(alloc_id()),
+        let table_id = TabletIdAndTableNumber::new_for_test(
+            TabletId(alloc_id()),
             TableNumber::try_from(123).expect("Could not create table number"),
         );
         let index_name: IndexName = "messages.by_body".parse()?;
-        let index_name = index_name.map_table(&|_| Ok(table_id.table_id))?;
+        let index_name = index_name.map_table(&|_| Ok(table_id.tablet_id))?;
         let config = DeveloperSearchIndexConfig {
             search_field: "body".parse()?,
             filter_fields: BTreeSet::new(),

@@ -227,7 +227,7 @@ impl VectorIndexManager {
         ts: WriteTimestamp,
     ) -> anyhow::Result<bool> {
         let mut at_least_one_matching_index = false;
-        for index in index_registry.vector_indexes_by_table(id.table().table_id) {
+        for index in index_registry.vector_indexes_by_table(id.table().tablet_id) {
             let IndexConfig::Vector {
                 ref developer_config,
                 ..

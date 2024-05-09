@@ -32,7 +32,7 @@ use value::{
     val,
     ConvexObject,
     ConvexValue,
-    TableId,
+    TabletId,
 };
 
 use crate::{
@@ -601,7 +601,7 @@ impl Search {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct InternalSearch {
     /// The search index being queried.
-    pub index_name: GenericIndexName<TableId>,
+    pub index_name: GenericIndexName<TabletId>,
     pub table_name: TableName,
 
     /// The filters to apply within the search index.
