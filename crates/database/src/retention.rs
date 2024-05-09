@@ -715,7 +715,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// Finds expired documents in the documents log and returns a tuple of the
     /// form (scanned_document_ts, (expired_document_ts,
     /// internal_document_ts))
-    #[try_stream(ok = (Timestamp, (Timestamp, InternalDocumentId)), error = anyhow::Error)]
+    #[try_stream(ok = (Timestamp, Option<(Timestamp, InternalDocumentId)>), error = anyhow::Error)]
     async fn expired_documents(
         rt: &RT,
         reader: RepeatablePersistence,
@@ -736,8 +736,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             .try_chunks2(*RETENTION_READ_CHUNK)
             .map(move |chunk| async move {
                 let chunk = chunk?.to_vec();
-                let mut entries_to_delete: Vec<(Timestamp, (Timestamp, InternalDocumentId))> =
-                    vec![];
+                let mut entries_to_delete: Vec<(
+                    Timestamp,
+                    Option<(Timestamp, InternalDocumentId)>,
+                )> = vec![];
                 // Prev revs are the documents we are deleting.
                 // Each prev rev has 1 or 2 entries to delete per document -- one entry at
                 // the prev rev's ts, and a tombstone at the current rev's ts if
@@ -765,7 +767,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                                  the retention window"
                             );
 
-                            entries_to_delete.push((ts, (ts, id)));
+                            entries_to_delete.push((ts, Some((ts, id))));
+                        } else {
+                            entries_to_delete.push((ts, None));
                         }
                         log_document_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
@@ -788,11 +792,11 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                          the retention window"
                     );
 
-                    entries_to_delete.push((ts, (*prev_rev_ts, id)));
+                    entries_to_delete.push((ts, Some((*prev_rev_ts, id))));
 
                     // Deletes tombstones
                     if maybe_doc.is_none() {
-                        entries_to_delete.push((ts, (ts, id)));
+                        entries_to_delete.push((ts, Some((ts, id))));
                     }
 
                     log_document_retention_scanned_document(maybe_doc.is_none(), true);
@@ -800,13 +804,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 anyhow::Ok(entries_to_delete)
             })
             .buffered(*RETENTION_READ_PARALLEL);
-        let mut scanned_documents = 0;
-        while let Some(chunk) = document_chunks.try_next().await?
-            && scanned_documents < *DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS
-        {
+        while let Some(chunk) = document_chunks.try_next().await? {
             for entry in chunk {
                 yield entry;
-                scanned_documents += 1;
             }
         }
     }
@@ -833,6 +833,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // The number of expired entries we read from chunks.
         let mut total_expired_entries = 0;
         let mut new_cursor = cursor;
+        // The number of scanned documents
+        let mut scanned_documents = 0;
 
         let reader = persistence.reader();
         let snapshot_ts = new_static_repeatable_ts(min_snapshot_ts, reader.as_ref(), rt).await?;
@@ -842,11 +844,25 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let expired_chunks = Self::expired_documents(rt, reader, cursor, min_snapshot_ts)
             .try_chunks2(*RETENTION_DELETE_CHUNK);
         pin_mut!(expired_chunks);
-        while let Some(delete_chunk) = expired_chunks.try_next().await? {
+        while let Some(scanned_chunk) = expired_chunks.try_next().await? {
             tracing::trace!(
                 "delete_documents: got a chunk and finished waiting {:?}",
-                delete_chunk.len()
+                scanned_chunk.len()
             );
+            // Converts scanned documents to the actual documents we want to delete
+            scanned_documents += scanned_chunk.len();
+            let delete_chunk: Vec<(Timestamp, (Timestamp, InternalDocumentId))> = scanned_chunk
+                .into_iter()
+                .filter_map(
+                    |doc: (Timestamp, Option<(Timestamp, InternalDocumentId)>)| {
+                        if doc.1.is_some() {
+                            Some((doc.0, doc.1.unwrap()))
+                        } else {
+                            None
+                        }
+                    },
+                )
+                .collect();
             total_expired_entries += delete_chunk.len();
             let results = try_join_all(
                 Self::partition_document_chunk(delete_chunk)
@@ -863,7 +879,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if let Some(max_new_cursor) = chunk_new_cursors.into_iter().max() {
                 new_cursor = max_new_cursor;
             }
-            if new_cursor > cursor {
+            if new_cursor > cursor && scanned_documents >= *DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS
+            {
                 tracing::debug!(
                     "delete_documents: returning early with {new_cursor:?}, total expired \
                      documents read: {total_expired_entries:?}, total rows deleted: \
@@ -1835,13 +1852,23 @@ mod tests {
         let retention_validator = Arc::new(NoopRetentionValidator);
         let reader = RepeatablePersistence::new(reader, repeatable_ts, retention_validator.clone());
 
-        let expired_stream = LeaderRetentionManager::<TestRuntime>::expired_documents(
+        let scanned_stream = LeaderRetentionManager::<TestRuntime>::expired_documents(
             &rt,
             reader,
             Timestamp::MIN,
             min_snapshot_ts,
         );
-        let expired: Vec<_> = expired_stream.try_collect().await?;
+        let scanned: Vec<_> = scanned_stream.try_collect().await?;
+        let expired: Vec<_> = scanned
+            .into_iter()
+            .filter_map(|doc| {
+                if doc.1.is_some() {
+                    Some((doc.0, doc.1.unwrap()))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         assert_eq!(expired.len(), 5);
         assert_eq!(
