@@ -15,7 +15,7 @@ message ResolvedDocument {
 }
 
 message ResolvedDocumentId {
-    TableIdAndTableNumber table = 1;
+    TabletIdAndTableNumber table = 1;
     optional bytes internal_id = 2;
 }
 
@@ -25,7 +25,7 @@ message DocumentUpdate {
     ResolvedDocument new_document = 2;
 }
 
-message TableIdAndTableNumber {
+message TabletIdAndTableNumber {
     optional bytes table_id = 1;
     optional uint32 table_number = 2;
 }

@@ -216,14 +216,15 @@ impl CreationTime {
 }
 
 /// Documents store [`Value`]s.
+/// DeveloperDocument is the public-facing document type.
 #[derive(Clone, Eq, PartialEq)]
-pub struct GenericDocument<T: TableIdentifier> {
-    id: GenericDocumentId<T>,
+pub struct DeveloperDocument {
+    id: DeveloperDocumentId,
     creation_time: Option<CreationTime>,
     value: PII<ConvexObject>,
 }
 
-impl<T: TableIdentifier> GenericDocument<T> {
+impl DeveloperDocument {
     pub fn creation_time(&self) -> Option<CreationTime> {
         self.creation_time
     }
@@ -248,43 +249,82 @@ impl<T: TableIdentifier> GenericDocument<T> {
     }
 }
 
-impl<T: TableIdentifier> HeapSize for GenericDocument<T> {
+impl HeapSize for DeveloperDocument {
     fn heap_size(&self) -> usize {
         self.id.heap_size() + self.value.heap_size()
     }
 }
 
-impl<T: TableIdentifier> Debug for GenericDocument<T> {
+impl Debug for DeveloperDocument {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Document({:?})", self.value)
     }
 }
 
-impl<T: TableIdentifier> Display for GenericDocument<T> {
+impl Display for DeveloperDocument {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Document(value: {})", self.value.0)
     }
 }
 
-impl<T: TableIdentifier> From<GenericDocument<T>> for JsonValue {
-    fn from(doc: GenericDocument<T>) -> JsonValue {
+impl From<DeveloperDocument> for JsonValue {
+    fn from(doc: DeveloperDocument) -> JsonValue {
         doc.into_value().0.into()
     }
 }
 
-pub type ResolvedDocument = GenericDocument<TabletIdAndTableNumber>;
+#[derive(Clone, Eq, PartialEq)]
+pub struct ResolvedDocument {
+    tablet_id: TabletId,
+    document: DeveloperDocument,
+}
+
+impl Deref for ResolvedDocument {
+    type Target = DeveloperDocument;
+
+    fn deref(&self) -> &Self::Target {
+        &self.document
+    }
+}
+
+impl Debug for ResolvedDocument {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Debug::fmt(&self.document, f)
+    }
+}
+
+impl Display for ResolvedDocument {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        Display::fmt(&self.document, f)
+    }
+}
+
+impl HeapSize for ResolvedDocument {
+    fn heap_size(&self) -> usize {
+        self.document.heap_size()
+    }
+}
 
 impl TryFrom<ResolvedDocument> for ResolvedDocumentProto {
     type Error = anyhow::Error;
 
     fn try_from(
         ResolvedDocument {
-            id,
-            creation_time,
-            value,
+            tablet_id,
+            document:
+                DeveloperDocument {
+                    id,
+                    creation_time,
+                    value,
+                },
         }: ResolvedDocument,
     ) -> anyhow::Result<Self> {
         let value = serde_json::to_vec(&JsonValue::from(value.0))?;
+        let id = TabletIdAndTableNumber {
+            tablet_id,
+            table_number: *id.table(),
+        }
+        .id(id.internal_id());
         Ok(Self {
             id: Some(id.into()),
             creation_time: creation_time.map(|t| t.into()),
@@ -303,7 +343,7 @@ impl TryFrom<ResolvedDocumentProto> for ResolvedDocument {
             value,
         }: ResolvedDocumentProto,
     ) -> anyhow::Result<Self> {
-        let id = id
+        let id: GenericDocumentId<TabletIdAndTableNumber> = id
             .ok_or_else(|| anyhow::anyhow!("Missing id"))?
             .try_into()?;
         let creation_time = creation_time.map(|t| t.try_into()).transpose()?;
@@ -313,9 +353,12 @@ impl TryFrom<ResolvedDocumentProto> for ResolvedDocument {
         .try_into()?;
 
         Ok(Self {
-            id,
-            creation_time,
-            value: PII(value),
+            tablet_id: id.table().tablet_id,
+            document: DeveloperDocument {
+                id: id.into(),
+                creation_time,
+                value: PII(value),
+            },
         })
     }
 }
@@ -362,9 +405,12 @@ impl ResolvedDocument {
             )),
         }
         let doc = Self {
-            id,
-            creation_time,
-            value: PII(value),
+            tablet_id: id.table().tablet_id,
+            document: DeveloperDocument {
+                id: id.into(),
+                creation_time,
+                value: PII(value),
+            },
         };
         doc.must_validate()?;
         Ok(doc)
@@ -443,11 +489,11 @@ impl ResolvedDocument {
         match self.value.get(&FieldName::from(ID_FIELD.clone())) {
             Some(ConvexValue::String(s)) => {
                 if let Ok(document_id) = DeveloperDocumentId::decode(s) {
-                    if *document_id.table() != self.id.table().table_number {
+                    if document_id.table() != self.id.table() {
                         violations.push(DocumentValidationError::IdWrongTable);
                     } else if document_id.internal_id() != self.internal_id() {
                         violations.push(DocumentValidationError::IdMismatch(
-                            self.id(),
+                            self.id,
                             ConvexValue::String(s.clone()),
                         ));
                     }
@@ -516,11 +562,7 @@ impl ResolvedDocument {
         let id = match object.get(&FieldName::from(ID_FIELD.clone())) {
             Some(ConvexValue::String(s)) => {
                 let document_id = DeveloperDocumentId::decode(s)?;
-                let table = TabletIdAndTableNumber {
-                    tablet_id,
-                    table_number: *document_id.table(),
-                };
-                ResolvedDocumentId::new(table, document_id.internal_id())
+                DeveloperDocumentId::new(*document_id.table(), document_id.internal_id())
             },
             _ => anyhow::bail!("Object {} missing _id field", object),
         };
@@ -530,9 +572,12 @@ impl ResolvedDocument {
             _ => anyhow::bail!("Object {object} has invalid _creationTime field"),
         };
         Ok(Self {
-            id,
-            creation_time,
-            value: PII(object),
+            tablet_id,
+            document: DeveloperDocument {
+                id,
+                creation_time,
+                value: PII(object),
+            },
         })
     }
 
@@ -547,9 +592,12 @@ impl ResolvedDocument {
             _ => anyhow::bail!("Object {object} has invalid _creationTime field"),
         };
         Ok(Self {
-            id: document_id,
-            creation_time,
-            value: PII(object),
+            tablet_id: document_id.table().tablet_id,
+            document: DeveloperDocument {
+                id: document_id.into(),
+                creation_time,
+                value: PII(object),
+            },
         })
     }
 
@@ -557,32 +605,38 @@ impl ResolvedDocument {
     /// `new_value` contains an `_id` field, it must match the current `_id`
     /// field's value.
     pub fn replace_value(&self, new_value: ConvexObject) -> anyhow::Result<Self> {
-        Self::new_internal(self.id, self.creation_time, new_value)
+        Self::new_internal(self.id(), self.creation_time, new_value)
+    }
+
+    pub fn into_value(self) -> PII<ConvexObject> {
+        self.document.into_value()
     }
 
     pub fn to_developer(self) -> DeveloperDocument {
-        let id_v6: DeveloperDocumentId = self.id.into();
-        DeveloperDocument::new(id_v6, self.creation_time, self.value.0)
+        self.document
     }
 
     pub fn id_with_table_id(&self) -> InternalDocumentId {
-        self.id.into()
-    }
-
-    pub fn developer_id(&self) -> DeveloperDocumentId {
-        self.id.into()
-    }
-
-    pub fn id(&self) -> ResolvedDocumentId {
-        self.id
+        InternalDocumentId::new(self.tablet_id, self.id.internal_id())
     }
 
     pub fn table(&self) -> TabletIdAndTableNumber {
-        *self.id.table()
+        TabletIdAndTableNumber {
+            tablet_id: self.tablet_id,
+            table_number: *self.id.table(),
+        }
+    }
+
+    pub fn id(&self) -> ResolvedDocumentId {
+        ResolvedDocumentId::new(self.table(), self.id.internal_id())
+    }
+
+    pub fn developer_id(&self) -> DeveloperDocumentId {
+        self.id
     }
 
     pub fn export(self, format: ValueFormat) -> JsonValue {
-        self.into_value().0.export(format)
+        self.document.into_value().0.export(format)
     }
 }
 
@@ -639,9 +693,6 @@ impl TryFrom<DocumentUpdateProto> for DocumentUpdate {
     }
 }
 
-// DeveloperDocument is the public-facing document type.
-pub type DeveloperDocument = GenericDocument<TableNumber>;
-
 impl DeveloperDocument {
     pub fn new(
         id: DeveloperDocumentId,
@@ -657,13 +708,8 @@ impl DeveloperDocument {
 
     pub fn to_resolved(self, tablet_id: TabletId) -> ResolvedDocument {
         ResolvedDocument {
-            id: TabletIdAndTableNumber {
-                tablet_id,
-                table_number: *self.id.table(),
-            }
-            .id(self.id.internal_id()),
-            creation_time: self.creation_time,
-            value: self.value,
+            tablet_id,
+            document: self,
         }
     }
 
@@ -684,15 +730,15 @@ pub struct PackedDocument(PackedValue<ByteBuffer>, ResolvedDocumentId);
 
 impl PackedDocument {
     pub fn pack(document: ResolvedDocument) -> Self {
-        let document_id = document.id;
-        let value = document.into_value().0.into();
+        let document_id = document.id();
+        let value = document.document.into_value().0.into();
         Self(PackedValue::pack(&value), document_id)
     }
 
     pub fn unpack(&self) -> ResolvedDocument {
         let value = ConvexValue::try_from(self.0.clone()).expect("Couldn't unpack packed value");
         let document_id = self.1;
-        GenericDocument::from_packed(value, document_id)
+        ResolvedDocument::from_packed(value, document_id)
             .expect("Packed value wasn't a valid document?")
     }
 
@@ -785,9 +831,10 @@ where
     type Error = anyhow::Error;
 
     fn try_from(document: ResolvedDocument) -> anyhow::Result<Self> {
-        let id = document.id;
+        let id = document.id();
         let creation_time = document.creation_time;
         let value: D = document
+            .document
             .into_value()
             .0
             .try_into()
@@ -825,7 +872,7 @@ pub enum DocumentValidationError {
     #[error("The document belongs to a different table than its '_id' field")]
     IdWrongTable,
     #[error("The document has id {0}, but its '_id' field is {1}")]
-    IdMismatch(ResolvedDocumentId, ConvexValue),
+    IdMismatch(DeveloperDocumentId, ConvexValue),
     #[error("The '_id' field {0} must be an Id")]
     IdBadType(ConvexValue),
     #[error("The '_id' field is missing")]
@@ -887,7 +934,7 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocument {
                     ConvexValue::from(f64::from(creation_time)),
                 );
                 let value = ConvexObject::try_from(object).unwrap();
-                let doc = GenericDocument::new_internal(id, Some(creation_time), value);
+                let doc = ResolvedDocument::new_internal(id, Some(creation_time), value);
                 doc.ok()
             },
         )

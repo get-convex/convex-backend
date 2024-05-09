@@ -6,7 +6,7 @@ use value::{
 
 use crate::common::{
     ResolvedDocumentId as ResolvedDocumentIdProto,
-    TableIdAndTableNumber as TableIdAndTableNumberProto,
+    TabletIdAndTableNumber as TabletIdAndTableNumberProto,
 };
 
 impl From<ResolvedDocumentId> for ResolvedDocumentIdProto {
@@ -35,7 +35,7 @@ impl TryFrom<ResolvedDocumentIdProto> for ResolvedDocumentId {
     }
 }
 
-impl From<TabletIdAndTableNumber> for TableIdAndTableNumberProto {
+impl From<TabletIdAndTableNumber> for TabletIdAndTableNumberProto {
     fn from(
         TabletIdAndTableNumber {
             table_number,
@@ -49,14 +49,14 @@ impl From<TabletIdAndTableNumber> for TableIdAndTableNumberProto {
     }
 }
 
-impl TryFrom<TableIdAndTableNumberProto> for TabletIdAndTableNumber {
+impl TryFrom<TabletIdAndTableNumberProto> for TabletIdAndTableNumber {
     type Error = anyhow::Error;
 
     fn try_from(
-        TableIdAndTableNumberProto {
+        TabletIdAndTableNumberProto {
             table_id,
             table_number,
-        }: TableIdAndTableNumberProto,
+        }: TabletIdAndTableNumberProto,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             table_number: table_number
