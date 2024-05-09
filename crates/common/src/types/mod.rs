@@ -38,6 +38,7 @@ pub use admin_key::{
     split_admin_key,
     AdminKey,
     AdminKeyParts,
+    SystemKey,
 };
 pub use backend_state::BackendState;
 pub use environment_variables::{

@@ -2,11 +2,26 @@ use headers::Authorization;
 use serde::Serialize;
 use sync_types::headers::ConvexAdminAuthorization;
 
+/// Encrypted system key
+#[derive(derive_more::Display)]
+pub struct SystemKey(String);
 /// Encrypted admin key
 #[derive(Serialize, Clone, derive_more::Display)]
 pub struct AdminKey(String);
 
 impl AdminKey {
+    pub fn new(key: String) -> Self {
+        Self(key)
+    }
+
+    pub fn as_header(&self) -> anyhow::Result<Authorization<ConvexAdminAuthorization>> {
+        Ok(Authorization(ConvexAdminAuthorization::from_admin_key(
+            &self.0,
+        )?))
+    }
+}
+
+impl SystemKey {
     pub fn new(key: String) -> Self {
         Self(key)
     }

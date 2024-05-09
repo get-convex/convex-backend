@@ -81,6 +81,7 @@ pub enum UdfResponse {
         error_data: Option<JsonValue>,
 
         #[serde(skip_serializing_if = "RedactedLogLines::is_empty")]
+        #[serde(default = "RedactedLogLines::empty")]
         log_lines: RedactedLogLines,
     },
 }
@@ -439,7 +440,7 @@ mod tests {
             .body(body)?;
         match expected {
             Ok(expected) => {
-                let result: JsonValue = backend.expect_success_and_result(req).await?;
+                let result: JsonValue = backend.expect_success(req).await?;
                 assert_eq!(
                     result,
                     json!({

@@ -564,6 +564,7 @@ mod tests {
 
     use crate::{
         node_action_callbacks::ScheduleJobResponse,
+        public_api::UdfResponse,
         scheduling::CancelJobRequest,
         test_helpers::setup_backend_for_test,
     };
@@ -591,7 +592,7 @@ mod tests {
             .header("Content-Type", "application/json")
             .header("Convex-Action-Callback-Token", callback_token.clone())
             .body(schedule_body.clone().into())?;
-        let ScheduleJobResponse { job_id } = backend.expect_success_and_result(req).await?;
+        let ScheduleJobResponse { job_id } = backend.expect_success(req).await?;
 
         // Get the system document id
         let json_body = json!({
@@ -607,7 +608,7 @@ mod tests {
             .header("Authorization", backend.admin_auth_header.0.encode())
             .header("Content-Type", "application/json")
             .body(body)?;
-        let result: JsonValue = backend.expect_success_and_result(req).await?;
+        let result: JsonValue = backend.expect_success(req).await?;
         let object = result.as_object().unwrap();
         assert_eq!(object["status"], "success");
 
@@ -638,7 +639,7 @@ mod tests {
             .header("Convex-Action-Callback-Token", callback_token.clone())
             .header("Convex-Parent-Scheduled-Job", system_job_id.clone())
             .body(schedule_body.into())?;
-        backend.expect_success(req).await?;
+        backend.expect_success::<ScheduleJobResponse>(req).await?;
 
         // Call an action A which calls an action B which schedules, as though A were
         // canceled.
@@ -654,7 +655,7 @@ mod tests {
             .header("Convex-Action-Callback-Token", callback_token)
             .header("Convex-Parent-Scheduled-Job", system_job_id)
             .body(action_body.into())?;
-        backend.expect_success(req).await?;
+        backend.expect_success::<UdfResponse>(req).await?;
 
         // Check that there are no more scheduled jobs
         let json_body = json!({
@@ -670,7 +671,7 @@ mod tests {
             .header("Authorization", backend.admin_auth_header.0.encode())
             .header("Content-Type", "application/json")
             .body(body)?;
-        let result: JsonValue = backend.expect_success_and_result(req).await?;
+        let result: JsonValue = backend.expect_success(req).await?;
         let object = result.as_object().unwrap();
         assert_eq!(object["status"], "success");
         assert_eq!(object["value"]["page"], JsonValue::Array(vec![]));

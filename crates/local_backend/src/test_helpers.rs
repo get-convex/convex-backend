@@ -72,7 +72,7 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
 }
 
 impl TestLocalBackend {
-    pub async fn expect_success_and_result<T: DeserializeOwned>(
+    pub async fn expect_success<T: DeserializeOwned>(
         &self,
         req: Request<hyper::Body>,
     ) -> anyhow::Result<T> {
@@ -84,21 +84,8 @@ impl TestLocalBackend {
         let msg = format!("Got response: {}", String::from_utf8_lossy(&bytes));
         tracing::info!("{msg}");
         assert_eq!(parts.status, StatusCode::OK, "{msg}");
-        let de = serde_json::from_slice(&bytes).context("Couldn't deserialize as json")?;
-        Ok(de)
-    }
-
-    #[allow(dead_code)]
-    pub async fn expect_success(&self, req: Request<hyper::Body>) -> anyhow::Result<()> {
-        tracing::info!("Sending req {req:?}");
-        let (parts, body) = self.app.router().clone().oneshot(req).await?.into_parts();
-        let bytes = hyper::body::to_bytes(body)
-            .await
-            .context("Couldn't convert to bytes")?;
-        let msg = format!("Got response: {}", String::from_utf8_lossy(&bytes));
-        tracing::info!("{msg}");
-        assert_eq!(parts.status, StatusCode::OK, "{msg}");
-        Ok(())
+        serde_json::from_slice(if bytes.is_empty() { b"null" } else { &bytes })
+            .context(format!("Couldn't deserialize as json: {bytes:?}"))
     }
 
     pub async fn expect_error(

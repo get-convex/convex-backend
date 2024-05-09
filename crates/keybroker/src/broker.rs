@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
+pub use common::types::SystemKey;
 use common::{
     identity::{
         IdentityCacheKey,
@@ -527,9 +528,6 @@ impl fmt::Debug for SystemIdentity {
     }
 }
 
-/// Encrypted system key
-#[derive(derive_more::Display)]
-pub struct SystemKey(String);
 /// Encrypted authorization to store a file
 #[derive(Debug, derive_more::Display)]
 pub struct StoreFileAuthorization(String);
@@ -562,7 +560,7 @@ impl KeyBroker {
     }
 
     pub fn issue_system_key(&self) -> SystemKey {
-        SystemKey(self.issue_key(None))
+        SystemKey::new(self.issue_key(None))
     }
 
     pub fn issue_store_file_authorization<RT: Runtime>(
