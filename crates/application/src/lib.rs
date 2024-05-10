@@ -274,10 +274,7 @@ use crate::{
         UdfRate,
     },
     log_visibility::LogVisibility,
-    module_cache::{
-        ModuleCache,
-        ModuleCacheWorker,
-    },
+    module_cache::ModuleCache,
     redaction::{
         RedactedJsError,
         RedactedLogLines,
@@ -473,8 +470,7 @@ impl<RT: Runtime> Application<RT> {
         scheduled_jobs_pause_client: PauseClient,
     ) -> anyhow::Result<Self> {
         let module_cache =
-            ModuleCacheWorker::start(runtime.clone(), database.clone(), modules_storage.clone())
-                .await;
+            ModuleCache::new(runtime.clone(), database.clone(), modules_storage.clone()).await;
         let module_loader = Arc::new(module_cache.clone());
 
         let system_env_vars = btreemap! {
@@ -2396,7 +2392,6 @@ impl<RT: Runtime> Application<RT> {
         self.runner.shutdown().await?;
         self.scheduled_job_runner.shutdown();
         self.cron_job_executor.lock().shutdown();
-        self.module_cache.shutdown();
         self.database.shutdown().await?;
         tracing::info!("Application shut down");
         Ok(())

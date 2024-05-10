@@ -1,26 +1,14 @@
-use std::{
-    collections::{
-        BTreeSet,
-        HashMap,
-    },
-    sync::Arc,
-    time::Duration,
-};
+use std::sync::Arc;
 
 use async_lru::async_lru::AsyncLru;
 use async_trait::async_trait;
 use common::{
-    backoff::Backoff,
     document::ParsedDocument,
-    errors::report_error,
     knobs::{
         MODULE_CACHE_MAX_CONCURRENCY,
         MODULE_CACHE_MAX_SIZE_BYTES,
     },
-    runtime::{
-        Runtime,
-        SpawnHandle,
-    },
+    runtime::Runtime,
 };
 use database::{
     Database,
@@ -38,106 +26,10 @@ use model::modules::{
     ModuleModel,
     MODULE_VERSIONS_TABLE,
 };
-use parking_lot::Mutex;
 use storage::Storage;
 use value::ResolvedDocumentId;
 
 mod metrics;
-
-const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
-const MAX_BACKOFF: Duration = Duration::from_secs(30);
-
-pub struct ModuleCacheWorker<RT: Runtime> {
-    rt: RT,
-    database: Database<RT>,
-    modules_storage: Arc<dyn Storage>,
-    cache: AsyncLru<RT, (ResolvedDocumentId, ModuleVersion), FullModuleSource>,
-}
-
-impl<RT: Runtime> ModuleCacheWorker<RT> {
-    pub async fn start(
-        rt: RT,
-        database: Database<RT>,
-        modules_storage: Arc<dyn Storage>,
-    ) -> ModuleCache<RT> {
-        let cache = AsyncLru::new(
-            rt.clone(),
-            *MODULE_CACHE_MAX_SIZE_BYTES,
-            *MODULE_CACHE_MAX_CONCURRENCY,
-            "module_cache",
-        );
-        let worker = Self {
-            rt: rt.clone(),
-            database: database.clone(),
-            modules_storage: modules_storage.clone(),
-            cache: cache.clone(),
-        };
-
-        let worker_handle = rt.spawn("module_cache_worker", worker.go());
-        ModuleCache {
-            database,
-            modules_storage,
-            cache,
-            worker: Arc::new(Mutex::new(worker_handle)),
-        }
-    }
-
-    async fn go(mut self) {
-        let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
-        loop {
-            match self.run(&mut backoff).await {
-                Ok(()) => break,
-                Err(mut e) => {
-                    let delay = self.rt.with_rng(|rng| backoff.fail(rng));
-                    tracing::error!("Module version cache failed, sleeping {delay:?}");
-                    report_error(&mut e);
-                    self.rt.wait(delay).await;
-                },
-            }
-        }
-    }
-
-    async fn run(&mut self, backoff: &mut Backoff) -> anyhow::Result<()> {
-        tracing::info!("Starting ModuleCache worker");
-        loop {
-            let mut tx = self.database.begin(Identity::system()).await?;
-            let modules_metadata = ModuleModel::new(&mut tx).get_all_metadata().await?;
-            let referenced_versions = modules_metadata
-                .into_iter()
-                .map(|m| (m.id(), m.latest_version))
-                .collect::<BTreeSet<_>>();
-
-            // Eagerly populate the cache with all referenced versions. They may be evicted
-            // if the number of modules is high and lots of UDFs are using old
-            // versions, but on average they should be populated and remain.
-            let num_loaded = referenced_versions.len();
-            let fetcher = ModuleVersionFetcher {
-                database: self.database.clone(),
-                modules_storage: self.modules_storage.clone(),
-            };
-            if let Some(first_key) = referenced_versions.first().cloned() {
-                self.cache
-                    .get_and_prepopulate(
-                        first_key,
-                        fetcher.generate_values(referenced_versions).boxed(),
-                    )
-                    .await?;
-            }
-
-            tracing::info!(
-                "Cached module count: {} (Loaded: {})",
-                self.cache.size(),
-                num_loaded,
-            );
-
-            let token = tx.into_token()?;
-            let subscription = self.database.subscribe(token).await?;
-            subscription.wait_for_invalidation().await;
-            tracing::info!("ModuleCache worker resuming after index subscription notification");
-            backoff.reset();
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct ModuleVersionFetcher<RT: Runtime> {
@@ -155,48 +47,30 @@ impl<RT: Runtime> ModuleVersionFetcher<RT> {
         let mut tx = self.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx).get_source(key.0, key.1).await
     }
-
-    async fn generate_values(
-        self,
-        keys: BTreeSet<(ResolvedDocumentId, ModuleVersion)>,
-    ) -> HashMap<(ResolvedDocumentId, ModuleVersion), anyhow::Result<FullModuleSource>> {
-        let mut hashmap = HashMap::new();
-        for key in keys {
-            hashmap.insert(
-                key,
-                try {
-                    let mut tx = self.database.begin(Identity::system()).await?;
-                    ModuleModel::new(&mut tx).get_source(key.0, key.1).await?
-                },
-            );
-        }
-        hashmap
-    }
 }
 
+#[derive(Clone)]
 pub struct ModuleCache<RT: Runtime> {
     database: Database<RT>,
 
     modules_storage: Arc<dyn Storage>,
 
     cache: AsyncLru<RT, (ResolvedDocumentId, ModuleVersion), FullModuleSource>,
-
-    worker: Arc<Mutex<RT::Handle>>,
 }
 
 impl<RT: Runtime> ModuleCache<RT> {
-    pub fn shutdown(&self) {
-        self.worker.lock().shutdown();
-    }
-}
+    pub async fn new(rt: RT, database: Database<RT>, modules_storage: Arc<dyn Storage>) -> Self {
+        let cache = AsyncLru::new(
+            rt.clone(),
+            *MODULE_CACHE_MAX_SIZE_BYTES,
+            *MODULE_CACHE_MAX_CONCURRENCY,
+            "module_cache",
+        );
 
-impl<RT: Runtime> Clone for ModuleCache<RT> {
-    fn clone(&self) -> Self {
         Self {
-            database: self.database.clone(),
-            modules_storage: self.modules_storage.clone(),
-            cache: self.cache.clone(),
-            worker: self.worker.clone(),
+            database,
+            modules_storage,
+            cache,
         }
     }
 }
