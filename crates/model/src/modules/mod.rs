@@ -228,13 +228,14 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         };
         let module_query = Query::index_range(index_range);
         let mut query_stream = ResolvedQuery::new(self.tx, module_query)?;
-        let module_version = query_stream
+        let module_version: ParsedDocument<ModuleVersionMetadata> = query_stream
             .expect_at_most_one(self.tx)
             .await?
             .context(format!(
                 "Dangling module version reference: {module_id}@{version}"
             ))?
             .try_into()?;
+        anyhow::ensure!(module_version.version == Some(version));
         timer.finish();
         Ok(module_version)
     }
@@ -279,6 +280,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         let (module_id, version) = match self.module_metadata(path.clone()).await? {
             Some(module_metadata) => {
                 let previous_version = module_metadata.latest_version;
+
+                // Delete the old module version since it has no more references.
+                let previous_version_id = self
+                    .get_version(module_metadata.id(), previous_version)
+                    .await?
+                    .id();
+
                 let latest_version = previous_version + 1;
                 let new_metadata = ModuleMetadata {
                     path,
@@ -291,11 +299,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     .replace(module_metadata.id(), new_metadata.try_into()?)
                     .await?;
 
-                // Delete the old module version since it has no more references.
-                let previous_version_id = self
-                    .get_version(module_metadata.id(), previous_version)
-                    .await?
-                    .id();
                 SystemMetadataModel::new(self.tx)
                     .delete(previous_version_id)
                     .await?;
