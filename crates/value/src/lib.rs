@@ -251,6 +251,17 @@ impl TryFrom<String> for ConvexValue {
     }
 }
 
+impl<T: TryInto<ConvexValue, Error = anyhow::Error>> TryFrom<Option<T>> for ConvexValue {
+    type Error = anyhow::Error;
+
+    fn try_from(v: Option<T>) -> anyhow::Result<Self> {
+        Ok(match v {
+            None => ConvexValue::Null,
+            Some(v) => v.try_into()?,
+        })
+    }
+}
+
 impl<'a> TryFrom<&'a str> for ConvexValue {
     type Error = anyhow::Error;
 
