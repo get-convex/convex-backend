@@ -3,7 +3,10 @@ import { queryGeneric } from "../secretSystemTables";
 import { SystemTableNames } from "convex/server";
 
 export default queryGeneric({
-  args: { id: v.string() },
+  args: {
+    id: v.string(),
+    componentId: v.optional(v.union(v.string(), v.null())),
+  },
   handler: async function ({ db }, args) {
     const id = args.id as GenericId<string>;
     try {

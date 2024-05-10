@@ -5,6 +5,7 @@ import { v } from "convex/values";
 
 export default queryGeneric({
   args: {
+    componentId: v.optional(v.union(v.string(), v.null())),
     // We don't validate with v.id here to ensure we can catch ID validation errors inside of the function.
     ids: v.array(
       v.object({

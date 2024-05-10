@@ -5,6 +5,7 @@ const MAX_DOCUMENT_DELETIONS = 4096;
 
 export default mutationGeneric({
   args: {
+    componentId: v.optional(v.union(v.string(), v.null())),
     toDelete: v.array(v.object({ id: v.string(), tableName: v.string() })),
   },
   handler: async (

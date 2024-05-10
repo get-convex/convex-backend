@@ -3,7 +3,11 @@ import { queryGeneric } from "../secretSystemTables";
 import { v } from "convex/values";
 
 export default queryGeneric({
-  args: { table: v.string(), limit: v.number() },
+  args: {
+    table: v.string(),
+    limit: v.number(),
+    componentId: v.optional(v.union(v.string(), v.null())),
+  },
   handler: async ({ db }, { table, limit }): Promise<GenericDocument[]> => {
     if (!table) {
       return [];

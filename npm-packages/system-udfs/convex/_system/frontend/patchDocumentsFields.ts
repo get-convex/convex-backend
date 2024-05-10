@@ -11,6 +11,7 @@ export default mutationGeneric({
     table: v.string(),
     fields: v.any(),
     ids: v.optional(v.array(v.string())),
+    componentId: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (
     ctx,

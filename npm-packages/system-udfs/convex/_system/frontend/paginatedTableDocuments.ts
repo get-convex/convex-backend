@@ -36,6 +36,7 @@ export default queryGeneric({
     paginationOpts: paginationOptsValidator,
     table: v.string(),
     filters: v.union(v.string(), v.null()),
+    componentId: v.optional(v.union(v.string(), v.null())),
   },
   /**
    * @param paginationOpts - Pagination options

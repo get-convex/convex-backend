@@ -6,6 +6,7 @@ import { maximumBytesRead, maximumRowsRead } from "../paginationLimits";
 
 export default queryPrivateSystem({
   args: {
+    componentId: v.optional(v.union(v.string(), v.null())),
     paginationOpts: paginationOptsValidator,
     udfPath: v.optional(v.string()),
   },

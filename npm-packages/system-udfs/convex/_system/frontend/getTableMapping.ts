@@ -1,3 +1,4 @@
+import { v } from "convex/values";
 import { performOp } from "../../syscall";
 import { queryPrivateSystem } from "../secretSystemTables";
 
@@ -6,7 +7,7 @@ import { queryPrivateSystem } from "../secretSystemTables";
  * (e.g. {"1": "users"})
  */
 export default queryPrivateSystem({
-  args: {},
+  args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async () => {
     return performOp("getTableMappingWithoutSystemTables");
   },

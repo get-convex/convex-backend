@@ -7,6 +7,7 @@ const MAX_IMPORT_COUNT = 4096; // TRANSACTION_MAX_NUM_USER_WRITES / 2
 
 export default mutationGeneric({
   args: {
+    componentId: v.optional(v.union(v.string(), v.null())),
     table: v.string(),
     documents: v.array(v.any()),
   },

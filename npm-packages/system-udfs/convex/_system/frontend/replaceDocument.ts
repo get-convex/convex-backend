@@ -3,7 +3,11 @@ import { v } from "convex/values";
 import { mutationGeneric } from "../server";
 
 export default mutationGeneric({
-  args: { id: v.string(), document: v.any() },
+  args: {
+    id: v.string(),
+    document: v.any(),
+    componentId: v.optional(v.union(v.string(), v.null())),
+  },
   handler: async (
     { db },
     args,

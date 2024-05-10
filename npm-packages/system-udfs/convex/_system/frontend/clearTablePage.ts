@@ -6,6 +6,7 @@ export const MAX_CLEAR_ROWS = 4000;
 
 export default mutationGeneric({
   args: {
+    componentId: v.optional(v.union(v.string(), v.null())),
     tableName: v.string(),
     cursor: v.union(v.string(), v.null()),
   },

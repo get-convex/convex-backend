@@ -4,7 +4,10 @@ import { v } from "convex/values";
 import { DatabaseReader } from "../../_generated/server";
 
 export default queryGeneric({
-  args: { tableName: v.string() },
+  args: {
+    tableName: v.string(),
+    componentId: v.optional(v.union(v.string(), v.null())),
+  },
   handler: async function tableSize({ db }, { tableName }): Promise<number> {
     if (!tableName) {
       return 0;
@@ -15,7 +18,7 @@ export default queryGeneric({
 });
 
 export const sizeOfAllTables = queryGeneric({
-  args: {},
+  args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async function allTableSizes({ db }): Promise<number> {
     // Getting private system table here is OK because there are no args to this
     // system UDF.

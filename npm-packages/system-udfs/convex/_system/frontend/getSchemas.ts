@@ -1,6 +1,7 @@
 import { DatabaseReader } from "../../_generated/server";
 import { Doc } from "../../_generated/dataModel";
 import { queryPrivateSystem } from "../secretSystemTables";
+import { v } from "convex/values";
 
 type SchemaMetadata = Doc<"_schemas">;
 
@@ -14,7 +15,7 @@ export const getSchemaByState = async (
     .unique();
 
 export default queryPrivateSystem({
-  args: {},
+  args: { componentId: v.optional(v.union(v.string(), v.null())) },
   handler: async function ({ db }): Promise<{
     active?: string;
     inProgress?: string;
