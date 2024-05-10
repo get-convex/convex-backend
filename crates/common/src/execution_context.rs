@@ -112,11 +112,17 @@ impl RequestId {
     }
 }
 
+impl From<RequestId> for String {
+    fn from(value: RequestId) -> Self {
+        value.0
+    }
+}
+
 impl FromStr for RequestId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(RequestId(s.to_string()))
+        Ok(RequestId(s.to_owned()))
     }
 }
 
@@ -192,7 +198,7 @@ impl HeapSize for ExecutionId {
 impl From<ExecutionContext> for pb::common::ExecutionContext {
     fn from(value: ExecutionContext) -> Self {
         pb::common::ExecutionContext {
-            request_id: Some(value.request_id.to_string()),
+            request_id: Some(value.request_id.into()),
             execution_id: Some(value.execution_id.to_string()),
             parent_scheduled_job: value.parent_scheduled_job.map(|id| id.into()),
             is_root: Some(value.is_root),
@@ -219,7 +225,7 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
 impl From<ExecutionContext> for JsonValue {
     fn from(value: ExecutionContext) -> Self {
         json!({
-            "requestId": value.request_id.to_string(),
+            "requestId": String::from(value.request_id),
             "executionId": value.execution_id.to_string(),
             "isRoot": value.is_root,
             "parentScheduledJob": value.parent_scheduled_job.map(|id| id.to_string()),

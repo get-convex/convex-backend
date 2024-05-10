@@ -34,6 +34,8 @@ service Backend {
 // correct backend.
 message RequestHeader {
     optional string instance_name = 1;
+    optional string request_id = 2;
+    optional string encoded_parent_trace = 3;
 }
 
 message TextSearchAtTsRequest {
@@ -67,6 +69,7 @@ message TableCountAtTsResponse {
 }
 
 message ExecuteQueryRequest {
+    reserved 7;
     RequestHeader header = 1;
 
     convex_identity.UncheckedIdentity identity = 2;
@@ -74,9 +77,6 @@ message ExecuteQueryRequest {
     // TODO(presley): Delete
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
-
-    // Encoded parent trace
-    optional string encoded_parent_trace = 7;
 }
 
 message ExecuteQueryResponse {
@@ -84,7 +84,7 @@ message ExecuteQueryResponse {
 }
 
 message ExecuteMutationRequest {
-    reserved 4;
+    reserved 4, 7;
 
     RequestHeader header = 1;
 
@@ -93,9 +93,6 @@ message ExecuteMutationRequest {
     // TODO(presley): Delete
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
-
-    // Encoded parent trace
-    optional string encoded_parent_trace = 7;
 }
 
 message ExecuteMutationResponse {
@@ -103,7 +100,7 @@ message ExecuteMutationResponse {
 }
 
 message ExecuteActionRequest {
-    reserved 4;
+    reserved 4, 7;
 
     RequestHeader header = 1;
 
@@ -112,9 +109,6 @@ message ExecuteActionRequest {
     // TODO(presley): Delete
     optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
-
-    // Encoded parent trace
-    optional string encoded_parent_trace = 7;
 }
 
 message ExecuteActionResponse {
