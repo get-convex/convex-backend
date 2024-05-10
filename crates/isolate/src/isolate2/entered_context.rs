@@ -8,6 +8,10 @@ use deno_core::{
     v8,
     ModuleSpecifier,
 };
+use model::modules::user_error::{
+    FunctionNotFoundError,
+    ModuleNotFoundError,
+};
 use serde_json::Value as JsonValue;
 use sourcemap::SourceMap;
 use sync_types::CanonicalizedUdfPath;
@@ -41,8 +45,6 @@ use crate::{
         self,
         StaticString,
     },
-    FunctionNotFoundError,
-    ModuleNotFoundError,
 };
 
 pub struct EnteredContext<'enter, 'scope: 'enter> {

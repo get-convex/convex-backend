@@ -473,7 +473,6 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             canonicalized_path.clone(),
             args_array.clone(),
             UdfType::Mutation,
-            self.module_loader.clone(),
         )
         .await?;
 
@@ -618,7 +617,6 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             canonicalized_path.clone(),
             args_array.clone(),
             UdfType::Query,
-            self.module_loader.clone(),
         )
         .await?;
 
@@ -1000,7 +998,6 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             canonicalized_path.clone(),
             args_array.clone(),
             UdfType::Action,
-            self.module_loader.clone(),
         )
         .await?;
         let path_and_args = match validated_path_or_err {

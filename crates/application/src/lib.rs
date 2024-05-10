@@ -1025,10 +1025,8 @@ impl<RT: Runtime> Application<RT> {
         let mut tx_type = self.begin(identity.clone()).await?;
 
         let canonicalized_name: CanonicalizedUdfPath = name.clone().canonicalize();
-        let Some(analyzed_function) = self
-            .runner
-            .module_cache
-            .get_analyzed_function(&mut tx_type, &canonicalized_name)
+        let Some(analyzed_function) = ModuleModel::new(&mut tx_type)
+            .get_analyzed_function(&canonicalized_name)
             .await?
             .ok()
             .filter(|af| {

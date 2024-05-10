@@ -27,9 +27,15 @@ use deno_core::{
     ModuleSpecifier,
 };
 use errors::ErrorMetadata;
-use model::modules::module_versions::{
-    ModuleSource,
-    SourceMap,
+use model::modules::{
+    module_versions::{
+        ModuleSource,
+        SourceMap,
+    },
+    user_error::{
+        ModuleNotFoundError,
+        SystemModuleNotFoundError,
+    },
 };
 use serde_json::Value as JsonValue;
 use value::heap_size::HeapSize;
@@ -52,10 +58,6 @@ use crate::{
     },
     request_scope::RequestState,
     termination::IsolateHandle,
-    user_error::{
-        ModuleNotFoundError,
-        SystemModuleNotFoundError,
-    },
     IsolateHeapStats,
 };
 

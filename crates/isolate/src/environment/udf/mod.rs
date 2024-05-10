@@ -4,9 +4,12 @@ use futures::{
     select_biased,
     FutureExt,
 };
-use model::environment_variables::types::{
-    EnvVarName,
-    EnvVarValue,
+use model::{
+    environment_variables::types::{
+        EnvVarName,
+        EnvVarValue,
+    },
+    modules::user_error::FunctionNotFoundError,
 };
 pub mod async_syscall;
 
@@ -154,7 +157,6 @@ use crate::{
         FunctionExecutionTime,
         Timeout,
     },
-    FunctionNotFoundError,
 };
 
 pub static CONVEX_ORIGIN: LazyLock<EnvVarName> = LazyLock::new(|| {

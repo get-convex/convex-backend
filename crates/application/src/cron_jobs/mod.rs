@@ -71,6 +71,7 @@ use model::{
         CronModel,
         CRON_JOBS_INDEX_BY_NEXT_TS,
     },
+    modules::ModuleModel,
 };
 use usage_tracking::FunctionUsageTracker;
 use value::ResolvedDocumentId;
@@ -264,10 +265,8 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 
         // Since we don't specify the function type in the cron, we have to use
         // the analyzed result.
-        let udf_type = self
-            .runner
-            .module_cache
-            .get_analyzed_function(&mut tx, &job.cron_spec.udf_path)
+        let udf_type = ModuleModel::new(&mut tx)
+            .get_analyzed_function(&job.cron_spec.udf_path)
             .await?
             .map_err(|e| {
                 anyhow::anyhow!(

@@ -34,7 +34,6 @@ mod termination;
 #[cfg(test)]
 mod tests;
 mod timeout;
-mod user_error;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod test_helpers;
@@ -101,9 +100,5 @@ pub use self::{
     metrics::{
         log_source_map_missing,
         log_source_map_token_lookup_failed,
-    },
-    user_error::{
-        FunctionNotFoundError,
-        ModuleNotFoundError,
     },
 };

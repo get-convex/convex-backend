@@ -8,26 +8,17 @@ use common::{
 };
 use database::Transaction;
 use deno_core::ModuleSpecifier;
-use errors::ErrorMetadata;
 use model::modules::{
-    module_versions::{
-        AnalyzedFunction,
-        ModuleVersionMetadata,
-    },
+    module_versions::ModuleVersionMetadata,
     types::ModuleMetadata,
     ModuleModel,
 };
 use storage::Storage;
-use sync_types::{
-    CanonicalizedModulePath,
-    CanonicalizedUdfPath,
-};
+use sync_types::CanonicalizedModulePath;
 
 use crate::{
     isolate::CONVEX_SCHEME,
     metrics::module_load_timer,
-    FunctionNotFoundError,
-    ModuleNotFoundError,
 };
 
 #[async_trait]
@@ -48,47 +39,6 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
             None => return Ok(None),
         };
         self.get_module_with_metadata(tx, module_metadata).await
-    }
-
-    // Helper method that returns the AnalyzedFunction for the specified path.
-    // It returns a user error if the module or function does not exist.
-    // Note that using this method will error if AnalyzedResult is not backfilled,
-    async fn get_analyzed_function(
-        &self,
-        tx: &mut Transaction<RT>,
-        udf_path: &CanonicalizedUdfPath,
-    ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
-        let Some(module) = ModuleModel::new(tx)
-            .get_metadata(udf_path.module().clone())
-            .await?
-        else {
-            return Ok(Err(ErrorMetadata::bad_request(
-                "ModuleNotFound",
-                ModuleNotFoundError::new(udf_path.module().as_str()).to_string(),
-            )
-            .into()));
-        };
-
-        // Dependency modules don't have AnalyzedModule.
-        if !udf_path.module().is_deps() {
-            let analyzed_module = module
-                .analyze_result
-                .as_ref()
-                .ok_or_else(|| anyhow::anyhow!("Expected analyze result for {udf_path:?}"))?;
-
-            for function in &analyzed_module.functions {
-                if &function.name == udf_path.function_name() {
-                    return Ok(Ok(function.clone()));
-                }
-            }
-        }
-
-        Ok(Err(ErrorMetadata::bad_request(
-            "FunctionNotFound",
-            FunctionNotFoundError::new(udf_path.function_name(), udf_path.module().as_str())
-                .to_string(),
-        )
-        .into()))
     }
 
     async fn has_http(&self, tx: &mut Transaction<RT>) -> anyhow::Result<bool> {

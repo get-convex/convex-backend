@@ -49,7 +49,6 @@ use futures::{
 };
 use isolate::{
     FunctionOutcome,
-    ModuleLoader,
     UdfOutcome,
     ValidatedUdfPathAndArgs,
 };
@@ -103,7 +102,6 @@ pub struct CacheManager<RT: Runtime> {
     database: Database<RT>,
     function_router: FunctionRouter<RT>,
     udf_execution: FunctionExecutionLog<RT>,
-    module_loader: Arc<dyn ModuleLoader<RT>>,
 
     cache: Cache<RT>,
 }
@@ -180,14 +178,12 @@ impl<RT: Runtime> CacheManager<RT> {
         database: Database<RT>,
         function_router: FunctionRouter<RT>,
         udf_execution: FunctionExecutionLog<RT>,
-        module_loader: Arc<dyn ModuleLoader<RT>>,
     ) -> Self {
         Self {
             rt,
             database,
             function_router,
             udf_execution,
-            module_loader,
             cache: Cache::new(),
         }
     }
@@ -443,7 +439,6 @@ impl<RT: Runtime> CacheManager<RT> {
                     name.clone(),
                     args.clone(),
                     UdfType::Query,
-                    self.module_loader.clone(),
                 )
                 .await?;
                 let (mut tx, outcome) = match validate_result {

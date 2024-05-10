@@ -612,7 +612,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             database.clone(),
             isolate_functions.clone(),
             function_log.clone(),
-            module_cache.clone(),
         );
 
         Self {
@@ -674,7 +673,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             udf_path.clone(),
             arguments.clone(),
             UdfType::Query,
-            self.module_cache.clone(),
         )
         .await?;
         let context = ExecutionContext::new(request_id, &caller);
@@ -989,7 +987,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             udf_path.clone(),
             arguments.clone(),
             UdfType::Mutation,
-            self.module_cache.clone(),
         )
         .await?;
         let (tx, outcome) = match validate_result {
@@ -1155,7 +1152,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             name.clone(),
             arguments.clone(),
             UdfType::Action,
-            self.module_cache.clone(),
         )
         .await?;
         let path_and_args = match validate_result {
@@ -1418,16 +1414,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             }
             return Ok(isolate::HttpActionResult::Streamed);
         }
-        let validated_path = match ValidatedHttpPath::new(
-            &mut tx,
-            name.canonicalize().clone(),
-            self.module_cache.as_ref(),
-        )
-        .await?
-        {
-            Ok(validated_path) => validated_path,
-            Err(e) => return Ok(isolate::HttpActionResult::Error(e)),
-        };
+        let validated_path =
+            match ValidatedHttpPath::new(&mut tx, name.canonicalize().clone()).await? {
+                Ok(validated_path) => validated_path,
+                Err(e) => return Ok(isolate::HttpActionResult::Error(e)),
+            };
         let unix_timestamp = self.runtime.unix_timestamp();
         let context = ExecutionContext::new(request_id, &caller);
 

@@ -45,7 +45,10 @@ use metrics::{
     get_module_metadata_timer,
     get_module_version_timer,
 };
-use sync_types::CanonicalizedModulePath;
+use sync_types::{
+    CanonicalizedModulePath,
+    CanonicalizedUdfPath,
+};
 use value::{
     values_to_bytes,
     FieldPath,
@@ -54,6 +57,7 @@ use value::{
 
 use self::{
     module_versions::{
+        AnalyzedFunction,
         AnalyzedModule,
         ModuleSource,
         ModuleVersion,
@@ -61,6 +65,10 @@ use self::{
         SourceMap,
     },
     types::ModuleMetadata,
+    user_error::{
+        FunctionNotFoundError,
+        ModuleNotFoundError,
+    },
 };
 use crate::{
     config::types::ModuleConfig,
@@ -73,6 +81,7 @@ pub mod args_validator;
 mod metrics;
 pub mod module_versions;
 pub mod types;
+pub mod user_error;
 
 /// Table name for user modules.
 pub static MODULES_TABLE: LazyLock<TableName> =
@@ -378,6 +387,43 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 None => return Ok(None),
             };
         Ok(Some(module_document))
+    }
+
+    // Helper method that returns the AnalyzedFunction for the specified path.
+    // It returns a user error if the module or function does not exist.
+    // Note that using this method will error if AnalyzedResult is not backfilled,
+    pub async fn get_analyzed_function(
+        &mut self,
+        udf_path: &CanonicalizedUdfPath,
+    ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
+        let Some(module) = self.get_metadata(udf_path.module().clone()).await? else {
+            return Ok(Err(ErrorMetadata::bad_request(
+                "ModuleNotFound",
+                ModuleNotFoundError::new(udf_path.module().as_str()).to_string(),
+            )
+            .into()));
+        };
+
+        // Dependency modules don't have AnalyzedModule.
+        if !udf_path.module().is_deps() {
+            let analyzed_module = module
+                .analyze_result
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Expected analyze result for {udf_path:?}"))?;
+
+            for function in &analyzed_module.functions {
+                if &function.name == udf_path.function_name() {
+                    return Ok(Ok(function.clone()));
+                }
+            }
+        }
+
+        Ok(Err(ErrorMetadata::bad_request(
+            "FunctionNotFound",
+            FunctionNotFoundError::new(udf_path.function_name(), udf_path.module().as_str())
+                .to_string(),
+        )
+        .into()))
     }
 
     pub fn record_module_version_read_dependency(

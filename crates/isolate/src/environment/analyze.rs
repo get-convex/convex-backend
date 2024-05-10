@@ -59,6 +59,7 @@ use model::{
             SourceMap,
             Visibility,
         },
+        user_error::ModuleNotFoundError,
     },
     udf_config::types::UdfConfig,
 };
@@ -105,7 +106,6 @@ use crate::{
     request_scope::RequestScope,
     strings,
     timeout::Timeout,
-    user_error::ModuleNotFoundError,
 };
 
 pub struct AnalyzeEnvironment {

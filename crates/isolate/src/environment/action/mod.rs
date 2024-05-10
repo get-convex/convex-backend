@@ -68,9 +68,12 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    modules::module_versions::{
-        ModuleSource,
-        SourceMap,
+    modules::{
+        module_versions::{
+            ModuleSource,
+            SourceMap,
+        },
+        user_error::FunctionNotFoundError,
     },
 };
 use parking_lot::Mutex;
@@ -172,7 +175,6 @@ use crate::{
         Timeout,
     },
     ActionCallbacks,
-    FunctionNotFoundError,
     HttpActionRequestHead,
     HTTP_ACTION_BODY_LIMIT,
 };

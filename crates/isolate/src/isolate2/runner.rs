@@ -51,6 +51,7 @@ use model::{
         BatchKey,
         FileStorageId,
     },
+    modules::user_error::ModuleNotFoundError,
     udf_config::UdfConfigModel,
 };
 use parking_lot::Mutex;
@@ -115,7 +116,6 @@ use crate::{
     validate_schedule_args,
     JsonPackedValue,
     ModuleLoader,
-    ModuleNotFoundError,
     SyscallTrace,
     UdfOutcome,
     ValidatedUdfPathAndArgs,

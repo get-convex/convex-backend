@@ -65,6 +65,7 @@ use model::{
         types::BackendState,
         BackendStateModel,
     },
+    modules::ModuleModel,
     scheduled_jobs::{
         types::{
             ScheduledJob,
@@ -421,10 +422,8 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let caller = FunctionCaller::Scheduler {
             job_id: job_id.into(),
         };
-        let udf_type = match self
-            .runner
-            .module_cache
-            .get_analyzed_function(&mut tx, &job.udf_path)
+        let udf_type = match ModuleModel::new(&mut tx)
+            .get_analyzed_function(&job.udf_path)
             .await?
         {
             Ok(analyzed_function) => analyzed_function.udf_type,

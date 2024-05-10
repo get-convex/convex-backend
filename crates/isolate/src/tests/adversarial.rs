@@ -822,7 +822,6 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
         path,
         ConvexArray::empty(),
         UdfType::Mutation,
-        t.module_loader.clone(),
     )
     .await?;
     must_let!(let Err(js_error) = result);

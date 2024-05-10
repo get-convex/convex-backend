@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::Context;
 use common::{
     errors::JsError,
@@ -55,10 +53,7 @@ use value::{
     Size,
 };
 
-use crate::{
-    parse_udf_args,
-    ModuleLoader,
-};
+use crate::parse_udf_args;
 pub async fn validate_schedule_args<RT: Runtime>(
     udf_path: UdfPath,
     udf_args: Vec<JsonValue>,
@@ -138,7 +133,6 @@ fn missing_or_internal_error(udf_path: &CanonicalizedUdfPath) -> String {
 async fn udf_version<RT: Runtime>(
     udf_path: &CanonicalizedUdfPath,
     tx: &mut Transaction<RT>,
-    module_loader: &dyn ModuleLoader<RT>,
 ) -> anyhow::Result<Result<Version, JsError>> {
     let udf_config = UdfConfigModel::new(tx).get().await?;
 
@@ -148,8 +142,8 @@ async fn udf_version<RT: Runtime>(
         },
         _ => {
             if udf_config.is_none()
-                && module_loader
-                    .get_analyzed_function(tx, udf_path)
+                && ModuleModel::new(tx)
+                    .get_analyzed_function(udf_path)
                     .await?
                     .is_err()
             {
@@ -224,7 +218,6 @@ impl ValidatedUdfPathAndArgs {
         udf_path: CanonicalizedUdfPath,
         args: ConvexArray,
         expected_udf_type: UdfType,
-        module_loader: Arc<dyn ModuleLoader<RT>>,
     ) -> anyhow::Result<Result<ValidatedUdfPathAndArgs, JsError>> {
         if udf_path.is_system() {
             // We don't analyze system modules, so we don't validate anything
@@ -257,13 +250,15 @@ impl ValidatedUdfPathAndArgs {
             },
         }
 
-        let udf_version = match udf_version(&udf_path, tx, module_loader.as_ref()).await? {
+        let udf_version = match udf_version(&udf_path, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };
 
         // AnalyzeResult result should be populated for all supported versions.
-        let Ok(analyzed_function) = module_loader.get_analyzed_function(tx, &udf_path).await?
+        let Ok(analyzed_function) = ModuleModel::new(tx)
+            .get_analyzed_function(&udf_path)
+            .await?
         else {
             return Ok(Err(JsError::from_message(missing_or_internal_error(
                 &udf_path,
@@ -421,7 +416,6 @@ impl ValidatedHttpPath {
     pub async fn new<RT: Runtime>(
         tx: &mut Transaction<RT>,
         udf_path: CanonicalizedUdfPath,
-        module_loader: &dyn ModuleLoader<RT>,
     ) -> anyhow::Result<Result<Self, JsError>> {
         // This is not a developer error on purpose.
         anyhow::ensure!(
@@ -433,7 +427,7 @@ impl ValidatedHttpPath {
                 .fail_while_paused_or_disabled()
                 .await?;
         }
-        let udf_version = match udf_version(&udf_path, tx, module_loader).await? {
+        let udf_version = match udf_version(&udf_path, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };

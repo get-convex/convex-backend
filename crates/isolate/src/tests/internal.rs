@@ -74,7 +74,6 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         internal_function.clone(),
         ConvexArray::empty(),
         UdfType::Mutation,
-        t.module_loader.clone(),
     )
     .await;
     must_let!(let Ok(Err(js_error)) = result);
@@ -88,7 +87,6 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         public_function.clone(),
         ConvexArray::empty(),
         UdfType::Mutation,
-        t.module_loader.clone(),
     )
     .await;
     must_let!(let Ok(Ok(_)) = result);
@@ -101,7 +99,6 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         non_existent_function.clone(),
         ConvexArray::empty(),
         UdfType::Mutation,
-        t.module_loader.clone(),
     )
     .await;
     must_let!(let Ok(Err(js_error)) = result);
@@ -116,7 +113,6 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         public_function.clone(),
         ConvexArray::empty(),
         UdfType::Query,
-        t.module_loader.clone(),
     )
     .await;
     must_let!(let Ok(Err(js_error)) = result);
@@ -140,7 +136,6 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         internal_function.clone(),
         ConvexArray::empty(),
         UdfType::Mutation,
-        t.module_loader.clone(),
     )
     .await;
     must_let!(let Ok(Ok(_)) = result);
@@ -152,7 +147,6 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         non_existent_function.clone(),
         ConvexArray::empty(),
         UdfType::Mutation,
-        t.module_loader.clone(),
     )
     .await;
     must_let!(let Ok(Err(js_error)) = result);
@@ -167,7 +161,6 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         public_function.clone(),
         ConvexArray::empty(),
         UdfType::Query,
-        t.module_loader.clone(),
     )
     .await;
     must_let!(let Ok(Err(js_error)) = result);
