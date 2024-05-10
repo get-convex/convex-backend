@@ -136,6 +136,9 @@ export const tryUnsupportedAPIs = query(() => {
   if (typeof setImmediate !== "undefined") {
     throw new Error("setImmediate defined");
   }
+  if (typeof performance !== "undefined") {
+    throw new Error("performance defined");
+  }
 });
 
 export const setTimeoutThrows = query(() => {
