@@ -93,7 +93,6 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 self.identity.clone(),
                 udf_path,
                 args.into_arg_vec(),
-                false,
                 self.context.clone(),
             )
             .await?
@@ -124,7 +123,6 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 self.identity.clone(),
                 udf_path,
                 args.into_arg_vec(),
-                false,
                 self.context.clone(),
             )
             .await?
@@ -152,7 +150,6 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 self.identity.clone(),
                 udf_path,
                 args.into_arg_vec(),
-                false,
                 self.context.clone(),
             )
             .await?

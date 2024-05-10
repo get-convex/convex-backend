@@ -275,7 +275,6 @@ pub trait ActionCallbacks: Send + Sync {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        block_logging: bool,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 
@@ -284,7 +283,6 @@ pub trait ActionCallbacks: Send + Sync {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        block_logging: bool,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 
@@ -293,7 +291,6 @@ pub trait ActionCallbacks: Send + Sync {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        block_logging: bool,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
 

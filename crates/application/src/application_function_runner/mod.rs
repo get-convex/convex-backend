@@ -1954,9 +1954,10 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        block_logging: bool,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
+        // We never block logging for functions called by actions.
+        let block_logging = false;
         let ts = self.database.now_ts_for_reads();
         let result = self
             .run_query_at_ts(
@@ -1982,9 +1983,10 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        block_logging: bool,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
+        // We never block logging for functions called by actions.
+        let block_logging = false;
         let result = self
             .retry_mutation(
                 context.request_id,
@@ -2012,9 +2014,10 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        block_logging: bool,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
+        // We never block logging for functions called by actions.
+        let block_logging = false;
         let _tx = self.database.begin(identity.clone()).await?;
         let result = self
             .run_action(

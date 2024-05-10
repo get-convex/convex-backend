@@ -1146,7 +1146,6 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        _block_logging: bool,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let arguments = parse_udf_args(&name, args)?;
@@ -1167,7 +1166,6 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        _block_logging: bool,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let arguments = parse_udf_args(&name, args)?;
@@ -1188,7 +1186,6 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         identity: Identity,
         name: UdfPath,
         args: Vec<JsonValue>,
-        _block_logging: bool,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
         let arguments = parse_udf_args(&name, args)?;
