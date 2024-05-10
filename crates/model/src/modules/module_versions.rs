@@ -32,13 +32,10 @@ use value::{
 };
 
 use super::args_validator::ArgsValidator;
-use crate::{
-    cron_jobs::types::{
-        CronIdentifier,
-        CronSpec,
-        SerializedCronSpec,
-    },
-    source_packages::types::SourcePackageId,
+use crate::cron_jobs::types::{
+    CronIdentifier,
+    CronSpec,
+    SerializedCronSpec,
 };
 
 /// System-assigned version number for modules.
@@ -59,18 +56,14 @@ pub struct ModuleVersionMetadata {
 
     /// Immutable source code for a module version.
     pub source: ModuleSource,
-    pub source_package_id: Option<SourcePackageId>,
 
     // Source map for `source` field above.
     pub source_map: Option<SourceMap>,
     // Version number for this module version.
-    pub version: ModuleVersion,
+    pub version: Option<ModuleVersion>,
 
     // Which environment this module was bundled for.
-    pub environment: ModuleEnvironment,
-
-    // Cached result of analyzing this module.
-    pub analyze_result: Option<AnalyzedModule>,
+    pub environment: Option<ModuleEnvironment>,
 }
 
 // A cache size implementation for module cache.
@@ -524,11 +517,9 @@ struct SerializedModuleVersionMetadata {
     #[serde(rename = "module_id")]
     module_id: String,
     source: String,
-    source_package_id: Option<String>,
     source_map: Option<String>,
-    version: ModuleVersion,
-    analyze_result: Option<SerializedAnalyzedModule>,
-    environment: String,
+    version: Option<ModuleVersion>,
+    environment: Option<String>,
 }
 
 impl TryFrom<ModuleVersionMetadata> for SerializedModuleVersionMetadata {
@@ -538,13 +529,9 @@ impl TryFrom<ModuleVersionMetadata> for SerializedModuleVersionMetadata {
         Ok(Self {
             module_id: m.module_id.encode(),
             source: m.source,
-            source_package_id: m
-                .source_package_id
-                .map(|id| DeveloperDocumentId::from(id).encode()),
             source_map: m.source_map,
             version: m.version,
-            analyze_result: m.analyze_result.map(TryFrom::try_from).transpose()?,
-            environment: m.environment.to_string(),
+            environment: m.environment.map(|e| e.to_string()),
         })
     }
 }
@@ -556,15 +543,9 @@ impl TryFrom<SerializedModuleVersionMetadata> for ModuleVersionMetadata {
         Ok(Self {
             module_id: DeveloperDocumentId::decode(&m.module_id)?,
             source: m.source,
-            source_package_id: m
-                .source_package_id
-                .map(|id| DeveloperDocumentId::decode(&id))
-                .transpose()?
-                .map(From::from),
             source_map: m.source_map,
             version: m.version,
-            analyze_result: m.analyze_result.map(TryFrom::try_from).transpose()?,
-            environment: m.environment.parse()?,
+            environment: m.environment.map(|e| e.parse()).transpose()?,
         })
     }
 }

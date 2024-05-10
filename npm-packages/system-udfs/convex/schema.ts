@@ -282,10 +282,9 @@ export default defineSchema({
     source: v.string(),
     sourceMap: v.union(v.string(), v.null()),
 
-    // version and analyzeResult should never be read.
-    // read them from _modules instead.
+    // version should never be read.
+    // read it from _modules instead.
     version: v.int64(),
-    analyzeResult: v.union(analyzedModule, v.null()),
   }).index("by_module_and_version", ["module_id", "version"]),
   _auth: defineTable({
     applicationID: v.string(),
