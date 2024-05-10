@@ -9,7 +9,10 @@ use tantivy::{
     IndexBuilder,
     SingleSegmentIndexWriter,
 };
-use text_search::tracker::MemoryIdAndDeletionTracker;
+use text_search::tracker::{
+    MemoryDeletionTracker,
+    SearchMemoryIdTracker,
+};
 
 use crate::{
     constants::CONVEX_EN_TOKENIZER,
@@ -24,7 +27,7 @@ const SEGMENT_MAX_SIZE_BYTES: usize = 10_000_000;
 #[allow(dead_code)]
 pub(crate) const ID_TRACKER_PATH: &str = "id_tracker";
 #[allow(dead_code)]
-pub(crate) const DELETED_TANTIVY_IDS_PATH: &str = "deleted_tantivy_ids";
+pub(crate) const ALIVE_BITSET_PATH: &str = "tantivy_alive_bitset";
 #[allow(dead_code)]
 pub(crate) const DELETED_TERMS_PATH: &str = "deleted_terms";
 
@@ -42,7 +45,7 @@ pub async fn build_index(
         .tokenizers()
         .register(CONVEX_EN_TOKENIZER, convex_en());
     let mut segment_writer = SingleSegmentIndexWriter::new(index, SEGMENT_MAX_SIZE_BYTES)?;
-    let mut tracker = MemoryIdAndDeletionTracker::default();
+    let mut id_tracker = SearchMemoryIdTracker::default();
     futures::pin_mut!(revision_stream);
     // Keep track of the document IDs we've seen so we can check for duplicates.
     // We'll discard revisions to documents that we've already seen because we are
@@ -58,13 +61,14 @@ pub async fn build_index(
             let tantivy_document =
                 tantivy_schema.index_into_tantivy_document(new_document, revision_pair.ts());
             let doc_id = segment_writer.add_document(tantivy_document)?;
-            tracker.set_link(convex_id, doc_id)?;
+            id_tracker.set_link(convex_id, doc_id)?;
         }
     }
     segment_writer.finalize()?;
+    id_tracker.write(dir.to_path_buf().join(ID_TRACKER_PATH))?;
+    let tracker = MemoryDeletionTracker::new(document_ids_seen.len() as u32);
     tracker.write(
-        dir.to_path_buf().join(ID_TRACKER_PATH),
-        dir.to_path_buf().join(DELETED_TANTIVY_IDS_PATH),
+        dir.to_path_buf().join(ALIVE_BITSET_PATH),
         dir.to_path_buf().join(DELETED_TERMS_PATH),
     )?;
     Ok(())

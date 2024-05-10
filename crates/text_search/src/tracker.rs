@@ -16,9 +16,9 @@ use byteorder::{
     ReadBytesExt,
     WriteBytesExt,
 };
-use common::{
-    deleted_bitset::DeletedBitset,
-    id_tracker::MemoryIdTracker,
+use common::id_tracker::{
+    MemoryIdTracker,
+    StaticIdTracker,
 };
 use sucds::{
     int_vectors::{
@@ -33,11 +33,16 @@ use sucds::{
     Serializable,
 };
 use tantivy::{
+    fastfield::AliveBitSet,
     termdict::{
         TermDictionary,
         TermOrdinal,
     },
     DocId,
+};
+use tantivy_common::{
+    BitSet,
+    OwnedBytes,
 };
 use value::InternalId;
 
@@ -59,7 +64,7 @@ use value::InternalId;
 pub const DELETED_TERMS_TABLE_VERSION: u8 = 1;
 
 pub struct StaticDeletionTracker {
-    deleted_tantivy_ids: DeletedBitset,
+    alive_bitset: AliveBitSet,
     /// Number of terms that are completed deleted from the segment
     num_terms_deleted: u32,
     deleted_terms_table: Option<DeletedTermsTable>,
@@ -87,11 +92,17 @@ impl DeletedTermsTable {
     }
 }
 
+pub fn load_alive_bitset(path: &Path) -> anyhow::Result<AliveBitSet> {
+    let mut file = File::open(path)?;
+    let mut buf = vec![];
+    file.read_to_end(&mut buf)?;
+    let owned = OwnedBytes::new(buf);
+    let alive_bitset = AliveBitSet::open(owned);
+    Ok(alive_bitset)
+}
+
 impl StaticDeletionTracker {
-    pub fn load(
-        deleted_tantivy_ids: DeletedBitset,
-        deleted_terms_path: &Path,
-    ) -> anyhow::Result<Self> {
+    pub fn load(alive_bitset: AliveBitSet, deleted_terms_path: &Path) -> anyhow::Result<Self> {
         let deleted_terms_file = File::open(deleted_terms_path)?;
         let deleted_terms_file_len = deleted_terms_file.metadata()?.len() as usize;
         let deleted_terms_reader = BufReader::new(deleted_terms_file);
@@ -99,7 +110,7 @@ impl StaticDeletionTracker {
             Self::load_deleted_terms_table(deleted_terms_file_len, deleted_terms_reader)?;
 
         Ok(Self {
-            deleted_tantivy_ids,
+            alive_bitset,
             num_terms_deleted,
             deleted_terms_table,
         })
@@ -122,9 +133,9 @@ impl StaticDeletionTracker {
         self.num_terms_deleted
     }
 
-    /// How many documents have been deleted from the segment?
-    pub fn num_documents_deleted(&self) -> usize {
-        self.deleted_tantivy_ids.num_deleted()
+    /// How many documents in the segment are not deleted?
+    pub fn num_alive_docs(&self) -> usize {
+        self.alive_bitset.num_alive_docs()
     }
 
     /// How many of a term's documents have been deleted?
@@ -137,8 +148,8 @@ impl StaticDeletionTracker {
     }
 
     /// Which documents have been deleted in the segment?
-    pub fn deleted_documents(&self) -> &DeletedBitset {
-        &self.deleted_tantivy_ids
+    pub fn alive_bitset(&self) -> &AliveBitSet {
+        &self.alive_bitset
     }
 
     fn load_deleted_terms_table(
@@ -188,35 +199,49 @@ impl StaticDeletionTracker {
 }
 
 #[derive(Default)]
-pub struct MemoryIdAndDeletionTracker {
-    memory_id_tracker: MemoryIdTracker,
-    deleted_tantivy_ids: DeletedBitset,
+pub struct SearchMemoryIdTracker(MemoryIdTracker);
+impl SearchMemoryIdTracker {
+    pub fn set_link(&mut self, convex_id: InternalId, tantivy_id: DocId) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.0.index_id(convex_id.0).is_none(),
+            "Id {convex_id} already exists in SearchIdTracker"
+        );
+        self.0.insert(tantivy_id, convex_id.0);
+        Ok(())
+    }
+
+    pub fn write<P: AsRef<Path>>(mut self, id_tracker_path: P) -> anyhow::Result<()> {
+        let mut out = BufWriter::new(File::create(id_tracker_path)?);
+        self.0.write_id_tracker(&mut out)?;
+        out.into_inner()?.sync_all()?;
+        Ok(())
+    }
+}
+
+pub struct MemoryDeletionTracker {
+    alive_bitset: BitSet,
     term_to_deleted_documents: BTreeMap<TermOrdinal, u32>,
     num_deleted_terms: u32,
 }
 
-impl MemoryIdAndDeletionTracker {
-    pub fn set_link(&mut self, convex_id: InternalId, tantivy_id: DocId) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            self.memory_id_tracker.index_id(convex_id.0).is_none(),
-            "Id {convex_id} already exists in SearchIdTracker"
-        );
-        self.memory_id_tracker.insert(tantivy_id, convex_id.0);
-        self.deleted_tantivy_ids.resize(tantivy_id as usize + 1);
-        Ok(())
+impl MemoryDeletionTracker {
+    pub fn new(num_docs: u32) -> Self {
+        Self {
+            alive_bitset: BitSet::with_max_value_and_full(num_docs),
+            term_to_deleted_documents: BTreeMap::new(),
+            num_deleted_terms: 0,
+        }
     }
 
-    pub fn delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()> {
-        let tantivy_id = self
-            .memory_id_tracker
-            .index_id(convex_id.0)
-            .with_context(|| {
-                format!(
-                    "Id not found in MemoryIdAndDeletionTracker: {:?}",
-                    convex_id
-                )
-            })?;
-        self.deleted_tantivy_ids.delete(tantivy_id)?;
+    pub fn delete_document(
+        &mut self,
+        convex_id: InternalId,
+        id_tracker: StaticIdTracker,
+    ) -> anyhow::Result<()> {
+        let tantivy_id = id_tracker
+            .lookup(convex_id.0)
+            .with_context(|| format!("Id not found in StaticIdTracker: {:?}", convex_id))?;
+        self.alive_bitset.remove(tantivy_id);
         Ok(())
     }
 
@@ -232,19 +257,13 @@ impl MemoryIdAndDeletionTracker {
     }
 
     pub fn write<P: AsRef<Path>>(
-        mut self,
-        id_tracker_path: P,
-        deleted_tantivy_ids_path: P,
+        self,
+        alive_bitset_path: P,
         deleted_terms_path: P,
     ) -> anyhow::Result<()> {
         {
-            let mut out = BufWriter::new(File::create(id_tracker_path)?);
-            self.write_id_tracker(&mut out)?;
-            out.into_inner()?.sync_all()?;
-        }
-        {
-            let mut out = BufWriter::new(File::create(deleted_tantivy_ids_path)?);
-            self.deleted_tantivy_ids.write(&mut out)?;
+            let mut out = BufWriter::new(File::create(alive_bitset_path)?);
+            self.alive_bitset.serialize(&mut out)?;
             out.into_inner()?.sync_all()?;
         }
         {
@@ -257,10 +276,6 @@ impl MemoryIdAndDeletionTracker {
             out.into_inner()?.sync_all()?;
         }
         Ok(())
-    }
-
-    fn write_id_tracker(&mut self, out: impl Write) -> anyhow::Result<()> {
-        self.memory_id_tracker.write_id_tracker(out)
     }
 
     fn write_deleted_terms(
@@ -301,15 +316,15 @@ impl MemoryIdAndDeletionTracker {
 mod tests {
 
     use super::{
-        MemoryIdAndDeletionTracker,
+        MemoryDeletionTracker,
         StaticDeletionTracker,
     };
 
     #[test]
     fn test_empty_deleted_term_table_roundtrips() -> anyhow::Result<()> {
-        let memory_tracker = MemoryIdAndDeletionTracker::default();
+        let memory_tracker = MemoryDeletionTracker::new(10);
         let mut buf = Vec::new();
-        MemoryIdAndDeletionTracker::write_deleted_terms(
+        MemoryDeletionTracker::write_deleted_terms(
             memory_tracker.term_to_deleted_documents,
             memory_tracker.num_deleted_terms,
             &mut buf,
@@ -325,14 +340,14 @@ mod tests {
 
     #[test]
     fn test_deleted_term_table_roundtrips() -> anyhow::Result<()> {
-        let mut memory_tracker = MemoryIdAndDeletionTracker::default();
+        let mut memory_tracker = MemoryDeletionTracker::new(10);
         let term_ord_1 = 5;
         memory_tracker.increment_deleted_documents_for_term(term_ord_1, 2);
         let term_ord_2 = 3;
         memory_tracker.increment_deleted_documents_for_term(term_ord_2, 1);
 
         let mut buf = Vec::new();
-        MemoryIdAndDeletionTracker::write_deleted_terms(
+        MemoryDeletionTracker::write_deleted_terms(
             memory_tracker.term_to_deleted_documents,
             memory_tracker.num_deleted_terms,
             &mut buf,

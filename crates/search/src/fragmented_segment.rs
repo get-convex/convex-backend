@@ -292,18 +292,18 @@ impl MutableFragmentedSegmentMetadata {
         download_single_file_zip(&original.deleted_bitset_key, &deleted_bitset_path, storage)
             .await?;
 
-        let deleted_bitset = DeletedBitset::load_from_path(deleted_bitset_path)?;
+        let deleted = DeletedBitset::load_from_path(deleted_bitset_path)?;
 
         // Clone is a bit of a hack here because these two deleted bitsets may become
         // inconsistent if one or more vectors are deleted via maybe_delete.
         // For now we don't care about the inconsistency because the loaded id tracker
         // is only used as part of maybe_delete, which is idempotent.
-        let id_tracker = VectorStaticIdTracker(StaticIdTracker::load_from_path(
-            id_tracker_path,
-            deleted_bitset.clone(),
-        )?);
+        let id_tracker = VectorStaticIdTracker {
+            id_tracker: StaticIdTracker::load_from_path(id_tracker_path)?,
+            deleted_bitset: deleted.clone(),
+        };
 
-        Ok(Self::new(original, id_tracker, deleted_bitset))
+        Ok(Self::new(original, id_tracker, deleted))
     }
 
     pub async fn upload_deleted_bitset(

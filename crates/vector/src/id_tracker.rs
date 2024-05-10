@@ -222,11 +222,14 @@ impl VectorMemoryIdTracker {
     }
 }
 
-pub struct VectorStaticIdTracker(pub StaticIdTracker);
+pub struct VectorStaticIdTracker {
+    pub id_tracker: StaticIdTracker,
+    pub deleted_bitset: DeletedBitset,
+}
 
 impl VectorStaticIdTracker {
     fn get_uuid(&self, offset: usize) -> Option<Uuid> {
-        self.0
+        self.id_tracker
             .get_convex_id(offset)
             .map(|v| Uuid::from_slice(&v).unwrap())
     }
@@ -249,7 +252,7 @@ impl IdTracker for VectorStaticIdTracker {
         let PointIdType::Uuid(uuid) = external_id else {
             panic!("Invalid external ID: {external_id}");
         };
-        self.0.lookup(*uuid.as_bytes())
+        self.id_tracker.lookup(*uuid.as_bytes())
     }
 
     fn external_id(&self, internal_id: PointOffsetType) -> Option<PointIdType> {
@@ -274,7 +277,7 @@ impl IdTracker for VectorStaticIdTracker {
     }
 
     fn iter_internal(&self) -> Box<dyn Iterator<Item = PointOffsetType> + '_> {
-        Box::new(0..self.0.count() as u32)
+        Box::new(0..self.id_tracker.count() as u32)
     }
 
     fn iter_from(
@@ -286,9 +289,9 @@ impl IdTracker for VectorStaticIdTracker {
 
     fn iter_ids(&self) -> Box<dyn Iterator<Item = PointOffsetType> + '_> {
         Box::new(
-            (0..self.0.count())
+            (0..self.id_tracker.count())
                 .map(|value| value as u32)
-                .filter(|internal_id| !self.0.deleted().is_deleted(*internal_id)),
+                .filter(|internal_id| !self.deleted_bitset.is_deleted(*internal_id)),
         )
     }
 
@@ -301,19 +304,19 @@ impl IdTracker for VectorStaticIdTracker {
     }
 
     fn total_point_count(&self) -> usize {
-        self.0.count()
+        self.id_tracker.count()
     }
 
     fn deleted_point_count(&self) -> usize {
-        self.0.deleted().num_deleted()
+        self.deleted_bitset.num_deleted()
     }
 
     fn deleted_point_bitslice(&self) -> &BitSlice {
-        self.0.deleted().deleted_id_bitslice()
+        self.deleted_bitset.deleted_id_bitslice()
     }
 
     fn is_deleted_point(&self, internal_id: PointOffsetType) -> bool {
-        self.0.deleted().is_deleted(internal_id)
+        self.deleted_bitset.is_deleted(internal_id)
     }
 }
 
@@ -430,10 +433,7 @@ mod tests {
         tracker
     }
 
-    fn static_id_tracker(
-        all: Vec<Uuid>,
-        deleted: Vec<Uuid>,
-    ) -> (VectorStaticIdTracker, DeletedBitset) {
+    fn static_id_tracker(all: Vec<Uuid>, deleted: Vec<Uuid>) -> VectorStaticIdTracker {
         let mut deleted_bitset = DeletedBitset::new(all.len());
         let mut tracker = memory_id_tracker(all, vec![]);
         for uuid in deleted {
@@ -444,13 +444,11 @@ mod tests {
         let mut uuid_buf = vec![];
         tracker.write_uuids(&mut uuid_buf).unwrap();
 
-        (
-            VectorStaticIdTracker(
-                StaticIdTracker::load((uuid_buf.len(), &uuid_buf[..]), deleted_bitset.clone())
-                    .unwrap(),
-            ),
+        let id_tracker = StaticIdTracker::load((uuid_buf.len(), &uuid_buf[..])).unwrap();
+        VectorStaticIdTracker {
+            id_tracker,
             deleted_bitset,
-        )
+        }
     }
 
     proptest! {
@@ -561,14 +559,17 @@ mod tests {
             let mut uuid_buf = vec![];
             tracker.write_uuids(&mut uuid_buf).unwrap();
 
-            let tracker = VectorStaticIdTracker(StaticIdTracker::load(
+            let id_tracker = StaticIdTracker::load(
                 (uuid_buf.len(), &uuid_buf[..]),
+            ).unwrap();
+            let tracker = VectorStaticIdTracker {
+                id_tracker,
                 deleted_bitset,
-            ).unwrap());
+            };
 
             for uuid in all {
                 let internal_id = tracker.internal_id(ExtendedPointId::Uuid(uuid)).unwrap();
-                assert_eq!(deleted.contains(&uuid), tracker.0.deleted().is_deleted(internal_id));
+                assert_eq!(deleted.contains(&uuid), tracker.deleted_bitset.is_deleted(internal_id));
             }
         }
 
@@ -576,7 +577,7 @@ mod tests {
         fn static_tracker_iter_ids_excludes_removed_points(
             (all, deleted) in uuids_with_some_deleted()
         ) {
-            let (tracker, _) = static_id_tracker(all, deleted.clone());
+            let tracker = static_id_tracker(all, deleted.clone());
 
             for point in tracker.iter_ids() {
                 must_let!(let PointIdType::Uuid(uuid) = tracker.external_id(point).unwrap());
@@ -660,10 +661,13 @@ mod tests {
             deleted_bitset.write(&mut deleted_buf).unwrap();
 
             let deleted_bitset = DeletedBitset::load(deleted_buf.len(), &deleted_buf[..]).unwrap();
-            let static_ids = VectorStaticIdTracker(StaticIdTracker::load(
+            let id_tracker = StaticIdTracker::load(
                 (uuid_buf.len(), &uuid_buf[..]),
+            ).unwrap();
+            let static_ids = VectorStaticIdTracker {
+                id_tracker,
                 deleted_bitset,
-            ).unwrap());
+            };
 
             for uuid in all.iter() {
                 let external_id = PointIdType::Uuid(*uuid);
@@ -698,10 +702,13 @@ mod tests {
 
 
             let deleted_bitset = DeletedBitset::load(deleted_buf.len(), &deleted_buf[..]).unwrap();
-            let static_ids = VectorStaticIdTracker(StaticIdTracker::load(
+            let id_tracker = StaticIdTracker::load(
                 (uuid_buf.len(), &uuid_buf[..]),
+            ).unwrap();
+            let static_ids = VectorStaticIdTracker {
+                id_tracker,
                 deleted_bitset,
-            ).unwrap());
+            };
 
             let ids_impls: [&dyn IdTracker; 2] = [&memory_ids, &static_ids];
             for ids in ids_impls {

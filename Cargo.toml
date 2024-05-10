@@ -109,8 +109,8 @@ sourcemap = "7"
 strum = { version = "0.26", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
-tantivy = { git = "https://github.com/get-convex/tantivy", rev = "a0f4d3c3843dd255ac6a7210830b3f91cf16db8f" }
-tantivy-common = { git = "https://github.com/get-convex/tantivy", rev = "a0f4d3c3843dd255ac6a7210830b3f91cf16db8f" }
+tantivy = { git = "https://github.com/get-convex/tantivy", rev = "b0bc7a40d54c92c8446098f20082756f218cdd9d" }
+tantivy-common = { git = "https://github.com/get-convex/tantivy", rev = "b0bc7a40d54c92c8446098f20082756f218cdd9d" }
 tempfile = "3"
 thiserror = "1"
 thousands = "0.2.0"

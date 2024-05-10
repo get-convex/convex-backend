@@ -3,8 +3,8 @@ use std::{
     fmt,
 };
 
-use common::deleted_bitset::DeletedBitset;
 use tantivy::{
+    fastfield::AliveBitSet,
     query::{
         intersect_scorers,
         BooleanQuery,
@@ -151,7 +151,7 @@ impl Weight for ConvexSearchWeight {
 #[derive(Clone)]
 pub struct DeletedDocuments {
     pub memory_deleted: BTreeSet<DocId>,
-    pub segment_deleted: DeletedBitset,
+    pub segment_alive_bitset: AliveBitSet,
 }
 
 impl fmt::Debug for DeletedDocuments {
@@ -159,18 +159,23 @@ impl fmt::Debug for DeletedDocuments {
         f.debug_struct("DeletedDocuments")
             .field("memory_deleted", &self.memory_deleted)
             .field("segment_deleted", &"<bitset>")
-            .field("num_segment_deleted", &self.segment_deleted.num_deleted())
+            .field(
+                "num_segment_alive",
+                &self.segment_alive_bitset.num_alive_docs(),
+            )
             .finish()
     }
 }
 
 impl DeletedDocuments {
     pub fn contains(&self, doc: DocId) -> bool {
-        self.memory_deleted.contains(&doc) || self.segment_deleted.is_deleted(doc)
+        self.memory_deleted.contains(&doc) || self.segment_alive_bitset.is_deleted(doc)
     }
 
-    pub fn len(&self) -> usize {
-        self.memory_deleted.len() + self.segment_deleted.num_deleted()
+    pub fn approximate_num_alive_docs(&self) -> usize {
+        self.segment_alive_bitset
+            .num_alive_docs()
+            .saturating_sub(self.memory_deleted.len())
     }
 }
 
@@ -225,9 +230,7 @@ impl<T: DocSet> DocSet for ExcludeDeleted<T> {
     }
 
     fn size_hint(&self) -> u32 {
-        self.docset
-            .size_hint()
-            .saturating_sub(self.deleted_documents.len() as u32)
+        self.deleted_documents.approximate_num_alive_docs() as u32
     }
 }
 

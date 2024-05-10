@@ -16,8 +16,6 @@ use byteorder::{
 };
 use csf::ls::Map as CsfMap;
 
-use crate::deleted_bitset::DeletedBitset;
-
 /// Version 1 of the id table has the following format:
 /// ```
 /// [ version ] [ count ] [ index_len ] [ ID ]* [ index ]
@@ -42,35 +40,23 @@ pub struct StaticIdTracker {
     /// Convex IDs in search/vector index id order.
     id_buf: Vec<u8>,
     csf_map: CsfMap,
-    deleted: DeletedBitset,
 }
 
 impl StaticIdTracker {
-    pub fn load_from_path(
-        id_table_path: PathBuf,
-        deleted_bitset: DeletedBitset,
-    ) -> anyhow::Result<Self> {
+    pub fn load_from_path(id_table_path: PathBuf) -> anyhow::Result<Self> {
         let uuid_file = File::open(id_table_path)?;
-        StaticIdTracker::load(
-            (
-                uuid_file.metadata()?.len() as usize,
-                BufReader::new(uuid_file),
-            ),
-            deleted_bitset,
-        )
+        StaticIdTracker::load((
+            uuid_file.metadata()?.len() as usize,
+            BufReader::new(uuid_file),
+        ))
     }
 
-    pub fn load(
-        uuid_file: (usize, impl Read),
-        deleted_bitset: DeletedBitset,
-    ) -> anyhow::Result<Self> {
+    pub fn load(uuid_file: (usize, impl Read)) -> anyhow::Result<Self> {
         let (count, uuid_buf, csf_map) = Self::load_ids(uuid_file.0, uuid_file.1)?;
-        anyhow::ensure!(count == deleted_bitset.len());
         Ok(Self {
             count,
             id_buf: uuid_buf,
             csf_map,
-            deleted: deleted_bitset,
         })
     }
 
@@ -118,10 +104,6 @@ impl StaticIdTracker {
 
     pub fn count(&self) -> usize {
         self.count
-    }
-
-    pub fn deleted(&self) -> &DeletedBitset {
-        &self.deleted
     }
 
     pub fn lookup(&self, convex_id: [u8; 16]) -> Option<u32> {
