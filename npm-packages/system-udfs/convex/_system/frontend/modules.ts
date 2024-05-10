@@ -70,24 +70,12 @@ export const list = queryPrivateSystem({
 
       const cronSpecs = processCronSpecs(analyzeResult.cronSpecs);
 
-      const moduleVersion = await db
-        .query("_module_versions")
-        .withIndex("by_module_and_version", (q) =>
-          q.eq("module_id", module._id),
-        )
-        .unique();
-      // The _modules entry exists so _module_versions most exist.
-      if (!moduleVersion) {
-        throw new Error(`Module version for ${module._id} not found`);
-      }
-
       result.push([
         module.path,
         {
           functions,
           ...(cronSpecs !== null ? { cronSpecs } : {}),
-          creationTime: moduleVersion._creationTime,
-        } as Module,
+        },
       ]);
     }
     return result;
