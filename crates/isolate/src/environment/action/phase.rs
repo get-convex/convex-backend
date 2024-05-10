@@ -22,7 +22,7 @@ use model::{
         EnvironmentVariablesModel,
     },
     modules::{
-        module_versions::ModuleVersionMetadata,
+        module_versions::FullModuleSource,
         types::ModuleMetadata,
         ModuleModel,
     },
@@ -72,7 +72,7 @@ enum ActionPreloaded<RT: Runtime> {
     },
     Preloading,
     Ready {
-        modules: BTreeMap<CanonicalizedModulePath, (ModuleMetadata, Arc<ModuleVersionMetadata>)>,
+        modules: BTreeMap<CanonicalizedModulePath, (ModuleMetadata, Arc<FullModuleSource>)>,
         env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         rng: Option<ChaCha12Rng>,
         import_time_unix_timestamp: Option<UnixTimestamp>,
@@ -168,7 +168,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         module_path: &ModulePath,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<ModuleVersionMetadata>> {
+    ) -> anyhow::Result<Option<FullModuleSource>> {
         let ActionPreloaded::Ready { ref modules, .. } = self.preloaded else {
             anyhow::bail!("Phase not initialized");
         };

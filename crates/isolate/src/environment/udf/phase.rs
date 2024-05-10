@@ -32,7 +32,7 @@ use model::{
         PreloadedEnvironmentVariables,
     },
     modules::{
-        module_versions::ModuleVersionMetadata,
+        module_versions::FullModuleSource,
         ModuleModel,
     },
     udf_config::UdfConfigModel,
@@ -141,7 +141,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         module_path: &ModulePath,
         timeout: &mut Timeout<RT>,
         permit_slot: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<ModuleVersionMetadata>> {
+    ) -> anyhow::Result<Option<FullModuleSource>> {
         if self.phase != Phase::Importing {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoDynamicImport",

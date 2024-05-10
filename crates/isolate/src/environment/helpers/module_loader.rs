@@ -9,7 +9,7 @@ use common::{
 use database::Transaction;
 use deno_core::ModuleSpecifier;
 use model::modules::{
-    module_versions::ModuleVersionMetadata,
+    module_versions::FullModuleSource,
     types::ModuleMetadata,
     ModuleModel,
 };
@@ -27,13 +27,13 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
         &self,
         tx: &mut Transaction<RT>,
         module_metadata: ParsedDocument<ModuleMetadata>,
-    ) -> anyhow::Result<Option<Arc<ModuleVersionMetadata>>>;
+    ) -> anyhow::Result<Option<Arc<FullModuleSource>>>;
 
     async fn get_module(
         &self,
         tx: &mut Transaction<RT>,
         path: CanonicalizedModulePath,
-    ) -> anyhow::Result<Option<Arc<ModuleVersionMetadata>>> {
+    ) -> anyhow::Result<Option<Arc<FullModuleSource>>> {
         let module_metadata = match ModuleModel::new(tx).get_metadata(path).await? {
             Some(r) => r,
             None => return Ok(None),
@@ -51,13 +51,12 @@ impl<RT: Runtime> ModuleLoader<RT> for TransactionModuleLoader {
         &self,
         tx: &mut Transaction<RT>,
         module_metadata: ParsedDocument<ModuleMetadata>,
-    ) -> anyhow::Result<Option<Arc<ModuleVersionMetadata>>> {
+    ) -> anyhow::Result<Option<Arc<FullModuleSource>>> {
         let _timer = module_load_timer();
-        let module_version = ModuleModel::new(tx)
-            .get_version(module_metadata.id(), module_metadata.latest_version)
-            .await?
-            .into_value();
-        Ok(Some(Arc::new(module_version)))
+        let full_source = ModuleModel::new(tx)
+            .get_source(module_metadata.id(), module_metadata.latest_version)
+            .await?;
+        Ok(Some(Arc::new(full_source)))
     }
 }
 
@@ -66,13 +65,12 @@ pub async fn get_module<RT: Runtime>(
     // TODO(lee) fetch from module storage
     _modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
-) -> anyhow::Result<ModuleVersionMetadata> {
+) -> anyhow::Result<FullModuleSource> {
     let _timer = module_load_timer();
-    let module_version = ModuleModel::new(&mut tx)
-        .get_version(module_metadata.id(), module_metadata.latest_version)
-        .await?
-        .into_value();
-    Ok(module_version)
+    let source = ModuleModel::new(&mut tx)
+        .get_source(module_metadata.id(), module_metadata.latest_version)
+        .await?;
+    Ok(source)
 }
 
 pub fn module_specifier_from_path(

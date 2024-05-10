@@ -28,10 +28,7 @@ use deno_core::{
 };
 use errors::ErrorMetadata;
 use model::modules::{
-    module_versions::{
-        ModuleSource,
-        SourceMap,
-    },
+    module_versions::FullModuleSource,
     user_error::{
         ModuleNotFoundError,
         SystemModuleNotFoundError,
@@ -325,7 +322,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
             }
         }
         let (id, import_specifiers) = {
-            let (source, source_map) = self.lookup_source(name).await?;
+            let FullModuleSource { source, source_map } = self.lookup_source(name).await?;
 
             // Step 1: Compile the module and discover its imports.
             let timer = metrics::compile_module_timer();
@@ -378,7 +375,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     async fn lookup_source(
         &mut self,
         module_specifier: &ModuleSpecifier,
-    ) -> anyhow::Result<(ModuleSource, Option<SourceMap>)> {
+    ) -> anyhow::Result<FullModuleSource> {
         let _s = static_span!();
         if module_specifier.scheme() != CONVEX_SCHEME {
             anyhow::bail!("Unsupported scheme in {}", module_specifier);
@@ -397,10 +394,10 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         if let Some(system_path) = module_path.strip_prefix(SYSTEM_PREFIX) {
             let (source, source_map) = system_udf_file(system_path)
                 .ok_or_else(|| SystemModuleNotFoundError::new(system_path))?;
-            let result = (
-                source.to_string(),
-                source_map.as_ref().map(|s| s.to_string()),
-            );
+            let result = FullModuleSource {
+                source: source.to_string(),
+                source_map: source_map.as_ref().map(|s| s.to_string()),
+            };
             timer.finish();
             return Ok(result);
         }

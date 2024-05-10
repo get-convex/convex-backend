@@ -59,6 +59,7 @@ use self::{
     module_versions::{
         AnalyzedFunction,
         AnalyzedModule,
+        FullModuleSource,
         ModuleSource,
         ModuleVersion,
         ModuleVersionMetadata,
@@ -193,14 +194,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         for metadata in self.get_all_metadata().await? {
             let path = metadata.path.clone();
             if !path.is_system() {
-                let module_version = self
-                    .get_version(metadata.id(), metadata.latest_version)
-                    .await?
-                    .into_value();
+                let full_source = self
+                    .get_source(metadata.id(), metadata.latest_version)
+                    .await?;
                 let module_config = ModuleConfig {
                     path: path.clone().into(),
-                    source: module_version.source,
-                    source_map: module_version.source_map,
+                    source: full_source.source,
+                    source_map: full_source.source_map,
                     environment: metadata.environment,
                 };
                 if modules.insert(path.clone(), module_config).is_some() {
@@ -238,6 +238,18 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         anyhow::ensure!(module_version.version == Some(version));
         timer.finish();
         Ok(module_version)
+    }
+
+    pub async fn get_source(
+        &mut self,
+        module_id: ResolvedDocumentId,
+        version: ModuleVersion,
+    ) -> anyhow::Result<FullModuleSource> {
+        let module_version = self.get_version(module_id, version).await?.into_value();
+        Ok(FullModuleSource {
+            source: module_version.source,
+            source_map: module_version.source_map,
+        })
     }
 
     /// Helper function to get a module at the latest version.

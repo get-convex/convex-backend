@@ -18,8 +18,8 @@ use isolate::{
 };
 use model::modules::{
     module_versions::{
+        FullModuleSource,
         ModuleVersion,
-        ModuleVersionMetadata,
     },
     types::ModuleMetadata,
     ModuleModel,
@@ -38,7 +38,7 @@ pub(crate) struct ModuleCacheKey {
 }
 
 #[derive(Clone)]
-pub(crate) struct ModuleCache<RT: Runtime>(AsyncLru<RT, ModuleCacheKey, ModuleVersionMetadata>);
+pub(crate) struct ModuleCache<RT: Runtime>(AsyncLru<RT, ModuleCacheKey, FullModuleSource>);
 
 impl<RT: Runtime> ModuleCache<RT> {
     pub(crate) fn new(rt: RT) -> Self {
@@ -64,7 +64,7 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         &self,
         tx: &mut Transaction<RT>,
         module_metadata: ParsedDocument<ModuleMetadata>,
-    ) -> anyhow::Result<Option<Arc<ModuleVersionMetadata>>> {
+    ) -> anyhow::Result<Option<Arc<FullModuleSource>>> {
         // The transaction we're getting modules for should be from the same ts as when
         // this module loader was created.
         assert_eq!(tx.begin_timestamp(), self.transaction_ingredients.ts);
@@ -73,11 +73,10 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         // the cache, load the module directly.
         let module_versions_table_id = tx.table_mapping().id(&MODULE_VERSIONS_TABLE)?;
         if tx.writes().has_written_to(&module_versions_table_id) {
-            let module_version = ModuleModel::new(tx)
-                .get_version(module_metadata.id(), module_metadata.latest_version)
-                .await?
-                .into_value();
-            return Ok(Some(Arc::new(module_version)));
+            let source = ModuleModel::new(tx)
+                .get_source(module_metadata.id(), module_metadata.latest_version)
+                .await?;
+            return Ok(Some(Arc::new(source)));
         }
 
         let key = ModuleCacheKey {

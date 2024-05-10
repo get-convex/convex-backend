@@ -9,7 +9,10 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    modules::user_error::FunctionNotFoundError,
+    modules::{
+        module_versions::FullModuleSource,
+        user_error::FunctionNotFoundError,
+    },
 };
 pub mod async_syscall;
 
@@ -74,10 +77,6 @@ use deno_core::{
 use errors::ErrorMetadata;
 use file_storage::TransactionalFileStorage;
 use keybroker::KeyBroker;
-use model::modules::module_versions::{
-    ModuleSource,
-    SourceMap,
-};
 use rand::Rng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
@@ -265,13 +264,12 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         path: &str,
         timeout: &mut Timeout<RT>,
         permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(ModuleSource, Option<SourceMap>)>> {
+    ) -> anyhow::Result<Option<FullModuleSource>> {
         let user_module_path = path.parse()?;
         let result = self
             .phase
             .get_module(&user_module_path, timeout, permit)
-            .await?
-            .map(|module_version| (module_version.source, module_version.source_map));
+            .await?;
         Ok(result)
     }
 

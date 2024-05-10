@@ -1,8 +1,11 @@
 use std::time::Duration;
 
-use model::environment_variables::types::{
-    EnvVarName,
-    EnvVarValue,
+use model::{
+    environment_variables::types::{
+        EnvVarName,
+        EnvVarValue,
+    },
+    modules::module_versions::FullModuleSource,
 };
 pub mod action;
 pub mod analyze;
@@ -22,10 +25,6 @@ use common::{
     },
 };
 use deno_core::v8;
-use model::modules::module_versions::{
-    ModuleSource,
-    SourceMap,
-};
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use value::{
@@ -65,7 +64,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
         path: &str,
         timeout: &mut Timeout<RT>,
         permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(ModuleSource, Option<SourceMap>)>>;
+    ) -> anyhow::Result<Option<FullModuleSource>>;
 
     fn syscall(&mut self, name: &str, args: JsonValue) -> anyhow::Result<JsonValue>;
     fn start_async_syscall(

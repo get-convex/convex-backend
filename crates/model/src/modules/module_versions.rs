@@ -47,6 +47,18 @@ pub type ModuleSource = String;
 /// Bundler-generated source map for a `ModuleSource`.
 pub type SourceMap = String;
 
+#[derive(Debug, Clone)]
+pub struct FullModuleSource {
+    pub source: ModuleSource,
+    pub source_map: Option<SourceMap>,
+}
+
+impl SizedValue for FullModuleSource {
+    fn size(&self) -> u64 {
+        (self.source.heap_size() + self.source_map.heap_size()) as u64
+    }
+}
+
 /// In-memory representation of a specific version of a module.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]

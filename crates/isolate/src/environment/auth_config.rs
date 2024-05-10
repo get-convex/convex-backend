@@ -28,6 +28,7 @@ use model::{
         EnvVarValue,
     },
     modules::module_versions::{
+        FullModuleSource,
         ModuleSource,
         SourceMap,
     },
@@ -137,17 +138,17 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(ModuleSource, Option<SourceMap>)>> {
+    ) -> anyhow::Result<Option<FullModuleSource>> {
         if path != AUTH_CONFIG_FILE_NAME {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoImportModuleDuringAuthConfig",
                 format!("Can't import {path} while evaluating auth config file")
             ))
         }
-        Ok(Some((
-            self.auth_config_bundle.clone(),
-            self.source_map.clone(),
-        )))
+        Ok(Some(FullModuleSource {
+            source: self.auth_config_bundle.clone(),
+            source_map: self.source_map.clone(),
+        }))
     }
 
     fn syscall(&mut self, name: &str, _args: JsonValue) -> anyhow::Result<JsonValue> {

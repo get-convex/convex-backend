@@ -54,9 +54,8 @@ use model::{
             AnalyzedHttpRoute,
             AnalyzedModule,
             AnalyzedSourcePosition,
+            FullModuleSource,
             MappedModule,
-            ModuleSource,
-            SourceMap,
             Visibility,
         },
         user_error::ModuleNotFoundError,
@@ -109,7 +108,7 @@ use crate::{
 };
 
 pub struct AnalyzeEnvironment {
-    modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
+    modules: BTreeMap<CanonicalizedModulePath, FullModuleSource>,
     // This is used to lazily cache the result of sourcemap::SourceMap::from_slice across
     // modules and functions. There are certain source maps whose source origin we don't
     // need to construct during analysis (i.e. if all of the UDFs it defines have function
@@ -165,13 +164,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         path: &str,
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(ModuleSource, Option<SourceMap>)>> {
+    ) -> anyhow::Result<Option<FullModuleSource>> {
         let p = ModulePath::from_str(path)?.canonicalize();
-        let result = self
-            .modules
-            .get(&p)
-            .cloned()
-            .map(|config| (config.source, config.source_map));
+        let result = self.modules.get(&p).cloned();
         Ok(result)
     }
 
@@ -249,7 +244,18 @@ impl AnalyzeEnvironment {
         let rng = ChaCha12Rng::from_seed(udf_config.import_phase_rng_seed);
         let unix_timestamp = udf_config.import_phase_unix_timestamp;
         let environment = AnalyzeEnvironment {
-            modules,
+            modules: modules
+                .into_iter()
+                .map(|(path, module)| {
+                    (
+                        path,
+                        FullModuleSource {
+                            source: module.source,
+                            source_map: module.source_map,
+                        },
+                    )
+                })
+                .collect(),
             source_maps_cache: BTreeMap::new(),
             rng,
             unix_timestamp,

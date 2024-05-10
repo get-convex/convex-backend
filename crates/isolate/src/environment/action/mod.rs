@@ -69,10 +69,7 @@ use model::{
         EnvVarValue,
     },
     modules::{
-        module_versions::{
-            ModuleSource,
-            SourceMap,
-        },
+        module_versions::FullModuleSource,
         user_error::FunctionNotFoundError,
     },
 };
@@ -1276,12 +1273,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         path: &str,
         timeout: &mut Timeout<RT>,
         permit: &mut Option<ConcurrencyPermit>,
-    ) -> anyhow::Result<Option<(ModuleSource, Option<SourceMap>)>> {
+    ) -> anyhow::Result<Option<FullModuleSource>> {
         let user_module_path: ModulePath = path.parse()?;
-        let result = self
-            .phase
-            .get_module(&user_module_path, timeout, permit)?
-            .map(|module_version| (module_version.source, module_version.source_map));
+        let result = self.phase.get_module(&user_module_path, timeout, permit)?;
         Ok(result)
     }
 
