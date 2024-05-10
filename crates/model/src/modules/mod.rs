@@ -443,4 +443,8 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         );
         Ok(())
     }
+
+    pub async fn has_http(&mut self) -> anyhow::Result<bool> {
+        Ok(self.get_metadata("http.js".parse()?).await?.is_some())
+    }
 }

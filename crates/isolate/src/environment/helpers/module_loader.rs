@@ -40,10 +40,6 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
         };
         self.get_module_with_metadata(tx, module_metadata).await
     }
-
-    async fn has_http(&self, tx: &mut Transaction<RT>) -> anyhow::Result<bool> {
-        Ok(self.get_module(tx, "http.js".parse()?).await?.is_some())
-    }
 }
 
 // Loads module versions directly from the transaction.

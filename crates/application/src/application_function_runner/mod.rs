@@ -1403,7 +1403,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // clear the application has no HTTP actions routed.
         // This should spares developer not using HTTP from the deluge of
         // logspam and other bot traffic.
-        if !self.module_cache.has_http(&mut tx).await? {
+        if !ModuleModel::new(&mut tx).has_http().await? {
             drop(tx);
             let response_parts = isolate::HttpActionResponsePart::from_text(
                 StatusCode::NOT_FOUND,
