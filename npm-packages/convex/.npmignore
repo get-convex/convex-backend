@@ -2,7 +2,6 @@
 convex/
 test/
 convex.*.tgz
-convex.build.log
 *-api-extractor.json
 temp/
 values-api-extractor.json
@@ -29,3 +28,4 @@ build.cjs
 tmpPackage*
 tmpDist*
 api-extractor-configs/temp/
+*.log
