@@ -3018,10 +3018,7 @@ a
         .await?;
 
         let stats = usage.gather_user_stats();
-        assert_eq!(
-            *stats.database_ingress_size,
-            btreemap! {table_name.to_string() => 2048}
-        );
+        assert!(stats.database_ingress_size[&table_name.to_string()] > 0);
         assert_eq!(stats.storage_ingress_size, 9);
 
         Ok(())

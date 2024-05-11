@@ -111,12 +111,6 @@ impl HeapSize for UsageCounter {
     }
 }
 
-pub const KB: u64 = 1 << 10;
-
-pub fn round_up(n: u64, k: u64) -> u64 {
-    (n + k - 1) / k * k
-}
-
 impl UsageCounter {
     pub fn new(usage_logger: Arc<dyn UsageEventLogger>) -> Self {
         let state = Arc::new(Mutex::new(UsageCounterState::default()));
@@ -570,9 +564,7 @@ impl FunctionUsageTracker {
         let mut state = self.state.lock();
         state
             .database_ingress_size
-            .mutate_entry_or_default(table_name.clone(), |count| {
-                *count += round_up(ingress_size, KB)
-            });
+            .mutate_entry_or_default(table_name.clone(), |count| *count += ingress_size);
     }
 
     pub fn track_database_egress_size(
@@ -588,9 +580,7 @@ impl FunctionUsageTracker {
         let mut state = self.state.lock();
         state
             .database_egress_size
-            .mutate_entry_or_default(table_name.clone(), |count| {
-                *count += round_up(egress_size, KB)
-            });
+            .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
     }
 
     // Tracks the vector ingress surcharge and database usage for documents
@@ -618,16 +608,15 @@ impl FunctionUsageTracker {
         // Note that vector search counts as both database and vector bandwidth
         // per the comment above.
         let mut state = self.state.lock();
-        let rounded_size = round_up(ingress_size, KB);
         state
             .database_ingress_size
             .mutate_entry_or_default(table_name.clone(), |count| {
-                *count += rounded_size;
+                *count += ingress_size;
             });
         state
             .vector_ingress_size
             .mutate_entry_or_default(table_name.clone(), |count| {
-                *count += rounded_size;
+                *count += ingress_size;
             });
     }
 
@@ -657,13 +646,12 @@ impl FunctionUsageTracker {
         // Note that vector search counts as both database and vector bandwidth
         // per the comment above.
         let mut state = self.state.lock();
-        let rounded_size = round_up(egress_size, KB);
         state
             .database_egress_size
-            .mutate_entry_or_default(table_name.clone(), |count| *count += rounded_size);
+            .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
         state
             .vector_egress_size
-            .mutate_entry_or_default(table_name.clone(), |count| *count += rounded_size);
+            .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
     }
 }
 

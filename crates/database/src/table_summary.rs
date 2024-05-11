@@ -63,10 +63,6 @@ use shape_inference::{
     Shape,
     ShapeEnum,
 };
-use usage_tracking::{
-    round_up,
-    KB,
-};
 
 #[cfg(any(test, feature = "testing"))]
 use crate::IndexModel;
@@ -83,17 +79,14 @@ use crate::{
 pub struct TableSummary {
     inferred_type: CountedShape<ProdConfigWithOptionalFields>,
     total_size: i64,
-    // Used for metered billing, we charge for database storage rounded up to
-    // the nearest KB per document
-    total_size_rounded: i64,
 }
 
 impl fmt::Display for TableSummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "TableSummary {{ inferred_type: {}, total_size: {}, total_size_rounded: {} }}",
-            self.inferred_type, self.total_size, self.total_size_rounded
+            "TableSummary {{ inferred_type: {}, total_size: {} }}",
+            self.inferred_type, self.total_size
         )
     }
 }
@@ -103,20 +96,15 @@ impl TableSummary {
         Self {
             inferred_type: Shape::empty(),
             total_size: 0,
-            total_size_rounded: 0,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.inferred_type.is_empty() && self.total_size == 0 && self.total_size_rounded == 0
+        self.inferred_type.is_empty() && self.total_size == 0
     }
 
     pub fn total_size(&self) -> usize {
         self.total_size as usize
-    }
-
-    pub fn total_size_rounded(&self) -> i64 {
-        self.total_size_rounded
     }
 
     pub fn num_values(&self) -> usize {
@@ -129,27 +117,18 @@ impl TableSummary {
 
     pub fn insert(&self, object: &ConvexObject) -> Self {
         let total_size = self.total_size + object.size() as i64;
-        let total_size_rounded =
-            self.total_size_rounded + round_up(object.size() as u64, KB) as i64;
         Self {
             inferred_type: self.inferred_type.insert(object),
             total_size,
-            total_size_rounded,
         }
     }
 
     pub fn remove(&self, object: &ConvexObject) -> anyhow::Result<Self> {
         let size = object.size() as i64;
-        let size_rounded = round_up(object.size() as u64, KB) as i64;
         anyhow::ensure!(self.total_size >= size, "Negative size due to {object}");
-        anyhow::ensure!(
-            self.total_size_rounded >= size_rounded,
-            "Negative size due to {object}"
-        );
         Ok(Self {
             inferred_type: self.inferred_type.remove(object)?,
             total_size: self.total_size - size,
-            total_size_rounded: self.total_size_rounded - size_rounded,
         })
     }
 
@@ -166,7 +145,6 @@ impl From<&TableSummary> for JsonValue {
     fn from(summary: &TableSummary) -> Self {
         json!({
             "totalSize": JsonInteger::encode(summary.total_size),
-            "totalSizeRounded": JsonInteger::encode(summary.total_size_rounded),
             "inferredTypeWithOptionalFields": JsonValue::from(&summary.inferred_type)
         })
     }
@@ -183,11 +161,6 @@ impl TryFrom<JsonValue> for TableSummary {
                     _ => anyhow::bail!("Invalid totalSize"),
                 };
                 anyhow::ensure!(total_size >= 0);
-                let total_size_rounded = match v.remove("totalSizeRounded") {
-                    Some(JsonValue::String(s)) => JsonInteger::decode(s)?,
-                    _ => anyhow::bail!("Invalid totalSizeRounded"),
-                };
-                anyhow::ensure!(total_size_rounded >= 0);
                 let inferred_type = match v.remove("inferredTypeWithOptionalFields") {
                     Some(v) => CountedShape::<ProdConfigWithOptionalFields>::try_from(v)?,
                     None => anyhow::bail!("Missing field inferredTypeWithOptionalFields"),
@@ -195,7 +168,6 @@ impl TryFrom<JsonValue> for TableSummary {
                 Ok(TableSummary {
                     inferred_type,
                     total_size,
-                    total_size_rounded,
                 })
             },
             _ => anyhow::bail!("Wrong type of json value for TableSummaryJson"),
