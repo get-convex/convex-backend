@@ -7,6 +7,10 @@ use std::{
 };
 
 use async_trait::async_trait;
+use authentication::{
+    access_token_auth::NullAccessTokenAuth,
+    application_auth::ApplicationAuth,
+};
 use cmd_util::env::config_test;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
@@ -238,6 +242,10 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             Arc::new(AllowLogging),
             snapshot_import_pause_client,
             args.scheduled_jobs_pause_client,
+            Arc::new(ApplicationAuth::new(
+                kb.clone(),
+                Arc::new(NullAccessTokenAuth),
+            )),
         )
         .await?;
 

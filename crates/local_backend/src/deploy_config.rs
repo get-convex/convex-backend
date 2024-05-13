@@ -390,9 +390,11 @@ pub async fn push_config_handler(
         .into_iter()
         .map(|m| m.try_into())
         .collect::<anyhow::Result<Vec<_>>>()?;
+
     let identity = application
-        .key_broker()
-        .check_admin_key(&config.admin_key)
+        .app_auth()
+        .check_key(config.admin_key, application.instance_name())
+        .await
         .context("bad admin key error")?;
 
     let udf_server_version = Version::parse(&config.udf_server_version).context(

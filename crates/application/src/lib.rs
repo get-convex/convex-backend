@@ -20,6 +20,7 @@ use std::{
 
 use anyhow::Context;
 use authentication::{
+    application_auth::ApplicationAuth,
     validate_id_token,
     Auth0IdToken,
 };
@@ -411,6 +412,7 @@ pub struct Application<RT: Runtime> {
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
     system_env_var_names: HashSet<EnvVarName>,
+    app_auth: Arc<ApplicationAuth>,
 }
 
 impl<RT: Runtime> Clone for Application<RT> {
@@ -443,6 +445,7 @@ impl<RT: Runtime> Clone for Application<RT> {
             log_visibility: self.log_visibility.clone(),
             module_cache: self.module_cache.clone(),
             system_env_var_names: self.system_env_var_names.clone(),
+            app_auth: self.app_auth.clone(),
         }
     }
 }
@@ -472,6 +475,7 @@ impl<RT: Runtime> Application<RT> {
         log_visibility: Arc<dyn LogVisibility<RT>>,
         snapshot_import_pause_client: PauseClient,
         scheduled_jobs_pause_client: PauseClient,
+        app_auth: Arc<ApplicationAuth>,
     ) -> anyhow::Result<Self> {
         let module_cache =
             ModuleCache::new(runtime.clone(), database.clone(), modules_storage.clone()).await;
@@ -600,6 +604,7 @@ impl<RT: Runtime> Application<RT> {
             log_visibility,
             module_cache,
             system_env_var_names: system_env_vars.into_keys().collect(),
+            app_auth,
         })
     }
 
@@ -716,6 +721,10 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot> {
         self.database.latest_snapshot()
+    }
+
+    pub fn app_auth(&self) -> Arc<ApplicationAuth> {
+        self.app_auth.clone()
     }
 
     pub async fn search_with_compiled_query(

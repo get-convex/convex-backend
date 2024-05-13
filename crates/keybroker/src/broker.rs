@@ -480,6 +480,18 @@ impl AdminIdentity {
             key,
         })
     }
+
+    pub fn new_for_access_token(
+        instance_name: String,
+        member_id: MemberId,
+        access_token: String,
+    ) -> Self {
+        Self {
+            instance_name,
+            member_id,
+            key: access_token,
+        }
+    }
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -604,6 +616,16 @@ impl KeyBroker {
             &self.instance_name,
             &self.encryptor.encode_proto(ADMIN_KEY_VERSION, proto),
         )
+    }
+
+    pub fn is_encrypted_admin_key(&self, key: &str) -> bool {
+        let (_, encrypted_part) = split_admin_key(key)
+            .map(|(name, key)| (Some(remove_type_prefix_from_instance_name(name)), key))
+            .unwrap_or((None, key));
+        let admin_key: Result<AdminKeyProto, _> = self
+            .encryptor
+            .decode_proto(ADMIN_KEY_VERSION, encrypted_part);
+        admin_key.is_ok()
     }
 
     pub fn check_admin_key(&self, key: &str) -> anyhow::Result<Identity> {

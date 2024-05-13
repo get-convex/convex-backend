@@ -46,6 +46,9 @@ use serde::{
 use sync_types::AuthenticationToken;
 use url::Url;
 
+pub mod access_token_auth;
+pub mod application_auth;
+
 /// Issuer for API access tokens
 pub static CONVEX_AUTH_URL: LazyLock<Url> =
     LazyLock::new(|| Url::parse("https://auth.convex.dev/").unwrap());

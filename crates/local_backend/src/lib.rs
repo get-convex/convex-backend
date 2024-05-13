@@ -13,6 +13,10 @@ use std::{
     time::Duration,
 };
 
+use ::authentication::{
+    access_token_auth::NullAccessTokenAuth,
+    application_auth::ApplicationAuth,
+};
 use ::storage::{
     LocalDirStorage,
     StorageUseCase,
@@ -244,6 +248,10 @@ pub async fn make_app(
         Arc::new(AllowLogging),
         PauseClient::new(),
         PauseClient::new(),
+        Arc::new(ApplicationAuth::new(
+            key_broker.clone(),
+            Arc::new(NullAccessTokenAuth),
+        )),
     )
     .await?;
 
