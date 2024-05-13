@@ -38,7 +38,7 @@ use isolate::{
     serialize_udf_args,
     SyscallStats,
     SyscallTrace,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 use model::{
     environment_variables::types::{
@@ -626,7 +626,7 @@ impl From<Package> for JsonValue {
 pub struct ExecuteRequest {
     // Note that the lambda executor expects arguments as string, which
     // then directly passes to invokeAction()
-    pub path_and_args: ValidatedUdfPathAndArgs,
+    pub path_and_args: ValidatedPathAndArgs,
 
     pub source_package: SourcePackage,
     pub source_package_id: SourcePackageId,

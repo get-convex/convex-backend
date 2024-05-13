@@ -35,7 +35,7 @@ use futures::channel::mpsc;
 use isolate::{
     ActionCallbacks,
     FunctionOutcome,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 use keybroker::Identity;
 use model::environment_variables::types::{
@@ -62,7 +62,7 @@ pub mod server;
 pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
     async fn run_function(
         &self,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
         identity: Identity,
         ts: RepeatableTimestamp,

@@ -31,7 +31,7 @@ use value::ConvexArray;
 
 use crate::{
     test_helpers::UdfTest,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 
 #[convex_macro::test_runtime]
@@ -90,7 +90,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
 
     tx = t.database.begin(Identity::Unknown).await?;
 
-    let result = ValidatedUdfPathAndArgs::new(
+    let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
         internal_function.clone(),
@@ -103,7 +103,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .message
         .starts_with("Could not find public function for 'internal:myInternalMutation'"));
 
-    let result = ValidatedUdfPathAndArgs::new(
+    let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
         public_function.clone(),
@@ -115,7 +115,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Error message should be the same so we don't leak information about which
     // internal functions exist
-    let result = ValidatedUdfPathAndArgs::new(
+    let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
         non_existent_function.clone(),
@@ -129,7 +129,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .starts_with("Could not find public function for 'internal:doesNotExist'"));
 
     // Calling query as a mutation should fail
-    let result = ValidatedUdfPathAndArgs::new(
+    let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
         public_function.clone(),
@@ -152,7 +152,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
 
     // Admins should be allowed to call internal functions from public APIs
-    let result = ValidatedUdfPathAndArgs::new(
+    let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
         internal_function.clone(),
@@ -163,7 +163,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     must_let!(let Ok(Ok(_)) = result);
 
     // Calling a missing function should fail even as admin.
-    let result = ValidatedUdfPathAndArgs::new(
+    let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
         non_existent_function.clone(),
@@ -177,7 +177,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .starts_with("Could not find public function for 'internal:doesNotExist'"));
 
     // Calling query as a mutation should fail even with admin.
-    let result = ValidatedUdfPathAndArgs::new(
+    let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
         public_function.clone(),

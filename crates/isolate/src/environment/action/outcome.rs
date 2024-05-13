@@ -31,7 +31,7 @@ use crate::{
         SyscallTrace,
     },
     http_action::HttpActionRequestHead,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 
 #[derive(Debug, Clone)]
@@ -77,7 +77,7 @@ impl ActionOutcome {
             result,
             syscall_trace,
         }: ActionOutcomeProto,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
     ) -> anyhow::Result<Self> {
         let result = result.ok_or_else(|| anyhow::anyhow!("Missing result"))?;
@@ -217,7 +217,7 @@ mod tests {
     use super::{
         ActionOutcome,
         ActionOutcomeProto,
-        ValidatedUdfPathAndArgs,
+        ValidatedPathAndArgs,
     };
 
     proptest! {
@@ -232,7 +232,7 @@ mod tests {
             let arguments = udf_outcome.arguments.clone();
             let version = udf_outcome.udf_server_version.clone();
             let identity = udf_outcome_clone.identity.clone();
-            let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+            let path_and_args = ValidatedPathAndArgs::new_for_tests(
                 udf_path,
                 arguments,
                 version

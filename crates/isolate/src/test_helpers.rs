@@ -166,7 +166,7 @@ use crate::{
     IsolateConfig,
     ModuleLoader,
     TransactionModuleLoader,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
     CONVEX_ORIGIN,
     CONVEX_SITE,
 };
@@ -483,7 +483,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
 
         let args_array = ConvexArray::try_from(args)?;
 
-        let validated_path_or_err = ValidatedUdfPathAndArgs::new(
+        let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
             canonicalized_path.clone(),
@@ -630,7 +630,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         };
         let canonicalized_path = path.canonicalize();
         let args_array = ConvexArray::try_from(args)?;
-        let validated_path_or_err = ValidatedUdfPathAndArgs::new(
+        let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
             canonicalized_path.clone(),
@@ -709,7 +709,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             .clone();
 
         let path: UdfPath = udf_path.parse()?;
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             path.canonicalize(),
             ConvexArray::try_from(vec![ConvexValue::Object(args)])?,
             Some(npm_version),
@@ -1014,7 +1014,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         };
         let canonicalized_path = path.canonicalize();
         let args_array = ConvexArray::try_from(args)?;
-        let validated_path_or_err = ValidatedUdfPathAndArgs::new(
+        let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
             canonicalized_path.clone(),
@@ -1324,7 +1324,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
     let tx = db.begin_system().await?;
     // let (sender, _rx) = oneshot::channel();
     let request = UdfRequest {
-        path_and_args: ValidatedUdfPathAndArgs::new_for_tests(
+        path_and_args: ValidatedPathAndArgs::new_for_tests(
             "path.js:default".parse()?,
             ConvexArray::empty(),
             None,

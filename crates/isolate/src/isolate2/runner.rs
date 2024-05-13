@@ -122,7 +122,7 @@ use crate::{
     ModuleLoader,
     SyscallTrace,
     UdfOutcome,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 
 fn handle_request(
@@ -470,7 +470,7 @@ async fn run_request<RT: Runtime>(
     execution_time_seed: SeedData,
     client: &mut IsolateThreadClient<RT>,
     udf_type: UdfType,
-    path_and_args: ValidatedUdfPathAndArgs,
+    path_and_args: ValidatedPathAndArgs,
     shared: UdfShared<RT>,
     mut log_line_receiver: mpsc::Receiver<LogLine>,
     key_broker: KeyBroker,
@@ -918,7 +918,7 @@ async fn tokio_thread<RT: Runtime>(
     total_timeout: Duration,
     mut sender: oneshot::Sender<anyhow::Result<(Transaction<RT>, UdfOutcome)>>,
     udf_type: UdfType,
-    path_and_args: ValidatedUdfPathAndArgs,
+    path_and_args: ValidatedPathAndArgs,
     shared: UdfShared<RT>,
     log_line_receiver: mpsc::Receiver<LogLine>,
     key_broker: KeyBroker,
@@ -957,7 +957,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     module_loader: Arc<dyn ModuleLoader<RT>>,
     execution_time_seed: SeedData,
     udf_type: UdfType,
-    path_and_args: ValidatedUdfPathAndArgs,
+    path_and_args: ValidatedPathAndArgs,
     key_broker: KeyBroker,
     context: ExecutionContext,
     query_journal: QueryJournal,

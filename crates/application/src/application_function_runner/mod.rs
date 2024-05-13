@@ -113,7 +113,7 @@ use isolate::{
     ModuleLoader,
     UdfOutcome,
     ValidatedHttpPath,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 use keybroker::{
     Identity,
@@ -269,7 +269,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
     pub(crate) async fn execute_query_or_mutation(
         &self,
         tx: Transaction<RT>,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
         journal: QueryJournal,
         context: ExecutionContext,
@@ -289,7 +289,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
     pub(crate) async fn execute_action(
         &self,
         tx: Transaction<RT>,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
         context: ExecutionContext,
     ) -> anyhow::Result<ActionOutcome> {
@@ -319,7 +319,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
     async fn function_runner_execute(
         &self,
         mut tx: Transaction<RT>,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
         journal: QueryJournal,
         context: ExecutionContext,
@@ -668,7 +668,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let identity = tx.inert_identity();
         let start = self.runtime.monotonic_now();
-        let validate_result = ValidatedUdfPathAndArgs::new(
+        let validate_result = ValidatedPathAndArgs::new(
             caller.allowed_visibility(),
             &mut tx,
             path.clone(),
@@ -982,7 +982,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             anyhow::bail!(unauthorized_error("mutation"));
         }
         let identity = tx.inert_identity();
-        let validate_result = ValidatedUdfPathAndArgs::new(
+        let validate_result = ValidatedPathAndArgs::new(
             allowed_visibility,
             &mut tx,
             path.clone(),
@@ -1147,7 +1147,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .database
             .begin_with_usage(identity.clone(), usage_tracking)
             .await?;
-        let validate_result = ValidatedUdfPathAndArgs::new(
+        let validate_result = ValidatedPathAndArgs::new(
             caller.allowed_visibility(),
             &mut tx,
             path.clone(),

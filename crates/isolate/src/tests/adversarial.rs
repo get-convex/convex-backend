@@ -47,7 +47,7 @@ use crate::{
         UdfTestConfig,
     },
     IsolateConfig,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 
 static MAX_ISOLATE_WORKERS: usize = 1;
@@ -823,7 +823,7 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
         component: ComponentId::Root,
         udf_path: CanonicalizedUdfPath::from_str("myFunc.js:default")?,
     };
-    let result = ValidatedUdfPathAndArgs::new(
+    let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
         path,

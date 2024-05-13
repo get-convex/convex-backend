@@ -144,7 +144,7 @@ use crate::{
         },
         helpers::validation::{
             ValidatedHttpPath,
-            ValidatedUdfPathAndArgs,
+            ValidatedPathAndArgs,
         },
         schema::SchemaEnvironment,
         udf::DatabaseUdfEnvironment,
@@ -346,7 +346,7 @@ pub trait ActionCallbacks: Send + Sync {
 }
 
 pub struct UdfRequest<RT: Runtime> {
-    pub path_and_args: ValidatedUdfPathAndArgs,
+    pub path_and_args: ValidatedPathAndArgs,
     pub udf_type: UdfType,
     pub identity: InertIdentity,
     pub transaction: Transaction<RT>,
@@ -372,7 +372,7 @@ pub struct ActionRequest<RT: Runtime> {
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ActionRequestParams {
-    pub path_and_args: ValidatedUdfPathAndArgs,
+    pub path_and_args: ValidatedPathAndArgs,
 }
 
 pub struct EnvironmentData<RT: Runtime> {
@@ -654,7 +654,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     pub async fn execute_udf(
         &self,
         udf_type: UdfType,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         transaction: Transaction<RT>,
         journal: QueryJournal,
         context: ExecutionContext,
@@ -755,7 +755,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     #[minitrace::trace]
     pub async fn execute_action(
         &self,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         transaction: Transaction<RT>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,

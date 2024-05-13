@@ -12,7 +12,7 @@ use crate::{
         },
         udf::outcome::UdfOutcome,
     },
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 
 /// A `UdfOutcome` represents a successful execution of a developer's function
@@ -31,7 +31,7 @@ pub enum FunctionOutcome {
 impl FunctionOutcome {
     pub fn from_proto(
         FunctionOutcomeProto { outcome }: FunctionOutcomeProto,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
     ) -> anyhow::Result<Self> {
         let outcome = outcome.ok_or_else(|| anyhow::anyhow!("Missing outcome"))?;

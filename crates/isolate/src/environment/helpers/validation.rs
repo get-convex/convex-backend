@@ -175,11 +175,11 @@ async fn udf_version<RT: Runtime>(
 /// - Checking the args size.
 /// - Checking that the args pass validation.
 ///
-/// This should only be constructed via `ValidatedUdfPath::new` to use the type
-/// system to enforce that validation is never skipped.
+/// This should only be constructed via `ValidatedPathAndArgs::new` to use the
+/// type system to enforce that validation is never skipped.
 #[derive(Clone, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(Debug))]
-pub struct ValidatedUdfPathAndArgs {
+pub struct ValidatedPathAndArgs {
     path: CanonicalizedComponentFunctionPath,
     args: ConvexArray,
     // Not set for system modules.
@@ -187,16 +187,16 @@ pub struct ValidatedUdfPathAndArgs {
 }
 
 #[cfg(any(test, feature = "testing"))]
-impl Arbitrary for ValidatedUdfPathAndArgs {
+impl Arbitrary for ValidatedPathAndArgs {
     type Parameters = ();
 
-    type Strategy = impl Strategy<Value = ValidatedUdfPathAndArgs>;
+    type Strategy = impl Strategy<Value = ValidatedPathAndArgs>;
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
 
         any::<(CanonicalizedComponentFunctionPath, ConvexArray)>().prop_map(|(path, args)| {
-            ValidatedUdfPathAndArgs {
+            ValidatedPathAndArgs {
                 path,
                 args,
                 npm_version: None,
@@ -205,9 +205,9 @@ impl Arbitrary for ValidatedUdfPathAndArgs {
     }
 }
 
-impl ValidatedUdfPathAndArgs {
+impl ValidatedPathAndArgs {
     /// Check if the function being called matches the allowed visibility and
-    /// return a ValidatedUdfPath or an appropriate JsError.
+    /// return a ValidatedPathAndARgs or an appropriate JsError.
     ///
     /// We want to use the same error message for "this function exists, but
     /// with the wrong visibility" and "this function does not exist" so we
@@ -218,7 +218,7 @@ impl ValidatedUdfPathAndArgs {
         path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         expected_udf_type: UdfType,
-    ) -> anyhow::Result<Result<ValidatedUdfPathAndArgs, JsError>> {
+    ) -> anyhow::Result<Result<ValidatedPathAndArgs, JsError>> {
         if path.udf_path.is_system() {
             anyhow::ensure!(
                 path.component.is_root(),
@@ -228,7 +228,7 @@ impl ValidatedUdfPathAndArgs {
             // We don't analyze system modules, so we don't validate anything
             // except the identity for them.
             let result = if tx.identity().is_admin() || tx.identity().is_system() {
-                Ok(ValidatedUdfPathAndArgs {
+                Ok(ValidatedPathAndArgs {
                     path,
                     args,
                     npm_version: None,
@@ -321,7 +321,7 @@ impl ValidatedUdfPathAndArgs {
             ))));
         }
 
-        Ok(Ok(ValidatedUdfPathAndArgs {
+        Ok(Ok(ValidatedPathAndArgs {
             path,
             args,
             npm_version: Some(udf_version),
@@ -386,15 +386,15 @@ impl ValidatedUdfPathAndArgs {
     }
 }
 
-impl TryFrom<ValidatedUdfPathAndArgs> for pb::common::PathAndArgs {
+impl TryFrom<ValidatedPathAndArgs> for pb::common::PathAndArgs {
     type Error = anyhow::Error;
 
     fn try_from(
-        ValidatedUdfPathAndArgs {
+        ValidatedPathAndArgs {
             path,
             args,
             npm_version,
-        }: ValidatedUdfPathAndArgs,
+        }: ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
         let args_json = JsonValue::from(args);
         let args = serde_json::to_vec(&args_json)?;
@@ -476,16 +476,16 @@ mod test {
 
     use proptest::prelude::*;
 
-    use crate::ValidatedUdfPathAndArgs;
+    use crate::ValidatedPathAndArgs;
     proptest! {
         #![proptest_config(
             ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]
-        fn test_udf_path_proto_roundtrip(v in any::<ValidatedUdfPathAndArgs>()) {
+        fn test_udf_path_proto_roundtrip(v in any::<ValidatedPathAndArgs>()) {
             let proto = pb::common::PathAndArgs::try_from(v.clone()).unwrap();
-            let v2 = ValidatedUdfPathAndArgs::from_proto(proto).unwrap();
+            let v2 = ValidatedPathAndArgs::from_proto(proto).unwrap();
             assert_eq!(v, v2);
         }
     }

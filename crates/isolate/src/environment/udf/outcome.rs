@@ -38,7 +38,7 @@ use crate::{
         JsonPackedValue,
         SyscallTrace,
     },
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 
 #[derive(Debug, Clone)]
@@ -207,7 +207,7 @@ impl UdfOutcome {
             result,
             syscall_trace,
         }: UdfOutcomeProto,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
     ) -> anyhow::Result<Self> {
         let rng_seed = rng_seed.ok_or_else(|| anyhow::anyhow!("Missing rng_seed"))?;
@@ -257,7 +257,7 @@ mod tests {
     use super::{
         UdfOutcome,
         UdfOutcomeProto,
-        ValidatedUdfPathAndArgs,
+        ValidatedPathAndArgs,
     };
 
     proptest! {
@@ -272,7 +272,7 @@ mod tests {
             let arguments = udf_outcome.arguments.clone();
             let version = udf_outcome.udf_server_version.clone();
             let identity = udf_outcome_clone.identity.clone();
-            let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+            let path_and_args = ValidatedPathAndArgs::new_for_tests(
                 udf_path,
                 arguments,
                 version

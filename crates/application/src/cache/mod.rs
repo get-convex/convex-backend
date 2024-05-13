@@ -52,7 +52,7 @@ use futures::{
 use isolate::{
     FunctionOutcome,
     UdfOutcome,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 use keybroker::Identity;
 use lru::LruCache;
@@ -449,7 +449,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 // checks are transactional with running the query. This is safe because we will
                 // never serve a result based of a stale visibility check since the data read as
                 // part of the visibility check is part of the ReadSet for this query.
-                let validate_result = ValidatedUdfPathAndArgs::new(
+                let validate_result = ValidatedPathAndArgs::new(
                     allowed_visibility,
                     &mut tx,
                     path.clone(),

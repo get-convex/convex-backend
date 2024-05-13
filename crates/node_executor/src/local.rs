@@ -203,7 +203,7 @@ mod tests {
     };
     use isolate::{
         test_helpers::TEST_SOURCE,
-        ValidatedUdfPathAndArgs,
+        ValidatedPathAndArgs,
     };
     use keybroker::{
         testing::TestUserIdentity,
@@ -281,7 +281,7 @@ mod tests {
     }
 
     fn execute_request(
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         source_package: SourcePackage,
     ) -> ExecuteRequest {
         ExecuteRequest {
@@ -331,7 +331,7 @@ mod tests {
 
         let numbers: ConvexArray = array![1f64.into(), 7f64.into()]?;
         let args = create_args(assert_obj!("numbers" => ConvexValue::Array(numbers)))?;
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:addNumbers".parse()?,
             args,
             VERSION.clone(),
@@ -358,7 +358,7 @@ mod tests {
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:logHelloWorldAndReturn7".parse()?,
             array![],
             VERSION.clone(),
@@ -396,7 +396,7 @@ mod tests {
         let (response, _log_lines) = execute(
             &actions,
             ExecuteRequest {
-                path_and_args: ValidatedUdfPathAndArgs::new_for_tests(
+                path_and_args: ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:getUserIdentity".parse()?,
                     array![],
                     VERSION.clone(),
@@ -439,7 +439,7 @@ mod tests {
         let (response, _log_lines) = execute(
             &actions,
             execute_request(
-                ValidatedUdfPathAndArgs::new_for_tests(
+                ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:runQuery".parse()?,
                     args,
                     VERSION.clone(),
@@ -474,7 +474,7 @@ mod tests {
         let (response, _log_lines) = execute(
             &actions,
             execute_request(
-                ValidatedUdfPathAndArgs::new_for_tests(
+                ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:scheduleJob".parse()?,
                     args,
                     VERSION.clone(),
@@ -515,7 +515,7 @@ mod tests {
                 )
             })
             .collect();
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:logAndThrowError".parse()?,
             array![],
             VERSION.clone(),
@@ -567,7 +567,7 @@ mod tests {
                 )
             })
             .collect();
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:forgotAwait".parse()?,
             array![],
             VERSION.clone(),
@@ -606,7 +606,7 @@ mod tests {
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:hello".parse()?,
             array![],
             VERSION.clone(),
@@ -642,7 +642,7 @@ mod tests {
         let (response, _log_lines) = execute(
             &actions,
             ExecuteRequest {
-                path_and_args: ValidatedUdfPathAndArgs::new_for_tests(
+                path_and_args: ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:getTestEnvVar".parse()?,
                     array![],
                     VERSION.clone(),
@@ -674,7 +674,7 @@ mod tests {
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:sleepAnHour".parse()?,
             array![],
             VERSION.clone(),
@@ -713,7 +713,7 @@ mod tests {
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:partialEscapeSequence".parse()?,
             array![],
             VERSION.clone(),
@@ -739,7 +739,7 @@ mod tests {
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:workHardForAnHour".parse()?,
             array![],
             VERSION.clone(),
@@ -777,7 +777,7 @@ mod tests {
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
-        let path_and_args = ValidatedUdfPathAndArgs::new_for_tests(
+        let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:deadlock".parse()?,
             array![],
             VERSION.clone(),
@@ -991,7 +991,7 @@ export { hello };
         let (response, _log_lines) = execute(
             &actions,
             execute_request(
-                ValidatedUdfPathAndArgs::new_for_tests(
+                ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:runQuery".parse()?,
                     args,
                     VERSION.clone(),
@@ -1014,7 +1014,7 @@ export { hello };
         let (response, _log_lines) = execute(
             &actions,
             execute_request(
-                ValidatedUdfPathAndArgs::new_for_tests(
+                ValidatedPathAndArgs::new_for_tests(
                     "node_actions.js:getUserIdentity".parse()?,
                     array![],
                     VERSION.clone(),

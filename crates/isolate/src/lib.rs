@@ -67,7 +67,7 @@ pub use self::{
             validation::{
                 validate_schedule_args,
                 ValidatedHttpPath,
-                ValidatedUdfPathAndArgs,
+                ValidatedPathAndArgs,
             },
             FunctionOutcome,
             JsonPackedValue,

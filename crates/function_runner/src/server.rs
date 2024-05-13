@@ -76,7 +76,7 @@ use isolate::{
     ConcurrencyLimiter,
     FunctionOutcome,
     IsolateConfig,
-    ValidatedUdfPathAndArgs,
+    ValidatedPathAndArgs,
 };
 use keybroker::{
     Identity,
@@ -332,7 +332,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
         identity: Identity,
         ts: RepeatableTimestamp,
@@ -504,7 +504,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
     #[minitrace::trace]
     async fn run_function(
         &self,
-        path_and_args: ValidatedUdfPathAndArgs,
+        path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
         identity: Identity,
         ts: RepeatableTimestamp,
