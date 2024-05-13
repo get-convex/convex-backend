@@ -74,8 +74,6 @@ message ExecuteQueryRequest {
 
     convex_identity.UncheckedIdentity identity = 2;
     common.PathAndArgs path_and_args = 3;
-    // TODO(presley): Delete
-    optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
 }
 
@@ -90,8 +88,6 @@ message ExecuteMutationRequest {
 
     convex_identity.UncheckedIdentity identity = 2;
     common.PathAndArgs path_and_args = 3;
-    // TODO(presley): Delete
-    optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
 }
 
@@ -106,8 +102,6 @@ message ExecuteActionRequest {
 
     convex_identity.UncheckedIdentity identity = 2;
     common.PathAndArgs path_and_args = 3;
-    // TODO(presley): Delete
-    optional bool block_logging = 5;
     optional common.ExecutionContext execution_context = 6;
 }
 
