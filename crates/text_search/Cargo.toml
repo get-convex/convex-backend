@@ -13,6 +13,7 @@ anyhow = { workspace = true }
 byteorder = { workspace = true }
 common = { path = "../common" }
 csf = { workspace = true }
+metrics = { path = "../metrics" }
 sucds = { workspace = true }
 tantivy = { workspace = true }
 tantivy-common = { workspace = true }
@@ -21,10 +22,8 @@ value = { path = "../value" }
 
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 
 [features]
-testing = [
-    "common/testing",
-    "value/testing",
-]
+testing = ["common/testing", "metrics/testing", "value/testing"]

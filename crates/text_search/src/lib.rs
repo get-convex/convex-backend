@@ -1,3 +1,5 @@
+#![feature(lazy_cell)]
+mod metrics;
 #[cfg(test)]
 mod tests;
 pub mod tracker;

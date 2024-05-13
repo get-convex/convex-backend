@@ -46,6 +46,13 @@ use tantivy_common::{
 };
 use value::InternalId;
 
+use crate::metrics::{
+    load_alive_bitset_timer,
+    load_deleted_terms_table_timer,
+    log_alive_bitset_size,
+    log_deleted_terms_table_size,
+};
+
 /// Version 1 of the deletion tracker has the following format:
 /// ```
 /// [ version ] [ num_terms_deleted ] [ deleted_term_ordinals_size ] [ counts_size ] [ deleted_term_ordinals ] [ counts ]
@@ -93,7 +100,10 @@ impl DeletedTermsTable {
 }
 
 pub fn load_alive_bitset(path: &Path) -> anyhow::Result<AliveBitSet> {
+    let _timer = load_alive_bitset_timer();
     let mut file = File::open(path)?;
+    let size = file.metadata()?.len();
+    log_alive_bitset_size(size as usize);
     let mut buf = vec![];
     file.read_to_end(&mut buf)?;
     let owned = OwnedBytes::new(buf);
@@ -156,6 +166,8 @@ impl StaticDeletionTracker {
         file_len: usize,
         mut reader: impl Read,
     ) -> anyhow::Result<(u32, Option<DeletedTermsTable>)> {
+        log_deleted_terms_table_size(file_len);
+        let _timer = load_deleted_terms_table_timer();
         let mut expected_len = 0;
         let version = reader.read_u8()?;
         expected_len += 1;

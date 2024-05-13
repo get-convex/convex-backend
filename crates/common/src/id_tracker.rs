@@ -16,6 +16,11 @@ use byteorder::{
 };
 use csf::ls::Map as CsfMap;
 
+use crate::metrics::{
+    load_id_tracker_timer,
+    log_id_tracker_size,
+};
+
 /// Version 1 of the id table has the following format:
 /// ```
 /// [ version ] [ count ] [ index_len ] [ ID ]* [ index ]
@@ -44,15 +49,15 @@ pub struct StaticIdTracker {
 
 impl StaticIdTracker {
     pub fn load_from_path(id_table_path: PathBuf) -> anyhow::Result<Self> {
+        let _timer = load_id_tracker_timer();
         let uuid_file = File::open(id_table_path)?;
-        StaticIdTracker::load((
-            uuid_file.metadata()?.len() as usize,
-            BufReader::new(uuid_file),
-        ))
+        let size = uuid_file.metadata()?.len() as usize;
+        log_id_tracker_size(size);
+        StaticIdTracker::load(size, BufReader::new(uuid_file))
     }
 
-    pub fn load(uuid_file: (usize, impl Read)) -> anyhow::Result<Self> {
-        let (count, uuid_buf, csf_map) = Self::load_ids(uuid_file.0, uuid_file.1)?;
+    pub fn load(file_len: usize, reader: impl Read) -> anyhow::Result<Self> {
+        let (count, uuid_buf, csf_map) = Self::load_ids(file_len, reader)?;
         Ok(Self {
             count,
             id_buf: uuid_buf,

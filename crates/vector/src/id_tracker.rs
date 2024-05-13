@@ -444,7 +444,7 @@ mod tests {
         let mut uuid_buf = vec![];
         tracker.write_uuids(&mut uuid_buf).unwrap();
 
-        let id_tracker = StaticIdTracker::load((uuid_buf.len(), &uuid_buf[..])).unwrap();
+        let id_tracker = StaticIdTracker::load(uuid_buf.len(), &uuid_buf[..]).unwrap();
         VectorStaticIdTracker {
             id_tracker,
             deleted_bitset,
@@ -560,7 +560,7 @@ mod tests {
             tracker.write_uuids(&mut uuid_buf).unwrap();
 
             let id_tracker = StaticIdTracker::load(
-                (uuid_buf.len(), &uuid_buf[..]),
+                uuid_buf.len(), &uuid_buf[..],
             ).unwrap();
             let tracker = VectorStaticIdTracker {
                 id_tracker,
@@ -662,7 +662,7 @@ mod tests {
 
             let deleted_bitset = DeletedBitset::load(deleted_buf.len(), &deleted_buf[..]).unwrap();
             let id_tracker = StaticIdTracker::load(
-                (uuid_buf.len(), &uuid_buf[..]),
+                uuid_buf.len(), &uuid_buf[..],
             ).unwrap();
             let static_ids = VectorStaticIdTracker {
                 id_tracker,
@@ -703,7 +703,7 @@ mod tests {
 
             let deleted_bitset = DeletedBitset::load(deleted_buf.len(), &deleted_buf[..]).unwrap();
             let id_tracker = StaticIdTracker::load(
-                (uuid_buf.len(), &uuid_buf[..]),
+                uuid_buf.len(), &uuid_buf[..],
             ).unwrap();
             let static_ids = VectorStaticIdTracker {
                 id_tracker,

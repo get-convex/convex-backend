@@ -7085,6 +7085,7 @@ dependencies = [
  "byteorder",
  "common 0.1.0",
  "csf",
+ "metrics",
  "sucds",
  "tantivy",
  "tantivy-common",

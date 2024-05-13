@@ -21,7 +21,10 @@ use metrics::{
     Timer,
     CONVEX_METRICS_REGISTRY,
 };
-use prometheus::VMHistogramVec;
+use prometheus::{
+    VMHistogram,
+    VMHistogramVec,
+};
 use sync_types::backoff::Backoff;
 
 use crate::runtime::Runtime;
@@ -151,4 +154,14 @@ pub fn register_prometheus_exporter<RT: Runtime>(
         .boxed()
     };
     (handle, flush)
+}
+
+register_convex_histogram!(LOAD_ID_TRACKER_SECONDS, "Time to load IdTracker in seconds");
+pub fn load_id_tracker_timer() -> Timer<VMHistogram> {
+    Timer::new(&LOAD_ID_TRACKER_SECONDS)
+}
+
+register_convex_histogram!(ID_TRACKER_SIZE_BYTES, "IdTracker file size");
+pub fn log_id_tracker_size(size: usize) {
+    log_distribution(&ID_TRACKER_SIZE_BYTES, size as f64);
 }
