@@ -11,6 +11,10 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     http::{
         extract::{
             Json,
@@ -151,7 +155,10 @@ pub async fn public_function_post(
         .application
         .any_udf(
             request_id,
-            udf_path,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::HttpApi(client_version.clone()),
@@ -213,7 +220,10 @@ pub async fn public_query_get(
         .application
         .read_only_udf(
             request_id,
-            udf_path,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             args,
             identity,
             FunctionCaller::HttpApi(client_version.clone()),
@@ -248,7 +258,10 @@ pub async fn public_query_post(
         .application
         .read_only_udf(
             request_id,
-            udf_path,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::HttpApi(client_version.clone()),
@@ -293,7 +306,10 @@ pub async fn public_query_batch_post(
             .application
             .read_only_udf_at_ts(
                 request_id.clone(),
-                udf_path,
+                ComponentFunctionPath {
+                    component: ComponentId::Root,
+                    udf_path,
+                },
                 req.args.into_arg_vec(),
                 identity.clone(),
                 ts,
@@ -331,7 +347,10 @@ pub async fn public_mutation_post(
         .application
         .mutation_udf(
             request_id,
-            udf_path,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             req.args.into_arg_vec(),
             identity,
             None,
@@ -368,7 +387,10 @@ pub async fn public_action_post(
         .application
         .action_udf(
             request_id,
-            udf_path,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::HttpApi(client_version.clone()),

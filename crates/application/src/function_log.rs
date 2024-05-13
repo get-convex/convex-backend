@@ -13,6 +13,7 @@ use std::{
 };
 
 use common::{
+    components::CanonicalizedComponentFunctionPath,
     errors::{
         report_error,
         JsError,
@@ -557,24 +558,24 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn log_query_system_error(
         &self,
         e: &anyhow::Error,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: InertIdentity,
         start: RT::Instant,
         caller: FunctionCaller,
         context: ExecutionContext,
-    ) {
+    ) -> anyhow::Result<()> {
         // TODO: We currently synthesize a `UdfOutcome` for
         // an internal system error. If we decide we want to keep internal system errors
         // in the UDF execution log, we may want to plumb through stuff like log lines.
         let outcome = UdfOutcome::from_error(
             JsError::from_error_ref(e),
-            udf_path,
+            path,
             arguments,
             identity,
             self.rt.clone(),
             None,
-        );
+        )?;
         self._log_query(
             outcome,
             BTreeMap::new(),
@@ -584,6 +585,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::SystemError,
             context,
         );
+        Ok(())
     }
 
     #[minitrace::trace]
@@ -666,24 +668,24 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn log_mutation_system_error(
         &self,
         e: &anyhow::Error,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: InertIdentity,
         start: RT::Instant,
         caller: FunctionCaller,
         context: ExecutionContext,
-    ) {
+    ) -> anyhow::Result<()> {
         // TODO: We currently synthesize a `UdfOutcome` for
         // an internal system error. If we decide we want to keep internal system errors
         // in the UDF execution log, we may want to plumb through stuff like log lines.
         let outcome = UdfOutcome::from_error(
             JsError::from_error_ref(e),
-            udf_path,
+            path,
             arguments,
             identity,
             self.rt.clone(),
             None,
-        );
+        )?;
         self._log_mutation(
             outcome,
             BTreeMap::new(),
@@ -692,6 +694,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::SystemError,
             context,
         );
+        Ok(())
     }
 
     pub fn log_mutation_occ_error(
@@ -771,19 +774,19 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn log_action_system_error(
         &self,
         e: &anyhow::Error,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: InertIdentity,
         start: RT::Instant,
         caller: FunctionCaller,
         log_lines: LogLines,
         context: ExecutionContext,
-    ) {
+    ) -> anyhow::Result<()> {
         // Synthesize an `ActionCompletion` for system errors.
         let unix_timestamp = self.rt.unix_timestamp();
         let completion = ActionCompletion {
             outcome: ActionOutcome {
-                udf_path,
+                udf_path: path.into_root_udf_path()?,
                 arguments,
                 identity,
                 unix_timestamp,
@@ -800,6 +803,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             log_lines,
         };
         self._log_action(completion, TrackUsage::SystemError);
+        Ok(())
     }
 
     fn _log_action(&self, completion: ActionCompletion, usage: TrackUsage) {
@@ -856,17 +860,20 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 
     pub fn log_action_progress(
         &self,
-        identifier: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         unix_timestamp: UnixTimestamp,
         context: ExecutionContext,
         log_lines: LogLines,
         module_environment: ModuleEnvironment,
     ) {
-        if identifier.is_system() {
+        let Ok(udf_path) = path.into_root_udf_path() else {
+            return;
+        };
+        if udf_path.is_system() {
             return;
         }
         let event_source = FunctionEventSource {
-            path: identifier.strip().to_string(),
+            path: udf_path.strip().to_string(),
             udf_type: UdfType::Action,
             module_environment,
             cached: Some(false),

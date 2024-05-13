@@ -1,5 +1,6 @@
 use anyhow::Context;
 use common::{
+    components::CanonicalizedComponentFunctionPath,
     errors::JsError,
     identity::InertIdentity,
     knobs::ISOLATE_MAX_USER_HEAP_SIZE,
@@ -53,21 +54,21 @@ impl ActionOutcome {
     /// reaching the isolate.
     pub fn from_error(
         js_error: JsError,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: InertIdentity,
         rt: impl Runtime,
         udf_server_version: Option<semver::Version>,
-    ) -> Self {
-        ActionOutcome {
-            udf_path,
+    ) -> anyhow::Result<Self> {
+        Ok(ActionOutcome {
+            udf_path: path.into_root_udf_path()?,
             arguments,
             identity,
             unix_timestamp: rt.unix_timestamp(),
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
-        }
+        })
     }
 
     pub(crate) fn from_proto(
@@ -89,9 +90,9 @@ impl ActionOutcome {
             Some(FunctionResultTypeProto::JsError(js_error)) => Err(js_error.try_into()?),
             None => anyhow::bail!("Missing result"),
         };
-        let (udf_path, arguments, udf_server_version) = path_and_args.consume();
+        let (path, arguments, udf_server_version) = path_and_args.consume();
         Ok(Self {
-            udf_path,
+            udf_path: path.into_root_udf_path()?,
             arguments,
             identity,
             unix_timestamp: unix_timestamp

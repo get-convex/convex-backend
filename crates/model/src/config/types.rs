@@ -13,6 +13,7 @@ use std::{
 
 use common::{
     auth::AuthInfo,
+    components::CanonicalizedComponentModulePath,
     obj,
     schemas::DatabaseSchema,
     types::ModuleEnvironment,
@@ -22,7 +23,6 @@ use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use sync_types::{
     module_path::ACTIONS_DIR,
-    CanonicalizedModulePath,
     ModulePath,
 };
 use value::{
@@ -398,32 +398,29 @@ impl TryFrom<ConvexObject> for ModuleDiff {
 
 impl ModuleDiff {
     pub fn new(
-        added_module_paths: BTreeSet<CanonicalizedModulePath>,
-        removed_module_paths: BTreeSet<CanonicalizedModulePath>,
-    ) -> Self {
-        Self {
-            added_functions: added_module_paths
-                .into_iter()
-                .filter_map(|m| {
-                    if m.is_deps() || m.is_system() {
-                        None
-                    } else {
-                        Some(m.as_str().to_string())
-                    }
-                })
-                .collect(),
-
-            removed_functions: removed_module_paths
-                .into_iter()
-                .filter_map(|m| {
-                    if m.is_deps() || m.is_system() {
-                        None
-                    } else {
-                        Some(m.as_str().to_string())
-                    }
-                })
-                .collect(),
+        added_module_paths: BTreeSet<CanonicalizedComponentModulePath>,
+        removed_module_paths: BTreeSet<CanonicalizedComponentModulePath>,
+    ) -> anyhow::Result<Self> {
+        let mut added_functions = Vec::with_capacity(added_module_paths.len());
+        for m in added_module_paths {
+            let m = m.into_root_module_path()?;
+            if m.is_deps() || m.is_system() {
+                continue;
+            }
+            added_functions.push(m.as_str().to_string());
         }
+        let mut removed_functions = Vec::with_capacity(removed_module_paths.len());
+        for m in removed_module_paths {
+            let m = m.into_root_module_path()?;
+            if m.is_deps() || m.is_system() {
+                continue;
+            }
+            removed_functions.push(m.as_str().to_string());
+        }
+        Ok(Self {
+            added_functions,
+            removed_functions,
+        })
     }
 }
 

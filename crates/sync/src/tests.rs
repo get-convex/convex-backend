@@ -6,6 +6,10 @@ use application::{
 };
 use common::{
     assert_obj,
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -814,11 +818,15 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
 
     let ts2 = *test.application.now_ts_for_reads();
 
+    let path = ComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path: "sync:accountBalance".parse()?,
+    };
     let result1 = test
         .application
         .read_only_udf_at_ts(
             RequestId::new(),
-            "sync:accountBalance".parse()?,
+            path.clone(),
             vec![assert_obj!("name" => name.clone()).into()],
             Identity::Unknown,
             ts2,
@@ -832,7 +840,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
         .application
         .read_only_udf_at_ts(
             RequestId::new(),
-            "sync:accountBalance".parse()?,
+            path,
             vec![assert_obj!("name" => name).into()],
             Identity::Unknown,
             ts1,

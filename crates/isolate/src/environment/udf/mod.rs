@@ -1,4 +1,7 @@
-use common::execution_context::ExecutionContext;
+use common::{
+    components::CanonicalizedComponentFunctionPath,
+    execution_context::ExecutionContext,
+};
 use futures::{
     future::BoxFuture,
     select_biased,
@@ -80,7 +83,6 @@ use keybroker::KeyBroker;
 use rand::Rng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::{
         HeapSize,
@@ -174,7 +176,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     rt: RT,
 
     udf_type: UdfType,
-    udf_path: CanonicalizedUdfPath,
+    path: CanonicalizedComponentFunctionPath,
     arguments: ConvexArray,
     identity: InertIdentity,
     udf_server_version: Option<semver::Version>,
@@ -342,11 +344,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }: UdfRequest<RT>,
     ) -> Self {
         let persistence_version = transaction.persistence_version();
-        let (udf_path, arguments, udf_server_version) = path_and_args.consume();
+        let (path, arguments, udf_server_version) = path_and_args.consume();
         Self {
             rt: rt.clone(),
             udf_type,
-            udf_path,
+            path,
             arguments,
             identity,
             udf_server_version,
@@ -420,7 +422,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             _ => None,
         };
         Self::add_warnings_to_log_lines(
-            &self.udf_path,
+            &self.path,
             &self.arguments,
             execution_time,
             self.phase.execution_size(),
@@ -439,7 +441,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         )?;
         let outcome = match self.udf_type {
             UdfType::Query => FunctionOutcome::Query(UdfOutcome {
-                udf_path: self.udf_path,
+                udf_path: self.path.into_root_udf_path()?,
                 arguments: self.arguments,
                 identity: self.identity,
                 rng_seed,
@@ -458,7 +460,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // TODO: Add num_writes and write_bandwidth to UdfOutcome,
             // and use them in log_mutation.
             UdfType::Mutation => FunctionOutcome::Mutation(UdfOutcome {
-                udf_path: self.udf_path,
+                udf_path: self.path.into_root_udf_path()?,
                 arguments: self.arguments,
                 identity: self.identity,
                 rng_seed,
@@ -503,15 +505,16 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 .await?;
         }
 
-        let (udf_type, udf_path, udf_args) = {
+        let (udf_type, path, udf_args) = {
             let state = scope.state()?;
             let environment = &state.environment;
             (
                 environment.udf_type,
-                environment.udf_path.clone(),
+                environment.path.clone(),
                 environment.arguments.clone(),
             )
         };
+        let udf_path = path.as_root_udf_path()?;
 
         // Don't allow directly running a UDF within the `_deps` directory. We don't
         // really expect users to hit this unless someone is trying to exploit
@@ -752,7 +755,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 let result_v8_str: v8::Local<v8::String> = promise_result_v8.try_into()?;
                 let result_str = helpers::to_rust_string(&mut scope, &result_v8_str)?;
                 metrics::log_result_length(&result_str);
-                deserialize_udf_result(&udf_path, &result_str)?
+                deserialize_udf_result(&path, &result_str)?
             },
             v8::PromiseState::Rejected => {
                 let e = promise.result(&mut scope);
@@ -765,7 +768,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
     // Called when a function finishes
     pub fn add_warnings_to_log_lines(
-        udf_path: &CanonicalizedUdfPath,
+        path: &CanonicalizedComponentFunctionPath,
         arguments: &ConvexArray,
         execution_time: FunctionExecutionTime,
         execution_size: FunctionExecutionSize,
@@ -775,6 +778,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     ) -> anyhow::Result<()> {
         // let execution_size = self.phase.execution_size();
         // let biggest_writes = self.phase.biggest_document_writes();
+        let udf_path = path.as_root_udf_path()?;
         let system_udf_path = if udf_path.is_system() {
             Some(udf_path.clone())
         } else {

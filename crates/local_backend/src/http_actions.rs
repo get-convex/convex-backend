@@ -22,6 +22,10 @@ use axum::{
     RequestExt,
 };
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     http::{
         ExtractRequestId,
         HttpResponseError,
@@ -51,7 +55,6 @@ use isolate::{
     HttpActionResponseStreamer,
 };
 use keybroker::Identity;
-use sync_types::UdfPath;
 use url::Url;
 
 use crate::{
@@ -113,9 +116,12 @@ pub async fn http_any_method(
     ExtractHttpRequestMetadata(http_request_metadata): ExtractHttpRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     // All HTTP actions run the default export of the http.js path.
-    let udf_path = "http.js".parse()?;
+    let path = ComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path: "http.js".parse()?,
+    };
     let mut http_response_stream = stream_http_response(
-        udf_path,
+        path,
         request_id,
         http_request_metadata,
         identity_result,
@@ -142,7 +148,7 @@ pub async fn http_any_method(
 
 #[try_stream(ok=HttpActionResponsePart, error=anyhow::Error, boxed)]
 async fn stream_http_response<RT: Runtime>(
-    udf_path: UdfPath,
+    path: ComponentFunctionPath,
     request_id: RequestId,
     http_request_metadata: HttpActionRequest,
     identity_result: anyhow::Result<Identity>,
@@ -158,7 +164,7 @@ async fn stream_http_response<RT: Runtime>(
         application
             .http_action_udf(
                 request_id,
-                udf_path,
+                path,
                 http_request_metadata,
                 identity,
                 FunctionCaller::HttpEndpoint,

@@ -90,7 +90,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 drop(queue_timer);
                 // TODO: Add metrics with funrun tagging
                 let timer = service_request_timer(&request.udf_type);
-                let udf_path = request.path_and_args.udf_path().to_owned();
+                let udf_path = request.path_and_args.path().udf_path.to_owned();
                 let environment = DatabaseUdfEnvironment::new(
                     self.rt.clone(),
                     environment_data,
@@ -130,7 +130,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = service_request_timer(&UdfType::Action);
-                let udf_path = request.params.path_and_args.udf_path().to_owned();
+                let udf_path = request.params.path_and_args.path().udf_path.to_owned();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
                     environment_data,

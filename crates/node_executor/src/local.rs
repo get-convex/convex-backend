@@ -180,6 +180,10 @@ mod tests {
     use cmd_util::env::config_test;
     use common::{
         assert_obj,
+        components::{
+            CanonicalizedComponentModulePath,
+            ComponentId,
+        },
         execution_context::ExecutionContext,
         log_lines::{
             run_function_and_collect_log_lines,
@@ -224,10 +228,7 @@ mod tests {
         LocalDirStorage,
         Storage,
     };
-    use sync_types::{
-        CanonicalizedModulePath,
-        ModulePath,
-    };
+    use sync_types::ModulePath;
     use value::{
         array,
         id_v6::DeveloperDocumentId,
@@ -300,7 +301,7 @@ mod tests {
     async fn execute(
         actions: &Actions,
         execute_request: ExecuteRequest,
-        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
+        source_maps: &BTreeMap<CanonicalizedComponentModulePath, SourceMap>,
     ) -> anyhow::Result<(NodeActionOutcome, LogLines)> {
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
         let execute_future = Box::pin(
@@ -506,7 +507,10 @@ mod tests {
             .into_iter()
             .map(|m| {
                 (
-                    m.path.canonicalize(),
+                    CanonicalizedComponentModulePath {
+                        component: ComponentId::Root,
+                        module_path: m.path.canonicalize(),
+                    },
                     m.source_map.expect("Missing source map"),
                 )
             })
@@ -555,7 +559,10 @@ mod tests {
             .into_iter()
             .map(|m| {
                 (
-                    m.path.canonicalize(),
+                    CanonicalizedComponentModulePath {
+                        component: ComponentId::Root,
+                        module_path: m.path.canonicalize(),
+                    },
                     m.source_map.expect("Missing source map"),
                 )
             })
@@ -860,7 +867,11 @@ export { hello, internalHello };
         )
         .await?;
         let mut source_maps = BTreeMap::new();
-        source_maps.insert("static_node_source.js".parse()?, SOURCE_MAP.to_string());
+        let path = CanonicalizedComponentModulePath {
+            component: ComponentId::Root,
+            module_path: "static_node_source.js".parse()?,
+        };
+        source_maps.insert(path.clone(), SOURCE_MAP.to_string());
         let modules = actions
             .analyze(
                 AnalyzeRequest {
@@ -872,18 +883,14 @@ export { hello, internalHello };
             .await??;
 
         assert_eq!(
-            Vec::from(modules[&path.clone().canonicalize()].functions.clone()),
+            Vec::from(modules[&path].functions.clone()),
             &[
                 AnalyzedFunction {
                     name: "hello".parse()?,
                     pos: Some(AnalyzedSourcePosition {
                         path: "static_node_source.js".parse()?,
                         start_lineno: 28,
-                        start_col: modules[&path.clone().canonicalize()].functions[0]
-                            .pos
-                            .as_ref()
-                            .unwrap()
-                            .start_col,
+                        start_col: modules[&path].functions[0].pos.as_ref().unwrap().start_col,
                     }),
                     udf_type: UdfType::Action,
                     visibility: Some(Visibility::Public),
@@ -894,11 +901,7 @@ export { hello, internalHello };
                     pos: Some(AnalyzedSourcePosition {
                         path: "static_node_source.js".parse()?,
                         start_lineno: 31,
-                        start_col: modules[&path.clone().canonicalize()].functions[1]
-                            .pos
-                            .as_ref()
-                            .unwrap()
-                            .start_col,
+                        start_col: modules[&path].functions[1].pos.as_ref().unwrap().start_col,
                     }),
                     udf_type: UdfType::Action,
                     visibility: Some(Visibility::Internal),

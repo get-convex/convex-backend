@@ -7,6 +7,10 @@ use std::{
 };
 
 use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentFunctionPath,
+    },
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -41,11 +45,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use maplit::btreemap;
-use sync_types::{
-    CanonicalizedUdfPath,
-    Timestamp,
-    UdfPath,
-};
+use sync_types::Timestamp;
 use value::{
     id_v6::DeveloperDocumentId,
     ConvexArray,
@@ -200,11 +200,12 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
     pub async fn schedule(
         &mut self,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<ResolvedDocumentId> {
+        let udf_path = path.into_root_udf_path()?;
         if udf_path.is_system()
             && !(self.tx.identity().is_admin() || self.tx.identity().is_system())
         {
@@ -354,11 +355,12 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
     // Note: the caller will assume all have been canceled if Result < `limit`.
     pub async fn cancel_all(
         &mut self,
-        udf_path: Option<CanonicalizedUdfPath>,
+        path: Option<CanonicalizedComponentFunctionPath>,
         limit: usize,
     ) -> anyhow::Result<usize> {
-        let index_query = match udf_path {
-            Some(udf_path) => {
+        let index_query = match path {
+            Some(path) => {
+                let udf_path = path.into_root_udf_path()?;
                 let range = vec![
                     IndexRangeExpression::Eq(
                         UDF_PATH_FIELD.clone(),
@@ -436,13 +438,13 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
 
     pub async fn schedule(
         &mut self,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let system_id = SchedulerModel::new(self.tx)
-            .schedule(udf_path, args, ts, context)
+            .schedule(path, args, ts, context)
             .await?;
         let table_mapping = self.tx.table_mapping().clone();
         let virtual_table_mapping = self.tx.virtual_table_mapping().clone();

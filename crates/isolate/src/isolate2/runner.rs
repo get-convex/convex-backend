@@ -7,6 +7,11 @@ use std::{
 
 use anyhow::Context as AnyhowContext;
 use common::{
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentFunctionPath,
+        ComponentId,
+    },
     errors::JsError,
     execution_context::ExecutionContext,
     log_lines::{
@@ -58,7 +63,6 @@ use parking_lot::Mutex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use sync_types::UdfPath;
 use tokio::sync::Semaphore;
 use value::{
     ConvexArray,
@@ -473,7 +477,8 @@ async fn run_request<RT: Runtime>(
     execution_context: ExecutionContext,
     query_journal: QueryJournal,
 ) -> anyhow::Result<UdfOutcome> {
-    let (udf_path, arguments, udf_server_version) = path_and_args.consume();
+    let (path, arguments, udf_server_version) = path_and_args.consume();
+    let udf_path = path.as_root_udf_path()?;
 
     // Spawn a separate Tokio thread to receive log lines.
     let (log_line_tx, log_line_rx) = oneshot::channel();
@@ -491,8 +496,11 @@ async fn run_request<RT: Runtime>(
 
         while let Some(module_path) = stack.pop() {
             let module_specifier = module_specifier_from_path(&module_path)?;
-            let Some(module_metadata) = module_loader.get_module(tx, module_path.clone()).await?
-            else {
+            let path = CanonicalizedComponentModulePath {
+                component: ComponentId::Root,
+                module_path: module_path.clone(),
+            };
+            let Some(module_metadata) = module_loader.get_module(tx, path).await? else {
                 let err = ModuleNotFoundError::new(module_path.as_str());
                 Err(JsError::from_message(format!("{err}")))?
             };
@@ -519,7 +527,7 @@ async fn run_request<RT: Runtime>(
         log_line_processor.into_join_future().await?;
         let log_lines = log_line_rx.await?.into();
         let outcome = UdfOutcome {
-            udf_path,
+            udf_path: path.into_root_udf_path()?,
             arguments,
             identity: tx.inert_identity(),
             rng_seed: execution_time_seed.rng_seed,
@@ -643,7 +651,7 @@ async fn run_request<RT: Runtime>(
     log_line_processor.into_join_future().await?;
     let mut log_lines = log_line_rx.await?;
     DatabaseUdfEnvironment::<RT>::add_warnings_to_log_lines(
-        &udf_path,
+        &path,
         &arguments,
         client.execution_time()?,
         provider.tx.execution_size(),
@@ -661,7 +669,7 @@ async fn run_request<RT: Runtime>(
         },
     )?;
     let outcome = UdfOutcome {
-        udf_path,
+        udf_path: path.into_root_udf_path()?,
         arguments,
         identity: provider.tx.inert_identity(),
         rng_seed: execution_time_seed.rng_seed,
@@ -859,11 +867,11 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
 
     async fn validate_schedule_args(
         &mut self,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(UdfPath, ConvexArray)> {
-        validate_schedule_args(udf_path, args, scheduled_ts, self.unix_timestamp, self.tx).await
+    ) -> anyhow::Result<(ComponentFunctionPath, ConvexArray)> {
+        validate_schedule_args(path, args, scheduled_ts, self.unix_timestamp, self.tx).await
     }
 
     fn file_storage_generate_upload_url(&self) -> anyhow::Result<String> {
@@ -987,7 +995,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     let (log_line_sender, log_line_receiver) = mpsc::channel(32);
     let environment = UdfEnvironment::new(
         rt.clone(),
-        path_and_args.udf_path.is_system(),
+        path_and_args.path().udf_path.is_system(),
         import_time_seed,
         execution_time_seed,
         shared.clone(),

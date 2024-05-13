@@ -1,5 +1,9 @@
 use anyhow::anyhow;
 use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentId,
+    },
     errors::JsError,
     types::UdfType,
 };
@@ -317,7 +321,11 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         // before collecting what it's blocked on.
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
-        let evaluate_result = self.check_promise_result(udf_path, &promise)?;
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: udf_path.clone(),
+        };
+        let evaluate_result = self.check_promise_result(&path, &promise)?;
         Ok((v8::Global::new(self.scope, promise), evaluate_result))
     }
 
@@ -420,12 +428,16 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
         let promise = v8::Local::new(self.scope, &pending_function.promise);
-        self.check_promise_result(&pending_function.udf_path, &promise)
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: pending_function.udf_path.clone(),
+        };
+        self.check_promise_result(&path, &promise)
     }
 
     fn check_promise_result(
         &mut self,
-        udf_path: &CanonicalizedUdfPath,
+        path: &CanonicalizedComponentFunctionPath,
         promise: &v8::Local<v8::Promise>,
     ) -> anyhow::Result<EvaluateResult> {
         let context = self.context_state_mut()?;
@@ -443,7 +455,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             v8::PromiseState::Fulfilled if pending.is_empty() => {
                 let v8_result: v8::Local<v8::String> = promise.result(self.scope).try_into()?;
                 let result_str = helpers::to_rust_string(self.scope, &v8_result)?;
-                let result = deserialize_udf_result(udf_path, &result_str)??;
+                let result = deserialize_udf_result(path, &result_str)??;
                 Ok(EvaluateResult::Ready(result))
             },
             v8::PromiseState::Pending | v8::PromiseState::Fulfilled => {

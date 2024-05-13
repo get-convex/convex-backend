@@ -7,6 +7,10 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     document::DeveloperDocument,
     execution_context::ExecutionContext,
     knobs::MAX_SYSCALL_BATCH_SIZE,
@@ -59,7 +63,6 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use sync_types::UdfPath;
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
@@ -256,10 +259,10 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
 
     async fn validate_schedule_args(
         &mut self,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(UdfPath, ConvexArray)>;
+    ) -> anyhow::Result<(ComponentFunctionPath, ConvexArray)>;
 
     fn file_storage_generate_upload_url(&self) -> anyhow::Result<String>;
     async fn file_storage_get_url_batch(
@@ -299,7 +302,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn table_filter(&self) -> TableFilter {
-        if self.udf_path.is_system() {
+        if self.path.udf_path.is_system() {
             TableFilter::IncludePrivateSystemTables
         } else {
             TableFilter::ExcludePrivateSystemTables
@@ -335,12 +338,12 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     async fn validate_schedule_args(
         &mut self,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(UdfPath, ConvexArray)> {
+    ) -> anyhow::Result<(ComponentFunctionPath, ConvexArray)> {
         validate_schedule_args(
-            udf_path,
+            path,
             args,
             scheduled_ts,
             self.phase.unix_timestamp()?,
@@ -616,16 +619,20 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let ScheduleArgs { name, ts, args }: ScheduleArgs =
             with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
         let udf_path = with_argument_error("scheduler", || name.parse().context(ArgName("name")))?;
+        let path = ComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path,
+        };
 
         let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
-        let (udf_path, udf_args) = provider
-            .validate_schedule_args(udf_path, args.into_arg_vec(), scheduled_ts)
+        let (path, udf_args) = provider
+            .validate_schedule_args(path, args.into_arg_vec(), scheduled_ts)
             .await?;
 
         let context = provider.context().clone();
         let tx = provider.tx()?;
         let virtual_id = VirtualSchedulerModel::new(tx)
-            .schedule(udf_path, udf_args, scheduled_ts, context)
+            .schedule(path, udf_args, scheduled_ts, context)
             .await?;
 
         Ok(JsonValue::from(virtual_id))

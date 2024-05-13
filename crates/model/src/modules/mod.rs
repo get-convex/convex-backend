@@ -5,6 +5,11 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -44,10 +49,6 @@ use errors::{
 use metrics::{
     get_module_metadata_timer,
     get_module_version_timer,
-};
-use sync_types::{
-    CanonicalizedModulePath,
-    CanonicalizedUdfPath,
 };
 use value::{
     values_to_bytes,
@@ -189,7 +190,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     /// Returns all registered modules that aren't system modules.
     pub async fn get_application_modules(
         &mut self,
-    ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, ModuleConfig>> {
+    ) -> anyhow::Result<BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>> {
         let mut modules = BTreeMap::new();
         for metadata in self.get_all_metadata().await? {
             let path = metadata.path.clone();
@@ -203,7 +204,11 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     source_map: full_source.source_map,
                     environment: metadata.environment,
                 };
-                if modules.insert(path.clone(), module_config).is_some() {
+                let p = CanonicalizedComponentModulePath {
+                    component: ComponentId::Root,
+                    module_path: path.clone(),
+                };
+                if modules.insert(p, module_config).is_some() {
                     panic!("Duplicate application module at {:?}", path);
                 }
             }
@@ -255,10 +260,11 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     /// Helper function to get a module at the latest version.
     pub async fn get_metadata(
         &mut self,
-        path: CanonicalizedModulePath,
+        path: CanonicalizedComponentModulePath,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
         let timer = get_module_metadata_timer();
-        if path.is_system() && !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
+        let is_system = path.as_root_module_path()?.is_system();
+        if is_system && !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("get_module"))
         }
         let module_metadata = match self.module_metadata(path).await? {
@@ -272,7 +278,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     /// Put a module's source at a given path.
     pub async fn put(
         &mut self,
-        path: CanonicalizedModulePath,
+        path: CanonicalizedComponentModulePath,
         source: ModuleSource,
         source_package_id: Option<SourcePackageId>,
         source_map: Option<SourceMap>,
@@ -282,11 +288,11 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("put_module"));
         }
-        if path.is_system() {
+        if path.as_root_module_path()?.is_system() {
             anyhow::bail!("You cannot push a function under '_system/'");
         }
         anyhow::ensure!(
-            path.is_deps() || analyze_result.is_some(),
+            path.module_path.is_deps() || analyze_result.is_some(),
             "AnalyzedModule is required for non-dependency modules"
         );
         let (module_id, version) = match self.module_metadata(path.clone()).await? {
@@ -301,7 +307,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
                 let latest_version = previous_version + 1;
                 let new_metadata = ModuleMetadata {
-                    path,
+                    path: path.into_root_module_path()?,
                     latest_version,
                     source_package_id,
                     environment,
@@ -320,7 +326,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             None => {
                 let version = 0;
                 let new_metadata = ModuleMetadata {
-                    path,
+                    path: path.into_root_module_path()?,
                     latest_version: version,
                     source_package_id,
                     environment,
@@ -362,7 +368,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     }
 
     /// Delete a module, making it inaccessible for subsequent transactions.
-    pub async fn delete(&mut self, path: CanonicalizedModulePath) -> anyhow::Result<()> {
+    pub async fn delete(&mut self, path: CanonicalizedComponentModulePath) -> anyhow::Result<()> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("delete_module"));
         }
@@ -384,13 +390,14 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     #[convex_macro::instrument_future]
     async fn module_metadata(
         &mut self,
-        path: CanonicalizedModulePath,
+        path: CanonicalizedComponentModulePath,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
+        let module_path = ConvexValue::try_from(path.as_root_module_path()?.as_str())?;
         let index_range = IndexRange {
             index_name: MODULE_INDEX_BY_PATH.clone(),
             range: vec![IndexRangeExpression::Eq(
                 PATH_FIELD.clone(),
-                ConvexValue::try_from(String::from(path))?.into(),
+                module_path.into(),
             )],
             order: Order::Asc,
         };
@@ -409,12 +416,15 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     // Note that using this method will error if AnalyzedResult is not backfilled,
     pub async fn get_analyzed_function(
         &mut self,
-        udf_path: &CanonicalizedUdfPath,
+        path: &CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
-        let Some(module) = self.get_metadata(udf_path.module().clone()).await? else {
+        let udf_path = path.as_root_udf_path()?;
+
+        let Some(module) = self.get_metadata(path.module()).await? else {
+            let err = ModuleNotFoundError::new(udf_path.module().as_str());
             return Ok(Err(ErrorMetadata::bad_request(
                 "ModuleNotFound",
-                ModuleNotFoundError::new(udf_path.module().as_str()).to_string(),
+                err.to_string(),
             )
             .into()));
         };
@@ -460,6 +470,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     }
 
     pub async fn has_http(&mut self) -> anyhow::Result<bool> {
-        Ok(self.get_metadata("http.js".parse()?).await?.is_some())
+        let path = CanonicalizedComponentModulePath {
+            component: ComponentId::Root,
+            module_path: "http.js".parse()?,
+        };
+        Ok(self.get_metadata(path).await?.is_some())
     }
 }

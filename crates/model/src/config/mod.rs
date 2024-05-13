@@ -19,6 +19,10 @@ use std::collections::{
 use anyhow::Context;
 use common::{
     bootstrap_model::schema::SchemaState,
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
     runtime::Runtime,
     schemas::DatabaseSchema,
 };
@@ -29,7 +33,6 @@ use database::{
     SchemaModel,
     Transaction,
 };
-use sync_types::CanonicalizedModulePath;
 use value::{
     heap_size::WithHeapSize,
     ResolvedDocumentId,
@@ -83,7 +86,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         modules: Vec<ModuleConfig>,
         new_config: UdfConfig,
         source_package: Option<SourcePackage>,
-        mut analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+        mut analyze_results: BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
         schema_id: Option<ResolvedDocumentId>,
     ) -> anyhow::Result<(ConfigDiff, Option<DatabaseSchema>)> {
         // TODO: Move this check up to `Application`.
@@ -100,8 +103,10 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             None => None,
         };
 
-        // TODO(tom) allow for possibility of crons in multiple files
-        let crons_js: CanonicalizedModulePath = "crons.js".parse()?;
+        let crons_js = CanonicalizedComponentModulePath {
+            component: ComponentId::Root,
+            module_path: "crons.js".parse()?,
+        };
         let new_crons: WithHeapSize<BTreeMap<CronIdentifier, CronSpec>> =
             if let Some(module) = analyze_results.get(&crons_js) {
                 module.cron_specs.clone().unwrap_or_default()
@@ -183,21 +188,23 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         tracing::info!("Committed indexes: {index_diff:?} for schema: {schema_id:?}");
 
         // TODO: Extract this logic into `modules/`.
-        let mut added_modules: BTreeSet<CanonicalizedModulePath> = BTreeSet::new();
+        let mut added_modules = BTreeSet::new();
 
         // Add new modules.
-        let mut remaining_modules: BTreeMap<CanonicalizedModulePath, ModuleConfig> =
-            ModuleModel::new(self.tx).get_application_modules().await?;
+        let mut remaining_modules = ModuleModel::new(self.tx).get_application_modules().await?;
         for module in modules {
-            let canonicalized = module.path.canonicalize();
-            if remaining_modules.remove(&canonicalized).is_none() {
-                added_modules.insert(canonicalized.clone());
+            let path = CanonicalizedComponentModulePath {
+                component: ComponentId::Root,
+                module_path: module.path.canonicalize(),
+            };
+            if remaining_modules.remove(&path).is_none() {
+                added_modules.insert(path.clone());
             }
-            let analyze_result = if !canonicalized.is_deps() {
+            let analyze_result = if !path.module_path.is_deps() {
                 // We expect AnalyzeResult to always be set for non-dependency modules.
-                let analyze_result = analyze_results.remove(&canonicalized).context(format!(
+                let analyze_result = analyze_results.remove(&path).context(format!(
                     "Missing analyze result for module {}",
-                    canonicalized.as_str()
+                    path.module_path.as_str()
                 ))?;
                 Some(analyze_result)
             } else {
@@ -206,7 +213,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             };
             ModuleModel::new(self.tx)
                 .put(
-                    canonicalized,
+                    path,
                     module.source,
                     source_package_id,
                     module.source_map,
@@ -216,12 +223,12 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
                 .await?;
         }
 
-        let mut removed_modules: BTreeSet<CanonicalizedModulePath> = BTreeSet::new();
-        for (module_path, _) in remaining_modules {
-            removed_modules.insert(module_path.clone());
-            ModuleModel::new(self.tx).delete(module_path).await?;
+        let mut removed_modules = BTreeSet::new();
+        for (path, _) in remaining_modules {
+            removed_modules.insert(path.clone());
+            ModuleModel::new(self.tx).delete(path).await?;
         }
-        let module_diff = ModuleDiff::new(added_modules, removed_modules);
+        let module_diff = ModuleDiff::new(added_modules, removed_modules)?;
 
         // Update auth info.
         let auth_diff = AuthInfoModel::new(self.tx).put(config.auth_info).await?;

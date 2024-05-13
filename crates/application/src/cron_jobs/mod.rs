@@ -9,6 +9,10 @@ use std::{
 
 use common::{
     backoff::Backoff,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentId,
+    },
     document::ParsedDocument,
     errors::{
         report_error,
@@ -265,8 +269,12 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 
         // Since we don't specify the function type in the cron, we have to use
         // the analyzed result.
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: job.cron_spec.udf_path.clone(),
+        };
         let udf_type = ModuleModel::new(&mut tx)
-            .get_analyzed_function(&job.cron_spec.udf_path)
+            .get_analyzed_function(&path)
             .await?
             .map_err(|e| {
                 anyhow::anyhow!(
@@ -343,11 +351,15 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let identity = tx.inert_identity();
         let caller = FunctionCaller::Cron;
         let context = ExecutionContext::new(request_id, &caller);
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: job.cron_spec.udf_path.clone(),
+        };
         let mutation_result = self
             .runner
             .run_mutation_no_udf_log(
                 tx,
-                job.cron_spec.udf_path.clone(),
+                path.clone(),
                 job.cron_spec.udf_args.clone(),
                 caller.allowed_visibility(),
                 context.clone(),
@@ -358,13 +370,13 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             Err(e) => {
                 self.function_log.log_mutation_system_error(
                     &e,
-                    job.cron_spec.udf_path.clone(),
+                    path,
                     job.cron_spec.udf_args.clone(),
                     identity,
                     start,
                     caller,
                     context,
-                );
+                )?;
                 return Err(e);
             },
         };
@@ -474,10 +486,14 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 
                 // Execute the action
                 let context = ExecutionContext::new(request_id, &caller);
+                let path = CanonicalizedComponentFunctionPath {
+                    component: ComponentId::Root,
+                    udf_path: job.cron_spec.udf_path.clone(),
+                };
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
-                        job.clone().cron_spec.udf_path,
+                        path,
                         job.cron_spec.udf_args,
                         identity.clone(),
                         caller,
@@ -556,16 +572,21 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 self.database
                     .commit_with_write_source(tx, "cron_finish_action")
                     .await?;
+
+                let path = CanonicalizedComponentFunctionPath {
+                    component: ComponentId::Root,
+                    udf_path: job.cron_spec.udf_path,
+                };
                 self.function_log.log_action_system_error(
                     &err.into(),
-                    job.cron_spec.udf_path,
+                    path,
                     job.cron_spec.udf_args.clone(),
                     identity,
                     self.rt.monotonic_now(),
                     caller,
                     vec![].into(),
                     context,
-                );
+                )?;
             },
         }
         Ok(())
@@ -666,13 +687,16 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                             "Skipping {num_skipped} run(s) of {name} because multiple scheduled \
                              runs are in the past"
                         ),
-                        job.cron_spec.udf_path.clone(),
+                        CanonicalizedComponentFunctionPath {
+                            component: ComponentId::Root,
+                            udf_path: job.cron_spec.udf_path.clone(),
+                        },
                         job.cron_spec.udf_args.clone(),
                         identity,
                         self.rt.monotonic_now(),
                         FunctionCaller::Cron,
                         context,
-                    );
+                    )?;
                 },
                 UdfType::Action => {
                     self.function_log.log_action_system_error(
@@ -680,14 +704,17 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                             "Skipping {num_skipped} run(s) of {name} because multiple scheduled \
                              runs are in the past"
                         ),
-                        job.cron_spec.udf_path.clone(),
+                        CanonicalizedComponentFunctionPath {
+                            component: ComponentId::Root,
+                            udf_path: job.cron_spec.udf_path.clone(),
+                        },
                         job.cron_spec.udf_args.clone(),
                         identity,
                         self.rt.monotonic_now(),
                         FunctionCaller::Cron,
                         vec![].into(),
                         context,
-                    );
+                    )?;
                 },
                 UdfType::Query | UdfType::HttpAction => {
                     anyhow::bail!("Executing unexpected function type as a cron")

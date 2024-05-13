@@ -1,6 +1,7 @@
 use std::{
     cmp,
     collections::BTreeMap,
+    fmt,
     mem,
     sync::{
         Arc,
@@ -15,6 +16,7 @@ use async_broadcast::{
     Sender,
 };
 use common::{
+    components::CanonicalizedComponentFunctionPath,
     execution_context::ExecutionContext,
     identity::IdentityCacheKey,
     knobs::{
@@ -74,7 +76,6 @@ use metrics::{
     GoReason,
 };
 use parking_lot::Mutex;
-use sync_types::CanonicalizedUdfPath;
 use usage_tracking::FunctionUsageTracker;
 use value::heap_size::HeapSize;
 
@@ -112,13 +113,28 @@ impl<RT: Runtime> HeapSize for CacheManager<RT> {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct CacheKey {
-    udf_path: CanonicalizedUdfPath,
+    path: CanonicalizedComponentFunctionPath,
     args: ConvexArray,
     identity: IdentityCacheKey,
     journal: QueryJournal,
     allowed_visibility: AllowedVisibility,
+}
+
+impl fmt::Debug for CacheKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut builder = f.debug_struct("CacheKey");
+        if let Ok(p) = self.path.as_root_udf_path() {
+            builder.field("path", p);
+        }
+        builder
+            .field("args", &self.args)
+            .field("identity", &self.identity)
+            .field("journal", &self.journal)
+            .field("allowed_visibility", &self.allowed_visibility)
+            .finish()
+    }
 }
 
 impl CacheKey {
@@ -126,7 +142,7 @@ impl CacheKey {
     /// and heap allocated memory.
     fn size(&self) -> usize {
         mem::size_of::<Self>()
-            + self.udf_path.heap_size()
+            + self.path.heap_size()
             + self.args.heap_size()
             + self.identity.heap_size()
             + self.journal.heap_size()
@@ -196,7 +212,7 @@ impl<RT: Runtime> CacheManager<RT> {
     pub async fn get(
         &self,
         request_id: RequestId,
-        name: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         identity: Identity,
         ts: Timestamp,
@@ -209,7 +225,7 @@ impl<RT: Runtime> CacheManager<RT> {
         let result = self
             ._get(
                 request_id,
-                name,
+                path,
                 args,
                 identity,
                 ts,
@@ -234,7 +250,7 @@ impl<RT: Runtime> CacheManager<RT> {
     async fn _get(
         &self,
         request_id: RequestId,
-        name: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         identity: Identity,
         ts: Timestamp,
@@ -246,7 +262,7 @@ impl<RT: Runtime> CacheManager<RT> {
         let start = self.rt.monotonic_now();
         let identity_cache_key = identity.cache_key();
         let key = CacheKey {
-            udf_path: name.clone(),
+            path: path.clone(),
             args: args.clone(),
             identity: identity_cache_key,
             journal: journal.unwrap_or_else(QueryJournal::new),
@@ -417,7 +433,7 @@ impl<RT: Runtime> CacheManager<RT> {
             CacheOp::Go {
                 waiting_entry_id: _,
                 sender,
-                name,
+                path,
                 args,
                 identity,
                 ts,
@@ -436,7 +452,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 let validate_result = ValidatedUdfPathAndArgs::new(
                     allowed_visibility,
                     &mut tx,
-                    name.clone(),
+                    path.clone(),
                     args.clone(),
                     UdfType::Query,
                 )
@@ -445,12 +461,12 @@ impl<RT: Runtime> CacheManager<RT> {
                     Err(js_err) => {
                         let query_outcome = UdfOutcome::from_error(
                             js_err,
-                            name.clone(),
+                            path.clone(),
                             args,
                             identity.into(),
                             self.rt.clone(),
                             None,
-                        );
+                        )?;
                         (tx, FunctionOutcome::Query(query_outcome))
                     },
                     Ok(path_and_args) => {
@@ -625,7 +641,7 @@ impl<RT: Runtime> Cache<RT> {
             CacheOp::Go {
                 waiting_entry_id,
                 sender,
-                name: key.udf_path.clone(),
+                path: key.path.clone(),
                 args: key.args.clone(),
                 identity: identity.clone(),
                 ts,
@@ -834,7 +850,7 @@ enum CacheOp {
     Go {
         waiting_entry_id: Option<u64>,
         sender: Sender<CacheResult>,
-        name: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         identity: Identity,
         ts: Timestamp,

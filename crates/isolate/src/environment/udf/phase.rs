@@ -10,6 +10,10 @@ use std::{
 };
 
 use common::{
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -148,17 +152,20 @@ impl<RT: Runtime> UdfPhase<RT> {
                 format!("Can't dynamically import {module_path:?} in a query or mutation")
             ));
         }
+        let path = CanonicalizedComponentModulePath {
+            component: ComponentId::Root,
+            module_path: module_path.clone().canonicalize(),
+        };
         let module = with_release_permit(
             timeout,
             permit_slot,
-            ModuleModel::new(&mut self.tx).get_metadata(module_path.clone().canonicalize()),
+            ModuleModel::new(&mut self.tx).get_metadata(path.clone()),
         )
         .await?;
         let module_version = with_release_permit(
             timeout,
             permit_slot,
-            self.module_loader
-                .get_module(&mut self.tx, module_path.clone().canonicalize()),
+            self.module_loader.get_module(&mut self.tx, path),
         )
         .await?;
 

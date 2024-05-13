@@ -1,5 +1,6 @@
 use anyhow::Context;
 use common::{
+    components::CanonicalizedComponentFunctionPath,
     errors::JsError,
     identity::InertIdentity,
     log_lines::{
@@ -173,14 +174,14 @@ impl UdfOutcome {
     /// reaching the isolate.
     pub fn from_error(
         js_error: JsError,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: InertIdentity,
         rt: impl Runtime,
         udf_server_version: Option<semver::Version>,
-    ) -> Self {
-        UdfOutcome {
-            udf_path,
+    ) -> anyhow::Result<Self> {
+        Ok(UdfOutcome {
+            udf_path: path.into_root_udf_path()?,
             arguments,
             identity,
             rng_seed: rt.with_rng(|rng| rng.gen()),
@@ -192,7 +193,7 @@ impl UdfOutcome {
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
-        }
+        })
     }
 
     pub(crate) fn from_proto(
@@ -224,10 +225,10 @@ impl UdfOutcome {
             Some(FunctionResultTypeProto::JsError(js_error)) => Err(js_error.try_into()?),
             None => anyhow::bail!("Missing result"),
         };
-        let (udf_path, arguments, udf_server_version) = path_and_args.consume();
+        let (path, arguments, udf_server_version) = path_and_args.consume();
         let log_lines = log_lines.into_iter().map(LogLine::try_from).try_collect()?;
         Ok(Self {
-            udf_path,
+            udf_path: path.into_root_udf_path()?,
             arguments,
             identity,
             rng_seed,

@@ -16,6 +16,11 @@ use common::{
         database_index::IndexedFields,
         IndexMetadata,
     },
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentFunctionPath,
+        ComponentId,
+    },
     errors::JsError,
     execution_context::ExecutionContext,
     http::fetch::ProxiedFetchClient,
@@ -305,7 +310,15 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let udf_config = UdfConfig::new_for_test(&rt, config.udf_server_version);
         let modules_by_path = modules
             .iter()
-            .map(|c| (c.path.clone().canonicalize(), c.clone()))
+            .map(|c| {
+                (
+                    CanonicalizedComponentModulePath {
+                        component: ComponentId::Root,
+                        module_path: c.path.clone().canonicalize(),
+                    },
+                    c.clone(),
+                )
+            })
             .collect();
         let analyze_results = match isolate
             .analyze(udf_config.clone(), modules_by_path, BTreeMap::new())
@@ -462,7 +475,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         identity: Identity,
     ) -> anyhow::Result<UdfOutcome> {
         let mut tx = self.database.begin(identity.clone()).await?;
-        let path: UdfPath = udf_path.parse()?;
+        let path = ComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: udf_path.parse()?,
+        };
         let canonicalized_path = path.canonicalize();
 
         let args_array = ConvexArray::try_from(args)?;
@@ -478,14 +494,14 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
 
         let path_and_args = match validated_path_or_err {
             Err(js_error) => {
-                return Ok(UdfOutcome::from_error(
+                return UdfOutcome::from_error(
                     js_error,
                     canonicalized_path,
                     args_array,
                     identity.into(),
                     self.rt.clone(),
                     None,
-                ))
+                );
             },
             Ok(path_and_args) => path_and_args,
         };
@@ -528,7 +544,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             };
 
             self.database
-                .commit_with_write_source(tx, Some(canonicalized_path.into()))
+                .commit_with_write_source(tx, Some(canonicalized_path.into_root_udf_path()?.into()))
                 .await?;
             Ok(outcome)
         }
@@ -608,7 +624,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         journal: Option<QueryJournal>,
     ) -> anyhow::Result<UdfOutcome> {
         let mut tx = self.database.begin(identity.clone()).await?;
-        let path: UdfPath = udf_path.parse()?;
+        let path = ComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: udf_path.parse()?,
+        };
         let canonicalized_path = path.canonicalize();
         let args_array = ConvexArray::try_from(args)?;
         let validated_path_or_err = ValidatedUdfPathAndArgs::new(
@@ -622,14 +641,14 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
 
         let path_and_args = match validated_path_or_err {
             Err(js_error) => {
-                return Ok(UdfOutcome::from_error(
+                return UdfOutcome::from_error(
                     js_error,
                     canonicalized_path,
                     args_array,
                     identity.into(),
                     self.rt.clone(),
                     None,
-                ))
+                );
             },
             Ok(path_and_args) => path_and_args,
         };
@@ -989,7 +1008,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         identity: Identity,
     ) -> anyhow::Result<(ActionOutcome, LogLines)> {
         let mut tx = self.database.begin(identity.clone()).await?;
-        let path: UdfPath = udf_path.parse()?;
+        let path = ComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: udf_path.parse()?,
+        };
         let canonicalized_path = path.canonicalize();
         let args_array = ConvexArray::try_from(args)?;
         let validated_path_or_err = ValidatedUdfPathAndArgs::new(
@@ -1010,7 +1032,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                         identity.into(),
                         self.rt.clone(),
                         None,
-                    ),
+                    )?,
                     vec![].into(),
                 ))
             },
@@ -1141,12 +1163,12 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_query(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&name, args)?;
-        let str_name = String::from(name);
+        let arguments = parse_udf_args(&path, args)?;
+        let str_name = String::from(path.udf_path);
         let outcome = self
             .raw_query(&str_name, arguments.into(), identity, None)
             .await?;
@@ -1161,12 +1183,12 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_mutation(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&name, args)?;
-        let str_name = String::from(name);
+        let arguments = parse_udf_args(&path, args)?;
+        let str_name = String::from(path.udf_path);
         let outcome = self
             .raw_mutation(&str_name, arguments.into(), identity)
             .await?;
@@ -1181,12 +1203,12 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_action(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&name, args)?;
-        let str_name = String::from(name);
+        let arguments = parse_udf_args(&path, args)?;
+        let str_name = String::from(path.udf_path);
         let (outcome, _) = self
             .raw_action(&str_name, arguments.into(), identity)
             .await?;
@@ -1243,14 +1265,14 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn schedule_job(
         &self,
         identity: Identity,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let mut tx: database::Transaction<RT> = self.database.begin(identity).await?;
-        let (udf_path, udf_args) = validate_schedule_args(
-            udf_path,
+        let (path, udf_args) = validate_schedule_args(
+            path,
             udf_args,
             scheduled_ts,
             // Scheduling from actions is not transaction and happens at latest
@@ -1261,7 +1283,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         .await?;
 
         let virtual_id = VirtualSchedulerModel::new(&mut tx)
-            .schedule(udf_path, udf_args, scheduled_ts, context)
+            .schedule(path, udf_args, scheduled_ts, context)
             .await?;
         self.database.commit(tx).await?;
 

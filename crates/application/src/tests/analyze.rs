@@ -1,6 +1,12 @@
-use common::types::{
-    ModuleEnvironment,
-    UdfType,
+use common::{
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
+    types::{
+        ModuleEnvironment,
+        UdfType,
+    },
 };
 use model::{
     config::types::ModuleConfig,
@@ -76,14 +82,22 @@ async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
         .await??;
     assert_eq!(modules.len(), 2);
 
-    assert_eq!(modules[&"a.js".parse()?].functions.len(), 1);
-    let module = &modules[&"a.js".parse()?].functions[0];
+    let a_path = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: "a.js".parse()?,
+    };
+    assert_eq!(modules[&a_path].functions.len(), 1);
+    let module = &modules[&a_path].functions[0];
     assert_eq!(module.udf_type, UdfType::Query);
     assert_eq!(&module.name[..], "isolateFunction");
     assert!(module.pos.is_none());
 
-    assert_eq!(modules[&"b.js".parse()?].functions.len(), 1);
-    let module = &modules[&"b.js".parse()?].functions[0];
+    let b_path = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: "b.js".parse()?,
+    };
+    assert_eq!(modules[&b_path].functions.len(), 1);
+    let module = &modules[&b_path].functions[0];
     assert_eq!(module.udf_type, UdfType::Action);
     assert_eq!(&module.name[..], "nodeFunction");
     assert!(module.pos.is_none());
@@ -176,8 +190,12 @@ export { hello, internalHello };
 
     assert_eq!(modules.len(), 2);
 
-    assert_eq!(modules[&"isolate_source.js".parse()?].functions.len(), 2);
-    let module = &modules[&"isolate_source.js".parse()?];
+    let isolate_path = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: "isolate_source.js".parse()?,
+    };
+    assert_eq!(modules[&isolate_path].functions.len(), 2);
+    let module = &modules[&isolate_path];
     assert_eq!(&module.functions[0].name[..], "hello");
     assert_eq!(module.functions[0].udf_type, UdfType::Action);
     assert_eq!(module.functions[0].pos.as_ref().unwrap().start_lineno, 28);
@@ -185,8 +203,12 @@ export { hello, internalHello };
     assert_eq!(module.functions[1].udf_type, UdfType::Action);
     assert_eq!(module.functions[1].pos.as_ref().unwrap().start_lineno, 31);
 
-    assert_eq!(modules[&"node_source.js".parse()?].functions.len(), 2);
-    let module = &modules[&"node_source.js".parse()?];
+    let node_path = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: "node_source.js".parse()?,
+    };
+    assert_eq!(modules[&node_path].functions.len(), 2);
+    let module = &modules[&node_path];
     assert_eq!(&module.functions[0].name[..], "hello");
     assert_eq!(module.functions[0].udf_type, UdfType::Action);
     assert_eq!(module.functions[0].pos.as_ref().unwrap().start_lineno, 28);
@@ -228,14 +250,22 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
         .await??;
     assert_eq!(modules.len(), 3);
 
-    assert_eq!(modules[&"a.js".parse()?].functions.len(), 1);
-    let module = &modules[&"a.js".parse()?].functions[0];
+    let a_path = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: "a.js".parse()?,
+    };
+    assert_eq!(modules[&a_path].functions.len(), 1);
+    let module = &modules[&a_path].functions[0];
     assert_eq!(module.udf_type, UdfType::Query);
     assert_eq!(&module.name[..], "isolateFunction");
     assert!(module.pos.is_none());
 
-    assert_eq!(modules[&"b.js".parse()?].functions.len(), 1);
-    let module = &modules[&"b.js".parse()?].functions[0];
+    let b_path = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: "b.js".parse()?,
+    };
+    assert_eq!(modules[&b_path].functions.len(), 1);
+    let module = &modules[&b_path].functions[0];
     assert_eq!(module.udf_type, UdfType::Action);
     assert_eq!(&module.name[..], "nodeFunction");
     assert!(module.pos.is_none());

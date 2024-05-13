@@ -4,6 +4,10 @@ use std::{
 };
 
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     execution_context::ExecutionContext,
     pause::{
         PauseClient,
@@ -47,8 +51,11 @@ use crate::{
     Application,
 };
 
-fn udf_path() -> UdfPath {
-    UdfPath::from_str("basic:insertObject").unwrap()
+fn function_path() -> ComponentFunctionPath {
+    ComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path: UdfPath::from_str("basic:insertObject").unwrap(),
+    }
 }
 
 async fn create_scheduled_job<'a>(
@@ -64,11 +71,11 @@ async fn create_scheduled_job<'a>(
         serde_json::Value::String("value".to_string()),
     );
     let mut model = SchedulerModel::new(tx);
-    let udf_path = udf_path();
+    let path = function_path();
     let job_id = model
         .schedule(
-            udf_path.clone(),
-            parse_udf_args(&udf_path, vec![JsonValue::Object(map)])?,
+            path.clone(),
+            parse_udf_args(&path, vec![JsonValue::Object(map)])?,
             rt.unix_timestamp(),
             ExecutionContext::new_for_test(),
         )
@@ -132,8 +139,8 @@ async fn test_scheduled_jobs_canceled(rt: TestRuntime) -> anyhow::Result<()> {
     assert!(job.next_ts.is_some());
 
     // Cancel the scheduled job
-    let udf_path = udf_path();
-    model.cancel_all(Some(udf_path.canonicalize()), 1).await?;
+    let path = function_path();
+    model.cancel_all(Some(path.canonicalize()), 1).await?;
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Canceled);
     application.commit_test(tx).await?;
@@ -154,8 +161,8 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
     let (job_id, job) = jobs[0].clone().into_id_and_value();
 
     // Cancel the scheduled job
-    let udf_path = udf_path();
-    model.cancel_all(Some(udf_path.canonicalize()), 1).await?;
+    let path = function_path();
+    model.cancel_all(Some(path.canonicalize()), 1).await?;
 
     application.commit_test(tx).await?;
 
@@ -287,7 +294,10 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
     application
         .mutation_udf(
             RequestId::new(),
-            UdfPath::from_str("scheduler:scheduleWithArbitraryJson")?,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: UdfPath::from_str("scheduler:scheduleWithArbitraryJson")?,
+            },
             vec![],
             Identity::system(),
             None,
@@ -302,7 +312,10 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
     application
         .action_udf(
             RequestId::new(),
-            UdfPath::from_str("action:schedule")?,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: UdfPath::from_str("action:schedule")?,
+            },
             vec![],
             Identity::system(),
             FunctionCaller::Action {

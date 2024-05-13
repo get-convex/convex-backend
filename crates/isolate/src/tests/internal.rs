@@ -4,6 +4,11 @@ use std::{
 };
 
 use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
     types::{
         AllowedVisibility,
         MemberId,
@@ -33,9 +38,18 @@ use crate::{
 async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
 
-    let internal_function = CanonicalizedUdfPath::from_str("internal.js:myInternalMutation")?;
-    let public_function = CanonicalizedUdfPath::from_str("internal.js:publicMutation")?;
-    let non_existent_function = CanonicalizedUdfPath::from_str("internal.js:doesNotExist")?;
+    let internal_function = CanonicalizedComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path: CanonicalizedUdfPath::from_str("internal.js:myInternalMutation")?,
+    };
+    let public_function = CanonicalizedComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path: CanonicalizedUdfPath::from_str("internal.js:publicMutation")?,
+    };
+    let non_existent_function = CanonicalizedComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path: CanonicalizedUdfPath::from_str("internal.js:doesNotExist")?,
+    };
 
     let post_internal_npm_version = Version::parse("1.0.0").unwrap();
 
@@ -43,7 +57,15 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let (config_metadata, module_configs, _udf_config) = ConfigModel::new(&mut tx).get().await?;
     let modules_by_path = module_configs
         .iter()
-        .map(|c| (c.path.clone().canonicalize(), c.clone()))
+        .map(|c| {
+            (
+                CanonicalizedComponentModulePath {
+                    component: ComponentId::Root,
+                    module_path: c.path.clone().canonicalize(),
+                },
+                c.clone(),
+            )
+        })
         .collect();
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let analyze_results = t

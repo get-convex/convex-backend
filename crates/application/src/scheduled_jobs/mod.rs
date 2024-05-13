@@ -10,6 +10,10 @@ use std::{
 
 use common::{
     backoff::Backoff,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentId,
+    },
     document::ParsedDocument,
     errors::{
         report_error,
@@ -422,8 +426,12 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let caller = FunctionCaller::Scheduler {
             job_id: job_id.into(),
         };
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: job.udf_path.clone(),
+        };
         let udf_type = match ModuleModel::new(&mut tx)
-            .get_analyzed_function(&job.udf_path)
+            .get_analyzed_function(&path)
             .await?
         {
             Ok(analyzed_function) => analyzed_function.udf_type,
@@ -444,13 +452,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // Log as mutation for now.
                 self.function_log.log_mutation_system_error(
                     &error,
-                    job.udf_path,
+                    path,
                     job.udf_args,
                     identity,
                     self.rt.monotonic_now(),
                     caller,
                     context,
-                );
+                )?;
                 return Ok(job_id);
             },
         };
@@ -492,13 +500,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                                 message,
                             )
                             .into(),
-                            job.udf_path,
+                            path,
                             job.udf_args,
                             identity,
                             self.rt.monotonic_now(),
                             caller,
                             context,
-                        );
+                        )?;
                     },
                     UdfType::HttpAction => {
                         // It would be more correct to log this as an HTTP action, but
@@ -510,14 +518,14 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                                 message,
                             )
                             .into(),
-                            job.udf_path,
+                            path,
                             job.udf_args,
                             identity,
                             self.rt.monotonic_now(),
                             caller,
                             vec![].into(),
                             context,
-                        );
+                        )?;
                     },
                     // Should be unreachable given the outer match statement
                     UdfType::Mutation => unreachable!(),
@@ -541,11 +549,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let start = self.rt.monotonic_now();
         let context = ExecutionContext::new(request_id, &caller);
         let identity = tx.inert_identity();
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: job.udf_path.clone(),
+        };
         let result = self
             .runner
             .run_mutation_no_udf_log(
                 tx,
-                job.udf_path.clone(),
+                path.clone(),
                 job.udf_args.clone(),
                 caller.allowed_visibility(),
                 context.clone(),
@@ -556,13 +568,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             Err(e) => {
                 self.function_log.log_mutation_system_error(
                     &e,
-                    job.udf_path.clone(),
+                    path,
                     job.udf_args.clone(),
                     identity,
                     start,
                     caller,
                     context,
-                );
+                )?;
                 return Err(e);
             },
         };
@@ -646,10 +658,14 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
                 // Execute the action
                 let context = ExecutionContext::new(request_id, &caller);
+                let path = CanonicalizedComponentFunctionPath {
+                    component: ComponentId::Root,
+                    udf_path: job.udf_path.clone(),
+                };
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
-                        job.clone().udf_path,
+                        path,
                         job.udf_args,
                         identity,
                         caller,
@@ -694,16 +710,20 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // guess the correct behavior here is to store the executionId in the state so
                 // we can log correctly here.
                 let context = ExecutionContext::new(request_id, &caller);
+                let path = CanonicalizedComponentFunctionPath {
+                    component: ComponentId::Root,
+                    udf_path: job.udf_path.clone(),
+                };
                 self.function_log.log_action_system_error(
                     &JsError::from_message(message).into(),
-                    job.udf_path,
+                    path,
                     job.udf_args.clone(),
                     identity.into(),
                     self.rt.monotonic_now(),
                     caller,
                     vec![].into(),
                     context,
-                );
+                )?;
             },
             state => {
                 anyhow::bail!(

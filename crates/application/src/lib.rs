@@ -37,6 +37,12 @@ use common::{
             parse_schema_id,
         },
     },
+    components::{
+        CanonicalizedComponentFunctionPath,
+        CanonicalizedComponentModulePath,
+        ComponentFunctionPath,
+        ComponentId,
+    },
     document::{
         DocumentUpdate,
         ParsedDocument,
@@ -235,10 +241,8 @@ use storage::{
 };
 use sync_types::{
     AuthenticationToken,
-    CanonicalizedModulePath,
     CanonicalizedUdfPath,
     FunctionName,
-    UdfPath,
 };
 use table_summary_worker::{
     TableSummaryClient,
@@ -320,7 +324,7 @@ pub struct ApplyConfigArgs {
     pub modules: Vec<ModuleConfig>,
     pub udf_config: UdfConfig,
     pub source_package: Option<SourcePackage>,
-    pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+    pub analyze_results: BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
 }
 
 #[derive(Debug)]
@@ -748,13 +752,13 @@ impl<RT: Runtime> Application<RT> {
     pub async fn read_only_udf(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<QueryReturn> {
         let ts = *self.now_ts_for_reads();
-        self.read_only_udf_at_ts(request_id, name, args, identity, ts, None, caller)
+        self.read_only_udf_at_ts(request_id, path, args, identity, ts, None, caller)
             .await
     }
 
@@ -762,7 +766,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn read_only_udf_at_ts(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
@@ -807,7 +811,7 @@ impl<RT: Runtime> Application<RT> {
             .runner
             .run_query_at_ts(
                 request_id.clone(),
-                name,
+                path,
                 args,
                 identity,
                 ts,
@@ -839,7 +843,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn mutation_udf(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         // Identifier used to make this mutation idempotent.
@@ -859,7 +863,7 @@ impl<RT: Runtime> Application<RT> {
             .runner
             .retry_mutation(
                 request_id.clone(),
-                name,
+                path,
                 args,
                 identity,
                 mutation_identifier,
@@ -886,7 +890,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn action_udf(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        name: ComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
@@ -938,7 +942,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn http_action_udf(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         http_request: HttpActionRequest,
         identity: Identity,
         caller: FunctionCaller,
@@ -965,7 +969,7 @@ impl<RT: Runtime> Application<RT> {
             let result = runner
                 .run_http_action(
                     request_id,
-                    name,
+                    path,
                     http_request,
                     response_streamer_,
                     identity,
@@ -999,7 +1003,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn any_udf(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
@@ -1020,9 +1024,9 @@ impl<RT: Runtime> Application<RT> {
         // rare enough to disregard it.
         let mut tx_type = self.begin(identity.clone()).await?;
 
-        let canonicalized_name: CanonicalizedUdfPath = name.clone().canonicalize();
+        let canonicalized_path = path.clone().canonicalize();
         let Some(analyzed_function) = ModuleModel::new(&mut tx_type)
-            .get_analyzed_function(&canonicalized_name)
+            .get_analyzed_function(&canonicalized_path)
             .await?
             .ok()
             .filter(|af| {
@@ -1033,7 +1037,7 @@ impl<RT: Runtime> Application<RT> {
             let missing_or_internal = format!(
                 "Could not find function for '{}'. Did you forget to run `npx convex dev` or `npx \
                  convex deploy`?",
-                String::from(canonicalized_name.strip())
+                String::from(canonicalized_path.into_root_udf_path()?.strip())
             );
             return Ok(Err(FunctionError {
                 error: RedactedJsError::from_js_error(
@@ -1047,7 +1051,7 @@ impl<RT: Runtime> Application<RT> {
 
         match analyzed_function.udf_type {
             UdfType::Query => self
-                .read_only_udf(request_id, name, args, identity, caller)
+                .read_only_udf(request_id, path, args, identity, caller)
                 .await
                 .map(
                     |QueryReturn {
@@ -1062,7 +1066,7 @@ impl<RT: Runtime> Application<RT> {
             UdfType::Mutation => self
                 .mutation_udf(
                     request_id,
-                    name,
+                    path,
                     args,
                     identity,
                     None,
@@ -1083,7 +1087,7 @@ impl<RT: Runtime> Application<RT> {
                     )
                 }),
             UdfType::Action => self
-                .action_udf(request_id, name, args, identity, caller)
+                .action_udf(request_id, path, args, identity, caller)
                 .await
                 .map(|res| {
                     res.map(
@@ -1406,7 +1410,8 @@ impl<RT: Runtime> Application<RT> {
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
         source_package: Option<SourcePackage>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
+    {
         self.runner
             .analyze(udf_config, new_modules, source_package)
             .await
@@ -1506,7 +1511,11 @@ impl<RT: Runtime> Application<RT> {
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<()> {
         let all_modules = ModuleModel::new(tx).get_application_modules().await?;
-        let auth_config_module = all_modules.get(&AUTH_CONFIG_FILE_NAME.parse().unwrap());
+        let path = CanonicalizedComponentModulePath {
+            component: ComponentId::Root,
+            module_path: AUTH_CONFIG_FILE_NAME.parse()?,
+        };
+        let auth_config_module = all_modules.get(&path);
         if let Some(auth_config_module) = auth_config_module {
             let auth_config_module = auth_config_module.clone();
             let auth_config = Self::evaluate_auth_config(
@@ -1789,7 +1798,6 @@ impl<RT: Runtime> Application<RT> {
             import_phase_unix_timestamp: self.runtime.unix_timestamp(),
         };
 
-        let module_path = module.path.clone().canonicalize();
         let analyze_results = self
             .analyze(udf_config.clone(), vec![module.clone()], None)
             .await?
@@ -1801,6 +1809,10 @@ impl<RT: Runtime> Application<RT> {
                 anyhow::anyhow!(js_error).context(metadata)
             })?;
 
+        let module_path = CanonicalizedComponentModulePath {
+            component: ComponentId::Root,
+            module_path: module.path.clone().canonicalize(),
+        };
         let analyzed_module = analyze_results
             .get(&module_path)
             .ok_or_else(|| anyhow::anyhow!("Unexpectedly missing analyze result"))?
@@ -1830,7 +1842,11 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         // 4. run the function within the transaction
-        let path = CanonicalizedUdfPath::new(module_path, FunctionName::default_export());
+        let function_name = FunctionName::default_export();
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path: CanonicalizedUdfPath::new(module_path.module_path, function_name),
+        };
         let arguments = parse_udf_args(&path.clone().into(), args)?;
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => self
@@ -2186,7 +2202,7 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn cancel_all_jobs(
         &self,
-        udf_path: Option<CanonicalizedUdfPath>,
+        path: Option<CanonicalizedComponentFunctionPath>,
         identity: Identity,
     ) -> anyhow::Result<()> {
         loop {
@@ -2194,9 +2210,7 @@ impl<RT: Runtime> Application<RT> {
                 .execute_with_audit_log_events_and_occ_retries(
                     identity.clone(),
                     "application_cancel_all_jobs",
-                    |tx| {
-                        Self::_cancel_all_jobs(tx, udf_path.clone(), *MAX_JOBS_CANCEL_BATCH).into()
-                    },
+                    |tx| Self::_cancel_all_jobs(tx, path.clone(), *MAX_JOBS_CANCEL_BATCH).into(),
                 )
                 .await?;
             if count < *MAX_JOBS_CANCEL_BATCH {
@@ -2208,12 +2222,10 @@ impl<RT: Runtime> Application<RT> {
 
     async fn _cancel_all_jobs(
         tx: &mut Transaction<RT>,
-        udf_path: Option<CanonicalizedUdfPath>,
+        path: Option<CanonicalizedComponentFunctionPath>,
         max_jobs: usize,
     ) -> anyhow::Result<(usize, Vec<DeploymentAuditLogEvent>)> {
-        let count = SchedulerModel::new(tx)
-            .cancel_all(udf_path, max_jobs)
-            .await?;
+        let count = SchedulerModel::new(tx).cancel_all(path, max_jobs).await?;
         Ok((count, vec![]))
     }
 

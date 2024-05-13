@@ -1,6 +1,10 @@
 use std::collections::BTreeMap;
 
 use common::{
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
     db_schema,
     object_validator,
     schemas::{
@@ -54,6 +58,14 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
         source_map: Some("// source map".to_string()),
         environment: ModuleEnvironment::Isolate,
     };
+    let p1 = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: module1.path.clone().canonicalize(),
+    };
+    let p2 = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: module2.path.clone().canonicalize(),
+    };
     ConfigModel::new(&mut tx)
         .apply(
             config_metadata.clone(),
@@ -61,13 +73,13 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
             UdfConfig::new_for_test(&rt, "1000.0.0".parse()?),
             None, // source storage key
             btreemap! {
-                module1.path.clone().canonicalize() => AnalyzedModule {
+                p1 => AnalyzedModule {
                     functions: WithHeapSize::default(),
                     http_routes: None,
                     cron_specs: None,
                     source_mapped: None,
                 },
-                module2.path.clone().canonicalize() =>  AnalyzedModule {
+                p2 =>  AnalyzedModule {
                     functions: WithHeapSize::default(),
                     http_routes: None,
                     cron_specs: None,
@@ -114,7 +126,10 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
         .iter()
         .map(|m| {
             (
-                m.path.clone().canonicalize(),
+                CanonicalizedComponentModulePath {
+                    component: ComponentId::Root,
+                    module_path: m.path.clone().canonicalize(),
+                },
                 AnalyzedModule {
                     functions: WithHeapSize::default(),
                     http_routes: None,

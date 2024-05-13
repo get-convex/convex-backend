@@ -9,6 +9,10 @@ use common::{
         database_index::IndexedFields,
         IndexMetadata,
     },
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentId,
+    },
     log_lines::TRUNCATED_LINE_SUFFIX,
     types::{
         AllowedVisibility,
@@ -815,7 +819,10 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
         .delete(config.id())
         .await?;
 
-    let path = CanonicalizedUdfPath::from_str("myFunc.js:default")?;
+    let path = CanonicalizedComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path: CanonicalizedUdfPath::from_str("myFunc.js:default")?,
+    };
     let result = ValidatedUdfPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,

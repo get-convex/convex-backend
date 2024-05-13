@@ -1,5 +1,9 @@
 use anyhow::Context;
 use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentFunctionPath,
+    },
     errors::JsError,
     knobs::FUNCTION_MAX_RESULT_SIZE,
     value::{
@@ -18,10 +22,6 @@ use humansize::{
 };
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
-use sync_types::{
-    CanonicalizedUdfPath,
-    UdfPath,
-};
 use value::Size;
 
 use crate::strings;
@@ -103,7 +103,10 @@ pub fn serialize_udf_args(args: ConvexArray) -> anyhow::Result<String> {
     Ok(serde_json::to_string(&json_args)?)
 }
 
-pub fn parse_udf_args(udf_path: &UdfPath, args: Vec<JsonValue>) -> Result<ConvexArray, JsError> {
+pub fn parse_udf_args(
+    path: &ComponentFunctionPath,
+    args: Vec<JsonValue>,
+) -> Result<ConvexArray, JsError> {
     args.into_iter()
         .map(|arg| arg.try_into())
         .collect::<anyhow::Result<Vec<_>>>()
@@ -111,15 +114,17 @@ pub fn parse_udf_args(udf_path: &UdfPath, args: Vec<JsonValue>) -> Result<Convex
         .map_err(|err| {
             JsError::from_message(format!(
                 "Invalid arguments for {}: {err}",
-                String::from(udf_path.clone()),
+                String::from(path.udf_path.clone()),
             ))
         })
 }
 
 pub fn deserialize_udf_result(
-    udf_path: &CanonicalizedUdfPath,
+    path: &CanonicalizedComponentFunctionPath,
     result_str: &str,
 ) -> anyhow::Result<Result<ConvexValue, JsError>> {
+    let udf_path = path.as_root_udf_path()?;
+
     // Don't print out result_str in error messages - as it may contain pii
     let result_v: serde_json::Value = serde_json::from_str(result_str).map_err(|e| {
         anyhow::anyhow!(ErrorMetadata::bad_request(

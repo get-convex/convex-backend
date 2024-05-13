@@ -47,7 +47,7 @@ pub trait SyscallProvider<RT: Runtime> {
 
 impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     fn table_filter(&self) -> TableFilter {
-        if self.udf_path.is_system() {
+        if self.path.udf_path.is_system() {
             TableFilter::IncludePrivateSystemTables
         } else {
             TableFilter::ExcludePrivateSystemTables

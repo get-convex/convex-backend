@@ -4,9 +4,15 @@ use axum::{
     extract::State,
     response::IntoResponse,
 };
-use common::http::{
-    extract::Json,
-    HttpResponseError,
+use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentId,
+    },
+    http::{
+        extract::Json,
+        HttpResponseError,
+    },
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
@@ -41,6 +47,7 @@ pub async fn cancel_all_jobs(
     identity
         .member_id()
         .context(bad_admin_key_error(identity.instance_name()))?;
+
     let udf_path = udf_path
         .map(|p| p.parse())
         .transpose()
@@ -48,7 +55,11 @@ pub async fn cancel_all_jobs(
             "InvaildUdfPath",
             "CancelAllJobs requires an optional canonicalized UdfPath",
         ))?;
-    st.application.cancel_all_jobs(udf_path, identity).await?;
+    let path = udf_path.map(|udf_path| CanonicalizedComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path,
+    });
+    st.application.cancel_all_jobs(path, identity).await?;
 
     Ok(StatusCode::OK)
 }

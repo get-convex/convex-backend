@@ -20,6 +20,10 @@ use common::{
         CoDelQueueSender,
         ExpiredInQueue,
     },
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentFunctionPath,
+    },
     errors::{
         recapture_stacktrace,
         JsError,
@@ -118,11 +122,7 @@ use pb::common::{
 };
 use prometheus::VMHistogram;
 use serde_json::Value as JsonValue;
-use sync_types::{
-    CanonicalizedModulePath,
-    CanonicalizedUdfPath,
-    UdfPath,
-};
+use sync_types::CanonicalizedUdfPath;
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -273,7 +273,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn execute_query(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
@@ -281,7 +281,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn execute_mutation(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
@@ -289,7 +289,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn execute_action(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
@@ -325,7 +325,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn schedule_job(
         &self,
         identity: Identity,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
@@ -369,7 +369,8 @@ pub struct ActionRequest<RT: Runtime> {
     pub context: ExecutionContext,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ActionRequestParams {
     pub path_and_args: ValidatedUdfPathAndArgs,
 }
@@ -426,10 +427,12 @@ pub enum RequestType<RT: Runtime> {
     },
     Analyze {
         udf_config: UdfConfig,
-        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
+        modules: BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<
-            anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>>,
+            anyhow::Result<
+                Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>,
+            >,
         >,
     },
     EvaluateSchema {
@@ -808,9 +811,10 @@ impl<RT: Runtime> IsolateClient<RT> {
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
-        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
+        modules: BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
+    {
         anyhow::ensure!(
             modules
                 .values()
@@ -1541,7 +1545,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&request.udf_type);
-                let udf_path = request.path_and_args.udf_path().to_owned();
+                let udf_path = request.path_and_args.path().udf_path.to_owned();
                 let environment = DatabaseUdfEnvironment::new(
                     self.rt.clone(),
                     environment_data,
@@ -1582,8 +1586,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&UdfType::HttpAction);
-                let udf_path: CanonicalizedUdfPath =
-                    request.router_path.canonicalized_udf_path().clone();
+                let udf_path: CanonicalizedUdfPath = request.router_path.path().udf_path.clone();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
                     environment_data,
@@ -1662,7 +1665,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 };
                 metrics::finish_service_request_timer(timer, status);
                 let _ = response.send(r);
-                format!("Action: {:?}", request.params.path_and_args.udf_path())
+                format!("Action: {:?}", request.params.path_and_args.path().udf_path)
             },
             RequestType::Analyze {
                 udf_config,

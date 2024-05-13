@@ -17,6 +17,7 @@ use std::{
 
 use anyhow::anyhow;
 use common::{
+    components::CanonicalizedComponentFunctionPath,
     errors::JsError,
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
@@ -76,10 +77,7 @@ use model::{
 use parking_lot::Mutex;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use sync_types::{
-    CanonicalizedUdfPath,
-    ModulePath,
-};
+use sync_types::ModulePath;
 use value::{
     heap_size::HeapSize,
     ConvexArray,
@@ -309,7 +307,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let mut result = Self::run_http_action_inner(
             client_id,
             &mut isolate_context,
-            validated_path.canonicalized_udf_path(),
+            validated_path.path(),
             request,
             cancellation,
         )
@@ -362,7 +360,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     async fn run_http_action_inner(
         client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
-        router_path: &CanonicalizedUdfPath,
+        router_path: &CanonicalizedComponentFunctionPath,
         http_request: HttpActionRequest,
         cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<(HttpActionRoute, HttpActionResult)> {
@@ -434,7 +432,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let run_str = strings::runRequest.create(&mut scope)?.into();
         let v8_function: v8::Local<v8::Function> = router
             .get(&mut scope, run_str)
-            .ok_or_else(|| anyhow!("Couldn't find runRequest method of router in {router_path:?}"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Couldn't find runRequest method of router in {:?}",
+                    router_path.udf_path
+                )
+            })?
             .try_into()?;
 
         let stream_id = match http_request.body {
@@ -607,14 +610,14 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
         let execution_time;
         (self, execution_time) = isolate_context.take_environment();
-        let (udf_path, arguments, udf_server_version) = request_params.path_and_args.consume();
+        let (path, arguments, udf_server_version) = request_params.path_and_args.consume();
         self.add_warnings_to_log_lines_action(
             execution_time,
             &arguments,
             result.as_ref().ok().and_then(|r| r.as_ref().ok()),
         )?;
         let outcome = ActionOutcome {
-            udf_path,
+            udf_path: path.into_root_udf_path()?,
             arguments,
             unix_timestamp: start_unix_timestamp,
             identity: self.identity.into(),
@@ -648,19 +651,22 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 .await?;
         }
 
-        let (udf_path, arguments, _) = request_params.path_and_args.consume();
+        let (path, arguments, _) = request_params.path_and_args.consume();
 
         // Don't allow directly running a UDF within the `_deps` directory. We don't
         // really expect users to hit this unless someone is trying to exploit
         // an app written on Convex by calling directly into a compromised
         // dependency. So, consider it a system error so we can just
         // keep a watch on it.
-        if udf_path.module().is_deps() {
-            anyhow::bail!("Refusing to run {udf_path:?} within the '_deps' directory");
+        if path.udf_path.module().is_deps() {
+            anyhow::bail!(
+                "Refusing to run {:?} within the '_deps' directory",
+                path.udf_path
+            );
         }
 
         // First, load the user's module and find the specified function.
-        let module_path = udf_path.module().clone();
+        let module_path = path.as_root_udf_path()?.module().clone();
         let Ok(module_specifier) = module_specifier_from_path(&module_path) else {
             let message = format!("Invalid module path: {module_path:?}");
             return Ok(Err(JsError::from_message(message)));
@@ -677,7 +683,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .get_module_namespace()
             .to_object(&mut scope)
             .ok_or_else(|| anyhow!("Module namespace wasn't an object?"))?;
-        let function_name = udf_path.function_name();
+        let function_name = path.udf_path.function_name();
         let function_str: v8::Local<'_, v8::Value> = v8::String::new(&mut scope, function_name)
             .ok_or_else(|| anyhow!("Failed to create function name string"))?
             .into();
@@ -685,7 +691,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         if namespace.has(&mut scope, function_str) != Some(true) {
             let message = format!(
                 "{}",
-                FunctionNotFoundError::new(udf_path.function_name(), udf_path.module().as_str())
+                FunctionNotFoundError::new(function_name, path.udf_path.module().as_str())
             );
             return Ok(Err(JsError::from_message(message)));
         }
@@ -697,7 +703,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let run_str = strings::invokeAction.create(&mut scope)?.into();
         let v8_function: v8::Local<v8::Function> = function
             .get(&mut scope, run_str)
-            .ok_or_else(|| anyhow!("Couldn't find invoke function in {udf_path:?}"))?
+            .ok_or_else(|| anyhow!("Couldn't find invoke function in {:?}", path.udf_path))?
             .try_into()?;
         let args_str = serialize_udf_args(arguments)?;
         metrics::log_argument_length(&args_str);
@@ -720,7 +726,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             &v8_args,
             cancellation,
             |_, result_str| {
-                let result = deserialize_udf_result(&udf_path, &result_str)?;
+                let result = deserialize_udf_result(&path, &result_str)?;
                 Ok(futures::stream::once(async move { Ok(result) }))
             },
             |_, r| {
@@ -740,7 +746,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     fn lookup_route(
         scope: &mut ExecutionScope<RT, Self>,
         router: &v8::Local<v8::Object>,
-        router_path: CanonicalizedUdfPath,
+        router_path: CanonicalizedComponentFunctionPath,
         http_request: HttpActionRequestHead,
     ) -> anyhow::Result<Option<HttpActionRoute>> {
         let lookup_str = strings::lookup.create(scope)?.into();
@@ -751,7 +757,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let lookup: v8::Local<v8::Function> = router
             .get(scope, lookup_str)
-            .ok_or_else(|| anyhow!("Couldn't find lookup method of router in {router_path:?}"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Couldn't find lookup method of router in {:?}",
+                    router_path.udf_path
+                )
+            })?
             .try_into()?;
         let global = scope.get_current_context().global(scope);
         let r = scope
@@ -787,8 +798,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
     async fn get_router<'a, 'b: 'a>(
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
-        router_path: CanonicalizedUdfPath,
+        router_path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<Result<v8::Local<'a, v8::Object>, JsError>> {
+        let router_path = router_path.into_root_udf_path()?;
+
         // Except in tests, `http.js` will always be the udf_path.
         // We'll never hit these as long as this HTTP path only runs for
         // `convex/http.js`.

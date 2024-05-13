@@ -5,6 +5,10 @@ use std::{
 };
 
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     document::ParsedDocument,
     query::{
         IndexRange,
@@ -41,7 +45,6 @@ use model::{
 };
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
-use sync_types::UdfPath;
 
 use crate::{
     test_helpers::{
@@ -67,10 +70,13 @@ async fn create_cron_job(
         "key".to_string(),
         serde_json::Value::String("value".to_string()),
     );
-    let udf_path = UdfPath::from_str("basic:insertObject").unwrap();
+    let path = ComponentFunctionPath {
+        component: ComponentId::Root,
+        udf_path: "basic:insertObject".parse()?,
+    };
     let cron_spec = CronSpec {
-        udf_path: udf_path.clone().canonicalize(),
-        udf_args: parse_udf_args(&udf_path, vec![JsonValue::Object(map)])?,
+        udf_path: path.as_root_udf_path()?.clone().canonicalize(),
+        udf_args: parse_udf_args(&path, vec![JsonValue::Object(map)])?,
         cron_schedule: CronSchedule::Interval { seconds: 60 },
     };
     let original_jobs = cron_model.list().await?;

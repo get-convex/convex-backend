@@ -1,10 +1,16 @@
 #![allow(non_snake_case)]
 
 use anyhow::Context;
-use common::runtime::{
-    Runtime,
-    RuntimeInstant,
-    UnixTimestamp,
+use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
+    runtime::{
+        Runtime,
+        RuntimeInstant,
+        UnixTimestamp,
+    },
 };
 use errors::{
     ErrorMetadata,
@@ -86,12 +92,15 @@ impl<RT: Runtime> TaskExecutor<RT> {
             let udf_path = name.parse()?;
             Ok((udf_path, args))
         })?;
-
+        let path = ComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path,
+        };
         let value = self
             .action_callbacks
             .execute_query(
                 self.identity.clone(),
-                udf_path,
+                path,
                 args.into_arg_vec(),
                 self.context.clone(),
             )
@@ -116,12 +125,15 @@ impl<RT: Runtime> TaskExecutor<RT> {
             let udf_path = name.parse()?;
             Ok((udf_path, args))
         })?;
-
+        let path = ComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path,
+        };
         let value = self
             .action_callbacks
             .execute_mutation(
                 self.identity.clone(),
-                udf_path,
+                path,
                 args.into_arg_vec(),
                 self.context.clone(),
             )
@@ -143,12 +155,16 @@ impl<RT: Runtime> TaskExecutor<RT> {
             let udf_path = name.parse()?;
             Ok((udf_path, args))
         })?;
+        let path = ComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path,
+        };
 
         let value = self
             .action_callbacks
             .execute_action(
                 self.identity.clone(),
-                udf_path,
+                path,
                 args.into_arg_vec(),
                 self.context.clone(),
             )
@@ -170,13 +186,17 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let ScheduleArgs { name, ts, args }: ScheduleArgs =
             with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
         let udf_path = with_argument_error("scheduler", || name.parse().context(ArgName("name")))?;
+        let path = ComponentFunctionPath {
+            component: ComponentId::Root,
+            udf_path,
+        };
 
         let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
         let virtual_id = self
             .action_callbacks
             .schedule_job(
                 self.identity.clone(),
-                udf_path,
+                path,
                 args.into_arg_vec(),
                 scheduled_ts,
                 self.context.clone(),

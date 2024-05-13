@@ -2,6 +2,10 @@ use std::collections::BTreeMap;
 
 use anyhow::Context;
 use common::{
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
     runtime::Runtime,
     types::ModuleEnvironment,
 };
@@ -14,7 +18,6 @@ use model::{
 };
 use node_executor::source_package::download_package;
 use runtime::prod::ProdRuntime;
-use sync_types::CanonicalizedModulePath;
 
 use crate::{
     test_helpers::ApplicationTestExt,
@@ -27,15 +30,18 @@ const SOURCE_MAP: &str = "{}";
 async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
 
-    let path: CanonicalizedModulePath = "b.js".parse()?;
+    let path = CanonicalizedComponentModulePath {
+        component: ComponentId::Root,
+        module_path: "b.js".parse()?,
+    };
     let config = ModuleConfig {
-        path: path.clone().into(),
+        path: path.as_root_module_path()?.clone().into(),
         source: NODE_SOURCE.to_owned(),
         source_map: Some(SOURCE_MAP.to_owned()),
         environment: ModuleEnvironment::Node,
     };
     let mut modules = BTreeMap::new();
-    modules.insert("b.js".parse()?, Some(config));
+    modules.insert(path.clone(), Some(config));
     let mut tx = application.begin(Identity::system()).await?;
     let package = assemble_package(&mut tx, modules).await?;
 
@@ -52,9 +58,12 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
         download_package(application.modules_storage().clone(), storage_key, sha256).await?;
 
     assert_eq!(result.len(), 1);
-    assert_eq!(&result[&path].source, NODE_SOURCE);
+    assert_eq!(&result[path.as_root_module_path()?].source, NODE_SOURCE);
     assert_eq!(
-        result[&path].source_map.as_ref().map(|s| &s[..]),
+        result[&path.as_root_module_path()?]
+            .source_map
+            .as_ref()
+            .map(|s| &s[..]),
         Some(SOURCE_MAP)
     );
 
@@ -63,7 +72,7 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
 
 pub async fn assemble_package<RT: Runtime>(
     tx: &mut Transaction<RT>,
-    modifications: BTreeMap<CanonicalizedModulePath, Option<ModuleConfig>>,
+    modifications: BTreeMap<CanonicalizedComponentModulePath, Option<ModuleConfig>>,
 ) -> anyhow::Result<Vec<ModuleConfig>> {
     let existing_modules = ModuleModel::new(tx).get_application_modules().await?;
     let mut modules = BTreeMap::new();

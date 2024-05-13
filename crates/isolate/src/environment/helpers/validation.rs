@@ -1,5 +1,10 @@
 use anyhow::Context;
 use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentFunctionPath,
+        ComponentId,
+    },
     errors::JsError,
     knobs::FUNCTION_MAX_ARGS_SIZE,
     runtime::{
@@ -43,10 +48,6 @@ use proptest::arbitrary::Arbitrary;
 #[cfg(any(test, feature = "testing"))]
 use proptest::strategy::Strategy;
 use serde_json::Value as JsonValue;
-use sync_types::{
-    CanonicalizedUdfPath,
-    UdfPath,
-};
 use value::{
     ConvexArray,
     ConvexValue,
@@ -55,12 +56,12 @@ use value::{
 
 use crate::parse_udf_args;
 pub async fn validate_schedule_args<RT: Runtime>(
-    udf_path: UdfPath,
+    path: ComponentFunctionPath,
     udf_args: Vec<JsonValue>,
     scheduled_ts: UnixTimestamp,
     udf_ts: UnixTimestamp,
     tx: &mut Transaction<RT>,
-) -> anyhow::Result<(UdfPath, ConvexArray)> {
+) -> anyhow::Result<(ComponentFunctionPath, ConvexArray)> {
     // We validate the following mostly so the developer don't get the timestamp
     // wrong with more than order of magnitude.
     let delta = scheduled_ts.as_secs_f64() - udf_ts.as_secs_f64();
@@ -78,18 +79,18 @@ pub async fn validate_schedule_args<RT: Runtime>(
     }
 
     // We do serialize the arguments, so this is likely our fault.
-    let udf_args = parse_udf_args(&udf_path, udf_args)?;
+    let udf_args = parse_udf_args(&path, udf_args)?;
 
     // Even though we might use different version of modules when executing,
     // we do validate that the scheduled function exists at time of scheduling.
     // We do it here instead of within transaction in order to leverage the module
     // cache.
-    let canonicalized = udf_path.clone().canonicalize();
+    let canonicalized = path.clone().canonicalize();
     let module = ModuleModel::new(tx)
-        .get_metadata(canonicalized.module().clone())
+        .get_metadata(canonicalized.module())
         .await?
         .with_context(|| {
-            let p = String::from(udf_path.module().clone());
+            let p = String::from(path.udf_path.module().clone());
             ErrorMetadata::bad_request(
                 "InvalidScheduledFunction",
                 format!("Attempted to schedule function at nonexistent path: {p}",),
@@ -100,7 +101,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
     // that scheduling was added after we started persisting the result
     // of analyze, we should always validate in practice. We will tighten
     // the interface and make AnalyzedResult non-optional in the future.
-    let function_name = canonicalized.function_name();
+    let function_name = canonicalized.udf_path.function_name();
     if let Some(analyze_result) = &module.analyze_result {
         let found = analyze_result
             .functions
@@ -112,26 +113,26 @@ pub async fn validate_schedule_args<RT: Runtime>(
                 format!(
                     "Attempted to schedule function, but no exported function {} found in the \
                      file: {}. Did you forget to export it?",
-                    udf_path.clone().canonicalize().function_name(),
-                    String::from(udf_path.module().clone())
+                    function_name,
+                    String::from(path.as_root_udf_path()?.module().clone()),
                 ),
             ));
         }
     }
 
-    Ok((udf_path, udf_args))
+    Ok((path, udf_args))
 }
 
-fn missing_or_internal_error(udf_path: &CanonicalizedUdfPath) -> String {
-    format!(
+fn missing_or_internal_error(path: &CanonicalizedComponentFunctionPath) -> anyhow::Result<String> {
+    Ok(format!(
         "Could not find public function for '{}'. Did you forget to run `npx convex dev` or `npx \
          convex deploy`?",
-        String::from(udf_path.clone().strip())
-    )
+        String::from(path.as_root_udf_path()?.clone().strip())
+    ))
 }
 
 async fn udf_version<RT: Runtime>(
-    udf_path: &CanonicalizedUdfPath,
+    path: &CanonicalizedComponentFunctionPath,
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<Result<Version, JsError>> {
     let udf_config = UdfConfigModel::new(tx).get().await?;
@@ -143,16 +144,14 @@ async fn udf_version<RT: Runtime>(
         _ => {
             if udf_config.is_none()
                 && ModuleModel::new(tx)
-                    .get_analyzed_function(udf_path)
+                    .get_analyzed_function(path)
                     .await?
                     .is_err()
             {
                 // We don't have a UDF config and we can't find the analyzed function.
                 // Likely this developer has never pushed before, so give them
                 // the missing error message.
-                return Ok(Err(JsError::from_message(missing_or_internal_error(
-                    udf_path,
-                ))));
+                return Ok(Err(JsError::from_message(missing_or_internal_error(path)?)));
             }
 
             let unsupported = format!(
@@ -178,9 +177,10 @@ async fn udf_version<RT: Runtime>(
 ///
 /// This should only be constructed via `ValidatedUdfPath::new` to use the type
 /// system to enforce that validation is never skipped.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ValidatedUdfPathAndArgs {
-    pub(crate) udf_path: CanonicalizedUdfPath,
+    path: CanonicalizedComponentFunctionPath,
     args: ConvexArray,
     // Not set for system modules.
     npm_version: Option<Version>,
@@ -195,9 +195,9 @@ impl Arbitrary for ValidatedUdfPathAndArgs {
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
 
-        any::<(CanonicalizedUdfPath, ConvexArray)>().prop_map(|(udf_path, args)| {
+        any::<(CanonicalizedComponentFunctionPath, ConvexArray)>().prop_map(|(path, args)| {
             ValidatedUdfPathAndArgs {
-                udf_path,
+                path,
                 args,
                 npm_version: None,
             }
@@ -215,16 +215,21 @@ impl ValidatedUdfPathAndArgs {
     pub async fn new<RT: Runtime>(
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         expected_udf_type: UdfType,
     ) -> anyhow::Result<Result<ValidatedUdfPathAndArgs, JsError>> {
-        if udf_path.is_system() {
+        if path.udf_path.is_system() {
+            anyhow::ensure!(
+                path.component.is_root(),
+                "System module inside non-root component?"
+            );
+
             // We don't analyze system modules, so we don't validate anything
             // except the identity for them.
             let result = if tx.identity().is_admin() || tx.identity().is_system() {
                 Ok(ValidatedUdfPathAndArgs {
-                    udf_path,
+                    path,
                     args,
                     npm_version: None,
                 })
@@ -250,19 +255,16 @@ impl ValidatedUdfPathAndArgs {
             },
         }
 
-        let udf_version = match udf_version(&udf_path, tx).await? {
+        let udf_version = match udf_version(&path, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };
 
         // AnalyzeResult result should be populated for all supported versions.
-        let Ok(analyzed_function) = ModuleModel::new(tx)
-            .get_analyzed_function(&udf_path)
-            .await?
-        else {
+        let Ok(analyzed_function) = ModuleModel::new(tx).get_analyzed_function(&path).await? else {
             return Ok(Err(JsError::from_message(missing_or_internal_error(
-                &udf_path,
-            ))));
+                &path,
+            )?)));
         };
 
         let identity = tx.identity();
@@ -275,26 +277,32 @@ impl ValidatedUdfPathAndArgs {
                     Some(Visibility::Public) => (),
                     Some(Visibility::Internal) => {
                         return Ok(Err(JsError::from_message(missing_or_internal_error(
-                            &udf_path,
-                        ))));
+                            &path,
+                        )?)));
                     },
                     None => {
-                        anyhow::bail!("No visibility found for analyzed function {}", udf_path);
+                        anyhow::bail!(
+                            "No visibility found for analyzed function {}",
+                            path.as_root_udf_path()?
+                        );
                     },
                 },
             },
         };
         if expected_udf_type != analyzed_function.udf_type {
+            anyhow::ensure!(path.component.is_root());
             return Ok(Err(JsError::from_message(format!(
                 "Trying to execute {} as {}, but it is defined as {}.",
-                udf_path, expected_udf_type, analyzed_function.udf_type
+                path.as_root_udf_path()?,
+                expected_udf_type,
+                analyzed_function.udf_type
             ))));
         }
 
         if args.size() > *FUNCTION_MAX_ARGS_SIZE {
             return Ok(Err(JsError::from_message(format!(
                 "Arguments for {} are too large (actual: {}, limit: {})",
-                String::from(udf_path.clone()),
+                String::from(path.as_root_udf_path()?.clone()),
                 args.size().format_size(BINARY),
                 (*FUNCTION_MAX_ARGS_SIZE).format_size(BINARY),
             ))));
@@ -314,7 +322,7 @@ impl ValidatedUdfPathAndArgs {
         }
 
         Ok(Ok(ValidatedUdfPathAndArgs {
-            udf_path,
+            path,
             args,
             npm_version: Some(udf_version),
         }))
@@ -322,23 +330,32 @@ impl ValidatedUdfPathAndArgs {
 
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_tests(
-        udf_path: CanonicalizedUdfPath,
+        udf_path: sync_types::CanonicalizedUdfPath,
         args: ConvexArray,
         npm_version: Option<Version>,
     ) -> Self {
         Self {
-            udf_path,
+            path: CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             args,
             npm_version,
         }
     }
 
-    pub fn udf_path(&self) -> &CanonicalizedUdfPath {
-        &self.udf_path
+    pub fn path(&self) -> &CanonicalizedComponentFunctionPath {
+        &self.path
     }
 
-    pub fn consume(self) -> (CanonicalizedUdfPath, ConvexArray, Option<Version>) {
-        (self.udf_path, self.args, self.npm_version)
+    pub fn consume(
+        self,
+    ) -> (
+        CanonicalizedComponentFunctionPath,
+        ConvexArray,
+        Option<Version>,
+    ) {
+        (self.path, self.args, self.npm_version)
     }
 
     pub fn npm_version(&self) -> &Option<Version> {
@@ -357,9 +374,12 @@ impl ValidatedUdfPathAndArgs {
         let args_value = ConvexValue::try_from(args_json)?;
         let args = ConvexArray::try_from(args_value)?;
         Ok(Self {
-            udf_path: path
-                .ok_or_else(|| anyhow::anyhow!("Missing udf_path"))?
-                .parse()?,
+            path: CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: path
+                    .ok_or_else(|| anyhow::anyhow!("Missing udf_path"))?
+                    .parse()?,
+            },
             args,
             npm_version: npm_version.map(|v| Version::parse(&v)).transpose()?,
         })
@@ -371,15 +391,16 @@ impl TryFrom<ValidatedUdfPathAndArgs> for pb::common::PathAndArgs {
 
     fn try_from(
         ValidatedUdfPathAndArgs {
-            udf_path,
+            path,
             args,
             npm_version,
         }: ValidatedUdfPathAndArgs,
     ) -> anyhow::Result<Self> {
         let args_json = JsonValue::from(args);
         let args = serde_json::to_vec(&args_json)?;
+        anyhow::ensure!(path.component.is_root());
         Ok(Self {
-            path: Some(udf_path.to_string()),
+            path: Some(path.udf_path.to_string()),
             args: Some(args),
             npm_version: npm_version.map(|v| v.to_string()),
         })
@@ -391,7 +412,7 @@ impl TryFrom<ValidatedUdfPathAndArgs> for pb::common::PathAndArgs {
 /// This should only be constructed via `ValidatedHttpRoute::try_from` to use
 /// the type system to enforce that validation is never skipped.
 pub struct ValidatedHttpPath {
-    udf_path: CanonicalizedUdfPath,
+    path: CanonicalizedComponentFunctionPath,
     npm_version: Option<Version>,
 }
 
@@ -399,7 +420,7 @@ impl ValidatedHttpPath {
     #[cfg(any(test, feature = "testing"))]
     pub async fn new_for_tests<RT: Runtime>(
         tx: &mut Transaction<RT>,
-        udf_path: CanonicalizedUdfPath,
+        udf_path: sync_types::CanonicalizedUdfPath,
         npm_version: Option<Version>,
     ) -> anyhow::Result<Self> {
         if !udf_path.is_system() {
@@ -408,31 +429,35 @@ impl ValidatedHttpPath {
                 .await?;
         }
         Ok(Self {
-            udf_path,
+            path: CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             npm_version,
         })
     }
 
     pub async fn new<RT: Runtime>(
         tx: &mut Transaction<RT>,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<Result<Self, JsError>> {
         // This is not a developer error on purpose.
         anyhow::ensure!(
-            udf_path.module().as_str() == "http.js",
-            format!("Unexpected http udf path: {}", udf_path)
+            path.udf_path.module().as_str() == "http.js",
+            "Unexpected http udf path: {:?}",
+            path.udf_path,
         );
-        if !udf_path.is_system() {
+        if !path.udf_path.is_system() {
             BackendStateModel::new(tx)
                 .fail_while_paused_or_disabled()
                 .await?;
         }
-        let udf_version = match udf_version(&udf_path, tx).await? {
+        let udf_version = match udf_version(&path, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };
         Ok(Ok(ValidatedHttpPath {
-            udf_path,
+            path,
             npm_version: Some(udf_version),
         }))
     }
@@ -441,8 +466,8 @@ impl ValidatedHttpPath {
         &self.npm_version
     }
 
-    pub fn canonicalized_udf_path(&self) -> &CanonicalizedUdfPath {
-        &self.udf_path
+    pub fn path(&self) -> &CanonicalizedComponentFunctionPath {
+        &self.path
     }
 }
 

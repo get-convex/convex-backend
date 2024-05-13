@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use common::{
+    components::CanonicalizedComponentModulePath,
     document::ParsedDocument,
     runtime::Runtime,
 };
@@ -32,7 +33,7 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
     async fn get_module(
         &self,
         tx: &mut Transaction<RT>,
-        path: CanonicalizedModulePath,
+        path: CanonicalizedComponentModulePath,
     ) -> anyhow::Result<Option<Arc<FullModuleSource>>> {
         let module_metadata = match ModuleModel::new(tx).get_metadata(path).await? {
             Some(r) => r,

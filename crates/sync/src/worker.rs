@@ -24,6 +24,10 @@ use application::{
 };
 use cmd_util::env::env_config;
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     minitrace_helpers::get_sampled_span,
     pause::PauseClient,
@@ -449,7 +453,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                         let result = application
                             .mutation_udf(
                                 server_request_id,
-                                udf_path,
+                                ComponentFunctionPath {
+                                    component: ComponentId::Root,
+                                    udf_path,
+                                },
                                 args,
                                 identity,
                                 mutation_identifier,
@@ -511,7 +518,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                     let result = application
                         .action_udf(
                             server_request_id,
-                            udf_path,
+                            ComponentFunctionPath {
+                                component: ComponentId::Root,
+                                udf_path,
+                            },
                             args,
                             identity,
                             FunctionCaller::SyncWorker(client_version),
@@ -662,7 +672,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 // the query so we do not want to re-use the original query request
                                 // id.
                                 RequestId::new(),
-                                query.udf_path,
+                                ComponentFunctionPath {
+                                    component: ComponentId::Root,
+                                    udf_path: query.udf_path,
+                                },
                                 query.args,
                                 identity_,
                                 new_ts,

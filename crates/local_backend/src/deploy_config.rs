@@ -21,6 +21,10 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
     http::{
         extract::Json,
         HttpResponseError,
@@ -66,7 +70,6 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedModulePath;
 use value::ConvexObject;
 
 use crate::{
@@ -302,7 +305,7 @@ pub struct PushAnalytics {
     pub config: ConfigMetadata,
     pub modules: Vec<ModuleConfig>,
     pub udf_server_version: Version,
-    pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+    pub analyze_results: BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
     pub schema: Option<DatabaseSchema>,
 }
 
@@ -487,7 +490,7 @@ async fn analyze_modules_with_auth_config(
     source_package: Option<SourcePackage>,
 ) -> anyhow::Result<(
     Option<ModuleConfig>,
-    BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+    BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
 )> {
     // Don't analyze the auth config module
     let (auth_modules, analyzed_modules): (Vec<_>, Vec<_>) =
@@ -502,7 +505,10 @@ async fn analyze_modules_with_auth_config(
     // Add an empty analyzed result for the auth config module
     if let Some(auth_module) = auth_module {
         analyze_result.insert(
-            auth_module.path.clone().canonicalize(),
+            CanonicalizedComponentModulePath {
+                component: ComponentId::Root,
+                module_path: auth_module.path.clone().canonicalize(),
+            },
             AnalyzedModule::default(),
         );
     }
@@ -515,7 +521,7 @@ pub async fn analyze_modules(
     udf_config: UdfConfig,
     modules: Vec<ModuleConfig>,
     source_package: Option<SourcePackage>,
-) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>> {
+) -> anyhow::Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>> {
     let num_dep_modules = modules.iter().filter(|m| m.path.is_deps()).count();
     anyhow::ensure!(
         modules.len() - num_dep_modules <= MAX_USER_MODULES,

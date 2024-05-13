@@ -10,6 +10,10 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
+    components::{
+        CanonicalizedComponentModulePath,
+        ComponentId,
+    },
     errors::{
         FrameData,
         JsError,
@@ -66,7 +70,6 @@ use serde_json::{
     Value as JsonValue,
 };
 use sync_types::{
-    CanonicalizedModulePath,
     FunctionName,
     UserIdentityAttributes,
 };
@@ -133,7 +136,7 @@ fn construct_js_error(
     error_name: String,
     serialized_custom_data: Option<String>,
     frames: Option<Vec<FrameData>>,
-    source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
+    source_maps: &BTreeMap<CanonicalizedComponentModulePath, SourceMap>,
 ) -> anyhow::Result<JsError> {
     // Only format the error message if we have frames,
     // as errors without frames come from outside the
@@ -159,7 +162,10 @@ fn construct_js_error(
                 let Some(path) = specifier.path().strip_prefix("/user/") else {
                     return Ok(None);
                 };
-                let module_path: CanonicalizedModulePath = path.parse()?;
+                let module_path = CanonicalizedComponentModulePath {
+                    component: ComponentId::Root,
+                    module_path: path.parse()?,
+                };
                 let Some(source_map) = source_maps.get(&module_path) else {
                     return Ok(None);
                 };
@@ -197,10 +203,10 @@ impl Actions {
     pub async fn execute(
         &self,
         request: ExecuteRequest,
-        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
+        source_maps: &BTreeMap<CanonicalizedComponentModulePath, SourceMap>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     ) -> anyhow::Result<NodeActionOutcome> {
-        let path = request.path_and_args.udf_path().clone();
+        let path = request.path_and_args.path().clone();
         let timer = node_executor("execute");
         let request = ExecutorRequest::Execute {
             request,
@@ -341,8 +347,9 @@ impl Actions {
     pub async fn analyze(
         &self,
         request: AnalyzeRequest,
-        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
+        source_maps: &BTreeMap<CanonicalizedComponentModulePath, SourceMap>,
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
+    {
         let timer = node_executor("analyze");
 
         let (log_line_sender, _log_line_receiver) = mpsc::unbounded();
@@ -375,7 +382,10 @@ impl Actions {
         };
         let mut result = BTreeMap::new();
         for (path, node_functions) in modules {
-            let path: CanonicalizedModulePath = path.parse()?;
+            let path = CanonicalizedComponentModulePath {
+                component: ComponentId::Root,
+                module_path: path.parse()?,
+            };
             // We have no concept of the origin of a Function in the Node environment, so
             // this logic just assumes the line number of the Function belongs to the
             // current module.
@@ -390,7 +400,9 @@ impl Actions {
             if let Some(buf) = source_maps.get(&path) {
                 let candidate_source_map = sourcemap::SourceMap::from_slice(buf.as_bytes())?;
                 for (i, filename) in candidate_source_map.sources().enumerate() {
-                    if Path::new(filename).file_stem() != Path::new(path.as_str()).file_stem() {
+                    let filename = Path::new(filename);
+                    let module_path = Path::new(path.module_path.as_str());
+                    if filename.file_stem() != module_path.file_stem() {
                         continue;
                     }
                     if candidate_source_map.get_source_contents(i as u32).is_some() {
@@ -409,7 +421,7 @@ impl Actions {
                     return Ok(Err(JsError::from_message(format!(
                         "{} defined in {:?} is a {} function. Only \
                          actions can be defined in Node.js. See https://docs.convex.dev/functions/actions for more details.",
-                        f.name, path, udf_type,
+                        f.name, path.as_root_module_path()?, udf_type,
                     ))));
                 }
                 let args = match f.args.clone() {
@@ -430,7 +442,7 @@ impl Actions {
                     source_map.as_ref().map(|map| map.lookup_token(f.lineno, 0))
                 {
                     Some(AnalyzedSourcePosition {
-                        path: path.clone(),
+                        path: path.module_path.clone(),
                         start_lineno: token.get_src_line(),
                         start_col: token.get_src_col(),
                     })
@@ -507,7 +519,8 @@ impl TryFrom<ExecutorRequest> for JsonValue {
                         .map(JsonValue::from)
                     })
                     .collect::<anyhow::Result<_>>()?;
-                let (udf_path, args, npm_version) = r.path_and_args.consume();
+                let (path, args, npm_version) = r.path_and_args.consume();
+                let udf_path = path.into_root_udf_path()?;
 
                 json!({
                     "type": "execute",
@@ -609,7 +622,7 @@ impl From<Package> for JsonValue {
     }
 }
 
-#[derive(Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ExecuteRequest {
     // Note that the lambda executor expects arguments as string, which
     // then directly passes to invokeAction()

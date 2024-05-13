@@ -14,6 +14,12 @@ use async_trait::async_trait;
 use authentication::token_to_authorization_header;
 use common::{
     backoff::Backoff,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        CanonicalizedComponentModulePath,
+        ComponentFunctionPath,
+        ComponentId,
+    },
     errors::JsError,
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
@@ -163,11 +169,6 @@ use node_executor::{
 };
 use serde_json::Value as JsonValue;
 use storage::Storage;
-use sync_types::{
-    CanonicalizedModulePath,
-    CanonicalizedUdfPath,
-    UdfPath,
-};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -657,7 +658,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         request_id: RequestId,
         mut tx: Transaction<RT>,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         caller: FunctionCaller,
     ) -> anyhow::Result<UdfOutcome> {
@@ -670,7 +671,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let validate_result = ValidatedUdfPathAndArgs::new(
             caller.allowed_visibility(),
             &mut tx,
-            udf_path.clone(),
+            path.clone(),
             arguments.clone(),
             UdfType::Query,
         )
@@ -691,12 +692,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(js_err) => {
                 let query_outcome = UdfOutcome::from_error(
                     js_err,
-                    udf_path.clone(),
+                    path.clone(),
                     arguments.clone(),
                     identity.clone(),
                     self.runtime.clone(),
                     None,
-                );
+                )?;
                 (tx, FunctionOutcome::Query(query_outcome))
             },
         };
@@ -724,7 +725,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn retry_mutation(
         &self,
         request_id: RequestId,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
@@ -736,7 +737,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let result = self
             ._retry_mutation(
                 request_id,
-                udf_path,
+                path,
                 arguments,
                 identity,
                 mutation_identifier,
@@ -757,7 +758,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn _retry_mutation(
         &self,
         request_id: RequestId,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
@@ -765,10 +766,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mut pause_client: PauseClient,
         block_logging: bool,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
-        if udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
+        if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
-        let arguments = match parse_udf_args(&udf_path, arguments) {
+        let arguments = match parse_udf_args(&path, arguments) {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(MutationError {
@@ -777,8 +778,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 }))
             },
         };
-        let udf_path = udf_path.canonicalize();
-        let udf_path_string = (!udf_path.is_system()).then_some(udf_path.to_string());
+        let path = path.canonicalize();
+        let udf_path_string = (!path.udf_path.is_system()).then_some(path.udf_path.to_string());
 
         let mut backoff = Backoff::new(
             *UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
@@ -810,7 +811,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let result: Result<(Transaction<RT>, UdfOutcome), anyhow::Error> = self
                 .run_mutation_no_udf_log(
                     tx,
-                    udf_path.clone(),
+                    path.clone(),
                     arguments.clone(),
                     caller.allowed_visibility(),
                     context.clone(),
@@ -821,13 +822,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 Err(e) => {
                     self.function_log.log_mutation_system_error(
                         &e,
-                        udf_path,
+                        path,
                         arguments,
                         identity,
                         start,
                         caller,
                         context.clone(),
-                    );
+                    )?;
                     return Err(e);
                 },
             };
@@ -900,7 +901,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             let sleep = self.runtime.with_rng(|rng| backoff.fail(rng));
                             tracing::warn!(
                                 "Optimistic concurrency control failed ({e}), retrying \
-                                 {udf_path:?} after {sleep:?}",
+                                 {udf_path_string:?} after {sleep:?}",
                             );
                             self.runtime.wait(sleep).await;
                             continue;
@@ -940,13 +941,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_mutation_no_udf_log(
         &self,
         tx: Transaction<RT>,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
         let result = self
-            .run_mutation_inner(tx, udf_path, arguments, allowed_visibility, context)
+            .run_mutation_inner(tx, path, arguments, allowed_visibility, context)
             .await;
         match result.as_ref() {
             Ok((_, udf_outcome)) => {
@@ -972,19 +973,19 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn run_mutation_inner(
         &self,
         mut tx: Transaction<RT>,
-        udf_path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
-        if udf_path.is_system() && !(tx.identity().is_admin() || tx.identity().is_system()) {
+        if path.udf_path.is_system() && !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
         let identity = tx.inert_identity();
         let validate_result = ValidatedUdfPathAndArgs::new(
             allowed_visibility,
             &mut tx,
-            udf_path.clone(),
+            path.clone(),
             arguments.clone(),
             UdfType::Mutation,
         )
@@ -1004,12 +1005,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(js_err) => {
                 let mutation_outcome = UdfOutcome::from_error(
                     js_err,
-                    udf_path.clone(),
+                    path.clone(),
                     arguments.clone(),
                     identity.clone(),
                     self.runtime.clone(),
                     None,
-                );
+                )?;
                 (tx, FunctionOutcome::Mutation(mutation_outcome))
             },
         };
@@ -1024,16 +1025,16 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_action(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
         block_logging: bool,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
-        if name.is_system() && !(identity.is_admin() || identity.is_system()) {
+        if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
         }
-        let arguments = match parse_udf_args(&name, arguments) {
+        let arguments = match parse_udf_args(&path, arguments) {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(ActionError {
@@ -1043,12 +1044,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             },
         };
         let context = ExecutionContext::new(request_id.clone(), &caller);
-        let name = name.canonicalize();
+        let canonicalized_path = path.canonicalize();
         let usage_tracking = FunctionUsageTracker::new();
         let start = self.runtime.monotonic_now();
         let completion_result = self
             .run_action_no_udf_log(
-                name.clone(),
+                canonicalized_path.clone(),
                 arguments.clone(),
                 identity.clone(),
                 caller.clone(),
@@ -1061,14 +1062,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) => {
                 self.function_log.log_action_system_error(
                     &e,
-                    name,
+                    canonicalized_path,
                     arguments,
                     identity.into(),
                     start,
                     caller,
                     vec![].into(),
                     context,
-                );
+                )?;
                 anyhow::bail!(e)
             },
         };
@@ -1097,7 +1098,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[minitrace::trace]
     pub async fn run_action_no_udf_log(
         &self,
-        name: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: Identity,
         caller: FunctionCaller,
@@ -1105,7 +1106,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         context: ExecutionContext,
     ) -> anyhow::Result<ActionCompletion> {
         let result = self
-            .run_action_inner(name, arguments, identity, caller, usage_tracking, context)
+            .run_action_inner(path, arguments, identity, caller, usage_tracking, context)
             .await;
         match result.as_ref() {
             Ok(completion) => {
@@ -1130,14 +1131,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[minitrace::trace]
     async fn run_action_inner(
         &self,
-        name: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: Identity,
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
         context: ExecutionContext,
     ) -> anyhow::Result<ActionCompletion> {
-        if name.is_system() && !(identity.is_admin() || identity.is_system()) {
+        if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
         }
         let unix_timestamp = self.runtime.unix_timestamp();
@@ -1149,7 +1150,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let validate_result = ValidatedUdfPathAndArgs::new(
             caller.allowed_visibility(),
             &mut tx,
-            name.clone(),
+            path.clone(),
             arguments.clone(),
             UdfType::Action,
         )
@@ -1160,12 +1161,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 return Ok(ActionCompletion {
                     outcome: ActionOutcome::from_error(
                         js_error,
-                        name,
+                        path,
                         arguments,
                         identity.into(),
                         self.runtime.clone(),
                         None,
-                    ),
+                    )?,
                     environment: ModuleEnvironment::Invalid,
                     memory_in_mb: 0,
                     execution_time: Duration::from_secs(0),
@@ -1180,7 +1181,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // We should not be missing the module given we validated the path above
         // which requires the module to exist.
         let module = ModuleModel::new(&mut tx)
-            .get_metadata(name.module().clone())
+            .get_metadata(path.module())
             .await?
             .context("Missing a valid module")?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
@@ -1200,7 +1201,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     log_line_receiver,
                     |log_line| {
                         self.function_log.log_action_progress(
-                            name.clone(),
+                            path.clone(),
                             unix_timestamp,
                             context.clone(),
                             vec![log_line].into(),
@@ -1229,7 +1230,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 // which requires the module to exist.
                 let module_version = self
                     .module_cache
-                    .get_module(&mut tx, name.module().clone())
+                    .get_module(&mut tx, path.module())
                     .await?
                     .context("Missing a valid module_version")?;
                 let _request_guard = self
@@ -1238,7 +1239,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     .await?;
                 let mut source_maps = BTreeMap::new();
                 if let Some(source_map) = module_version.source_map.clone() {
-                    source_maps.insert(name.module().clone(), source_map);
+                    source_maps.insert(path.module().clone(), source_map);
                 }
 
                 let source_package_id = module.source_package_id.ok_or_else(|| {
@@ -1312,7 +1313,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     log_line_receiver,
                     |log_line| {
                         self.function_log.log_action_progress(
-                            name.clone(),
+                            path.clone(),
                             unix_timestamp,
                             context.clone(),
                             vec![log_line].into(),
@@ -1322,9 +1323,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 )
                 .await;
                 timer.finish();
+                let udf_path = path.as_root_udf_path()?.clone();
                 node_outcome_result.map(|node_outcome| {
                     let outcome = ActionOutcome {
-                        udf_path: name.clone(),
+                        udf_path,
                         arguments: arguments.clone(),
                         identity: tx.inert_identity(),
                         unix_timestamp,
@@ -1353,12 +1355,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) if e.is_deterministic_user_error() => {
                 let outcome = ActionOutcome::from_error(
                     JsError::from_error(e),
-                    name,
+                    path,
                     arguments,
                     inert_identity,
                     self.runtime.clone(),
                     udf_server_version,
-                );
+                )?;
                 Ok(ActionCompletion {
                     outcome,
                     execution_time: start.elapsed(),
@@ -1385,7 +1387,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_http_action(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         http_request: HttpActionRequest,
         mut response_streamer: HttpActionResponseStreamer,
         identity: Identity,
@@ -1415,7 +1417,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             return Ok(isolate::HttpActionResult::Streamed);
         }
         let validated_path =
-            match ValidatedHttpPath::new(&mut tx, name.canonicalize().clone()).await? {
+            match ValidatedHttpPath::new(&mut tx, path.canonicalize().clone()).await? {
                 Ok(validated_path) => validated_path,
                 Err(e) => return Ok(isolate::HttpActionResult::Error(e)),
             };
@@ -1613,7 +1615,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
         source_package: Option<SourcePackage>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
+    {
         // We use the latest environment variables at the time of the deployment
         // this is not transactional with the rest of the deploy.
         let mut tx = self.database.begin(Identity::system()).await?;
@@ -1623,7 +1626,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let (node_modules, isolate_modules) = new_modules
             .into_iter()
-            .map(|module| (module.path.clone().canonicalize(), module))
+            .map(|module| {
+                let path = CanonicalizedComponentModulePath {
+                    component: ComponentId::Root,
+                    module_path: module.path.clone().canonicalize(),
+                };
+                (path, module)
+            })
             .partition(|(_, config)| config.environment == ModuleEnvironment::Node);
 
         let mut result = BTreeMap::new();
@@ -1638,19 +1647,24 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         if !node_modules.is_empty() {
             for path_str in ["schema.js", "crons.js", "http.js"] {
-                let path: CanonicalizedModulePath = path_str
-                    .parse()
-                    .expect("Failed to parse static module names");
+                let path = CanonicalizedComponentModulePath {
+                    component: ComponentId::Root,
+                    module_path: path_str
+                        .parse()
+                        .expect("Failed to parse static module names"),
+                };
                 // The cli should not do this. Log as system error.
                 anyhow::ensure!(
                     !node_modules.contains_key(&path),
                     "{path_str} can't be analyzed in Node.js!"
                 );
             }
-            let source_maps = node_modules
-                .into_iter()
-                .filter_map(|(path, module)| module.source_map.map(move |m| (path, m)))
-                .collect();
+            let mut source_maps = BTreeMap::new();
+            for (path, module) in node_modules.iter() {
+                if let Some(source_map) = module.source_map.clone() {
+                    source_maps.insert(path.clone(), source_map);
+                }
+            }
             let source_package = source_package.ok_or_else(|| {
                 anyhow::anyhow!("Source package is required to analyze action modules")
             })?;
@@ -1713,7 +1727,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[minitrace::trace]
     async fn validate_cron_jobs(
         &self,
-        modules: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+        modules: &BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
     ) -> anyhow::Result<Result<(), JsError>> {
         // Validate that every cron job schedules an action or mutation.
         for module in modules.values() {
@@ -1721,7 +1735,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 continue;
             };
             for (identifier, cron_spec) in crons {
-                let Some(scheduled_module) = modules.get(cron_spec.udf_path.module()) else {
+                let path = CanonicalizedComponentModulePath {
+                    component: ComponentId::Root,
+                    module_path: cron_spec.udf_path.module().clone(),
+                };
+                let Some(scheduled_module) = modules.get(&path) else {
                     return Ok(Err(JsError::from_message(format!(
                         "The cron job '{identifier}' schedules a function that does not exist: {}",
                         cron_spec.udf_path
@@ -1791,7 +1809,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_query_at_ts(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
@@ -1802,7 +1820,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let result = self
             .run_query_at_ts_inner(
                 request_id,
-                name,
+                path,
                 args,
                 identity,
                 ts,
@@ -1834,7 +1852,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn run_query_at_ts_inner(
         &self,
         request_id: RequestId,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
@@ -1842,10 +1860,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         caller: FunctionCaller,
         block_logging: bool,
     ) -> anyhow::Result<QueryReturn> {
-        if name.is_system() && !(identity.is_admin() || identity.is_system()) {
+        if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
         }
-        let args = match parse_udf_args(&name, args) {
+        let args = match parse_udf_args(&path, args) {
             Ok(arguments) => arguments,
             Err(js_error) => {
                 return Ok(QueryReturn {
@@ -1861,13 +1879,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 });
             },
         };
-        let canonicalized_name = name.canonicalize();
+        let canonicalized = path.canonicalize();
         let usage_tracker = FunctionUsageTracker::new();
         let result = self
             .cache_manager
             .get(
                 request_id,
-                canonicalized_name,
+                canonicalized,
                 args,
                 identity.clone(),
                 ts,
@@ -1943,7 +1961,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn execute_query(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -1953,7 +1971,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let result = self
             .run_query_at_ts(
                 context.request_id,
-                name,
+                path,
                 args,
                 identity,
                 *ts,
@@ -1972,7 +1990,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn execute_mutation(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -1981,7 +1999,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let result = self
             .retry_mutation(
                 context.request_id,
-                name,
+                path,
                 args,
                 identity,
                 None,
@@ -2003,7 +2021,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn execute_action(
         &self,
         identity: Identity,
-        name: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -2013,7 +2031,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let result = self
             .run_action(
                 context.request_id,
-                name,
+                path,
                 args,
                 identity,
                 FunctionCaller::Action {
@@ -2078,14 +2096,14 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn schedule_job(
         &self,
         identity: Identity,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let mut tx = self.database.begin(identity).await?;
-        let (udf_path, udf_args) = validate_schedule_args(
-            udf_path,
+        let (path, udf_args) = validate_schedule_args(
+            path,
             udf_args,
             scheduled_ts,
             // Scheduling from actions is not transaction and happens at latest
@@ -2096,7 +2114,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         .await?;
 
         let virtual_id = VirtualSchedulerModel::new(&mut tx)
-            .schedule(udf_path, udf_args, scheduled_ts, context)
+            .schedule(path, udf_args, scheduled_ts, context)
             .await?;
         self.database
             .commit_with_write_source(tx, "app_funrun_schedule_job")

@@ -16,6 +16,10 @@ use axum::{
     RequestPartsExt,
 };
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     execution_context::{
         ExecutionContext,
         ExecutionId,
@@ -98,7 +102,10 @@ pub async fn internal_query_post(
         .application
         .read_only_udf(
             context.request_id,
-            udf_path,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::Action {
@@ -140,7 +147,10 @@ pub async fn internal_mutation_post(
         .application
         .mutation_udf(
             context.request_id,
-            udf_path,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             req.args.into_arg_vec(),
             identity,
             None,
@@ -187,7 +197,10 @@ pub async fn internal_action_post(
         .application
         .action_udf(
             context.request_id,
-            udf_path,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::Action {
@@ -244,7 +257,16 @@ pub async fn schedule_job(
     let job_id = st
         .application
         .runner()
-        .schedule_job(identity, udf_path, udf_args, scheduled_ts, context)
+        .schedule_job(
+            identity,
+            ComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path,
+            },
+            udf_args,
+            scheduled_ts,
+            context,
+        )
         .await?;
     Ok(Json(ScheduleJobResponse {
         job_id: job_id.to_string(),
