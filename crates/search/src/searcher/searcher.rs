@@ -88,8 +88,8 @@ use crate::{
         MAX_UNIQUE_QUERY_TERMS,
     },
     convex_query::{
+        AliveDocuments,
         ConvexSearchQuery,
-        DeletedDocuments,
         OrTerm,
     },
     disk_index::index_reader_for_directory,
@@ -783,7 +783,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
             };
             memory_deleted.insert(doc_id);
         }
-        let deleted_documents = DeletedDocuments {
+        let deleted_documents = AliveDocuments {
             memory_deleted,
             segment_alive_bitset: deletion_tracker.alive_bitset().clone(),
         };

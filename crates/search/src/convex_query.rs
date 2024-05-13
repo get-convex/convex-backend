@@ -7,6 +7,7 @@ use tantivy::{
     fastfield::AliveBitSet,
     query::{
         intersect_scorers,
+        BitSetDocSet,
         BooleanQuery,
         BoostQuery,
         EmptyScorer,
@@ -26,6 +27,7 @@ use tantivy::{
     Term,
     TERMINATED,
 };
+use tantivy_common::ReadOnlyBitSet;
 
 /// A query for documents that:
 /// 1. Contain at least one of the OR terms.
@@ -37,7 +39,7 @@ use tantivy::{
 pub struct ConvexSearchQuery {
     or_query: BooleanQuery,
     and_queries: Vec<TermQuery>,
-    deleted_documents: DeletedDocuments,
+    alive_documents: AliveDocuments,
 }
 
 impl ConvexSearchQuery {
@@ -45,7 +47,7 @@ impl ConvexSearchQuery {
     pub fn new(
         or_terms: Vec<OrTerm>,
         and_terms: Vec<Term>,
-        deleted_documents: DeletedDocuments,
+        alive_documents: AliveDocuments,
     ) -> Box<dyn Query> {
         let or_queries = or_terms
             .into_iter()
@@ -63,7 +65,7 @@ impl ConvexSearchQuery {
         Box::new(Self {
             or_query,
             and_queries,
-            deleted_documents,
+            alive_documents,
         })
     }
 }
@@ -89,7 +91,7 @@ impl Query for ConvexSearchQuery {
         Ok(Box::new(ConvexSearchWeight {
             or_weight,
             and_weights,
-            deleted_documents: self.deleted_documents.clone(),
+            alive_documents: self.alive_documents.clone(),
         }))
     }
 
@@ -104,28 +106,20 @@ impl Query for ConvexSearchQuery {
 struct ConvexSearchWeight {
     or_weight: Box<dyn Weight>,
     and_weights: Vec<Box<dyn Weight>>,
-    deleted_documents: DeletedDocuments,
+    alive_documents: AliveDocuments,
 }
 
 impl Weight for ConvexSearchWeight {
     fn scorer(&self, reader: &SegmentReader, boost: Score) -> tantivy::Result<Box<dyn Scorer>> {
-        let and_scorers = self
-            .and_weights
-            .iter()
-            .map(|filter_weight| filter_weight.scorer(reader, boost))
-            .collect::<tantivy::Result<Vec<_>>>()?;
-        let query_scorer = if !and_scorers.is_empty() {
-            intersect_scorers_and_use_one_for_scores(
-                self.or_weight.scorer(reader, boost)?,
-                intersect_scorers(and_scorers),
-            )
-        } else {
-            self.or_weight.scorer(reader, boost)?
-        };
-        Ok(Box::new(ExcludeDeleted::new(
-            query_scorer,
-            self.deleted_documents.clone(),
-        )))
+        let mut and_scorers: Vec<Box<dyn Scorer>> = vec![Box::new(self.alive_documents.scorer())];
+        for filter_weight in &self.and_weights {
+            and_scorers.push(filter_weight.scorer(reader, boost)?);
+        }
+        let query_scorer = intersect_scorers_and_use_one_for_scores(
+            self.or_weight.scorer(reader, boost)?,
+            intersect_scorers(and_scorers),
+        );
+        Ok(Box::new(query_scorer))
     }
 
     fn explain(&self, reader: &SegmentReader, doc: DocId) -> tantivy::Result<Explanation> {
@@ -136,29 +130,18 @@ impl Weight for ConvexSearchWeight {
         }
         Ok(explanation)
     }
-
-    // TODO: Forward call to or_weight for BlockWAND optimization.
-    // fn for_each_pruning(
-    //     &self,
-    //     threshold: Score,
-    //     reader: &SegmentReader,
-    //     callback: &mut dyn FnMut(DocId, Score) -> Score,
-    // ) -> tantivy::Result<()> {
-    //     todo!();
-    // }
 }
 
 #[derive(Clone)]
-pub struct DeletedDocuments {
+pub struct AliveDocuments {
     pub memory_deleted: BTreeSet<DocId>,
     pub segment_alive_bitset: AliveBitSet,
 }
 
-impl fmt::Debug for DeletedDocuments {
+impl fmt::Debug for AliveDocuments {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("DeletedDocuments")
+        f.debug_struct("AliveDocuments")
             .field("memory_deleted", &self.memory_deleted)
-            .field("segment_deleted", &"<bitset>")
             .field(
                 "num_segment_alive",
                 &self.segment_alive_bitset.num_alive_docs(),
@@ -167,87 +150,73 @@ impl fmt::Debug for DeletedDocuments {
     }
 }
 
-impl DeletedDocuments {
-    pub fn contains(&self, doc: DocId) -> bool {
-        self.memory_deleted.contains(&doc) || self.segment_alive_bitset.is_deleted(doc)
-    }
-
-    pub fn approximate_num_alive_docs(&self) -> usize {
-        self.segment_alive_bitset
-            .num_alive_docs()
-            .saturating_sub(self.memory_deleted.len())
+impl AliveDocuments {
+    pub fn scorer(&self) -> AliveDocumentsScorer {
+        AliveDocumentsScorer::new(
+            self.memory_deleted.clone(),
+            self.segment_alive_bitset.bitset().clone().into(),
+        )
     }
 }
 
-pub struct ExcludeDeleted<T: DocSet> {
-    docset: T,
-    deleted_documents: DeletedDocuments,
+pub struct AliveDocumentsScorer {
+    memory_deleted: BTreeSet<DocId>,
+    docs: BitSetDocSet<ReadOnlyBitSet>,
 }
 
-impl<T: DocSet> ExcludeDeleted<T> {
-    pub fn new(docset: T, deleted_documents: DeletedDocuments) -> Self {
-        let mut s = Self {
-            docset,
-            deleted_documents,
-        };
-        while s.docset.doc() != TERMINATED {
-            let target = s.docset.doc();
-            if !s.deleted_documents.contains(target) {
+impl AliveDocumentsScorer {
+    pub fn new(memory_deleted: BTreeSet<DocId>, mut docs: BitSetDocSet<ReadOnlyBitSet>) -> Self {
+        let mut candidate = docs.doc();
+        loop {
+            if candidate == TERMINATED || !memory_deleted.contains(&candidate) {
                 break;
             }
-            s.docset.advance();
+            candidate = docs.advance();
         }
-        s
+        Self {
+            memory_deleted,
+            docs,
+        }
     }
 }
 
-impl<T: DocSet> DocSet for ExcludeDeleted<T> {
+impl DocSet for AliveDocumentsScorer {
     fn advance(&mut self) -> DocId {
         loop {
-            let candidate = self.docset.advance();
+            let candidate = self.docs.advance();
             if candidate == TERMINATED {
                 return TERMINATED;
             }
-            if !self.deleted_documents.contains(candidate) {
+            if !self.memory_deleted.contains(&candidate) {
                 return candidate;
             }
         }
     }
 
     fn seek(&mut self, target: DocId) -> DocId {
-        let candidate = self.docset.seek(target);
-        if candidate == TERMINATED {
-            return TERMINATED;
+        let doc = self.docs.seek(target);
+        if self.memory_deleted.contains(&doc) {
+            self.advance()
+        } else {
+            doc
         }
-        if !self.deleted_documents.contains(candidate) {
-            return candidate;
-        }
-        self.advance()
     }
 
     fn doc(&self) -> DocId {
-        self.docset.doc()
+        self.docs.doc()
     }
 
     fn size_hint(&self) -> u32 {
-        self.deleted_documents.approximate_num_alive_docs() as u32
+        self.docs
+            .size_hint()
+            .saturating_sub(self.memory_deleted.len() as u32)
     }
 }
 
-impl<T: Scorer> Scorer for ExcludeDeleted<T> {
+impl Scorer for AliveDocumentsScorer {
     fn score(&mut self) -> Score {
-        self.docset.score()
+        1.0
     }
-
-    // TODO: Forward call to or_weight for BlockWAND optimization.
-    // fn for_each_pruning(
-    //     &self,
-    //     threshold: Score,
-    //     reader: &SegmentReader,
-    //     callback: &mut dyn FnMut(DocId, Score) -> Score,
-    // ) -> tantivy::Result<()> {
-    //     todo!();
-    // }
 }
 
 /// Intersect two scorers using only one to compute the score.
