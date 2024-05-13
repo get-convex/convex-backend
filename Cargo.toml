@@ -83,8 +83,9 @@ proptest-derive = "0.4.0"
 proptest-http = { git = "https://github.com/sujayakar/proptest-http", rev = "12ef4c4ac2002b050ab0944a9587d83d7ea9fce2" }
 prost = "0.12"
 prost-types = "0.12"
-pyo3 = "0.19.1"
-pyo3-asyncio = { version = "0.19.0", features = [ "tokio-runtime" ] }
+pyo3 = "0.20.3"
+pyo3-asyncio = { version = "0.20.0", features = [ "tokio-runtime" ] }
+pyo3-build-config = { version = "0.20.3", features = [ "resolve-config" ] }
 qdrant_segment = { git = "https://github.com/get-convex/qdrant", rev = "76482c6e62dd37c2bcb30a298e6538678df1bd27", package = "segment" }
 quote = "1.0"
 rand = "0.8"
