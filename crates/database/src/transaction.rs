@@ -698,7 +698,7 @@ impl<RT: Runtime> Transaction<RT> {
                 .await?;
             tracing::info!("Created system table: {table_name}");
         } else {
-            tracing::info!("Skipped creating system table {table_name} since it already exists");
+            tracing::debug!("Skipped creating system table {table_name} since it already exists");
         };
         Ok(is_new)
     }
@@ -727,7 +727,7 @@ impl<RT: Runtime> Transaction<RT> {
                 .await?;
             tracing::info!("Created virtual table: {table_name} with doc_id {table_doc_id}");
         } else {
-            tracing::info!("Skipped creating virtual table {table_name} since it already exists");
+            tracing::debug!("Skipped creating virtual table {table_name} since it already exists");
         };
         Ok(is_new)
     }

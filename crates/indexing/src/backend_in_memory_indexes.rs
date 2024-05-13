@@ -136,7 +136,9 @@ impl BackendInMemoryIndexes {
         snapshot: &PersistenceSnapshot,
         tables: &BTreeSet<TableName>,
     ) -> anyhow::Result<()> {
-        for index_metadata in index_registry.all_enabled_indexes() {
+        let enabled_indexes = index_registry.all_enabled_indexes();
+        tracing::info!("Loading {} enabled indexes", enabled_indexes.len());
+        for index_metadata in enabled_indexes {
             let table_name = table_mapping.tablet_name(*index_metadata.name.table())?;
             if tables.contains(&table_name) {
                 match &index_metadata.config {
@@ -152,14 +154,14 @@ impl BackendInMemoryIndexes {
                         continue;
                     },
                 }
-                tracing::info!(
+                tracing::debug!(
                     "Loading {table_name}.{} ...",
                     index_metadata.name.descriptor()
                 );
                 let (num_keys, total_bytes) = self
                     .load_enabled(index_registry, &index_metadata.name, snapshot)
                     .await?;
-                tracing::info!("Loaded {num_keys} keys, {total_bytes} bytes.");
+                tracing::debug!("Loaded {num_keys} keys, {total_bytes} bytes.");
             }
         }
         Ok(())
