@@ -21,7 +21,6 @@ use pb::{
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedUdfPath;
 use value::ConvexValue;
 
 use super::HttpActionResult;
@@ -34,10 +33,10 @@ use crate::{
     ValidatedPathAndArgs,
 };
 
-#[derive(Debug, Clone)]
-#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
+#[derive(Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(Debug, PartialEq))]
 pub struct ActionOutcome {
-    pub udf_path: CanonicalizedUdfPath,
+    pub path: CanonicalizedComponentFunctionPath,
     pub arguments: ConvexArray,
     pub identity: InertIdentity,
 
@@ -59,16 +58,16 @@ impl ActionOutcome {
         identity: InertIdentity,
         rt: impl Runtime,
         udf_server_version: Option<semver::Version>,
-    ) -> anyhow::Result<Self> {
-        Ok(ActionOutcome {
-            udf_path: path.into_root_udf_path()?,
+    ) -> Self {
+        ActionOutcome {
+            path,
             arguments,
             identity,
             unix_timestamp: rt.unix_timestamp(),
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
-        })
+        }
     }
 
     pub(crate) fn from_proto(
@@ -92,7 +91,7 @@ impl ActionOutcome {
         };
         let (path, arguments, udf_server_version) = path_and_args.consume();
         Ok(Self {
-            udf_path: path.into_root_udf_path()?,
+            path,
             arguments,
             identity,
             unix_timestamp: unix_timestamp
@@ -110,7 +109,7 @@ impl TryFrom<ActionOutcome> for ActionOutcomeProto {
 
     fn try_from(
         ActionOutcome {
-            udf_path: _,
+            path: _,
             arguments: _,
             identity: _,
             unix_timestamp,
@@ -142,7 +141,7 @@ impl Arbitrary for ActionOutcome {
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
         (
-            any::<CanonicalizedUdfPath>(),
+            any::<CanonicalizedComponentFunctionPath>(),
             any::<ConvexArray>(),
             any::<InertIdentity>(),
             any::<UnixTimestamp>(),
@@ -150,8 +149,8 @@ impl Arbitrary for ActionOutcome {
             any::<SyscallTrace>(),
         )
             .prop_map(
-                |(udf_path, arguments, identity, unix_timestamp, result, syscall_trace)| Self {
-                    udf_path,
+                |(path, arguments, identity, unix_timestamp, result, syscall_trace)| Self {
+                    path,
                     arguments,
                     identity,
                     unix_timestamp,
@@ -228,12 +227,12 @@ mod tests {
         #[test]
         fn test_action_udf_outcome_roundtrips(udf_outcome in any::<ActionOutcome>()) {
             let udf_outcome_clone = udf_outcome.clone();
-            let udf_path = udf_outcome.udf_path.clone();
+            let path = udf_outcome.path.clone();
             let arguments = udf_outcome.arguments.clone();
             let version = udf_outcome.udf_server_version.clone();
             let identity = udf_outcome_clone.identity.clone();
             let path_and_args = ValidatedPathAndArgs::new_for_tests(
-                udf_path,
+                path,
                 arguments,
                 version
             );

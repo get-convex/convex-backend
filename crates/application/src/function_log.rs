@@ -311,7 +311,8 @@ impl HeapSize for FunctionExecutionPart {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ActionCompletion {
     pub outcome: ActionOutcome,
     pub execution_time: Duration,
@@ -786,7 +787,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         let unix_timestamp = self.rt.unix_timestamp();
         let completion = ActionCompletion {
             outcome: ActionOutcome {
-                udf_path: path.into_root_udf_path()?,
+                path,
                 arguments,
                 identity,
                 unix_timestamp,
@@ -807,7 +808,19 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     }
 
     fn _log_action(&self, completion: ActionCompletion, usage: TrackUsage) {
-        let udf_path = completion.outcome.udf_path.clone();
+        let outcome = completion.outcome;
+        let log_lines = completion.log_lines;
+        let udf_path = match outcome.path.clone().into_root_udf_path() {
+            Ok(udf_path) => udf_path,
+            Err(_) => {
+                tracing::warn!(
+                    "Skipping logging non-root action: {:?}:{:?}",
+                    outcome.path.component,
+                    outcome.path.udf_path
+                );
+                return;
+            },
+        };
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
@@ -829,16 +842,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         if udf_path.is_system() {
             return;
         }
-        let outcome = completion.outcome;
-        let log_lines = completion.log_lines;
-
         let execution = FunctionExecution {
             params: UdfParams::Function {
                 error: match outcome.result {
                     Ok(_) => None,
                     Err(e) => Some(e),
                 },
-                identifier: outcome.udf_path.clone(),
+                identifier: udf_path,
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,

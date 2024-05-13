@@ -252,6 +252,10 @@ impl UdfOutcome {
 
 #[cfg(test)]
 mod tests {
+    use common::components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentId,
+    };
     use proptest::prelude::*;
 
     use super::{
@@ -273,7 +277,10 @@ mod tests {
             let version = udf_outcome.udf_server_version.clone();
             let identity = udf_outcome_clone.identity.clone();
             let path_and_args = ValidatedPathAndArgs::new_for_tests(
-                udf_path,
+                CanonicalizedComponentFunctionPath {
+                    component: ComponentId::Root,
+                    udf_path,
+                },
                 arguments,
                 version
             );

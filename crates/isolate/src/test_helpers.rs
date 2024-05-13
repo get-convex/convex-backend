@@ -17,6 +17,7 @@ use common::{
         IndexMetadata,
     },
     components::{
+        CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
         ComponentFunctionPath,
         ComponentId,
@@ -710,7 +711,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
 
         let path: UdfPath = udf_path.parse()?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            path.canonicalize(),
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: path.canonicalize(),
+            },
             ConvexArray::try_from(vec![ConvexValue::Object(args)])?,
             Some(npm_version),
         );
@@ -1032,7 +1036,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                         identity.into(),
                         self.rt.clone(),
                         None,
-                    )?,
+                    ),
                     vec![].into(),
                 ))
             },
@@ -1325,7 +1329,10 @@ pub async fn bogus_udf_request<RT: Runtime>(
     // let (sender, _rx) = oneshot::channel();
     let request = UdfRequest {
         path_and_args: ValidatedPathAndArgs::new_for_tests(
-            "path.js:default".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "path.js:default".parse()?,
+            },
             ConvexArray::empty(),
             None,
         ),

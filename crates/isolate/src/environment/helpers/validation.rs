@@ -330,15 +330,12 @@ impl ValidatedPathAndArgs {
 
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_tests(
-        udf_path: sync_types::CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         npm_version: Option<Version>,
     ) -> Self {
         Self {
-            path: CanonicalizedComponentFunctionPath {
-                component: ComponentId::Root,
-                udf_path,
-            },
+            path,
             args,
             npm_version,
         }

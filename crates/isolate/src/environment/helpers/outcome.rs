@@ -18,7 +18,8 @@ use crate::{
 /// A `UdfOutcome` represents a successful execution of a developer's function
 /// by our V8 layer. It slightly differs from `UdfExecution`, which is what we
 /// store in memory for logs.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub enum FunctionOutcome {
     Query(UdfOutcome),
     Mutation(UdfOutcome),

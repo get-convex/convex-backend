@@ -181,6 +181,7 @@ mod tests {
     use common::{
         assert_obj,
         components::{
+            CanonicalizedComponentFunctionPath,
             CanonicalizedComponentModulePath,
             ComponentId,
         },
@@ -332,7 +333,10 @@ mod tests {
         let numbers: ConvexArray = array![1f64.into(), 7f64.into()]?;
         let args = create_args(assert_obj!("numbers" => ConvexValue::Array(numbers)))?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:addNumbers".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:addNumbers".parse()?,
+            },
             args,
             VERSION.clone(),
         );
@@ -359,7 +363,10 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:logHelloWorldAndReturn7".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:logHelloWorldAndReturn7".parse()?,
+            },
             array![],
             VERSION.clone(),
         );
@@ -397,7 +404,10 @@ mod tests {
             &actions,
             ExecuteRequest {
                 path_and_args: ValidatedPathAndArgs::new_for_tests(
-                    "node_actions.js:getUserIdentity".parse()?,
+                    CanonicalizedComponentFunctionPath {
+                        component: ComponentId::Root,
+                        udf_path: "node_actions.js:getUserIdentity".parse()?,
+                    },
                     array![],
                     VERSION.clone(),
                 ),
@@ -440,7 +450,10 @@ mod tests {
             &actions,
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
-                    "node_actions.js:runQuery".parse()?,
+                    CanonicalizedComponentFunctionPath {
+                        component: ComponentId::Root,
+                        udf_path: "node_actions.js:runQuery".parse()?,
+                    },
                     args,
                     VERSION.clone(),
                 ),
@@ -475,7 +488,10 @@ mod tests {
             &actions,
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
-                    "node_actions.js:scheduleJob".parse()?,
+                    CanonicalizedComponentFunctionPath {
+                        component: ComponentId::Root,
+                        udf_path: "node_actions.js:scheduleJob".parse()?,
+                    },
                     args,
                     VERSION.clone(),
                 ),
@@ -516,7 +532,10 @@ mod tests {
             })
             .collect();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:logAndThrowError".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:logAndThrowError".parse()?,
+            },
             array![],
             VERSION.clone(),
         );
@@ -568,7 +587,10 @@ mod tests {
             })
             .collect();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:forgotAwait".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:forgotAwait".parse()?,
+            },
             array![],
             VERSION.clone(),
         );
@@ -607,7 +629,10 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:hello".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:hello".parse()?,
+            },
             array![],
             VERSION.clone(),
         );
@@ -643,7 +668,10 @@ mod tests {
             &actions,
             ExecuteRequest {
                 path_and_args: ValidatedPathAndArgs::new_for_tests(
-                    "node_actions.js:getTestEnvVar".parse()?,
+                    CanonicalizedComponentFunctionPath {
+                        component: ComponentId::Root,
+                        udf_path: "node_actions.js:getTestEnvVar".parse()?,
+                    },
                     array![],
                     VERSION.clone(),
                 ),
@@ -675,7 +703,10 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:sleepAnHour".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:sleepAnHour".parse()?,
+            },
             array![],
             VERSION.clone(),
         );
@@ -714,7 +745,10 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:partialEscapeSequence".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:partialEscapeSequence".parse()?,
+            },
             array![],
             VERSION.clone(),
         );
@@ -740,7 +774,10 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:workHardForAnHour".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:workHardForAnHour".parse()?,
+            },
             array![],
             VERSION.clone(),
         );
@@ -778,7 +815,10 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            "node_actions.js:deadlock".parse()?,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentId::Root,
+                udf_path: "node_actions.js:deadlock".parse()?,
+            },
             array![],
             VERSION.clone(),
         );
@@ -992,7 +1032,10 @@ export { hello };
             &actions,
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
-                    "node_actions.js:runQuery".parse()?,
+                    CanonicalizedComponentFunctionPath {
+                        component: ComponentId::Root,
+                        udf_path: "node_actions.js:runQuery".parse()?,
+                    },
                     args,
                     VERSION.clone(),
                 ),
@@ -1015,7 +1058,10 @@ export { hello };
             &actions,
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
-                    "node_actions.js:getUserIdentity".parse()?,
+                    CanonicalizedComponentFunctionPath {
+                        component: ComponentId::Root,
+                        udf_path: "node_actions.js:getUserIdentity".parse()?,
+                    },
                     array![],
                     VERSION.clone(),
                 ),

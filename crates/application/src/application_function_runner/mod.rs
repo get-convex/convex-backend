@@ -305,10 +305,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
             .await?;
 
         let FunctionOutcome::Action(outcome) = outcome else {
-            anyhow::bail!(
-                "Calling an action returned an invalid outcome: {:?}",
-                outcome
-            )
+            anyhow::bail!("Calling an action returned an invalid outcome")
         };
         Ok(outcome)
     }
@@ -1166,7 +1163,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         identity.into(),
                         self.runtime.clone(),
                         None,
-                    )?,
+                    ),
                     environment: ModuleEnvironment::Invalid,
                     memory_in_mb: 0,
                     execution_time: Duration::from_secs(0),
@@ -1323,10 +1320,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 )
                 .await;
                 timer.finish();
-                let udf_path = path.as_root_udf_path()?.clone();
                 node_outcome_result.map(|node_outcome| {
                     let outcome = ActionOutcome {
-                        udf_path,
+                        path: path.clone(),
                         arguments: arguments.clone(),
                         identity: tx.inert_identity(),
                         unix_timestamp,
@@ -1360,7 +1356,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     inert_identity,
                     self.runtime.clone(),
                     udf_server_version,
-                )?;
+                );
                 Ok(ActionCompletion {
                     outcome,
                     execution_time: start.elapsed(),

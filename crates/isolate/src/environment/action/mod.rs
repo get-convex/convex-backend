@@ -617,7 +617,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             result.as_ref().ok().and_then(|r| r.as_ref().ok()),
         )?;
         let outcome = ActionOutcome {
-            udf_path: path.into_root_udf_path()?,
+            path,
             arguments,
             unix_timestamp: start_unix_timestamp,
             identity: self.identity.into(),
