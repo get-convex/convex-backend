@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     errors::report_error,
@@ -34,8 +37,11 @@ pub(crate) async fn retry_loop_expect_occs_and_overloaded<RT: Runtime>(
     name: &'static str,
     runtime: RT,
     db: Database<RT>,
+    initial_wait: Duration,
     work: impl RetriableWorker<RT>,
 ) {
+    tracing::info!("Starting {name}");
+    runtime.wait(initial_wait).await;
     retry_failures(name, runtime, db, MAX_OVERLOADED_RETRIES, work).await
 }
 
@@ -49,9 +55,12 @@ async fn retry_failures<RT: Runtime>(
     let mut backoff = Backoff::new(*INDEX_WORKERS_INITIAL_BACKOFF, MAX_BACKOFF);
     let mut occ_errors = 0;
     let mut overloaded_errors = 0;
-
     loop {
-        if let Err(e) = work.work_loop(name, &runtime, &db, &mut backoff).await {
+        if let Err(mut e) = work
+            .work_loop(name, &runtime, &db, &mut backoff)
+            .await
+            .context(format!("{name} died"))
+        {
             if e.is_occ() {
                 occ_errors += 1;
                 // Do not reset overloaded errors because we expect
@@ -73,11 +82,11 @@ async fn retry_failures<RT: Runtime>(
 
             let expected_error = expected_occ || expected_overloaded;
             if !expected_error {
-                report_error(&mut e.context(format!("{name} died")));
+                report_error(&mut e);
             }
             let delay = runtime.with_rng(|rng| backoff.fail(rng));
             tracing::error!(
-                "{name} died, num_failures: {}. Backing off for {}ms, expected: {}",
+                "{name} died, num_failures: {}. Backing off for {}ms, expected: {}: {e:#}",
                 backoff.failures(),
                 delay.as_millis(),
                 expected_error,

@@ -2,6 +2,7 @@ use std::{
     cmp::max,
     collections::BTreeSet,
     future::Future,
+    time::Duration,
 };
 
 use async_trait::async_trait;
@@ -95,7 +96,13 @@ impl FastForwardIndexWorker {
         rt: RT,
         db: Database<RT>,
     ) -> impl Future<Output = ()> + Send {
-        retry_loop_expect_occs_and_overloaded("FastForwardWorker", rt, db, FastForwardIndexWorker)
+        retry_loop_expect_occs_and_overloaded(
+            "FastForwardWorker",
+            rt,
+            db,
+            Duration::ZERO,
+            FastForwardIndexWorker,
+        )
     }
 
     async fn fast_forward_loop<RT: Runtime>(

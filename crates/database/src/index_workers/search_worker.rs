@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use async_trait::async_trait;
 use common::{
@@ -67,6 +70,8 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             "VectorFlusher",
             runtime.clone(),
             database.clone(),
+            // Wait a bit since vector needs time to bootstrap. Makes startup logs a bit cleaner.
+            Duration::from_secs(5),
             SearchIndexWorker::VectorFlusher(VectorIndexFlusher::new(
                 runtime.clone(),
                 database.clone(),
@@ -78,6 +83,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             "VectorCompactor",
             runtime.clone(),
             database.clone(),
+            Duration::ZERO,
             SearchIndexWorker::VectorCompactor(VectorIndexCompactor::new(
                 database.clone(),
                 searcher,
@@ -90,6 +96,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             "SearchFlusher",
             runtime.clone(),
             database.clone(),
+            Duration::ZERO,
             SearchIndexWorker::SearchFlusher(SearchIndexFlusher::new(
                 runtime,
                 database.clone(),
@@ -107,8 +114,6 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         db: &Database<RT>,
         backoff: &mut Backoff,
     ) -> anyhow::Result<()> {
-        tracing::info!("Starting {name}");
-
         loop {
             let status = log_worker_starting(name);
             let (metrics, token) = match self {

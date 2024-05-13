@@ -91,7 +91,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         {
             return Ok(());
         }
-        tracing::info!("Writing table summary");
+        tracing::info!("Writing table summary checkpoint");
         let snapshot = writer.compute_from_last_checkpoint().await?;
         write_snapshot(self.persistence.as_ref(), &snapshot).await?;
         *last_write_info = Some(LastWriteInfo {
@@ -115,6 +115,12 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
 
         let mut last_write_info = None;
         loop {
+            let result = self
+                .checkpoint_table_summaries(&mut last_write_info, &writer)
+                .await;
+            if let Err(mut err) = result {
+                report_error(&mut err);
+            }
             let wait_fut = self.runtime.wait(Duration::from_secs(10)).fuse();
             pin_mut!(wait_fut);
             select_biased! {
@@ -122,15 +128,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
                     tracing::info!("Shutting down table summary worker...");
                     break;
                 }
-                _ = wait_fut => {
-                    let result = self.checkpoint_table_summaries(
-                        &mut last_write_info,
-                        &writer,
-                    ).await;
-                    if let Err(mut err) = result {
-                        report_error(&mut err);
-                    }
-                },
+                _ = wait_fut => {},
             }
         }
     }
