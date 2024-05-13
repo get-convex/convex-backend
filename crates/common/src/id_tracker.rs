@@ -116,7 +116,7 @@ impl StaticIdTracker {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct MemoryIdTracker {
     pub by_index_id: BTreeMap<u32, [u8; 16]>,
     pub by_convex_id: BTreeMap<[u8; 16], u32>,

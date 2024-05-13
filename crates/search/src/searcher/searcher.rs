@@ -1207,6 +1207,8 @@ mod tests {
             BufRead,
             BufReader,
         },
+        path::Path,
+        sync::LazyLock,
     };
 
     use common::{
@@ -1225,7 +1227,10 @@ mod tests {
     };
     use futures::StreamExt;
     use runtime::testing::TestRuntime;
-    use tantivy::Term;
+    use tantivy::{
+        Index,
+        Term,
+    };
     use tempfile::TempDir;
     use text_search::tracker::{
         load_alive_bitset,
@@ -1236,6 +1241,7 @@ mod tests {
         FieldPath,
         InternalId,
         ResolvedDocumentId,
+        TabletIdAndTableNumber,
     };
 
     use super::PostingListMatch;
@@ -1244,6 +1250,8 @@ mod tests {
         disk_index::index_reader_for_directory,
         incremental_index::{
             build_index,
+            merge_segments,
+            SearchSegment,
             ALIVE_BITSET_PATH,
             DELETED_TERMS_PATH,
             ID_TRACKER_PATH,
@@ -1260,6 +1268,12 @@ mod tests {
         SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
     };
 
+    static TEST_TABLE: LazyLock<TabletIdAndTableNumber> = LazyLock::new(|| {
+        let mut id_generator = TestIdGenerator::new();
+        let table_name = "test".parse().unwrap();
+        id_generator.table_id(&table_name)
+    });
+
     #[tokio::test]
     #[ignore]
     async fn test_incremental_search() -> anyhow::Result<()> {
@@ -1272,8 +1286,6 @@ mod tests {
         let max_results = env::var("MAX_RESULTS")?.parse()?;
 
         let mut id_generator = TestIdGenerator::new();
-        let table_name = "test".parse()?;
-        let table = id_generator.table_id(&table_name);
         let field_path: FieldPath = "mySearchField".parse()?;
         let schema = TantivySearchIndexSchema::new(&DeveloperSearchIndexConfig {
             search_field: field_path.clone(),
@@ -1294,7 +1306,7 @@ mod tests {
 
         let mut strings_by_id = BTreeMap::new();
         let revisions = strings.into_iter().map(|s| {
-            let id = ResolvedDocumentId::new(table, id_generator.generate_internal());
+            let id = ResolvedDocumentId::new(*TEST_TABLE, id_generator.generate_internal());
             strings_by_id.insert(id, s.clone());
             let creation_time = CreationTime::try_from(10.)?;
             let new_doc =
@@ -1422,32 +1434,25 @@ mod tests {
         );
         for result in &posting_list_matches {
             println!("{:?} @ {}", result.internal_id, result.bm25_score);
-            let id = ResolvedDocumentId::new(table, result.internal_id);
+            let id = ResolvedDocumentId::new(*TEST_TABLE, result.internal_id);
             println!("  {}", strings_by_id[&id]);
         }
 
         Ok(())
     }
 
-    struct StringRevision {
-        id: InternalId,
-        prev_str: Option<String>,
-        new_str: Option<String>,
-    }
-    async fn incremental_search_with_deletions_helper(
-        query: &str,
-        revisions: Vec<StringRevision>,
-    ) -> anyhow::Result<Vec<(PostingListMatch, String)>> {
-        // Create a revision stream with some documents matching the search term that
-        // are deleted
-        let mut id_generator = TestIdGenerator::new();
-        let table_name = "test".parse()?;
-        let table = id_generator.table_id(&table_name);
-        let field_path: FieldPath = "mySearchField".parse()?;
-        let schema = TantivySearchIndexSchema::new(&DeveloperSearchIndexConfig {
+    fn test_schema() -> TantivySearchIndexSchema {
+        let field_path: FieldPath = "mySearchField".parse().unwrap();
+        TantivySearchIndexSchema::new(&DeveloperSearchIndexConfig {
             search_field: field_path.clone(),
             filter_fields: BTreeSet::new(),
-        });
+        })
+    }
+
+    async fn build_test_index(
+        revisions: Vec<StringRevision>,
+        index_dir: &Path,
+    ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, Option<String>>> {
         let mut strings_by_id = BTreeMap::new();
         let revisions = revisions.into_iter().map(
             |StringRevision {
@@ -1455,7 +1460,7 @@ mod tests {
                  prev_str,
                  new_str,
              }| {
-                let id = ResolvedDocumentId::new(table, id);
+                let id = ResolvedDocumentId::new(*TEST_TABLE, id);
                 strings_by_id.entry(id).or_insert(new_str.clone());
                 let creation_time = CreationTime::try_from(10.)?;
                 let old_doc = prev_str
@@ -1483,12 +1488,25 @@ mod tests {
             },
         );
         let revision_stream = futures::stream::iter(revisions).boxed();
-        let test_dir = TempDir::new()?;
-        build_index(revision_stream, schema.clone(), test_dir.path()).await?;
+        let schema = test_schema();
+        build_index(revision_stream, schema.clone(), index_dir).await?;
+        Ok(strings_by_id)
+    }
 
-        let index_reader = index_reader_for_directory(test_dir.path())?;
+    struct StringRevision {
+        id: InternalId,
+        prev_str: Option<String>,
+        new_str: Option<String>,
+    }
+    async fn incremental_search_with_deletions_helper(
+        query: &str,
+        test_dir: &Path,
+        strings_by_id: &BTreeMap<ResolvedDocumentId, Option<String>>,
+    ) -> anyhow::Result<Vec<(PostingListMatch, String)>> {
+        let index_reader = index_reader_for_directory(test_dir)?;
         let searcher = index_reader.searcher();
 
+        let schema = test_schema();
         let mut token_stream = schema.analyzer.token_stream(query);
         let mut tokens = vec![];
         while let Some(token) = token_stream.next() {
@@ -1516,9 +1534,9 @@ mod tests {
 
         anyhow::ensure!(searcher.segment_readers().len() == 1);
         let segment = &searcher.segment_readers()[0];
-        let alive_bitset_path = test_dir.path().join(ALIVE_BITSET_PATH);
+        let alive_bitset_path = test_dir.join(ALIVE_BITSET_PATH);
         let alive_bitset = load_alive_bitset(&alive_bitset_path)?;
-        let deleted_terms_path = test_dir.path().join(DELETED_TERMS_PATH);
+        let deleted_terms_path = test_dir.join(DELETED_TERMS_PATH);
         let deletion_tracker = StaticDeletionTracker::load(alive_bitset, &deleted_terms_path)?;
         let start = std::time::Instant::now();
         let results = SearcherImpl::<TestRuntime>::query_tokens_impl(
@@ -1580,7 +1598,7 @@ mod tests {
             num_documents: stats.num_documents,
             max_results,
         };
-        let id_tracker_path = test_dir.path().join(ID_TRACKER_PATH);
+        let id_tracker_path = test_dir.join(ID_TRACKER_PATH);
         let id_tracker = StaticIdTracker::load_from_path(id_tracker_path)?;
         let posting_list_matches = SearcherImpl::<TestRuntime>::query_posting_lists_impl(
             &searcher,
@@ -1597,7 +1615,7 @@ mod tests {
         let mut posting_list_matches_and_strings = vec![];
         for result in posting_list_matches {
             println!("{:?} @ {}", result.internal_id, result.bm25_score);
-            let id = ResolvedDocumentId::new(table, result.internal_id);
+            let id = ResolvedDocumentId::new(*TEST_TABLE, result.internal_id);
             let s = strings_by_id[&id].as_ref().unwrap();
             println!("  {s}",);
             posting_list_matches_and_strings.push((result, s.clone()));
@@ -1623,8 +1641,11 @@ mod tests {
             new_str: new_str.map(|s| s.to_string()),
         })
         .collect();
+        let test_dir = TempDir::new()?;
+        let strings_by_id = build_test_index(revisions, test_dir.path()).await?;
         let posting_list_matches =
-            incremental_search_with_deletions_helper(query, revisions).await?;
+            incremental_search_with_deletions_helper(query, test_dir.path(), &strings_by_id)
+                .await?;
         assert!(posting_list_matches.is_empty());
         Ok(())
     }
@@ -1645,12 +1666,87 @@ mod tests {
             new_str: new_str.map(|s| s.to_string()),
         })
         .collect();
+        let test_dir = TempDir::new()?;
+        let strings_by_id = build_test_index(revisions, test_dir.path()).await?;
         let posting_list_matches =
-            incremental_search_with_deletions_helper(query, revisions).await?;
+            incremental_search_with_deletions_helper(query, test_dir.path(), &strings_by_id)
+                .await?;
         assert_eq!(posting_list_matches.len(), 1);
         let (posting_list_match, s) = posting_list_matches.first().unwrap();
         assert_eq!(posting_list_match.internal_id, id);
         assert_eq!(s, "emma is gr8");
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_merge_tantivy_segments() -> anyhow::Result<()> {
+        let query = "emma";
+        let mut id_generator = TestIdGenerator::new();
+        let id1 = id_generator.generate_internal();
+        let revisions = vec![(id1, None, Some("emma is gr8"))]
+            .into_iter()
+            .map(|(id, prev_str, new_str)| StringRevision {
+                id,
+                prev_str: prev_str.map(|s: &str| s.to_string()),
+                new_str: new_str.map(|s| s.to_string()),
+            })
+            .collect::<Vec<_>>();
+        let test_dir_1 = TempDir::new()?;
+        let mut strings_by_id_1 = build_test_index(revisions, test_dir_1.path()).await?;
+        let posting_list_matches =
+            incremental_search_with_deletions_helper(query, test_dir_1.path(), &strings_by_id_1)
+                .await?;
+        assert_eq!(posting_list_matches.len(), 1);
+        let (posting_list_match, s) = posting_list_matches.first().unwrap();
+        assert_eq!(posting_list_match.internal_id, id1);
+        assert_eq!(s, "emma is gr8");
+        let id2 = id_generator.generate_internal();
+        let revisions = vec![(id2, None, Some("emma is awesome!"))]
+            .into_iter()
+            .map(|(id, prev_str, new_str)| StringRevision {
+                id,
+                prev_str: prev_str.map(|s: &str| s.to_string()),
+                new_str: new_str.map(|s| s.to_string()),
+            })
+            .collect::<Vec<_>>();
+        let test_dir_2 = TempDir::new()?;
+        let mut strings_by_id_2 = build_test_index(revisions, test_dir_2.path()).await?;
+        let posting_list_matches =
+            incremental_search_with_deletions_helper(query, test_dir_2.path(), &strings_by_id_2)
+                .await?;
+        assert_eq!(posting_list_matches.len(), 1);
+        let (posting_list_match, s) = posting_list_matches.first().unwrap();
+        assert_eq!(posting_list_match.internal_id, id2);
+        assert_eq!(s, "emma is awesome!");
+
+        let segments = vec![
+            search_segment_from_path(test_dir_1.path())?,
+            search_segment_from_path(test_dir_2.path())?,
+        ];
+
+        let merged_dir = TempDir::new()?;
+        merge_segments(segments, merged_dir.path()).await?;
+
+        strings_by_id_1.append(&mut strings_by_id_2);
+        let mut posting_list_matches =
+            incremental_search_with_deletions_helper(query, merged_dir.path(), &strings_by_id_1)
+                .await?;
+        assert_eq!(posting_list_matches.len(), 2);
+        let (posting_list_match, s) = posting_list_matches.pop().unwrap();
+        assert_eq!(posting_list_match.internal_id, id1);
+        assert_eq!(s, "emma is gr8");
+        let (posting_list_match, s) = posting_list_matches.pop().unwrap();
+        assert_eq!(posting_list_match.internal_id, id2);
+        assert_eq!(s, "emma is awesome!");
+
+        Ok(())
+    }
+
+    fn search_segment_from_path(dir: &Path) -> anyhow::Result<SearchSegment> {
+        Ok(SearchSegment {
+            segment: Index::open_in_dir(dir)?,
+            alive_bitset: load_alive_bitset(&dir.join(ALIVE_BITSET_PATH))?,
+            id_tracker: StaticIdTracker::load_from_path(dir.join(ID_TRACKER_PATH))?,
+        })
     }
 }

@@ -198,7 +198,7 @@ impl StaticDeletionTracker {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct SearchMemoryIdTracker(MemoryIdTracker);
 impl SearchMemoryIdTracker {
     pub fn set_link(&mut self, convex_id: InternalId, tantivy_id: DocId) -> anyhow::Result<()> {
@@ -208,6 +208,10 @@ impl SearchMemoryIdTracker {
         );
         self.0.insert(tantivy_id, convex_id.0);
         Ok(())
+    }
+
+    pub fn num_ids(&self) -> usize {
+        self.0.by_convex_id.len()
     }
 
     pub fn write<P: AsRef<Path>>(mut self, id_tracker_path: P) -> anyhow::Result<()> {

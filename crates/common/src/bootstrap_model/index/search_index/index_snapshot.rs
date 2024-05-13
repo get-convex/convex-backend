@@ -144,7 +144,8 @@ impl TryFrom<SearchIndexSnapshotData> for WithUnknown<SerializedSearchIndexSnaps
 pub struct SerializedFragmentedSearchSegment {
     pub segment_key: String,
     pub id_tracker_key: String,
-    pub deleted_bitset_and_stats_key: String,
+    pub deleted_terms_table_key: String,
+    pub alive_bitset_key: String,
     pub id: String,
 }
 
@@ -155,7 +156,8 @@ impl TryFrom<FragmentedSearchSegment> for SerializedFragmentedSearchSegment {
         Ok(Self {
             segment_key: value.segment_key.to_string(),
             id_tracker_key: value.id_tracker_key.to_string(),
-            deleted_bitset_and_stats_key: value.deleted_bitset_and_stats_key.to_string(),
+            deleted_terms_table_key: value.deleted_terms_table_key.to_string(),
+            alive_bitset_key: value.alive_bitset_key.to_string(),
             id: value.id,
         })
     }
@@ -168,7 +170,8 @@ impl TryFrom<SerializedFragmentedSearchSegment> for FragmentedSearchSegment {
         Ok(Self {
             segment_key: value.segment_key.try_into()?,
             id_tracker_key: value.id_tracker_key.try_into()?,
-            deleted_bitset_and_stats_key: value.deleted_bitset_and_stats_key.try_into()?,
+            deleted_terms_table_key: value.deleted_terms_table_key.try_into()?,
+            alive_bitset_key: value.alive_bitset_key.try_into()?,
             id: value.id,
         })
     }
@@ -179,7 +182,8 @@ impl TryFrom<SerializedFragmentedSearchSegment> for FragmentedSearchSegment {
 pub struct FragmentedSearchSegment {
     pub segment_key: ObjectKey,
     pub id_tracker_key: ObjectKey,
-    pub deleted_bitset_and_stats_key: ObjectKey,
+    pub deleted_terms_table_key: ObjectKey,
+    pub alive_bitset_key: ObjectKey,
 
     // A random UUID that can be used to identify a segment to determine if the
     // segment has changed during non-transactional index changes (compaction).
