@@ -78,8 +78,6 @@ use serde::{
     Serialize,
 };
 use tokio::net::TcpSocket;
-use tonic::server::NamedService;
-use tonic_health::server::health_reporter;
 use tower::{
     timeout::TimeoutLayer,
     ServiceBuilder,
@@ -602,38 +600,6 @@ impl ConvexHttpService {
     pub fn router(&self) -> Router<(), Body> {
         self.router.clone()
     }
-}
-
-pub async fn serve_grpc<S, F>(service: S, addr: SocketAddr, shutdown: F) -> anyhow::Result<()>
-where
-    S: tower::Service<
-            http::Request<Body>,
-            Response = http::Response<tonic::body::BoxBody>,
-            Error = Infallible,
-        > + NamedService
-        + Clone
-        + Send
-        + 'static,
-    S::Future: Send + 'static,
-    F: Future<Output = ()>,
-{
-    let sentry_layer = ServiceBuilder::new()
-        .layer(sentry_tower::NewSentryLayer::new_from_top())
-        .layer(sentry_tower::SentryHttpLayer::with_transaction());
-    let (mut health_reporter, health_service) = health_reporter();
-    health_reporter.set_serving::<S>().await;
-    tracing::info!(
-        "gRPC service {} listening on ipv4://{addr}",
-        <S as NamedService>::NAME
-    );
-    tonic::transport::Server::builder()
-        .layer(sentry_layer)
-        .add_service(health_service)
-        .add_service(service)
-        .serve_with_shutdown(addr, shutdown)
-        .await?;
-    tracing::info!("GRPC server shutdown complete");
-    Ok(())
 }
 
 /// Serves an HTTP server using the given service.

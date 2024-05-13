@@ -40,6 +40,7 @@ pub mod errors;
 pub mod execution_context;
 pub mod ext;
 pub mod floating_point;
+pub mod grpc;
 pub mod heap_size;
 pub mod http;
 pub mod id_tracker;
