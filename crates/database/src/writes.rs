@@ -344,8 +344,8 @@ mod tests {
     fn test_write_read_dependencies() -> anyhow::Result<()> {
         // Create table mapping.
         let mut id_generator = TestIdGenerator::new();
-        let user_table1 = id_generator.table_id(&"user_table1".parse()?);
-        let user_table2 = id_generator.table_id(&"user_table2".parse()?);
+        let user_table1 = id_generator.user_table_id(&"user_table1".parse()?);
+        let user_table2 = id_generator.user_table_id(&"user_table2".parse()?);
         let bootstrap_tables = BootstrapTableIds::new(&id_generator);
 
         // Writes to a table should OCC with modification of the table metadata
@@ -367,7 +367,7 @@ mod tests {
             .is_some());
 
         let user_table1_index_change = PackedDocument::pack(ResolvedDocument::new(
-            id_generator.generate(&INDEX_TABLE),
+            id_generator.system_generate(&INDEX_TABLE),
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
                 Timestamp::MIN,
@@ -397,7 +397,7 @@ mod tests {
             .is_none());
 
         let user_table2_index_change = PackedDocument::pack(ResolvedDocument::new(
-            id_generator.generate(&INDEX_TABLE),
+            id_generator.system_generate(&INDEX_TABLE),
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
                 Timestamp::MIN,
@@ -450,11 +450,11 @@ mod tests {
     fn test_register_new_id() -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "table".parse()?;
-        let _ = id_generator.table_id(&table_name);
+        let _ = id_generator.user_table_id(&table_name);
         let bootstrap_tables = BootstrapTableIds::new(&id_generator);
         let mut writes = Writes::new();
         let mut reads = TransactionReadSet::new();
-        let id = id_generator.generate(&table_name);
+        let id = id_generator.user_generate(&table_name);
         let document =
             ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("hello" => "world"))?;
         writes.update(
@@ -476,12 +476,12 @@ mod tests {
     fn test_document_updates_are_combined() -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "table".parse()?;
-        let _ = id_generator.table_id(&table_name);
+        let _ = id_generator.user_table_id(&table_name);
         let bootstrap_tables = BootstrapTableIds::new(&id_generator);
 
         let mut writes = Writes::new();
         let mut reads = TransactionReadSet::new();
-        let id = id_generator.generate(&table_name);
+        let id = id_generator.user_generate(&table_name);
         let old_document = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!())?;
         let new_document =
             ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("hello" => "world"))?;

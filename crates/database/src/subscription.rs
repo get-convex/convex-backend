@@ -750,7 +750,7 @@ mod tests {
     #[test]
     fn add_remove_two_identical_search_subscriptions_different_subscribers() -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
-        let table_id = id_generator.table_id(&id_generator.generate_table_name());
+        let table_id = id_generator.user_table_id(&id_generator.generate_table_name());
         let token = "token".to_string();
         let first = create_search_token(
             table_id,
@@ -790,7 +790,7 @@ mod tests {
     #[test]
     fn add_remove_two_identical_search_subscriptions_same_subscriber() -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
-        let table_id = id_generator.table_id(&id_generator.generate_table_name());
+        let table_id = id_generator.user_table_id(&id_generator.generate_table_name());
         let token = "token".to_string();
         let token = create_search_token(
             table_id,

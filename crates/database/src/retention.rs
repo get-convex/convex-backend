@@ -1662,10 +1662,10 @@ mod tests {
     async fn test_expired_index_entries(_rt: TestRuntime) -> anyhow::Result<()> {
         let p = Arc::new(TestPersistence::new());
         let mut id_generator = TestIdGenerator::new();
-        let by_id_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
-        let by_val_index_id = id_generator.generate(&INDEX_TABLE).internal_id();
+        let by_id_index_id = id_generator.system_generate(&INDEX_TABLE).internal_id();
+        let by_val_index_id = id_generator.system_generate(&INDEX_TABLE).internal_id();
         let table: TableName = str::parse("table")?;
-        let table_id = id_generator.table_id(&table).tablet_id;
+        let table_id = id_generator.user_table_id(&table).tablet_id;
 
         let by_id = |id: ResolvedDocumentId,
                      ts: i32,
@@ -1708,11 +1708,11 @@ mod tests {
             ))
         };
 
-        let id1 = id_generator.generate(&table);
-        let id2 = id_generator.generate(&table);
-        let id3 = id_generator.generate(&table);
-        let id4 = id_generator.generate(&table);
-        let id5 = id_generator.generate(&table);
+        let id1 = id_generator.user_generate(&table);
+        let id2 = id_generator.user_generate(&table);
+        let id3 = id_generator.user_generate(&table);
+        let id4 = id_generator.user_generate(&table);
+        let id5 = id_generator.user_generate(&table);
 
         let documents = vec![
             doc(id1, 1, Some(5))?, // expired because overwritten.
@@ -1817,13 +1817,13 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table: TableName = str::parse("table")?;
 
-        let id1 = id_generator.generate(&table);
-        let id2 = id_generator.generate(&table);
-        let id3 = id_generator.generate(&table);
-        let id4 = id_generator.generate(&table);
-        let id5 = id_generator.generate(&table);
-        let id6 = id_generator.generate(&table);
-        let id7 = id_generator.generate(&table);
+        let id1 = id_generator.user_generate(&table);
+        let id2 = id_generator.user_generate(&table);
+        let id3 = id_generator.user_generate(&table);
+        let id4 = id_generator.user_generate(&table);
+        let id5 = id_generator.user_generate(&table);
+        let id6 = id_generator.user_generate(&table);
+        let id7 = id_generator.user_generate(&table);
 
         let documents = vec![
             doc(id1, 1, Some(1))?, // no longer visible from > min_document_snapshot_ts

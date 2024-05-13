@@ -748,7 +748,7 @@ mod tests {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
-        let table_id = id_generator.table_id(&table_name);
+        let table_id = id_generator.user_table_id(&table_name);
         let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
         let field_path = "textField";
 
@@ -768,7 +768,7 @@ mod tests {
         reads.record_search(index_name.clone(), search_reads);
 
         let read_set = reads.into_read_set();
-        let id = id_generator.generate(&table_name);
+        let id = id_generator.user_generate(&table_name);
 
         assert!(read_set_overlaps(
             id,
@@ -794,7 +794,7 @@ mod tests {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
-        let table_id = id_generator.table_id(&table_name);
+        let table_id = id_generator.user_table_id(&table_name);
         let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
         let field_path = "textField";
 
@@ -814,7 +814,7 @@ mod tests {
         reads.record_search(index_name.clone(), search_reads);
 
         let read_set = reads.into_read_set();
-        let id = id_generator.generate(&table_name);
+        let id = id_generator.user_generate(&table_name);
 
         assert!(read_set_overlaps(
             id,
@@ -840,7 +840,7 @@ mod tests {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
-        let table_id = id_generator.table_id(&table_name);
+        let table_id = id_generator.user_table_id(&table_name);
         let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
         let field_path = "textField";
 
@@ -860,7 +860,7 @@ mod tests {
         reads.record_search(index_name.clone(), search_reads);
 
         let read_set = reads.into_read_set();
-        let id = id_generator.generate(&table_name);
+        let id = id_generator.user_generate(&table_name);
 
         assert!(read_set_overlaps(
             id,
@@ -897,7 +897,7 @@ mod tests {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
-        let table_id = id_generator.table_id(&table_name);
+        let table_id = id_generator.user_table_id(&table_name);
         let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
         let field_path = "textField";
 
@@ -917,7 +917,7 @@ mod tests {
         reads.record_search(index_name.clone(), search_reads);
 
         let read_set = reads.into_read_set();
-        let id = id_generator.generate(&table_name);
+        let id = id_generator.user_generate(&table_name);
 
         assert!(read_set_overlaps(
             id,
@@ -943,7 +943,7 @@ mod tests {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
-        let table_id = id_generator.table_id(&table_name);
+        let table_id = id_generator.user_table_id(&table_name);
         let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
         let field_path = "textField";
 
@@ -963,7 +963,7 @@ mod tests {
         reads.record_search(index_name.clone(), search_reads);
 
         let read_set = reads.into_read_set();
-        let id = id_generator.generate(&table_name);
+        let id = id_generator.user_generate(&table_name);
 
         assert!(read_set_overlaps(
             id,
@@ -989,7 +989,7 @@ mod tests {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
-        let table_id = id_generator.table_id(&table_name);
+        let table_id = id_generator.user_table_id(&table_name);
         let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
         let field_path = "textField";
 
@@ -1009,7 +1009,7 @@ mod tests {
         reads.record_search(index_name.clone(), search_reads);
 
         let read_set = reads.into_read_set();
-        let id = id_generator.generate(&table_name);
+        let id = id_generator.user_generate(&table_name);
 
         assert!(read_set_overlaps(
             id,
@@ -1057,7 +1057,7 @@ mod tests {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
-        let table_id = id_generator.table_id(&table_name);
+        let table_id = id_generator.user_table_id(&table_name);
         let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
 
         let search_reads = SearchQueryReads::new(
@@ -1075,7 +1075,7 @@ mod tests {
 
         // If "word" is a token, it overlaps.
         let doc_with_word = create_document_with_one_field(
-            id_generator.generate(&table_name),
+            id_generator.user_generate(&table_name),
             "textField",
             val!("Text containing word and other stuff."),
         )?;
@@ -1092,7 +1092,7 @@ mod tests {
 
         // If "word" is just a substring, it does not.
         let doc_without_word = create_document_with_one_field(
-            id_generator.generate(&table_name),
+            id_generator.user_generate(&table_name),
             "textField",
             val!("This text doesn't have the keyword."),
         )?;
@@ -1112,7 +1112,7 @@ mod tests {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
-        let table_id = id_generator.table_id(&table_name);
+        let table_id = id_generator.user_table_id(&table_name);
         let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
 
         let search_reads = SearchQueryReads::new(
@@ -1130,7 +1130,7 @@ mod tests {
 
         // If "nullField" is Null, it overlaps.
         let doc_with_explicit_null = create_document_with_one_field(
-            id_generator.generate(&table_name),
+            id_generator.user_generate(&table_name),
             "nullField",
             ConvexValue::Null,
         )?;
@@ -1147,7 +1147,7 @@ mod tests {
 
         // If "nullField" is not present, it does not overlap.
         let doc_with_missing_field = create_document_with_one_field(
-            id_generator.generate(&table_name),
+            id_generator.user_generate(&table_name),
             "unrelatedField",
             ConvexValue::Null,
         )?;
@@ -1161,7 +1161,7 @@ mod tests {
 
         // If "nullField" is a different type, it does not overlap.
         let doc_with_implicit_null = create_document_with_one_field(
-            id_generator.generate(&table_name),
+            id_generator.user_generate(&table_name),
             "nullField",
             ConvexValue::Int64(123),
         )?;

@@ -772,7 +772,7 @@ mod cache_tests {
         let mut cache = DatabaseIndexSnapshotCache::new();
         let mut id_generator = TestIdGenerator::new();
         let index_id = id_generator.generate_internal();
-        let id = id_generator.generate(&"users".parse()?);
+        let id = id_generator.user_generate(&"users".parse()?);
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!())?;
         let index_key_bytes = doc
             .index_key(&IndexedFields::by_id(), PersistenceVersion::default())
@@ -801,7 +801,7 @@ mod cache_tests {
         let mut cache = DatabaseIndexSnapshotCache::new();
         let mut id_generator = TestIdGenerator::new();
         let index_id = id_generator.generate_internal();
-        let id1 = id_generator.generate(&"users".parse()?);
+        let id1 = id_generator.user_generate(&"users".parse()?);
         let doc1 = ResolvedDocument::new(id1, CreationTime::ONE, assert_obj!("age" => 30.0))?;
         let fields = vec!["age".parse()?];
         let index_key_bytes1 = doc1
@@ -810,7 +810,7 @@ mod cache_tests {
         let ts1 = Timestamp::must(100);
         cache.populate(index_id, index_key_bytes1.clone(), ts1, doc1.clone());
 
-        let id2 = id_generator.generate(&"users".parse()?);
+        let id2 = id_generator.user_generate(&"users".parse()?);
         let doc2 = ResolvedDocument::new(id2, CreationTime::ONE, assert_obj!("age" => 40.0))?;
         let index_key_bytes2 = doc2
             .index_key(&fields, PersistenceVersion::default())
@@ -933,7 +933,7 @@ mod cache_tests {
         let index_id = id_generator.generate_internal();
         let ts = Timestamp::must(100);
         let mut make_doc = |age: f64| {
-            let id = id_generator.generate(&"users".parse().unwrap());
+            let id = id_generator.user_generate(&"users".parse().unwrap());
             let doc =
                 ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("age" => age)).unwrap();
             let fields = vec!["age".parse().unwrap()];

@@ -31,7 +31,7 @@ use crate::test_helpers::UdfTest;
 async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let mut id_generator = TestIdGenerator::new();
-    let table_id = id_generator.table_id(&"test".parse()?);
+    let table_id = id_generator.user_table_id(&"test".parse()?);
     let table_number = id_generator.generate_virtual_table(&"test2".parse()?);
     let values: Vec<(ConvexValue, &'static str)> = vec![
         (

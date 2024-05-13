@@ -871,14 +871,14 @@ mod tests {
         id_generator: &mut TestIdGenerator,
         table_name: &str,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        Ok(id_generator.generate(&TableName::from_str(table_name)?))
+        Ok(id_generator.user_generate(&TableName::from_str(table_name)?))
     }
 
     fn gen_index_document(
         id_generator: &mut TestIdGenerator,
         metadata: TabletIndexMetadata,
     ) -> anyhow::Result<ResolvedDocument> {
-        let index_id = id_generator.generate(&INDEX_TABLE);
+        let index_id = id_generator.system_generate(&INDEX_TABLE);
         ResolvedDocument::new(index_id, CreationTime::ONE, metadata.try_into()?)
     }
 
@@ -895,7 +895,7 @@ mod tests {
         let mut index_id_by_name = BTreeMap::new();
         let mut index_documents = BTreeMap::new();
 
-        let index_table = id_generator.table_id(&INDEX_TABLE).tablet_id;
+        let index_table = id_generator.system_table_id(&INDEX_TABLE).tablet_id;
         // Add the _index.by_id index.
         indexes.push(IndexMetadata::new_enabled(
             TabletIndexName::by_id(index_table),
@@ -940,7 +940,7 @@ mod tests {
         );
         let ps = rp.read_snapshot(unchecked_repeatable_ts(Timestamp::must(1000)))?;
 
-        let table_id = id_generator.table_id(&"messages".parse()?).tablet_id;
+        let table_id = id_generator.user_table_id(&"messages".parse()?).tablet_id;
         let messages_by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
         let printable_messages_by_name = IndexName::new("messages".parse()?, "by_name".parse()?)?;
         let (index_registry, inner, search, _) = bootstrap_index(
@@ -1034,7 +1034,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_transaction_index_missing_table(rt: ProdRuntime) -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
-        let table_id = id_generator.table_id(&"messages".parse()?).tablet_id;
+        let table_id = id_generator.user_table_id(&"messages".parse()?).tablet_id;
         let by_id = TabletIndexName::by_id(table_id);
         let printable_by_id = IndexName::by_id("messages".parse()?);
         let by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
@@ -1192,9 +1192,9 @@ mod tests {
             unchecked_repeatable_ts(now0),
             retention_manager.clone(),
         );
-        let index_table_id = id_generator.table_id(&"_index".parse()?).tablet_id;
+        let index_table_id = id_generator.system_table_id(&"_index".parse()?).tablet_id;
         let table: TableName = "users".parse()?;
-        let table_id = id_generator.table_id(&table).tablet_id;
+        let table_id = id_generator.user_table_id(&table).tablet_id;
         let by_id = TabletIndexName::by_id(table_id);
         let printable_by_id = IndexName::by_id(table.clone());
         let by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;

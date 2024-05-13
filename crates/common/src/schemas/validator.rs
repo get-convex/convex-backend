@@ -1195,7 +1195,7 @@ mod tests {
         #[test]
         fn test_check_value(v in any_with::<DocumentSchema>(btreeset! { "table_name".parse::<TableName>().unwrap(), "table_name_2".parse::<TableName>().unwrap()}, )) {
             let mut id_generator = TestIdGenerator::new();
-            id_generator.generate(&"table_name".parse().unwrap());
+            id_generator.user_generate(&"table_name".parse().unwrap());
             id_generator.generate_virtual(&"table_name_2".parse().unwrap());
             // Test that `check_value` succeeds for objects created from arbitrary document schemas.
             let object = object_from_schema(v.clone(), &id_generator).unwrap();
@@ -1336,8 +1336,8 @@ mod tests {
             }
         );
 
-        let user_id1 = id_generator.generate(&table_name);
-        let user_id2 = id_generator.generate(&table_name);
+        let user_id1 = id_generator.user_generate(&table_name);
+        let user_id2 = id_generator.user_generate(&table_name);
 
         let value_wrong_key: ConvexValue = assert_obj!(
             user_id1.to_string() => ConvexValue::Float64(0.0),
@@ -1513,8 +1513,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
 
         // generate an ID so it's in the table mapping
-        id_generator.generate(&table1);
-        let document_id = id_generator.generate(&table2);
+        id_generator.user_generate(&table1);
+        let document_id = id_generator.user_generate(&table2);
         let id_v6 = DeveloperDocumentId::from(document_id);
         let value: ConvexValue = id_v6.into();
 
@@ -1541,7 +1541,7 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
 
         // generate an ID so it's in the table mapping
-        id_generator.generate(&table1);
+        id_generator.user_generate(&table1);
         let id_v6 = id_generator.generate_virtual(&table2);
         let value: ConvexValue = id_v6.into();
 

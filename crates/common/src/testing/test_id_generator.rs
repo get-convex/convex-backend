@@ -90,8 +90,8 @@ impl TestIdGenerator {
         InternalId(new_id)
     }
 
-    // For adding to physical table mapping
-    pub fn table_id(&mut self, table_name: &TableName) -> TabletIdAndTableNumber {
+    pub fn system_table_id(&mut self, table_name: &TableName) -> TabletIdAndTableNumber {
+        assert!(table_name.is_system(), "use user_table_id instead");
         if let Ok(table_id) = self.id(table_name) {
             return table_id;
         }
@@ -103,8 +103,30 @@ impl TestIdGenerator {
             .expect("Could not increment table number");
         self.table_mapping
             .insert(tablet_id, table_number, table_name.clone());
-        self.table_id(&TABLES_TABLE);
-        self.table_id(&INDEX_TABLE);
+        self.system_table_id(&TABLES_TABLE);
+        self.system_table_id(&INDEX_TABLE);
+        TabletIdAndTableNumber {
+            table_number,
+            tablet_id,
+        }
+    }
+
+    // For adding to physical table mapping
+    pub fn user_table_id(&mut self, table_name: &TableName) -> TabletIdAndTableNumber {
+        assert!(!table_name.is_system(), "use system_table_id instead");
+        if let Ok(table_id) = self.id(table_name) {
+            return table_id;
+        }
+        let tablet_id = TabletId(self.generate_internal());
+        let table_number = self.curr_table_number;
+        self.curr_table_number = self
+            .curr_table_number
+            .increment()
+            .expect("Could not increment table number");
+        self.table_mapping
+            .insert(tablet_id, table_number, table_name.clone());
+        self.system_table_id(&TABLES_TABLE);
+        self.system_table_id(&INDEX_TABLE);
         TabletIdAndTableNumber {
             table_number,
             tablet_id,
@@ -122,8 +144,8 @@ impl TestIdGenerator {
             .increment()
             .expect("Could not increment table number");
         self.virtual_table_mapping.insert(num, table_name.clone());
-        self.table_id(&TABLES_TABLE);
-        self.table_id(&INDEX_TABLE);
+        self.system_table_id(&TABLES_TABLE);
+        self.system_table_id(&INDEX_TABLE);
         num
     }
 
@@ -155,8 +177,15 @@ impl TestIdGenerator {
         Ok(())
     }
 
-    pub fn generate(&mut self, table_name: &TableName) -> ResolvedDocumentId {
-        let table_id = self.table_id(table_name);
+    pub fn user_generate(&mut self, table_name: &TableName) -> ResolvedDocumentId {
+        assert!(!table_name.is_system(), "use system_generate instead");
+        let table_id = self.user_table_id(table_name);
+        table_id.id(self.generate_internal())
+    }
+
+    pub fn system_generate(&mut self, table_name: &TableName) -> ResolvedDocumentId {
+        assert!(table_name.is_system(), "use user_generate instead");
+        let table_id = self.system_table_id(table_name);
         table_id.id(self.generate_internal())
     }
 

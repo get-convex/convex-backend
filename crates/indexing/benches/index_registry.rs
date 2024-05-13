@@ -25,7 +25,7 @@ fn gen_index_document(
     id_generator: &mut TestIdGenerator,
     metadata: TabletIndexMetadata,
 ) -> anyhow::Result<ResolvedDocument> {
-    let index_id = id_generator.generate(&INDEX_TABLE);
+    let index_id = id_generator.system_generate(&INDEX_TABLE);
     ResolvedDocument::new(index_id, CreationTime::ONE, metadata.try_into()?)
 }
 
@@ -35,7 +35,7 @@ fn index_documents(
 ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>> {
     let mut index_documents = BTreeMap::new();
 
-    let index_table = id_generator.table_id(&INDEX_TABLE);
+    let index_table = id_generator.system_table_id(&INDEX_TABLE);
     // Add the _index.by_id index.
     indexes.push(IndexMetadata::new_enabled(
         GenericIndexName::by_id(index_table.tablet_id),
@@ -55,7 +55,7 @@ fn index_registry_bootstrap(bencher: divan::Bencher, num_indexes: usize) {
     // Generate index documents
     let indexes = (0..num_indexes)
         .map(|i| {
-            let table_id = id_generator.table_id(&format!("messages_{i}").parse().unwrap());
+            let table_id = id_generator.user_table_id(&format!("messages_{i}").parse().unwrap());
             IndexMetadata::new_enabled(
                 GenericIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),

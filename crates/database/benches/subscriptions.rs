@@ -220,7 +220,7 @@ fn create_subscriptions(
 fn bench_query(c: &mut Criterion) {
     let mut id_generator = TestIdGenerator::new();
     let table_name = id_generator.generate_table_name();
-    let table_id = id_generator.table_id(&table_name);
+    let table_id = id_generator.user_table_id(&table_name);
 
     let datasets = load_datasets(table_id, MAX_LOAD_SIZE).unwrap();
 

@@ -51,19 +51,19 @@ use value::{
 };
 
 trait IdGenerator {
-    fn generate(&mut self, table_name: &TableName) -> ResolvedDocumentId;
+    fn system_generate(&mut self, table_name: &TableName) -> ResolvedDocumentId;
 }
 
 impl IdGenerator for TestIdGenerator {
-    fn generate(&mut self, table_name: &TableName) -> ResolvedDocumentId {
-        TestIdGenerator::generate(self, table_name)
+    fn system_generate(&mut self, table_name: &TableName) -> ResolvedDocumentId {
+        TestIdGenerator::system_generate(self, table_name)
     }
 }
 
 struct ConstantId(ResolvedDocumentId);
 
 impl IdGenerator for ConstantId {
-    fn generate(&mut self, _table_name: &TableName) -> ResolvedDocumentId {
+    fn system_generate(&mut self, _table_name: &TableName) -> ResolvedDocumentId {
         self.0
     }
 }
@@ -77,14 +77,14 @@ fn next_document_id(
     id_generator: &mut TestIdGenerator,
     table_name: &str,
 ) -> anyhow::Result<ResolvedDocumentId> {
-    Ok(id_generator.generate(&TableName::from_str(table_name)?))
+    Ok(id_generator.user_generate(&TableName::from_str(table_name)?))
 }
 
 fn gen_index_document(
     id_generator: &mut dyn IdGenerator,
     metadata: TabletIndexMetadata,
 ) -> anyhow::Result<ResolvedDocument> {
-    let index_id = id_generator.generate(&INDEX_TABLE);
+    let index_id = id_generator.system_generate(&INDEX_TABLE);
     ResolvedDocument::new(index_id, CreationTime::ONE, metadata.try_into()?)
 }
 
@@ -94,7 +94,7 @@ fn index_documents(
 ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>> {
     let mut index_documents = BTreeMap::new();
 
-    let index_table = id_generator.table_id(&INDEX_TABLE);
+    let index_table = id_generator.system_table_id(&INDEX_TABLE);
     // Add the _index.by_id index.
     indexes.push(IndexMetadata::new_enabled(
         GenericIndexName::by_id(index_table.tablet_id),
@@ -120,7 +120,7 @@ fn test_metadata_add_and_drop_index() -> anyhow::Result<()> {
 
     assert_eq!(index_registry.all_enabled_indexes().len(), 1);
 
-    let table_id = id_generator.table_id(&"messages".parse()?);
+    let table_id = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table_id.tablet_id);
     let by_name = GenericIndexName::new(table_id.tablet_id, "by_name".parse()?)?;
     // Add `messages.by_id`.
@@ -159,7 +159,7 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
         index_documents.values().map(|(_, d)| d),
         PersistenceVersion::default(),
     )?;
-    let table = id_generator.table_id(&"messages".parse()?);
+    let table = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table.tablet_id);
     let by_first_id = GenericIndexName::new(table.tablet_id, "by_first_id".parse()?)?;
     let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
@@ -229,10 +229,10 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
 #[test]
 fn test_metadata_change_index() -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
-    let table = id_generator.table_id(&"messages".parse()?);
+    let table = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table.tablet_id);
     let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
-    let authors_table = id_generator.table_id(&"authors".parse()?);
+    let authors_table = id_generator.user_table_id(&"authors".parse()?);
     let authors_by_name = GenericIndexName::new(authors_table.tablet_id, "by_name".parse()?)?;
 
     let indexes = vec![IndexMetadata::new_enabled(by_id, IndexedFields::by_id())];
@@ -285,7 +285,7 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
 
     // Creating a new index with the same name and state is not allowed.
     let name_collision = ResolvedDocument::new(
-        id_generator.generate(&INDEX_TABLE),
+        id_generator.system_generate(&INDEX_TABLE),
         CreationTime::ONE,
         IndexMetadata::new_enabled(by_name.clone(), vec!["other_field".parse()?].try_into()?)
             .try_into()?,
@@ -321,7 +321,7 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
         index_documents.values().map(|(_, d)| d),
         PersistenceVersion::default(),
     )?;
-    let table = id_generator.table_id(&"messages".parse()?);
+    let table = id_generator.user_table_id(&"messages".parse()?);
 
     // Creating a new index with the same name and state is not allowed.
     let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
@@ -336,7 +336,7 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
     let result = index_registry.update(None, Some(&pending));
     assert!(result.is_ok());
     let name_collision = ResolvedDocument::new(
-        id_generator.generate(&INDEX_TABLE),
+        id_generator.system_generate(&INDEX_TABLE),
         CreationTime::ONE,
         IndexMetadata::new_backfilling(
             Timestamp::MIN,
@@ -364,7 +364,7 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
 #[test]
 fn test_metadata_index_updates() -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
-    let table = id_generator.table_id(&"messages".parse()?);
+    let table = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table.tablet_id);
     let by_author = GenericIndexName::new(table.tablet_id, "by_author".parse()?)?;
     let by_content = GenericIndexName::new(table.tablet_id, "by_content".parse()?)?;
@@ -542,7 +542,7 @@ fn test_metadata_index_updates() -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
-    let table = id_generator.table_id(&"messages".parse()?);
+    let table = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table.tablet_id);
     let by_author = GenericIndexName::new(table.tablet_id, "by_author".parse()?)?;
 
@@ -738,7 +738,7 @@ fn new_pending_doc(
 }
 
 fn tablet_id(id_generator: &mut TestIdGenerator) -> anyhow::Result<TabletId> {
-    Ok(id_generator.table_id(&"table".parse()?).tablet_id)
+    Ok(id_generator.user_table_id(&"table".parse()?).tablet_id)
 }
 
 #[test]

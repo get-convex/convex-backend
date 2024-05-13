@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn test_shape_roundtrips() -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
-        let table_id = id_generator.table_id(&"test".parse()?).table_number;
+        let table_id = id_generator.user_table_id(&"test".parse()?).table_number;
         let shapes = vec![
             ReducedShape::Unknown,
             ReducedShape::Never,

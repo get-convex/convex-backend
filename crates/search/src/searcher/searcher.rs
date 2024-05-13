@@ -1271,7 +1271,7 @@ mod tests {
     static TEST_TABLE: LazyLock<TabletIdAndTableNumber> = LazyLock::new(|| {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "test".parse().unwrap();
-        id_generator.table_id(&table_name)
+        id_generator.user_table_id(&table_name)
     });
 
     #[tokio::test]

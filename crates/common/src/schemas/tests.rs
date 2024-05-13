@@ -943,7 +943,7 @@ mod tables_to_revalidate {
     #[test]
     fn test_skips_validation_from_ids_in_shapes() -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
-        let dog_id: ResolvedDocumentId = id_generator.generate(&"dogs".parse()?);
+        let dog_id: ResolvedDocumentId = id_generator.user_generate(&"dogs".parse()?);
         let document_with_id = assert_val!({"field" => dog_id});
         let shape = CountedShape::<TestConfig>::empty().insert_value(&document_with_id);
 
@@ -1001,7 +1001,7 @@ mod tables_to_revalidate {
     #[test]
     fn test_skips_validation_from_ids_in_type() -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
-        let dog_id: ResolvedDocumentId = id_generator.generate(&"dogs".parse()?);
+        let dog_id: ResolvedDocumentId = id_generator.user_generate(&"dogs".parse()?);
         let shape = CountedShape::<TestConfig>::empty().insert_value(&dog_id.into());
         assert!(
             Validator::from_type(&shape, &id_generator, &VirtualTableMapping::new())
