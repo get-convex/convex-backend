@@ -8,6 +8,7 @@ use common::http::{
     extract::Json,
     HttpResponseError,
 };
+use errors::ErrorMetadata;
 use http::StatusCode;
 use model::scheduled_jobs::{
     SchedulerModel,
@@ -40,6 +41,13 @@ pub async fn cancel_all_jobs(
     identity
         .member_id()
         .context(bad_admin_key_error(identity.instance_name()))?;
+    let udf_path = udf_path
+        .map(|p| p.parse())
+        .transpose()
+        .context(ErrorMetadata::bad_request(
+            "InvaildUdfPath",
+            "CancelAllJobs requires an optional canonicalized UdfPath",
+        ))?;
     st.application.cancel_all_jobs(udf_path, identity).await?;
 
     Ok(StatusCode::OK)

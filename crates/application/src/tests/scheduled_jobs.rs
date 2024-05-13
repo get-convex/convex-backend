@@ -133,9 +133,7 @@ async fn test_scheduled_jobs_canceled(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Cancel the scheduled job
     let udf_path = udf_path();
-    model
-        .cancel_all(Some(udf_path.canonicalize().to_string()), 1)
-        .await?;
+    model.cancel_all(Some(udf_path.canonicalize()), 1).await?;
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Canceled);
     application.commit_test(tx).await?;
@@ -157,9 +155,7 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
 
     // Cancel the scheduled job
     let udf_path = udf_path();
-    model
-        .cancel_all(Some(udf_path.canonicalize().to_string()), 1)
-        .await?;
+    model.cancel_all(Some(udf_path.canonicalize()), 1).await?;
 
     application.commit_test(tx).await?;
 

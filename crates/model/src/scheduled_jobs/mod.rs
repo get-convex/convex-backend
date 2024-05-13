@@ -42,6 +42,7 @@ use database::{
 use errors::ErrorMetadata;
 use maplit::btreemap;
 use sync_types::{
+    CanonicalizedUdfPath,
     Timestamp,
     UdfPath,
 };
@@ -353,7 +354,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
     // Note: the caller will assume all have been canceled if Result < `limit`.
     pub async fn cancel_all(
         &mut self,
-        udf_path: Option<String>,
+        udf_path: Option<CanonicalizedUdfPath>,
         limit: usize,
     ) -> anyhow::Result<usize> {
         let index_query = match udf_path {
@@ -361,7 +362,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 let range = vec![
                     IndexRangeExpression::Eq(
                         UDF_PATH_FIELD.clone(),
-                        ConvexValue::try_from(udf_path)?.into(),
+                        ConvexValue::try_from(udf_path.to_string())?.into(),
                     ),
                     IndexRangeExpression::Gt(NEXT_TS_FIELD.clone(), value::ConvexValue::Null),
                 ];

@@ -2186,7 +2186,7 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn cancel_all_jobs(
         &self,
-        udf_path: Option<String>,
+        udf_path: Option<CanonicalizedUdfPath>,
         identity: Identity,
     ) -> anyhow::Result<()> {
         loop {
@@ -2208,11 +2208,11 @@ impl<RT: Runtime> Application<RT> {
 
     async fn _cancel_all_jobs(
         tx: &mut Transaction<RT>,
-        udf_path: Option<String>,
+        udf_path: Option<CanonicalizedUdfPath>,
         max_jobs: usize,
     ) -> anyhow::Result<(usize, Vec<DeploymentAuditLogEvent>)> {
         let count = SchedulerModel::new(tx)
-            .cancel_all(udf_path.clone(), max_jobs)
+            .cancel_all(udf_path, max_jobs)
             .await?;
         Ok((count, vec![]))
     }
