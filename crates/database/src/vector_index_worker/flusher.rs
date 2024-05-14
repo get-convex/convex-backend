@@ -12,15 +12,9 @@ use anyhow::Context;
 #[cfg(any(test, feature = "testing"))]
 use common::pause::PauseClient;
 use common::{
-    bootstrap_model::index::{
-        vector_index::{
-            FragmentedVectorSegment,
-            VectorIndexSnapshot,
-            VectorIndexSnapshotData,
-            VectorIndexState,
-        },
-        IndexConfig,
-        IndexMetadata,
+    bootstrap_model::index::vector_index::{
+        FragmentedVectorSegment,
+        VectorIndexSnapshotData,
     },
     knobs::{
         DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
@@ -69,7 +63,17 @@ use super::{
 };
 use crate::{
     bootstrap_model::index_workers::IndexWorkerMetadataModel,
-    index_workers::BuildReason,
+    index_workers::{
+        index_meta::{
+            SearchIndex,
+            SearchIndexConfigParser,
+            SearchOnDiskState,
+            SearchSnapshot,
+            VectorIndexConfigParser,
+            VectorSearchIndex,
+        },
+        BuildReason,
+    },
     metrics::{
         self,
         vector::log_documents_per_segment,
@@ -126,7 +130,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u32>, Token)> {
         let mut metrics = BTreeMap::new();
 
-        let (to_build, token) = self.needs_backfill().await?;
+        let (to_build, token) = self.needs_backfill::<VectorIndexConfigParser>().await?;
         let num_to_build = to_build.len();
         if num_to_build > 0 {
             tracing::info!("{num_to_build} vector indexes to build");
@@ -151,43 +155,35 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     }
 
     /// Compute the set of indexes that need to be backfilled.
-    async fn needs_backfill(&self) -> anyhow::Result<(Vec<IndexBuild>, Token)> {
+    async fn needs_backfill<T: SearchIndexConfigParser>(
+        &self,
+    ) -> anyhow::Result<(Vec<IndexBuild<T::IndexType>>, Token)> {
         let mut to_build = vec![];
 
         let mut tx = self.database.begin(Identity::system()).await?;
         let step_ts = tx.begin_timestamp();
-        let vector_index = self.database.snapshot(step_ts)?.vector_indexes;
 
-        let ready_index_sizes = vector_index
-            .backfilled_and_enabled_index_sizes()?
-            .collect::<BTreeMap<_, _>>();
+        let snapshot = self.database.snapshot(step_ts)?;
+
+        let ready_index_sizes = T::IndexType::get_index_sizes(snapshot)?;
 
         for index_doc in IndexModel::new(&mut tx).get_all_indexes().await? {
             let (index_id, index_metadata) = index_doc.into_id_and_value();
-            let IndexMetadata {
-                name,
-                config:
-                    IndexConfig::Vector {
-                        on_disk_state,
-                        developer_config,
-                    },
-            } = index_metadata
-            else {
+            let Some(config) = T::get_config(index_metadata.config) else {
                 continue;
             };
-            // If the index is in the `Backfilling` state, or is already
-            // `SnapshottedAt` but has grown too large or has the wrong
-            // format, it needs to be backfilled.
-            let needs_backfill = match &on_disk_state {
-                VectorIndexState::Backfilling(_) => Some(BuildReason::Backfilling),
-                VectorIndexState::SnapshottedAt(VectorIndexSnapshot { data, .. })
-                | VectorIndexState::Backfilled(VectorIndexSnapshot { data, .. })
-                    if !data.is_version_current() =>
+            let name = index_metadata.name;
+
+            let needs_backfill = match &config.on_disk_state {
+                SearchOnDiskState::Backfilling(_) => Some(BuildReason::Backfilling),
+                SearchOnDiskState::SnapshottedAt(snapshot)
+                | SearchOnDiskState::Backfilled(snapshot)
+                    if !T::IndexType::is_version_current(snapshot) =>
                 {
                     Some(BuildReason::VersionMismatch)
                 },
-                VectorIndexState::SnapshottedAt(VectorIndexSnapshot { ts, .. })
-                | VectorIndexState::Backfilled(VectorIndexSnapshot { ts, .. }) => {
+                SearchOnDiskState::SnapshottedAt(SearchSnapshot { ts, .. })
+                | SearchOnDiskState::Backfilled(SearchSnapshot { ts, .. }) => {
                     let ts = IndexWorkerMetadataModel::new(&mut tx)
                         .get_fast_forward_ts(*ts, index_id.internal_id())
                         .await?;
@@ -225,9 +221,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                     index_name: name.clone(),
                     index_id: index_id.internal_id(),
                     by_id: by_id_metadata.id().internal_id(),
-                    developer_config: developer_config.clone(),
+                    index_config: config,
                     metadata_id: index_id,
-                    on_disk_state,
                     build_reason,
                 };
                 to_build.push(job);
@@ -236,7 +231,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         Ok((to_build, tx.into_token()?))
     }
 
-    async fn build_one(&self, job: IndexBuild) -> anyhow::Result<u32> {
+    async fn build_one(&self, job: IndexBuild<VectorSearchIndex>) -> anyhow::Result<u32> {
         let timer = metrics::vector::build_one_timer();
 
         let result = self.build_multipart_segment(&job).await?;
@@ -270,13 +265,16 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         Ok(vectors_in_new_segment)
     }
 
-    async fn build_multipart_segment(&self, job: &IndexBuild) -> anyhow::Result<IndexBuildResult> {
+    async fn build_multipart_segment(
+        &self,
+        job: &IndexBuild<VectorSearchIndex>,
+    ) -> anyhow::Result<IndexBuildResult> {
         let index_path = TempDir::new()?;
         let mut tx = self.database.begin(Identity::system()).await?;
         let table_id = tx.table_mapping().inject_table_number()(*job.index_name.table())?;
         let mut new_ts = tx.begin_timestamp();
-        let (previous_segments, build_type) = match job.on_disk_state {
-            VectorIndexState::Backfilling(ref backfill_state) => {
+        let (previous_segments, build_type) = match job.index_config.on_disk_state {
+            SearchOnDiskState::Backfilling(ref backfill_state) => {
                 let backfill_snapshot_ts = backfill_state
                     .backfill_snapshot_ts
                     .map(|ts| new_ts.prior_ts(ts))
@@ -296,8 +294,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                     },
                 )
             },
-            VectorIndexState::Backfilled(ref snapshot)
-            | VectorIndexState::SnapshottedAt(ref snapshot) => {
+            SearchOnDiskState::Backfilled(ref snapshot)
+            | SearchOnDiskState::SnapshottedAt(ref snapshot) => {
                 match snapshot.data {
                     // If we're on an old or unrecognized version, rebuild everything. The formats
                     // are not compatible.
@@ -370,13 +368,13 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
 
     async fn build_multipart_segment_in_dir(
         &self,
-        job: &IndexBuild,
+        job: &IndexBuild<VectorSearchIndex>,
         index_path: &TempDir,
         snapshot_ts: RepeatableTimestamp,
         build_type: MultipartBuildType,
         previous_segments: Vec<FragmentedVectorSegment>,
     ) -> anyhow::Result<MultiSegmentBuildResult> {
-        let qdrant_schema = QdrantSchema::new(&job.developer_config);
+        let qdrant_schema = QdrantSchema::new(&job.index_config.developer_config);
         let database = self.database.clone();
 
         let (tx, rx) = oneshot::channel();
@@ -538,7 +536,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     #[cfg(any(test, feature = "testing"))]
     pub async fn build_index_in_test(
         index_name: TabletIndexName,
-        table_name: common::value::TableName,
+        table_name: value::TableName,
         runtime: RT,
         database: Database<RT>,
         storage: Arc<dyn Storage>,
@@ -551,13 +549,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         let pending_metadata = index_model.pending_index_metadata(&index_name_)?;
         let enabled_metadata = index_model.enabled_index_metadata(&index_name_)?;
         let metadata = pending_metadata.unwrap_or_else(|| enabled_metadata.unwrap());
-        let IndexConfig::Vector {
-            developer_config,
-            on_disk_state,
-        } = &metadata.config
-        else {
-            anyhow::bail!("Index was not a vector index: {index_name:?}");
-        };
+        let index_config = VectorIndexConfigParser::get_config(metadata.config.clone())
+            .context("Not a vector index?")?;
         let by_id = IndexName::by_id(table_name.clone());
         let Some(by_id_metadata) = IndexModel::new(&mut tx).enabled_index_metadata(&by_id)? else {
             anyhow::bail!("Missing by_id index for {index_name:?}");
@@ -568,9 +561,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             index_name,
             index_id: metadata.clone().into_id_and_value().0.internal_id(),
             by_id: by_id_metadata.id().internal_id(),
-            developer_config: developer_config.clone(),
+            index_config,
             metadata_id: metadata.clone().id(),
-            on_disk_state: on_disk_state.clone(),
             build_reason: BuildReason::TooLarge,
         };
         worker.build_one(job).await?;

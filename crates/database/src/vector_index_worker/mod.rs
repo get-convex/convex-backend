@@ -3,26 +3,25 @@ pub mod fast_forward;
 pub mod flusher;
 pub mod writer;
 
-use common::{
-    bootstrap_model::index::vector_index::{
-        DeveloperVectorIndexConfig,
-        VectorIndexState,
-    },
-    types::{
-        IndexId,
-        TabletIndexName,
-    },
+use common::types::{
+    IndexId,
+    TabletIndexName,
 };
 use value::ResolvedDocumentId;
 
-use crate::index_workers::BuildReason;
+use crate::index_workers::{
+    index_meta::{
+        SearchIndex,
+        SearchIndexConfig,
+    },
+    BuildReason,
+};
 
-pub(crate) struct IndexBuild {
+pub(crate) struct IndexBuild<T: SearchIndex> {
     index_name: TabletIndexName,
     index_id: IndexId,
     by_id: IndexId,
-    developer_config: DeveloperVectorIndexConfig,
     metadata_id: ResolvedDocumentId,
-    on_disk_state: VectorIndexState,
+    index_config: SearchIndexConfig<T>,
     build_reason: BuildReason,
 }

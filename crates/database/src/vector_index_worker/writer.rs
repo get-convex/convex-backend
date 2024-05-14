@@ -49,6 +49,7 @@ use vector::QdrantExternalId;
 
 use super::IndexBuild;
 use crate::{
+    index_workers::index_meta::VectorSearchIndex,
     metrics::vector::{
         finish_vector_index_merge_timer,
         vector_compaction_merge_commit_timer,
@@ -137,7 +138,7 @@ impl<RT: Runtime> VectorMetadataWriter<RT> {
     /// we can append our new segment (if present) and write the updated result.
     pub(crate) async fn commit_flush(
         &self,
-        job: &IndexBuild,
+        job: &IndexBuild<VectorSearchIndex>,
         new_ts: Timestamp,
         new_and_modified_segments: Vec<FragmentedVectorSegment>,
         new_segment_id: Option<String>,
@@ -387,7 +388,7 @@ impl<RT: Runtime> Inner<RT> {
 
     async fn commit_backfill_flush(
         &self,
-        job: &IndexBuild,
+        job: &IndexBuild<VectorSearchIndex>,
         backfill_complete_ts: Timestamp,
         mut new_and_modified_segments: Vec<FragmentedVectorSegment>,
         new_segment_id: Option<String>,
@@ -461,7 +462,7 @@ impl<RT: Runtime> Inner<RT> {
 
     async fn commit_snapshot_flush(
         &self,
-        job: &IndexBuild,
+        job: &IndexBuild<VectorSearchIndex>,
         new_ts: Timestamp,
         mut new_and_modified_segments: Vec<FragmentedVectorSegment>,
         new_segment_id: Option<String>,

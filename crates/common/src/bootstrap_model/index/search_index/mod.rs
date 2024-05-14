@@ -8,6 +8,7 @@ pub use self::{
         SerializedDeveloperSearchIndexConfig,
     },
     index_snapshot::{
+        FragmentedSearchSegment,
         SearchIndexSnapshot,
         SearchIndexSnapshotData,
         SearchSnapshotVersion,
