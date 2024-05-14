@@ -4,19 +4,20 @@ mod component_definition_path;
 mod component_path;
 mod function_paths;
 mod module_paths;
+mod reference;
+mod resource;
 
 pub use self::{
     component_definition_path::ComponentDefinitionPath,
-    component_path::{
-        ComponentName,
-        ComponentPath,
-    },
+    component_path::ComponentPath,
     function_paths::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionFunctionPath,
         ComponentFunctionPath,
     },
     module_paths::CanonicalizedComponentModulePath,
+    reference::Reference,
+    resource::Resource,
 };
 
 // Globally unique system-assigned ID for a component.

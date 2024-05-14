@@ -24,6 +24,7 @@
 #![feature(round_char_boundary)]
 #![feature(never_type)]
 #![feature(error_generic_member_access)]
+#![feature(str_split_remainder)]
 
 pub mod async_compat;
 pub mod auth;

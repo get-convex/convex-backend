@@ -1,3 +1,8 @@
+use std::{
+    ops::Deref,
+    str::FromStr,
+};
+
 pub const MAX_IDENTIFIER_LEN: usize = 64;
 
 pub const IDENTIFIER_REQUIREMENTS: &str =
@@ -27,6 +32,32 @@ pub fn check_valid_identifier(s: &str) -> anyhow::Result<()> {
 
 pub fn is_valid_identifier(s: &str) -> bool {
     check_valid_identifier_inner(s).is_ok()
+}
+
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub struct Identifier(String);
+
+impl FromStr for Identifier {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> anyhow::Result<Self> {
+        check_valid_identifier(s)?;
+        Ok(Identifier(s.to_string()))
+    }
+}
+
+impl From<Identifier> for String {
+    fn from(id: Identifier) -> String {
+        id.0
+    }
+}
+
+impl Deref for Identifier {
+    type Target = str;
+
+    fn deref(&self) -> &str {
+        &self.0
+    }
 }
 
 fn check_valid_identifier_inner(s: &str) -> Result<(), String> {
@@ -107,6 +138,10 @@ fn check_valid_field_name_inner(s: &str) -> Result<(), String> {
 
 #[cfg(any(test, feature = "testing"))]
 pub mod arbitrary_regexes {
+    use proptest::prelude::*;
+
+    use super::Identifier;
+
     pub const IDENTIFIER_REGEX: &str = "[a-zA-Z_][a-zA-Z][a-zA-Z0-9_]{0,62}";
     pub const USER_IDENTIFIER_REGEX: &str = "[a-zA-Z][a-zA-Z0-9_]{0,63}";
     pub const SYSTEM_IDENTIFIER_REGEX: &str = "_[a-zA-Z][a-zA-Z0-9_]{0,62}";
@@ -116,6 +151,17 @@ pub mod arbitrary_regexes {
     // Technically this can be broader, but system fields are usually valid
     // identifiers
     pub const SYSTEM_FIELD_NAME_REGEX: &str = "_[a-zA-Z][a-zA-Z0-9_]{0,62}";
+
+    impl Arbitrary for Identifier {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            prop_oneof![USER_IDENTIFIER_REGEX, SYSTEM_IDENTIFIER_REGEX]
+                .prop_map(Identifier)
+                .boxed()
+        }
+    }
 }
 
 #[cfg(test)]
