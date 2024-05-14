@@ -8,6 +8,10 @@ use super::{
     index_snapshot::SerializedSearchIndexSnapshot,
     SearchIndexSnapshot,
 };
+use crate::bootstrap_model::index::search_index::backfill_state::{
+    SerializedTextIndexBackfillState,
+    TextIndexBackfillState,
+};
 
 /// The state of a search index.
 /// Search indexes begin in `Backfilling`.
@@ -16,7 +20,7 @@ use super::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SearchIndexState {
-    Backfilling,
+    Backfilling(TextIndexBackfillState),
     Backfilled(SearchIndexSnapshot),
     SnapshottedAt(SearchIndexSnapshot),
 }
@@ -25,6 +29,10 @@ pub enum SearchIndexState {
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum SerializedSearchIndexState {
     Backfilling,
+    Backfilling2 {
+        #[serde(flatten)]
+        backfill_state: SerializedTextIndexBackfillState,
+    },
     Backfilled {
         #[serde(flatten)]
         snapshot: SerializedSearchIndexSnapshot,
@@ -40,7 +48,9 @@ impl TryFrom<SearchIndexState> for SerializedSearchIndexState {
 
     fn try_from(state: SearchIndexState) -> Result<Self, Self::Error> {
         Ok(match state {
-            SearchIndexState::Backfilling => SerializedSearchIndexState::Backfilling,
+            SearchIndexState::Backfilling(state) => SerializedSearchIndexState::Backfilling2 {
+                backfill_state: state.try_into()?,
+            },
             SearchIndexState::Backfilled(snapshot) => SerializedSearchIndexState::Backfilled {
                 snapshot: snapshot.try_into()?,
             },
@@ -56,7 +66,12 @@ impl TryFrom<SerializedSearchIndexState> for SearchIndexState {
 
     fn try_from(serialized: SerializedSearchIndexState) -> Result<Self, Self::Error> {
         Ok(match serialized {
-            SerializedSearchIndexState::Backfilling => SearchIndexState::Backfilling,
+            SerializedSearchIndexState::Backfilling => {
+                SearchIndexState::Backfilling(TextIndexBackfillState::new())
+            },
+            SerializedSearchIndexState::Backfilling2 { backfill_state } => {
+                SearchIndexState::Backfilling(backfill_state.try_into()?)
+            },
             SerializedSearchIndexState::Backfilled { snapshot } => {
                 SearchIndexState::Backfilled(snapshot.try_into()?)
             },

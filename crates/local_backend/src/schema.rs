@@ -152,7 +152,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     },
             } => {
                 let backfill_state = match on_disk_state {
-                    SearchIndexState::Backfilling => "in_progress".to_string(),
+                    SearchIndexState::Backfilling(_) => "in_progress".to_string(),
                     // TODO(CX-3851): The result of this is used to poll for state in the CLI and
                     // also for display in the dashboard. We might consider a new value that would
                     // let us differentiate between Backfilled and SnapshottedAt in the dashboard.

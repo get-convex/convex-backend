@@ -73,6 +73,7 @@ use crate::{
             VectorSearchIndex,
         },
         BuildReason,
+        MultiSegmentBackfillResult,
     },
     metrics::{
         self,
@@ -518,7 +519,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
 
         let index_backfill_result =
             if let MultipartBuildType::IncrementalComplete { .. } = build_type {
-                Some(VectorIndexMultiSegmentBackfillResult {
+                Some(MultiSegmentBackfillResult {
                     new_cursor,
                     is_backfill_complete,
                 })
@@ -622,7 +623,7 @@ struct MultiSegmentBuildResult {
     new_segment: Option<DiskSegmentValues>,
     updated_previous_segments: Vec<FragmentedVectorSegment>,
     // This is set only if the build iteration created a segment for a backfilling index
-    backfill_result: Option<VectorIndexMultiSegmentBackfillResult>,
+    backfill_result: Option<MultiSegmentBackfillResult>,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -646,13 +647,7 @@ struct IndexBuildResult {
     vectors_in_new_segment: Option<u32>,
     new_segment_id: Option<String>,
     // If this is set, this iteration made progress on backfilling an index
-    backfill_result: Option<VectorIndexMultiSegmentBackfillResult>,
-}
-
-#[derive(Debug)]
-pub struct VectorIndexMultiSegmentBackfillResult {
-    pub new_cursor: Option<ResolvedDocumentId>,
-    pub is_backfill_complete: bool,
+    backfill_result: Option<MultiSegmentBackfillResult>,
 }
 
 #[cfg(test)]

@@ -75,7 +75,7 @@ impl IndexConfig {
                 matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
             },
             IndexConfig::Search { on_disk_state, .. } => {
-                matches!(on_disk_state, SearchIndexState::Backfilling)
+                matches!(on_disk_state, SearchIndexState::Backfilling(_))
             },
             IndexConfig::Vector { on_disk_state, .. } => {
                 matches!(on_disk_state, VectorIndexState::Backfilling(_))

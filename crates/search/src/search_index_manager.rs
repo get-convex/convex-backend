@@ -303,7 +303,7 @@ impl SearchIndexManager {
                         ref on_disk_state, ..
                     } = metadata.config
                     {
-                        let SearchIndexState::Backfilling = on_disk_state else {
+                        let SearchIndexState::Backfilling(_) = on_disk_state else {
                             anyhow::bail!(
                                 "Inserted new search index that wasn't backfilling: {metadata:?}"
                             );

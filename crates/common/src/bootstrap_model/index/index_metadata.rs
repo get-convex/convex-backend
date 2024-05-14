@@ -36,6 +36,7 @@ use super::{
     IndexConfig,
 };
 use crate::{
+    bootstrap_model::index::search_index::TextIndexBackfillState,
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -90,7 +91,7 @@ impl<T: TableIdentifier> IndexMetadata<T> {
                 search_field,
                 filter_fields,
             },
-            SearchIndexState::Backfilling,
+            SearchIndexState::Backfilling(TextIndexBackfillState::new()),
         )
     }
 

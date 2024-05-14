@@ -16,6 +16,7 @@ use common::{
     runtime::Runtime,
 };
 use rand::Rng;
+use value::ResolvedDocumentId;
 
 pub const MAX_BACKOFF: Duration = Duration::from_secs(30);
 
@@ -47,4 +48,10 @@ pub async fn timeout_with_jitter<RT: Runtime>(rt: &RT, duration: Duration) {
     let half_timer = duration / 2;
     let sleep = rt.with_rng(|rng| half_timer + duration.mul_f32(rng.gen::<f32>()));
     rt.wait(sleep).await;
+}
+
+#[derive(Debug)]
+pub struct MultiSegmentBackfillResult {
+    pub new_cursor: Option<ResolvedDocumentId>,
+    pub is_backfill_complete: bool,
 }

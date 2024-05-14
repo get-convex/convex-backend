@@ -80,7 +80,7 @@ impl SearchIndexConfigParser for TextIndexConfigParser {
         Some(SearchIndexConfig {
             developer_config,
             on_disk_state: match on_disk_state {
-                SearchIndexState::Backfilling => {
+                SearchIndexState::Backfilling(_) => {
                     // TODO(sam): Add support for a backfilling partial state to text search
                     SearchOnDiskState::Backfilling(BackfillState {
                         segments: vec![],

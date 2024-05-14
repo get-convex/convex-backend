@@ -210,7 +210,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 SearchIndexState::Backfilled(snapshot) => {
                     *on_disk_state = SearchIndexState::SnapshottedAt(snapshot.clone());
                 },
-                SearchIndexState::Backfilling | SearchIndexState::SnapshottedAt(_) => {
+                SearchIndexState::Backfilling(_) | SearchIndexState::SnapshottedAt(_) => {
                     anyhow::bail!(
                         "Expected backfilled index, but found: {on_disk_state:?} for {:?}",
                         backfilled_index.name.descriptor()

@@ -146,7 +146,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             // If the index is in the `Backfilling` state, or is already `SnapshottedAt` but
             // has grown too large or has the wrong format, it needs to be backfilled.
             let needs_backfill = match &on_disk_state {
-                SearchIndexState::Backfilling => Some(BuildReason::Backfilling),
+                SearchIndexState::Backfilling(_) => Some(BuildReason::Backfilling),
                 SearchIndexState::SnapshottedAt(SearchIndexSnapshot { version, .. })
                 | SearchIndexState::Backfilled(SearchIndexSnapshot { version, .. })
                     if *version != expected_version =>
@@ -226,7 +226,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             version: SearchSnapshotVersion::new(tx.persistence_version()),
         };
         let new_on_disk_state = match job.on_disk_state {
-            SearchIndexState::Backfilling | SearchIndexState::Backfilled(_) => {
+            SearchIndexState::Backfilling(_) | SearchIndexState::Backfilled(_) => {
                 SearchIndexState::Backfilled(snapshot_data)
             },
             SearchIndexState::SnapshottedAt(_) => SearchIndexState::SnapshottedAt(snapshot_data),

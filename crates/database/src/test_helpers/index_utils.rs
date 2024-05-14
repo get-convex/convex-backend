@@ -69,7 +69,7 @@ pub fn assert_backfilling(
             assert_matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
         },
         IndexConfig::Search { on_disk_state, .. } => {
-            assert_eq!(on_disk_state, SearchIndexState::Backfilling)
+            assert_matches!(on_disk_state, SearchIndexState::Backfilling(_))
         },
         IndexConfig::Vector { on_disk_state, .. } => {
             assert_matches!(on_disk_state, VectorIndexState::Backfilling(_))

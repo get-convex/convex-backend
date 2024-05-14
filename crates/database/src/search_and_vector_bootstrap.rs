@@ -165,7 +165,7 @@ impl IndexesToBootstrap {
                     on_disk_state,
                 } => {
                     let search_index = match on_disk_state {
-                        SearchIndexState::Backfilling => {
+                        SearchIndexState::Backfilling(_) => {
                             // We'll start a new memory search index starting at the next commit
                             // after our persistence upper bound. After
                             // bootstrapping, all commits after

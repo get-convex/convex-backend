@@ -49,7 +49,10 @@ use vector::QdrantExternalId;
 
 use super::IndexBuild;
 use crate::{
-    index_workers::index_meta::VectorSearchIndex,
+    index_workers::{
+        index_meta::VectorSearchIndex,
+        MultiSegmentBackfillResult,
+    },
     metrics::vector::{
         finish_vector_index_merge_timer,
         vector_compaction_merge_commit_timer,
@@ -58,7 +61,6 @@ use crate::{
         VectorIndexMergeType,
         VectorWriterLockWaiter,
     },
-    vector_index_worker::flusher::VectorIndexMultiSegmentBackfillResult,
     Database,
     IndexModel,
     SystemMetadataModel,
@@ -142,7 +144,7 @@ impl<RT: Runtime> VectorMetadataWriter<RT> {
         new_ts: Timestamp,
         new_and_modified_segments: Vec<FragmentedVectorSegment>,
         new_segment_id: Option<String>,
-        index_backfill_result: Option<VectorIndexMultiSegmentBackfillResult>,
+        index_backfill_result: Option<MultiSegmentBackfillResult>,
     ) -> anyhow::Result<()> {
         let inner = self.inner(VectorWriterLockWaiter::Flusher).await;
 
@@ -392,7 +394,7 @@ impl<RT: Runtime> Inner<RT> {
         backfill_complete_ts: Timestamp,
         mut new_and_modified_segments: Vec<FragmentedVectorSegment>,
         new_segment_id: Option<String>,
-        backfill_result: VectorIndexMultiSegmentBackfillResult,
+        backfill_result: MultiSegmentBackfillResult,
     ) -> anyhow::Result<()> {
         let timer = vector_flush_merge_commit_timer();
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;

@@ -43,7 +43,7 @@ impl<RT: Runtime> IndexFastForward<RT, SearchSnapshotVersion> for SearchFastForw
             SearchIndexState::SnapshottedAt(snapshot) | SearchIndexState::Backfilled(snapshot) => {
                 snapshot
             },
-            SearchIndexState::Backfilling => return None,
+            SearchIndexState::Backfilling(_) => return None,
         };
         Some((*ts, *version))
     }

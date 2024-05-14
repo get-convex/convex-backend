@@ -650,7 +650,8 @@ async fn apply_config_with_backfilling_search_index_throws(rt: TestRuntime) -> a
     // commit the schema.
     assert_root_cause_contains(
         result,
-        "Expected backfilled index, but found: Backfilling for \"index\"",
+        "Expected backfilled index, but found: Backfilling(TextIndexBackfillState { segments: [], \
+         cursor: None }) for \"index\"",
     );
 
     Ok(())
@@ -1099,7 +1100,7 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
                 on_disk_state,
             } => {
                 let search_state = match on_disk_state {
-                    SearchIndexState::Backfilling => TestIndexState::Backfilling,
+                    SearchIndexState::Backfilling(_) => TestIndexState::Backfilling,
                     SearchIndexState::Backfilled(_) => TestIndexState::Backfilled,
                     SearchIndexState::SnapshottedAt(_) => TestIndexState::Enabled,
                 };
