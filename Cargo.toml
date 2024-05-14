@@ -7,7 +7,7 @@ exclude = [ "crates/fivetran_source", "crates/py_client", "crates/python_client_
 anyhow = "1"
 async-broadcast = "0.7.0"
 async-channel = "1.9.0"
-async-recursion = "1.0.5"
+async-recursion = "1.1.1"
 async-trait = "0.1"
 async_zip = { version = "0.0.9", default-features = false, features = [ "zstd", "deflate" ] }
 csv-async = "1.2"
