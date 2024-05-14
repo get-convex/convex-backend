@@ -96,7 +96,9 @@ export class ConvexClient {
    * @public
    */
   constructor(address: string, options: ConvexClientOptions = {}) {
-    validateDeploymentUrl(address);
+    if (options.skipConvexDeploymentUrlCheck !== true) {
+      validateDeploymentUrl(address);
+    }
     const { disabled, ...baseOptions } = options;
     this._closed = false;
     this.disabled = !!disabled;

@@ -73,6 +73,16 @@ export interface BaseConvexClientOptions {
    * The default value is `false`.
    */
   reportDebugInfoToConvex?: boolean;
+  /**
+   * Skip validating that the Convex deployment URL looks like
+   * `https://happy-animal-123.convex.cloud` or localhost.
+   *
+   * This can be useful if running a self-hosted Convex backend that uses a different
+   * URL.
+   *
+   * The default value is `false`
+   */
+  skipConvexDeploymentUrlCheck?: boolean;
 }
 
 /**
@@ -159,7 +169,9 @@ export class BaseConvexClient {
         "Passing a ClientConfig object is no longer supported. Pass the URL of the Convex deployment as a string directly.",
       );
     }
-    validateDeploymentUrl(address);
+    if (options?.skipConvexDeploymentUrlCheck !== true) {
+      validateDeploymentUrl(address);
+    }
     options = { ...options };
     let webSocketConstructor = options.webSocketConstructor;
     if (!webSocketConstructor && typeof WebSocket === "undefined") {

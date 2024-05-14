@@ -71,6 +71,16 @@ export type NextjsOptions = {
    * @internal
    */
   adminToken?: string;
+  /**
+   * Skip validating that the Convex deployment URL looks like
+   * `https://happy-animal-123.convex.cloud` or localhost.
+   *
+   * This can be useful if running a self-hosted Convex backend that uses a different
+   * URL.
+   *
+   * The default value is `false`
+   */
+  skipConvexDeploymentUrlCheck?: boolean;
 };
 
 /**
@@ -170,7 +180,9 @@ export async function fetchAction<Action extends FunctionReference<"action">>(
 }
 
 function setupClient(options: NextjsOptions) {
-  const client = new ConvexHttpClient(getConvexUrl(options.url));
+  const client = new ConvexHttpClient(
+    getConvexUrl(options.url, options.skipConvexDeploymentUrlCheck ?? false),
+  );
   if (options.token !== undefined) {
     client.setAuth(options.token);
   }
@@ -181,9 +193,14 @@ function setupClient(options: NextjsOptions) {
   return client;
 }
 
-function getConvexUrl(deploymentUrl: string | undefined) {
+function getConvexUrl(
+  deploymentUrl: string | undefined,
+  skipConvexDeploymentUrlCheck: boolean,
+) {
   const url = deploymentUrl ?? process.env.NEXT_PUBLIC_CONVEX_URL;
-  validateDeploymentUrl(url, deploymentUrl === undefined);
+  if (!skipConvexDeploymentUrlCheck) {
+    validateDeploymentUrl(url, deploymentUrl === undefined);
+  }
   return url!;
 }
 

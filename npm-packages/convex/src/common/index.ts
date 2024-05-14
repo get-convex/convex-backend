@@ -54,7 +54,7 @@ export function validateDeploymentUrl(deploymentUrl: string) {
     !deploymentUrl.includes("0.0.0.0")
   ) {
     throw new Error(
-      `Invalid deployment address: Must end with ".convex.cloud". Found "${deploymentUrl}".`,
+      `Invalid deployment address: Must end with ".convex.cloud". Found "${deploymentUrl}". If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
     );
   }
 }

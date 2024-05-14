@@ -51,9 +51,14 @@ export class ConvexHttpClient {
    *
    * @param address - The url of your Convex deployment, often provided
    * by an environment variable. E.g. `https://small-mouse-123.convex.cloud`.
+   * @param skipConvexDeploymentUrlCheck - Skip validating that the Convex deployment URL looks like
+   * `https://happy-animal-123.convex.cloud` or localhost. This can be useful if running a self-hosted
+   * Convex backend that uses a different URL.
    */
-  constructor(address: string) {
-    validateDeploymentUrl(address);
+  constructor(address: string, skipConvexDeploymentUrlCheck?: boolean) {
+    if (skipConvexDeploymentUrlCheck !== true) {
+      validateDeploymentUrl(address);
+    }
     this.address = `${address}/api`;
     this.debug = true;
   }
