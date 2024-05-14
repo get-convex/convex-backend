@@ -28,7 +28,7 @@ message FunrunRequest {
   optional string backend_grpc_addr = 12;
 
   // Request specific fields.
-  common.PathAndArgs path_and_args = 4;
+  common.ValidatedPathAndArgs path_and_args = 4;
   UdfType udf_type = 5;
   convex_identity.UncheckedIdentity identity = 6;
   Writes existing_writes = 17;

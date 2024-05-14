@@ -360,11 +360,11 @@ impl ValidatedPathAndArgs {
     }
 
     pub fn from_proto(
-        pb::common::PathAndArgs {
+        pb::common::ValidatedPathAndArgs {
             path,
             args,
             npm_version,
-        }: pb::common::PathAndArgs,
+        }: pb::common::ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
         let args_json: JsonValue =
             serde_json::from_slice(&args.ok_or_else(|| anyhow::anyhow!("Missing args"))?)?;
@@ -383,7 +383,7 @@ impl ValidatedPathAndArgs {
     }
 }
 
-impl TryFrom<ValidatedPathAndArgs> for pb::common::PathAndArgs {
+impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
     type Error = anyhow::Error;
 
     fn try_from(
@@ -481,7 +481,7 @@ mod test {
 
         #[test]
         fn test_udf_path_proto_roundtrip(v in any::<ValidatedPathAndArgs>()) {
-            let proto = pb::common::PathAndArgs::try_from(v.clone()).unwrap();
+            let proto = pb::common::ValidatedPathAndArgs::try_from(v.clone()).unwrap();
             let v2 = ValidatedPathAndArgs::from_proto(proto).unwrap();
             assert_eq!(v, v2);
         }

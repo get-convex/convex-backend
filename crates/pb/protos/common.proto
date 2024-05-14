@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package common;
 
-message PathAndArgs {
+message ValidatedPathAndArgs {
   optional string path = 1;
   optional bytes args = 2;
   optional string npm_version = 3;
@@ -69,5 +69,4 @@ message ExecutionContext {
     optional string request_id = 2;
     optional string execution_id = 3;
     optional bool is_root = 4;
-    
 }

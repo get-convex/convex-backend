@@ -41,6 +41,12 @@ message RequestHeader {
     optional string encoded_parent_trace = 3;
 }
 
+// Not validated path and args.
+message PathAndArgs {
+  optional string path = 1;
+  optional bytes args = 2;
+}
+
 message TextSearchAtTsRequest {
     RequestHeader header = 6;
 
@@ -76,7 +82,7 @@ message ExecuteQueryRequest {
     RequestHeader header = 1;
 
     convex_identity.UncheckedIdentity identity = 2;
-    common.PathAndArgs path_and_args = 3;
+    PathAndArgs path_and_args = 3;
     optional common.ExecutionContext execution_context = 6;
 }
 
@@ -86,7 +92,7 @@ message ExecuteQueryRequest2 {
     RequestHeader header = 1;
 
     convex_identity.AuthenticationToken auth_token = 2;
-    common.PathAndArgs path_and_args = 3;
+    PathAndArgs path_and_args = 3;
 
     // TODO(presley): Add caller and action auth token.
 }
@@ -101,7 +107,7 @@ message ExecuteMutationRequest {
     RequestHeader header = 1;
 
     convex_identity.UncheckedIdentity identity = 2;
-    common.PathAndArgs path_and_args = 3;
+    PathAndArgs path_and_args = 3;
     optional common.ExecutionContext execution_context = 6;
 }
 
@@ -115,7 +121,7 @@ message ExecuteActionRequest {
     RequestHeader header = 1;
 
     convex_identity.UncheckedIdentity identity = 2;
-    common.PathAndArgs path_and_args = 3;
+    PathAndArgs path_and_args = 3;
     optional common.ExecutionContext execution_context = 6;
 }
 
@@ -171,7 +177,7 @@ message ScheduleJobRequest {
     RequestHeader header = 1;
 
     convex_identity.UncheckedIdentity identity = 2;
-    common.PathAndArgs path_and_args = 3;
+    PathAndArgs path_and_args = 3;
     optional double scheduled_ts = 4;
     optional common.ExecutionContext execution_context = 6;
 }
