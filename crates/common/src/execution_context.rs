@@ -126,6 +126,14 @@ impl FromStr for RequestId {
     }
 }
 
+impl TryFrom<String> for RequestId {
+    type Error = anyhow::Error;
+
+    fn try_from(value: String) -> anyhow::Result<Self> {
+        Ok(RequestId(value))
+    }
+}
+
 impl Display for RequestId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

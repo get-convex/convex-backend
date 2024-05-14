@@ -1,5 +1,6 @@
 // @generated - do not modify. Modify build.rs instead.
 #![allow(clippy::match_single_binding)]
+pub mod authentication_token;
 pub mod document_id;
 pub mod error_metadata;
 pub mod field_path;

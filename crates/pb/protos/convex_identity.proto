@@ -4,6 +4,19 @@ package convex_identity;
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
+message AuthenticationToken {
+  oneof identity  {
+    AdminAuthenticationToken admin = 1;
+    string user = 2;
+    google.protobuf.Empty none = 3;
+  }
+}
+
+message AdminAuthenticationToken {
+  optional string key = 1;
+  UserIdentityAttributes acting_as = 2;
+}
+
 // This is an already validated identity passed between internal services.
 message UncheckedIdentity {
   oneof identity {

@@ -57,10 +57,10 @@ pub struct UdfPostRequest {
 
 #[derive(Deserialize)]
 pub struct UdfArgsQuery {
-    path: String,
-    args: UdfArgsJson,
+    pub path: String,
+    pub args: UdfArgsJson,
 
-    format: Option<String>,
+    pub format: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]

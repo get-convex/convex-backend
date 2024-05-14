@@ -10,11 +10,11 @@ import "storage.proto";
 import "usage.proto";
 
 service Backend {
-    // Query/mutation RPCs. Performed at a snapshot.
+    // Query/mutation RPCs used by Funrun. Performed at a snapshot.
     rpc TextSearchAtTs(TextSearchAtTsRequest) returns (TextSearchAtTsResponse);
     rpc TableCountAtTs(TableCountAtTsRequest) returns (TableCountAtTsResponse);
 
-    // Action RPCs. Performed as a separate transaction at latest timestamp.
+    // Action RPCs used by Funrun. Performed as a separate transaction at latest timestamp.
     rpc ExecuteQuery(ExecuteQueryRequest) returns (ExecuteQueryResponse);
     rpc ExecuteMutation(ExecuteMutationRequest) returns (ExecuteMutationResponse);
     rpc ExecuteAction(ExecuteActionRequest) returns (ExecuteActionResponse);
@@ -28,6 +28,9 @@ service Backend {
     rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
 
     rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
+
+    // New endpoints used by Usher. Funrun will eventually reuse those too.
+    rpc ExecuteQuery2(ExecuteQueryRequest2) returns (ExecuteQueryResponse);
 }
 
 // The request header is used by all requests to validate we are talking to the
@@ -75,6 +78,17 @@ message ExecuteQueryRequest {
     convex_identity.UncheckedIdentity identity = 2;
     common.PathAndArgs path_and_args = 3;
     optional common.ExecutionContext execution_context = 6;
+}
+
+// This is a more generic version of ExecuteQueryRequest that can be used
+// in both Usher and Funrun.
+message ExecuteQueryRequest2 {
+    RequestHeader header = 1;
+
+    convex_identity.AuthenticationToken auth_token = 2;
+    common.PathAndArgs path_and_args = 3;
+
+    // TODO(presley): Add caller and action auth token.
 }
 
 message ExecuteQueryResponse {

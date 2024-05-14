@@ -32,12 +32,12 @@ use crate::LocalAppState;
 pub struct ExtractAuthenticationToken(pub AuthenticationToken);
 
 #[async_trait]
-impl FromRequestParts<()> for ExtractAuthenticationToken {
+impl<T> FromRequestParts<T> for ExtractAuthenticationToken {
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        _st: &(),
+        _st: &T,
     ) -> Result<Self, Self::Rejection> {
         // First, try extracting from headers
         if let Some(h) = parts.headers.get(http::header::AUTHORIZATION) {
