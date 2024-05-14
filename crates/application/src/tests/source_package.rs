@@ -74,7 +74,9 @@ pub async fn assemble_package<RT: Runtime>(
     tx: &mut Transaction<RT>,
     modifications: BTreeMap<CanonicalizedComponentModulePath, Option<ModuleConfig>>,
 ) -> anyhow::Result<Vec<ModuleConfig>> {
-    let existing_modules = ModuleModel::new(tx).get_application_modules().await?;
+    let existing_modules = ModuleModel::new(tx)
+        .get_application_modules(ComponentId::Root)
+        .await?;
     let mut modules = BTreeMap::new();
     for (path, module) in existing_modules {
         if modifications.contains_key(&path) {

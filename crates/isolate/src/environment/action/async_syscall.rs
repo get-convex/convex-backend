@@ -2,10 +2,7 @@
 
 use anyhow::Context;
 use common::{
-    components::{
-        ComponentFunctionPath,
-        ComponentId,
-    },
+    components::Reference,
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -84,23 +81,26 @@ impl<RT: Runtime> TaskExecutor<RT> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RunQueryArgs {
-            name: String,
+            name: Option<String>,
+            reference: Option<String>,
             args: UdfArgsJson,
         }
-        let (udf_path, args) = with_argument_error("runQuery", || {
-            let RunQueryArgs { name, args } = serde_json::from_value(args)?;
-            let udf_path = name.parse()?;
-            Ok((udf_path, args))
+
+        let (reference, args) = with_argument_error("runQuery", || {
+            let RunQueryArgs {
+                name,
+                reference,
+                args,
+            } = serde_json::from_value(args)?;
+            let reference = parse_name_or_reference(name, reference)?;
+            Ok((reference, args))
         })?;
-        let path = ComponentFunctionPath {
-            component: ComponentId::Root,
-            udf_path,
-        };
+        let function_path = self.resolve_function(&reference)?;
         let value = self
             .action_callbacks
             .execute_query(
                 self.identity.clone(),
-                path,
+                function_path,
                 args.into_arg_vec(),
                 self.context.clone(),
             )
@@ -117,23 +117,25 @@ impl<RT: Runtime> TaskExecutor<RT> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RunMutationArgs {
-            name: String,
+            name: Option<String>,
+            reference: Option<String>,
             args: UdfArgsJson,
         }
-        let (udf_path, args) = with_argument_error("runMutation", || {
-            let RunMutationArgs { name, args } = serde_json::from_value(args)?;
-            let udf_path = name.parse()?;
-            Ok((udf_path, args))
+        let (reference, args) = with_argument_error("runMutation", || {
+            let RunMutationArgs {
+                name,
+                reference,
+                args,
+            } = serde_json::from_value(args)?;
+            let reference = parse_name_or_reference(name, reference)?;
+            Ok((reference, args))
         })?;
-        let path = ComponentFunctionPath {
-            component: ComponentId::Root,
-            udf_path,
-        };
+        let function_path = self.resolve_function(&reference)?;
         let value = self
             .action_callbacks
             .execute_mutation(
                 self.identity.clone(),
-                path,
+                function_path,
                 args.into_arg_vec(),
                 self.context.clone(),
             )
@@ -147,24 +149,25 @@ impl<RT: Runtime> TaskExecutor<RT> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RunActionArgs {
-            name: String,
+            name: Option<String>,
+            reference: Option<String>,
             args: UdfArgsJson,
         }
-        let (udf_path, args) = with_argument_error("runAction", || {
-            let RunActionArgs { name, args } = serde_json::from_value(args)?;
-            let udf_path = name.parse()?;
-            Ok((udf_path, args))
+        let (reference, args) = with_argument_error("runAction", || {
+            let RunActionArgs {
+                name,
+                reference,
+                args,
+            } = serde_json::from_value(args)?;
+            let reference = parse_name_or_reference(name, reference)?;
+            Ok((reference, args))
         })?;
-        let path = ComponentFunctionPath {
-            component: ComponentId::Root,
-            udf_path,
-        };
-
+        let function_path = self.resolve_function(&reference)?;
         let value = self
             .action_callbacks
             .execute_action(
                 self.identity.clone(),
-                path,
+                function_path,
                 args.into_arg_vec(),
                 self.context.clone(),
             )
@@ -178,19 +181,23 @@ impl<RT: Runtime> TaskExecutor<RT> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct ScheduleArgs {
-            name: String,
+            name: Option<String>,
+            reference: Option<String>,
             ts: f64,
             args: UdfArgsJson,
         }
 
-        let ScheduleArgs { name, ts, args }: ScheduleArgs =
-            with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
-        let udf_path = with_argument_error("scheduler", || name.parse().context(ArgName("name")))?;
-        let path = ComponentFunctionPath {
-            component: ComponentId::Root,
-            udf_path,
-        };
-
+        let (reference, ts, args) = with_argument_error("scheduler", || {
+            let ScheduleArgs {
+                name,
+                reference,
+                ts,
+                args,
+            } = serde_json::from_value(args)?;
+            let reference = parse_name_or_reference(name, reference)?;
+            Ok((reference, ts, args))
+        })?;
+        let path = self.resolve_function(&reference)?;
         let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
         let virtual_id = self
             .action_callbacks
@@ -332,5 +339,16 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 },
             );
         Ok(serde_json::to_value(file_metadata)?)
+    }
+}
+
+fn parse_name_or_reference(
+    name: Option<String>,
+    reference: Option<String>,
+) -> anyhow::Result<Reference> {
+    match (name, reference) {
+        (Some(name), _) => Ok(Reference::Function(name.parse()?)),
+        (_, Some(reference)) => Ok(reference.parse()?),
+        _ => anyhow::bail!("Missing required argument 'name'"),
     }
 }

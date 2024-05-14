@@ -175,7 +175,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     /// Returns the registered modules metadata, including system modules.
     pub async fn get_all_metadata(
         &mut self,
+        component: ComponentId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
+        anyhow::ensure!(component.is_root());
+
         let index_query = Query::full_table_scan(MODULES_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
 
@@ -190,9 +193,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     /// Returns all registered modules that aren't system modules.
     pub async fn get_application_modules(
         &mut self,
+        component: ComponentId,
     ) -> anyhow::Result<BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>> {
         let mut modules = BTreeMap::new();
-        for metadata in self.get_all_metadata().await? {
+        for metadata in self.get_all_metadata(component.clone()).await? {
             let path = metadata.path.clone();
             if !path.is_system() {
                 let full_source = self
@@ -205,7 +209,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     environment: metadata.environment,
                 };
                 let p = CanonicalizedComponentModulePath {
-                    component: ComponentId::Root,
+                    component: component.clone(),
                     module_path: path.clone(),
                 };
                 if modules.insert(p, module_config).is_some() {

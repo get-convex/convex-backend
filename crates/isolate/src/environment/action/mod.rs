@@ -17,7 +17,10 @@ use std::{
 
 use anyhow::anyhow;
 use common::{
-    components::CanonicalizedComponentFunctionPath,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentId,
+    },
     errors::JsError,
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
@@ -228,6 +231,7 @@ pub struct ActionEnvironment<RT: Runtime> {
 impl<RT: Runtime> ActionEnvironment<RT> {
     pub fn new(
         rt: RT,
+        component: ComponentId,
         EnvironmentData {
             key_broker,
             system_env_vars,
@@ -246,6 +250,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let syscall_trace = Arc::new(Mutex::new(SyscallTrace::new()));
         let (task_retval_sender, task_responses) = mpsc::unbounded();
         let task_executor = TaskExecutor {
+            component: component.clone(),
             rt: rt.clone(),
             identity: identity.clone(),
             file_storage,
@@ -273,7 +278,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             task_responses,
             running_tasks: Some(running_tasks),
             task_promise_resolvers: BTreeMap::new(),
-            phase: ActionPhase::new(rt.clone(), transaction, module_loader, system_env_vars),
+            phase: ActionPhase::new(
+                rt.clone(),
+                component,
+                transaction,
+                module_loader,
+                system_env_vars,
+            ),
             syscall_trace,
             heap_stats,
         }
@@ -295,7 +306,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
-        let (handle, state) = isolate.start_request(client_id.clone(), self).await?;
+        let (handle, state) = isolate
+            .start_request(ComponentId::Root, client_id.clone(), self)
+            .await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
@@ -577,7 +590,11 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
-        let (handle, state) = isolate.start_request(client_id.clone(), self).await?;
+
+        let component = request_params.path_and_args.path().component.clone();
+        let (handle, state) = isolate
+            .start_request(component, client_id.clone(), self)
+            .await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
@@ -641,7 +658,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let handle = isolate.handle();
         let mut v8_scope = isolate.scope();
         let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
-
         {
             let state = scope.state_mut()?;
             state
@@ -650,7 +666,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 .initialize(&mut state.timeout, &mut state.permit)
                 .await?;
         }
-
         let (path, arguments, _) = request_params.path_and_args.consume();
 
         // Don't allow directly running a UDF within the `_deps` directory. We don't
@@ -666,8 +681,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
 
         // First, load the user's module and find the specified function.
-        let module_path = path.as_root_udf_path()?.module().clone();
-        let Ok(module_specifier) = module_specifier_from_path(&module_path) else {
+        let module_path = path.udf_path.module();
+        let Ok(module_specifier) = module_specifier_from_path(module_path) else {
             let message = format!("Invalid module path: {module_path:?}");
             return Ok(Err(JsError::from_message(message)));
         };

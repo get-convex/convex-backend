@@ -195,7 +195,9 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         let mut added_modules = BTreeSet::new();
 
         // Add new modules.
-        let mut remaining_modules = ModuleModel::new(self.tx).get_application_modules().await?;
+        let mut remaining_modules = ModuleModel::new(self.tx)
+            .get_application_modules(ComponentId::Root)
+            .await?;
         for module in modules {
             let path = CanonicalizedComponentModulePath {
                 component: ComponentId::Root,
@@ -265,7 +267,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules: Vec<_> = ModuleModel::new(self.tx)
-            .get_application_modules()
+            .get_application_modules(ComponentId::Root)
             .await?
             .into_values()
             .collect();

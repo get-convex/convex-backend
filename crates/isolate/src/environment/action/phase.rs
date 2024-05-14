@@ -5,6 +5,7 @@ use std::{
 };
 
 use common::{
+    components::ComponentId,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -59,6 +60,7 @@ use crate::{
 /// and environment variables), and all writes will be handled in their own
 /// separate transactions.
 pub struct ActionPhase<RT: Runtime> {
+    component: ComponentId,
     phase: Phase,
     pub rt: RT,
     preloaded: ActionPreloaded<RT>,
@@ -82,11 +84,13 @@ enum ActionPreloaded<RT: Runtime> {
 impl<RT: Runtime> ActionPhase<RT> {
     pub fn new(
         rt: RT,
+        component: ComponentId,
         tx: Transaction<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> Self {
         Self {
+            component,
             phase: Phase::Importing,
             rt,
             preloaded: ActionPreloaded::Created {
@@ -127,7 +131,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         let module_metadata = with_release_permit(
             timeout,
             permit_slot,
-            ModuleModel::new(&mut tx).get_all_metadata(),
+            ModuleModel::new(&mut tx).get_all_metadata(self.component.clone()),
         )
         .await?;
 

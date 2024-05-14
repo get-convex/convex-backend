@@ -2,6 +2,7 @@ use std::{
     fmt,
     path::{
         Component,
+        Path,
         PathBuf,
     },
     str::FromStr,
@@ -31,6 +32,10 @@ impl ModulePath {
         self.path
             .to_str()
             .expect("Non-unicode data in module path?")
+    }
+
+    pub fn as_path(&self) -> &Path {
+        &self.path
     }
 
     /// Does a module live within the `_system/` directory?

@@ -23,6 +23,7 @@ use common::{
     components::{
         CanonicalizedComponentModulePath,
         ComponentFunctionPath,
+        ComponentId,
     },
     errors::{
         recapture_stacktrace,
@@ -1589,6 +1590,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 let udf_path: CanonicalizedUdfPath = request.router_path.path().udf_path.clone();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
+                    ComponentId::Root,
                     environment_data,
                     request.identity,
                     request.transaction,
@@ -1632,8 +1634,10 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&UdfType::Action);
+                let component = request.params.path_and_args.path().component.clone();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
+                    component,
                     environment_data,
                     request.identity,
                     request.transaction,

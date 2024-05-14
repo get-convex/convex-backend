@@ -4,6 +4,12 @@ use std::{
 };
 
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+        Reference,
+        Resource,
+    },
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
     knobs::MAX_CONCURRENT_ACTION_OPS,
@@ -13,6 +19,7 @@ use common::{
         UnixTimestamp,
     },
 };
+use errors::ErrorMetadata;
 use file_storage::TransactionalFileStorage;
 use futures::{
     channel::mpsc::{
@@ -58,6 +65,7 @@ use crate::{
 pub struct TaskExecutor<RT: Runtime> {
     pub rt: RT,
     pub identity: Identity,
+    pub component: ComponentId,
     pub file_storage: TransactionalFileStorage<RT>,
     pub syscall_trace: Arc<Mutex<SyscallTrace>>,
     pub action_callbacks: Arc<dyn ActionCallbacks>,
@@ -182,5 +190,35 @@ impl<RT: Runtime> TaskExecutor<RT> {
             return user_identity.try_into();
         }
         Ok(JsonValue::Null)
+    }
+
+    pub fn resolve(&self, reference: &Reference) -> anyhow::Result<Resource> {
+        let result = match reference {
+            Reference::Function(p) if self.component.is_root() => {
+                Resource::Function(ComponentFunctionPath {
+                    component: ComponentId::Root,
+                    udf_path: p.clone(),
+                })
+            },
+            _ => anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidReference",
+                format!("Couldn't resolve {}", reference.evaluation_time_debug_str()),
+            )),
+        };
+        Ok(result)
+    }
+
+    pub fn resolve_function(&self, reference: &Reference) -> anyhow::Result<ComponentFunctionPath> {
+        let resource = self.resolve(reference)?;
+        match resource {
+            Resource::Function(p) => Ok(p),
+            Resource::Value(v) => anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidFunction",
+                format!(
+                    "Resolved reference {} to {v}, not a function",
+                    reference.evaluation_time_debug_str()
+                ),
+            )),
+        }
     }
 }

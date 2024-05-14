@@ -5,6 +5,7 @@ use async_trait::async_trait;
 #[cfg(any(test, feature = "testing"))]
 use common::pause::PauseClient;
 use common::{
+    components::ComponentId,
     errors::report_error,
     runtime::Runtime,
     types::UdfType,
@@ -133,6 +134,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 let udf_path = request.params.path_and_args.path().udf_path.to_owned();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
+                    ComponentId::Root,
                     environment_data,
                     request.identity,
                     request.transaction,

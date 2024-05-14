@@ -1519,7 +1519,9 @@ impl<RT: Runtime> Application<RT> {
         runner: Arc<ApplicationFunctionRunner<RT>>,
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<()> {
-        let all_modules = ModuleModel::new(tx).get_application_modules().await?;
+        let all_modules = ModuleModel::new(tx)
+            .get_application_modules(ComponentId::Root)
+            .await?;
         let path = CanonicalizedComponentModulePath {
             component: ComponentId::Root,
             module_path: AUTH_CONFIG_FILE_NAME.parse()?,

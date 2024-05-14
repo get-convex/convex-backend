@@ -60,12 +60,53 @@ pub enum Reference {
     /// ```ts
     /// const component = new ComponentDefinition();
     /// const wl = component.use(waitlist);
-    /// // => Reference::Subcomponent { attributes: vec!["waitlist"]}
+    /// // => Reference::Subcomponent { component: "waitlist", attributes: vec![]}
     ///
     /// const f = wl.foo.bar;
-    /// // => Reference::Subcomponent { attributes: vec!["waitlist", "foo", "bar"]}
+    /// // => Reference::Subcomponent { component: "waitlist", attributes: vec!["foo", "bar"]}
     /// ```
-    Subcomponent { attributes: Vec<Identifier> },
+    Subcomponent {
+        component: Identifier,
+        attributes: Vec<Identifier>,
+    },
+}
+
+impl Reference {
+    pub fn evaluation_time_debug_str(&self) -> String {
+        match self {
+            Reference::ComponentArgument { attributes } => {
+                let mut s = "ctx.componentArgs".to_string();
+                for attr in attributes {
+                    s.push('.');
+                    s.push_str(&attr[..]);
+                }
+                s
+            },
+            Reference::Function(p) => {
+                let mut s = "api".to_string();
+                for component in p.module().as_path().components() {
+                    s.push('.');
+                    s.push_str(&component.as_os_str().to_string_lossy());
+                }
+                if let Some(name) = p.function_name() {
+                    s.push('.');
+                    s.push_str(name);
+                }
+                s
+            },
+            Reference::Subcomponent {
+                component,
+                attributes,
+            } => {
+                let mut s = component[..].to_string();
+                for attr in attributes {
+                    s.push('.');
+                    s.push_str(&attr[..]);
+                }
+                s
+            },
+        }
+    }
 }
 
 impl FromStr for Reference {
@@ -92,10 +133,17 @@ impl FromStr for Reference {
                 Reference::Function(path)
             },
             Some("subcomponent") => {
+                let component = path_components
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("Invalid reference {s}"))?
+                    .parse()?;
                 let attributes = path_components
                     .map(|s| s.parse())
                     .collect::<Result<_, _>>()?;
-                Reference::Subcomponent { attributes }
+                Reference::Subcomponent {
+                    component,
+                    attributes,
+                }
             },
             Some(_) | None => anyhow::bail!("Invalid reference {s}"),
         };
@@ -119,8 +167,15 @@ impl From<Reference> for String {
                 s.push('/');
                 s.push_str(&path.to_string());
             },
-            Reference::Subcomponent { attributes } => {
+            Reference::Subcomponent {
+                component,
+                attributes,
+            } => {
                 s.push_str("/subcomponent");
+
+                s.push('/');
+                s.push_str(&component);
+
                 for attribute in attributes {
                     s.push('/');
                     s.push_str(&attribute);

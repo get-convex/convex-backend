@@ -7,9 +7,12 @@ use std::{
 };
 
 use anyhow::anyhow;
-use common::runtime::{
-    Runtime,
-    UnixTimestamp,
+use common::{
+    components::ComponentId,
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
 };
 use deno_core::{
     serde_v8,
@@ -82,6 +85,7 @@ pub struct RequestScope<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> {
 /// Note the IsolateHandle and ModuleMap are stored on separate slots, so
 /// they can be fetched without needing the environment type E.
 pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
+    pub component: ComponentId,
     pub rt: RT,
     pub timeout: Timeout<RT>,
     pub permit: Option<ConcurrencyPermit>,

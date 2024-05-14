@@ -49,7 +49,9 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
-        ModuleModel::new(&mut tx).get_application_modules().await?
+        ModuleModel::new(&mut tx)
+            .get_application_modules(ComponentId::Root)
+            .await?
     };
 
     let has_http = {
@@ -215,7 +217,9 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
     for (file, expected_error) in cases {
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
-            ModuleModel::new(&mut tx).get_application_modules().await?
+            ModuleModel::new(&mut tx)
+                .get_application_modules(ComponentId::Root)
+                .await?
         };
 
         // Analyze this file as though it were the router (normally http.js)
@@ -260,7 +264,9 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
-        ModuleModel::new(&mut tx).get_application_modules().await?
+        ModuleModel::new(&mut tx)
+            .get_application_modules(ComponentId::Root)
+            .await?
     };
 
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
@@ -347,7 +353,9 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
-        ModuleModel::new(&mut tx).get_application_modules().await?
+        ModuleModel::new(&mut tx)
+            .get_application_modules(ComponentId::Root)
+            .await?
     };
 
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
@@ -547,7 +555,9 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
 
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
-            ModuleModel::new(&mut tx).get_application_modules().await?
+            ModuleModel::new(&mut tx)
+                .get_application_modules(ComponentId::Root)
+                .await?
         };
 
         // Reinsert the case as http.js, replacing the old http.js, so that the
