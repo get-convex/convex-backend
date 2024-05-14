@@ -123,6 +123,7 @@ impl NodeExecutor for LocalNodeExecutor {
             .arg(request)
             .kill_on_drop(true);
         let mut result_values = vec![];
+        let mut err_lines = vec![];
 
         let mut procstream = ProcessLineStream::try_from(cmd)?.fuse();
 
@@ -142,12 +143,17 @@ impl NodeExecutor for LocalNodeExecutor {
                             }
                         },
                         Item::Done(status) => {
-                            anyhow::ensure!(status?.success(), "Local process did not exit successfully");
+                            if !status?.success() {
+                                for line in err_lines {
+                                    tracing::error!("{line}");
+                                }
+                                anyhow::bail!("Local process did not exit successfully");
+                            }
                             anyhow::ensure!(result_values.len() <= 1, "Received more than one result from lambda response");
                             let value = result_values.pop().ok_or_else(|| anyhow::anyhow!("Received no result from lambda response"))?;
                             break value;
                         }
-                        Item::Stderr(_) => ()
+                        Item::Stderr(line) => err_lines.push(line),
                     }
                 },
                 _ = tokio::time::sleep(self.node_process_timeout).fuse() => {
