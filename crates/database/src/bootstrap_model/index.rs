@@ -456,11 +456,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
         let added = diff.added.clone();
 
-        let only_new_and_mutated = LegacyIndexDiff { added, dropped };
         tracing::info!(
-            "Preparing new and mutated indexes, overall diff: {diff:?}, applying right now: \
-             {only_new_and_mutated:?}"
+            "Preparing new and mutated indexes. Adding {}. Dropping {}.",
+            added.len(),
+            dropped.len(),
         );
+        let only_new_and_mutated = LegacyIndexDiff { added, dropped };
         // Dropped will be removed in apply_config when the rest of the schema is
         // committed.
         if !only_new_and_mutated.is_empty() {

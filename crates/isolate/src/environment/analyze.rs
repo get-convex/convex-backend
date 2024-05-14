@@ -486,7 +486,7 @@ fn udf_analyze<RT: Runtime>(
             (false, true, false) => UdfType::Mutation,
             (false, false, true) => UdfType::Action,
             _ => {
-                tracing::warn!(
+                tracing::debug!(
                     "Skipping function export that is not a mutation, query, or action: {} => \
                      ({is_query}, {is_mutation}, {is_action})",
                     property_name

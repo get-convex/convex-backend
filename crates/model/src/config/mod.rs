@@ -185,7 +185,11 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             .commit_indexes_for_schema(tables_in_schema)
             .await?;
 
-        tracing::info!("Committed indexes: {index_diff:?} for schema: {schema_id:?}");
+        tracing::info!(
+            "Committed indexes: (added {}. dropped {}) for schema: {schema_id:?}",
+            index_diff.added.len(),
+            index_diff.dropped.len(),
+        );
 
         // TODO: Extract this logic into `modules/`.
         let mut added_modules = BTreeSet::new();
