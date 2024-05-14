@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.12.0
+
+- `npx convex env set` works with `ENV_VAR_NAME=value` syntax
+
 ## 1.11.3
 
 - Fix bug when filling out an empty env file
