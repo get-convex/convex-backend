@@ -187,8 +187,8 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
 
 ## Community & Support
 
-- Discord. Best for: sharing your applications, hanging out with the community,
-  and help with building on Convex
+- [Discord](https://convex.dev/community). Best for: sharing your applications,
+  hanging out with the community, and help with building on Convex
 - GitHub Issues. Best for: surfacing bugs and errors you encounter while
   building and using the open source Convex backend
 
@@ -211,6 +211,9 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
   sure to run `npx convex dev` or `just convex dev` before you start testing
   your client. The `dev` command will take care of updating your `.env.local`
   file with the correct `CONVEX_URL`.
+- Convex is battle tested most thoroughly on Linux and Mac. On Windows, it has
+  less experience. If you run into issues, please message us on
+  [Discord](https://convex.dev/community) in the #open-source channel.
 
 ## Repository layout
 
