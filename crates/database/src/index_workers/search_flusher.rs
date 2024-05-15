@@ -50,12 +50,12 @@ use crate::{
             SearchIndexConfigParser,
             SearchOnDiskState,
             SearchSnapshot,
+            SegmentStatistics,
             SnapshotData,
         },
         BuildReason,
         MultiSegmentBackfillResult,
     },
-    metrics::vector::log_documents_per_segment,
     Database,
     IndexModel,
     Token,
@@ -238,7 +238,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             None
         };
         let new_segment_id = new_segment.as_ref().map(T::IndexType::segment_id);
-        let vectors_in_new_segment = new_segment.as_ref().map(T::IndexType::num_vectors);
+        let new_segment_stats = new_segment
+            .as_ref()
+            .map(T::IndexType::statistics)
+            .transpose()?;
 
         let new_and_updated_parts = if let Some(new_segment) = new_segment {
             updated_previous_segments
@@ -249,21 +252,23 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             updated_previous_segments
         };
 
-        let total_vectors = new_and_updated_parts
+        let total_stats = new_and_updated_parts
             .iter()
             .map(|segment| {
-                let total_vectors = T::IndexType::non_deleted_vectors(segment)?;
-                log_documents_per_segment(total_vectors);
-                Ok(total_vectors)
+                let segment_stats = T::IndexType::statistics(segment)?;
+                segment_stats.log();
+                Ok(segment_stats)
             })
-            .sum::<anyhow::Result<_>>()?;
+            .reduce(SegmentStatistics::add)
+            .transpose()?
+            .unwrap_or_default();
         let data = SnapshotData::MultiSegment(new_and_updated_parts);
 
         Ok(IndexBuildResult {
             snapshot_ts: *new_ts,
             data,
-            total_vectors,
-            vectors_in_new_segment,
+            total_stats,
+            new_segment_stats,
             new_segment_id,
             backfill_result,
         })
@@ -442,8 +447,8 @@ pub struct IndexBuild<T: SearchIndex> {
 pub struct IndexBuildResult<T: SearchIndex> {
     pub snapshot_ts: Timestamp,
     pub data: SnapshotData<T::Segment>,
-    pub total_vectors: u64,
-    pub vectors_in_new_segment: Option<u32>,
+    pub total_stats: T::Statistics,
+    pub new_segment_stats: Option<T::Statistics>,
     pub new_segment_id: Option<String>,
     // If this is set, this iteration made progress on backfilling an index
     pub backfill_result: Option<MultiSegmentBackfillResult>,

@@ -112,8 +112,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         let IndexBuildResult {
             snapshot_ts,
             data,
-            total_vectors,
-            vectors_in_new_segment,
+            total_stats,
+            new_segment_stats,
             new_segment_id,
             backfill_result,
         } = result;
@@ -129,8 +129,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             },
         }
 
-        let vectors_in_new_segment = vectors_in_new_segment.unwrap_or(0);
-        metrics::vector::log_documents_per_index(total_vectors);
+        let vectors_in_new_segment = new_segment_stats.unwrap_or_default().num_vectors;
+        metrics::vector::log_documents_per_index(total_stats.non_deleted_vectors);
         metrics::vector::log_documents_per_new_segment(vectors_in_new_segment);
         timer.finish();
         Ok(vectors_in_new_segment)

@@ -44,7 +44,10 @@ use vector::{
     QdrantSchema,
 };
 
-use crate::Snapshot;
+use crate::{
+    metrics::vector::log_documents_per_segment,
+    Snapshot,
+};
 
 pub trait SearchIndexConfigParser {
     type IndexType: SearchIndex;
@@ -127,10 +130,11 @@ pub trait SearchIndex {
 
     type PreviousSegments;
 
+    type Statistics: SegmentStatistics;
+
     type Schema: Send + Sync;
-    // TODO(sam): Convert these to something more like segment statistics
-    fn num_vectors(segment: &Self::Segment) -> u32;
-    fn non_deleted_vectors(segment: &Self::Segment) -> anyhow::Result<u64>;
+
+    fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics>;
 
     async fn upload_new_segment<RT: Runtime>(
         rt: &RT,
@@ -170,6 +174,11 @@ pub trait SearchIndex {
     ) -> anyhow::Result<Vec<Self::Segment>>;
 }
 
+pub trait SegmentStatistics: Default {
+    fn add(lhs: anyhow::Result<Self>, rhs: anyhow::Result<Self>) -> anyhow::Result<Self>;
+    fn log(&self);
+}
+
 pub struct TextSearchIndex;
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
@@ -178,6 +187,7 @@ impl SearchIndex for TextSearchIndex {
     type PreviousSegments = ();
     type Schema = ();
     type Segment = FragmentedSearchSegment;
+    type Statistics = TextStatistics;
 
     fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>> {
         Ok(snapshot
@@ -230,17 +240,24 @@ impl SearchIndex for TextSearchIndex {
         anyhow::bail!("Not implemented")
     }
 
-    fn num_vectors(_segment: &Self::Segment) -> u32 {
-        0
-    }
-
     fn segment_id(_segment: &Self::Segment) -> String {
         "".to_string()
     }
 
-    fn non_deleted_vectors(_segment: &Self::Segment) -> anyhow::Result<u64> {
-        anyhow::bail!("Not implemented")
+    fn statistics(_segment: &Self::Segment) -> anyhow::Result<Self::Statistics> {
+        Ok(TextStatistics)
     }
+}
+
+#[derive(Default)]
+pub struct TextStatistics;
+
+impl SegmentStatistics for TextStatistics {
+    fn add(_: anyhow::Result<Self>, _: anyhow::Result<Self>) -> anyhow::Result<Self> {
+        Ok(Self)
+    }
+
+    fn log(&self) {}
 }
 
 #[derive(Debug)]
@@ -253,6 +270,7 @@ impl SearchIndex for VectorSearchIndex {
     type PreviousSegments = Vec<MutableFragmentedSegmentMetadata>;
     type Schema = QdrantSchema;
     type Segment = FragmentedVectorSegment;
+    type Statistics = VectorStatistics;
 
     fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>> {
         Ok(snapshot
@@ -322,16 +340,16 @@ impl SearchIndex for VectorSearchIndex {
         upload_segment(rt, storage, new_segment).await
     }
 
-    fn num_vectors(segment: &Self::Segment) -> u32 {
-        segment.num_vectors
-    }
-
     fn segment_id(segment: &Self::Segment) -> String {
         segment.id.clone()
     }
 
-    fn non_deleted_vectors(segment: &Self::Segment) -> anyhow::Result<u64> {
-        segment.non_deleted_vectors()
+    fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics> {
+        let non_deleted_vectors = segment.non_deleted_vectors()?;
+        Ok(VectorStatistics {
+            non_deleted_vectors,
+            num_vectors: segment.num_vectors,
+        })
     }
 }
 pub struct SearchIndexConfig<T: SearchIndex> {
@@ -348,6 +366,27 @@ pub struct BackfillState<T: SearchIndex> {
     pub segments: Vec<T::Segment>,
     pub cursor: Option<InternalId>,
     pub backfill_snapshot_ts: Option<Timestamp>,
+}
+
+#[derive(Debug, Default)]
+pub struct VectorStatistics {
+    pub num_vectors: u32,
+    pub non_deleted_vectors: u64,
+}
+
+impl SegmentStatistics for VectorStatistics {
+    fn add(lhs: anyhow::Result<Self>, rhs: anyhow::Result<Self>) -> anyhow::Result<Self> {
+        let rhs = rhs?;
+        let lhs = lhs?;
+        Ok(Self {
+            num_vectors: lhs.num_vectors + rhs.num_vectors,
+            non_deleted_vectors: lhs.non_deleted_vectors + rhs.non_deleted_vectors,
+        })
+    }
+
+    fn log(&self) {
+        log_documents_per_segment(self.non_deleted_vectors);
+    }
 }
 
 impl From<VectorIndexBackfillState> for BackfillState<VectorSearchIndex> {
