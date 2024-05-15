@@ -1524,16 +1524,23 @@ impl<RT: Runtime> Application<RT> {
         runner: Arc<ApplicationFunctionRunner<RT>>,
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<()> {
-        let all_modules = ModuleModel::new(tx)
-            .get_application_modules(ComponentDefinitionId::Root, runner.module_cache.as_ref())
-            .await?;
         let path = CanonicalizedComponentModulePath {
             component: ComponentDefinitionId::Root,
             module_path: AUTH_CONFIG_FILE_NAME.parse()?,
         };
-        let auth_config_module = all_modules.get(&path);
-        if let Some(auth_config_module) = auth_config_module {
-            let auth_config_module = auth_config_module.clone();
+        let auth_config_metadata = ModuleModel::new(tx).get_metadata(path).await?;
+        if let Some(auth_config_metadata) = auth_config_metadata {
+            let environment = auth_config_metadata.environment;
+            let auth_config_source = runner
+                .module_cache
+                .get_module_with_metadata(tx, auth_config_metadata)
+                .await?;
+            let auth_config_module = ModuleConfig {
+                path: AUTH_CONFIG_FILE_NAME.parse()?,
+                source: auth_config_source.source.clone(),
+                source_map: auth_config_source.source_map.clone(),
+                environment,
+            };
             let auth_config = Self::evaluate_auth_config(
                 runner,
                 tx,
