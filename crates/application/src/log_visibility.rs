@@ -6,9 +6,11 @@ use common::{
 use database::Transaction;
 use keybroker::Identity;
 
-/// Public trait for handling logging visibility.
+/// Trait for handling logging visibility.
 #[async_trait]
 pub trait LogVisibility<RT: Runtime>: Send + Sync {
+    /// If true, then block logging from reaching clients unless they have
+    /// admin authorization.
     async fn should_redact_logs_and_error(
         &self,
         tx: &mut Transaction<RT>,
