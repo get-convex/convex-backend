@@ -6,6 +6,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { inspect } from "node:util";
 import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
 
 import { UserIdentity } from "convex/server";
 
@@ -402,7 +403,8 @@ export type AnalyzedFunctions = Array<{
 
 async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
   setupGlobals(filePath);
-  const module = await import(filePath);
+  const fileUrl = pathToFileURL(filePath).href;
+  const module = await import(fileUrl);
 
   const functions: Map<
     string,

@@ -957,11 +957,27 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         let path = path
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Dir isn't valid UTF8: {:?}", self.dir))?;
-        let uri = Uri::builder()
-            .scheme("file")
-            .authority("localhost")
-            .path_and_query(path)
-            .build()?;
+        let uri = if cfg!(windows) {
+            // On windows, the Uri::builder does not work properly.
+            // file://localhostC:\\Users\\nipunn\\src\\convex\\convex_local_storage\\modules\\4c4a018d-e534-491e-aa99-a9c16eb97add.blob
+            //
+            // url::Url works, but does not parse into a good Uri without localhost
+            // authority file:///C:/Users/nipunn/src/convex/convex_local_storage/modules/9fb14d74-f91a-47bc-8be3-f646a460fcde.blob
+            //
+            // throw away the C: prefix
+            let path = path.split_once(':').context("Missing drive letter")?.1;
+            // Switch backslashes to URI syntax
+            let path = path.replace('\\', "/");
+            format!("file://localhost{path}")
+                .parse()
+                .context("Could not parse path")?
+        } else {
+            Uri::builder()
+                .scheme("file")
+                .authority("localhost")
+                .path_and_query(path)
+                .build()?
+        };
         Ok(uri)
     }
 
