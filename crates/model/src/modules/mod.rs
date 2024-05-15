@@ -75,7 +75,10 @@ use self::{
     },
 };
 use crate::{
-    config::types::ModuleConfig,
+    config::{
+        module_loader::ModuleLoader,
+        types::ModuleConfig,
+    },
     source_packages::types::SourcePackageId,
     SystemIndex,
     SystemTable,
@@ -209,19 +212,21 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub async fn get_application_modules(
         &mut self,
         component: ComponentDefinitionId,
+        module_loader: &dyn ModuleLoader<RT>,
     ) -> anyhow::Result<BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>> {
         let mut modules = BTreeMap::new();
         for metadata in self.get_all_metadata(component).await? {
             let path = metadata.path.clone();
             if !path.is_system() {
-                let full_source = self
-                    .get_source(metadata.id(), metadata.latest_version)
+                let environment = metadata.environment;
+                let full_source = module_loader
+                    .get_module_with_metadata(self.tx, metadata)
                     .await?;
                 let module_config = ModuleConfig {
                     path: path.clone().into(),
-                    source: full_source.source,
-                    source_map: full_source.source_map,
-                    environment: metadata.environment,
+                    source: full_source.source.clone(),
+                    source_map: full_source.source_map.clone(),
+                    environment,
                 };
                 let p = CanonicalizedComponentModulePath {
                     component,

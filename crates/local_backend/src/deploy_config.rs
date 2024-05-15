@@ -328,7 +328,9 @@ pub async fn get_config(
     )?;
 
     let mut tx = st.application.begin(identity).await?;
-    let (config, modules, udf_config) = ConfigModel::new(&mut tx).get().await?;
+    let (config, modules, udf_config) = ConfigModel::new(&mut tx)
+        .get(st.application.modules_cache())
+        .await?;
     let config = ConvexObject::try_from(config)?;
     let config: JsonValue = config.into();
 
@@ -355,7 +357,9 @@ pub async fn get_config_hashes(
     )?;
 
     let mut tx = st.application.begin(identity).await?;
-    let (config, modules, udf_config) = ConfigModel::new(&mut tx).get().await?;
+    let (config, modules, udf_config) = ConfigModel::new(&mut tx)
+        .get(st.application.modules_cache())
+        .await?;
     let config = ConvexObject::try_from(config)?;
     let config: JsonValue = config.into();
 

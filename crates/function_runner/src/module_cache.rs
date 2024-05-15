@@ -12,18 +12,18 @@ use common::{
 };
 use database::Transaction;
 use futures::FutureExt;
-use isolate::{
-    environment::helpers::module_loader::get_module,
-    ModuleLoader,
-};
-use model::modules::{
-    module_versions::{
-        FullModuleSource,
-        ModuleVersion,
+use isolate::environment::helpers::module_loader::get_module;
+use model::{
+    config::module_loader::ModuleLoader,
+    modules::{
+        module_versions::{
+            FullModuleSource,
+            ModuleVersion,
+        },
+        types::ModuleMetadata,
+        ModuleModel,
+        MODULE_VERSIONS_TABLE,
     },
-    types::ModuleMetadata,
-    ModuleModel,
-    MODULE_VERSIONS_TABLE,
 };
 use storage::Storage;
 use value::ResolvedDocumentId;
@@ -64,7 +64,7 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         &self,
         tx: &mut Transaction<RT>,
         module_metadata: ParsedDocument<ModuleMetadata>,
-    ) -> anyhow::Result<Option<Arc<FullModuleSource>>> {
+    ) -> anyhow::Result<Arc<FullModuleSource>> {
         // The transaction we're getting modules for should be from the same ts as when
         // this module loader was created.
         assert_eq!(tx.begin_timestamp(), self.transaction_ingredients.ts);
@@ -76,7 +76,7 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             let source = ModuleModel::new(tx)
                 .get_source(module_metadata.id(), module_metadata.latest_version)
                 .await?;
-            return Ok(Some(Arc::new(source)));
+            return Ok(Arc::new(source));
         }
 
         let key = ModuleCacheKey {
@@ -99,6 +99,6 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         // but better safe and consistent that sorry.
         ModuleModel::new(tx).record_module_version_read_dependency(key.module_id)?;
 
-        Ok(Some(result))
+        Ok(result)
     }
 }

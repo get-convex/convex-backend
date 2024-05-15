@@ -86,6 +86,10 @@ use keybroker::{
 use maplit::btreemap;
 use model::{
     config::{
+        module_loader::{
+            ModuleLoader,
+            TransactionModuleLoader,
+        },
         types::{
             ConfigMetadata,
             ModuleConfig,
@@ -166,8 +170,6 @@ use crate::{
     HttpActionResult,
     IsolateClient,
     IsolateConfig,
-    ModuleLoader,
-    TransactionModuleLoader,
     ValidatedPathAndArgs,
     CONVEX_ORIGIN,
     CONVEX_SITE,

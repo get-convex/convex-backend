@@ -9,6 +9,7 @@ mod index_limits_tests;
 pub mod index_test_utils;
 #[cfg(test)]
 mod index_tests;
+pub mod module_loader;
 pub mod types;
 
 use std::collections::{
@@ -38,6 +39,7 @@ use value::{
     ResolvedDocumentId,
 };
 
+use self::module_loader::ModuleLoader;
 use crate::{
     auth::AuthInfoModel,
     config::types::{
@@ -266,6 +268,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
     /// out of the metadata tables to avoid keeping too many sources of truth.
     pub async fn get(
         &mut self,
+        module_loader: &dyn ModuleLoader<RT>,
     ) -> anyhow::Result<(ConfigMetadata, Vec<ModuleConfig>, Option<UdfConfig>)> {
         // TODO: Move to `application/`.
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
@@ -273,7 +276,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules: Vec<_> = ModuleModel::new(self.tx)
-            .get_application_modules(ComponentDefinitionId::Root)
+            .get_application_modules(ComponentDefinitionId::Root, module_loader)
             .await?
             .into_values()
             .collect();

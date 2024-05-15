@@ -60,10 +60,6 @@ pub use self::{
         },
         auth_config::AuthConfig,
         helpers::{
-            module_loader::{
-                ModuleLoader,
-                TransactionModuleLoader,
-            },
             validation::{
                 validate_schedule_args,
                 ValidatedHttpPath,

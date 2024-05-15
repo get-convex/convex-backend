@@ -617,6 +617,10 @@ impl<RT: Runtime> Application<RT> {
         &self.modules_storage
     }
 
+    pub fn modules_cache(&self) -> &ModuleCache<RT> {
+        &self.module_cache
+    }
+
     pub fn key_broker(&self) -> &KeyBroker {
         &self.key_broker
     }
@@ -1521,7 +1525,7 @@ impl<RT: Runtime> Application<RT> {
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<()> {
         let all_modules = ModuleModel::new(tx)
-            .get_application_modules(ComponentDefinitionId::Root)
+            .get_application_modules(ComponentDefinitionId::Root, runner.module_cache.as_ref())
             .await?;
         let path = CanonicalizedComponentModulePath {
             component: ComponentDefinitionId::Root,

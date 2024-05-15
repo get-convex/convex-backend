@@ -12,7 +12,10 @@ use common::{
 use database::Transaction;
 use keybroker::Identity;
 use model::{
-    config::types::ModuleConfig,
+    config::{
+        module_loader::TransactionModuleLoader,
+        types::ModuleConfig,
+    },
     modules::ModuleModel,
     source_packages::types::SourcePackage,
 };
@@ -75,7 +78,7 @@ pub async fn assemble_package<RT: Runtime>(
     modifications: BTreeMap<CanonicalizedComponentModulePath, Option<ModuleConfig>>,
 ) -> anyhow::Result<Vec<ModuleConfig>> {
     let existing_modules = ModuleModel::new(tx)
-        .get_application_modules(ComponentDefinitionId::Root)
+        .get_application_modules(ComponentDefinitionId::Root, &TransactionModuleLoader)
         .await?;
     let mut modules = BTreeMap::new();
     for (path, module) in existing_modules {

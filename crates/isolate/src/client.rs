@@ -100,7 +100,10 @@ use minitrace::{
     future::FutureExt as _,
 };
 use model::{
-    config::types::ModuleConfig,
+    config::{
+        module_loader::ModuleLoader,
+        types::ModuleConfig,
+    },
     environment_variables::types::{
         EnvVarName,
         EnvVarValue,
@@ -171,7 +174,6 @@ use crate::{
     ActionOutcome,
     FunctionOutcome,
     HttpActionOutcome,
-    ModuleLoader,
 };
 
 #[cfg(any(test, feature = "testing"))]

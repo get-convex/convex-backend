@@ -47,6 +47,7 @@ use futures::{
 };
 use keybroker::KeyBroker;
 use model::{
+    config::module_loader::ModuleLoader,
     environment_variables::{
         EnvironmentVariablesModel,
         PreloadedEnvironmentVariables,
@@ -119,7 +120,6 @@ use crate::{
     },
     validate_schedule_args,
     JsonPackedValue,
-    ModuleLoader,
     SyscallTrace,
     UdfOutcome,
     ValidatedPathAndArgs,

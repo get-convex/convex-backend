@@ -36,6 +36,7 @@ use keybroker::{
     KeyBroker,
 };
 use minitrace::future::FutureExt;
+use model::config::module_loader::ModuleLoader;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use usage_tracking::FunctionUsageTracker;
@@ -57,7 +58,6 @@ use crate::{
         AsyncOpRequest,
     },
     ActionCallbacks,
-    ModuleLoader,
 };
 
 /// TaskExecutor is able to execute async syscalls and ops for actions.

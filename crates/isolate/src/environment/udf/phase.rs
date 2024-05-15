@@ -27,6 +27,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
+    config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
             EnvVarName,
@@ -45,7 +46,6 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use sync_types::ModulePath;
 
-use super::ModuleLoader;
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
     environment::helpers::{

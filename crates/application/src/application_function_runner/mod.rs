@@ -111,7 +111,6 @@ use isolate::{
     IsolateConfig,
     IsolateHeapStats,
     JsonPackedValue,
-    ModuleLoader,
     UdfOutcome,
     ValidatedHttpPath,
     ValidatedPathAndArgs,
@@ -123,7 +122,10 @@ use keybroker::{
 };
 use minitrace::collector::SpanContext;
 use model::{
-    config::types::ModuleConfig,
+    config::{
+        module_loader::ModuleLoader,
+        types::ModuleConfig,
+    },
     environment_variables::{
         types::{
             EnvVarName,

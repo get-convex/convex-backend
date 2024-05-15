@@ -15,16 +15,18 @@ use database::{
     Transaction,
 };
 use futures::FutureExt;
-use isolate::ModuleLoader;
 use keybroker::Identity;
-use model::modules::{
-    module_versions::{
-        FullModuleSource,
-        ModuleVersion,
+use model::{
+    config::module_loader::ModuleLoader,
+    modules::{
+        module_versions::{
+            FullModuleSource,
+            ModuleVersion,
+        },
+        types::ModuleMetadata,
+        ModuleModel,
+        MODULE_VERSIONS_TABLE,
     },
-    types::ModuleMetadata,
-    ModuleModel,
-    MODULE_VERSIONS_TABLE,
 };
 use storage::Storage;
 use value::ResolvedDocumentId;
@@ -81,7 +83,7 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
         &self,
         tx: &mut Transaction<RT>,
         module_metadata: ParsedDocument<ModuleMetadata>,
-    ) -> anyhow::Result<Option<Arc<FullModuleSource>>> {
+    ) -> anyhow::Result<Arc<FullModuleSource>> {
         let timer = metrics::module_cache_get_module_timer();
 
         // If this transaction wrote to module_versions (true for REPLs), we cannot use
@@ -91,7 +93,7 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
             let source = ModuleModel::new(tx)
                 .get_source(module_metadata.id(), module_metadata.latest_version)
                 .await?;
-            return Ok(Some(Arc::new(source)));
+            return Ok(Arc::new(source));
         }
 
         let key = (module_metadata.id(), module_metadata.latest_version);
@@ -110,6 +112,6 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
         ModuleModel::new(tx).record_module_version_read_dependency(key.0)?;
 
         timer.finish();
-        Ok(Some(result))
+        Ok(result)
     }
 }

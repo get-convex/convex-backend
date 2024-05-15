@@ -28,6 +28,7 @@ use value::heap_size::WithHeapSize;
 use crate::{
     auth::AuthInfoModel,
     config::{
+        module_loader::TransactionModuleLoader,
         types::{
             ConfigMetadata,
             ModuleConfig,
@@ -94,7 +95,7 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
     // Fetch it back and it make sure it's there.
     let mut tx = database.begin(Identity::system()).await?;
     let (config_metadata_read, modules_read, ..) = ConfigModel::new(&mut tx)
-        .get()
+        .get(&TransactionModuleLoader)
         .await
         .expect("getting config should succeed");
     assert_eq!(config_metadata, config_metadata_read);
@@ -153,7 +154,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = database.begin(Identity::system()).await?;
     let (config_metadata_read, modules_read, ..) = ConfigModel::new(&mut tx)
-        .get()
+        .get(&TransactionModuleLoader)
         .await
         .expect("getting config should succeed");
     assert_eq!(config_metadata, config_metadata_read);

@@ -18,6 +18,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
+    config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
             EnvVarName,
@@ -52,7 +53,6 @@ use crate::{
         },
     },
     timeout::Timeout,
-    ModuleLoader,
 };
 
 /// This struct is similar to UdfPhase. Action execution also has two
@@ -146,12 +146,10 @@ impl<RT: Runtime> ActionPhase<RT> {
                 continue;
             }
             let path = metadata.path.clone();
-            if let Some(module) = module_loader
+            let module = module_loader
                 .get_module_with_metadata(&mut tx, metadata.clone())
-                .await?
-            {
-                modules.insert(path, (metadata.into_value(), module));
-            }
+                .await?;
+            modules.insert(path, (metadata.into_value(), module));
         }
 
         let mut env_vars = system_env_vars;

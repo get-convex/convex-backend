@@ -127,10 +127,7 @@ use crate::{
     concurrency_limiter::ConcurrencyPermit,
     environment::{
         helpers::{
-            module_loader::{
-                module_specifier_from_path,
-                ModuleLoader,
-            },
+            module_loader::module_specifier_from_path,
             resolve_promise,
             FunctionOutcome,
             JsonPackedValue,
