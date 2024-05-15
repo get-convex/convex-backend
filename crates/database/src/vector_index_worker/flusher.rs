@@ -12,16 +12,11 @@ use anyhow::Context;
 #[cfg(any(test, feature = "testing"))]
 use common::pause::PauseClient;
 use common::{
-    bootstrap_model::index::vector_index::{
-        FragmentedVectorSegment,
-        VectorIndexSnapshotData,
-    },
     knobs::{
         DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
-        VECTOR_INDEX_THREADS,
         VECTOR_INDEX_WORKER_PAGE_SIZE,
     },
     persistence::TimestampRange,
@@ -39,23 +34,14 @@ use common::{
 };
 use futures::{
     channel::oneshot,
-    stream::FuturesUnordered,
     StreamExt,
     TryStreamExt,
 };
 use governor::Quota;
 use keybroker::Identity;
-use search::{
-    disk_index::upload_segment,
-    fragmented_segment::MutableFragmentedSegmentMetadata,
-};
 use storage::Storage;
 use tempfile::TempDir;
 use value::TableIdentifier;
-use vector::{
-    qdrant_segments::DiskSegmentValues,
-    QdrantSchema,
-};
 
 use super::{
     writer::VectorMetadataWriter,
@@ -69,6 +55,7 @@ use crate::{
             SearchIndexConfigParser,
             SearchOnDiskState,
             SearchSnapshot,
+            SnapshotData,
             VectorIndexConfigParser,
             VectorSearchIndex,
         },
@@ -249,10 +236,10 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         } = result;
 
         match data {
-            VectorIndexSnapshotData::Unknown(_) => {
+            SnapshotData::Unknown => {
                 anyhow::bail!("Created an unknown snapshot data type")
             },
-            VectorIndexSnapshotData::MultiSegment(segments) => {
+            SnapshotData::MultiSegment(segments) => {
                 self.writer
                     .commit_flush(&job, snapshot_ts, segments, new_segment_id, backfill_result)
                     .await?;
@@ -266,10 +253,10 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         Ok(vectors_in_new_segment)
     }
 
-    async fn build_multipart_segment(
+    async fn build_multipart_segment<T: SearchIndex + 'static>(
         &self,
-        job: &IndexBuild<VectorSearchIndex>,
-    ) -> anyhow::Result<IndexBuildResult> {
+        job: &IndexBuild<T>,
+    ) -> anyhow::Result<IndexBuildResult<T>> {
         let index_path = TempDir::new()?;
         let mut tx = self.database.begin(Identity::system()).await?;
         let table_id = tx.table_mapping().inject_table_number()(*job.index_name.table())?;
@@ -300,14 +287,14 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                 match snapshot.data {
                     // If we're on an old or unrecognized version, rebuild everything. The formats
                     // are not compatible.
-                    VectorIndexSnapshotData::Unknown(_) => (
+                    SnapshotData::Unknown => (
                         vec![],
                         MultipartBuildType::IncrementalComplete {
                             cursor: None,
                             backfill_snapshot_ts: new_ts,
                         },
                     ),
-                    VectorIndexSnapshotData::MultiSegment(ref parts) => {
+                    SnapshotData::MultiSegment(ref parts) => {
                         let ts = IndexWorkerMetadataModel::new(&mut tx)
                             .get_fast_forward_ts(snapshot.ts, job.index_id)
                             .await?;
@@ -329,14 +316,12 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             .await?;
 
         let new_segment = if let Some(new_segment) = new_segment {
-            Some(upload_segment(&self.runtime, self.storage.clone(), new_segment).await?)
+            Some(T::upload_new_segment(&self.runtime, self.storage.clone(), new_segment).await?)
         } else {
             None
         };
-        let new_segment_id = new_segment
-            .as_ref()
-            .map(|segment: &FragmentedVectorSegment| segment.id.clone());
-        let vectors_in_new_segment = new_segment.as_ref().map(|segment| segment.num_vectors);
+        let new_segment_id = new_segment.as_ref().map(|segment| T::segment_id(segment));
+        let vectors_in_new_segment = new_segment.as_ref().map(|segment| T::num_vectors(segment));
 
         let new_and_updated_parts = if let Some(new_segment) = new_segment {
             updated_previous_segments
@@ -350,12 +335,12 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         let total_vectors = new_and_updated_parts
             .iter()
             .map(|segment| {
-                let total_vectors = segment.non_deleted_vectors()?;
+                let total_vectors = T::non_deleted_vectors(segment)?;
                 log_documents_per_segment(total_vectors);
                 Ok(total_vectors)
             })
             .sum::<anyhow::Result<_>>()?;
-        let data = VectorIndexSnapshotData::MultiSegment(new_and_updated_parts);
+        let data = SnapshotData::MultiSegment(new_and_updated_parts);
 
         Ok(IndexBuildResult {
             snapshot_ts: *new_ts,
@@ -367,15 +352,14 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         })
     }
 
-    async fn build_multipart_segment_in_dir(
+    async fn build_multipart_segment_in_dir<T: SearchIndex + 'static>(
         &self,
-        job: &IndexBuild<VectorSearchIndex>,
+        job: &IndexBuild<T>,
         index_path: &TempDir,
         snapshot_ts: RepeatableTimestamp,
         build_type: MultipartBuildType,
-        previous_segments: Vec<FragmentedVectorSegment>,
-    ) -> anyhow::Result<MultiSegmentBuildResult> {
-        let qdrant_schema = QdrantSchema::new(&job.index_config.developer_config);
+        previous_segments: Vec<T::Segment>,
+    ) -> anyhow::Result<MultiSegmentBuildResult<T>> {
         let database = self.database.clone();
 
         let (tx, rx) = oneshot::channel();
@@ -387,6 +371,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         let incremental_multipart_threshold_bytes = self.incremental_multipart_threshold_bytes;
         let by_id = job.by_id;
         let rate_limit_pages_per_second = job.build_reason.read_max_pages_per_second();
+        let developer_config = job.index_config.developer_config.clone();
         self.runtime.spawn_thread(move || async move {
             let result = Self::build_multipart_segment_on_thread(
                 rate_limit_pages_per_second,
@@ -396,10 +381,10 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                 snapshot_ts,
                 runtime,
                 database,
+                developer_config,
                 index_path,
                 storage,
                 previous_segments,
-                qdrant_schema,
                 full_scan_threshold_kb,
                 incremental_multipart_threshold_bytes,
             )
@@ -409,7 +394,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         rx.await?
     }
 
-    async fn build_multipart_segment_on_thread(
+    async fn build_multipart_segment_on_thread<T: SearchIndex>(
         rate_limit_pages_per_second: NonZeroU32,
         index_name: TabletIndexName,
         by_id: IndexId,
@@ -417,13 +402,13 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         snapshot_ts: RepeatableTimestamp,
         runtime: RT,
         database: Database<RT>,
+        developer_config: T::DeveloperConfig,
         index_path: PathBuf,
         storage: Arc<dyn Storage>,
-        previous_segments: Vec<FragmentedVectorSegment>,
-        qdrant_schema: QdrantSchema,
+        previous_segments: Vec<T::Segment>,
         full_scan_threshold_kb: usize,
         incremental_multipart_threshold_bytes: usize,
-    ) -> anyhow::Result<MultiSegmentBuildResult> {
+    ) -> anyhow::Result<MultiSegmentBuildResult<T>> {
         let page_rate_limiter = new_rate_limiter(
             runtime.clone(),
             Quota::per_second(rate_limit_pages_per_second),
@@ -439,7 +424,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         // Cursor and completion state for MultipartBuildType::IncrementalComplete
         let mut new_cursor = None;
         let mut is_backfill_complete = true;
-        let qdrant_vector_size = qdrant_schema.estimate_vector_size() as u64;
+        let qdrant_schema = T::new_schema(&developer_config);
 
         let (documents, previous_segments) = match build_type {
             MultipartBuildType::Partial(last_ts) => (
@@ -468,7 +453,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                     .boxed()
                     .scan(0_u64, |total_size, res| {
                         let updated_cursor = if let Ok((doc, _)) = &res {
-                            *total_size += qdrant_vector_size;
+                            let size = T::estimate_document_size(&qdrant_schema, doc);
+                            *total_size += size;
                             Some(doc.id())
                         } else {
                             None
@@ -493,29 +479,20 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             },
         };
 
-        let mut mutable_previous_segments = previous_segments
-            .into_iter()
-            .map(|segment| MutableFragmentedSegmentMetadata::download(segment, storage.clone()))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>()
-            .await?;
+        let mut mutable_previous_segments =
+            T::download_previous_segments(storage.clone(), previous_segments).await?;
 
-        let new_segment = qdrant_schema
-            .build_disk_index(
-                &index_path,
-                documents,
-                *VECTOR_INDEX_THREADS,
-                full_scan_threshold_kb,
-                &mut mutable_previous_segments.iter_mut().collect::<Vec<_>>(),
-            )
-            .await?;
+        let new_segment = T::build_disk_index(
+            &qdrant_schema,
+            &index_path,
+            documents,
+            full_scan_threshold_kb,
+            &mut mutable_previous_segments,
+        )
+        .await?;
 
-        let updated_previous_segments = mutable_previous_segments
-            .into_iter()
-            .map(|segment| segment.upload_deleted_bitset(storage.clone()))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>()
-            .await?;
+        let updated_previous_segments =
+            T::upload_previous_segments(storage, mutable_previous_segments).await?;
 
         let index_backfill_result =
             if let MultipartBuildType::IncrementalComplete { .. } = build_type {
@@ -618,10 +595,10 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
 }
 
 #[derive(Debug)]
-struct MultiSegmentBuildResult {
+struct MultiSegmentBuildResult<T: SearchIndex> {
     // This is None only when no new segment was built because all changes were deletes
-    new_segment: Option<DiskSegmentValues>,
-    updated_previous_segments: Vec<FragmentedVectorSegment>,
+    new_segment: Option<T::NewSegment>,
+    updated_previous_segments: Vec<T::Segment>,
     // This is set only if the build iteration created a segment for a backfilling index
     backfill_result: Option<MultiSegmentBackfillResult>,
 }
@@ -640,9 +617,9 @@ enum MultipartBuildType {
 }
 
 #[derive(Debug)]
-struct IndexBuildResult {
+struct IndexBuildResult<T: SearchIndex> {
     snapshot_ts: Timestamp,
-    data: VectorIndexSnapshotData,
+    data: SnapshotData<T::Segment>,
     total_vectors: u64,
     vectors_in_new_segment: Option<u32>,
     new_segment_id: Option<String>,
@@ -991,7 +968,7 @@ mod tests {
             fixtures.backfill().await?;
         }
         // Queue up deletes for all existing segments, and one new vector that will
-        // cause cause the flusher to write a new segment.
+        // cause the flusher to write a new segment.
         let mut tx = fixtures.db.begin_system().await?;
         for doc_id in &deleted_doc_ids {
             UserFacingModel::new(&mut tx)
@@ -1098,7 +1075,7 @@ mod tests {
             fixtures.backfill().await?;
         }
         // Queue up deletes for all existing segments, and one new vector that will
-        // cause cause the flusher to write a new segment.
+        // cause the flusher to write a new segment.
         let mut tx = fixtures.db.begin_system().await?;
         for doc_id in &deleted_doc_ids {
             UserFacingModel::new(&mut tx)
@@ -1161,8 +1138,8 @@ mod tests {
             fixtures.backfill().await?;
         }
         // Queue up updates and deletes for all existing segments and no new vectors so
-        // that compaction will just delete all of the existing segments without
-        // adding a new one.
+        // that compaction will just delete all the existing segments without adding a
+        // new one.
         let mut tx = fixtures.db.begin_system().await?;
         let patched_object = assert_val!([5f64, 6f64]);
         for doc_id in &deleted_doc_ids {

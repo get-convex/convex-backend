@@ -24,6 +24,7 @@ use atomic_refcell::AtomicRefCell;
 use common::{
     bootstrap_model::index::vector_index::DeveloperVectorIndexConfig,
     document::ResolvedDocument,
+    knobs::VECTOR_INDEX_THREADS,
     persistence::DocumentStream,
     query::search_value_to_bytes,
     types::{
@@ -331,7 +332,6 @@ impl QdrantSchema {
         &self,
         index_path: &Path,
         revision_stream: DocumentStream<'_>,
-        index_threads: usize,
         full_scan_threshold_kb: usize,
         previous_segments: &mut Vec<&mut impl PreviousSegment>,
     ) -> anyhow::Result<Option<DiskSegmentValues>> {
@@ -343,7 +343,7 @@ impl QdrantSchema {
         // upfront, always set up the more complex directory.
         let memory_dir: PathBuf = tmpdir.path().join("memory");
         let id_tracker = Arc::new(AtomicRefCell::new(VectorMemoryIdTracker::new()));
-        let mutable_config = segment_config(self.dimension, true, index_threads);
+        let mutable_config = segment_config(self.dimension, true, *VECTOR_INDEX_THREADS);
         let mut memory_segment = create_mutable_segment(
             &memory_dir,
             id_tracker.clone(),
@@ -451,7 +451,7 @@ impl QdrantSchema {
                 fs::create_dir_all(&indexing_path)?;
                 let disk_path = index_path.join("disk");
                 fs::create_dir_all(&disk_path)?;
-                let disk_config = segment_config(self.dimension, false, index_threads);
+                let disk_config = segment_config(self.dimension, false, *VECTOR_INDEX_THREADS);
                 build_disk_segment(&memory_segment, &indexing_path, &disk_path, disk_config)
             },
         }?;
