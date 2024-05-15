@@ -327,110 +327,106 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             is_virtual_table,
         )
     }
+}
 
-    fn start_index_range(
-        &mut self,
-        request: IndexRangeRequest,
-    ) -> anyhow::Result<Result<DeveloperIndexRangeResponse, RangeRequest>> {
-        if request.interval.is_empty() {
-            return Ok(Ok(DeveloperIndexRangeResponse {
-                page: vec![],
-                cursor: CursorPosition::End,
-            }));
+fn start_index_range<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+    request: IndexRangeRequest,
+) -> anyhow::Result<Result<DeveloperIndexRangeResponse, RangeRequest>> {
+    if request.interval.is_empty() {
+        return Ok(Ok(DeveloperIndexRangeResponse {
+            page: vec![],
+            cursor: CursorPosition::End,
+        }));
+    }
+
+    let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
+
+    match request.stable_index_name {
+        StableIndexName::Physical(tablet_index_name) => {
+            let index_name = tablet_index_name
+                .clone()
+                .map_table(&tx.table_mapping().tablet_to_name())?;
+            Ok(Err(RangeRequest {
+                index_name: tablet_index_name.clone(),
+                printable_index_name: index_name,
+                interval: request.interval.clone(),
+                order: request.order,
+                max_size: max_rows,
+            }))
+        },
+        StableIndexName::Virtual(index_name, tablet_index_name) => {
+            log_virtual_table_query();
+            Ok(Err(RangeRequest {
+                index_name: tablet_index_name.clone(),
+                printable_index_name: index_name.clone(),
+                interval: request.interval.clone(),
+                order: request.order,
+                max_size: max_rows,
+            }))
+        },
+        StableIndexName::Missing => Ok(Ok(DeveloperIndexRangeResponse {
+            page: vec![],
+            cursor: CursorPosition::End,
+        })),
+    }
+}
+
+/// NOTE: returns a page of results. Callers must call record_read_document
+/// for all documents returned from the index stream.
+#[minitrace::trace]
+#[convex_macro::instrument_future]
+pub async fn index_range_batch<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+    requests: BTreeMap<BatchKey, IndexRangeRequest>,
+) -> BTreeMap<BatchKey, anyhow::Result<DeveloperIndexRangeResponse>> {
+    let batch_size = requests.len();
+    let mut results = BTreeMap::new();
+    let mut fetch_requests = BTreeMap::new();
+    let mut virtual_table_versions = BTreeMap::new();
+    for (batch_key, request) in requests {
+        if matches!(request.stable_index_name, StableIndexName::Virtual(_, _)) {
+            virtual_table_versions.insert(batch_key, request.version.clone());
         }
-
-        let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
-
-        match request.stable_index_name {
-            StableIndexName::Physical(tablet_index_name) => {
-                let index_name = tablet_index_name
-                    .clone()
-                    .map_table(&self.tx.table_mapping().tablet_to_name())?;
-                Ok(Err(RangeRequest {
-                    index_name: tablet_index_name.clone(),
-                    printable_index_name: index_name,
-                    interval: request.interval.clone(),
-                    order: request.order,
-                    max_size: max_rows,
-                }))
+        match start_index_range(tx, request) {
+            Err(e) => {
+                results.insert(batch_key, Err(e));
             },
-            StableIndexName::Virtual(index_name, tablet_index_name) => {
-                log_virtual_table_query();
-                Ok(Err(RangeRequest {
-                    index_name: tablet_index_name.clone(),
-                    printable_index_name: index_name.clone(),
-                    interval: request.interval.clone(),
-                    order: request.order,
-                    max_size: max_rows,
-                }))
+            Ok(Ok(result)) => {
+                results.insert(batch_key, Ok(result));
             },
-            StableIndexName::Missing => Ok(Ok(DeveloperIndexRangeResponse {
-                page: vec![],
-                cursor: CursorPosition::End,
-            })),
+            Ok(Err(request)) => {
+                fetch_requests.insert(batch_key, request);
+            },
         }
     }
 
-    /// NOTE: returns a page of results. Callers must call record_read_document
-    /// for all documents returned from the index stream.
-    #[minitrace::trace]
-    #[convex_macro::instrument_future]
-    pub async fn index_range_batch(
-        &mut self,
-        requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<DeveloperIndexRangeResponse>> {
-        let batch_size = requests.len();
-        let mut results = BTreeMap::new();
-        let mut fetch_requests = BTreeMap::new();
-        let mut virtual_table_versions = BTreeMap::new();
-        for (batch_key, request) in requests {
-            if matches!(request.stable_index_name, StableIndexName::Virtual(_, _)) {
-                virtual_table_versions.insert(batch_key, request.version.clone());
-            }
-            match self.start_index_range(request) {
-                Err(e) => {
-                    results.insert(batch_key, Err(e));
-                },
-                Ok(Ok(result)) => {
-                    results.insert(batch_key, Ok(result));
-                },
-                Ok(Err(request)) => {
-                    fetch_requests.insert(batch_key, request);
-                },
-            }
-        }
+    let fetch_results = tx.index.range_batch(&mut tx.reads, fetch_requests).await;
 
-        let fetch_results = self
-            .tx
-            .index
-            .range_batch(&mut self.tx.reads, fetch_requests)
-            .await;
-
-        for (batch_key, fetch_result) in fetch_results {
-            let virtual_table_version = virtual_table_versions.get(&batch_key).cloned();
-            let result = fetch_result.and_then(|IndexRangeResponse { page, cursor }| {
-                let developer_results = match virtual_table_version {
-                    Some(version) => page
-                        .into_iter()
-                        .map(|(key, doc, ts)| {
-                            let doc = VirtualTable::new(self.tx)
-                                .map_system_doc_to_virtual_doc(doc, version.clone())?;
-                            anyhow::Ok((key, doc, ts))
-                        })
-                        .try_collect()?,
-                    None => page
-                        .into_iter()
-                        .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
-                        .collect(),
-                };
-                anyhow::Ok(DeveloperIndexRangeResponse {
-                    page: developer_results,
-                    cursor,
-                })
-            });
-            results.insert(batch_key, result);
-        }
-        assert_eq!(results.len(), batch_size);
-        results
+    for (batch_key, fetch_result) in fetch_results {
+        let virtual_table_version = virtual_table_versions.get(&batch_key).cloned();
+        let result = fetch_result.and_then(|IndexRangeResponse { page, cursor }| {
+            let developer_results = match virtual_table_version {
+                Some(version) => page
+                    .into_iter()
+                    .map(|(key, doc, ts)| {
+                        let doc = VirtualTable::new(tx)
+                            .map_system_doc_to_virtual_doc(doc, version.clone())?;
+                        anyhow::Ok((key, doc, ts))
+                    })
+                    .try_collect()?,
+                None => page
+                    .into_iter()
+                    .map(|(key, doc, ts)| (key, doc.to_developer(), ts))
+                    .collect(),
+            };
+            anyhow::Ok(DeveloperIndexRangeResponse {
+                page: developer_results,
+                cursor,
+            })
+        });
+        results.insert(batch_key, result);
     }
+    assert_eq!(results.len(), batch_size);
+    results
 }

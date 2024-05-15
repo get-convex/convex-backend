@@ -51,10 +51,10 @@ use self::{
     search_query::SearchQuery,
 };
 use crate::{
+    bootstrap_model::user_facing::index_range_batch,
     transaction::IndexRangeRequest,
     IndexModel,
     Transaction,
-    UserFacingModel,
 };
 
 mod filter;
@@ -517,7 +517,7 @@ pub async fn query_batch_next_<RT: Runtime>(
                 },
             }
         }
-        let mut responses = UserFacingModel::new(tx).index_range_batch(requests).await;
+        let mut responses = index_range_batch(tx, requests).await;
         let mut next_batch = BTreeMap::new();
         for (batch_key, (query, prefetch_hint)) in batch_to_feed {
             let result: anyhow::Result<_> = try {
