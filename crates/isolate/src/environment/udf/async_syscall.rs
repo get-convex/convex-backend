@@ -684,7 +684,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table, false)?;
         let tx = provider.tx()?;
-        let document_id = UserFacingModel::new(tx).insert(table, value).await?;
+        let document_id = UserFacingModel::new(tx, ComponentId::Root)
+            .insert(table, value)
+            .await?;
         let id_str = document_id.encode();
         Ok(json!({ "_id": id_str }))
     }
@@ -712,7 +714,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx).patch(id, value).await?;
+        let document = UserFacingModel::new(tx, ComponentId::Root)
+            .patch(id, value)
+            .await?;
         Ok(document.into_value().0.into())
     }
 
@@ -739,7 +743,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx).replace(id, value).await?;
+        let document = UserFacingModel::new(tx, ComponentId::Root)
+            .replace(id, value)
+            .await?;
         Ok(document.into_value().0.into())
     }
 
@@ -929,7 +935,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx).delete(id).await?;
+        let document = UserFacingModel::new(tx, ComponentId::Root)
+            .delete(id)
+            .await?;
         Ok(document.into_value().0.into())
     }
 }

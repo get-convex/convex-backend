@@ -493,7 +493,7 @@ mod tests {
             .await?;
 
         let mut tx = fixtures.db.begin_system().await?;
-        UserFacingModel::new(&mut tx)
+        UserFacingModel::new_root_for_test(&mut tx)
             .delete(to_delete.into())
             .await?;
         fixtures.db.commit(tx).await?;
@@ -579,7 +579,7 @@ mod tests {
         // cause the flusher to write a new segment.
         let mut tx = fixtures.db.begin_system().await?;
         for doc_id in &deleted_doc_ids {
-            UserFacingModel::new(&mut tx)
+            UserFacingModel::new_root_for_test(&mut tx)
                 .delete((*doc_id).into())
                 .await?;
         }
@@ -686,7 +686,7 @@ mod tests {
         // cause the flusher to write a new segment.
         let mut tx = fixtures.db.begin_system().await?;
         for doc_id in &deleted_doc_ids {
-            UserFacingModel::new(&mut tx)
+            UserFacingModel::new_root_for_test(&mut tx)
                 .delete((*doc_id).into())
                 .await?;
         }
@@ -751,7 +751,7 @@ mod tests {
         let mut tx = fixtures.db.begin_system().await?;
         let patched_object = assert_val!([5f64, 6f64]);
         for doc_id in &deleted_doc_ids {
-            UserFacingModel::new(&mut tx)
+            UserFacingModel::new_root_for_test(&mut tx)
                 .patch(
                     (*doc_id).into(),
                     assert_obj!("vector" => patched_object.clone()).into(),
@@ -762,7 +762,7 @@ mod tests {
 
         let mut tx = fixtures.db.begin_system().await?;
         for doc_id in &deleted_doc_ids {
-            UserFacingModel::new(&mut tx)
+            UserFacingModel::new_root_for_test(&mut tx)
                 .delete((*doc_id).into())
                 .await?;
         }
@@ -868,7 +868,9 @@ mod tests {
             .add_document_vec_array(index_name.table(), [3f64, 4f64])
             .await?;
         let mut tx = fixtures.db.begin_system().await?;
-        UserFacingModel::new(&mut tx).delete(id.into()).await?;
+        UserFacingModel::new_root_for_test(&mut tx)
+            .delete(id.into())
+            .await?;
         fixtures.db.commit(tx).await?;
 
         let mut worker = fixtures.new_index_flusher()?;
@@ -903,14 +905,16 @@ mod tests {
         // Update the document in place
         let mut tx = fixtures.db.begin_system().await?;
         let patched_object = assert_val!([5f64, 6f64]);
-        UserFacingModel::new(&mut tx)
+        UserFacingModel::new_root_for_test(&mut tx)
             .patch(id.into(), assert_obj!("vector" => patched_object).into())
             .await?;
         fixtures.db.commit(tx).await?;
 
         // Then delete it
         let mut tx = fixtures.db.begin_system().await?;
-        UserFacingModel::new(&mut tx).delete(id.into()).await?;
+        UserFacingModel::new_root_for_test(&mut tx)
+            .delete(id.into())
+            .await?;
         fixtures.db.commit(tx).await?;
 
         // And flush to ensure that we handle the document showing up repeatedly in the
@@ -948,7 +952,9 @@ mod tests {
                 .await?;
             if index >= 5 {
                 let mut tx = fixtures.db.begin_system().await?;
-                UserFacingModel::new(&mut tx).delete(id.into()).await?;
+                UserFacingModel::new_root_for_test(&mut tx)
+                    .delete(id.into())
+                    .await?;
                 fixtures.db.commit(tx).await?;
             }
         }
@@ -990,7 +996,9 @@ mod tests {
                 .await?;
             if index >= 5 {
                 let mut tx = fixtures.db.begin_system().await?;
-                UserFacingModel::new(&mut tx).delete(id.into()).await?;
+                UserFacingModel::new_root_for_test(&mut tx)
+                    .delete(id.into())
+                    .await?;
                 fixtures.db.commit(tx).await?;
             }
         }
@@ -1029,7 +1037,7 @@ mod tests {
             if index >= 5 {
                 let mut tx = fixtures.db.begin_system().await?;
                 let patched_object = assert_val!([5f64, 6f64]);
-                UserFacingModel::new(&mut tx)
+                UserFacingModel::new_root_for_test(&mut tx)
                     .patch(
                         id.into(),
                         assert_obj!("vector" => patched_object.clone()).into(),

@@ -351,37 +351,39 @@ async fn test_schema_enforced_on_write(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Inserting a document that matches the schema should succeed
     let object = assert_obj!("name" => "emma", "age" => 24);
-    let id = UserFacingModel::new(&mut tx)
+    let id = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table.clone(), object)
         .await?;
 
     // Replacing a document that matches the schema should succeed
     let object = assert_obj!("name" => "lee", "age" => 24);
-    UserFacingModel::new(&mut tx).replace(id, object).await?;
+    UserFacingModel::new_root_for_test(&mut tx)
+        .replace(id, object)
+        .await?;
 
     // Updating a document that matches the schema should succeed
     let object = assert_obj!("name" => "alex", "age" => 24);
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .patch(id, object.into())
         .await?;
 
     // Inserting a document that does not match the schema should fail
     let bad_object = assert_obj!("name" => "emma", "age" => "24");
-    let err = UserFacingModel::new(&mut tx)
+    let err = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table, bad_object.clone())
         .await
         .unwrap_err();
     assert_eq!(err.short_msg(), "SchemaEnforcementError");
 
     // Replacing a document that does not match the schema should fail
-    let err = UserFacingModel::new(&mut tx)
+    let err = UserFacingModel::new_root_for_test(&mut tx)
         .replace(id, bad_object.clone())
         .await
         .unwrap_err();
     assert_eq!(err.short_msg(), "SchemaEnforcementError");
 
     // Updating a document that does not match the schema should fail
-    let err = UserFacingModel::new(&mut tx)
+    let err = UserFacingModel::new_root_for_test(&mut tx)
         .patch(id, bad_object.into())
         .await
         .unwrap_err();
@@ -403,23 +405,25 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
 
     // Inserting a document that matches the schema should succeed
     let object = assert_obj!("name" => "emma", "age" => 24);
-    let id = UserFacingModel::new(&mut tx)
+    let id = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table.clone(), object)
         .await?;
 
     // Replacing a document that matches the schema should succeed
     let object = assert_obj!("name" => "lee", "age" => 24);
-    UserFacingModel::new(&mut tx).replace(id, object).await?;
+    UserFacingModel::new_root_for_test(&mut tx)
+        .replace(id, object)
+        .await?;
 
     // Updating a document that matches the schema should succeed
     let object = assert_obj!("name" => "alex", "age" => 24);
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .patch(id, object.into())
         .await?;
 
     // Inserting a document that does not match the schema should fail
     let bad_object = assert_obj!("name" => "emma", "age" => "24");
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(table.clone(), bad_object.clone())
         .await?;
     let SchemaMetadata { state, schema: _ } = tx
@@ -435,7 +439,7 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
     // failed and succeed
     let mut model = SchemaModel::new(&mut tx);
     let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .replace(id, bad_object.clone())
         .await?;
     let SchemaMetadata { state, schema: _ } = tx
@@ -451,7 +455,7 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
     // failed and succeed
     let mut model = SchemaModel::new(&mut tx);
     let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .patch(id, bad_object.into())
         .await?;
     let SchemaMetadata { state, schema: _ } = tx

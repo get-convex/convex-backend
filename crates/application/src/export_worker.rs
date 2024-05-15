@@ -920,7 +920,7 @@ mod tests {
         for i in 0..2 {
             let table: TableName = str::parse(format!("table_{i}").as_str())?;
             let mut tx = db.begin(Identity::system()).await?;
-            UserFacingModel::new(&mut tx)
+            UserFacingModel::new_root_for_test(&mut tx)
                 .insert(table, ConvexObject::empty())
                 .await?;
             db.commit(tx).await?;
@@ -972,22 +972,25 @@ mod tests {
             let mut tx = db.begin(Identity::system()).await?;
             let id = match i {
                 0 => {
-                    UserFacingModel::new(&mut tx)
+                    UserFacingModel::new_root_for_test(&mut tx)
                         .insert(table, assert_obj!("foo" => 1))
                         .await?
                 },
                 1 => {
-                    UserFacingModel::new(&mut tx)
+                    UserFacingModel::new_root_for_test(&mut tx)
                         .insert(table, assert_obj!("foo" => [1, "1"]))
                         .await?
                 },
                 _ => {
-                    UserFacingModel::new(&mut tx)
+                    UserFacingModel::new_root_for_test(&mut tx)
                         .insert(table, assert_obj!("foo" => "1"))
                         .await?
                 },
             };
-            let doc = UserFacingModel::new(&mut tx).get(id, None).await?.unwrap();
+            let doc = UserFacingModel::new_root_for_test(&mut tx)
+                .get(id, None)
+                .await?
+                .unwrap();
             let tablet_id = tx.table_mapping().inject_table_id()(doc.table())?.tablet_id;
             let doc = doc.to_resolved(tablet_id);
             let id_v6 = doc.developer_id().encode();
@@ -1163,12 +1166,12 @@ mod tests {
 
         // Write to two tables and delete one.
         let mut tx = db.begin(Identity::system()).await?;
-        UserFacingModel::new(&mut tx)
+        UserFacingModel::new_root_for_test(&mut tx)
             .insert("table_0".parse()?, ConvexObject::empty())
             .await?;
         db.commit(tx).await?;
         let mut tx = db.begin(Identity::system()).await?;
-        UserFacingModel::new(&mut tx)
+        UserFacingModel::new_root_for_test(&mut tx)
             .insert("table_1".parse()?, ConvexObject::empty())
             .await?;
         db.commit(tx).await?;

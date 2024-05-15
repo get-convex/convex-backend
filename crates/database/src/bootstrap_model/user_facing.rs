@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    components::ComponentId,
     document::{
         DeveloperDocument,
         ResolvedDocument,
@@ -64,11 +65,24 @@ use crate::{
 //  5. We support branching on the `convex` NPM package's version.
 pub struct UserFacingModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
+    // TODO(lee) pass component to transaction methods.
+    _component: ComponentId,
 }
 
 impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
-        Self { tx }
+    pub fn new(tx: &'a mut Transaction<RT>, component: ComponentId) -> Self {
+        Self {
+            tx,
+            _component: component,
+        }
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn new_root_for_test(tx: &'a mut Transaction<RT>) -> Self {
+        Self {
+            tx,
+            _component: ComponentId::Root,
+        }
     }
 
     #[convex_macro::instrument_future]

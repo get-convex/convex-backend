@@ -63,7 +63,7 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
         let internal_id = InternalId::MIN;
         let mut tx = t.database.begin(Identity::system()).await?;
         let user_table_name: TableName = "boats".parse()?;
-        UserFacingModel::new(&mut tx)
+        UserFacingModel::new_root_for_test(&mut tx)
             .insert(user_table_name.clone(), assert_obj!())
             .await?;
         let user_table_number = tx.table_mapping().id(&user_table_name)?.table_number;
@@ -175,10 +175,10 @@ async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::
     let mut tx = t.database.begin(Identity::system()).await?;
     let table_name_a: TableName = "boats".parse()?;
     let table_name_b: TableName = "votes".parse()?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name_a.clone(), assert_obj!())
         .await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name_b.clone(), assert_obj!())
         .await?;
     let table_number = tx.table_mapping().id(&table_name_a)?.table_number;

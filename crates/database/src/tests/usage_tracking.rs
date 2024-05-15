@@ -231,7 +231,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .await?;
     let obj = assert_obj!("key" => vec![0; 100]);
     let table_name: TableName = "my_table".parse()?;
-    let doc_id = UserFacingModel::new(&mut tx)
+    let doc_id = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), obj.clone())
         .await?;
     db.commit(tx).await?;
@@ -256,7 +256,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     let mut tx = db
         .begin_with_usage(Identity::Unknown, tx_usage.clone())
         .await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .get_with_ts(doc_id, None)
         .await?;
     db.commit(tx).await?;
@@ -311,13 +311,13 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let obj = assert_obj!("key" => 1);
     let obj2 = assert_obj!("key" => 3);
     let obj3 = assert_obj!("key" => 1);
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), obj.clone())
         .await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), obj2.clone())
         .await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), obj3.clone())
         .await?;
     db.commit(tx).await?;

@@ -370,7 +370,7 @@ impl Scenario {
             },
             Entry::Occupied(mut e) => {
                 let (document_id, ..) = e.get();
-                UserFacingModel::new(&mut tx)
+                UserFacingModel::new_root_for_test(&mut tx)
                     .patch((*document_id).into(), new_document.into())
                     .await?;
                 e.get_mut().1 = search_field;
@@ -395,7 +395,9 @@ impl Scenario {
             TestAction::Delete(k) => {
                 if let Some((id, ..)) = self.model.remove(&k.to_string()) {
                     let mut tx = self.database.begin(Identity::system()).await?;
-                    UserFacingModel::new(&mut tx).delete(id.into()).await?;
+                    UserFacingModel::new_root_for_test(&mut tx)
+                        .delete(id.into())
+                        .await?;
                     self.database.commit(tx).await?;
                 }
             },

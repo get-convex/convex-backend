@@ -148,7 +148,7 @@ async fn document_deltas_should_ignore_rows_from_deleted_tables(
 
     // When I insert a document…
     let mut tx = db.begin(Identity::system()).await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert("table".parse()?, assert_obj!())
         .await?;
     db.commit(tx).await?;
@@ -179,7 +179,7 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
     let remaining_doc = TestFacingModel::new(&mut tx)
         .insert_and_get("table1".parse()?, assert_obj!())
         .await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert("table2".parse()?, assert_obj!())
         .await?;
     let ts_insert = db.commit(tx).await?;
@@ -233,7 +233,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let doc3 = TestFacingModel::new(&mut tx)
         .insert_and_get("table3".parse()?, assert_obj!("f" => 3))
         .await?;
-    let doc4 = UserFacingModel::new(&mut tx)
+    let doc4 = UserFacingModel::new_root_for_test(&mut tx)
         .patch(doc2.developer_id(), assert_obj!("f" => 4).into())
         .await?;
     let tablet_id = tx.table_mapping().inject_table_id()(doc4.table())?.tablet_id;

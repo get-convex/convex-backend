@@ -742,7 +742,7 @@ mod tests {
                                 continue;
                             }
                             let id = *(objects.keys().nth(index % objects.len()).unwrap());
-                            let replaced = UserFacingModel::new(&mut tx)
+                            let replaced = UserFacingModel::new_root_for_test(&mut tx)
                                 .replace(id.into(), object)
                                 .await?;
                             objects.insert(id, replaced);
@@ -752,7 +752,9 @@ mod tests {
                                 continue;
                             }
                             let id = *(objects.keys().nth(index % objects.len()).unwrap());
-                            UserFacingModel::new(&mut tx).delete(id.into()).await?;
+                            UserFacingModel::new_root_for_test(&mut tx)
+                                .delete(id.into())
+                                .await?;
                             objects.remove(&id).unwrap();
                         },
                     }
@@ -850,7 +852,7 @@ mod tests {
         let snapshot_ts = unchecked_repeatable_ts(database.commit(tx).await?);
 
         let mut tx = database.begin(Identity::system()).await?;
-        UserFacingModel::new(&mut tx)
+        UserFacingModel::new_root_for_test(&mut tx)
             .replace(id.into(), assert_obj!("k" => "a"))
             .await?;
         database.commit(tx).await?;

@@ -5,6 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
+    components::ComponentId,
     document::DeveloperDocument,
     index::IndexKeyBytes,
     interval::Interval,
@@ -169,7 +170,8 @@ impl IndexRange {
             }
             self.cursor_interval.curr_exclusive = Some(CursorPosition::After(index_position));
             self.returned_results += 1;
-            UserFacingModel::new(tx).record_read_document(&v, self.printable_index_name.table())?;
+            UserFacingModel::new(tx, ComponentId::Root)
+                .record_read_document(&v, self.printable_index_name.table())?;
             // Database bandwidth for index reads
             tx.usage_tracker.track_database_egress_size(
                 self.printable_index_name.table().to_string(),

@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use common::{
+    components::ComponentId,
     document::DeveloperDocument,
     index::IndexKeyBytes,
     knobs::TRANSACTION_MAX_READ_SIZE_BYTES,
@@ -227,7 +228,7 @@ impl SearchResultIterator {
         self.next_index += 1;
 
         let id = self.table_number.id(candidate.id);
-        let (document, existing_doc_ts) = UserFacingModel::new(tx)
+        let (document, existing_doc_ts) = UserFacingModel::new(tx, ComponentId::Root)
             .get_with_ts(id, self.version.clone())
             .await?
             .ok_or_else(|| {

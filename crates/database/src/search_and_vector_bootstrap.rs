@@ -882,7 +882,7 @@ mod tests {
             "vector" => values,
             "channel" => ConvexValue::String("#general".try_into()?),
         );
-        let document_id = UserFacingModel::new(&mut tx)
+        let document_id = UserFacingModel::new_root_for_test(&mut tx)
             .insert(table_name, document)
             .await?;
         db.commit(tx).await?;

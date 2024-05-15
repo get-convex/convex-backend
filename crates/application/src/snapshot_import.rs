@@ -2856,10 +2856,10 @@ a
 
         {
             let mut tx = app.begin(identity).await?;
-            let validated_id = UserFacingModel::new(&mut tx)
+            let validated_id = UserFacingModel::new_root_for_test(&mut tx)
                 .insert(table_name.parse()?, assert_obj!())
                 .await?;
-            UserFacingModel::new(&mut tx)
+            UserFacingModel::new_root_for_test(&mut tx)
                 .insert(
                     table_with_foreign_key.parse()?,
                     assert_obj!(
@@ -2910,7 +2910,7 @@ _id,a
 
         {
             let mut tx = app.begin(identity).await?;
-            UserFacingModel::new(&mut tx)
+            UserFacingModel::new_root_for_test(&mut tx)
                 .insert(table_name.parse()?, assert_obj!())
                 .await?;
             app.commit_test(tx).await?;

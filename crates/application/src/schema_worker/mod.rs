@@ -241,7 +241,7 @@ mod tests {
         };
         let (id, _) = SchemaModel::new(&mut tx).submit_pending(db_schema).await?;
         // Insert a document that matches the schema
-        UserFacingModel::new(&mut tx)
+        UserFacingModel::new_root_for_test(&mut tx)
             .insert(table_name.clone(), assert_obj!())
             .await?;
         db.commit(tx).await?;

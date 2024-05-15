@@ -68,7 +68,7 @@ async fn insert_vector_doc_under_vector_limit_succeeds(rt: TestRuntime) -> anyho
     let vector = rt.with_rng(random_vector_value);
 
     let mut tx = db.begin(Identity::system()).await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector))
         .await?;
     db.commit(tx).await?;
@@ -84,7 +84,7 @@ async fn insert_vector_doc_over_vector_limit_fails(rt: TestRuntime) -> anyhow::R
 
     let mut tx = db.begin(Identity::system()).await?;
     tx.set_index_size_hard_limit(0);
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector))
         .await?;
     assert_vector_index_too_large_error(db.commit(tx).await)
@@ -112,7 +112,7 @@ async fn insert_doc_in_other_table_over_vector_limit_succeeds(
     let vector = random_1536_vector_value(&rt);
 
     let mut tx = db.begin(Identity::system()).await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert("otherTable".parse()?, assert_obj!(VECTOR_FIELD => vector))
         .await?;
     db.commit(tx).await?;
@@ -125,7 +125,7 @@ async fn insert_doc_in_same_table_without_vector_succeeds(rt: TestRuntime) -> an
     commit_schema(&rt, tp, &db).await?;
 
     let mut tx = db.begin(Identity::system()).await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(
             "otherTable".parse()?,
             assert_obj!(VECTOR_FIELD => ConvexValue::String("something".to_string().try_into()?)),
@@ -155,16 +155,18 @@ async fn insert_and_delete_vector_doc_over_hard_limit_fails(rt: TestRuntime) -> 
 
     let vector = random_1536_vector_value(&rt);
     let mut tx = db.begin(Identity::system()).await?;
-    UserFacingModel::new(&mut tx)
+    UserFacingModel::new_root_for_test(&mut tx)
         .insert(TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector.clone()))
         .await?;
     db.commit(tx).await?;
 
     let mut tx = db.begin(Identity::system()).await?;
     tx.set_index_size_hard_limit(0);
-    let id = UserFacingModel::new(&mut tx)
+    let id = UserFacingModel::new_root_for_test(&mut tx)
         .insert(TABLE.parse()?, assert_obj!(VECTOR_FIELD => vector.clone()))
         .await?;
-    UserFacingModel::new(&mut tx).delete(id).await?;
+    UserFacingModel::new_root_for_test(&mut tx)
+        .delete(id)
+        .await?;
     assert_vector_index_too_large_error(db.commit(tx).await)
 }

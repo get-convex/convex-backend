@@ -30,7 +30,7 @@ async fn test_replace_tx(
     id: ResolvedDocumentId,
     value: ConvexValue,
 ) -> anyhow::Result<((), Vec<DeploymentAuditLogEvent>)> {
-    UserFacingModel::new(tx)
+    UserFacingModel::new_root_for_test(tx)
         .replace(id.into(), obj!("name" => value)?)
         .await?;
     Ok(((), vec![]))

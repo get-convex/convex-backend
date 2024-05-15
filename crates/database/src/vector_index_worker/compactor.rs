@@ -849,7 +849,9 @@ mod tests {
         // Delete all but 1 vector.
         let mut tx = fixtures.db.begin_system().await?;
         for id in &ids[0..ids.len() - 1] {
-            UserFacingModel::new(&mut tx).delete((*id).into()).await?;
+            UserFacingModel::new_root_for_test(&mut tx)
+                .delete((*id).into())
+                .await?;
         }
         fixtures.db.commit(tx).await?;
         fixtures.backfill().await?;
@@ -897,7 +899,9 @@ mod tests {
         // Delete all but one vctor.
         let mut tx = fixtures.db.begin_system().await?;
         for id in &ids[0..ids.len() - 1] {
-            UserFacingModel::new(&mut tx).delete((*id).into()).await?;
+            UserFacingModel::new_root_for_test(&mut tx)
+                .delete((*id).into())
+                .await?;
         }
         fixtures.db.commit(tx).await?;
         fixtures.backfill().await?;

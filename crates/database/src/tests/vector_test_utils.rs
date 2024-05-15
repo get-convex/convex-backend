@@ -601,7 +601,7 @@ impl<RT: Runtime> VectorSearcher for DeleteOnCompactSearchlight<RT> {
         dimension: usize,
     ) -> anyhow::Result<FragmentedVectorSegment> {
         let mut tx: Transaction<RT> = self.db.begin_system().await?;
-        UserFacingModel::new(&mut tx)
+        UserFacingModel::new_root_for_test(&mut tx)
             .delete(self.to_delete.into())
             .await?;
         self.db.commit(tx).await?;
