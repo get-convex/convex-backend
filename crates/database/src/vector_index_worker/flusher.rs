@@ -1,85 +1,42 @@
 use std::{
     collections::BTreeMap,
-    future,
-    iter,
-    num::NonZeroU32,
-    ops::Bound,
-    path::PathBuf,
     sync::Arc,
 };
 
-use anyhow::Context;
 #[cfg(any(test, feature = "testing"))]
 use common::pause::PauseClient;
 use common::{
     knobs::{
-        DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
-        DEFAULT_DOCUMENTS_PAGE_SIZE,
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
-        VECTOR_INDEX_WORKER_PAGE_SIZE,
     },
-    persistence::TimestampRange,
-    runtime::{
-        new_rate_limiter,
-        Runtime,
-    },
-    types::{
-        IndexId,
-        RepeatableTimestamp,
-        TabletIndexName,
-        Timestamp,
-    },
-    value::ResolvedDocumentId,
+    runtime::Runtime,
+    types::TabletIndexName,
 };
-use futures::{
-    channel::oneshot,
-    StreamExt,
-    TryStreamExt,
-};
-use governor::Quota;
-use keybroker::Identity;
 use storage::Storage;
-use tempfile::TempDir;
-use value::TableIdentifier;
 
-use super::{
-    writer::VectorMetadataWriter,
-    IndexBuild,
-};
+use super::writer::VectorMetadataWriter;
 use crate::{
-    bootstrap_model::index_workers::IndexWorkerMetadataModel,
     index_workers::{
         index_meta::{
-            SearchIndex,
-            SearchIndexConfigParser,
-            SearchOnDiskState,
-            SearchSnapshot,
             SnapshotData,
             VectorIndexConfigParser,
             VectorSearchIndex,
         },
-        BuildReason,
-        MultiSegmentBackfillResult,
+        search_flusher::{
+            IndexBuild,
+            IndexBuildResult,
+            SearchFlusher,
+        },
     },
-    metrics::{
-        self,
-        vector::log_documents_per_segment,
-    },
+    metrics,
     Database,
-    IndexModel,
     Token,
 };
 
 pub struct VectorIndexFlusher<RT: Runtime> {
-    runtime: RT,
-    database: Database<RT>,
-    storage: Arc<dyn Storage>,
-    index_size_soft_limit: usize,
-    full_scan_threshold_kb: usize,
-    // Used for constraining the part size of incremental multi segment builds
-    incremental_multipart_threshold_bytes: usize,
     writer: VectorMetadataWriter<RT>,
+    flusher: SearchFlusher<RT, VectorIndexConfigParser>,
 
     #[allow(unused)]
     #[cfg(any(test, feature = "testing"))]
@@ -96,13 +53,16 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         storage: Arc<dyn Storage>,
         writer: VectorMetadataWriter<RT>,
     ) -> Self {
+        let flusher = SearchFlusher::new(
+            runtime.clone(),
+            database.clone(),
+            storage.clone(),
+            *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+            *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+            *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+        );
         Self {
-            runtime,
-            database,
-            storage,
-            index_size_soft_limit: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-            full_scan_threshold_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-            incremental_multipart_threshold_bytes: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+            flusher,
             writer,
             #[cfg(any(test, feature = "testing"))]
             should_terminate: false,
@@ -118,7 +78,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u32>, Token)> {
         let mut metrics = BTreeMap::new();
 
-        let (to_build, token) = self.needs_backfill::<VectorIndexConfigParser>().await?;
+        let (to_build, token) = self.flusher.needs_backfill().await?;
         let num_to_build = to_build.len();
         if num_to_build > 0 {
             tracing::info!("{num_to_build} vector indexes to build");
@@ -142,87 +102,10 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         Ok((metrics, token))
     }
 
-    /// Compute the set of indexes that need to be backfilled.
-    async fn needs_backfill<T: SearchIndexConfigParser>(
-        &self,
-    ) -> anyhow::Result<(Vec<IndexBuild<T::IndexType>>, Token)> {
-        let mut to_build = vec![];
-
-        let mut tx = self.database.begin(Identity::system()).await?;
-        let step_ts = tx.begin_timestamp();
-
-        let snapshot = self.database.snapshot(step_ts)?;
-
-        let ready_index_sizes = T::IndexType::get_index_sizes(snapshot)?;
-
-        for index_doc in IndexModel::new(&mut tx).get_all_indexes().await? {
-            let (index_id, index_metadata) = index_doc.into_id_and_value();
-            let Some(config) = T::get_config(index_metadata.config) else {
-                continue;
-            };
-            let name = index_metadata.name;
-
-            let needs_backfill = match &config.on_disk_state {
-                SearchOnDiskState::Backfilling(_) => Some(BuildReason::Backfilling),
-                SearchOnDiskState::SnapshottedAt(snapshot)
-                | SearchOnDiskState::Backfilled(snapshot)
-                    if !T::IndexType::is_version_current(snapshot) =>
-                {
-                    Some(BuildReason::VersionMismatch)
-                },
-                SearchOnDiskState::SnapshottedAt(SearchSnapshot { ts, .. })
-                | SearchOnDiskState::Backfilled(SearchSnapshot { ts, .. }) => {
-                    let ts = IndexWorkerMetadataModel::new(&mut tx)
-                        .get_fast_forward_ts(*ts, index_id.internal_id())
-                        .await?;
-
-                    let index_size = ready_index_sizes
-                        .get(&index_id.internal_id())
-                        .cloned()
-                        .unwrap_or(0);
-
-                    anyhow::ensure!(ts <= *step_ts);
-
-                    let index_age = *step_ts - ts;
-                    let too_old = (index_age >= *DATABASE_WORKERS_MAX_CHECKPOINT_AGE
-                        && index_size > 0)
-                        .then_some(BuildReason::TooOld);
-                    if too_old.is_some() {
-                        tracing::info!(
-                            "Non-empty index is too old, age: {:?}, size: {index_size}",
-                            index_age
-                        );
-                    }
-                    let too_large =
-                        (index_size > self.index_size_soft_limit).then_some(BuildReason::TooLarge);
-                    // Order matters! Too large is more urgent than too old.
-                    too_large.or(too_old)
-                },
-            };
-            if let Some(build_reason) = needs_backfill {
-                tracing::info!("Queueing vector index for rebuild: {name:?} ({build_reason:?})");
-                let table_id = name.table();
-                let by_id_metadata = IndexModel::new(&mut tx)
-                    .by_id_index_metadata(*table_id)
-                    .await?;
-                let job = IndexBuild {
-                    index_name: name.clone(),
-                    index_id: index_id.internal_id(),
-                    by_id: by_id_metadata.id().internal_id(),
-                    index_config: config,
-                    metadata_id: index_id,
-                    build_reason,
-                };
-                to_build.push(job);
-            }
-        }
-        Ok((to_build, tx.into_token()?))
-    }
-
     async fn build_one(&self, job: IndexBuild<VectorSearchIndex>) -> anyhow::Result<u32> {
         let timer = metrics::vector::build_one_timer();
 
-        let result = self.build_multipart_segment(&job).await?;
+        let result = self.flusher.build_multipart_segment(&job).await?;
         tracing::debug!("Built a vector segment for: {result:#?}");
 
         // 3. Update the vector index metadata.
@@ -253,264 +136,6 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         Ok(vectors_in_new_segment)
     }
 
-    async fn build_multipart_segment<T: SearchIndex + 'static>(
-        &self,
-        job: &IndexBuild<T>,
-    ) -> anyhow::Result<IndexBuildResult<T>> {
-        let index_path = TempDir::new()?;
-        let mut tx = self.database.begin(Identity::system()).await?;
-        let table_id = tx.table_mapping().inject_table_number()(*job.index_name.table())?;
-        let mut new_ts = tx.begin_timestamp();
-        let (previous_segments, build_type) = match job.index_config.on_disk_state {
-            SearchOnDiskState::Backfilling(ref backfill_state) => {
-                let backfill_snapshot_ts = backfill_state
-                    .backfill_snapshot_ts
-                    .map(|ts| new_ts.prior_ts(ts))
-                    .transpose()?
-                    .unwrap_or(new_ts);
-                // For backfilling indexes, the snapshot timestamp we return is the backfill
-                // snapshot timestamp
-                new_ts = backfill_snapshot_ts;
-
-                let cursor = backfill_state.cursor;
-
-                (
-                    backfill_state.segments.clone(),
-                    MultipartBuildType::IncrementalComplete {
-                        cursor: cursor.map(|cursor| table_id.id(cursor)),
-                        backfill_snapshot_ts,
-                    },
-                )
-            },
-            SearchOnDiskState::Backfilled(ref snapshot)
-            | SearchOnDiskState::SnapshottedAt(ref snapshot) => {
-                match snapshot.data {
-                    // If we're on an old or unrecognized version, rebuild everything. The formats
-                    // are not compatible.
-                    SnapshotData::Unknown => (
-                        vec![],
-                        MultipartBuildType::IncrementalComplete {
-                            cursor: None,
-                            backfill_snapshot_ts: new_ts,
-                        },
-                    ),
-                    SnapshotData::MultiSegment(ref parts) => {
-                        let ts = IndexWorkerMetadataModel::new(&mut tx)
-                            .get_fast_forward_ts(snapshot.ts, job.index_id)
-                            .await?;
-                        (
-                            parts.clone(),
-                            MultipartBuildType::Partial(new_ts.prior_ts(ts)?),
-                        )
-                    },
-                }
-            },
-        };
-
-        let MultiSegmentBuildResult {
-            new_segment,
-            updated_previous_segments,
-            backfill_result,
-        } = self
-            .build_multipart_segment_in_dir(job, &index_path, new_ts, build_type, previous_segments)
-            .await?;
-
-        let new_segment = if let Some(new_segment) = new_segment {
-            Some(T::upload_new_segment(&self.runtime, self.storage.clone(), new_segment).await?)
-        } else {
-            None
-        };
-        let new_segment_id = new_segment.as_ref().map(|segment| T::segment_id(segment));
-        let vectors_in_new_segment = new_segment.as_ref().map(|segment| T::num_vectors(segment));
-
-        let new_and_updated_parts = if let Some(new_segment) = new_segment {
-            updated_previous_segments
-                .into_iter()
-                .chain(iter::once(new_segment))
-                .collect()
-        } else {
-            updated_previous_segments
-        };
-
-        let total_vectors = new_and_updated_parts
-            .iter()
-            .map(|segment| {
-                let total_vectors = T::non_deleted_vectors(segment)?;
-                log_documents_per_segment(total_vectors);
-                Ok(total_vectors)
-            })
-            .sum::<anyhow::Result<_>>()?;
-        let data = SnapshotData::MultiSegment(new_and_updated_parts);
-
-        Ok(IndexBuildResult {
-            snapshot_ts: *new_ts,
-            data,
-            total_vectors,
-            vectors_in_new_segment,
-            new_segment_id,
-            backfill_result,
-        })
-    }
-
-    async fn build_multipart_segment_in_dir<T: SearchIndex + 'static>(
-        &self,
-        job: &IndexBuild<T>,
-        index_path: &TempDir,
-        snapshot_ts: RepeatableTimestamp,
-        build_type: MultipartBuildType,
-        previous_segments: Vec<T::Segment>,
-    ) -> anyhow::Result<MultiSegmentBuildResult<T>> {
-        let database = self.database.clone();
-
-        let (tx, rx) = oneshot::channel();
-        let runtime = self.runtime.clone();
-        let index_name = job.index_name.clone();
-        let index_path = index_path.path().to_owned();
-        let storage = self.storage.clone();
-        let full_scan_threshold_kb = self.full_scan_threshold_kb;
-        let incremental_multipart_threshold_bytes = self.incremental_multipart_threshold_bytes;
-        let by_id = job.by_id;
-        let rate_limit_pages_per_second = job.build_reason.read_max_pages_per_second();
-        let developer_config = job.index_config.developer_config.clone();
-        self.runtime.spawn_thread(move || async move {
-            let result = Self::build_multipart_segment_on_thread(
-                rate_limit_pages_per_second,
-                index_name,
-                by_id,
-                build_type,
-                snapshot_ts,
-                runtime,
-                database,
-                developer_config,
-                index_path,
-                storage,
-                previous_segments,
-                full_scan_threshold_kb,
-                incremental_multipart_threshold_bytes,
-            )
-            .await;
-            _ = tx.send(result);
-        });
-        rx.await?
-    }
-
-    async fn build_multipart_segment_on_thread<T: SearchIndex>(
-        rate_limit_pages_per_second: NonZeroU32,
-        index_name: TabletIndexName,
-        by_id: IndexId,
-        build_type: MultipartBuildType,
-        snapshot_ts: RepeatableTimestamp,
-        runtime: RT,
-        database: Database<RT>,
-        developer_config: T::DeveloperConfig,
-        index_path: PathBuf,
-        storage: Arc<dyn Storage>,
-        previous_segments: Vec<T::Segment>,
-        full_scan_threshold_kb: usize,
-        incremental_multipart_threshold_bytes: usize,
-    ) -> anyhow::Result<MultiSegmentBuildResult<T>> {
-        let page_rate_limiter = new_rate_limiter(
-            runtime.clone(),
-            Quota::per_second(rate_limit_pages_per_second),
-        );
-        let row_rate_limiter = new_rate_limiter(
-            runtime,
-            Quota::per_second(
-                NonZeroU32::new(*DEFAULT_DOCUMENTS_PAGE_SIZE)
-                    .and_then(|val| val.checked_mul(rate_limit_pages_per_second))
-                    .context("Invalid row rate limit")?,
-            ),
-        );
-        // Cursor and completion state for MultipartBuildType::IncrementalComplete
-        let mut new_cursor = None;
-        let mut is_backfill_complete = true;
-        let qdrant_schema = T::new_schema(&developer_config);
-
-        let (documents, previous_segments) = match build_type {
-            MultipartBuildType::Partial(last_ts) => (
-                database.load_documents_in_table(
-                    *index_name.table(),
-                    TimestampRange::new((
-                        Bound::Excluded(*last_ts),
-                        Bound::Included(*snapshot_ts),
-                    ))?,
-                    &row_rate_limiter,
-                ),
-                previous_segments,
-            ),
-            MultipartBuildType::IncrementalComplete {
-                cursor,
-                backfill_snapshot_ts,
-            } => {
-                let documents = database
-                    .table_iterator(backfill_snapshot_ts, *VECTOR_INDEX_WORKER_PAGE_SIZE, None)
-                    .stream_documents_in_table(
-                        *index_name.table(),
-                        by_id,
-                        cursor,
-                        &page_rate_limiter,
-                    )
-                    .boxed()
-                    .scan(0_u64, |total_size, res| {
-                        let updated_cursor = if let Ok((doc, _)) = &res {
-                            let size = T::estimate_document_size(&qdrant_schema, doc);
-                            *total_size += size;
-                            Some(doc.id())
-                        } else {
-                            None
-                        };
-                        // Conditionally update cursor and proceed with iteration if
-                        // we haven't exceeded incremental part size threshold.
-                        future::ready(
-                            if *total_size <= incremental_multipart_threshold_bytes as u64 {
-                                if let Some(updated_cursor) = updated_cursor {
-                                    new_cursor = Some(updated_cursor);
-                                }
-                                Some(res)
-                            } else {
-                                is_backfill_complete = false;
-                                None
-                            },
-                        )
-                    })
-                    .map_ok(|(doc, ts)| (ts, doc.id_with_table_id(), Some(doc)))
-                    .boxed();
-                (documents, previous_segments)
-            },
-        };
-
-        let mut mutable_previous_segments =
-            T::download_previous_segments(storage.clone(), previous_segments).await?;
-
-        let new_segment = T::build_disk_index(
-            &qdrant_schema,
-            &index_path,
-            documents,
-            full_scan_threshold_kb,
-            &mut mutable_previous_segments,
-        )
-        .await?;
-
-        let updated_previous_segments =
-            T::upload_previous_segments(storage, mutable_previous_segments).await?;
-
-        let index_backfill_result =
-            if let MultipartBuildType::IncrementalComplete { .. } = build_type {
-                Some(MultiSegmentBackfillResult {
-                    new_cursor,
-                    is_backfill_complete,
-                })
-            } else {
-                None
-            };
-
-        Ok(MultiSegmentBuildResult {
-            new_segment,
-            updated_previous_segments,
-            backfill_result: index_backfill_result,
-        })
-    }
-
     #[cfg(any(test, feature = "testing"))]
     pub async fn build_index_in_test(
         index_name: TabletIndexName,
@@ -519,7 +144,17 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         database: Database<RT>,
         storage: Arc<dyn Storage>,
     ) -> anyhow::Result<()> {
+        use anyhow::Context;
         use common::types::IndexName;
+        use keybroker::Identity;
+
+        use crate::{
+            index_workers::{
+                index_meta::SearchIndexConfigParser,
+                BuildReason,
+            },
+            IndexModel,
+        };
 
         let mut tx = database.begin(Identity::system()).await?;
         let index_name_ = IndexName::new(table_name.clone(), index_name.descriptor().clone())?;
@@ -580,13 +215,16 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         pause_client: Option<PauseClient>,
     ) -> Self {
         let writer = VectorMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
-        Self {
-            runtime,
-            database,
-            storage,
+        let flusher = SearchFlusher::new(
+            runtime.clone(),
+            database.clone(),
+            storage.clone(),
             index_size_soft_limit,
             full_scan_threshold_kb,
             incremental_multipart_threshold_bytes,
+        );
+        Self {
+            flusher,
             should_terminate: true,
             writer,
             pause_client,
@@ -594,38 +232,8 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     }
 }
 
-#[derive(Debug)]
-struct MultiSegmentBuildResult<T: SearchIndex> {
-    // This is None only when no new segment was built because all changes were deletes
-    new_segment: Option<T::NewSegment>,
-    updated_previous_segments: Vec<T::Segment>,
-    // This is set only if the build iteration created a segment for a backfilling index
-    backfill_result: Option<MultiSegmentBackfillResult>,
-}
-
 #[cfg(any(test, feature = "testing"))]
 pub(crate) const FLUSH_RUNNING_LABEL: &str = "flush_running";
-
-/// Specifies how documents should be fetched to construct this segment
-#[derive(Clone, Copy)]
-enum MultipartBuildType {
-    Partial(RepeatableTimestamp),
-    IncrementalComplete {
-        cursor: Option<ResolvedDocumentId>,
-        backfill_snapshot_ts: RepeatableTimestamp,
-    },
-}
-
-#[derive(Debug)]
-struct IndexBuildResult<T: SearchIndex> {
-    snapshot_ts: Timestamp,
-    data: SnapshotData<T::Segment>,
-    total_vectors: u64,
-    vectors_in_new_segment: Option<u32>,
-    new_segment_id: Option<String>,
-    // If this is set, this iteration made progress on backfilling an index
-    backfill_result: Option<MultiSegmentBackfillResult>,
-}
 
 #[cfg(test)]
 mod tests {

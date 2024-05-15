@@ -47,10 +47,10 @@ use sync_types::Timestamp;
 use value::ResolvedDocumentId;
 use vector::QdrantExternalId;
 
-use super::IndexBuild;
 use crate::{
     index_workers::{
         index_meta::VectorSearchIndex,
+        search_flusher::IndexBuild,
         MultiSegmentBackfillResult,
     },
     metrics::vector::{
