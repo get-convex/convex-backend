@@ -48,8 +48,19 @@ impl TryFrom<SearchIndexState> for SerializedSearchIndexState {
 
     fn try_from(state: SearchIndexState) -> Result<Self, Self::Error> {
         Ok(match state {
-            SearchIndexState::Backfilling(state) => SerializedSearchIndexState::Backfilling2 {
-                backfill_state: state.try_into()?,
+            SearchIndexState::Backfilling(state) => {
+                // Maintain rollback compatibility with the old format by writing empty
+                // backfilling states using the old format. Since we don't
+                // currently use the new format, all states should be empty, so
+                // we should always write the old format. TODO(CX-6465): Clean
+                // this up.
+                if state.segments.is_empty() && state.cursor.is_none() {
+                    SerializedSearchIndexState::Backfilling
+                } else {
+                    SerializedSearchIndexState::Backfilling2 {
+                        backfill_state: state.try_into()?,
+                    }
+                }
             },
             SearchIndexState::Backfilled(snapshot) => SerializedSearchIndexState::Backfilled {
                 snapshot: snapshot.try_into()?,
