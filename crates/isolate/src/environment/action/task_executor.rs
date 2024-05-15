@@ -5,6 +5,7 @@ use std::{
 
 use common::{
     components::{
+        require_components_enabled,
         ComponentFunctionPath,
         ComponentId,
         Reference,
@@ -38,6 +39,7 @@ use minitrace::future::FutureExt;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use usage_tracking::FunctionUsageTracker;
+use value::InternalDocumentId;
 
 use crate::{
     environment::{
@@ -198,6 +200,19 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 Resource::Function(ComponentFunctionPath {
                     component: ComponentId::Root,
                     udf_path: p.clone(),
+                })
+            },
+            Reference::ChildComponent {
+                component,
+                attributes,
+            } => {
+                require_components_enabled()?;
+                tracing::info!(
+                    "Resolving child component reference: {component:?}, {attributes:?}"
+                );
+                Resource::Function(ComponentFunctionPath {
+                    component: ComponentId::Child(InternalDocumentId::min()),
+                    udf_path: "messages:demo".parse()?,
                 })
             },
             _ => anyhow::bail!(ErrorMetadata::bad_request(

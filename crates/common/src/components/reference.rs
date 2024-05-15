@@ -60,12 +60,12 @@ pub enum Reference {
     /// ```ts
     /// const component = new ComponentDefinition();
     /// const wl = component.use(waitlist);
-    /// // => Reference::Subcomponent { component: "waitlist", attributes: vec![]}
+    /// // => Reference::ChildComponent { component: "waitlist", attributes: vec![]}
     ///
     /// const f = wl.foo.bar;
-    /// // => Reference::Subcomponent { component: "waitlist", attributes: vec!["foo", "bar"]}
+    /// // => Reference::ChildComponent { component: "waitlist", attributes: vec!["foo", "bar"]}
     /// ```
-    Subcomponent {
+    ChildComponent {
         component: Identifier,
         attributes: Vec<Identifier>,
     },
@@ -94,7 +94,7 @@ impl Reference {
                 }
                 s
             },
-            Reference::Subcomponent {
+            Reference::ChildComponent {
                 component,
                 attributes,
             } => {
@@ -132,7 +132,7 @@ impl FromStr for Reference {
                 let path = remainder.parse()?;
                 Reference::Function(path)
             },
-            Some("subcomponent") => {
+            Some("childComponent") => {
                 let component = path_components
                     .next()
                     .ok_or_else(|| anyhow::anyhow!("Invalid reference {s}"))?
@@ -140,7 +140,7 @@ impl FromStr for Reference {
                 let attributes = path_components
                     .map(|s| s.parse())
                     .collect::<Result<_, _>>()?;
-                Reference::Subcomponent {
+                Reference::ChildComponent {
                     component,
                     attributes,
                 }
@@ -167,11 +167,11 @@ impl From<Reference> for String {
                 s.push('/');
                 s.push_str(&path.to_string());
             },
-            Reference::Subcomponent {
+            Reference::ChildComponent {
                 component,
                 attributes,
             } => {
-                s.push_str("/subcomponent");
+                s.push_str("/childComponent");
 
                 s.push('/');
                 s.push_str(&component);

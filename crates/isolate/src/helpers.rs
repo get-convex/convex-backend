@@ -123,20 +123,22 @@ pub fn deserialize_udf_result(
     path: &CanonicalizedComponentFunctionPath,
     result_str: &str,
 ) -> anyhow::Result<Result<ConvexValue, JsError>> {
-    let udf_path = path.as_root_udf_path()?;
-
     // Don't print out result_str in error messages - as it may contain pii
     let result_v: serde_json::Value = serde_json::from_str(result_str).map_err(|e| {
         anyhow::anyhow!(ErrorMetadata::bad_request(
             "FunctionReturnInvalidJson",
-            format!("Function {udf_path} failed. Could not parse return value as json: {e}"),
+            format!(
+                "Function {} failed. Could not parse return value as json: {e}",
+                path.debug_str()
+            ),
         ))
     })?;
     let result = match ConvexValue::try_from(result_v) {
         Ok(value) => {
             if value.size() > *FUNCTION_MAX_RESULT_SIZE {
                 Err(JsError::from_message(format!(
-                    "Function {udf_path} return value is too large (actual: {}, limit: {})",
+                    "Function {} return value is too large (actual: {}, limit: {})",
+                    path.debug_str(),
                     value.size().format_size(BINARY),
                     (*FUNCTION_MAX_RESULT_SIZE).format_size(BINARY),
                 )))
@@ -146,7 +148,7 @@ pub fn deserialize_udf_result(
         },
         Err(e) if e.is_deterministic_user_error() => {
             Err(JsError::from_error(e.wrap_error_message(|msg| {
-                format!("Function {udf_path:?} return value invalid: {msg}")
+                format!("Function {} return value invalid: {msg}", path.debug_str())
             })))
         },
         Err(e) => return Err(e),

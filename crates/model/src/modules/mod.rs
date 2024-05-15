@@ -9,6 +9,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
         ComponentId,
+        COMPONENTS_ENABLED,
     },
     document::{
         ParsedDocument,
@@ -267,7 +268,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         path: CanonicalizedComponentModulePath,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
         let timer = get_module_metadata_timer();
-        let is_system = path.as_root_module_path()?.is_system();
+
+        // TODO(CX-6379): Remove this branch once we've made modules component-aware.
+        let is_system = if !*COMPONENTS_ENABLED {
+            path.as_root_module_path()?.is_system()
+        } else {
+            path.module_path.is_system()
+        };
         if is_system && !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("get_module"))
         }
@@ -396,7 +403,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         path: CanonicalizedComponentModulePath,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
-        let module_path = ConvexValue::try_from(path.as_root_module_path()?.as_str())?;
+        // TODO(CX-6379): Remove this branch once we've made modules component-aware.
+        let module_path = if !*COMPONENTS_ENABLED {
+            path.as_root_module_path()?
+        } else {
+            &path.module_path
+        };
+        let module_path = ConvexValue::try_from(module_path.as_str())?;
         let index_range = IndexRange {
             index_name: MODULE_INDEX_BY_PATH.clone(),
             range: vec![IndexRangeExpression::Eq(
@@ -422,8 +435,12 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         path: &CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
-        let udf_path = path.as_root_udf_path()?;
-
+        // TODO(CX-6379): Remove this branch once we've made modules component-aware.
+        let udf_path = if !*COMPONENTS_ENABLED {
+            path.as_root_udf_path()?
+        } else {
+            &path.udf_path
+        };
         let Some(module) = self.get_metadata(path.module()).await? else {
             let err = ModuleNotFoundError::new(udf_path.module().as_str());
             return Ok(Err(ErrorMetadata::bad_request(

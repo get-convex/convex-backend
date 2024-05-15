@@ -1,3 +1,6 @@
+use std::sync::LazyLock;
+
+use cmd_util::env::env_config;
 use value::InternalDocumentId;
 
 mod component_definition_path;
@@ -19,6 +22,16 @@ pub use self::{
     reference::Reference,
     resource::Resource,
 };
+
+pub static COMPONENTS_ENABLED: LazyLock<bool> =
+    LazyLock::new(|| env_config("COMPONENTS_ENABLED", false));
+
+pub fn require_components_enabled() -> anyhow::Result<()> {
+    if !*COMPONENTS_ENABLED {
+        anyhow::bail!("Components are not enabled, set COMPONENTS_ENABLED=true to enable them.");
+    }
+    Ok(())
+}
 
 // Globally unique system-assigned ID for a component.
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

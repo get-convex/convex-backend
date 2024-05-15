@@ -44,6 +44,13 @@ impl ComponentFunctionPath {
             udf_path: self.udf_path.canonicalize(),
         }
     }
+
+    pub fn debug_str(&self) -> String {
+        if !self.component.is_root() {
+            tracing::warn!("ComponentFunctionPath::debug_str called on non-root path");
+        }
+        format!("{:?}", self.udf_path)
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -72,6 +79,13 @@ impl CanonicalizedComponentFunctionPath {
             component: self.component.clone(),
             module_path: self.udf_path.module().clone(),
         }
+    }
+
+    pub fn debug_str(&self) -> String {
+        if !self.component.is_root() {
+            tracing::warn!("ComponentFunctionPath::debug_str called on non-root path");
+        }
+        format!("{:?}", self.udf_path)
     }
 }
 
