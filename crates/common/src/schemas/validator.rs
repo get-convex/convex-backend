@@ -83,10 +83,17 @@ impl proptest::arbitrary::Arbitrary for Validator {
 
     fn arbitrary_with(table_names: Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
-        let table_names: Vec<_> = table_names.into_iter().collect();
+        let id_validator = if table_names.is_empty() {
+            any::<TableName>().prop_map(Validator::Id).boxed()
+        } else {
+            let table_names: Vec<_> = table_names.into_iter().collect();
+            proptest::sample::select(table_names)
+                .prop_map(Validator::Id)
+                .boxed()
+        };
         let leaf = prop_oneof![
             Just(Validator::Null),
-            proptest::sample::select(table_names).prop_map(Validator::Id),
+            id_validator,
             Just(Validator::Float64),
             Just(Validator::Int64),
             Just(Validator::Boolean),

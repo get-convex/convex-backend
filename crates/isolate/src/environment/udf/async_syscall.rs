@@ -421,23 +421,27 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             AsyncSyscallBatch::Unbatched { name, args } => {
                 let result = match &name[..] {
                     // Database
-                    "1.0/count" => Self::count(provider, args).await,
-                    "1.0/insert" => Self::insert(provider, args).await,
-                    "1.0/shallowMerge" => Self::shallow_merge(provider, args).await,
-                    "1.0/replace" => Self::replace(provider, args).await,
-                    "1.0/remove" => Self::remove(provider, args).await,
-                    "1.0/queryPage" => Self::query_page(provider, args).await,
+                    "1.0/count" => Box::pin(Self::count(provider, args)).await,
+                    "1.0/insert" => Box::pin(Self::insert(provider, args)).await,
+                    "1.0/shallowMerge" => Box::pin(Self::shallow_merge(provider, args)).await,
+                    "1.0/replace" => Box::pin(Self::replace(provider, args)).await,
+                    "1.0/remove" => Box::pin(Self::remove(provider, args)).await,
+                    "1.0/queryPage" => Box::pin(Self::query_page(provider, args)).await,
                     // Auth
-                    "1.0/getUserIdentity" => Self::get_user_identity(provider, args).await,
+                    "1.0/getUserIdentity" => {
+                        Box::pin(Self::get_user_identity(provider, args)).await
+                    },
                     // Storage
-                    "1.0/storageDelete" => Self::storage_delete(provider, args).await,
-                    "1.0/storageGetMetadata" => Self::storage_get_metadata(provider, args).await,
+                    "1.0/storageDelete" => Box::pin(Self::storage_delete(provider, args)).await,
+                    "1.0/storageGetMetadata" => {
+                        Box::pin(Self::storage_get_metadata(provider, args)).await
+                    },
                     "1.0/storageGenerateUploadUrl" => {
-                        Self::storage_generate_upload_url(provider, args).await
+                        Box::pin(Self::storage_generate_upload_url(provider, args)).await
                     },
                     // Scheduling
-                    "1.0/schedule" => Self::schedule(provider, args).await,
-                    "1.0/cancel_job" => Self::cancel_job(provider, args).await,
+                    "1.0/schedule" => Box::pin(Self::schedule(provider, args)).await,
+                    "1.0/cancel_job" => Box::pin(Self::cancel_job(provider, args)).await,
                     #[cfg(test)]
                     "slowSyscall" => {
                         std::thread::sleep(std::time::Duration::from_secs(1));

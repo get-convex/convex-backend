@@ -1,3 +1,7 @@
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sync_types::{
     CanonicalizedUdfPath,
     UdfPath,
@@ -15,13 +19,8 @@ pub struct ComponentDefinitionFunctionPath {
     pub udf_path: UdfPath,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    // Only define `Debug` in test builds so we don't accidentally
-    // print these paths out when migrating to component-aware paths.
-    derive(Debug, proptest_derive::Arbitrary)
-)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentFunctionPath {
     pub component: ComponentId,
     pub udf_path: UdfPath,
@@ -50,6 +49,40 @@ impl ComponentFunctionPath {
             tracing::warn!("ComponentFunctionPath::debug_str called on non-root path");
         }
         format!("{:?}", self.udf_path)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SerializedComponentFunctionPath {
+    pub component: Option<String>,
+    pub udf_path: String,
+}
+
+impl TryFrom<SerializedComponentFunctionPath> for ComponentFunctionPath {
+    type Error = anyhow::Error;
+
+    fn try_from(p: SerializedComponentFunctionPath) -> anyhow::Result<Self> {
+        Ok(Self {
+            component: match p.component {
+                Some(component) => ComponentId::Child(component.parse()?),
+                None => ComponentId::Root,
+            },
+            udf_path: p.udf_path.parse()?,
+        })
+    }
+}
+
+impl TryFrom<ComponentFunctionPath> for SerializedComponentFunctionPath {
+    type Error = anyhow::Error;
+
+    fn try_from(p: ComponentFunctionPath) -> anyhow::Result<Self> {
+        Ok(Self {
+            component: match p.component {
+                ComponentId::Root => None,
+                ComponentId::Child(component) => Some(component.to_string()),
+            },
+            udf_path: p.udf_path.to_string(),
+        })
     }
 }
 

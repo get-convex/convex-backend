@@ -95,6 +95,15 @@ pub use writes::{
 
 pub use self::{
     bootstrap_model::{
+        components::{
+            definition::{
+                ComponentDefinitionsTable,
+                COMPONENT_DEFINITIONS_TABLE,
+            },
+            ComponentsTable,
+            COMPONENTS_BY_PARENT_INDEX,
+            COMPONENTS_TABLE,
+        },
         defaults,
         import_facing::ImportFacingModel,
         index::{

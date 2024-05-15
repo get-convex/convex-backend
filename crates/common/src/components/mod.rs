@@ -1,7 +1,7 @@
 use std::sync::LazyLock;
 
 use cmd_util::env::env_config;
-use value::InternalDocumentId;
+use value::InternalId;
 
 mod component_definition_path;
 mod component_path;
@@ -12,7 +12,10 @@ mod resource;
 
 pub use self::{
     component_definition_path::ComponentDefinitionPath,
-    component_path::ComponentPath,
+    component_path::{
+        ComponentName,
+        ComponentPath,
+    },
     function_paths::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionFunctionPath,
@@ -20,7 +23,10 @@ pub use self::{
     },
     module_paths::CanonicalizedComponentModulePath,
     reference::Reference,
-    resource::Resource,
+    resource::{
+        Resource,
+        SerializedResource,
+    },
 };
 
 pub static COMPONENTS_ENABLED: LazyLock<bool> =
@@ -37,7 +43,7 @@ pub fn require_components_enabled() -> anyhow::Result<()> {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum ComponentId {
     Root,
-    Child(InternalDocumentId),
+    Child(InternalId),
 }
 
 impl ComponentId {

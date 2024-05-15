@@ -39,7 +39,7 @@ use minitrace::future::FutureExt;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use usage_tracking::FunctionUsageTracker;
-use value::InternalDocumentId;
+use value::InternalId;
 
 use crate::{
     environment::{
@@ -211,7 +211,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     "Resolving child component reference: {component:?}, {attributes:?}"
                 );
                 Resource::Function(ComponentFunctionPath {
-                    component: ComponentId::Child(InternalDocumentId::min()),
+                    component: ComponentId::Child(InternalId::MIN),
                     udf_path: "messages:demo".parse()?,
                 })
             },

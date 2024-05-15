@@ -53,6 +53,8 @@ pub use database::defaults::{
     SystemTable,
 };
 use database::{
+    ComponentDefinitionsTable,
+    ComponentsTable,
     Database,
     IndexModel,
     IndexTable,
@@ -145,9 +147,11 @@ enum DefaultTableNumber {
     FileStorageVirtual = 28,
     SnapshotImports = 29,
     IndexWorkerMetadata = 30,
+    ComponentDefinitionsTable = 31,
+    ComponentsTable = 32,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 31 - sam
+    // Next Number - 33 - lee
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -184,6 +188,8 @@ impl From<DefaultTableNumber> for TableName {
             DefaultTableNumber::FileStorageVirtual => &*FILE_STORAGE_VIRTUAL_TABLE,
             DefaultTableNumber::SnapshotImports => SnapshotImportsTable.table_name(),
             DefaultTableNumber::IndexWorkerMetadata => IndexWorkerMetadataTable.table_name(),
+            DefaultTableNumber::ComponentDefinitionsTable => ComponentDefinitionsTable.table_name(),
+            DefaultTableNumber::ComponentsTable => ComponentsTable.table_name(),
         }
         .clone()
     }

@@ -5,11 +5,8 @@ use value::identifier::Identifier;
 
 /// `References` are relative paths to `Resources` that start at some
 /// component.
-#[derive(Clone, PartialEq, Eq, Ord, PartialOrd)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(Debug, proptest_derive::Arbitrary)
-)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum Reference {
     /// Reference originating from `component.args` at component definition time
     /// or `ctx.componentArgs` at runtime.

@@ -35,12 +35,18 @@ use value::{
 
 use crate::{
     bootstrap_model::{
+        components::{
+            definition::COMPONENT_DEFINITIONS_TABLE,
+            COMPONENTS_TABLE,
+        },
         index::IndexTable,
         index_workers::IndexWorkerMetadataTable,
         schema::SchemasTable,
         table::TablesTable,
         virtual_tables::VirtualTablesTable,
     },
+    ComponentDefinitionsTable,
+    ComponentsTable,
     VirtualSystemDocMapper,
     INDEX_WORKER_METADATA_TABLE,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
@@ -89,6 +95,8 @@ pub fn bootstrap_system_tables() -> Vec<&'static dyn SystemTable> {
         &SchemasTable,
         &VirtualTablesTable,
         &IndexWorkerMetadataTable,
+        &ComponentDefinitionsTable,
+        &ComponentsTable,
     ]
 }
 
@@ -101,6 +109,8 @@ pub static DEFAULT_BOOTSTRAP_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNu
             SCHEMAS_TABLE.clone() => tn(20),
             VIRTUAL_TABLES_TABLE.clone() => tn(26),
             INDEX_WORKER_METADATA_TABLE.clone() => tn(30),
+            COMPONENT_DEFINITIONS_TABLE.clone() => tn(31),
+            COMPONENTS_TABLE.clone() => tn(32),
             // To add a bootstrap system table, first add to model/src/lib and then
             // replicate that table number to here.
         }

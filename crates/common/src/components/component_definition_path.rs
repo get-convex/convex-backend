@@ -13,6 +13,7 @@ use sync_types::path::check_valid_path_component;
 // Path relative to a project's `convex/` directory for each component
 // definition's folder. This path is project-level and originates from
 // a developer's source code.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ComponentDefinitionPath {
     path: PathBuf,
 }

@@ -9,6 +9,7 @@
 //!
 //! We should strive to have future bootstrap tables have their metadata
 //! colocated in database crate.
+pub mod components;
 pub mod index;
 pub mod schema;
 mod schema_metadata;

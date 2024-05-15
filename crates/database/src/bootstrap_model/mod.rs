@@ -12,5 +12,6 @@ pub mod table;
 pub mod user_facing;
 pub mod virtual_tables;
 
+pub mod components;
 #[cfg(any(test, feature = "testing"))]
 pub mod test_facing;
