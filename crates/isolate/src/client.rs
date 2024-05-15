@@ -1634,7 +1634,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&UdfType::Action);
-                let component = request.params.path_and_args.path().component.clone();
+                let component = request.params.path_and_args.path().component;
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
                     component,

@@ -12,6 +12,7 @@ use anyhow::anyhow;
 use common::{
     components::{
         CanonicalizedComponentModulePath,
+        ComponentDefinitionId,
         ComponentId,
     },
     errors::JsError,
@@ -170,7 +171,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         _permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<FullModuleSource>> {
         let p = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: ModulePath::from_str(path)?.canonicalize(),
         };
         let result = self.modules.get(&p).cloned();
@@ -577,7 +578,7 @@ fn udf_analyze<RT: Runtime>(
             let resource_name = resource_name_val.to_rust_string_lossy(scope);
             let resource_url = module_specifier_from_str(&resource_name)?;
             let canon_path = CanonicalizedComponentModulePath {
-                component: ComponentId::Root,
+                component: ComponentDefinitionId::Root,
                 module_path: path_from_module_specifier(&resource_url)?,
             };
             (
@@ -807,7 +808,7 @@ fn http_analyze<RT: Runtime>(
             let resource_name = resource_name_val.to_rust_string_lossy(scope);
             let resource_url = module_specifier_from_str(&resource_name)?;
             let canon_path = CanonicalizedComponentModulePath {
-                component: ComponentId::Root,
+                component: ComponentDefinitionId::Root,
                 module_path: path_from_module_specifier(&resource_url)?,
             };
             let source_map = scope.state_mut()?.environment.get_source_map(&canon_path)?;

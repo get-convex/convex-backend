@@ -17,8 +17,8 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
+        ComponentDefinitionId,
         ComponentFunctionPath,
-        ComponentId,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -69,6 +69,7 @@ use common::{
 };
 use database::{
     unauthorized_error,
+    ComponentsModel,
     Database,
     Token,
     Transaction,
@@ -1178,7 +1179,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // We should not be missing the module given we validated the path above
         // which requires the module to exist.
         let module = ModuleModel::new(&mut tx)
-            .get_metadata(path.module())
+            .get_metadata_for_function(path.clone())
             .await?
             .context("Missing a valid module")?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
@@ -1225,9 +1226,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             ModuleEnvironment::Node => {
                 // We should not be missing the module given we validated the path above
                 // which requires the module to exist.
+                let module_path = ComponentsModel::new(&mut tx)
+                    .function_path_to_module(path.clone())
+                    .await?;
                 let module_version = self
                     .module_cache
-                    .get_module(&mut tx, path.module())
+                    .get_module(&mut tx, module_path.clone())
                     .await?
                     .context("Missing a valid module_version")?;
                 let _request_guard = self
@@ -1236,7 +1240,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     .await?;
                 let mut source_maps = BTreeMap::new();
                 if let Some(source_map) = module_version.source_map.clone() {
-                    source_maps.insert(path.module().clone(), source_map);
+                    source_maps.insert(module_path.clone(), source_map);
                 }
 
                 let source_package_id = module.source_package_id.ok_or_else(|| {
@@ -1624,7 +1628,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .into_iter()
             .map(|module| {
                 let path = CanonicalizedComponentModulePath {
-                    component: ComponentId::Root,
+                    component: ComponentDefinitionId::Root,
                     module_path: module.path.clone().canonicalize(),
                 };
                 (path, module)
@@ -1644,7 +1648,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if !node_modules.is_empty() {
             for path_str in ["schema.js", "crons.js", "http.js"] {
                 let path = CanonicalizedComponentModulePath {
-                    component: ComponentId::Root,
+                    component: ComponentDefinitionId::Root,
                     module_path: path_str
                         .parse()
                         .expect("Failed to parse static module names"),
@@ -1732,7 +1736,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             };
             for (identifier, cron_spec) in crons {
                 let path = CanonicalizedComponentModulePath {
-                    component: ComponentId::Root,
+                    component: ComponentDefinitionId::Root,
                     module_path: cron_spec.udf_path.module().clone(),
                 };
                 let Some(scheduled_module) = modules.get(&path) else {

@@ -23,7 +23,7 @@ use axum::{
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
     },
     http::{
         extract::Json,
@@ -508,7 +508,7 @@ async fn analyze_modules_with_auth_config(
     if let Some(auth_module) = auth_module {
         analyze_result.insert(
             CanonicalizedComponentModulePath {
-                component: ComponentId::Root,
+                component: ComponentDefinitionId::Root,
                 module_path: auth_module.path.clone().canonicalize(),
             },
             AnalyzedModule::default(),

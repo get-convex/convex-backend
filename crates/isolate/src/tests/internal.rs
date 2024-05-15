@@ -7,6 +7,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
+        ComponentDefinitionId,
         ComponentId,
     },
     types::{
@@ -60,7 +61,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .map(|c| {
             (
                 CanonicalizedComponentModulePath {
-                    component: ComponentId::Root,
+                    component: ComponentDefinitionId::Root,
                     module_path: c.path.clone().canonicalize(),
                 },
                 c.clone(),

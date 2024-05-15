@@ -6,7 +6,7 @@ use std::{
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
     },
     types::{
         ModuleEnvironment,
@@ -50,7 +50,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentId::Root)
+            .get_application_modules(ComponentDefinitionId::Root)
             .await?
     };
 
@@ -66,7 +66,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
         .analyze(udf_config.clone(), modules, BTreeMap::new())
         .await??;
     let analyze_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "analyze.js".parse()?,
     };
     let module = result.remove(&analyze_path).unwrap();
@@ -99,7 +99,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     }
 
     let http_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "http.js".parse()?,
     };
     let module = result.remove(&http_path).unwrap();
@@ -166,7 +166,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     }
 
     let crons_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "crons.js".parse()?,
     };
     let module = result.remove(&crons_path).unwrap();
@@ -218,18 +218,18 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
             ModuleModel::new(&mut tx)
-                .get_application_modules(ComponentId::Root)
+                .get_application_modules(ComponentDefinitionId::Root)
                 .await?
         };
 
         // Analyze this file as though it were the router (normally http.js)
         let test_http_canonical = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: file.parse()?,
         };
 
         let real_http = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: "http.js".parse()?,
         };
         modules.remove(&real_http).unwrap();
@@ -237,7 +237,7 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
 
         // stick in an `is_http: true` module with the name of the module we're testing
         let with_http = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: test_http_canonical.module_path.with_http(),
         };
         modules.insert(with_http, test_http_module.clone());
@@ -265,7 +265,7 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentId::Root)
+            .get_application_modules(ComponentDefinitionId::Root)
             .await?
     };
 
@@ -275,7 +275,7 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
         .analyze(udf_config, modules, BTreeMap::new())
         .await??;
     let source_maps_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "sourceMaps.js".parse()?,
     };
     let analyzed_module = result.remove(&source_maps_path).unwrap();
@@ -354,7 +354,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentId::Root)
+            .get_application_modules(ComponentDefinitionId::Root)
             .await?
     };
 
@@ -364,7 +364,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
         .analyze(udf_config, modules, BTreeMap::new())
         .await??;
     let internal_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "internal.js".parse()?,
     };
     let analyzed_module = result.remove(&internal_path).unwrap();
@@ -549,21 +549,21 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
     for (case, expected) in cases {
         // Construct the http.js module for analysis
         let http_path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: "http.js".parse()?,
         };
 
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
             ModuleModel::new(&mut tx)
-                .get_application_modules(ComponentId::Root)
+                .get_application_modules(ComponentDefinitionId::Root)
                 .await?
         };
 
         // Reinsert the case as http.js, replacing the old http.js, so that the
         // http_analyze codepath is used on this file.
         let case_canon_path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: case.parse()?,
         };
         let module_config = modules
@@ -577,7 +577,7 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
                 .expect("Could not find original http.js");
             // Reinsert with and without http
             let with_http = CanonicalizedComponentModulePath {
-                component: ComponentId::Root,
+                component: ComponentDefinitionId::Root,
                 module_path: case_canon_path.module_path.with_http(),
             };
             modules.insert(with_http, module_config.clone()); // Reinsertion
@@ -593,7 +593,7 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
             .await?
             .expect("analyze failed");
         let with_http = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: case_canon_path.module_path.with_http(),
         };
         let module = analyze_result

@@ -189,6 +189,7 @@ mod tests {
         components::{
             CanonicalizedComponentFunctionPath,
             CanonicalizedComponentModulePath,
+            ComponentDefinitionId,
             ComponentId,
         },
         execution_context::ExecutionContext,
@@ -530,7 +531,7 @@ mod tests {
             .map(|m| {
                 (
                     CanonicalizedComponentModulePath {
-                        component: ComponentId::Root,
+                        component: ComponentDefinitionId::Root,
                         module_path: m.path.canonicalize(),
                     },
                     m.source_map.expect("Missing source map"),
@@ -585,7 +586,7 @@ mod tests {
             .map(|m| {
                 (
                     CanonicalizedComponentModulePath {
-                        component: ComponentId::Root,
+                        component: ComponentDefinitionId::Root,
                         module_path: m.path.canonicalize(),
                     },
                     m.source_map.expect("Missing source map"),
@@ -914,7 +915,7 @@ export { hello, internalHello };
         .await?;
         let mut source_maps = BTreeMap::new();
         let path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: "static_node_source.js".parse()?,
         };
         source_maps.insert(path.clone(), SOURCE_MAP.to_string());

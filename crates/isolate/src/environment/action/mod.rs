@@ -250,7 +250,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let syscall_trace = Arc::new(Mutex::new(SyscallTrace::new()));
         let (task_retval_sender, task_responses) = mpsc::unbounded();
         let task_executor = TaskExecutor {
-            component: component.clone(),
+            component,
             rt: rt.clone(),
             identity: identity.clone(),
             file_storage,
@@ -591,7 +591,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
 
-        let component = request_params.path_and_args.path().component.clone();
+        let component = request_params.path_and_args.path().component;
         let (handle, state) = isolate
             .start_request(component, client_id.clone(), self)
             .await?;

@@ -10,7 +10,6 @@ use value::heap_size::HeapSize;
 
 use super::{
     component_definition_path::ComponentDefinitionPath,
-    CanonicalizedComponentModulePath,
     ComponentId,
 };
 
@@ -86,11 +85,8 @@ impl TryFrom<ComponentFunctionPath> for SerializedComponentFunctionPath {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(Debug, proptest_derive::Arbitrary)
-)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct CanonicalizedComponentFunctionPath {
     pub component: ComponentId,
     pub udf_path: CanonicalizedUdfPath,
@@ -105,13 +101,6 @@ impl CanonicalizedComponentFunctionPath {
     pub fn into_root_udf_path(self) -> anyhow::Result<CanonicalizedUdfPath> {
         anyhow::ensure!(self.component.is_root());
         Ok(self.udf_path)
-    }
-
-    pub fn module(&self) -> CanonicalizedComponentModulePath {
-        CanonicalizedComponentModulePath {
-            component: self.component.clone(),
-            module_path: self.udf_path.module().clone(),
-        }
     }
 
     pub fn debug_str(&self) -> String {

@@ -19,6 +19,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
+        ComponentDefinitionId,
         ComponentFunctionPath,
         ComponentId,
     },
@@ -314,7 +315,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             .map(|c| {
                 (
                     CanonicalizedComponentModulePath {
-                        component: ComponentId::Root,
+                        component: ComponentDefinitionId::Root,
                         module_path: c.path.clone().canonicalize(),
                     },
                     c.clone(),

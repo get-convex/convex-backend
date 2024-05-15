@@ -12,7 +12,10 @@ use common::{
     },
     types::ModuleEnvironment,
 };
-use database::Transaction;
+use database::{
+    ComponentsModel,
+    Transaction,
+};
 use errors::ErrorMetadata;
 use model::{
     environment_variables::{
@@ -128,11 +131,14 @@ impl<RT: Runtime> ActionPhase<RT> {
 
         let mut modules = BTreeMap::new();
 
-        let module_metadata = with_release_permit(
-            timeout,
-            permit_slot,
-            ModuleModel::new(&mut tx).get_all_metadata(self.component.clone()),
-        )
+        let module_metadata = with_release_permit(timeout, permit_slot, async {
+            let component_definition = ComponentsModel::new(&mut tx)
+                .component_definition(self.component)
+                .await?;
+            ModuleModel::new(&mut tx)
+                .get_all_metadata(component_definition)
+                .await
+        })
         .await?;
 
         for metadata in module_metadata {

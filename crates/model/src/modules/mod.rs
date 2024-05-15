@@ -8,7 +8,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
         COMPONENTS_ENABLED,
     },
     document::{
@@ -39,6 +39,7 @@ use common::{
 use database::{
     defaults::system_index,
     unauthorized_error,
+    ComponentsModel,
     ResolvedQuery,
     SystemMetadataModel,
     Transaction,
@@ -176,7 +177,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     /// Returns the registered modules metadata, including system modules.
     pub async fn get_all_metadata(
         &mut self,
-        component: ComponentId,
+        component: ComponentDefinitionId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
         anyhow::ensure!(component.is_root());
 
@@ -193,7 +194,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
     pub async fn get_application_metadata(
         &mut self,
-        component: ComponentId,
+        component: ComponentDefinitionId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
         let modules = self
             .get_all_metadata(component)
@@ -207,10 +208,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     /// Returns all registered modules that aren't system modules.
     pub async fn get_application_modules(
         &mut self,
-        component: ComponentId,
+        component: ComponentDefinitionId,
     ) -> anyhow::Result<BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>> {
         let mut modules = BTreeMap::new();
-        for metadata in self.get_all_metadata(component.clone()).await? {
+        for metadata in self.get_all_metadata(component).await? {
             let path = metadata.path.clone();
             if !path.is_system() {
                 let full_source = self
@@ -223,7 +224,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     environment: metadata.environment,
                 };
                 let p = CanonicalizedComponentModulePath {
-                    component: component.clone(),
+                    component,
                     module_path: path.clone(),
                 };
                 if modules.insert(p, module_config).is_some() {
@@ -273,6 +274,17 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             source: module_version.source,
             source_map: module_version.source_map,
         })
+    }
+
+    pub async fn get_metadata_for_function(
+        &mut self,
+        path: CanonicalizedComponentFunctionPath,
+    ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
+        let module_path = ComponentsModel::new(self.tx)
+            .function_path_to_module(path.clone())
+            .await?;
+        let module_metadata = self.get_metadata(module_path).await?;
+        Ok(module_metadata)
     }
 
     /// Helper function to get a module at the latest version.
@@ -454,7 +466,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         } else {
             &path.udf_path
         };
-        let Some(module) = self.get_metadata(path.module()).await? else {
+        let Some(module) = self.get_metadata_for_function(path.clone()).await? else {
             let err = ModuleNotFoundError::new(udf_path.module().as_str());
             return Ok(Err(ErrorMetadata::bad_request(
                 "ModuleNotFound",
@@ -505,7 +517,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
     pub async fn has_http(&mut self) -> anyhow::Result<bool> {
         let path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: "http.js".parse()?,
         };
         Ok(self.get_metadata(path).await?.is_some())

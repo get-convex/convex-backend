@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
     },
     db_schema,
     object_validator,
@@ -59,11 +59,11 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
         environment: ModuleEnvironment::Isolate,
     };
     let p1 = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: module1.path.clone().canonicalize(),
     };
     let p2 = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: module2.path.clone().canonicalize(),
     };
     ConfigModel::new(&mut tx)
@@ -127,7 +127,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
         .map(|m| {
             (
                 CanonicalizedComponentModulePath {
-                    component: ComponentId::Root,
+                    component: ComponentDefinitionId::Root,
                     module_path: m.path.clone().canonicalize(),
                 },
                 AnalyzedModule {

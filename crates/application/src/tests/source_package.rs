@@ -4,7 +4,7 @@ use anyhow::Context;
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
     },
     runtime::Runtime,
     types::ModuleEnvironment,
@@ -31,7 +31,7 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
 
     let path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "b.js".parse()?,
     };
     let config = ModuleConfig {
@@ -75,7 +75,7 @@ pub async fn assemble_package<RT: Runtime>(
     modifications: BTreeMap<CanonicalizedComponentModulePath, Option<ModuleConfig>>,
 ) -> anyhow::Result<Vec<ModuleConfig>> {
     let existing_modules = ModuleModel::new(tx)
-        .get_application_modules(ComponentId::Root)
+        .get_application_modules(ComponentDefinitionId::Root)
         .await?;
     let mut modules = BTreeMap::new();
     for (path, module) in existing_modules {

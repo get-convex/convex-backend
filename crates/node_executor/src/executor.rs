@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
     },
     errors::{
         FrameData,
@@ -163,7 +163,7 @@ fn construct_js_error(
                     return Ok(None);
                 };
                 let module_path = CanonicalizedComponentModulePath {
-                    component: ComponentId::Root,
+                    component: ComponentDefinitionId::Root,
                     module_path: path.parse()?,
                 };
                 let Some(source_map) = source_maps.get(&module_path) else {
@@ -383,7 +383,7 @@ impl Actions {
         let mut result = BTreeMap::new();
         for (path, node_functions) in modules {
             let path = CanonicalizedComponentModulePath {
-                component: ComponentId::Root,
+                component: ComponentDefinitionId::Root,
                 module_path: path.parse()?,
             };
             // We have no concept of the origin of a Function in the Node environment, so

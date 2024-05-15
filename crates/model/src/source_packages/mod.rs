@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use anyhow::Context;
 use common::{
-    components::ComponentId,
+    components::ComponentDefinitionId,
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -85,7 +85,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
         let mut source_package_ids = vec![];
 
         for module in ModuleModel::new(self.tx)
-            .get_all_metadata(ComponentId::Root)
+            .get_all_metadata(ComponentDefinitionId::Root)
             .await?
         {
             source_package_ids.push(module.source_package_id);

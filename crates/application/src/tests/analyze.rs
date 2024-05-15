@@ -1,7 +1,7 @@
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
     },
     types::{
         ModuleEnvironment,
@@ -83,7 +83,7 @@ async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
     assert_eq!(modules.len(), 2);
 
     let a_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "a.js".parse()?,
     };
     assert_eq!(modules[&a_path].functions.len(), 1);
@@ -93,7 +93,7 @@ async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
     assert!(module.pos.is_none());
 
     let b_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "b.js".parse()?,
     };
     assert_eq!(modules[&b_path].functions.len(), 1);
@@ -191,7 +191,7 @@ export { hello, internalHello };
     assert_eq!(modules.len(), 2);
 
     let isolate_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "isolate_source.js".parse()?,
     };
     assert_eq!(modules[&isolate_path].functions.len(), 2);
@@ -204,7 +204,7 @@ export { hello, internalHello };
     assert_eq!(module.functions[1].pos.as_ref().unwrap().start_lineno, 31);
 
     let node_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "node_source.js".parse()?,
     };
     assert_eq!(modules[&node_path].functions.len(), 2);
@@ -251,7 +251,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     assert_eq!(modules.len(), 3);
 
     let a_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "a.js".parse()?,
     };
     assert_eq!(modules[&a_path].functions.len(), 1);
@@ -261,7 +261,7 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     assert!(module.pos.is_none());
 
     let b_path = CanonicalizedComponentModulePath {
-        component: ComponentId::Root,
+        component: ComponentDefinitionId::Root,
         module_path: "b.js".parse()?,
     };
     assert_eq!(modules[&b_path].functions.len(), 1);

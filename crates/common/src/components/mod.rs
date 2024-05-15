@@ -40,7 +40,7 @@ pub fn require_components_enabled() -> anyhow::Result<()> {
 }
 
 // Globally unique system-assigned ID for a component.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum ComponentId {
     Root,
     Child(InternalId),
@@ -56,7 +56,10 @@ impl ComponentId {
 mod proptests {
     use proptest::prelude::*;
 
-    use super::ComponentId;
+    use super::{
+        ComponentDefinitionId,
+        ComponentId,
+    };
 
     impl Arbitrary for ComponentId {
         type Parameters = ();
@@ -65,5 +68,26 @@ mod proptests {
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
             Just(ComponentId::Root).boxed()
         }
+    }
+
+    impl Arbitrary for ComponentDefinitionId {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+            Just(ComponentDefinitionId::Root).boxed()
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum ComponentDefinitionId {
+    Root,
+    Child(InternalId),
+}
+
+impl ComponentDefinitionId {
+    pub fn is_root(&self) -> bool {
+        matches!(self, ComponentDefinitionId::Root)
     }
 }

@@ -87,7 +87,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
     // cache.
     let canonicalized = path.clone().canonicalize();
     let module = ModuleModel::new(tx)
-        .get_metadata(canonicalized.module())
+        .get_metadata_for_function(canonicalized.clone())
         .await?
         .with_context(|| {
             let p = String::from(path.udf_path.module().clone());

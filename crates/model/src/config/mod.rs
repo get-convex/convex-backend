@@ -21,7 +21,7 @@ use common::{
     bootstrap_model::schema::SchemaState,
     components::{
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
     },
     runtime::Runtime,
     schemas::DatabaseSchema,
@@ -104,7 +104,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         };
 
         let crons_js = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: "crons.js".parse()?,
         };
         let new_crons: WithHeapSize<BTreeMap<CronIdentifier, CronSpec>> =
@@ -196,17 +196,17 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
 
         // Add new modules.
         let mut remaining_modules: BTreeSet<_> = ModuleModel::new(self.tx)
-            .get_application_metadata(ComponentId::Root)
+            .get_application_metadata(ComponentDefinitionId::Root)
             .await?
             .into_iter()
             .map(|module| CanonicalizedComponentModulePath {
-                component: ComponentId::Root,
+                component: ComponentDefinitionId::Root,
                 module_path: module.into_value().path,
             })
             .collect();
         for module in modules {
             let path = CanonicalizedComponentModulePath {
-                component: ComponentId::Root,
+                component: ComponentDefinitionId::Root,
                 module_path: module.path.canonicalize(),
             };
             if !remaining_modules.remove(&path) {
@@ -273,7 +273,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules: Vec<_> = ModuleModel::new(self.tx)
-            .get_application_modules(ComponentId::Root)
+            .get_application_modules(ComponentDefinitionId::Root)
             .await?
             .into_values()
             .collect();

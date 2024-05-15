@@ -41,6 +41,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
+        ComponentDefinitionId,
         ComponentFunctionPath,
         ComponentId,
     },
@@ -1520,10 +1521,10 @@ impl<RT: Runtime> Application<RT> {
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<()> {
         let all_modules = ModuleModel::new(tx)
-            .get_application_modules(ComponentId::Root)
+            .get_application_modules(ComponentDefinitionId::Root)
             .await?;
         let path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: AUTH_CONFIG_FILE_NAME.parse()?,
         };
         let auth_config_module = all_modules.get(&path);
@@ -1821,7 +1822,7 @@ impl<RT: Runtime> Application<RT> {
             })?;
 
         let module_path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: module.path.clone().canonicalize(),
         };
         let analyzed_module = analyze_results

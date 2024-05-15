@@ -12,7 +12,7 @@ use std::{
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentId,
+        ComponentDefinitionId,
     },
     runtime::{
         Runtime,
@@ -153,7 +153,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             ));
         }
         let path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentDefinitionId::Root,
             module_path: module_path.clone().canonicalize(),
         };
         let module = with_release_permit(

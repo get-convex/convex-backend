@@ -1,14 +1,11 @@
 use sync_types::CanonicalizedModulePath;
 
-use super::ComponentId;
+use super::ComponentDefinitionId;
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(Debug, proptest_derive::Arbitrary)
-)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct CanonicalizedComponentModulePath {
-    pub component: ComponentId,
+    pub component: ComponentDefinitionId,
     pub module_path: CanonicalizedModulePath,
 }
 

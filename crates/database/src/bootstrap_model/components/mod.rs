@@ -6,6 +6,9 @@ use anyhow::Context;
 use common::{
     bootstrap_model::components::ComponentMetadata,
     components::{
+        CanonicalizedComponentFunctionPath,
+        CanonicalizedComponentModulePath,
+        ComponentDefinitionId,
         ComponentId,
         ComponentName,
         ComponentPath,
@@ -160,6 +163,36 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         }
         path.reverse();
         Ok(ComponentPath { path })
+    }
+
+    pub async fn component_definition(
+        &mut self,
+        component: ComponentId,
+    ) -> anyhow::Result<ComponentDefinitionId> {
+        let component_definition = match component {
+            ComponentId::Root => ComponentDefinitionId::Root,
+            ComponentId::Child(component_id) => {
+                let component_table = self.tx.table_mapping().id(&COMPONENTS_TABLE)?;
+                let component_doc: ParsedDocument<ComponentMetadata> = self
+                    .tx
+                    .get(component_table.id(component_id))
+                    .await?
+                    .context("component missing")?
+                    .try_into()?;
+                ComponentDefinitionId::Child(component_doc.definition_id)
+            },
+        };
+        Ok(component_definition)
+    }
+
+    pub async fn function_path_to_module(
+        &mut self,
+        path: CanonicalizedComponentFunctionPath,
+    ) -> anyhow::Result<CanonicalizedComponentModulePath> {
+        Ok(CanonicalizedComponentModulePath {
+            component: self.component_definition(path.component).await?,
+            module_path: path.udf_path.module().clone(),
+        })
     }
 }
 
