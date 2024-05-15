@@ -30,7 +30,7 @@ service Backend {
     rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
 
     // New endpoints used by Usher. Funrun will eventually reuse those too.
-    rpc ExecuteQuery2(ExecuteQueryRequest2) returns (ExecuteQueryResponse);
+    rpc ExecuteQuery2(ExecuteQueryRequest2) returns (ExecuteQueryResponse2);
 }
 
 // The request header is used by all requests to validate we are talking to the
@@ -45,6 +45,23 @@ message RequestHeader {
 message PathAndArgs {
   optional string path = 1;
   optional bytes args = 2;
+}
+
+message RedactedFunctionResult {
+    oneof result {
+        string json_packed_value = 1;
+        RedactedJsError js_error = 2;
+    }
+}
+
+message RedactedJsError {
+    common.JsError error = 1;
+    optional bool block_logging = 2;
+    optional string request_id = 3;
+}
+
+message RedactedLogLines {
+  repeated string log_lines = 1;
 }
 
 message TextSearchAtTsRequest {
@@ -86,6 +103,10 @@ message ExecuteQueryRequest {
     optional common.ExecutionContext execution_context = 6;
 }
 
+message ExecuteQueryResponse {
+    common.FunctionResult result = 1;
+}
+
 // This is a more generic version of ExecuteQueryRequest that can be used
 // in both Usher and Funrun.
 message ExecuteQueryRequest2 {
@@ -97,8 +118,9 @@ message ExecuteQueryRequest2 {
     // TODO(presley): Add caller and action auth token.
 }
 
-message ExecuteQueryResponse {
-    common.FunctionResult result = 1;
+message ExecuteQueryResponse2 {
+    RedactedFunctionResult result = 1;
+    RedactedLogLines log_lines = 2;
 }
 
 message ExecuteMutationRequest {

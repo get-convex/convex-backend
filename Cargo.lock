@@ -195,6 +195,7 @@ dependencies = [
  "parking_lot",
  "pb",
  "proptest",
+ "proptest-derive",
  "rand 0.8.5",
  "regex",
  "runtime",

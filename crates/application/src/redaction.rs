@@ -1,5 +1,6 @@
 use std::fmt;
 
+use anyhow::Context;
 use common::{
     errors::JsError,
     log_lines::LogLines,
@@ -7,11 +8,20 @@ use common::{
 };
 use http::StatusCode;
 use isolate::HttpActionResponsePart;
+use pb::backend::{
+    redacted_function_result::Result as RedactedFunctionResultTypeProto,
+    RedactedFunctionResult as RedactedFunctionResultProto,
+    RedactedJsError as RedactedJsErrorProto,
+    RedactedLogLines as RedactedLogLinesProto,
+};
 use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::json;
+use serde_json::{
+    json,
+    Value as JsonValue,
+};
 use sync_types::{
     types::ErrorPayload,
     LogLinesMessage,
@@ -21,12 +31,58 @@ use value::{
     ConvexValue,
 };
 
+#[derive(Debug)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+)]
+pub struct RedactedFunctionResult(pub Result<ConvexValue, RedactedJsError>);
+
+impl TryFrom<RedactedFunctionResultProto> for RedactedFunctionResult {
+    type Error = anyhow::Error;
+
+    fn try_from(result: RedactedFunctionResultProto) -> anyhow::Result<Self> {
+        let result = match result.result {
+            Some(RedactedFunctionResultTypeProto::JsonPackedValue(value)) => {
+                let json: JsonValue = serde_json::from_str(&value)?;
+                let value = ConvexValue::try_from(json)?;
+                Ok(value)
+            },
+            Some(RedactedFunctionResultTypeProto::JsError(js_error)) => Err(js_error.try_into()?),
+            None => anyhow::bail!("Missing result"),
+        };
+        Ok(RedactedFunctionResult(result))
+    }
+}
+
+impl TryFrom<RedactedFunctionResult> for RedactedFunctionResultProto {
+    type Error = anyhow::Error;
+
+    fn try_from(result: RedactedFunctionResult) -> anyhow::Result<Self> {
+        let result = match result.0 {
+            Ok(value) => {
+                let json = JsonValue::from(value);
+
+                RedactedFunctionResultTypeProto::JsonPackedValue(serde_json::to_string(&json)?)
+            },
+            Err(js_error) => RedactedFunctionResultTypeProto::JsError(js_error.try_into()?),
+        };
+        Ok(RedactedFunctionResultProto {
+            result: Some(result),
+        })
+    }
+}
+
 /// List of log lines from a Convex function execution, redacted to only
 /// contain information that clients are allowed to see.
 ///
 /// The level of redaction will depend on the configuration of the backend and
 /// could be anything from full information to completely stripped out.
 #[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+)]
 pub struct RedactedLogLines(Vec<String>);
 
 impl RedactedLogLines {
@@ -60,12 +116,30 @@ impl From<RedactedLogLines> for LogLinesMessage {
     }
 }
 
+impl From<RedactedLogLines> for RedactedLogLinesProto {
+    fn from(value: RedactedLogLines) -> Self {
+        Self { log_lines: value.0 }
+    }
+}
+
+impl TryFrom<RedactedLogLinesProto> for RedactedLogLines {
+    type Error = anyhow::Error;
+
+    fn try_from(msg: RedactedLogLinesProto) -> anyhow::Result<Self> {
+        Ok(Self(msg.log_lines))
+    }
+}
+
 /// An Error emitted from a Convex Function execution. redacted to only
 /// contain information that clients are allowed to see.
 ///
 /// The level of redaction will depend on the configuration of the backend and
 /// could be anything from full information to completely stripped out.
 #[derive(thiserror::Error, Debug)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+)]
 pub struct RedactedJsError {
     error: JsError,
     block_logging: bool,
@@ -163,6 +237,36 @@ impl fmt::Display for RedactedJsError {
     }
 }
 
+impl TryFrom<RedactedJsError> for RedactedJsErrorProto {
+    type Error = anyhow::Error;
+
+    fn try_from(value: RedactedJsError) -> anyhow::Result<Self> {
+        Ok(Self {
+            error: Some(value.error.try_into()?),
+            block_logging: Some(value.block_logging),
+            request_id: Some(value.request_id.into()),
+        })
+    }
+}
+
+impl TryFrom<RedactedJsErrorProto> for RedactedJsError {
+    type Error = anyhow::Error;
+
+    fn try_from(msg: RedactedJsErrorProto) -> anyhow::Result<Self> {
+        let error = msg.error.context("Missing `error` field")?.try_into()?;
+        let block_logging = msg.block_logging.context("Missing `block_logging` field")?;
+        let request_id = msg
+            .request_id
+            .context("Missing `request_id` field")?
+            .try_into()?;
+        Ok(RedactedJsError {
+            error,
+            block_logging,
+            request_id,
+        })
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use common::{
@@ -171,10 +275,20 @@ pub mod tests {
     };
     use isolate::HttpActionResponsePart;
     use must_let::must_let;
+    use pb::backend::{
+        RedactedFunctionResult as RedactedFunctionResultProto,
+        RedactedJsError as RedactedJsErrorProto,
+        RedactedLogLines as RedactedLogLinesProto,
+    };
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
+    use value::testing::assert_roundtrips;
 
-    use crate::redaction::RedactedJsError;
+    use crate::redaction::{
+        RedactedFunctionResult,
+        RedactedJsError,
+        RedactedLogLines,
+    };
 
     proptest! {
         #![proptest_config(
@@ -231,6 +345,21 @@ pub mod tests {
                     js_error.message
                 )
             );
+        }
+
+        #[test]
+        fn test_redacted_js_error_roundtrips(left in any::<RedactedJsError>()) {
+            assert_roundtrips::<RedactedJsError, RedactedJsErrorProto>(left);
+        }
+
+        #[test]
+        fn test_redacted_log_lines_roundtrips(left in any::<RedactedLogLines>()) {
+            assert_roundtrips::<RedactedLogLines, RedactedLogLinesProto>(left);
+        }
+
+        #[test]
+        fn test_redacted_function_result_roundtrips(left in any::<RedactedFunctionResult>()) {
+            assert_roundtrips::<RedactedFunctionResult, RedactedFunctionResultProto>(left);
         }
     }
 

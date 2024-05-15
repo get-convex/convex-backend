@@ -46,6 +46,7 @@ num_cpus = { workspace = true }
 parking_lot = { workspace = true }
 pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
 rand = { workspace = true }
 regex = { workspace = true }
 search = { path = "../search" }
@@ -80,6 +81,7 @@ model = { path = "../model", features = ["testing"] }
 must-let = { workspace = true }
 node_executor = { path = "../../crates/node_executor", features = ["testing"] }
 proptest = { workspace = true }
+proptest-derive = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 shape_inference = { path = "../shape_inference", features = ["testing"] }
@@ -101,6 +103,8 @@ testing = [
     "metrics/testing",
     "model/testing",
     "node_executor/testing",
+    "proptest",
+    "proptest-derive",
     "runtime/testing",
     "search/testing",
     "storage/testing",
