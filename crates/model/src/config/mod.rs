@@ -195,15 +195,21 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         let mut added_modules = BTreeSet::new();
 
         // Add new modules.
-        let mut remaining_modules = ModuleModel::new(self.tx)
-            .get_application_modules(ComponentId::Root)
-            .await?;
+        let mut remaining_modules: BTreeSet<_> = ModuleModel::new(self.tx)
+            .get_application_metadata(ComponentId::Root)
+            .await?
+            .into_iter()
+            .map(|module| CanonicalizedComponentModulePath {
+                component: ComponentId::Root,
+                module_path: module.into_value().path,
+            })
+            .collect();
         for module in modules {
             let path = CanonicalizedComponentModulePath {
                 component: ComponentId::Root,
                 module_path: module.path.canonicalize(),
             };
-            if remaining_modules.remove(&path).is_none() {
+            if !remaining_modules.remove(&path) {
                 added_modules.insert(path.clone());
             }
             let analyze_result = if !path.module_path.is_deps() {
@@ -230,7 +236,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
 
         let mut removed_modules = BTreeSet::new();
-        for (path, _) in remaining_modules {
+        for path in remaining_modules {
             removed_modules.insert(path.clone());
             ModuleModel::new(self.tx).delete(path).await?;
         }

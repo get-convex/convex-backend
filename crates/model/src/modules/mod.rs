@@ -191,6 +191,19 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Ok(modules)
     }
 
+    pub async fn get_application_metadata(
+        &mut self,
+        component: ComponentId,
+    ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
+        let modules = self
+            .get_all_metadata(component)
+            .await?
+            .into_iter()
+            .filter(|metadata| !metadata.path.is_system())
+            .collect();
+        Ok(modules)
+    }
+
     /// Returns all registered modules that aren't system modules.
     pub async fn get_application_modules(
         &mut self,
