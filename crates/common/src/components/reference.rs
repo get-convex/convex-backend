@@ -9,7 +9,7 @@ use value::identifier::Identifier;
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum Reference {
     /// Reference originating from `component.args` at component definition time
-    /// or `ctx.componentArgs` at runtime.
+    /// or `ctx.component.args` at runtime.
     ///
     /// Definition time:
     /// ```ts
@@ -23,7 +23,7 @@ pub enum Reference {
     /// import { query } from "./_generated/server";
     ///
     /// export const f = query(async (ctx, args) => {
-    ///   console.log(ctx.componentArgs.maxLength);
+    ///   console.log(ctx.component.args.maxLength);
     /// })
     /// ```
     ComponentArgument { attributes: Vec<Identifier> },
@@ -72,7 +72,7 @@ impl Reference {
     pub fn evaluation_time_debug_str(&self) -> String {
         match self {
             Reference::ComponentArgument { attributes } => {
-                let mut s = "ctx.componentArgs".to_string();
+                let mut s = "ctx.component.args".to_string();
                 for attr in attributes {
                     s.push('.');
                     s.push_str(&attr[..]);
