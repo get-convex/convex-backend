@@ -12,6 +12,7 @@ use common::{
             FragmentedSearchSegment,
             SearchIndexSnapshot,
             SearchIndexState,
+            TextIndexBackfillState,
         },
         vector_index::{
             DeveloperVectorIndexConfig,
@@ -103,13 +104,8 @@ impl SearchIndexConfigParser for TextIndexConfigParser {
         Some(SearchIndexConfig {
             developer_config,
             on_disk_state: match on_disk_state {
-                SearchIndexState::Backfilling(_) => {
-                    // TODO(sam): Add support for a backfilling partial state to text search
-                    SearchOnDiskState::Backfilling(BackfillState {
-                        segments: vec![],
-                        cursor: None,
-                        backfill_snapshot_ts: None,
-                    })
+                SearchIndexState::Backfilling(snapshot) => {
+                    SearchOnDiskState::Backfilling(snapshot.into())
                 },
                 SearchIndexState::Backfilled(snapshot) => {
                     SearchOnDiskState::Backfilled(snapshot.into())
@@ -386,6 +382,16 @@ impl SegmentStatistics for VectorStatistics {
 
     fn log(&self) {
         log_documents_per_segment(self.non_deleted_vectors);
+    }
+}
+
+impl From<TextIndexBackfillState> for BackfillState<TextSearchIndex> {
+    fn from(value: TextIndexBackfillState) -> Self {
+        Self {
+            segments: value.segments,
+            cursor: value.cursor.clone().map(|value| value.cursor),
+            backfill_snapshot_ts: value.cursor.map(|value| value.backfill_snapshot_ts),
+        }
     }
 }
 
