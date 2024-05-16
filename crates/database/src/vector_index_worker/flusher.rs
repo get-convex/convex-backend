@@ -18,11 +18,7 @@ use storage::Storage;
 use super::writer::VectorMetadataWriter;
 use crate::{
     index_workers::{
-        index_meta::{
-            SnapshotData,
-            VectorIndexConfigParser,
-            VectorSearchIndex,
-        },
+        index_meta::SnapshotData,
         search_flusher::{
             IndexBuild,
             IndexBuildResult,
@@ -30,6 +26,10 @@ use crate::{
         },
     },
     metrics,
+    vector_index_worker::vector_meta::{
+        VectorIndexConfigParser,
+        VectorSearchIndex,
+    },
     Database,
     Token,
 };

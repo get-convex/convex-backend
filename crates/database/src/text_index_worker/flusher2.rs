@@ -34,8 +34,6 @@ use crate::{
         index_meta::{
             SearchOnDiskState,
             SnapshotData,
-            TextIndexConfigParser,
-            TextSearchIndex,
         },
         search_flusher::{
             IndexBuild,
@@ -47,6 +45,10 @@ use crate::{
     metrics::search::{
         log_documents_per_index,
         log_documents_per_new_segment,
+    },
+    text_index_worker::text_meta::{
+        TextIndexConfigParser,
+        TextSearchIndex,
     },
     Database,
     SystemMetadataModel,

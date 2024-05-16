@@ -49,7 +49,6 @@ use vector::QdrantExternalId;
 
 use crate::{
     index_workers::{
-        index_meta::VectorSearchIndex,
         search_flusher::IndexBuild,
         MultiSegmentBackfillResult,
     },
@@ -61,6 +60,7 @@ use crate::{
         VectorIndexMergeType,
         VectorWriterLockWaiter,
     },
+    vector_index_worker::vector_meta::VectorSearchIndex,
     Database,
     IndexModel,
     SystemMetadataModel,
