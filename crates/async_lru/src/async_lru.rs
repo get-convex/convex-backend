@@ -1,6 +1,9 @@
 use core::hash::Hash;
 use std::{
-    collections::HashMap,
+    collections::{
+        BTreeMap,
+        HashMap,
+    },
     fmt::Debug,
     sync::Arc,
 };
@@ -20,6 +23,7 @@ use common::{
         Runtime,
         RuntimeInstant,
     },
+    types::IndexId,
 };
 use futures::{
     future::BoxFuture,
@@ -27,6 +31,10 @@ use futures::{
 };
 use lru::LruCache;
 use parking_lot::Mutex;
+use value::{
+    TableMapping,
+    TabletId,
+};
 
 use crate::metrics::{
     async_lru_compute_timer,
@@ -137,6 +145,18 @@ pub trait SizedValue {
 impl<Value: SizedValue> SizedValue for Arc<Value> {
     fn size(&self) -> u64 {
         Value::size(self)
+    }
+}
+
+impl SizedValue for TableMapping {
+    fn size(&self) -> u64 {
+        self.len() as u64
+    }
+}
+
+impl SizedValue for BTreeMap<TabletId, IndexId> {
+    fn size(&self) -> u64 {
+        self.len() as u64
     }
 }
 

@@ -29,6 +29,7 @@ use anyhow::{
     Context,
     Error,
 };
+use async_lru::async_lru::AsyncLru;
 use cmd_util::env::env_config;
 use common::{
     bootstrap_model::{
@@ -107,6 +108,7 @@ use futures::{
     future::BoxFuture,
     pin_mut,
     Future,
+    FutureExt,
     Stream,
     StreamExt,
     TryStreamExt,
@@ -262,6 +264,10 @@ pub struct Database<RT: Runtime> {
     usage_counter: UsageCounter,
     virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_metadata: BootstrapMetadata,
+    // Caches of snapshot TableMapping and by_id index ids, which are used repeatedly by
+    // /api/list_snapshot.
+    table_mapping_snapshot_cache: AsyncLru<RT, Timestamp, TableMapping>,
+    by_id_indexes_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<TabletId, IndexId>>,
 }
 
 #[derive(Clone)]
@@ -861,6 +867,10 @@ impl<RT: Runtime> Database<RT> {
             Arc::new(retention_manager.clone()),
             shutdown,
         );
+        let table_mapping_snapshot_cache =
+            AsyncLru::new(runtime.clone(), 10, 2, "table_mapping_snapshot");
+        let by_id_indexes_snapshot_cache =
+            AsyncLru::new(runtime.clone(), 10, 2, "by_id_indexes_snapshot");
         let database = Self {
             committer,
             subscriptions,
@@ -875,6 +885,8 @@ impl<RT: Runtime> Database<RT> {
             usage_counter,
             virtual_system_mapping,
             bootstrap_metadata,
+            table_mapping_snapshot_cache,
+            by_id_indexes_snapshot_cache,
         };
 
         Ok(database)
@@ -1005,8 +1017,18 @@ impl<RT: Runtime> Database<RT> {
     }
 
     #[minitrace::trace]
-    pub async fn snapshot_table_mapping(
+    async fn snapshot_table_mapping(
         &self,
+        ts: RepeatableTimestamp,
+    ) -> anyhow::Result<Arc<TableMapping>> {
+        self.table_mapping_snapshot_cache
+            .get(*ts, self.clone().compute_snapshot_table_mapping(ts).boxed())
+            .await
+    }
+
+    #[minitrace::trace]
+    async fn compute_snapshot_table_mapping(
+        self,
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<TableMapping> {
         let table_iterator = self.table_iterator(ts, 100, None);
@@ -1037,8 +1059,18 @@ impl<RT: Runtime> Database<RT> {
     }
 
     #[minitrace::trace]
-    pub async fn snapshot_by_id_indexes(
+    async fn snapshot_by_id_indexes(
         &self,
+        ts: RepeatableTimestamp,
+    ) -> anyhow::Result<Arc<BTreeMap<TabletId, IndexId>>> {
+        self.by_id_indexes_snapshot_cache
+            .get(*ts, self.clone().compute_snapshot_by_id_indexes(ts).boxed())
+            .await
+    }
+
+    #[minitrace::trace]
+    async fn compute_snapshot_by_id_indexes(
+        self,
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
         let table_iterator = self.table_iterator(ts, 100, None);

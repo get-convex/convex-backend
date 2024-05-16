@@ -372,6 +372,7 @@ dependencies = [
  "runtime",
  "tokio",
  "tracing",
+ "value",
 ]
 
 [[package]]
@@ -1661,6 +1662,7 @@ dependencies = [
  "async-channel",
  "async-recursion",
  "async-trait",
+ "async_lru",
  "cmd_util",
  "common 0.1.0",
  "convex_macro",

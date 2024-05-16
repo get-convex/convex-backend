@@ -14,6 +14,7 @@ lru = { workspace = true }
 metrics = { path = "../metrics" }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
+value = { path = "../value" }
 
 [dev-dependencies]
 
@@ -24,3 +25,4 @@ metrics = { path = "../metrics", features = ["testing"] }
 rand = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 tokio = { workspace = true }
+value = { path = "../value", features = ["testing"] }

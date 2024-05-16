@@ -246,6 +246,14 @@ impl TableMapping {
                 })
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.tablet_to_table.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.tablet_to_table.is_empty()
+    }
 }
 
 fn table_does_not_exist(table: &TableName) -> ErrorMetadata {
