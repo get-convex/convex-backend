@@ -17,7 +17,7 @@ use std::{
 };
 
 use common::{
-    bootstrap_model::index::search_index::DeveloperSearchIndexConfig,
+    bootstrap_model::index::text_index::DeveloperSearchIndexConfig,
     document::{
         CreationTime,
         ResolvedDocument,

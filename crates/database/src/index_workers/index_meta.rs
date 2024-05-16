@@ -7,12 +7,12 @@ use std::{
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
-        search_index::{
+        text_index::{
             DeveloperSearchIndexConfig,
             FragmentedTextSegment,
-            SearchIndexState,
             TextIndexBackfillState,
             TextIndexSnapshot,
+            TextIndexState,
         },
         vector_index::{
             DeveloperVectorIndexConfig,
@@ -104,13 +104,13 @@ impl SearchIndexConfigParser for TextIndexConfigParser {
         Some(SearchIndexConfig {
             developer_config,
             on_disk_state: match on_disk_state {
-                SearchIndexState::Backfilling(snapshot) => {
+                TextIndexState::Backfilling(snapshot) => {
                     SearchOnDiskState::Backfilling(snapshot.into())
                 },
-                SearchIndexState::Backfilled(snapshot) => {
+                TextIndexState::Backfilled(snapshot) => {
                     SearchOnDiskState::Backfilled(snapshot.into())
                 },
-                SearchIndexState::SnapshottedAt(snapshot) => {
+                TextIndexState::SnapshottedAt(snapshot) => {
                     SearchOnDiskState::SnapshottedAt(snapshot.into())
                 },
             },

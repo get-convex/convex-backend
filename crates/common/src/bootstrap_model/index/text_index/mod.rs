@@ -14,13 +14,13 @@ pub use self::{
     },
     index_snapshot::{
         FragmentedTextSegment,
-        SearchIndexSnapshotData,
         TextIndexSnapshot,
+        TextIndexSnapshotData,
         TextSnapshotVersion,
     },
     index_state::{
-        SearchIndexState,
-        SerializedSearchIndexState,
+        SerializedTextIndexState,
+        TextIndexState,
     },
 };
 

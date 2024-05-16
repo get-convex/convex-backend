@@ -11,7 +11,7 @@ use super::{
         DeveloperDatabaseIndexConfig,
         SerializedDeveloperDatabaseIndexConfig,
     },
-    search_index::{
+    text_index::{
         DeveloperSearchIndexConfig,
         SerializedDeveloperSearchIndexConfig,
     },

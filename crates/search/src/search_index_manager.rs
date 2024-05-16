@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use common::{
     bootstrap_model::index::{
-        search_index::{
-            SearchIndexSnapshotData,
-            SearchIndexState,
+        text_index::{
             TextIndexSnapshot,
+            TextIndexSnapshotData,
+            TextIndexState,
             TextSnapshotVersion,
         },
         IndexConfig,
@@ -303,7 +303,7 @@ impl SearchIndexManager {
                         ref on_disk_state, ..
                     } = metadata.config
                     {
-                        let SearchIndexState::Backfilling(_) = on_disk_state else {
+                        let TextIndexState::Backfilling(_) = on_disk_state else {
                             anyhow::bail!(
                                 "Inserted new search index that wasn't backfilling: {metadata:?}"
                             );
@@ -324,41 +324,41 @@ impl SearchIndexManager {
                         match (&prev_metadata.config, &next_metadata.config) {
                             (
                                 IndexConfig::Search {
-                                    on_disk_state: SearchIndexState::Backfilling { .. },
+                                    on_disk_state: TextIndexState::Backfilling { .. },
                                     ..
                                 },
                                 IndexConfig::Search {
-                                    on_disk_state: SearchIndexState::Backfilled(snapshot),
+                                    on_disk_state: TextIndexState::Backfilled(snapshot),
                                     ..
                                 },
                             ) => (None, Some(snapshot)),
                             (
                                 IndexConfig::Search {
-                                    on_disk_state: SearchIndexState::Backfilled(old_snapshot),
+                                    on_disk_state: TextIndexState::Backfilled(old_snapshot),
                                     ..
                                 },
                                 IndexConfig::Search {
-                                    on_disk_state: SearchIndexState::SnapshottedAt(new_snapshot),
-                                    ..
-                                },
-                            ) => (Some(old_snapshot), Some(new_snapshot)),
-                            (
-                                IndexConfig::Search {
-                                    on_disk_state: SearchIndexState::Backfilled(old_snapshot),
-                                    ..
-                                },
-                                IndexConfig::Search {
-                                    on_disk_state: SearchIndexState::Backfilled(new_snapshot),
+                                    on_disk_state: TextIndexState::SnapshottedAt(new_snapshot),
                                     ..
                                 },
                             ) => (Some(old_snapshot), Some(new_snapshot)),
                             (
                                 IndexConfig::Search {
-                                    on_disk_state: SearchIndexState::SnapshottedAt(old_snapshot),
+                                    on_disk_state: TextIndexState::Backfilled(old_snapshot),
                                     ..
                                 },
                                 IndexConfig::Search {
-                                    on_disk_state: SearchIndexState::SnapshottedAt(new_snapshot),
+                                    on_disk_state: TextIndexState::Backfilled(new_snapshot),
+                                    ..
+                                },
+                            ) => (Some(old_snapshot), Some(new_snapshot)),
+                            (
+                                IndexConfig::Search {
+                                    on_disk_state: TextIndexState::SnapshottedAt(old_snapshot),
+                                    ..
+                                },
+                                IndexConfig::Search {
+                                    on_disk_state: TextIndexState::SnapshottedAt(new_snapshot),
                                     ..
                                 },
                             ) => (Some(old_snapshot), Some(new_snapshot)),
@@ -408,7 +408,7 @@ impl SearchIndexManager {
                                 );
                             }
 
-                            let SearchIndexSnapshotData::SingleSegment(disk_index) = disk_index
+                            let TextIndexSnapshotData::SingleSegment(disk_index) = disk_index
                             else {
                                 anyhow::bail!("Unrecognized segment: {:?}", disk_index);
                             };

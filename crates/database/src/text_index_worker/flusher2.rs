@@ -7,13 +7,13 @@ use std::{
 use common::pause::PauseClient;
 use common::{
     bootstrap_model::index::{
-        search_index::{
+        text_index::{
             FragmentedTextSegment,
-            SearchIndexSnapshotData,
-            SearchIndexState,
             TextBackfillCursor,
             TextIndexBackfillState,
             TextIndexSnapshot,
+            TextIndexSnapshotData,
+            TextIndexState,
             TextSnapshotVersion,
         },
         IndexMetadata,
@@ -154,11 +154,11 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
         backfill_ts: Timestamp,
         segments: Vec<FragmentedTextSegment>,
         on_disk_state: SearchOnDiskState<TextSearchIndex>,
-    ) -> SearchIndexState {
+    ) -> TextIndexState {
         if let Some(backfill_result) = backfill_result {
             if backfill_result.is_backfill_complete {
-                SearchIndexState::Backfilled(TextIndexSnapshot {
-                    data: SearchIndexSnapshotData::MultiSegment(segments),
+                TextIndexState::Backfilled(TextIndexSnapshot {
+                    data: TextIndexSnapshotData::MultiSegment(segments),
                     ts: backfill_ts,
                     version: TextSnapshotVersion::V0,
                 })
@@ -171,19 +171,19 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
                 } else {
                     None
                 };
-                SearchIndexState::Backfilling(TextIndexBackfillState { segments, cursor })
+                TextIndexState::Backfilling(TextIndexBackfillState { segments, cursor })
             }
         } else {
             let snapshot = TextIndexSnapshot {
-                data: SearchIndexSnapshotData::MultiSegment(segments),
+                data: TextIndexSnapshotData::MultiSegment(segments),
                 ts: backfill_ts,
                 version: TextSnapshotVersion::V0,
             };
             let is_snapshotted = matches!(on_disk_state, SearchOnDiskState::SnapshottedAt(_));
             if is_snapshotted {
-                SearchIndexState::SnapshottedAt(snapshot)
+                TextIndexState::SnapshottedAt(snapshot)
             } else {
-                SearchIndexState::Backfilled(snapshot)
+                TextIndexState::Backfilled(snapshot)
             }
         }
     }

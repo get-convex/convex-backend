@@ -5,11 +5,11 @@ use std::{
 
 use common::{
     bootstrap_model::index::{
-        search_index::{
+        text_index::{
             DeveloperSearchIndexConfig,
-            SearchIndexSnapshotData,
-            SearchIndexState,
             TextIndexSnapshot,
+            TextIndexSnapshotData,
+            TextIndexState,
             TextSnapshotVersion,
         },
         IndexConfig,
@@ -59,16 +59,16 @@ use crate::{
 ///
 /// This is used both during the initial backfill as well as to recompute
 /// the index when documents are edited.
-pub struct SearchIndexFlusher<RT: Runtime> {
+pub struct TextIndexFlusher<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
     storage: Arc<dyn Storage>,
     index_size_soft_limit: usize,
 }
 
-impl<RT: Runtime> SearchIndexFlusher<RT> {
+impl<RT: Runtime> TextIndexFlusher<RT> {
     pub(crate) fn new(runtime: RT, database: Database<RT>, storage: Arc<dyn Storage>) -> Self {
-        SearchIndexFlusher {
+        TextIndexFlusher {
             runtime,
             database,
             storage,
@@ -83,7 +83,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         storage: Arc<dyn Storage>,
         index_size_soft_limit: usize,
     ) -> Self {
-        SearchIndexFlusher {
+        TextIndexFlusher {
             runtime,
             database,
             storage,
@@ -142,15 +142,15 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             // If the index is in the `Backfilling` state, or is already `SnapshottedAt` but
             // has grown too large or has the wrong format, it needs to be backfilled.
             let needs_backfill = match &on_disk_state {
-                SearchIndexState::Backfilling(_) => Some(BuildReason::Backfilling),
-                SearchIndexState::SnapshottedAt(TextIndexSnapshot { version, .. })
-                | SearchIndexState::Backfilled(TextIndexSnapshot { version, .. })
+                TextIndexState::Backfilling(_) => Some(BuildReason::Backfilling),
+                TextIndexState::SnapshottedAt(TextIndexSnapshot { version, .. })
+                | TextIndexState::Backfilled(TextIndexSnapshot { version, .. })
                     if *version != expected_version =>
                 {
                     Some(BuildReason::VersionMismatch)
                 },
-                SearchIndexState::SnapshottedAt(TextIndexSnapshot { ts, .. })
-                | SearchIndexState::Backfilled(TextIndexSnapshot { ts, .. }) => {
+                TextIndexState::SnapshottedAt(TextIndexSnapshot { ts, .. })
+                | TextIndexState::Backfilled(TextIndexSnapshot { ts, .. }) => {
                     let ts = IndexWorkerMetadataModel::new(&mut tx)
                         .get_fast_forward_ts(*ts, index_id.internal_id())
                         .await?;
@@ -217,15 +217,15 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         // 3. Update the search index metadata.
         let mut tx = self.database.begin(Identity::system()).await?;
         let snapshot_data = TextIndexSnapshot {
-            data: SearchIndexSnapshotData::SingleSegment(archive_name.clone()),
+            data: TextIndexSnapshotData::SingleSegment(archive_name.clone()),
             ts: snapshot_ts,
             version: TextSnapshotVersion::new(tx.persistence_version()),
         };
         let new_on_disk_state = match job.on_disk_state {
-            SearchIndexState::Backfilling(_) | SearchIndexState::Backfilled(_) => {
-                SearchIndexState::Backfilled(snapshot_data)
+            TextIndexState::Backfilling(_) | TextIndexState::Backfilled(_) => {
+                TextIndexState::Backfilled(snapshot_data)
             },
-            SearchIndexState::SnapshottedAt(_) => SearchIndexState::SnapshottedAt(snapshot_data),
+            TextIndexState::SnapshottedAt(_) => TextIndexState::SnapshottedAt(snapshot_data),
         };
         let index_name = job.index_name.clone();
         SystemMetadataModel::new(&mut tx)
@@ -339,7 +339,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             .by_id_index_metadata(*index_name.table())
             .await?;
 
-        let mut worker = SearchIndexFlusher::new(runtime, database, storage);
+        let mut worker = TextIndexFlusher::new(runtime, database, storage);
         let job = IndexBuild {
             index_name,
             by_id: by_id_metadata.id().internal_id(),
@@ -359,7 +359,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         database: Database<RT>,
         storage: Arc<dyn Storage>,
     ) -> anyhow::Result<()> {
-        let mut worker = SearchIndexFlusher::new(runtime, database, storage);
+        let mut worker = TextIndexFlusher::new(runtime, database, storage);
         worker.step().await?;
         Ok(())
     }
@@ -371,7 +371,7 @@ struct IndexBuild {
     by_id: IndexId,
     developer_config: DeveloperSearchIndexConfig,
     metadata_id: ResolvedDocumentId,
-    on_disk_state: SearchIndexState,
+    on_disk_state: TextIndexState,
     _build_reason: BuildReason,
 }
 
@@ -383,9 +383,9 @@ pub(crate) mod tests {
     use common::{
         assert_obj,
         bootstrap_model::index::{
-            search_index::{
-                SearchIndexState,
+            text_index::{
                 TextIndexSnapshot,
+                TextIndexState,
             },
             IndexConfig,
             IndexMetadata,
@@ -422,7 +422,7 @@ pub(crate) mod tests {
             .into_value();
         must_let!(let IndexMetadata {
             config: IndexConfig::Search {
-                on_disk_state: SearchIndexState::SnapshottedAt(TextIndexSnapshot { ts, .. }),
+                on_disk_state: TextIndexState::SnapshottedAt(TextIndexSnapshot { ts, .. }),
                 ..
             },
             ..

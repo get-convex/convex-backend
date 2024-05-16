@@ -12,9 +12,9 @@ use common::{
             IndexedFields,
         },
         index_validation_error,
-        search_index::{
+        text_index::{
             DeveloperSearchIndexConfig,
-            SearchIndexState,
+            TextIndexState,
         },
         vector_index::{
             DeveloperVectorIndexConfig,
@@ -207,10 +207,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 ref mut on_disk_state,
                 ..
             } => match on_disk_state {
-                SearchIndexState::Backfilled(snapshot) => {
-                    *on_disk_state = SearchIndexState::SnapshottedAt(snapshot.clone());
+                TextIndexState::Backfilled(snapshot) => {
+                    *on_disk_state = TextIndexState::SnapshottedAt(snapshot.clone());
                 },
-                SearchIndexState::Backfilling(_) | SearchIndexState::SnapshottedAt(_) => {
+                TextIndexState::Backfilling(_) | TextIndexState::SnapshottedAt(_) => {
                     anyhow::bail!(
                         "Expected backfilled index, but found: {on_disk_state:?} for {:?}",
                         backfilled_index.name.descriptor()

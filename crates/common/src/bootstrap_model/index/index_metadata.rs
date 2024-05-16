@@ -23,10 +23,6 @@ use super::{
         IndexedFields,
     },
     index_config::SerializedIndexConfig,
-    search_index::{
-        DeveloperSearchIndexConfig,
-        SearchIndexState,
-    },
     vector_index::{
         DeveloperVectorIndexConfig,
         VectorDimensions,
@@ -36,7 +32,11 @@ use super::{
     IndexConfig,
 };
 use crate::{
-    bootstrap_model::index::search_index::TextIndexBackfillState,
+    bootstrap_model::index::text_index::{
+        DeveloperSearchIndexConfig,
+        TextIndexBackfillState,
+        TextIndexState,
+    },
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -91,7 +91,7 @@ impl<T: TableIdentifier> IndexMetadata<T> {
                 search_field,
                 filter_fields,
             },
-            SearchIndexState::Backfilling(TextIndexBackfillState::new()),
+            TextIndexState::Backfilling(TextIndexBackfillState::new()),
         )
     }
 
@@ -121,7 +121,7 @@ impl<T: TableIdentifier> IndexMetadata<T> {
     pub fn new_search_index(
         name: GenericIndexName<T>,
         developer_config: DeveloperSearchIndexConfig,
-        on_disk_state: SearchIndexState,
+        on_disk_state: TextIndexState,
     ) -> Self {
         Self {
             name,

@@ -8,7 +8,7 @@ use std::{
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
-        search_index::TextSnapshotVersion,
+        text_index::TextSnapshotVersion,
         IndexConfig,
         TabletIndexMetadata,
     },

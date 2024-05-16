@@ -23,7 +23,7 @@ use database::{
     IndexModel,
     IndexWorker,
     SchemaModel,
-    SearchIndexFlusher,
+    TextIndexFlusher,
 };
 use runtime::testing::TestRuntime;
 use storage::LocalDirStorage;
@@ -192,7 +192,7 @@ pub async fn backfill_indexes(
     tp: Arc<dyn Persistence>,
 ) -> anyhow::Result<()> {
     let storage = LocalDirStorage::new(rt.clone())?;
-    SearchIndexFlusher::backfill_all_in_test(rt.clone(), db.clone(), Arc::new(storage.clone()))
+    TextIndexFlusher::backfill_all_in_test(rt.clone(), db.clone(), Arc::new(storage.clone()))
         .await?;
     VectorIndexFlusher::backfill_all_in_test(
         rt.clone(),

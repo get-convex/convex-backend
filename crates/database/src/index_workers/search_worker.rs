@@ -36,7 +36,7 @@ use crate::{
         writer::VectorMetadataWriter,
     },
     Database,
-    SearchIndexFlusher,
+    TextIndexFlusher,
     VectorIndexCompactor,
     VectorIndexFlusher,
 };
@@ -45,7 +45,7 @@ use crate::{
 pub enum SearchIndexWorker<RT: Runtime> {
     VectorFlusher(VectorIndexFlusher<RT>),
     VectorCompactor(VectorIndexCompactor<RT>),
-    SearchFlusher(SearchIndexFlusher<RT>),
+    TextFlusher(TextIndexFlusher<RT>),
     TextFlusher2(TextIndexFlusher2<RT>),
 }
 
@@ -104,7 +104,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 search_storage,
             ))
         } else {
-            SearchIndexWorker::SearchFlusher(SearchIndexFlusher::new(
+            SearchIndexWorker::TextFlusher(TextIndexFlusher::new(
                 runtime.clone(),
                 database.clone(),
                 search_storage,
@@ -133,7 +133,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             let (metrics, token) = match self {
                 SearchIndexWorker::VectorFlusher(flusher) => flusher.step().await?,
                 SearchIndexWorker::VectorCompactor(compactor) => compactor.step().await?,
-                SearchIndexWorker::SearchFlusher(flusher) => flusher.step().await?,
+                SearchIndexWorker::TextFlusher(flusher) => flusher.step().await?,
                 SearchIndexWorker::TextFlusher2(flusher) => flusher.step().await?,
             };
             drop(status);

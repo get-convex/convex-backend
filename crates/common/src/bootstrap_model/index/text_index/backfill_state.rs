@@ -10,7 +10,7 @@ use value::{
     InternalId,
 };
 
-use crate::bootstrap_model::index::search_index::{
+use crate::bootstrap_model::index::text_index::{
     index_snapshot::SerializedFragmentedTextSegment,
     FragmentedTextSegment,
 };

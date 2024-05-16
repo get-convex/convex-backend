@@ -3,9 +3,9 @@ use std::sync::Arc;
 use anyhow::Context;
 use common::{
     bootstrap_model::index::{
-        search_index::{
-            SearchIndexState,
+        text_index::{
             TextIndexSnapshot,
+            TextIndexState,
         },
         IndexConfig,
         IndexMetadata,
@@ -31,8 +31,8 @@ use value::{
 use crate::{
     Database,
     IndexModel,
-    SearchIndexFlusher,
     TestFacingModel,
+    TextIndexFlusher,
     Transaction,
 };
 
@@ -45,9 +45,9 @@ pub(crate) struct IndexData {
 pub(crate) fn new_search_worker(
     rt: &TestRuntime,
     database: &Database<TestRuntime>,
-) -> anyhow::Result<SearchIndexFlusher<TestRuntime>> {
+) -> anyhow::Result<TextIndexFlusher<TestRuntime>> {
     let storage = LocalDirStorage::new(rt.clone())?;
-    Ok(SearchIndexFlusher::new_with_soft_limit(
+    Ok(TextIndexFlusher::new_with_soft_limit(
         rt.clone(),
         database.clone(),
         Arc::new(storage),
@@ -79,7 +79,7 @@ pub(crate) async fn assert_backfilled(
         .into_value();
     must_let!(let IndexMetadata {
             config: IndexConfig::Search {
-                on_disk_state: SearchIndexState::Backfilled(TextIndexSnapshot { ts, .. }),
+                on_disk_state: TextIndexState::Backfilled(TextIndexSnapshot { ts, .. }),
                 ..
             },
             ..

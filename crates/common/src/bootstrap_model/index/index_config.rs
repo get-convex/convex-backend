@@ -13,11 +13,11 @@ use super::{
         SerializedDatabaseIndexState,
         SerializedDeveloperDatabaseIndexConfig,
     },
-    search_index::{
+    text_index::{
         DeveloperSearchIndexConfig,
-        SearchIndexState,
         SerializedDeveloperSearchIndexConfig,
-        SerializedSearchIndexState,
+        SerializedTextIndexState,
+        TextIndexState,
     },
     vector_index::{
         DeveloperVectorIndexConfig,
@@ -45,7 +45,7 @@ pub enum IndexConfig {
         developer_config: DeveloperSearchIndexConfig,
 
         /// Whether the index is fully backfilled or not on disk.
-        on_disk_state: SearchIndexState,
+        on_disk_state: TextIndexState,
     },
 
     Vector {
@@ -61,7 +61,7 @@ impl IndexConfig {
                 matches!(on_disk_state, DatabaseIndexState::Enabled)
             },
             IndexConfig::Search { on_disk_state, .. } => {
-                matches!(on_disk_state, SearchIndexState::SnapshottedAt(_))
+                matches!(on_disk_state, TextIndexState::SnapshottedAt(_))
             },
             IndexConfig::Vector { on_disk_state, .. } => {
                 matches!(on_disk_state, VectorIndexState::SnapshottedAt(_))
@@ -75,7 +75,7 @@ impl IndexConfig {
                 matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
             },
             IndexConfig::Search { on_disk_state, .. } => {
-                matches!(on_disk_state, SearchIndexState::Backfilling(_))
+                matches!(on_disk_state, TextIndexState::Backfilling(_))
             },
             IndexConfig::Vector { on_disk_state, .. } => {
                 matches!(on_disk_state, VectorIndexState::Backfilling(_))
@@ -166,7 +166,7 @@ pub enum SerializedIndexConfig {
     Search {
         #[serde(flatten)]
         developer_config: SerializedDeveloperSearchIndexConfig,
-        on_disk_state: SerializedSearchIndexState,
+        on_disk_state: SerializedTextIndexState,
     },
     #[serde(rename_all = "camelCase")]
     Vector {

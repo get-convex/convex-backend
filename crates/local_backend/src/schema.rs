@@ -11,9 +11,9 @@ use common::{
                 DatabaseIndexState,
                 DeveloperDatabaseIndexConfig,
             },
-            search_index::{
+            text_index::{
                 DeveloperSearchIndexConfig,
-                SearchIndexState,
+                TextIndexState,
             },
             vector_index::{
                 DeveloperVectorIndexConfig,
@@ -152,12 +152,12 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     },
             } => {
                 let backfill_state = match on_disk_state {
-                    SearchIndexState::Backfilling(_) => "in_progress".to_string(),
+                    TextIndexState::Backfilling(_) => "in_progress".to_string(),
                     // TODO(CX-3851): The result of this is used to poll for state in the CLI and
                     // also for display in the dashboard. We might consider a new value that would
                     // let us differentiate between Backfilled and SnapshottedAt in the dashboard.
                     // The CLI doesn't currently care.
-                    SearchIndexState::SnapshottedAt(_) | SearchIndexState::Backfilled(_) => {
+                    TextIndexState::SnapshottedAt(_) | TextIndexState::Backfilled(_) => {
                         "done".to_string()
                     },
                 };

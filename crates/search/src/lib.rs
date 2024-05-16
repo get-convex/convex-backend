@@ -42,7 +42,7 @@ use aggregation::PostingListMatchAggregator;
 use anyhow::Context;
 use common::{
     bootstrap_model::index::{
-        search_index::DeveloperSearchIndexConfig,
+        text_index::DeveloperSearchIndexConfig,
         IndexConfig,
     },
     document::ResolvedDocument,
@@ -894,7 +894,7 @@ pub enum SearchFileType {
 mod test {
     use std::collections::BTreeSet;
 
-    use common::bootstrap_model::index::search_index::DeveloperSearchIndexConfig;
+    use common::bootstrap_model::index::text_index::DeveloperSearchIndexConfig;
 
     use crate::{
         TantivySearchIndexSchema,

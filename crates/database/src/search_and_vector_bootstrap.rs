@@ -13,10 +13,10 @@ use std::{
 
 use common::{
     bootstrap_model::index::{
-        search_index::{
-            SearchIndexSnapshotData,
-            SearchIndexState,
+        text_index::{
             TextIndexSnapshot,
+            TextIndexSnapshotData,
+            TextIndexState,
         },
         vector_index::VectorIndexState,
         IndexConfig,
@@ -165,7 +165,7 @@ impl IndexesToBootstrap {
                     on_disk_state,
                 } => {
                     let search_index = match on_disk_state {
-                        SearchIndexState::Backfilling(_) => {
+                        TextIndexState::Backfilling(_) => {
                             // We'll start a new memory search index starting at the next commit
                             // after our persistence upper bound. After
                             // bootstrapping, all commits after
@@ -177,12 +177,12 @@ impl IndexesToBootstrap {
                             ));
                             SearchIndex::Backfilling { memory_index }
                         },
-                        SearchIndexState::Backfilled(TextIndexSnapshot {
+                        TextIndexState::Backfilled(TextIndexSnapshot {
                             data,
                             ts: disk_ts,
                             version,
                         })
-                        | SearchIndexState::SnapshottedAt(TextIndexSnapshot {
+                        | TextIndexState::SnapshottedAt(TextIndexSnapshot {
                             data,
                             ts: disk_ts,
                             version,
@@ -192,7 +192,7 @@ impl IndexesToBootstrap {
                             oldest_index_ts = min(oldest_index_ts, current_index_ts);
                             let memory_index =
                                 MemorySearchIndex::new(WriteTimestamp::Committed(disk_ts.succ()?));
-                            let SearchIndexSnapshotData::SingleSegment(index) = data else {
+                            let TextIndexSnapshotData::SingleSegment(index) = data else {
                                 anyhow::bail!("Unsupported segment type: {:?}", data);
                             };
                             let snapshot = SnapshotInfo {
@@ -553,7 +553,7 @@ mod tests {
 
     use common::{
         bootstrap_model::index::{
-            search_index::SearchIndexState,
+            text_index::TextIndexState,
             IndexConfig,
             IndexMetadata,
             TabletIndexMetadata,
@@ -604,10 +604,10 @@ mod tests {
         vector_index_worker::flusher::VectorIndexFlusher,
         Database,
         IndexModel,
-        SearchIndexFlusher,
         SystemMetadataModel,
         TableModel,
         TestFacingModel,
+        TextIndexFlusher,
         Transaction,
         UserFacingModel,
     };
@@ -1034,7 +1034,7 @@ mod tests {
         };
         must_let!(
             let IndexConfig::Search {
-                on_disk_state: SearchIndexState::Backfilled(disk_snapshot), ..
+                on_disk_state: TextIndexState::Backfilled(disk_snapshot), ..
             } = index_doc.into_value().config
         );
 
@@ -1158,7 +1158,7 @@ mod tests {
         let snapshot = db.latest_snapshot()?;
         let table_id = snapshot.table_mapping().id(&"test".parse()?)?.tablet_id;
         let index_name = TabletIndexName::new(table_id, "by_text".parse()?)?;
-        SearchIndexFlusher::build_index_in_test(
+        TextIndexFlusher::build_index_in_test(
             index_name.clone(),
             "test".parse()?,
             rt.clone(),

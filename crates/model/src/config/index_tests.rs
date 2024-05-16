@@ -10,7 +10,7 @@ use std::{
 use common::{
     bootstrap_model::index::{
         database_index::DatabaseIndexState,
-        search_index::SearchIndexState,
+        text_index::TextIndexState,
         vector_index::VectorIndexState,
         IndexConfig,
     },
@@ -1100,9 +1100,9 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
                 on_disk_state,
             } => {
                 let search_state = match on_disk_state {
-                    SearchIndexState::Backfilling(_) => TestIndexState::Backfilling,
-                    SearchIndexState::Backfilled(_) => TestIndexState::Backfilled,
-                    SearchIndexState::SnapshottedAt(_) => TestIndexState::Enabled,
+                    TextIndexState::Backfilling(_) => TestIndexState::Backfilling,
+                    TextIndexState::Backfilled(_) => TestIndexState::Backfilled,
+                    TextIndexState::SnapshottedAt(_) => TestIndexState::Enabled,
                 };
                 TestIndexConfig(developer_config.search_field.to_string(), search_state)
             },

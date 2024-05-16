@@ -3,7 +3,7 @@ mod developer_index_config;
 mod index_config;
 mod index_metadata;
 pub mod index_validation_error;
-pub mod search_index;
+pub mod text_index;
 pub mod vector_index;
 
 use std::sync::LazyLock;

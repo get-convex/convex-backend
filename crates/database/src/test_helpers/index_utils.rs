@@ -7,7 +7,7 @@ use anyhow::Context;
 use common::{
     bootstrap_model::index::{
         database_index::DatabaseIndexState,
-        search_index::SearchIndexState,
+        text_index::TextIndexState,
         vector_index::VectorIndexState,
         IndexConfig,
         IndexMetadata,
@@ -69,7 +69,7 @@ pub fn assert_backfilling(
             assert_matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
         },
         IndexConfig::Search { on_disk_state, .. } => {
-            assert_matches!(on_disk_state, SearchIndexState::Backfilling(_))
+            assert_matches!(on_disk_state, TextIndexState::Backfilling(_))
         },
         IndexConfig::Vector { on_disk_state, .. } => {
             assert_matches!(on_disk_state, VectorIndexState::Backfilling(_))
@@ -91,7 +91,7 @@ pub async fn assert_backfilled(
             assert_matches!(on_disk_state, DatabaseIndexState::Backfilled { .. })
         },
         IndexConfig::Search { on_disk_state, .. } => {
-            assert_matches!(on_disk_state, SearchIndexState::Backfilled(_))
+            assert_matches!(on_disk_state, TextIndexState::Backfilled(_))
         },
         IndexConfig::Vector { on_disk_state, .. } => {
             assert_matches!(on_disk_state, VectorIndexState::Backfilled(_))
@@ -113,7 +113,7 @@ pub async fn assert_enabled(
             assert_eq!(on_disk_state, DatabaseIndexState::Enabled)
         },
         IndexConfig::Search { on_disk_state, .. } => {
-            assert_matches!(on_disk_state, SearchIndexState::SnapshottedAt(_))
+            assert_matches!(on_disk_state, TextIndexState::SnapshottedAt(_))
         },
         IndexConfig::Vector { on_disk_state, .. } => {
             assert_matches!(on_disk_state, VectorIndexState::SnapshottedAt(_))

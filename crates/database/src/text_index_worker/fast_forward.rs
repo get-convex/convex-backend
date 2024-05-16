@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
-        search_index::{
-            SearchIndexState,
+        text_index::{
             TextIndexSnapshot,
+            TextIndexState,
             TextSnapshotVersion,
         },
         IndexConfig,
@@ -40,10 +40,10 @@ impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward 
             return None;
         };
         let TextIndexSnapshot { ts, version, .. } = match on_disk_state {
-            SearchIndexState::SnapshottedAt(snapshot) | SearchIndexState::Backfilled(snapshot) => {
+            TextIndexState::SnapshottedAt(snapshot) | TextIndexState::Backfilled(snapshot) => {
                 snapshot
             },
-            SearchIndexState::Backfilling(_) => return None,
+            TextIndexState::Backfilling(_) => return None,
         };
         Some((*ts, *version))
     }
@@ -68,7 +68,7 @@ pub mod tests {
     };
 
     use common::{
-        bootstrap_model::index::search_index::TextSnapshotVersion,
+        bootstrap_model::index::text_index::TextSnapshotVersion,
         knobs::DATABASE_WORKERS_MIN_COMMITS,
         runtime::{
             testing::TestRuntime,

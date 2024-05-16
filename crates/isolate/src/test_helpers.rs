@@ -61,7 +61,7 @@ use database::{
     FollowerRetentionManager,
     IndexModel,
     IndexWorker,
-    SearchIndexFlusher,
+    TextIndexFlusher,
     Transaction,
     VectorIndexFlusher,
 };
@@ -786,7 +786,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
     }
 
     pub async fn backfill_search_indexes(&self) -> anyhow::Result<()> {
-        SearchIndexFlusher::backfill_all_in_test(
+        TextIndexFlusher::backfill_all_in_test(
             self.rt.clone(),
             self.database.clone(),
             self.search_storage.clone(),
