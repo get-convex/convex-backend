@@ -45,9 +45,9 @@ use openidconnect::{
 use pb::{
     convex_actions::ActionCallbackToken as ActionCallbackTokenProto,
     convex_cursor::{
-        cursor::Position as PositionProto,
-        Cursor as CursorProto,
+        instance_cursor::Position as PositionProto,
         IndexKey as IndexKeyProto,
+        InstanceCursor as InstanceCursorProto,
     },
     convex_identity::{
         unchecked_identity::Identity as UncheckedIdentityProto,
@@ -62,7 +62,7 @@ use pb::{
         AdminKey as AdminKeyProto,
         StorageToken as StorageTokenProto,
     },
-    convex_query_journal::QueryJournal as QueryJournalProto,
+    convex_query_journal::InstanceQueryJournal as InstanceQueryJournalProto,
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::{
@@ -707,21 +707,21 @@ impl KeyBroker {
         Ok(())
     }
 
-    fn cursor_to_proto(&self, cursor: &Cursor) -> CursorProto {
+    fn cursor_to_proto(&self, cursor: &Cursor) -> InstanceCursorProto {
         let position = match cursor.position {
             CursorPosition::End => PositionProto::End(()),
             CursorPosition::After(ref key) => PositionProto::After(IndexKeyProto {
                 values: key.clone().0,
             }),
         };
-        CursorProto {
+        InstanceCursorProto {
             instance_name: self.instance_name.clone(),
             position: Some(position),
             query_fingerprint: cursor.query_fingerprint.clone(),
         }
     }
 
-    fn proto_to_cursor(&self, proto: CursorProto) -> anyhow::Result<Cursor> {
+    fn proto_to_cursor(&self, proto: InstanceCursorProto) -> anyhow::Result<Cursor> {
         if proto.instance_name != self.instance_name {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "InvalidCursor",
@@ -764,7 +764,7 @@ impl KeyBroker {
         persistence_version: PersistenceVersion,
     ) -> anyhow::Result<Cursor> {
         let cursor_version = persistence_version.index_key_version(CURSOR_VERSION);
-        let proto: CursorProto = self
+        let proto: InstanceCursorProto = self
             .encryptor
             .decode_proto(cursor_version, &cursor)
             .with_context(cursor_parse_error)?;
@@ -781,7 +781,7 @@ impl KeyBroker {
             Some(cursor) => Some(self.cursor_to_proto(cursor)),
             None => return None,
         };
-        let proto = QueryJournalProto { end_cursor: cursor };
+        let proto = InstanceQueryJournalProto { end_cursor: cursor };
         Some(self.encryptor.encode_proto(query_journal_version, proto))
     }
 
@@ -794,7 +794,7 @@ impl KeyBroker {
         match journal {
             None => Ok(QueryJournal::new()),
             Some(journal) => {
-                let proto: QueryJournalProto = self
+                let proto: InstanceQueryJournalProto = self
                     .encryptor
                     .decode_proto(query_journal_version, &journal)
                     .with_context(cursor_parse_error)?;

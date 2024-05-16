@@ -70,3 +70,19 @@ message ExecutionContext {
     optional string execution_id = 3;
     optional bool is_root = 4;
 }
+
+enum UdfType {
+  QUERY = 0;
+  MUTATION = 1;
+  ACTION = 2;
+  HTTP_ACTION = 3;
+}
+
+// Only construct this via
+// `impl From<RepeatableTimestamp> for RepeatableTimestampProto`
+// to guarantee validation. When deserializing, we assume it was serialized
+// from a valid RepeatableTimestamp, and we can use it for reading from the
+// persistence leader (not necessarily the follower).
+message RepeatableTimestamp {
+  optional uint64 ts = 1;
+}

@@ -4,6 +4,11 @@ import "convex_cursor.proto";
 
 package convex_query_journal;
 
+// Used to serialize the query journal for paginated query.
+message InstanceQueryJournal {
+    optional convex_cursor.InstanceCursor end_cursor = 1;
+}
+
 message QueryJournal {
-    optional convex_cursor.Cursor end_cursor = 1;
+    optional convex_cursor.Cursor cursor = 1;
 }

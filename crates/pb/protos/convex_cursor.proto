@@ -9,11 +9,20 @@ message IndexKey {
   bytes values = 4;
 }
 
-message Cursor {
+// Used to serialize the cursor for paginated query.
+message InstanceCursor {
   string instance_name = 1;
   oneof position {
     IndexKey after = 2;
     google.protobuf.Empty end = 3;
   }
   bytes query_fingerprint = 4;
+}
+
+message Cursor {
+  oneof position {
+    IndexKey after = 1;
+    google.protobuf.Empty end = 2;
+  }
+  optional bytes query_fingerprint = 3;
 }

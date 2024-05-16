@@ -12,9 +12,9 @@ use itertools::{
     Either,
     Itertools,
 };
-use pb::{
-    convex_cursor::IndexKey as IndexKeyProto,
-    funrun::cursor::Position as PositionProto,
+use pb::convex_cursor::{
+    cursor::Position as PositionProto,
+    IndexKey as IndexKeyProto,
 };
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -91,7 +91,7 @@ pub struct Cursor {
     pub query_fingerprint: QueryFingerprint,
 }
 
-impl From<Cursor> for pb::funrun::Cursor {
+impl From<Cursor> for pb::convex_cursor::Cursor {
     fn from(
         Cursor {
             position,
@@ -111,21 +111,21 @@ impl From<Cursor> for pb::funrun::Cursor {
     }
 }
 
-impl TryFrom<pb::funrun::Cursor> for Cursor {
+impl TryFrom<pb::convex_cursor::Cursor> for Cursor {
     type Error = anyhow::Error;
 
     fn try_from(
-        pb::funrun::Cursor {
+        pb::convex_cursor::Cursor {
             position,
             query_fingerprint,
-        }: pb::funrun::Cursor,
+        }: pb::convex_cursor::Cursor,
     ) -> anyhow::Result<Self> {
         let position = position.ok_or_else(|| anyhow::anyhow!("Cursor is missing position"))?;
         let position = match position {
-            pb::funrun::cursor::Position::After(index_key) => {
+            pb::convex_cursor::cursor::Position::After(index_key) => {
                 CursorPosition::After(IndexKeyBytes(index_key.values))
             },
-            pb::funrun::cursor::Position::End(()) => CursorPosition::End,
+            pb::convex_cursor::cursor::Position::End(()) => CursorPosition::End,
         };
         Ok(Self {
             position,
@@ -1420,7 +1420,7 @@ mod tests {
         )]
         #[test]
         fn proptest_cursor_serialization(v in any::<Cursor>()) {
-            assert_roundtrips::<Cursor, pb::funrun::Cursor>(v);
+            assert_roundtrips::<Cursor, pb::convex_cursor::Cursor>(v);
         }
     }
 }

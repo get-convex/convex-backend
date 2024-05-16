@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use anyhow::Context;
-use pb::funrun::RepeatableTimestamp as RepeatableTimestampProto;
+use pb::common::RepeatableTimestamp as RepeatableTimestampProto;
 use sync_types::Timestamp;
 
 /// WARNING: constructors of this struct must validate the timestamp is

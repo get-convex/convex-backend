@@ -42,19 +42,19 @@ impl HeapSize for QueryJournal {
     }
 }
 
-impl From<QueryJournal> for pb::funrun::QueryJournal {
+impl From<QueryJournal> for pb::convex_query_journal::QueryJournal {
     fn from(QueryJournal { end_cursor }: QueryJournal) -> Self {
         Self {
-            cursor: end_cursor.map(pb::funrun::Cursor::from),
+            cursor: end_cursor.map(pb::convex_cursor::Cursor::from),
         }
     }
 }
 
-impl TryFrom<pb::funrun::QueryJournal> for QueryJournal {
+impl TryFrom<pb::convex_query_journal::QueryJournal> for QueryJournal {
     type Error = anyhow::Error;
 
     fn try_from(
-        pb::funrun::QueryJournal { cursor }: pb::funrun::QueryJournal,
+        pb::convex_query_journal::QueryJournal { cursor }: pb::convex_query_journal::QueryJournal,
     ) -> anyhow::Result<Self> {
         let end_cursor = cursor.map(Cursor::try_from).transpose()?;
         Ok(QueryJournal { end_cursor })

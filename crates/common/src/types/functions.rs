@@ -7,7 +7,7 @@ use std::{
 };
 
 use metrics::StaticMetricLabel;
-use pb::funrun::UdfType as UdfTypeProto;
+use pb::common::UdfType as UdfTypeProto;
 use serde::{
     Deserialize,
     Serialize,
