@@ -92,8 +92,10 @@ pub static DOCUMENT_DELTAS_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("DOCUMENT_DELTAS_LIMIT", 128));
 
 /// Max number of rows we will read when calculating snapshot pages.
+/// Each document can be up to `::value::MAX_USER_SIZE`
+/// Note that this is a pro feature, so we can afford more memory.
 pub static SNAPSHOT_LIST_LIMIT: LazyLock<usize> =
-    LazyLock::new(|| env_config("SNAPSHOT_LIST_LIMIT", 128));
+    LazyLock::new(|| env_config("SNAPSHOT_LIST_LIMIT", 1024));
 
 /// Enables the log streaming worker.
 pub static ENABLE_LOG_STREAMING: LazyLock<bool> =
@@ -162,7 +164,7 @@ pub static DEFAULT_DOCUMENTS_PAGE_SIZE: LazyLock<u32> =
     LazyLock::new(|| env_config("DEFAULT_DOCUMENTS_PAGE_SIZE", 100));
 
 /// Maximum number of documents it's okay to load into memory at once.
-/// Note each document can be up to 8MiB.
+/// Note each document can be up to `::value::MAX_SIZE`.
 pub static DOCUMENTS_IN_MEMORY: LazyLock<usize> =
     LazyLock::new(|| env_config("DOCUMENTS_IN_MEMORY", 512));
 
