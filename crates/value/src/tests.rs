@@ -166,3 +166,18 @@ fn test_object_keys() -> anyhow::Result<()> {
         .contains("Field name $id starts with '$', which is reserved"));
     Ok(())
 }
+
+#[test]
+fn test_filter_system_fields() {
+    assert_eq!(
+        assert_obj!(
+            "_id" => "j571sbvz5zj1ps44j9f433pf1n6s7egs",
+            "_creationTime" => 1715895391903.0,
+            "name" => "Nicolas",
+        )
+        .filter_system_fields(),
+        assert_obj!(
+            "name" => "Nicolas",
+        )
+    )
+}
