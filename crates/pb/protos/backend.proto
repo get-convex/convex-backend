@@ -31,6 +31,8 @@ service Backend {
 
     // New endpoints used by Usher. Funrun will eventually reuse those too.
     rpc ExecuteQuery2(ExecuteQueryRequest2) returns (ExecuteQueryResponse2);
+    rpc ExecuteMutation2(ExecuteMutationRequest2) returns (ExecuteMutationResponse2);
+    rpc ExecuteAction2(ExecuteActionRequest2) returns (ExecuteActionResponse2);
 }
 
 // The request header is used by all requests to validate we are talking to the
@@ -45,13 +47,6 @@ message RequestHeader {
 message PathAndArgs {
   optional string path = 1;
   optional bytes args = 2;
-}
-
-message RedactedFunctionResult {
-    oneof result {
-        string json_packed_value = 1;
-        RedactedJsError js_error = 2;
-    }
 }
 
 message RedactedJsError {
@@ -119,8 +114,11 @@ message ExecuteQueryRequest2 {
 }
 
 message ExecuteQueryResponse2 {
-    RedactedFunctionResult result = 1;
-    RedactedLogLines log_lines = 2;
+    oneof result {
+        string json_packed_value = 1;
+        RedactedJsError js_error = 2;
+    }
+    RedactedLogLines log_lines = 3;
 }
 
 message ExecuteMutationRequest {
@@ -137,6 +135,30 @@ message ExecuteMutationResponse {
     common.FunctionResult result = 1;
 }
 
+// This is a more generic version of ExecuteQueryRequest that can be used
+// in both Usher and Funrun.
+message ExecuteMutationRequest2 {
+    RequestHeader header = 1;
+
+    convex_identity.AuthenticationToken auth_token = 2;
+    PathAndArgs path_and_args = 3;
+
+    // TODO(presley): Add caller and action auth token.
+}
+
+message MutationSuccess {
+    optional string json_packed_value = 1;
+    optional uint64 commit_ts = 2;
+}
+
+message ExecuteMutationResponse2 {
+    oneof result {
+        MutationSuccess success = 1;
+        RedactedJsError js_error = 2;
+    }
+    RedactedLogLines log_lines = 3;
+}
+
 message ExecuteActionRequest {
     reserved 4, 7;
 
@@ -149,6 +171,25 @@ message ExecuteActionRequest {
 
 message ExecuteActionResponse {
     common.FunctionResult result = 1;
+}
+
+// This is a more generic version of ExecuteQueryRequest that can be used
+// in both Usher and Funrun.
+message ExecuteActionRequest2 {
+    RequestHeader header = 1;
+
+    convex_identity.AuthenticationToken auth_token = 2;
+    PathAndArgs path_and_args = 3;
+
+    // TODO(presley): Add caller and action auth token.
+}
+
+message ExecuteActionResponse2 {
+    oneof result {
+        string json_packed_value = 1;
+        RedactedJsError js_error = 2;
+    }
+    RedactedLogLines log_lines = 3;
 }
 
 message StorageGetUrlRequest {

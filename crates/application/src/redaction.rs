@@ -9,8 +9,6 @@ use common::{
 use http::StatusCode;
 use isolate::HttpActionResponsePart;
 use pb::backend::{
-    redacted_function_result::Result as RedactedFunctionResultTypeProto,
-    RedactedFunctionResult as RedactedFunctionResultProto,
     RedactedJsError as RedactedJsErrorProto,
     RedactedLogLines as RedactedLogLinesProto,
 };
@@ -18,10 +16,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::{
-    json,
-    Value as JsonValue,
-};
+use serde_json::json;
 use sync_types::{
     types::ErrorPayload,
     LogLinesMessage,
@@ -30,48 +25,6 @@ use value::{
     sha256::Sha256,
     ConvexValue,
 };
-
-#[derive(Debug)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, Clone, PartialEq)
-)]
-pub struct RedactedFunctionResult(pub Result<ConvexValue, RedactedJsError>);
-
-impl TryFrom<RedactedFunctionResultProto> for RedactedFunctionResult {
-    type Error = anyhow::Error;
-
-    fn try_from(result: RedactedFunctionResultProto) -> anyhow::Result<Self> {
-        let result = match result.result {
-            Some(RedactedFunctionResultTypeProto::JsonPackedValue(value)) => {
-                let json: JsonValue = serde_json::from_str(&value)?;
-                let value = ConvexValue::try_from(json)?;
-                Ok(value)
-            },
-            Some(RedactedFunctionResultTypeProto::JsError(js_error)) => Err(js_error.try_into()?),
-            None => anyhow::bail!("Missing result"),
-        };
-        Ok(RedactedFunctionResult(result))
-    }
-}
-
-impl TryFrom<RedactedFunctionResult> for RedactedFunctionResultProto {
-    type Error = anyhow::Error;
-
-    fn try_from(result: RedactedFunctionResult) -> anyhow::Result<Self> {
-        let result = match result.0 {
-            Ok(value) => {
-                let json = JsonValue::from(value);
-
-                RedactedFunctionResultTypeProto::JsonPackedValue(serde_json::to_string(&json)?)
-            },
-            Err(js_error) => RedactedFunctionResultTypeProto::JsError(js_error.try_into()?),
-        };
-        Ok(RedactedFunctionResultProto {
-            result: Some(result),
-        })
-    }
-}
 
 /// List of log lines from a Convex function execution, redacted to only
 /// contain information that clients are allowed to see.
@@ -276,7 +229,6 @@ pub mod tests {
     use isolate::HttpActionResponsePart;
     use must_let::must_let;
     use pb::backend::{
-        RedactedFunctionResult as RedactedFunctionResultProto,
         RedactedJsError as RedactedJsErrorProto,
         RedactedLogLines as RedactedLogLinesProto,
     };
@@ -285,7 +237,6 @@ pub mod tests {
     use value::testing::assert_roundtrips;
 
     use crate::redaction::{
-        RedactedFunctionResult,
         RedactedJsError,
         RedactedLogLines,
     };
@@ -355,11 +306,6 @@ pub mod tests {
         #[test]
         fn test_redacted_log_lines_roundtrips(left in any::<RedactedLogLines>()) {
             assert_roundtrips::<RedactedLogLines, RedactedLogLinesProto>(left);
-        }
-
-        #[test]
-        fn test_redacted_function_result_roundtrips(left in any::<RedactedFunctionResult>()) {
-            assert_roundtrips::<RedactedFunctionResult, RedactedFunctionResultProto>(left);
         }
     }
 

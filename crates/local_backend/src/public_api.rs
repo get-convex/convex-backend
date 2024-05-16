@@ -1,7 +1,4 @@
-use anyhow::{
-    anyhow,
-    Context,
-};
+use anyhow::anyhow;
 use application::redaction::{
     RedactedJsError,
     RedactedLogLines,
@@ -211,10 +208,7 @@ pub async fn public_query_get(
     ExtractIdentity(identity): ExtractIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let udf_path = req.path.parse().context(ErrorMetadata::bad_request(
-        "InvalidConvexFunction",
-        format!("Failed to parse Convex function path: {}", req.path),
-    ))?;
+    let udf_path = parse_udf_path(&req.path)?;
     let args = req.args.into_arg_vec();
     let udf_return = st
         .application
@@ -250,10 +244,7 @@ pub async fn public_query_post(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let udf_path = req.path.parse().context(ErrorMetadata::bad_request(
-        "InvalidConvexFunction",
-        format!("Failed to parse Convex function path: {}", req.path),
-    ))?;
+    let udf_path = parse_udf_path(&req.path)?;
     let udf_return = st
         .application
         .read_only_udf(
