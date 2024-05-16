@@ -331,10 +331,6 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         full_scan_threshold_kb: usize,
         incremental_multipart_threshold_bytes: usize,
     ) -> anyhow::Result<MultiSegmentBuildResult<T::IndexType>> {
-        let page_rate_limiter = new_rate_limiter(
-            runtime.clone(),
-            Quota::per_second(rate_limit_pages_per_second),
-        );
         let row_rate_limiter = new_rate_limiter(
             runtime,
             Quota::per_second(
@@ -366,12 +362,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             } => {
                 let documents = database
                     .table_iterator(backfill_snapshot_ts, *VECTOR_INDEX_WORKER_PAGE_SIZE, None)
-                    .stream_documents_in_table(
-                        *index_name.table(),
-                        by_id,
-                        cursor,
-                        &page_rate_limiter,
-                    )
+                    .stream_documents_in_table(*index_name.table(), by_id, cursor)
                     .boxed()
                     .scan(0_u64, |total_size, res| {
                         let updated_cursor = if let Ok((doc, _)) = &res {

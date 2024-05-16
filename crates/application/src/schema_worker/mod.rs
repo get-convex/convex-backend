@@ -1,18 +1,10 @@
-use std::{
-    num::NonZeroU32,
-    sync::LazyLock,
-    time::Duration,
-};
+use std::time::Duration;
 
 use common::{
     backoff::Backoff,
     bootstrap_model::schema::SchemaState,
     errors::report_error,
-    runtime::{
-        new_rate_limiter,
-        RateLimiter,
-        Runtime,
-    },
+    runtime::Runtime,
     schemas::DatabaseSchema,
 };
 use database::{
@@ -27,7 +19,6 @@ use futures::{
     Future,
     TryStreamExt,
 };
-use governor::Quota;
 use keybroker::Identity;
 use metrics::{
     log_document_bytes,
@@ -44,13 +35,10 @@ const MAX_BACKOFF: Duration = Duration::from_secs(5);
 const INITIAL_COMMIT_BACKOFF: Duration = Duration::from_millis(10);
 const MAX_COMMIT_BACKOFF: Duration = Duration::from_secs(2);
 const MAX_COMMIT_FAILURES: u32 = 3;
-static TABLE_ITERATOR_RATE_LIMIT: LazyLock<NonZeroU32> =
-    LazyLock::new(|| NonZeroU32::new(1000).unwrap());
 
 pub struct SchemaWorker<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
-    rate_limiter: RateLimiter<RT>,
 }
 
 impl<RT: Runtime> SchemaWorker<RT> {
@@ -58,7 +46,6 @@ impl<RT: Runtime> SchemaWorker<RT> {
         let worker = Self {
             runtime: runtime.clone(),
             database,
-            rate_limiter: new_rate_limiter(runtime, Quota::per_second(*TABLE_ITERATOR_RATE_LIMIT)),
         };
         async move {
             tracing::info!("Starting SchemaWorker");
@@ -112,7 +99,6 @@ impl<RT: Runtime> SchemaWorker<RT> {
                         anyhow::anyhow!("Failed to find id index for table id {table_id}")
                     })?,
                     None,
-                    &self.rate_limiter,
                 );
 
                 pin_mut!(stream);
@@ -193,7 +179,6 @@ mod tests {
         },
         db_schema,
         object_validator,
-        runtime::new_rate_limiter,
         schemas::{
             validator::{
                 FieldValidator,
@@ -209,14 +194,12 @@ mod tests {
         SchemaModel,
         UserFacingModel,
     };
-    use governor::Quota;
     use keybroker::Identity;
     use maplit::btreemap;
     use runtime::testing::TestRuntime;
     use value::TableName;
 
     use super::SchemaWorker;
-    use crate::schema_worker::TABLE_ITERATOR_RATE_LIMIT;
 
     #[convex_macro::test_runtime]
     async fn test_schema_validation(rt: TestRuntime) -> anyhow::Result<()> {
@@ -224,7 +207,6 @@ mod tests {
         let schema_worker = SchemaWorker {
             runtime: rt.clone(),
             database: db.clone(),
-            rate_limiter: new_rate_limiter(rt, Quota::per_second(*TABLE_ITERATOR_RATE_LIMIT)),
         };
         let mut tx = db.begin(Identity::system()).await?;
         let table_name = "table".parse::<TableName>()?;

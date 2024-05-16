@@ -20,10 +20,7 @@ use common::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         SEARCH_INDEX_SIZE_SOFT_LIMIT,
     },
-    runtime::{
-        new_rate_limiter,
-        Runtime,
-    },
+    runtime::Runtime,
     types::{
         IndexId,
         TabletIndexName,
@@ -36,7 +33,6 @@ use futures::{
     pin_mut,
     TryStreamExt,
 };
-use governor::Quota;
 use keybroker::Identity;
 use search::{
     disk_index::{
@@ -194,7 +190,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
                     developer_config: developer_config.clone(),
                     metadata_id: index_id,
                     on_disk_state,
-                    build_reason,
+                    _build_reason: build_reason,
                 };
                 to_build.push(job);
             }
@@ -268,7 +264,6 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             self.database
                 .table_iterator(snapshot_ts, *DEFAULT_DOCUMENTS_PAGE_SIZE as usize, None);
 
-        let rt = self.runtime.clone();
         let index_name = &job.index_name;
         let job = job.clone();
         let (tx, rx) = oneshot::channel();
@@ -276,16 +271,11 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         self.runtime.spawn_thread(move || async move {
             let result: anyhow::Result<usize> = try {
                 let mut index_writer = index_writer_for_directory(&index_path, &tantivy_schema)?;
-                let rate_limiter = new_rate_limiter(
-                    rt,
-                    Quota::per_second(job.build_reason.read_max_pages_per_second()),
-                );
 
                 let revision_stream = table_iterator.stream_documents_in_table(
                     *job.index_name.table(),
                     job.by_id,
                     None,
-                    &rate_limiter,
                 );
                 pin_mut!(revision_stream);
 
@@ -356,7 +346,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             developer_config: developer_config.clone(),
             metadata_id: metadata.clone().id(),
             on_disk_state: on_disk_state.clone(),
-            build_reason: BuildReason::TooOld,
+            _build_reason: BuildReason::TooOld,
         };
         worker.build_one(job).await?;
         Ok(())
@@ -382,7 +372,7 @@ struct IndexBuild {
     developer_config: DeveloperSearchIndexConfig,
     metadata_id: ResolvedDocumentId,
     on_disk_state: SearchIndexState,
-    build_reason: BuildReason,
+    _build_reason: BuildReason,
 }
 
 #[cfg(test)]

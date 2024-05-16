@@ -9,7 +9,6 @@ use std::{
 use common::pause::PauseClient;
 use common::{
     document::ResolvedDocument,
-    knobs::TABLE_SUMMARY_CHUNKS_PER_SECOND,
     persistence::{
         new_static_repeatable_recent,
         Persistence,
@@ -24,11 +23,7 @@ use common::{
         RevisionPair,
     },
     query::Order,
-    runtime::{
-        new_rate_limiter,
-        RateLimiter,
-        Runtime,
-    },
+    runtime::Runtime,
     types::{
         IndexId,
         RepeatableReason,
@@ -47,7 +42,6 @@ use futures::{
     Stream,
     TryStreamExt,
 };
-use governor::Quota;
 #[cfg(any(test, feature = "testing"))]
 use keybroker::Identity;
 #[cfg(any(test, feature = "testing"))]
@@ -358,7 +352,6 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         &self,
         pause_client: Option<PauseClient>,
         page_size: usize,
-        rate_limiter: &RateLimiter<RT>,
     ) -> anyhow::Result<TableSummarySnapshot> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let start_ts = tx.begin_timestamp();
@@ -376,7 +369,6 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
             move || database.table_iterator(snapshot_ts, page_size, None),
             &table_mapping,
             &by_id_indexes,
-            rate_limiter,
         )
         .await
     }
@@ -388,19 +380,14 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         table_iterator: impl Fn() -> TableIterator<RT>,
         table_mapping: &TableMapping,
         by_id_indexes: &BTreeMap<TabletId, IndexId>,
-        rate_limiter: &RateLimiter<RT>,
     ) -> anyhow::Result<TableSummarySnapshot> {
         let mut snapshot = BTreeMap::new();
         for (tablet_id, ..) in table_mapping.iter() {
             let by_id_index = by_id_indexes.get(&tablet_id).expect("by_id should exist");
             // table_iterator, table_mapping, and by_id_indexes should all be
             // computed at the same snapshot.
-            let revision_stream = table_iterator().stream_documents_in_table(
-                tablet_id,
-                *by_id_index,
-                None,
-                rate_limiter,
-            );
+            let revision_stream =
+                table_iterator().stream_documents_in_table(tablet_id, *by_id_index, None);
             let summary = Self::collect_table_revisions(revision_stream).await?;
             snapshot.insert(tablet_id, summary);
         }
@@ -490,10 +477,6 @@ pub async fn bootstrap<RT: Runtime>(
     let (base_snapshot, base_snapshot_ts) = match stored_snapshot {
         Some(base) => base,
         None => {
-            let rate_limiter = new_rate_limiter(
-                rt.clone(),
-                Quota::per_second(*TABLE_SUMMARY_CHUNKS_PER_SECOND),
-            );
             let by_id_indexes = index_registry.by_id_indexes();
             let base_snapshot = TableSummaryWriter::collect_snapshot(
                 *recent_ts,
@@ -509,7 +492,6 @@ pub async fn bootstrap<RT: Runtime>(
                 },
                 &table_mapping,
                 &by_id_indexes,
-                &rate_limiter,
             )
             .await?;
             (base_snapshot, recent_ts)
@@ -629,7 +611,6 @@ mod tests {
     use cmd_util::env::env_config;
     use common::{
         persistence::NoopRetentionValidator,
-        runtime::new_rate_limiter,
         types::{
             unchecked_repeatable_ts,
             FieldName,
@@ -637,7 +618,6 @@ mod tests {
         },
         value::ConvexObject,
     };
-    use governor::Quota;
     use keybroker::Identity;
     use prop::collection::vec as prop_vec;
     use proptest::prelude::*;
@@ -804,8 +784,7 @@ mod tests {
                 database,
                 Arc::new(NoopRetentionValidator),
             );
-            let rate_limiter = new_rate_limiter(runtime, Quota::per_second(1024.try_into()?));
-            let computed = writer.compute_snapshot(None, 2, &rate_limiter).await?;
+            let computed = writer.compute_snapshot(None, 2).await?;
 
             if !is_empty {
                 let table_id = table_mapping.id(&table_name)?;
@@ -849,8 +828,7 @@ mod tests {
                 database,
                 Arc::new(NoopRetentionValidator),
             );
-            let rate_limiter = new_rate_limiter(runtime, Quota::per_second(1024.try_into()?));
-            let computed = writer.compute_snapshot(None, 2, &rate_limiter).await?;
+            let computed = writer.compute_snapshot(None, 2).await?;
 
             for (table_name, values) in &values {
                 if !values.is_empty() {

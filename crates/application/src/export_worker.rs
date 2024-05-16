@@ -34,10 +34,7 @@ use common::{
         IndexRangeExpression,
         Order,
     },
-    runtime::{
-        new_rate_limiter,
-        Runtime,
-    },
+    runtime::Runtime,
     types::{
         IndexId,
         ObjectKey,
@@ -65,7 +62,6 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
-use governor::Quota;
 use keybroker::Identity;
 use mime2ext::mime2ext;
 use model::{
@@ -317,8 +313,6 @@ impl<RT: Runtime> ExportWorker<RT> {
     ) -> anyhow::Result<(Timestamp, ExportObjectKeys, FunctionUsageTracker)> {
         tracing::info!("Beginning snapshot export...");
         let storage = &self.storage;
-        let rate_limiter =
-            new_rate_limiter(self.runtime.clone(), Quota::per_second(1000.try_into()?));
         let (ts, tables, by_id_indexes, system_tables, virtual_tables) = {
             let mut tx = self.database.begin(Identity::system()).await?;
             let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
@@ -392,12 +386,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         .get(tablet_id)
                         .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
                     let table_iterator = self.database.table_iterator(ts, 1000, None);
-                    let stream = table_iterator.stream_documents_in_table(
-                        *tablet_id,
-                        *by_id,
-                        None,
-                        &rate_limiter,
-                    );
+                    let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
                     pin_mut!(stream);
 
                     let (tablet_id, mut table_upload) = table_uploads
@@ -455,8 +444,6 @@ impl<RT: Runtime> ExportWorker<RT> {
         usage: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
         let mut zip_snapshot_upload = ZipSnapshotUpload::new(&mut writer).await?;
-        let rate_limiter =
-            new_rate_limiter(self.runtime.clone(), Quota::per_second(1000.try_into()?));
         let tablet_ids: BTreeSet<_> = tables.keys().cloned().collect();
 
         {
@@ -498,8 +485,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 .start_system_table(FILE_STORAGE_VIRTUAL_TABLE.clone())
                 .await?;
             let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
-            let stream =
-                table_iterator.stream_documents_in_table(*tablet_id, *by_id, None, &rate_limiter);
+            let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
             pin_mut!(stream);
             while let Some((doc, _ts)) = stream.try_next().await? {
                 let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
@@ -526,8 +512,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             table_upload.complete().await?;
 
             let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
-            let stream =
-                table_iterator.stream_documents_in_table(*tablet_id, *by_id, None, &rate_limiter);
+            let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
             pin_mut!(stream);
             while let Some((doc, _ts)) = stream.try_next().await? {
                 let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
@@ -578,12 +563,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             let mut generated_schema = GeneratedSchema::new(table_summary.inferred_type().into());
             if ExportContext::is_ambiguous(table_summary.inferred_type()) {
                 let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
-                let stream = table_iterator.stream_documents_in_table(
-                    *tablet_id,
-                    *by_id,
-                    None,
-                    &rate_limiter,
-                );
+                let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
                 pin_mut!(stream);
                 while let Some((doc, _ts)) = stream.try_next().await? {
                     generated_schema.insert(doc.value(), doc.developer_id());
@@ -595,8 +575,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 .await?;
 
             let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
-            let stream =
-                table_iterator.stream_documents_in_table(*tablet_id, *by_id, None, &rate_limiter);
+            let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
             pin_mut!(stream);
 
             // Write documents from stream to table uploads

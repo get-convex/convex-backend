@@ -30,11 +30,7 @@ use common::{
         CursorPosition,
         Order,
     },
-    runtime::{
-        RateLimiter,
-        Runtime,
-        RuntimeInstant,
-    },
+    runtime::Runtime,
     try_chunks::TryChunksExt,
     types::{
         IndexId,
@@ -94,7 +90,7 @@ fn cursor_has_walked(cursor: Option<&CursorPosition>, key: &IndexKeyBytes) -> bo
 }
 
 pub struct TableIterator<RT: Runtime> {
-    runtime: RT,
+    _runtime: RT,
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     page_size: usize,
@@ -113,7 +109,7 @@ impl<RT: Runtime> TableIterator<RT> {
     ) -> Self {
         let pause_client = pause_client.unwrap_or_default();
         Self {
-            runtime,
+            _runtime: runtime,
             persistence,
             retention_validator,
             page_size,
@@ -128,14 +124,12 @@ impl<RT: Runtime> TableIterator<RT> {
         tablet_id: TabletId,
         by_id: IndexId,
         cursor: Option<ResolvedDocumentId>,
-        rate_limiter: &RateLimiter<RT>,
     ) {
         let stream = self.stream_documents_in_table_by_index(
             tablet_id,
             by_id,
             IndexedFields::by_id(),
             cursor.map(|id| CursorPosition::After(IndexKey::new(vec![], id.into()).into_bytes())),
-            rate_limiter,
         );
         pin_mut!(stream);
         while let Some((_, ts, doc)) = stream.try_next().await? {
@@ -165,7 +159,6 @@ impl<RT: Runtime> TableIterator<RT> {
         index_id: IndexId,
         indexed_fields: IndexedFields,
         cursor: Option<CursorPosition>,
-        rate_limiter: &RateLimiter<RT>,
     ) {
         let mut cursor = TableScanCursor { index_key: cursor };
 
@@ -183,10 +176,6 @@ impl<RT: Runtime> TableIterator<RT> {
 
         loop {
             self.pause_client.wait("before_index_page").await;
-            while let Err(not_until) = rate_limiter.check() {
-                let delay = not_until.wait_time_from(self.runtime.monotonic_now().as_nanos());
-                self.runtime.wait(delay).await;
-            }
             let page_start = cursor.index_key.clone();
             let (page, new_end_ts) = self.fetch_page(index_id, tablet_id, &mut cursor).await?;
             anyhow::ensure!(*new_end_ts >= end_ts);
@@ -213,7 +202,6 @@ impl<RT: Runtime> TableIterator<RT> {
                 page_start.as_ref(),
                 *end_ts,
                 new_end_ts,
-                rate_limiter,
                 &mut skipped_keys,
             )
             .await?;
@@ -288,12 +276,11 @@ impl<RT: Runtime> TableIterator<RT> {
         lower_bound: Option<&CursorPosition>,
         start_ts: Timestamp,
         end_ts: RepeatableTimestamp,
-        rate_limiter: &RateLimiter<RT>,
         output: &mut IterationDocuments,
     ) -> anyhow::Result<()> {
         let reader = self.persistence.clone();
         let persistence_version = reader.version();
-        let skipped_revs = self.walk_document_log(tablet_id, start_ts, end_ts, rate_limiter);
+        let skipped_revs = self.walk_document_log(tablet_id, start_ts, end_ts);
         let revisions_at_snapshot = self.load_revisions_at_snapshot_ts(skipped_revs);
         pin_mut!(revisions_at_snapshot);
         while let Some((doc, ts)) = revisions_at_snapshot.try_next().await? {
@@ -308,12 +295,11 @@ impl<RT: Runtime> TableIterator<RT> {
     }
 
     #[try_stream(ok = InternalDocumentId, error = anyhow::Error)]
-    async fn walk_document_log<'a>(
-        &'a self,
+    async fn walk_document_log(
+        &self,
         tablet_id: TabletId,
         start_ts: Timestamp,
         end_ts: RepeatableTimestamp,
-        rate_limiter: &'a RateLimiter<RT>,
     ) {
         let reader = self.persistence.clone();
         let repeatable_persistence =
@@ -323,10 +309,6 @@ impl<RT: Runtime> TableIterator<RT> {
             .try_chunks2(self.page_size);
         pin_mut!(documents);
         while let Some(chunk) = documents.try_next().await? {
-            while let Err(not_until) = rate_limiter.check() {
-                let delay = not_until.wait_time_from(self.runtime.monotonic_now().as_nanos());
-                self.runtime.wait(delay).await;
-            }
             for (_, id, _) in chunk {
                 if *id.table() == tablet_id {
                     yield id;
@@ -552,12 +534,9 @@ impl Deref for IterationDocuments {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::{
-            BTreeMap,
-            BTreeSet,
-        },
-        num::NonZeroU32,
+    use std::collections::{
+        BTreeMap,
+        BTreeSet,
     };
 
     use common::{
@@ -566,7 +545,6 @@ mod tests {
             IndexMetadata,
         },
         pause::PauseController,
-        runtime::new_rate_limiter,
         types::{
             unchecked_repeatable_ts,
             GenericIndexName,
@@ -580,7 +558,6 @@ mod tests {
         },
     };
     use futures::TryStreamExt;
-    use governor::Quota;
     use keybroker::Identity;
     use prop::collection::vec as prop_vec;
     use proptest::prelude::*;
@@ -658,13 +635,10 @@ mod tests {
             database.commit(tx).await?;
             let iterator = database.table_iterator(database.now_ts_for_reads(), 2, None);
             let tablet_id = table_mapping.id(&table_name)?.tablet_id;
-            let rate_limiter =
-                new_rate_limiter(runtime, Quota::per_second(NonZeroU32::new(1000).unwrap()));
             let revision_stream = iterator.stream_documents_in_table(
                 tablet_id,
                 by_id_metadata.id().internal_id(),
                 None,
-                &rate_limiter,
             );
             futures::pin_mut!(revision_stream);
             let mut actual = BTreeSet::new();
@@ -707,15 +681,9 @@ mod tests {
         let (mut pause, pause_client) = PauseController::new(["before_index_page"]);
         let snapshot_ts = database.now_ts_for_reads();
         let iterator = database.table_iterator(snapshot_ts, 2, Some(pause_client));
-        let rate_limiter =
-            new_rate_limiter(runtime, Quota::per_second(NonZeroU32::new(1000).unwrap()));
         let tablet_id = table_mapping.id(&table_name)?.tablet_id;
-        let revision_stream = iterator.stream_documents_in_table(
-            tablet_id,
-            by_id_metadata.id().internal_id(),
-            None,
-            &rate_limiter,
-        );
+        let revision_stream =
+            iterator.stream_documents_in_table(tablet_id, by_id_metadata.id().internal_id(), None);
         let table_name_ = table_name.clone();
         let database_ = database.clone();
         let test_driver = async move {
@@ -861,19 +829,9 @@ mod tests {
         database.bump_max_repeatable_ts().await?;
 
         let iterator = database.table_iterator(snapshot_ts, 1, None);
-        let rate_limiter = new_rate_limiter(
-            rt.clone(),
-            Quota::per_second(NonZeroU32::new(1000).unwrap()),
-        );
         let tablet_id = table_mapping.id(&table_name)?.tablet_id;
         let revisions: Vec<_> = iterator
-            .stream_documents_in_table_by_index(
-                tablet_id,
-                by_k_id,
-                index_fields,
-                None,
-                &rate_limiter,
-            )
+            .stream_documents_in_table_by_index(tablet_id, by_k_id, index_fields, None)
             .try_collect()
             .await?;
         assert_eq!(revisions.len(), 2);

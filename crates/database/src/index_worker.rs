@@ -651,7 +651,7 @@ impl<RT: Runtime> IndexWriter<RT> {
 
         let by_id = index_registry.must_get_by_id(tablet_id)?.id();
         let stream = table_iterator
-            .stream_documents_in_table(tablet_id, by_id, None, &self.rate_limiter)
+            .stream_documents_in_table(tablet_id, by_id, None)
             .fuse();
         pin_mut!(stream);
         let mut index_updates_written = 0;

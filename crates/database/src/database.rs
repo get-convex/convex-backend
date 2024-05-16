@@ -69,7 +69,6 @@ use common::{
     },
     query::Order,
     runtime::{
-        new_rate_limiter,
         RateLimiter,
         Runtime,
         RuntimeInstant,
@@ -112,7 +111,6 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
-use governor::Quota;
 use imbl::OrdMap;
 use indexing::{
     backend_in_memory_indexes::{
@@ -533,12 +531,10 @@ impl DatabaseSnapshot {
         &'a self,
         runtime: &RT,
         tablet_id: TabletId,
-        rate_limiter: &'a RateLimiter<RT>,
     ) -> anyhow::Result<LatestDocumentStream<'a>> {
         let table_by_id = self.index_registry().must_get_by_id(tablet_id)?.id();
         let table_iterator = self.table_iterator(runtime.clone());
-        let stream =
-            table_iterator.stream_documents_in_table(tablet_id, table_by_id, None, rate_limiter);
+        let stream = table_iterator.stream_documents_in_table(tablet_id, table_by_id, None);
         Ok(stream.map_ok(|(document, ts)| (ts, document)).boxed())
     }
 
@@ -973,7 +969,6 @@ impl<RT: Runtime> Database<RT> {
         &'a self,
         snapshot_ts: RepeatableTimestamp,
         table_name: &'a TableName,
-        rate_limiter: &'b RateLimiter<RT>,
     ) -> anyhow::Result<impl Stream<Item = anyhow::Result<ResolvedDocument>> + 'b> {
         let iterator = self.table_iterator(snapshot_ts, 100, None);
         let table_mapping = self.snapshot_table_mapping(snapshot_ts).await?;
@@ -982,7 +977,7 @@ impl<RT: Runtime> Database<RT> {
         let by_id = *by_id_indexes
             .get(&tablet_id)
             .ok_or_else(|| anyhow::anyhow!("by_id not found for {table_name}"))?;
-        let stream = iterator.stream_documents_in_table(tablet_id, by_id, None, rate_limiter);
+        let stream = iterator.stream_documents_in_table(tablet_id, by_id, None);
         Ok(stream.map_ok(|(doc, _)| doc))
     }
 
@@ -1025,14 +1020,7 @@ impl<RT: Runtime> Database<RT> {
             .index_registry
             .must_get_by_id(tables_tablet_id)?
             .id();
-        let rate_limiter =
-            new_rate_limiter(self.runtime.clone(), Quota::per_second(1000.try_into()?));
-        let stream = table_iterator.stream_documents_in_table(
-            tables_tablet_id,
-            tables_by_id,
-            None,
-            &rate_limiter,
-        );
+        let stream = table_iterator.stream_documents_in_table(tables_tablet_id, tables_by_id, None);
         pin_mut!(stream);
         let mut table_mapping = TableMapping::new();
         while let Some((table_doc, _)) = stream.try_next().await? {
@@ -1060,14 +1048,8 @@ impl<RT: Runtime> Database<RT> {
             .index_registry
             .must_get_by_id(index_tablet_id.tablet_id)?
             .id();
-        let rate_limiter =
-            new_rate_limiter(self.runtime.clone(), Quota::per_second(1000.try_into()?));
-        let stream = table_iterator.stream_documents_in_table(
-            index_tablet_id.tablet_id,
-            index_by_id,
-            None,
-            &rate_limiter,
-        );
+        let stream =
+            table_iterator.stream_documents_in_table(index_tablet_id.tablet_id, index_by_id, None);
         pin_mut!(stream);
         let mut by_id_indexes = BTreeMap::new();
         while let Some((index_doc, _)) = stream.try_next().await? {
@@ -1677,10 +1659,7 @@ impl<RT: Runtime> Database<RT> {
             .get(&tablet_id)
             .ok_or_else(|| anyhow::anyhow!("by_id index for {tablet_id:?} missing"))?;
         let table_iterator = self.table_iterator(snapshot, 100, None);
-        let rate_limiter =
-            new_rate_limiter(self.runtime.clone(), Quota::per_second(100.try_into()?));
-        let document_stream =
-            table_iterator.stream_documents_in_table(tablet_id, by_id, cursor, &rate_limiter);
+        let document_stream = table_iterator.stream_documents_in_table(tablet_id, by_id, cursor);
         pin_mut!(document_stream);
         // new_cursor is set once, when we know the final internal_id.
         let mut new_cursor = None;
