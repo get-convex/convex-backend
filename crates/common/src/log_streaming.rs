@@ -268,14 +268,15 @@ impl LogEvent {
                                 "timestamp": ms,
                                 "topic": "console",
                                 "function": function_source,
-                                "messages": vec![message],
+                                "message": message,
                             })
                         },
                         LogLine::Structured {
                             messages,
                             level,
                             timestamp,
-                            ..
+                            is_truncated,
+                            system_metadata,
                         } => {
                             let timestamp_ms = timestamp.as_ms_since_epoch()?;
                             json!({
@@ -283,7 +284,10 @@ impl LogEvent {
                                 "topic": "console",
                                 "function": function_source,
                                 "log_level": level.to_string(),
-                                "messages": *messages,
+                                "message": messages.join(" "),
+                                "is_truncated": is_truncated,
+                                "system_code": system_metadata.map(|s| s.code)
+
                             })
                         },
                     }
