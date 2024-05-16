@@ -142,7 +142,6 @@ pub trait SearchIndex {
 
     fn estimate_document_size(schema: &Self::Schema, doc: &ResolvedDocument) -> u64;
 
-    // TODO(sam): Remove full_scan_threshold_bytes, this is vector specific.
     async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
@@ -175,6 +174,7 @@ pub trait SegmentStatistics: Default {
     fn log(&self);
 }
 
+#[derive(Debug)]
 pub struct TextSearchIndex;
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
@@ -240,17 +240,23 @@ impl SearchIndex for TextSearchIndex {
         "".to_string()
     }
 
-    fn statistics(_segment: &Self::Segment) -> anyhow::Result<Self::Statistics> {
-        Ok(TextStatistics)
+    fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics> {
+        Ok(TextStatistics {
+            num_indexed_documents: segment.num_indexed_documents,
+        })
     }
 }
 
-#[derive(Default)]
-pub struct TextStatistics;
+#[derive(Debug, Default)]
+pub struct TextStatistics {
+    pub num_indexed_documents: u32,
+}
 
 impl SegmentStatistics for TextStatistics {
-    fn add(_: anyhow::Result<Self>, _: anyhow::Result<Self>) -> anyhow::Result<Self> {
-        Ok(Self)
+    fn add(lhs: anyhow::Result<Self>, rhs: anyhow::Result<Self>) -> anyhow::Result<Self> {
+        Ok(Self {
+            num_indexed_documents: lhs?.num_indexed_documents + rhs?.num_indexed_documents,
+        })
     }
 
     fn log(&self) {}
@@ -432,6 +438,8 @@ impl From<TextIndexSnapshot> for SearchSnapshot<TextSearchIndex> {
 
 #[derive(Debug)]
 pub enum SnapshotData<T> {
+    /// An unrecognized snapshot, probably from a newer version of backend than
+    /// this one that we subsequently rolled back.
     Unknown,
     MultiSegment(Vec<T>),
 }

@@ -1009,3 +1009,7 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
 /// Percentage of request traces that should sampled
 pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> =
     LazyLock::new(|| env_config("REQUEST_TRACE_SAMPLE_CONFIG", SamplingConfig::default()));
+
+/// Write not yet complete multi segment indexes for text search.
+pub static BUILD_MULTI_SEGMENT_TEXT_INDEXES: LazyLock<bool> =
+    LazyLock::new(|| env_config("WRITE_MULTI_SEGMENT_TEXT_INDEXES", false));

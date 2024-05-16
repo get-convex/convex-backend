@@ -5,7 +5,10 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
-    knobs::DATABASE_WORKERS_POLL_INTERVAL,
+    knobs::{
+        BUILD_MULTI_SEGMENT_TEXT_INDEXES,
+        DATABASE_WORKERS_POLL_INTERVAL,
+    },
     runtime::Runtime,
 };
 use futures::{
@@ -27,6 +30,7 @@ use crate::{
         timeout_with_jitter,
     },
     metrics::log_worker_starting,
+    text_index_worker::flusher2::TextIndexFlusher2,
     vector_index_worker::{
         compactor::CompactionConfig,
         writer::VectorMetadataWriter,
@@ -42,6 +46,7 @@ pub enum SearchIndexWorker<RT: Runtime> {
     VectorFlusher(VectorIndexFlusher<RT>),
     VectorCompactor(VectorIndexCompactor<RT>),
     SearchFlusher(SearchIndexFlusher<RT>),
+    TextFlusher2(TextIndexFlusher2<RT>),
 }
 
 #[async_trait]
@@ -92,16 +97,25 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 vector_writer,
             )),
         );
+        let text_flusher = if *BUILD_MULTI_SEGMENT_TEXT_INDEXES {
+            SearchIndexWorker::TextFlusher2(TextIndexFlusher2::new(
+                runtime.clone(),
+                database.clone(),
+                search_storage,
+            ))
+        } else {
+            SearchIndexWorker::SearchFlusher(SearchIndexFlusher::new(
+                runtime.clone(),
+                database.clone(),
+                search_storage,
+            ))
+        };
         let search_flush = retry_loop_expect_occs_and_overloaded(
             "SearchFlusher",
             runtime.clone(),
             database.clone(),
             Duration::ZERO,
-            SearchIndexWorker::SearchFlusher(SearchIndexFlusher::new(
-                runtime,
-                database.clone(),
-                search_storage,
-            )),
+            text_flusher,
         );
 
         join!(vector_flush, vector_compact, search_flush);
@@ -120,6 +134,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 SearchIndexWorker::VectorFlusher(flusher) => flusher.step().await?,
                 SearchIndexWorker::VectorCompactor(compactor) => compactor.step().await?,
                 SearchIndexWorker::SearchFlusher(flusher) => flusher.step().await?,
+                SearchIndexWorker::TextFlusher2(flusher) => flusher.step().await?,
             };
             drop(status);
 

@@ -145,6 +145,7 @@ pub struct SerializedFragmentedTextSegment {
     pub id_tracker_key: String,
     pub deleted_terms_table_key: String,
     pub alive_bitset_key: String,
+    pub num_indexed_documents: u32,
     pub id: String,
 }
 
@@ -157,6 +158,7 @@ impl TryFrom<FragmentedTextSegment> for SerializedFragmentedTextSegment {
             id_tracker_key: value.id_tracker_key.to_string(),
             deleted_terms_table_key: value.deleted_terms_table_key.to_string(),
             alive_bitset_key: value.alive_bitset_key.to_string(),
+            num_indexed_documents: value.num_indexed_documents,
             id: value.id,
         })
     }
@@ -171,6 +173,7 @@ impl TryFrom<SerializedFragmentedTextSegment> for FragmentedTextSegment {
             id_tracker_key: value.id_tracker_key.try_into()?,
             deleted_terms_table_key: value.deleted_terms_table_key.try_into()?,
             alive_bitset_key: value.alive_bitset_key.try_into()?,
+            num_indexed_documents: value.num_indexed_documents,
             id: value.id,
         })
     }
@@ -183,7 +186,7 @@ pub struct FragmentedTextSegment {
     pub id_tracker_key: ObjectKey,
     pub deleted_terms_table_key: ObjectKey,
     pub alive_bitset_key: ObjectKey,
-
+    pub num_indexed_documents: u32,
     // A random UUID that can be used to identify a segment to determine if the
     // segment has changed during non-transactional index changes (compaction).
     pub id: String,

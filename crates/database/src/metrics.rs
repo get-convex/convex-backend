@@ -770,6 +770,14 @@ pub mod search {
     }
 
     register_convex_histogram!(
+        DATABASE_TEXT_DOCUMENTS_PER_NEW_SEGMENT_TOTAL,
+        "Number of documents in a newly built text search index segment",
+    );
+    pub fn log_documents_per_new_segment(count: u32) {
+        log_distribution(&DATABASE_TEXT_DOCUMENTS_PER_NEW_SEGMENT_TOTAL, count as f64);
+    }
+
+    register_convex_histogram!(
         DATABASE_SEARCH_ITERATOR_NEXT_SECONDS,
         "Time to fetch the next document in a search query iterator",
         &STATUS_LABEL
