@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     ops::Deref,
     str::FromStr,
 };
@@ -49,6 +50,12 @@ impl FromStr for Identifier {
 impl From<Identifier> for String {
     fn from(id: Identifier) -> String {
         id.0
+    }
+}
+
+impl Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
     }
 }
 

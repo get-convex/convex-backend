@@ -23,6 +23,12 @@ impl FromStr for ComponentName {
     }
 }
 
+impl From<Identifier> for ComponentName {
+    fn from(id: Identifier) -> Self {
+        Self(id)
+    }
+}
+
 impl From<ComponentName> for String {
     fn from(name: ComponentName) -> String {
         name.0.to_string()

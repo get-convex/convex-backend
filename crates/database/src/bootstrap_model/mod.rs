@@ -2,6 +2,7 @@
 //! low level database to start up properly.
 //!
 //! Higher level tables belong in the model crate, layered above the database.
+pub mod components;
 pub mod defaults;
 pub mod import_facing;
 pub mod index;
@@ -12,6 +13,5 @@ pub mod table;
 pub mod user_facing;
 pub mod virtual_tables;
 
-pub mod components;
 #[cfg(any(test, feature = "testing"))]
 pub mod test_facing;

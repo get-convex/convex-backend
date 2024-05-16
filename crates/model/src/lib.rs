@@ -101,6 +101,7 @@ use crate::{
 
 pub mod auth;
 pub mod backend_state;
+pub mod components;
 pub mod config;
 pub mod cron_jobs;
 pub mod deployment_audit_log;

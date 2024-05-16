@@ -10,6 +10,7 @@ doctest = false
 
 [dependencies]
 anyhow = { workspace = true }
+async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { path = "../async_lru" }
 bytes = { workspace = true }

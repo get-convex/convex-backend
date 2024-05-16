@@ -3,6 +3,8 @@ use std::str::FromStr;
 use sync_types::UdfPath;
 use value::identifier::Identifier;
 
+use super::ComponentName;
+
 /// `References` are relative paths to `Resources` that start at some
 /// component.
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
@@ -63,7 +65,7 @@ pub enum Reference {
     /// // => Reference::ChildComponent { component: "waitlist", attributes: vec!["foo", "bar"]}
     /// ```
     ChildComponent {
-        component: Identifier,
+        component: ComponentName,
         attributes: Vec<Identifier>,
     },
 }

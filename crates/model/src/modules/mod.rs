@@ -39,7 +39,7 @@ use common::{
 use database::{
     defaults::system_index,
     unauthorized_error,
-    ComponentsModel,
+    BootstrapComponentsModel,
     ResolvedQuery,
     SystemMetadataModel,
     Transaction,
@@ -285,7 +285,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
-        let module_path = ComponentsModel::new(self.tx)
+        let module_path = BootstrapComponentsModel::new(self.tx)
             .function_path_to_module(path.clone())
             .await?;
         let module_metadata = self.get_metadata(module_path).await?;

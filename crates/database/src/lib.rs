@@ -100,7 +100,7 @@ pub use self::{
                 ComponentDefinitionsTable,
                 COMPONENT_DEFINITIONS_TABLE,
             },
-            ComponentsModel,
+            BootstrapComponentsModel,
             ComponentsTable,
             COMPONENTS_BY_PARENT_INDEX,
             COMPONENTS_TABLE,

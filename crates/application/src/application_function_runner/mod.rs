@@ -69,7 +69,7 @@ use common::{
 };
 use database::{
     unauthorized_error,
-    ComponentsModel,
+    BootstrapComponentsModel,
     Database,
     Token,
     Transaction,
@@ -1228,7 +1228,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             ModuleEnvironment::Node => {
                 // We should not be missing the module given we validated the path above
                 // which requires the module to exist.
-                let module_path = ComponentsModel::new(&mut tx)
+                let module_path = BootstrapComponentsModel::new(&mut tx)
                     .function_path_to_module(path.clone())
                     .await?;
                 let module_version = self

@@ -4,7 +4,10 @@ use std::sync::LazyLock;
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::components::ComponentMetadata,
+    bootstrap_model::components::{
+        definition::ComponentDefinitionMetadata,
+        ComponentMetadata,
+    },
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
@@ -42,6 +45,7 @@ use crate::{
     },
     ResolvedQuery,
     Transaction,
+    COMPONENT_DEFINITIONS_TABLE,
 };
 
 pub static COMPONENTS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
@@ -77,13 +81,11 @@ impl SystemTable for ComponentsTable {
     }
 }
 
-#[allow(dead_code)]
-pub struct ComponentsModel<'a, RT: Runtime> {
+pub struct BootstrapComponentsModel<'a, RT: Runtime> {
     pub tx: &'a mut Transaction<RT>,
 }
 
-#[allow(dead_code)]
-impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
+impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
     pub fn new(tx: &'a mut Transaction<RT>) -> Self {
         Self { tx }
     }
@@ -185,6 +187,49 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         Ok(component_definition)
     }
 
+    pub async fn load_component(
+        &mut self,
+        id: ComponentId,
+    ) -> anyhow::Result<Option<ParsedDocument<ComponentMetadata>>> {
+        let result = match id {
+            ComponentId::Root => self.root_component().await?,
+            ComponentId::Child(internal_id) => {
+                let component_table = self.tx.table_mapping().id(&COMPONENTS_TABLE)?;
+                self.tx
+                    .get(component_table.id(internal_id))
+                    .await?
+                    .map(TryInto::try_into)
+                    .transpose()?
+            },
+        };
+        Ok(result)
+    }
+
+    pub async fn load_definition(
+        &mut self,
+        id: ComponentDefinitionId,
+    ) -> anyhow::Result<ParsedDocument<ComponentDefinitionMetadata>> {
+        let internal_id = match id {
+            ComponentDefinitionId::Root => {
+                let root_component = self
+                    .root_component()
+                    .await?
+                    .context("Missing root component")?;
+                root_component.definition_id
+            },
+            ComponentDefinitionId::Child(id) => id,
+        };
+        let component_definitions_table =
+            self.tx.table_mapping().id(&COMPONENT_DEFINITIONS_TABLE)?;
+        let doc: ParsedDocument<ComponentDefinitionMetadata> = self
+            .tx
+            .get(component_definitions_table.id(internal_id))
+            .await?
+            .context("Missing component definition")?
+            .try_into()?;
+        Ok(doc)
+    }
+
     pub async fn function_path_to_module(
         &mut self,
         path: CanonicalizedComponentFunctionPath,
@@ -220,7 +265,7 @@ mod tests {
     use super::definition::COMPONENT_DEFINITIONS_TABLE;
     use crate::{
         bootstrap_model::components::{
-            ComponentsModel,
+            BootstrapComponentsModel,
             COMPONENTS_TABLE,
         },
         test_helpers::new_test_database,
@@ -284,13 +329,13 @@ mod tests {
                 .try_into()?,
             )
             .await?;
-        let resolved_path = ComponentsModel::new(&mut tx)
+        let resolved_path = BootstrapComponentsModel::new(&mut tx)
             .resolve_path(ComponentPath {
                 path: vec!["subcomponent_child".parse()?],
             })
             .await?;
         assert_eq!(resolved_path.unwrap().id(), child_id);
-        let path = ComponentsModel::new(&mut tx)
+        let path = BootstrapComponentsModel::new(&mut tx)
             .get_component_path(ComponentId::Child(child_id.internal_id()))
             .await?;
         assert_eq!(

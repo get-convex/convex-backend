@@ -4094,6 +4094,7 @@ name = "model"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-recursion",
  "async-trait",
  "async_lru",
  "bytes",
