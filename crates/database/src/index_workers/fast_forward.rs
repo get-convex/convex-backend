@@ -8,7 +8,7 @@ use std::{
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
-        search_index::SearchSnapshotVersion,
+        search_index::TextSnapshotVersion,
         IndexConfig,
         TabletIndexMetadata,
     },
@@ -60,7 +60,7 @@ use crate::{
         timeout_with_jitter,
     },
     metrics::log_worker_starting,
-    search_index_worker::fast_forward::SearchFastForward,
+    text_index_worker::fast_forward::TextFastForward,
     vector_index_worker::fast_forward::VectorFastForward,
     Database,
     IndexModel,
@@ -124,7 +124,7 @@ impl FastForwardIndexWorker {
         loop {
             let status = log_worker_starting("TextSearchFastForward");
             tracing::debug!("FastForwardWorker checking if we can fast forward");
-            Self::fast_forward::<RT, SearchSnapshotVersion, SearchFastForward>(
+            Self::fast_forward::<RT, TextSnapshotVersion, TextFastForward>(
                 "TextSearch",
                 rt,
                 db,

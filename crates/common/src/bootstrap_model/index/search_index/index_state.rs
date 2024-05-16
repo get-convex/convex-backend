@@ -5,8 +5,8 @@ use serde::{
 use value::codegen_convex_serialization;
 
 use super::{
-    index_snapshot::SerializedSearchIndexSnapshot,
-    SearchIndexSnapshot,
+    index_snapshot::SerializedTextIndexSnapshot,
+    TextIndexSnapshot,
 };
 use crate::bootstrap_model::index::search_index::backfill_state::{
     SerializedTextIndexBackfillState,
@@ -21,8 +21,8 @@ use crate::bootstrap_model::index::search_index::backfill_state::{
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SearchIndexState {
     Backfilling(TextIndexBackfillState),
-    Backfilled(SearchIndexSnapshot),
-    SnapshottedAt(SearchIndexSnapshot),
+    Backfilled(TextIndexSnapshot),
+    SnapshottedAt(TextIndexSnapshot),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -35,11 +35,11 @@ pub enum SerializedSearchIndexState {
     },
     Backfilled {
         #[serde(flatten)]
-        snapshot: SerializedSearchIndexSnapshot,
+        snapshot: SerializedTextIndexSnapshot,
     },
     Snapshotted {
         #[serde(flatten)]
-        snapshot: SerializedSearchIndexSnapshot,
+        snapshot: SerializedTextIndexSnapshot,
     },
 }
 

@@ -10,10 +10,10 @@ pub use self::{
         SerializedDeveloperSearchIndexConfig,
     },
     index_snapshot::{
-        FragmentedSearchSegment,
-        SearchIndexSnapshot,
+        FragmentedTextSegment,
         SearchIndexSnapshotData,
-        SearchSnapshotVersion,
+        TextIndexSnapshot,
+        TextSnapshotVersion,
     },
     index_state::{
         SearchIndexState,

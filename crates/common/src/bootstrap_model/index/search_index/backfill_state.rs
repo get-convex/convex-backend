@@ -11,14 +11,14 @@ use value::{
 };
 
 use crate::bootstrap_model::index::search_index::{
-    index_snapshot::SerializedFragmentedSearchSegment,
-    FragmentedSearchSegment,
+    index_snapshot::SerializedFragmentedTextSegment,
+    FragmentedTextSegment,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TextIndexBackfillState {
-    pub segments: Vec<FragmentedSearchSegment>,
+    pub segments: Vec<FragmentedTextSegment>,
     // None at the start of backfill, then set after the first backfill iteration.
     pub cursor: Option<TextBackfillCursor>,
 }
@@ -67,7 +67,7 @@ impl TryFrom<SerializedTextBackfillCursor> for TextBackfillCursor {
 
 #[derive(Serialize, Deserialize)]
 pub struct SerializedTextIndexBackfillState {
-    segments: Option<Vec<SerializedFragmentedSearchSegment>>,
+    segments: Option<Vec<SerializedFragmentedTextSegment>>,
     cursor: Option<SerializedTextBackfillCursor>,
 }
 

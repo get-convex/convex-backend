@@ -75,7 +75,7 @@ pub enum ConflictStrategy {
 }
 
 // When adding a new persistence global, make sure it's copied
-// or computed in migrate_db_cluster/mod.rs.
+// or computed in migrate_db_cluster/text_index_worker.
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Sequence)]
 pub enum PersistenceGlobalKey {

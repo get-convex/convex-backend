@@ -7,10 +7,10 @@ use common::{
     bootstrap_model::index::{
         search_index::{
             DeveloperSearchIndexConfig,
-            SearchIndexSnapshot,
             SearchIndexSnapshotData,
             SearchIndexState,
-            SearchSnapshotVersion,
+            TextIndexSnapshot,
+            TextSnapshotVersion,
         },
         IndexConfig,
         IndexMetadata,
@@ -120,7 +120,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let step_ts = tx.begin_timestamp();
 
-        let expected_version = SearchSnapshotVersion::new(tx.persistence_version());
+        let expected_version = TextSnapshotVersion::new(tx.persistence_version());
         let search_index = self.database.snapshot(tx.begin_timestamp())?.search_indexes;
         let ready_index_sizes = search_index
             .backfilled_and_enabled_index_sizes()?
@@ -143,14 +143,14 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             // has grown too large or has the wrong format, it needs to be backfilled.
             let needs_backfill = match &on_disk_state {
                 SearchIndexState::Backfilling(_) => Some(BuildReason::Backfilling),
-                SearchIndexState::SnapshottedAt(SearchIndexSnapshot { version, .. })
-                | SearchIndexState::Backfilled(SearchIndexSnapshot { version, .. })
+                SearchIndexState::SnapshottedAt(TextIndexSnapshot { version, .. })
+                | SearchIndexState::Backfilled(TextIndexSnapshot { version, .. })
                     if *version != expected_version =>
                 {
                     Some(BuildReason::VersionMismatch)
                 },
-                SearchIndexState::SnapshottedAt(SearchIndexSnapshot { ts, .. })
-                | SearchIndexState::Backfilled(SearchIndexSnapshot { ts, .. }) => {
+                SearchIndexState::SnapshottedAt(TextIndexSnapshot { ts, .. })
+                | SearchIndexState::Backfilled(TextIndexSnapshot { ts, .. }) => {
                     let ts = IndexWorkerMetadataModel::new(&mut tx)
                         .get_fast_forward_ts(*ts, index_id.internal_id())
                         .await?;
@@ -216,10 +216,10 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
 
         // 3. Update the search index metadata.
         let mut tx = self.database.begin(Identity::system()).await?;
-        let snapshot_data = SearchIndexSnapshot {
+        let snapshot_data = TextIndexSnapshot {
             data: SearchIndexSnapshotData::SingleSegment(archive_name.clone()),
             ts: snapshot_ts,
-            version: SearchSnapshotVersion::new(tx.persistence_version()),
+            version: TextSnapshotVersion::new(tx.persistence_version()),
         };
         let new_on_disk_state = match job.on_disk_state {
             SearchIndexState::Backfilling(_) | SearchIndexState::Backfilled(_) => {
@@ -384,8 +384,8 @@ pub(crate) mod tests {
         assert_obj,
         bootstrap_model::index::{
             search_index::{
-                SearchIndexSnapshot,
                 SearchIndexState,
+                TextIndexSnapshot,
             },
             IndexConfig,
             IndexMetadata,
@@ -422,7 +422,7 @@ pub(crate) mod tests {
             .into_value();
         must_let!(let IndexMetadata {
             config: IndexConfig::Search {
-                on_disk_state: SearchIndexState::SnapshottedAt(SearchIndexSnapshot { ts, .. }),
+                on_disk_state: SearchIndexState::SnapshottedAt(TextIndexSnapshot { ts, .. }),
                 ..
             },
             ..

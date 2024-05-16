@@ -14,9 +14,9 @@ use std::{
 use common::{
     bootstrap_model::index::{
         search_index::{
-            SearchIndexSnapshot,
             SearchIndexSnapshotData,
             SearchIndexState,
+            TextIndexSnapshot,
         },
         vector_index::VectorIndexState,
         IndexConfig,
@@ -177,12 +177,12 @@ impl IndexesToBootstrap {
                             ));
                             SearchIndex::Backfilling { memory_index }
                         },
-                        SearchIndexState::Backfilled(SearchIndexSnapshot {
+                        SearchIndexState::Backfilled(TextIndexSnapshot {
                             data,
                             ts: disk_ts,
                             version,
                         })
-                        | SearchIndexState::SnapshottedAt(SearchIndexSnapshot {
+                        | SearchIndexState::SnapshottedAt(TextIndexSnapshot {
                             data,
                             ts: disk_ts,
                             version,

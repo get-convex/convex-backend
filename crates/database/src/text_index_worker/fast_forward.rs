@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
         search_index::{
-            SearchIndexSnapshot,
             SearchIndexState,
-            SearchSnapshotVersion,
+            TextIndexSnapshot,
+            TextSnapshotVersion,
         },
         IndexConfig,
     },
@@ -24,22 +24,22 @@ use crate::{
     Transaction,
 };
 
-pub struct SearchFastForward;
+pub struct TextFastForward;
 
 #[async_trait]
-impl<RT: Runtime> IndexFastForward<RT, SearchSnapshotVersion> for SearchFastForward {
-    fn current_version(tx: &mut Transaction<RT>) -> SearchSnapshotVersion {
-        SearchSnapshotVersion::new(tx.persistence_version())
+impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward {
+    fn current_version(tx: &mut Transaction<RT>) -> TextSnapshotVersion {
+        TextSnapshotVersion::new(tx.persistence_version())
     }
 
-    fn snapshot_info(config: &IndexConfig) -> Option<(Timestamp, SearchSnapshotVersion)> {
+    fn snapshot_info(config: &IndexConfig) -> Option<(Timestamp, TextSnapshotVersion)> {
         let IndexConfig::Search {
             ref on_disk_state, ..
         } = config
         else {
             return None;
         };
-        let SearchIndexSnapshot { ts, version, .. } = match on_disk_state {
+        let TextIndexSnapshot { ts, version, .. } = match on_disk_state {
             SearchIndexState::SnapshottedAt(snapshot) | SearchIndexState::Backfilled(snapshot) => {
                 snapshot
             },
@@ -68,7 +68,7 @@ pub mod tests {
     };
 
     use common::{
-        bootstrap_model::index::search_index::SearchSnapshotVersion,
+        bootstrap_model::index::search_index::TextSnapshotVersion,
         knobs::DATABASE_WORKERS_MIN_COMMITS,
         runtime::{
             testing::TestRuntime,
@@ -92,7 +92,6 @@ pub mod tests {
             FastForwardIndexWorker,
             LastFastForwardInfo,
         },
-        search_index_worker::fast_forward::SearchFastForward,
         test_helpers::new_test_database,
         tests::{
             search_test_utils::{
@@ -103,6 +102,7 @@ pub mod tests {
             },
             vector_test_utils::add_document_vec_array,
         },
+        text_index_worker::fast_forward::TextFastForward,
         Database,
         TestFacingModel,
     };
@@ -222,7 +222,7 @@ pub mod tests {
         db: &Database<RT>,
         last_fast_forward_info: &mut Option<LastFastForwardInfo>,
     ) -> anyhow::Result<BTreeSet<TabletIndexName>> {
-        FastForwardIndexWorker::fast_forward::<RT, SearchSnapshotVersion, SearchFastForward>(
+        FastForwardIndexWorker::fast_forward::<RT, TextSnapshotVersion, TextFastForward>(
             "test",
             rt,
             db,

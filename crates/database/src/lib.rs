@@ -46,12 +46,12 @@ mod write_limits;
 mod write_log;
 mod writes;
 
-mod search_index_worker;
 mod table_iteration;
 #[cfg(any(test, feature = "testing"))]
 pub mod test_helpers;
 #[cfg(test)]
 pub mod tests;
+mod text_index_worker;
 
 pub use execution_size::FunctionExecutionSize;
 pub use index_worker::IndexWorker;
@@ -67,8 +67,8 @@ pub use reads::{
     TransactionReadSize,
     OVER_LIMIT_HELP,
 };
-pub use search_index_worker::flusher::SearchIndexFlusher;
 pub use table_registry::TableRegistry;
+pub use text_index_worker::flusher::SearchIndexFlusher;
 pub use token::{
     SerializedToken,
     Token,

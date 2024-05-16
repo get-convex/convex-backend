@@ -4,8 +4,8 @@ use anyhow::Context;
 use common::{
     bootstrap_model::index::{
         search_index::{
-            SearchIndexSnapshot,
             SearchIndexState,
+            TextIndexSnapshot,
         },
         IndexConfig,
         IndexMetadata,
@@ -79,7 +79,7 @@ pub(crate) async fn assert_backfilled(
         .into_value();
     must_let!(let IndexMetadata {
             config: IndexConfig::Search {
-                on_disk_state: SearchIndexState::Backfilled(SearchIndexSnapshot { ts, .. }),
+                on_disk_state: SearchIndexState::Backfilled(TextIndexSnapshot { ts, .. }),
                 ..
             },
             ..

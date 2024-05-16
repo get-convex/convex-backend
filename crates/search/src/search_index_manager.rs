@@ -3,10 +3,10 @@ use std::sync::Arc;
 use common::{
     bootstrap_model::index::{
         search_index::{
-            SearchIndexSnapshot,
             SearchIndexSnapshotData,
             SearchIndexState,
-            SearchSnapshotVersion,
+            TextIndexSnapshot,
+            TextSnapshotVersion,
         },
         IndexConfig,
         IndexMetadata,
@@ -57,7 +57,7 @@ use crate::{
 pub struct SnapshotInfo {
     pub disk_index: ObjectKey,
     pub disk_index_ts: Timestamp,
-    pub disk_index_version: SearchSnapshotVersion,
+    pub disk_index_version: TextSnapshotVersion,
     pub memory_index: MemorySearchIndex,
 }
 
@@ -156,7 +156,7 @@ impl SearchIndexManager {
                     // how the current backend constructs search queries, assume the new
                     // search index is backfilling.
                     snapshot_info.disk_index_version
-                        == SearchSnapshotVersion::new(self.persistence_version),
+                        == TextSnapshotVersion::new(self.persistence_version),
                     index_backfilling_error(printable_index_name)
                 );
                 Ok(snapshot_info)
@@ -370,7 +370,7 @@ impl SearchIndexManager {
                             },
                             _ => (None, None),
                         };
-                    if let Some(SearchIndexSnapshot {
+                    if let Some(TextIndexSnapshot {
                         data: disk_index,
                         ts: disk_index_ts,
                         version: disk_index_version,

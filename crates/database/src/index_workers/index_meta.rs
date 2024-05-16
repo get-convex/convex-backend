@@ -9,10 +9,10 @@ use common::{
     bootstrap_model::index::{
         search_index::{
             DeveloperSearchIndexConfig,
-            FragmentedSearchSegment,
-            SearchIndexSnapshot,
+            FragmentedTextSegment,
             SearchIndexState,
             TextIndexBackfillState,
+            TextIndexSnapshot,
         },
         vector_index::{
             DeveloperVectorIndexConfig,
@@ -182,7 +182,7 @@ impl SearchIndex for TextSearchIndex {
     type NewSegment = ();
     type PreviousSegments = ();
     type Schema = ();
-    type Segment = FragmentedSearchSegment;
+    type Segment = FragmentedTextSegment;
     type Statistics = TextStatistics;
 
     fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>> {
@@ -420,8 +420,8 @@ impl From<VectorIndexSnapshot> for SearchSnapshot<VectorSearchIndex> {
     }
 }
 
-impl From<SearchIndexSnapshot> for SearchSnapshot<TextSearchIndex> {
-    fn from(snapshot: SearchIndexSnapshot) -> Self {
+impl From<TextIndexSnapshot> for SearchSnapshot<TextSearchIndex> {
+    fn from(snapshot: TextIndexSnapshot) -> Self {
         Self {
             ts: snapshot.ts,
             // TODO(sam): Implement this.
