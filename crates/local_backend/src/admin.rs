@@ -1,4 +1,5 @@
 use anyhow::Context;
+use authentication::application_auth::ApplicationAuth;
 use common::types::MemberId;
 use errors::ErrorMetadata;
 use keybroker::{
@@ -14,6 +15,18 @@ pub fn must_be_admin_from_keybroker(
     let identity = kb
         .check_admin_key(&admin_key)
         .context(bad_admin_key_error(instance_name))?;
+    Ok(identity)
+}
+
+pub async fn must_be_admin_from_key(
+    app_auth: &ApplicationAuth,
+    instance_name: String,
+    admin_key_or_access_token: String,
+) -> anyhow::Result<Identity> {
+    let identity = app_auth
+        .check_key(admin_key_or_access_token, instance_name.clone())
+        .await
+        .context(bad_admin_key_error(Some(instance_name)))?;
     Ok(identity)
 }
 

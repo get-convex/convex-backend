@@ -60,7 +60,7 @@ use value::{
 use crate::{
     admin::{
         must_be_admin,
-        must_be_admin_from_keybroker,
+        must_be_admin_from_key,
     },
     authentication::ExtractIdentity,
     deploy_config::ModuleJson,
@@ -255,11 +255,12 @@ pub async fn prepare_schema_handler(
     req: PrepareSchemaArgs,
 ) -> Result<(Json<PrepareSchemaResponse>, bool), HttpResponseError> {
     let bundle = req.bundle.try_into()?;
-    let identity = must_be_admin_from_keybroker(
-        st.application.key_broker(),
-        Some(st.instance_name.clone()),
+    let identity = must_be_admin_from_key(
+        st.application.app_auth(),
+        st.instance_name.clone(),
         req.admin_key,
-    )?;
+    )
+    .await?;
     let schema = match st.application.evaluate_schema(bundle).await {
         Ok(m) => m,
         Err(e) => return Err(e.into()),

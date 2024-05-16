@@ -73,7 +73,10 @@ use serde_json::Value as JsonValue;
 use value::ConvexObject;
 
 use crate::{
-    admin::must_be_admin_from_keybroker,
+    admin::{
+        must_be_admin_from_key,
+        must_be_admin_from_keybroker,
+    },
     parse::parse_module_path,
     EmptyResponse,
     LocalAppState,
@@ -350,11 +353,12 @@ pub async fn get_config_hashes(
     State(st): State<LocalAppState>,
     Json(req): Json<GetConfigRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let identity = must_be_admin_from_keybroker(
-        st.application.key_broker(),
-        Some(st.instance_name.clone()),
+    let identity = must_be_admin_from_key(
+        st.application.app_auth(),
+        st.instance_name.clone(),
         req.admin_key,
-    )?;
+    )
+    .await?;
 
     let mut tx = st.application.begin(identity).await?;
     let (config, modules, udf_config) = ConfigModel::new(&mut tx)

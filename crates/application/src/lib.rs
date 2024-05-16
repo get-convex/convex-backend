@@ -728,8 +728,8 @@ impl<RT: Runtime> Application<RT> {
         self.database.latest_snapshot()
     }
 
-    pub fn app_auth(&self) -> Arc<ApplicationAuth> {
-        self.app_auth.clone()
+    pub fn app_auth(&self) -> &Arc<ApplicationAuth> {
+        &self.app_auth
     }
 
     pub async fn search_with_compiled_query(
@@ -2097,12 +2097,14 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<Identity> {
         let identity = match token {
             AuthenticationToken::Admin(token, acting_as) => {
-                let admin_identity = self.key_broker().check_admin_key(&token).context(
-                    ErrorMetadata::unauthenticated(
+                let admin_identity = self
+                    .app_auth()
+                    .check_key(token.to_string(), self.instance_name())
+                    .await
+                    .context(ErrorMetadata::unauthenticated(
                         "BadAdminKey",
                         "The provided admin key was invalid for this instance",
-                    ),
-                )?;
+                    ))?;
 
                 match acting_as {
                     Some(acting_user) => {

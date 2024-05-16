@@ -27,20 +27,15 @@ impl ApplicationAuth {
         admin_key_or_access_token: String,
         instance_name: String,
     ) -> anyhow::Result<Identity> {
-        if admin_key_or_access_token.contains('|')
-            || self
-                .key_broker
-                .is_encrypted_admin_key(&admin_key_or_access_token)
+        if self
+            .key_broker
+            .is_encrypted_admin_key(&admin_key_or_access_token)
         {
             // assume this is a legacy Deploy Key
-            // This is either a pipe-delimited deployment specific key
-            // or an encrypted admin key.
-            // The latter is used by smoke tests.
             self.key_broker.check_admin_key(&admin_key_or_access_token)
         } else {
             // assume this is an Access Token
-            // Access Tokens are base64 encoded strings and do not have pipes
-            // in them
+            // Access Tokens are base64 encoded strings
             self.access_token_auth
                 .is_authorized(&instance_name, &admin_key_or_access_token)
                 .await
