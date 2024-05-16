@@ -1249,9 +1249,11 @@ mod tests {
         convex_query::OrTerm,
         disk_index::index_reader_for_directory,
         incremental_index::{
-            build_index,
+            build_new_segment,
             merge_segments,
-            SearchSegment,
+            PreviousSegments,
+            SearchSegmentForMerge,
+            UpdatableSearchSegment,
             ALIVE_BITSET_PATH,
             DELETED_TERMS_PATH,
             ID_TRACKER_PATH,
@@ -1322,7 +1324,14 @@ mod tests {
             Ok(revision_pair)
         });
         let revision_stream = futures::stream::iter(revisions).boxed();
-        build_index(revision_stream, schema.clone(), test_dir.path()).await?;
+        let new_segment = build_new_segment(
+            revision_stream,
+            schema.clone(),
+            test_dir.path(),
+            PreviousSegments::default(),
+        )
+        .await?;
+        new_segment.write(test_dir.path(), &vec![])?;
         println!("Indexed {dataset_path} in {:?}", start.elapsed());
 
         let index_reader = index_reader_for_directory(test_dir.path())?;
@@ -1450,11 +1459,13 @@ mod tests {
     }
 
     async fn build_test_index(
-        revisions: Vec<StringRevision>,
+        revisions: StringRevisions,
         index_dir: &Path,
+        previous_segments: PreviousSegments,
+        previous_segments_dirs: &Vec<&Path>,
     ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, Option<String>>> {
         let mut strings_by_id = BTreeMap::new();
-        let revisions = revisions.into_iter().map(
+        let revisions = revisions.0.into_iter().map(
             |StringRevision {
                  id,
                  prev_str,
@@ -1489,7 +1500,14 @@ mod tests {
         );
         let revision_stream = futures::stream::iter(revisions).boxed();
         let schema = test_schema();
-        build_index(revision_stream, schema.clone(), index_dir).await?;
+        let new_segment = build_new_segment(
+            revision_stream,
+            schema.clone(),
+            index_dir,
+            previous_segments,
+        )
+        .await?;
+        new_segment.write(index_dir, previous_segments_dirs)?;
         Ok(strings_by_id)
     }
 
@@ -1498,6 +1516,26 @@ mod tests {
         prev_str: Option<String>,
         new_str: Option<String>,
     }
+    impl From<(InternalId, Option<&str>, Option<&str>)> for StringRevision {
+        fn from(
+            (id, prev_str, new_str): (InternalId, Option<&str>, Option<&str>),
+        ) -> StringRevision {
+            StringRevision {
+                id,
+                prev_str: prev_str.map(|s| s.to_string()),
+                new_str: new_str.map(|s| s.to_string()),
+            }
+        }
+    }
+
+    pub struct StringRevisions(Vec<StringRevision>);
+    impl From<Vec<(InternalId, Option<&str>, Option<&str>)>> for StringRevisions {
+        fn from(revisions: Vec<(InternalId, Option<&str>, Option<&str>)>) -> StringRevisions {
+            let string_revisions = revisions.into_iter().map(StringRevision::from).collect();
+            StringRevisions(string_revisions)
+        }
+    }
+
     async fn incremental_search_with_deletions_helper(
         query: &str,
         test_dir: &Path,
@@ -1633,16 +1671,15 @@ mod tests {
             (id1, Some("emma works at convex"), None), // Delete
             (id2, None, Some("sujay lives in ny")),
             (id1, None, Some("emma works at convex")),
-        ]
-        .into_iter()
-        .map(|(id, prev_str, new_str)| StringRevision {
-            id,
-            prev_str: prev_str.map(|s| s.to_string()),
-            new_str: new_str.map(|s| s.to_string()),
-        })
-        .collect();
+        ];
         let test_dir = TempDir::new()?;
-        let strings_by_id = build_test_index(revisions, test_dir.path()).await?;
+        let strings_by_id = build_test_index(
+            revisions.into(),
+            test_dir.path(),
+            PreviousSegments::default(),
+            &vec![],
+        )
+        .await?;
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_dir.path(), &strings_by_id)
                 .await?;
@@ -1658,16 +1695,15 @@ mod tests {
         let revisions = vec![
             (id, Some("emma is awesome!"), Some("emma is gr8")), // Replace
             (id, None, Some("emma is awesome!")),
-        ]
-        .into_iter()
-        .map(|(id, prev_str, new_str)| StringRevision {
-            id,
-            prev_str: prev_str.map(|s| s.to_string()),
-            new_str: new_str.map(|s| s.to_string()),
-        })
-        .collect();
+        ];
         let test_dir = TempDir::new()?;
-        let strings_by_id = build_test_index(revisions, test_dir.path()).await?;
+        let strings_by_id = build_test_index(
+            revisions.into(),
+            test_dir.path(),
+            PreviousSegments::default(),
+            &vec![],
+        )
+        .await?;
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_dir.path(), &strings_by_id)
                 .await?;
@@ -1679,20 +1715,69 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_delete_from_another_segment() -> anyhow::Result<()> {
+        let query = "emma";
+        let mut id_generator = TestIdGenerator::new();
+        let id = id_generator.generate_internal();
+        let add_document = vec![(id, None, Some("emma is awesome!"))];
+        let test_dir = TempDir::new()?;
+        let strings_by_id = build_test_index(
+            add_document.into(),
+            test_dir.path(),
+            PreviousSegments::default(),
+            &vec![],
+        )
+        .await?;
+        let posting_list_matches =
+            incremental_search_with_deletions_helper(query, test_dir.path(), &strings_by_id)
+                .await?;
+        assert_eq!(posting_list_matches.len(), 1);
+        let (posting_list_match, s) = posting_list_matches.first().unwrap();
+        assert_eq!(posting_list_match.internal_id, id);
+        assert_eq!(s, "emma is awesome!");
+        let previous_segments_dir = vec![test_dir.path()];
+        let previous_segments = PreviousSegments(vec![UpdatableSearchSegment::load_from_dir(
+            test_dir.path(),
+        )?]);
+        let test_dir = TempDir::new()?;
+        let delete_document: Vec<_> = vec![(id, Some("emma is awesome!"), None)];
+
+        let strings_by_id = build_test_index(
+            delete_document.into(),
+            test_dir.path(),
+            previous_segments,
+            &previous_segments_dir,
+        )
+        .await?;
+        let posting_list_matches =
+            incremental_search_with_deletions_helper(query, test_dir.path(), &strings_by_id)
+                .await?;
+        assert_eq!(posting_list_matches.len(), 0);
+        // Check that searching the old segment does not show the deleted document
+        let posting_list_matches = incremental_search_with_deletions_helper(
+            query,
+            previous_segments_dir[0],
+            &strings_by_id,
+        )
+        .await?;
+        assert_eq!(posting_list_matches.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_merge_tantivy_segments() -> anyhow::Result<()> {
         let query = "emma";
         let mut id_generator = TestIdGenerator::new();
         let id1 = id_generator.generate_internal();
-        let revisions = vec![(id1, None, Some("emma is gr8"))]
-            .into_iter()
-            .map(|(id, prev_str, new_str)| StringRevision {
-                id,
-                prev_str: prev_str.map(|s: &str| s.to_string()),
-                new_str: new_str.map(|s| s.to_string()),
-            })
-            .collect::<Vec<_>>();
+        let revisions = vec![(id1, None, Some("emma is gr8"))];
         let test_dir_1 = TempDir::new()?;
-        let mut strings_by_id_1 = build_test_index(revisions, test_dir_1.path()).await?;
+        let mut strings_by_id_1 = build_test_index(
+            revisions.into(),
+            test_dir_1.path(),
+            PreviousSegments::default(),
+            &vec![],
+        )
+        .await?;
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_dir_1.path(), &strings_by_id_1)
                 .await?;
@@ -1701,16 +1786,15 @@ mod tests {
         assert_eq!(posting_list_match.internal_id, id1);
         assert_eq!(s, "emma is gr8");
         let id2 = id_generator.generate_internal();
-        let revisions = vec![(id2, None, Some("emma is awesome!"))]
-            .into_iter()
-            .map(|(id, prev_str, new_str)| StringRevision {
-                id,
-                prev_str: prev_str.map(|s: &str| s.to_string()),
-                new_str: new_str.map(|s| s.to_string()),
-            })
-            .collect::<Vec<_>>();
+        let revisions = vec![(id2, None, Some("emma is awesome!"))];
         let test_dir_2 = TempDir::new()?;
-        let mut strings_by_id_2 = build_test_index(revisions, test_dir_2.path()).await?;
+        let mut strings_by_id_2 = build_test_index(
+            revisions.into(),
+            test_dir_2.path(),
+            PreviousSegments::default(),
+            &vec![],
+        )
+        .await?;
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_dir_2.path(), &strings_by_id_2)
                 .await?;
@@ -1742,8 +1826,8 @@ mod tests {
         Ok(())
     }
 
-    fn search_segment_from_path(dir: &Path) -> anyhow::Result<SearchSegment> {
-        Ok(SearchSegment {
+    fn search_segment_from_path(dir: &Path) -> anyhow::Result<SearchSegmentForMerge> {
+        Ok(SearchSegmentForMerge {
             segment: Index::open_in_dir(dir)?,
             alive_bitset: load_alive_bitset(&dir.join(ALIVE_BITSET_PATH))?,
             id_tracker: StaticIdTracker::load_from_path(dir.join(ID_TRACKER_PATH))?,

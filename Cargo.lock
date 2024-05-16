@@ -2262,7 +2262,7 @@ checksum = "25c7df09945d65ea8d70b3321547ed414bbc540aad5bac6883d021b970f35b04"
 [[package]]
 name = "fastfield_codecs"
 version = "0.3.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "fastdivide",
  "itertools 0.10.5",
@@ -4645,7 +4645,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 [[package]]
 name = "ownedbytes"
 version = "0.5.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "stable_deref_trait",
 ]
@@ -6894,7 +6894,7 @@ checksum = "7b2093cf4c8eb1e67749a6762251bc9cd836b6fc171623bd0a9d324d37af2417"
 [[package]]
 name = "tantivy"
 version = "0.19.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "aho-corasick 0.7.20",
  "arc-swap",
@@ -6946,12 +6946,12 @@ dependencies = [
 [[package]]
 name = "tantivy-bitpacker"
 version = "0.3.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 
 [[package]]
 name = "tantivy-columnar"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "fastdivide",
  "fnv",
@@ -6966,7 +6966,7 @@ dependencies = [
 [[package]]
 name = "tantivy-common"
 version = "0.5.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "async-trait",
  "byteorder",
@@ -6987,7 +6987,7 @@ dependencies = [
 [[package]]
 name = "tantivy-query-grammar"
 version = "0.19.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "combine",
  "once_cell",
@@ -6997,7 +6997,7 @@ dependencies = [
 [[package]]
 name = "tantivy-sstable"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "ciborium",
  "serde",
@@ -7008,7 +7008,7 @@ dependencies = [
 [[package]]
 name = "tantivy-stacker"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "byteorder",
  "murmurhash32",
@@ -7018,7 +7018,7 @@ dependencies = [
 [[package]]
 name = "tantivy-tokenizer-api"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/tantivy?rev=f8dde385635121f7da8be3b61f5047c8c211791f#f8dde385635121f7da8be3b61f5047c8c211791f"
+source = "git+https://github.com/get-convex/tantivy?rev=c745b0977df94bc22fe4fc75db0200a8023f9a2c#c745b0977df94bc22fe4fc75db0200a8023f9a2c"
 dependencies = [
  "serde",
 ]

@@ -7,6 +7,7 @@ use std::{
         Read,
         Write,
     },
+    iter::zip,
     path::Path,
 };
 
@@ -83,6 +84,52 @@ struct DeletedTermsTable {
 }
 
 impl DeletedTermsTable {
+    /// Returns a tuple of num_terms_deleted and the deleted terms table, if
+    /// non-empty
+    fn load(file_len: usize, mut reader: impl Read) -> anyhow::Result<(u32, Option<Self>)> {
+        log_deleted_terms_table_size(file_len);
+        let _timer = load_deleted_terms_table_timer();
+        let mut expected_len = 0;
+        let version = reader.read_u8()?;
+        expected_len += 1;
+        anyhow::ensure!(version == DELETED_TERMS_TABLE_VERSION);
+
+        let num_terms_deleted = reader.read_u32::<LittleEndian>()?;
+        expected_len += 4;
+
+        let deleted_term_ordinals_size = reader.read_u32::<LittleEndian>()? as usize;
+        expected_len += 4;
+        if deleted_term_ordinals_size == 0 {
+            return Ok((num_terms_deleted, None));
+        }
+
+        let counts_size = reader.read_u32::<LittleEndian>()? as usize;
+        expected_len += 4;
+
+        let mut elias_fano_buf = vec![0; deleted_term_ordinals_size];
+        reader.read_exact(&mut elias_fano_buf).with_context(|| {
+            format!("Expected to fill EliasFano buffer with {deleted_term_ordinals_size} bytes")
+        })?;
+        expected_len += deleted_term_ordinals_size; // deleted_term_ordinals
+        let term_ordinals = EliasFano::deserialize_from(&elias_fano_buf[..])?;
+        let mut counts_buf = vec![0; counts_size];
+        reader.read_exact(&mut counts_buf)?;
+        expected_len += counts_size;
+        let term_documents_deleted = DacsOpt::deserialize_from(&counts_buf[..])?;
+
+        anyhow::ensure!(
+            file_len == expected_len,
+            "Deleted terms file length mismatch, expected {expected_len}, got {file_len}"
+        );
+        Ok((
+            num_terms_deleted,
+            Some(Self {
+                term_ordinals,
+                term_documents_deleted,
+            }),
+        ))
+    }
+
     fn term_documents_deleted(&self, term_ord: TermOrdinal) -> anyhow::Result<u32> {
         if let Some(pos) = self.term_ordinals.binsearch(term_ord as usize) {
             self.term_documents_deleted
@@ -96,6 +143,19 @@ impl DeletedTermsTable {
         } else {
             Ok(0)
         }
+    }
+}
+
+impl From<DeletedTermsTable> for BTreeMap<TermOrdinal, u32> {
+    fn from(
+        DeletedTermsTable {
+            term_ordinals,
+            term_documents_deleted,
+        }: DeletedTermsTable,
+    ) -> Self {
+        zip(term_ordinals.iter(0), term_documents_deleted.iter())
+            .map(|(term_ord, num_deleted)| (term_ord as u64, num_deleted as u32))
+            .collect()
     }
 }
 
@@ -117,7 +177,7 @@ impl StaticDeletionTracker {
         let deleted_terms_file_len = deleted_terms_file.metadata()?.len() as usize;
         let deleted_terms_reader = BufReader::new(deleted_terms_file);
         let (num_terms_deleted, deleted_terms_table) =
-            Self::load_deleted_terms_table(deleted_terms_file_len, deleted_terms_reader)?;
+            DeletedTermsTable::load(deleted_terms_file_len, deleted_terms_reader)?;
 
         Ok(Self {
             alive_bitset,
@@ -161,53 +221,6 @@ impl StaticDeletionTracker {
     pub fn alive_bitset(&self) -> &AliveBitSet {
         &self.alive_bitset
     }
-
-    fn load_deleted_terms_table(
-        file_len: usize,
-        mut reader: impl Read,
-    ) -> anyhow::Result<(u32, Option<DeletedTermsTable>)> {
-        log_deleted_terms_table_size(file_len);
-        let _timer = load_deleted_terms_table_timer();
-        let mut expected_len = 0;
-        let version = reader.read_u8()?;
-        expected_len += 1;
-        anyhow::ensure!(version == DELETED_TERMS_TABLE_VERSION);
-
-        let num_terms_deleted = reader.read_u32::<LittleEndian>()?;
-        expected_len += 4;
-
-        let deleted_term_ordinals_size = reader.read_u32::<LittleEndian>()? as usize;
-        expected_len += 4;
-        if deleted_term_ordinals_size == 0 {
-            return Ok((num_terms_deleted, None));
-        }
-
-        let counts_size = reader.read_u32::<LittleEndian>()? as usize;
-        expected_len += 4;
-
-        let mut elias_fano_buf = vec![0; deleted_term_ordinals_size];
-        reader.read_exact(&mut elias_fano_buf).with_context(|| {
-            format!("Expected to fill EliasFano buffer with {deleted_term_ordinals_size} bytes")
-        })?;
-        expected_len += deleted_term_ordinals_size; // deleted_term_ordinals
-        let term_ordinals = EliasFano::deserialize_from(&elias_fano_buf[..])?;
-        let mut counts_buf = vec![0; counts_size];
-        reader.read_exact(&mut counts_buf)?;
-        expected_len += counts_size;
-        let term_documents_deleted = DacsOpt::deserialize_from(&counts_buf[..])?;
-
-        anyhow::ensure!(
-            file_len == expected_len,
-            "Deleted terms file length mismatch, expected {expected_len}, got {file_len}"
-        );
-        Ok((
-            num_terms_deleted,
-            Some(DeletedTermsTable {
-                term_ordinals,
-                term_documents_deleted,
-            }),
-        ))
-    }
 }
 
 #[derive(Default, Debug)]
@@ -235,8 +248,8 @@ impl SearchMemoryIdTracker {
 }
 
 pub struct MemoryDeletionTracker {
-    alive_bitset: BitSet,
-    term_to_deleted_documents: BTreeMap<TermOrdinal, u32>,
+    pub alive_bitset: BitSet,
+    pub term_to_deleted_documents: BTreeMap<TermOrdinal, u32>,
     num_deleted_terms: u32,
 }
 
@@ -249,10 +262,26 @@ impl MemoryDeletionTracker {
         }
     }
 
+    pub fn load(alive_bitset_path: &Path, deleted_terms_path: &Path) -> anyhow::Result<Self> {
+        let alive_bitset_reader = BufReader::new(File::open(alive_bitset_path)?);
+        let alive_bitset = BitSet::deserialize(alive_bitset_reader)?;
+        let deleted_terms_file = File::open(deleted_terms_path)?;
+        let file_len = deleted_terms_file.metadata()?.len() as usize;
+        let deleted_terms_reader = BufReader::new(deleted_terms_file);
+        let (num_deleted_terms, deleted_terms_table) =
+            DeletedTermsTable::load(file_len, deleted_terms_reader)?;
+        let term_to_deleted_documents = deleted_terms_table.map(|t| t.into()).unwrap_or_default();
+        Ok(Self {
+            alive_bitset,
+            term_to_deleted_documents,
+            num_deleted_terms,
+        })
+    }
+
     pub fn delete_document(
         &mut self,
         convex_id: InternalId,
-        id_tracker: StaticIdTracker,
+        id_tracker: &StaticIdTracker,
     ) -> anyhow::Result<()> {
         let tantivy_id = id_tracker
             .lookup(convex_id.0)
@@ -331,10 +360,8 @@ impl MemoryDeletionTracker {
 #[cfg(test)]
 mod tests {
 
-    use super::{
-        MemoryDeletionTracker,
-        StaticDeletionTracker,
-    };
+    use super::MemoryDeletionTracker;
+    use crate::tracker::DeletedTermsTable;
 
     #[test]
     fn test_empty_deleted_term_table_roundtrips() -> anyhow::Result<()> {
@@ -346,11 +373,7 @@ mod tests {
             &mut buf,
         )?;
         let file_len = buf.len();
-        assert!(
-            StaticDeletionTracker::load_deleted_terms_table(file_len, &buf[..])?
-                .1
-                .is_none()
-        );
+        assert!(DeletedTermsTable::load(file_len, &buf[..])?.1.is_none());
         Ok(())
     }
 
@@ -370,8 +393,7 @@ mod tests {
         )?;
 
         let file_len = buf.len();
-        let (num_deleted_terms, deleted_terms_table) =
-            StaticDeletionTracker::load_deleted_terms_table(file_len, &buf[..])?;
+        let (num_deleted_terms, deleted_terms_table) = DeletedTermsTable::load(file_len, &buf[..])?;
         assert_eq!(num_deleted_terms, 0);
         let deleted_terms_table = deleted_terms_table.unwrap();
         assert_eq!(deleted_terms_table.term_documents_deleted(term_ord_1)?, 2);
