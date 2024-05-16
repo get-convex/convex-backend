@@ -107,6 +107,7 @@ use events::usage::UsageEventLogger;
 use futures::{
     future::BoxFuture,
     pin_mut,
+    stream::BoxStream,
     Future,
     FutureExt,
     Stream,
@@ -123,6 +124,7 @@ use indexing::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
+use parking_lot::Mutex;
 use pb::funrun::BootstrapMetadata as BootstrapMetadataProto;
 use search::{
     query::RevisionWithKeys,
@@ -268,6 +270,22 @@ pub struct Database<RT: Runtime> {
     // /api/list_snapshot.
     table_mapping_snapshot_cache: AsyncLru<RT, Timestamp, TableMapping>,
     by_id_indexes_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<TabletId, IndexId>>,
+    list_snapshot_table_iterator_cache: Arc<
+        Mutex<
+            Option<(
+                ListSnapshotTableIteratorCacheEntry,
+                BoxStream<'static, anyhow::Result<(ResolvedDocument, Timestamp)>>,
+            )>,
+        >,
+    >,
+}
+
+#[derive(PartialEq, Eq)]
+struct ListSnapshotTableIteratorCacheEntry {
+    snapshot: Timestamp,
+    tablet_id: TabletId,
+    by_id: IndexId,
+    resolved_cursor: Option<ResolvedDocumentId>,
 }
 
 #[derive(Clone)]
@@ -871,6 +889,7 @@ impl<RT: Runtime> Database<RT> {
             AsyncLru::new(runtime.clone(), 10, 2, "table_mapping_snapshot");
         let by_id_indexes_snapshot_cache =
             AsyncLru::new(runtime.clone(), 10, 2, "by_id_indexes_snapshot");
+        let list_snapshot_table_iterator_cache = Arc::new(Mutex::new(None));
         let database = Self {
             committer,
             subscriptions,
@@ -887,6 +906,7 @@ impl<RT: Runtime> Database<RT> {
             bootstrap_metadata,
             table_mapping_snapshot_cache,
             by_id_indexes_snapshot_cache,
+            list_snapshot_table_iterator_cache,
         };
 
         Ok(database)
@@ -1661,14 +1681,14 @@ impl<RT: Runtime> Database<RT> {
         };
         let table_mapping = self.snapshot_table_mapping(snapshot).await?;
         let by_id_indexes = self.snapshot_by_id_indexes(snapshot).await?;
-        let cursor = cursor
+        let resolved_cursor = cursor
             .map(|c| c.map_table(table_mapping.inject_table_id()))
             .transpose()?;
         let table_numbers: BTreeSet<_> = table_mapping
             .iter()
             .filter(|(_, table_number, name)| {
                 Self::user_table_filter(&table_filter, name)
-                    && cursor
+                    && resolved_cursor
                         .as_ref()
                         .map(|c| table_number >= &c.table().table_number)
                         .unwrap_or(true)
@@ -1690,9 +1710,27 @@ impl<RT: Runtime> Database<RT> {
         let by_id = *by_id_indexes
             .get(&tablet_id)
             .ok_or_else(|| anyhow::anyhow!("by_id index for {tablet_id:?} missing"))?;
-        let table_iterator = self.table_iterator(snapshot, 100, None);
-        let document_stream = table_iterator.stream_documents_in_table(tablet_id, by_id, cursor);
-        pin_mut!(document_stream);
+        let mut document_stream = {
+            let mut cached = self.list_snapshot_table_iterator_cache.lock();
+            let expected_cache_key = ListSnapshotTableIteratorCacheEntry {
+                snapshot: *snapshot,
+                tablet_id,
+                by_id,
+                resolved_cursor,
+            };
+            if let Some((cache_key, _ds)) = &*cached
+                && *cache_key == expected_cache_key
+            {
+                let (_, ds) = cached.take().unwrap();
+                ds
+            } else {
+                let table_iterator = self.table_iterator(snapshot, 100, None);
+                table_iterator
+                    .stream_documents_in_table(tablet_id, by_id, resolved_cursor)
+                    .boxed()
+            }
+        };
+
         // new_cursor is set once, when we know the final internal_id.
         let mut new_cursor = None;
         // documents accumulated in (ts, id) order to return.
@@ -1714,6 +1752,17 @@ impl<RT: Runtime> Database<RT> {
             },
             None => None,
         });
+        if let Some(new_cursor) = new_cursor {
+            let resolved_new_cursor = new_cursor.map_table(table_mapping.inject_table_id())?;
+            let new_cache_key = ListSnapshotTableIteratorCacheEntry {
+                snapshot: *snapshot,
+                tablet_id,
+                by_id,
+                resolved_cursor: Some(resolved_new_cursor),
+            };
+            *self.list_snapshot_table_iterator_cache.lock() =
+                Some((new_cache_key, document_stream));
+        }
         let has_more = new_cursor.is_some();
         Ok(SnapshotPage {
             documents,
