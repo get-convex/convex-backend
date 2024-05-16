@@ -670,6 +670,7 @@ impl<RT: Runtime> Application<RT> {
         self.database.usage_counter().clone()
     }
 
+    #[minitrace::trace]
     pub async fn document_deltas(
         &self,
         identity: Identity,
@@ -689,6 +690,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
+    #[minitrace::trace]
     pub async fn list_snapshot(
         &self,
         identity: Identity,

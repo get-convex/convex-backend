@@ -1009,6 +1009,7 @@ impl<RT: Runtime> Database<RT> {
         )
     }
 
+    #[minitrace::trace]
     pub async fn snapshot_table_mapping(
         &self,
         ts: RepeatableTimestamp,
@@ -1047,6 +1048,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(table_mapping)
     }
 
+    #[minitrace::trace]
     pub async fn snapshot_by_id_indexes(
         &self,
         ts: RepeatableTimestamp,
@@ -1541,6 +1543,7 @@ impl<RT: Runtime> Database<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn document_deltas(
         &self,
         identity: Identity,
@@ -1623,6 +1626,7 @@ impl<RT: Runtime> Database<RT> {
         })
     }
 
+    #[minitrace::trace]
     pub async fn list_snapshot(
         &self,
         identity: Identity,

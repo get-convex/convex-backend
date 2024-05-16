@@ -280,6 +280,7 @@ impl<RT: Runtime> TableIterator<RT> {
     /// 2. at the snapshot, it had a key higher than what we've walked so far
     /// 3. it was modified after the snapshot but before we walked its key
     /// range.
+    #[minitrace::trace]
     async fn fetch_skipped_keys(
         &self,
         tablet_id: TabletId,
@@ -358,6 +359,7 @@ impl<RT: Runtime> TableIterator<RT> {
         ))
     }
 
+    #[minitrace::trace]
     async fn fetch_page(
         &self,
         index_id: IndexId,
