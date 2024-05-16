@@ -413,6 +413,14 @@ pub static DOCUMENT_RETENTION_DRY_RUN: LazyLock<bool> =
 pub static SEARCH_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("SEARCH_INDEX_SIZE_SOFT_LIMIT", 10 * (1 << 20))); // 10 MiB
 
+/// Size at which a v1 single segment text search index will be queued for
+/// snapshotting.
+///
+/// We use a larger value here because building single segment text search
+/// indexes is exponential, so building indexes infrequently reduces the overall
+/// time spent building the index.
+pub static TEXT_SEARCH_V1_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =
+    LazyLock::new(|| env_config("SEARCH_INDEX_SIZE_SOFT_LIMIT", 50 * (1 << 20))); // 50 MiB
 /// Configures the search index worker's rate limit on pages processed per
 /// second.
 pub static SEARCH_INDEX_WORKER_PAGES_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {

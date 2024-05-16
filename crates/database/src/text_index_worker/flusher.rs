@@ -18,7 +18,7 @@ use common::{
     knobs::{
         DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
         DEFAULT_DOCUMENTS_PAGE_SIZE,
-        SEARCH_INDEX_SIZE_SOFT_LIMIT,
+        TEXT_SEARCH_V1_INDEX_SIZE_SOFT_LIMIT,
     },
     runtime::Runtime,
     types::{
@@ -72,7 +72,7 @@ impl<RT: Runtime> SearchIndexFlusher<RT> {
             runtime,
             database,
             storage,
-            index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+            index_size_soft_limit: *TEXT_SEARCH_V1_INDEX_SIZE_SOFT_LIMIT,
         }
     }
 
