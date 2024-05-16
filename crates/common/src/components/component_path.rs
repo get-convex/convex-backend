@@ -29,6 +29,12 @@ impl From<Identifier> for ComponentName {
     }
 }
 
+impl From<ComponentName> for Identifier {
+    fn from(name: ComponentName) -> Identifier {
+        name.0
+    }
+}
+
 impl From<ComponentName> for String {
     fn from(name: ComponentName) -> String {
         name.0.to_string()

@@ -182,8 +182,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         component: ComponentDefinitionId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
-        anyhow::ensure!(component.is_root());
-
+        // TODO(CX-6379): Remove this branch once we've made modules component-aware.
+        if !*COMPONENTS_ENABLED {
+            anyhow::ensure!(component.is_root());
+        }
         let index_query = Query::full_table_scan(MODULES_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
 

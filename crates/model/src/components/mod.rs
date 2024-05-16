@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use anyhow::Context;
 use async_recursion::async_recursion;
 use common::{
@@ -16,6 +18,7 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
+use sync_types::CanonicalizedUdfPath;
 use value::identifier::Identifier;
 
 use crate::modules::ModuleModel;
@@ -164,5 +167,100 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             }
         }
         anyhow::bail!("Intermediate export references unsupported");
+    }
+
+    pub async fn preload_resources(
+        &mut self,
+        component_id: ComponentId,
+    ) -> anyhow::Result<BTreeMap<Reference, Resource>> {
+        let mut m = BootstrapComponentsModel::new(self.tx);
+        let component = m.load_component(component_id).await?.ok_or_else(|| {
+            ErrorMetadata::bad_request(
+                "InvalidReference",
+                format!("Component {:?} not found", component_id),
+            )
+        })?;
+        let definition_id = m.component_definition(component_id).await?;
+        let definition = m.load_definition(definition_id).await?;
+
+        let mut result = BTreeMap::new();
+        for (name, resource) in &component.args {
+            let reference = Reference::ComponentArgument {
+                attributes: vec![name.clone()],
+            };
+            result.insert(reference, resource.clone());
+        }
+
+        let module_metadata = ModuleModel::new(self.tx)
+            .get_application_metadata(definition_id)
+            .await?;
+        for module in module_metadata {
+            let analyze_result = module
+                .analyze_result
+                .as_ref()
+                .context("Module missing analyze result?")?;
+            for function in &analyze_result.functions {
+                let udf_path =
+                    CanonicalizedUdfPath::new(module.path.clone(), function.name.clone()).strip();
+                result.insert(
+                    Reference::Function(udf_path.clone()),
+                    Resource::Function(ComponentFunctionPath {
+                        component: component_id,
+                        udf_path,
+                    }),
+                );
+            }
+        }
+
+        for instantiation in &definition.child_components {
+            let parent = (component.id().internal_id(), instantiation.name.clone());
+            let child_component = BootstrapComponentsModel::new(self.tx)
+                .component_in_parent(Some(parent))
+                .await?
+                .context("Missing child component")?;
+            let child_component_id = ComponentId::Child(child_component.id().internal_id());
+            for (attributes, resource) in
+                self.preload_exported_resources(child_component_id).await?
+            {
+                let reference = Reference::ChildComponent {
+                    component: instantiation.name.clone(),
+                    attributes,
+                };
+                result.insert(reference, resource);
+            }
+        }
+
+        Ok(result)
+    }
+
+    pub async fn preload_exported_resources(
+        &mut self,
+        component_id: ComponentId,
+    ) -> anyhow::Result<BTreeMap<Vec<Identifier>, Resource>> {
+        let mut m = BootstrapComponentsModel::new(self.tx);
+        let definition_id = m.component_definition(component_id).await?;
+        let definition = m.load_definition(definition_id).await?;
+
+        let mut stack = vec![(vec![], &definition.exports)];
+        let mut result = BTreeMap::new();
+        while let Some((path, internal_node)) = stack.pop() {
+            for (name, export) in internal_node {
+                match export {
+                    ComponentExport::Branch(ref children) => {
+                        let mut new_path = path.clone();
+                        new_path.push(name.clone());
+                        stack.push((new_path, children));
+                    },
+                    ComponentExport::Leaf(ref reference) => {
+                        let mut new_path = path.clone();
+                        new_path.push(name.clone());
+                        let resource = self.resolve(component_id, reference).await?;
+                        result.insert(new_path, resource);
+                    },
+                }
+            }
+        }
+
+        Ok(result)
     }
 }

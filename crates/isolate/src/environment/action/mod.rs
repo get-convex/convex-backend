@@ -249,6 +249,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     ) -> Self {
         let syscall_trace = Arc::new(Mutex::new(SyscallTrace::new()));
         let (task_retval_sender, task_responses) = mpsc::unbounded();
+        let resources = Arc::new(Mutex::new(BTreeMap::new()));
         let task_executor = TaskExecutor {
             component,
             rt: rt.clone(),
@@ -263,6 +264,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             task_retval_sender,
             usage_tracker: transaction.usage_tracker.clone(),
             context,
+            resources: resources.clone(),
         };
         let (pending_task_sender, pending_task_receiver) = mpsc::unbounded();
         let running_tasks = rt.spawn("task_executor", task_executor.go(pending_task_receiver));
@@ -284,6 +286,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 transaction,
                 module_loader,
                 system_env_vars,
+                resources,
             ),
             syscall_trace,
             heap_stats,

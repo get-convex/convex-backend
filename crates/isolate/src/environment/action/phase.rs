@@ -5,7 +5,12 @@ use std::{
 };
 
 use common::{
-    components::ComponentId,
+    components::{
+        ComponentId,
+        Reference,
+        Resource,
+        COMPONENTS_ENABLED,
+    },
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -18,6 +23,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
+    components::ComponentsModel,
     config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
@@ -33,6 +39,7 @@ use model::{
     },
     udf_config::UdfConfigModel,
 };
+use parking_lot::Mutex;
 use rand::{
     Rng,
     SeedableRng,
@@ -74,6 +81,7 @@ enum ActionPreloaded<RT: Runtime> {
         tx: Transaction<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
     },
     Preloading,
     Ready {
@@ -91,6 +99,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         tx: Transaction<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
     ) -> Self {
         Self {
             component,
@@ -100,6 +109,7 @@ impl<RT: Runtime> ActionPhase<RT> {
                 tx,
                 module_loader,
                 system_env_vars,
+                resources,
             },
         }
     }
@@ -116,6 +126,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             mut tx,
             module_loader,
             system_env_vars,
+            resources,
         } = preloaded
         else {
             anyhow::bail!("ActionPhase initialized twice");
@@ -140,6 +151,19 @@ impl<RT: Runtime> ActionPhase<RT> {
                 .await
         })
         .await?;
+
+        if *COMPONENTS_ENABLED {
+            let loaded_resources = with_release_permit(timeout, permit_slot, async {
+                ComponentsModel::new(&mut tx)
+                    .preload_resources(self.component)
+                    .await
+            })
+            .await?;
+            {
+                let mut resources = resources.lock();
+                *resources = loaded_resources;
+            }
+        }
 
         for metadata in module_metadata {
             if metadata.path.is_system() {

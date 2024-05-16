@@ -1,5 +1,6 @@
 mod analyze;
 mod auth_config;
+mod components;
 mod cron_jobs;
 mod environment_variables;
 mod mutation;

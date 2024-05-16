@@ -1,15 +1,16 @@
 use std::{
+    collections::BTreeMap,
     sync::Arc,
     time::Duration,
 };
 
 use common::{
     components::{
-        require_components_enabled,
         ComponentFunctionPath,
         ComponentId,
         Reference,
         Resource,
+        COMPONENTS_ENABLED,
     },
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
@@ -40,7 +41,6 @@ use model::config::module_loader::ModuleLoader;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use usage_tracking::FunctionUsageTracker;
-use value::InternalId;
 
 use crate::{
     environment::{
@@ -78,6 +78,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub task_retval_sender: UnboundedSender<TaskResponse>,
     pub usage_tracker: FunctionUsageTracker,
     pub context: ExecutionContext,
+    pub resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
 }
 
 impl<RT: Runtime> TaskExecutor<RT> {
@@ -195,32 +196,29 @@ impl<RT: Runtime> TaskExecutor<RT> {
     }
 
     pub fn resolve(&self, reference: &Reference) -> anyhow::Result<Resource> {
-        let result = match reference {
-            Reference::Function(p) if self.component.is_root() => {
-                Resource::Function(ComponentFunctionPath {
-                    component: ComponentId::Root,
-                    udf_path: p.clone(),
-                })
-            },
-            Reference::ChildComponent {
-                component,
-                attributes,
-            } => {
-                require_components_enabled()?;
-                tracing::info!(
-                    "Resolving child component reference: {component:?}, {attributes:?}"
-                );
-                Resource::Function(ComponentFunctionPath {
-                    component: ComponentId::Child(InternalId::MIN),
-                    udf_path: "messages:demo".parse()?,
-                })
-            },
-            _ => anyhow::bail!(ErrorMetadata::bad_request(
-                "InvalidReference",
-                format!("Couldn't resolve {}", reference.evaluation_time_debug_str()),
-            )),
+        let resource = if !*COMPONENTS_ENABLED {
+            match reference {
+                Reference::Function(p) if self.component.is_root() => {
+                    Resource::Function(ComponentFunctionPath {
+                        component: ComponentId::Root,
+                        udf_path: p.clone(),
+                    })
+                },
+                r => anyhow::bail!("Invalid reference {r:?} with components disabled"),
+            }
+        } else {
+            let resources = self.resources.lock();
+            resources
+                .get(reference)
+                .ok_or_else(|| {
+                    ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        format!("Couldn't resolve {}", reference.evaluation_time_debug_str()),
+                    )
+                })?
+                .clone()
         };
-        Ok(result)
+        Ok(resource)
     }
 
     pub fn resolve_function(&self, reference: &Reference) -> anyhow::Result<ComponentFunctionPath> {
