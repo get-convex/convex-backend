@@ -64,7 +64,7 @@ use sync_types::{
     Timestamp,
 };
 use value::{
-    TableMapping,
+    NamespacedTableMapping,
     TabletId,
 };
 use vector::{
@@ -89,7 +89,7 @@ pub struct SearchAndVectorIndexBootstrapWorker<RT: Runtime> {
     runtime: RT,
     index_registry: IndexRegistry,
     persistence: RepeatablePersistence,
-    table_mapping: TableMapping,
+    table_mapping: NamespacedTableMapping,
     committer_client: CommitterClient<RT>,
     backoff: Backoff,
     pause_client: PauseClient,
@@ -454,7 +454,7 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
         runtime: RT,
         index_registry: IndexRegistry,
         persistence: RepeatablePersistence,
-        table_mapping: TableMapping,
+        table_mapping: NamespacedTableMapping,
         committer_client: CommitterClient<RT>,
         pause_client: PauseClient,
     ) -> Self {
@@ -586,6 +586,7 @@ mod tests {
         InternalId,
         ResolvedDocumentId,
         TableName,
+        TableNamespace,
         TableNumber,
     };
     use vector::{
@@ -1078,7 +1079,7 @@ mod tests {
         let fast_forward_ts = load_metadata_fast_forward_ts(
             &snapshot.index_registry,
             &persistence_snapshot,
-            tx.table_mapping(),
+            &tx.table_mapping().namespace(TableNamespace::Global),
             index_doc.id(),
         )
         .await?;
@@ -1156,7 +1157,11 @@ mod tests {
         db.commit(tx).await?;
 
         let snapshot = db.latest_snapshot()?;
-        let table_id = snapshot.table_mapping().id(&"test".parse()?)?.tablet_id;
+        let table_id = snapshot
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&"test".parse()?)?
+            .tablet_id;
         let index_name = TabletIndexName::new(table_id, "by_text".parse()?)?;
         TextIndexFlusher::build_index_in_test(
             index_name.clone(),

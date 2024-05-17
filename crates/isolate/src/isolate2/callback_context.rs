@@ -449,7 +449,7 @@ mod op_provider {
     use uuid::Uuid;
     use value::{
         heap_size::WithHeapSize,
-        TableMapping,
+        NamespacedTableMapping,
         TableMappingValue,
         VirtualTableMapping,
     };
@@ -563,7 +563,7 @@ mod op_provider {
 
         fn get_all_table_mappings(
             &mut self,
-        ) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+        ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
             self.context_state()?.environment.get_all_table_mappings()
         }
 

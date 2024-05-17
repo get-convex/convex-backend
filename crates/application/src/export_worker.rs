@@ -320,7 +320,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             let tables: BTreeMap<_, _> = snapshot
                 .table_registry
                 .iter_active_user_tables()
-                .map(|(tablet_id, table_number, table_name)| {
+                .map(|(tablet_id, _, table_number, table_name)| {
                     (
                         tablet_id,
                         (
@@ -334,7 +334,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             let system_tables = snapshot
                 .table_registry
                 .iter_active_system_tables()
-                .map(|(id, _, name)| (name.clone(), id))
+                .map(|(id, _, _, name)| (name.clone(), id))
                 .collect();
             let virtual_tables = snapshot.table_registry.virtual_table_mapping().clone();
             (
@@ -879,6 +879,7 @@ mod tests {
         export::ValueFormat,
         GenericDocumentId,
         ResolvedDocumentId,
+        TableNamespace,
     };
 
     use super::{
@@ -970,7 +971,11 @@ mod tests {
                 .get(id, None)
                 .await?
                 .unwrap();
-            let tablet_id = tx.table_mapping().inject_table_id()(doc.table())?.tablet_id;
+            let tablet_id = tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .inject_table_id()(doc.table())?
+            .tablet_id;
             let doc = doc.to_resolved(tablet_id);
             let id_v6 = doc.developer_id().encode();
             expected_export_entries.insert(
@@ -1080,7 +1085,10 @@ mod tests {
             )
             .await?;
         let mut tx = db.begin(Identity::system()).await?;
-        let storage_table_id = tx.table_mapping().id(&"_file_storage".parse()?)?;
+        let storage_table_id = tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&"_file_storage".parse()?)?;
         let file1: ParsedDocument<FileStorageEntry> = tx
             .get(GenericDocumentId::new(
                 storage_table_id,

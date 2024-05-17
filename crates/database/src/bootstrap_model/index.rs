@@ -63,6 +63,7 @@ use indexing::{
 use value::{
     ResolvedDocumentId,
     TableMapping,
+    TableNamespace,
     TabletId,
 };
 
@@ -154,7 +155,13 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             .insert_table_metadata(index.name.table())
             .await?;
         let index: TabletIndexMetadata = index
-            .map_table(&self.tx.table_mapping().name_to_id())?
+            .map_table(
+                &self
+                    .tx
+                    .table_mapping()
+                    .namespace(TableNamespace::Global)
+                    .name_to_id(),
+            )?
             .into();
         SystemMetadataModel::new(self.tx)
             .insert_metadata(&INDEX_TABLE, index.try_into()?)
@@ -575,7 +582,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             TabletIndexName,
         ) -> Option<&'b Index>,
     ) -> anyhow::Result<Option<ParsedDocument<TabletIndexMetadata>>> {
-        if !self.tx.table_mapping().name_exists(index_name.table()) {
+        if !self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .name_exists(index_name.table())
+        {
             return Ok(None);
         }
         let index_name = self.resolve_index_name(index_name)?;
@@ -602,7 +614,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 index_name.clone(),
                 self.resolve_index_name(&physical_index_name)?,
             ))
-        } else if self.tx.table_mapping().name_exists(index_name.table()) {
+        } else if self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .name_exists(index_name.table())
+        {
             match table_filter {
                 TableFilter::IncludePrivateSystemTables => Ok(StableIndexName::Physical(
                     self.resolve_index_name(index_name)?,
@@ -623,9 +640,13 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     }
 
     fn resolve_index_name(&mut self, index_name: &IndexName) -> anyhow::Result<TabletIndexName> {
-        let resolved = index_name
-            .clone()
-            .map_table(&self.tx.table_mapping().name_to_id())?;
+        let resolved = index_name.clone().map_table(
+            &self
+                .tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .name_to_id(),
+        )?;
         Ok(resolved.into())
     }
 
@@ -764,7 +785,12 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         target_table: TabletId,
     ) -> anyhow::Result<()> {
         // Copy over enabled indexes from existing active table, if any.
-        let Some(active_table_id) = self.tx.table_mapping().id_if_exists(source_table) else {
+        let Some(active_table_id) = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id_if_exists(source_table)
+        else {
             return Ok(());
         };
         for index in IndexModel::new(self.tx)

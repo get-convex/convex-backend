@@ -29,7 +29,7 @@ use value::{
     ConvexValue,
     IdentifierFieldName,
     Namespace,
-    TableMapping,
+    NamespacedTableMapping,
     VirtualTableMapping,
 };
 
@@ -277,7 +277,7 @@ impl DatabaseSchema {
     pub fn tables_to_validate<'a, C: ShapeConfig, S: ShapeCounter, F>(
         new_schema: &'a DatabaseSchema,
         active_schema: Option<DatabaseSchema>,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
         shape_provider: &F,
     ) -> anyhow::Result<BTreeSet<&'a TableName>>
@@ -310,7 +310,7 @@ impl DatabaseSchema {
         table_name: &TableName,
         table_definition: &TableDefinition,
         active_schema: &Option<DatabaseSchema>,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
         table_shape: &Shape<C, S>,
     ) -> anyhow::Result<bool> {
@@ -348,7 +348,7 @@ impl DatabaseSchema {
     fn check_value(
         &self,
         doc: &ResolvedDocument,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Result<(), ValidationError> {
         if self.schema_validation
@@ -368,7 +368,7 @@ impl DatabaseSchema {
         &self,
         doc: &ResolvedDocument,
         table_name: TableName,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Result<(), SchemaValidationError> {
         self.check_value(doc, table_mapping, virtual_table_mapping)
@@ -383,7 +383,7 @@ impl DatabaseSchema {
         &self,
         doc: &ResolvedDocument,
         table_name: TableName,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Result<(), SchemaEnforcementError> {
         self.check_value(doc, table_mapping, virtual_table_mapping)
@@ -750,7 +750,7 @@ impl DocumentSchema {
     fn check_value(
         &self,
         value: &ConvexObject,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Result<(), ValidationError> {
         match self {

@@ -86,7 +86,10 @@ use search::{
 };
 use storage::Storage;
 use usage_tracking::FunctionUsageTracker;
-use value::assert_obj;
+use value::{
+    assert_obj,
+    TableNamespace,
+};
 use vector::{
     CompiledVectorSearch,
     QdrantSchema,
@@ -203,7 +206,11 @@ impl Scenario {
 
     async fn backfill(&mut self) -> anyhow::Result<()> {
         let snapshot = self.database.latest_snapshot()?;
-        let table_id = snapshot.table_mapping().id(&"test".parse()?)?.tablet_id;
+        let table_id = snapshot
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&"test".parse()?)?
+            .tablet_id;
         TextIndexFlusher::build_index_in_test(
             TabletIndexName::new(table_id, "by_text".parse()?)?,
             "test".parse()?,

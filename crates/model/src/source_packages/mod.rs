@@ -16,6 +16,7 @@ use database::{
 use value::{
     id_v6::DeveloperDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -73,7 +74,13 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
         source_package_id: SourcePackageId,
     ) -> anyhow::Result<ParsedDocument<SourcePackage>> {
         let id: DeveloperDocumentId = source_package_id.into();
-        let document_id = id.to_resolved(&self.tx.table_mapping().inject_table_id())?;
+        let document_id = id.to_resolved(
+            &self
+                .tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .inject_table_id(),
+        )?;
         self.tx
             .get(document_id)
             .await?

@@ -23,6 +23,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     val,
     ResolvedDocumentId,
+    TableNamespace,
 };
 
 use crate::test_helpers::UdfTest;
@@ -33,6 +34,7 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table_id = id_generator.user_table_id(&"test".parse()?);
     let table_number = id_generator.generate_virtual_table(&"test2".parse()?);
+    let table_mapping = id_generator.namespace(TableNamespace::Global);
     let values: Vec<(ConvexValue, &'static str)> = vec![
         (
             ConvexValue::from(ResolvedDocumentId::new(table_id, InternalId::MIN)),
@@ -62,11 +64,11 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
     for (value, expected) in values {
         let shape = ReducedShape::from_type(
             &CountedShape::<TestConfig>::empty().insert_value(&value),
-            &id_generator.table_number_exists(),
+            &table_mapping.table_number_exists(),
             &id_generator.virtual_table_mapping.table_number_exists(),
         );
         let shape_json =
-            dashboard_shape_json(&shape, &id_generator, &id_generator.virtual_table_mapping)?;
+            dashboard_shape_json(&shape, &table_mapping, &id_generator.virtual_table_mapping)?;
         must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);
         assert_eq!(&s[..], expected);
     }
@@ -76,22 +78,22 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
         &CountedShape::<TestConfig>::empty()
             .insert_value(&ConvexValue::Null)
             .insert_value(&ConvexValue::from(0)),
-        &id_generator.table_number_exists(),
+        &table_mapping.table_number_exists(),
         &id_generator.virtual_table_mapping.table_number_exists(),
     );
     let shape_json =
-        dashboard_shape_json(&shape, &id_generator, &id_generator.virtual_table_mapping)?;
+        dashboard_shape_json(&shape, &table_mapping, &id_generator.virtual_table_mapping)?;
     must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);
     assert_eq!(&s[..], "null|bigint");
 
     // Try the `never` shape.
     let shape = ReducedShape::from_type(
         &CountedShape::<TestConfig>::empty(),
-        &id_generator.table_number_exists(),
+        &table_mapping.table_number_exists(),
         &id_generator.virtual_table_mapping.table_number_exists(),
     );
     let shape_json =
-        dashboard_shape_json(&shape, &id_generator, &id_generator.virtual_table_mapping)?;
+        dashboard_shape_json(&shape, &table_mapping, &id_generator.virtual_table_mapping)?;
     must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);
     assert_eq!(&s[..], "never");
     Ok(())

@@ -73,6 +73,7 @@ use strum::IntoEnumIterator;
 pub use value::METADATA_PREFIX;
 use value::{
     TableName,
+    TableNamespace,
     TableNumber,
 };
 
@@ -246,7 +247,11 @@ pub async fn initialize_application_system_table<RT: Runtime>(
         }
     } else {
         // Create new indexes as backfilling.
-        let table_id = tx.table_mapping().id(table.table_name())?.tablet_id;
+        let table_id = tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(table.table_name())?
+            .tablet_id;
         let mut index_model = IndexModel::new(tx);
         let existing_indexes: BTreeMap<_, _> = index_model
             .all_indexes_on_table(table_id)

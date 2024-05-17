@@ -158,6 +158,7 @@ use value::{
     ResolvedDocumentId,
     Size,
     TableMapping,
+    TableNamespace,
     TableNumber,
     TabletId,
     TabletIdAndTableNumber,
@@ -634,7 +635,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         // audit log object.
         let table_names: Vec<_> = table_mapping_for_import
             .iter()
-            .map(|(_, _, table_name)| {
+            .map(|(_, _, _, table_name)| {
                 if table_name == &*FILE_STORAGE_TABLE {
                     FILE_STORAGE_VIRTUAL_TABLE.clone()
                 } else {
@@ -1162,7 +1163,11 @@ pub async fn perform_import<RT: Runtime>(
             "snapshot_import_perform",
             |tx| {
                 async {
-                    let import_id = import_id.map_table(tx.table_mapping().inject_table_id())?;
+                    let import_id = import_id.map_table(
+                        tx.table_mapping()
+                            .namespace(TableNamespace::Global)
+                            .inject_table_id(),
+                    )?;
                     let mut import_model = SnapshotImportModel::new(tx);
                     import_model.confirm_import(import_id).await?;
                     Ok(())
@@ -1191,7 +1196,11 @@ async fn wait_for_import_worker<RT: Runtime>(
 ) -> anyhow::Result<ParsedDocument<SnapshotImport>> {
     let snapshot_import = loop {
         let mut tx = application.begin(identity.clone()).await?;
-        let import_id = import_id.map_table(tx.table_mapping().inject_table_id())?;
+        let import_id = import_id.map_table(
+            tx.table_mapping()
+                .namespace(TableNamespace::Global)
+                .inject_table_id(),
+        )?;
         let mut import_model = SnapshotImportModel::new(&mut tx);
         let snapshot_import =
             import_model
@@ -1402,8 +1411,9 @@ struct ImportSchemaTableConstraint {
 impl ImportSchemaTableConstraint {
     async fn validate<RT: Runtime>(&self, tx: &mut Transaction<RT>) -> anyhow::Result<()> {
         let existing_table_mapping = tx.table_mapping();
-        let Some(existing_table) =
-            existing_table_mapping.id_and_number_if_exists(&self.foreign_ref_table_in_import.0)
+        let Some(existing_table) = existing_table_mapping
+            .namespace(TableNamespace::Global)
+            .id_and_number_if_exists(&self.foreign_ref_table_in_import.0)
         else {
             // If a table doesn't have a table number,
             // schema validation for foreign references into the table is
@@ -1451,7 +1461,10 @@ impl ImportSchemaConstraints {
                 continue;
             };
             for (table, table_schema) in &schema.tables {
-                if table_mapping_for_import.name_exists(table) {
+                if table_mapping_for_import
+                    .namespace(TableNamespace::Global)
+                    .name_exists(table)
+                {
                     // Schema's table is in the import => it's valid.
                     continue;
                 }
@@ -1459,8 +1472,9 @@ impl ImportSchemaConstraints {
                     continue;
                 };
                 for foreign_key_table in document_schema.foreign_keys() {
-                    if let Some(foreign_key_table_number) =
-                        table_mapping_for_import.id_and_number_if_exists(foreign_key_table)
+                    if let Some(foreign_key_table_number) = table_mapping_for_import
+                        .namespace(TableNamespace::Global)
+                        .id_and_number_if_exists(foreign_key_table)
                     {
                         table_constraints.insert(ImportSchemaTableConstraint {
                             table_in_schema_not_in_import: table.clone(),
@@ -1508,7 +1522,7 @@ async fn finalize_import<RT: Runtime>(
 ) -> anyhow::Result<(Timestamp, u64)> {
     let tables_in_import = table_mapping_for_import
         .iter()
-        .map(|(_, _, table_name)| table_name.clone())
+        .map(|(_, _, _, table_name)| table_name.clone())
         .collect();
 
     // Ensure that schemas will be valid after the tables are activated.
@@ -1529,7 +1543,7 @@ async fn finalize_import<RT: Runtime>(
                     let mut documents_deleted = 0;
                     schema_constraints.validate(tx).await?;
                     let mut table_model = TableModel::new(tx);
-                    for (table_id, table_number, table_name) in table_mapping_for_import.iter() {
+                    for (table_id, _, table_number, table_name) in table_mapping_for_import.iter() {
                         documents_deleted += table_model
                             .activate_table(table_id, table_name, table_number, &tables_in_import)
                             .await?;
@@ -1639,6 +1653,7 @@ async fn import_tables_table<RT: Runtime>(
         .await?;
         table_mapping_for_import.insert(
             table_id.tablet_id,
+            TableNamespace::Global,
             table_id.table_number,
             table_name.clone(),
         );
@@ -1919,9 +1934,12 @@ async fn import_single_table<RT: Runtime>(
     let mut generated_schema = generated_schemas.get_mut(&table_name);
     let tables_in_import = table_mapping_for_import
         .iter()
-        .map(|(_, _, table_name)| table_name.clone())
+        .map(|(_, _, _, table_name)| table_name.clone())
         .collect();
-    let table_id = match table_mapping_for_import.id_and_number_if_exists(&table_name) {
+    let table_id = match table_mapping_for_import
+        .namespace(TableNamespace::Global)
+        .id_and_number_if_exists(&table_name)
+    {
         Some(table_id) => table_id,
         None => {
             let table_id = prepare_table_for_import(
@@ -1935,6 +1953,7 @@ async fn import_single_table<RT: Runtime>(
             .await?;
             table_mapping_for_import.insert(
                 table_id.tablet_id,
+                TableNamespace::Global,
                 table_id.table_number,
                 table_name.clone(),
             );
@@ -2102,7 +2121,10 @@ async fn prepare_table_for_import<RT: Runtime>(
         )
     );
     let mut tx = database.begin(identity.clone()).await?;
-    let existing_table_id = tx.table_mapping().id_and_number_if_exists(table_name);
+    let existing_table_id = tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .id_and_number_if_exists(table_name);
     let insert_into_existing_table_id = match mode {
         ImportMode::Append => existing_table_id,
         ImportMode::RequireEmpty => {

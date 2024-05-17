@@ -27,6 +27,7 @@ use search::{
 };
 use value::{
     TableIdentifier,
+    TableNamespace,
     TableNumber,
 };
 
@@ -97,7 +98,11 @@ impl SearchQuery {
             .into_iter()
             .filter(|(_, index_key)| self.cursor_interval.contains(index_key))
             .collect();
-        let table_number = tx.table_mapping().id(&self.query.table)?.table_number;
+        let table_number = tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&self.query.table)?
+            .table_number;
         Ok(SearchResultIterator::new(
             revisions_in_range,
             table_number,

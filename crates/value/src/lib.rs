@@ -113,8 +113,10 @@ pub use crate::{
     sorting::values_to_bytes,
     string::ConvexString,
     table_mapping::{
+        NamespacedTableMapping,
         TableMapping,
         TableMappingValue,
+        TableNamespace,
     },
     table_name::{
         TableIdentifier,

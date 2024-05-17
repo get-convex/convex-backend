@@ -28,6 +28,7 @@ use database::{
 use value::{
     id_v6::DeveloperDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use self::types::{
@@ -79,7 +80,13 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
         external_deps_package_id: ExternalDepsPackageId,
     ) -> anyhow::Result<ParsedDocument<ExternalDepsPackage>> {
         let id: DeveloperDocumentId = external_deps_package_id.into();
-        let document_id = id.to_resolved(&self.tx.table_mapping().inject_table_id())?;
+        let document_id = id.to_resolved(
+            &self
+                .tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .inject_table_id(),
+        )?;
         self.tx
             .get(document_id)
             .await?

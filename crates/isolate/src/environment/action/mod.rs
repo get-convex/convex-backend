@@ -84,8 +84,8 @@ use sync_types::ModulePath;
 use value::{
     heap_size::HeapSize,
     ConvexArray,
+    NamespacedTableMapping,
     Size,
-    TableMapping,
     TableMappingValue,
     VirtualTableMapping,
 };
@@ -1293,7 +1293,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
         anyhow::bail!("get_table_mapping_without_system_tables unsupported in actions")
     }
 
-    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+    fn get_all_table_mappings(
+        &mut self,
+    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
         anyhow::bail!("get_all_table_mappings unsupported in actions")
     }
 

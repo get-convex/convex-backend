@@ -71,6 +71,7 @@ use value::{
     FieldPath,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 use vector::{
     qdrant_segments::{
@@ -435,7 +436,11 @@ pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Res
     let index_id = IndexModel::new(&mut tx)
         .add_application_index(index_metadata.clone())
         .await?;
-    let table_id = tx.table_mapping().id(index_name.table())?.tablet_id;
+    let table_id = tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .id(index_name.table())?
+        .tablet_id;
     db.commit(tx).await?;
     let resolved_index_name = TabletIndexName::new(table_id, index_name.descriptor().clone())?;
     Ok(IndexData {

@@ -54,6 +54,7 @@ use value::{
     ResolvedDocumentId,
     Size,
     TableName,
+    TableNamespace,
 };
 
 use self::{
@@ -229,8 +230,11 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         };
         let job = if let Some(parent_scheduled_job) = context.parent_scheduled_job {
             let table_mapping = self.tx.table_mapping();
-            let parent_scheduled_job =
-                parent_scheduled_job.to_resolved(&table_mapping.inject_table_id())?;
+            let parent_scheduled_job = parent_scheduled_job.to_resolved(
+                &table_mapping
+                    .namespace(TableNamespace::Global)
+                    .inject_table_id(),
+            )?;
             if let Some(parent_scheduled_job_state) =
                 self.check_status(parent_scheduled_job).await?
             {
@@ -272,6 +276,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
+            .namespace(TableNamespace::Global)
             .number_matches_name(id.table().table_number, &SCHEDULED_JOBS_TABLE));
         SystemMetadataModel::new(self.tx)
             .replace(id, job.try_into()?)
@@ -346,6 +351,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
+            .namespace(TableNamespace::Global)
             .number_matches_name(id.table().table_number, &SCHEDULED_JOBS_TABLE));
         self.tx.delete_inner(id).await?;
         Ok(())

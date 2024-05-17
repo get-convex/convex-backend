@@ -30,6 +30,7 @@ use value::{
     DeveloperDocumentId,
     Size,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -150,11 +151,21 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                     log_virtual_table_get();
                     virtual_ids_to_fetch.insert(batch_key, (id, version));
                 } else {
-                    if !self.tx.table_mapping().table_number_exists()(*id.table()) {
+                    if !self
+                        .tx
+                        .table_mapping()
+                        .namespace(TableNamespace::Global)
+                        .table_number_exists()(*id.table())
+                    {
                         assert!(results.insert(batch_key, Ok(None)).is_none());
                         continue;
                     }
-                    let id_ = id.map_table(self.tx.table_mapping().inject_table_id())?;
+                    let id_ = id.map_table(
+                        self.tx
+                            .table_mapping()
+                            .namespace(TableNamespace::Global)
+                            .inject_table_id(),
+                    )?;
                     let table_name = self.tx.table_mapping().tablet_name(id_.table().tablet_id)?;
                     ids_to_fetch.insert(batch_key, (id_, table_name));
                 }
@@ -245,8 +256,12 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .insert_table_metadata(&table)
             .await?;
         let document = ResolvedDocument::new(
-            id.clone()
-                .map_table(self.tx.table_mapping().name_to_id_user_input())?,
+            id.clone().map_table(
+                self.tx
+                    .table_mapping()
+                    .namespace(TableNamespace::Global)
+                    .name_to_id_user_input(),
+            )?,
             creation_time,
             value,
         )?;
@@ -271,7 +286,12 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
 
-        let id_ = id.map_table(self.tx.table_mapping().inject_table_id())?;
+        let id_ = id.map_table(
+            self.tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .inject_table_id(),
+        )?;
 
         let new_document = self.tx.patch_inner(id_, value).await?;
 
@@ -301,7 +321,12 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             check_user_size(value.size())?;
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
-        let id_ = id.map_table(self.tx.table_mapping().inject_table_id())?;
+        let id_ = id.map_table(
+            self.tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .inject_table_id(),
+        )?;
 
         let new_document = self.tx.replace_inner(id_, value).await?;
         let developer_document = new_document.to_developer();
@@ -320,7 +345,13 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
 
-        let id_ = id.map_table(&self.tx.table_mapping().inject_table_id())?;
+        let id_ = id.map_table(
+            &self
+                .tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .inject_table_id(),
+        )?;
         let document = self.tx.delete_inner(id_).await?;
         Ok(document.to_developer())
     }

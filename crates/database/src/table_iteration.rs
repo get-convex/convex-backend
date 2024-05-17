@@ -571,6 +571,7 @@ mod tests {
         resolved_object_strategy,
         resolved_value_strategy,
         ExcludeSetsAndMaps,
+        TableNamespace,
     };
 
     use crate::{
@@ -627,7 +628,7 @@ mod tests {
                     .await?;
                 expected.insert(id.internal_id());
             }
-            let table_mapping = tx.table_mapping().clone();
+            let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
             let by_id = IndexName::by_id(table_name.clone());
             let by_id_metadata = IndexModel::new(&mut tx)
                 .enabled_index_metadata(&by_id)?
@@ -671,7 +672,7 @@ mod tests {
         // We expect the iterator to produce the initial objects.
         let expected = objects.clone();
 
-        let table_mapping = tx.table_mapping().clone();
+        let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
         let by_id = IndexName::by_id(table_name.clone());
         let by_id_metadata = IndexModel::new(&mut tx)
             .enabled_index_metadata(&by_id)?
@@ -814,7 +815,7 @@ mod tests {
         let id = TestFacingModel::new(&mut tx)
             .insert(&table_name, assert_obj!("k" => "z"))
             .await?;
-        let table_mapping = tx.table_mapping().clone();
+        let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
         let by_k_metadata = IndexModel::new(&mut tx)
             .enabled_index_metadata(&index_name)?
             .unwrap();

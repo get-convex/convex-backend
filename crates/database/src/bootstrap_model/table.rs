@@ -46,6 +46,7 @@ use common::{
 use errors::ErrorMetadata;
 use value::{
     FieldPath,
+    TableNamespace,
     TableNumber,
     TabletId,
 };
@@ -114,7 +115,12 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     /// Returns the number of documents in the table, up-to-date with the
     /// current transaction.
     pub async fn count(&mut self, table: &TableName) -> anyhow::Result<u64> {
-        let count = if let Some(tablet_id) = self.tx.table_mapping().id_if_exists(table) {
+        let count = if let Some(tablet_id) = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id_if_exists(table)
+        {
             // Get table count at the beginning of the transaction, then add the delta from
             // the transaction so far.
             let snapshot_count = self.tx.count_snapshot.count(tablet_id).await?;
@@ -135,7 +141,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         // Add read dependency on the entire table.
         // But we haven't explicitly read the documents, so don't record_read_documents.
         if self.table_exists(table) {
-            let table_id = self.tx.table_mapping().id(table)?;
+            let table_id = self
+                .tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .id(table)?;
             self.tx.reads.record_indexed_directly(
                 TabletIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
@@ -154,7 +164,10 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     }
 
     pub fn table_exists(&mut self, table: &TableName) -> bool {
-        self.tx.table_mapping().name_exists(table)
+        self.tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .name_exists(table)
     }
 
     pub fn count_user_tables(&mut self) -> usize {
@@ -169,7 +182,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .enforce_table_deletion(table_name.clone())
             .await?;
 
-        let table_id_and_number = self.tx.table_mapping().id(&table_name)?;
+        let table_id_and_number = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&table_name)?;
         self.delete_table_by_id(table_id_and_number.tablet_id).await
     }
 
@@ -275,6 +292,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         if let Some(existing_table_by_number) = self
             .tx
             .table_mapping()
+            .namespace(TableNamespace::Global)
             .name_by_number_if_exists(table_number)
         {
             // Don't mess with creating conflicts with bootstrap system tables.
@@ -331,16 +349,23 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         }
         self.check_can_overwrite(table_name, Some(table_number), tables_in_import)?;
         if self.table_exists(table_name) {
-            let existing_table_by_name = self.tx.table_mapping().id(table_name)?;
+            let existing_table_by_name = self
+                .tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .id(table_name)?;
             documents_deleted += self.count(table_name).await?;
             self.delete_table_by_id(existing_table_by_name.tablet_id)
                 .await?;
         }
         let table_metadata =
             TableMetadata::new_with_state(table_name.clone(), table_number, TableState::Active);
-        let table_doc_id = TABLES_TABLE
-            .id(tablet_id.0)
-            .map_table(self.tx.table_mapping().name_to_id())?;
+        let table_doc_id = TABLES_TABLE.id(tablet_id.0).map_table(
+            self.tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .name_to_id(),
+        )?;
         SystemMetadataModel::new(self.tx)
             .replace(table_doc_id, table_metadata.try_into()?)
             .await?;
@@ -374,6 +399,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         let existing_table_by_name = self
             .tx
             .table_mapping()
+            .namespace(TableNamespace::Global)
             .id_and_number_if_exists(table)
             .map(|id| id.table_number);
         let table_number = table_number.or(existing_table_by_name);
@@ -389,7 +415,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         state: TableState,
     ) -> anyhow::Result<TabletIdAndTableNumber> {
         if state == TableState::Active && self.table_exists(table) {
-            let table_id = self.tx.table_mapping().id(table)?;
+            let table_id = self
+                .tx
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .id(table)?;
             anyhow::ensure!(table_number.is_none() || table_number == Some(table_id.table_number));
             Ok(table_id)
         } else {
@@ -400,7 +430,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             let table_number = if let Some(table_number) = table_number {
                 anyhow::ensure!(
                     state == TableState::Hidden
-                        || !self.tx.table_mapping().table_number_exists()(table_number),
+                        || !self
+                            .tx
+                            .table_mapping()
+                            .namespace(TableNamespace::Global)
+                            .table_number_exists()(table_number),
                     ErrorMetadata::bad_request(
                         "InvalidId",
                         format!("conflict trying to create {table} with number {table_number}")

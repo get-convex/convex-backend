@@ -20,7 +20,10 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use value::TableName;
+use value::{
+    TableName,
+    TableNamespace,
+};
 
 use crate::{
     admin::must_be_admin,
@@ -44,7 +47,7 @@ pub async fn shapes2(
 
     must_be_admin(&identity)?;
     let snapshot = st.application.latest_snapshot()?;
-    let mapping = snapshot.table_mapping();
+    let mapping = snapshot.table_mapping().namespace(TableNamespace::Global);
     let virtual_mapping = snapshot.table_registry.virtual_table_mapping();
 
     for table_name in snapshot.table_registry.user_table_names() {
@@ -54,7 +57,7 @@ pub async fn shapes2(
             &mapping.table_number_exists(),
             &virtual_mapping.table_number_exists(),
         );
-        let json = dashboard_shape_json(&shape, mapping, virtual_mapping)?;
+        let json = dashboard_shape_json(&shape, &mapping, virtual_mapping)?;
         out.insert(String::from(table_name.clone()), json);
     }
     Ok(Json(out))

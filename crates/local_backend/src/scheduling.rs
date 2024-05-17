@@ -24,6 +24,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use value::TableNamespace;
 
 use crate::{
     admin::bad_admin_key_error,
@@ -84,7 +85,7 @@ pub async fn cancel_job(
             async {
                 let id = parse_document_id(
                     &cancel_job_request.id,
-                    tx.table_mapping(),
+                    &tx.table_mapping().namespace(TableNamespace::Global),
                     &SCHEDULED_JOBS_TABLE,
                 )?;
 

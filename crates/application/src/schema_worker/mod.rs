@@ -25,6 +25,7 @@ use metrics::{
     log_document_validated,
     schema_validation_timer,
 };
+use value::TableNamespace;
 
 use crate::metrics::log_worker_starting;
 
@@ -73,7 +74,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
         {
             tracing::debug!("SchemaWorker found a pending schema and is validating it...");
             let timer = schema_validation_timer();
-            let table_mapping = tx.table_mapping().clone();
+            let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
             let virtual_table_mapping = tx.virtual_table_mapping().clone();
 
             let active_schema = SchemaModel::new(&mut tx)
@@ -109,7 +110,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                     if let Err(schema_error) = db_schema.check_existing_document(
                         &doc,
                         table_name,
-                        &tx.table_mapping().clone(),
+                        &table_mapping,
                         &tx.virtual_table_mapping().clone(),
                     ) {
                         let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);

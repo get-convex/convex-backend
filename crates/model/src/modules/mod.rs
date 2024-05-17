@@ -56,6 +56,7 @@ use value::{
     values_to_bytes,
     FieldPath,
     TableName,
+    TableNamespace,
 };
 
 use self::{
@@ -512,7 +513,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         let values = vec![Some(ConvexValue::from(module_id))];
         let module_index_name = MODULE_VERSION_INDEX
             .clone()
-            .map_table(&self.tx.table_mapping().name_to_id())?
+            .map_table(
+                &self
+                    .tx
+                    .table_mapping()
+                    .namespace(TableNamespace::Global)
+                    .name_to_id(),
+            )?
             .into();
         self.tx.record_system_table_cache_hit(
             module_index_name,

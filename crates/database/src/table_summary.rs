@@ -631,6 +631,7 @@ mod tests {
         resolved_object_strategy,
         resolved_value_strategy,
         ExcludeSetsAndMaps,
+        TableNamespace,
     };
 
     use super::{
@@ -667,7 +668,10 @@ mod tests {
             .await?;
         let value = inserted.value().0.clone();
         let expected_ts1 = TableSummary::empty().insert(&value);
-        let table_id = tx.table_mapping().id(&table_name)?;
+        let table_id = tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&table_name)?;
         let ts1 = unchecked_repeatable_ts(database.commit(tx).await?);
 
         let mut tx = database.begin(Identity::system()).await?;
@@ -787,7 +791,9 @@ mod tests {
             let computed = writer.compute_snapshot(None, 2).await?;
 
             if !is_empty {
-                let table_id = table_mapping.id(&table_name)?;
+                let table_id = table_mapping
+                    .namespace(TableNamespace::Global)
+                    .id(&table_name)?;
                 assert_eq!(computed.tables.get(&table_id.tablet_id), Some(&expected));
             }
 
@@ -813,7 +819,10 @@ mod tests {
                     let inserted = TestFacingModel::new(&mut tx)
                         .insert_and_get(table_name.clone(), value.clone())
                         .await?;
-                    let table_id = tx.table_mapping().id(table_name)?;
+                    let table_id = tx
+                        .table_mapping()
+                        .namespace(TableNamespace::Global)
+                        .id(table_name)?;
                     let summary = expected.entry(table_id).or_insert_with(TableSummary::empty);
                     let inserted = inserted.value().0.clone();
                     *summary = summary.insert(&inserted);
@@ -832,7 +841,9 @@ mod tests {
 
             for (table_name, values) in &values {
                 if !values.is_empty() {
-                    let table_id = table_mapping.id(table_name)?;
+                    let table_id = table_mapping
+                        .namespace(TableNamespace::Global)
+                        .id(table_name)?;
                     let expected = expected.get(&table_id).unwrap();
                     assert_eq!(expected, computed.tables.get(&table_id.tablet_id).unwrap());
                 }

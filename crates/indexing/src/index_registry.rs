@@ -50,6 +50,7 @@ use itertools::Itertools;
 use value::{
     InternalId,
     TableMapping,
+    TableNamespace,
     TabletId,
     TabletIdAndTableNumber,
 };
@@ -104,7 +105,9 @@ impl IndexRegistry {
         index_documents: impl Iterator<Item = &'a ResolvedDocument>,
         persistence_version: PersistenceVersion,
     ) -> anyhow::Result<Self> {
-        let index_table = table_mapping.id(&INDEX_TABLE)?;
+        let index_table = table_mapping
+            .namespace(TableNamespace::Global)
+            .id(&INDEX_TABLE)?;
         let mut index = Self {
             index_table,
             enabled_indexes: OrdMap::new(),

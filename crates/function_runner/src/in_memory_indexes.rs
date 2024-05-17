@@ -72,6 +72,7 @@ use value::{
     },
     InternalId,
     TableName,
+    TableNamespace,
     TabletId,
 };
 
@@ -309,7 +310,9 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             persistence_snapshot.persistence().version(),
         )?;
 
-        let virtual_tables_table = table_mapping.id(&VIRTUAL_TABLES_TABLE)?;
+        let virtual_tables_table = table_mapping
+            .namespace(TableNamespace::Global)
+            .id(&VIRTUAL_TABLES_TABLE)?;
         let virtual_tables_by_id = index_registry
             .must_get_by_id(virtual_tables_table.tablet_id)?
             .id();

@@ -88,6 +88,7 @@ use sync_types::{
 };
 use usage_tracking::FunctionUsageTracker;
 use value::{
+    TableNamespace,
     TableNumber,
     TabletId,
 };
@@ -249,7 +250,9 @@ impl<RT: Runtime> Transaction<RT> {
             if let Some(name) = virtual_table_mapping.name_if_exists(number) {
                 Ok(name)
             } else {
-                let name = table_mapping.number_to_name()(number)?;
+                let name = table_mapping
+                    .namespace(TableNamespace::Global)
+                    .number_to_name()(number)?;
                 match table_filter {
                     TableFilter::IncludePrivateSystemTables => {},
                     TableFilter::ExcludePrivateSystemTables => {
@@ -507,7 +510,9 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     pub fn is_system(&mut self, table_number: TableNumber) -> bool {
-        self.table_mapping().is_system(table_number)
+        self.table_mapping()
+            .namespace(TableNamespace::Global)
+            .is_system(table_number)
             || self.virtual_table_mapping().number_exists(&table_number)
     }
 
@@ -584,7 +589,10 @@ impl<RT: Runtime> Transaction<RT> {
             .into_iter()
             .map(|(table, stats)| {
                 (
-                    self.table_mapping().number_to_name()(table).expect("table should exist"),
+                    self.table_mapping()
+                        .namespace(TableNamespace::Global)
+                        .number_to_name()(table)
+                    .expect("table should exist"),
                     stats,
                 )
             })
@@ -599,6 +607,7 @@ impl<RT: Runtime> Transaction<RT> {
         let tables_by_id = TabletIndexName::by_id(
             self.metadata
                 .table_mapping()
+                .namespace(TableNamespace::Global)
                 .id(&TABLES_TABLE)
                 .expect("_tables should exist")
                 .tablet_id,
@@ -624,14 +633,17 @@ impl<RT: Runtime> Transaction<RT> {
         default_table_number: Option<TableNumber>,
     ) -> anyhow::Result<TableNumber> {
         Ok(if let Some(default_table_number) = default_table_number {
-            let table_number = if self.table_mapping().table_number_exists()(default_table_number) {
+            let table_number = if self
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .table_number_exists()(default_table_number)
+            {
                 // In tests, have a hard failure on conflicting default table numbers. In
                 // real system, have a looser fallback where we pick
                 // another table number.
                 if cfg!(any(test, feature = "testing")) {
-                    let existing_tn = self
-                        .table_mapping()
-                        .name_by_number_if_exists(default_table_number);
+                    let table_mapping = self.table_mapping().namespace(TableNamespace::Global);
+                    let existing_tn = table_mapping.name_by_number_if_exists(default_table_number);
                     anyhow::bail!(
                         "{default_table_number} is used by both {table_name} and {existing_tn:?}"
                     );
@@ -835,7 +847,10 @@ impl<RT: Runtime> Transaction<RT> {
         // store. We first guarantee that the changes are valid for the index and
         // metadata and then let inserting into writes the commit
         // point so that the Transaction is never in an inconsistent state.
-        let is_system_document = self.table_mapping().is_system(id.table().table_number);
+        let is_system_document = self
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .is_system(id.table().table_number);
         let bootstrap_tables = self.bootstrap_tables();
         let index_update = self
             .index

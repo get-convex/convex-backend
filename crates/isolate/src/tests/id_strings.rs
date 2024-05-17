@@ -24,6 +24,7 @@ use value::{
     FieldName,
     InternalId,
     TableName,
+    TableNamespace,
 };
 
 use crate::test_helpers::{
@@ -66,14 +67,17 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
         UserFacingModel::new_root_for_test(&mut tx)
             .insert(user_table_name.clone(), assert_obj!())
             .await?;
-        let user_table_number = tx.table_mapping().id(&user_table_name)?.table_number;
+        let user_table_number = tx.table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&user_table_name)?.table_number;
 
         let storage_virtual_table_number = tx.virtual_table_mapping().number(&"_storage".parse()?)?;
         let storage_table_number = tx
             .table_mapping()
+            .namespace(TableNamespace::Global)
             .id(&"_file_storage".parse()?)?
             .table_number;
-        let indexes_table_number = tx.table_mapping().id(&"_index".parse()?)?.table_number;
+        let indexes_table_number = tx.table_mapping().namespace(TableNamespace::Global).id(&"_index".parse()?)?.table_number;
 
         // Set the UDF server version to a version with string IDs
         UdfConfigModel::new(&mut tx)
@@ -181,7 +185,11 @@ async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::
     UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name_b.clone(), assert_obj!())
         .await?;
-    let table_number = tx.table_mapping().id(&table_name_a)?.table_number;
+    let table_number = tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .id(&table_name_a)?
+        .table_number;
 
     // Set the UDF server version to a version with string IDs
     UdfConfigModel::new(&mut tx)

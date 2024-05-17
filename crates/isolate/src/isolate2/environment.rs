@@ -12,7 +12,7 @@ use common::{
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use value::{
-    TableMapping,
+    NamespacedTableMapping,
     TableMappingValue,
     VirtualTableMapping,
 };
@@ -47,6 +47,8 @@ pub trait Environment {
     // Signal that we've finished execution.
     fn finish_execution(&mut self) -> anyhow::Result<EnvironmentOutcome>;
 
-    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)>;
+    fn get_all_table_mappings(
+        &mut self,
+    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)>;
     fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
 }

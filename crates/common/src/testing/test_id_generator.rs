@@ -12,6 +12,7 @@ use value::{
     ResolvedDocumentId,
     TableIdentifier,
     TableMapping,
+    TableNamespace,
     TableNumber,
     TabletId,
     TabletIdAndTableNumber,
@@ -92,7 +93,7 @@ impl TestIdGenerator {
 
     pub fn system_table_id(&mut self, table_name: &TableName) -> TabletIdAndTableNumber {
         assert!(table_name.is_system(), "use user_table_id instead");
-        if let Ok(table_id) = self.id(table_name) {
+        if let Ok(table_id) = self.namespace(TableNamespace::Global).id(table_name) {
             return table_id;
         }
         let tablet_id = TabletId(self.generate_internal());
@@ -101,8 +102,12 @@ impl TestIdGenerator {
             .curr_table_number
             .increment()
             .expect("Could not increment table number");
-        self.table_mapping
-            .insert(tablet_id, table_number, table_name.clone());
+        self.table_mapping.insert(
+            tablet_id,
+            TableNamespace::Global,
+            table_number,
+            table_name.clone(),
+        );
         self.system_table_id(&TABLES_TABLE);
         self.system_table_id(&INDEX_TABLE);
         TabletIdAndTableNumber {
@@ -114,7 +119,7 @@ impl TestIdGenerator {
     // For adding to physical table mapping
     pub fn user_table_id(&mut self, table_name: &TableName) -> TabletIdAndTableNumber {
         assert!(!table_name.is_system(), "use system_table_id instead");
-        if let Ok(table_id) = self.id(table_name) {
+        if let Ok(table_id) = self.namespace(TableNamespace::Global).id(table_name) {
             return table_id;
         }
         let tablet_id = TabletId(self.generate_internal());
@@ -123,8 +128,12 @@ impl TestIdGenerator {
             .curr_table_number
             .increment()
             .expect("Could not increment table number");
-        self.table_mapping
-            .insert(tablet_id, table_number, table_name.clone());
+        self.table_mapping.insert(
+            tablet_id,
+            TableNamespace::Global,
+            table_number,
+            table_name.clone(),
+        );
         self.system_table_id(&TABLES_TABLE);
         self.system_table_id(&INDEX_TABLE);
         TabletIdAndTableNumber {
@@ -159,8 +168,11 @@ impl TestIdGenerator {
         let ts = Timestamp::MIN;
         let mut documents = vec![];
         let mut indexes = BTreeSet::new();
-        let tables_table_id = self.table_mapping.name_to_id()(TABLES_TABLE.clone())?;
-        for (table_id, table_number, table_name) in self.table_mapping.iter() {
+        let tables_table_id = self
+            .table_mapping
+            .namespace(TableNamespace::Global)
+            .name_to_id()(TABLES_TABLE.clone())?;
+        for (table_id, _, table_number, table_name) in self.table_mapping.iter() {
             let table_metadata = TableMetadata::new(table_name.clone(), table_number);
             let id = tables_table_id.id(table_id.0);
             let doc = ResolvedDocument::new(id, CreationTime::ONE, table_metadata.try_into()?)?;

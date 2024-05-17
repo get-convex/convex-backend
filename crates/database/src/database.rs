@@ -142,6 +142,7 @@ use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     Size,
+    TableNamespace,
     TableNumber,
 };
 use vector::{
@@ -440,11 +441,15 @@ impl DatabaseSnapshot {
             table_states.insert(tablet_id, table_doc.state);
             let table_number = table_doc.number;
             match table_doc.state {
-                TableState::Active => {
-                    table_mapping.insert(tablet_id, table_number, table_doc.into_value().name)
-                },
+                TableState::Active => table_mapping.insert(
+                    tablet_id,
+                    TableNamespace::Global,
+                    table_number,
+                    table_doc.into_value().name,
+                ),
                 TableState::Hidden => table_mapping.insert_tablet(
                     tablet_id,
+                    TableNamespace::Global,
                     table_number,
                     table_doc.into_value().name,
                 ),
@@ -516,7 +521,9 @@ impl DatabaseSnapshot {
         index_registry: &IndexRegistry,
     ) -> anyhow::Result<TableRegistry> {
         let load_virtual_tables_timer = load_virtual_table_metadata_timer();
-        let virtual_tables_table = table_mapping.id(&VIRTUAL_TABLES_TABLE)?;
+        let virtual_tables_table = table_mapping
+            .namespace(TableNamespace::Global)
+            .id(&VIRTUAL_TABLES_TABLE)?;
         let virtual_tables_by_id = index_registry
             .must_get_by_id(virtual_tables_table.tablet_id)?
             .id();
@@ -698,7 +705,7 @@ impl DatabaseSnapshot {
     ) -> anyhow::Result<()> {
         let _timer = verify_invariants_timer();
         // Verify that all tables have table scan index.
-        for (tablet_id, _, table_name) in table_registry.table_mapping().iter() {
+        for (tablet_id, _, _, table_name) in table_registry.table_mapping().iter() {
             anyhow::ensure!(
                 index_registry
                     .get_enabled(&TabletIndexName::by_id(tablet_id))
@@ -940,7 +947,7 @@ impl<RT: Runtime> Database<RT> {
         let (ts, snapshot) = self.snapshot_manager.lock().latest();
         let vector_persistence =
             RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator());
-        let table_mapping = snapshot.table_mapping().clone();
+        let table_mapping = snapshot.table_mapping().namespace(TableNamespace::Global);
         SearchAndVectorIndexBootstrapWorker::new(
             self.runtime.clone(),
             snapshot.index_registry,
@@ -1036,6 +1043,7 @@ impl<RT: Runtime> Database<RT> {
         let tables_tablet_id = snapshot
             .table_registry
             .table_mapping()
+            .namespace(TableNamespace::Global)
             .id(&TABLES_TABLE)?
             .tablet_id;
         let tables_by_id = snapshot
@@ -1050,6 +1058,7 @@ impl<RT: Runtime> Database<RT> {
             if table_doc.is_active() {
                 table_mapping.insert(
                     TabletId(table_doc.id().internal_id()),
+                    TableNamespace::Global,
                     table_doc.number,
                     table_doc.into_value().name,
                 );
@@ -1109,7 +1118,8 @@ impl<RT: Runtime> Database<RT> {
                 .get(table_name)
                 .context(format!("Table name {table_name} not found"))?;
             let tablet_id = TabletId(id_generator.generate_internal());
-            let existing_tn = table_mapping.name_by_number_if_exists(table_number);
+            let global_table_mapping = table_mapping.namespace(TableNamespace::Global);
+            let existing_tn = global_table_mapping.name_by_number_if_exists(table_number);
             anyhow::ensure!(
                 existing_tn.is_none(),
                 "{table_number} is used by both {table_name} and {existing_tn:?}"
@@ -1122,12 +1132,19 @@ impl<RT: Runtime> Database<RT> {
                 table_number >= TableNumber::try_from(NUM_RESERVED_LEGACY_TABLE_NUMBERS)?,
                 "{table_number} picked for system table {table_name} is reserved for legacy tables"
             );
-            table_mapping.insert(tablet_id, table_number, table_name.clone());
+            table_mapping.insert(
+                tablet_id,
+                TableNamespace::Global,
+                table_number,
+                table_name.clone(),
+            );
         }
 
         // Get table ids for tables we will be populating.
-        let tables_table_id = table_mapping.name_to_id()(TABLES_TABLE.clone())?;
-        let index_table_id = table_mapping.name_to_id()(INDEX_TABLE.clone())?;
+        let tables_table_id =
+            table_mapping.namespace(TableNamespace::Global).name_to_id()(TABLES_TABLE.clone())?;
+        let index_table_id =
+            table_mapping.namespace(TableNamespace::Global).name_to_id()(INDEX_TABLE.clone())?;
 
         persistence
             .write_persistence_global(
@@ -1146,7 +1163,9 @@ impl<RT: Runtime> Database<RT> {
         // Create bootstrap system table values.
         for table in bootstrap_system_tables() {
             let table_name = table.table_name();
-            let table_id = table_mapping.id(table_name)?;
+            let table_id = table_mapping
+                .namespace(TableNamespace::Global)
+                .id(table_name)?;
             let document_id: GenericDocumentId<TabletIdAndTableNumber> =
                 tables_table_id.id(table_id.tablet_id.0);
             let metadata = TableMetadata::new(table_name.clone(), table_id.table_number);
@@ -1191,7 +1210,9 @@ impl<RT: Runtime> Database<RT> {
             .into_iter()
             .flat_map(|t| t.indexes())
         {
-            let name = name.map_table(&table_mapping.name_to_id())?.into();
+            let name = name
+                .map_table(&table_mapping.namespace(TableNamespace::Global).name_to_id())?
+                .into();
             let document_id = id_generator.generate(&index_table_id);
             let index_metadata = IndexMetadata::new_enabled(name, fields);
             let document = ResolvedDocument::new(
@@ -1662,22 +1683,33 @@ impl<RT: Runtime> Database<RT> {
         let table_mapping = self.snapshot_table_mapping(snapshot).await?;
         let by_id_indexes = self.snapshot_by_id_indexes(snapshot).await?;
         let resolved_cursor = cursor
-            .map(|c| c.map_table(table_mapping.inject_table_id()))
+            .map(|c| {
+                c.map_table(
+                    table_mapping
+                        .namespace(TableNamespace::Global)
+                        .inject_table_id(),
+                )
+            })
             .transpose()?;
         let table_numbers: BTreeSet<_> = table_mapping
             .iter()
-            .filter(|(_, table_number, name)| {
+            .filter(|(_, _, table_number, name)| {
                 Self::user_table_filter(&table_filter, name)
                     && resolved_cursor
                         .as_ref()
                         .map(|c| table_number >= &c.table().table_number)
                         .unwrap_or(true)
             })
-            .map(|(_, table_number, _)| table_number)
+            .map(|(_, _, table_number, _)| table_number)
             .collect();
         let mut table_numbers = table_numbers.into_iter();
         let tablet_id = match table_numbers.next() {
-            Some(first_table) => table_mapping.inject_table_id()(first_table)?.tablet_id,
+            Some(first_table) => {
+                table_mapping
+                    .namespace(TableNamespace::Global)
+                    .inject_table_id()(first_table)?
+                .tablet_id
+            },
             None => {
                 return Ok(SnapshotPage {
                     documents: vec![],
@@ -1733,7 +1765,11 @@ impl<RT: Runtime> Database<RT> {
             None => None,
         });
         if let Some(new_cursor) = new_cursor {
-            let resolved_new_cursor = new_cursor.map_table(table_mapping.inject_table_id())?;
+            let resolved_new_cursor = new_cursor.map_table(
+                table_mapping
+                    .namespace(TableNamespace::Global)
+                    .inject_table_id(),
+            )?;
             let new_cache_key = ListSnapshotTableIteratorCacheEntry {
                 snapshot: *snapshot,
                 tablet_id,
@@ -1916,7 +1952,7 @@ impl<RT: Runtime> Database<RT> {
         let timer = metrics::vector::vector_search_timer();
         let usage = FunctionUsageTracker::new();
         let snapshot = self.snapshot(ts)?;
-        let table_mapping = snapshot.table_mapping();
+        let table_mapping = snapshot.table_mapping().namespace(TableNamespace::Global);
         if !table_mapping.name_exists(query.index_name.table()) {
             return Ok((vec![], usage.gather_user_stats()));
         }
@@ -1929,7 +1965,7 @@ impl<RT: Runtime> Database<RT> {
         let index = snapshot
             .index_registry
             .require_enabled(&index_name, &query.index_name)?;
-        let resolved: vector::InternalVectorSearch = query.resolve(table_mapping)?;
+        let resolved: vector::InternalVectorSearch = query.resolve(&table_mapping)?;
         let search_storage = self.search_storage();
         let results: Vec<_> = snapshot
             .vector_indexes

@@ -67,9 +67,11 @@ use serde_json::Value as JsonValue;
 use tokio::sync::Semaphore;
 use value::{
     ConvexArray,
+    NamespacedTableMapping,
     TableMapping,
     TableMappingValue,
     TableName,
+    TableNamespace,
     TableNumber,
     TabletIdAndTableNumber,
     VirtualTableMapping,
@@ -452,7 +454,9 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         })
     }
 
-    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+    fn get_all_table_mappings(
+        &mut self,
+    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
         self.check_executing()?;
         Ok(self.shared.get_all_table_mappings())
     }
@@ -718,7 +722,10 @@ impl<RT: Runtime> UdfShared<RT> {
 
     fn lookup_table(&self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>> {
         let inner = self.inner.lock();
-        Ok(inner.table_mapping.id_and_number_if_exists(name))
+        Ok(inner
+            .table_mapping
+            .namespace(TableNamespace::Global)
+            .id_and_number_if_exists(name))
     }
 
     fn lookup_virtual_table(&self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
@@ -751,10 +758,10 @@ impl<RT: Runtime> UdfShared<RT> {
         inner.queries.remove(&query_id).is_some()
     }
 
-    fn get_all_table_mappings(&self) -> (TableMapping, VirtualTableMapping) {
+    fn get_all_table_mappings(&self) -> (NamespacedTableMapping, VirtualTableMapping) {
         let inner = self.inner.lock();
         (
-            inner.table_mapping.clone(),
+            inner.table_mapping.namespace(TableNamespace::Global),
             inner.virtual_table_mapping.clone(),
         )
     }

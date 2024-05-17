@@ -12,7 +12,7 @@ use serde_json::Value as JsonValue;
 use value::{
     ConvexArray,
     ConvexValue,
-    TableMapping,
+    NamespacedTableMapping,
     VirtualTableMapping,
 };
 
@@ -36,7 +36,7 @@ impl ArgsValidator {
     pub fn check_args(
         &self,
         args: &ConvexArray,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> anyhow::Result<Option<JsError>> {
         let result = match self {
@@ -132,7 +132,7 @@ impl ReturnsValidator {
     pub fn check_output(
         &self,
         output: &ConvexValue,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Option<JsError> {
         match self {

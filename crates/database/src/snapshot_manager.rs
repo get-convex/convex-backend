@@ -31,6 +31,7 @@ use value::{
     ResolvedDocumentId,
     TableMapping,
     TableName,
+    TableNamespace,
     TabletId,
 };
 use vector::VectorIndexManager;
@@ -159,7 +160,10 @@ impl TableSummaries {
             .insert(document_id.table().tablet_id, table_summary)
         {
             Some(old_summary) => {
-                if !table_mapping.is_system(document_id.table().table_number) {
+                if !table_mapping
+                    .namespace(TableNamespace::Global)
+                    .is_system(document_id.table().table_number)
+                {
                     self.num_user_documents =
                         self.num_user_documents + new_info_num_values - old_summary.num_values();
                     self.user_size =
@@ -267,7 +271,11 @@ impl Snapshot {
     }
 
     pub fn table_summary(&self, table: &TableName) -> TableSummary {
-        let table_id = match self.table_mapping().id(table) {
+        let table_id = match self
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(table)
+        {
             Ok(table_id) => table_id,
             Err(_) => return TableSummary::empty(),
         };

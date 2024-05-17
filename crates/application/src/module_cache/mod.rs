@@ -29,7 +29,10 @@ use model::{
     },
 };
 use storage::Storage;
-use value::ResolvedDocumentId;
+use value::{
+    ResolvedDocumentId,
+    TableNamespace,
+};
 
 mod metrics;
 
@@ -88,7 +91,10 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
 
         // If this transaction wrote to module_versions (true for REPLs), we cannot use
         // the cache, load the module directly.
-        let module_versions_table_id = tx.table_mapping().id(&MODULE_VERSIONS_TABLE)?;
+        let module_versions_table_id = tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&MODULE_VERSIONS_TABLE)?;
         if tx.writes().has_written_to(&module_versions_table_id) {
             let source = ModuleModel::new(tx)
                 .get_source(module_metadata.id(), module_metadata.latest_version)

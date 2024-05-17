@@ -61,8 +61,9 @@ use value::{
     heap_size::HeapSize,
     ConvexArray,
     ConvexValue,
+    NamespacedTableMapping,
     Size,
-    TableMapping,
+    TableNamespace,
     VirtualTableMapping,
 };
 
@@ -424,7 +425,7 @@ impl ValidatedPathAndArgs {
             ))));
         }
 
-        let table_mapping = &tx.table_mapping().clone();
+        let table_mapping = &tx.table_mapping().namespace(TableNamespace::Global);
         let virtual_table_mapping = &tx.virtual_table_mapping().clone();
 
         // If the UDF has an args validator, check that these args match.
@@ -673,7 +674,7 @@ impl ValidatedUdfOutcome {
     pub fn new(
         outcome: UdfOutcome,
         returns_validator: ReturnsValidator,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Self {
         let mut validated = ValidatedUdfOutcome {
@@ -725,7 +726,7 @@ impl ValidatedActionOutcome {
     pub fn new(
         outcome: ActionOutcome,
         returns_validator: ReturnsValidator,
-        table_mapping: &TableMapping,
+        table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Self {
         let mut validated = ValidatedActionOutcome {

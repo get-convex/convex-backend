@@ -7,6 +7,7 @@ use value::{
     ConvexObject,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -45,16 +46,21 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         if !(self.tx.identity.is_system() || self.tx.identity.is_admin()) {
             anyhow::bail!(unauthorized_error("insert_metadata"));
         }
-        let table_id = self.tx.table_mapping().id(table).with_context(|| {
-            if cfg!(any(test, feature = "testing")) {
-                format!(
-                    "Failed to find system table {table} in a test. Try initializing system \
-                     tables with:\nDbFixtures::new(&rt).await?.with_model().await?"
-                )
-            } else {
-                format!("Failed to find system table {table}")
-            }
-        })?;
+        let table_id = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(table)
+            .with_context(|| {
+                if cfg!(any(test, feature = "testing")) {
+                    format!(
+                        "Failed to find system table {table} in a test. Try initializing system \
+                         tables with:\nDbFixtures::new(&rt).await?.with_model().await?"
+                    )
+                } else {
+                    format!("Failed to find system table {table}")
+                }
+            })?;
         let id = self.tx.id_generator.generate(&table_id);
         let creation_time = self.tx.next_creation_time.increment()?;
         let document = ResolvedDocument::new(id, creation_time, value)?;
@@ -73,7 +79,11 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         TableModel::new(self.tx)
             .insert_table_metadata(table)
             .await?;
-        let table_id = self.tx.table_mapping().id(table)?;
+        let table_id = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(table)?;
         let id = self.tx.id_generator.generate(&table_id);
         let creation_time = self.tx.next_creation_time.increment()?;
         let document = ResolvedDocument::new(id, creation_time, value)?;
@@ -89,7 +99,11 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         id: ResolvedDocumentId,
         value: PatchValue,
     ) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self.tx.table_mapping().is_system(id.table().table_number));
+        anyhow::ensure!(self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .is_system(id.table().table_number));
 
         self.tx.patch_inner(id, value).await
     }
@@ -101,7 +115,11 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         id: ResolvedDocumentId,
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self.tx.table_mapping().is_system(id.table().table_number));
+        anyhow::ensure!(self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .is_system(id.table().table_number));
         self.tx.replace_inner(id, value).await
     }
 
@@ -109,7 +127,11 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
     #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn delete(&mut self, id: ResolvedDocumentId) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self.tx.table_mapping().is_system(id.table().table_number));
+        anyhow::ensure!(self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .is_system(id.table().table_number));
         self.tx.delete_inner(id).await
     }
 }

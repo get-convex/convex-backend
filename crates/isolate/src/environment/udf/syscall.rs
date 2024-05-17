@@ -24,6 +24,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     InternalId,
     TableName,
+    TableNamespace,
     TableNumber,
     TabletIdAndTableNumber,
 };
@@ -55,7 +56,11 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>> {
-        let table_mapping = self.phase.tx()?.table_mapping();
+        let table_mapping = self
+            .phase
+            .tx()?
+            .table_mapping()
+            .namespace(TableNamespace::Global);
         Ok(table_mapping.id_and_number_if_exists(name))
     }
 

@@ -27,6 +27,7 @@ use value::{
     ConvexValue,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use self::types::{
@@ -79,6 +80,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
+            .namespace(TableNamespace::Global)
             .number_matches_name(id.table().table_number, SnapshotImportsTable.table_name()));
         match self.tx.get(id).await? {
             None => Ok(None),

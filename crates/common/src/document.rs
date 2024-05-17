@@ -955,6 +955,7 @@ mod tests {
         TableIdentifier,
         TableMapping,
         TableName,
+        TableNamespace,
         TabletIdAndTableNumber,
     };
 
@@ -980,6 +981,7 @@ mod tests {
         let mut table_mapping = TableMapping::new();
         table_mapping.insert(
             table_id.tablet_id,
+            TableNamespace::Global,
             table_id.table_number,
             table_name.clone(),
         );

@@ -19,6 +19,7 @@ use value::{
     TableIdentifier,
     TableMapping,
     TableName,
+    TableNamespace,
     TabletIdAndTableNumber,
 };
 
@@ -109,7 +110,10 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
 
         let document = ResolvedDocument::new(id, creation_time, value)?;
         SchemaModel::new(self.tx)
-            .enforce_with_table_mapping(&document, table_mapping_for_schema)
+            .enforce_with_table_mapping(
+                &document,
+                &table_mapping_for_schema.namespace(TableNamespace::Global),
+            )
             .await?;
         self.tx.apply_validated_write(id, None, Some(document))?;
 

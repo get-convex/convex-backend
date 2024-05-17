@@ -15,6 +15,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     ConvexValue,
     TableName,
+    TableNamespace,
     VirtualTableMapping,
 };
 
@@ -96,12 +97,14 @@ fn test_id_strings() -> anyhow::Result<()> {
     let deleted2_table = TableName::from_str("deleted2")?;
     let deleted1_id: DeveloperDocumentId = id_generator.user_generate(&deleted1_table).into();
     let deleted2_id: DeveloperDocumentId = id_generator.user_generate(&deleted2_table).into();
+    let table_mapping = id_generator.namespace(TableNamespace::Global);
 
     // Delete two of the tables
-    let deleted1_table_id = id_generator.id(&deleted1_table)?;
+    let deleted1_table_id = table_mapping.id(&deleted1_table)?;
     id_generator.remove(deleted1_table_id.tablet_id);
-    let deleted2_table_id = id_generator.id(&deleted2_table)?;
+    let deleted2_table_id = table_mapping.id(&deleted2_table)?;
     id_generator.remove(deleted2_table_id.tablet_id);
+    let table_mapping = id_generator.namespace(TableNamespace::Global);
 
     // Insert all of these into a type
     let inferred_type = CountedShape::<TestConfig>::empty()
@@ -111,12 +114,12 @@ fn test_id_strings() -> anyhow::Result<()> {
 
     let reduced_shape = ReducedShape::from_type(
         &inferred_type,
-        &id_generator.table_number_exists(),
+        &table_mapping.table_number_exists(),
         &id_generator.virtual_table_mapping.table_number_exists(),
     );
     let shape_json = dashboard_shape_json(
         &reduced_shape,
-        &id_generator,
+        &id_generator.namespace(TableNamespace::Global),
         &id_generator.virtual_table_mapping,
     )?;
     assert_eq!(
@@ -137,14 +140,18 @@ fn test_float_merge_shape_inference() -> anyhow::Result<()> {
         .insert_value(&ConvexValue::Float64(f64::INFINITY))
         .insert_value(&ConvexValue::Float64(123.0))
         .insert_value(&ConvexValue::Null);
+    let table_mapping = id_generator.namespace(TableNamespace::Global);
 
     let reduced_shape = ReducedShape::from_type(
         &inferred_type,
-        &id_generator.table_number_exists(),
+        &table_mapping.table_number_exists(),
         &&VirtualTableMapping::new().table_number_exists(),
     );
-    let shape_json =
-        dashboard_shape_json(&reduced_shape, &id_generator, &VirtualTableMapping::new())?;
+    let shape_json = dashboard_shape_json(
+        &reduced_shape,
+        &id_generator.namespace(TableNamespace::Global),
+        &VirtualTableMapping::new(),
+    )?;
     assert_eq!(
         shape_json,
         json!({"type": "Union", "shapes": vec![

@@ -6,6 +6,7 @@ use value::{
     GenericDocumentId,
     ResolvedDocumentId,
     TableMapping,
+    TableNamespace,
     TabletId,
 };
 
@@ -24,7 +25,11 @@ pub fn parse_schema_id(
         Err(_) => {
             // Try parsing as an IDv6 ID
             let id = DeveloperDocumentId::decode(schema_id)?;
-            id.to_resolved(&table_mapping.inject_table_id())
+            id.to_resolved(
+                &table_mapping
+                    .namespace(TableNamespace::Global)
+                    .inject_table_id(),
+            )
         },
     }
 }

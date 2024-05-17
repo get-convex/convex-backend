@@ -4,7 +4,7 @@ use serde_json::{
 };
 use value::{
     utils::all_tables_number_to_name,
-    TableMapping,
+    NamespacedTableMapping,
     VirtualTableMapping,
 };
 
@@ -12,7 +12,7 @@ use super::reduced::ReducedShape;
 
 pub fn dashboard_shape_json(
     shape: &ReducedShape,
-    mapping: &TableMapping,
+    mapping: &NamespacedTableMapping,
     virtual_mapping: &VirtualTableMapping,
 ) -> anyhow::Result<JsonValue> {
     let result = match shape {
@@ -107,6 +107,7 @@ mod tests {
         utils::all_tables_name_to_number,
         TableMapping,
         TableName,
+        TableNamespace,
         VirtualTableMapping,
     };
 
@@ -178,7 +179,11 @@ mod tests {
             ShapeEnumJson::Never => ReducedShape::Never,
             ShapeEnumJson::Id { table_name } => {
                 let name: TableName = table_name.parse()?;
-                ReducedShape::Id(all_tables_name_to_number(mapping, virtual_mapping)(name)?)
+                ReducedShape::Id(all_tables_name_to_number(
+                    TableNamespace::Global,
+                    mapping,
+                    virtual_mapping,
+                )(name)?)
             },
             ShapeEnumJson::Null => ReducedShape::Null,
             ShapeEnumJson::Int64 { .. } => ReducedShape::Int64,
@@ -253,8 +258,11 @@ mod tests {
             ReducedShape::Union(btreeset!(ReducedShape::Boolean, ReducedShape::String)),
         ];
         for shape in shapes {
-            let json_value =
-                dashboard_shape_json(&shape, &id_generator, &id_generator.virtual_table_mapping)?;
+            let json_value = dashboard_shape_json(
+                &shape,
+                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.virtual_table_mapping,
+            )?;
             assert_eq!(
                 parse_json(
                     json_value,
@@ -294,8 +302,11 @@ mod tests {
             ReducedShape::Union(btreeset!(ReducedShape::Boolean, ReducedShape::String)),
         ];
         for shape in shapes {
-            let json_value =
-                dashboard_shape_json(&shape, &id_generator, &id_generator.virtual_table_mapping)?;
+            let json_value = dashboard_shape_json(
+                &shape,
+                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.virtual_table_mapping,
+            )?;
             assert_eq!(
                 parse_json(
                     json_value,

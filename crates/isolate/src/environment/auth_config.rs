@@ -39,7 +39,7 @@ use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use value::{
-    TableMapping,
+    NamespacedTableMapping,
     TableMappingValue,
     VirtualTableMapping,
 };
@@ -127,7 +127,9 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         ))
     }
 
-    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+    fn get_all_table_mappings(
+        &mut self,
+    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoTableMappingFetchDuringAuthConfig",
             "Getting the table mapping unsupported when evaluating auth config file"

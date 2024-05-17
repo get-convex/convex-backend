@@ -5,8 +5,8 @@ use sync_types::{
 };
 use value::{
     id_v6::DeveloperDocumentId,
+    NamespacedTableMapping,
     ResolvedDocumentId,
-    TableMapping,
     TableName,
 };
 
@@ -34,7 +34,7 @@ pub fn invalid_id_error(table_name: &TableName) -> ErrorMetadata {
 /// Parse a string in the format of IDv6 into a [`ResolvedDocumentId`].
 pub fn parse_document_id(
     id: &str,
-    table_mapping: &TableMapping,
+    table_mapping: &NamespacedTableMapping,
     table_name: &TableName,
 ) -> anyhow::Result<ResolvedDocumentId> {
     let id = DeveloperDocumentId::decode(id)?.to_resolved(&table_mapping.inject_table_id())?;
@@ -49,7 +49,10 @@ pub fn parse_document_id(
 mod tests {
     use common::testing::TestIdGenerator;
     use model::environment_variables::ENVIRONMENT_VARIABLES_TABLE;
-    use value::id_v6::DeveloperDocumentId;
+    use value::{
+        id_v6::DeveloperDocumentId,
+        TableNamespace,
+    };
 
     use super::parse_document_id;
 
@@ -60,7 +63,7 @@ mod tests {
         let id_v5 = id_generator.system_generate(&ENVIRONMENT_VARIABLES_TABLE);
         let id_v6: DeveloperDocumentId = id_v5.into();
 
-        let table_mapping = id_generator.clone();
+        let table_mapping = id_generator.namespace(TableNamespace::Global);
         let id_v6_string = id_v6.encode();
         parse_document_id(&id_v6_string, &table_mapping, &ENVIRONMENT_VARIABLES_TABLE)?;
         Ok(())

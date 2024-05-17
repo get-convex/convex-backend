@@ -62,6 +62,7 @@ use value::{
     ConvexValue,
     DeveloperDocumentId,
     TableName,
+    TableNamespace,
 };
 use vector::{
     cosine_similarity,
@@ -210,7 +211,11 @@ impl<RT: Runtime> Scenario<RT> {
 
     async fn backfill(&self) -> anyhow::Result<()> {
         let snapshot = self.database.latest_snapshot()?;
-        let table_id = snapshot.table_mapping().id(&TABLE_NAME.parse()?)?.tablet_id;
+        let table_id = snapshot
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&TABLE_NAME.parse()?)?
+            .tablet_id;
         VectorIndexFlusher::build_index_in_test(
             TabletIndexName::new(table_id, INDEX_DESCRIPTOR.parse()?)?,
             TABLE_NAME.parse()?,
@@ -904,7 +909,10 @@ async fn test_empty_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_recall_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
     let scenario = Scenario::new(rt.clone(), ScenarioIndexState::Some).await?;
     let mut tx = scenario.database.begin(Identity::system()).await?;
-    let table_number = tx.table_mapping().name_to_number_user_input()(TABLE_NAME.parse()?)?;
+    let table_number = tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .name_to_number_user_input()(TABLE_NAME.parse()?)?;
 
     let mut by_id = BTreeMap::new();
     for _ in 0..100 {

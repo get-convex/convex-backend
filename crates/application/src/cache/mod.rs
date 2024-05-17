@@ -80,6 +80,7 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::HeapSize,
     ConvexValue,
+    TableNamespace,
 };
 
 use crate::{
@@ -489,7 +490,8 @@ impl<RT: Runtime> CacheManager<RT> {
                         };
                         if let Ok(ref json_packed_value) = &query_outcome.result {
                             let output: ConvexValue = json_packed_value.unpack();
-                            let table_mapping = tx.table_mapping().clone();
+                            let table_mapping =
+                                tx.table_mapping().namespace(TableNamespace::Global);
                             let virtual_table_mapping = tx.virtual_table_mapping().clone();
                             let returns_validation_error = returns_validator.check_output(
                                 &output,

@@ -44,8 +44,8 @@ use sync_types::{
 use value::{
     values_to_bytes,
     ConvexValue,
+    NamespacedTableMapping,
     ResolvedDocumentId,
-    TableMapping,
     TabletId,
 };
 
@@ -267,7 +267,7 @@ pub trait IndexFastForward<RT: Runtime, V: PartialEq + Send> {
 pub async fn load_metadata_fast_forward_ts(
     registry: &IndexRegistry,
     snapshot: &PersistenceSnapshot,
-    table_mapping: &TableMapping,
+    table_mapping: &NamespacedTableMapping,
     index: ResolvedDocumentId,
 ) -> anyhow::Result<Option<Timestamp>> {
     let metadata_table_id = table_mapping.id(&INDEX_WORKER_METADATA_TABLE)?;

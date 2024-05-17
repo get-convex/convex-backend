@@ -28,6 +28,7 @@ use value::{
     FieldPath,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -189,6 +190,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
+            .namespace(TableNamespace::Global)
             .number_matches_name(id.table().table_number, &CRON_JOBS_TABLE));
         SystemMetadataModel::new(self.tx)
             .replace(id, job.try_into()?)

@@ -29,6 +29,7 @@ use common::{
 };
 use maplit::btreemap;
 use value::{
+    TableNamespace,
     TableNumber,
     TabletId,
 };
@@ -152,9 +153,13 @@ pub struct BootstrapTableIds {
 impl BootstrapTableIds {
     pub fn new(table_mapping: &TableMapping) -> Self {
         let tables_id = table_mapping
+            .namespace(TableNamespace::Global)
             .id(&TABLES_TABLE)
             .expect("_tables should exist");
-        let index_id = table_mapping.id(&INDEX_TABLE).expect("_index should exist");
+        let index_id = table_mapping
+            .namespace(TableNamespace::Global)
+            .id(&INDEX_TABLE)
+            .expect("_index should exist");
         Self {
             tables_id,
             index_id,

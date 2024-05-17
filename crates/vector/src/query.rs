@@ -41,8 +41,8 @@ use value::{
     ConvexValue,
     FieldPath,
     InternalId,
+    NamespacedTableMapping,
     Size,
-    TableMapping,
     TableName,
     TableNumber,
     TabletId,
@@ -341,7 +341,10 @@ impl TryFrom<VectorSearchExpressionJson> for VectorSearchExpression {
 }
 
 impl VectorSearch {
-    pub fn resolve(self, table_mapping: &TableMapping) -> anyhow::Result<InternalVectorSearch> {
+    pub fn resolve(
+        self,
+        table_mapping: &NamespacedTableMapping,
+    ) -> anyhow::Result<InternalVectorSearch> {
         let original_table_name = self.index_name.table().clone();
         let index_name = self
             .index_name

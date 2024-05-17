@@ -34,9 +34,10 @@ use errors::ErrorMetadata;
 use value::{
     val,
     FieldPath,
+    NamespacedTableMapping,
     ResolvedDocumentId,
-    TableMapping,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -91,7 +92,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     }
 
     pub async fn enforce(&mut self, document: &ResolvedDocument) -> anyhow::Result<()> {
-        let schema_table_mapping = self.tx.table_mapping().clone();
+        let schema_table_mapping = self.tx.table_mapping().namespace(TableNamespace::Global);
         self.enforce_with_table_mapping(document, &schema_table_mapping)
             .await
     }
@@ -134,7 +135,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     pub async fn enforce_with_table_mapping(
         &mut self,
         document: &ResolvedDocument,
-        table_mapping_for_schema: &TableMapping,
+        table_mapping_for_schema: &NamespacedTableMapping,
     ) -> anyhow::Result<()> {
         let table_name = table_mapping_for_schema.tablet_name(document.table().tablet_id)?;
         if let Some((_id, active_schema)) = self.get_by_state(SchemaState::Active).await? {

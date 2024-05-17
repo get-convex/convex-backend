@@ -22,7 +22,10 @@ use common::{
 };
 use imbl::OrdMap;
 use indexing::index_registry::IndexRegistry;
-use value::TableNumber;
+use value::{
+    TableNamespace,
+    TableNumber,
+};
 
 use crate::{
     defaults::bootstrap_system_tables,
@@ -88,6 +91,7 @@ impl TableRegistry {
 
         let table_update = if self
             .table_mapping
+            .namespace(TableNamespace::Global)
             .number_matches_name(id.table().table_number, &TABLES_TABLE)
         {
             let tablet_id = TabletId(id.internal_id());
@@ -174,6 +178,7 @@ impl TableRegistry {
 
         if self
             .table_mapping
+            .namespace(TableNamespace::Global)
             .number_matches_name(id.table().table_number, &VIRTUAL_TABLES_TABLE)
         {
             match (old_value, new_value) {
@@ -200,7 +205,10 @@ impl TableRegistry {
 
     fn validate_table_number(&self, table_number: TableNumber) -> anyhow::Result<()> {
         anyhow::ensure!(
-            !self.table_mapping.table_number_exists()(table_number),
+            !self
+                .table_mapping
+                .namespace(TableNamespace::Global)
+                .table_number_exists()(table_number),
             "Cannot add a table with table number {table_number} since it already exists in the \
              table mapping"
         );
@@ -218,35 +226,28 @@ impl TableRegistry {
 
     pub fn user_table_names(&self) -> impl Iterator<Item = &TableName> {
         self.table_mapping
-            .iter()
-            .filter(|(table_id, _, name)| {
-                matches!(self.tablet_states.get(table_id), Some(TableState::Active))
-                    && !name.is_system()
-            })
-            .map(|(_, _, name)| name)
+            .iter_active_user_tables()
+            .map(|(_, _, _, name)| name)
     }
 
     pub fn table_exists(&self, table: &TableName) -> bool {
-        self.table_mapping.name_exists(table)
+        self.table_mapping
+            .namespace(TableNamespace::Global)
+            .name_exists(table)
     }
 
     pub fn iter_active_user_tables(
         &self,
-    ) -> impl Iterator<Item = (TabletId, TableNumber, &TableName)> {
-        self.table_mapping
-            .iter()
-            .filter(|(table_id, _, table_name)| {
-                !table_name.is_system()
-                    && matches!(self.tablet_states.get(table_id), Some(TableState::Active))
-            })
+    ) -> impl Iterator<Item = (TabletId, TableNamespace, TableNumber, &TableName)> {
+        self.table_mapping.iter_active_user_tables()
     }
 
     pub fn iter_active_system_tables(
         &self,
-    ) -> impl Iterator<Item = (TabletId, TableNumber, &TableName)> {
+    ) -> impl Iterator<Item = (TabletId, TableNamespace, TableNumber, &TableName)> {
         self.table_mapping
             .iter()
-            .filter(|(table_id, _, table_name)| {
+            .filter(|(table_id, _, _, table_name)| {
                 table_name.is_system()
                     && matches!(self.tablet_states.get(table_id), Some(TableState::Active))
             })
@@ -273,7 +274,9 @@ impl TableRegistry {
             if let Some(table_number) = virtual_table_mapping.name_if_exists(number) {
                 return Ok(table_number);
             }
-            table_mapping.number_to_name()(number)
+            table_mapping
+                .namespace(TableNamespace::Global)
+                .number_to_name()(number)
         }
     }
 
@@ -315,6 +318,7 @@ impl<'a> Update<'a> {
             if table_update.activates() {
                 self.metadata.table_mapping.insert(
                     table_update.table_id_and_number.tablet_id,
+                    TableNamespace::Global,
                     table_update.table_id_and_number.table_number,
                     table_update.table_name.clone(),
                 );
@@ -330,6 +334,7 @@ impl<'a> Update<'a> {
                 TableUpdateMode::Create => {
                     self.metadata.table_mapping.insert_tablet(
                         table_id_and_number.tablet_id,
+                        TableNamespace::Global,
                         table_id_and_number.table_number,
                         table_name.clone(),
                     );

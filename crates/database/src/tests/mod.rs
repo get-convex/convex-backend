@@ -83,6 +83,7 @@ use value::{
     val,
     TableIdentifier,
     TableMapping,
+    TableNamespace,
 };
 
 use crate::{
@@ -448,7 +449,11 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
     let id = UserFacingModel::new_root_for_test(&mut tx)
         .insert("table".parse()?, assert_obj!())
         .await?;
-    let id_ = id.map_table(&tx.table_mapping().inject_table_id())?;
+    let id_ = id.map_table(
+        &tx.table_mapping()
+            .namespace(TableNamespace::Global)
+            .inject_table_id(),
+    )?;
     let document = tx.get(id_).await?.unwrap();
     database.commit(tx).await?;
 
@@ -1011,6 +1016,7 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
         table_id.tablet_id,
+        TableNamespace::Global,
         table_id.table_number,
         table_name.clone(),
     );
@@ -1077,6 +1083,7 @@ async fn test_importing_table_schema_validated(rt: TestRuntime) -> anyhow::Resul
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
         table_id.tablet_id,
+        TableNamespace::Global,
         table_id.table_number,
         table_name.clone(),
     );
@@ -1116,6 +1123,7 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
         .await?;
     table_mapping_for_import.insert(
         table_id.tablet_id,
+        TableNamespace::Global,
         table_id.table_number,
         table_name.clone(),
     );
@@ -1124,6 +1132,7 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
         .await?;
     table_mapping_for_import.insert(
         foreign_table_id.tablet_id,
+        TableNamespace::Global,
         foreign_table_id.table_number,
         foreign_table_name.clone(),
     );
@@ -1186,8 +1195,16 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     table_model
         .insert_table_metadata(&foreign_table_name)
         .await?;
-    let active_table_number = tx.table_mapping().id(&table_name)?.table_number;
-    let active_foreign_table_number = tx.table_mapping().id(&foreign_table_name)?.table_number;
+    let active_table_number = tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .id(&table_name)?
+        .table_number;
+    let active_foreign_table_number = tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .id(&foreign_table_name)?
+        .table_number;
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;
@@ -1215,6 +1232,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
         .await?;
     table_mapping_for_import.insert(
         table_id.tablet_id,
+        TableNamespace::Global,
         table_id.table_number,
         table_name.clone(),
     );
@@ -1227,6 +1245,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
         .await?;
     table_mapping_for_import.insert(
         foreign_table_id.tablet_id,
+        TableNamespace::Global,
         foreign_table_id.table_number,
         foreign_table_name.clone(),
     );
@@ -1288,7 +1307,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
 
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
-    for (table_id, table_number, table_name) in table_mapping_for_import.iter() {
+    for (table_id, _, table_number, table_name) in table_mapping_for_import.iter() {
         table_model
             .activate_table(table_id, table_name, table_number, &tables_in_import)
             .await?;
@@ -1300,8 +1319,11 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     // wrong tablet.
     let mut tx = database.begin(Identity::system()).await?;
     let table_mapping = tx.table_mapping();
-    for (table_id, table_number, table_name) in table_mapping_for_import.iter() {
-        assert_eq!(table_mapping.id_if_exists(table_name), Some(table_id));
+    for (table_id, namespace, table_number, table_name) in table_mapping_for_import.iter() {
+        assert_eq!(
+            table_mapping.namespace(namespace).id_if_exists(table_name),
+            Some(table_id)
+        );
         assert_eq!(
             table_mapping.inject_table_number()(table_id)?.table_number,
             table_number
@@ -1322,7 +1344,11 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let doc_id_user_facing = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), object.clone())
         .await?;
-    let doc0_id = doc_id_user_facing.map_table(tx.table_mapping().inject_table_id())?;
+    let doc0_id = doc_id_user_facing.map_table(
+        tx.table_mapping()
+            .namespace(TableNamespace::Global)
+            .inject_table_id(),
+    )?;
     let doc0_id_str: String = DeveloperDocumentId::from(doc0_id).encode();
     database.commit(tx).await?;
     let object_with_id = assert_obj!("_id" => &*doc0_id_str, "value" => 2);
@@ -1339,6 +1365,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
         table_id.tablet_id,
+        TableNamespace::Global,
         table_id.table_number,
         table_name.clone(),
     );
@@ -1408,7 +1435,11 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let doc0_id = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), object)
         .await?;
-    let doc0_id_inner = doc0_id.map_table(&tx.table_mapping().inject_table_id())?;
+    let doc0_id_inner = doc0_id.map_table(
+        &tx.table_mapping()
+            .namespace(TableNamespace::Global)
+            .inject_table_id(),
+    )?;
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;
@@ -1419,6 +1450,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
         table_id.tablet_id,
+        TableNamespace::Global,
         table_id.table_number,
         table_name.clone(),
     );
@@ -1800,8 +1832,14 @@ async fn create_system_table_creates_table_marked_as_system(rt: TestRuntime) -> 
     db.commit(tx).await?;
 
     let mut tx = db.begin_system().await?;
-    let table_id = (tx.table_mapping().name_to_id())(table_name.parse()?)?;
-    assert!(tx.table_mapping().is_system(table_id.table_number));
+    let table_id = (tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .name_to_id())(table_name.parse()?)?;
+    assert!(tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .is_system(table_id.table_number));
     Ok(())
 }
 

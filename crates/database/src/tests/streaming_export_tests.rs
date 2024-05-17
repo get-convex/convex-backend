@@ -6,7 +6,10 @@ use keybroker::Identity;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use sync_types::Timestamp;
-use value::id_v6::DeveloperDocumentId;
+use value::{
+    id_v6::DeveloperDocumentId,
+    TableNamespace,
+};
 
 use crate::{
     test_helpers::DbFixtures,
@@ -236,7 +239,11 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let doc4 = UserFacingModel::new_root_for_test(&mut tx)
         .patch(doc2.developer_id(), assert_obj!("f" => 4).into())
         .await?;
-    let tablet_id = tx.table_mapping().inject_table_id()(doc4.table())?.tablet_id;
+    let tablet_id = tx
+        .table_mapping()
+        .namespace(TableNamespace::Global)
+        .inject_table_id()(doc4.table())?
+    .tablet_id;
     let doc4 = doc4.to_resolved(tablet_id);
     let ts2 = db.commit(tx).await?;
     let mut docs2sorted = vec![

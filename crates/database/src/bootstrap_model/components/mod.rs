@@ -35,6 +35,7 @@ use value::{
     InternalId,
     TableIdentifier,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -147,7 +148,11 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         mut component_id: ComponentId,
     ) -> anyhow::Result<ComponentPath> {
         let mut path = Vec::new();
-        let component_table = self.tx.table_mapping().id(&COMPONENTS_TABLE)?;
+        let component_table = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&COMPONENTS_TABLE)?;
         while let ComponentId::Child(internal_id) = component_id {
             let component_doc: ParsedDocument<ComponentMetadata> = self
                 .tx
@@ -174,7 +179,11 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         let component_definition = match component {
             ComponentId::Root => ComponentDefinitionId::Root,
             ComponentId::Child(component_id) => {
-                let component_table = self.tx.table_mapping().id(&COMPONENTS_TABLE)?;
+                let component_table = self
+                    .tx
+                    .table_mapping()
+                    .namespace(TableNamespace::Global)
+                    .id(&COMPONENTS_TABLE)?;
                 let component_doc: ParsedDocument<ComponentMetadata> = self
                     .tx
                     .get(component_table.id(component_id))
@@ -194,7 +203,11 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         let result = match id {
             ComponentId::Root => self.root_component().await?,
             ComponentId::Child(internal_id) => {
-                let component_table = self.tx.table_mapping().id(&COMPONENTS_TABLE)?;
+                let component_table = self
+                    .tx
+                    .table_mapping()
+                    .namespace(TableNamespace::Global)
+                    .id(&COMPONENTS_TABLE)?;
                 self.tx
                     .get(component_table.id(internal_id))
                     .await?
@@ -219,8 +232,11 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             },
             ComponentDefinitionId::Child(id) => id,
         };
-        let component_definitions_table =
-            self.tx.table_mapping().id(&COMPONENT_DEFINITIONS_TABLE)?;
+        let component_definitions_table = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&COMPONENT_DEFINITIONS_TABLE)?;
         let doc: ParsedDocument<ComponentDefinitionMetadata> = self
             .tx
             .get(component_definitions_table.id(internal_id))

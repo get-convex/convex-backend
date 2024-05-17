@@ -45,7 +45,7 @@ use sourcemap::SourceMap;
 use uuid::Uuid;
 use value::{
     heap_size::WithHeapSize,
-    TableMapping,
+    NamespacedTableMapping,
     TableMappingValue,
     VirtualTableMapping,
 };
@@ -182,7 +182,9 @@ pub trait OpProvider<'b> {
     fn get_environment_variable(&mut self, name: EnvVarName)
         -> anyhow::Result<Option<EnvVarValue>>;
 
-    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)>;
+    fn get_all_table_mappings(
+        &mut self,
+    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)>;
     fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
 }
 
@@ -305,7 +307,9 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
         state.environment.get_environment_variable(name)
     }
 
-    fn get_all_table_mappings(&mut self) -> anyhow::Result<(TableMapping, VirtualTableMapping)> {
+    fn get_all_table_mappings(
+        &mut self,
+    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
         let state = self.state_mut()?;
         state.environment.get_all_table_mappings()
     }
