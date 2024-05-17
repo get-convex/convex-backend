@@ -276,6 +276,7 @@ export default defineSchema({
     latestVersion: v.int64(),
     deleted: v.boolean(),
     analyzeResult: v.union(analyzedModule, v.null()),
+    sourcePackageId: v.string(),
   }).index("by_path", ["path"]),
   _module_versions: defineTable({
     module_id: v.id("_modules"),

@@ -162,6 +162,7 @@ use minitrace::{
 use model::{
     auth::AuthInfoModel,
     config::{
+        module_loader::ModuleLoader,
         types::{
             ConfigFile,
             ConfigMetadata,
@@ -227,6 +228,7 @@ use search::{
     searcher::Searcher,
 };
 use semver::Version;
+use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use snapshot_import::{
     clear_tables,
@@ -245,6 +247,7 @@ use sync_types::{
     AuthenticationToken,
     CanonicalizedUdfPath,
     FunctionName,
+    ModulePath,
 };
 use table_summary_worker::{
     TableSummaryClient,
@@ -753,6 +756,48 @@ impl<RT: Runtime> Application<RT> {
         query: VectorSearch,
     ) -> anyhow::Result<(Vec<PublicVectorSearchQueryResult>, FunctionUsageStats)> {
         self.database.vector_search(identity, query).await
+    }
+
+    pub async fn get_source_code(
+        &self,
+        identity: Identity,
+        path: ModulePath,
+    ) -> anyhow::Result<Option<String>> {
+        let mut tx = self.begin(identity).await?;
+        let path = CanonicalizedComponentModulePath {
+            component: ComponentDefinitionId::Root,
+            module_path: path.canonicalize(),
+        };
+        let Some(metadata) = ModuleModel::new(&mut tx).get_metadata(path.clone()).await? else {
+            return Ok(None);
+        };
+        let Some(analyze_result) = &metadata.analyze_result else {
+            return Ok(None);
+        };
+        let Some(source_mapped) = &analyze_result.source_mapped else {
+            return Ok(None);
+        };
+        let Some(source_index) = source_mapped.source_index else {
+            return Ok(None);
+        };
+        let full_source = self
+            .module_cache
+            .get_module_with_metadata(&mut tx, metadata)
+            .await?;
+        let Some(source_map_str) = &full_source.source_map else {
+            return Ok(None);
+        };
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct SourceMap {
+            sources_content: Option<Vec<String>>,
+        }
+        let source_map: SourceMap = serde_json::from_str(source_map_str)?;
+        let Some(source_map_content) = source_map.sources_content else {
+            return Ok(None);
+        };
+        let source_map = source_map_content.get(source_index as usize).cloned();
+        Ok(source_map)
     }
 
     pub async fn storage_generate_upload_url(&self) -> anyhow::Result<String> {

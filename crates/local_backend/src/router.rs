@@ -49,6 +49,7 @@ use crate::{
     dashboard::{
         delete_tables,
         get_indexes,
+        get_source_code,
         shapes2,
     },
     deploy_config::{
@@ -132,6 +133,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .route("/shapes2", get(shapes2))
         .route("/get_indexes", get(get_indexes))
         .route("/delete_tables", post(delete_tables))
+        .route("/get_source_code", get(get_source_code))
         // Metrics routes
         .route("/app_metrics/stream_udf_execution", get(stream_udf_execution))
         .route("/app_metrics/stream_function_logs", get(stream_function_logs))

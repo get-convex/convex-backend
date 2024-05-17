@@ -6,7 +6,10 @@ use axum::{
 };
 use common::{
     http::{
-        extract::Json,
+        extract::{
+            Json,
+            Query,
+        },
         HttpResponseError,
     },
     shapes::{
@@ -98,4 +101,24 @@ pub async fn get_indexes(
             .map(|idx| idx.into_value().try_into())
             .collect::<anyhow::Result<_>>()?,
     }))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetSourceCodeArgs {
+    path: String,
+}
+
+#[debug_handler]
+pub async fn get_source_code(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Query(GetSourceCodeArgs { path }): Query<GetSourceCodeArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin(&identity)?;
+    let source_code = st
+        .application
+        .get_source_code(identity, path.parse()?)
+        .await?;
+    Ok(Json(source_code))
 }

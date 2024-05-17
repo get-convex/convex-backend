@@ -84,6 +84,9 @@ export type AnalyzedModuleFunction = {
 export type Module = {
   functions: AnalyzedModuleFunction[];
   cronSpecs?: [string, CronSpec][];
+  // By returning sourcePackageId, we make module queries rerender when source
+  // code changes, which allows the dashboard to refetch source code.
+  sourcePackageId: string;
 };
 
 export type CronJob = Doc<"_cron_jobs">;

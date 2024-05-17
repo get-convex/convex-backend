@@ -74,6 +74,7 @@ export const list = queryPrivateSystem({
         module.path,
         {
           functions,
+          sourcePackageId: module.sourcePackageId,
           ...(cronSpecs !== null ? { cronSpecs } : {}),
         },
       ]);
