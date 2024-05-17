@@ -33,27 +33,55 @@ fn set_protoc_path() {
     std::env::set_var("PROTOC", binary_path);
 }
 
-pub fn pb_build() -> Result<()> {
-    set_protoc_path();
-    println!("cargo:rerun-if-changed=protos");
-    let mut paths = vec![];
+fn find_packages(proto_dir: &Path) -> Result<Vec<String>> {
     let mut packages = vec![];
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    for dent in std::fs::read_dir("protos")? {
+    for dent in std::fs::read_dir(proto_dir)? {
         let dent = dent?;
         let path = dent.path();
         if path.extension() == Some(OsStr::new("proto")) {
             let package_name = path.file_stem().unwrap().to_str().unwrap().to_owned();
             packages.push(package_name);
-            paths.push(format!(
-                "protos/{}",
-                path.file_name().unwrap().to_str().unwrap()
-            ));
         }
     }
-    tonic_build::configure()
-        .file_descriptor_set_path(out_dir.join("descriptors.bin"))
-        .compile(&paths, &["protos/"])?;
+    Ok(packages)
+}
+
+pub fn pb_build(mut extra_includes: Vec<&'static str>) -> Result<()> {
+    set_protoc_path();
+    println!("cargo:rerun-if-changed=protos");
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let mut packages = find_packages(Path::new("protos/"))?;
+    let paths: Vec<_> = packages
+        .iter()
+        .map(|package| format!("protos/{package}.proto"))
+        .collect();
+
+    let mut external_paths = vec![];
+    for include in &extra_includes {
+        let include_path = Path::new(include);
+        let crate_name = include_path
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let mut packages = find_packages(include_path)?
+            .into_iter()
+            .map(|package| (format!(".{package}"), format!("::{crate_name}::{package}")))
+            .collect();
+        external_paths.append(&mut packages)
+    }
+
+    let mut includes = vec!["protos/"];
+    includes.append(&mut extra_includes);
+
+    let mut builder =
+        tonic_build::configure().file_descriptor_set_path(out_dir.join("descriptors.bin"));
+    for (proto_path, rust_path) in external_paths {
+        builder = builder.extern_path(proto_path, rust_path);
+    }
+    builder.compile(&paths, &includes)?;
 
     // We sort the package names just so we're generating the lib.rs
     // deterministically to avoid NOOP commits.
