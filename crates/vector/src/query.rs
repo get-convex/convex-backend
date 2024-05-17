@@ -10,7 +10,6 @@ use std::{
     },
 };
 
-use anyhow::Context;
 use common::{
     json::JsonExpression,
     query::Expression,
@@ -22,10 +21,7 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
-use pb::{
-    backend as backend_proto,
-    searchlight as proto,
-};
+use pb::searchlight as proto;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde::{
@@ -582,31 +578,6 @@ impl From<PublicVectorSearchQueryResult> for JsonValue {
     }
 }
 
-impl From<PublicVectorSearchQueryResult> for backend_proto::PublicVectorQueryResult {
-    fn from(result: PublicVectorSearchQueryResult) -> Self {
-        Self {
-            score: Some(result.score),
-            document_id: Some(result.id.into()),
-        }
-    }
-}
-
-impl TryFrom<backend_proto::PublicVectorQueryResult> for PublicVectorSearchQueryResult {
-    type Error = anyhow::Error;
-
-    fn try_from(result: backend_proto::PublicVectorQueryResult) -> Result<Self, Self::Error> {
-        let score = result.score.context("Missing `score` field")?;
-        let document_id = result
-            .document_id
-            .context("Missing `document_id` field")?
-            .parse()?;
-        Ok(Self {
-            score,
-            id: document_id,
-        })
-    }
-}
-
 impl Ord for PublicVectorSearchQueryResult {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         self.score
@@ -645,16 +616,6 @@ mod tests {
             result in any::<VectorSearchQueryResult>()
         ) {
             assert_roundtrips::<VectorSearchQueryResult, proto::VectorQueryResult>(result)
-        }
-
-        #[test]
-        fn test_public_vector_query_result_roundtrips(
-            result in any::<PublicVectorSearchQueryResult>()
-        ) {
-            assert_roundtrips::<
-                PublicVectorSearchQueryResult,
-                backend_proto::PublicVectorQueryResult,
-            >(result)
         }
     }
 }

@@ -8,7 +8,7 @@ use common::{
 };
 use http::StatusCode;
 use isolate::HttpActionResponsePart;
-use pb::backend::{
+use pb::common::{
     RedactedJsError as RedactedJsErrorProto,
     RedactedLogLines as RedactedLogLinesProto,
 };
@@ -228,7 +228,7 @@ pub mod tests {
     };
     use isolate::HttpActionResponsePart;
     use must_let::must_let;
-    use pb::backend::{
+    use pb::common::{
         RedactedJsError as RedactedJsErrorProto,
         RedactedLogLines as RedactedLogLinesProto,
     };

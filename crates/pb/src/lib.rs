@@ -5,9 +5,6 @@ pub mod document_id;
 pub mod error_metadata;
 pub mod field_path;
 pub mod user_identity_attributes;
-pub mod backend {
-    include!(concat!(env!("OUT_DIR"), "/backend.rs"));
-}
 pub mod common {
     include!(concat!(env!("OUT_DIR"), "/common.rs"));
 }

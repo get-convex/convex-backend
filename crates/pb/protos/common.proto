@@ -126,3 +126,13 @@ message SchedulerFunctionCaller {
 message ActionFunctionCaller {
   common.DeveloperDocumentId parent_scheduled_job = 1;
 }
+
+message RedactedJsError {
+    common.JsError error = 1;
+    optional bool block_logging = 2;
+    optional string request_id = 3;
+}
+
+message RedactedLogLines {
+  repeated string log_lines = 1;
+}
