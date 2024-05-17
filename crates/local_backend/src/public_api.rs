@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use application::redaction::{
     RedactedJsError,
@@ -18,10 +20,10 @@ use common::{
             Query,
         },
         ExtractClientVersion,
+        ExtractHost,
         ExtractRequestId,
         HttpResponseError,
     },
-    pause::PauseClient,
     types::FunctionCaller,
     version::ClientVersion,
 };
@@ -39,7 +41,11 @@ use value::{
 
 use crate::{
     admin::bad_admin_key_error,
-    authentication::ExtractIdentity,
+    api::BackendApi,
+    authentication::{
+        ExtractAuthenticationToken,
+        ExtractIdentity,
+    },
     parse::parse_udf_path,
     LocalAppState,
 };
@@ -202,71 +208,69 @@ pub fn export_value(
 
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_get(
-    State(st): State<LocalAppState>,
+    State(api): State<Arc<dyn BackendApi>>,
     Query(req): Query<UdfArgsQuery>,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractIdentity(identity): ExtractIdentity,
+    ExtractHost(host): ExtractHost,
+    ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
     let args = req.args.into_arg_vec();
-    let udf_return = st
-        .application
-        .read_only_udf(
+    let (result, log_lines) = api
+        .execute_query(
+            host,
             request_id,
+            auth_token,
             ComponentFunctionPath {
                 component: ComponentId::Root,
                 udf_path,
             },
             args,
-            identity,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
-    let response = match udf_return.result {
+    let response = match result {
         Ok(value) => UdfResponse::Success {
             value: export_value(value, value_format, client_version)?,
-            log_lines: udf_return.log_lines,
+            log_lines,
         },
-        Err(error) => {
-            UdfResponse::error(error, udf_return.log_lines, value_format, client_version)?
-        },
+        Err(error) => UdfResponse::error(error, log_lines, value_format, client_version)?,
     };
     Ok(Json(response))
 }
 
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
-    State(st): State<LocalAppState>,
+    State(api): State<Arc<dyn BackendApi>>,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractIdentity(identity): ExtractIdentity,
+    ExtractHost(host): ExtractHost,
+    ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
-    let udf_return = st
-        .application
-        .read_only_udf(
+    let (result, log_lines) = api
+        .execute_query(
+            host,
             request_id,
+            auth_token,
             ComponentFunctionPath {
                 component: ComponentId::Root,
                 udf_path,
             },
             req.args.into_arg_vec(),
-            identity,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
-    let response = match udf_return.result {
+    let response = match result {
         Ok(value) => UdfResponse::Success {
             value: export_value(value, value_format, client_version)?,
-            log_lines: udf_return.log_lines,
+            log_lines,
         },
-        Err(error) => {
-            UdfResponse::error(error, udf_return.log_lines, value_format, client_version)?
-        },
+        Err(error) => UdfResponse::error(error, log_lines, value_format, client_version)?,
     };
     Ok(Json(response))
 }
@@ -327,26 +331,26 @@ pub async fn public_query_batch_post(
 
 #[minitrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
-    State(st): State<LocalAppState>,
+    State(api): State<Arc<dyn BackendApi>>,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractIdentity(identity): ExtractIdentity,
+    ExtractHost(host): ExtractHost,
+    ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
-    let udf_result = st
-        .application
-        .mutation_udf(
+    let udf_result = api
+        .execute_mutation(
+            host,
             request_id,
+            auth_token,
             ComponentFunctionPath {
                 component: ComponentId::Root,
                 udf_path,
             },
             req.args.into_arg_vec(),
-            identity,
-            None,
             FunctionCaller::HttpApi(client_version.clone()),
-            PauseClient::new(),
+            None,
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -367,23 +371,25 @@ pub async fn public_mutation_post(
 
 #[minitrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
-    State(st): State<LocalAppState>,
+    State(api): State<Arc<dyn BackendApi>>,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractIdentity(identity): ExtractIdentity,
+    ExtractHost(host): ExtractHost,
+    ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
-    let action_result = st
-        .application
-        .action_udf(
+
+    let action_result = api
+        .execute_action(
+            host,
             request_id,
+            auth_token,
             ComponentFunctionPath {
                 component: ComponentId::Root,
                 udf_path,
             },
             req.args.into_arg_vec(),
-            identity,
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;

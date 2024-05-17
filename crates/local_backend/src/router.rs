@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use axum::{
     error_handling::HandleErrorLayer,
@@ -42,6 +45,7 @@ use tower_http::{
 };
 
 use crate::{
+    api::BackendApi,
     dashboard::{
         delete_tables,
         get_indexes,
@@ -167,6 +171,11 @@ pub async fn router(st: LocalAppState) -> Router {
         .nest("/export", snapshot_export_routes)
         .nest("/storage", storage_api_routes());
 
+    let migrated = Router::new()
+        .nest("/api", migrated_public_api_routes())
+        .layer(cors().await)
+        .with_state(Arc::new(st.application.clone()));
+
     Router::new()
         .nest("/api", api_routes)
         .layer(cors().await)
@@ -175,17 +184,23 @@ pub async fn router(st: LocalAppState) -> Router {
         // added inside `serve_http`
         .nest("/http/", http_action_routes())
         .with_state(st)
+        .merge(migrated)
 }
 
 pub fn public_api_routes() -> Router<LocalAppState> {
     Router::new()
         .route("/sync", get(sync))
+        .route("/function", post(public_function_post))
+        .route("/query_batch", post(public_query_batch_post))
+        .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
+}
+
+pub fn migrated_public_api_routes() -> Router<Arc<dyn BackendApi>> {
+    Router::new()
         .route("/query", get(public_query_get))
         .route("/query", post(public_query_post))
-        .route("/query_batch", post(public_query_batch_post))
         .route("/mutation", post(public_mutation_post))
         .route("/action", post(public_action_post))
-        .route("/function", post(public_function_post))
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
 }
 

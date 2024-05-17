@@ -64,6 +64,7 @@ use http::{
         USER_AGENT,
     },
     request::Parts,
+    uri::Authority,
     HeaderMap,
     Method,
 };
@@ -839,6 +840,48 @@ where
             ))
         })?;
         Ok(Self(request_id))
+    }
+}
+
+#[allow(clippy::declare_interior_mutable_const)]
+pub const HOST_HEADER: HeaderName = HeaderName::from_static("host");
+
+pub struct ExtractHost(pub Option<String>);
+
+async fn host_from_req_parts(
+    parts: &mut axum::http::request::Parts,
+) -> anyhow::Result<Option<String>> {
+    let maybe_host = if let Some(host_header) = parts
+        .headers
+        .get(HOST_HEADER)
+        .and_then(|h| h.to_str().ok().map(|s| s.to_string()))
+    {
+        let authority = host_header.parse::<Authority>()?;
+        Some(authority.host().to_owned())
+    } else {
+        parts.uri.authority().map(|a| a.host().to_owned())
+    };
+    Ok(maybe_host)
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for ExtractHost
+where
+    S: Send + Sync,
+{
+    type Rejection = HttpResponseError;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let host = host_from_req_parts(parts).await.map_err(|e| {
+            anyhow::anyhow!(ErrorMetadata::bad_request(
+                "InvalidHostHeader",
+                e.to_string(),
+            ))
+        })?;
+        Ok(Self(host))
     }
 }
 
