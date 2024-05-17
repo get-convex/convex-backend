@@ -1251,9 +1251,9 @@ mod tests {
         incremental_index::{
             build_new_segment,
             merge_segments,
-            PreviousSegments,
+            PreviousTextSegments,
             SearchSegmentForMerge,
-            UpdatableSearchSegment,
+            UpdatableTextSegment,
             ALIVE_BITSET_PATH,
             DELETED_TERMS_PATH,
             ID_TRACKER_PATH,
@@ -1328,7 +1328,7 @@ mod tests {
             revision_stream,
             schema.clone(),
             test_dir.path(),
-            PreviousSegments::default(),
+            PreviousTextSegments::default(),
         )
         .await?;
         new_segment.write(test_dir.path(), &vec![])?;
@@ -1461,7 +1461,7 @@ mod tests {
     async fn build_test_index(
         revisions: StringRevisions,
         index_dir: &Path,
-        previous_segments: PreviousSegments,
+        previous_segments: PreviousTextSegments,
         previous_segments_dirs: &Vec<&Path>,
     ) -> anyhow::Result<BTreeMap<ResolvedDocumentId, Option<String>>> {
         let mut strings_by_id = BTreeMap::new();
@@ -1676,7 +1676,7 @@ mod tests {
         let strings_by_id = build_test_index(
             revisions.into(),
             test_dir.path(),
-            PreviousSegments::default(),
+            PreviousTextSegments::default(),
             &vec![],
         )
         .await?;
@@ -1700,7 +1700,7 @@ mod tests {
         let strings_by_id = build_test_index(
             revisions.into(),
             test_dir.path(),
-            PreviousSegments::default(),
+            PreviousTextSegments::default(),
             &vec![],
         )
         .await?;
@@ -1724,7 +1724,7 @@ mod tests {
         let strings_by_id = build_test_index(
             add_document.into(),
             test_dir.path(),
-            PreviousSegments::default(),
+            PreviousTextSegments::default(),
             &vec![],
         )
         .await?;
@@ -1736,9 +1736,8 @@ mod tests {
         assert_eq!(posting_list_match.internal_id, id);
         assert_eq!(s, "emma is awesome!");
         let previous_segments_dir = vec![test_dir.path()];
-        let previous_segments = PreviousSegments(vec![UpdatableSearchSegment::load_from_dir(
-            test_dir.path(),
-        )?]);
+        let previous_segments =
+            PreviousTextSegments(vec![UpdatableTextSegment::load_from_dir(test_dir.path())?]);
         let test_dir = TempDir::new()?;
         let delete_document: Vec<_> = vec![(id, Some("emma is awesome!"), None)];
 
@@ -1774,7 +1773,7 @@ mod tests {
         let mut strings_by_id_1 = build_test_index(
             revisions.into(),
             test_dir_1.path(),
-            PreviousSegments::default(),
+            PreviousTextSegments::default(),
             &vec![],
         )
         .await?;
@@ -1791,7 +1790,7 @@ mod tests {
         let mut strings_by_id_2 = build_test_index(
             revisions.into(),
             test_dir_2.path(),
-            PreviousSegments::default(),
+            PreviousTextSegments::default(),
             &vec![],
         )
         .await?;

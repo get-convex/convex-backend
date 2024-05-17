@@ -21,6 +21,15 @@ use common::{
     runtime::Runtime,
     types::IndexId,
 };
+use futures::{
+    stream::FuturesUnordered,
+    TryStreamExt,
+};
+use search::{
+    PreviousTextSegments,
+    TantivySearchIndexSchema,
+    UpdatableTextSegment,
+};
 use storage::Storage;
 
 use crate::{
@@ -73,8 +82,8 @@ pub struct TextSearchIndex;
 impl SearchIndex for TextSearchIndex {
     type DeveloperConfig = DeveloperSearchIndexConfig;
     type NewSegment = ();
-    type PreviousSegments = ();
-    type Schema = ();
+    type PreviousSegments = PreviousTextSegments;
+    type Schema = TantivySearchIndexSchema;
     type Segment = FragmentedTextSegment;
     type Statistics = TextStatistics;
 
@@ -91,13 +100,22 @@ impl SearchIndex for TextSearchIndex {
         snapshot.data.is_version_current()
     }
 
-    fn new_schema(_config: &Self::DeveloperConfig) -> Self::Schema {}
+    fn new_schema(config: &Self::DeveloperConfig) -> Self::Schema {
+        TantivySearchIndexSchema::new(config)
+    }
 
     async fn download_previous_segments(
-        _storage: Arc<dyn Storage>,
-        _segment: Vec<Self::Segment>,
+        storage: Arc<dyn Storage>,
+        segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments> {
-        anyhow::bail!("Not implemented");
+        Ok(PreviousTextSegments(
+            segments
+                .into_iter()
+                .map(|segment| UpdatableTextSegment::download(segment, storage.clone()))
+                .collect::<FuturesUnordered<_>>()
+                .try_collect::<Vec<_>>()
+                .await?,
+        ))
     }
 
     async fn upload_previous_segments(
@@ -129,8 +147,8 @@ impl SearchIndex for TextSearchIndex {
         anyhow::bail!("Not implemented")
     }
 
-    fn segment_id(_segment: &Self::Segment) -> String {
-        "".to_string()
+    fn segment_id(segment: &Self::Segment) -> String {
+        segment.id.clone()
     }
 
     fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics> {

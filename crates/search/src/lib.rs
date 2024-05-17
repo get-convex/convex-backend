@@ -117,6 +117,10 @@ use self::query::{
     QueryTerm,
 };
 pub use self::{
+    incremental_index::{
+        PreviousTextSegments,
+        UpdatableTextSegment,
+    },
     memory_index::{
         build_term_weights,
         MemorySearchIndex,

@@ -6,10 +6,16 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    async_compat::FuturesAsyncReadCompatExt,
+    bootstrap_model::index::text_index::FragmentedTextSegment,
     id_tracker::StaticIdTracker,
     persistence::DocumentRevisionStream,
 };
 use futures::TryStreamExt;
+use storage::{
+    Storage,
+    StorageExt,
+};
 use tantivy::{
     directory::MmapDirectory,
     fastfield::AliveBitSet,
@@ -23,6 +29,7 @@ use tantivy::{
     SingleSegmentIndexWriter,
     Term,
 };
+use tempfile::TempDir;
 use text_search::tracker::{
     MemoryDeletionTracker,
     SearchMemoryIdTracker,
@@ -30,8 +37,10 @@ use text_search::tracker::{
 use value::InternalId;
 
 use crate::{
+    archive::extract_zip,
     constants::CONVEX_EN_TOKENIZER,
     convex_en,
+    disk_index::download_single_file_zip,
     TantivySearchIndexSchema,
     SEARCH_FIELD_ID,
 };
@@ -47,7 +56,8 @@ pub(crate) const ALIVE_BITSET_PATH: &str = "tantivy_alive_bitset";
 #[allow(dead_code)]
 pub(crate) const DELETED_TERMS_PATH: &str = "deleted_terms";
 
-pub struct UpdatableSearchSegment {
+pub struct UpdatableTextSegment {
+    // TODO(CX-6494): Use the term statistics diff file instead of reading the index contents.
     inverted_index: Arc<InvertedIndexReader>,
     id_tracker: StaticIdTracker,
     deletion_tracker: MemoryDeletionTracker,
@@ -61,7 +71,7 @@ fn inverted_index_from_index(index: &Index) -> anyhow::Result<Arc<InvertedIndexR
     let inverted_index = segment_reader.inverted_index(Field::from_field_id(SEARCH_FIELD_ID))?;
     Ok(inverted_index)
 }
-impl UpdatableSearchSegment {
+impl UpdatableTextSegment {
     pub fn term_dict(&self) -> &TermDictionary {
         self.inverted_index.terms()
     }
@@ -77,7 +87,63 @@ impl UpdatableSearchSegment {
             &dir.join(ALIVE_BITSET_PATH),
             &dir.join(DELETED_TERMS_PATH),
         )?;
-        Ok(UpdatableSearchSegment {
+        Ok(UpdatableTextSegment {
+            inverted_index,
+            id_tracker,
+            deletion_tracker,
+        })
+    }
+
+    pub async fn download(
+        original: FragmentedTextSegment,
+        storage: Arc<dyn Storage>,
+    ) -> anyhow::Result<Self> {
+        // Temp dir is fine because we're loading these into memory immediately.
+        let tmp_dir = TempDir::new()?;
+
+        let index_path = tmp_dir.path().join("index_path");
+        std::fs::create_dir(&index_path)?;
+
+        // TODO(CX-6494): Fetch the term statistics file instead of the index.
+        let stream = storage
+            .get(&original.segment_key)
+            .await?
+            .context(format!(
+                "Failed to find stored file! {:?}",
+                &original.segment_key
+            ))?
+            .stream
+            .into_async_read()
+            .compat();
+        extract_zip(&index_path, stream).await?;
+        let mmap_directory = MmapDirectory::open(index_path)?;
+        let index = Index::open(mmap_directory)?;
+        let inverted_index = inverted_index_from_index(&index)?;
+
+        let id_tracker_path = tmp_dir.path().join(ID_TRACKER_PATH);
+        download_single_file_zip(&original.id_tracker_key, &id_tracker_path, storage.clone())
+            .await?;
+        let id_tracker = StaticIdTracker::load_from_path(id_tracker_path)?;
+
+        let alive_bitset_path = tmp_dir.path().join(ALIVE_BITSET_PATH);
+        download_single_file_zip(
+            &original.alive_bitset_key,
+            &alive_bitset_path,
+            storage.clone(),
+        )
+        .await?;
+        let deleted_terms_path = tmp_dir.path().join(DELETED_TERMS_PATH);
+        download_single_file_zip(
+            &original.deleted_terms_table_key,
+            &deleted_terms_path,
+            storage,
+        )
+        .await?;
+
+        let deletion_tracker =
+            MemoryDeletionTracker::load(&alive_bitset_path, &deleted_terms_path)?;
+
+        Ok(UpdatableTextSegment {
             inverted_index,
             id_tracker,
             deletion_tracker,
@@ -86,9 +152,9 @@ impl UpdatableSearchSegment {
 }
 
 #[derive(Default)]
-pub struct PreviousSegments(pub Vec<UpdatableSearchSegment>);
+pub struct PreviousTextSegments(pub Vec<UpdatableTextSegment>);
 
-impl PreviousSegments {
+impl PreviousTextSegments {
     /// Returns the index to the segment containing the live document and the
     /// tantivy id, if it exists
     fn segment_for_document(&self, convex_id: InternalId) -> Option<(usize, DocId)> {
@@ -173,7 +239,7 @@ pub async fn build_new_segment(
     revision_stream: DocumentRevisionStream<'_>,
     tantivy_schema: TantivySearchIndexSchema,
     dir: &Path,
-    mut previous_segments: PreviousSegments,
+    mut previous_segments: PreviousTextSegments,
 ) -> anyhow::Result<TextIndexUpdate> {
     let index = IndexBuilder::new()
         .schema(tantivy_schema.schema.clone())
