@@ -64,6 +64,7 @@ declare_strings!(
     empty => "",
     export,
     exportArgs,
+    exportReturns,
     import_meta_unsupported => "import.meta unsupported",
     internal_error => "Convex encountered an internal error",
     invokeAction,

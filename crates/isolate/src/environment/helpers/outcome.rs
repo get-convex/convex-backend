@@ -16,8 +16,8 @@ use crate::{
 };
 
 /// A `UdfOutcome` represents a successful execution of a developer's function
-/// by our V8 layer. It slightly differs from `UdfExecution`, which is what we
-/// store in memory for logs.
+/// by our V8 layer before it has had its returns validator run. It slightly
+/// differs from `UdfExecution`, which is what we store in memory for logs.
 #[derive(Clone)]
 #[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub enum FunctionOutcome {

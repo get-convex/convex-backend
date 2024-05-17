@@ -118,6 +118,7 @@ type FunctionDefinition =
   | ((ctx: any, args: DefaultFunctionArgs) => any)
   | {
       args?: Record<string, Validator<any, boolean>>;
+      returns?: Validator<any, boolean>;
       handler: (ctx: any, args: DefaultFunctionArgs) => any;
     };
 
@@ -133,6 +134,20 @@ function exportArgs(functionDefinition: FunctionDefinition) {
     return JSON.stringify(args.json);
   };
 }
+
+function exportReturns(functionDefinition: FunctionDefinition) {
+  return () => {
+    let returns: Validator<any, any, any> | undefined;
+    if (
+      typeof functionDefinition === "object" &&
+      functionDefinition.returns !== undefined
+    ) {
+      returns = functionDefinition.returns;
+    }
+    return JSON.stringify(returns ? returns.json : null);
+  };
+}
+
 /**
  * Define a mutation in this Convex app's public API.
  *
@@ -165,6 +180,7 @@ export const mutationGeneric: MutationBuilder<any, "public"> = (
   func.isPublic = true;
   func.invokeMutation = (argsStr) => invokeMutation(func, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
+  func.exportReturns = exportReturns(functionDefinition);
   return func;
 };
 
@@ -200,6 +216,7 @@ export const internalMutationGeneric: MutationBuilder<any, "internal"> = (
   func.isInternal = true;
   func.invokeMutation = (argsStr) => invokeMutation(func, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
+  func.exportReturns = exportReturns(functionDefinition);
   return func;
 };
 
@@ -252,6 +269,7 @@ export const queryGeneric: QueryBuilder<any, "public"> = (
   func.isPublic = true;
   func.invokeQuery = (argsStr) => invokeQuery(func, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
+  func.exportReturns = exportReturns(functionDefinition);
   return func;
 };
 
@@ -287,6 +305,7 @@ export const internalQueryGeneric: QueryBuilder<any, "internal"> = (
   func.isInternal = true;
   func.invokeQuery = (argsStr) => invokeQuery(func as any, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
+  func.exportReturns = exportReturns(functionDefinition);
   return func;
 };
 
@@ -337,6 +356,7 @@ export const actionGeneric: ActionBuilder<any, "public"> = (
   func.invokeAction = (requestId, argsStr) =>
     invokeAction(func, requestId, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
+  func.exportReturns = exportReturns(functionDefinition);
   return func;
 };
 
@@ -371,6 +391,7 @@ export const internalActionGeneric: ActionBuilder<any, "internal"> = (
   func.invokeAction = (requestId, argsStr) =>
     invokeAction(func, requestId, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
+  func.exportReturns = exportReturns(functionDefinition);
   return func;
 };
 

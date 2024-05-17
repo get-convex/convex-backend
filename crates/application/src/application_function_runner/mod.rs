@@ -93,6 +93,10 @@ use futures::{
 };
 use http::StatusCode;
 use isolate::{
+    environment::helpers::validation::{
+        ValidatedActionOutcome,
+        ValidatedUdfOutcome,
+    },
     parse_udf_args,
     validate_schedule_args,
     ActionCallbacks,
@@ -808,7 +812,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 return Ok(result);
             }
 
-            let result: Result<(Transaction<RT>, UdfOutcome), anyhow::Error> = self
+            let result: Result<(Transaction<RT>, ValidatedUdfOutcome), anyhow::Error> = self
                 .run_mutation_no_udf_log(
                     tx,
                     path.clone(),
@@ -945,7 +949,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
-    ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
+    ) -> anyhow::Result<(Transaction<RT>, ValidatedUdfOutcome)> {
         let result = self
             .run_mutation_inner(tx, path, arguments, allowed_visibility, context)
             .await;
@@ -977,12 +981,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
-    ) -> anyhow::Result<(Transaction<RT>, UdfOutcome)> {
+    ) -> anyhow::Result<(Transaction<RT>, ValidatedUdfOutcome)> {
         if path.udf_path.is_system() && !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
         let identity = tx.inert_identity();
-        let validate_result = ValidatedPathAndArgs::new(
+        let validate_result = ValidatedPathAndArgs::new_with_returns_validator(
             allowed_visibility,
             &mut tx,
             path.clone(),
@@ -990,20 +994,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             UdfType::Mutation,
         )
         .await?;
-        let (tx, outcome) = match validate_result {
-            Ok(path_and_args) => {
-                self.isolate_functions
-                    .execute_query_or_mutation(
-                        tx,
-                        path_and_args,
-                        UdfType::Mutation,
-                        QueryJournal::new(),
-                        context,
-                    )
-                    .await?
-            },
+
+        let (path_and_args, returns_validator) = match validate_result {
+            Ok(tuple) => tuple,
             Err(js_err) => {
-                let mutation_outcome = UdfOutcome::from_error(
+                let mutation_outcome = ValidatedUdfOutcome::from_error(
                     js_err,
                     path.clone(),
                     arguments.clone(),
@@ -1011,14 +1006,36 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     self.runtime.clone(),
                     None,
                 )?;
-                (tx, FunctionOutcome::Mutation(mutation_outcome))
+                return Ok((tx, mutation_outcome));
             },
         };
+
+        let (mut tx, outcome) = self
+            .isolate_functions
+            .execute_query_or_mutation(
+                tx,
+                path_and_args,
+                UdfType::Mutation,
+                QueryJournal::new(),
+                context,
+            )
+            .await?;
         let mutation_outcome = match outcome {
             FunctionOutcome::Mutation(o) => o,
             _ => anyhow::bail!("Received non-mutation outcome for mutation"),
         };
-        Ok((tx, mutation_outcome))
+
+        let table_mapping = tx.table_mapping().clone();
+        let virtual_table_mapping = tx.virtual_table_mapping().clone();
+
+        let outcome = ValidatedUdfOutcome::new(
+            mutation_outcome,
+            returns_validator,
+            &table_mapping,
+            &virtual_table_mapping,
+        );
+
+        Ok((tx, outcome))
     }
 
     #[minitrace::trace]
@@ -1147,7 +1164,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .database
             .begin_with_usage(identity.clone(), usage_tracking)
             .await?;
-        let validate_result = ValidatedPathAndArgs::new(
+        let validate_result = ValidatedPathAndArgs::new_with_returns_validator(
             caller.allowed_visibility(),
             &mut tx,
             path.clone(),
@@ -1155,11 +1172,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             UdfType::Action,
         )
         .await?;
-        let path_and_args = match validate_result {
-            Ok(path_and_args) => path_and_args,
+
+        // Fetch the returns_validator now to be used at a later ts.
+        let (path_and_args, returns_validator) = match validate_result {
+            Ok((path_and_args, returns_validator)) => (path_and_args, returns_validator),
             Err(js_error) => {
                 return Ok(ActionCompletion {
-                    outcome: ActionOutcome::from_error(
+                    outcome: ValidatedActionOutcome::from_error(
                         js_error,
                         path,
                         arguments,
@@ -1177,6 +1196,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 });
             },
         };
+
+        // We should use table mappings from the same transaction as the output
+        // validator was retrieved.
+        let table_mapping = tx.table_mapping().clone();
+        let virtual_table_mapping = tx.virtual_table_mapping().clone();
         let udf_server_version = path_and_args.npm_version().clone();
         // We should not be missing the module given we validated the path above
         // which requires the module to exist.
@@ -1210,11 +1234,22 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     },
                 )
                 .await;
+
                 let memory_in_mb: u64 = (*ISOLATE_MAX_USER_HEAP_SIZE / (1 << 20))
                     .try_into()
                     .unwrap();
+
+                let validated_outcome_result = outcome_result.map(|outcome| {
+                    ValidatedActionOutcome::new(
+                        outcome,
+                        returns_validator,
+                        &table_mapping,
+                        &virtual_table_mapping,
+                    )
+                });
+
                 timer.finish();
-                outcome_result.map(|outcome| ActionCompletion {
+                validated_outcome_result.map(|outcome| ActionCompletion {
                     outcome,
                     execution_time: start.elapsed(),
                     environment: ModuleEnvironment::Isolate,
@@ -1311,7 +1346,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     .node_actions
                     .execute(request, &source_maps, log_line_sender)
                     .boxed();
-                let (node_outcome_result, log_lines) = run_function_and_collect_log_lines(
+                let (mut node_outcome_result, log_lines) = run_function_and_collect_log_lines(
                     node_outcome_future,
                     log_line_receiver,
                     |log_line| {
@@ -1325,7 +1360,21 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     },
                 )
                 .await;
+
                 timer.finish();
+
+                if let Ok(ref mut node_outcome) = node_outcome_result {
+                    if let Ok(ref output) = node_outcome.result {
+                        if let Some(js_err) = returns_validator.check_output(
+                            output,
+                            &table_mapping,
+                            &virtual_table_mapping,
+                        ) {
+                            node_outcome.result = Err(js_err);
+                        }
+                    }
+                }
+
                 node_outcome_result.map(|node_outcome| {
                     let outcome = ActionOutcome {
                         path: path.clone(),
@@ -1336,6 +1385,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         syscall_trace: node_outcome.syscall_trace,
                         udf_server_version,
                     };
+                    let outcome = ValidatedActionOutcome::new(
+                        outcome,
+                        returns_validator,
+                        &table_mapping,
+                        &virtual_table_mapping,
+                    );
                     ActionCompletion {
                         outcome,
                         execution_time: start.elapsed(),
@@ -1355,7 +1410,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         match completion_result {
             Ok(c) => Ok(c),
             Err(e) if e.is_deterministic_user_error() => {
-                let outcome = ActionOutcome::from_error(
+                let outcome = ValidatedActionOutcome::from_error(
                     JsError::from_error(e),
                     path,
                     arguments,
@@ -1934,7 +1989,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         tx: &mut Transaction<RT>,
         mutation_identifier: &Option<SessionRequestIdentifier>,
-        outcome: &UdfOutcome,
+        outcome: &ValidatedUdfOutcome,
     ) -> anyhow::Result<()> {
         let Some(ref identifier) = mutation_identifier else {
             return Ok(());

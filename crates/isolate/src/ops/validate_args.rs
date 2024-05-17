@@ -1,5 +1,5 @@
 use anyhow::Context;
-use model::modules::args_validator::ArgsValidator;
+use model::modules::function_validators::ArgsValidator;
 use serde_json::{
     json,
     Value as JsonValue,

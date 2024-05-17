@@ -65,6 +65,7 @@ import type * as logging from "../logging.js";
 import type * as name from "../name.js";
 import type * as node_actions from "../node_actions.js";
 import type * as query from "../query.js";
+import type * as returns_validation from "../returns_validation.js";
 import type * as scheduler from "../scheduler.js";
 import type * as search from "../search.js";
 import type * as shapes from "../shapes.js";
@@ -137,6 +138,7 @@ declare const fullApi: ApiFromModules<{
   name: typeof name;
   node_actions: typeof node_actions;
   query: typeof query;
+  returns_validation: typeof returns_validation;
   scheduler: typeof scheduler;
   search: typeof search;
   shapes: typeof shapes;

@@ -10,8 +10,13 @@ import {
   FunctionReference,
   FunctionReturnType,
   OptionalRestArgs,
+  ValidatorTypeToReturnType,
 } from "../server/api.js";
-import { ObjectType, PropertyValidators } from "../values/validator.js";
+import {
+  ObjectType,
+  PropertyValidators,
+  Validator,
+} from "../values/validator.js";
 import { Id } from "../values/value.js";
 import {
   GenericDataModel,
@@ -260,9 +265,9 @@ type VisibilityProperties<Visiblity extends FunctionVisibility> =
 export type RegisteredMutation<
   Visibility extends FunctionVisibility,
   Args extends DefaultFunctionArgs,
-  Output,
+  Returns,
 > = {
-  (ctx: GenericMutationCtx<any>, args: Args): Output;
+  (ctx: GenericMutationCtx<any>, args: Args): Returns;
 
   isConvexFunction: true;
   isMutation: true;
@@ -273,6 +278,9 @@ export type RegisteredMutation<
 
   /** @internal */
   exportArgs(): string;
+
+  /** @internal */
+  exportReturns(): string;
 } & VisibilityProperties<Visibility>;
 
 /**
@@ -286,9 +294,9 @@ export type RegisteredMutation<
 export type RegisteredQuery<
   Visibility extends FunctionVisibility,
   Args extends DefaultFunctionArgs,
-  Output,
+  Returns,
 > = {
-  (ctx: GenericQueryCtx<any>, args: Args): Output;
+  (ctx: GenericQueryCtx<any>, args: Args): Returns;
 
   isConvexFunction: true;
   isQuery: true;
@@ -299,6 +307,9 @@ export type RegisteredQuery<
 
   /** @internal */
   exportArgs(): string;
+
+  /** @internal */
+  exportReturns(): string;
 } & VisibilityProperties<Visibility>;
 
 /**
@@ -312,9 +323,9 @@ export type RegisteredQuery<
 export type RegisteredAction<
   Visibility extends FunctionVisibility,
   Args extends DefaultFunctionArgs,
-  Output,
+  Returns,
 > = {
-  (ctx: GenericActionCtx<any>, args: Args): Output;
+  (ctx: GenericActionCtx<any>, args: Args): Returns;
 
   isConvexFunction: true;
   isAction: true;
@@ -325,6 +336,9 @@ export type RegisteredAction<
 
   /** @internal */
   exportArgs(): string;
+
+  /** @internal */
+  exportReturns(): string;
 } & VisibilityProperties<Visibility>;
 
 /**
@@ -370,10 +384,10 @@ export type PublicHttpAction = {
  *
  * @public
  */
-export type UnvalidatedFunction<Ctx, Args extends ArgsArray, Output> =
-  | ((ctx: Ctx, ...args: Args) => Output)
+export type UnvalidatedFunction<Ctx, Args extends ArgsArray, Returns> =
+  | ((ctx: Ctx, ...args: Args) => Returns)
   | {
-      handler: (ctx: Ctx, ...args: Args) => Output;
+      handler: (ctx: Ctx, ...args: Args) => Returns;
     };
 
 /**
@@ -406,7 +420,7 @@ export type UnvalidatedFunction<Ctx, Args extends ArgsArray, Output> =
 export interface ValidatedFunction<
   Ctx,
   ArgsValidator extends PropertyValidators,
-  Output,
+  Returns,
 > {
   /**
    * A validator for the arguments of this function.
@@ -437,7 +451,32 @@ export interface ValidatedFunction<
    * the type defined by the argument validator.
    * @returns
    */
-  handler: (ctx: Ctx, args: ObjectType<ArgsValidator>) => Output;
+  handler: (ctx: Ctx, args: ObjectType<ArgsValidator>) => Returns;
+}
+
+export interface ArgsAndReturnsValidatedFunction<
+  Ctx,
+  ArgsValidator extends PropertyValidators,
+  ReturnsValidator extends Validator<any, any, any>,
+> {
+  args: ArgsValidator;
+  returns: ReturnsValidator;
+  /**
+   * The implementation of this function.
+   *
+   * This is a function that takes in the appropriate context and arguments
+   * and produces some result.
+   *
+   * @param ctx - The context object. This is one of {@link QueryCtx},
+   * {@link MutationCtx}, or {@link ActionCtx} depending on the function type.
+   * @param args - The arguments object for this function. This will match
+   * the type defined by the argument validator.
+   * @returns
+   */
+  handler: (
+    ctx: Ctx,
+    args: ObjectType<ArgsValidator>,
+  ) => ValidatorTypeToReturnType<ReturnsValidator["type"]>;
 }
 
 /**
@@ -450,17 +489,38 @@ export type MutationBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = {
-  <Output, ArgsValidator extends PropertyValidators>(
+  <Returns, ArgsValidator extends PropertyValidators>(
     func: ValidatedFunction<
       GenericMutationCtx<DataModel>,
       ArgsValidator,
-      Output
+      Returns
     >,
-  ): RegisteredMutation<Visibility, ObjectType<ArgsValidator>, Output>;
+  ): RegisteredMutation<Visibility, ObjectType<ArgsValidator>, Returns>;
 
-  <Output, Args extends ArgsArray = OneArgArray>(
-    func: UnvalidatedFunction<GenericMutationCtx<DataModel>, Args, Output>,
-  ): RegisteredMutation<Visibility, ArgsArrayToObject<Args>, Output>;
+  /**
+   * Validate the arguments and return value of a function.
+   * Useful for generating API specs for functions.
+   *
+   * @internal
+   */
+  <
+    ReturnsValidator extends Validator<any, any, any>,
+    ArgsValidator extends PropertyValidators,
+  >(
+    func: ArgsAndReturnsValidatedFunction<
+      GenericMutationCtx<DataModel>,
+      ArgsValidator,
+      ReturnsValidator
+    >,
+  ): RegisteredMutation<
+    Visibility,
+    ObjectType<ArgsValidator>,
+    ValidatorTypeToReturnType<ReturnsValidator["type"]>
+  >;
+
+  <Returns, Args extends ArgsArray = OneArgArray>(
+    func: UnvalidatedFunction<GenericMutationCtx<DataModel>, Args, Returns>,
+  ): RegisteredMutation<Visibility, ArgsArrayToObject<Args>, Returns>;
 };
 
 /**
@@ -473,13 +533,34 @@ export type QueryBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = {
-  <Output, ArgsValidator extends PropertyValidators>(
-    func: ValidatedFunction<GenericQueryCtx<DataModel>, ArgsValidator, Output>,
-  ): RegisteredQuery<Visibility, ObjectType<ArgsValidator>, Output>;
+  <Returns, ArgsValidator extends PropertyValidators>(
+    func: ValidatedFunction<GenericQueryCtx<DataModel>, ArgsValidator, Returns>,
+  ): RegisteredQuery<Visibility, ObjectType<ArgsValidator>, Returns>;
 
-  <Output, Args extends ArgsArray = OneArgArray>(
-    func: UnvalidatedFunction<GenericQueryCtx<DataModel>, Args, Output>,
-  ): RegisteredQuery<Visibility, ArgsArrayToObject<Args>, Output>;
+  /**
+   * Validate the arguments and return value of a function.
+   * Useful for generating API specs for functions.
+   *
+   * @internal
+   */
+  <
+    ReturnsValidator extends Validator<any, any, any>,
+    ArgsValidator extends PropertyValidators,
+  >(
+    func: ArgsAndReturnsValidatedFunction<
+      GenericQueryCtx<DataModel>,
+      ArgsValidator,
+      ReturnsValidator
+    >,
+  ): RegisteredQuery<
+    Visibility,
+    ObjectType<ArgsValidator>,
+    ValidatorTypeToReturnType<ReturnsValidator["type"]>
+  >;
+
+  <Returns, Args extends ArgsArray = OneArgArray>(
+    func: UnvalidatedFunction<GenericQueryCtx<DataModel>, Args, Returns>,
+  ): RegisteredQuery<Visibility, ArgsArrayToObject<Args>, Returns>;
 };
 
 /**
@@ -492,13 +573,38 @@ export type ActionBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = {
-  <Output, ArgsValidator extends PropertyValidators>(
-    func: ValidatedFunction<GenericActionCtx<DataModel>, ArgsValidator, Output>,
-  ): RegisteredAction<Visibility, ObjectType<ArgsValidator>, Output>;
+  <Returns, ArgsValidator extends PropertyValidators>(
+    func: ValidatedFunction<
+      GenericActionCtx<DataModel>,
+      ArgsValidator,
+      Returns
+    >,
+  ): RegisteredAction<Visibility, ObjectType<ArgsValidator>, Returns>;
 
-  <Output, Args extends ArgsArray = OneArgArray>(
-    func: UnvalidatedFunction<GenericActionCtx<DataModel>, Args, Output>,
-  ): RegisteredAction<Visibility, ArgsArrayToObject<Args>, Output>;
+  /**
+   * Validate the arguments and return value of a function.
+   * Useful for generating API specs for functions.
+   *
+   * @internal
+   */
+  <
+    ReturnsValidator extends Validator<any, any, any>,
+    ArgsValidator extends PropertyValidators,
+  >(
+    func: ArgsAndReturnsValidatedFunction<
+      GenericActionCtx<DataModel>,
+      ArgsValidator,
+      ReturnsValidator
+    >,
+  ): RegisteredAction<
+    Visibility,
+    ObjectType<ArgsValidator>,
+    ValidatorTypeToReturnType<ReturnsValidator["type"]>
+  >;
+
+  <Returns, Args extends ArgsArray = OneArgArray>(
+    func: UnvalidatedFunction<GenericActionCtx<DataModel>, Args, Returns>,
+  ): RegisteredAction<Visibility, ArgsArrayToObject<Args>, Returns>;
 };
 
 /**

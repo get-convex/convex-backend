@@ -77,7 +77,10 @@ use metrics::{
 };
 use parking_lot::Mutex;
 use usage_tracking::FunctionUsageTracker;
-use value::heap_size::HeapSize;
+use value::{
+    heap_size::HeapSize,
+    ConvexValue,
+};
 
 use crate::{
     application_function_runner::FunctionRouter,
@@ -449,7 +452,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 // checks are transactional with running the query. This is safe because we will
                 // never serve a result based of a stale visibility check since the data read as
                 // part of the visibility check is part of the ReadSet for this query.
-                let validate_result = ValidatedPathAndArgs::new(
+                let validate_result = ValidatedPathAndArgs::new_with_returns_validator(
                     allowed_visibility,
                     &mut tx,
                     path.clone(),
@@ -457,7 +460,8 @@ impl<RT: Runtime> CacheManager<RT> {
                     UdfType::Query,
                 )
                 .await?;
-                let (mut tx, outcome) = match validate_result {
+
+                let (mut tx, query_outcome) = match validate_result {
                     Err(js_err) => {
                         let query_outcome = UdfOutcome::from_error(
                             js_err,
@@ -467,10 +471,11 @@ impl<RT: Runtime> CacheManager<RT> {
                             self.rt.clone(),
                             None,
                         )?;
-                        (tx, FunctionOutcome::Query(query_outcome))
+                        (tx, query_outcome)
                     },
-                    Ok(path_and_args) => {
-                        self.function_router
+                    Ok((path_and_args, returns_validator)) => {
+                        let (mut tx, outcome) = self
+                            .function_router
                             .execute_query_or_mutation(
                                 tx,
                                 path_and_args.clone(),
@@ -478,11 +483,25 @@ impl<RT: Runtime> CacheManager<RT> {
                                 journal,
                                 context,
                             )
-                            .await?
+                            .await?;
+                        let FunctionOutcome::Query(mut query_outcome) = outcome else {
+                            anyhow::bail!("Received non-query outcome when executing a query")
+                        };
+                        if let Ok(ref json_packed_value) = &query_outcome.result {
+                            let output: ConvexValue = json_packed_value.unpack();
+                            let table_mapping = tx.table_mapping().clone();
+                            let virtual_table_mapping = tx.virtual_table_mapping().clone();
+                            let returns_validation_error = returns_validator.check_output(
+                                &output,
+                                &table_mapping,
+                                &virtual_table_mapping,
+                            );
+                            if let Some(js_err) = returns_validation_error {
+                                query_outcome.result = Err(js_err);
+                            }
+                        }
+                        (tx, query_outcome)
                     },
-                };
-                let FunctionOutcome::Query(query_outcome) = outcome else {
-                    anyhow::bail!("Received non-query outcome when executing a query")
                 };
                 let ts = tx.begin_timestamp();
                 let table_stats = tx.take_stats();

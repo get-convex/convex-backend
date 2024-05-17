@@ -163,29 +163,38 @@ function createApi(pathParts: string[] = []): AnyApi {
  * if it is a Convex function.
  */
 export type FunctionReferenceFromExport<Export> =
-  Export extends RegisteredQuery<infer Visibility, infer Args, infer Output>
-    ? FunctionReference<"query", Visibility, Args, ConvertReturnType<Output>>
+  Export extends RegisteredQuery<
+    infer Visibility,
+    infer Args,
+    infer ReturnValue
+  >
+    ? FunctionReference<
+        "query",
+        Visibility,
+        Args,
+        ConvertReturnType<ReturnValue>
+      >
     : Export extends RegisteredMutation<
           infer Visibility,
           infer Args,
-          infer Output
+          infer ReturnValue
         >
       ? FunctionReference<
           "mutation",
           Visibility,
           Args,
-          ConvertReturnType<Output>
+          ConvertReturnType<ReturnValue>
         >
       : Export extends RegisteredAction<
             infer Visibility,
             infer Args,
-            infer Output
+            infer ReturnValue
           >
         ? FunctionReference<
             "action",
             Visibility,
             Args,
-            ConvertReturnType<Output>
+            ConvertReturnType<ReturnValue>
           >
         : never;
 
@@ -450,6 +459,8 @@ export type FunctionReturnType<FuncRef extends AnyFunctionReference> =
 
 type UndefinedToNull<T> = T extends void ? null : T;
 
+type NullToUndefinedOrNull<T> = T extends null ? T | undefined | void : T;
+
 /**
  * Convert the return type of a function to it's client-facing format.
  *
@@ -458,3 +469,7 @@ type UndefinedToNull<T> = T extends void ? null : T;
  * - Removing all `Promise` wrappers
  */
 export type ConvertReturnType<T> = UndefinedToNull<Awaited<T>>;
+
+export type ValidatorTypeToReturnType<T> =
+  | Promise<NullToUndefinedOrNull<T>>
+  | NullToUndefinedOrNull<T>;

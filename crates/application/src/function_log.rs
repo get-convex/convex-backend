@@ -55,7 +55,10 @@ use http::{
     StatusCode,
 };
 use isolate::{
-    ActionOutcome,
+    environment::helpers::validation::{
+        ValidatedActionOutcome,
+        ValidatedUdfOutcome,
+    },
     HttpActionOutcome,
     HttpActionRequestHead,
     SyscallTrace,
@@ -314,7 +317,7 @@ impl HeapSize for FunctionExecutionPart {
 #[derive(Clone)]
 #[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ActionCompletion {
-    pub outcome: ActionOutcome,
+    pub outcome: ValidatedActionOutcome,
     pub execution_time: Duration,
     pub environment: ModuleEnvironment,
     pub memory_in_mb: u64,
@@ -649,7 +652,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 
     pub fn log_mutation(
         &self,
-        outcome: UdfOutcome,
+        outcome: ValidatedUdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
         execution_time: Duration,
         caller: FunctionCaller,
@@ -679,7 +682,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         // TODO: We currently synthesize a `UdfOutcome` for
         // an internal system error. If we decide we want to keep internal system errors
         // in the UDF execution log, we may want to plumb through stuff like log lines.
-        let outcome = UdfOutcome::from_error(
+        let outcome = ValidatedUdfOutcome::from_error(
             JsError::from_error_ref(e),
             path,
             arguments,
@@ -700,7 +703,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 
     pub fn log_mutation_occ_error(
         &self,
-        outcome: UdfOutcome,
+        outcome: ValidatedUdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
         execution_time: Duration,
         caller: FunctionCaller,
@@ -718,7 +721,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 
     fn _log_mutation(
         &self,
-        outcome: UdfOutcome,
+        outcome: ValidatedUdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
         execution_time: Duration,
         caller: FunctionCaller,
@@ -786,15 +789,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         // Synthesize an `ActionCompletion` for system errors.
         let unix_timestamp = self.rt.unix_timestamp();
         let completion = ActionCompletion {
-            outcome: ActionOutcome {
+            outcome: ValidatedActionOutcome::from_system_error(
                 path,
                 arguments,
                 identity,
                 unix_timestamp,
-                result: Err(JsError::from_error_ref(e)),
-                syscall_trace: SyscallTrace::new(),
-                udf_server_version: None,
-            },
+                e,
+            ),
             execution_time: start.elapsed(),
             environment: ModuleEnvironment::Invalid,
             memory_in_mb: 0,

@@ -112,13 +112,83 @@ impl TryFrom<ArgsValidator> for JsonValue {
     }
 }
 
+/**
+ * A validator for the return value of a UDF.
+ */
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ReturnsValidator {
+    Unvalidated,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "prop::collection::btree_set(any::<value::TableName>(), \
+                             1..8).prop_flat_map(any_with::<Validator>).\
+                             prop_map(ReturnsValidator::Validated)")
+    )]
+    Validated(Validator),
+}
+
+impl ReturnsValidator {
+    pub fn check_output(
+        &self,
+        output: &ConvexValue,
+        table_mapping: &TableMapping,
+        virtual_table_mapping: &VirtualTableMapping,
+    ) -> Option<JsError> {
+        match self {
+            ReturnsValidator::Unvalidated => None,
+            ReturnsValidator::Validated(validator) => {
+                let validation_error =
+                    validator.check_value(output, table_mapping, virtual_table_mapping);
+                match validation_error {
+                    Err(error) => Some(JsError::from_message(format!(
+                        "ReturnsValidationError: {error}"
+                    ))),
+                    Ok(()) => None,
+                }
+            },
+        }
+    }
+}
+
+impl TryFrom<JsonValue> for ReturnsValidator {
+    type Error = anyhow::Error;
+
+    fn try_from(json: JsonValue) -> Result<Self, Self::Error> {
+        Ok(match json {
+            JsonValue::Null => ReturnsValidator::Unvalidated,
+            json => ReturnsValidator::Validated(Validator::try_from(json).map_err(|e| {
+                e.wrap_error_message(|msg| {
+                    format!("Error in returns validator: {msg}\n\
+                            See https://docs.convex.dev/functions/args-validation for \
+                            docs on how to do return value validation.")
+                })
+            })?),
+        })
+    }
+}
+
+impl TryFrom<ReturnsValidator> for JsonValue {
+    type Error = anyhow::Error;
+
+    fn try_from(returns: ReturnsValidator) -> Result<Self, Self::Error> {
+        match returns {
+            ReturnsValidator::Unvalidated => Ok(JsonValue::Null),
+            ReturnsValidator::Validated(output_schema) => JsonValue::try_from(output_schema),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
     use sync_types::testing::assert_roundtrips;
 
-    use crate::modules::args_validator::ArgsValidator;
+    use crate::modules::function_validators::{
+        ArgsValidator,
+        ReturnsValidator,
+    };
 
     proptest! {
         #![proptest_config(
@@ -127,6 +197,16 @@ mod tests {
         #[test]
         fn test_args_roundtrips(v in any::<ArgsValidator>()) {
             assert_roundtrips::<ArgsValidator, JsonValue>(v);
+        }
+    }
+
+    proptest! {
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
+        #[test]
+        fn test_returns_roundtrips(v in any::<ReturnsValidator>()) {
+            assert_roundtrips::<ReturnsValidator, JsonValue>(v);
         }
     }
 }

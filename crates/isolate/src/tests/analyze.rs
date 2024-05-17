@@ -27,7 +27,10 @@ use model::{
         CronSpec,
     },
     modules::{
-        args_validator::ArgsValidator,
+        function_validators::{
+            ArgsValidator,
+            ReturnsValidator,
+        },
         module_versions::{
             AnalyzedFunction,
             AnalyzedSourcePosition,
@@ -301,7 +304,8 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
                 udf_type: UdfType::Query,
                 visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
             AnalyzedFunction {
                 name: "throwsErrorInDep".parse()?,
@@ -316,7 +320,8 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
                 udf_type: UdfType::Query,
                 visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
         ],
     );
@@ -333,7 +338,8 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
                 udf_type: UdfType::Query,
                 visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
             AnalyzedFunction {
                 name: "throwsErrorInDep".parse()?,
@@ -344,7 +350,8 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
                 udf_type: UdfType::Query,
                 visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
         ],
     );
@@ -382,7 +389,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 pos: analyzed_module.functions[0].pos.clone(),
                 udf_type: UdfType::Query,
                 visibility: Some(Visibility::Internal),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
             AnalyzedFunction {
                 name: "publicQuery".parse()?,
@@ -391,7 +399,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 pos: analyzed_module.functions[1].pos.clone(),
                 udf_type: UdfType::Query,
                 visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
             AnalyzedFunction {
                 name: "myInternalMutation".parse()?,
@@ -400,7 +409,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 pos: analyzed_module.functions[2].pos.clone(),
                 udf_type: UdfType::Mutation,
                 visibility: Some(Visibility::Internal),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
             AnalyzedFunction {
                 name: "publicMutation".parse()?,
@@ -409,7 +419,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 pos: analyzed_module.functions[3].pos.clone(),
                 udf_type: UdfType::Mutation,
                 visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
         ],
     );
@@ -426,7 +437,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
                 udf_type: UdfType::Query,
                 visibility: Some(Visibility::Internal),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
             AnalyzedFunction {
                 name: "publicQuery".parse()?,
@@ -437,7 +449,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
                 udf_type: UdfType::Query,
                 visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
             AnalyzedFunction {
                 name: "myInternalMutation".parse()?,
@@ -448,7 +461,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
                 udf_type: UdfType::Mutation,
                 visibility: Some(Visibility::Internal),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
             AnalyzedFunction {
                 name: "publicMutation".parse()?,
@@ -459,7 +473,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
                 udf_type: UdfType::Mutation,
                 visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated
+                args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             },
         ],
     );

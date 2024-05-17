@@ -222,7 +222,10 @@ mod tests {
     use model::{
         config::types::ModuleConfig,
         modules::{
-            args_validator::ArgsValidator,
+            function_validators::{
+                ArgsValidator,
+                ReturnsValidator,
+            },
             module_versions::{
                 AnalyzedFunction,
                 AnalyzedSourcePosition,
@@ -941,7 +944,8 @@ export { hello, internalHello };
                     }),
                     udf_type: UdfType::Action,
                     visibility: Some(Visibility::Public),
-                    args: ArgsValidator::Unvalidated
+                    args: ArgsValidator::Unvalidated,
+                    returns: ReturnsValidator::Unvalidated,
                 },
                 AnalyzedFunction {
                     name: "internalHello".parse()?,
@@ -952,7 +956,8 @@ export { hello, internalHello };
                     }),
                     udf_type: UdfType::Action,
                     visibility: Some(Visibility::Internal),
-                    args: ArgsValidator::Unvalidated
+                    args: ArgsValidator::Unvalidated,
+                    returns: ReturnsValidator::Unvalidated,
                 },
             ]
         );

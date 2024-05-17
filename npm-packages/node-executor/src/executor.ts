@@ -399,6 +399,7 @@ export type AnalyzedFunctions = Array<{
   udfType: UdfType;
   visibility: Visibility | null;
   args: JSONValue | null;
+  output: JSONValue | null;
 }>;
 
 async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
@@ -412,6 +413,7 @@ async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
       udfType: UdfType;
       visibility: Visibility | null;
       args: JSONValue | null;
+      output: JSONValue | null;
     }
   > = new Map();
   for (const [name, value] of Object.entries(module)) {
@@ -463,20 +465,36 @@ async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
         args = JSON.parse(exportedArgs);
       }
     }
+    let output: string | null = null;
+    if (
+      Object.prototype.hasOwnProperty.call(value, "exportReturns") &&
+      typeof (value as any).exportReturns === "function"
+    ) {
+      const exportedOutput = (value as any).exportReturns();
+      if (typeof exportedOutput === "string") {
+        output = JSON.parse(exportedOutput);
+      }
+    }
 
     if (isPublic && isInternal) {
       logDebug(`Skipping function marked as both public and internal: ${name}`);
       continue;
     } else if (isPublic) {
-      functions.set(name, { udfType, visibility: { kind: "public" }, args });
+      functions.set(name, {
+        udfType,
+        visibility: { kind: "public" },
+        args,
+        output,
+      });
     } else if (isInternal) {
       functions.set(name, {
         udfType,
         visibility: { kind: "internal" },
         args,
+        output,
       });
     } else {
-      functions.set(name, { udfType, visibility: null, args });
+      functions.set(name, { udfType, visibility: null, args, output });
     }
   }
   // Do an awful, regex based line match that assumes that moduleConfig.source originates from

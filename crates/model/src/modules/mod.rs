@@ -84,7 +84,7 @@ use crate::{
     SystemTable,
 };
 
-pub mod args_validator;
+pub mod function_validators;
 mod metrics;
 pub mod module_versions;
 pub mod types;

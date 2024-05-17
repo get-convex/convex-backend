@@ -6,7 +6,10 @@ use common::{
         ComponentId,
     },
     errors::JsError,
+    identity::InertIdentity,
     knobs::FUNCTION_MAX_ARGS_SIZE,
+    log_lines::LogLines,
+    query_journal::QueryJournal,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -38,7 +41,11 @@ use model::{
         PAUSED_ERROR_MESSAGE,
     },
     modules::{
-        module_versions::Visibility,
+        function_validators::ReturnsValidator,
+        module_versions::{
+            AnalyzedFunction,
+            Visibility,
+        },
         ModuleModel,
     },
     udf_config::UdfConfigModel,
@@ -47,14 +54,25 @@ use model::{
 use proptest::arbitrary::Arbitrary;
 #[cfg(any(test, feature = "testing"))]
 use proptest::strategy::Strategy;
+use rand::Rng;
 use serde_json::Value as JsonValue;
+use sync_types::CanonicalizedUdfPath;
 use value::{
+    heap_size::HeapSize,
     ConvexArray,
     ConvexValue,
     Size,
+    TableMapping,
+    VirtualTableMapping,
 };
 
-use crate::parse_udf_args;
+use crate::{
+    parse_udf_args,
+    ActionOutcome,
+    JsonPackedValue,
+    SyscallTrace,
+    UdfOutcome,
+};
 pub async fn validate_schedule_args<RT: Runtime>(
     path: ComponentFunctionPath,
     udf_args: Vec<JsonValue>,
@@ -267,6 +285,104 @@ impl ValidatedPathAndArgs {
             )?)));
         };
 
+        ValidatedPathAndArgs::new_inner(
+            allowed_visibility,
+            tx,
+            path,
+            args,
+            expected_udf_type,
+            analyzed_function,
+            udf_version,
+        )
+    }
+
+    /// Do argument validation and get returns validator without retrieving
+    /// the analyze result twice.
+    pub async fn new_with_returns_validator<RT: Runtime>(
+        allowed_visibility: AllowedVisibility,
+        tx: &mut Transaction<RT>,
+        path: CanonicalizedComponentFunctionPath,
+        args: ConvexArray,
+        expected_udf_type: UdfType,
+    ) -> anyhow::Result<Result<(ValidatedPathAndArgs, ReturnsValidator), JsError>> {
+        if path.udf_path.is_system() {
+            // We don't analyze system modules, so we don't validate anything
+            // except the identity for them.
+            let result = if tx.identity().is_admin() || tx.identity().is_system() {
+                Ok((
+                    ValidatedPathAndArgs {
+                        path,
+                        args,
+                        npm_version: None,
+                    },
+                    ReturnsValidator::Unvalidated,
+                ))
+            } else {
+                Err(JsError::from_message(
+                    unauthorized_error("Executing function").to_string(),
+                ))
+            };
+            return Ok(result);
+        }
+        let mut backend_state_model = BackendStateModel::new(tx);
+        let backend_state = backend_state_model.get_backend_state().await?;
+        match backend_state {
+            BackendState::Running => {},
+            BackendState::Paused => {
+                return Ok(Err(JsError::from_message(PAUSED_ERROR_MESSAGE.to_string())));
+            },
+            BackendState::Disabled => {
+                return Ok(Err(JsError::from_message(
+                    DISABLED_ERROR_MESSAGE.to_string(),
+                )));
+            },
+        }
+
+        let udf_version = match udf_version(&path, tx).await? {
+            Ok(udf_version) => udf_version,
+            Err(e) => return Ok(Err(e)),
+        };
+
+        // AnalyzeResult result should be populated for all supported versions.
+        //
+        //
+        let Ok(analyzed_function) = ModuleModel::new(tx).get_analyzed_function(&path).await? else {
+            return Ok(Err(JsError::from_message(missing_or_internal_error(
+                &path,
+            )?)));
+        };
+
+        let returns_validator = if path.udf_path.is_system() {
+            ReturnsValidator::Unvalidated
+        } else {
+            analyzed_function.returns.clone()
+        };
+
+        match ValidatedPathAndArgs::new_inner(
+            allowed_visibility,
+            tx,
+            path,
+            args,
+            expected_udf_type,
+            analyzed_function,
+            udf_version,
+        )? {
+            Ok(validated_udf_path_and_args) => {
+                Ok(Ok((validated_udf_path_and_args, returns_validator)))
+            },
+            Err(js_err) => Ok(Err(js_err)),
+        }
+    }
+
+    fn new_inner<RT: Runtime>(
+        allowed_visibility: AllowedVisibility,
+        tx: &mut Transaction<RT>,
+        path: CanonicalizedComponentFunctionPath,
+        args: ConvexArray,
+        expected_udf_type: UdfType,
+        analyzed_function: AnalyzedFunction,
+        version: Version,
+    ) -> anyhow::Result<Result<ValidatedPathAndArgs, JsError>> {
         let identity = tx.identity();
         match identity {
             // This is an admin, so allow calling all functions
@@ -308,12 +424,14 @@ impl ValidatedPathAndArgs {
             ))));
         }
 
+        let table_mapping = &tx.table_mapping().clone();
+        let virtual_table_mapping = &tx.virtual_table_mapping().clone();
+
         // If the UDF has an args validator, check that these args match.
-        let args_validation_error = analyzed_function.args.check_args(
-            &args,
-            &tx.table_mapping().clone(),
-            &tx.virtual_table_mapping().clone(),
-        )?;
+        let args_validation_error =
+            analyzed_function
+                .args
+                .check_args(&args, table_mapping, virtual_table_mapping)?;
 
         if let Some(error) = args_validation_error {
             return Ok(Err(JsError::from_message(format!(
@@ -324,7 +442,7 @@ impl ValidatedPathAndArgs {
         Ok(Ok(ValidatedPathAndArgs {
             path,
             args,
-            npm_version: Some(udf_version),
+            npm_version: Some(version),
         }))
     }
 
@@ -484,6 +602,190 @@ mod test {
             let proto = pb::common::ValidatedPathAndArgs::try_from(v.clone()).unwrap();
             let v2 = ValidatedPathAndArgs::from_proto(proto).unwrap();
             assert_eq!(v, v2);
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
+pub struct ValidatedUdfOutcome {
+    pub udf_path: CanonicalizedUdfPath,
+    pub arguments: ConvexArray,
+    pub identity: InertIdentity,
+
+    pub rng_seed: [u8; 32],
+    pub observed_rng: bool,
+
+    pub unix_timestamp: UnixTimestamp,
+    pub observed_time: bool,
+
+    pub log_lines: LogLines,
+    pub journal: QueryJournal,
+
+    // QueryUdfOutcomes are stored in the Udf level cache, which is why we would like
+    // them to have more compact representation.
+    pub result: Result<JsonPackedValue, JsError>,
+
+    pub syscall_trace: SyscallTrace,
+
+    pub udf_server_version: Option<semver::Version>,
+}
+
+impl HeapSize for ValidatedUdfOutcome {
+    fn heap_size(&self) -> usize {
+        self.udf_path.heap_size()
+            + self.arguments.heap_size()
+            + self.identity.heap_size()
+            + self.log_lines.heap_size()
+            + self.journal.heap_size()
+            + self.result.heap_size()
+            + self.syscall_trace.heap_size()
+    }
+}
+
+impl ValidatedUdfOutcome {
+    /// Used for synthesizing an outcome when we encounter an error before
+    /// reaching the isolate.
+    pub fn from_error(
+        js_error: JsError,
+        path: CanonicalizedComponentFunctionPath,
+        arguments: ConvexArray,
+        identity: InertIdentity,
+        rt: impl Runtime,
+        udf_server_version: Option<semver::Version>,
+    ) -> anyhow::Result<Self> {
+        Ok(ValidatedUdfOutcome {
+            udf_path: path.into_root_udf_path()?,
+            arguments,
+            identity,
+            rng_seed: rt.with_rng(|rng| rng.gen()),
+            observed_rng: false,
+            unix_timestamp: rt.unix_timestamp(),
+            observed_time: false,
+            log_lines: vec![].into(),
+            journal: QueryJournal::new(),
+            result: Err(js_error),
+            syscall_trace: SyscallTrace::new(),
+            udf_server_version,
+        })
+    }
+
+    pub fn new(
+        outcome: UdfOutcome,
+        returns_validator: ReturnsValidator,
+        table_mapping: &TableMapping,
+        virtual_table_mapping: &VirtualTableMapping,
+    ) -> Self {
+        let mut validated = ValidatedUdfOutcome {
+            udf_path: outcome.udf_path,
+            arguments: outcome.arguments,
+            identity: outcome.identity,
+            rng_seed: outcome.rng_seed,
+            observed_rng: outcome.observed_rng,
+            unix_timestamp: outcome.unix_timestamp,
+            observed_time: outcome.observed_time,
+            log_lines: outcome.log_lines,
+            journal: outcome.journal,
+            result: outcome.result,
+            syscall_trace: outcome.syscall_trace,
+            udf_server_version: outcome.udf_server_version,
+        };
+
+        // TODO(CX-6318) Don't pack json value until it's been validated.
+        let returns: ConvexValue = match &validated.result {
+            Ok(json_packed_value) => json_packed_value.unpack(),
+            Err(_) => return validated,
+        };
+
+        if let Some(js_err) =
+            returns_validator.check_output(&returns, table_mapping, virtual_table_mapping)
+        {
+            validated.result = Err(js_err);
+        };
+        validated
+    }
+}
+
+#[derive(Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
+pub struct ValidatedActionOutcome {
+    pub path: CanonicalizedComponentFunctionPath,
+    pub arguments: ConvexArray,
+    pub identity: InertIdentity,
+
+    pub unix_timestamp: UnixTimestamp,
+
+    pub result: Result<JsonPackedValue, JsError>,
+    pub syscall_trace: SyscallTrace,
+
+    pub udf_server_version: Option<semver::Version>,
+}
+
+impl ValidatedActionOutcome {
+    pub fn new(
+        outcome: ActionOutcome,
+        returns_validator: ReturnsValidator,
+        table_mapping: &TableMapping,
+        virtual_table_mapping: &VirtualTableMapping,
+    ) -> Self {
+        let mut validated = ValidatedActionOutcome {
+            path: outcome.path,
+            arguments: outcome.arguments,
+            identity: outcome.identity,
+            unix_timestamp: outcome.unix_timestamp,
+            result: outcome.result,
+            syscall_trace: outcome.syscall_trace,
+            udf_server_version: outcome.udf_server_version,
+        };
+
+        if let Ok(ref json_packed_value) = &validated.result {
+            let output = json_packed_value.unpack();
+            if let Some(js_err) =
+                returns_validator.check_output(&output, table_mapping, virtual_table_mapping)
+            {
+                validated.result = Err(js_err);
+            }
+        }
+
+        validated
+    }
+
+    /// Used for synthesizing an outcome when we encounter an error before
+    /// reaching the isolate.
+    pub fn from_error(
+        js_error: JsError,
+        path: CanonicalizedComponentFunctionPath,
+        arguments: ConvexArray,
+        identity: InertIdentity,
+        rt: impl Runtime,
+        udf_server_version: Option<semver::Version>,
+    ) -> Self {
+        ValidatedActionOutcome {
+            path,
+            arguments,
+            identity,
+            unix_timestamp: rt.unix_timestamp(),
+            result: Err(js_error),
+            syscall_trace: SyscallTrace::new(),
+            udf_server_version,
+        }
+    }
+
+    pub fn from_system_error(
+        path: CanonicalizedComponentFunctionPath,
+        arguments: ConvexArray,
+        identity: InertIdentity,
+        unix_timestamp: UnixTimestamp,
+        e: &anyhow::Error,
+    ) -> ValidatedActionOutcome {
+        ValidatedActionOutcome {
+            path,
+            arguments,
+            identity,
+            unix_timestamp,
+            result: Err(JsError::from_error_ref(e)),
+            syscall_trace: SyscallTrace::new(),
+            udf_server_version: None,
         }
     }
 }

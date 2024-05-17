@@ -8,7 +8,10 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::anyhow;
+use anyhow::{
+    anyhow,
+    Context,
+};
 use common::{
     components::{
         CanonicalizedComponentModulePath,
@@ -52,7 +55,10 @@ use model::{
         EnvVarValue,
     },
     modules::{
-        args_validator::ArgsValidator,
+        function_validators::{
+            ArgsValidator,
+            ReturnsValidator,
+        },
         module_versions::{
             invalid_function_name_error,
             AnalyzedFunction,
@@ -108,7 +114,9 @@ use crate::{
         log_source_map_token_lookup_failed,
     },
     request_scope::RequestScope,
-    strings,
+    strings::{
+        self,
+    },
     timeout::Timeout,
 };
 
@@ -509,28 +517,25 @@ fn udf_analyze<RT: Runtime>(
         let args = if let Some(export_args_value) = function.get(scope, export_args.into()) {
             if export_args_value.is_function() {
                 let export_args_function: v8::Local<v8::Function> = export_args_value.try_into()?;
-                let result_v8 = match scope
+                let result_v8: v8::Local<v8::String> = scope
                     .with_try_catch(|s| export_args_function.call(s, function.into(), &[]))??
-                {
-                    Some(r) => v8::Local::<v8::String>::try_from(r)?,
-                    None => {
-                        anyhow::bail!("Missing return value from successful function call")
-                    },
-                };
+                    .context("Missing return value from successful function call")?
+                    .try_into()?;
                 let result_str = helpers::to_rust_string(scope, &result_v8)?;
-                match serde_json::from_str::<JsonValue>(&result_str) {
-                    Ok(args_json) => match ArgsValidator::try_from(args_json) {
-                        Ok(validator) => validator,
-                        Err(parse_error) => {
-                            let message =
-                                format!("Unable to parse JSON from `exportArgs`: {parse_error}");
-                            return Ok(Err(JsError::from_message(message)));
-                        },
-                    },
+                let args_json = match serde_json::from_str::<JsonValue>(&result_str) {
+                    Ok(args_json) => args_json,
                     Err(json_error) => {
                         let message = format!(
                             "Unable to parse JSON returned from `exportArgs`: {json_error}"
                         );
+                        return Ok(Err(JsError::from_message(message)));
+                    },
+                };
+                match ArgsValidator::try_from(args_json) {
+                    Ok(validator) => validator,
+                    Err(parse_error) => {
+                        let message =
+                            format!("Unable to parse JSON from `exportArgs`: {parse_error}");
                         return Ok(Err(JsError::from_message(message)));
                     },
                 }
@@ -544,6 +549,46 @@ fn udf_analyze<RT: Runtime>(
             }
         } else {
             ArgsValidator::Unvalidated
+        };
+
+        // TODO(CX-6287) unify argument and returns validators
+        // Call `exportReturns` to get the returns validator.
+        let export_output = strings::exportReturns.create(scope)?;
+        let returns = if let Some(export_output_value) = function.get(scope, export_output.into()) {
+            if export_output_value.is_function() {
+                let export_output_function: v8::Local<v8::Function> =
+                    export_output_value.try_into()?;
+                let result_v8: v8::Local<v8::String> = scope
+                    .with_try_catch(|s| export_output_function.call(s, function.into(), &[]))??
+                    .context("Missing return value from successful function call")?
+                    .try_into()?;
+                let result_str = helpers::to_rust_string(scope, &result_v8)?;
+                let output_json = match serde_json::from_str::<JsonValue>(&result_str) {
+                    Ok(validator) => validator,
+                    Err(parse_error) => {
+                        let message =
+                            format!("Unable to parse JSON from `exportReturns`: {parse_error}");
+                        return Ok(Err(JsError::from_message(message)));
+                    },
+                };
+                match ReturnsValidator::try_from(output_json) {
+                    Ok(validator) => validator,
+                    Err(parse_error) => {
+                        let message =
+                            format!("Unable to parse JSON from `exportReturns`: {parse_error}");
+                        return Ok(Err(JsError::from_message(message)));
+                    },
+                }
+            } else if export_output_value.is_undefined() {
+                // `exportReturns` will be undefined for old npm versions.
+                // Default to `Unvalidated`.
+                ReturnsValidator::Unvalidated
+            } else {
+                let message = format!("`exportReturns` is not a function or `undefined`.");
+                return Ok(Err(JsError::from_message(message)));
+            }
+        } else {
+            ReturnsValidator::Unvalidated
         };
 
         let visibility = match (is_public, is_internal) {
@@ -606,6 +651,7 @@ fn udf_analyze<RT: Runtime>(
                 udf_type,
                 visibility: visibility.clone(),
                 args: args.clone(),
+                returns: returns.clone(),
             });
         } else {
             // If there is no valid source map, push a function without a position
@@ -615,6 +661,7 @@ fn udf_analyze<RT: Runtime>(
                 udf_type,
                 visibility: visibility.clone(),
                 args: args.clone(),
+                returns: returns.clone(),
             });
 
             // Log reason for fallback

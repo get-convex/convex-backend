@@ -23,6 +23,7 @@ pub use crate::executor::{
     ExecuteRequest,
     ExecutorRequest,
     InvokeResponse,
+    NodeActionOutcome,
     NodeExecutor,
     Package,
     ResponsePart,

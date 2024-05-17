@@ -31,7 +31,10 @@ use value::{
     DeveloperDocumentId,
 };
 
-use super::args_validator::ArgsValidator;
+use super::function_validators::{
+    ArgsValidator,
+    ReturnsValidator,
+};
 use crate::cron_jobs::types::{
     CronIdentifier,
     CronSpec,
@@ -286,6 +289,7 @@ pub struct AnalyzedFunction {
     pub udf_type: UdfType,
     pub visibility: Option<Visibility>,
     pub args: ArgsValidator,
+    pub returns: ReturnsValidator,
 }
 
 impl HeapSize for AnalyzedFunction {
@@ -306,6 +310,7 @@ struct SerializedAnalyzedFunction {
     udf_type: String,
     visibility: Option<Visibility>,
     args: Option<String>,
+    returns: Option<String>,
 }
 
 impl TryFrom<AnalyzedFunction> for SerializedAnalyzedFunction {
@@ -313,12 +318,14 @@ impl TryFrom<AnalyzedFunction> for SerializedAnalyzedFunction {
 
     fn try_from(f: AnalyzedFunction) -> anyhow::Result<Self> {
         let args_json = JsonValue::try_from(f.args)?;
+        let returns_json = JsonValue::try_from(f.returns)?;
         Ok(Self {
             name: f.name.to_string(),
             pos: f.pos.map(TryFrom::try_from).transpose()?,
             udf_type: f.udf_type.to_string(),
             visibility: f.visibility,
             args: Some(serde_json::to_string(&args_json)?),
+            returns: Some(serde_json::to_string(&returns_json)?),
         })
     }
 }
@@ -338,6 +345,13 @@ impl TryFrom<SerializedAnalyzedFunction> for AnalyzedFunction {
                     ArgsValidator::try_from(deserialized_value)?
                 },
                 None => ArgsValidator::Unvalidated,
+            },
+            returns: match f.returns {
+                Some(returns) => {
+                    let deserialized_value: JsonValue = serde_json::from_str(&returns)?;
+                    ReturnsValidator::try_from(deserialized_value)?
+                },
+                None => ReturnsValidator::Unvalidated,
             },
         })
     }
@@ -572,7 +586,7 @@ mod tests {
     };
 
     use super::AnalyzedFunction;
-    use crate::modules::args_validator::ArgsValidator;
+    use crate::modules::function_validators::ArgsValidator;
 
     #[test]
     fn test_analyzed_function_backwards_compatibility() -> anyhow::Result<()> {

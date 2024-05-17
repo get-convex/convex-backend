@@ -44,7 +44,10 @@ use model::{
         ConfigModel,
     },
     modules::{
-        args_validator::ArgsValidator,
+        function_validators::{
+            ArgsValidator,
+            ReturnsValidator,
+        },
         module_versions::{
             AnalyzedFunction,
             AnalyzedModule,
@@ -117,6 +120,7 @@ bar.invokeAction = async (requestId, argsStr) => {
                 udf_type: UdfType::Action,
                 visibility: Some(Visibility::Public),
                 args: ArgsValidator::Unvalidated,
+                returns: ReturnsValidator::Unvalidated,
             }]
             .into(),
             http_routes: None,

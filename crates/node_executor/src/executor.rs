@@ -48,7 +48,10 @@ use model::{
         PersistedEnvironmentVariable,
     },
     modules::{
-        args_validator::ArgsValidator,
+        function_validators::{
+            ArgsValidator,
+            ReturnsValidator,
+        },
         module_versions::{
             invalid_function_name_error,
             AnalyzedFunction,
@@ -435,6 +438,10 @@ impl Actions {
                     },
                     None => ArgsValidator::Unvalidated,
                 };
+                let returns = match f.returns.clone() {
+                    Some(json_returns) => ReturnsValidator::try_from(json_returns.clone())?,
+                    None => ReturnsValidator::Unvalidated,
+                };
                 let visibility = f.visibility.clone().map(Visibility::from);
 
                 // Extract source position
@@ -465,6 +472,7 @@ impl Actions {
                     udf_type,
                     visibility,
                     args,
+                    returns,
                 });
             }
 
@@ -811,6 +819,7 @@ pub struct AnalyzedNodeFunction {
     udf_type: String,
     visibility: Option<VisibilityJson>,
     args: Option<JsonValue>,
+    returns: Option<JsonValue>,
 }
 
 #[derive(Debug)]
