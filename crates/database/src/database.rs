@@ -110,7 +110,6 @@ use futures::{
     stream::BoxStream,
     Future,
     FutureExt,
-    Stream,
     StreamExt,
     TryStreamExt,
 };
@@ -992,25 +991,6 @@ impl<RT: Runtime> Database<RT> {
                 val
             })
             .boxed()
-    }
-
-    /// See table_iterator.
-    /// This is a convenience method if you have a table name and don't want to
-    /// customize the page size.
-    pub async fn iter_table_documents<'a, 'b>(
-        &'a self,
-        snapshot_ts: RepeatableTimestamp,
-        table_name: &'a TableName,
-    ) -> anyhow::Result<impl Stream<Item = anyhow::Result<ResolvedDocument>> + 'b> {
-        let iterator = self.table_iterator(snapshot_ts, 100, None);
-        let table_mapping = self.snapshot_table_mapping(snapshot_ts).await?;
-        let tablet_id = table_mapping.id(table_name)?.tablet_id;
-        let by_id_indexes = self.snapshot_by_id_indexes(snapshot_ts).await?;
-        let by_id = *by_id_indexes
-            .get(&tablet_id)
-            .ok_or_else(|| anyhow::anyhow!("by_id not found for {table_name}"))?;
-        let stream = iterator.stream_documents_in_table(tablet_id, by_id, None);
-        Ok(stream.map_ok(|(doc, _)| doc))
     }
 
     /// Allows iterating over tables at any repeatable timestamp,
