@@ -127,6 +127,7 @@ pub struct FunctionExecution {
 
     /// Usage statistics for this instance
     pub usage_stats: AggregatedFunctionUsageStats,
+    pub action_memory_used_mb: Option<u64>,
 
     /// The Convex NPM package version pushed with the module version executed.
     pub udf_server_version: Option<semver::Version>,
@@ -178,6 +179,10 @@ impl FunctionExecution {
             environment: ModuleEnvironment::Invalid,
             syscall_trace: SyscallTrace::new(),
             usage_stats: AggregatedFunctionUsageStats::default(),
+            action_memory_used_mb: match udf_type {
+                UdfType::Query | UdfType::Mutation => None,
+                UdfType::Action | UdfType::HttpAction => Some(0),
+            },
             udf_server_version,
             identity,
             context,
@@ -243,6 +248,7 @@ impl FunctionExecution {
                     storage_write_bytes: self.usage_stats.storage_write_bytes,
                     vector_index_read_bytes: self.usage_stats.vector_index_read_bytes,
                     vector_index_write_bytes: self.usage_stats.vector_index_write_bytes,
+                    action_memory_used_mb: self.action_memory_used_mb,
                 },
             },
         }];
@@ -643,6 +649,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             environment: ModuleEnvironment::Isolate,
             syscall_trace: outcome.syscall_trace,
             usage_stats: aggregated,
+            action_memory_used_mb: None,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context,
@@ -764,6 +771,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             environment: ModuleEnvironment::Isolate,
             syscall_trace: outcome.syscall_trace,
             usage_stats: aggregated,
+            action_memory_used_mb: None,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context,
@@ -862,6 +870,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             environment: completion.environment,
             syscall_trace: outcome.syscall_trace,
             usage_stats: aggregated,
+            action_memory_used_mb: Some(completion.memory_in_mb),
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context: completion.context,
@@ -987,8 +996,9 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             execution_time: execution_time.as_secs_f64(),
             caller,
             environment: ModuleEnvironment::Isolate,
-            syscall_trace: outcome.syscall_trace,
             usage_stats: aggregated,
+            action_memory_used_mb: Some(outcome.memory_in_mb()),
+            syscall_trace: outcome.syscall_trace,
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context,

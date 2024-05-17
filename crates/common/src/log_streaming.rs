@@ -66,8 +66,7 @@ pub struct AggregatedFunctionUsageStats {
     pub storage_write_bytes: u64,
     pub vector_index_read_bytes: u64,
     pub vector_index_write_bytes: u64,
-    // TODO(sarah) -- get this working
-    // pub action_memory_used_mb: Option<u64>,
+    pub action_memory_used_mb: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -317,6 +316,7 @@ impl LogEvent {
                             "file_storage_write_bytes": usage_stats.storage_write_bytes,
                             "vector_storage_read_bytes": usage_stats.vector_index_read_bytes,
                             "vector_storage_write_bytes": usage_stats.vector_index_write_bytes,
+                            "action_memory_used_mb": usage_stats.action_memory_used_mb
                         }
                     })
                 },
@@ -333,7 +333,7 @@ impl LogEvent {
                         .map(|frames| frames.0.iter().map(|frame| frame.to_string()).collect());
                     json!({
                         "_timestamp": ms,
-                        "_topic":  "_execution_record",
+                        "_topic":  "_exception",
                         "_functionPath": source.path,
                         "_functionType": source.udf_type,
                         "_functionCached": source.cached,
@@ -444,7 +444,6 @@ impl FunctionEventSource {
             "type": udf_type,
             "cached": self.cached,
             "request_id": self.context.request_id.to_string(),
-            "execution_id": self.context.execution_id.to_string(),
         }) else {
             unreachable!()
         };
