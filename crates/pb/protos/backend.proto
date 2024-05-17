@@ -110,7 +110,7 @@ message ExecuteQueryRequest2 {
     convex_identity.AuthenticationToken auth_token = 2;
     PathAndArgs path_and_args = 3;
 
-    // TODO(presley): Add caller and action auth token.
+    common.FunctionCaller caller = 4;
 }
 
 message ExecuteQueryResponse2 {
@@ -143,7 +143,7 @@ message ExecuteMutationRequest2 {
     convex_identity.AuthenticationToken auth_token = 2;
     PathAndArgs path_and_args = 3;
 
-    // TODO(presley): Add caller and action auth token.
+    common.FunctionCaller caller = 4;
 }
 
 message MutationSuccess {
@@ -181,7 +181,7 @@ message ExecuteActionRequest2 {
     convex_identity.AuthenticationToken auth_token = 2;
     PathAndArgs path_and_args = 3;
 
-    // TODO(presley): Add caller and action auth token.
+    common.FunctionCaller caller = 4;
 }
 
 message ExecuteActionResponse2 {

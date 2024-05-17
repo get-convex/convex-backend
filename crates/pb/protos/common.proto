@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package common;
 
+import "google/protobuf/empty.proto";
+
 message ValidatedPathAndArgs {
   optional string path = 1;
   optional bytes args = 2;
@@ -16,6 +18,11 @@ message ResolvedDocument {
 
 message ResolvedDocumentId {
     TabletIdAndTableNumber table = 1;
+    optional bytes internal_id = 2;
+}
+
+message DeveloperDocumentId {
+    optional uint32 table_number = 1;
     optional bytes internal_id = 2;
 }
 
@@ -85,4 +92,37 @@ enum UdfType {
 // persistence leader (not necessarily the follower).
 message RepeatableTimestamp {
   optional uint64 ts = 1;
+}
+
+message ClientVersion {
+  // NOTE: We serialize as string for time being instead of encoding the full enum.
+  optional string client = 1;
+  ClientVersionIdent version = 2;
+}
+
+message ClientVersionIdent {
+  oneof version {
+    string semver = 1;
+    string unrecognized = 2;
+  }
+}
+
+message FunctionCaller {
+  oneof caller {
+    ClientVersion sync_worker = 1;
+    ClientVersion http_api = 2;
+    ClientVersion tester = 3;
+    google.protobuf.Empty http_endpoint = 4;
+    google.protobuf.Empty cron = 5;
+    SchedulerFunctionCaller scheduler = 6;
+    ActionFunctionCaller action = 7;
+  }
+}
+
+message SchedulerFunctionCaller {
+  common.DeveloperDocumentId job_id = 1;
+}
+
+message ActionFunctionCaller {
+  common.DeveloperDocumentId parent_scheduled_job = 1;
 }

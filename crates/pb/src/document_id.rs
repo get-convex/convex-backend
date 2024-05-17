@@ -1,13 +1,45 @@
+use anyhow::Context;
 use value::{
+    DeveloperDocumentId,
     ResolvedDocumentId,
     TabletId,
     TabletIdAndTableNumber,
 };
 
 use crate::common::{
+    DeveloperDocumentId as DeveloperDocumentIdProto,
     ResolvedDocumentId as ResolvedDocumentIdProto,
     TabletIdAndTableNumber as TabletIdAndTableNumberProto,
 };
+
+impl From<DeveloperDocumentId> for DeveloperDocumentIdProto {
+    fn from(value: DeveloperDocumentId) -> Self {
+        let (table_number, internal_id) = value.into_table_and_id();
+        Self {
+            table_number: Some(table_number.into()),
+            internal_id: Some(internal_id.0.to_vec()),
+        }
+    }
+}
+
+impl TryFrom<DeveloperDocumentIdProto> for DeveloperDocumentId {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        DeveloperDocumentIdProto {
+            table_number,
+            internal_id,
+        }: DeveloperDocumentIdProto,
+    ) -> anyhow::Result<Self> {
+        let table_number = table_number
+            .context("Missing `table_number` field")?
+            .try_into()?;
+        let internal_id = internal_id
+            .context("Missing `internal_id` field")?
+            .try_into()?;
+        Ok(Self::new(table_number, internal_id))
+    }
+}
 
 impl From<ResolvedDocumentId> for ResolvedDocumentIdProto {
     fn from(value: ResolvedDocumentId) -> Self {
@@ -76,8 +108,14 @@ mod tests {
     use proptest::prelude::*;
     use value::testing::assert_roundtrips;
 
-    use super::ResolvedDocumentId;
-    use crate::common::ResolvedDocumentId as ResolvedDocumentIdProto;
+    use super::{
+        DeveloperDocumentId,
+        ResolvedDocumentId,
+    };
+    use crate::common::{
+        DeveloperDocumentId as DeveloperDocumentIdProto,
+        ResolvedDocumentId as ResolvedDocumentIdProto,
+    };
 
     proptest! {
         #![proptest_config(
@@ -85,8 +123,13 @@ mod tests {
         )]
 
         #[test]
-        fn test_document_id_roundtrips(left in any::<ResolvedDocumentId>()) {
+        fn test_resolved_document_id_roundtrips(left in any::<ResolvedDocumentId>()) {
             assert_roundtrips::<ResolvedDocumentId, ResolvedDocumentIdProto>(left);
+        }
+
+        #[test]
+        fn test_developer_document_id_roundtrips(left in any::<DeveloperDocumentId>()) {
+            assert_roundtrips::<DeveloperDocumentId, DeveloperDocumentIdProto>(left);
         }
     }
 }

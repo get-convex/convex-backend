@@ -6,6 +6,7 @@ use std::{
     str::FromStr,
 };
 
+use anyhow::Context;
 use metrics::StaticMetricLabel;
 use pb::common::UdfType as UdfTypeProto;
 use serde::{
@@ -125,6 +126,7 @@ pub enum AllowedVisibility {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum FunctionCaller {
     SyncWorker(ClientVersion),
     HttpApi(ClientVersion),
@@ -228,6 +230,81 @@ impl fmt::Display for FunctionCaller {
     }
 }
 
+impl From<FunctionCaller> for pb::common::FunctionCaller {
+    fn from(caller: FunctionCaller) -> Self {
+        let caller = match caller {
+            FunctionCaller::SyncWorker(client_version) => {
+                pb::common::function_caller::Caller::SyncWorker(client_version.into())
+            },
+            FunctionCaller::HttpApi(client_version) => {
+                pb::common::function_caller::Caller::HttpApi(client_version.into())
+            },
+            FunctionCaller::Tester(client_version) => {
+                pb::common::function_caller::Caller::Tester(client_version.into())
+            },
+            FunctionCaller::HttpEndpoint => pb::common::function_caller::Caller::HttpEndpoint(()),
+            FunctionCaller::Cron => pb::common::function_caller::Caller::Cron(()),
+            FunctionCaller::Scheduler { job_id } => {
+                let caller = pb::common::SchedulerFunctionCaller {
+                    job_id: Some(job_id.into()),
+                };
+                pb::common::function_caller::Caller::Scheduler(caller)
+            },
+            FunctionCaller::Action {
+                parent_scheduled_job,
+            } => {
+                let caller = pb::common::ActionFunctionCaller {
+                    parent_scheduled_job: parent_scheduled_job.map(|job_id| job_id.into()),
+                };
+                pb::common::function_caller::Caller::Action(caller)
+            },
+        };
+        Self {
+            caller: Some(caller),
+        }
+    }
+}
+
+impl TryFrom<pb::common::FunctionCaller> for FunctionCaller {
+    type Error = anyhow::Error;
+
+    fn try_from(msg: pb::common::FunctionCaller) -> anyhow::Result<Self> {
+        let caller = match msg.caller {
+            Some(pb::common::function_caller::Caller::SyncWorker(client_version)) => {
+                FunctionCaller::SyncWorker(client_version.try_into()?)
+            },
+            Some(pb::common::function_caller::Caller::HttpApi(client_version)) => {
+                FunctionCaller::HttpApi(client_version.try_into()?)
+            },
+            Some(pb::common::function_caller::Caller::Tester(client_version)) => {
+                FunctionCaller::Tester(client_version.try_into()?)
+            },
+            Some(pb::common::function_caller::Caller::HttpEndpoint(())) => {
+                FunctionCaller::HttpEndpoint
+            },
+            Some(pb::common::function_caller::Caller::Cron(())) => FunctionCaller::Cron,
+            Some(pb::common::function_caller::Caller::Scheduler(caller)) => {
+                let pb::common::SchedulerFunctionCaller { job_id } = caller;
+                let job_id = job_id.context("Missing `job_id` field")?.try_into()?;
+                FunctionCaller::Scheduler { job_id }
+            },
+            Some(pb::common::function_caller::Caller::Action(caller)) => {
+                let pb::common::ActionFunctionCaller {
+                    parent_scheduled_job,
+                } = caller;
+                let parent_scheduled_job = parent_scheduled_job
+                    .map(|job_id| job_id.try_into())
+                    .transpose()?;
+                FunctionCaller::Action {
+                    parent_scheduled_job,
+                }
+            },
+            None => anyhow::bail!("Missing `caller` field"),
+        };
+        Ok(caller)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -284,11 +361,21 @@ mod tests {
         UdfType,
         UdfTypeProto,
     };
+    use crate::types::FunctionCaller;
 
     proptest! {
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
+
         #[test]
         fn test_udf_type_roundtrips(u in any::<UdfType>()) {
             assert_roundtrips::<UdfType, UdfTypeProto>(u);
+        }
+
+        #[test]
+        fn test_function_caller_roundtrips(u in any::<FunctionCaller>()) {
+            assert_roundtrips::<FunctionCaller, pb::common::FunctionCaller>(u);
         }
     }
 }

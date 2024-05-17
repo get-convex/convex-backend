@@ -7,9 +7,12 @@ use std::{
     sync::LazyLock,
 };
 
+use anyhow::Context;
 use cmd_util::env::env_config;
 use errors::ErrorMetadata;
 pub use metrics::SERVER_VERSION_STR;
+#[cfg(any(test, feature = "testing"))]
+use proptest::strategy::Strategy;
 pub use semver::Version;
 use serde::{
     Deserialize,
@@ -67,13 +70,42 @@ impl ClientVersionState {
 }
 
 #[derive(PartialEq, Eq, Clone, Ord, PartialOrd)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ClientVersion {
     client: ClientType,
     version: ClientVersionIdent,
 }
 
-#[derive(PartialEq, Eq, Clone, Ord, PartialOrd)]
+impl From<ClientVersion> for pb::common::ClientVersion {
+    fn from(ClientVersion { client, version }: ClientVersion) -> Self {
+        Self {
+            client: Some(client.to_string()),
+            version: Some(version.into()),
+        }
+    }
+}
+
+impl TryFrom<pb::common::ClientVersion> for ClientVersion {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        pb::common::ClientVersion { client, version }: pb::common::ClientVersion,
+    ) -> anyhow::Result<Self> {
+        let client = client.context("Missing `client` field")?.parse()?;
+        let version = version.context("Missing `version` field")?.try_into()?;
+        Ok(ClientVersion { client, version })
+    }
+}
+
+#[derive(PartialEq, Eq, Clone, Ord, PartialOrd, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ClientVersionIdent {
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "(0..5, 0..100, 0..4).prop_map(|(major, minor, patch)| \
+                             ClientVersionIdent::Semver(format!(\"{major}.{minor}.{patch}\").\
+                             parse().unwrap()))")
+    )]
     Semver(Version),
     Unrecognized(String),
 }
@@ -103,7 +135,41 @@ impl ClientVersionIdent {
     }
 }
 
+impl From<ClientVersionIdent> for pb::common::ClientVersionIdent {
+    fn from(value: ClientVersionIdent) -> Self {
+        let version = match value {
+            ClientVersionIdent::Semver(version) => {
+                pb::common::client_version_ident::Version::Semver(version.to_string())
+            },
+            ClientVersionIdent::Unrecognized(str) => {
+                pb::common::client_version_ident::Version::Unrecognized(str)
+            },
+        };
+        pb::common::ClientVersionIdent {
+            version: Some(version),
+        }
+    }
+}
+
+impl TryFrom<pb::common::ClientVersionIdent> for ClientVersionIdent {
+    type Error = anyhow::Error;
+
+    fn try_from(msg: pb::common::ClientVersionIdent) -> anyhow::Result<Self> {
+        let version = match msg.version {
+            Some(pb::common::client_version_ident::Version::Semver(version)) => {
+                ClientVersionIdent::Semver(version.parse()?)
+            },
+            Some(pb::common::client_version_ident::Version::Unrecognized(str)) => {
+                ClientVersionIdent::Unrecognized(str)
+            },
+            None => anyhow::bail!("Missing `version` field"),
+        };
+        Ok(version)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ClientType {
     Python,
     CLI,
@@ -118,6 +184,12 @@ pub enum ClientType {
     // For HTTP requests from the dashboard. Requests from the dashboard via a
     // Convex client will have an `NPM` version
     Dashboard,
+    // We convert to lower case when we parse, so lets just generate lowercase strings.
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "proptest::string::string_regex(\"[a-z]+\").unwrap().\
+                             prop_map(ClientType::Unrecognized)")
+    )]
     Unrecognized(String),
 }
 
@@ -133,6 +205,7 @@ impl FromStr for ClientType {
             "rust" => Self::Rust,
             "streaming-import" => Self::StreamingImport,
             "airbyte-export" => Self::AirbyteExport,
+            "fivetran-import" => Self::FivetranImport,
             "fivetran-export" => Self::FivetranExport,
             "dashboard" => Self::Dashboard,
             unrecognized => Self::Unrecognized(unrecognized.to_string()),
@@ -344,11 +417,13 @@ impl fmt::Debug for ClientVersion {
 mod tests {
     use std::assert_matches::assert_matches;
 
+    use proptest::prelude::*;
     use semver::{
         BuildMetadata,
         Prerelease,
         Version,
     };
+    use sync_types::testing::assert_roundtrips;
 
     use super::{
         ClientVersion,
@@ -498,5 +573,16 @@ mod tests {
             );
         }
         Ok(())
+    }
+
+    proptest! {
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
+
+        #[test]
+        fn test_client_version_roundtrips(u in any::<ClientVersion>()) {
+            assert_roundtrips::<ClientVersion, pb::common::ClientVersion>(u);
+        }
     }
 }
