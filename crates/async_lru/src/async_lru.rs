@@ -27,9 +27,15 @@ use common::{
 };
 use futures::{
     future::BoxFuture,
+    FutureExt,
     StreamExt,
 };
 use lru::LruCache;
+use minitrace::{
+    collector::SpanContext,
+    future::FutureExt as _,
+    Span,
+};
 use parking_lot::Mutex;
 use value::{
     TableMapping,
@@ -381,6 +387,7 @@ impl<
         }
     }
 
+    #[minitrace::trace]
     fn get_sync(
         &self,
         key: &Key,
@@ -400,15 +407,24 @@ impl<
             },
             None => {
                 log_async_lru_cache_miss(self.label);
+
+                // Run the value_generator in the span context of the original client that
+                // fired off the job. If multiple callers instantiate the same job, only the
+                // first one will execute the future and get the sub-spans.
+                let span = SpanContext::current_local_parent()
+                    .map(|ctx| Span::root("async_lru_compute_value", ctx))
+                    .unwrap_or(Span::noop());
+
                 let timer = async_lru_compute_timer(self.label);
                 let (tx, rx) = async_broadcast::broadcast(1);
                 // If the queue is too full, just bail here. The cache state is unmodified and
                 // there can't be any other waiters for this key right now, so
                 // it should be safe to abort.
-                inner
-                    .tx
-                    .clone()
-                    .try_send((key.clone(), value_generator, tx))?;
+                inner.tx.clone().try_send((
+                    key.clone(),
+                    value_generator.in_span(span).boxed(),
+                    tx,
+                ))?;
                 inner.cache.put(
                     key.clone(),
                     CacheResult::Waiting {

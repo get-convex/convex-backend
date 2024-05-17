@@ -367,6 +367,7 @@ dependencies = [
  "futures",
  "lru 0.12.0",
  "metrics",
+ "minitrace",
  "parking_lot",
  "rand 0.8.5",
  "runtime",

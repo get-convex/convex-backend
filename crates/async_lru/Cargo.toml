@@ -12,6 +12,7 @@ errors = { path = "../errors" }
 futures = { workspace = true }
 lru = { workspace = true }
 metrics = { path = "../metrics" }
+minitrace = { workspace = true }
 parking_lot = { workspace = true }
 tracing = { workspace = true }
 value = { path = "../value" }
