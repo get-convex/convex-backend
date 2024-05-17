@@ -969,6 +969,10 @@ pub struct FieldValidator {
 }
 
 impl FieldValidator {
+    pub fn validator(&self) -> &Validator {
+        &self.validator
+    }
+
     pub fn required_field_type(validator: Validator) -> Self {
         Self {
             validator,
