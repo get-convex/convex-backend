@@ -14,7 +14,10 @@ use common::{
     components::ComponentFunctionPath,
     pause::PauseClient,
     runtime::Runtime,
-    types::FunctionCaller,
+    types::{
+        AllowedVisibility,
+        FunctionCaller,
+    },
     value::ConvexValue,
     RequestId,
 };
@@ -28,7 +31,7 @@ use sync_types::AuthenticationToken;
 // version of Convex.
 #[async_trait]
 pub trait BackendApi: Send + Sync {
-    async fn execute_query(
+    async fn execute_public_query(
         &self,
         host: Option<String>,
         request_id: RequestId,
@@ -39,7 +42,7 @@ pub trait BackendApi: Send + Sync {
         // TODO(presley): Replace this with QueryReturn.
     ) -> anyhow::Result<(Result<ConvexValue, RedactedJsError>, RedactedLogLines)>;
 
-    async fn execute_mutation(
+    async fn execute_public_mutation(
         &self,
         host: Option<String>,
         request_id: RequestId,
@@ -51,7 +54,7 @@ pub trait BackendApi: Send + Sync {
         mutation_identifier: Option<SessionRequestIdentifier>,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>>;
 
-    async fn execute_action(
+    async fn execute_public_action(
         &self,
         host: Option<String>,
         request_id: RequestId,
@@ -65,7 +68,7 @@ pub trait BackendApi: Send + Sync {
 // Implements BackendApi via Application. Used in the local_backend.
 #[async_trait]
 impl<RT: Runtime> BackendApi for Application<RT> {
-    async fn execute_query(
+    async fn execute_public_query(
         &self,
         _host: Option<String>,
         request_id: RequestId,
@@ -74,7 +77,11 @@ impl<RT: Runtime> BackendApi for Application<RT> {
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<(Result<ConvexValue, RedactedJsError>, RedactedLogLines)> {
-        // TODO(presley): Validate as of action start time if caller is an action.
+        anyhow::ensure!(
+            caller.allowed_visibility() == AllowedVisibility::PublicOnly,
+            "This method should not be used by internal callers."
+        );
+
         let validate_time = self.runtime().system_time();
         let identity = self.authenticate(auth_token, validate_time).await?;
 
@@ -88,7 +95,7 @@ impl<RT: Runtime> BackendApi for Application<RT> {
         Ok((query_return.result, query_return.log_lines))
     }
 
-    async fn execute_mutation(
+    async fn execute_public_mutation(
         &self,
         _host: Option<String>,
         request_id: RequestId,
@@ -99,7 +106,11 @@ impl<RT: Runtime> BackendApi for Application<RT> {
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
-        // TODO(presley): Validate as of action start time if caller is an action.
+        anyhow::ensure!(
+            caller.allowed_visibility() == AllowedVisibility::PublicOnly,
+            "This method should not be used by internal callers."
+        );
+
         let validate_time = self.runtime().system_time();
         let identity = self.authenticate(auth_token, validate_time).await?;
 
@@ -115,7 +126,7 @@ impl<RT: Runtime> BackendApi for Application<RT> {
         .await
     }
 
-    async fn execute_action(
+    async fn execute_public_action(
         &self,
         _host: Option<String>,
         request_id: RequestId,
@@ -124,7 +135,11 @@ impl<RT: Runtime> BackendApi for Application<RT> {
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
-        // TODO(presley): Validate as of action start time if caller is an action.
+        anyhow::ensure!(
+            caller.allowed_visibility() == AllowedVisibility::PublicOnly,
+            "This method should not be used by internal callers."
+        );
+
         let validate_time = self.runtime().system_time();
         let identity = self.authenticate(auth_token, validate_time).await?;
 

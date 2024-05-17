@@ -218,7 +218,7 @@ pub async fn public_query_get(
     let udf_path = parse_udf_path(&req.path)?;
     let args = req.args.into_arg_vec();
     let (result, log_lines) = api
-        .execute_query(
+        .execute_public_query(
             host,
             request_id,
             auth_token,
@@ -252,7 +252,7 @@ pub async fn public_query_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
     let (result, log_lines) = api
-        .execute_query(
+        .execute_public_query(
             host,
             request_id,
             auth_token,
@@ -340,7 +340,7 @@ pub async fn public_mutation_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
     let udf_result = api
-        .execute_mutation(
+        .execute_public_mutation(
             host,
             request_id,
             auth_token,
@@ -381,7 +381,7 @@ pub async fn public_action_post(
     let udf_path = parse_udf_path(&req.path)?;
 
     let action_result = api
-        .execute_action(
+        .execute_public_action(
             host,
             request_id,
             auth_token,

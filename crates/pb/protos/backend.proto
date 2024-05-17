@@ -14,7 +14,7 @@ service Backend {
     rpc TextSearchAtTs(TextSearchAtTsRequest) returns (TextSearchAtTsResponse);
     rpc TableCountAtTs(TableCountAtTsRequest) returns (TableCountAtTsResponse);
 
-    // Action RPCs used by Funrun. Performed as a separate transaction at latest timestamp.
+    // Action RPCs used by Funrun and Usher. Performed as a separate transaction at latest timestamp.
     rpc ExecuteQuery(ExecuteQueryRequest) returns (ExecuteQueryResponse);
     rpc ExecuteMutation(ExecuteMutationRequest) returns (ExecuteMutationResponse);
     rpc ExecuteAction(ExecuteActionRequest) returns (ExecuteActionResponse);
@@ -29,10 +29,10 @@ service Backend {
 
     rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
 
-    // New endpoints used by Usher. Funrun will eventually reuse those too.
-    rpc ExecuteQuery2(ExecuteQueryRequest2) returns (ExecuteQueryResponse2);
-    rpc ExecuteMutation2(ExecuteMutationRequest2) returns (ExecuteMutationResponse2);
-    rpc ExecuteAction2(ExecuteActionRequest2) returns (ExecuteActionResponse2);
+    // Used by Usher.
+    rpc ExecutePublicQuery(ExecutePublicQueryRequest) returns (ExecutePublicQueryResponse);
+    rpc ExecutePublicMutation(ExecutePublicMutationRequest) returns (ExecutePublicMutationResponse);
+    rpc ExecutePublicAction(ExecutePublicActionRequest) returns (ExecutePublicActionResponse);
 }
 
 // The request header is used by all requests to validate we are talking to the
@@ -104,7 +104,7 @@ message ExecuteQueryResponse {
 
 // This is a more generic version of ExecuteQueryRequest that can be used
 // in both Usher and Funrun.
-message ExecuteQueryRequest2 {
+message ExecutePublicQueryRequest {
     RequestHeader header = 1;
 
     convex_identity.AuthenticationToken auth_token = 2;
@@ -113,7 +113,7 @@ message ExecuteQueryRequest2 {
     common.FunctionCaller caller = 4;
 }
 
-message ExecuteQueryResponse2 {
+message ExecutePublicQueryResponse {
     oneof result {
         string json_packed_value = 1;
         RedactedJsError js_error = 2;
@@ -137,7 +137,7 @@ message ExecuteMutationResponse {
 
 // This is a more generic version of ExecuteQueryRequest that can be used
 // in both Usher and Funrun.
-message ExecuteMutationRequest2 {
+message ExecutePublicMutationRequest {
     RequestHeader header = 1;
 
     convex_identity.AuthenticationToken auth_token = 2;
@@ -151,7 +151,7 @@ message MutationSuccess {
     optional uint64 commit_ts = 2;
 }
 
-message ExecuteMutationResponse2 {
+message ExecutePublicMutationResponse {
     oneof result {
         MutationSuccess success = 1;
         RedactedJsError js_error = 2;
@@ -175,7 +175,7 @@ message ExecuteActionResponse {
 
 // This is a more generic version of ExecuteQueryRequest that can be used
 // in both Usher and Funrun.
-message ExecuteActionRequest2 {
+message ExecutePublicActionRequest {
     RequestHeader header = 1;
 
     convex_identity.AuthenticationToken auth_token = 2;
@@ -184,7 +184,7 @@ message ExecuteActionRequest2 {
     common.FunctionCaller caller = 4;
 }
 
-message ExecuteActionResponse2 {
+message ExecutePublicActionResponse {
     oneof result {
         string json_packed_value = 1;
         RedactedJsError js_error = 2;
