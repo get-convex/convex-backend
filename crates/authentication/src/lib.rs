@@ -215,12 +215,17 @@ impl ConsoleAccessToken {
 /// Relevant fields returned from the Auth0 userinfo endpoint
 pub struct UserInfo {
     nickname: Option<String>,
+    name: Option<String>,
     email: String,
 }
 
 impl UserInfo {
     pub fn nickname(&self) -> Option<&String> {
         self.nickname.as_ref()
+    }
+
+    pub fn name(&self) -> Option<&String> {
+        self.name.as_ref()
     }
 
     pub fn email(&self) -> &str {
