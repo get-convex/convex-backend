@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
-use common::components::ComponentDefinitionPath;
+use common::{
+    components::ComponentDefinitionPath,
+    types::NodeDependency,
+};
 
 use crate::{
     config::types::{
@@ -13,7 +16,12 @@ use crate::{
 pub struct ProjectConfig {
     pub config: ConfigMetadata,
     pub udf_config: UdfConfig,
+
+    pub app_definition: AppDefinitionConfig,
     pub component_definitions: Vec<ComponentDefinitionConfig>,
+
+    // TODO(CX-6483): Add support for components to declare their own external dependencies.
+    pub node_dependencies: Vec<NodeDependency>,
 }
 
 pub struct AppDefinitionConfig {
