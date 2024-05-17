@@ -62,7 +62,7 @@ use text_search::tracker::{
 };
 use value::InternalId;
 use vector::{
-    qdrant_segments::UntarredDiskSegmentPaths,
+    qdrant_segments::UntarredVectorDiskSegmentPaths,
     CompiledVectorSearch,
     QdrantSchema,
     VectorIndexType,
@@ -283,7 +283,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
 
     async fn load_fragmented_segment(
         &self,
-        paths: UntarredDiskSegmentPaths,
+        paths: UntarredVectorDiskSegmentPaths,
     ) -> anyhow::Result<Arc<SizedSegment>> {
         self.segment_cache.get(paths).await
     }

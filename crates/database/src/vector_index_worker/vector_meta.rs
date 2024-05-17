@@ -32,7 +32,7 @@ use search::{
 };
 use storage::Storage;
 use vector::{
-    qdrant_segments::DiskSegmentValues,
+    qdrant_segments::VectorDiskSegmentValues,
     QdrantSchema,
 };
 
@@ -87,7 +87,7 @@ pub struct VectorSearchIndex;
 #[async_trait]
 impl SearchIndex for VectorSearchIndex {
     type DeveloperConfig = DeveloperVectorIndexConfig;
-    type NewSegment = DiskSegmentValues;
+    type NewSegment = VectorDiskSegmentValues;
     type PreviousSegments = Vec<MutableFragmentedSegmentMetadata>;
     type Schema = QdrantSchema;
     type Segment = FragmentedVectorSegment;

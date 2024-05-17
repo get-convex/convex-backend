@@ -37,7 +37,7 @@ use vector::{
     qdrant_segments::{
         load_disk_segment,
         merge_disk_segments_hnsw,
-        UntarredDiskSegmentPaths,
+        UntarredVectorDiskSegmentPaths,
     },
     PreviousSegment,
 };
@@ -95,7 +95,7 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
         &'a self,
         search_storage: Arc<dyn Storage>,
         fragments: Vec<T>,
-    ) -> impl Stream<Item = anyhow::Result<UntarredDiskSegmentPaths>> + '_
+    ) -> impl Stream<Item = anyhow::Result<UntarredVectorDiskSegmentPaths>> + '_
     where
         anyhow::Error: From<T::Error>,
     {
@@ -112,7 +112,7 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         fragment: T,
-    ) -> anyhow::Result<UntarredDiskSegmentPaths>
+    ) -> anyhow::Result<UntarredVectorDiskSegmentPaths>
     where
         anyhow::Error: From<T::Error>,
     {
@@ -137,7 +137,9 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
         );
         let (segment, id_tracker, bitset) =
             futures::try_join!(fetch_segment, fetch_id_tracker, fetch_bitset)?;
-        Ok(UntarredDiskSegmentPaths::new(segment, id_tracker, bitset))
+        Ok(UntarredVectorDiskSegmentPaths::new(
+            segment, id_tracker, bitset,
+        ))
     }
 
     async fn fetch_single_file(

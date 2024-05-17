@@ -15,7 +15,7 @@ use futures::FutureExt;
 use qdrant_segment::segment::Segment;
 use vector::qdrant_segments::{
     load_disk_segment,
-    UntarredDiskSegmentPaths,
+    UntarredVectorDiskSegmentPaths,
 };
 
 #[derive(Clone)]
@@ -40,7 +40,10 @@ impl Deref for SizedSegment {
 }
 
 impl<RT: Runtime> SegmentGenerator<RT> {
-    async fn generate_value(self, paths: UntarredDiskSegmentPaths) -> anyhow::Result<SizedSegment> {
+    async fn generate_value(
+        self,
+        paths: UntarredVectorDiskSegmentPaths,
+    ) -> anyhow::Result<SizedSegment> {
         let segment = self
             .thread_pool
             .execute(move || load_disk_segment(paths))
@@ -50,7 +53,7 @@ impl<RT: Runtime> SegmentGenerator<RT> {
 }
 
 pub(crate) struct SegmentCache<RT: Runtime> {
-    lru: AsyncLru<RT, UntarredDiskSegmentPaths, SizedSegment>,
+    lru: AsyncLru<RT, UntarredVectorDiskSegmentPaths, SizedSegment>,
     segment_generator: SegmentGenerator<RT>,
 }
 
@@ -67,7 +70,10 @@ impl<RT: Runtime> SegmentCache<RT> {
         }
     }
 
-    pub async fn get(&self, paths: UntarredDiskSegmentPaths) -> anyhow::Result<Arc<SizedSegment>> {
+    pub async fn get(
+        &self,
+        paths: UntarredVectorDiskSegmentPaths,
+    ) -> anyhow::Result<Arc<SizedSegment>> {
         self.lru
             .get(
                 paths.clone(),

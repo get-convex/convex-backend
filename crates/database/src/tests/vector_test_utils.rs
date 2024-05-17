@@ -76,7 +76,7 @@ use value::{
 use vector::{
     qdrant_segments::{
         unsafe_load_disk_segment,
-        DiskSegmentPaths,
+        VectorDiskSegmentPaths,
     },
     CompiledVectorSearch,
     QdrantSchema,
@@ -347,7 +347,7 @@ impl VectorFixtures {
         // Our usage is safe here because we're always fetching the data into
         // a new temp dir, so it's not possible to load a segment from these
         // specific paths multiple times.
-        unsafe_load_disk_segment(&DiskSegmentPaths {
+        unsafe_load_disk_segment(&VectorDiskSegmentPaths {
             segment: segment_path,
             uuids: id_tracker_path,
             deleted_bitset: bitset_path,

@@ -90,7 +90,7 @@ use crate::{
         create_mutable_segment,
         segment_config,
         snapshot_segment,
-        DiskSegmentValues,
+        VectorDiskSegmentValues,
         DEFAULT_VECTOR_NAME,
     },
     query::{
@@ -334,7 +334,7 @@ impl QdrantSchema {
         revision_stream: DocumentStream<'_>,
         full_scan_threshold_kb: usize,
         previous_segments: &mut Vec<&mut impl PreviousSegment>,
-    ) -> anyhow::Result<Option<DiskSegmentValues>> {
+    ) -> anyhow::Result<Option<VectorDiskSegmentValues>> {
         let tmpdir = TempDir::new()?;
         let memory_timer = metrics::qdrant_segment_memory_build_timer();
         // With HNSW, we need to construct a temporary index, then do a one-time
@@ -435,7 +435,7 @@ impl QdrantSchema {
                 anyhow::ensure!(
                     num_deleted + memory_segment.available_point_count() as u32 == num_vectors
                 );
-                Ok::<DiskSegmentValues, anyhow::Error>(DiskSegmentValues {
+                Ok::<VectorDiskSegmentValues, anyhow::Error>(VectorDiskSegmentValues {
                     paths: snapshot_segment(
                         &id_tracker,
                         &memory_segment,

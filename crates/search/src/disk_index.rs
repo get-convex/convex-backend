@@ -53,8 +53,8 @@ use tokio::io::{
     AsyncWriteExt,
 };
 use vector::qdrant_segments::{
-    DiskSegmentPaths,
-    DiskSegmentValues,
+    VectorDiskSegmentPaths,
+    VectorDiskSegmentValues,
 };
 use walkdir::WalkDir;
 
@@ -165,9 +165,9 @@ pub async fn download_single_file_zip<P: AsRef<Path>>(
 pub async fn upload_segment<RT: Runtime>(
     rt: &RT,
     storage: Arc<dyn Storage>,
-    new_segment: DiskSegmentValues,
+    new_segment: VectorDiskSegmentValues,
 ) -> anyhow::Result<FragmentedVectorSegment> {
-    let DiskSegmentPaths {
+    let VectorDiskSegmentPaths {
         segment,
         uuids,
         deleted_bitset,
