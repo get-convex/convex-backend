@@ -1,5 +1,5 @@
 use common::identity::InertIdentity;
-use pb::funrun::{
+use pb::outcome::{
     function_outcome::Outcome as OutcomeProto,
     FunctionOutcome as FunctionOutcomeProto,
 };

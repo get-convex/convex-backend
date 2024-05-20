@@ -124,7 +124,6 @@ use indexing::{
 use itertools::Itertools;
 use keybroker::Identity;
 use parking_lot::Mutex;
-use pb::funrun::BootstrapMetadata as BootstrapMetadataProto;
 use search::{
     query::RevisionWithKeys,
     SearchIndexManager,
@@ -341,56 +340,6 @@ pub struct BootstrapMetadata {
     pub index_by_id: IndexId,
     pub tables_tablet_id: TabletId,
     pub index_tablet_id: TabletId,
-}
-
-impl From<BootstrapMetadata> for BootstrapMetadataProto {
-    fn from(
-        BootstrapMetadata {
-            tables_by_id,
-            index_by_id,
-            tables_tablet_id,
-            index_tablet_id,
-        }: BootstrapMetadata,
-    ) -> Self {
-        Self {
-            tables_by_id: Some(tables_by_id.into()),
-            index_by_id: Some(index_by_id.into()),
-            tables_table_id: Some(tables_tablet_id.0.into()),
-            index_table_id: Some(index_tablet_id.0.into()),
-        }
-    }
-}
-
-impl TryFrom<BootstrapMetadataProto> for BootstrapMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        BootstrapMetadataProto {
-            tables_by_id,
-            index_by_id,
-            tables_table_id,
-            index_table_id,
-        }: BootstrapMetadataProto,
-    ) -> anyhow::Result<Self> {
-        let tables_by_id = tables_by_id.context("Missing tables_by_id")?.try_into()?;
-        let index_by_id = index_by_id.context("Missing index_by_id")?.try_into()?;
-        let tables_tablet_id = TabletId(
-            tables_table_id
-                .context("Missing tables_table_id")?
-                .try_into()?,
-        );
-        let index_tablet_id = TabletId(
-            index_table_id
-                .context("Missing index_table_id")?
-                .try_into()?,
-        );
-        Ok(BootstrapMetadata {
-            tables_by_id,
-            index_by_id,
-            tables_tablet_id,
-            index_tablet_id,
-        })
-    }
 }
 
 impl DatabaseSnapshot {

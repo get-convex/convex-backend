@@ -68,14 +68,10 @@ use errors::{
 use imbl::OrdSet;
 use keybroker::Identity;
 use must_let::must_let;
-use pb::funrun::BootstrapMetadata as BootstrapMetadataProto;
 use pretty_assertions::assert_eq;
 use proptest::prelude::*;
 use runtime::testing::TestRuntime;
-use sync_types::{
-    backoff::Backoff,
-    testing::assert_roundtrips,
-};
+use sync_types::backoff::Backoff;
 use value::{
     array,
     assert_val,
@@ -106,7 +102,6 @@ use crate::{
         DbFixturesArgs,
     },
     write_log::WriteSource,
-    BootstrapMetadata,
     Database,
     DatabaseSnapshot,
     ImportFacingModel,
@@ -857,11 +852,6 @@ proptest! {
         let actual: Vec<u32> = m.range((start, end)).copied().collect();
 
         assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn test_bootstrap_metadata_roundtrips(left in any::<BootstrapMetadata>()){
-        assert_roundtrips::<BootstrapMetadata, BootstrapMetadataProto>(left);
     }
 }
 

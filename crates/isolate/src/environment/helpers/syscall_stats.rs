@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use pb::funrun::SyscallStats as SyscallStatsProto;
+use pb::outcome::SyscallStats as SyscallStatsProto;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde_json::{

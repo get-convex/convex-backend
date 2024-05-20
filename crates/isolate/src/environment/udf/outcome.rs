@@ -19,7 +19,7 @@ use pb::{
         function_result::Result as FunctionResultTypeProto,
         FunctionResult as FunctionResultProto,
     },
-    funrun::UdfOutcome as UdfOutcomeProto,
+    outcome::UdfOutcome as UdfOutcomeProto,
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::Arbitrary;

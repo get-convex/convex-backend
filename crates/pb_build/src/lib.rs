@@ -46,7 +46,7 @@ fn find_packages(proto_dir: &Path) -> Result<Vec<String>> {
     Ok(packages)
 }
 
-pub fn pb_build(mut extra_includes: Vec<&'static str>) -> Result<()> {
+pub fn pb_build(features: Vec<&'static str>, mut extra_includes: Vec<&'static str>) -> Result<()> {
     set_protoc_path();
     println!("cargo:rerun-if-changed=protos");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
@@ -102,6 +102,9 @@ pub fn pb_build(mut extra_includes: Vec<&'static str>) -> Result<()> {
     // Now let's build the lib.rs file.
     let mut lib_file_contents = String::new();
     lib_file_contents.push_str("// @generated - do not modify. Modify build.rs instead.\n");
+    for feature in features {
+        lib_file_contents.push_str(&format!("#![feature({feature})]\n"));
+    }
     lib_file_contents.push_str("#![allow(clippy::match_single_binding)]\n");
     for m in mods {
         lib_file_contents.push_str(&format!("pub mod {m};\n"));

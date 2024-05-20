@@ -26,39 +26,13 @@ use common::{
     value::ResolvedDocumentId,
 };
 use errors::ErrorMetadata;
-use pb::{
-    convex_token::{
-        search_text_query_term::Term::{
-            Exact as ExactProto,
-            Fuzzy as FuzzyProto,
-        },
-        FieldPath as FieldPathProto,
-        SearchExactTextTerm as SearchExactTextTermProto,
-        SearchFuzzyTextTerm as SearchFuzzyTextTermProto,
-        SearchTextQueryTerm as SearchTextQueryTermProto,
-    },
-    funrun::{
-        FilterConditionRead as FilterConditionReadProto,
-        IndexReads as IndexReadsProto,
-        ReadSet as ReadSetProto,
-        SearchQueryReads as SearchQueryReadsProto,
-        TransactionSize as TransactionSizeProto,
-    },
-};
-use search::{
-    query::TextQueryTerm,
-    FilterConditionRead,
-    QueryReads,
-    QueryReads as SearchQueryReads,
-    TextQueryTermRead,
-};
+use search::QueryReads as SearchQueryReads;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::{
         HeapSize,
         WithHeapSize,
     },
-    FieldPath,
     TableName,
 };
 
@@ -111,175 +85,21 @@ impl HeapSize for ReadSet {
     }
 }
 
-impl From<ReadSet> for ReadSetProto {
-    fn from(value: ReadSet) -> Self {
-        let (indexed, search) = value.consume();
-        let indexed = indexed
-            .into_iter()
-            .map(
-                |(
-                    k,
-                    IndexReads {
-                        fields,
-                        intervals,
-                        stack_traces: _,
-                    },
-                )| {
-                    let fields: Vec<FieldPath> = fields.into();
-                    IndexReadsProto {
-                        index_name: Some(k.into()),
-                        fields: fields.into_iter().map(FieldPathProto::from).collect(),
-                        intervals: intervals.into(),
-                    }
-                },
-            )
-            .collect::<Vec<IndexReadsProto>>();
-        let search = search
-            .into_iter()
-            .map(
-                |(
-                    index_name,
-                    QueryReads {
-                        text_queries,
-                        filter_conditions,
-                        ..
-                    },
-                )| {
-                    let text_queries = text_queries
-                        .into_iter()
-                        .map(|text_query_term| SearchTextQueryTermProto {
-                            field_path: Some(text_query_term.field_path.clone().into()),
-                            term: Some(match text_query_term.term {
-                                TextQueryTerm::Exact(token) => {
-                                    ExactProto(SearchExactTextTermProto { token })
-                                },
-                                TextQueryTerm::Fuzzy {
-                                    token,
-                                    max_distance,
-                                    prefix,
-                                } => FuzzyProto(SearchFuzzyTextTermProto {
-                                    token,
-                                    max_distance: (*max_distance).into(),
-                                    prefix,
-                                }),
-                            }),
-                        })
-                        .collect();
-                    SearchQueryReadsProto {
-                        index_name: Some(index_name.into()),
-                        text_queries,
-                        filter_conditions: filter_conditions
-                            .into_iter()
-                            .map(|filter_condition| match filter_condition {
-                                FilterConditionRead::Must(field_path, filter_value) => {
-                                    FilterConditionReadProto {
-                                        field_path: Some(field_path.into()),
-                                        filter_value: Some(filter_value),
-                                    }
-                                },
-                            })
-                            .collect(),
-                    }
-                },
-            )
-            .collect::<Vec<SearchQueryReadsProto>>();
-        Self { indexed, search }
-    }
-}
-
-impl TryFrom<ReadSetProto> for ReadSet {
-    type Error = anyhow::Error;
-
-    fn try_from(ReadSetProto { indexed, search }: ReadSetProto) -> anyhow::Result<Self> {
-        let indexed = indexed
-            .into_iter()
-            .map(
-                |IndexReadsProto {
-                     index_name,
-                     fields,
-                     intervals,
-                 }| {
-                    let k = index_name
-                        .ok_or_else(|| anyhow::anyhow!("Missing index_name"))?
-                        .try_into()?;
-                    let v = IndexReads {
-                        fields: fields
-                            .into_iter()
-                            .map(FieldPath::try_from)
-                            .collect::<anyhow::Result<Vec<_>>>()?
-                            .try_into()?,
-                        intervals: intervals.try_into()?,
-                        stack_traces: None,
-                    };
-                    Ok((k, v))
-                },
-            )
-            .collect::<anyhow::Result<BTreeMap<_, _>>>()?
-            .into();
-        let search = search
-            .into_iter()
-            .map(
-                |SearchQueryReadsProto {
-                     index_name,
-                     text_queries,
-                     filter_conditions,
-                 }| {
-                    let k = index_name
-                        .ok_or_else(|| anyhow::anyhow!("Missing index_name"))?
-                        .try_into()?;
-                    let text_queries = text_queries
-                        .into_iter()
-                        .map(|SearchTextQueryTermProto { field_path, term }| {
-                            let field_path = field_path
-                                .ok_or_else(|| anyhow::anyhow!("Missing field_path"))?
-                                .try_into()?;
-                            let term = match term.ok_or_else(|| anyhow::anyhow!("Missing term!"))? {
-                                ExactProto(exact) => TextQueryTerm::Exact(exact.token),
-                                FuzzyProto(fuzzy) => TextQueryTerm::Fuzzy {
-                                    token: fuzzy.token,
-                                    max_distance: u8::try_from(fuzzy.max_distance)?.try_into()?,
-                                    prefix: fuzzy.prefix,
-                                },
-                            };
-                            anyhow::Ok(TextQueryTermRead::new(field_path, term))
-                        })
-                        .try_collect::<Vec<_>>()?
-                        .into();
-
-                    let filter_conditions = filter_conditions
-                        .into_iter()
-                        .map(
-                            |FilterConditionReadProto {
-                                 field_path,
-                                 filter_value,
-                             }| {
-                                let q = FilterConditionRead::Must(
-                                    field_path
-                                        .ok_or_else(|| anyhow::anyhow!("Missing field_path"))?
-                                        .try_into()?,
-                                    filter_value
-                                        .ok_or_else(|| anyhow::anyhow!("Missing filter_value"))?,
-                                );
-                                anyhow::Ok::<FilterConditionRead>(q)
-                            },
-                        )
-                        .try_collect::<Vec<_>>()?
-                        .into();
-                    let v = QueryReads::new(text_queries, filter_conditions);
-                    Ok((k, v))
-                },
-            )
-            .collect::<anyhow::Result<BTreeMap<_, _>>>()?
-            .into();
-        Ok(Self { indexed, search })
-    }
-}
-
 impl ReadSet {
     pub fn empty() -> Self {
         Self {
             indexed: WithHeapSize::default(),
             search: WithHeapSize::default(),
+        }
+    }
+
+    pub fn new(
+        indexed: BTreeMap<TabletIndexName, IndexReads>,
+        search: BTreeMap<TabletIndexName, SearchQueryReads>,
+    ) -> Self {
+        Self {
+            indexed: indexed.into(),
+            search: search.into(),
         }
     }
 
@@ -426,35 +246,6 @@ pub struct TransactionReadSize {
     pub total_document_size: usize,
     // Count of all documents read.
     pub total_document_count: usize,
-}
-
-impl From<TransactionReadSize> for TransactionSizeProto {
-    fn from(value: TransactionReadSize) -> Self {
-        Self {
-            total_document_size: Some(value.total_document_size as u64),
-            total_document_count: Some(value.total_document_count as u64),
-        }
-    }
-}
-
-impl TryFrom<TransactionSizeProto> for TransactionReadSize {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        TransactionSizeProto {
-            total_document_count,
-            total_document_size,
-        }: TransactionSizeProto,
-    ) -> anyhow::Result<Self> {
-        Ok(Self {
-            total_document_count: total_document_count
-                .ok_or_else(|| anyhow::anyhow!("Missing total_document_count"))?
-                as usize,
-            total_document_size: total_document_size
-                .ok_or_else(|| anyhow::anyhow!("Missing total_document_size"))?
-                as usize,
-        })
-    }
 }
 
 impl TransactionReadSet {

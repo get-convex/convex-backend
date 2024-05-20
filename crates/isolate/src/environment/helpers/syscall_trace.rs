@@ -3,7 +3,7 @@ use std::{
     time::Duration,
 };
 
-use pb::funrun::{
+use pb::outcome::{
     SyscallStats as SyscallStatsProto,
     SyscallTrace as SyscallTraceProto,
 };

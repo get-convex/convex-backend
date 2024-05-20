@@ -55,7 +55,6 @@ mod in_memory_indexes;
 mod isolate_worker;
 mod metrics;
 mod module_cache;
-mod proto;
 pub mod server;
 
 #[async_trait]

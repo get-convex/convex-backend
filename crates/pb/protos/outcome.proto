@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package outcome;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+import "common.proto";
+import "convex_query_journal.proto";
+
+message FunctionOutcome {
+  oneof outcome {
+    UdfOutcome query = 1;
+    UdfOutcome mutation = 2;
+    ActionOutcome action = 3;
+  }
+}
+
+message UdfOutcome {
+  optional bytes rng_seed = 1;
+  optional bool observed_rng = 2;
+
+  optional google.protobuf.Timestamp unix_timestamp = 3;
+  optional bool observed_time = 4;
+
+  reserved 5;
+  repeated LogLine log_lines = 9;
+  convex_query_journal.QueryJournal journal = 6;
+
+  common.FunctionResult result = 7;
+  SyscallTrace syscall_trace = 8;
+}
+
+message ActionOutcome {
+  optional google.protobuf.Timestamp unix_timestamp = 3;
+
+  reserved 5;
+  reserved 9;
+
+  common.FunctionResult result = 7;
+  SyscallTrace syscall_trace = 8;
+}
+
+message SyscallTrace {
+  map<string, SyscallStats> async_syscalls = 1;
+}
+
+message SyscallStats {
+  optional uint32 invocations = 1;
+  optional uint32 errors = 2;
+  optional google.protobuf.Duration total_duration = 3;
+}
+
+message SystemLogMetadata {
+  string code = 1;
+}
+
+message StructuredLogLine {
+  reserved 1;
+  string level = 2;
+  bool is_truncated = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  optional SystemLogMetadata system_metadata = 5;
+  repeated string messages = 6;
+}
+
+message LogLine {
+  reserved 1;
+  StructuredLogLine line = 2;
+}

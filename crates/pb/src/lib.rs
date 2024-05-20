@@ -29,8 +29,8 @@ pub mod convex_token {
 pub mod errors {
     include!(concat!(env!("OUT_DIR"), "/errors.rs"));
 }
-pub mod funrun {
-    include!(concat!(env!("OUT_DIR"), "/funrun.rs"));
+pub mod outcome {
+    include!(concat!(env!("OUT_DIR"), "/outcome.rs"));
 }
 pub mod searchlight {
     include!(concat!(env!("OUT_DIR"), "/searchlight.rs"));

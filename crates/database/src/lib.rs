@@ -28,7 +28,7 @@ pub mod patch;
 pub mod persistence_helpers;
 mod preloaded;
 pub mod query;
-mod reads;
+pub mod reads;
 mod retention;
 mod search_and_vector_bootstrap;
 mod snapshot_manager;

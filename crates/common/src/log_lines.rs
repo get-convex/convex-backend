@@ -14,7 +14,6 @@ use futures::{
     select_biased,
     StreamExt,
 };
-use pb::funrun;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde::{
@@ -423,7 +422,7 @@ impl TryFrom<LogLine> for JsonValue {
     }
 }
 
-impl From<LogLine> for funrun::LogLine {
+impl From<LogLine> for pb::outcome::LogLine {
     fn from(value: LogLine) -> Self {
         match value {
             LogLine::Structured {
@@ -432,24 +431,24 @@ impl From<LogLine> for funrun::LogLine {
                 is_truncated,
                 timestamp,
                 system_metadata,
-            } => funrun::LogLine {
-                line: Some(funrun::StructuredLogLine {
+            } => pb::outcome::LogLine {
+                line: Some(pb::outcome::StructuredLogLine {
                     messages: messages.into(),
                     level: level.to_string(),
                     is_truncated,
                     timestamp: Some(timestamp.into()),
                     system_metadata: system_metadata
-                        .map(|m| funrun::SystemLogMetadata { code: m.code }),
+                        .map(|m| pb::outcome::SystemLogMetadata { code: m.code }),
                 }),
             },
         }
     }
 }
 
-impl TryFrom<funrun::LogLine> for LogLine {
+impl TryFrom<pb::outcome::LogLine> for LogLine {
     type Error = anyhow::Error;
 
-    fn try_from(value: funrun::LogLine) -> Result<Self, Self::Error> {
+    fn try_from(value: pb::outcome::LogLine) -> Result<Self, Self::Error> {
         let result = match value.line {
             Some(line) => LogLine::Structured {
                 messages: line.messages.into(),

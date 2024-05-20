@@ -16,7 +16,7 @@ use pb::{
         function_result::Result as FunctionResultTypeProto,
         FunctionResult as FunctionResultProto,
     },
-    funrun::ActionOutcome as ActionOutcomeProto,
+    outcome::ActionOutcome as ActionOutcomeProto,
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
