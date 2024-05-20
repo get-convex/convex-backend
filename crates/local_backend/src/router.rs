@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use application::api::ApplicationApi;
 use axum::{
     error_handling::HandleErrorLayer,
     extract::DefaultBodyLimit,
@@ -45,7 +46,6 @@ use tower_http::{
 };
 
 use crate::{
-    api::BackendApi,
     dashboard::{
         delete_tables,
         get_indexes,
@@ -197,7 +197,7 @@ pub fn public_api_routes() -> Router<LocalAppState> {
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
 }
 
-pub fn migrated_public_api_routes() -> Router<Arc<dyn BackendApi>> {
+pub fn migrated_public_api_routes() -> Router<Arc<dyn ApplicationApi>> {
     Router::new()
         .route("/query", get(public_query_get))
         .route("/query", post(public_query_post))

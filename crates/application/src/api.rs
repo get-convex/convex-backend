@@ -1,14 +1,3 @@
-use application::{
-    redaction::{
-        RedactedJsError,
-        RedactedLogLines,
-    },
-    ActionError,
-    ActionReturn,
-    Application,
-    MutationError,
-    MutationReturn,
-};
 use async_trait::async_trait;
 use common::{
     components::ComponentFunctionPath,
@@ -25,12 +14,24 @@ use model::session_requests::types::SessionRequestIdentifier;
 use serde_json::Value as JsonValue;
 use sync_types::AuthenticationToken;
 
+use crate::{
+    redaction::{
+        RedactedJsError,
+        RedactedLogLines,
+    },
+    ActionError,
+    ActionReturn,
+    Application,
+    MutationError,
+    MutationReturn,
+};
+
 // A trait that abstracts the backend API. It all state and validation logic
 // so http routes can be kept thin and stateless. The implementor is also
 // responsible for routing the request to the appropriate backend in the hosted
 // version of Convex.
 #[async_trait]
-pub trait BackendApi: Send + Sync {
+pub trait ApplicationApi: Send + Sync {
     async fn execute_public_query(
         &self,
         host: Option<String>,
@@ -65,9 +66,9 @@ pub trait BackendApi: Send + Sync {
     ) -> anyhow::Result<Result<ActionReturn, ActionError>>;
 }
 
-// Implements BackendApi via Application. Used in the local_backend.
+// Implements ApplicationApi via Application.
 #[async_trait]
-impl<RT: Runtime> BackendApi for Application<RT> {
+impl<RT: Runtime> ApplicationApi for Application<RT> {
     async fn execute_public_query(
         &self,
         _host: Option<String>,

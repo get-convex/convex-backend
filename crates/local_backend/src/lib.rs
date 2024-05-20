@@ -72,7 +72,6 @@ use search::{
 use serde::Serialize;
 
 pub mod admin;
-pub mod api;
 pub mod authentication;
 pub mod config;
 pub mod custom_headers;

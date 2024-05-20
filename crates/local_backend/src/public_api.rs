@@ -1,9 +1,12 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use application::redaction::{
-    RedactedJsError,
-    RedactedLogLines,
+use application::{
+    api::ApplicationApi,
+    redaction::{
+        RedactedJsError,
+        RedactedLogLines,
+    },
 };
 use axum::{
     extract::State,
@@ -41,7 +44,6 @@ use value::{
 
 use crate::{
     admin::bad_admin_key_error,
-    api::BackendApi,
     authentication::{
         ExtractAuthenticationToken,
         ExtractIdentity,
@@ -208,7 +210,7 @@ pub fn export_value(
 
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_get(
-    State(api): State<Arc<dyn BackendApi>>,
+    State(api): State<Arc<dyn ApplicationApi>>,
     Query(req): Query<UdfArgsQuery>,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractHost(host): ExtractHost,
@@ -243,7 +245,7 @@ pub async fn public_query_get(
 
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
-    State(api): State<Arc<dyn BackendApi>>,
+    State(api): State<Arc<dyn ApplicationApi>>,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractHost(host): ExtractHost,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -331,7 +333,7 @@ pub async fn public_query_batch_post(
 
 #[minitrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
-    State(api): State<Arc<dyn BackendApi>>,
+    State(api): State<Arc<dyn ApplicationApi>>,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractHost(host): ExtractHost,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -371,7 +373,7 @@ pub async fn public_mutation_post(
 
 #[minitrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
-    State(api): State<Arc<dyn BackendApi>>,
+    State(api): State<Arc<dyn ApplicationApi>>,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractHost(host): ExtractHost,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,

@@ -291,6 +291,7 @@ use crate::{
     snapshot_import::SnapshotImportWorker,
 };
 
+pub mod api;
 pub mod application_function_runner;
 mod cache;
 pub mod cron_jobs;
