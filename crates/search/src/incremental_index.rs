@@ -254,40 +254,61 @@ pub async fn build_new_segment(
     // We'll discard revisions to documents that we've already seen because we are
     // processing in reverse timestamp order.
     let mut document_ids_seen = BTreeSet::new();
+    // Keep track of deletes that don't correspond to a document in another segment.
+    // It must appear later in the stream
+    let mut dangling_deletes = BTreeSet::new();
     while let Some(revision_pair) = revision_stream.try_next().await? {
         let convex_id = revision_pair.id.internal_id();
+        // Skip documents we have already added to the segment, but update dangling
+        // deletes
         if document_ids_seen.contains(&convex_id) {
+            if revision_pair.document().is_some() && revision_pair.prev_document().is_none() {
+                dangling_deletes.remove(&convex_id);
+            }
             continue;
         }
         document_ids_seen.insert(convex_id);
+        // Delete
+        if let Some(prev_document) = revision_pair.prev_document() {
+            if let Some(segment_idx) =
+                previous_segments.delete_document(prev_document.id().internal_id())?
+            {
+                let segment = &mut previous_segments.0[segment_idx];
+                let terms = tantivy_schema.index_into_terms(prev_document)?;
+                // Create a set of unique terms so we don't double count terms. The count is the
+                // number of documents deleted containing the term.
+                let term_set: BTreeSet<_> = terms.into_iter().map(Term::from).collect();
+                for term in term_set {
+                    let term_ord = segment
+                        .term_dict()
+                        .term_ord(term.value_bytes())?
+                        .context("Term not found in dictionary")?;
+                    segment
+                        .deletion_tracker
+                        .increment_deleted_documents_for_term(term_ord, 1);
+                }
+            } else {
+                // Add this document to dangling deletes because it was not present in other
+                // segments, so it must be added further down in this stream.
+                dangling_deletes.insert(convex_id);
+            };
+        }
+        // Addition
         if let Some(new_document) = revision_pair.document() {
+            dangling_deletes.remove(&convex_id);
             let tantivy_document =
                 tantivy_schema.index_into_tantivy_document(new_document, revision_pair.ts());
             let doc_id = segment_writer.add_document(tantivy_document)?;
             new_id_tracker.set_link(convex_id, doc_id)?;
         }
-        if let Some(prev_document) = revision_pair.prev_document()
-            && let Some(segment_idx) =
-                previous_segments.delete_document(prev_document.id().internal_id())?
-        {
-            let segment = &mut previous_segments.0[segment_idx];
-            let terms = tantivy_schema.index_into_terms(prev_document)?;
-            // Create a set of unique terms so we don't double count terms. The count is the
-            // number of documents deleted containing the term.
-            let term_set: BTreeSet<_> = terms.into_iter().map(Term::from).collect();
-            for term in term_set {
-                let term_ord = segment
-                    .term_dict()
-                    .term_ord(term.value_bytes())?
-                    .context("Term not found in dictionary")?;
-                segment
-                    .deletion_tracker
-                    .increment_deleted_documents_for_term(term_ord, 1);
-            }
-        }
     }
     let new_index = segment_writer.finalize()?;
     let updated_deletion_trackers = previous_segments.finalize();
+    anyhow::ensure!(
+        dangling_deletes.is_empty(),
+        "Dangling deletes is not empty. A document was deleted that is not present in other \
+         segments nor in this stream"
+    );
     Ok(TextIndexUpdate {
         new_segment: new_index,
         new_id_tracker,
