@@ -1013,3 +1013,8 @@ pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> =
 /// Write not yet complete multi segment indexes for text search.
 pub static BUILD_MULTI_SEGMENT_TEXT_INDEXES: LazyLock<bool> =
     LazyLock::new(|| env_config("WRITE_MULTI_SEGMENT_TEXT_INDEXES", false));
+
+/// If true, the backend will check the rate limiter service for capacity under
+/// the "backend_startup" domain keyed by db cluster name.
+pub static STARTUP_RATE_LIMIT_ENABLED: LazyLock<bool> =
+    LazyLock::new(|| env_config("STARTUP_RATE_LIMIT_ENABLED", false));
