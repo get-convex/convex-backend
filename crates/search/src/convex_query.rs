@@ -32,6 +32,7 @@ use tantivy_common::ReadOnlyBitSet;
 /// A query for documents that:
 /// 1. Contain at least one of the OR terms.
 /// 2. Match all of the AND terms.
+/// 3. If provided, are within the AliveDocuments set.
 ///
 /// Unlike tantivy's BooleanQuery, this query will be scored only by the or
 /// terms.
@@ -39,7 +40,7 @@ use tantivy_common::ReadOnlyBitSet;
 pub struct ConvexSearchQuery {
     or_query: BooleanQuery,
     and_queries: Vec<TermQuery>,
-    alive_documents: AliveDocuments,
+    alive_documents: Option<AliveDocuments>,
 }
 
 impl ConvexSearchQuery {
@@ -47,7 +48,7 @@ impl ConvexSearchQuery {
     pub fn new(
         or_terms: Vec<OrTerm>,
         and_terms: Vec<Term>,
-        alive_documents: AliveDocuments,
+        alive_documents: Option<AliveDocuments>,
     ) -> Box<dyn Query> {
         let or_queries = or_terms
             .into_iter()
@@ -106,20 +107,27 @@ impl Query for ConvexSearchQuery {
 struct ConvexSearchWeight {
     or_weight: Box<dyn Weight>,
     and_weights: Vec<Box<dyn Weight>>,
-    alive_documents: AliveDocuments,
+    alive_documents: Option<AliveDocuments>,
 }
 
 impl Weight for ConvexSearchWeight {
     fn scorer(&self, reader: &SegmentReader, boost: Score) -> tantivy::Result<Box<dyn Scorer>> {
-        let mut and_scorers: Vec<Box<dyn Scorer>> = vec![Box::new(self.alive_documents.scorer())];
+        let mut and_scorers: Vec<Box<dyn Scorer>> = vec![];
+        if let Some(alive_documents) = &self.alive_documents {
+            and_scorers.push(Box::new(alive_documents.scorer()));
+        }
         for filter_weight in &self.and_weights {
             and_scorers.push(filter_weight.scorer(reader, boost)?);
         }
-        let query_scorer = intersect_scorers_and_use_one_for_scores(
-            self.or_weight.scorer(reader, boost)?,
-            intersect_scorers(and_scorers),
-        );
-        Ok(Box::new(query_scorer))
+        let scorer = if and_scorers.is_empty() {
+            self.or_weight.scorer(reader, boost)?
+        } else {
+            intersect_scorers_and_use_one_for_scores(
+                self.or_weight.scorer(reader, boost)?,
+                intersect_scorers(and_scorers),
+            )
+        };
+        Ok(scorer)
     }
 
     fn explain(&self, reader: &SegmentReader, doc: DocId) -> tantivy::Result<Explanation> {
