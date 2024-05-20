@@ -23,7 +23,10 @@ use common::{
         FuturesAsyncWriteCompatExt,
         TokioAsyncWriteCompatExt,
     },
-    bootstrap_model::index::vector_index::FragmentedVectorSegment,
+    bootstrap_model::index::{
+        text_index::FragmentedTextSegment,
+        vector_index::FragmentedVectorSegment,
+    },
     runtime::Runtime,
     types::ObjectKey,
 };
@@ -66,6 +69,7 @@ use crate::{
     },
     SearchFileType,
     TantivySearchIndexSchema,
+    TextSegmentPaths,
 };
 
 static SEARCH_INDEXING_MEMORY_ARENA_BYTES: LazyLock<usize> =
@@ -162,7 +166,54 @@ pub async fn download_single_file_zip<P: AsRef<Path>>(
     Ok(())
 }
 
-pub async fn upload_segment<RT: Runtime>(
+pub async fn upload_text_segment<RT: Runtime>(
+    rt: &RT,
+    storage: Arc<dyn Storage>,
+    new_segment: TextSegmentPaths,
+) -> anyhow::Result<FragmentedTextSegment> {
+    let TextSegmentPaths {
+        index_path,
+        id_tracker_path,
+        alive_bit_set_path,
+        deleted_terms_path,
+    } = new_segment;
+    let upload_index =
+        upload_index_archive_from_path(index_path, storage.clone(), SearchFileType::Text);
+    let upload_id_tracker = upload_single_file_from_path(
+        id_tracker_path,
+        storage.clone(),
+        SearchFileType::TextIdTracker,
+    );
+    let upload_bitset = upload_single_file_from_path(
+        alive_bit_set_path,
+        storage.clone(),
+        SearchFileType::TextAliveBitset,
+    );
+    let upload_deleted_terms = upload_single_file_from_path(
+        deleted_terms_path,
+        storage.clone(),
+        SearchFileType::TextDeletedTerms,
+    );
+    let result = futures::try_join!(
+        upload_index,
+        upload_id_tracker,
+        upload_bitset,
+        upload_deleted_terms
+    )?;
+    let (segment_key, id_tracker_key, alive_bitset_key, deleted_terms_table_key) = result;
+    Ok(FragmentedTextSegment {
+        segment_key,
+        id_tracker_key,
+        deleted_terms_table_key,
+        alive_bitset_key,
+        // TODO(sam): Wrap TextSegmentPaths in another struct with some metadata and pass it through
+        // here.
+        num_indexed_documents: 0,
+        id: rt.new_uuid_v4().to_string(),
+    })
+}
+
+pub async fn upload_vector_segment<RT: Runtime>(
     rt: &RT,
     storage: Arc<dyn Storage>,
     new_segment: VectorDiskSegmentValues,

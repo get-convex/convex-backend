@@ -426,7 +426,7 @@ impl SearchFileType {
             SearchFileType::VectorIdTracker => "vector_id_tracker",
             SearchFileType::Text => "text",
             SearchFileType::TextIdTracker => "text_id_tracker",
-            SearchFileType::TextDeletedBitset => "text_deleted_bitset",
+            SearchFileType::TextAliveBitset => "text_alive_bitset",
             SearchFileType::TextDeletedTerms => "text_deleted_terms",
             SearchFileType::FragmentedVectorSegment => "fragmented_vector_segment",
         };

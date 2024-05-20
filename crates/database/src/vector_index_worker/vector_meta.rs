@@ -30,7 +30,7 @@ use futures::{
     TryStreamExt,
 };
 use search::{
-    disk_index::upload_segment,
+    disk_index::upload_vector_segment,
     fragmented_segment::MutableFragmentedSegmentMetadata,
 };
 use storage::Storage;
@@ -162,7 +162,7 @@ impl SearchIndex for VectorSearchIndex {
         storage: Arc<dyn Storage>,
         new_segment: Self::NewSegment,
     ) -> anyhow::Result<Self::Segment> {
-        upload_segment(rt, storage, new_segment).await
+        upload_vector_segment(rt, storage, new_segment).await
     }
 
     fn segment_id(segment: &Self::Segment) -> String {

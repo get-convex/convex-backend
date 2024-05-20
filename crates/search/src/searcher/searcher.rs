@@ -373,7 +373,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
             self.archive_cache.get(
                 search_storage.clone(),
                 &storage_keys.segment,
-                SearchFileType::TextDeletedBitset
+                SearchFileType::TextAliveBitset
             ),
             self.archive_cache.get(
                 search_storage.clone(),
@@ -409,7 +409,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
             self.archive_cache.get(
                 search_storage.clone(),
                 &storage_keys.segment,
-                SearchFileType::TextDeletedBitset
+                SearchFileType::TextAliveBitset
             ),
             self.archive_cache.get(
                 search_storage.clone(),
@@ -450,7 +450,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
             self.archive_cache.get(
                 search_storage.clone(),
                 &storage_keys.segment,
-                SearchFileType::TextDeletedBitset
+                SearchFileType::TextAliveBitset
             ),
             self.archive_cache.get(
                 search_storage.clone(),

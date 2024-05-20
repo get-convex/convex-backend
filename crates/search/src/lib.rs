@@ -892,7 +892,7 @@ pub enum SearchFileType {
     VectorIdTracker,
     Text,
     TextIdTracker,
-    TextDeletedBitset,
+    TextAliveBitset,
     TextDeletedTerms,
 }
 

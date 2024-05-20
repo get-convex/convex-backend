@@ -46,8 +46,8 @@ use crate::{
     archive::cache::ArchiveCacheManager,
     disk_index::{
         download_single_file_zip,
-        upload_segment,
         upload_single_file,
+        upload_vector_segment,
     },
     metrics::{
         log_compacted_segment_size_bytes,
@@ -242,7 +242,7 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
             })
             .await??;
 
-        let result = upload_segment(&self.rt, search_storage, new_segment).await?;
+        let result = upload_vector_segment(&self.rt, search_storage, new_segment).await?;
         // Ensure we own the temp dir through the entire upload
         drop(tmp_dir);
         tracing::debug!("Compacted {} segments", total_segments);

@@ -32,6 +32,7 @@ use futures::{
 };
 use search::{
     build_new_segment,
+    disk_index::upload_text_segment,
     PreviousTextSegments,
     TantivySearchIndexSchema,
     TextSegmentPaths,
@@ -166,11 +167,11 @@ impl SearchIndex for TextSearchIndex {
     }
 
     async fn upload_new_segment<RT: Runtime>(
-        _rt: &RT,
-        _storage: Arc<dyn Storage>,
-        _new_segment: Self::NewSegment,
+        rt: &RT,
+        storage: Arc<dyn Storage>,
+        new_segment: Self::NewSegment,
     ) -> anyhow::Result<Self::Segment> {
-        anyhow::bail!("Not implemented")
+        upload_text_segment(rt, storage, new_segment).await
     }
 
     fn segment_id(segment: &Self::Segment) -> String {
