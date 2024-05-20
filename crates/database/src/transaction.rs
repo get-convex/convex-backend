@@ -1150,7 +1150,7 @@ impl FinalTransaction {
             .collect();
         Self::validate_memory_index_size(
             table_mapping,
-            transaction,
+            base_snapshot,
             &modified_tables,
             base_snapshot.search_indexes.in_memory_sizes().into_iter(),
             search_size_limit,
@@ -1158,7 +1158,7 @@ impl FinalTransaction {
         )?;
         Self::validate_memory_index_size(
             table_mapping,
-            transaction,
+            base_snapshot,
             &modified_tables,
             base_snapshot.vector_indexes.in_memory_sizes().into_iter(),
             vector_size_limit,
@@ -1167,9 +1167,9 @@ impl FinalTransaction {
         Ok(())
     }
 
-    fn validate_memory_index_size<RT: Runtime>(
+    fn validate_memory_index_size(
         table_mapping: &TableMapping,
-        transaction: &Transaction<RT>,
+        base_snapshot: &Snapshot,
         modified_tables: &BTreeSet<TabletId>,
         iterator: impl Iterator<Item = (IndexId, usize)>,
         hard_limit: usize,
@@ -1183,9 +1183,8 @@ impl FinalTransaction {
             // Note that we are getting an index by name without adding any read dependency.
             // This is fine since we are only decided whether to let the transaction
             // through or not. If we do not, we will throw a non-JS error.
-            let index = transaction
-                .index
-                .index_registry()
+            let index = base_snapshot
+                .index_registry
                 .enabled_index_by_index_id(&index_id)
                 .cloned()
                 .with_context(|| anyhow::anyhow!("failed to find index id {index_id}"))?
