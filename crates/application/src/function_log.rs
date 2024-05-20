@@ -218,7 +218,6 @@ impl FunctionExecution {
             .iter()
             .map(|line| {
                 let timestamp = match &line {
-                    LogLine::Unstructured(_) => self.unix_timestamp,
                     LogLine::Structured { timestamp, .. } => *timestamp,
                 };
                 LogEvent {
@@ -290,7 +289,6 @@ impl FunctionExecutionProgress {
             .into_iter()
             .map(|line: LogLine| {
                 let timestamp = match &line {
-                    LogLine::Unstructured(_) => self.function_start_timestamp,
                     LogLine::Structured { timestamp, .. } => *timestamp,
                 };
                 LogEvent {

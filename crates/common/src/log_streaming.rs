@@ -262,14 +262,6 @@ impl LogEvent {
                 StructuredLogEvent::Console { source, log_line } => {
                     let function_source = source.to_json_map();
                     match log_line {
-                        LogLine::Unstructured(message) => {
-                            json!({
-                                "timestamp": ms,
-                                "topic": "console",
-                                "function": function_source,
-                                "message": message,
-                            })
-                        },
                         LogLine::Structured {
                             messages,
                             level,

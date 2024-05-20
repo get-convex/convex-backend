@@ -506,9 +506,11 @@ mod tests {
     use application::redaction::RedactedLogLines;
     use common::{
         log_lines::{
+            LogLevel,
             LogLine,
             LogLines,
         },
+        runtime::UnixTimestamp,
         value::ConvexValue,
     };
     use proptest::prelude::*;
@@ -545,14 +547,20 @@ mod tests {
     #[test]
     fn test_sha256_does_not_collide_with_similar_logs() {
         let v = ConvexValue::from(42);
+        let ts = UnixTimestamp::from_millis(1715980547440);
         let v_logs = RedactedLogLines::from_log_lines(
-            vec![LogLine::Unstructured("foobar".to_string())].into(),
+            vec![LogLine::new_developer_log_line(
+                LogLevel::Log,
+                vec!["foobar".to_string()],
+                ts,
+            )]
+            .into(),
             false,
         );
         let v2_logs = RedactedLogLines::from_log_lines(
             vec![
-                LogLine::Unstructured("foo".to_string()),
-                LogLine::Unstructured("bar".to_string()),
+                LogLine::new_developer_log_line(LogLevel::Log, vec!["foo".to_string()], ts),
+                LogLine::new_developer_log_line(LogLevel::Log, vec!["bar".to_string()], ts),
             ]
             .into(),
             false,

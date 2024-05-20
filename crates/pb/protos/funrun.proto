@@ -148,10 +148,8 @@ message StructuredLogLine {
 }
 
 message LogLine {
-    oneof line {
-        string unstructured = 1;
-        StructuredLogLine structured = 2;
-    }
+  reserved 1;
+  StructuredLogLine line = 2;
 }
 
 message FunctionOutcome {

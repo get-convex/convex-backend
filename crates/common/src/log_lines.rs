@@ -126,7 +126,6 @@ impl TryFrom<SystemLogMetadata> for ConvexValue {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum LogLine {
-    Unstructured(String),
     Structured {
         // Each of these is a string representation of an argument to `console.log`
         // or similar
@@ -145,34 +144,30 @@ impl Arbitrary for LogLine {
     type Strategy = impl proptest::strategy::Strategy<Value = LogLine>;
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        prop_oneof![
-            any::<String>().prop_map(LogLine::Unstructured),
-            (
-                prop::collection::vec(any::<String>(), 1..4),
-                any::<LogLevel>(),
-                any::<bool>(),
-                (u64::MIN..(i64::MAX as u64)),
-                any::<Option<SystemLogMetadata>>()
-            )
-                .prop_map(
-                    |(messages, level, is_truncated, timestamp_ms, system_metadata)| {
-                        LogLine::Structured {
-                            messages: messages.into(),
-                            level,
-                            is_truncated,
-                            timestamp: UnixTimestamp::from_millis(timestamp_ms),
-                            system_metadata,
-                        }
+        (
+            prop::collection::vec(any::<String>(), 1..4),
+            any::<LogLevel>(),
+            any::<bool>(),
+            (u64::MIN..(i64::MAX as u64)),
+            any::<Option<SystemLogMetadata>>(),
+        )
+            .prop_map(
+                |(messages, level, is_truncated, timestamp_ms, system_metadata)| {
+                    LogLine::Structured {
+                        messages: messages.into(),
+                        level,
+                        is_truncated,
+                        timestamp: UnixTimestamp::from_millis(timestamp_ms),
+                        system_metadata,
                     }
-                )
-        ]
+                },
+            )
     }
 }
 
 impl LogLine {
     pub fn to_pretty_string(self) -> String {
         match self {
-            LogLine::Unstructured(m) => m,
             LogLine::Structured {
                 messages,
                 level,
@@ -198,7 +193,6 @@ impl LogLine {
             Ok(JsonValue::String(self.to_pretty_string()))
         } else {
             match self {
-                LogLine::Unstructured(m) => Ok(JsonValue::String(m)),
                 LogLine::Structured {
                     messages,
                     level,
@@ -283,7 +277,6 @@ impl LogLine {
 impl HeapSize for LogLine {
     fn heap_size(&self) -> usize {
         match self {
-            LogLine::Unstructured(m) => m.heap_size(),
             LogLine::Structured {
                 messages,
                 level,
@@ -306,7 +299,6 @@ impl TryFrom<ConvexValue> for LogLine {
 
     fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
         let result = match value {
-            ConvexValue::String(s) => LogLine::Unstructured(s.into()),
             ConvexValue::Object(o) => {
                 let mut fields = BTreeMap::from(o);
                 let messages = remove_vec_of_strings(&mut fields, "messages")?;
@@ -338,7 +330,6 @@ impl TryFrom<LogLine> for ConvexValue {
 
     fn try_from(value: LogLine) -> Result<Self, Self::Error> {
         let result = match value {
-            LogLine::Unstructured(v) => v.try_into()?,
             LogLine::Structured {
                 messages,
                 level,
@@ -413,9 +404,6 @@ impl TryFrom<JsonValue> for LogLine {
     type Error = anyhow::Error;
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        if let JsonValue::String(s) = value {
-            return Ok(LogLine::Unstructured(s));
-        }
         let log_line_json: LogLineJson = serde_json::from_value(value)?;
         Ok(LogLine::Structured {
             messages: log_line_json.messages.into(),
@@ -438,9 +426,6 @@ impl TryFrom<LogLine> for JsonValue {
 impl From<LogLine> for funrun::LogLine {
     fn from(value: LogLine) -> Self {
         match value {
-            LogLine::Unstructured(m) => funrun::LogLine {
-                line: Some(funrun::log_line::Line::Unstructured(m)),
-            },
             LogLine::Structured {
                 messages,
                 level,
@@ -448,16 +433,14 @@ impl From<LogLine> for funrun::LogLine {
                 timestamp,
                 system_metadata,
             } => funrun::LogLine {
-                line: Some(funrun::log_line::Line::Structured(
-                    funrun::StructuredLogLine {
-                        messages: messages.into(),
-                        level: level.to_string(),
-                        is_truncated,
-                        timestamp: Some(timestamp.into()),
-                        system_metadata: system_metadata
-                            .map(|m| funrun::SystemLogMetadata { code: m.code }),
-                    },
-                )),
+                line: Some(funrun::StructuredLogLine {
+                    messages: messages.into(),
+                    level: level.to_string(),
+                    is_truncated,
+                    timestamp: Some(timestamp.into()),
+                    system_metadata: system_metadata
+                        .map(|m| funrun::SystemLogMetadata { code: m.code }),
+                }),
             },
         }
     }
@@ -468,22 +451,19 @@ impl TryFrom<funrun::LogLine> for LogLine {
 
     fn try_from(value: funrun::LogLine) -> Result<Self, Self::Error> {
         let result = match value.line {
-            Some(line) => match line {
-                funrun::log_line::Line::Unstructured(u) => LogLine::Unstructured(u),
-                funrun::log_line::Line::Structured(s) => LogLine::Structured {
-                    messages: s.messages.into(),
-                    is_truncated: s.is_truncated,
-                    level: s.level.parse()?,
-                    timestamp: s
-                        .timestamp
-                        .ok_or_else(|| anyhow::anyhow!("Missing timestamp"))?
-                        .try_into()?,
-                    system_metadata: s
-                        .system_metadata
-                        .map(|m| SystemLogMetadata { code: m.code }),
-                },
+            Some(line) => LogLine::Structured {
+                messages: line.messages.into(),
+                is_truncated: line.is_truncated,
+                level: line.level.parse()?,
+                timestamp: line
+                    .timestamp
+                    .ok_or_else(|| anyhow::anyhow!("Missing timestamp"))?
+                    .try_into()?,
+                system_metadata: line
+                    .system_metadata
+                    .map(|m| SystemLogMetadata { code: m.code }),
             },
-            None => LogLine::Unstructured("".to_string()),
+            None => anyhow::bail!("`line` missing in LogLine proto"),
         };
         Ok(result)
     }
