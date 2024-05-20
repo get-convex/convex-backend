@@ -10,6 +10,7 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
+    persistence::PersistenceReader,
     runtime::Runtime,
     types::TabletIndexName,
 };
@@ -50,13 +51,15 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         writer: VectorMetadataWriter<RT>,
     ) -> Self {
         let flusher = SearchFlusher::new(
-            runtime.clone(),
-            database.clone(),
-            storage.clone(),
+            runtime,
+            database,
+            reader,
+            storage,
             *VECTOR_INDEX_SIZE_SOFT_LIMIT,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             *VECTOR_INDEX_SIZE_SOFT_LIMIT,
@@ -142,6 +145,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         table_name: value::TableName,
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
     ) -> anyhow::Result<()> {
         use anyhow::Context;
@@ -169,7 +173,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             anyhow::bail!("Missing by_id index for {index_name:?}");
         };
         let writer = VectorMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
-        let worker = Self::new(runtime, database, storage, writer);
+        let worker = Self::new(runtime, database, reader, storage, writer);
         let job = IndexBuild {
             index_name,
             index_id: metadata.clone().into_id_and_value().0.internal_id(),
@@ -187,12 +191,14 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     pub async fn backfill_all_in_test(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         index_size_soft_limit: usize,
     ) -> anyhow::Result<()> {
         let mut flusher = Self::new_for_tests(
             runtime,
             database,
+            reader,
             storage,
             index_size_soft_limit,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -208,6 +214,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     pub(crate) fn new_for_tests(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         index_size_soft_limit: usize,
         full_scan_threshold_kb: usize,
@@ -216,9 +223,10 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     ) -> Self {
         let writer = VectorMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
         let flusher = SearchFlusher::new(
-            runtime.clone(),
-            database.clone(),
-            storage.clone(),
+            runtime,
+            database,
+            reader,
+            storage,
             index_size_soft_limit,
             full_scan_threshold_kb,
             incremental_multipart_threshold_bytes,
@@ -253,6 +261,7 @@ mod tests {
             MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             VECTOR_INDEX_SIZE_SOFT_LIMIT,
         },
+        persistence::PersistenceReader,
         runtime::Runtime,
         types::{
             IndexId,
@@ -284,7 +293,7 @@ mod tests {
     use super::VectorIndexFlusher;
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
-        test_helpers::new_test_database,
+        test_helpers::DbFixtures,
         tests::vector_test_utils::{
             add_document_vec,
             add_document_with_value,
@@ -302,12 +311,14 @@ mod tests {
     fn new_vector_flusher_with_soft_limit(
         rt: &TestRuntime,
         database: &Database<TestRuntime>,
+        reader: Arc<dyn PersistenceReader>,
         soft_limit: usize,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
         let storage = LocalDirStorage::new(rt.clone())?;
         Ok(VectorIndexFlusher::new_for_tests(
             rt.clone(),
             database.clone(),
+            reader,
             Arc::new(storage),
             soft_limit,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -319,24 +330,25 @@ mod tests {
     fn new_vector_flusher(
         rt: &TestRuntime,
         database: &Database<TestRuntime>,
+        reader: Arc<dyn PersistenceReader>,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
-        new_vector_flusher_with_soft_limit(rt, database, 1000)
+        new_vector_flusher_with_soft_limit(rt, database, reader, 1000)
     }
 
     #[convex_macro::test_runtime]
     async fn worker_does_not_crash_on_documents_with_invalid_vector_dimensions(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        let database = new_test_database(rt.clone()).await;
+        let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?;
 
-        let IndexData { index_name, .. } = backfilling_vector_index_with_doc(&database).await?;
+        let IndexData { index_name, .. } = backfilling_vector_index_with_doc(&db).await?;
 
-        let mut tx = database.begin_system().await?;
+        let mut tx = db.begin_system().await?;
         let vec = [1f64].into_iter().map(ConvexValue::Float64).collect();
         add_document_vec(&mut tx, index_name.table(), vec).await?;
-        database.commit(tx).await?;
+        db.commit(tx).await?;
 
-        let mut worker = new_vector_flusher(&rt, &database)?;
+        let mut worker = new_vector_flusher(&rt, &db, tp.reader())?;
         worker.step().await?;
 
         Ok(())
@@ -346,25 +358,25 @@ mod tests {
     async fn worker_does_not_crash_on_documents_with_non_vector(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        let database = new_test_database(rt.clone()).await;
+        let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?;
 
         let IndexData {
             index_name,
             resolved_index_name,
             ..
-        } = backfilling_vector_index_with_doc(&database).await?;
+        } = backfilling_vector_index_with_doc(&db).await?;
 
-        let mut tx = database.begin_system().await?;
+        let mut tx = db.begin_system().await?;
         add_document_with_value(
             &mut tx,
             index_name.table(),
             ConvexValue::String(value::ConvexString::try_from("test")?),
         )
         .await?;
-        database.commit(tx).await?;
+        db.commit(tx).await?;
 
         // Use 0 soft limit so that we always reindex documents
-        let mut worker = new_vector_flusher_with_soft_limit(&rt, &database, 0)?;
+        let mut worker = new_vector_flusher_with_soft_limit(&rt, &db, tp.reader(), 0)?;
         let (metrics, _) = worker.step().await?;
         // Make sure we advance past the invalid document.
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});

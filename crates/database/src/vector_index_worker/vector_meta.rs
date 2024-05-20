@@ -18,7 +18,10 @@ use common::{
         IndexConfig,
     },
     document::ResolvedDocument,
-    persistence::DocumentStream,
+    persistence::{
+        DocumentStream,
+        RepeatablePersistence,
+    },
     runtime::Runtime,
     types::IndexId,
 };
@@ -140,6 +143,7 @@ impl SearchIndex for VectorSearchIndex {
         schema: &Self::Schema,
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
+        _reader: RepeatablePersistence,
         full_scan_threshold_bytes: usize,
         previous_segments: &mut Self::PreviousSegments,
     ) -> anyhow::Result<Option<Self::NewSegment>> {

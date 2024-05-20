@@ -24,6 +24,7 @@ use common::{
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
     pause::PauseClient,
+    persistence::PersistenceReader,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -108,7 +109,7 @@ enum ScenarioIndexState {
 struct Scenario<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
-
+    reader: Arc<dyn PersistenceReader>,
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
 }
@@ -116,6 +117,7 @@ struct Scenario<RT: Runtime> {
 impl<RT: Runtime> Scenario<RT> {
     async fn new(rt: RT, vector_index_state: ScenarioIndexState) -> anyhow::Result<Self> {
         let DbFixtures {
+            tp,
             db,
             searcher,
             search_storage,
@@ -135,6 +137,7 @@ impl<RT: Runtime> Scenario<RT> {
         let self_ = Self {
             rt,
             database: db,
+            reader: tp.reader(),
             search_storage,
             searcher,
         };
@@ -221,6 +224,7 @@ impl<RT: Runtime> Scenario<RT> {
             TABLE_NAME.parse()?,
             self.rt.clone(),
             self.database.clone(),
+            self.reader.clone(),
             self.search_storage.clone(),
         )
         .await?;
@@ -765,6 +769,7 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
     let mut flusher = VectorIndexFlusher::new_for_tests(
         rt.clone(),
         scenario.database.clone(),
+        scenario.reader.clone(),
         scenario.search_storage.clone(),
         *VECTOR_INDEX_SIZE_SOFT_LIMIT,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -849,6 +854,7 @@ async fn test_incremental_backfill_with_compaction(rt: TestRuntime) -> anyhow::R
     let mut flusher = VectorIndexFlusher::new_for_tests(
         rt.clone(),
         scenario.database.clone(),
+        scenario.reader.clone(),
         scenario.search_storage.clone(),
         *VECTOR_INDEX_SIZE_SOFT_LIMIT,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,

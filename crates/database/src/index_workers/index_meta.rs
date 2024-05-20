@@ -8,7 +8,11 @@ use async_trait::async_trait;
 use common::{
     bootstrap_model::index::IndexConfig,
     document::ResolvedDocument,
-    persistence::DocumentStream,
+    persistence::{
+        DocumentStream,
+        RepeatablePersistence,
+    },
+    query::Order,
     runtime::Runtime,
     types::IndexId,
 };
@@ -40,6 +44,17 @@ pub trait SearchIndex {
 
     fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics>;
 
+    /// Determines the order in which we walk the document log when constructing
+    /// partial segments that main contain deletes.
+    ///
+    /// This does NOT impact the order in which we read documents when
+    /// performing an initial backfill by walking the table contents using
+    /// table iterator. However, in that case we're guaranteed never to
+    /// encounter a deleted document.
+    fn partial_document_order() -> Order {
+        Order::Asc
+    }
+
     async fn upload_new_segment<RT: Runtime>(
         rt: &RT,
         storage: Arc<dyn Storage>,
@@ -54,6 +69,7 @@ pub trait SearchIndex {
         schema: &Self::Schema,
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
+        reader: RepeatablePersistence,
         full_scan_threshold_bytes: usize,
         previous_segments: &mut Self::PreviousSegments,
     ) -> anyhow::Result<Option<Self::NewSegment>>;

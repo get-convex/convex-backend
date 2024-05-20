@@ -505,6 +505,7 @@ impl<RT: Runtime> Application<RT> {
         let search_worker = SearchIndexWorker::create_and_start(
             runtime.clone(),
             database.clone(),
+            persistence.reader(),
             search_storage.clone(),
             searcher,
         );

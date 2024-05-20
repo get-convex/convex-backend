@@ -6,7 +6,7 @@ use std::{
         Read,
         Write,
     },
-    path::PathBuf,
+    path::Path,
 };
 
 use byteorder::{
@@ -48,7 +48,7 @@ pub struct StaticIdTracker {
 }
 
 impl StaticIdTracker {
-    pub fn load_from_path(id_table_path: PathBuf) -> anyhow::Result<Self> {
+    pub fn load_from_path<P: AsRef<Path>>(id_table_path: P) -> anyhow::Result<Self> {
         let _timer = load_id_tracker_timer();
         let uuid_file = File::open(id_table_path)?;
         let size = uuid_file.metadata()?.len() as usize;

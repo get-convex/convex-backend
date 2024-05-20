@@ -929,13 +929,14 @@ impl<RT: Runtime> Database<RT> {
         &'a self,
         tablet_id: TabletId,
         timestamp_range: TimestampRange,
+        order: Order,
         rate_limiter: &'a RateLimiter<RT>,
     ) -> DocumentStream<'a> {
         self.reader
             .load_documents_from_table(
                 tablet_id,
                 timestamp_range,
-                Order::Asc,
+                order,
                 *DEFAULT_DOCUMENTS_PAGE_SIZE,
                 self.retention_validator(),
             )

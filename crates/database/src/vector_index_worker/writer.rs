@@ -24,6 +24,7 @@ use common::{
     document::ParsedDocument,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
     persistence::TimestampRange,
+    query::Order,
     runtime::{
         new_rate_limiter,
         Runtime,
@@ -620,6 +621,7 @@ impl<RT: Runtime> Inner<RT> {
         let mut documents = database.load_documents_in_table(
             *index_name.table(),
             TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(current_ts)))?,
+            Order::Asc,
             &row_rate_limiter,
         );
 

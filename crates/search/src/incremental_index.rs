@@ -1,6 +1,9 @@
 use std::{
     collections::BTreeSet,
-    path::Path,
+    path::{
+        Path,
+        PathBuf,
+    },
     sync::Arc,
 };
 
@@ -46,15 +49,19 @@ use crate::{
 };
 
 /// The maximum size of a segment in bytes. 10MB.
-#[allow(dead_code)]
 const SEGMENT_MAX_SIZE_BYTES: usize = 10_000_000;
 
-#[allow(dead_code)]
 pub(crate) const ID_TRACKER_PATH: &str = "id_tracker";
-#[allow(dead_code)]
 pub(crate) const ALIVE_BITSET_PATH: &str = "tantivy_alive_bitset";
-#[allow(dead_code)]
 pub(crate) const DELETED_TERMS_PATH: &str = "deleted_terms";
+
+#[derive(Clone)]
+pub struct TextSegmentPaths {
+    pub index_path: PathBuf,
+    pub id_tracker_path: PathBuf,
+    pub alive_bit_set_path: PathBuf,
+    pub deleted_terms_path: PathBuf,
+}
 
 pub struct UpdatableTextSegment {
     // TODO(CX-6494): Use the term statistics diff file instead of reading the index contents.
@@ -63,7 +70,6 @@ pub struct UpdatableTextSegment {
     deletion_tracker: MemoryDeletionTracker,
 }
 
-#[allow(dead_code)]
 fn inverted_index_from_index(index: &Index) -> anyhow::Result<Arc<InvertedIndexReader>> {
     let index_reader = index.reader()?;
     let searcher = index_reader.searcher();
@@ -77,16 +83,13 @@ impl UpdatableTextSegment {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    #[allow(dead_code)]
-    pub fn load_from_dir(dir: &Path) -> anyhow::Result<Self> {
-        let mmap_directory = MmapDirectory::open(dir)?;
+    pub fn load(paths: &TextSegmentPaths) -> anyhow::Result<Self> {
+        let mmap_directory = MmapDirectory::open(&paths.index_path)?;
         let index = Index::open(mmap_directory)?;
         let inverted_index = inverted_index_from_index(&index)?;
-        let id_tracker = StaticIdTracker::load_from_path(dir.join(ID_TRACKER_PATH))?;
-        let deletion_tracker = MemoryDeletionTracker::load(
-            &dir.join(ALIVE_BITSET_PATH),
-            &dir.join(DELETED_TERMS_PATH),
-        )?;
+        let id_tracker = StaticIdTracker::load_from_path(&paths.id_tracker_path)?;
+        let deletion_tracker =
+            MemoryDeletionTracker::load(&paths.alive_bit_set_path, &paths.deleted_terms_path)?;
         Ok(UpdatableTextSegment {
             inverted_index,
             id_tracker,
@@ -181,7 +184,8 @@ impl PreviousTextSegments {
         Ok(Some(segment_idx))
     }
 
-    fn finalize(self) -> Vec<MemoryDeletionTracker> {
+    // TODO(sam): Call this when uploading previous segments.
+    pub fn finalize(self) -> Vec<MemoryDeletionTracker> {
         self.0
             .into_iter()
             .map(|mut segment| {
@@ -203,47 +207,23 @@ impl PreviousTextSegments {
     }
 }
 
-pub struct TextIndexUpdate {
-    #[allow(dead_code)]
-    new_segment: Index,
-    #[allow(dead_code)]
-    new_id_tracker: SearchMemoryIdTracker,
-    /// Deletion trackers from previous segments, updated based on the revision
-    /// stream used to create the `NewSegment`
-    #[allow(dead_code)]
-    updated_deletion_trackers: Vec<MemoryDeletionTracker>,
-}
-
-impl TextIndexUpdate {
-    #[cfg(any(test, feature = "testing"))]
-    #[allow(dead_code)]
-    pub fn write(self, dir: &Path, previous_segment_dirs: &Vec<&Path>) -> anyhow::Result<()> {
-        let new_deletion_tracker = MemoryDeletionTracker::new(self.new_id_tracker.num_ids() as u32);
-        self.new_id_tracker.write(dir.join(ID_TRACKER_PATH))?;
-        new_deletion_tracker.write(dir.join(ALIVE_BITSET_PATH), dir.join(DELETED_TERMS_PATH))?;
-        // TODO update existing deletion trackers
-        for (i, updated_deletion_tracker) in self.updated_deletion_trackers.into_iter().enumerate()
-        {
-            let dir = previous_segment_dirs[i];
-            updated_deletion_tracker
-                .write(dir.join(ALIVE_BITSET_PATH), dir.join(DELETED_TERMS_PATH))?;
-        }
-        Ok(())
-    }
-}
-
 /// Builds a new segment from a stream of document revisions in descending
 /// timestamp order, updating existing segments if a document was deleted.
-#[allow(dead_code)]
+///
+/// Note the descending order requirement can be relaxed if the caller can
+/// guarantee that no deletes will be present in the stream. A caller can do so
+/// when providing this function with a stream from table iterator for example.
 pub async fn build_new_segment(
     revision_stream: DocumentRevisionStream<'_>,
     tantivy_schema: TantivySearchIndexSchema,
     dir: &Path,
-    mut previous_segments: PreviousTextSegments,
-) -> anyhow::Result<TextIndexUpdate> {
+    previous_segments: &mut PreviousTextSegments,
+) -> anyhow::Result<TextSegmentPaths> {
+    let index_path = dir.join("index_path");
+    std::fs::create_dir(&index_path)?;
     let index = IndexBuilder::new()
         .schema(tantivy_schema.schema.clone())
-        .create_in_dir(dir)?;
+        .create_in_dir(&index_path)?;
     index
         .tokenizers()
         .register(CONVEX_EN_TOKENIZER, convex_en());
@@ -302,21 +282,28 @@ pub async fn build_new_segment(
             new_id_tracker.set_link(convex_id, doc_id)?;
         }
     }
-    let new_index = segment_writer.finalize()?;
-    let updated_deletion_trackers = previous_segments.finalize();
     anyhow::ensure!(
         dangling_deletes.is_empty(),
         "Dangling deletes is not empty. A document was deleted that is not present in other \
          segments nor in this stream"
     );
-    Ok(TextIndexUpdate {
-        new_segment: new_index,
-        new_id_tracker,
-        updated_deletion_trackers,
+    segment_writer.finalize()?;
+
+    let new_deletion_tracker = MemoryDeletionTracker::new(new_id_tracker.num_ids() as u32);
+    let alive_bit_set_path = dir.join(ALIVE_BITSET_PATH);
+    let deleted_terms_path = dir.join(DELETED_TERMS_PATH);
+    new_deletion_tracker.write(&alive_bit_set_path, &deleted_terms_path)?;
+    let id_tracker_path = dir.join(ID_TRACKER_PATH);
+    new_id_tracker.write(&id_tracker_path)?;
+
+    Ok(TextSegmentPaths {
+        index_path,
+        id_tracker_path,
+        alive_bit_set_path,
+        deleted_terms_path,
     })
 }
 
-#[allow(dead_code)]
 pub struct SearchSegmentForMerge {
     pub segment: Index,
     pub alive_bitset: AliveBitSet,
@@ -327,7 +314,7 @@ pub struct SearchSegmentForMerge {
 pub async fn merge_segments(
     search_segments: Vec<SearchSegmentForMerge>,
     dir: &Path,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<TextSegmentPaths> {
     let mut segments = vec![];
     let settings = search_segments
         .first()
@@ -352,7 +339,9 @@ pub async fn merge_segments(
         .iter()
         .fold(0, |acc, e| acc + e.alive_bitset.num_alive_docs());
 
-    let mmap_directory = MmapDirectory::open(dir)?;
+    let index_dir = dir.join("index_dir");
+    std::fs::create_dir(&index_dir)?;
+    let mmap_directory = MmapDirectory::open(&index_dir)?;
     let (_merged_segment, id_mapping) =
         tantivy::merge_filtered_segments(&segments, settings, alive_bitsets, mmap_directory)?;
     anyhow::ensure!(
@@ -377,11 +366,16 @@ pub async fn merge_segments(
         new_segment_id_tracker.set_link(InternalId(convex_id), new_tantivy_id)?;
     }
     let num_docs = new_segment_id_tracker.num_ids();
-    new_segment_id_tracker.write(dir.to_path_buf().join(ID_TRACKER_PATH))?;
+    let id_tracker_path = dir.to_path_buf().join(ID_TRACKER_PATH);
+    new_segment_id_tracker.write(&id_tracker_path)?;
     let tracker = MemoryDeletionTracker::new(num_docs as u32);
-    tracker.write(
-        dir.to_path_buf().join(ALIVE_BITSET_PATH),
-        dir.to_path_buf().join(DELETED_TERMS_PATH),
-    )?;
-    Ok(())
+    let alive_bit_set_path = dir.to_path_buf().join(ALIVE_BITSET_PATH);
+    let deleted_terms_path = dir.to_path_buf().join(DELETED_TERMS_PATH);
+    tracker.write(&alive_bit_set_path, &deleted_terms_path)?;
+    Ok(TextSegmentPaths {
+        index_path: index_dir,
+        id_tracker_path,
+        alive_bit_set_path,
+        deleted_terms_path,
+    })
 }

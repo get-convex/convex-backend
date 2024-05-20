@@ -21,6 +21,7 @@ use common::{
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
     pause::PauseController,
+    persistence::PersistenceReader,
     runtime::Runtime,
     types::{
         GenericIndexName,
@@ -106,6 +107,7 @@ pub struct VectorFixtures {
     pub rt: TestRuntime,
     pub storage: Arc<dyn Storage>,
     pub db: Database<TestRuntime>,
+    pub reader: Arc<dyn PersistenceReader>,
     searcher: Arc<dyn Searcher>,
     config: CompactionConfig,
 }
@@ -124,6 +126,7 @@ impl VectorFixtures {
         config: CompactionConfig,
     ) -> anyhow::Result<Self> {
         let DbFixtures {
+            tp,
             db,
             searcher,
             search_storage,
@@ -140,6 +143,7 @@ impl VectorFixtures {
         Ok(Self {
             rt,
             db,
+            reader: tp.reader(),
             storage: search_storage,
             searcher,
             config,
@@ -147,20 +151,49 @@ impl VectorFixtures {
     }
 
     pub async fn backfill(&self) -> anyhow::Result<()> {
-        backfill(self.rt.clone(), self.db.clone(), self.storage.clone()).await
+        backfill(
+            self.rt.clone(),
+            self.db.clone(),
+            self.reader.clone(),
+            self.storage.clone(),
+        )
+        .await
     }
 
     pub async fn enabled_vector_index(&self) -> anyhow::Result<IndexData> {
-        enabled_vector_index(self.rt.clone(), self.db.clone(), self.storage.clone()).await
+        let index_data = backfilled_vector_index(
+            self.rt.clone(),
+            self.db.clone(),
+            self.reader.clone(),
+            self.storage.clone(),
+        )
+        .await?;
+        let mut tx = self.db.begin_system().await?;
+        IndexModel::new(&mut tx)
+            .enable_index_for_testing(&index_data.index_name)
+            .await?;
+        self.db.commit(tx).await?;
+        Ok(index_data)
     }
 
     pub async fn backfilled_vector_index(&self) -> anyhow::Result<IndexData> {
-        backfilled_vector_index(self.rt.clone(), self.db.clone(), self.storage.clone()).await
+        backfilled_vector_index(
+            self.rt.clone(),
+            self.db.clone(),
+            self.reader.clone(),
+            self.storage.clone(),
+        )
+        .await
     }
 
     pub async fn backfilled_vector_index_with_doc(&self) -> anyhow::Result<IndexData> {
-        backfilled_vector_index_with_doc(self.rt.clone(), self.db.clone(), self.storage.clone())
-            .await
+        backfilled_vector_index_with_doc(
+            self.rt.clone(),
+            self.db.clone(),
+            self.reader.clone(),
+            self.storage.clone(),
+        )
+        .await
     }
 
     pub async fn backfilling_vector_index_with_doc(&self) -> anyhow::Result<IndexData> {
@@ -194,6 +227,7 @@ impl VectorFixtures {
         let searcher = DeleteOnCompactSearchlight {
             rt: self.rt.clone(),
             db: self.db.clone(),
+            reader: self.reader.clone(),
             searcher: self.searcher.clone(),
             to_delete: id_to_delete,
             storage: self.storage.clone(),
@@ -225,6 +259,7 @@ impl VectorFixtures {
         let mut flusher = VectorIndexFlusher::new_for_tests(
             self.rt.clone(),
             self.db.clone(),
+            self.reader.clone(),
             self.storage.clone(),
             // Force indexes to always be built.
             0,
@@ -252,6 +287,7 @@ impl VectorFixtures {
         Ok(VectorIndexFlusher::new_for_tests(
             self.rt.clone(),
             self.db.clone(),
+            self.reader.clone(),
             self.storage.clone(),
             // Force indexes to always be built.
             0,
@@ -268,6 +304,7 @@ impl VectorFixtures {
         Ok(VectorIndexFlusher::new_for_tests(
             self.rt.clone(),
             self.db.clone(),
+            self.reader.clone(),
             self.storage.clone(),
             // Force indexes to always be built.
             0,
@@ -407,25 +444,12 @@ fn new_backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
 pub async fn backfilled_vector_index(
     rt: TestRuntime,
     db: Database<TestRuntime>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<IndexData> {
     let index_data = backfilling_vector_index(&db).await?;
-    backfill(rt, db.clone(), storage).await?;
+    backfill(rt, db.clone(), reader, storage).await?;
 
-    Ok(index_data)
-}
-
-pub async fn enabled_vector_index(
-    rt: TestRuntime,
-    db: Database<TestRuntime>,
-    storage: Arc<dyn Storage>,
-) -> anyhow::Result<IndexData> {
-    let index_data = backfilled_vector_index(rt, db.clone(), storage).await?;
-    let mut tx = db.begin_system().await?;
-    IndexModel::new(&mut tx)
-        .enable_index_for_testing(&index_data.index_name)
-        .await?;
-    db.commit(tx).await?;
     Ok(index_data)
 }
 
@@ -464,9 +488,10 @@ pub async fn backfilling_vector_index_with_doc(
 pub async fn backfilled_vector_index_with_doc(
     rt: TestRuntime,
     db: Database<TestRuntime>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<IndexData> {
-    let result = backfilled_vector_index(rt, db.clone(), storage).await?;
+    let result = backfilled_vector_index(rt, db.clone(), reader, storage).await?;
     let mut tx = db.begin_system().await?;
     add_document_vec_array(&mut tx, result.index_name.table(), [1f64, 2f64]).await?;
     db.commit(tx).await?;
@@ -480,9 +505,10 @@ pub async fn backfilled_vector_index_with_doc(
 pub async fn backfill<RT: Runtime>(
     rt: RT,
     db: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<()> {
-    VectorIndexFlusher::backfill_all_in_test(rt.clone(), db.clone(), storage, 10).await
+    VectorIndexFlusher::backfill_all_in_test(rt.clone(), db.clone(), reader, storage, 10).await
 }
 
 pub(crate) async fn assert_backfilled(
@@ -514,6 +540,7 @@ struct DeleteOnCompactSearchlight<RT: Runtime> {
     rt: RT,
     searcher: Arc<dyn Searcher>,
     db: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     to_delete: ResolvedDocumentId,
 }
@@ -610,7 +637,13 @@ impl<RT: Runtime> VectorSearcher for DeleteOnCompactSearchlight<RT> {
             .delete(self.to_delete.into())
             .await?;
         self.db.commit(tx).await?;
-        backfill(self.rt.clone(), self.db.clone(), self.storage.clone()).await?;
+        backfill(
+            self.rt.clone(),
+            self.db.clone(),
+            self.reader.clone(),
+            self.storage.clone(),
+        )
+        .await?;
 
         self.searcher
             .execute_vector_compaction(search_storage, segments, dimension)

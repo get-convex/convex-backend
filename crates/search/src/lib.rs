@@ -118,7 +118,9 @@ use self::query::{
 };
 pub use self::{
     incremental_index::{
+        build_new_segment,
         PreviousTextSegments,
+        TextSegmentPaths,
         UpdatableTextSegment,
     },
     memory_index::{

@@ -197,6 +197,7 @@ pub async fn backfill_indexes(
     VectorIndexFlusher::backfill_all_in_test(
         rt.clone(),
         db.clone(),
+        tp.reader(),
         Arc::new(storage.clone()),
         1000,
     )

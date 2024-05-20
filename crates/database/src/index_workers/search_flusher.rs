@@ -4,6 +4,7 @@ use std::{
     iter,
     marker::PhantomData,
     num::NonZeroU32,
+    ops::Deref,
     path::PathBuf,
     sync::Arc,
 };
@@ -15,7 +16,11 @@ use common::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         VECTOR_INDEX_WORKER_PAGE_SIZE,
     },
-    persistence::TimestampRange,
+    persistence::{
+        PersistenceReader,
+        RepeatablePersistence,
+        TimestampRange,
+    },
     runtime::{
         new_rate_limiter,
         Runtime,
@@ -62,32 +67,50 @@ use crate::{
 };
 
 pub struct SearchFlusher<RT: Runtime, T: SearchIndexConfigParser> {
+    params: Params<RT>,
+    _config: PhantomData<T>,
+}
+
+impl<RT: Runtime, T: SearchIndexConfigParser> Deref for SearchFlusher<RT, T> {
+    type Target = Params<RT>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.params
+    }
+}
+
+#[derive(Clone)]
+pub struct Params<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     index_size_soft_limit: usize,
     full_scan_threshold_kb: usize,
     // Used for constraining the part size of incremental multi segment builds
     incremental_multipart_threshold_bytes: usize,
-    _config: PhantomData<T>,
 }
 
 impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     pub fn new(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         index_size_soft_limit: usize,
         full_scan_threshold_kb: usize,
         incremental_multipart_threshold_bytes: usize,
     ) -> Self {
         Self {
-            runtime,
-            database,
-            storage,
-            index_size_soft_limit,
-            full_scan_threshold_kb,
-            incremental_multipart_threshold_bytes,
+            params: Params {
+                runtime,
+                database,
+                reader,
+                storage,
+                index_size_soft_limit,
+                full_scan_threshold_kb,
+                incremental_multipart_threshold_bytes,
+            },
             _config: PhantomData,
         }
     }
@@ -282,33 +305,24 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         build_type: MultipartBuildType,
         previous_segments: Vec<<T::IndexType as SearchIndex>::Segment>,
     ) -> anyhow::Result<MultiSegmentBuildResult<T::IndexType>> {
-        let database = self.database.clone();
-
         let (tx, rx) = oneshot::channel();
-        let runtime = self.runtime.clone();
         let index_name = job.index_name.clone();
         let index_path = index_path.path().to_owned();
-        let storage = self.storage.clone();
-        let full_scan_threshold_kb = self.full_scan_threshold_kb;
-        let incremental_multipart_threshold_bytes = self.incremental_multipart_threshold_bytes;
         let by_id = job.by_id;
         let rate_limit_pages_per_second = job.build_reason.read_max_pages_per_second();
         let developer_config = job.index_config.developer_config.clone();
+        let params = self.params.clone();
         self.runtime.spawn_thread(move || async move {
             let result = Self::build_multipart_segment_on_thread(
+                params,
                 rate_limit_pages_per_second,
                 index_name,
                 by_id,
                 build_type,
                 snapshot_ts,
-                runtime,
-                database,
                 developer_config,
                 index_path,
-                storage,
                 previous_segments,
-                full_scan_threshold_kb,
-                incremental_multipart_threshold_bytes,
             )
             .await;
             _ = tx.send(result);
@@ -317,22 +331,18 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     }
 
     async fn build_multipart_segment_on_thread(
+        params: Params<RT>,
         rate_limit_pages_per_second: NonZeroU32,
         index_name: TabletIndexName,
         by_id: IndexId,
         build_type: MultipartBuildType,
         snapshot_ts: RepeatableTimestamp,
-        runtime: RT,
-        database: Database<RT>,
         developer_config: <T::IndexType as SearchIndex>::DeveloperConfig,
         index_path: PathBuf,
-        storage: Arc<dyn Storage>,
         previous_segments: Vec<<T::IndexType as SearchIndex>::Segment>,
-        full_scan_threshold_kb: usize,
-        incremental_multipart_threshold_bytes: usize,
     ) -> anyhow::Result<MultiSegmentBuildResult<T::IndexType>> {
         let row_rate_limiter = new_rate_limiter(
-            runtime,
+            params.runtime,
             Quota::per_second(
                 NonZeroU32::new(*DEFAULT_DOCUMENTS_PAGE_SIZE)
                     .and_then(|val| val.checked_mul(rate_limit_pages_per_second))
@@ -346,12 +356,13 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
 
         let (documents, previous_segments) = match build_type {
             MultipartBuildType::Partial(last_ts) => (
-                database.load_documents_in_table(
+                params.database.load_documents_in_table(
                     *index_name.table(),
                     TimestampRange::new((
                         Bound::Excluded(*last_ts),
                         Bound::Included(*snapshot_ts),
                     ))?,
+                    T::IndexType::partial_document_order(),
                     &row_rate_limiter,
                 ),
                 previous_segments,
@@ -360,7 +371,8 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                 cursor,
                 backfill_snapshot_ts,
             } => {
-                let documents = database
+                let documents = params
+                    .database
                     .table_iterator(backfill_snapshot_ts, *VECTOR_INDEX_WORKER_PAGE_SIZE, None)
                     .stream_documents_in_table(*index_name.table(), by_id, cursor)
                     .boxed()
@@ -375,7 +387,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                         // Conditionally update cursor and proceed with iteration if
                         // we haven't exceeded incremental part size threshold.
                         future::ready(
-                            if *total_size <= incremental_multipart_threshold_bytes as u64 {
+                            if *total_size <= params.incremental_multipart_threshold_bytes as u64 {
                                 if let Some(updated_cursor) = updated_cursor {
                                     new_cursor = Some(updated_cursor);
                                 }
@@ -393,19 +405,27 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         };
 
         let mut mutable_previous_segments =
-            T::IndexType::download_previous_segments(storage.clone(), previous_segments).await?;
+            T::IndexType::download_previous_segments(params.storage.clone(), previous_segments)
+                .await?;
 
+        let persistence = RepeatablePersistence::new(
+            params.reader,
+            snapshot_ts,
+            params.database.retention_validator(),
+        );
         let new_segment = T::IndexType::build_disk_index(
             &qdrant_schema,
             &index_path,
             documents,
-            full_scan_threshold_kb,
+            persistence,
+            params.full_scan_threshold_kb,
             &mut mutable_previous_segments,
         )
         .await?;
 
         let updated_previous_segments =
-            T::IndexType::upload_previous_segments(storage, mutable_previous_segments).await?;
+            T::IndexType::upload_previous_segments(params.storage, mutable_previous_segments)
+                .await?;
 
         let index_backfill_result =
             if let MultipartBuildType::IncrementalComplete { .. } = build_type {

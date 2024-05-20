@@ -22,6 +22,7 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         SEARCH_INDEX_SIZE_SOFT_LIMIT,
     },
+    persistence::PersistenceReader,
     runtime::Runtime,
     types::TabletIndexName,
 };
@@ -71,10 +72,16 @@ pub struct TextIndexFlusher2<RT: Runtime> {
 }
 
 impl<RT: Runtime> TextIndexFlusher2<RT> {
-    pub(crate) fn new(runtime: RT, database: Database<RT>, storage: Arc<dyn Storage>) -> Self {
+    pub(crate) fn new(
+        runtime: RT,
+        database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
+        storage: Arc<dyn Storage>,
+    ) -> Self {
         let flusher = SearchFlusher::new(
             runtime,
             database.clone(),
+            reader,
             storage,
             *SEARCH_INDEX_SIZE_SOFT_LIMIT,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,

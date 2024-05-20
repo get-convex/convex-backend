@@ -9,6 +9,7 @@ use common::{
         BUILD_MULTI_SEGMENT_TEXT_INDEXES,
         DATABASE_WORKERS_POLL_INTERVAL,
     },
+    persistence::PersistenceReader,
     runtime::Runtime,
 };
 use futures::{
@@ -66,6 +67,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
     pub async fn create_and_start(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         search_storage: Arc<dyn Storage>,
         searcher: Arc<dyn Searcher>,
     ) {
@@ -80,6 +82,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             SearchIndexWorker::VectorFlusher(VectorIndexFlusher::new(
                 runtime.clone(),
                 database.clone(),
+                reader.clone(),
                 search_storage.clone(),
                 vector_writer.clone(),
             )),
@@ -101,6 +104,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             SearchIndexWorker::TextFlusher2(TextIndexFlusher2::new(
                 runtime.clone(),
                 database.clone(),
+                reader,
                 search_storage,
             ))
         } else {

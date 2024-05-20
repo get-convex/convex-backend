@@ -17,7 +17,12 @@ use common::{
         IndexConfig,
     },
     document::ResolvedDocument,
-    persistence::DocumentStream,
+    persistence::{
+        DocumentStream,
+        RepeatablePersistence,
+    },
+    persistence_helpers::stream_revision_pairs,
+    query::Order,
     runtime::Runtime,
     types::IndexId,
 };
@@ -26,8 +31,10 @@ use futures::{
     TryStreamExt,
 };
 use search::{
+    build_new_segment,
     PreviousTextSegments,
     TantivySearchIndexSchema,
+    TextSegmentPaths,
     UpdatableTextSegment,
 };
 use storage::Storage;
@@ -81,11 +88,18 @@ pub struct TextSearchIndex;
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
     type DeveloperConfig = DeveloperSearchIndexConfig;
-    type NewSegment = ();
+    type NewSegment = TextSegmentPaths;
     type PreviousSegments = PreviousTextSegments;
     type Schema = TantivySearchIndexSchema;
     type Segment = FragmentedTextSegment;
     type Statistics = TextStatistics;
+
+    // When iterating over the document log for partial segments, we must iterate in
+    // reverse timestamp order to match assumptions made in build_disk_index
+    // that allow for greater efficiency.
+    fn partial_document_order() -> Order {
+        Order::Desc
+    }
 
     fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>> {
         Ok(snapshot
@@ -130,13 +144,25 @@ impl SearchIndex for TextSearchIndex {
     }
 
     async fn build_disk_index(
-        _schema: &Self::Schema,
-        _index_path: &PathBuf,
-        _documents: DocumentStream<'_>,
+        schema: &Self::Schema,
+        index_path: &PathBuf,
+        documents: DocumentStream<'_>,
+        reader: RepeatablePersistence,
         _full_scan_threshold_bytes: usize,
-        _previous_segments: &mut Self::PreviousSegments,
+        previous_segments: &mut Self::PreviousSegments,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
-        anyhow::bail!("Not implemented");
+        let revision_stream = Box::pin(stream_revision_pairs(documents, &reader));
+        // TODO(CX-6496): Make build_segment return None if there are no new documents
+        // to index.
+        Ok(Some(
+            build_new_segment(
+                revision_stream,
+                schema.clone(),
+                index_path,
+                previous_segments,
+            )
+            .await?,
+        ))
     }
 
     async fn upload_new_segment<RT: Runtime>(

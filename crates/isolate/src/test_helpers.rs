@@ -799,6 +799,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         VectorIndexFlusher::backfill_all_in_test(
             self.rt.clone(),
             self.database.clone(),
+            self.persistence.reader(),
             self.search_storage.clone(),
             1000,
         )
