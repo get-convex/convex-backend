@@ -188,7 +188,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             anyhow::ensure!(component.is_root());
         }
         let index_query = Query::full_table_scan(MODULES_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, component.into(), index_query)?;
 
         let mut modules = Vec::new();
         while let Some(metadata_document) = query_stream.next(self.tx, None).await? {
@@ -259,7 +259,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             order: Order::Asc,
         };
         let module_query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, module_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, module_query)?;
         let module_version: ParsedDocument<ModuleVersionMetadata> = query_stream
             .expect_at_most_one(self.tx)
             .await?
@@ -442,6 +442,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         } else {
             &path.module_path
         };
+        let namespace = path.component.into();
         let module_path = ConvexValue::try_from(module_path.as_str())?;
         let index_range = IndexRange {
             index_name: MODULE_INDEX_BY_PATH.clone(),
@@ -452,7 +453,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             order: Order::Asc,
         };
         let module_query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, module_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, namespace, module_query)?;
         let module_document: ParsedDocument<ModuleMetadata> =
             match query_stream.expect_at_most_one(self.tx).await? {
                 Some(v) => v.try_into()?,

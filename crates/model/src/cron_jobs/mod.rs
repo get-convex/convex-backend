@@ -226,7 +226,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         &mut self,
     ) -> anyhow::Result<BTreeMap<CronIdentifier, ParsedDocument<CronJob>>> {
         let cron_query = Query::full_table_scan(CRON_JOBS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, cron_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, cron_query)?;
         let mut cron_jobs = BTreeMap::new();
         while let Some(job) = query_stream.next(self.tx, None).await? {
             let cron: ParsedDocument<CronJob> = job.try_into()?;
@@ -253,7 +253,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             )],
             order: Order::Desc,
         });
-        let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
         let mut num_logs = 0;
         let mut to_delete = Vec::new();
         while let Some(doc) = query_stream.next(self.tx, None).await? {

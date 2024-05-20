@@ -107,6 +107,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         };
         let mut query = ResolvedQuery::new(
             self.tx,
+            TableNamespace::Global,
             Query::index_range(IndexRange {
                 index_name: COMPONENTS_BY_PARENT_INDEX.clone(),
                 range,

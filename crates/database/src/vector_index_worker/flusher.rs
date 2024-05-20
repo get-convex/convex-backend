@@ -151,6 +151,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         use anyhow::Context;
         use common::types::IndexName;
         use keybroker::Identity;
+        use value::TableNamespace;
 
         use crate::{
             index_workers::{
@@ -163,13 +164,16 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         let mut tx = database.begin(Identity::system()).await?;
         let index_name_ = IndexName::new(table_name.clone(), index_name.descriptor().clone())?;
         let mut index_model = IndexModel::new(&mut tx);
-        let pending_metadata = index_model.pending_index_metadata(&index_name_)?;
-        let enabled_metadata = index_model.enabled_index_metadata(&index_name_)?;
+        let namespace = TableNamespace::Global;
+        let pending_metadata = index_model.pending_index_metadata(namespace, &index_name_)?;
+        let enabled_metadata = index_model.enabled_index_metadata(namespace, &index_name_)?;
         let metadata = pending_metadata.unwrap_or_else(|| enabled_metadata.unwrap());
         let index_config = VectorIndexConfigParser::get_config(metadata.config.clone())
             .context("Not a vector index?")?;
         let by_id = IndexName::by_id(table_name.clone());
-        let Some(by_id_metadata) = IndexModel::new(&mut tx).enabled_index_metadata(&by_id)? else {
+        let Some(by_id_metadata) =
+            IndexModel::new(&mut tx).enabled_index_metadata(namespace, &by_id)?
+        else {
             anyhow::bail!("Missing by_id index for {index_name:?}");
         };
         let writer = VectorMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
@@ -1125,6 +1129,7 @@ mod tests {
             index_name,
             index_id,
             resolved_index_name,
+            ..
         } = fixtures.enabled_vector_index().await?;
 
         let vector = [8f64, 9f64];
@@ -1155,6 +1160,7 @@ mod tests {
             index_name,
             index_id,
             resolved_index_name,
+            ..
         } = fixtures.enabled_vector_index().await?;
 
         set_fast_forward_time_to_now(&fixtures.db, index_id.internal_id()).await?;

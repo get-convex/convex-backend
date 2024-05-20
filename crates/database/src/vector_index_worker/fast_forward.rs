@@ -124,6 +124,7 @@ mod tests {
             index_id,
             index_name,
             resolved_index_name,
+            namespace,
             ..
         } = backfilling_vector_index_with_doc(&database).await?;
         let mut worker = fixtures.new_index_flusher()?;
@@ -131,7 +132,7 @@ mod tests {
         // Backfill
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
-        let initial_snapshot_ts = assert_backfilled(&database, &index_name).await?;
+        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
 
         // Check that fast-forwarding works when we write to another table. Advance time
         // so our commit's timestamp is past the debounce window.
@@ -147,7 +148,7 @@ mod tests {
 
         let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
         assert_eq!(metrics, btreeset! {resolved_index_name.clone()});
-        let snapshot_ts = assert_backfilled(&database, &index_name).await?;
+        let snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
         // Don't touch the snapshot timestamp.
         assert_eq!(initial_snapshot_ts, snapshot_ts);
         // But do write the fast forward timestamp.
@@ -159,7 +160,7 @@ mod tests {
         assert!(metrics.is_empty());
         assert_eq!(
             snapshot_ts,
-            assert_backfilled(&database, &index_name).await?
+            assert_backfilled(&database, namespace, &index_name).await?
         );
         assert_eq!(
             fast_forward_ts,
@@ -174,7 +175,7 @@ mod tests {
         assert!(metrics.is_empty());
         assert_eq!(
             snapshot_ts,
-            assert_backfilled(&database, &index_name).await?
+            assert_backfilled(&database, namespace, &index_name).await?
         );
         assert_eq!(
             fast_forward_ts,
@@ -189,7 +190,7 @@ mod tests {
         assert_eq!(metrics, btreeset! { resolved_index_name.clone() });
         assert_eq!(
             snapshot_ts,
-            assert_backfilled(&database, &index_name).await?
+            assert_backfilled(&database, namespace, &index_name).await?
         );
         let new_fast_forward_ts = get_fast_forward_ts(&database, index_id.internal_id()).await?;
         assert!(fast_forward_ts < new_fast_forward_ts);
@@ -213,7 +214,7 @@ mod tests {
         );
         assert_eq!(
             snapshot_ts,
-            assert_backfilled(&database, &index_name).await?,
+            assert_backfilled(&database, namespace, &index_name).await?,
         );
 
         Ok(())

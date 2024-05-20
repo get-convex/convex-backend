@@ -1,7 +1,10 @@
 use std::sync::LazyLock;
 
 use cmd_util::env::env_config;
-use value::InternalId;
+use value::{
+    InternalId,
+    TableNamespace,
+};
 
 mod component_definition_path;
 mod component_path;
@@ -89,5 +92,16 @@ pub enum ComponentDefinitionId {
 impl ComponentDefinitionId {
     pub fn is_root(&self) -> bool {
         matches!(self, ComponentDefinitionId::Root)
+    }
+}
+
+impl From<ComponentDefinitionId> for TableNamespace {
+    fn from(value: ComponentDefinitionId) -> Self {
+        // TODO(lee) convert these to the correct namespaces:
+        // RootComponentDefinition and ByComponentDefinition respectively.
+        match value {
+            ComponentDefinitionId::Root => TableNamespace::Global,
+            ComponentDefinitionId::Child(_id) => TableNamespace::Global,
+        }
     }
 }

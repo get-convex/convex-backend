@@ -41,6 +41,7 @@ pub(crate) struct IndexData {
     pub index_id: IndexId,
     pub index_name: IndexName,
     pub resolved_index_name: TabletIndexName,
+    pub namespace: TableNamespace,
 }
 
 pub(crate) fn new_search_worker(
@@ -71,11 +72,12 @@ pub(crate) fn backfilling_search_index() -> anyhow::Result<IndexMetadata<TableNa
 
 pub(crate) async fn assert_backfilled(
     database: &Database<TestRuntime>,
+    namespace: TableNamespace,
     index_name: &IndexName,
 ) -> anyhow::Result<Timestamp> {
     let mut tx = database.begin_system().await?;
     let new_metadata = IndexModel::new(&mut tx)
-        .pending_index_metadata(index_name)?
+        .pending_index_metadata(namespace, index_name)?
         .context("Index missing or in an unexpected state")?
         .into_value();
     must_let!(let IndexMetadata {
@@ -105,6 +107,7 @@ pub(crate) async fn create_search_index_with_document(
 ) -> anyhow::Result<IndexData> {
     let index_metadata = backfilling_search_index()?;
     let index_name = &index_metadata.name;
+    let namespace = TableNamespace::Global;
     let mut tx = db.begin_system().await?;
     let index_id = IndexModel::new(&mut tx)
         .add_application_index(index_metadata.clone())
@@ -112,7 +115,7 @@ pub(crate) async fn create_search_index_with_document(
     add_document(&mut tx, index_name.table(), "A long text field").await?;
     let table_id = tx
         .table_mapping()
-        .namespace(TableNamespace::Global)
+        .namespace(namespace)
         .id(index_name.table())?
         .tablet_id;
     db.commit(tx).await?;
@@ -122,5 +125,6 @@ pub(crate) async fn create_search_index_with_document(
         index_id: index_id.internal_id(),
         resolved_index_name,
         index_name: index_name.clone(),
+        namespace,
     })
 }

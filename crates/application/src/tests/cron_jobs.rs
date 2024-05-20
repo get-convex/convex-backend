@@ -45,6 +45,7 @@ use model::{
 };
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
+use value::TableNamespace;
 
 use crate::{
     test_helpers::{
@@ -88,6 +89,7 @@ async fn create_cron_job(
 fn cron_log_query<RT: Runtime>(tx: &mut Transaction<RT>) -> anyhow::Result<DeveloperQuery<RT>> {
     DeveloperQuery::new(
         tx,
+        TableNamespace::Global,
         Query::index_range(IndexRange {
             index_name: CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
             range: vec![IndexRangeExpression::Eq(

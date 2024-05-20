@@ -85,7 +85,10 @@ use model::{
 use parking_lot::Mutex;
 use sync_types::Timestamp;
 use usage_tracking::FunctionUsageTracker;
-use value::ResolvedDocumentId;
+use value::{
+    ResolvedDocumentId,
+    TableNamespace,
+};
 
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
@@ -326,7 +329,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             )],
             order: Order::Asc,
         });
-        let mut query_stream = ResolvedQuery::new(tx, index_query)?;
+        let mut query_stream = ResolvedQuery::new(tx, TableNamespace::Global, index_query)?;
         while let Some(doc) = query_stream.next(tx, None).await? {
             let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
             let (job_id, job) = job.clone().into_id_and_value();
@@ -820,7 +823,8 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                 order: Order::Asc,
             })
             .limit(*SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE);
-            let mut query_stream = ResolvedQuery::new(&mut tx, index_query)?;
+            let mut query_stream =
+                ResolvedQuery::new(&mut tx, TableNamespace::Global, index_query)?;
 
             let mut next_job_wait = None;
             let mut jobs_to_delete = vec![];

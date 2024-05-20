@@ -248,7 +248,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
                     Box::new(Expression::Field("state.state".parse()?)),
                     Box::new(Expression::Literal(maybe_val!(import_state_type))),
                 ));
-        let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         query_stream
             .next(self.tx, Some(1))
             .await?

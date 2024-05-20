@@ -760,7 +760,7 @@ mod tests {
         let db = reopen_db(&rt, &fixtures).await?;
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .enable_index_for_testing(&index_metadata.name)
+            .enable_index_for_testing(TableNamespace::Global, &index_metadata.name)
             .await?;
         db.commit(tx).await?;
 
@@ -830,7 +830,7 @@ mod tests {
         backfill_vector_indexes(rt, db, reader, 1000, storage.clone()).await?;
         let mut tx = db.begin_system().await?;
         let resolved_index = IndexModel::new(&mut tx)
-            .pending_index_metadata(&index_metadata.name)?
+            .pending_index_metadata(TableNamespace::Global, &index_metadata.name)?
             .expect("Missing index metadata!");
 
         Ok((resolved_index.id().internal_id(), index_metadata))
@@ -846,7 +846,7 @@ mod tests {
 
         let mut tx = db.begin_system().await?;
         let resolved_index = IndexModel::new(&mut tx)
-            .pending_index_metadata(&index_metadata.name)?
+            .pending_index_metadata(TableNamespace::Global, &index_metadata.name)?
             .expect("Missing index metadata!");
         IndexModel::new(&mut tx)
             .enable_backfilled_indexes(vec![resolved_index.clone().into_value()])
@@ -1211,7 +1211,9 @@ mod tests {
         let index_name = IndexName::new(table_name, "by_text".parse()?)?;
         let mut tx = db.begin_system().await?;
         let mut model = IndexModel::new(&mut tx);
-        let index_doc = model.pending_index_metadata(&index_name)?.unwrap();
+        let index_doc = model
+            .pending_index_metadata(TableNamespace::Global, &index_name)?
+            .unwrap();
         Ok((index_doc.id().internal_id(), index_doc))
     }
 }

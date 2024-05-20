@@ -51,6 +51,7 @@ use value::{
     FieldPath,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use self::virtual_table::FileStorageDocMapper;
@@ -300,7 +301,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
                 Query::get(FILE_STORAGE_TABLE.clone(), document_id.into())
             },
         };
-        ResolvedQuery::new(self.tx, index_query)
+        ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)
     }
 
     pub async fn delete_file(
@@ -336,7 +337,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
         }
 
         let query = Query::full_table_scan(FILE_STORAGE_TABLE.to_owned(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut total_size = 0;
         while let Some(storage_document) = query_stream.next(self.tx, None).await? {
             let storage_entry: ParsedDocument<FileStorageEntry> = storage_document.try_into()?;

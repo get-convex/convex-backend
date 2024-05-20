@@ -47,6 +47,7 @@ use database::{
     IndexModel,
 };
 use runtime::testing::TestRuntime;
+use value::TableNamespace;
 
 use crate::{
     config::index_test_utils::{
@@ -218,7 +219,10 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_removes_
             .await?;
 
         let current_index = IndexModel::new(&mut tx)
-            .pending_index_metadata(&new_index_name(TABLE_NAME, INDEX_NAME)?)?
+            .pending_index_metadata(
+                TableNamespace::Global,
+                &new_index_name(TABLE_NAME, INDEX_NAME)?,
+            )?
             .unwrap();
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "b", None)?;
@@ -250,7 +254,10 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_stores_n
         index_model.prepare_new_and_mutated_indexes(&schema).await?;
 
         let new_index = index_model
-            .pending_index_metadata(&new_index_name(TABLE_NAME, INDEX_NAME)?)?
+            .pending_index_metadata(
+                TableNamespace::Global,
+                &new_index_name(TABLE_NAME, INDEX_NAME)?,
+            )?
             .unwrap()
             .into_value();
 
@@ -877,7 +884,7 @@ async fn apply_config_with_enabled_index_ignores_it(rt: TestRuntime) -> anyhow::
         let mut tx = db.begin_system().await?;
         let generic_index_name = new_index_name(TABLE_NAME, INDEX_NAME)?;
         IndexModel::new(&mut tx)
-            .enable_index_for_testing(&generic_index_name)
+            .enable_index_for_testing(TableNamespace::Global, &generic_index_name)
             .await?;
         db.commit(tx).await?;
 
@@ -1037,7 +1044,7 @@ async fn assert_enabled_with_fields(
 ) -> anyhow::Result<()> {
     let mut tx = db.begin_system().await?;
     let index = IndexModel::new(&mut tx)
-        .enabled_index_metadata(&new_index_name(table, index)?)?
+        .enabled_index_metadata(TableNamespace::Global, &new_index_name(table, index)?)?
         .unwrap();
     let actual_field_names = get_index_fields(index.into_value());
 
@@ -1054,8 +1061,8 @@ async fn get_all_index_configs(
     let mut tx = db.begin_system().await?;
     let mut index_model = IndexModel::new(&mut tx);
     let index_name = new_index_name(table_name, index_name)?;
-    let pending = index_model.pending_index_metadata(&index_name)?;
-    let enabled = index_model.enabled_index_metadata(&index_name)?;
+    let pending = index_model.pending_index_metadata(TableNamespace::Global, &index_name)?;
+    let enabled = index_model.enabled_index_metadata(TableNamespace::Global, &index_name)?;
     Ok(vec![pending, enabled]
         .into_iter()
         .flatten()

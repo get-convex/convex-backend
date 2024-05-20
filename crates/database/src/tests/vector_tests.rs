@@ -100,6 +100,7 @@ const INDEX_DESCRIPTOR: &str = "by_embedding";
 const INDEX_NAME: &str = "test.by_embedding";
 const INDEXED_FIELD: &str = "embedding";
 const FILTER_FIELDS: &[&str] = &["A", "B", "C", "D"];
+const TABLE_NAMESPACE: TableNamespace = TableNamespace::Global;
 
 enum ScenarioIndexState {
     None,
@@ -175,10 +176,10 @@ impl<RT: Runtime> Scenario<RT> {
     async fn enable_index(&self) -> anyhow::Result<()> {
         let mut tx = self.database.begin_system().await?;
         IndexModel::new(&mut tx)
-            .enable_index_for_testing(&IndexName::new(
-                TABLE_NAME.parse()?,
-                INDEX_DESCRIPTOR.parse()?,
-            )?)
+            .enable_index_for_testing(
+                TABLE_NAMESPACE,
+                &IndexName::new(TABLE_NAME.parse()?, INDEX_DESCRIPTOR.parse()?)?,
+            )
             .await?;
         self.database.commit(tx).await?;
         Ok(())
@@ -216,7 +217,7 @@ impl<RT: Runtime> Scenario<RT> {
         let snapshot = self.database.latest_snapshot()?;
         let table_id = snapshot
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TABLE_NAMESPACE)
             .id(&TABLE_NAME.parse()?)?
             .tablet_id;
         VectorIndexFlusher::build_index_in_test(
@@ -917,7 +918,7 @@ async fn test_recall_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = scenario.database.begin(Identity::system()).await?;
     let table_number = tx
         .table_mapping()
-        .namespace(TableNamespace::Global)
+        .namespace(TABLE_NAMESPACE)
         .name_to_number_user_input()(TABLE_NAME.parse()?)?;
 
     let mut by_id = BTreeMap::new();

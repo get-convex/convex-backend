@@ -130,6 +130,7 @@ pub mod tests {
             index_id,
             index_name,
             resolved_index_name,
+            namespace,
         } = create_search_index_with_document(&database).await?;
         let mut worker = new_search_worker(&rt, &database)?;
 
@@ -137,7 +138,7 @@ pub mod tests {
         let (metrics, _) = worker.step().await?;
 
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
-        let initial_snapshot_ts = assert_backfilled(&database, &index_name).await?;
+        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
 
         // Check that fast-forwarding works when we write to another table. Advance time
         // so our commit's timestamp is past the debounce window.
@@ -154,7 +155,7 @@ pub mod tests {
         let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
         assert_eq!(metrics, btreeset! {resolved_index_name.clone() });
         // Don't touch the snapshot timestamp
-        let snapshot_ts = assert_backfilled(&database, &index_name).await?;
+        let snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
         assert_eq!(
             initial_snapshot_ts, snapshot_ts,
             "initial: {initial_snapshot_ts}, now: {snapshot_ts}"
@@ -172,7 +173,7 @@ pub mod tests {
         assert!(metrics.is_empty());
         assert_eq!(
             snapshot_ts,
-            assert_backfilled(&database, &index_name).await?
+            assert_backfilled(&database, namespace, &index_name).await?
         );
         assert_eq!(
             fast_forward_ts,
@@ -187,7 +188,7 @@ pub mod tests {
         assert_eq!(metrics, btreeset! {resolved_index_name.clone()});
         assert_eq!(
             snapshot_ts,
-            assert_backfilled(&database, &index_name).await?
+            assert_backfilled(&database, namespace, &index_name).await?
         );
         let new_fast_forward_ts = get_fast_forward_ts(&database, index_id).await?;
         assert!(fast_forward_ts < new_fast_forward_ts);
@@ -211,7 +212,7 @@ pub mod tests {
         );
         assert_eq!(
             snapshot_ts,
-            assert_backfilled(&database, &index_name).await?,
+            assert_backfilled(&database, namespace, &index_name).await?,
         );
 
         Ok(())

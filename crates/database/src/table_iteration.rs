@@ -631,7 +631,7 @@ mod tests {
             let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
             let by_id = IndexName::by_id(table_name.clone());
             let by_id_metadata = IndexModel::new(&mut tx)
-                .enabled_index_metadata(&by_id)?
+                .enabled_index_metadata(TableNamespace::Global, &by_id)?
                 .unwrap();
             database.commit(tx).await?;
             let iterator = database.table_iterator(database.now_ts_for_reads(), 2, None);
@@ -675,7 +675,7 @@ mod tests {
         let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
         let by_id = IndexName::by_id(table_name.clone());
         let by_id_metadata = IndexModel::new(&mut tx)
-            .enabled_index_metadata(&by_id)?
+            .enabled_index_metadata(TableNamespace::Global, &by_id)?
             .unwrap();
         database.commit(tx).await?;
 
@@ -817,7 +817,7 @@ mod tests {
             .await?;
         let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
         let by_k_metadata = IndexModel::new(&mut tx)
-            .enabled_index_metadata(&index_name)?
+            .enabled_index_metadata(TableNamespace::Global, &index_name)?
             .unwrap();
         let by_k_id = by_k_metadata.id().internal_id();
         let snapshot_ts = unchecked_repeatable_ts(database.commit(tx).await?);

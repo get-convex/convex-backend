@@ -163,6 +163,13 @@ impl TableMapping {
             .ok_or_else(|| anyhow::anyhow!("cannot find table {id:?}"))
     }
 
+    pub fn tablet_namespace(&self, id: TabletId) -> anyhow::Result<TableNamespace> {
+        self.tablet_to_table
+            .get(&id)
+            .map(|(namespace, ..)| *namespace)
+            .ok_or_else(|| anyhow::anyhow!("cannot find table {id:?}"))
+    }
+
     pub fn tablet_to_name(&self) -> impl Fn(TabletId) -> anyhow::Result<TableName> + '_ {
         |id| self.tablet_name(id)
     }

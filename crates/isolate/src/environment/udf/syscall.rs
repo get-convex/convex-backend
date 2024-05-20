@@ -74,8 +74,15 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let tx = self.phase.tx()?;
         // TODO: Are all invalid query pipelines developer errors? These could be bugs
         // in convex/server.
-        let compiled_query =
-            { DeveloperQuery::new_with_version(tx, query, version, table_filter)? };
+        let compiled_query = {
+            DeveloperQuery::new_with_version(
+                tx,
+                TableNamespace::Global,
+                query,
+                version,
+                table_filter,
+            )?
+        };
         let query_id = self.query_manager.put_developer(compiled_query);
         Ok(query_id)
     }

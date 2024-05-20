@@ -123,6 +123,7 @@ struct Scenario {
     tp: Arc<dyn Persistence>,
 
     table_name: TableName,
+    namespace: TableNamespace,
 
     // Store a simple mapping of a test string to an array of test
     // strings (the search field) and a filter field
@@ -150,6 +151,7 @@ impl Scenario {
         .await?;
 
         let table_name: TableName = "test".parse()?;
+        let namespace = TableNamespace::Global;
         let mut tx = database.begin(Identity::system()).await?;
         TableModel::new(&mut tx)
             .insert_table_metadata_for_test(&table_name)
@@ -172,6 +174,7 @@ impl Scenario {
             tp,
 
             table_name,
+            namespace,
             model: BTreeMap::new(),
         };
         self_.backfill().await?;
@@ -226,7 +229,10 @@ impl Scenario {
     async fn enable_index(&mut self) -> anyhow::Result<()> {
         let mut txn = self.database.begin_system().await?;
         IndexModel::new(&mut txn)
-            .enable_index_for_testing(&IndexName::new("test".parse()?, "by_text".parse()?)?)
+            .enable_index_for_testing(
+                self.namespace,
+                &IndexName::new("test".parse()?, "by_text".parse()?)?,
+            )
             .await?;
         self.database.commit(txn).await?;
         Ok(())
@@ -268,9 +274,10 @@ impl Scenario {
         };
 
         let mut query_stream = match version {
-            SearchVersion::V1 => ResolvedQuery::new(&mut tx, query)?,
+            SearchVersion::V1 => ResolvedQuery::new(&mut tx, self.namespace, query)?,
             SearchVersion::V2 => ResolvedQuery::new_with_version(
                 &mut tx,
+                self.namespace,
                 query,
                 Some(MIN_NPM_VERSION_FOR_FUZZY_SEARCH.clone()),
             )?,

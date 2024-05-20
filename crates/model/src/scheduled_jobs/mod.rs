@@ -392,7 +392,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 })
             },
         };
-        let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
         let mut count = 0;
         while count < limit
             && let Some(doc) = query_stream.next(self.tx, None).await?
@@ -405,7 +405,8 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
     pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<ScheduledJob>>> {
         let scheduled_query = Query::full_table_scan(SCHEDULED_JOBS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, scheduled_query)?;
+        let mut query_stream =
+            ResolvedQuery::new(self.tx, TableNamespace::Global, scheduled_query)?;
         let mut scheduled_jobs = Vec::new();
         while let Some(job) = query_stream.next(self.tx, None).await? {
             let job: ParsedDocument<ScheduledJob> = job.try_into()?;

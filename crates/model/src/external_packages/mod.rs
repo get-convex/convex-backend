@@ -115,7 +115,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
             range: vec![],
             order: Order::Desc,
         });
-        let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
         let deps_map: BTreeMap<String, String> = deps
             .into_iter()
             .map(|dep| (dep.package, dep.version))

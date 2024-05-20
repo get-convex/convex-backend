@@ -107,7 +107,6 @@ use crate::{
     ImportFacingModel,
     IndexModel,
     IndexWorker,
-    ResolvedQuery as CompiledResolvedQuery,
     SchemaModel,
     SystemMetadataModel,
     TableModel,
@@ -227,6 +226,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
 
     let table_name: TableName = str::parse("table")?;
+    let namespace = TableNamespace::Global;
 
     // Register two indexes and make sure it works.
     let index_name1 = IndexName::new(table_name.clone(), "a_and_b".parse()?)?;
@@ -276,11 +276,11 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = database.begin(Identity::system()).await?;
     assert_eq!(
-        get_pending_index_fields(&mut tx, &index_name1)?,
+        get_pending_index_fields(&mut tx, namespace, &index_name1)?,
         vec![str::parse("a")?, str::parse("b")?].try_into()?,
     );
     assert_eq!(
-        get_pending_index_fields(&mut tx, &index_name2)?,
+        get_pending_index_fields(&mut tx, namespace, &index_name2)?,
         vec![str::parse("c")?, str::parse("d")?].try_into()?,
     );
 
@@ -344,14 +344,14 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = database.begin(Identity::system()).await?;
     assert!(IndexModel::new(&mut tx)
-        .pending_index_metadata(&index_name1)?
+        .pending_index_metadata(namespace, &index_name1)?
         .is_none());
     assert_eq!(
-        get_pending_index_fields(&mut tx, &index_name2)?,
+        get_pending_index_fields(&mut tx, namespace, &index_name2)?,
         vec![str::parse("c")?].try_into()?
     );
     assert_eq!(
-        get_pending_index_fields(&mut tx, &index_name3)?,
+        get_pending_index_fields(&mut tx, namespace, &index_name3)?,
         vec![str::parse("e")?, str::parse("f")?].try_into()?
     );
     Ok(())
@@ -359,10 +359,11 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
 
 fn get_pending_index_fields(
     tx: &mut Transaction<TestRuntime>,
+    namespace: TableNamespace,
     index_name: &IndexName,
 ) -> anyhow::Result<IndexedFields> {
     let index_c_d = IndexModel::new(tx)
-        .pending_index_metadata(index_name)?
+        .pending_index_metadata(namespace, index_name)?
         .expect("index should exist");
     must_let!(let IndexConfig::Database { developer_config, .. } = &index_c_d.config);
     must_let!(let DeveloperDatabaseIndexConfig { fields } = developer_config);
@@ -494,10 +495,11 @@ async fn test_id_reuse_within_a_transactions(rt: TestRuntime) -> anyhow::Result<
 
 async fn run_query(
     database: Database<TestRuntime>,
+    namespace: TableNamespace,
     query: Query,
 ) -> anyhow::Result<Vec<ResolvedDocument>> {
     let mut tx = database.begin(Identity::system()).await?;
-    let mut query_stream = CompiledResolvedQuery::new(&mut tx, query)?;
+    let mut query_stream = ResolvedQuery::new(&mut tx, namespace, query)?;
     let mut results = vec![];
     while let Some(value) = query_stream.next(&mut tx, Some(TEST_PREFETCH_HINT)).await? {
         results.push(value);
@@ -508,6 +510,7 @@ async fn run_query(
 #[convex_macro::test_runtime]
 async fn test_query_filter(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
+    let namespace = TableNamespace::Global;
     let mut tx = database.begin(Identity::system()).await?;
     let doc1 = TestFacingModel::new(&mut tx)
         .insert_and_get(
@@ -548,7 +551,7 @@ async fn test_query_filter(rt: TestRuntime) -> anyhow::Result<()> {
             Box::new(Expression::Field("channel".parse()?)),
         ))],
     };
-    let results = run_query(database, query).await?;
+    let results = run_query(database, namespace, query).await?;
     assert_eq!(results, vec![doc1, doc3]);
     Ok(())
 }
@@ -556,6 +559,7 @@ async fn test_query_filter(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_query_limit(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
+    let namespace = TableNamespace::Global;
     let mut tx = database.begin(Identity::system()).await?;
     TestFacingModel::new(&mut tx)
         .insert(
@@ -593,7 +597,7 @@ async fn test_query_limit(rt: TestRuntime) -> anyhow::Result<()> {
         }),
         operators: vec![QueryOperator::Limit(1)],
     };
-    let results = run_query(database, query).await?;
+    let results = run_query(database, namespace, query).await?;
     assert_eq!(results.len(), 1);
     Ok(())
 }
@@ -601,6 +605,7 @@ async fn test_query_limit(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_full_table_scan_order(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
+    let namespace = TableNamespace::Global;
     let mut tx = database.begin(Identity::system()).await?;
     let doc1 = TestFacingModel::new(&mut tx)
         .insert_and_get("messages".parse()?, ConvexObject::empty())
@@ -617,7 +622,7 @@ async fn test_full_table_scan_order(rt: TestRuntime) -> anyhow::Result<()> {
         }),
         operators: vec![],
     };
-    let asc_results = run_query(database.clone(), asc_query).await?;
+    let asc_results = run_query(database.clone(), namespace, asc_query).await?;
     assert_eq!(asc_results, vec![doc1.clone(), doc2.clone()],);
 
     let desc_query = Query {
@@ -627,7 +632,7 @@ async fn test_full_table_scan_order(rt: TestRuntime) -> anyhow::Result<()> {
         }),
         operators: vec![],
     };
-    let desc_results = run_query(database, desc_query).await?;
+    let desc_results = run_query(database, namespace, desc_query).await?;
     assert_eq!(desc_results, vec![doc2, doc1],);
 
     Ok(())
@@ -673,6 +678,7 @@ where
         db: database, tp, ..
     } = DbFixtures::new(&rt).await?;
     let table_name: TableName = str::parse("messages")?;
+    let namespace = TableNamespace::Global;
     let index_name = IndexName::new(table_name.clone(), "a_and_b".parse()?)?;
 
     let mut tx = database.begin(Identity::system()).await?;
@@ -699,7 +705,7 @@ where
 
     let mut tx = database.begin_system().await?;
     IndexModel::new(&mut tx)
-        .enable_index_for_testing(&index_name)
+        .enable_index_for_testing(namespace, &index_name)
         .await?;
     database.commit(tx).await?;
 
@@ -724,7 +730,7 @@ where
         }),
         operators: vec![],
     };
-    let actual = run_query(database, query).await?;
+    let actual = run_query(database, namespace, query).await?;
     assert_eq!(actual, expected);
 
     Ok(())
@@ -858,6 +864,7 @@ proptest! {
 #[convex_macro::test_runtime]
 async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
+    let namespace = TableNamespace::Global;
     let mut tx = database.begin(Identity::system()).await?;
 
     // Create 2 different queries.
@@ -865,13 +872,14 @@ async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
     let query2 = Query::full_table_scan("table2".parse()?, Order::Asc);
 
     // Get a cursor from query 1.
-    let mut compiled_query1 = CompiledResolvedQuery::new(&mut tx, query1.clone())?;
+    let mut compiled_query1 = ResolvedQuery::new(&mut tx, namespace, query1.clone())?;
     compiled_query1.next(&mut tx, None).await?;
     let cursor1 = compiled_query1.cursor();
 
     //G We can use this to continue query 1 without any errors.
     ResolvedQuery::<TestRuntime>::new_bounded(
         &mut tx,
+        namespace,
         query1,
         cursor1.clone(),
         None,
@@ -885,6 +893,7 @@ async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
     // Using it on a different query generates an error.
     let err = ResolvedQuery::<TestRuntime>::new_bounded(
         &mut tx,
+        namespace,
         query2,
         cursor1,
         None,
@@ -1641,6 +1650,7 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
     let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
 
     let table_name: TableName = str::parse("table")?;
+    let namespace = TableNamespace::Global;
     let mut tx = db.begin_system().await?;
     let values = insert_documents(&mut tx, table_name.clone()).await?;
     db.commit(tx).await?;
@@ -1664,7 +1674,7 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = db.begin_system().await?;
     IndexModel::new(&mut tx)
-        .enable_index_for_testing(&index_name)
+        .enable_index_for_testing(namespace, &index_name)
         .await?;
     db.commit(tx).await?;
 
@@ -1710,7 +1720,7 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
             }),
             operators: vec![],
         };
-        let actual = run_query(db.clone(), query).await?;
+        let actual = run_query(db.clone(), namespace, query).await?;
         assert_eq!(actual, expected);
     }
     Ok(())
@@ -1724,6 +1734,7 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
     } = DbFixtures::new(&rt).await?;
 
     let table_name: TableName = str::parse("table")?;
+    let namespace = TableNamespace::Global;
     let mut tx = database.begin(Identity::system()).await?;
     let values = insert_documents(&mut tx, table_name.clone()).await?;
     database.commit(tx).await?;
@@ -1804,7 +1815,7 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
             }),
             operators: vec![],
         };
-        let actual = run_query(database.clone(), query).await?;
+        let actual = run_query(database.clone(), namespace, query).await?;
         assert_eq!(actual, expected);
     }
     Ok(())
@@ -1867,6 +1878,7 @@ async fn test_virtual_table_transaction(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_retries(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt).await;
+    let namespace = TableNamespace::Global;
     async fn insert(tx: &mut Transaction<TestRuntime>) -> anyhow::Result<()> {
         UserFacingModel::new_root_for_test(tx)
             .insert("table".parse()?, assert_obj!())
@@ -1885,7 +1897,7 @@ async fn test_retries(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = db.begin_system().await?;
     let query = Query::full_table_scan("table".parse()?, Order::Asc);
-    let mut compiled_query = CompiledResolvedQuery::new(&mut tx, query)?;
+    let mut compiled_query = ResolvedQuery::new(&mut tx, namespace, query)?;
     assert!(compiled_query.next(&mut tx, None).await?.is_none());
     Ok(())
 }

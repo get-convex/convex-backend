@@ -961,11 +961,15 @@ impl<RT: Runtime> Transaction<RT> {
     //
     pub async fn preload_index_range(
         &mut self,
+        namespace: TableNamespace,
         index_name: &IndexName,
         interval: &Interval,
     ) -> anyhow::Result<PreloadedIndexRange> {
-        let stable_index_name = IndexModel::new(self)
-            .stable_index_name(index_name, TableFilter::IncludePrivateSystemTables)?;
+        let stable_index_name = IndexModel::new(self).stable_index_name(
+            namespace,
+            index_name,
+            TableFilter::IncludePrivateSystemTables,
+        )?;
         let StableIndexName::Physical(tablet_index_name) = stable_index_name else {
             anyhow::bail!(
                 "Can only preload ranges on physical tables. Failed for index: {index_name} with \

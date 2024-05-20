@@ -169,9 +169,13 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    pub async fn enable_index_for_testing(&mut self, index: &IndexName) -> anyhow::Result<()> {
+    pub async fn enable_index_for_testing(
+        &mut self,
+        namespace: TableNamespace,
+        index: &IndexName,
+    ) -> anyhow::Result<()> {
         let metadata = self
-            .pending_index_metadata(index)?
+            .pending_index_metadata(namespace, index)?
             .ok_or_else(|| anyhow::anyhow!("Failed to find pending index: {}", index))?;
         self.enable_index(&metadata.into_value()).await
     }
@@ -369,7 +373,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         for new_index in indexes_in_schema {
             remaining_indexes.remove(&new_index.name);
 
-            match self.compare_new_and_existing_indexes(new_index)? {
+            match self.compare_new_and_existing_indexes(TableNamespace::Global, new_index)? {
                 IndexComparison::Added(index) => diff.added.push(index),
                 IndexComparison::Identical(index) => diff.identical.push(index),
                 IndexComparison::Replaced {
@@ -402,10 +406,11 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     fn compare_new_and_existing_indexes(
         &mut self,
+        namespace: TableNamespace,
         new_index: DeveloperIndexMetadata,
     ) -> anyhow::Result<IndexComparison> {
-        let pending_index = self.pending_index_metadata(&new_index.name)?;
-        let enabled_index = self.enabled_index_metadata(&new_index.name)?;
+        let pending_index = self.pending_index_metadata(namespace, &new_index.name)?;
+        let enabled_index = self.enabled_index_metadata(namespace, &new_index.name)?;
 
         fn identical_or_replaced(
             existing_index: ParsedDocument<TabletIndexMetadata>,
@@ -543,9 +548,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// pending_index_metadata.
     pub fn enabled_index_metadata(
         &mut self,
+        namespace: TableNamespace,
         index_name: &IndexName,
     ) -> anyhow::Result<Option<ParsedDocument<TabletIndexMetadata>>> {
-        self._index_metadata(index_name, |indexes, reads, index_name| {
+        self._index_metadata(namespace, index_name, |indexes, reads, index_name| {
             indexes.get_enabled(reads, &index_name)
         })
     }
@@ -558,9 +564,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// or require_enabled_index_metadata instead.
     pub fn pending_index_metadata(
         &mut self,
+        namespace: TableNamespace,
         index_name: &IndexName,
     ) -> anyhow::Result<Option<ParsedDocument<TabletIndexMetadata>>> {
-        self._index_metadata(index_name, |indexes, reads, index_name| {
+        self._index_metadata(namespace, index_name, |indexes, reads, index_name| {
             indexes.get_pending(reads, &index_name)
         })
     }
@@ -575,6 +582,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     fn _index_metadata<'b>(
         &'b mut self,
+        namespace: TableNamespace,
         index_name: &IndexName,
         getter: impl FnOnce(
             &'b mut TransactionIndex,
@@ -585,18 +593,19 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         if !self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .name_exists(index_name.table())
         {
             return Ok(None);
         }
-        let index_name = self.resolve_index_name(index_name)?;
+        let index_name = self.resolve_index_name(namespace, index_name)?;
         Ok(getter(&mut self.tx.index, &mut self.tx.reads, index_name)
             .map(|index| index.metadata.clone()))
     }
 
     pub fn stable_index_name(
         &mut self,
+        namespace: TableNamespace,
         index_name: &IndexName,
         table_filter: TableFilter,
     ) -> anyhow::Result<StableIndexName> {
@@ -612,24 +621,24 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 .clone();
             Ok(StableIndexName::Virtual(
                 index_name.clone(),
-                self.resolve_index_name(&physical_index_name)?,
+                self.resolve_index_name(namespace, &physical_index_name)?,
             ))
         } else if self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .name_exists(index_name.table())
         {
             match table_filter {
                 TableFilter::IncludePrivateSystemTables => Ok(StableIndexName::Physical(
-                    self.resolve_index_name(index_name)?,
+                    self.resolve_index_name(namespace, index_name)?,
                 )),
                 TableFilter::ExcludePrivateSystemTables => {
                     if index_name.table().is_system() {
                         Ok(StableIndexName::Missing)
                     } else {
                         Ok(StableIndexName::Physical(
-                            self.resolve_index_name(index_name)?,
+                            self.resolve_index_name(namespace, index_name)?,
                         ))
                     }
                 },
@@ -639,14 +648,14 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         }
     }
 
-    fn resolve_index_name(&mut self, index_name: &IndexName) -> anyhow::Result<TabletIndexName> {
-        let resolved = index_name.clone().map_table(
-            &self
-                .tx
-                .table_mapping()
-                .namespace(TableNamespace::Global)
-                .name_to_id(),
-        )?;
+    fn resolve_index_name(
+        &mut self,
+        namespace: TableNamespace,
+        index_name: &IndexName,
+    ) -> anyhow::Result<TabletIndexName> {
+        let resolved = index_name
+            .clone()
+            .map_table(&self.tx.table_mapping().namespace(namespace).name_to_id())?;
         Ok(resolved.into())
     }
 
@@ -699,7 +708,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             range: vec![],
             order: Order::Asc,
         });
-        let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
 
         let mut indexes = vec![];
         while let Some(document) = query_stream.next(self.tx, None).await? {

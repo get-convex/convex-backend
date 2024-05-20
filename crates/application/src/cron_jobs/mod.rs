@@ -78,7 +78,10 @@ use model::{
     modules::ModuleModel,
 };
 use usage_tracking::FunctionUsageTracker;
-use value::ResolvedDocumentId;
+use value::{
+    ResolvedDocumentId,
+    TableNamespace,
+};
 
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
@@ -162,7 +165,8 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 range: vec![],
                 order: Order::Asc,
             });
-            let mut query_stream = ResolvedQuery::new(&mut tx, index_query)?;
+            let mut query_stream =
+                ResolvedQuery::new(&mut tx, TableNamespace::Global, index_query)?;
 
             let mut next_job_wait = None;
             while let Some(doc) = query_stream.next(&mut tx, None).await? {

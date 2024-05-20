@@ -68,6 +68,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     ConvexArray,
     TableName,
+    TableNamespace,
 };
 
 use super::DatabaseUdfEnvironment;
@@ -795,6 +796,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                             ManagedQuery::Pending { query, version } => {
                                 DeveloperQuery::new_with_version(
                                     provider.tx()?,
+                                    TableNamespace::Global,
                                     query,
                                     version,
                                     table_filter,
@@ -824,6 +826,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                                     None,
                                     DeveloperQuery::new_with_version(
                                         tx,
+                                        TableNamespace::Global,
                                         query,
                                         version,
                                         table_filter,
@@ -1084,6 +1087,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         ) = {
             let query = DeveloperQuery::new_bounded(
                 tx,
+                TableNamespace::Global,
                 parsed_query,
                 start_cursor,
                 end_cursor,

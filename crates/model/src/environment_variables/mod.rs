@@ -40,6 +40,7 @@ use value::{
     FieldPath,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -118,7 +119,11 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
     pub async fn preload(&mut self) -> anyhow::Result<PreloadedEnvironmentVariables> {
         let range = self
             .tx
-            .preload_index_range(&ENVIRONMENT_VARIABLES_INDEX_BY_NAME, &Interval::all())
+            .preload_index_range(
+                TableNamespace::Global,
+                &ENVIRONMENT_VARIABLES_INDEX_BY_NAME,
+                &Interval::all(),
+            )
             .await?;
         Ok(PreloadedEnvironmentVariables { range })
     }
@@ -128,7 +133,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         name: &EnvVarName,
     ) -> anyhow::Result<Option<ParsedDocument<EnvironmentVariable>>> {
         let query = value_query_from_env_var(name)?;
-        let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         query_stream
             .expect_at_most_one(self.tx)
             .await?
@@ -153,7 +158,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
     #[minitrace::trace]
     pub async fn get_all(&mut self) -> anyhow::Result<BTreeMap<EnvVarName, EnvVarValue>> {
         let query = Query::full_table_scan(ENVIRONMENT_VARIABLES_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut environment_variables = BTreeMap::new();
         while let Some(doc) = query_stream.next(self.tx, None).await? {
             let env_var: ParsedDocument<PersistedEnvironmentVariable> = doc.try_into()?;

@@ -264,6 +264,7 @@ use value::{
     ConvexValue,
     Namespace,
     ResolvedDocumentId,
+    TableNamespace,
 };
 use vector::{
     PublicVectorSearchQueryResult,
@@ -2041,8 +2042,8 @@ impl<RT: Runtime> Application<RT> {
                 IndexMetadata::new_backfilling(*tx.begin_timestamp(), index_name, index_fields);
             let mut model = IndexModel::new(&mut tx);
             if let Some(existing_index_metadata) = model
-                .pending_index_metadata(&index_metadata.name)?
-                .or(model.enabled_index_metadata(&index_metadata.name)?)
+                .pending_index_metadata(TableNamespace::Global, &index_metadata.name)?
+                .or(model.enabled_index_metadata(TableNamespace::Global, &index_metadata.name)?)
             {
                 if !index_metadata
                     .config

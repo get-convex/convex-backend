@@ -22,6 +22,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     InternalId,
     TableName,
+    TableNamespace,
 };
 
 use super::assert_contains;
@@ -229,6 +230,7 @@ async fn test_private_system_table(rt: TestRuntime) -> anyhow::Result<()> {
         // backend state automatically created by with_model().
         let backend_state = ResolvedQuery::new(
             &mut tx,
+            TableNamespace::Global,
             Query::full_table_scan(BACKEND_STATE_TABLE.clone(), Order::Asc),
         )?
         .expect_at_most_one(&mut tx)

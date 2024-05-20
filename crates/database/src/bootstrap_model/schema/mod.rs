@@ -191,7 +191,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             order: Order::Asc,
         };
         let query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let schema = query_stream
             .expect_at_most_one(self.tx)
             .await?
@@ -427,7 +427,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     /// number of documents deleted. Keeps schemas table small.
     async fn delete_old_failed_and_overwritten_schemas(&mut self) -> anyhow::Result<usize> {
         let query = Query::full_table_scan(SCHEMAS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut num_deleted = 0;
         while let Some(doc) = query_stream.next(self.tx, None).await? {
             let schema_doc: ParsedDocument<SchemaMetadata> = doc.try_into()?;

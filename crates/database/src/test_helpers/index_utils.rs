@@ -21,7 +21,10 @@ use common::{
     },
 };
 use runtime::testing::TestRuntime;
-use value::TableIdentifier;
+use value::{
+    TableIdentifier,
+    TableNamespace,
+};
 
 use crate::{
     Database,
@@ -38,8 +41,8 @@ pub fn get_recent_index_metadata(
 
     let expected = IndexName::from_str(&format!("{table_name}.{index_name}"))?;
     IndexModel::new(tx)
-        .pending_index_metadata(&expected)?
-        .or(IndexModel::new(tx).enabled_index_metadata(&expected)?)
+        .pending_index_metadata(TableNamespace::Global, &expected)?
+        .or(IndexModel::new(tx).enabled_index_metadata(TableNamespace::Global, &expected)?)
         .map(|doc| doc.into_value())
         .context(format!("Missing index: {}", expected))
 }
@@ -51,8 +54,8 @@ fn assert_at_most_one_definition(
 ) -> anyhow::Result<()> {
     let index_name = new_index_name(table_name, index_name)?;
     let mut model = IndexModel::new(tx);
-    let enabled = model.enabled_index_metadata(&index_name)?;
-    let pending = model.pending_index_metadata(&index_name)?;
+    let enabled = model.enabled_index_metadata(TableNamespace::Global, &index_name)?;
+    let pending = model.pending_index_metadata(TableNamespace::Global, &index_name)?;
     assert!(enabled.is_none() || pending.is_none());
     Ok(())
 }

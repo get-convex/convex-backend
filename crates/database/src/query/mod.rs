@@ -40,6 +40,7 @@ use futures::{
 };
 use indexing::backend_in_memory_indexes::BatchKey;
 use maplit::btreemap;
+use value::TableNamespace;
 
 use self::{
     filter::Filter,
@@ -163,6 +164,7 @@ pub struct ResolvedQuery<RT: Runtime> {
 impl<RT: Runtime> ResolvedQuery<RT> {
     pub fn new_bounded(
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         query: Query,
         start_cursor: Option<Cursor>,
         end_cursor: Option<Cursor>,
@@ -175,6 +177,7 @@ impl<RT: Runtime> ResolvedQuery<RT> {
         Ok(Self {
             developer: DeveloperQuery::new_bounded(
                 tx,
+                namespace,
                 query,
                 start_cursor,
                 end_cursor,
@@ -187,9 +190,14 @@ impl<RT: Runtime> ResolvedQuery<RT> {
         })
     }
 
-    pub fn new(tx: &mut Transaction<RT>, query: Query) -> anyhow::Result<Self> {
+    pub fn new(
+        tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
+        query: Query,
+    ) -> anyhow::Result<Self> {
         Self::new_bounded(
             tx,
+            namespace,
             query,
             None,
             None,
@@ -203,11 +211,13 @@ impl<RT: Runtime> ResolvedQuery<RT> {
 
     pub fn new_with_version(
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         query: Query,
         version: Option<Version>,
     ) -> anyhow::Result<Self> {
         Self::new_bounded(
             tx,
+            namespace,
             query,
             None,
             None,
@@ -237,20 +247,34 @@ impl<RT: Runtime> AsMut<DeveloperQuery<RT>> for ResolvedQuery<RT> {
 impl<RT: Runtime> DeveloperQuery<RT> {
     pub fn new(
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         query: Query,
         table_filter: TableFilter,
     ) -> anyhow::Result<Self> {
-        Self::new_bounded(tx, query, None, None, None, None, false, None, table_filter)
+        Self::new_bounded(
+            tx,
+            namespace,
+            query,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            table_filter,
+        )
     }
 
     pub fn new_with_version(
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         query: Query,
         version: Option<Version>,
         table_filter: TableFilter,
     ) -> anyhow::Result<Self> {
         Self::new_bounded(
             tx,
+            namespace,
             query,
             None,
             None,
@@ -266,6 +290,7 @@ impl<RT: Runtime> DeveloperQuery<RT> {
 impl<RT: Runtime> DeveloperQuery<RT> {
     pub fn new_bounded(
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         query: Query,
         start_cursor: Option<Cursor>,
         end_cursor: Option<Cursor>,
@@ -288,7 +313,8 @@ impl<RT: Runtime> DeveloperQuery<RT> {
             QuerySource::IndexRange(ref index_range) => index_range.index_name.clone(),
             QuerySource::Search(ref search) => search.index_name.clone(),
         };
-        let stable_index_name = IndexModel::new(tx).stable_index_name(&index_name, table_filter)?;
+        let stable_index_name =
+            IndexModel::new(tx).stable_index_name(namespace, &index_name, table_filter)?;
         let indexed_fields = match query.source {
             QuerySource::FullTableScan(_) => IndexedFields::creation_time(),
             QuerySource::IndexRange(_) => {

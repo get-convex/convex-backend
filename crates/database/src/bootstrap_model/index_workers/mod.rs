@@ -30,6 +30,7 @@ use value::{
     FieldPath,
     InternalId,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -104,7 +105,7 @@ impl<'a, RT: Runtime> IndexWorkerMetadataModel<'a, RT> {
             range,
             order: Order::Asc,
         });
-        let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let result = query_stream.next(self.tx, None).await?;
         result
             .map(ParsedDocument::<IndexWorkerMetadataRecord>::try_from)

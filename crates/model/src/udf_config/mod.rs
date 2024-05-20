@@ -20,7 +20,10 @@ use database::{
 
 pub mod types;
 use types::UdfConfig;
-use value::TableName;
+use value::{
+    TableName,
+    TableNamespace,
+};
 
 use crate::{
     config::types::UdfServerVersionDiff,
@@ -60,7 +63,7 @@ impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
 
     pub async fn get(&mut self) -> anyhow::Result<Option<ParsedDocument<UdfConfig>>> {
         let index_query = Query::full_table_scan(UDF_CONFIG_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
         let config = query_stream
             .expect_at_most_one(self.tx)
             .await?

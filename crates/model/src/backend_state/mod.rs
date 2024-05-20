@@ -17,7 +17,10 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use value::TableName;
+use value::{
+    TableName,
+    TableNamespace,
+};
 
 use crate::{
     SystemIndex,
@@ -88,7 +91,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         &mut self,
     ) -> anyhow::Result<ParsedDocument<PersistedBackendState>> {
         let query = Query::full_table_scan(BACKEND_STATE_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let doc = query_stream
             .next(self.tx, None)
             .await?

@@ -318,13 +318,14 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
         use common::types::IndexName;
 
         let mut tx = database.begin(Identity::system()).await?;
+        let namespace = tx.table_mapping().tablet_namespace(*index_name.table())?;
         let index_name_ = IndexName::new(table_name.clone(), index_name.descriptor().clone())?;
         let mut model = IndexModel::new(&mut tx);
         let metadata = model
-            .pending_index_metadata(&index_name_)?
+            .pending_index_metadata(namespace, &index_name_)?
             .unwrap_or_else(|| {
                 model
-                    .enabled_index_metadata(&index_name_)
+                    .enabled_index_metadata(namespace, &index_name_)
                     .unwrap()
                     .unwrap_or_else(|| panic!("Missing pending or enabled index: {:?}", index_name))
             });
@@ -396,6 +397,7 @@ pub(crate) mod tests {
     use must_let::must_let;
     use runtime::testing::TestRuntime;
     use sync_types::Timestamp;
+    use value::TableNamespace;
 
     use crate::{
         test_helpers::new_test_database,
@@ -413,11 +415,12 @@ pub(crate) mod tests {
 
     async fn assert_snapshotted(
         database: &Database<TestRuntime>,
+        namespace: TableNamespace,
         index_name: &IndexName,
     ) -> anyhow::Result<Timestamp> {
         let mut tx = database.begin_system().await?;
         let new_metadata = IndexModel::new(&mut tx)
-            .enabled_index_metadata(index_name)?
+            .enabled_index_metadata(namespace, index_name)?
             .context("Index missing or in an unexpected state")?
             .into_value();
         must_let!(let IndexMetadata {
@@ -432,12 +435,13 @@ pub(crate) mod tests {
 
     async fn enable_pending_index(
         database: &Database<TestRuntime>,
+        namespace: TableNamespace,
         index_name: &IndexName,
     ) -> anyhow::Result<()> {
         let mut tx = database.begin_system().await.unwrap();
         let mut model = IndexModel::new(&mut tx);
         let index = model
-            .pending_index_metadata(index_name)?
+            .pending_index_metadata(namespace, index_name)?
             .context(format!("Missing pending index for {index_name:?}"))?;
         model
             .enable_backfilled_indexes(vec![index.into_value()])
@@ -453,6 +457,7 @@ pub(crate) mod tests {
         let IndexData {
             index_name,
             resolved_index_name,
+            namespace,
             ..
         } = create_search_index_with_document(&database).await?;
         let mut worker = new_search_worker(&rt, &database)?;
@@ -464,7 +469,7 @@ pub(crate) mod tests {
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
         // Check that the metadata is updated so it's no longer backfilling.
-        assert_backfilled(&database, &index_name).await?;
+        assert_backfilled(&database, namespace, &index_name).await?;
 
         Ok(())
     }
@@ -476,6 +481,7 @@ pub(crate) mod tests {
         let IndexData {
             index_name,
             resolved_index_name,
+            namespace,
             ..
         } = create_search_index_with_document(&database).await?;
         let mut worker = new_search_worker(&rt, &database)?;
@@ -487,7 +493,7 @@ pub(crate) mod tests {
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
         // Check that the metadata is updated so it's no longer backfilling.
-        let initial_snapshot_ts = assert_backfilled(&database, &index_name).await?;
+        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
 
         // Write 10 more documents into the table to trigger a new snapshot.
         let mut tx = database.begin_system().await.unwrap();
@@ -505,7 +511,7 @@ pub(crate) mod tests {
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 11});
 
         // Check that the metadata is updated so it's no longer backfilling.
-        let new_snapshot_ts = assert_backfilled(&database, &index_name).await?;
+        let new_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
         assert!(new_snapshot_ts > initial_snapshot_ts);
 
         Ok(())
@@ -518,6 +524,7 @@ pub(crate) mod tests {
         let IndexData {
             index_name,
             resolved_index_name,
+            namespace,
             ..
         } = create_search_index_with_document(&database).await?;
         let mut worker = new_search_worker(&rt, &database)?;
@@ -528,9 +535,9 @@ pub(crate) mod tests {
         // Make sure we actually built this index with one document.
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
         // Check that the metadata is updated so it's no longer backfilling.
-        let initial_snapshot_ts = assert_backfilled(&database, &index_name).await?;
+        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
         // Enable the index so it's in the Snapshotted state.
-        enable_pending_index(&database, &index_name).await?;
+        enable_pending_index(&database, namespace, &index_name).await?;
         // Write 10 more documents into the table to trigger a new snapshot.
         let mut tx = database.begin_system().await.unwrap();
         for _ in 0..10 {
@@ -547,7 +554,7 @@ pub(crate) mod tests {
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 11});
 
         // Check that the metadata is updated and still enabled.
-        let new_snapshot_ts = assert_snapshotted(&database, &index_name).await?;
+        let new_snapshot_ts = assert_snapshotted(&database, namespace, &index_name).await?;
         assert!(new_snapshot_ts > initial_snapshot_ts);
 
         Ok(())
@@ -562,12 +569,13 @@ pub(crate) mod tests {
         let IndexData {
             index_name,
             resolved_index_name,
+            namespace,
             ..
         } = create_search_index_with_document(&database).await?;
 
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
-        let initial_snapshot_ts = assert_backfilled(&database, &index_name).await?;
+        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
 
         // Write a single document underneath our soft limit and check that we don't
         // snapshot.
@@ -579,7 +587,7 @@ pub(crate) mod tests {
         assert!(metrics.is_empty());
         assert_eq!(
             initial_snapshot_ts,
-            assert_backfilled(&database, &index_name).await?
+            assert_backfilled(&database, namespace, &index_name).await?
         );
 
         // Advance time past the max index age (and do an unrelated commit to bump the
@@ -594,7 +602,7 @@ pub(crate) mod tests {
 
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 2});
-        assert!(initial_snapshot_ts < assert_backfilled(&database, &index_name).await?);
+        assert!(initial_snapshot_ts < assert_backfilled(&database, namespace, &index_name).await?);
 
         Ok(())
     }

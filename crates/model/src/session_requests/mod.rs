@@ -30,6 +30,7 @@ use value::{
     ConvexValue,
     FieldPath,
     TableName,
+    TableNamespace,
 };
 
 pub mod types;
@@ -127,7 +128,7 @@ impl<'a, RT: Runtime> SessionRequestModel<'a, RT> {
             // Note that this does not check the
             // transaction's outstanding writes. This is ok since we know we didn't
             // commit in the current transaction.
-            let mut query_stream = ResolvedQuery::new(self.tx, query)?;
+            let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
             let Some((doc, ts)) = query_stream.next_with_ts(self.tx, None).await? else {
                 return Ok(None);
             };

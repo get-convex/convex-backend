@@ -21,7 +21,10 @@ use database::{
     SystemMetadataModel,
     Transaction,
 };
-use value::TableName;
+use value::{
+    TableName,
+    TableNamespace,
+};
 
 use self::types::AuthInfoPersisted;
 use crate::{
@@ -101,7 +104,7 @@ impl<'a, RT: Runtime> AuthInfoModel<'a, RT> {
 
     async fn get_inner(&mut self) -> anyhow::Result<Vec<ParsedDocument<AuthInfo>>> {
         let auth_query = Query::full_table_scan(AUTH_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, auth_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, auth_query)?;
         let mut auth_infos = vec![];
         while let Some(auth_value) = query_stream.next(self.tx, None).await? {
             let parsed: ParsedDocument<AuthInfoPersisted> = auth_value.try_into()?;

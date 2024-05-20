@@ -112,6 +112,7 @@ use usage_tracking::{
 use value::{
     export::ValueFormat,
     id_v6::DeveloperDocumentId,
+    TableNamespace,
     TableNumber,
     TabletId,
     VirtualTableMapping,
@@ -263,7 +264,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             order: Order::Asc,
         };
         let query = common::query::Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(tx, query)?;
+        let mut query_stream = ResolvedQuery::new(tx, TableNamespace::Global, query)?;
         query_stream
             .expect_at_most_one(tx)
             .await?
@@ -287,7 +288,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             order: Order::Desc,
         };
         let query = common::query::Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(tx, query)?;
+        let mut query_stream = ResolvedQuery::new(tx, TableNamespace::Global, query)?;
         query_stream.expect_at_most_one(tx).await
     }
 

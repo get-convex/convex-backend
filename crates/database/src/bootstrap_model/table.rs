@@ -247,7 +247,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
     async fn next_table_number(&mut self, is_system: bool) -> anyhow::Result<TableNumber> {
         let tables_query = Query::full_table_scan(TABLES_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, tables_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, tables_query)?;
         let mut max_table_number = TableNumber::try_from(if is_system {
             NUM_RESERVED_LEGACY_TABLE_NUMBERS
         } else {
@@ -259,7 +259,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         }
 
         let virtual_tables_query = Query::full_table_scan(VIRTUAL_TABLES_TABLE.clone(), Order::Asc);
-        let mut virtual_query_stream = ResolvedQuery::new(self.tx, virtual_tables_query)?;
+        let mut virtual_query_stream =
+            ResolvedQuery::new(self.tx, TableNamespace::Global, virtual_tables_query)?;
         while let Some(table_metadata) = virtual_query_stream.next(self.tx, None).await? {
             let parsed_metadata: ParsedDocument<VirtualTableMetadata> =
                 table_metadata.try_into()?;

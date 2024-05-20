@@ -26,6 +26,7 @@ use usage_tracking::{
     CallType,
     FunctionUsageTracker,
 };
+use value::TableNamespace;
 use vector::VectorSearch;
 
 use crate::{
@@ -284,6 +285,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
 
     // Add a user index
     let table_name: TableName = "my_table".parse()?;
+    let namespace = TableNamespace::Global;
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
         .begin_with_usage(Identity::system(), tx_usage.clone())
@@ -345,7 +347,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         range: vec![IndexRangeExpression::Eq("key".parse()?, maybe_val!(1))],
         order: Order::Asc,
     });
-    let mut query_stream = ResolvedQuery::new(&mut tx, index_query)?;
+    let mut query_stream = ResolvedQuery::new(&mut tx, namespace, index_query)?;
     while query_stream.next(&mut tx, None).await?.is_some() {}
     db.commit(tx).await?;
     db.usage_counter().track_call(

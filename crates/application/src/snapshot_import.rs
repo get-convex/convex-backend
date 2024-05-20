@@ -2378,6 +2378,7 @@ mod tests {
         ConvexObject,
         FieldName,
         TableName,
+        TableNamespace,
     };
 
     use super::{
@@ -2992,7 +2993,7 @@ a
             let mut tx = app.begin(identity.clone()).await?;
             let mut index_model = IndexModel::new(&mut tx);
             let index = index_model
-                .enabled_index_metadata(&index_name)?
+                .enabled_index_metadata(TableNamespace::Global, &index_name)?
                 .context("index does not exist")?;
             assert_ne!(index.id(), index_id);
             assert!(index.config.is_enabled());
@@ -3072,7 +3073,7 @@ a
         let mut tx = app.begin(new_admin_id()).await?;
         let table_name = TableName::from_str(table_name)?;
         let query = common::query::Query::full_table_scan(table_name.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(&mut tx, query)?;
+        let mut query_stream = ResolvedQuery::new(&mut tx, TableNamespace::Global, query)?;
 
         let mut docs: Vec<ResolvedDocument> = Vec::new();
         while let Some(doc) = query_stream.next(&mut tx, None).await? {

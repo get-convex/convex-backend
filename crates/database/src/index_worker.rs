@@ -93,7 +93,10 @@ use maplit::{
     btreeset,
 };
 use tracing::log;
-use value::InternalDocumentId;
+use value::{
+    InternalDocumentId,
+    TableNamespace,
+};
 
 use crate::{
     metrics::{
@@ -285,7 +288,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             });
             let mut index_documents = BTreeMap::new();
             {
-                let mut query = ResolvedQuery::new(&mut tx, index_scan)?;
+                let mut query = ResolvedQuery::new(&mut tx, TableNamespace::Global, index_scan)?;
                 while let Some(document) = query.next(&mut tx, None).await? {
                     index_documents.insert(document.id(), document);
                 }

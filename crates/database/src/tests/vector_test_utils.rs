@@ -110,6 +110,7 @@ pub struct VectorFixtures {
     pub reader: Arc<dyn PersistenceReader>,
     searcher: Arc<dyn Searcher>,
     config: CompactionConfig,
+    namespace: TableNamespace,
 }
 
 /// The size of the vectors these fixtures use [f32; 2]. We actually require f64
@@ -147,6 +148,7 @@ impl VectorFixtures {
             storage: search_storage,
             searcher,
             config,
+            namespace: TableNamespace::Global,
         })
     }
 
@@ -170,7 +172,7 @@ impl VectorFixtures {
         .await?;
         let mut tx = self.db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .enable_index_for_testing(&index_data.index_name)
+            .enable_index_for_testing(index_data.namespace, &index_data.index_name)
             .await?;
         self.db.commit(tx).await?;
         Ok(index_data)
@@ -320,9 +322,9 @@ impl VectorFixtures {
     ) -> anyhow::Result<ParsedDocument<TabletIndexMetadata>> {
         let mut tx = self.db.begin_system().await?;
         let mut index_model = IndexModel::new(&mut tx);
-        let mut metadata = index_model.enabled_index_metadata(&index_name)?;
+        let mut metadata = index_model.enabled_index_metadata(self.namespace, &index_name)?;
         if metadata.is_none() {
-            metadata = index_model.pending_index_metadata(&index_name)?;
+            metadata = index_model.pending_index_metadata(self.namespace, &index_name)?;
         }
         let metadata = metadata.context("Index is neither pending nor enabled!")?;
         Ok(metadata)
@@ -425,6 +427,7 @@ pub struct IndexData {
     pub index_id: ResolvedDocumentId,
     pub index_name: IndexName,
     pub resolved_index_name: TabletIndexName,
+    pub namespace: TableNamespace,
 }
 
 fn new_backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
@@ -457,12 +460,13 @@ pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Res
     let index_metadata = new_backfilling_vector_index()?;
     let index_name = &index_metadata.name;
     let mut tx = db.begin_system().await?;
+    let namespace = TableNamespace::Global;
     let index_id = IndexModel::new(&mut tx)
         .add_application_index(index_metadata.clone())
         .await?;
     let table_id = tx
         .table_mapping()
-        .namespace(TableNamespace::Global)
+        .namespace(namespace)
         .id(index_name.table())?
         .tablet_id;
     db.commit(tx).await?;
@@ -471,6 +475,7 @@ pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Res
         index_id,
         resolved_index_name,
         index_name: index_name.clone(),
+        namespace,
     })
 }
 
@@ -513,11 +518,12 @@ pub async fn backfill<RT: Runtime>(
 
 pub(crate) async fn assert_backfilled(
     database: &Database<TestRuntime>,
+    namespace: TableNamespace,
     index_name: &IndexName,
 ) -> anyhow::Result<Timestamp> {
     let mut tx = database.begin_system().await?;
     let new_metadata = IndexModel::new(&mut tx)
-        .pending_index_metadata(index_name)?
+        .pending_index_metadata(namespace, index_name)?
         .context("Index missing or in an unexpected state")?
         .into_value();
     must_let!(let IndexMetadata {
