@@ -85,8 +85,8 @@ use maplit::btreemap;
 use model::{
     config::{
         module_loader::{
-            test_module_loader::UncachedModuleLoader,
             ModuleLoader,
+            TransactionModuleLoader,
         },
         types::{
             ConfigMetadata,
@@ -99,10 +99,6 @@ use model::{
         FileStorageId,
     },
     scheduled_jobs::VirtualSchedulerModel,
-    source_packages::{
-        types::SourcePackage,
-        upload_download::upload_package,
-    },
     test_helpers::DbFixturesWithModel,
     udf_config::{
         types::UdfConfig,
@@ -223,8 +219,7 @@ pub static TEST_SOURCE_ISOLATE_ONLY: LazyLock<Vec<ModuleConfig>> = LazyLock::new
 
 pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentData<RT>> {
     let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
-    let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-    let module_loader = Arc::new(UncachedModuleLoader { modules_storage });
+    let module_loader = Arc::new(TransactionModuleLoader);
     let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
     let convex_origin = "http://127.0.0.1:8000".into();
     let file_storage = TransactionalFileStorage::new(rt.clone(), storage.clone(), convex_origin);
@@ -284,10 +279,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             .into_join_future()
             .await?;
         let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
-        let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let module_loader = Arc::new(UncachedModuleLoader {
-            modules_storage: modules_storage.clone(),
-        });
+        let module_loader = Arc::new(TransactionModuleLoader);
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let convex_origin = "http://127.0.0.1:8000".into();
         let file_storage =
@@ -319,39 +311,25 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         );
 
         let udf_config = UdfConfig::new_for_test(&rt, config.udf_server_version);
-        let modules_by_path: BTreeMap<_, _> = modules
+        let modules_by_path = modules
             .iter()
             .map(|c| (c.path.clone().canonicalize(), c.clone()))
             .collect();
         let analyze_results = match isolate
-            .analyze(udf_config.clone(), modules_by_path.clone(), BTreeMap::new())
+            .analyze(udf_config.clone(), modules_by_path, BTreeMap::new())
             .await?
         {
             Ok(analyze_results) => analyze_results,
             Err(err) => return Ok(Err(err)),
         };
 
-        let (storage_key, sha256, package_size) = upload_package(
-            modules_by_path
-                .iter()
-                .map(|(path, m)| (path.clone(), m))
-                .collect(),
-            modules_storage,
-            None,
-        )
-        .await?;
         let mut tx = database.begin(Identity::system()).await?;
         ConfigModel::new(&mut tx)
             .apply(
                 ConfigMetadata::new(),
                 modules,
                 udf_config,
-                Some(SourcePackage {
-                    storage_key,
-                    sha256,
-                    package_size,
-                    external_deps_package_id: None,
-                }),
+                None,
                 analyze_results,
                 None,
             )

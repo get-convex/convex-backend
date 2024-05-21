@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::collections::BTreeMap;
 
 use common::{
     db_schema,
@@ -22,13 +19,12 @@ use database::{
 use keybroker::Identity;
 use maplit::btreemap;
 use runtime::testing::TestRuntime;
-use storage::LocalDirStorage;
 use value::heap_size::WithHeapSize;
 
 use crate::{
     auth::AuthInfoModel,
     config::{
-        module_loader::test_module_loader::UncachedModuleLoader,
+        module_loader::TransactionModuleLoader,
         types::{
             ConfigMetadata,
             ModuleConfig,
@@ -36,10 +32,6 @@ use crate::{
         ConfigModel,
     },
     modules::module_versions::AnalyzedModule,
-    source_packages::{
-        types::SourcePackage,
-        upload_download::upload_package,
-    },
     test_helpers::DbFixturesWithModel,
     udf_config::types::UdfConfig,
 };
@@ -47,7 +39,6 @@ use crate::{
 #[convex_macro::test_runtime]
 async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
     let database = DbFixtures::new(&rt.clone()).await?.with_model().await?.db;
-    let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
 
     // Initialize config
     let mut tx = database.begin(Identity::system()).await?;
@@ -66,26 +57,12 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
     };
     let p1 = module1.path.clone().canonicalize();
     let p2 = module2.path.clone().canonicalize();
-    let (storage_key, sha256, package_size) = upload_package(
-        btreemap! {
-            p1.clone() => &module1,
-            p2.clone() => &module2,
-        },
-        modules_storage.clone(),
-        None,
-    )
-    .await?;
     ConfigModel::new(&mut tx)
         .apply(
             config_metadata.clone(),
             vec![module1.clone(), module2.clone()],
             UdfConfig::new_for_test(&rt, "1000.0.0".parse()?),
-            Some(SourcePackage {
-                storage_key,
-                sha256,
-                external_deps_package_id: None,
-                package_size,
-            }),
+            None, // source storage key
             btreemap! {
                 p1 => AnalyzedModule {
                     functions: WithHeapSize::default(),
@@ -108,7 +85,7 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
     // Fetch it back and it make sure it's there.
     let mut tx = database.begin(Identity::system()).await?;
     let (config_metadata_read, modules_read, ..) = ConfigModel::new(&mut tx)
-        .get(&UncachedModuleLoader { modules_storage })
+        .get(&TransactionModuleLoader)
         .await
         .expect("getting config should succeed");
     assert_eq!(config_metadata, config_metadata_read);
@@ -120,7 +97,6 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
     let database = DbFixtures::new(&rt.clone()).await?.with_model().await?.db;
-    let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
 
     // Initialize config
     let mut tx = database.begin(Identity::system()).await?;
@@ -151,26 +127,12 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
             )
         })
         .collect();
-    let (storage_key, sha256, package_size) = upload_package(
-        modules
-            .iter()
-            .map(|m| (m.path.clone().canonicalize(), m))
-            .collect(),
-        modules_storage.clone(),
-        None,
-    )
-    .await?;
     ConfigModel::new(&mut tx)
         .apply(
             config_metadata.clone(),
             modules.clone(),
             UdfConfig::new_for_test(&rt, "1000.0.0".parse()?),
-            Some(SourcePackage {
-                storage_key,
-                sha256,
-                external_deps_package_id: None,
-                package_size,
-            }),
+            None, // source storage key
             analyzed_result,
             None,
         )
@@ -179,7 +141,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = database.begin(Identity::system()).await?;
     let (config_metadata_read, modules_read, ..) = ConfigModel::new(&mut tx)
-        .get(&UncachedModuleLoader { modules_storage })
+        .get(&TransactionModuleLoader)
         .await
         .expect("getting config should succeed");
     assert_eq!(config_metadata, config_metadata_read);
