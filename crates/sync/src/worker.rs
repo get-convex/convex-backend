@@ -18,9 +18,9 @@ use application::{
         RedactedJsError,
         RedactedLogLines,
     },
-    ActionError,
     Application,
-    MutationError,
+    RedactedActionError,
+    RedactedMutationError,
 };
 use cmd_util::env::env_config;
 use common::{
@@ -475,7 +475,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 ts: Some(udf_return.ts),
                                 log_lines: udf_return.log_lines.into(),
                             },
-                            Err(MutationError { error, log_lines }) => {
+                            Err(RedactedMutationError { error, log_lines }) => {
                                 ServerMessage::MutationResponse {
                                     request_id,
                                     result: Err(error.into_error_payload()),
@@ -539,10 +539,12 @@ impl<RT: Runtime> SyncWorker<RT> {
                             result: Ok(udf_return.value),
                             log_lines: udf_return.log_lines.into(),
                         },
-                        Err(ActionError { error, log_lines }) => ServerMessage::ActionResponse {
-                            request_id,
-                            result: Err(error.into_error_payload()),
-                            log_lines: log_lines.into(),
+                        Err(RedactedActionError { error, log_lines }) => {
+                            ServerMessage::ActionResponse {
+                                request_id,
+                                result: Err(error.into_error_payload()),
+                                log_lines: log_lines.into(),
+                            }
                         },
                     };
                     Ok(response)

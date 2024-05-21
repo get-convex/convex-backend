@@ -212,10 +212,6 @@ use crate::{
         FunctionExecutionLog,
         HttpActionStatusCode,
     },
-    redaction::{
-        RedactedJsError,
-        RedactedLogLines,
-    },
     ActionError,
     ActionReturn,
     MutationError,
@@ -736,7 +732,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
         pause_client: PauseClient,
-        block_logging: bool,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         let timer = mutation_timer();
         let result = self
@@ -748,7 +743,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 mutation_identifier,
                 caller,
                 pause_client,
-                block_logging,
             )
             .await;
         match &result {
@@ -769,7 +763,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
         mut pause_client: PauseClient,
-        block_logging: bool,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
@@ -778,8 +771,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(MutationError {
-                    error: RedactedJsError::from_js_error(error, block_logging, request_id),
-                    log_lines: RedactedLogLines::empty(),
+                    error,
+                    log_lines: vec![].into(),
                 }))
             },
         };
@@ -807,7 +800,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
             // Return the previous execution's result if the mutation was committed already.
             if let Some(result) = self
-                .check_mutation_status(&mut tx, &mutation_identifier, block_logging)
+                .check_mutation_status(&mut tx, &mutation_identifier)
                 .await?
             {
                 return Ok(result);
@@ -845,8 +838,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
             let stats = tx.take_stats();
             let execution_time = start.elapsed();
-            let log_lines =
-                RedactedLogLines::from_log_lines(outcome.log_lines.clone(), block_logging);
+            let log_lines = outcome.log_lines.clone();
             let value = match outcome.result {
                 Ok(ref value) => value.clone(),
                 // If it's an error inside the UDF, log the failed execution and return the
@@ -862,11 +854,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         context.clone(),
                     );
                     return Ok(Err(MutationError {
-                        error: RedactedJsError::from_js_error(
-                            error.to_owned(),
-                            block_logging,
-                            context.request_id,
-                        ),
+                        error: error.to_owned(),
                         log_lines,
                     }));
                 },
@@ -892,11 +880,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         let js_error = JsError::from_error(e);
                         outcome.result = Err(js_error.clone());
                         Err(MutationError {
-                            error: RedactedJsError::from_js_error(
-                                js_error,
-                                block_logging,
-                                context.request_id.clone(),
-                            ),
+                            error: js_error,
                             log_lines,
                         })
                     } else {
@@ -1047,7 +1031,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
-        block_logging: bool,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
         if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
@@ -1056,8 +1039,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(ActionError {
-                    error: RedactedJsError::from_js_error(error, block_logging, request_id),
-                    log_lines: RedactedLogLines::empty(),
+                    error,
+                    log_lines: vec![].into(),
                 }))
             },
         };
@@ -1091,8 +1074,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 anyhow::bail!(e)
             },
         };
-        let log_lines =
-            RedactedLogLines::from_log_lines(completion.log_lines().clone(), block_logging);
+        let log_lines = completion.log_lines().clone();
         let result = completion.outcome.result.clone();
         self.function_log.log_action(completion, usage_tracking);
 
@@ -1100,12 +1082,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Ok(ref value) => value.unpack(),
             // If it's an error inside the UDF, log the failed execution and return the
             // developer error.
-            Err(error) => {
-                return Ok(Err(ActionError {
-                    error: RedactedJsError::from_js_error(error, block_logging, request_id),
-                    log_lines,
-                }))
-            },
+            Err(error) => return Ok(Err(ActionError { error, log_lines })),
         };
 
         Ok(Ok(ActionReturn { value, log_lines }))
@@ -1945,7 +1922,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         tx: &mut Transaction<RT>,
         mutation_identifier: &Option<SessionRequestIdentifier>,
-        block_logging: bool,
     ) -> anyhow::Result<Option<Result<MutationReturn, MutationError>>> {
         let Some(ref identifier) = mutation_identifier else {
             return Ok(None);
@@ -1957,7 +1933,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Some((ts, SessionRequestOutcome::Mutation { result, log_lines })) => {
                 tracing::info!("Mutation already executed so skipping {:?}", identifier);
                 log_mutation_already_committed();
-                let log_lines = RedactedLogLines::from_log_lines(log_lines, block_logging);
                 Ok(MutationReturn {
                     value: result,
                     log_lines,
@@ -2033,8 +2008,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        // We never block logging for functions called by actions.
-        let block_logging = false;
         let result = self
             .retry_mutation(
                 context.request_id,
@@ -2046,12 +2019,11 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },
                 PauseClient::new(),
-                block_logging,
             )
             .await
             .map(|r| match r {
                 Ok(mutation_return) => Ok(mutation_return.value),
-                Err(mutation_error) => Err(mutation_error.error.pretend_to_unredact()),
+                Err(mutation_error) => Err(mutation_error.error),
             })?;
         Ok(FunctionResult { result })
     }
@@ -2064,8 +2036,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        // We never block logging for functions called by actions.
-        let block_logging = false;
         let _tx = self.database.begin(identity.clone()).await?;
         let result = self
             .run_action(
@@ -2076,12 +2046,11 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },
-                block_logging,
             )
             .await
             .map(|r| match r {
                 Ok(action_return) => Ok(action_return.value),
-                Err(action_error) => Err(action_error.error.pretend_to_unredact()),
+                Err(action_error) => Err(action_error.error),
             })?;
         Ok(FunctionResult { result })
     }

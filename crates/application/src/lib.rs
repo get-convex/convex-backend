@@ -353,6 +353,13 @@ pub struct RedactedQueryReturn {
 #[derive(Debug)]
 pub struct MutationReturn {
     pub value: ConvexValue,
+    pub log_lines: LogLines,
+    pub ts: Timestamp,
+}
+
+#[derive(Debug)]
+pub struct RedactedMutationReturn {
+    pub value: ConvexValue,
     pub log_lines: RedactedLogLines,
     pub ts: Timestamp,
 }
@@ -360,6 +367,13 @@ pub struct MutationReturn {
 #[derive(thiserror::Error, Debug)]
 #[error("Mutation failed: {error}")]
 pub struct MutationError {
+    pub error: JsError,
+    pub log_lines: LogLines,
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("Mutation failed: {error}")]
+pub struct RedactedMutationError {
     pub error: RedactedJsError,
     pub log_lines: RedactedLogLines,
 }
@@ -367,12 +381,25 @@ pub struct MutationError {
 #[derive(Debug)]
 pub struct ActionReturn {
     pub value: ConvexValue,
+    pub log_lines: LogLines,
+}
+
+#[derive(Debug)]
+pub struct RedactedActionReturn {
+    pub value: ConvexValue,
     pub log_lines: RedactedLogLines,
 }
 
 #[derive(thiserror::Error, Debug)]
 #[error("Action failed: {error}")]
 pub struct ActionError {
+    pub error: JsError,
+    pub log_lines: LogLines,
+}
+
+#[derive(thiserror::Error, Debug)]
+#[error("Action failed: {error}")]
+pub struct RedactedActionError {
     pub error: RedactedJsError,
     pub log_lines: RedactedLogLines,
 }
@@ -906,7 +933,7 @@ impl<RT: Runtime> Application<RT> {
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
         pause_client: PauseClient,
-    ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
+    ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -915,7 +942,7 @@ impl<RT: Runtime> Application<RT> {
                 caller.allowed_visibility(),
             )
             .await?;
-        match self
+        let result = match self
             .runner
             .retry_mutation(
                 request_id.clone(),
@@ -925,21 +952,39 @@ impl<RT: Runtime> Application<RT> {
                 mutation_identifier,
                 caller,
                 pause_client,
-                block_logging,
             )
             .await
         {
-            Ok(result) => Ok(result),
-            Err(e) if e.is_deterministic_user_error() => Ok(Err(MutationError {
+            Ok(Ok(mutation_return)) => Ok(RedactedMutationReturn {
+                value: mutation_return.value,
+                log_lines: RedactedLogLines::from_log_lines(
+                    mutation_return.log_lines,
+                    block_logging,
+                ),
+                ts: mutation_return.ts,
+            }),
+            Ok(Err(mutation_error)) => Err(RedactedMutationError {
+                error: RedactedJsError::from_js_error(
+                    mutation_error.error,
+                    block_logging,
+                    request_id,
+                ),
+                log_lines: RedactedLogLines::from_log_lines(
+                    mutation_error.log_lines,
+                    block_logging,
+                ),
+            }),
+            Err(e) if e.is_deterministic_user_error() => Err(RedactedMutationError {
                 error: RedactedJsError::from_js_error(
                     JsError::from_error(e),
                     block_logging,
                     request_id,
                 ),
                 log_lines: RedactedLogLines::empty(),
-            })),
+            }),
             Err(e) => anyhow::bail!(e),
-        }
+        };
+        Ok(result)
     }
 
     #[minitrace::trace]
@@ -950,7 +995,7 @@ impl<RT: Runtime> Application<RT> {
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
-    ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
+    ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -968,7 +1013,7 @@ impl<RT: Runtime> Application<RT> {
             .unwrap_or(Span::noop());
         let run_action = async move {
             runner
-                .run_action(request_id_, name, args, identity, caller, block_logging)
+                .run_action(request_id_, name, args, identity, caller)
                 .in_span(span)
                 .await
         };
@@ -988,10 +1033,22 @@ impl<RT: Runtime> Application<RT> {
             // future will get dropped.
             run_action.await
         };
-        match result {
-            Ok(result) => Ok(result),
+        let result = match result {
+            Ok(Ok(action_return)) => Ok(RedactedActionReturn {
+                value: action_return.value,
+                log_lines: RedactedLogLines::from_log_lines(action_return.log_lines, block_logging),
+            }),
+            Ok(Err(action_error)) => Err(RedactedActionError {
+                error: RedactedJsError::from_js_error(
+                    action_error.error,
+                    block_logging,
+                    request_id,
+                ),
+                log_lines: RedactedLogLines::from_log_lines(action_error.log_lines, block_logging),
+            }),
             Err(e) => anyhow::bail!(e),
-        }
+        };
+        Ok(result)
     }
 
     #[minitrace::trace]
@@ -1132,12 +1189,12 @@ impl<RT: Runtime> Application<RT> {
                 .await
                 .map(|res| {
                     res.map(
-                        |MutationReturn {
+                        |RedactedMutationReturn {
                              value, log_lines, ..
                          }| FunctionReturn { value, log_lines },
                     )
                     .map_err(
-                        |MutationError {
+                        |RedactedMutationError {
                              error, log_lines, ..
                          }| FunctionError { error, log_lines },
                     )
@@ -1147,12 +1204,12 @@ impl<RT: Runtime> Application<RT> {
                 .await
                 .map(|res| {
                     res.map(
-                        |ActionReturn {
+                        |RedactedActionReturn {
                              value, log_lines, ..
                          }| FunctionReturn { value, log_lines },
                     )
                     .map_err(
-                        |ActionError {
+                        |RedactedActionError {
                              error, log_lines, ..
                          }| FunctionError { error, log_lines },
                     )

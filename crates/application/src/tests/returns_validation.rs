@@ -17,18 +17,18 @@ use serde_json::json;
 
 use crate::{
     test_helpers::ApplicationTestExt,
-    ActionError,
-    ActionReturn,
     Application,
-    MutationError,
-    MutationReturn,
+    RedactedActionError,
+    RedactedActionReturn,
+    RedactedMutationError,
+    RedactedMutationReturn,
     RedactedQueryReturn,
 };
 
 async fn run_zero_arg_mutation(
     application: &Application<TestRuntime>,
     name: &str,
-) -> anyhow::Result<Result<MutationReturn, MutationError>> {
+) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
     let obj = json!({});
     application
         .mutation_udf(
@@ -68,7 +68,7 @@ async fn run_zero_arg_query(
 async fn run_zero_arg_action(
     application: &Application<TestRuntime>,
     name: &str,
-) -> anyhow::Result<Result<ActionReturn, ActionError>> {
+) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
     let obj = json!({});
     application
         .action_udf(

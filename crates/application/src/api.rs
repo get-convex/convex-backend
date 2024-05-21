@@ -19,11 +19,11 @@ use crate::{
         RedactedJsError,
         RedactedLogLines,
     },
-    ActionError,
-    ActionReturn,
     Application,
-    MutationError,
-    MutationReturn,
+    RedactedActionError,
+    RedactedActionReturn,
+    RedactedMutationError,
+    RedactedMutationReturn,
 };
 
 // A trait that abstracts the backend API. It all state and validation logic
@@ -40,7 +40,7 @@ pub trait ApplicationApi: Send + Sync {
         path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
-        // TODO(presley): Replace this with QueryReturn.
+        // TODO(presley): Replace this with RedactedQueryReturn.
     ) -> anyhow::Result<(Result<ConvexValue, RedactedJsError>, RedactedLogLines)>;
 
     async fn execute_public_mutation(
@@ -53,7 +53,7 @@ pub trait ApplicationApi: Send + Sync {
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
-    ) -> anyhow::Result<Result<MutationReturn, MutationError>>;
+    ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>>;
 
     async fn execute_public_action(
         &self,
@@ -63,7 +63,7 @@ pub trait ApplicationApi: Send + Sync {
         path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
-    ) -> anyhow::Result<Result<ActionReturn, ActionError>>;
+    ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
 }
 
 // Implements ApplicationApi via Application.
@@ -106,7 +106,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
-    ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
+    ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         anyhow::ensure!(
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
@@ -135,7 +135,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
-    ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
+    ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
         anyhow::ensure!(
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."

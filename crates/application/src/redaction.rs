@@ -108,22 +108,6 @@ impl RedactedJsError {
         }
     }
 
-    // TODO: eliminate this method. CX-4094
-    // This is because of a layering issue
-    // where we are converting back and forth between redacted and unredacted form.
-    // A refactor should make it possible to eliminate this. Unredaction is not
-    // actually possible.
-    // Note - this also happens to clean up duplicat request ids in nested
-    // UDFs (e.g. action -> action that throws). If we remove this method, we can
-    // switch to the nested_to_string method below when formatting to get a similar
-    // result.
-    pub fn pretend_to_unredact(self) -> JsError {
-        if self.block_logging {
-            return JsError::from_message("Server Error".to_string());
-        }
-        self.error
-    }
-
     pub fn custom_data_if_any(self) -> Option<ConvexValue> {
         self.error.custom_data
     }
