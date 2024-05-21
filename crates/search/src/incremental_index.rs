@@ -59,6 +59,13 @@ pub(crate) const ID_TRACKER_PATH: &str = "id_tracker";
 pub(crate) const ALIVE_BITSET_PATH: &str = "tantivy_alive_bitset";
 pub(crate) const DELETED_TERMS_PATH: &str = "deleted_terms";
 
+pub struct NewTextSegment {
+    pub paths: TextSegmentPaths,
+    /// The total number of indexed documents in this segment, including
+    /// documents that were added and then marked as deleted.
+    pub num_indexed_documents: u32,
+}
+
 #[derive(Clone)]
 pub struct TextSegmentPaths {
     pub index_path: PathBuf,
@@ -269,7 +276,7 @@ pub async fn build_new_segment(
     tantivy_schema: TantivySearchIndexSchema,
     dir: &Path,
     previous_segments: &mut PreviousTextSegments,
-) -> anyhow::Result<TextSegmentPaths> {
+) -> anyhow::Result<NewTextSegment> {
     let index_path = dir.join("index_path");
     std::fs::create_dir(&index_path)?;
     let index = IndexBuilder::new()
@@ -288,6 +295,9 @@ pub async fn build_new_segment(
     // Keep track of deletes that don't correspond to a document in another segment.
     // It must appear later in the stream
     let mut dangling_deletes = BTreeSet::new();
+
+    let mut num_indexed_documents = 0;
+
     while let Some(revision_pair) = revision_stream.try_next().await? {
         let convex_id = revision_pair.id.internal_id();
         // Skip documents we have already added to the segment, but update dangling
@@ -326,6 +336,7 @@ pub async fn build_new_segment(
         }
         // Addition
         if let Some(new_document) = revision_pair.document() {
+            num_indexed_documents += 1;
             dangling_deletes.remove(&convex_id);
             let tantivy_document =
                 tantivy_schema.index_into_tantivy_document(new_document, revision_pair.ts());
@@ -347,11 +358,15 @@ pub async fn build_new_segment(
     let id_tracker_path = dir.join(ID_TRACKER_PATH);
     new_id_tracker.write(&id_tracker_path)?;
 
-    Ok(TextSegmentPaths {
+    let paths = TextSegmentPaths {
         index_path,
         id_tracker_path,
         alive_bit_set_path,
         deleted_terms_path,
+    };
+    Ok(NewTextSegment {
+        paths,
+        num_indexed_documents,
     })
 }
 

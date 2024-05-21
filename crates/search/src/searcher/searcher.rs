@@ -1379,7 +1379,7 @@ mod tests {
         assert!(updated_segments.is_empty());
         println!("Indexed {dataset_path} in {:?}", start.elapsed());
 
-        let index_reader = index_reader_for_directory(new_segment.index_path)?;
+        let index_reader = index_reader_for_directory(new_segment.paths.index_path)?;
         let searcher = index_reader.searcher();
 
         let mut token_stream = schema.analyzer.token_stream(&query);
@@ -1571,7 +1571,7 @@ mod tests {
         }
         Ok(TestIndex {
             strings_by_id,
-            segment_paths: new_segment,
+            segment_paths: new_segment.paths,
             previous_segment_dirs,
         })
     }

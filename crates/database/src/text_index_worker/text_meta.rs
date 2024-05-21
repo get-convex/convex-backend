@@ -33,9 +33,9 @@ use futures::{
 use search::{
     build_new_segment,
     disk_index::upload_text_segment,
+    NewTextSegment,
     PreviousTextSegments,
     TantivySearchIndexSchema,
-    TextSegmentPaths,
     UpdatableTextSegment,
 };
 use storage::Storage;
@@ -89,7 +89,7 @@ pub struct TextSearchIndex;
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
     type DeveloperConfig = DeveloperSearchIndexConfig;
-    type NewSegment = TextSegmentPaths;
+    type NewSegment = NewTextSegment;
     type PreviousSegments = PreviousTextSegments;
     type Schema = TantivySearchIndexSchema;
     type Segment = FragmentedTextSegment;

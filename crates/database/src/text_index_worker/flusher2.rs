@@ -338,8 +338,6 @@ mod tests {
         Ok(())
     }
 
-    // TODO(sam): Implement num_indexed_documents then re-enable this.
-    #[ignore]
     #[convex_macro::test_runtime]
     async fn backfill_with_one_document_returns_metrics(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;

@@ -67,6 +67,7 @@ use crate::{
     metrics::{
         self,
     },
+    NewTextSegment,
     SearchFileType,
     TantivySearchIndexSchema,
     TextSegmentPaths,
@@ -169,14 +170,14 @@ pub async fn download_single_file_zip<P: AsRef<Path>>(
 pub async fn upload_text_segment<RT: Runtime>(
     rt: &RT,
     storage: Arc<dyn Storage>,
-    new_segment: TextSegmentPaths,
+    new_segment: NewTextSegment,
 ) -> anyhow::Result<FragmentedTextSegment> {
     let TextSegmentPaths {
         index_path,
         id_tracker_path,
         alive_bit_set_path,
         deleted_terms_path,
-    } = new_segment;
+    } = new_segment.paths;
     let upload_index =
         upload_index_archive_from_path(index_path, storage.clone(), SearchFileType::Text);
     let upload_id_tracker = upload_single_file_from_path(
@@ -206,9 +207,7 @@ pub async fn upload_text_segment<RT: Runtime>(
         id_tracker_key,
         deleted_terms_table_key,
         alive_bitset_key,
-        // TODO(sam): Wrap TextSegmentPaths in another struct with some metadata and pass it through
-        // here.
-        num_indexed_documents: 0,
+        num_indexed_documents: new_segment.num_indexed_documents,
         id: rt.new_uuid_v4().to_string(),
     })
 }
