@@ -37,7 +37,7 @@ use crate::{
     Transaction,
 };
 
-pub(crate) struct IndexData {
+pub struct IndexData {
     pub index_id: IndexId,
     pub index_name: IndexName,
     pub resolved_index_name: TabletIndexName,
@@ -57,7 +57,19 @@ pub(crate) fn new_search_worker(
     ))
 }
 
-pub(crate) fn backfilling_search_index() -> anyhow::Result<IndexMetadata<TableName>> {
+pub async fn insert_backfilling_text_index(
+    db: &Database<TestRuntime>,
+) -> anyhow::Result<IndexMetadata<TableName>> {
+    let mut tx = db.begin_system().await?;
+    let index_metadata = backfilling_text_index()?;
+    IndexModel::new(&mut tx)
+        .add_application_index(index_metadata.clone())
+        .await?;
+    db.commit(tx).await?;
+    Ok(index_metadata)
+}
+
+pub fn backfilling_text_index() -> anyhow::Result<IndexMetadata<TableName>> {
     let table_name: TableName = "table".parse()?;
     let index_name = IndexName::new(table_name, "search_index".parse()?)?;
     let search_field: FieldPath = "text".parse()?;
@@ -70,7 +82,7 @@ pub(crate) fn backfilling_search_index() -> anyhow::Result<IndexMetadata<TableNa
     Ok(metadata)
 }
 
-pub(crate) async fn assert_backfilled(
+pub async fn assert_backfilled(
     database: &Database<TestRuntime>,
     namespace: TableNamespace,
     index_name: &IndexName,
@@ -102,10 +114,10 @@ pub(crate) async fn add_document(
     TestFacingModel::new(tx).insert(table_name, document).await
 }
 
-pub(crate) async fn create_search_index_with_document(
+pub async fn create_search_index_with_document(
     db: &Database<TestRuntime>,
 ) -> anyhow::Result<IndexData> {
-    let index_metadata = backfilling_search_index()?;
+    let index_metadata = backfilling_text_index()?;
     let index_name = &index_metadata.name;
     let namespace = TableNamespace::Global;
     let mut tx = db.begin_system().await?;

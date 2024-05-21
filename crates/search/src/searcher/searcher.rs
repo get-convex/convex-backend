@@ -21,6 +21,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bytesize::ByteSize;
 use common::{
+    bootstrap_model::index::text_index::FragmentedTextSegment,
     bounded_thread_pool::BoundedThreadPool,
     document::CreationTime,
     id_tracker::StaticIdTracker,
@@ -967,6 +968,17 @@ impl TryFrom<FragmentedTextSegmentPaths> for FragmentedTextSegmentStorageKeys {
             id_tracker: from_path(value.id_tracker)?,
             deletions: from_path(value.deletions)?,
         })
+    }
+}
+
+// TODO(CX-6514): Consider merging these two structs and removing the other one.
+impl From<FragmentedTextSegment> for FragmentedTextSegmentStorageKeys {
+    fn from(value: FragmentedTextSegment) -> Self {
+        Self {
+            segment: value.segment_key,
+            id_tracker: value.id_tracker_key,
+            deletions: value.deleted_terms_table_key,
+        }
     }
 }
 

@@ -128,6 +128,7 @@ pub use self::{
         MemorySearchIndex,
     },
     search_index_manager::{
+        DiskIndex,
         SearchIndex,
         SearchIndexManager,
         SearchIndexManagerState,

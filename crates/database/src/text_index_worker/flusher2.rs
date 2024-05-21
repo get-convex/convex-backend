@@ -71,6 +71,72 @@ pub struct TextIndexFlusher2<RT: Runtime> {
     pause_client: Option<PauseClient>,
 }
 
+pub(crate) struct FlusherBuilder<RT: Runtime> {
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+    index_size_soft_limit: usize,
+    full_scan_threshold_kb: usize,
+    incremental_multipart_threshold_bytes: usize,
+    #[cfg(any(test, feature = "testing"))]
+    should_terminate: bool,
+    #[cfg(any(test, feature = "testing"))]
+    pause_client: Option<PauseClient>,
+}
+
+impl<RT: Runtime> FlusherBuilder<RT> {
+    pub(crate) fn new(
+        runtime: RT,
+        database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
+        storage: Arc<dyn Storage>,
+    ) -> Self {
+        Self {
+            runtime,
+            database,
+            reader,
+            storage,
+            index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+            full_scan_threshold_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+            incremental_multipart_threshold_bytes: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+            #[cfg(any(test, feature = "testing"))]
+            should_terminate: false,
+            #[cfg(any(test, feature = "testing"))]
+            pause_client: None,
+        }
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    #[allow(dead_code)]
+    fn set_soft_limit(self, limit: usize) -> Self {
+        Self {
+            index_size_soft_limit: limit,
+            ..self
+        }
+    }
+
+    pub(crate) fn build(self) -> TextIndexFlusher2<RT> {
+        let flusher = SearchFlusher::new(
+            self.runtime,
+            self.database.clone(),
+            self.reader,
+            self.storage,
+            self.index_size_soft_limit,
+            self.full_scan_threshold_kb,
+            self.incremental_multipart_threshold_bytes,
+        );
+        TextIndexFlusher2 {
+            flusher,
+            database: self.database,
+            #[cfg(any(test, feature = "testing"))]
+            should_terminate: self.should_terminate,
+            #[cfg(any(test, feature = "testing"))]
+            pause_client: self.pause_client,
+        }
+    }
+}
+
 impl<RT: Runtime> TextIndexFlusher2<RT> {
     pub(crate) fn new(
         runtime: RT,
@@ -78,23 +144,7 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
     ) -> Self {
-        let flusher = SearchFlusher::new(
-            runtime,
-            database.clone(),
-            reader,
-            storage,
-            *SEARCH_INDEX_SIZE_SOFT_LIMIT,
-            *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-            *SEARCH_INDEX_SIZE_SOFT_LIMIT,
-        );
-        Self {
-            flusher,
-            database,
-            #[cfg(any(test, feature = "testing"))]
-            should_terminate: false,
-            #[cfg(any(test, feature = "testing"))]
-            pause_client: None,
-        }
+        FlusherBuilder::new(runtime, database, reader, storage).build()
     }
 
     /// Run one step of the IndexFlusher's main loop.
@@ -227,6 +277,59 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
         self.database
             .commit_with_write_source(tx, "search_index_worker_build_index")
             .await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use common::{
+        persistence::PersistenceReader,
+        runtime::testing::TestRuntime,
+    };
+    use storage::{
+        LocalDirStorage,
+        Storage,
+    };
+    use value::TableNamespace;
+
+    use crate::{
+        test_helpers::DbFixtures,
+        tests::search_test_utils::{
+            assert_backfilled,
+            insert_backfilling_text_index,
+        },
+        text_index_worker::flusher2::{
+            FlusherBuilder,
+            TextIndexFlusher2,
+        },
+        Database,
+    };
+
+    fn new_flusher(
+        rt: &TestRuntime,
+        database: &Database<TestRuntime>,
+        reader: Arc<dyn PersistenceReader>,
+        storage: Arc<dyn Storage>,
+    ) -> TextIndexFlusher2<TestRuntime> {
+        FlusherBuilder::new(rt.clone(), database.clone(), reader, storage)
+            // Build after every write.
+            .set_soft_limit(0)
+            .build()
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_no_documents_sets_state_to_backfilled(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
+        let index = insert_backfilling_text_index(&db).await?;
+        let mut flusher = new_flusher(&rt, &db, tp.reader(), storage);
+        flusher.step().await?;
+        assert_backfilled(&db, TableNamespace::Global, &index.name).await?;
         Ok(())
     }
 }

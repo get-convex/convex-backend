@@ -15,7 +15,6 @@ use common::{
     bootstrap_model::index::{
         text_index::{
             TextIndexSnapshot,
-            TextIndexSnapshotData,
             TextIndexState,
         },
         vector_index::VectorIndexState,
@@ -52,6 +51,7 @@ use futures::{
 };
 use indexing::index_registry::IndexRegistry;
 use search::{
+    DiskIndex,
     MemorySearchIndex,
     SearchIndex,
     SearchIndexManager,
@@ -192,11 +192,8 @@ impl IndexesToBootstrap {
                             oldest_index_ts = min(oldest_index_ts, current_index_ts);
                             let memory_index =
                                 MemorySearchIndex::new(WriteTimestamp::Committed(disk_ts.succ()?));
-                            let TextIndexSnapshotData::SingleSegment(index) = data else {
-                                anyhow::bail!("Unsupported segment type: {:?}", data);
-                            };
                             let snapshot = SnapshotInfo {
-                                disk_index: index,
+                                disk_index: DiskIndex::try_from(data)?,
                                 disk_index_ts: current_index_ts,
                                 disk_index_version: version,
                                 memory_index,

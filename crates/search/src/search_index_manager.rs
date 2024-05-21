@@ -3,6 +3,7 @@ use std::sync::Arc;
 use common::{
     bootstrap_model::index::{
         text_index::{
+            FragmentedTextSegment,
             TextIndexSnapshot,
             TextIndexSnapshotData,
             TextIndexState,
@@ -48,6 +49,7 @@ use crate::{
         CompiledQuery,
         RevisionWithKeys,
     },
+    searcher::FragmentedTextSegmentStorageKeys,
     QueryResults,
     Searcher,
     TantivySearchIndexSchema,
@@ -55,10 +57,28 @@ use crate::{
 
 #[derive(Clone)]
 pub struct SnapshotInfo {
-    pub disk_index: ObjectKey,
+    pub disk_index: DiskIndex,
     pub disk_index_ts: Timestamp,
     pub disk_index_version: TextSnapshotVersion,
     pub memory_index: MemorySearchIndex,
+}
+
+#[derive(Clone)]
+pub enum DiskIndex {
+    SingleSegment(ObjectKey),
+    MultiSegment(Vec<FragmentedTextSegment>),
+}
+
+impl TryFrom<TextIndexSnapshotData> for DiskIndex {
+    type Error = anyhow::Error;
+
+    fn try_from(value: TextIndexSnapshotData) -> Result<Self, Self::Error> {
+        Ok(match value {
+            TextIndexSnapshotData::SingleSegment(disk_index) => Self::SingleSegment(disk_index),
+            TextIndexSnapshotData::MultiSegment(segments) => Self::MultiSegment(segments),
+            TextIndexSnapshotData::Unknown(_) => anyhow::bail!("Unrecognized state: {:?}", value),
+        })
+    }
 }
 
 #[derive(Clone)]
@@ -188,23 +208,17 @@ impl SearchIndexManager {
             return Ok(QueryResults::empty());
         }
 
-        let SnapshotInfo {
-            disk_index,
-            disk_index_ts,
-            memory_index,
-            ..
-        } = self.get_snapshot_info(index, &search.printable_index_name()?)?;
-
-        let revisions_with_keys = tantivy_schema
-            .search(
+        let revisions_with_keys = self
+            .run_compiled_query(
+                index,
+                &search.printable_index_name()?,
+                tantivy_schema,
                 compiled_query,
-                memory_index,
-                search_storage,
-                disk_index,
-                *disk_index_ts,
                 searcher,
+                search_storage,
             )
             .await?;
+
         let results = QueryResults {
             revisions_with_keys,
             reads,
@@ -226,6 +240,29 @@ impl SearchIndexManager {
         let compiled_query =
             CompiledQuery::try_from_text_query_proto(query, tantivy_schema.search_field)?;
 
+        let revisions_with_keys = self
+            .run_compiled_query(
+                index,
+                printable_index_name,
+                tantivy_schema,
+                compiled_query,
+                searcher,
+                search_storage,
+            )
+            .await?;
+        metrics::finish_search(timer, &revisions_with_keys);
+        Ok(revisions_with_keys)
+    }
+
+    async fn run_compiled_query(
+        &self,
+        index: &Index,
+        printable_index_name: &IndexName,
+        tantivy_schema: TantivySearchIndexSchema,
+        compiled_query: CompiledQuery,
+        searcher: Arc<dyn Searcher>,
+        search_storage: Arc<dyn Storage>,
+    ) -> anyhow::Result<RevisionWithKeys> {
         let SnapshotInfo {
             disk_index,
             disk_index_ts,
@@ -233,19 +270,36 @@ impl SearchIndexManager {
             ..
         } = self.get_snapshot_info(index, printable_index_name)?;
 
-        // Convert the ObjectKey to an absolute path.
-        let revisions_with_keys = tantivy_schema
-            .search(
-                compiled_query,
-                memory_index,
-                search_storage,
-                disk_index,
-                *disk_index_ts,
-                searcher,
-            )
-            .await?;
-        metrics::finish_search(timer, &revisions_with_keys);
-        Ok(revisions_with_keys)
+        Ok(match disk_index {
+            DiskIndex::SingleSegment(disk_index) => {
+                tantivy_schema
+                    .search(
+                        compiled_query,
+                        memory_index,
+                        search_storage,
+                        disk_index,
+                        *disk_index_ts,
+                        searcher,
+                    )
+                    .await?
+            },
+            DiskIndex::MultiSegment(segments) => {
+                tantivy_schema
+                    .search2(
+                        compiled_query,
+                        memory_index,
+                        search_storage,
+                        segments
+                            .iter()
+                            .cloned()
+                            .map(FragmentedTextSegmentStorageKeys::from)
+                            .collect(),
+                        *disk_index_ts,
+                        searcher,
+                    )
+                    .await?
+            },
+        })
     }
 
     pub fn backfilled_and_enabled_index_sizes(
@@ -408,14 +462,11 @@ impl SearchIndexManager {
                                 );
                             }
 
-                            let TextIndexSnapshotData::SingleSegment(disk_index) = disk_index
-                            else {
-                                anyhow::bail!("Unrecognized segment: {:?}", disk_index);
-                            };
+                            let disk_index = DiskIndex::try_from(disk_index.clone())?;
                             let mut memory_index = memory_index.clone();
                             memory_index.truncate(disk_index_ts.succ()?)?;
                             let snapshot = SnapshotInfo {
-                                disk_index: disk_index.clone(),
+                                disk_index,
                                 disk_index_ts: *disk_index_ts,
                                 disk_index_version: *disk_index_version,
                                 memory_index,
