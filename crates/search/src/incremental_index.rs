@@ -43,7 +43,11 @@ use crate::{
     archive::extract_zip,
     constants::CONVEX_EN_TOKENIZER,
     convex_en,
-    disk_index::download_single_file_zip,
+    disk_index::{
+        download_single_file_zip,
+        upload_single_file,
+    },
+    SearchFileType,
     TantivySearchIndexSchema,
     SEARCH_FIELD_ID,
 };
@@ -68,6 +72,7 @@ pub struct UpdatableTextSegment {
     inverted_index: Arc<InvertedIndexReader>,
     id_tracker: StaticIdTracker,
     deletion_tracker: MemoryDeletionTracker,
+    original: FragmentedTextSegment,
 }
 
 fn inverted_index_from_index(index: &Index) -> anyhow::Result<Arc<InvertedIndexReader>> {
@@ -94,6 +99,51 @@ impl UpdatableTextSegment {
             inverted_index,
             id_tracker,
             deletion_tracker,
+            // TODO(sam): We should probably create this outside of this method, then pass it
+            // through here. For now this is unused in these tests.
+            original: FragmentedTextSegment {
+                segment_key: "segment".try_into()?,
+                id_tracker_key: "id_tracker".try_into()?,
+                deleted_terms_table_key: "deleted_terms".try_into()?,
+                alive_bitset_key: "bitset".try_into()?,
+                num_indexed_documents: 0,
+                id: "test_id".to_string(),
+            },
+        })
+    }
+
+    pub async fn upload_metadata(
+        self,
+        storage: Arc<dyn Storage>,
+    ) -> anyhow::Result<FragmentedTextSegment> {
+        // TODO(CX-6511): Skip the upload and return the original file if this segment
+        // wasn't modified.
+
+        let mut bitset_buf = vec![];
+        let mut deleted_terms_buf = vec![];
+        self.deletion_tracker
+            .write(&mut bitset_buf, &mut deleted_terms_buf)?;
+
+        let mut bitset_slice = bitset_buf.as_slice();
+        let upload_bitset = upload_single_file(
+            &mut bitset_slice,
+            "alive_bitset".to_string(),
+            storage.clone(),
+            SearchFileType::TextAliveBitset,
+        );
+        let mut deleted_terms_slice = deleted_terms_buf.as_slice();
+        let upload_deleted_terms = upload_single_file(
+            &mut deleted_terms_slice,
+            "deleted_terms".to_string(),
+            storage.clone(),
+            SearchFileType::TextDeletedTerms,
+        );
+        let (alive_bitset_key, deleted_terms_table_key) =
+            futures::try_join!(upload_bitset, upload_deleted_terms)?;
+        Ok(FragmentedTextSegment {
+            deleted_terms_table_key,
+            alive_bitset_key,
+            ..self.original
         })
     }
 
@@ -150,6 +200,7 @@ impl UpdatableTextSegment {
             inverted_index,
             id_tracker,
             deletion_tracker,
+            original,
         })
     }
 }
@@ -292,7 +343,7 @@ pub async fn build_new_segment(
     let new_deletion_tracker = MemoryDeletionTracker::new(new_id_tracker.num_ids() as u32);
     let alive_bit_set_path = dir.join(ALIVE_BITSET_PATH);
     let deleted_terms_path = dir.join(DELETED_TERMS_PATH);
-    new_deletion_tracker.write(&alive_bit_set_path, &deleted_terms_path)?;
+    new_deletion_tracker.write_to_path(&alive_bit_set_path, &deleted_terms_path)?;
     let id_tracker_path = dir.join(ID_TRACKER_PATH);
     new_id_tracker.write(&id_tracker_path)?;
 
@@ -371,7 +422,7 @@ pub async fn merge_segments(
     let tracker = MemoryDeletionTracker::new(num_docs as u32);
     let alive_bit_set_path = dir.to_path_buf().join(ALIVE_BITSET_PATH);
     let deleted_terms_path = dir.to_path_buf().join(DELETED_TERMS_PATH);
-    tracker.write(&alive_bit_set_path, &deleted_terms_path)?;
+    tracker.write_to_path(&alive_bit_set_path, &deleted_terms_path)?;
     Ok(TextSegmentPaths {
         index_path: index_dir,
         id_tracker_path,

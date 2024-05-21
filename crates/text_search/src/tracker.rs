@@ -301,25 +301,30 @@ impl MemoryDeletionTracker {
         self.num_deleted_terms = num_deleted_terms;
     }
 
-    pub fn write<P: AsRef<Path>>(
+    pub fn write_to_path<P: AsRef<Path>>(
         self,
         alive_bitset_path: P,
         deleted_terms_path: P,
     ) -> anyhow::Result<()> {
-        {
-            let mut out = BufWriter::new(File::create(alive_bitset_path)?);
-            self.alive_bitset.serialize(&mut out)?;
-            out.into_inner()?.sync_all()?;
-        }
-        {
-            let mut out = BufWriter::new(File::create(deleted_terms_path)?);
-            Self::write_deleted_terms(
-                self.term_to_deleted_documents,
-                self.num_deleted_terms,
-                &mut out,
-            )?;
-            out.into_inner()?.sync_all()?;
-        }
+        let mut alive_bitset = BufWriter::new(File::create(alive_bitset_path)?);
+        let mut deleted_terms = BufWriter::new(File::create(deleted_terms_path)?);
+        self.write(&mut alive_bitset, &mut deleted_terms)?;
+        alive_bitset.into_inner()?.sync_all()?;
+        deleted_terms.into_inner()?.sync_all()?;
+        Ok(())
+    }
+
+    pub fn write(
+        self,
+        mut alive_bitset: impl Write,
+        mut deleted_terms: impl Write,
+    ) -> anyhow::Result<()> {
+        self.alive_bitset.serialize(&mut alive_bitset)?;
+        Self::write_deleted_terms(
+            self.term_to_deleted_documents,
+            self.num_deleted_terms,
+            &mut deleted_terms,
+        )?;
         Ok(())
     }
 

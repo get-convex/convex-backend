@@ -134,10 +134,16 @@ impl SearchIndex for TextSearchIndex {
     }
 
     async fn upload_previous_segments(
-        _storage: Arc<dyn Storage>,
-        _segments: Self::PreviousSegments,
+        storage: Arc<dyn Storage>,
+        segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>> {
-        anyhow::bail!("Not implemented");
+        segments
+            .0
+            .into_iter()
+            .map(|segment| segment.upload_metadata(storage.clone()))
+            .collect::<FuturesUnordered<_>>()
+            .try_collect::<Vec<_>>()
+            .await
     }
 
     fn estimate_document_size(_schema: &Self::Schema, _doc: &ResolvedDocument) -> u64 {

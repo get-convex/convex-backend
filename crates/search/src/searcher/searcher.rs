@@ -1554,7 +1554,7 @@ mod tests {
             let dir = previous_segment_dir.join(format!("segment_{i}"));
             std::fs::create_dir(&dir)?;
             updated_deletion_tracker
-                .write(dir.join(ALIVE_BITSET_PATH), dir.join(DELETED_TERMS_PATH))?;
+                .write_to_path(dir.join(ALIVE_BITSET_PATH), dir.join(DELETED_TERMS_PATH))?;
             previous_segment_dirs.push(dir);
         }
         Ok(TestIndex {

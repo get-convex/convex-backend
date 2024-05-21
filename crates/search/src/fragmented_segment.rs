@@ -320,10 +320,9 @@ impl MutableFragmentedSegmentMetadata {
         let mut buf = vec![];
         self.mutated_deleted_bitset.write(&mut buf)?;
 
-        let filename = format!("deleted_bitset");
         let object_key = upload_single_file(
             &mut buf.as_slice(),
-            filename,
+            "deleted_bitset".to_string(),
             storage.clone(),
             SearchFileType::VectorDeletedBitset,
         )
