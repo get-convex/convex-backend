@@ -152,7 +152,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             state: CronJobState::Pending,
             prev_ts: None,
         };
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .insert(&CRON_JOBS_TABLE, cron.try_into()?)
             .await?;
         Ok(())
@@ -174,7 +174,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
     }
 
     pub async fn delete(&mut self, cron_job: ParsedDocument<CronJob>) -> anyhow::Result<()> {
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .delete(cron_job.clone().id())
             .await?;
         self.apply_job_log_retention(cron_job.name.clone(), 0)
@@ -192,7 +192,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             .table_mapping()
             .namespace(TableNamespace::Global)
             .number_matches_name(id.table().table_number, &CRON_JOBS_TABLE));
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .replace(id, job.try_into()?)
             .await?;
         Ok(())
@@ -214,7 +214,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             log_lines,
             execution_time,
         };
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .insert_metadata(&CRON_JOB_LOGS_TABLE, cron_job_log.try_into()?)
             .await?;
         self.apply_job_log_retention(job.name.clone(), MAX_LOGS_PER_CRON)
@@ -263,7 +263,9 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             }
         }
         for doc_id in to_delete.into_iter() {
-            SystemMetadataModel::new(self.tx).delete(doc_id).await?;
+            SystemMetadataModel::new(self.tx, TableNamespace::Global)
+                .delete(doc_id)
+                .await?;
         }
         Ok(())
     }

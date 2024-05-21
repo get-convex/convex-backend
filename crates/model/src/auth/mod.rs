@@ -85,10 +85,10 @@ impl<'a, RT: Runtime> AuthInfoModel<'a, RT> {
         }
         // Make the changes.
         for id in to_delete {
-            SystemMetadataModel::new(self.tx).delete(id).await?;
+            SystemMetadataModel::new_global(self.tx).delete(id).await?;
         }
         for info in new_set.clone().into_iter() {
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new_global(self.tx)
                 .insert(&AUTH_TABLE, AuthInfoPersisted(info).try_into()?)
                 .await?;
         }

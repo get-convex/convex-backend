@@ -101,7 +101,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             object_key,
             member_id: self.tx.identity().member_id(),
         };
-        let id = SystemMetadataModel::new(self.tx)
+        let id = SystemMetadataModel::new_global(self.tx)
             .insert(
                 SnapshotImportsTable.table_name(),
                 snapshot_import.try_into()?,
@@ -136,7 +136,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
                 anyhow::bail!("invalid import state transition {current_state:?} -> {new_state:?}")
             },
         }
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .patch(
                 id,
                 patch_value!("state" => Some(ConvexValue::Object(new_state.try_into()?)))?,

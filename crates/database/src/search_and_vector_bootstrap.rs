@@ -715,7 +715,7 @@ mod tests {
             .await?
             .into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX.pred().unwrap();
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(metadata_id, metadata.try_into()?)
             .await?;
         fixtures.db.commit(tx).await?;
@@ -749,7 +749,7 @@ mod tests {
             .await?
             .into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX.pred().unwrap();
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(metadata_id, metadata.try_into()?)
             .await?;
         fixtures.db.commit(tx).await?;
@@ -1018,7 +1018,7 @@ mod tests {
             .await?
             .into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX.pred().unwrap();
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(metadata_id, metadata.try_into()?)
             .await?;
         db.commit(tx).await?;
@@ -1055,7 +1055,7 @@ mod tests {
             .await?
             .into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX.pred().unwrap();
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(metadata_id, metadata.try_into()?)
             .await?;
         db.commit(tx).await?;
@@ -1099,7 +1099,7 @@ mod tests {
             .await?
             .into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = Timestamp::MAX;
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(metadata_id, metadata.try_into()?)
             .await?;
         db.commit(tx).await?;

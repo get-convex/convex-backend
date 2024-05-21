@@ -460,7 +460,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         };
 
         let name = index_metadata.name.clone();
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(index_metadata.id(), index_metadata.into_value().try_into()?)
             .await?;
         self.database
@@ -510,7 +510,7 @@ impl<RT: Runtime> IndexWorker<RT> {
 
         let name = index_metadata.name.clone();
 
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(full_index_id, index_metadata.into_value().try_into()?)
             .await?;
         self.database

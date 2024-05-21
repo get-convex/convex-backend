@@ -234,7 +234,7 @@ impl FastForwardIndexWorker {
             tracing::info!("Fast-forwarding {name} from {ts} to {fast_forward_ts}");
             *previous_fast_forward_ts = fast_forward_ts;
 
-            SystemMetadataModel::new(&mut tx)
+            SystemMetadataModel::new_global(&mut tx)
                 .replace(worker_meta_doc_id, worker_meta.try_into()?)
                 .await?;
 

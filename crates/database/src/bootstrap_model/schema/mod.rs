@@ -257,7 +257,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             state: SchemaState::Pending,
             schema,
         };
-        let id = SystemMetadataModel::new(self.tx)
+        let id = SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .insert(&SCHEMAS_TABLE, schema_metadata.try_into()?)
             .await?;
         Ok((id, SchemaState::Pending))
@@ -272,7 +272,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         let schema = SchemaMetadata::try_from(doc.into_value().into_value())?;
         match schema.state {
             SchemaState::Pending => {
-                SystemMetadataModel::new(self.tx)
+                SystemMetadataModel::new(self.tx, TableNamespace::Global)
                     .patch(
                         document_id,
                         patch_value!("state" => Some(SchemaState::Validated.try_into()?))?,
@@ -333,7 +333,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             // If it's validated, mark as active.
             SchemaState::Validated => {
                 self.clear_active().await?;
-                SystemMetadataModel::new(self.tx)
+                SystemMetadataModel::new(self.tx, TableNamespace::Global)
                     .patch(
                         document_id,
                         patch_value!("state" => Some(SchemaState::Active.try_into()?))?,
@@ -372,7 +372,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                         table_name, ..
                     } => table_name,
                 };
-                SystemMetadataModel::new(self.tx)
+                SystemMetadataModel::new(self.tx, TableNamespace::Global)
                     .patch(
                         document_id,
                         patch_value!(
@@ -449,7 +449,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             {
                 break;
             }
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new(self.tx, TableNamespace::Global)
                 .delete(schema_doc.id())
                 .await?;
             num_deleted += 1;
@@ -458,7 +458,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     }
 
     async fn mark_overwritten(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .patch(
                 id,
                 patch_value!("state" => Some(SchemaState::Overwritten.try_into()?))?,

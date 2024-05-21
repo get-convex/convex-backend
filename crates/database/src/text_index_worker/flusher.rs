@@ -228,7 +228,7 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
             TextIndexState::SnapshottedAt(_) => TextIndexState::SnapshottedAt(snapshot_data),
         };
         let index_name = job.index_name.clone();
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(
                 job.metadata_id,
                 IndexMetadata::new_search_index(

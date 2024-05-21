@@ -203,7 +203,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .await?
         {
             let index_id = index.id();
-            SystemMetadataModel::new(self.tx).delete(index_id).await?;
+            SystemMetadataModel::new_global(self.tx)
+                .delete(index_id)
+                .await?;
         }
         let table_metadata = self.get_table_metadata(tablet_id).await?;
         let table_doc_id = table_metadata.id();
@@ -213,7 +215,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             number: table_metadata.number,
             state: TableState::Deleting,
         };
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .replace(table_doc_id, updated_table_metadata.try_into()?)
             .await?;
         Ok(())
@@ -367,7 +369,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 .namespace(TableNamespace::Global)
                 .name_to_id(),
         )?;
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .replace(table_doc_id, table_metadata.try_into()?)
             .await?;
         Ok(documents_deleted)
@@ -446,7 +448,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 self.next_user_table_number().await?
             };
             let table_metadata = TableMetadata::new_with_state(table.clone(), table_number, state);
-            let table_doc_id = SystemMetadataModel::new(self.tx)
+            let table_doc_id = SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&TABLES_TABLE, table_metadata.try_into()?)
                 .await?;
             let table_id = TabletIdAndTableNumber {
@@ -460,14 +462,14 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 GenericIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
             );
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_creation_time(table_id.tablet_id),
                 IndexedFields::creation_time(),
             );
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
             Ok(table_id)

@@ -30,7 +30,7 @@ impl<'a, RT: Runtime> TestFacingModel<'a, RT> {
         table: &TableName,
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .insert_metadata(table, value)
             .await
     }

@@ -132,7 +132,7 @@ impl<'a, RT: Runtime> IndexWorkerMetadataModel<'a, RT> {
         &mut self,
         metadata: IndexWorkerMetadataRecord,
     ) -> anyhow::Result<ParsedDocument<IndexWorkerMetadataRecord>> {
-        let id = SystemMetadataModel::new(self.tx)
+        let id = SystemMetadataModel::new_global(self.tx)
             .insert(&INDEX_WORKER_METADATA_TABLE, metadata.try_into()?)
             .await?;
         ParsedDocument::try_from(self.tx.get(id).await?.unwrap())

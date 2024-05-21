@@ -98,7 +98,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
         &mut self,
         external_deps_package: ExternalDepsPackage,
     ) -> anyhow::Result<ExternalDepsPackageId> {
-        let id = SystemMetadataModel::new(self.tx)
+        let id = SystemMetadataModel::new_global(self.tx)
             .insert(&EXTERNAL_PACKAGES_TABLE, external_deps_package.try_into()?)
             .await?;
         let doc_id: DeveloperDocumentId = id.into();

@@ -73,7 +73,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
 
     pub async fn initialize(&mut self) -> anyhow::Result<()> {
         // Create _backend_state row initialized as running.
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .insert(
                 &BACKEND_STATE_TABLE,
                 PersistedBackendState(BackendState::Running).try_into()?,
@@ -129,7 +129,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
                 format!("Deployment is already {new_state}")
             )
         );
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .replace(id, PersistedBackendState(new_state).try_into()?)
             .await?;
         Ok(())

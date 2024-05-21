@@ -357,11 +357,11 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     environment,
                     analyze_result: analyze_result.clone(),
                 };
-                SystemMetadataModel::new(self.tx)
+                SystemMetadataModel::new(self.tx, TableNamespace::Global)
                     .replace(module_metadata.id(), new_metadata.try_into()?)
                     .await?;
 
-                SystemMetadataModel::new(self.tx)
+                SystemMetadataModel::new(self.tx, TableNamespace::Global)
                     .delete(previous_version_id)
                     .await?;
 
@@ -377,7 +377,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     analyze_result: analyze_result.clone(),
                 };
 
-                let document_id = SystemMetadataModel::new(self.tx)
+                let document_id = SystemMetadataModel::new(self.tx, TableNamespace::Global)
                     .insert(&MODULES_TABLE, new_metadata.try_into()?)
                     .await?;
                 (document_id, version)
@@ -405,7 +405,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 em
             }
         }))?;
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .insert(&MODULE_VERSIONS_TABLE, new_version)
             .await?;
         Ok(())
@@ -418,13 +418,15 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         }
         if let Some(module_metadata) = self.module_metadata(path).await? {
             let module_id = module_metadata.id();
-            SystemMetadataModel::new(self.tx).delete(module_id).await?;
+            SystemMetadataModel::new(self.tx, TableNamespace::Global)
+                .delete(module_id)
+                .await?;
 
             // Delete the module version since it has no more references.
             let module_version = self
                 .get_version(module_id, module_metadata.latest_version)
                 .await?;
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new(self.tx, TableNamespace::Global)
                 .delete(module_version.id())
                 .await?;
         }

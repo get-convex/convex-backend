@@ -163,7 +163,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                     .name_to_id(),
             )?
             .into();
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .insert_metadata(&INDEX_TABLE, index.try_into()?)
             .await
     }
@@ -246,7 +246,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
         let id = doc.id();
         let table_id_metadata: TabletIndexMetadata = doc.into_value();
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .replace(id, table_id_metadata.try_into()?)
             .await?;
 
@@ -770,7 +770,9 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     }
 
     pub async fn drop_index(&mut self, index_id: ResolvedDocumentId) -> anyhow::Result<()> {
-        SystemMetadataModel::new(self.tx).delete(index_id).await?;
+        SystemMetadataModel::new_global(self.tx)
+            .delete(index_id)
+            .await?;
         Ok(())
     }
 
@@ -857,7 +859,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                     filter_fields,
                 ),
             };
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
         }

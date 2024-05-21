@@ -206,7 +206,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
     ) -> anyhow::Result<ResolvedDocumentId> {
         // Call insert_metadata rather than insert because we already
         // did access check on `identity` rather than `self.identity`
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .insert_metadata(&FILE_STORAGE_TABLE, entry.try_into()?)
             .await
     }
@@ -319,7 +319,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
             return Ok(None);
         };
         let document_id = entry.id();
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .delete(document_id)
             .await?;
         Ok(Some(entry.into_value()))

@@ -299,7 +299,7 @@ impl<RT: Runtime> Inner<RT> {
             .collect_vec();
         *current_segments = new_segments;
 
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(metadata.id(), metadata.into_value().try_into()?)
             .await?;
         self.database
@@ -443,7 +443,7 @@ impl<RT: Runtime> Inner<RT> {
             })
         };
 
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(
                 job.metadata_id,
                 IndexMetadata {
@@ -539,7 +539,7 @@ impl<RT: Runtime> Inner<RT> {
             VectorIndexState::Backfilled(snapshot)
         };
 
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(
                 job.metadata_id,
                 IndexMetadata {

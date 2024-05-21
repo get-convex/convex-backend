@@ -158,7 +158,7 @@ bar.invokeAction = async (requestId, argsStr) => {
                 })
             },
         };
-        let definition_id = SystemMetadataModel::new(&mut tx)
+        let definition_id = SystemMetadataModel::new_global(&mut tx)
             .insert(&COMPONENT_DEFINITIONS_TABLE, definition.try_into()?)
             .await?;
 
@@ -167,7 +167,7 @@ bar.invokeAction = async (requestId, argsStr) => {
             parent_and_name: None,
             args: btreemap! {},
         };
-        let component_id = SystemMetadataModel::new(&mut tx)
+        let component_id = SystemMetadataModel::new_global(&mut tx)
             .insert(&COMPONENTS_TABLE, component.try_into()?)
             .await?;
         component_id.internal_id()
@@ -187,7 +187,7 @@ bar.invokeAction = async (requestId, argsStr) => {
                 })
             },
         };
-        let definition_id = SystemMetadataModel::new(&mut tx)
+        let definition_id = SystemMetadataModel::new_global(&mut tx)
             .insert(&COMPONENT_DEFINITIONS_TABLE, definition.try_into()?)
             .await?;
 
@@ -198,7 +198,7 @@ bar.invokeAction = async (requestId, argsStr) => {
                 "maxLength".parse()? => Resource::Value(ConvexValue::Float64(10.)),
             },
         };
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .insert(&COMPONENTS_TABLE, component.try_into()?)
             .await?;
     }

@@ -60,7 +60,7 @@ async fn test_occ_fails(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(identity.clone()).await?;
     let table_name: TableName = "_test_table".parse()?;
     tx.create_system_table_testing(&table_name, None).await?;
-    let id = SystemMetadataModel::new(&mut tx)
+    let id = SystemMetadataModel::new_global(&mut tx)
         .insert(&table_name, obj!()?)
         .await?;
     application.commit_test(tx).await?;
@@ -93,7 +93,7 @@ async fn test_occ_succeeds(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(identity.clone()).await?;
     let table_name: TableName = "_test_table".parse()?;
     tx.create_system_table_testing(&table_name, None).await?;
-    let id = SystemMetadataModel::new(&mut tx)
+    let id = SystemMetadataModel::new_global(&mut tx)
         .insert(&table_name, obj!()?)
         .await?;
     application.commit_test(tx).await?;

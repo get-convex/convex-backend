@@ -1209,7 +1209,7 @@ impl<RT: Runtime> Application<RT> {
                         None => ExportFormat::CleanJsonl,
                     }
                 };
-                SystemMetadataModel::new(&mut tx)
+                SystemMetadataModel::new_global(&mut tx)
                     .insert(&EXPORTS_TABLE, Export::requested(format).try_into()?)
                     .await?;
                 Ok(())

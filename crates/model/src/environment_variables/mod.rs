@@ -177,7 +177,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         if forbidden_names.contains(env_var.name()) {
             anyhow::bail!(env_var_name_forbidden(env_var.name()));
         }
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .insert(
                 &ENVIRONMENT_VARIABLES_TABLE,
                 PersistedEnvironmentVariable(env_var).try_into()?,
@@ -192,7 +192,9 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         let Some(doc) = self.get(name).await? else {
             return Ok(None);
         };
-        let document = SystemMetadataModel::new(self.tx).delete(doc.id()).await?;
+        let document = SystemMetadataModel::new_global(self.tx)
+            .delete(doc.id())
+            .await?;
         let env_var: ParsedDocument<PersistedEnvironmentVariable> = document.try_into()?;
         Ok(Some(env_var.into_value().0))
     }
@@ -233,7 +235,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
                 anyhow::bail!(env_var_name_not_unique(Some(&new_env_var_name)));
             }
 
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new_global(self.tx)
                 .replace(
                     id,
                     PersistedEnvironmentVariable(environment_variable).try_into()?,

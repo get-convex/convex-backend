@@ -815,7 +815,7 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Delete the UDF config to simulate it never having existed.
     must_let!(let Some(config) = UdfConfigModel::new(&mut tx).get().await?);
-    SystemMetadataModel::new(&mut tx)
+    SystemMetadataModel::new_global(&mut tx)
         .delete(config.id())
         .await?;
 

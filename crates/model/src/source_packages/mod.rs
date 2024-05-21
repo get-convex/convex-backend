@@ -63,7 +63,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
     }
 
     pub async fn put(&mut self, source_package: SourcePackage) -> anyhow::Result<SourcePackageId> {
-        let document_id = SystemMetadataModel::new(self.tx)
+        let document_id = SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .insert(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)
             .await?;
         let id: DeveloperDocumentId = document_id.into();

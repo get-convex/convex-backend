@@ -1112,7 +1112,7 @@ mod tests {
             .await?;
         let (worker_meta_doc_id, mut metadata) = metadata.into_id_and_value();
         *metadata.index_metadata.mut_fast_forward_ts() = *tx.begin_timestamp();
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(worker_meta_doc_id, metadata.try_into()?)
             .await?;
         db.commit(tx).await?;

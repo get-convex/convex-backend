@@ -294,7 +294,7 @@ mod tests {
         let db = new_test_database(rt.clone()).await;
         let mut tx = db.begin(Identity::system()).await?;
         let child_definition_path: ComponentDefinitionPath = "../app/child".parse().unwrap();
-        let child_definition_id = SystemMetadataModel::new(&mut tx)
+        let child_definition_id = SystemMetadataModel::new_global(&mut tx)
             .insert(
                 &COMPONENT_DEFINITIONS_TABLE,
                 ComponentDefinitionMetadata {
@@ -307,7 +307,7 @@ mod tests {
                 .try_into()?,
             )
             .await?;
-        let root_definition_id = SystemMetadataModel::new(&mut tx)
+        let root_definition_id = SystemMetadataModel::new_global(&mut tx)
             .insert(
                 &COMPONENT_DEFINITIONS_TABLE,
                 ComponentDefinitionMetadata {
@@ -324,7 +324,7 @@ mod tests {
                 .try_into()?,
             )
             .await?;
-        let root_id = SystemMetadataModel::new(&mut tx)
+        let root_id = SystemMetadataModel::new_global(&mut tx)
             .insert(
                 &COMPONENTS_TABLE,
                 ComponentMetadata {
@@ -335,7 +335,7 @@ mod tests {
                 .try_into()?,
             )
             .await?;
-        let child_id = SystemMetadataModel::new(&mut tx)
+        let child_id = SystemMetadataModel::new_global(&mut tx)
             .insert(
                 &COMPONENTS_TABLE,
                 ComponentMetadata {

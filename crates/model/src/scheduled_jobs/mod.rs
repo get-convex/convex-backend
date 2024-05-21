@@ -261,7 +261,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         } else {
             scheduled_job
         };
-        let id = SystemMetadataModel::new(self.tx)
+        let id = SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .insert_metadata(&SCHEDULED_JOBS_TABLE, job.try_into()?)
             .await?;
 
@@ -278,7 +278,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             .table_mapping()
             .namespace(TableNamespace::Global)
             .number_matches_name(id.table().table_number, &SCHEDULED_JOBS_TABLE));
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .replace(id, job.try_into()?)
             .await?;
         Ok(())
@@ -322,7 +322,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         // job has already been processed
         job.next_ts = None;
         job.completed_ts = Some(*self.tx.begin_timestamp());
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new(self.tx, TableNamespace::Global)
             .replace(id, job.try_into()?)
             .await?;
 

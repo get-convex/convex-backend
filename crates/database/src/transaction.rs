@@ -689,7 +689,7 @@ impl<RT: Runtime> Transaction<RT> {
                 .table_number_for_system_table(table_name, default_table_number)
                 .await?;
             let metadata = TableMetadata::new(table_name.clone(), table_number);
-            let table_doc_id = SystemMetadataModel::new(self)
+            let table_doc_id = SystemMetadataModel::new_global(self)
                 .insert(&TABLES_TABLE, metadata.try_into()?)
                 .await?;
             let tablet_id = TabletId(table_doc_id.internal_id());
@@ -698,14 +698,14 @@ impl<RT: Runtime> Transaction<RT> {
                 GenericIndexName::by_id(tablet_id),
                 IndexedFields::by_id(),
             );
-            SystemMetadataModel::new(self)
+            SystemMetadataModel::new_global(self)
                 .insert(&INDEX_TABLE, by_id_index.try_into()?)
                 .await?;
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_creation_time(tablet_id),
                 IndexedFields::creation_time(),
             );
-            SystemMetadataModel::new(self)
+            SystemMetadataModel::new_global(self)
                 .insert(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
             tracing::info!("Created system table: {table_name}");
@@ -734,7 +734,7 @@ impl<RT: Runtime> Transaction<RT> {
                 .table_number_for_system_table(table_name, default_table_number)
                 .await?;
             let metadata = VirtualTableMetadata::new(table_name.clone(), table_number);
-            let table_doc_id = SystemMetadataModel::new(self)
+            let table_doc_id = SystemMetadataModel::new_global(self)
                 .insert(&VIRTUAL_TABLES_TABLE, metadata.try_into()?)
                 .await?;
             tracing::info!("Created virtual table: {table_name} with doc_id {table_doc_id}");

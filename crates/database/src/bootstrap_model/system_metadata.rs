@@ -26,11 +26,26 @@ use crate::{
 /// at system metadata.
 pub struct SystemMetadataModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
+    // TODO(lee) pass namespace to transaction methods.
+    _namespace: TableNamespace,
 }
 
 impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
-        Self { tx }
+    pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
+        Self {
+            tx,
+            _namespace: namespace,
+        }
+    }
+
+    /// Helper constructor to create a `SystemMetadataModel` in the Global
+    /// namespace. Useful because many system tables only exist in the Global
+    /// namespace.
+    pub fn new_global(tx: &'a mut Transaction<RT>) -> Self {
+        Self {
+            tx,
+            _namespace: TableNamespace::Global,
+        }
     }
 
     /// Creates a new document with given value in the specified table,

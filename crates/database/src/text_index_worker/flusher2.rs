@@ -213,7 +213,7 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
             job.index_config.on_disk_state,
         );
 
-        SystemMetadataModel::new(&mut tx)
+        SystemMetadataModel::new_global(&mut tx)
             .replace(
                 job.metadata_id,
                 IndexMetadata::new_search_index(

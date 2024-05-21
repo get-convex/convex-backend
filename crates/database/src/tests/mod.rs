@@ -945,7 +945,7 @@ async fn test_too_large_values(rt: TestRuntime) -> anyhow::Result<()> {
     // Check that inserting a 4MB value to a system table works.
     let table_name = "_test_table".parse()?;
     tx.create_system_table_testing(&table_name, None).await?;
-    SystemMetadataModel::new(&mut tx)
+    SystemMetadataModel::new_global(&mut tx)
         .insert(&table_name, huge_obj)
         .await?;
 

@@ -163,7 +163,7 @@ impl<'a, RT: Runtime> SessionRequestModel<'a, RT> {
             anyhow::bail!(unauthorized_error("record_session_request"))
         }
 
-        SystemMetadataModel::new(self.tx)
+        SystemMetadataModel::new_global(self.tx)
             .insert_metadata(&SESSION_REQUESTS_TABLE, record.try_into()?)
             .await?;
         Ok(())

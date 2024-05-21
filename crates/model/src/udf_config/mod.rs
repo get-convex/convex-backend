@@ -84,12 +84,12 @@ impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
 
         let existing_doc = self.get().await?;
         let opt_previous_version = if let Some(existing_doc) = existing_doc {
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new_global(self.tx)
                 .replace(existing_doc.id(), value)
                 .await?;
             Some(existing_doc.into_value().server_version)
         } else {
-            SystemMetadataModel::new(self.tx)
+            SystemMetadataModel::new_global(self.tx)
                 .insert(&UDF_CONFIG_TABLE, value)
                 .await?;
             None
