@@ -339,7 +339,6 @@ pub struct QueryReturn {
     pub result: Result<ConvexValue, JsError>,
     pub log_lines: LogLines,
     pub token: Token,
-    pub ts: Timestamp,
     pub journal: QueryJournal,
 }
 
@@ -348,7 +347,6 @@ pub struct RedactedQueryReturn {
     pub result: Result<ConvexValue, RedactedJsError>,
     pub log_lines: RedactedLogLines,
     pub token: Token,
-    pub ts: Timestamp,
     pub journal: SerializedQueryJournal,
 }
 
@@ -874,7 +872,6 @@ impl<RT: Runtime> Application<RT> {
                 },
                 log_lines: RedactedLogLines::from_log_lines(query_return.log_lines, block_logging),
                 token: query_return.token,
-                ts: query_return.ts,
                 journal: self
                     .key_broker
                     .encrypt_query_journal(&query_return.journal, persistence_version),
@@ -889,7 +886,6 @@ impl<RT: Runtime> Application<RT> {
                 // Create a token for an empty read set because we haven't
                 // done any reads yet.
                 token: Token::empty(ts),
-                ts,
                 journal: self
                     .key_broker
                     .encrypt_query_journal(&QueryJournal::new(), persistence_version),

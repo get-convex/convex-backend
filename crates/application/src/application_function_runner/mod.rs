@@ -1917,7 +1917,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     result: Err(js_error),
                     log_lines: vec![].into(),
                     token: Token::empty(ts),
-                    ts,
                     journal: QueryJournal::new(),
                 });
             },

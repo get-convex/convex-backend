@@ -359,7 +359,6 @@ impl<RT: Runtime> CacheManager<RT> {
                 result: cache_result.outcome.result.map(|r| r.unpack()),
                 log_lines: cache_result.outcome.log_lines,
                 token: cache_result.token,
-                ts,
                 journal: cache_result.outcome.journal,
             };
             return Ok((result, is_cache_hit));
