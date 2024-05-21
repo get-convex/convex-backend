@@ -879,7 +879,7 @@ impl IndexCategory {
         table_mapping: &TableMapping,
     ) -> bool {
         let is_system = index.name.descriptor().is_reserved()
-            || table_mapping.is_system_table_id(*index.name.table());
+            || table_mapping.is_system_tablet(*index.name.table());
         let is_active = table_mapping.is_active(*index.name.table());
         is_active
             && match self {

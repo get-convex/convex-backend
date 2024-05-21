@@ -1837,10 +1837,7 @@ async fn create_system_table_creates_table_marked_as_system(rt: TestRuntime) -> 
         .table_mapping()
         .namespace(TableNamespace::Global)
         .name_to_id())(table_name.parse()?)?;
-    assert!(tx
-        .table_mapping()
-        .namespace(TableNamespace::Global)
-        .is_system(table_id.table_number));
+    assert!(tx.table_mapping().is_system_tablet(table_id.tablet_id));
     Ok(())
 }
 

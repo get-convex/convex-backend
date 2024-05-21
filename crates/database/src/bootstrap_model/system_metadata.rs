@@ -113,8 +113,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(self.namespace)
-            .is_system(id.table().table_number));
+            .is_system_tablet(id.table().tablet_id));
 
         self.tx.patch_inner(id, value).await
     }
@@ -129,8 +128,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(self.namespace)
-            .is_system(id.table().table_number));
+            .is_system_tablet(id.table().tablet_id));
         self.tx.replace_inner(id, value).await
     }
 
@@ -141,8 +139,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(self.namespace)
-            .is_system(id.table().table_number));
+            .is_system_tablet(id.table().tablet_id));
         self.tx.delete_inner(id).await
     }
 }

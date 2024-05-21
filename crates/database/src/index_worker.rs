@@ -484,7 +484,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         let is_system_index_on_user_table = index_metadata.name.descriptor().is_reserved();
         let is_index_on_system_table = tx
             .table_mapping()
-            .is_system_table_id(*index_metadata.name.table());
+            .is_system_tablet(*index_metadata.name.table());
         match index_metadata.config {
             IndexConfig::Database {
                 ref mut on_disk_state,

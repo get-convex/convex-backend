@@ -93,7 +93,7 @@ impl TableSummaries {
             .collect::<OrdMap<_, _>>();
         let (num_user_documents, user_size) = tables
             .iter()
-            .filter(|(table_id, _summary)| !table_mapping.is_system_table_id(**table_id))
+            .filter(|(table_id, _summary)| !table_mapping.is_system_tablet(**table_id))
             .fold((0, 0), |(acc_docs, acc_size), (_, summary)| {
                 (
                     acc_docs + summary.num_values(),
@@ -160,10 +160,7 @@ impl TableSummaries {
             .insert(document_id.table().tablet_id, table_summary)
         {
             Some(old_summary) => {
-                if !table_mapping
-                    .namespace(TableNamespace::Global)
-                    .is_system(document_id.table().table_number)
-                {
+                if !table_mapping.is_system_tablet(document_id.table().tablet_id) {
                     self.num_user_documents =
                         self.num_user_documents + new_info_num_values - old_summary.num_values();
                     self.user_size =

@@ -510,9 +510,15 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     pub fn is_system(&mut self, table_number: TableNumber) -> bool {
-        self.table_mapping()
+        let tablet_id = match self
+            .table_mapping()
             .namespace(TableNamespace::Global)
-            .is_system(table_number)
+            .inject_table_id()(table_number)
+        {
+            Err(_) => None,
+            Ok(id) => Some(id.tablet_id),
+        };
+        tablet_id.is_some_and(|id| self.table_mapping().is_system_tablet(id))
             || self.virtual_table_mapping().number_exists(&table_number)
     }
 
@@ -847,10 +853,7 @@ impl<RT: Runtime> Transaction<RT> {
         // store. We first guarantee that the changes are valid for the index and
         // metadata and then let inserting into writes the commit
         // point so that the Transaction is never in an inconsistent state.
-        let is_system_document = self
-            .table_mapping()
-            .namespace(TableNamespace::Global)
-            .is_system(id.table().table_number);
+        let is_system_document = self.table_mapping().is_system_tablet(id.table().tablet_id);
         let bootstrap_tables = self.bootstrap_tables();
         let index_update = self
             .index

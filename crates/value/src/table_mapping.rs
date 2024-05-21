@@ -190,8 +190,8 @@ impl TableMapping {
 
     /// Assuming all system tables are in the table mapping,
     /// does a table id correspond to a system table?
-    pub fn is_system_table_id(&self, table_id: TabletId) -> bool {
-        match self.tablet_to_table.get(&table_id) {
+    pub fn is_system_tablet(&self, tablet_id: TabletId) -> bool {
+        match self.tablet_to_table.get(&tablet_id) {
             Some((_, _, t)) => t.is_system(),
             None => false,
         }
@@ -344,17 +344,8 @@ impl NamespacedTableMapping {
 
     /// Assuming all system tables are in the table mapping,
     /// does a table id correspond to a system table?
-    pub fn is_system(&self, table_number: TableNumber) -> bool {
-        match self.table_number_to_canonical_tablet.get(&table_number) {
-            Some(id) => self.is_system_table_id(*id),
-            None => false,
-        }
-    }
-
-    /// Assuming all system tables are in the table mapping,
-    /// does a table id correspond to a system table?
-    pub fn is_system_table_id(&self, table_id: TabletId) -> bool {
-        match self.tablet_to_table.get(&table_id) {
+    pub fn is_system_tablet(&self, tablet_id: TabletId) -> bool {
+        match self.tablet_to_table.get(&tablet_id) {
             Some((_, _, t)) => t.is_system(),
             None => false,
         }
