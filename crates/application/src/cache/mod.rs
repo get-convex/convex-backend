@@ -86,10 +86,6 @@ use value::{
 use crate::{
     application_function_runner::FunctionRouter,
     function_log::FunctionExecutionLog,
-    redaction::{
-        RedactedJsError,
-        RedactedLogLines,
-    },
     QueryReturn,
 };
 
@@ -222,7 +218,6 @@ impl<RT: Runtime> CacheManager<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
-        block_logging: bool,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<QueryReturn> {
         let timer = get_timer();
@@ -235,7 +230,6 @@ impl<RT: Runtime> CacheManager<RT> {
                 ts,
                 journal,
                 caller,
-                block_logging,
                 usage_tracker,
             )
             .await;
@@ -260,7 +254,6 @@ impl<RT: Runtime> CacheManager<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
-        block_logging: bool,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<(QueryReturn, bool)> {
         let start = self.rt.monotonic_now();
@@ -362,20 +355,9 @@ impl<RT: Runtime> CacheManager<RT> {
                 context.clone(),
             );
 
-            let log_lines = RedactedLogLines::from_log_lines(
-                cache_result.outcome.log_lines.clone(),
-                block_logging,
-            );
             let result = QueryReturn {
-                result: match cache_result.outcome.result {
-                    Ok(r) => Ok(r.unpack()),
-                    Err(e) => Err(RedactedJsError::from_js_error(
-                        e,
-                        block_logging,
-                        context.request_id,
-                    )),
-                },
-                log_lines,
+                result: cache_result.outcome.result.map(|r| r.unpack()),
+                log_lines: cache_result.outcome.log_lines,
                 token: cache_result.token,
                 ts,
                 journal: cache_result.outcome.journal,

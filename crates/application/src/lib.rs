@@ -59,6 +59,7 @@ use common::{
         MAX_JOBS_CANCEL_BATCH,
         SNAPSHOT_LIST_LIMIT,
     },
+    log_lines::LogLines,
     log_streaming::LogSender,
     paths::FieldPath,
     pause::PauseClient,
@@ -83,7 +84,6 @@ use common::{
         ModuleEnvironment,
         NodeDependency,
         ObjectKey,
-        PersistenceVersion,
         RepeatableTimestamp,
         TableName,
         Timestamp,
@@ -247,6 +247,7 @@ use sync_types::{
     CanonicalizedUdfPath,
     FunctionName,
     ModulePath,
+    SerializedQueryJournal,
 };
 use table_summary_worker::{
     TableSummaryClient,
@@ -335,11 +336,20 @@ pub struct ApplyConfigArgs {
 
 #[derive(Debug)]
 pub struct QueryReturn {
+    pub result: Result<ConvexValue, JsError>,
+    pub log_lines: LogLines,
+    pub token: Token,
+    pub ts: Timestamp,
+    pub journal: QueryJournal,
+}
+
+#[derive(Debug)]
+pub struct RedactedQueryReturn {
     pub result: Result<ConvexValue, RedactedJsError>,
     pub log_lines: RedactedLogLines,
     pub token: Token,
     pub ts: Timestamp,
-    pub journal: QueryJournal,
+    pub journal: SerializedQueryJournal,
 }
 
 #[derive(Debug)]
@@ -723,10 +733,6 @@ impl<RT: Runtime> Application<RT> {
         self.database.refresh_token(token, ts).await
     }
 
-    pub fn persistence_version(&self) -> PersistenceVersion {
-        self.database.persistence_version()
-    }
-
     pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
         self.database.snapshot(ts)
     }
@@ -813,7 +819,7 @@ impl<RT: Runtime> Application<RT> {
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
-    ) -> anyhow::Result<QueryReturn> {
+    ) -> anyhow::Result<RedactedQueryReturn> {
         let ts = *self.now_ts_for_reads();
         self.read_only_udf_at_ts(request_id, path, args, identity, ts, None, caller)
             .await
@@ -829,7 +835,8 @@ impl<RT: Runtime> Application<RT> {
         ts: Timestamp,
         journal: Option<Option<String>>,
         caller: FunctionCaller,
-    ) -> anyhow::Result<QueryReturn> {
+    ) -> anyhow::Result<RedactedQueryReturn> {
+        let persistence_version = self.database.persistence_version();
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -838,48 +845,41 @@ impl<RT: Runtime> Application<RT> {
                 caller.allowed_visibility(),
             )
             .await?;
-        let journal = match journal
-            .map(|serialized_journal| {
-                self.key_broker()
-                    .decrypt_query_journal(serialized_journal, self.persistence_version())
-            })
-            .transpose()
-        {
-            Ok(journal) => journal,
-            Err(e) if e.is_deterministic_user_error() => {
-                return Ok(QueryReturn {
-                    result: Err(RedactedJsError::from_js_error(
-                        JsError::from_error(e),
-                        block_logging,
-                        request_id,
-                    )),
-                    log_lines: RedactedLogLines::empty(),
-                    // Create a token for an empty read set because we haven't
-                    // done any reads yet.
-                    token: Token::empty(ts),
+
+        let query_return: anyhow::Result<_> = try {
+            let journal = journal
+                .map(|serialized_journal| {
+                    self.key_broker
+                        .decrypt_query_journal(serialized_journal, persistence_version)
+                })
+                .transpose()?;
+            self.runner
+                .run_query_at_ts(
+                    request_id.clone(),
+                    path,
+                    args,
+                    identity,
                     ts,
-                    journal: QueryJournal::new(),
-                });
-            },
-            Err(e) => anyhow::bail!(e),
+                    journal,
+                    caller,
+                )
+                .await?
         };
 
-        match self
-            .runner
-            .run_query_at_ts(
-                request_id.clone(),
-                path,
-                args,
-                identity,
-                ts,
-                journal,
-                caller,
-                block_logging,
-            )
-            .await
-        {
-            Ok(result) => Ok(result),
-            Err(e) if e.is_deterministic_user_error() => Ok(QueryReturn {
+        let redacted_query_return = match query_return {
+            Ok(query_return) => RedactedQueryReturn {
+                result: match query_return.result {
+                    Ok(r) => Ok(r),
+                    Err(e) => Err(RedactedJsError::from_js_error(e, block_logging, request_id)),
+                },
+                log_lines: RedactedLogLines::from_log_lines(query_return.log_lines, block_logging),
+                token: query_return.token,
+                ts: query_return.ts,
+                journal: self
+                    .key_broker
+                    .encrypt_query_journal(&query_return.journal, persistence_version),
+            },
+            Err(e) if e.is_deterministic_user_error() => RedactedQueryReturn {
                 result: Err(RedactedJsError::from_js_error(
                     JsError::from_error(e),
                     block_logging,
@@ -890,10 +890,13 @@ impl<RT: Runtime> Application<RT> {
                 // done any reads yet.
                 token: Token::empty(ts),
                 ts,
-                journal: QueryJournal::new(),
-            }),
+                journal: self
+                    .key_broker
+                    .encrypt_query_journal(&QueryJournal::new(), persistence_version),
+            },
             Err(e) => anyhow::bail!(e),
-        }
+        };
+        Ok(redacted_query_return)
     }
 
     #[minitrace::trace]
@@ -1111,7 +1114,7 @@ impl<RT: Runtime> Application<RT> {
                 .read_only_udf(request_id, path, args, identity, caller)
                 .await
                 .map(
-                    |QueryReturn {
+                    |RedactedQueryReturn {
                          result, log_lines, ..
                      }| {
                         match result {

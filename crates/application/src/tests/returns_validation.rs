@@ -22,7 +22,7 @@ use crate::{
     Application,
     MutationError,
     MutationReturn,
-    QueryReturn,
+    RedactedQueryReturn,
 };
 
 async fn run_zero_arg_mutation(
@@ -49,7 +49,7 @@ async fn run_zero_arg_mutation(
 async fn run_zero_arg_query(
     application: &Application<TestRuntime>,
     name: &str,
-) -> anyhow::Result<QueryReturn> {
+) -> anyhow::Result<RedactedQueryReturn> {
     let obj = json!({});
     application
         .read_only_udf(

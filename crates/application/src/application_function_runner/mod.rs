@@ -1873,19 +1873,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
-        block_logging: bool,
     ) -> anyhow::Result<QueryReturn> {
         let result = self
-            .run_query_at_ts_inner(
-                request_id,
-                path,
-                args,
-                identity,
-                ts,
-                journal,
-                caller,
-                block_logging,
-            )
+            .run_query_at_ts_inner(request_id, path, args, identity, ts, journal, caller)
             .await;
         match result.as_ref() {
             Ok(udf_outcome) => {
@@ -1916,7 +1906,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
-        block_logging: bool,
     ) -> anyhow::Result<QueryReturn> {
         if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
@@ -1925,12 +1914,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Ok(arguments) => arguments,
             Err(js_error) => {
                 return Ok(QueryReturn {
-                    result: Err(RedactedJsError::from_js_error(
-                        js_error,
-                        block_logging,
-                        request_id,
-                    )),
-                    log_lines: RedactedLogLines::empty(),
+                    result: Err(js_error),
+                    log_lines: vec![].into(),
                     token: Token::empty(ts),
                     ts,
                     journal: QueryJournal::new(),
@@ -1949,10 +1934,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 ts,
                 journal,
                 caller,
-                block_logging,
                 usage_tracker.clone(),
             )
             .await?;
+
         Ok(result)
     }
 
@@ -2023,8 +2008,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        // We never block logging for functions called by actions.
-        let block_logging = false;
         let ts = self.database.now_ts_for_reads();
         let result = self
             .run_query_at_ts(
@@ -2037,10 +2020,9 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },
-                block_logging,
             )
-            .await
-            .map(|r| r.result.map_err(|e| e.pretend_to_unredact()))?;
+            .await?
+            .result;
         Ok(FunctionResult { result })
     }
 

@@ -31,7 +31,6 @@ use common::{
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     minitrace_helpers::get_sampled_span,
     pause::PauseClient,
-    query_journal::QueryJournal,
     runtime::{
         Runtime,
         WithTimeout,
@@ -75,6 +74,7 @@ use sync_types::{
     IdentityVersion,
     QueryId,
     QuerySetModification,
+    SerializedQueryJournal,
     StateModification,
     StateVersion,
     Timestamp,
@@ -222,7 +222,7 @@ enum QueryResult {
     Rerun {
         result: Result<ConvexValue, RedactedJsError>,
         log_lines: RedactedLogLines,
-        journal: QueryJournal,
+        journal: SerializedQueryJournal,
     },
     Refresh,
 }
@@ -737,15 +737,11 @@ impl<RT: Runtime> SyncWorker<RT> {
                     log_lines,
                     journal,
                 } => {
-                    let serialized_query_journal = self
-                        .application
-                        .key_broker()
-                        .encrypt_query_journal(&journal, self.application.persistence_version());
                     let modification = self.state.complete_fetch(
                         query_id,
                         result,
                         log_lines,
-                        serialized_query_journal,
+                        journal,
                         subscription,
                     )?;
                     let Some(modification) = modification else {
