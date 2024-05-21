@@ -13,7 +13,7 @@ use database::Transaction;
 use keybroker::Identity;
 use model::{
     config::{
-        module_loader::TransactionModuleLoader,
+        module_loader::ModuleLoader,
         types::ModuleConfig,
     },
     modules::ModuleModel,
@@ -46,7 +46,7 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
     let mut modules = BTreeMap::new();
     modules.insert(path.clone(), Some(config));
     let mut tx = application.begin(Identity::system()).await?;
-    let package = assemble_package(&mut tx, modules).await?;
+    let package = assemble_package(&mut tx, application.modules_cache(), modules).await?;
 
     let SourcePackage {
         storage_key,
@@ -75,10 +75,11 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
 
 pub async fn assemble_package<RT: Runtime>(
     tx: &mut Transaction<RT>,
+    module_loader: &dyn ModuleLoader<RT>,
     modifications: BTreeMap<CanonicalizedComponentModulePath, Option<ModuleConfig>>,
 ) -> anyhow::Result<Vec<ModuleConfig>> {
     let existing_modules = ModuleModel::new(tx)
-        .get_application_modules(ComponentDefinitionId::Root, &TransactionModuleLoader)
+        .get_application_modules(ComponentDefinitionId::Root, module_loader)
         .await?;
     let mut modules = BTreeMap::new();
     for (path, module) in existing_modules {

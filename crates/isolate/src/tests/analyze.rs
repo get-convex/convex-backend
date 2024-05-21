@@ -17,10 +17,7 @@ use common::{
 use keybroker::Identity;
 use maplit::btreemap;
 use model::{
-    config::{
-        module_loader::TransactionModuleLoader,
-        types::ModuleConfig,
-    },
+    config::types::ModuleConfig,
     cron_jobs::types::{
         CronIdentifier,
         CronSchedule,
@@ -56,7 +53,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentDefinitionId::Root, &TransactionModuleLoader)
+            .get_application_modules(ComponentDefinitionId::Root, t.module_loader.as_ref())
             .await?
     };
 
@@ -224,7 +221,7 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
             ModuleModel::new(&mut tx)
-                .get_application_modules(ComponentDefinitionId::Root, &TransactionModuleLoader)
+                .get_application_modules(ComponentDefinitionId::Root, t.module_loader.as_ref())
                 .await?
         };
 
@@ -271,7 +268,7 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentDefinitionId::Root, &TransactionModuleLoader)
+            .get_application_modules(ComponentDefinitionId::Root, t.module_loader.as_ref())
             .await?
     };
 
@@ -364,7 +361,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentDefinitionId::Root, &TransactionModuleLoader)
+            .get_application_modules(ComponentDefinitionId::Root, t.module_loader.as_ref())
             .await?
     };
 
@@ -574,7 +571,7 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
             ModuleModel::new(&mut tx)
-                .get_application_modules(ComponentDefinitionId::Root, &TransactionModuleLoader)
+                .get_application_modules(ComponentDefinitionId::Root, t.module_loader.as_ref())
                 .await?
         };
 

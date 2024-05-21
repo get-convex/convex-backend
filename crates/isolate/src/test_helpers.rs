@@ -515,7 +515,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
-                Arc::new(TransactionModuleLoader),
+                self.module_loader.clone(),
                 SeedData {
                     rng_seed: self.rt.with_rng(|rng| rng.gen()),
                     unix_timestamp: self.rt.unix_timestamp(),
@@ -662,7 +662,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
-                Arc::new(TransactionModuleLoader),
+                self.module_loader.clone(),
                 SeedData {
                     rng_seed: self.rt.with_rng(|rng| rng.gen()),
                     unix_timestamp: self.rt.unix_timestamp(),
@@ -727,7 +727,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             let (_, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
-                Arc::new(TransactionModuleLoader),
+                self.module_loader.clone(),
                 SeedData {
                     rng_seed: self.rt.with_rng(|rng| rng.gen()),
                     unix_timestamp: self.rt.unix_timestamp(),
