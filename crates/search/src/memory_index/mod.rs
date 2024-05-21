@@ -466,11 +466,11 @@ impl MemorySearchIndex {
             Bound::Unbounded,
         ));
         for (_, commit_stats) in commit_iter {
-            stats
+            stats.num_documents = stats
                 .num_documents
                 .checked_add_signed(commit_stats.total_docs_diff as i64)
                 .context("num_documents underflow")?;
-            stats
+            stats.num_terms = stats
                 .num_terms
                 .checked_add_signed(commit_stats.total_term_diff as i64)
                 .context("num_terms underflow")?;
