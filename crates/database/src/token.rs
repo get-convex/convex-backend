@@ -19,7 +19,7 @@ pub type SerializedToken = String;
 /// for a transaction. This can be externalized to a user and used to represent
 /// current transaction state.
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct Token {
     read_set: ReadSet,
     ts: Timestamp,
@@ -68,7 +68,7 @@ impl Token {
         )
     }
 
-    pub(crate) fn new(read_set: ReadSet, ts: Timestamp) -> Self {
+    pub fn new(read_set: ReadSet, ts: Timestamp) -> Self {
         Self { read_set, ts }
     }
 

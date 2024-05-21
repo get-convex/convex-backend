@@ -7,24 +7,35 @@ use common::{
         AllowedVisibility,
         FunctionCaller,
     },
-    value::ConvexValue,
     RequestId,
 };
 use model::session_requests::types::SessionRequestIdentifier;
 use serde_json::Value as JsonValue;
-use sync_types::AuthenticationToken;
+use sync_types::{
+    AuthenticationToken,
+    SerializedQueryJournal,
+    Timestamp,
+};
 
 use crate::{
-    redaction::{
-        RedactedJsError,
-        RedactedLogLines,
-    },
     Application,
     RedactedActionError,
     RedactedActionReturn,
     RedactedMutationError,
     RedactedMutationReturn,
+    RedactedQueryReturn,
 };
+
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Debug, Clone, PartialEq)
+)]
+pub enum ExecuteQueryTimestamp {
+    // Execute the query at the latest timestamp.
+    Latest,
+    // Execute the query at a given timestamp.
+    At(Timestamp),
+}
 
 // A trait that abstracts the backend API. It all state and validation logic
 // so http routes can be kept thin and stateless. The implementor is also
@@ -40,8 +51,9 @@ pub trait ApplicationApi: Send + Sync {
         path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
-        // TODO(presley): Replace this with RedactedQueryReturn.
-    ) -> anyhow::Result<(Result<ConvexValue, RedactedJsError>, RedactedLogLines)>;
+        ts: ExecuteQueryTimestamp,
+        journal: Option<SerializedQueryJournal>,
+    ) -> anyhow::Result<RedactedQueryReturn>;
 
     async fn execute_public_mutation(
         &self,
@@ -77,7 +89,9 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
-    ) -> anyhow::Result<(Result<ConvexValue, RedactedJsError>, RedactedLogLines)> {
+        ts: ExecuteQueryTimestamp,
+        journal: Option<SerializedQueryJournal>,
+    ) -> anyhow::Result<RedactedQueryReturn> {
         anyhow::ensure!(
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
@@ -86,14 +100,12 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         let validate_time = self.runtime().system_time();
         let identity = self.authenticate(auth_token, validate_time).await?;
 
-        let ts = *self.now_ts_for_reads();
-        let journal = None;
-
-        let query_return = self
-            .read_only_udf_at_ts(request_id, path, args, identity, ts, journal, caller)
-            .await?;
-
-        Ok((query_return.result, query_return.log_lines))
+        let ts = match ts {
+            ExecuteQueryTimestamp::Latest => *self.now_ts_for_reads(),
+            ExecuteQueryTimestamp::At(ts) => ts,
+        };
+        self.read_only_udf_at_ts(request_id, path, args, identity, ts, journal, caller)
+            .await
     }
 
     async fn execute_public_mutation(

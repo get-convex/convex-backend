@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use application::{
-    api::ApplicationApi,
+    api::{
+        ApplicationApi,
+        ExecuteQueryTimestamp,
+    },
     redaction::{
         RedactedJsError,
         RedactedLogLines,
@@ -219,7 +222,8 @@ pub async fn public_query_get(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
     let args = req.args.into_arg_vec();
-    let (result, log_lines) = api
+    let journal = None;
+    let query_result = api
         .execute_public_query(
             host,
             request_id,
@@ -230,10 +234,13 @@ pub async fn public_query_get(
             },
             args,
             FunctionCaller::HttpApi(client_version.clone()),
+            ExecuteQueryTimestamp::Latest,
+            journal,
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
-    let response = match result {
+    let log_lines = query_result.log_lines;
+    let response = match query_result.result {
         Ok(value) => UdfResponse::Success {
             value: export_value(value, value_format, client_version)?,
             log_lines,
@@ -253,7 +260,8 @@ pub async fn public_query_post(
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
-    let (result, log_lines) = api
+    let journal = None;
+    let query_return = api
         .execute_public_query(
             host,
             request_id,
@@ -264,15 +272,19 @@ pub async fn public_query_post(
             },
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
+            ExecuteQueryTimestamp::Latest,
+            journal,
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
-    let response = match result {
+    let response = match query_return.result {
         Ok(value) => UdfResponse::Success {
             value: export_value(value, value_format, client_version)?,
-            log_lines,
+            log_lines: query_return.log_lines,
         },
-        Err(error) => UdfResponse::error(error, log_lines, value_format, client_version)?,
+        Err(error) => {
+            UdfResponse::error(error, query_return.log_lines, value_format, client_version)?
+        },
     };
     Ok(Json(response))
 }
