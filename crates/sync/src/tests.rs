@@ -541,6 +541,28 @@ async fn test_admin_auth(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
     let admin_key = test.kb.issue_admin_key(MemberId(1));
+
+    // Make sure there is at least one query.
+    let query = Query {
+        query_id: QueryId::new(0),
+        udf_path: "sync:accountBalance".parse()?,
+        args: vec![assert_obj!("name" => "orinoco").into()],
+        journal: None,
+    };
+    let msg = ClientMessage::ModifyQuerySet {
+        base_version: 0,
+        new_version: 1,
+        modifications: vec![QuerySetModification::Add(query)],
+    };
+    sync_worker.send(msg)?;
+    must_let!(let ServerMessage::Transition {
+        start_version,
+        end_version,
+        ..
+    } = sync_worker.receive().await?);
+    assert_eq!(start_version.identity, 0);
+    assert_eq!(end_version.identity, 0);
+
     sync_worker.send(ClientMessage::Authenticate {
         token: AuthenticationToken::Admin(admin_key.to_string(), None),
         base_version: 0,
@@ -560,6 +582,28 @@ async fn test_admin_auth(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_admin_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
+
+    // Make sure there is at least one query.
+    let query = Query {
+        query_id: QueryId::new(0),
+        udf_path: "sync:accountBalance".parse()?,
+        args: vec![assert_obj!("name" => "orinoco").into()],
+        journal: None,
+    };
+    let msg = ClientMessage::ModifyQuerySet {
+        base_version: 0,
+        new_version: 1,
+        modifications: vec![QuerySetModification::Add(query)],
+    };
+    sync_worker.send(msg)?;
+    must_let!(let ServerMessage::Transition {
+        start_version,
+        end_version,
+        ..
+    } = sync_worker.receive().await?);
+    assert_eq!(start_version.identity, 0);
+    assert_eq!(end_version.identity, 0);
+
     sync_worker.send(ClientMessage::Authenticate {
         token: AuthenticationToken::Admin("bozo".to_string(), None),
         base_version: 0,
@@ -580,6 +624,28 @@ async fn test_admin_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_acting_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
+
+    // Make sure there is at least one query.
+    let query = Query {
+        query_id: QueryId::new(0),
+        udf_path: "sync:accountBalance".parse()?,
+        args: vec![assert_obj!("name" => "orinoco").into()],
+        journal: None,
+    };
+    let msg = ClientMessage::ModifyQuerySet {
+        base_version: 0,
+        new_version: 1,
+        modifications: vec![QuerySetModification::Add(query)],
+    };
+    sync_worker.send(msg)?;
+    must_let!(let ServerMessage::Transition {
+        start_version,
+        end_version,
+        ..
+    } = sync_worker.receive().await?);
+    assert_eq!(start_version.identity, 0);
+    assert_eq!(end_version.identity, 0);
+
     sync_worker.send(ClientMessage::Authenticate {
         token: AuthenticationToken::Admin("bozo".to_string(), Some(UserIdentityAttributes::test())),
         base_version: 0,
@@ -601,6 +667,28 @@ async fn test_acting_auth(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
     let admin_key = test.kb.issue_admin_key(MemberId(1));
+
+    // Make sure there is at least one query.
+    let query = Query {
+        query_id: QueryId::new(0),
+        udf_path: "sync:accountBalance".parse()?,
+        args: vec![assert_obj!("name" => "orinoco").into()],
+        journal: None,
+    };
+    let msg = ClientMessage::ModifyQuerySet {
+        base_version: 0,
+        new_version: 1,
+        modifications: vec![QuerySetModification::Add(query)],
+    };
+    sync_worker.send(msg)?;
+    must_let!(let ServerMessage::Transition {
+        start_version,
+        end_version,
+        ..
+    } = sync_worker.receive().await?);
+    assert_eq!(start_version.identity, 0);
+    assert_eq!(end_version.identity, 0);
+
     sync_worker.send(ClientMessage::Authenticate {
         token: AuthenticationToken::Admin(
             admin_key.to_string(),

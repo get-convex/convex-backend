@@ -422,8 +422,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 udf_path,
                 args,
             } => {
-                let identity = self.state.identity(self.rt.system_time())?;
-
+                let auth_token = self.state.auth_token();
                 let mutation_identifier =
                     self.state.session_id().map(|id| SessionRequestIdentifier {
                         session_id: id,
@@ -450,6 +449,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
                         timer.finish();
+                        let identity = application
+                            .authenticate(auth_token, application.runtime().system_time())
+                            .await?;
                         let result = application
                             .mutation_udf(
                                 server_request_id,
@@ -496,7 +498,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 udf_path,
                 args,
             } => {
-                let identity = self.state.identity(self.rt.system_time())?;
+                let auth_token = self.state.auth_token();
 
                 let application = self.application.clone();
                 let client_version = self.config.client_version.clone();
@@ -515,6 +517,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                     )
                 });
                 let future = async move {
+                    let identity = application
+                        .authenticate(auth_token, application.runtime().system_time())
+                        .await?;
                     let result = application
                         .action_udf(
                             server_request_id,
@@ -553,11 +558,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 token: auth_token,
                 base_version,
             } => {
-                let identity = self
-                    .application
-                    .authenticate(auth_token, self.rt.system_time())
-                    .await?;
-                self.state.modify_identity(identity, base_version)?;
+                self.state.modify_auth_token(auth_token, base_version)?;
                 self.schedule_update();
             },
             ClientMessage::Event(client_event) => {
@@ -588,18 +589,24 @@ impl<RT: Runtime> SyncWorker<RT> {
         let timer = metrics::update_queries_timer();
         let current_version = self.state.current_version();
 
-        let (modifications, new_query_version, pending_identity, new_identity_version) =
+        let (modifications, new_query_version, pending_auth_token, new_identity_version) =
             self.state.take_modifications();
 
         let mut identity_version = current_version.identity;
-        if let Some(new_identity) = pending_identity {
+        if let Some(new_auth_token) = pending_auth_token {
             // If the identity version has changed, invalidate all existing tokens.
             // TODO(CX-737): Don't invalidate queries that don't examine auth state.
+            // TODO(CX-737): Don't invalidate the queries if the User the is the same
+            // only with refreshed token. This is a bit tricky because:
+            // - We need to prove that query does not depend on token issue/expiration time.
+            // - We need to make rpc to backend to compare the properties since Usher can't
+            // validate auth tokens. Alternatively, we make Usher be able to validate tokens
+            // long term.
             self.state.take_subscriptions();
-            self.state.insert_identity(new_identity);
+            self.state.insert_auth_token(new_auth_token);
             identity_version = new_identity_version;
         }
-        let identity = self.state.identity(self.rt.system_time())?;
+        let auth_token = self.state.auth_token();
 
         // Step 1: Decide on a new target (query set version, identity version, ts) for
         // the system.
@@ -627,13 +634,14 @@ impl<RT: Runtime> SyncWorker<RT> {
 
         // Step 3: Take all remaining subscriptions.
         let mut remaining_subscriptions = self.state.take_subscriptions();
+        let validate_time = self.rt.system_time();
 
         // Step 4: Refresh subscriptions up to new_ts and run queries which
         // subscriptions are no longer current.
         let mut futures = vec![];
         for query in self.state.need_fetch() {
             let application_ = self.application.clone();
-            let identity_ = identity.clone();
+            let auth_token_ = auth_token.clone();
             let client_version = self.config.client_version.clone();
             let current_subscription = remaining_subscriptions.remove(&query.query_id);
             let current_token = current_subscription
@@ -665,6 +673,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                     None => {
                         // We failed to refresh the subscription or it was invalid to start
                         // with. Rerun the query.
+                        let identity = application_
+                            .authenticate(auth_token_, validate_time)
+                            .await?;
                         let udf_return = application_
                             .read_only_udf_at_ts(
                                 // This query run might have been triggered due to invalidation
@@ -677,7 +688,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                     udf_path: query.udf_path,
                                 },
                                 query.args,
-                                identity_,
+                                identity,
                                 new_ts,
                                 query.journal,
                                 FunctionCaller::SyncWorker(client_version),
