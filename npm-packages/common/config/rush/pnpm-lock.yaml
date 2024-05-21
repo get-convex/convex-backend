@@ -202,7 +202,7 @@ importers:
       ts-jest: ^29.1.1
       twilio: ^4.22.0
       typescript: ~5.0.3
-      undici: 5.28.3
+      undici: 5.28.4
       uuid: ^9.0.0
       zod: ^3.21.4
     dependencies:
@@ -235,7 +235,7 @@ importers:
       ts-jest: 29.1.1_bhn64nywnymxm5ia5pbhncn4ni
       twilio: 4.22.0
       typescript: 5.0.4
-      undici: 5.28.3
+      undici: 5.28.4
       zod: 3.22.4
 
   ../../shapes:
@@ -8567,8 +8567,8 @@ packages:
       which-boxed-primitive: 1.0.2
     dev: true
 
-  /undici/5.28.3:
-    resolution: {integrity: sha512-3ItfzbrhDlINjaP0duwnNsKpDQk3acHI3gVJ1z4fmwMK31k5G9OVIAMLSIaP6w4FaGkaAkN6zaQO9LUvZ1t7VA==}
+  /undici/5.28.4:
+    resolution: {integrity: sha512-72RFADWFqKmUb2hmmvNODKL3p9hcB6Gt2DOQMis1SEBaV6a4MH8soBvzg+95CYhCKPFedut2JY9bMfrDl9D23g==}
     engines: {node: '>=14.0'}
     dependencies:
       '@fastify/busboy': 2.1.0
