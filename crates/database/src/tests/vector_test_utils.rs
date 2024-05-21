@@ -51,12 +51,12 @@ use search::{
     scoring::Bm25StatisticsDiff,
     searcher::{
         Bm25Stats,
-        FragmentedTextSegmentStorageKeys,
         InProcessSearcher,
         PostingListMatch,
         PostingListQuery,
         Searcher,
         Term,
+        TextStorageKeys,
         TokenMatch,
         TokenQuery,
     },
@@ -576,10 +576,20 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
             .await
     }
 
+    async fn number_of_segments(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_key: ObjectKey,
+    ) -> anyhow::Result<usize> {
+        self.searcher
+            .number_of_segments(search_storage, storage_key)
+            .await
+    }
+
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
@@ -591,7 +601,7 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
     async fn query_bm25_stats(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
         self.searcher
@@ -602,7 +612,7 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
     async fn query_posting_lists(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         self.searcher

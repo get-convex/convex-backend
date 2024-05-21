@@ -172,6 +172,15 @@ pub fn load_alive_bitset(path: &Path) -> anyhow::Result<AliveBitSet> {
 }
 
 impl StaticDeletionTracker {
+    // TODO(CX-6513) Remove after migrating to multisegment index
+    pub fn empty(num_docs: u32) -> Self {
+        Self {
+            alive_bitset: AliveBitSet::from_bitset(&BitSet::with_max_value_and_full(num_docs)),
+            num_terms_deleted: 0,
+            deleted_terms_table: None,
+        }
+    }
+
     pub fn load(alive_bitset: AliveBitSet, deleted_terms_path: &Path) -> anyhow::Result<Self> {
         let deleted_terms_file = File::open(deleted_terms_path)?;
         let deleted_terms_file_len = deleted_terms_file.metadata()?.len() as usize;

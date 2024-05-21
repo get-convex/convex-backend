@@ -11,6 +11,8 @@ service Searchlight {
   rpc ExecuteVectorCompaction(VectorCompactionRequest) returns (VectorCompactionResponse);
   rpc QueueVectorPrefetch(VectorPrefetchRequest) returns (VectorPrefetchResponse);
 
+  rpc NumberOfSegments(SegmentRequest) returns (SegmentResponse);
+
   // Query a set of tokens against the term dictionary, optionally allowing
   // for fuzzy matching and prefix matching. Take the top `K` results with
   // respect to to `(edit distance, term)` lexicographical order.
@@ -214,6 +216,15 @@ message StorageType {
   }
 }
 
+message SegmentRequest {
+    StorageKey segment = 1;
+    StorageType storage_type = 2;
+}
+
+message SegmentResponse {
+    uint32 number_of_segments = 1;
+}
+
 message QueryTokensRequest {
   StorageType storage_type = 1;
   FragmentedTextSegmentPaths segment = 2;
@@ -223,8 +234,20 @@ message QueryTokensRequest {
 
 message FragmentedTextSegmentPaths {
   StorageKey segment = 1;
-  StorageKey id_tracker = 2;
-  StorageKey deletions = 3;
+  oneof segment_metadata {
+    SingleSegmentMetadata single_segment = 2;
+    MultiSegmentMetadata multi_segment = 3;
+  }
+}
+
+message SingleSegmentMetadata {
+   optional uint32 segment_ord = 1;
+}
+
+message MultiSegmentMetadata {
+  StorageKey id_tracker = 1;
+  StorageKey deleted_terms_table = 2;
+  StorageKey alive_bitset = 3;
 }
 
 message TokenQuery {

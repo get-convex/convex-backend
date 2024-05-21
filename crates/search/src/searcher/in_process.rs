@@ -25,9 +25,9 @@ use vector::{
 
 use super::searcher::{
     Bm25Stats,
-    FragmentedTextSegmentStorageKeys,
     PostingListMatch,
     PostingListQuery,
+    TextStorageKeys,
     TokenMatch,
     TokenQuery,
 };
@@ -61,10 +61,18 @@ impl Searcher for SearcherStub {
         Ok(SearchQueryResult::empty())
     }
 
+    async fn number_of_segments(
+        &self,
+        _search_storage: Arc<dyn Storage>,
+        _storage_key: ObjectKey,
+    ) -> anyhow::Result<usize> {
+        Ok(1)
+    }
+
     async fn query_tokens(
         &self,
         _search_storage: Arc<dyn Storage>,
-        _storage_keys: FragmentedTextSegmentStorageKeys,
+        _storage_keys: TextStorageKeys,
         _queries: Vec<TokenQuery>,
         _max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
@@ -74,7 +82,7 @@ impl Searcher for SearcherStub {
     async fn query_bm25_stats(
         &self,
         _search_storage: Arc<dyn Storage>,
-        _storage_keys: FragmentedTextSegmentStorageKeys,
+        _storage_keys: TextStorageKeys,
         _terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
         Ok(Bm25Stats {
@@ -87,7 +95,7 @@ impl Searcher for SearcherStub {
     async fn query_posting_lists(
         &self,
         _search_storage: Arc<dyn Storage>,
-        _storage_keys: FragmentedTextSegmentStorageKeys,
+        _storage_keys: TextStorageKeys,
         _query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         Ok(vec![])
@@ -161,10 +169,20 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
             .await
     }
 
+    async fn number_of_segments(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_key: ObjectKey,
+    ) -> anyhow::Result<usize> {
+        self.searcher
+            .number_of_segments(search_storage, storage_key)
+            .await
+    }
+
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
@@ -176,7 +194,7 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
     async fn query_bm25_stats(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
         self.searcher
@@ -187,7 +205,7 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
     async fn query_posting_lists(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         self.searcher

@@ -1018,3 +1018,7 @@ pub static BUILD_MULTI_SEGMENT_TEXT_INDEXES: LazyLock<bool> =
 /// the "backend_startup" domain keyed by db cluster name.
 pub static STARTUP_RATE_LIMIT_ENABLED: LazyLock<bool> =
     LazyLock::new(|| env_config("STARTUP_RATE_LIMIT_ENABLED", false));
+
+/// Use multi segment search algorithm for search queries.
+pub static USE_MULTI_SEGMENT_SEARCH_QUERY: LazyLock<bool> =
+    LazyLock::new(|| env_config("USE_MULTI_SEGMENT_SEARCH_QUERY", false));

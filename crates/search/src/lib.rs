@@ -47,6 +47,7 @@ use common::{
     },
     document::ResolvedDocument,
     index::IndexKeyBytes,
+    knobs::USE_MULTI_SEGMENT_SEARCH_QUERY,
     query::{
         search_value_to_bytes,
         InternalSearch,
@@ -84,7 +85,7 @@ use query::{
     RevisionWithKeys,
     TextQueryTerm,
 };
-use searcher::FragmentedTextSegmentStorageKeys;
+use searcher::TextStorageKeys;
 use storage::Storage;
 pub use tantivy::Document as TantivyDocument;
 use tantivy::{
@@ -410,7 +411,7 @@ impl TantivySearchIndexSchema {
         compiled_query: CompiledQuery,
         memory_index: &MemorySearchIndex,
         search_storage: Arc<dyn Storage>,
-        segments: Vec<FragmentedTextSegmentStorageKeys>,
+        segments: Vec<TextStorageKeys>,
         disk_index_ts: Timestamp,
         searcher: Arc<dyn Searcher>,
     ) -> anyhow::Result<RevisionWithKeys> {
@@ -438,11 +439,11 @@ impl TantivySearchIndexSchema {
         // and merge the results to get the top terms.
         let mut match_aggregator = TokenMatchAggregator::new(MAX_UNIQUE_QUERY_TERMS);
         memory_index.query_tokens(&token_queries, &mut match_aggregator)?;
-        for segment in &segments {
+        for segment in segments.clone() {
             let segment_token_matches = searcher
                 .query_tokens(
                     search_storage.clone(),
-                    segment.clone(),
+                    segment,
                     token_queries.clone(),
                     MAX_UNIQUE_QUERY_TERMS,
                 )
@@ -482,9 +483,9 @@ impl TantivySearchIndexSchema {
         // Step 3: Given the terms we decided on, query BM25 statistics across all of
         // the indexes and merge their results.
         let mut bm25_stats = Bm25Stats::empty();
-        for segment in &segments {
+        for segment in segments.clone() {
             bm25_stats += searcher
-                .query_bm25_stats(search_storage.clone(), segment.clone(), terms.clone())
+                .query_bm25_stats(search_storage.clone(), segment, terms.clone())
                 .await?;
         }
         bm25_stats = memory_index.update_bm25_stats(disk_index_ts, &terms, bm25_stats)?;
@@ -545,9 +546,9 @@ impl TantivySearchIndexSchema {
                 &mut match_aggregator,
             )?;
         }
-        for segment in &segments {
+        for segment in segments {
             let segment_matches = searcher
-                .query_posting_lists(search_storage.clone(), segment.clone(), query.clone())
+                .query_posting_lists(search_storage.clone(), segment, query.clone())
                 .await?;
             for m in segment_matches {
                 if !match_aggregator.insert(m) {
@@ -590,6 +591,27 @@ impl TantivySearchIndexSchema {
         disk_index_ts: Timestamp,
         searcher: Arc<dyn Searcher>,
     ) -> anyhow::Result<RevisionWithKeys> {
+        if *USE_MULTI_SEGMENT_SEARCH_QUERY {
+            let number_of_segments = searcher
+                .number_of_segments(search_storage.clone(), disk_index.clone())
+                .await?;
+            let segments = (0..number_of_segments)
+                .map(|i| TextStorageKeys::SingleSegment {
+                    storage_key: disk_index.clone(),
+                    segment_ord: i as u32,
+                })
+                .collect();
+            return self
+                .search2(
+                    compiled_query,
+                    memory_index,
+                    search_storage,
+                    segments,
+                    disk_index_ts,
+                    searcher,
+                )
+                .await;
+        }
         // 1. Fetch the memory index matches for each QueryTerm in the query and bound.
         let (term_shortlist, term_shortlist_ids) =
             memory_index.bound_and_evaluate_query_terms(&compiled_query.text_query);

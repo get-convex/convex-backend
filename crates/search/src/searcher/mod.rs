@@ -11,12 +11,13 @@ pub use in_process::{
 };
 pub use searcher::{
     Bm25Stats,
-    FragmentedTextSegmentStorageKeys,
+    FragmentedTextStorageKeys,
     PostingListMatch,
     PostingListQuery,
     Searcher,
     SearcherImpl,
     Term,
+    TextStorageKeys,
     TokenMatch,
     TokenQuery,
 };

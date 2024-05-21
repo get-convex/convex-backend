@@ -9,7 +9,10 @@ use std::{
         Add,
         AddAssign,
     },
-    path::Path,
+    path::{
+        Path,
+        PathBuf,
+    },
     sync::Arc,
     time::{
         Duration,
@@ -38,9 +41,12 @@ use futures::{
 };
 use itertools::Itertools;
 use pb::searchlight::{
+    fragmented_text_segment_paths::SegmentMetadata,
     FragmentedTextSegmentPaths,
     FragmentedVectorSegmentPaths,
+    MultiSegmentMetadata,
     QueryBm25StatsResponse,
+    SingleSegmentMetadata,
     StorageKey,
 };
 use storage::Storage;
@@ -138,10 +144,20 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
         limit: usize,
     ) -> anyhow::Result<SearchQueryResult>;
 
+    /// Get the number of segments a Tantivy index has. It is only necessary to
+    /// call this when using the single segment index format,
+    /// counterintuitively, because we store multisegment indexes in separate
+    /// indexes with a single segment in each one.
+    async fn number_of_segments(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_key: ObjectKey,
+    ) -> anyhow::Result<usize>;
+
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>>;
@@ -149,14 +165,14 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
     async fn query_bm25_stats(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats>;
 
     async fn query_posting_lists(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>>;
 }
@@ -324,6 +340,59 @@ impl<RT: Runtime> SearcherImpl<RT> {
         };
         self.vector_search_pool.execute(search).await?
     }
+
+    async fn load_deletion_tracker(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_keys: TextStorageKeys,
+    ) -> anyhow::Result<Option<(PathBuf, u32, StaticDeletionTracker)>> {
+        let segment_path = self
+            .archive_cache
+            .get(
+                search_storage.clone(),
+                storage_keys.segment_key(),
+                SearchFileType::Text,
+            )
+            .await?;
+        let reader = index_reader_for_directory(&segment_path)?;
+        let searcher = reader.searcher();
+        if searcher.segment_readers().is_empty() {
+            return Ok(None);
+        }
+        let (segment_ord, deletion_tracker) = match storage_keys {
+            TextStorageKeys::SingleSegment {
+                storage_key: _,
+                segment_ord,
+            } => {
+                let segment = searcher.segment_reader(segment_ord);
+                (
+                    segment_ord,
+                    StaticDeletionTracker::empty(segment.num_docs()),
+                )
+            },
+            TextStorageKeys::MultiSegment(fragment_keys) => {
+                anyhow::ensure!(searcher.segment_readers().len() == 1);
+                let (alive_bitset_path, deleted_terms_path) = try_join!(
+                    self.archive_cache.get(
+                        search_storage.clone(),
+                        &fragment_keys.alive_bitset,
+                        SearchFileType::TextAliveBitset
+                    ),
+                    self.archive_cache.get(
+                        search_storage.clone(),
+                        &fragment_keys.deleted_terms_table,
+                        SearchFileType::TextDeletedTerms
+                    )
+                )?;
+                let alive_bitset = load_alive_bitset(&alive_bitset_path)?;
+                (
+                    0,
+                    StaticDeletionTracker::load(alive_bitset, &deleted_terms_path)?,
+                )
+            },
+        };
+        Ok(Some((segment_path, segment_ord, deletion_tracker)))
+    }
 }
 
 #[async_trait]
@@ -363,32 +432,37 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(results)
     }
 
+    async fn number_of_segments(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_key: ObjectKey,
+    ) -> anyhow::Result<usize> {
+        let segment_path = self
+            .archive_cache
+            .get(search_storage.clone(), &storage_key, SearchFileType::Text)
+            .await?;
+        let reader = index_reader_for_directory(segment_path)?;
+        let searcher = reader.searcher();
+        Ok(searcher.segment_readers().len())
+    }
+
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
-        let (alive_bitset_path, deleted_terms_path) = try_join!(
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::TextAliveBitset
-            ),
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::TextDeletedTerms
-            )
-        )?;
+        let Some((segment_path, segment_ord, deletion_tracker)) = self
+            .load_deletion_tracker(search_storage, storage_keys)
+            .await?
+        else {
+            return Ok(vec![]);
+        };
         let query = move || {
-            let reader = index_reader_for_directory(&alive_bitset_path)?;
+            let reader = index_reader_for_directory(&segment_path)?;
             let searcher = reader.searcher();
-            anyhow::ensure!(searcher.segment_readers().len() == 1);
-            let segment = searcher.segment_reader(0);
-            let alive_bitset = load_alive_bitset(&alive_bitset_path)?;
-            let deletion_tracker = StaticDeletionTracker::load(alive_bitset, &deleted_terms_path)?;
+            let segment = searcher.segment_reader(segment_ord);
             Self::query_tokens_impl(segment, &deletion_tracker, queries, max_results)
         };
         let resp = self.text_search_pool.execute(query).await??;
@@ -398,33 +472,19 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
     async fn query_bm25_stats(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
-        let (archive_path, alive_bitset_path, deleted_terms_path) = try_join!(
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::Text
-            ),
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::TextAliveBitset
-            ),
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::TextDeletedTerms
-            )
-        )?;
+        let Some((segment_path, segment_ord, deletion_tracker)) = self
+            .load_deletion_tracker(search_storage, storage_keys)
+            .await?
+        else {
+            return Ok(Bm25Stats::empty());
+        };
         let query = move || {
-            let reader = index_reader_for_directory(&archive_path)?;
+            let reader = index_reader_for_directory(segment_path)?;
             let searcher = reader.searcher();
-            anyhow::ensure!(searcher.segment_readers().len() == 1);
-            let segment = searcher.segment_reader(0);
-            let alive_bitset = load_alive_bitset(&alive_bitset_path)?;
-            let deletion_tracker = StaticDeletionTracker::load(alive_bitset, &deleted_terms_path)?;
+            let segment = searcher.segment_reader(segment_ord);
             Self::query_bm25_stats_impl(segment, &deletion_tracker, terms)
         };
         let resp = self.text_search_pool.execute(query).await??;
@@ -434,44 +494,39 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
     async fn query_posting_lists(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: FragmentedTextSegmentStorageKeys,
+        storage_keys: TextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
-        let (archive_path, id_path, alive_bitset_path, deleted_terms_path) = try_join!(
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::Text,
-            ),
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::TextIdTracker
-            ),
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::TextAliveBitset
-            ),
-            self.archive_cache.get(
-                search_storage.clone(),
-                &storage_keys.segment,
-                SearchFileType::TextDeletedTerms
-            )
-        )?;
+        let id_tracker = match storage_keys {
+            TextStorageKeys::SingleSegment { .. } => None,
+            TextStorageKeys::MultiSegment(ref fragment_keys) => {
+                let id_tracker_path = self
+                    .archive_cache
+                    .get(
+                        search_storage.clone(),
+                        &fragment_keys.id_tracker,
+                        SearchFileType::TextIdTracker,
+                    )
+                    .await?;
+                let id_tracker = StaticIdTracker::load_from_path(id_tracker_path)?;
+                Some(id_tracker)
+            },
+        };
+        let Some((segment_path, segment_ord, deletion_tracker)) = self
+            .load_deletion_tracker(search_storage, storage_keys)
+            .await?
+        else {
+            return Ok(vec![]);
+        };
         let query = move || {
-            let reader = index_reader_for_directory(&archive_path)?;
+            let reader = index_reader_for_directory(&segment_path)?;
             let searcher = reader.searcher();
-            anyhow::ensure!(searcher.segment_readers().len() == 1);
-            let segment = searcher.segment_reader(0);
-            let alive_bitset = load_alive_bitset(&alive_bitset_path)?;
-            let id_tracker = StaticIdTracker::load_from_path(id_path)?;
-            let deleted_tracker = StaticDeletionTracker::load(alive_bitset, &deleted_terms_path)?;
+            let segment = searcher.segment_reader(segment_ord);
             Self::query_posting_lists_impl(
                 &searcher,
                 segment,
-                Some(&id_tracker),
-                &deleted_tracker,
+                id_tracker.as_ref(),
+                &deletion_tracker,
                 query,
             )
         };
@@ -947,14 +1002,37 @@ impl TryFrom<TokenMatch> for pb::searchlight::TokenMatch {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct FragmentedTextSegmentStorageKeys {
-    pub segment: ObjectKey,
-    pub id_tracker: ObjectKey,
-    pub deletions: ObjectKey,
+// TODO(CX-6513) Remove after migrating to multisegment index
+#[derive(Clone, Debug)]
+pub enum TextStorageKeys {
+    SingleSegment {
+        storage_key: ObjectKey,
+        segment_ord: u32,
+    },
+    MultiSegment(FragmentedTextStorageKeys),
 }
 
-impl TryFrom<FragmentedTextSegmentPaths> for FragmentedTextSegmentStorageKeys {
+impl TextStorageKeys {
+    fn segment_key(&self) -> &ObjectKey {
+        match self {
+            TextStorageKeys::SingleSegment {
+                storage_key,
+                segment_ord: _,
+            } => storage_key,
+            TextStorageKeys::MultiSegment(fragment) => &fragment.segment,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FragmentedTextStorageKeys {
+    pub segment: ObjectKey,
+    pub id_tracker: ObjectKey,
+    pub deleted_terms_table: ObjectKey,
+    pub alive_bitset: ObjectKey,
+}
+
+impl TryFrom<FragmentedTextSegmentPaths> for TextStorageKeys {
     type Error = anyhow::Error;
 
     fn try_from(value: FragmentedTextSegmentPaths) -> Result<Self, Self::Error> {
@@ -963,40 +1041,88 @@ impl TryFrom<FragmentedTextSegmentPaths> for FragmentedTextSegmentStorageKeys {
                 .context("Missing path!")?
                 .try_into()
         };
-        Ok(FragmentedTextSegmentStorageKeys {
-            segment: from_path(value.segment)?,
-            id_tracker: from_path(value.id_tracker)?,
-            deletions: from_path(value.deletions)?,
-        })
-    }
-}
-
-// TODO(CX-6514): Consider merging these two structs and removing the other one.
-impl From<FragmentedTextSegment> for FragmentedTextSegmentStorageKeys {
-    fn from(value: FragmentedTextSegment) -> Self {
-        Self {
-            segment: value.segment_key,
-            id_tracker: value.id_tracker_key,
-            deletions: value.deleted_terms_table_key,
+        let segment = from_path(value.segment)?;
+        match value.segment_metadata.context("Missing segment metadata")? {
+            SegmentMetadata::SingleSegment(SingleSegmentMetadata { segment_ord }) => {
+                Ok(TextStorageKeys::SingleSegment {
+                    storage_key: segment,
+                    segment_ord: segment_ord
+                        .context("Missing segment number given single segment")?,
+                })
+            },
+            SegmentMetadata::MultiSegment(MultiSegmentMetadata {
+                id_tracker,
+                deleted_terms_table,
+                alive_bitset,
+            }) => {
+                let id_tracker = from_path(id_tracker)?;
+                let deleted_terms_table = from_path(deleted_terms_table)?;
+                let alive_bitset = from_path(alive_bitset)?;
+                Ok(TextStorageKeys::MultiSegment(FragmentedTextStorageKeys {
+                    segment,
+                    id_tracker,
+                    deleted_terms_table,
+                    alive_bitset,
+                }))
+            },
         }
     }
 }
 
-impl TryFrom<FragmentedTextSegmentStorageKeys> for FragmentedTextSegmentPaths {
-    type Error = anyhow::Error;
+// TODO(CX-6514): Consider merging these two structs and removing the other one.
+impl From<FragmentedTextSegment> for FragmentedTextStorageKeys {
+    fn from(value: FragmentedTextSegment) -> Self {
+        Self {
+            segment: value.segment_key,
+            id_tracker: value.id_tracker_key,
+            deleted_terms_table: value.deleted_terms_table_key,
+            alive_bitset: value.alive_bitset_key,
+        }
+    }
+}
 
-    fn try_from(value: FragmentedTextSegmentStorageKeys) -> Result<Self, Self::Error> {
-        Ok(FragmentedTextSegmentPaths {
-            segment: Some(StorageKey {
-                storage_key: value.segment.into(),
-            }),
-            id_tracker: Some(StorageKey {
-                storage_key: value.id_tracker.into(),
-            }),
-            deletions: Some(StorageKey {
-                storage_key: value.deletions.into(),
-            }),
-        })
+impl From<TextStorageKeys> for FragmentedTextSegmentPaths {
+    fn from(value: TextStorageKeys) -> Self {
+        let segment_from = |segment_key: ObjectKey| {
+            Some(StorageKey {
+                storage_key: segment_key.into(),
+            })
+        };
+
+        let (segment, segment_metadata) = match value {
+            TextStorageKeys::SingleSegment {
+                storage_key,
+                segment_ord,
+            } => (
+                segment_from(storage_key),
+                SegmentMetadata::SingleSegment(SingleSegmentMetadata {
+                    segment_ord: Some(segment_ord),
+                }),
+            ),
+            TextStorageKeys::MultiSegment(FragmentedTextStorageKeys {
+                segment,
+                id_tracker,
+                deleted_terms_table,
+                alive_bitset,
+            }) => (
+                segment_from(segment),
+                SegmentMetadata::MultiSegment(MultiSegmentMetadata {
+                    id_tracker: Some(StorageKey {
+                        storage_key: id_tracker.into(),
+                    }),
+                    deleted_terms_table: Some(StorageKey {
+                        storage_key: deleted_terms_table.into(),
+                    }),
+                    alive_bitset: Some(StorageKey {
+                        storage_key: alive_bitset.into(),
+                    }),
+                }),
+            ),
+        };
+        FragmentedTextSegmentPaths {
+            segment,
+            segment_metadata: Some(segment_metadata),
+        }
     }
 }
 
