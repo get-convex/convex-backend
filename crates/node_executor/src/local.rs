@@ -233,6 +233,7 @@ mod tests {
                 Visibility,
             },
         },
+        source_packages::upload_download::upload_package,
     };
     use runtime::prod::ProdRuntime;
     use storage::{
@@ -253,7 +254,6 @@ mod tests {
             NodeActionOutcome,
             Package,
         },
-        source_package::upload_package,
         Actions,
         AnalyzeRequest,
         ExecuteRequest,

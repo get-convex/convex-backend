@@ -17,9 +17,11 @@ use model::{
         types::ModuleConfig,
     },
     modules::ModuleModel,
-    source_packages::types::SourcePackage,
+    source_packages::{
+        types::SourcePackage,
+        upload_download::download_package,
+    },
 };
-use node_executor::source_package::download_package;
 use runtime::prod::ProdRuntime;
 
 use crate::{

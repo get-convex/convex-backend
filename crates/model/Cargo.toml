@@ -13,6 +13,7 @@ anyhow = { workspace = true }
 async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { path = "../async_lru" }
+async_zip = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
 cmd_util = { path = "../cmd_util" }
@@ -21,6 +22,7 @@ convex_macro = { path = "../convex_macro" }
 database = { path = "../database" }
 derive_more = { workspace = true }
 errors = { path = "../errors" }
+futures = { workspace = true }
 humansize = { workspace = true }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
@@ -37,9 +39,11 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }
+storage = { path = "../storage" }
 strum = { workspace = true }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 value = { path = "../value" }
@@ -53,7 +57,7 @@ metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
-storage = { path = "../storage" }
+storage = { path = "../storage", features = ["testing"] }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = [
     "testing",
 ] }
@@ -69,5 +73,6 @@ testing = [
     "proptest",
     "proptest-derive",
     "runtime/testing",
+    "storage/testing",
     "value/testing",
 ]

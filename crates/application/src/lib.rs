@@ -209,16 +209,16 @@ use model::{
         ImportFormat,
         ImportMode,
     },
-    source_packages::types::SourcePackage,
+    source_packages::{
+        types::SourcePackage,
+        upload_download::upload_package,
+    },
     udf_config::{
         types::UdfConfig,
         UdfConfigModel,
     },
 };
-use node_executor::{
-    source_package::upload_package,
-    Actions,
-};
+use node_executor::Actions;
 use parking_lot::Mutex;
 use rand::Rng;
 use scheduled_jobs::ScheduledJobRunner;

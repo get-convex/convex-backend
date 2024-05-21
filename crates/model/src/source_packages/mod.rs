@@ -30,6 +30,7 @@ use crate::{
 };
 
 pub mod types;
+pub mod upload_download;
 
 pub static SOURCE_PACKAGES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_source_packages"
