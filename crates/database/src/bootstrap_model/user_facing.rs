@@ -30,7 +30,6 @@ use value::{
     DeveloperDocumentId,
     Size,
     TableName,
-    TableNamespace,
 };
 
 use crate::{
@@ -66,23 +65,19 @@ use crate::{
 //  5. We support branching on the `convex` NPM package's version.
 pub struct UserFacingModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
-    // TODO(lee) pass component to transaction methods.
-    _component: ComponentId,
+    component: ComponentId,
 }
 
 impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     pub fn new(tx: &'a mut Transaction<RT>, component: ComponentId) -> Self {
-        Self {
-            tx,
-            _component: component,
-        }
+        Self { tx, component }
     }
 
     #[cfg(any(test, feature = "testing"))]
     pub fn new_root_for_test(tx: &'a mut Transaction<RT>) -> Self {
         Self {
             tx,
-            _component: ComponentId::Root,
+            component: ComponentId::Root,
         }
     }
 
@@ -154,7 +149,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                     if !self
                         .tx
                         .table_mapping()
-                        .namespace(TableNamespace::Global)
+                        .namespace(self.component.into())
                         .table_number_exists()(*id.table())
                     {
                         assert!(results.insert(batch_key, Ok(None)).is_none());
@@ -163,7 +158,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                     let id_ = id.map_table(
                         self.tx
                             .table_mapping()
-                            .namespace(TableNamespace::Global)
+                            .namespace(self.component.into())
                             .inject_table_id(),
                     )?;
                     let table_name = self.tx.table_mapping().tablet_name(id_.table().tablet_id)?;
@@ -259,7 +254,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             id.clone().map_table(
                 self.tx
                     .table_mapping()
-                    .namespace(TableNamespace::Global)
+                    .namespace(self.component.into())
                     .name_to_id_user_input(),
             )?,
             creation_time,
@@ -289,7 +284,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let id_ = id.map_table(
             self.tx
                 .table_mapping()
-                .namespace(TableNamespace::Global)
+                .namespace(self.component.into())
                 .inject_table_id(),
         )?;
 
@@ -324,7 +319,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let id_ = id.map_table(
             self.tx
                 .table_mapping()
-                .namespace(TableNamespace::Global)
+                .namespace(self.component.into())
                 .inject_table_id(),
         )?;
 
@@ -349,7 +344,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             &self
                 .tx
                 .table_mapping()
-                .namespace(TableNamespace::Global)
+                .namespace(self.component.into())
                 .inject_table_id(),
         )?;
         let document = self.tx.delete_inner(id_).await?;

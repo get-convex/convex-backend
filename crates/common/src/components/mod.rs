@@ -55,6 +55,17 @@ impl ComponentId {
     }
 }
 
+impl From<ComponentId> for TableNamespace {
+    fn from(value: ComponentId) -> Self {
+        // TODO(lee) convert these to the correct namespaces:
+        // RootComponent and ByComponent respectively.
+        match value {
+            ComponentId::Root => TableNamespace::Global,
+            ComponentId::Child(_id) => TableNamespace::Global,
+        }
+    }
+}
+
 #[cfg(any(test, feature = "testing"))]
 mod proptests {
     use proptest::prelude::*;

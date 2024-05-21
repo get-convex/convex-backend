@@ -26,16 +26,12 @@ use crate::{
 /// at system metadata.
 pub struct SystemMetadataModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
-    // TODO(lee) pass namespace to transaction methods.
-    _namespace: TableNamespace,
+    namespace: TableNamespace,
 }
 
 impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
     pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
-        Self {
-            tx,
-            _namespace: namespace,
-        }
+        Self { tx, namespace }
     }
 
     /// Helper constructor to create a `SystemMetadataModel` in the Global
@@ -44,7 +40,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
     pub fn new_global(tx: &'a mut Transaction<RT>) -> Self {
         Self {
             tx,
-            _namespace: TableNamespace::Global,
+            namespace: TableNamespace::Global,
         }
     }
 
@@ -64,7 +60,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         let table_id = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(self.namespace)
             .id(table)
             .with_context(|| {
                 if cfg!(any(test, feature = "testing")) {
@@ -97,7 +93,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         let table_id = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(self.namespace)
             .id(table)?;
         let id = self.tx.id_generator.generate(&table_id);
         let creation_time = self.tx.next_creation_time.increment()?;
@@ -117,7 +113,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(self.namespace)
             .is_system(id.table().table_number));
 
         self.tx.patch_inner(id, value).await
@@ -133,7 +129,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(self.namespace)
             .is_system(id.table().table_number));
         self.tx.replace_inner(id, value).await
     }
@@ -145,7 +141,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(self.namespace)
             .is_system(id.table().table_number));
         self.tx.delete_inner(id).await
     }
