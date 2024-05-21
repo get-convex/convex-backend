@@ -5,7 +5,7 @@ use std::{
     ops::Deref,
 };
 
-use pb::convex_token::FieldPath as FieldPathProto;
+use pb::common::FieldPath as FieldPathProto;
 use value::{
     heap_size::{
         HeapSize,

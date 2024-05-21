@@ -23,9 +23,6 @@ pub mod convex_keys {
 pub mod convex_query_journal {
     include!(concat!(env!("OUT_DIR"), "/convex_query_journal.rs"));
 }
-pub mod convex_token {
-    include!(concat!(env!("OUT_DIR"), "/convex_token.rs"));
-}
 pub mod errors {
     include!(concat!(env!("OUT_DIR"), "/errors.rs"));
 }

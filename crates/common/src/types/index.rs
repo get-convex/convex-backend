@@ -371,63 +371,8 @@ impl DatabaseIndexValue {
     }
 }
 
-mod protobuf {
-    use pb::convex_token::ResolvedIndexName as IndexNameProto;
-    use value::TabletId;
-
-    use super::{
-        GenericIndexName,
-        IndexDescriptor,
-        INDEX_BY_CREATION_TIME_DESCRIPTOR,
-        INDEX_BY_ID_DESCRIPTOR,
-    };
-
-    impl From<GenericIndexName<TabletId>> for IndexNameProto {
-        fn from(n: GenericIndexName<TabletId>) -> Self {
-            IndexNameProto {
-                table_id: n.table().to_string(),
-                index_descriptor: n.descriptor().clone().into(),
-            }
-        }
-    }
-
-    impl TryFrom<IndexNameProto> for GenericIndexName<TabletId> {
-        type Error = anyhow::Error;
-
-        fn try_from(value: IndexNameProto) -> Result<Self, Self::Error> {
-            let table_id = value.table_id.parse()?;
-            let index_descriptor: IndexDescriptor = value.index_descriptor.parse()?;
-            if index_descriptor == *INDEX_BY_ID_DESCRIPTOR {
-                Ok(Self::by_id(table_id))
-            } else if index_descriptor == *INDEX_BY_CREATION_TIME_DESCRIPTOR {
-                Ok(Self::by_creation_time(table_id))
-            } else {
-                Self::new(table_id, index_descriptor)
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use pb::convex_token::ResolvedIndexName as IndexNameProto;
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
-    use value::TabletId;
-
-    use crate::types::GenericIndexName;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_index_name_roundtrips(index_name in any::<GenericIndexName<TabletId>>()) {
-            assert_roundtrips::<GenericIndexName<TabletId>, IndexNameProto>(index_name);
-        }
-    }
-
     mod test_min_index_descriptor {
         use std::str::FromStr;
 

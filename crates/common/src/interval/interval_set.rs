@@ -4,7 +4,7 @@ use std::{
     ops::Bound,
 };
 
-use pb::convex_token::{
+use pb::common::{
     interval::End as EndProto,
     Interval as IntervalProto,
 };

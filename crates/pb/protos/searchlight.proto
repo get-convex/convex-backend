@@ -1,7 +1,7 @@
 syntax = "proto3";
 
+import "common.proto";
 import "google/protobuf/empty.proto";
-import "convex_token.proto";
 
 package searchlight;
 
@@ -96,12 +96,12 @@ message ShortlistPositions {
 }
 
 message SearchIndexConfig {
-  convex_token.FieldPath search_field_path = 1;
-  repeated convex_token.FieldPath filter_fields = 2;
+  common.FieldPath search_field_path = 1;
+  repeated common.FieldPath filter_fields = 2;
 }
 
 message FilterField {
-  convex_token.FieldPath path = 1;
+  common.FieldPath path = 1;
   uint32 field = 2;
 }
 
@@ -142,8 +142,8 @@ message VectorCompactionResponse {
 
 message VectorIndexConfig {
   uint32 dimension = 1;
-  convex_token.FieldPath vector_field_path = 2;
-  repeated convex_token.FieldPath filter_fields = 3;
+  common.FieldPath vector_field_path = 2;
+  repeated common.FieldPath filter_fields = 3;
 }
 
 message CompiledVectorQuery {
@@ -153,7 +153,7 @@ message CompiledVectorQuery {
 }
 
 message CompiledVectorQueryFilterCondition {
-  convex_token.FieldPath path = 1;
+  common.FieldPath path = 1;
   oneof filter {
     bytes eq_condition = 2;
     CompiledVectorQueryFilterInCondition in_condition = 3;

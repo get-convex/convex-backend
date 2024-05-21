@@ -1,6 +1,6 @@
 use value::FieldPath;
 
-use crate::convex_token::FieldPath as FieldPathProto;
+use crate::common::FieldPath as FieldPathProto;
 
 impl From<FieldPath> for FieldPathProto {
     fn from(n: FieldPath) -> Self {
@@ -30,7 +30,7 @@ mod tests {
     use value::testing::assert_roundtrips;
 
     use super::FieldPath;
-    use crate::convex_token::FieldPath as FieldPathProto;
+    use crate::common::FieldPath as FieldPathProto;
 
     proptest! {
         #![proptest_config(
