@@ -24,10 +24,19 @@ use crate::{
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentDefinitionMetadata {
     pub path: ComponentDefinitionPath,
-    pub name: ComponentName,
-    pub args: BTreeMap<Identifier, ComponentArgumentValidator>,
+    pub definition_type: ComponentDefinitionType,
     pub child_components: Vec<ComponentInstantiation>,
     pub exports: BTreeMap<Identifier, ComponentExport>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ComponentDefinitionType {
+    App,
+    ChildComponent {
+        name: ComponentName,
+        args: BTreeMap<Identifier, ComponentArgumentValidator>,
+    },
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -56,12 +65,22 @@ pub enum ComponentArgument {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SerializedComponentDefinitionMetadata {
     path: String,
-    name: String,
-    inputs: Vec<(String, SerializedComponentArgumentValidator)>,
+    definition_type: SerializedComponentDefinitionType,
     child_components: Vec<SerializedComponentInstantiation>,
     exports: SerializedComponentExport,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+enum SerializedComponentDefinitionType {
+    App {},
+    ChildComponent {
+        name: String,
+        args: Vec<(String, SerializedComponentArgumentValidator)>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -101,12 +120,7 @@ impl TryFrom<ComponentDefinitionMetadata> for SerializedComponentDefinitionMetad
     fn try_from(m: ComponentDefinitionMetadata) -> anyhow::Result<Self> {
         Ok(Self {
             path: String::from(m.path),
-            name: String::from(m.name),
-            inputs: m
-                .args
-                .into_iter()
-                .map(|(k, v)| anyhow::Ok((String::from(k), v.try_into()?)))
-                .try_collect()?,
+            definition_type: m.definition_type.try_into()?,
             child_components: m
                 .child_components
                 .into_iter()
@@ -126,18 +140,49 @@ impl TryFrom<SerializedComponentDefinitionMetadata> for ComponentDefinitionMetad
         };
         Ok(Self {
             path: m.path.parse()?,
-            name: m.name.parse()?,
-            args: m
-                .inputs
-                .into_iter()
-                .map(|(k, v)| anyhow::Ok((k.parse()?, v.try_into()?)))
-                .try_collect()?,
+            definition_type: m.definition_type.try_into()?,
             child_components: m
                 .child_components
                 .into_iter()
                 .map(TryFrom::try_from)
                 .try_collect()?,
             exports,
+        })
+    }
+}
+
+impl TryFrom<ComponentDefinitionType> for SerializedComponentDefinitionType {
+    type Error = anyhow::Error;
+
+    fn try_from(t: ComponentDefinitionType) -> anyhow::Result<Self> {
+        Ok(match t {
+            ComponentDefinitionType::App => Self::App {},
+            ComponentDefinitionType::ChildComponent { name, args } => Self::ChildComponent {
+                name: name.to_string(),
+                args: args
+                    .into_iter()
+                    .map(|(k, v)| anyhow::Ok((String::from(k), v.try_into()?)))
+                    .try_collect()?,
+            },
+        })
+    }
+}
+
+impl TryFrom<SerializedComponentDefinitionType> for ComponentDefinitionType {
+    type Error = anyhow::Error;
+
+    fn try_from(t: SerializedComponentDefinitionType) -> anyhow::Result<Self> {
+        Ok(match t {
+            SerializedComponentDefinitionType::App {} => Self::App,
+            SerializedComponentDefinitionType::ChildComponent { name, args } => {
+                Self::ChildComponent {
+                    name: name.parse()?,
+                    args: args
+                        .into_iter()
+                        .map(|(k, v)| anyhow::Ok((k.parse()?, v.try_into()?)))
+                        .try_collect()?,
+                }
+            },
         })
     }
 }

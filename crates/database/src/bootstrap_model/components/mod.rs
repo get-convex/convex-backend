@@ -7,6 +7,7 @@ use common::{
     bootstrap_model::components::{
         definition::ComponentDefinitionMetadata,
         ComponentMetadata,
+        ComponentType,
     },
     components::{
         CanonicalizedComponentFunctionPath,
@@ -161,12 +162,12 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                 .await?
                 .with_context(|| format!("component {internal_id} missing"))?
                 .try_into()?;
-            component_id = match &component_doc.parent_and_name {
-                Some((parent_internal_id, name)) => {
+            component_id = match &component_doc.component_type {
+                ComponentType::App => ComponentId::Root,
+                ComponentType::ChildComponent { parent, name, .. } => {
                     path.push(name.clone());
-                    ComponentId::Child(*parent_internal_id)
+                    ComponentId::Child(*parent)
                 },
-                None => ComponentId::Root,
             };
         }
         path.reverse();
@@ -266,9 +267,11 @@ mod tests {
         bootstrap_model::components::{
             definition::{
                 ComponentDefinitionMetadata,
+                ComponentDefinitionType,
                 ComponentInstantiation,
             },
             ComponentMetadata,
+            ComponentType,
         },
         components::{
             ComponentDefinitionPath,
@@ -298,9 +301,11 @@ mod tests {
             .insert(
                 &COMPONENT_DEFINITIONS_TABLE,
                 ComponentDefinitionMetadata {
-                    name: "child".parse().unwrap(),
                     path: child_definition_path.clone(),
-                    args: BTreeMap::new(),
+                    definition_type: ComponentDefinitionType::ChildComponent {
+                        name: "child".parse().unwrap(),
+                        args: BTreeMap::new(),
+                    },
                     child_components: Vec::new(),
                     exports: BTreeMap::new(),
                 }
@@ -311,14 +316,13 @@ mod tests {
             .insert(
                 &COMPONENT_DEFINITIONS_TABLE,
                 ComponentDefinitionMetadata {
-                    name: "root".parse().unwrap(),
-                    path: "convex/app".parse().unwrap(),
+                    path: "".parse().unwrap(),
+                    definition_type: ComponentDefinitionType::App,
                     child_components: vec![ComponentInstantiation {
                         name: "child_subcomponent".parse().unwrap(),
                         path: child_definition_path,
                         args: BTreeMap::new(),
                     }],
-                    args: Default::default(),
                     exports: BTreeMap::new(),
                 }
                 .try_into()?,
@@ -329,8 +333,7 @@ mod tests {
                 &COMPONENTS_TABLE,
                 ComponentMetadata {
                     definition_id: root_definition_id.internal_id(),
-                    parent_and_name: None,
-                    args: Default::default(),
+                    component_type: ComponentType::App,
                 }
                 .try_into()?,
             )
@@ -340,8 +343,11 @@ mod tests {
                 &COMPONENTS_TABLE,
                 ComponentMetadata {
                     definition_id: child_definition_id.internal_id(),
-                    parent_and_name: Some((root_id.internal_id(), "subcomponent_child".parse()?)),
-                    args: Default::default(),
+                    component_type: ComponentType::ChildComponent {
+                        parent: root_id.internal_id(),
+                        name: "subcomponent_child".parse()?,
+                        args: Default::default(),
+                    },
                 }
                 .try_into()?,
             )

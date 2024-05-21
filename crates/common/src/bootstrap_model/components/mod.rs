@@ -22,35 +22,50 @@ use crate::components::{
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentMetadata {
     pub definition_id: InternalId,
-    pub parent_and_name: Option<(InternalId, ComponentName)>,
-    pub args: BTreeMap<Identifier, Resource>,
+    pub component_type: ComponentType,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ComponentType {
+    App,
+    ChildComponent {
+        parent: InternalId,
+        name: ComponentName,
+        args: BTreeMap<Identifier, Resource>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SerializedComponentMetadata {
     pub definition_id: String,
     pub parent: Option<String>,
     pub name: Option<String>,
-    pub args: Vec<(String, SerializedResource)>,
+    pub args: Option<Vec<(String, SerializedResource)>>,
 }
 
 impl TryFrom<ComponentMetadata> for SerializedComponentMetadata {
     type Error = anyhow::Error;
 
     fn try_from(m: ComponentMetadata) -> anyhow::Result<Self> {
-        let (parent, name) = match m.parent_and_name {
-            Some((parent, name)) => (Some(parent.to_string()), Some(name.to_string())),
-            None => (None, None),
+        let (parent, name, args) = match m.component_type {
+            ComponentType::App => (None, None, None),
+            ComponentType::ChildComponent { parent, name, args } => (
+                Some(parent.to_string()),
+                Some(name.to_string()),
+                Some(
+                    args.into_iter()
+                        .map(|(k, v)| anyhow::Ok((k.to_string(), v.try_into()?)))
+                        .try_collect()?,
+                ),
+            ),
         };
         Ok(Self {
             definition_id: m.definition_id.to_string(),
             parent,
             name,
-            args: m
-                .args
-                .into_iter()
-                .map(|(k, v)| anyhow::Ok((String::from(k), v.try_into()?)))
-                .try_collect()?,
+            args,
         })
     }
 }
@@ -59,18 +74,21 @@ impl TryFrom<SerializedComponentMetadata> for ComponentMetadata {
     type Error = anyhow::Error;
 
     fn try_from(m: SerializedComponentMetadata) -> anyhow::Result<Self> {
+        let component_type = match (m.parent, m.name, m.args) {
+            (None, None, None) => ComponentType::App,
+            (Some(parent), Some(name), Some(args)) => ComponentType::ChildComponent {
+                parent: parent.parse()?,
+                name: name.parse()?,
+                args: args
+                    .into_iter()
+                    .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
+                    .collect::<anyhow::Result<_>>()?,
+            },
+            _ => anyhow::bail!("Invalid component type"),
+        };
         Ok(Self {
             definition_id: m.definition_id.parse()?,
-            parent_and_name: match (m.parent, m.name) {
-                (Some(parent), Some(name)) => Some((parent.parse()?, name.parse()?)),
-                (None, None) => None,
-                _ => anyhow::bail!("expected both parent and name or neither"),
-            },
-            args: m
-                .args
-                .into_iter()
-                .map(|(k, v)| anyhow::Ok((k.parse()?, v.try_into()?)))
-                .try_collect()?,
+            component_type,
         })
     }
 }

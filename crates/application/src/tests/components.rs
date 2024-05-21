@@ -6,10 +6,12 @@ use common::{
             ComponentArgument,
             ComponentArgumentValidator,
             ComponentDefinitionMetadata,
+            ComponentDefinitionType,
             ComponentExport,
             ComponentInstantiation,
         },
         ComponentMetadata,
+        ComponentType,
     },
     components::{
         ComponentFunctionPath,
@@ -138,8 +140,7 @@ bar.invokeAction = async (requestId, argsStr) => {
     let root_component_id = {
         let definition = ComponentDefinitionMetadata {
             path: "".parse()?,
-            name: "app".parse()?,
-            args: btreemap! {},
+            definition_type: ComponentDefinitionType::App,
             child_components: vec![ComponentInstantiation {
                 name: "chatWaitlist".parse()?,
                 path: "../node_modules/waitlist".parse()?,
@@ -159,8 +160,7 @@ bar.invokeAction = async (requestId, argsStr) => {
 
         let component = ComponentMetadata {
             definition_id: definition_id.internal_id(),
-            parent_and_name: None,
-            args: btreemap! {},
+            component_type: ComponentType::App,
         };
         let component_id = SystemMetadataModel::new_global(&mut tx)
             .insert(&COMPONENTS_TABLE, component.try_into()?)
@@ -171,9 +171,11 @@ bar.invokeAction = async (requestId, argsStr) => {
     {
         let definition = ComponentDefinitionMetadata {
             path: "../node_modules/waitlist".parse()?,
-            name: "waitlist".parse()?,
-            args: btreemap! {
-                "maxLength".parse()? => ComponentArgumentValidator::Value(Validator::Float64),
+            definition_type: ComponentDefinitionType::ChildComponent {
+                name: "waitlist".parse()?,
+                args: btreemap! {
+                    "maxLength".parse()? => ComponentArgumentValidator::Value(Validator::Float64),
+                },
             },
             child_components: vec![],
             exports: btreemap! {
@@ -188,9 +190,12 @@ bar.invokeAction = async (requestId, argsStr) => {
 
         let component = ComponentMetadata {
             definition_id: definition_id.internal_id(),
-            parent_and_name: Some((root_component_id, "chatWaitlist".parse()?)),
-            args: btreemap! {
-                "maxLength".parse()? => Resource::Value(ConvexValue::Float64(10.)),
+            component_type: ComponentType::ChildComponent {
+                parent: root_component_id,
+                name: "chatWaitlist".parse()?,
+                args: btreemap! {
+                    "maxLength".parse()? => Resource::Value(ConvexValue::Float64(10.)),
+                },
             },
         };
         SystemMetadataModel::new_global(&mut tx)

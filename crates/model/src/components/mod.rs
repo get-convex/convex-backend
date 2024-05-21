@@ -5,7 +5,10 @@ use std::collections::BTreeMap;
 use anyhow::Context;
 use async_recursion::async_recursion;
 use common::{
-    bootstrap_model::components::definition::ComponentExport,
+    bootstrap_model::components::{
+        definition::ComponentExport,
+        ComponentType,
+    },
     components::{
         CanonicalizedComponentModulePath,
         ComponentFunctionPath,
@@ -55,7 +58,14 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                             format!("Component {:?} not found", component_id),
                         )
                     })?;
-                let resource = component.args.get(attribute).ok_or_else(|| {
+                let ComponentType::ChildComponent { ref args, .. } = component.component_type
+                else {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        "Can't use an argument reference in the app"
+                    ))
+                };
+                let resource = args.get(attribute).ok_or_else(|| {
                     ErrorMetadata::bad_request(
                         "InvalidReference",
                         format!("Component argument '{attribute}' not found"),
@@ -186,11 +196,14 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         let definition = m.load_definition(definition_id).await?;
 
         let mut result = BTreeMap::new();
-        for (name, resource) in &component.args {
-            let reference = Reference::ComponentArgument {
-                attributes: vec![name.clone()],
-            };
-            result.insert(reference, resource.clone());
+
+        if let ComponentType::ChildComponent { ref args, .. } = component.component_type {
+            for (name, resource) in args {
+                let reference = Reference::ComponentArgument {
+                    attributes: vec![name.clone()],
+                };
+                result.insert(reference, resource.clone());
+            }
         }
 
         let module_metadata = ModuleModel::new(self.tx)
