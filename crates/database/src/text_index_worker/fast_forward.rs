@@ -92,13 +92,10 @@ pub mod tests {
             FastForwardIndexWorker,
             LastFastForwardInfo,
         },
-        test_helpers::new_test_database,
         tests::{
             search_test_utils::{
-                assert_backfilled,
-                create_search_index_with_document,
-                new_search_worker,
                 IndexData,
+                TextFixtures,
             },
             vector_test_utils::add_document_vec_array,
         },
@@ -123,22 +120,24 @@ pub mod tests {
     #[convex_macro::test_runtime]
     async fn test_fast_forward(rt: TestRuntime) -> anyhow::Result<()> {
         let mut last_fast_forward_info: Option<LastFastForwardInfo> = None;
-
-        let database = new_test_database(rt.clone()).await;
+        let fixtures = TextFixtures::new(rt.clone()).await?;
+        let database = &fixtures.db;
 
         let IndexData {
             index_id,
             index_name,
             resolved_index_name,
-            namespace,
-        } = create_search_index_with_document(&database).await?;
-        let mut worker = new_search_worker(&rt, &database)?;
+            ..
+        } = fixtures
+            .insert_backfilling_text_index_with_document()
+            .await?;
+        let mut worker = fixtures.new_search_flusher();
 
         // Backfill the index
         let (metrics, _) = worker.step().await?;
 
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
-        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
+        let initial_snapshot_ts = fixtures.assert_backfilled(&index_name).await?;
 
         // Check that fast-forwarding works when we write to another table. Advance time
         // so our commit's timestamp is past the debounce window.
@@ -152,16 +151,16 @@ pub mod tests {
             database.commit(tx).await?;
         }
 
-        let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
+        let metrics = fast_forward(&rt, database, &mut last_fast_forward_info).await?;
         assert_eq!(metrics, btreeset! {resolved_index_name.clone() });
         // Don't touch the snapshot timestamp
-        let snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
+        let snapshot_ts = fixtures.assert_backfilled(&index_name).await?;
         assert_eq!(
             initial_snapshot_ts, snapshot_ts,
             "initial: {initial_snapshot_ts}, now: {snapshot_ts}"
         );
         // Do write a fast forward ts
-        let fast_forward_ts = get_fast_forward_ts(&database, index_id).await?;
+        let fast_forward_ts = get_fast_forward_ts(database, index_id).await?;
         assert!(
             fast_forward_ts > initial_snapshot_ts,
             "initial: {initial_snapshot_ts}, fast_forward_ts: {fast_forward_ts}"
@@ -169,28 +168,22 @@ pub mod tests {
 
         // Check that we don't fast-forward if we bump the reproducible timestamp and
         // advance time but don't perform any commits.
-        let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
+        let metrics = fast_forward(&rt, database, &mut last_fast_forward_info).await?;
         assert!(metrics.is_empty());
-        assert_eq!(
-            snapshot_ts,
-            assert_backfilled(&database, namespace, &index_name).await?
-        );
+        assert_eq!(snapshot_ts, fixtures.assert_backfilled(&index_name).await?);
         assert_eq!(
             fast_forward_ts,
-            get_fast_forward_ts(&database, index_id).await?
+            get_fast_forward_ts(database, index_id).await?
         );
 
         // Check that we fast-forward if we advance time sufficiently far forward past
         // DATABASE_WORKERS_MAX_CHECKPOINT_AGE even with no writes.
         rt.advance_time(Duration::from_secs(7200));
         database.bump_max_repeatable_ts().await?;
-        let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
+        let metrics = fast_forward(&rt, database, &mut last_fast_forward_info).await?;
         assert_eq!(metrics, btreeset! {resolved_index_name.clone()});
-        assert_eq!(
-            snapshot_ts,
-            assert_backfilled(&database, namespace, &index_name).await?
-        );
-        let new_fast_forward_ts = get_fast_forward_ts(&database, index_id).await?;
+        assert_eq!(snapshot_ts, fixtures.assert_backfilled(&index_name).await?);
+        let new_fast_forward_ts = get_fast_forward_ts(database, index_id).await?;
         assert!(fast_forward_ts < new_fast_forward_ts);
 
         // Check that we don't fast-forward if we advance time but also write to the
@@ -204,16 +197,13 @@ pub mod tests {
         add_document_vec_array(&mut tx, index_name.table(), [2f64, 3f64]).await?;
         database.commit(tx).await?;
 
-        let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
+        let metrics = fast_forward(&rt, database, &mut last_fast_forward_info).await?;
         assert!(metrics.is_empty(), "{metrics:?}");
         assert_eq!(
             new_fast_forward_ts,
-            get_fast_forward_ts(&database, index_id).await?,
+            get_fast_forward_ts(database, index_id).await?,
         );
-        assert_eq!(
-            snapshot_ts,
-            assert_backfilled(&database, namespace, &index_name).await?,
-        );
+        assert_eq!(snapshot_ts, fixtures.assert_backfilled(&index_name).await?,);
 
         Ok(())
     }

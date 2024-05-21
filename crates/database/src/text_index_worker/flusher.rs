@@ -400,13 +400,10 @@ pub(crate) mod tests {
     use value::TableNamespace;
 
     use crate::{
-        test_helpers::new_test_database,
         tests::search_test_utils::{
             add_document,
-            assert_backfilled,
-            create_search_index_with_document,
-            new_search_worker,
             IndexData,
+            TextFixtures,
         },
         Database,
         IndexModel,
@@ -452,15 +449,16 @@ pub(crate) mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_build_search_index(rt: TestRuntime) -> anyhow::Result<()> {
-        let database = new_test_database(rt.clone()).await;
+        let fixtures = TextFixtures::new(rt.clone()).await?;
 
         let IndexData {
             index_name,
             resolved_index_name,
-            namespace,
             ..
-        } = create_search_index_with_document(&database).await?;
-        let mut worker = new_search_worker(&rt, &database)?;
+        } = fixtures
+            .insert_backfilling_text_index_with_document()
+            .await?;
+        let mut worker = fixtures.new_search_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -469,22 +467,24 @@ pub(crate) mod tests {
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
         // Check that the metadata is updated so it's no longer backfilling.
-        assert_backfilled(&database, namespace, &index_name).await?;
+        fixtures.assert_backfilled(&index_name).await?;
 
         Ok(())
     }
 
     #[convex_macro::test_runtime]
     async fn test_rebuild_backfilled_search_index(rt: TestRuntime) -> anyhow::Result<()> {
-        let database = new_test_database(rt.clone()).await;
+        let fixtures = TextFixtures::new(rt.clone()).await?;
+        let database = &fixtures.db;
 
         let IndexData {
             index_name,
             resolved_index_name,
-            namespace,
             ..
-        } = create_search_index_with_document(&database).await?;
-        let mut worker = new_search_worker(&rt, &database)?;
+        } = fixtures
+            .insert_backfilling_text_index_with_document()
+            .await?;
+        let mut worker = fixtures.new_search_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -493,7 +493,7 @@ pub(crate) mod tests {
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
 
         // Check that the metadata is updated so it's no longer backfilling.
-        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
+        let initial_snapshot_ts = fixtures.assert_backfilled(&index_name).await?;
 
         // Write 10 more documents into the table to trigger a new snapshot.
         let mut tx = database.begin_system().await.unwrap();
@@ -511,7 +511,7 @@ pub(crate) mod tests {
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 11});
 
         // Check that the metadata is updated so it's no longer backfilling.
-        let new_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
+        let new_snapshot_ts = fixtures.assert_backfilled(&index_name).await?;
         assert!(new_snapshot_ts > initial_snapshot_ts);
 
         Ok(())
@@ -519,15 +519,17 @@ pub(crate) mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_rebuild_enabled_search_index(rt: TestRuntime) -> anyhow::Result<()> {
-        let database = new_test_database(rt.clone()).await;
+        let fixtures = TextFixtures::new(rt.clone()).await?;
 
         let IndexData {
             index_name,
             resolved_index_name,
             namespace,
             ..
-        } = create_search_index_with_document(&database).await?;
-        let mut worker = new_search_worker(&rt, &database)?;
+        } = fixtures
+            .insert_backfilling_text_index_with_document()
+            .await?;
+        let mut worker = fixtures.new_search_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -535,11 +537,11 @@ pub(crate) mod tests {
         // Make sure we actually built this index with one document.
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
         // Check that the metadata is updated so it's no longer backfilling.
-        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
+        let initial_snapshot_ts = fixtures.assert_backfilled(&index_name).await?;
         // Enable the index so it's in the Snapshotted state.
-        enable_pending_index(&database, namespace, &index_name).await?;
+        enable_pending_index(&fixtures.db, namespace, &index_name).await?;
         // Write 10 more documents into the table to trigger a new snapshot.
-        let mut tx = database.begin_system().await.unwrap();
+        let mut tx = fixtures.db.begin_system().await.unwrap();
         for _ in 0..10 {
             add_document(
                 &mut tx,
@@ -548,13 +550,13 @@ pub(crate) mod tests {
             )
             .await?;
         }
-        database.commit(tx).await?;
+        fixtures.db.commit(tx).await?;
 
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 11});
 
         // Check that the metadata is updated and still enabled.
-        let new_snapshot_ts = assert_snapshotted(&database, namespace, &index_name).await?;
+        let new_snapshot_ts = assert_snapshotted(&fixtures.db, namespace, &index_name).await?;
         assert!(new_snapshot_ts > initial_snapshot_ts);
 
         Ok(())
@@ -563,19 +565,21 @@ pub(crate) mod tests {
     #[convex_macro::test_runtime]
     async fn test_advance_old_snapshot(rt: TestRuntime) -> anyhow::Result<()> {
         common::testing::init_test_logging();
-        let database = new_test_database(rt.clone()).await;
-        let mut worker = new_search_worker(&rt, &database)?;
+        let fixtures = TextFixtures::new(rt.clone()).await?;
+        let mut worker = fixtures.new_search_flusher();
+        let database = &fixtures.db;
 
         let IndexData {
             index_name,
             resolved_index_name,
-            namespace,
             ..
-        } = create_search_index_with_document(&database).await?;
+        } = fixtures
+            .insert_backfilling_text_index_with_document()
+            .await?;
 
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
-        let initial_snapshot_ts = assert_backfilled(&database, namespace, &index_name).await?;
+        let initial_snapshot_ts = fixtures.assert_backfilled(&index_name).await?;
 
         // Write a single document underneath our soft limit and check that we don't
         // snapshot.
@@ -587,7 +591,7 @@ pub(crate) mod tests {
         assert!(metrics.is_empty());
         assert_eq!(
             initial_snapshot_ts,
-            assert_backfilled(&database, namespace, &index_name).await?
+            fixtures.assert_backfilled(&index_name).await?
         );
 
         // Advance time past the max index age (and do an unrelated commit to bump the
@@ -602,7 +606,7 @@ pub(crate) mod tests {
 
         let (metrics, _) = worker.step().await?;
         assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 2});
-        assert!(initial_snapshot_ts < assert_backfilled(&database, namespace, &index_name).await?);
+        assert!(initial_snapshot_ts < fixtures.assert_backfilled(&index_name).await?);
 
         Ok(())
     }

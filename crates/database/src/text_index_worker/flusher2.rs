@@ -107,9 +107,8 @@ impl<RT: Runtime> FlusherBuilder<RT> {
         }
     }
 
-    #[cfg(any(test, feature = "testing"))]
     #[allow(dead_code)]
-    fn set_soft_limit(self, limit: usize) -> Self {
+    pub fn set_soft_limit(self, limit: usize) -> Self {
         Self {
             index_size_soft_limit: limit,
             ..self
@@ -202,10 +201,11 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
                     .await?;
             },
         }
-        log_documents_per_new_segment(new_segment_stats.unwrap_or_default().num_indexed_documents);
+        let num_indexed_documents = new_segment_stats.unwrap_or_default().num_indexed_documents;
+        log_documents_per_new_segment(num_indexed_documents);
         log_documents_per_index(total_stats.num_indexed_documents as usize);
         timer.finish();
-        Ok(0)
+        Ok(num_indexed_documents)
     }
 
     fn get_new_disk_state(
@@ -283,53 +283,75 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use common::{
-        persistence::PersistenceReader,
         runtime::testing::TestRuntime,
+        types::TabletIndexName,
     };
-    use storage::{
-        LocalDirStorage,
-        Storage,
-    };
+    use maplit::btreemap;
     use value::TableNamespace;
 
-    use crate::{
-        test_helpers::DbFixtures,
-        tests::search_test_utils::{
-            assert_backfilled,
-            insert_backfilling_text_index,
-        },
-        text_index_worker::flusher2::{
-            FlusherBuilder,
-            TextIndexFlusher2,
-        },
-        Database,
+    use crate::tests::search_test_utils::{
+        IndexData,
+        TextFixtures,
     };
-
-    fn new_flusher(
-        rt: &TestRuntime,
-        database: &Database<TestRuntime>,
-        reader: Arc<dyn PersistenceReader>,
-        storage: Arc<dyn Storage>,
-    ) -> TextIndexFlusher2<TestRuntime> {
-        FlusherBuilder::new(rt.clone(), database.clone(), reader, storage)
-            // Build after every write.
-            .set_soft_limit(0)
-            .build()
-    }
 
     #[convex_macro::test_runtime]
     async fn backfill_with_no_documents_sets_state_to_backfilled(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
-        let index = insert_backfilling_text_index(&db).await?;
-        let mut flusher = new_flusher(&rt, &db, tp.reader(), storage);
+        let fixtures = TextFixtures::new(rt).await?;
+        let index = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
         flusher.step().await?;
-        assert_backfilled(&db, TableNamespace::Global, &index.name).await?;
+        fixtures.assert_backfilled(&index.name).await?;
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_no_documents_returns_index_in_metrics(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let index = fixtures.insert_backfilling_text_index().await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        let table_id = tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(index.name.table())?
+            .tablet_id;
+        let resolved_index_name = TabletIndexName::new(table_id, index.name.descriptor().clone())?;
+        let mut flusher = fixtures.new_search_flusher2();
+        let (metrics, _) = flusher.step().await?;
+        assert_eq!(metrics, btreemap! { resolved_index_name => 0 });
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_one_document_sets_state_to_backfilled(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let index = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+        fixtures.assert_backfilled(&index.name).await?;
+        Ok(())
+    }
+
+    // TODO(sam): Implement num_indexed_documents then re-enable this.
+    #[ignore]
+    #[convex_macro::test_runtime]
+    async fn backfill_with_one_document_returns_metrics(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData {
+            resolved_index_name,
+            ..
+        } = fixtures
+            .insert_backfilling_text_index_with_document()
+            .await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        let (metrics, _) = flusher.step().await?;
+        assert_eq!(metrics, btreemap! { resolved_index_name => 1 });
         Ok(())
     }
 }
