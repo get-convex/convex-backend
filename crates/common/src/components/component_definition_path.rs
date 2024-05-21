@@ -18,6 +18,14 @@ pub struct ComponentDefinitionPath {
     path: PathBuf,
 }
 
+impl ComponentDefinitionPath {
+    pub fn min() -> Self {
+        ComponentDefinitionPath {
+            path: PathBuf::new(),
+        }
+    }
+}
+
 impl FromStr for ComponentDefinitionPath {
     type Err = anyhow::Error;
 

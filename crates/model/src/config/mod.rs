@@ -34,6 +34,7 @@ use database::{
     SchemaModel,
     Transaction,
 };
+use sync_types::CanonicalizedModulePath;
 use value::{
     heap_size::WithHeapSize,
     ResolvedDocumentId,
@@ -88,7 +89,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         modules: Vec<ModuleConfig>,
         new_config: UdfConfig,
         source_package: Option<SourcePackage>,
-        mut analyze_results: BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
+        mut analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
         schema_id: Option<ResolvedDocumentId>,
     ) -> anyhow::Result<(ConfigDiff, Option<DatabaseSchema>)> {
         // TODO: Move this check up to `Application`.
@@ -105,10 +106,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             None => None,
         };
 
-        let crons_js = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: "crons.js".parse()?,
-        };
+        let crons_js = "crons.js".parse()?;
         let new_crons: WithHeapSize<BTreeMap<CronIdentifier, CronSpec>> =
             if let Some(module) = analyze_results.get(&crons_js) {
                 module.cron_specs.clone().unwrap_or_default()
@@ -201,24 +199,18 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             .get_application_metadata(ComponentDefinitionId::Root)
             .await?
             .into_iter()
-            .map(|module| CanonicalizedComponentModulePath {
-                component: ComponentDefinitionId::Root,
-                module_path: module.into_value().path,
-            })
+            .map(|module| module.into_value().path)
             .collect();
         for module in modules {
-            let path = CanonicalizedComponentModulePath {
-                component: ComponentDefinitionId::Root,
-                module_path: module.path.canonicalize(),
-            };
+            let path = module.path.canonicalize();
             if !remaining_modules.remove(&path) {
                 added_modules.insert(path.clone());
             }
-            let analyze_result = if !path.module_path.is_deps() {
+            let analyze_result = if !path.is_deps() {
                 // We expect AnalyzeResult to always be set for non-dependency modules.
                 let analyze_result = analyze_results.remove(&path).context(format!(
                     "Missing analyze result for module {}",
-                    path.module_path.as_str()
+                    path.as_str()
                 ))?;
                 Some(analyze_result)
             } else {
@@ -227,7 +219,10 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             };
             ModuleModel::new(self.tx)
                 .put(
-                    path,
+                    CanonicalizedComponentModulePath {
+                        component: ComponentDefinitionId::Root,
+                        module_path: path.clone(),
+                    },
                     module.source,
                     source_package_id,
                     module.source_map,
@@ -240,7 +235,12 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         let mut removed_modules = BTreeSet::new();
         for path in remaining_modules {
             removed_modules.insert(path.clone());
-            ModuleModel::new(self.tx).delete(path).await?;
+            ModuleModel::new(self.tx)
+                .delete(CanonicalizedComponentModulePath {
+                    component: ComponentDefinitionId::Root,
+                    module_path: path,
+                })
+                .await?;
         }
         let module_diff = ModuleDiff::new(added_modules, removed_modules)?;
 

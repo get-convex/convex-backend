@@ -13,7 +13,6 @@ use std::{
 
 use common::{
     auth::AuthInfo,
-    components::CanonicalizedComponentModulePath,
     obj,
     schemas::DatabaseSchema,
     types::ModuleEnvironment,
@@ -23,6 +22,7 @@ use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use sync_types::{
     module_path::ACTIONS_DIR,
+    CanonicalizedModulePath,
     ModulePath,
 };
 use value::{
@@ -398,12 +398,11 @@ impl TryFrom<ConvexObject> for ModuleDiff {
 
 impl ModuleDiff {
     pub fn new(
-        added_module_paths: BTreeSet<CanonicalizedComponentModulePath>,
-        removed_module_paths: BTreeSet<CanonicalizedComponentModulePath>,
+        added_module_paths: BTreeSet<CanonicalizedModulePath>,
+        removed_module_paths: BTreeSet<CanonicalizedModulePath>,
     ) -> anyhow::Result<Self> {
         let mut added_functions = Vec::with_capacity(added_module_paths.len());
         for m in added_module_paths {
-            let m = m.into_root_module_path()?;
             if m.is_deps() || m.is_system() {
                 continue;
             }
@@ -411,7 +410,6 @@ impl ModuleDiff {
         }
         let mut removed_functions = Vec::with_capacity(removed_module_paths.len());
         for m in removed_module_paths {
-            let m = m.into_root_module_path()?;
             if m.is_deps() || m.is_system() {
                 continue;
             }

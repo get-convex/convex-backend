@@ -6,8 +6,6 @@ use std::{
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
         ComponentId,
     },
     types::{
@@ -60,15 +58,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     let modules_by_path = module_configs
         .iter()
-        .map(|c| {
-            (
-                CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
-                    module_path: c.path.clone().canonicalize(),
-                },
-                c.clone(),
-            )
-        })
+        .map(|c| (c.path.clone().canonicalize(), c.clone()))
         .collect();
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let analyze_results = t

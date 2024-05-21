@@ -21,10 +21,6 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
-    components::{
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
-    },
     http::{
         extract::Json,
         HttpResponseError,
@@ -70,6 +66,7 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
+use sync_types::CanonicalizedModulePath;
 use value::ConvexObject;
 
 use crate::{
@@ -224,10 +221,10 @@ impl ConfigJson {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModuleJson {
-    path: String,
-    source: ModuleSource,
-    source_map: Option<SourceMap>,
-    environment: Option<String>,
+    pub path: String,
+    pub source: ModuleSource,
+    pub source_map: Option<SourceMap>,
+    pub environment: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -308,7 +305,7 @@ pub struct PushAnalytics {
     pub config: ConfigMetadata,
     pub modules: Vec<ModuleConfig>,
     pub udf_server_version: Version,
-    pub analyze_results: BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
+    pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
     pub schema: Option<DatabaseSchema>,
 }
 
@@ -445,7 +442,7 @@ pub async fn push_config_handler(
     };
     let begin_analyze = Instant::now();
     // Run analyze to make sure the new modules are valid.
-    let (auth_module, analyze_result) = analyze_modules_with_auth_config(
+    let (auth_module, analyze_results) = analyze_modules_with_auth_config(
         application,
         udf_config.clone(),
         modules.clone(),
@@ -469,7 +466,7 @@ pub async fn push_config_handler(
                 modules: modules.clone(),
                 udf_config: udf_config.clone(),
                 source_package,
-                analyze_results: analyze_result.clone(),
+                analyze_results: analyze_results.clone(),
             },
         )
         .await?;
@@ -480,7 +477,7 @@ pub async fn push_config_handler(
             config: config_metadata,
             modules,
             udf_server_version: udf_config.server_version,
-            analyze_results: analyze_result,
+            analyze_results,
             schema,
         },
         PushMetrics {
@@ -493,14 +490,14 @@ pub async fn push_config_handler(
 }
 
 #[minitrace::trace]
-async fn analyze_modules_with_auth_config(
+pub async fn analyze_modules_with_auth_config(
     application: &Application<ProdRuntime>,
     udf_config: UdfConfig,
     modules: Vec<ModuleConfig>,
     source_package: Option<SourcePackage>,
 ) -> anyhow::Result<(
     Option<ModuleConfig>,
-    BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
+    BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
 )> {
     // Don't analyze the auth config module
     let (auth_modules, analyzed_modules): (Vec<_>, Vec<_>) =
@@ -515,10 +512,7 @@ async fn analyze_modules_with_auth_config(
     // Add an empty analyzed result for the auth config module
     if let Some(auth_module) = auth_module {
         analyze_result.insert(
-            CanonicalizedComponentModulePath {
-                component: ComponentDefinitionId::Root,
-                module_path: auth_module.path.clone().canonicalize(),
-            },
+            auth_module.path.clone().canonicalize(),
             AnalyzedModule::default(),
         );
     }
@@ -531,7 +525,7 @@ pub async fn analyze_modules(
     udf_config: UdfConfig,
     modules: Vec<ModuleConfig>,
     source_package: Option<SourcePackage>,
-) -> anyhow::Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>> {
+) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>> {
     let num_dep_modules = modules.iter().filter(|m| m.path.is_deps()).count();
     anyhow::ensure!(
         modules.len() - num_dep_modules <= MAX_USER_MODULES,

@@ -10,10 +10,6 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
-    components::{
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
-    },
     errors::{
         FrameData,
         JsError,
@@ -73,6 +69,7 @@ use serde_json::{
     Value as JsonValue,
 };
 use sync_types::{
+    CanonicalizedModulePath,
     FunctionName,
     UserIdentityAttributes,
 };
@@ -139,7 +136,7 @@ fn construct_js_error(
     error_name: String,
     serialized_custom_data: Option<String>,
     frames: Option<Vec<FrameData>>,
-    source_maps: &BTreeMap<CanonicalizedComponentModulePath, SourceMap>,
+    source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
 ) -> anyhow::Result<JsError> {
     // Only format the error message if we have frames,
     // as errors without frames come from outside the
@@ -165,10 +162,7 @@ fn construct_js_error(
                 let Some(path) = specifier.path().strip_prefix("/user/") else {
                     return Ok(None);
                 };
-                let module_path = CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
-                    module_path: path.parse()?,
-                };
+                let module_path = path.parse()?;
                 let Some(source_map) = source_maps.get(&module_path) else {
                     return Ok(None);
                 };
@@ -206,7 +200,7 @@ impl Actions {
     pub async fn execute(
         &self,
         request: ExecuteRequest,
-        source_maps: &BTreeMap<CanonicalizedComponentModulePath, SourceMap>,
+        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     ) -> anyhow::Result<NodeActionOutcome> {
         let path = request.path_and_args.path().clone();
@@ -350,9 +344,8 @@ impl Actions {
     pub async fn analyze(
         &self,
         request: AnalyzeRequest,
-        source_maps: &BTreeMap<CanonicalizedComponentModulePath, SourceMap>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
-    {
+        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         let timer = node_executor("analyze");
 
         let (log_line_sender, _log_line_receiver) = mpsc::unbounded();
@@ -385,10 +378,7 @@ impl Actions {
         };
         let mut result = BTreeMap::new();
         for (path, node_functions) in modules {
-            let path = CanonicalizedComponentModulePath {
-                component: ComponentDefinitionId::Root,
-                module_path: path.parse()?,
-            };
+            let path = path.parse()?;
             // We have no concept of the origin of a Function in the Node environment, so
             // this logic just assumes the line number of the Function belongs to the
             // current module.
@@ -404,7 +394,7 @@ impl Actions {
                 let candidate_source_map = sourcemap::SourceMap::from_slice(buf.as_bytes())?;
                 for (i, filename) in candidate_source_map.sources().enumerate() {
                     let filename = Path::new(filename);
-                    let module_path = Path::new(path.module_path.as_str());
+                    let module_path = Path::new(path.as_str());
                     if filename.file_stem() != module_path.file_stem() {
                         continue;
                     }
@@ -424,7 +414,7 @@ impl Actions {
                     return Ok(Err(JsError::from_message(format!(
                         "{} defined in {:?} is a {} function. Only \
                          actions can be defined in Node.js. See https://docs.convex.dev/functions/actions for more details.",
-                        f.name, path.as_root_module_path()?, udf_type,
+                        f.name, path, udf_type,
                     ))));
                 }
                 let args = match f.args.clone() {
@@ -449,7 +439,7 @@ impl Actions {
                     source_map.as_ref().map(|map| map.lookup_token(f.lineno, 0))
                 {
                     Some(AnalyzedSourcePosition {
-                        path: path.module_path.clone(),
+                        path: path.clone(),
                         start_lineno: token.get_src_line(),
                         start_col: token.get_src_col(),
                     })

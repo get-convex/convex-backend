@@ -5,9 +5,10 @@ use regex::Regex;
 use serde::{
     Deserialize,
     Deserializer,
+    Serialize,
 };
 
-#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Ord, PartialOrd)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthInfo {
     #[serde(rename = "applicationID")]

@@ -4,10 +4,7 @@ use std::{
 };
 
 use common::{
-    components::{
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
-    },
+    components::ComponentDefinitionId,
     types::{
         ModuleEnvironment,
         RoutableMethod,
@@ -68,10 +65,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
         .isolate
         .analyze(udf_config.clone(), modules, BTreeMap::new())
         .await??;
-    let analyze_path = CanonicalizedComponentModulePath {
-        component: ComponentDefinitionId::Root,
-        module_path: "analyze.js".parse()?,
-    };
+    let analyze_path = "analyze.js".parse()?;
     let module = result.remove(&analyze_path).unwrap();
 
     let expected = [
@@ -101,10 +95,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
         assert_eq!(&mapped_function.udf_type, expected_type);
     }
 
-    let http_path = CanonicalizedComponentModulePath {
-        component: ComponentDefinitionId::Root,
-        module_path: "http.js".parse()?,
-    };
+    let http_path = "http.js".parse()?;
     let module = result.remove(&http_path).unwrap();
 
     let expected = vec![
@@ -168,10 +159,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
         assert_eq!(mapped_route.pos.as_ref(), mapped_pos.as_ref());
     }
 
-    let crons_path = CanonicalizedComponentModulePath {
-        component: ComponentDefinitionId::Root,
-        module_path: "crons.js".parse()?,
-    };
+    let crons_path = "crons.js".parse()?;
     let module = result.remove(&crons_path).unwrap();
     let arg = assert_obj!(
        "x" => ConvexValue::Float64(1.0)
@@ -226,23 +214,13 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
         };
 
         // Analyze this file as though it were the router (normally http.js)
-        let test_http_canonical = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: file.parse()?,
-        };
-
-        let real_http = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: "http.js".parse()?,
-        };
+        let test_http_canonical = file.parse()?;
+        let real_http = "http.js".parse()?;
         modules.remove(&real_http).unwrap();
         let test_http_module: ModuleConfig = modules.remove(&test_http_canonical).unwrap();
 
         // stick in an `is_http: true` module with the name of the module we're testing
-        let with_http = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: test_http_canonical.module_path.with_http(),
-        };
+        let with_http = test_http_canonical.with_http();
         modules.insert(with_http, test_http_module.clone());
 
         // reinsert the original module so it's not missing
@@ -277,10 +255,7 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
         .isolate
         .analyze(udf_config, modules, BTreeMap::new())
         .await??;
-    let source_maps_path = CanonicalizedComponentModulePath {
-        component: ComponentDefinitionId::Root,
-        module_path: "sourceMaps.js".parse()?,
-    };
+    let source_maps_path = "sourceMaps.js".parse()?;
     let analyzed_module = result.remove(&source_maps_path).unwrap();
 
     assert_eq!(
@@ -370,10 +345,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
         .isolate
         .analyze(udf_config, modules, BTreeMap::new())
         .await??;
-    let internal_path = CanonicalizedComponentModulePath {
-        component: ComponentDefinitionId::Root,
-        module_path: "internal.js".parse()?,
-    };
+    let internal_path = "internal.js".parse()?;
     let analyzed_module = result.remove(&internal_path).unwrap();
 
     assert_eq!(
@@ -563,10 +535,7 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
 
     for (case, expected) in cases {
         // Construct the http.js module for analysis
-        let http_path = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: "http.js".parse()?,
-        };
+        let http_path = "http.js".parse()?;
 
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
@@ -577,24 +546,18 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
 
         // Reinsert the case as http.js, replacing the old http.js, so that the
         // http_analyze codepath is used on this file.
-        let case_canon_path = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: case.parse()?,
-        };
+        let case_canon_path = case.parse()?;
         let module_config = modules
             .remove(&case_canon_path)
             .expect("Could not find case in list of modules");
         // For any file that is not http.js/ts, we need to remove the original http.js
         // and reinsert the path with http
-        if !case_canon_path.module_path.is_http() {
+        if !case_canon_path.is_http() {
             modules
                 .remove(&http_path)
                 .expect("Could not find original http.js");
             // Reinsert with and without http
-            let with_http = CanonicalizedComponentModulePath {
-                component: ComponentDefinitionId::Root,
-                module_path: case_canon_path.module_path.with_http(),
-            };
+            let with_http = case_canon_path.with_http();
             modules.insert(with_http, module_config.clone()); // Reinsertion
         }
         // Reinsert original path so analysis doesn't complain it's missing
@@ -607,10 +570,7 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
             .analyze(udf_config, modules, BTreeMap::new())
             .await?
             .expect("analyze failed");
-        let with_http = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: case_canon_path.module_path.with_http(),
-        };
+        let with_http = case_canon_path.with_http();
         let module = analyze_result
             .remove(&with_http)
             .expect("could not find result for path with http");

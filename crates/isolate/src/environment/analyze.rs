@@ -13,11 +13,7 @@ use anyhow::{
     Context,
 };
 use common::{
-    components::{
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
-        ComponentId,
-    },
+    components::ComponentId,
     errors::JsError,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
@@ -121,13 +117,13 @@ use crate::{
 };
 
 pub struct AnalyzeEnvironment {
-    modules: BTreeMap<CanonicalizedComponentModulePath, FullModuleSource>,
+    modules: BTreeMap<CanonicalizedModulePath, FullModuleSource>,
     // This is used to lazily cache the result of sourcemap::SourceMap::from_slice across
     // modules and functions. There are certain source maps whose source origin we don't
     // need to construct during analysis (i.e. if all of the UDFs it defines have function
     // bodies outside the current module), so keeping this mapping lazy allows for avoiding
     // unnecessary source map parsing.
-    source_maps_cache: BTreeMap<CanonicalizedComponentModulePath, Option<sourcemap::SourceMap>>,
+    source_maps_cache: BTreeMap<CanonicalizedModulePath, Option<sourcemap::SourceMap>>,
     rng: ChaCha12Rng,
     unix_timestamp: UnixTimestamp,
     environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
@@ -180,10 +176,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         _timeout: &mut Timeout<RT>,
         _permit: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<Option<FullModuleSource>> {
-        let p = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: ModulePath::from_str(path)?.canonicalize(),
-        };
+        let p = ModulePath::from_str(path)?.canonicalize();
         let result = self.modules.get(&p).cloned();
         Ok(result)
     }
@@ -245,13 +238,12 @@ impl AnalyzeEnvironment {
         client_id: String,
         isolate: &mut Isolate<RT>,
         udf_config: UdfConfig,
-        modules: BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>,
+        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
-    {
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         let to_analyze = modules
             .keys()
-            .filter(|p| !p.module_path.is_deps())
+            .filter(|p| !p.is_deps())
             .cloned()
             .collect::<Vec<_>>();
         anyhow::ensure!(
@@ -311,7 +303,7 @@ impl AnalyzeEnvironment {
 
     fn get_source_map(
         &mut self,
-        path: &CanonicalizedComponentModulePath,
+        path: &CanonicalizedModulePath,
     ) -> anyhow::Result<&Option<sourcemap::SourceMap>> {
         match self.source_maps_cache.entry(path.clone()) {
             Entry::Occupied(e) => Ok(e.into_mut()),
@@ -334,21 +326,18 @@ impl AnalyzeEnvironment {
 
     async fn run_analyze<RT: Runtime>(
         isolate: &mut RequestScope<'_, '_, RT, Self>,
-        to_analyze: Vec<CanonicalizedComponentModulePath>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
-    {
+        to_analyze: Vec<CanonicalizedModulePath>,
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         let mut v8_scope = isolate.scope();
         let mut scope = RequestScope::<RT, Self>::enter(&mut v8_scope);
 
         // Iterate through modules paths to_analyze
         let mut result = BTreeMap::new();
         for path in to_analyze {
-            let module_path = path.as_root_module_path()?;
-
             // module_specifier is the key in the ModuleMap which we use to address the
             // ModuleId for this module. We then use this ModuleId to fetch the
             // v8::Module for evaluation.
-            let module_specifier = module_specifier_from_path(module_path)?;
+            let module_specifier = module_specifier_from_path(&path)?;
             // Register the module and its dependencies with V8, instantiate the module, and
             // evaluate the module. After this, we can inspect the module's
             // in-memory objects to find functions which we can analyze as UDFs.
@@ -367,7 +356,7 @@ impl AnalyzeEnvironment {
                             return Ok(Err(JsError {
                                 message: format!(
                                     "Failed to analyze {}: {}",
-                                    module_path.as_str(),
+                                    path.as_str(),
                                     e.message
                                 ),
                                 custom_data: None,
@@ -380,14 +369,14 @@ impl AnalyzeEnvironment {
             };
 
             // Gather UDFs, HTTP action routes, and crons
-            let functions = match udf_analyze(&mut scope, &module, module_path)? {
+            let functions = match udf_analyze(&mut scope, &module, &path)? {
                 Err(e) => return Ok(Err(e)),
                 Ok(funcs) => WithHeapSize::from(funcs),
             };
 
             let mut http_routes = None;
-            if module_path.is_http() {
-                let routes = match http_analyze(&mut scope, &module, module_path)? {
+            if path.is_http() {
+                let routes = match http_analyze(&mut scope, &module, &path)? {
                     Err(err) => {
                         return Ok(Err(err));
                     },
@@ -397,8 +386,8 @@ impl AnalyzeEnvironment {
             }
 
             let mut cron_specs = None;
-            if module_path.is_cron() {
-                let crons = match cron_analyze(&mut scope, &module, module_path)? {
+            if path.is_cron() {
+                let crons = match cron_analyze(&mut scope, &module, &path)? {
                     Err(err) => {
                         return Ok(Err(err));
                     },
@@ -624,10 +613,7 @@ fn udf_analyze<RT: Runtime>(
                 .ok_or(anyhow!("resource_name was None"))?;
             let resource_name = resource_name_val.to_rust_string_lossy(scope);
             let resource_url = module_specifier_from_str(&resource_name)?;
-            let canon_path = CanonicalizedComponentModulePath {
-                component: ComponentDefinitionId::Root,
-                module_path: path_from_module_specifier(&resource_url)?,
-            };
+            let canon_path = path_from_module_specifier(&resource_url)?;
             (
                 scope.state_mut()?.environment.get_source_map(&canon_path)?,
                 canon_path,
@@ -640,13 +626,13 @@ fn udf_analyze<RT: Runtime>(
         if let Some(Some(token)) = fn_source_map.as_ref().map(|sm| sm.lookup_token(lineno, linecol))
             // This condition is in place so that we don't have to jump to source in source mappings
             // to get back to the original source. This logic gets complicated and is not strictly necessary now
-            && fn_canon_path.as_root_module_path()?.as_str() == module_path.as_str()
+            && fn_canon_path.as_str() == module_path.as_str()
         {
             // Source map is valid; proceed with mapping in original source map
             functions.push(AnalyzedFunction {
                 name: canonicalized_name.clone(),
                 pos: Some(AnalyzedSourcePosition {
-                    path: fn_canon_path.into_root_module_path()?,
+                    path: fn_canon_path,
                     start_lineno: token.get_src_line(),
                     start_col: token.get_src_col(),
                 }),
@@ -667,7 +653,7 @@ fn udf_analyze<RT: Runtime>(
             });
 
             // Log reason for fallback
-            if fn_canon_path.as_root_module_path()?.as_str() != module_path.as_str() {
+            if fn_canon_path.as_str() != module_path.as_str() {
                 log_source_map_origin_in_separate_module();
             } else if fn_source_map.is_none() {
                 log_source_map_missing();
@@ -856,10 +842,7 @@ fn http_analyze<RT: Runtime>(
                 .ok_or(anyhow!("resource_name was None"))?;
             let resource_name = resource_name_val.to_rust_string_lossy(scope);
             let resource_url = module_specifier_from_str(&resource_name)?;
-            let canon_path = CanonicalizedComponentModulePath {
-                component: ComponentDefinitionId::Root,
-                module_path: path_from_module_specifier(&resource_url)?,
-            };
+            let canon_path = path_from_module_specifier(&resource_url)?;
             let source_map = scope.state_mut()?.environment.get_source_map(&canon_path)?;
             (source_map, canon_path)
         };
@@ -868,9 +851,9 @@ fn http_analyze<RT: Runtime>(
             .as_ref()
             .and_then(|sm| sm.lookup_token(lineno, linecol))
             .and_then(|token| {
-                if fn_canon_path.module_path.as_str() == module_path.as_str() {
+                if fn_canon_path.as_str() == module_path.as_str() {
                     Some(AnalyzedSourcePosition {
-                        path: fn_canon_path.module_path,
+                        path: fn_canon_path,
                         start_lineno: token.get_src_line(),
                         start_col: token.get_src_col(),
                     })

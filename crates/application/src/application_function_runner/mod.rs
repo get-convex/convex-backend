@@ -1,6 +1,9 @@
 use core::sync::atomic::Ordering;
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     sync::{
         atomic::AtomicUsize,
         Arc,
@@ -16,8 +19,7 @@ use common::{
     backoff::Backoff,
     components::{
         CanonicalizedComponentFunctionPath,
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
+        ComponentDefinitionPath,
         ComponentFunctionPath,
     },
     errors::JsError,
@@ -104,6 +106,7 @@ use isolate::{
     AuthConfig,
     BackendIsolateWorker,
     ConcurrencyLimiter,
+    EvaluateAppDefinitionsResult,
     FunctionOutcome,
     FunctionResult,
     HttpActionOutcome,
@@ -176,6 +179,7 @@ use node_executor::{
 };
 use serde_json::Value as JsonValue;
 use storage::Storage;
+use sync_types::CanonicalizedModulePath;
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -1255,7 +1259,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     .await?;
                 let mut source_maps = BTreeMap::new();
                 if let Some(source_map) = module_version.source_map.clone() {
-                    source_maps.insert(module_path.clone(), source_map);
+                    source_maps.insert(module_path.module_path.clone(), source_map);
                 }
 
                 let source_package_id = module.source_package_id.ok_or_else(|| {
@@ -1645,13 +1649,24 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     #[minitrace::trace]
+    pub async fn evaluate_app_definitions(
+        &self,
+        app_definition: ModuleConfig,
+        component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
+        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+    ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
+        self.analyze_isolate
+            .evaluate_app_definitions(app_definition, component_definitions, dependency_graph)
+            .await
+    }
+
+    #[minitrace::trace]
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
         source_package: Option<SourcePackage>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
-    {
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         // We use the latest environment variables at the time of the deployment
         // this is not transactional with the rest of the deploy.
         let mut tx = self.database.begin(Identity::system()).await?;
@@ -1661,13 +1676,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let (node_modules, isolate_modules) = new_modules
             .into_iter()
-            .map(|module| {
-                let path = CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
-                    module_path: module.path.clone().canonicalize(),
-                };
-                (path, module)
-            })
+            .map(|module| (module.path.clone().canonicalize(), module))
             .partition(|(_, config)| config.environment == ModuleEnvironment::Node);
 
         let mut result = BTreeMap::new();
@@ -1682,12 +1691,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         if !node_modules.is_empty() {
             for path_str in ["schema.js", "crons.js", "http.js"] {
-                let path = CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
-                    module_path: path_str
-                        .parse()
-                        .expect("Failed to parse static module names"),
-                };
+                let path = path_str
+                    .parse()
+                    .expect("Failed to parse static module names");
                 // The cli should not do this. Log as system error.
                 anyhow::ensure!(
                     !node_modules.contains_key(&path),
@@ -1762,7 +1768,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[minitrace::trace]
     async fn validate_cron_jobs(
         &self,
-        modules: &BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
+        modules: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
     ) -> anyhow::Result<Result<(), JsError>> {
         // Validate that every cron job schedules an action or mutation.
         for module in modules.values() {
@@ -1770,10 +1776,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 continue;
             };
             for (identifier, cron_spec) in crons {
-                let path = CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
-                    module_path: cron_spec.udf_path.module().clone(),
-                };
+                let path = cron_spec.udf_path.module().clone();
                 let Some(scheduled_module) = modules.get(&path) else {
                     return Ok(Err(JsError::from_message(format!(
                         "The cron job '{identifier}' schedules a function that does not exist: {}",

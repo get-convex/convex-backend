@@ -13,6 +13,7 @@ use crate::{
     udf_config::types::UdfConfig,
 };
 
+#[derive(Debug)]
 pub struct ProjectConfig {
     pub config: ConfigMetadata,
     pub udf_config: UdfConfig,
@@ -24,6 +25,7 @@ pub struct ProjectConfig {
     pub node_dependencies: Vec<NodeDependency>,
 }
 
+#[derive(Debug)]
 pub struct AppDefinitionConfig {
     // Bundled `app.config.js` if present, with dependencies on other components marked external
     // and unresolved. Not available at runtime.
@@ -45,6 +47,17 @@ pub struct AppDefinitionConfig {
     pub functions: Vec<ModuleConfig>,
 }
 
+impl AppDefinitionConfig {
+    pub fn modules(&self) -> impl Iterator<Item = &ModuleConfig> {
+        self.definition
+            .iter()
+            .chain(self.auth.iter())
+            .chain(self.schema.iter())
+            .chain(&self.functions)
+    }
+}
+
+#[derive(Debug)]
 pub struct ComponentDefinitionConfig {
     // Relative path from the root `convex/` directory to the component's directory.
     pub definition_path: ComponentDefinitionPath,
@@ -64,4 +77,12 @@ pub struct ComponentDefinitionConfig {
     // - crons.js
     // - Bundler dependency chunks within _deps.
     pub functions: Vec<ModuleConfig>,
+}
+
+impl ComponentDefinitionConfig {
+    pub fn modules(&self) -> impl Iterator<Item = &ModuleConfig> {
+        std::iter::once(&self.definition)
+            .chain(self.schema.iter())
+            .chain(&self.functions)
+    }
 }

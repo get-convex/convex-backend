@@ -49,6 +49,13 @@ impl std::ops::Add for PackageSize {
     }
 }
 
+impl std::ops::AddAssign for PackageSize {
+    fn add_assign(&mut self, rhs: Self) {
+        self.zipped_size_bytes += rhs.zipped_size_bytes;
+        self.unzipped_size_bytes += rhs.unzipped_size_bytes;
+    }
+}
+
 impl std::fmt::Display for PackageSize {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(

@@ -188,8 +188,6 @@ mod tests {
         assert_obj,
         components::{
             CanonicalizedComponentFunctionPath,
-            CanonicalizedComponentModulePath,
-            ComponentDefinitionId,
             ComponentId,
         },
         execution_context::ExecutionContext,
@@ -240,7 +238,10 @@ mod tests {
         LocalDirStorage,
         Storage,
     };
-    use sync_types::ModulePath;
+    use sync_types::{
+        CanonicalizedModulePath,
+        ModulePath,
+    };
     use value::{
         array,
         id_v6::DeveloperDocumentId,
@@ -312,7 +313,7 @@ mod tests {
     async fn execute(
         actions: &Actions,
         execute_request: ExecuteRequest,
-        source_maps: &BTreeMap<CanonicalizedComponentModulePath, SourceMap>,
+        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
     ) -> anyhow::Result<(NodeActionOutcome, LogLines)> {
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
         let execute_future = Box::pin(
@@ -533,10 +534,7 @@ mod tests {
             .into_iter()
             .map(|m| {
                 (
-                    CanonicalizedComponentModulePath {
-                        component: ComponentDefinitionId::Root,
-                        module_path: m.path.canonicalize(),
-                    },
+                    m.path.canonicalize(),
                     m.source_map.expect("Missing source map"),
                 )
             })
@@ -588,10 +586,7 @@ mod tests {
             .into_iter()
             .map(|m| {
                 (
-                    CanonicalizedComponentModulePath {
-                        component: ComponentDefinitionId::Root,
-                        module_path: m.path.canonicalize(),
-                    },
+                    m.path.canonicalize(),
                     m.source_map.expect("Missing source map"),
                 )
             })
@@ -917,10 +912,7 @@ export { hello, internalHello };
         )
         .await?;
         let mut source_maps = BTreeMap::new();
-        let path = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: "static_node_source.js".parse()?,
-        };
+        let path: CanonicalizedModulePath = "static_node_source.js".parse()?;
         source_maps.insert(path.clone(), SOURCE_MAP.to_string());
         let modules = actions
             .analyze(

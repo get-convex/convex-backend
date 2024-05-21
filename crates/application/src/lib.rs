@@ -8,6 +8,7 @@
 use std::{
     collections::{
         BTreeMap,
+        BTreeSet,
         HashSet,
     },
     ops::Bound,
@@ -42,6 +43,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
         ComponentDefinitionId,
+        ComponentDefinitionPath,
         ComponentFunctionPath,
         ComponentId,
     },
@@ -140,6 +142,7 @@ use http_client::cached_http_client;
 use isolate::{
     parse_udf_args,
     AuthConfig,
+    EvaluateAppDefinitionsResult,
     HttpActionRequest,
     HttpActionResponseStreamer,
     HttpActionResult,
@@ -244,6 +247,7 @@ use storage::{
 };
 use sync_types::{
     AuthenticationToken,
+    CanonicalizedModulePath,
     CanonicalizedUdfPath,
     FunctionName,
     ModulePath,
@@ -331,7 +335,7 @@ pub struct ApplyConfigArgs {
     pub modules: Vec<ModuleConfig>,
     pub udf_config: UdfConfig,
     pub source_package: Option<SourcePackage>,
-    pub analyze_results: BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>,
+    pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
 }
 
 #[derive(Debug)]
@@ -1523,8 +1527,7 @@ impl<RT: Runtime> Application<RT> {
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
         source_package: Option<SourcePackage>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
-    {
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         self.runner
             .analyze(udf_config, new_modules, source_package)
             .await
@@ -1581,6 +1584,18 @@ impl<RT: Runtime> Application<RT> {
         schema.check_index_references()?;
 
         Ok(schema)
+    }
+
+    #[minitrace::trace]
+    pub async fn evaluate_app_definitions(
+        &self,
+        app_definition: ModuleConfig,
+        component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
+        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+    ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
+        self.runner
+            .evaluate_app_definitions(app_definition, component_definitions, dependency_graph)
+            .await
     }
 
     #[minitrace::trace]
@@ -1931,10 +1946,7 @@ impl<RT: Runtime> Application<RT> {
                 anyhow::anyhow!(js_error).context(metadata)
             })?;
 
-        let module_path = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: module.path.clone().canonicalize(),
-        };
+        let module_path = module.path.clone().canonicalize();
         let analyzed_module = analyze_results
             .get(&module_path)
             .ok_or_else(|| anyhow::anyhow!("Unexpectedly missing analyze result"))?
@@ -1954,7 +1966,10 @@ impl<RT: Runtime> Application<RT> {
         // 3. Add the module
         ModuleModel::new(&mut tx)
             .put(
-                module_path.clone(),
+                CanonicalizedComponentModulePath {
+                    component: ComponentDefinitionId::Root,
+                    module_path: module_path.clone(),
+                },
                 module.source,
                 None,
                 module.source_map,
@@ -1967,7 +1982,7 @@ impl<RT: Runtime> Application<RT> {
         let function_name = FunctionName::default_export();
         let path = CanonicalizedComponentFunctionPath {
             component: ComponentId::Root,
-            udf_path: CanonicalizedUdfPath::new(module_path.module_path, function_name),
+            udf_path: CanonicalizedUdfPath::new(module_path, function_name),
         };
         let arguments = parse_udf_args(&path.clone().into(), args)?;
         let (result, log_lines) = match analyzed_function.udf_type {

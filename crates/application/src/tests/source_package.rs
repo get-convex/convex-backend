@@ -2,10 +2,7 @@ use std::collections::BTreeMap;
 
 use anyhow::Context;
 use common::{
-    components::{
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
-    },
+    components::ComponentDefinitionId,
     runtime::Runtime,
     types::ModuleEnvironment,
 };
@@ -23,6 +20,7 @@ use model::{
     },
 };
 use runtime::prod::ProdRuntime;
+use sync_types::CanonicalizedModulePath;
 
 use crate::{
     test_helpers::ApplicationTestExt,
@@ -35,12 +33,9 @@ const SOURCE_MAP: &str = "{}";
 async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
 
-    let path = CanonicalizedComponentModulePath {
-        component: ComponentDefinitionId::Root,
-        module_path: "b.js".parse()?,
-    };
+    let path: CanonicalizedModulePath = "b.js".parse()?;
     let config = ModuleConfig {
-        path: path.as_root_module_path()?.clone().into(),
+        path: path.clone().into(),
         source: NODE_SOURCE.to_owned(),
         source_map: Some(SOURCE_MAP.to_owned()),
         environment: ModuleEnvironment::Node,
@@ -63,12 +58,9 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
         download_package(application.modules_storage().clone(), storage_key, sha256).await?;
 
     assert_eq!(result.len(), 1);
-    assert_eq!(&result[path.as_root_module_path()?].source, NODE_SOURCE);
+    assert_eq!(&result[&path].source, NODE_SOURCE);
     assert_eq!(
-        result[&path.as_root_module_path()?]
-            .source_map
-            .as_ref()
-            .map(|s| &s[..]),
+        result[&path].source_map.as_ref().map(|s| &s[..]),
         Some(SOURCE_MAP)
     );
 
@@ -78,7 +70,7 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
 pub async fn assemble_package<RT: Runtime>(
     tx: &mut Transaction<RT>,
     module_loader: &dyn ModuleLoader<RT>,
-    modifications: BTreeMap<CanonicalizedComponentModulePath, Option<ModuleConfig>>,
+    modifications: BTreeMap<CanonicalizedModulePath, Option<ModuleConfig>>,
 ) -> anyhow::Result<Vec<ModuleConfig>> {
     let existing_modules = ModuleModel::new(tx)
         .get_application_modules(ComponentDefinitionId::Root, module_loader)

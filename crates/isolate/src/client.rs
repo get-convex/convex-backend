@@ -1,6 +1,7 @@
 use std::{
     collections::{
         BTreeMap,
+        BTreeSet,
         HashMap,
         VecDeque,
     },
@@ -21,7 +22,7 @@ use common::{
         ExpiredInQueue,
     },
     components::{
-        CanonicalizedComponentModulePath,
+        ComponentDefinitionPath,
         ComponentFunctionPath,
         ComponentId,
     },
@@ -126,7 +127,10 @@ use pb::common::{
 };
 use prometheus::VMHistogram;
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    CanonicalizedModulePath,
+    CanonicalizedUdfPath,
+};
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -142,6 +146,7 @@ use crate::{
             HttpActionResult,
         },
         analyze::AnalyzeEnvironment,
+        app_definitions::AppDefinitionEvaluator,
         auth_config::{
             AuthConfig,
             AuthConfigEnvironment,
@@ -402,6 +407,9 @@ impl<RT: Runtime> Request<RT> {
         }
     }
 }
+
+pub type EvaluateAppDefinitionsResult = BTreeMap<Option<ComponentDefinitionPath>, JsonValue>;
+
 pub enum RequestType<RT: Runtime> {
     Udf {
         request: UdfRequest<RT>,
@@ -430,12 +438,10 @@ pub enum RequestType<RT: Runtime> {
     },
     Analyze {
         udf_config: UdfConfig,
-        modules: BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>,
+        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<
-            anyhow::Result<
-                Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>,
-            >,
+            anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>>,
         >,
     },
     EvaluateSchema {
@@ -450,6 +456,12 @@ pub enum RequestType<RT: Runtime> {
         source_map: Option<SourceMap>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<anyhow::Result<AuthConfig>>,
+    },
+    EvaluateAppDefinitions {
+        app_definition: ModuleConfig,
+        component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
+        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+        response: oneshot::Sender<anyhow::Result<EvaluateAppDefinitionsResult>>,
     },
 }
 
@@ -478,6 +490,9 @@ impl<RT: Runtime> Request<RT> {
             RequestType::EvaluateAuthConfig { response, .. } => {
                 let _ = response.send(Err(error));
             },
+            RequestType::EvaluateAppDefinitions { response, .. } => {
+                let _ = response.send(Err(error));
+            },
         }
     }
 
@@ -502,6 +517,9 @@ impl<RT: Runtime> Request<RT> {
                 let _ = response.send(Err(error));
             },
             RequestType::EvaluateAuthConfig { response, .. } => {
+                let _ = response.send(Err(error));
+            },
+            RequestType::EvaluateAppDefinitions { response, .. } => {
                 let _ = response.send(Err(error));
             },
         }
@@ -814,10 +832,9 @@ impl<RT: Runtime> IsolateClient<RT> {
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
-        modules: BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>,
+        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedComponentModulePath, AnalyzedModule>, JsError>>
-    {
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         anyhow::ensure!(
             modules
                 .values()
@@ -830,6 +847,44 @@ impl<RT: Runtime> IsolateClient<RT> {
             response: tx,
             udf_config,
             environment_variables,
+        };
+        self.send_request(Request::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+        ))?;
+        Self::receive_response(rx).await?.map_err(|e| {
+            if e.is_overloaded() {
+                recapture_stacktrace(e)
+            } else {
+                e
+            }
+        })
+    }
+
+    #[minitrace::trace]
+    pub async fn evaluate_app_definitions(
+        &self,
+        app_definition: ModuleConfig,
+        component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
+        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+    ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
+        anyhow::ensure!(
+            app_definition.environment == ModuleEnvironment::Isolate,
+            "Can only evaluate Isolate modules"
+        );
+        anyhow::ensure!(
+            component_definitions
+                .values()
+                .all(|m| m.environment == ModuleEnvironment::Isolate),
+            "Can only evaluate Isolate modules"
+        );
+        let (tx, rx) = oneshot::channel();
+        let request = RequestType::EvaluateAppDefinitions {
+            app_definition,
+            component_definitions,
+            dependency_graph,
+            response: tx,
         };
         self.send_request(Request::new(
             self.instance_name.clone(),
@@ -1735,6 +1790,24 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 *isolate_clean = false;
                 let _ = response.send(r);
                 "EvaluateAuthConfig".to_string()
+            },
+            RequestType::EvaluateAppDefinitions {
+                app_definition,
+                component_definitions,
+                dependency_graph,
+                response,
+            } => {
+                let env = AppDefinitionEvaluator::new(
+                    app_definition,
+                    component_definitions,
+                    dependency_graph,
+                );
+                let r = env.evaluate(client_id, isolate).await;
+
+                // Don't bother reusing isolates when used for auth config evaluation.
+                *isolate_clean = false;
+                let _ = response.send(r);
+                "EvaluateAppDefinitions".to_string()
             },
         }
     }

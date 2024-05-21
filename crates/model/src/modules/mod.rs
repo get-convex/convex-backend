@@ -52,6 +52,7 @@ use metrics::{
     get_module_metadata_timer,
     get_module_version_timer,
 };
+use sync_types::CanonicalizedModulePath;
 use value::{
     values_to_bytes,
     FieldPath,
@@ -216,7 +217,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         component: ComponentDefinitionId,
         module_loader: &dyn ModuleLoader<RT>,
-    ) -> anyhow::Result<BTreeMap<CanonicalizedComponentModulePath, ModuleConfig>> {
+    ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, ModuleConfig>> {
         let mut modules = BTreeMap::new();
         for metadata in self.get_all_metadata(component).await? {
             let path = metadata.path.clone();
@@ -231,11 +232,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     source_map: full_source.source_map.clone(),
                     environment,
                 };
-                let p = CanonicalizedComponentModulePath {
-                    component,
-                    module_path: path.clone(),
-                };
-                if modules.insert(p, module_config).is_some() {
+                if modules.insert(path.clone(), module_config).is_some() {
                     panic!("Duplicate application module at {:?}", path);
                 }
             }

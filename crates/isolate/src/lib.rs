@@ -45,6 +45,7 @@ pub use self::{
         ActionRequest,
         ActionRequestParams,
         BackendIsolateWorker,
+        EvaluateAppDefinitionsResult,
         FunctionResult,
         IsolateClient,
         IsolateConfig,

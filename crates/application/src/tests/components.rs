@@ -12,8 +12,6 @@ use common::{
         ComponentMetadata,
     },
     components::{
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
         ComponentFunctionPath,
         ComponentId,
         Reference,
@@ -109,10 +107,7 @@ bar.invokeAction = async (requestId, argsStr) => {
     };
     let mut analyze_results = BTreeMap::new();
     analyze_results.insert(
-        CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
-            module_path: "foo.js".parse()?,
-        },
+        "foo.js".parse()?,
         AnalyzedModule {
             functions: vec![AnalyzedFunction {
                 name: "bar".parse()?,

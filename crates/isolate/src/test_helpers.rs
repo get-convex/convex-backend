@@ -18,8 +18,6 @@ use common::{
     },
     components::{
         CanonicalizedComponentFunctionPath,
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
         ComponentFunctionPath,
         ComponentId,
     },
@@ -315,15 +313,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let udf_config = UdfConfig::new_for_test(&rt, config.udf_server_version);
         let modules_by_path = modules
             .iter()
-            .map(|c| {
-                (
-                    CanonicalizedComponentModulePath {
-                        component: ComponentDefinitionId::Root,
-                        module_path: c.path.clone().canonicalize(),
-                    },
-                    c.clone(),
-                )
-            })
+            .map(|c| (c.path.clone().canonicalize(), c.clone()))
             .collect();
         let analyze_results = match isolate
             .analyze(udf_config.clone(), modules_by_path, BTreeMap::new())
