@@ -228,7 +228,6 @@ use search::{
     searcher::Searcher,
 };
 use semver::Version;
-use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use snapshot_import::{
     clear_tables,
@@ -790,17 +789,11 @@ impl<RT: Runtime> Application<RT> {
         let Some(source_map_str) = &full_source.source_map else {
             return Ok(None);
         };
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase")]
-        struct SourceMap {
-            sources_content: Option<Vec<String>>,
-        }
-        let source_map: SourceMap = serde_json::from_str(source_map_str)?;
-        let Some(source_map_content) = source_map.sources_content else {
+        let source_map = sourcemap::SourceMap::from_slice(source_map_str.as_bytes())?;
+        let Some(source_map_content) = source_map.get_source_contents(source_index) else {
             return Ok(None);
         };
-        let source_map = source_map_content.get(source_index as usize).cloned();
-        Ok(source_map)
+        Ok(Some(source_map_content.to_owned()))
     }
 
     pub async fn storage_generate_upload_url(&self) -> anyhow::Result<String> {

@@ -55,6 +55,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 shape_inference = { path = "../shape_inference" }
 slugify = "0.1.0"
+sourcemap = { workspace = true }
 storage = { path = "../storage" }
 strum = { workspace = true }
 sync_types = { package = "convex_sync_types", path = "../../crates/convex/sync_types" }
