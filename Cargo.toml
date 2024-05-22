@@ -4,12 +4,15 @@ resolver = "2"
 exclude = [ "crates/fivetran_source", "crates/py_client", "crates/python_client_tests" ]
 
 [workspace.dependencies]
+aes = { version = "0.8.4" }
 anyhow = "1"
 async-broadcast = "0.7.0"
 async-channel = "1.9.0"
+async-compression = { version = "0.4.8", features = [ "tokio", "zstd", "gzip" ] }
 async-recursion = "1.1.1"
 async-trait = "0.1"
 async_zip = { version = "0.0.9", default-features = false, features = [ "zstd", "deflate" ] }
+cbc = { version = "0.1.2" }
 csv-async = "1.2"
 atomic_refcell = "0.1.10"
 axum = { version = "0.6", features = [ "headers", "ws", "original-uri", "macros", "multipart" ] }
@@ -98,6 +101,7 @@ ring = "0.17.0"
 rsa = "0.9.0"
 rusqlite = { version = "0.30", features = [ "bundled" ] }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
+schemars = { version = "0.8" }
 semver = { version = "1", features = [ "serde" ] }
 sentry = { version = "0.31", features = [ "anyhow", "tower", "tower-http" ] }
 serde = { version = "1", features = [ "derive" ] }
