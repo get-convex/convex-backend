@@ -901,13 +901,19 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         }
                         outcome.result = Err(JsError::from_error_ref(&e));
 
-                        self.function_log.log_mutation_occ_error(
-                            outcome,
-                            stats,
-                            execution_time,
-                            caller,
-                            context.clone(),
-                        );
+                        if e.is_occ() {
+                            self.function_log.log_mutation_occ_error(
+                                outcome,
+                                stats,
+                                execution_time,
+                                caller,
+                                context.clone(),
+                            );
+                        } else {
+                            self.function_log.log_mutation_system_error(
+                                &e, path, arguments, identity, start, caller, context,
+                            )?;
+                        }
                         log_occ_retries(backoff.failures() as usize);
                         return Err(e);
                     }
