@@ -631,14 +631,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
 
     /// Wrap the underlying error message, maintaining the underlying error
     /// metadata short code if it exists.
-    fn wrap_error_message<F>(self, f: F) -> Self
+    fn wrap_error_message<F>(mut self, f: F) -> Self
     where
         F: FnOnce(String) -> String,
     {
-        if let Some(mut em) = self.downcast_ref::<ErrorMetadata>().cloned() {
-            // Underlying ErrorMetadata. Reuse and reattach it.
+        if let Some(ref mut em) = self.downcast_mut::<ErrorMetadata>() {
+            // Underlying ErrorMetadata. Modify in place.
             em.msg = f(em.msg.to_string()).into();
-            return self.context(em);
+            return self;
         }
 
         // No underlying code. Just use .context()

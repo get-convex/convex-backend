@@ -90,7 +90,14 @@ fn strip_pii(err: &mut anyhow::Error) {
     if s != transformed {
         // How to get the backtrace properly into the anyhow? This is not what we want,
         // but works.
-        *err = anyhow::anyhow!(err.backtrace().to_string()).context(transformed);
+        let em = err.downcast_mut::<ErrorMetadata>().cloned();
+        if let Some(em) = em {
+            *err = anyhow::anyhow!(err.backtrace().to_string())
+                .context(transformed)
+                .context(em);
+        } else {
+            *err = anyhow::anyhow!(err.backtrace().to_string()).context(transformed);
+        }
     }
 }
 
@@ -645,7 +652,10 @@ pub const TIMEOUT_ERROR_MESSAGE: &str = "Your request timed out.";
 
 #[cfg(test)]
 mod tests {
-    use errors::ErrorMetadata;
+    use errors::{
+        ErrorMetadata,
+        ErrorMetadataAnyhowExt,
+    };
     use maplit::btreemap;
     use proptest::prelude::*;
     use sync_types::testing::assert_roundtrips;
@@ -693,10 +703,12 @@ mod tests {
         };
         let error_metadata: ErrorMetadata = schema_enforcement_error.to_error_metadata();
         let mut anyhow_err: anyhow::Error = error_metadata.into();
+        assert!(anyhow_err.is_bad_request());
         let err_string = anyhow_err.to_string();
         assert!(err_string.contains(&object.to_string()));
         assert!(err_string.contains("Object contains extra field"));
         strip_pii(&mut anyhow_err);
+        assert!(anyhow_err.is_bad_request());
         let err_string = anyhow_err.to_string();
         assert!(!err_string.contains(&object.to_string()));
         assert!(err_string.contains("Object contains extra field"));
@@ -711,6 +723,38 @@ mod tests {
         ));
         strip_pii(&mut e);
         assert_eq!(e.to_string(), "Need DIY advice? Email *****@*****.***");
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_pii_wrap_error_message() -> anyhow::Result<()> {
+        let mut e = anyhow::anyhow!(ErrorMetadata::bad_request(
+            "DIY",
+            "Need DIY advice? Email totally-not-james@convex.dev"
+        ))
+        .wrap_error_message(|m| format!("Wrapped: {m}"));
+
+        strip_pii(&mut e);
+        assert!(!format!("{e:?}").contains("totally-not-james"));
+        assert!(e.is_bad_request());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_strip_pii_outside_and_inside_error_metadata() -> anyhow::Result<()> {
+        let mut e = anyhow::anyhow!("Contact totally-not-jamwt@convex.dev if we get here").context(
+            ErrorMetadata::bad_request(
+                "DIY",
+                "Need DIY advice? Email totally-not-james@convex.dev",
+            ),
+        );
+
+        strip_pii(&mut e);
+        assert!(!format!("{e:?}").contains("totally-not-james"));
+        assert!(!format!("{e:?}").contains("totally-not-jamwt"));
+        assert!(e.is_bad_request());
+
         Ok(())
     }
 
