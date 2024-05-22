@@ -971,7 +971,7 @@ impl QueryPageStatus {
 }
 
 struct QueryPageMetadata {
-    cursor: Option<Cursor>,
+    cursor: Cursor,
     split_cursor: Option<Cursor>,
     page_status: Option<QueryPageStatus>,
 }
@@ -1018,10 +1018,13 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         {
             page_status = Some(QueryPageStatus::SplitRecommended);
         }
+        let cursor = end_cursor.or_else(|| query.cursor()).context(
+            "Cursor was None. This should be impossible if `.next` was called on the query.",
+        )?;
         Ok((
             page,
             QueryPageMetadata {
-                cursor: end_cursor.or_else(|| query.cursor()),
+                cursor,
                 split_cursor: query.split_cursor(),
                 page_status,
             },
@@ -1115,21 +1118,16 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 .encrypt_cursor(&split, provider.persistence_version())
         });
 
-        let continue_cursor = match &cursor {
-            None => anyhow::bail!(
-                "Cursor was None. This should be impossible if `.next` was called on the query."
-            ),
-            Some(cursor) => provider
-                .key_broker()
-                .encrypt_cursor(cursor, provider.persistence_version()),
-        };
+        let continue_cursor = provider
+            .key_broker()
+            .encrypt_cursor(&cursor, provider.persistence_version());
 
         let is_done = matches!(
             cursor,
-            Some(Cursor {
+            Cursor {
                 position: CursorPosition::End,
                 ..
-            })
+            }
         );
 
         anyhow::ensure!(
@@ -1140,7 +1138,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                  supports a single paginated query in each function.",
             )
         );
-        provider.next_journal().end_cursor = cursor;
+        provider.next_journal().end_cursor = Some(cursor);
 
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
