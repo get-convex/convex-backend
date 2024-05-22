@@ -34,9 +34,12 @@ export default mutationGeneric({
         numItems: MAX_CLEAR_ROWS,
         cursor,
         // We can read up to 8MiB, but we're currently double counting the docs
-        // when they're read in this query and also when they're deleted. So make
+        // when they're read in this query and also when they're deleted.
+        // And we allow `maximumBytesRead` to be exceeded by a single document,
+        // and a single document maxes out at 1MiB.
+        // To ensure (maximumBytesRead + 1MiB) * 2 < 8MiB, we need
         // this limit conservative to avoid hitting limits and crashing.
-        maximumBytesRead: 4000000,
+        maximumBytesRead: 3000000,
       });
 
     await Promise.all(documents.map((doc) => db.delete(doc._id)));
