@@ -27,6 +27,7 @@ use common::{
     query::Order,
     runtime::{
         new_rate_limiter,
+        try_join_buffer_unordered,
         Runtime,
     },
     sync::{
@@ -35,10 +36,7 @@ use common::{
     },
     types::TabletIndexName,
 };
-use futures::{
-    stream::FuturesUnordered,
-    TryStreamExt,
-};
+use futures::TryStreamExt;
 use governor::Quota;
 use itertools::Itertools;
 use keybroker::Identity;
@@ -605,19 +603,22 @@ impl<RT: Runtime> Inner<RT> {
         rate_limit_pages_per_second: NonZeroU32,
     ) -> anyhow::Result<Vec<FragmentedVectorSegment>> {
         let row_rate_limiter = new_rate_limiter(
-            runtime,
+            runtime.clone(),
             Quota::per_second(
                 NonZeroU32::new(*DEFAULT_DOCUMENTS_PAGE_SIZE)
                     .and_then(|val| val.checked_mul(rate_limit_pages_per_second))
                     .context("Invalid row rate limit")?,
             ),
         );
-        let mut loaded_segments = segments_to_update
-            .into_iter()
-            .map(|segment| MutableFragmentedSegmentMetadata::download(segment, storage.clone()))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>()
-            .await?;
+        let storage_ = storage.clone();
+        let mut loaded_segments: Vec<_> = try_join_buffer_unordered(
+            runtime.clone(),
+            "download_vector_meta",
+            segments_to_update.into_iter().map(move |segment| {
+                MutableFragmentedSegmentMetadata::download(segment, storage_.clone())
+            }),
+        )
+        .await?;
         let mut documents = database.load_documents_in_table(
             *index_name.table(),
             TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(current_ts)))?,
@@ -634,11 +635,13 @@ impl<RT: Runtime> Inner<RT> {
             }
         }
 
-        loaded_segments
-            .into_iter()
-            .map(|segment| segment.upload_deleted_bitset(storage.clone()))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>()
-            .await
+        try_join_buffer_unordered(
+            runtime,
+            "upload_vector_meta",
+            loaded_segments
+                .into_iter()
+                .map(move |segment| segment.upload_deleted_bitset(storage.clone())),
+        )
+        .await
     }
 }

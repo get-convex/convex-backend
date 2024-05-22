@@ -342,7 +342,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         previous_segments: Vec<<T::IndexType as SearchIndex>::Segment>,
     ) -> anyhow::Result<MultiSegmentBuildResult<T::IndexType>> {
         let row_rate_limiter = new_rate_limiter(
-            params.runtime,
+            params.runtime.clone(),
             Quota::per_second(
                 NonZeroU32::new(*DEFAULT_DOCUMENTS_PAGE_SIZE)
                     .and_then(|val| val.checked_mul(rate_limit_pages_per_second))
@@ -404,9 +404,12 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             },
         };
 
-        let mut mutable_previous_segments =
-            T::IndexType::download_previous_segments(params.storage.clone(), previous_segments)
-                .await?;
+        let mut mutable_previous_segments = T::IndexType::download_previous_segments(
+            params.runtime.clone(),
+            params.storage.clone(),
+            previous_segments,
+        )
+        .await?;
 
         let persistence = RepeatablePersistence::new(
             params.reader,
@@ -423,9 +426,12 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         )
         .await?;
 
-        let updated_previous_segments =
-            T::IndexType::upload_previous_segments(params.storage, mutable_previous_segments)
-                .await?;
+        let updated_previous_segments = T::IndexType::upload_previous_segments(
+            params.runtime.clone(),
+            params.storage,
+            mutable_previous_segments,
+        )
+        .await?;
 
         let index_backfill_result =
             if let MultipartBuildType::IncrementalComplete { .. } = build_type {

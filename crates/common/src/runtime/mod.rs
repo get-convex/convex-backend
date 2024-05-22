@@ -20,9 +20,13 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use futures::{
+    channel::oneshot,
     future::FusedFuture,
     select_biased,
+    stream,
     FutureExt,
+    StreamExt,
+    TryStreamExt,
 };
 pub use governor::nanos::Nanos;
 use governor::{
@@ -91,6 +95,58 @@ pub async fn shutdown_and_join(mut handle: impl SpawnHandle) -> anyhow::Result<(
         }
     }
     Ok(())
+}
+
+// Why 20? ¯\_(ツ)_/¯. We use this value a lot elsewhere and it doesn't seem
+// unreasonable as a starting point for lightweight things.
+const JOIN_BUFFER_SIZE: usize = 20;
+
+pub async fn try_join_buffered<
+    RT: Runtime,
+    T: Send + 'static,
+    C: Default + Send + 'static + Extend<T>,
+>(
+    rt: RT,
+    name: &'static str,
+    tasks: impl Iterator<Item = impl Future<Output = anyhow::Result<T>> + Send + 'static>
+        + Send
+        + 'static,
+) -> anyhow::Result<C> {
+    stream::iter(tasks.map(|task| try_join(rt.clone(), name, task)))
+        .buffered(JOIN_BUFFER_SIZE)
+        .try_collect()
+        .await
+}
+
+pub async fn try_join_buffer_unordered<
+    RT: Runtime,
+    T: Send + 'static,
+    C: Default + Send + 'static + Extend<T>,
+>(
+    rt: RT,
+    name: &'static str,
+    tasks: impl Iterator<Item = impl Future<Output = anyhow::Result<T>> + Send + 'static>
+        + Send
+        + 'static,
+) -> anyhow::Result<C> {
+    stream::iter(tasks.map(|task| try_join(rt.clone(), name, task)))
+        .buffer_unordered(JOIN_BUFFER_SIZE)
+        .try_collect()
+        .await
+}
+
+pub async fn try_join<RT: Runtime, T: Send + 'static>(
+    rt: RT,
+    name: &'static str,
+    fut: impl Future<Output = anyhow::Result<T>> + Send + 'static,
+) -> anyhow::Result<T> {
+    let (tx, rx) = oneshot::channel();
+    let handle = rt.spawn(name, async {
+        let result = fut.await;
+        let _ = tx.send(result);
+    });
+    handle.into_join_future().await?;
+    rx.await?
 }
 
 /// A Runtime can be considered somewhat like an operating system abstraction

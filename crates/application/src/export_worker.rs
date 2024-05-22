@@ -34,7 +34,11 @@ use common::{
         IndexRangeExpression,
         Order,
     },
-    runtime::Runtime,
+    runtime::{
+        try_join_buffer_unordered,
+        try_join_buffered,
+        Runtime,
+    },
     types::{
         IndexId,
         ObjectKey,
@@ -308,6 +312,26 @@ impl<RT: Runtime> ExportWorker<RT> {
         }
     }
 
+    async fn upload_tables(
+        runtime: RT,
+        storage: Arc<dyn Storage>,
+        format: ExportFormat,
+        tables: BTreeMap<TabletId, (TableNumber, TableName, TableSummary)>,
+    ) -> anyhow::Result<BTreeMap<TabletId, TableUpload>> {
+        let start_upload_futs = tables
+            .into_keys()
+            .map(move |t_id| Self::upload_table(storage.clone(), t_id, format));
+        try_join_buffer_unordered(runtime, "table_uploads", start_upload_futs).await
+    }
+
+    async fn upload_table(
+        storage: Arc<dyn Storage>,
+        tablet_id: TabletId,
+        format: ExportFormat,
+    ) -> anyhow::Result<(TabletId, TableUpload)> {
+        anyhow::Ok((tablet_id, TableUpload::new(storage, format).await?))
+    }
+
     async fn export_inner(
         &mut self,
         format: ExportFormat,
@@ -373,14 +397,13 @@ impl<RT: Runtime> ExportWorker<RT> {
                 Ok((*ts, object_keys, usage))
             },
             ExportFormat::CleanJsonl | ExportFormat::InternalJson => {
-                // Start uploads concurrently
-                let start_upload_futs = tables.clone().into_keys().map(|t_id| async move {
-                    anyhow::Ok((t_id, TableUpload::new(storage.to_owned(), format).await?))
-                });
-                let mut table_uploads: BTreeMap<_, _> = futures::stream::iter(start_upload_futs)
-                    .buffer_unordered(20)
-                    .try_collect()
-                    .await?;
+                let mut table_uploads = Self::upload_tables(
+                    self.runtime.clone(),
+                    self.storage.clone(),
+                    format,
+                    tables.clone(),
+                )
+                .await?;
 
                 for tablet_id in tablet_ids.iter() {
                     let by_id = by_id_indexes
@@ -401,25 +424,24 @@ impl<RT: Runtime> ExportWorker<RT> {
                     table_uploads.insert(tablet_id, table_upload);
                 }
 
-                let tables_ = &tables;
                 // Complete table uploads concurrently
                 let complete_upload_futs =
-                    table_uploads
-                        .into_iter()
-                        .map(|(tablet_id, upload)| async move {
+                    table_uploads.into_iter().map(move |(tablet_id, upload)| {
+                        let tables = tables.clone();
+                        async move {
                             anyhow::Ok((
-                                tables_
+                                tables
                                     .get(&tablet_id)
                                     .expect("export table id missing")
                                     .1
                                     .clone(),
                                 upload.complete().await?,
                             ))
-                        });
-                let table_object_keys = futures::stream::iter(complete_upload_futs)
-                    .buffered(20)
-                    .try_collect::<BTreeMap<_, _>>()
-                    .await?;
+                        }
+                    });
+                let table_object_keys: BTreeMap<_, _> =
+                    try_join_buffered(self.runtime.clone(), "table_uploads", complete_upload_futs)
+                        .await?;
                 tracing::info!(
                     "Export succeeded! {} snapshots written to storage. Format: {format:?}",
                     tablet_ids.len()

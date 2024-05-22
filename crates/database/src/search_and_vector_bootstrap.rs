@@ -34,7 +34,10 @@ use common::{
         RevisionPair,
     },
     query::Order,
-    runtime::Runtime,
+    runtime::{
+        try_join_buffer_unordered,
+        Runtime,
+    },
     types::{
         IndexId,
         PersistenceVersion,
@@ -46,7 +49,6 @@ use errors::ErrorMetadataAnyhowExt;
 use futures::{
     future,
     Stream,
-    StreamExt,
     TryStreamExt,
 };
 use indexing::index_registry::IndexRegistry;
@@ -515,24 +517,30 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
         let snapshot = self
             .persistence
             .read_snapshot(self.persistence.upper_bound())?;
+        let registry = self.index_registry.clone();
+        let table_mapping = self.table_mapping.clone();
         let get_index_futs = self
             .index_registry
             .all_search_and_vector_indexes()
             .into_iter()
-            .map(|index| async {
-                let fast_forward_ts = load_metadata_fast_forward_ts(
-                    &self.index_registry,
-                    &snapshot,
-                    &self.table_mapping,
-                    index.id(),
-                )
-                .await?;
-                anyhow::Ok((index, fast_forward_ts))
+            .map(move |index| {
+                let registry = registry.clone();
+                let table_mapping = table_mapping.clone();
+                let snapshot = snapshot.clone();
+                async move {
+                    let fast_forward_ts = load_metadata_fast_forward_ts(
+                        &registry,
+                        &snapshot,
+                        &table_mapping,
+                        index.id(),
+                    )
+                    .await?;
+                    anyhow::Ok((index, fast_forward_ts))
+                }
             });
-        let indexes_with_fast_forward_ts = futures::stream::iter(get_index_futs)
-            .buffer_unordered(20)
-            .try_collect::<Vec<_>>()
-            .await?;
+        let indexes_with_fast_forward_ts =
+            try_join_buffer_unordered(self.runtime.clone(), "get_index_futs", get_index_futs)
+                .await?;
         let indexes_to_bootstrap = IndexesToBootstrap::create(
             self.persistence.upper_bound(),
             indexes_with_fast_forward_ts,

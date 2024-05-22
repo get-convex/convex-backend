@@ -82,12 +82,14 @@ pub trait SearchIndex {
     where
         Self: Sized;
 
-    async fn download_previous_segments(
+    async fn download_previous_segments<RT: Runtime>(
+        rt: RT,
         storage: Arc<dyn Storage>,
         segment: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments>;
 
-    async fn upload_previous_segments(
+    async fn upload_previous_segments<RT: Runtime>(
+        rt: RT,
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>>;

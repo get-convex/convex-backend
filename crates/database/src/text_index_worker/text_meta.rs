@@ -23,12 +23,11 @@ use common::{
     },
     persistence_helpers::stream_revision_pairs,
     query::Order,
-    runtime::Runtime,
+    runtime::{
+        try_join_buffer_unordered,
+        Runtime,
+    },
     types::IndexId,
-};
-use futures::{
-    stream::FuturesUnordered,
-    TryStreamExt,
 };
 use search::{
     build_new_segment,
@@ -119,31 +118,37 @@ impl SearchIndex for TextSearchIndex {
         TantivySearchIndexSchema::new(config)
     }
 
-    async fn download_previous_segments(
+    async fn download_previous_segments<RT: Runtime>(
+        rt: RT,
         storage: Arc<dyn Storage>,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments> {
         Ok(PreviousTextSegments(
-            segments
-                .into_iter()
-                .map(|segment| UpdatableTextSegment::download(segment, storage.clone()))
-                .collect::<FuturesUnordered<_>>()
-                .try_collect::<Vec<_>>()
-                .await?,
+            try_join_buffer_unordered(
+                rt,
+                "download_text_meta",
+                segments
+                    .into_iter()
+                    .map(move |segment| UpdatableTextSegment::download(segment, storage.clone())),
+            )
+            .await?,
         ))
     }
 
-    async fn upload_previous_segments(
+    async fn upload_previous_segments<RT: Runtime>(
+        rt: RT,
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>> {
-        segments
-            .0
-            .into_iter()
-            .map(|segment| segment.upload_metadata(storage.clone()))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>()
-            .await
+        try_join_buffer_unordered(
+            rt,
+            "upload_text_metadata",
+            segments
+                .0
+                .into_iter()
+                .map(move |segment| segment.upload_metadata(storage.clone())),
+        )
+        .await
     }
 
     fn estimate_document_size(_schema: &Self::Schema, _doc: &ResolvedDocument) -> u64 {

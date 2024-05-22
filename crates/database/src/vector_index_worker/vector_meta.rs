@@ -22,12 +22,11 @@ use common::{
         DocumentStream,
         RepeatablePersistence,
     },
-    runtime::Runtime,
+    runtime::{
+        try_join_buffer_unordered,
+        Runtime,
+    },
     types::IndexId,
-};
-use futures::{
-    stream::FuturesUnordered,
-    TryStreamExt,
 };
 use search::{
     disk_index::upload_vector_segment,
@@ -111,28 +110,34 @@ impl SearchIndex for VectorSearchIndex {
         QdrantSchema::new(config)
     }
 
-    async fn download_previous_segments(
+    async fn download_previous_segments<RT: Runtime>(
+        rt: RT,
         storage: Arc<dyn Storage>,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments> {
-        segments
-            .into_iter()
-            .map(|segment| MutableFragmentedSegmentMetadata::download(segment, storage.clone()))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>()
-            .await
+        try_join_buffer_unordered(
+            rt.clone(),
+            "upload_vector_metadata",
+            segments.into_iter().map(move |segment| {
+                MutableFragmentedSegmentMetadata::download(segment, storage.clone())
+            }),
+        )
+        .await
     }
 
-    async fn upload_previous_segments(
+    async fn upload_previous_segments<RT: Runtime>(
+        rt: RT,
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>> {
-        segments
-            .into_iter()
-            .map(|segment| segment.upload_deleted_bitset(storage.clone()))
-            .collect::<FuturesUnordered<_>>()
-            .try_collect::<Vec<_>>()
-            .await
+        try_join_buffer_unordered(
+            rt,
+            "upload_vector_metadata",
+            segments
+                .into_iter()
+                .map(move |segment| segment.upload_deleted_bitset(storage.clone())),
+        )
+        .await
     }
 
     fn estimate_document_size(schema: &Self::Schema, _doc: &ResolvedDocument) -> u64 {
