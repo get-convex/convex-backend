@@ -487,7 +487,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             args.table.parse().context(ArgName("table"))
         })?;
         let tx = provider.tx()?;
-        let result = tx.count(&table).await?;
+        let result = tx.count(TableNamespace::Global, &table).await?;
 
         // Trim to u32 and check for overflow.
         let result = u32::try_from(result)?;

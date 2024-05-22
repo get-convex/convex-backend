@@ -128,7 +128,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             num_user_indexes_on_table < MAX_INDEXES_PER_TABLE,
             index_validation_error::too_many_indexes(index.name.table(), MAX_INDEXES_PER_TABLE)
         );
-        self._add_index(index).await
+        self._add_index(TableNamespace::Global, index).await
     }
 
     /// Add system index.
@@ -142,26 +142,21 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             self.tx.identity().is_admin() || self.tx.identity().is_system(),
             unauthorized_error("add_system_index")
         );
-        self._add_index(index).await?;
+        self._add_index(TableNamespace::Global, index).await?;
         Ok(())
     }
 
     async fn _add_index(
         &mut self,
+        namespace: TableNamespace,
         index: IndexMetadata<TableName>,
     ) -> anyhow::Result<ResolvedDocumentId> {
         // Make sure the table exists before creating the index.
         TableModel::new(self.tx)
-            .insert_table_metadata(index.name.table())
+            .insert_table_metadata(namespace, index.name.table())
             .await?;
         let index: TabletIndexMetadata = index
-            .map_table(
-                &self
-                    .tx
-                    .table_mapping()
-                    .namespace(TableNamespace::Global)
-                    .name_to_id(),
-            )?
+            .map_table(&self.tx.table_mapping().namespace(namespace).name_to_id())?
             .into();
         SystemMetadataModel::new_global(self.tx)
             .insert_metadata(&INDEX_TABLE, index.try_into()?)

@@ -389,18 +389,19 @@ impl DatabaseSnapshot {
             let tablet_id = TabletId(table_doc.id().internal_id());
             table_states.insert(tablet_id, table_doc.state);
             let table_number = table_doc.number;
-            match table_doc.state {
+            let table_metadata = table_doc.into_value();
+            match table_metadata.state {
                 TableState::Active => table_mapping.insert(
                     tablet_id,
-                    TableNamespace::Global,
+                    table_metadata.namespace,
                     table_number,
-                    table_doc.into_value().name,
+                    table_metadata.name,
                 ),
                 TableState::Hidden => table_mapping.insert_tablet(
                     tablet_id,
-                    TableNamespace::Global,
+                    table_metadata.namespace,
                     table_number,
-                    table_doc.into_value().name,
+                    table_metadata.name,
                 ),
                 TableState::Deleting => {},
             }
@@ -1008,7 +1009,7 @@ impl<RT: Runtime> Database<RT> {
             if table_doc.is_active() {
                 table_mapping.insert(
                     TabletId(table_doc.id().internal_id()),
-                    TableNamespace::Global,
+                    table_doc.namespace,
                     table_doc.number,
                     table_doc.into_value().name,
                 );
@@ -1118,7 +1119,11 @@ impl<RT: Runtime> Database<RT> {
                 .id(table_name)?;
             let document_id: GenericDocumentId<TabletIdAndTableNumber> =
                 tables_table_id.id(table_id.tablet_id.0);
-            let metadata = TableMetadata::new(table_name.clone(), table_id.table_number);
+            let metadata = TableMetadata::new(
+                TableNamespace::Global,
+                table_name.clone(),
+                table_id.table_number,
+            );
             let document = ResolvedDocument::new(
                 document_id,
                 creation_time.increment()?,

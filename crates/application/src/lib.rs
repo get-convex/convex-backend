@@ -1406,7 +1406,7 @@ impl<RT: Runtime> Application<RT> {
 
         anyhow::ensure!(
             TableModel::new(tx)
-                .count(&ENVIRONMENT_VARIABLES_TABLE.clone())
+                .count(TableNamespace::Global, &ENVIRONMENT_VARIABLES_TABLE.clone())
                 .await?
                 <= (ENV_VAR_LIMIT as u64),
             env_var_limit_met(),
@@ -1425,7 +1425,7 @@ impl<RT: Runtime> Application<RT> {
         anyhow::ensure!(
             environment_variables.len() as u64
                 + TableModel::new(tx)
-                    .count(&ENVIRONMENT_VARIABLES_TABLE.clone())
+                    .count(TableNamespace::Global, &ENVIRONMENT_VARIABLES_TABLE.clone())
                     .await?
                 <= (ENV_VAR_LIMIT as u64),
             env_var_limit_met(),
@@ -2085,8 +2085,12 @@ impl<RT: Runtime> Application<RT> {
                 "cannot delete system table {table_name}"
             );
             let mut table_model = TableModel::new(&mut tx);
-            count += table_model.count(&table_name).await?;
-            table_model.delete_table(table_name).await?;
+            count += table_model
+                .count(TableNamespace::Global, &table_name)
+                .await?;
+            table_model
+                .delete_table(TableNamespace::Global, table_name)
+                .await?;
         }
         self.commit(tx, "delete_tables").await?;
         Ok(count)

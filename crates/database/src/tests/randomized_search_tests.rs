@@ -154,7 +154,7 @@ impl Scenario {
         let namespace = TableNamespace::Global;
         let mut tx = database.begin(Identity::system()).await?;
         TableModel::new(&mut tx)
-            .insert_table_metadata_for_test(&table_name)
+            .insert_table_metadata_for_test(TableNamespace::Global, &table_name)
             .await?;
         let index = IndexMetadata::new_backfilling_search_index(
             "test.by_text".parse()?,

@@ -944,7 +944,8 @@ async fn test_too_large_values(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Check that inserting a 4MB value to a system table works.
     let table_name = "_test_table".parse()?;
-    tx.create_system_table_testing(&table_name, None).await?;
+    tx.create_system_table_testing(TableNamespace::Global, &table_name, None)
+        .await?;
     SystemMetadataModel::new_global(&mut tx)
         .insert(&table_name, huge_obj)
         .await?;
@@ -1010,7 +1011,7 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(&table_name, None, &BTreeSet::new())
+        .insert_table_for_import(TableNamespace::Global, &table_name, None, &BTreeSet::new())
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
@@ -1060,7 +1061,7 @@ async fn test_importing_table_schema_validated(rt: TestRuntime) -> anyhow::Resul
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(&table_name, None, &BTreeSet::new())
+        .insert_table_for_import(TableNamespace::Global, &table_name, None, &BTreeSet::new())
         .await?;
     database.commit(tx).await?;
 
@@ -1118,7 +1119,7 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
     let mut table_model = TableModel::new(&mut tx);
     let mut table_mapping_for_import = TableMapping::new();
     let table_id = table_model
-        .insert_table_for_import(&table_name, None, &BTreeSet::new())
+        .insert_table_for_import(TableNamespace::Global, &table_name, None, &BTreeSet::new())
         .await?;
     table_mapping_for_import.insert(
         table_id.tablet_id,
@@ -1127,7 +1128,12 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
         table_name.clone(),
     );
     let foreign_table_id = table_model
-        .insert_table_for_import(&foreign_table_name, None, &BTreeSet::new())
+        .insert_table_for_import(
+            TableNamespace::Global,
+            &foreign_table_name,
+            None,
+            &BTreeSet::new(),
+        )
         .await?;
     table_mapping_for_import.insert(
         foreign_table_id.tablet_id,
@@ -1190,9 +1196,11 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
 
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
-    table_model.insert_table_metadata(&table_name).await?;
     table_model
-        .insert_table_metadata(&foreign_table_name)
+        .insert_table_metadata(TableNamespace::Global, &table_name)
+        .await?;
+    table_model
+        .insert_table_metadata(TableNamespace::Global, &foreign_table_name)
         .await?;
     let active_table_number = tx
         .table_mapping()
@@ -1213,6 +1221,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     let mut tables_in_import = BTreeSet::new();
     assert!(table_model
         .insert_table_for_import(
+            TableNamespace::Global,
             &table_name,
             Some(active_foreign_table_number),
             &tables_in_import
@@ -1224,6 +1233,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     // If tables_in_import is populated, we're allowed to create both tables.
     let table_id = table_model
         .insert_table_for_import(
+            TableNamespace::Global,
             &table_name,
             Some(active_foreign_table_number),
             &tables_in_import,
@@ -1237,6 +1247,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     );
     let foreign_table_id = table_model
         .insert_table_for_import(
+            TableNamespace::Global,
             &foreign_table_name,
             Some(active_table_number),
             &tables_in_import,
@@ -1356,6 +1367,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
         .insert_table_for_import(
+            TableNamespace::Global,
             &table_name,
             Some(doc0_id.table().table_number),
             &BTreeSet::new(),
@@ -1444,7 +1456,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(&table_name, None, &BTreeSet::new())
+        .insert_table_for_import(TableNamespace::Global, &table_name, None, &BTreeSet::new())
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
@@ -1476,7 +1488,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
         .is_none());
     // Delete the active table.
     TableModel::new(&mut tx)
-        .delete_table(table_name.clone())
+        .delete_table(TableNamespace::Global, table_name.clone())
         .await?;
     database.commit(tx).await?;
 
@@ -1827,7 +1839,7 @@ async fn create_system_table_creates_table_marked_as_system(rt: TestRuntime) -> 
     let table_name = "_my_system_table";
     let mut tx = db.begin_system().await?;
     assert!(
-        tx.create_system_table_testing(&table_name.parse()?, None)
+        tx.create_system_table_testing(TableNamespace::Global, &table_name.parse()?, None)
             .await?
     );
     db.commit(tx).await?;
@@ -1847,7 +1859,7 @@ async fn create_system_table_with_non_system_table_fails(rt: TestRuntime) -> any
     let table_name = "invalid_system_table_name";
     let mut tx = db.begin_system().await?;
     let result = tx
-        .create_system_table_testing(&table_name.parse()?, None)
+        .create_system_table_testing(TableNamespace::Global, &table_name.parse()?, None)
         .await;
     let err = result.expect_err("create_system_table allowed a non-system table name");
     assert_eq!(

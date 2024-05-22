@@ -104,12 +104,13 @@ impl TableRegistry {
                         table_number: metadata.number,
                     };
                     if metadata.is_active() {
-                        if self.table_exists(&metadata.name) {
+                        if self.table_exists(metadata.namespace, &metadata.name) {
                             anyhow::bail!("Tried to create duplicate table {new_value}");
                         }
                         self.validate_table_number(metadata.number)?;
                     }
                     Some(TableUpdate {
+                        namespace: metadata.namespace,
                         table_id_and_number: table_id_and_code,
                         table_name: metadata.name,
                         state: metadata.state,
@@ -150,6 +151,7 @@ impl TableRegistry {
                         );
                         anyhow::ensure!(index_registry.has_no_indexes(tablet_id));
                         Some(TableUpdate {
+                            namespace: old_metadata.namespace,
                             table_id_and_number: old_table_id_and_number,
                             table_name: old_metadata.name,
                             state: new_metadata.state,
@@ -160,6 +162,7 @@ impl TableRegistry {
                     {
                         // Table changing from hidden -> active.
                         Some(TableUpdate {
+                            namespace: old_metadata.namespace,
                             table_id_and_number: old_table_id_and_number,
                             table_name: old_metadata.name,
                             state: new_metadata.state,
@@ -230,10 +233,8 @@ impl TableRegistry {
             .map(|(_, _, _, name)| name)
     }
 
-    pub fn table_exists(&self, table: &TableName) -> bool {
-        self.table_mapping
-            .namespace(TableNamespace::Global)
-            .name_exists(table)
+    pub fn table_exists(&self, namespace: TableNamespace, table: &TableName) -> bool {
+        self.table_mapping.namespace(namespace).name_exists(table)
     }
 
     pub fn iter_active_user_tables(
@@ -286,6 +287,7 @@ impl TableRegistry {
 }
 
 pub(crate) struct TableUpdate {
+    pub namespace: TableNamespace,
     pub table_id_and_number: TabletIdAndTableNumber,
     pub table_name: TableName,
     pub state: TableState,
@@ -324,6 +326,7 @@ impl<'a> Update<'a> {
                 );
             }
             let TableUpdate {
+                namespace,
                 table_id_and_number,
                 table_name,
                 state,
@@ -334,7 +337,7 @@ impl<'a> Update<'a> {
                 TableUpdateMode::Create => {
                     self.metadata.table_mapping.insert_tablet(
                         table_id_and_number.tablet_id,
-                        TableNamespace::Global,
+                        *namespace,
                         table_id_and_number.table_number,
                         table_name.clone(),
                     );

@@ -570,14 +570,18 @@ impl<RT: Runtime> Transaction<RT> {
 
     #[minitrace::trace]
     #[convex_macro::instrument_future]
-    pub async fn count(&mut self, table: &TableName) -> anyhow::Result<u64> {
+    pub async fn count(
+        &mut self,
+        namespace: TableNamespace,
+        table: &TableName,
+    ) -> anyhow::Result<u64> {
         let virtual_system_mapping = self.virtual_system_mapping().clone();
         let system_table = if virtual_system_mapping.is_virtual_table(table) {
             virtual_system_mapping.virtual_to_system_table(table)?
         } else {
             table
         };
-        TableModel::new(self).count(system_table).await
+        TableModel::new(self).count(namespace, system_table).await
     }
 
     pub fn into_token(self) -> anyhow::Result<Token> {
@@ -626,10 +630,11 @@ impl<RT: Runtime> Transaction<RT> {
     #[cfg(any(test, feature = "testing"))]
     pub async fn create_system_table_testing(
         &mut self,
+        namespace: TableNamespace,
         table_name: &TableName,
         default_table_number: Option<TableNumber>,
     ) -> anyhow::Result<bool> {
-        self.create_system_table(table_name, default_table_number)
+        self.create_system_table(namespace, table_name, default_table_number)
             .await
     }
 
@@ -680,6 +685,7 @@ impl<RT: Runtime> Transaction<RT> {
     /// false if table already existed
     pub async fn create_system_table(
         &mut self,
+        namespace: TableNamespace,
         table_name: &TableName,
         default_table_number: Option<TableNumber>,
     ) -> anyhow::Result<bool> {
@@ -689,12 +695,12 @@ impl<RT: Runtime> Transaction<RT> {
             "{table_name:?} is not a valid system table name!"
         );
 
-        let is_new = !TableModel::new(self).table_exists(table_name);
+        let is_new = !TableModel::new(self).table_exists(namespace, table_name);
         if is_new {
             let table_number = self
                 .table_number_for_system_table(table_name, default_table_number)
                 .await?;
-            let metadata = TableMetadata::new(table_name.clone(), table_number);
+            let metadata = TableMetadata::new(namespace, table_name.clone(), table_number);
             let table_doc_id = SystemMetadataModel::new_global(self)
                 .insert(&TABLES_TABLE, metadata.try_into()?)
                 .await?;

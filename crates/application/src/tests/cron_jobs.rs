@@ -115,7 +115,11 @@ pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()
     assert_eq!(jobs.len(), original_jobs.len() + 1);
 
     let mut table_model = TableModel::new(&mut tx);
-    assert!(table_model.table_is_empty(&OBJECTS_TABLE).await?);
+    assert!(
+        table_model
+            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .await?
+    );
 
     application.commit_test(tx).await?;
 
@@ -124,7 +128,11 @@ pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()
     rt.wait(Duration::from_secs(100)).await;
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
-    assert!(!table_model.table_is_empty(&OBJECTS_TABLE).await?);
+    assert!(
+        !table_model
+            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .await?
+    );
     let mut logs_query = cron_log_query(&mut tx)?;
     assert!(logs_query.next(&mut tx, None).await?.is_some());
     Ok(())
@@ -191,7 +199,11 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     let jobs = cron_model.list().await?;
     assert_eq!(jobs.len(), original_jobs.len() + 1);
     let mut table_model = TableModel::new(&mut tx);
-    assert!(table_model.table_is_empty(&OBJECTS_TABLE).await?);
+    assert!(
+        table_model
+            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .await?
+    );
     application.commit_test(tx).await?;
 
     // Cron jobs executor within application will pick up the job and
@@ -200,7 +212,11 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     rt.wait(Duration::from_secs(100)).await;
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
-    assert!(table_model.table_is_empty(&OBJECTS_TABLE).await?);
+    assert!(
+        table_model
+            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .await?
+    );
     let mut logs_query = cron_log_query(&mut tx)?;
     assert!(logs_query.next(&mut tx, Some(1)).await?.is_none());
 
@@ -211,7 +227,11 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     rt.wait(Duration::from_secs(100)).await;
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
-    assert!(!table_model.table_is_empty(&OBJECTS_TABLE).await?);
+    assert!(
+        !table_model
+            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .await?
+    );
     let mut logs_query = cron_log_query(&mut tx)?;
     assert!(logs_query.next(&mut tx, None).await?.is_some());
 

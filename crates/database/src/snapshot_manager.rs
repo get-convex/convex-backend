@@ -134,6 +134,7 @@ impl TableSummaries {
             table_summary = table_summary.insert(&new_value.value().0);
         }
         if let Some(TableUpdate {
+            namespace: _,
             table_id_and_number,
             table_name: _,
             state: _,

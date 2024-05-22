@@ -211,8 +211,10 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     ) -> anyhow::Result<(ResolvedDocumentId, SchemaState)> {
         let mut table_model = TableModel::new(self.tx);
         for name in schema.tables.keys() {
-            if !table_model.table_exists(name) {
-                table_model.insert_table_metadata(name).await?;
+            if !table_model.table_exists(TableNamespace::Global, name) {
+                table_model
+                    .insert_table_metadata(TableNamespace::Global, name)
+                    .await?;
             }
         }
         if let Some((id, active_schema)) = self.get_by_state(SchemaState::Active).await? {

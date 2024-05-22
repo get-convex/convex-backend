@@ -332,6 +332,7 @@ mod tests {
     use value::{
         assert_obj,
         ResolvedDocumentId,
+        TableNamespace,
     };
 
     use super::Writes;
@@ -356,7 +357,12 @@ mod tests {
         let user_table1_table_metadata_change = PackedDocument::pack(ResolvedDocument::new(
             ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table1.tablet_id.0),
             CreationTime::ONE,
-            TableMetadata::new("big_table".parse()?, user_table1.table_number).try_into()?,
+            TableMetadata::new(
+                TableNamespace::Global,
+                "big_table".parse()?,
+                user_table1.table_number,
+            )
+            .try_into()?,
         )?);
         assert!(user_table1_write
             .read_set()
@@ -386,7 +392,12 @@ mod tests {
         let user_table2_table_metadata_change = PackedDocument::pack(ResolvedDocument::new(
             ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table2.tablet_id.0),
             CreationTime::ONE,
-            TableMetadata::new("small_table".parse()?, user_table2.table_number).try_into()?,
+            TableMetadata::new(
+                TableNamespace::Global,
+                "small_table".parse()?,
+                user_table2.table_number,
+            )
+            .try_into()?,
         )?);
         assert!(user_table1_write
             .read_set()

@@ -153,7 +153,7 @@ impl<RT: Runtime> Scenario<RT> {
         let table_name: TableName = TABLE_NAME.parse()?;
         let mut tx = self.database.begin(Identity::system()).await?;
         TableModel::new(&mut tx)
-            .insert_table_metadata_for_test(&table_name)
+            .insert_table_metadata_for_test(TableNamespace::Global, &table_name)
             .await?;
         let index = IndexMetadata::new_backfilling_vector_index(
             INDEX_NAME.parse()?,

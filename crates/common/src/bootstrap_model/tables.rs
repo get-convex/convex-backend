@@ -6,12 +6,16 @@ use serde::{
 };
 use value::{
     codegen_convex_serialization,
+    TableNamespace,
     TableNumber,
 };
 
-use crate::types::{
-    FieldName,
-    TableName,
+use crate::{
+    components::COMPONENTS_ENABLED,
+    types::{
+        FieldName,
+        TableName,
+    },
 };
 
 pub static TABLES_TABLE: LazyLock<TableName> =
@@ -48,6 +52,12 @@ pub struct TableMetadata {
     pub name: TableName,
     pub number: TableNumber,
     pub state: TableState,
+    // TODO(lee) allow any TableNamespace once they are supported in tests.
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(value = "TableNamespace::Global")
+    )]
+    pub namespace: TableNamespace,
 }
 
 impl TableMetadata {
@@ -57,19 +67,26 @@ impl TableMetadata {
 }
 
 impl TableMetadata {
-    pub fn new(name: TableName, number: TableNumber) -> Self {
+    pub fn new(namespace: TableNamespace, name: TableName, number: TableNumber) -> Self {
         Self {
             name,
             number,
             state: TableState::Active,
+            namespace,
         }
     }
 
-    pub fn new_with_state(name: TableName, number: TableNumber, state: TableState) -> Self {
+    pub fn new_with_state(
+        namespace: TableNamespace,
+        name: TableName,
+        number: TableNumber,
+        state: TableState,
+    ) -> Self {
         Self {
             name,
             number,
             state,
+            namespace,
         }
     }
 }
@@ -79,6 +96,8 @@ struct SerializedTableMetadata {
     name: String,
     number: i64,
     state: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    namespace: Option<SerializedTableNamespace>,
 }
 
 impl TryFrom<TableMetadata> for SerializedTableMetadata {
@@ -93,6 +112,7 @@ impl TryFrom<TableMetadata> for SerializedTableMetadata {
                 TableState::Deleting => "deleting".to_owned(),
                 TableState::Hidden => "hidden".to_owned(),
             },
+            namespace: table_namespace_to_serialized(m.namespace)?,
         })
     }
 }
@@ -110,15 +130,81 @@ impl TryFrom<SerializedTableMetadata> for TableMetadata {
                 "hidden" => TableState::Hidden,
                 s => anyhow::bail!("invalid table state {s}"),
             },
+            namespace: table_namespace_from_serialized(m.namespace)?,
         })
     }
 }
 
 codegen_convex_serialization!(TableMetadata, SerializedTableMetadata);
 
+#[derive(Debug, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[serde(rename_all = "camelCase", tag = "kind")]
+enum SerializedTableNamespace {
+    ByComponent {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+    },
+    ByComponentDefinition {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+    },
+}
+
+fn table_namespace_from_serialized(
+    m: Option<SerializedTableNamespace>,
+) -> anyhow::Result<TableNamespace> {
+    Ok(match m {
+        None => TableNamespace::Global,
+        Some(SerializedTableNamespace::ByComponent { id: Some(id) }) => {
+            TableNamespace::ByComponent(id.parse()?)
+        },
+        Some(SerializedTableNamespace::ByComponent { id: None }) => TableNamespace::RootComponent,
+        Some(SerializedTableNamespace::ByComponentDefinition { id: Some(id) }) => {
+            TableNamespace::ByComponentDefinition(id.parse()?)
+        },
+        Some(SerializedTableNamespace::ByComponentDefinition { id: None }) => {
+            TableNamespace::RootComponentDefinition
+        },
+    })
+}
+
+fn table_namespace_to_serialized(
+    m: TableNamespace,
+) -> anyhow::Result<Option<SerializedTableNamespace>> {
+    anyhow::ensure!(
+        *COMPONENTS_ENABLED || matches!(m, TableNamespace::Global),
+        "non-global namespaces should only be serialized when components are enabled"
+    );
+    match m {
+        TableNamespace::Global => Ok(None),
+        TableNamespace::ByComponent(id) => Ok(Some(SerializedTableNamespace::ByComponent {
+            id: Some(id.to_string()),
+        })),
+        TableNamespace::RootComponent => {
+            Ok(Some(SerializedTableNamespace::ByComponent { id: None }))
+        },
+        TableNamespace::ByComponentDefinition(id) => {
+            Ok(Some(SerializedTableNamespace::ByComponentDefinition {
+                id: Some(id.to_string()),
+            }))
+        },
+        TableNamespace::RootComponentDefinition => {
+            Ok(Some(SerializedTableNamespace::ByComponentDefinition {
+                id: None,
+            }))
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use value::obj;
+    use value::{
+        assert_obj,
+        obj,
+        ConvexObject,
+        TableNamespace,
+    };
 
     use super::TableMetadata;
     use crate::bootstrap_model::tables::TableState;
@@ -136,8 +222,29 @@ mod tests {
             TableMetadata {
                 name: "foo".parse()?,
                 number: 1017.try_into()?,
-                state: TableState::Hidden
+                state: TableState::Hidden,
+                namespace: TableNamespace::Global,
             }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_namespace() -> anyhow::Result<()> {
+        let table = TableMetadata {
+            name: "foo".parse()?,
+            number: 1017.try_into()?,
+            state: TableState::Active,
+            namespace: TableNamespace::Global,
+        };
+        let serialized: ConvexObject = table.try_into()?;
+        assert_eq!(
+            serialized,
+            assert_obj!(
+                "name" => "foo",
+                "state" => "active",
+                "number" => 1017,
+            ),
         );
         Ok(())
     }

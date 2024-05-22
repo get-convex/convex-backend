@@ -1187,7 +1187,7 @@ mod tests {
         db.commit(tx).await?;
         let mut tx = db.begin(Identity::system()).await?;
         TableModel::new(&mut tx)
-            .delete_table("table_0".parse()?)
+            .delete_table(TableNamespace::Global, "table_0".parse()?)
             .await?;
         db.commit(tx).await?;
 

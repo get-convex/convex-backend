@@ -248,7 +248,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         // table metadata. If the user then subsequently commits that transaction,
         // they'll have a record that points to a nonexistent table.
         TableModel::new(self.tx)
-            .insert_table_metadata(&table)
+            .insert_table_metadata(self.component.into(), &table)
             .await?;
         let document = ResolvedDocument::new(
             id.clone().map_table(

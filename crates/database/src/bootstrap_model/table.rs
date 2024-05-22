@@ -114,11 +114,15 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
     /// Returns the number of documents in the table, up-to-date with the
     /// current transaction.
-    pub async fn count(&mut self, table: &TableName) -> anyhow::Result<u64> {
+    pub async fn count(
+        &mut self,
+        namespace: TableNamespace,
+        table: &TableName,
+    ) -> anyhow::Result<u64> {
         let count = if let Some(tablet_id) = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .id_if_exists(table)
         {
             // Get table count at the beginning of the transaction, then add the delta from
@@ -140,12 +144,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
         // Add read dependency on the entire table.
         // But we haven't explicitly read the documents, so don't record_read_documents.
-        if self.table_exists(table) {
-            let table_id = self
-                .tx
-                .table_mapping()
-                .namespace(TableNamespace::Global)
-                .id(table)?;
+        if self.table_exists(namespace, table) {
+            let table_id = self.tx.table_mapping().namespace(namespace).id(table)?;
             self.tx.reads.record_indexed_directly(
                 TabletIndexName::by_id(table_id.tablet_id),
                 IndexedFields::by_id(),
@@ -163,10 +163,10 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         doc.map(|metadata| metadata.map_table(&self.tx.table_mapping().tablet_to_name()))
     }
 
-    pub fn table_exists(&mut self, table: &TableName) -> bool {
+    pub fn table_exists(&mut self, namespace: TableNamespace, table: &TableName) -> bool {
         self.tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .name_exists(table)
     }
 
@@ -174,8 +174,12 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         self.tx.table_mapping().iter_active_user_tables().count()
     }
 
-    pub async fn delete_table(&mut self, table_name: TableName) -> anyhow::Result<()> {
-        if !self.table_exists(&table_name) {
+    pub async fn delete_table(
+        &mut self,
+        namespace: TableNamespace,
+        table_name: TableName,
+    ) -> anyhow::Result<()> {
+        if !self.table_exists(namespace, &table_name) {
             return Ok(());
         }
         SchemaModel::new(self.tx)
@@ -185,7 +189,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         let table_id_and_number = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .id(&table_name)?;
         self.delete_table_by_id(table_id_and_number.tablet_id).await
     }
@@ -214,6 +218,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             name: table_metadata.name,
             number: table_metadata.number,
             state: TableState::Deleting,
+            namespace: table_metadata.namespace,
         };
         SystemMetadataModel::new_global(self.tx)
             .replace(table_doc_id, updated_table_metadata.try_into()?)
@@ -233,8 +238,12 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .try_into()
     }
 
-    pub async fn table_is_empty(&mut self, table: &TableName) -> anyhow::Result<bool> {
-        Ok(self.count(table).await? == 0)
+    pub async fn table_is_empty(
+        &mut self,
+        namespace: TableNamespace,
+        table: &TableName,
+    ) -> anyhow::Result<bool> {
+        Ok(self.count(namespace, table).await? == 0)
     }
 
     // Checks both _tables and _virtual_tables to find a non-conflicting table
@@ -279,6 +288,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     /// a problem.
     fn check_can_overwrite(
         &mut self,
+        namespace: TableNamespace,
         table: &TableName,
         table_number: Option<TableNumber>,
         tables_in_import: &BTreeSet<TableName>,
@@ -295,7 +305,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         if let Some(existing_table_by_number) = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .name_by_number_if_exists(table_number)
         {
             // Don't mess with creating conflicts with bootstrap system tables.
@@ -350,38 +360,49 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             TableState::Deleting => anyhow::bail!("cannot activate {table_name} which is deleting"),
             TableState::Hidden => {},
         }
-        self.check_can_overwrite(table_name, Some(table_number), tables_in_import)?;
-        if self.table_exists(table_name) {
+        let namespace = table_metadata.namespace;
+        self.check_can_overwrite(namespace, table_name, Some(table_number), tables_in_import)?;
+        if self.table_exists(namespace, table_name) {
             let existing_table_by_name = self
                 .tx
                 .table_mapping()
-                .namespace(TableNamespace::Global)
+                .namespace(namespace)
                 .id(table_name)?;
-            documents_deleted += self.count(table_name).await?;
+            documents_deleted += self.count(namespace, table_name).await?;
             self.delete_table_by_id(existing_table_by_name.tablet_id)
                 .await?;
         }
-        let table_metadata =
-            TableMetadata::new_with_state(table_name.clone(), table_number, TableState::Active);
-        let table_doc_id = TABLES_TABLE.id(tablet_id.0).map_table(
-            self.tx
-                .table_mapping()
-                .namespace(TableNamespace::Global)
-                .name_to_id(),
-        )?;
+        let table_metadata = TableMetadata::new_with_state(
+            namespace,
+            table_name.clone(),
+            table_number,
+            TableState::Active,
+        );
+        let table_doc_id = self.tables_table_id()?.id(tablet_id.0);
         SystemMetadataModel::new_global(self.tx)
             .replace(table_doc_id, table_metadata.try_into()?)
             .await?;
         Ok(documents_deleted)
     }
 
+    fn tables_table_id(&mut self) -> anyhow::Result<TabletIdAndTableNumber> {
+        self.tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .name_to_id()(TABLES_TABLE.clone())
+    }
+
     #[async_recursion]
-    pub async fn insert_table_metadata(&mut self, table: &TableName) -> anyhow::Result<()> {
+    pub async fn insert_table_metadata(
+        &mut self,
+        namespace: TableNamespace,
+        table: &TableName,
+    ) -> anyhow::Result<()> {
         // Don't implicitly create table metadata for system tables.
         if table.is_system() {
             return Ok(());
         }
-        self._insert_table_metadata(table, None, TableState::Active)
+        self._insert_table_metadata(namespace, table, None, TableState::Active)
             .await?;
 
         Ok(())
@@ -389,6 +410,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
     pub async fn insert_table_for_import(
         &mut self,
+        namespace: TableNamespace,
         table: &TableName,
         table_number: Option<TableNumber>,
         tables_in_import: &BTreeSet<TableName>,
@@ -402,27 +424,24 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         let existing_table_by_name = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .id_and_number_if_exists(table)
             .map(|id| id.table_number);
         let table_number = table_number.or(existing_table_by_name);
-        self.check_can_overwrite(table, table_number, tables_in_import)?;
-        self._insert_table_metadata(table, table_number, TableState::Hidden)
+        self.check_can_overwrite(namespace, table, table_number, tables_in_import)?;
+        self._insert_table_metadata(namespace, table, table_number, TableState::Hidden)
             .await
     }
 
     async fn _insert_table_metadata(
         &mut self,
+        namespace: TableNamespace,
         table: &TableName,
         table_number: Option<TableNumber>,
         state: TableState,
     ) -> anyhow::Result<TabletIdAndTableNumber> {
-        if state == TableState::Active && self.table_exists(table) {
-            let table_id = self
-                .tx
-                .table_mapping()
-                .namespace(TableNamespace::Global)
-                .id(table)?;
+        if state == TableState::Active && self.table_exists(namespace, table) {
+            let table_id = self.tx.table_mapping().namespace(namespace).id(table)?;
             anyhow::ensure!(table_number.is_none() || table_number == Some(table_id.table_number));
             Ok(table_id)
         } else {
@@ -436,7 +455,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                         || !self
                             .tx
                             .table_mapping()
-                            .namespace(TableNamespace::Global)
+                            .namespace(namespace)
                             .table_number_exists()(table_number),
                     ErrorMetadata::bad_request(
                         "InvalidId",
@@ -447,7 +466,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             } else {
                 self.next_user_table_number().await?
             };
-            let table_metadata = TableMetadata::new_with_state(table.clone(), table_number, state);
+            let table_metadata =
+                TableMetadata::new_with_state(namespace, table.clone(), table_number, state);
             let table_doc_id = SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&TABLES_TABLE, table_metadata.try_into()?)
                 .await?;
@@ -479,9 +499,10 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     #[cfg(any(test, feature = "testing"))]
     pub async fn insert_table_metadata_for_test(
         &mut self,
+        namespace: TableNamespace,
         table: &TableName,
     ) -> anyhow::Result<()> {
-        self._insert_table_metadata(table, None, TableState::Active)
+        self._insert_table_metadata(namespace, table, None, TableState::Active)
             .await?;
         Ok(())
     }
@@ -509,7 +530,10 @@ mod tests {
     };
     use must_let::must_let;
     use runtime::testing::TestRuntime;
-    use value::TableName;
+    use value::{
+        TableName,
+        TableNamespace,
+    };
 
     use crate::{
         bootstrap_model::table::NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
@@ -523,7 +547,9 @@ mod tests {
     async fn delete_table_with_missing_table_does_nothing(rt: TestRuntime) -> anyhow::Result<()> {
         let mut tx = new_tx(rt).await?;
         let mut model = TableModel::new(&mut tx);
-        model.delete_table(TableName::from_str("missing")?).await
+        model
+            .delete_table(TableNamespace::Global, TableName::from_str("missing")?)
+            .await
     }
 
     #[convex_macro::test_runtime]
@@ -531,8 +557,10 @@ mod tests {
         let mut tx = new_tx(rt).await?;
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
-        model.insert_table_metadata(&table_name).await?;
-        assert!(model.table_exists(&table_name));
+        model
+            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .await?;
+        assert!(model.table_exists(TableNamespace::Global, &table_name));
         Ok(())
     }
 
@@ -541,9 +569,13 @@ mod tests {
         let mut tx = new_tx(rt).await?;
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
-        model.insert_table_metadata(&table_name).await?;
-        model.delete_table(table_name.clone()).await?;
-        assert!(!model.table_exists(&table_name));
+        model
+            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .await?;
+        model
+            .delete_table(TableNamespace::Global, table_name.clone())
+            .await?;
+        assert!(!model.table_exists(TableNamespace::Global, &table_name));
         Ok(())
     }
 
@@ -557,9 +589,13 @@ mod tests {
 
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
-        model.insert_table_metadata(&table_name).await?;
-        model.delete_table(table_name.clone()).await?;
-        assert!(!model.table_exists(&table_name));
+        model
+            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .await?;
+        model
+            .delete_table(TableNamespace::Global, table_name.clone())
+            .await?;
+        assert!(!model.table_exists(TableNamespace::Global, &table_name));
         Ok(())
     }
 
@@ -573,9 +609,13 @@ mod tests {
 
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
-        model.insert_table_metadata(&table_name).await?;
-        model.delete_table(table_name.clone()).await?;
-        assert!(!model.table_exists(&table_name));
+        model
+            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .await?;
+        model
+            .delete_table(TableNamespace::Global, table_name.clone())
+            .await?;
+        assert!(!model.table_exists(TableNamespace::Global, &table_name));
         Ok(())
     }
 
@@ -587,8 +627,12 @@ mod tests {
 
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
-        model.insert_table_metadata(&table_name).await?;
-        let result = model.delete_table(table_name.clone()).await;
+        model
+            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .await?;
+        let result = model
+            .delete_table(TableNamespace::Global, table_name.clone())
+            .await;
         let error = result.unwrap_err();
         assert!(
             error
@@ -613,8 +657,12 @@ mod tests {
 
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
-        model.insert_table_metadata(&table_name).await?;
-        let result = model.delete_table(table_name.clone()).await;
+        model
+            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .await?;
+        let result = model
+            .delete_table(TableNamespace::Global, table_name.clone())
+            .await;
         let error = result.unwrap_err();
         assert!(
             error.to_string().contains(
@@ -640,8 +688,12 @@ mod tests {
 
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
-        model.insert_table_metadata(&table_name).await?;
-        model.delete_table(table_name.clone()).await?;
+        model
+            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .await?;
+        model
+            .delete_table(TableNamespace::Global, table_name.clone())
+            .await?;
 
         let mut schema_model = SchemaModel::new(&mut tx);
         assert!(schema_model
@@ -672,7 +724,9 @@ mod tests {
         );
 
         let table_name = TableName::from_str("my_table")?;
-        model.insert_table_metadata(&table_name).await?;
+        model
+            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .await?;
         let new_next_table_number: u32 = model.next_user_table_number().await?.into();
         assert_eq!(next_table_number + 1, new_next_table_number);
         Ok(())

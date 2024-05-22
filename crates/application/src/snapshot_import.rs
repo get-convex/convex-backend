@@ -1426,7 +1426,7 @@ impl ImportSchemaTableConstraint {
             return Ok(());
         }
         if TableModel::new(tx)
-            .count(&self.table_in_schema_not_in_import)
+            .count(TableNamespace::Global, &self.table_in_schema_not_in_import)
             .await?
             == 0
         {
@@ -2128,7 +2128,10 @@ async fn prepare_table_for_import<RT: Runtime>(
     let insert_into_existing_table_id = match mode {
         ImportMode::Append => existing_table_id,
         ImportMode::RequireEmpty => {
-            if !TableModel::new(&mut tx).table_is_empty(table_name).await? {
+            if !TableModel::new(&mut tx)
+                .table_is_empty(TableNamespace::Global, table_name)
+                .await?
+            {
                 anyhow::bail!(ImportError::TableExists(table_name.clone()));
             }
             None
@@ -2150,7 +2153,12 @@ async fn prepare_table_for_import<RT: Runtime>(
                     async {
                         // Create a new table in state Hidden, that will later be changed to Active.
                         let table_id = TableModel::new(tx)
-                            .insert_table_for_import(table_name, table_number, tables_in_import)
+                            .insert_table_for_import(
+                                TableNamespace::Global,
+                                table_name,
+                                table_number,
+                                tables_in_import,
+                            )
                             .await?;
                         IndexModel::new(tx)
                             .copy_indexes_to_table(table_name, table_id.tablet_id)

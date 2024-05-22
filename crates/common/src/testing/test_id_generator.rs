@@ -172,8 +172,8 @@ impl TestIdGenerator {
             .table_mapping
             .namespace(TableNamespace::Global)
             .name_to_id()(TABLES_TABLE.clone())?;
-        for (table_id, _, table_number, table_name) in self.table_mapping.iter() {
-            let table_metadata = TableMetadata::new(table_name.clone(), table_number);
+        for (table_id, namespace, table_number, table_name) in self.table_mapping.iter() {
+            let table_metadata = TableMetadata::new(namespace, table_name.clone(), table_number);
             let id = tables_table_id.id(table_id.0);
             let doc = ResolvedDocument::new(id, CreationTime::ONE, table_metadata.try_into()?)?;
             let index_update = DatabaseIndexUpdate {

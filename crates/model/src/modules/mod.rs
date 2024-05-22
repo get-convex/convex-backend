@@ -348,17 +348,17 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
                 let latest_version = previous_version + 1;
                 let new_metadata = ModuleMetadata {
-                    path: path.into_root_module_path()?,
+                    path: path.module_path,
                     latest_version,
                     source_package_id,
                     environment,
                     analyze_result: analyze_result.clone(),
                 };
-                SystemMetadataModel::new(self.tx, TableNamespace::Global)
+                SystemMetadataModel::new(self.tx, path.component.into())
                     .replace(module_metadata.id(), new_metadata.try_into()?)
                     .await?;
 
-                SystemMetadataModel::new(self.tx, TableNamespace::Global)
+                SystemMetadataModel::new(self.tx, path.component.into())
                     .delete(previous_version_id)
                     .await?;
 
@@ -367,14 +367,14 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             None => {
                 let version = 0;
                 let new_metadata = ModuleMetadata {
-                    path: path.into_root_module_path()?,
+                    path: path.module_path,
                     latest_version: version,
                     source_package_id,
                     environment,
                     analyze_result: analyze_result.clone(),
                 };
 
-                let document_id = SystemMetadataModel::new(self.tx, TableNamespace::Global)
+                let document_id = SystemMetadataModel::new(self.tx, path.component.into())
                     .insert(&MODULES_TABLE, new_metadata.try_into()?)
                     .await?;
                 (document_id, version)

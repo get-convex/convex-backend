@@ -327,7 +327,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
 
     pub async fn get_total_storage_count(&mut self) -> anyhow::Result<u64> {
         TableModel::new(self.tx)
-            .count(&FILE_STORAGE_TABLE.clone())
+            .count(TableNamespace::Global, &FILE_STORAGE_TABLE.clone())
             .await
     }
 

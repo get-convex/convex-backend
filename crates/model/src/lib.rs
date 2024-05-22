@@ -236,6 +236,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
 ) -> anyhow::Result<bool> {
     let is_new = tx
         .create_system_table(
+            TableNamespace::Global,
             table.table_name(),
             default_table_numbers.get(table.table_name()).cloned(),
         )

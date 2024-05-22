@@ -159,7 +159,9 @@ async fn document_deltas_should_ignore_rows_from_deleted_tables(
     // …and then delete its table…
     let mut tx = db.begin(Identity::system()).await?;
     let mut model = TableModel::new(&mut tx);
-    model.delete_table("table".parse()?).await?;
+    model
+        .delete_table(TableNamespace::Global, "table".parse()?)
+        .await?;
     db.commit(tx).await?;
 
     // …then the row should not appear in the results returned by document_deltas.
@@ -190,7 +192,9 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
     // …and then delete one of the tables…
     let mut tx = db.begin(Identity::system()).await?;
     let mut model = TableModel::new(&mut tx);
-    model.delete_table("table2".parse()?).await?;
+    model
+        .delete_table(TableNamespace::Global, "table2".parse()?)
+        .await?;
     let table_mapping = tx.table_mapping().clone();
     let ts_latest = db.commit(tx).await?;
 

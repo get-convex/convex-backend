@@ -88,7 +88,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocumentId> {
         TableModel::new(self.tx)
-            .insert_table_metadata(table)
+            .insert_table_metadata(self.namespace, table)
             .await?;
         let table_id = self
             .tx
