@@ -99,6 +99,7 @@ impl DeveloperDocumentId {
         }
 
         let buf = base32::decode(s)?;
+
         let mut pos = 0;
 
         let (table_number, bytes_read) = vint_decode(&buf[pos..])?;
@@ -133,7 +134,17 @@ impl DeveloperDocumentId {
             return Err(IdDecodeError::InvalidLength(s.len()));
         }
 
-        Ok(DeveloperDocumentId::new(table_number, internal_id))
+        let id = DeveloperDocumentId::new(table_number, internal_id);
+
+        // Check that decoding was one-to-one.
+        // TODO: Checking base32 decoding above alone isn't sufficient, see
+        // `test_id_decoding_one_to_one` below for a counterexample if we only check
+        // that `base32::decode` is one-to-one.
+        if id.encode() != s {
+            return Err(IdDecodeError::InvalidLength(s.len()));
+        }
+
+        Ok(id)
     }
 
     pub fn to_resolved(
@@ -546,5 +557,20 @@ mod tests {
         ) {
             test_map_between_table_numbers(&s, src_id, dest_table_number);
         }
+
+        #[test]
+        fn proptest_id_decoding_one_to_one(
+            s in "[0123456789abcdefghjkmnpqrstvwxyz]{31,37}"
+        ) {
+            if let Ok(id) = DeveloperDocumentId::decode(&s) {
+                assert_eq!(id.encode(), s);
+            }
+        }
+    }
+
+    #[test]
+    fn test_id_decoding_one_to_one() {
+        let s = "mz1xn7tymdnktmmzqy5xxhn7tjs2nkkfmtjjr";
+        DeveloperDocumentId::decode(s).unwrap_err();
     }
 }
