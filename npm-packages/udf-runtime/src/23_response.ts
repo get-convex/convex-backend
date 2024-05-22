@@ -274,6 +274,10 @@ export class Response {
     return `Response ${inspect(properties)}`;
   }
 
+  toJSON() {
+    return {};
+  }
+
   // ---------------------------------------------------------------
   // Begin unimplemented functions
   // ---------------------------------------------------------------

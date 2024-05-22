@@ -270,6 +270,10 @@ export class Request {
     return `Request ${inspect(properties)}`;
   }
 
+  toJSON() {
+    return {};
+  }
+
   // ---------------------------------------------------------------
   // Begin unimplemented functions
   // ---------------------------------------------------------------

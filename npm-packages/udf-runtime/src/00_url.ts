@@ -145,6 +145,10 @@ class URLSearchParams {
     return performOp("url/stringifyUrlSearchParams", this._searchParamPairs);
   }
 
+  toJSON() {
+    return {};
+  }
+
   values(): IterableIterator<string> {
     return this._searchParamPairs.map(([, value]) => value)[Symbol.iterator]();
   }
@@ -323,6 +327,10 @@ class URL {
   }
 
   toString() {
+    return this.href;
+  }
+
+  toJSON() {
     return this.href;
   }
 
