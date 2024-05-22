@@ -1006,6 +1006,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 Err(e) => {
                     if e.is_pagination_limit() {
                         page_status = Some(QueryPageStatus::SplitRequired);
+                        if query.cursor().is_none() {
+                            // Intentionally drop ErrorMetadata because this should
+                            // be impossible, so we want to throw a system error instead.
+                            anyhow::bail!(
+                                "This should be impossible. Hit pagination limit before setting \
+                                 query cursor: {e:?}"
+                            );
+                        }
                         break;
                     }
                     anyhow::bail!(e);
@@ -1058,6 +1066,12 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoDocumentsForPagination",
                 "Must request at least 1 document while paginating"
+            ));
+        }
+        if args.maximum_rows_read == Some(0) || args.maximum_bytes_read == Some(0) {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidPaginationLimit",
+                "maximumRowsRead and maximumBytesRead must be greater than 0"
             ));
         }
 
