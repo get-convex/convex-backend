@@ -35,6 +35,7 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
+use itertools::Itertools;
 use storage::{
     Storage,
     StorageCacheKey,
@@ -206,9 +207,9 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         let bytes_copied = tokio::io::copy_buf(&mut reader, &mut file).await?;
         file.shutdown().await?;
 
-        // We're expecting that the uncompressed tar and its contents are rougnly the
+        // We're expecting that the uncompressed tar and its contents are roughly the
         // same size. There is some file moving / copying going on in
-        // this method, but hopefully it's small enough to be arounding
+        // this method, but hopefully it's small enough to be a rounding
         // error relative to the overall segment size.
         let path = Self::unpack_fragmented_segment_tar(output_file)?;
 
@@ -325,6 +326,34 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         let result = self.get_logged(search_storage, key, search_file_type).await;
         timer.finish(result.is_ok());
         result
+    }
+
+    pub async fn get_single_file(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_path: &ObjectKey,
+        file_type: SearchFileType,
+    ) -> anyhow::Result<PathBuf> {
+        // The archive cache always dumps things into directories, but we want a
+        // specific file path.
+        let parent_dir: PathBuf = self.get(search_storage, storage_path, file_type).await?;
+        // tokio's async read_dir method punts to a thread pool too, but by using our
+        // own, we can be runtime agnostic.
+        let path = self
+            .blocking_thread_pool
+            .execute(move || try {
+                let paths: Vec<_> = std::fs::read_dir(parent_dir)?
+                    .map_ok(|value| value.path())
+                    .try_collect()?;
+                anyhow::ensure!(
+                    paths.len() == 1,
+                    "Expected one file but found multiple paths: {:?}",
+                    paths,
+                );
+                paths.first().unwrap().to_owned()
+            })
+            .await??;
+        Ok(path)
     }
 
     async fn get_logged(

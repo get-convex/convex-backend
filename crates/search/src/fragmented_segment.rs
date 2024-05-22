@@ -1,7 +1,4 @@
-use std::{
-    path::PathBuf,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use common::{
     bootstrap_model::index::vector_index::FragmentedVectorSegment,
@@ -65,7 +62,6 @@ use crate::{
 #[derive(Clone)]
 pub(crate) struct FragmentedSegmentFetcher<RT: Runtime> {
     archive_cache: ArchiveCacheManager<RT>,
-    blocking_thread_pool: BoundedThreadPool<RT>,
 }
 
 pub struct FragmentedSegmentStorageKeys {
@@ -77,14 +73,8 @@ pub struct FragmentedSegmentStorageKeys {
 impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
     /// blocking_thread_pool is used for small / fast IO operations and should
     /// be large.
-    pub(crate) fn new(
-        archive_cache: ArchiveCacheManager<RT>,
-        blocking_thread_pool: BoundedThreadPool<RT>,
-    ) -> FragmentedSegmentFetcher<RT> {
-        Self {
-            archive_cache,
-            blocking_thread_pool,
-        }
+    pub(crate) fn new(archive_cache: ArchiveCacheManager<RT>) -> FragmentedSegmentFetcher<RT> {
+        Self { archive_cache }
     }
 
     /// Fetch all parts of all fragmented segments with limited concurrency.
@@ -125,14 +115,14 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
             SearchFileType::FragmentedVectorSegment,
         );
 
-        let fetch_id_tracker = self.fetch_single_file(
+        let fetch_id_tracker = archive_cache.get_single_file(
             search_storage.clone(),
-            paths.id_tracker,
+            &paths.id_tracker,
             SearchFileType::VectorIdTracker,
         );
-        let fetch_bitset = self.fetch_single_file(
+        let fetch_bitset = archive_cache.get_single_file(
             search_storage.clone(),
-            paths.deleted_bitset,
+            &paths.deleted_bitset,
             SearchFileType::VectorDeletedBitset,
         );
         let (segment, id_tracker, bitset) =
@@ -140,37 +130,6 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
         Ok(UntarredVectorDiskSegmentPaths::new(
             segment, id_tracker, bitset,
         ))
-    }
-
-    async fn fetch_single_file(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        storage_path: ObjectKey,
-        file_type: SearchFileType,
-    ) -> anyhow::Result<PathBuf> {
-        // The archive cache always dumps things into directories, but we want a
-        // specific file path.
-        let parent_dir: PathBuf = self
-            .archive_cache
-            .get(search_storage, &storage_path, file_type)
-            .await?;
-        // tokio's async read_dir method punts to a thread pool too, but by using our
-        // own, we can be runtime agnostic.
-        let path = self
-            .blocking_thread_pool
-            .execute(move || try {
-                let paths: Vec<_> = std::fs::read_dir(parent_dir)?
-                    .map_ok(|value| value.path())
-                    .try_collect()?;
-                anyhow::ensure!(
-                    paths.len() == 1,
-                    "Expected one file but found multiple paths: {:?}",
-                    paths,
-                );
-                paths.first().unwrap().to_owned()
-            })
-            .await??;
-        Ok(path)
     }
 }
 

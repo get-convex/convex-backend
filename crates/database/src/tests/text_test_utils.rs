@@ -13,8 +13,18 @@ use common::{
         IndexMetadata,
         TabletIndexMetadata,
     },
-    document::ParsedDocument,
+    document::{
+        ParsedDocument,
+        ResolvedDocument,
+    },
     persistence::PersistenceReader,
+    query::{
+        Query,
+        QueryOperator,
+        QuerySource,
+        Search,
+        SearchFilterExpression,
+    },
     runtime::testing::TestRuntime,
     types::{
         GenericIndexName,
@@ -22,10 +32,14 @@ use common::{
         IndexName,
         TabletIndexName,
     },
+    version::MIN_NPM_VERSION_FOR_FUZZY_SEARCH,
 };
 use maplit::btreeset;
 use must_let::must_let;
-use search::searcher::InProcessSearcher;
+use search::{
+    searcher::InProcessSearcher,
+    MAX_CANDIDATE_REVISIONS,
+};
 use storage::Storage;
 use sync_types::Timestamp;
 use value::{
@@ -47,6 +61,7 @@ use crate::{
     },
     Database,
     IndexModel,
+    ResolvedQuery,
     TestFacingModel,
     TextIndexFlusher,
     Transaction,
@@ -187,16 +202,62 @@ impl TextFixtures {
         Ok(segments.clone())
     }
 
-    pub async fn add_document(&self, text: &str) -> anyhow::Result<()> {
+    pub async fn add_document(&self, text: &str) -> anyhow::Result<ResolvedDocumentId> {
         let table_name = TABLE_NAME.parse::<TableName>()?;
         let mut tx = self.db.begin_system().await?;
-        add_document(&mut tx, &table_name, text).await?;
+        let doc_id = add_document(&mut tx, &table_name, text).await?;
+        self.db.commit(tx).await?;
+        Ok(doc_id)
+    }
+
+    pub async fn enable_index(
+        &self,
+        index_name: &GenericIndexName<TableName>,
+    ) -> anyhow::Result<()> {
+        let mut tx = self.db.begin_system().await?;
+        IndexModel::new(&mut tx)
+            .enable_index_for_testing(self.namespace, index_name)
+            .await?;
         self.db.commit(tx).await?;
         Ok(())
+    }
+
+    pub async fn search(
+        &self,
+        index_name: GenericIndexName<TableName>,
+        query_string: &str,
+    ) -> anyhow::Result<Vec<ResolvedDocument>> {
+        let mut tx = self.db.begin_system().await?;
+        let filters = vec![SearchFilterExpression::Search(
+            SEARCH_FIELD.parse()?,
+            query_string.into(),
+        )];
+        let search = Search {
+            table: index_name.table().clone(),
+            index_name,
+            filters,
+        };
+
+        let query = Query {
+            source: QuerySource::Search(search),
+            operators: vec![QueryOperator::Limit(MAX_CANDIDATE_REVISIONS)],
+        };
+        let mut query_stream = ResolvedQuery::new_with_version(
+            &mut tx,
+            TableNamespace::Global,
+            query,
+            Some(MIN_NPM_VERSION_FOR_FUZZY_SEARCH.clone()),
+        )?;
+        let mut values = vec![];
+        while let Some(value) = query_stream.next(&mut tx, None).await? {
+            values.push(value);
+        }
+        Ok(values)
     }
 }
 
 const TABLE_NAME: &str = "table";
+const SEARCH_FIELD: &str = "text";
 
 pub struct IndexData {
     pub index_id: IndexId,
@@ -208,7 +269,7 @@ pub struct IndexData {
 pub fn backfilling_text_index() -> anyhow::Result<IndexMetadata<TableName>> {
     let table_name: TableName = TABLE_NAME.parse()?;
     let index_name = IndexName::new(table_name, "search_index".parse()?)?;
-    let search_field: FieldPath = "text".parse()?;
+    let search_field: FieldPath = SEARCH_FIELD.parse()?;
     let filter_field: FieldPath = "channel".parse()?;
     let metadata = IndexMetadata::new_backfilling_search_index(
         index_name,

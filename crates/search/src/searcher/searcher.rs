@@ -225,8 +225,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
             *MAX_CONCURRENT_VECTOR_SEARCHES,
             "vector",
         );
-        let fragmented_segment_fetcher =
-            FragmentedSegmentFetcher::new(archive_cache.clone(), blocking_thread_pool.clone());
+        let fragmented_segment_fetcher = FragmentedSegmentFetcher::new(archive_cache.clone());
         let fragmented_segment_compactor = FragmentedSegmentCompactor::new(
             runtime.clone(),
             fragmented_segment_fetcher.clone(),
@@ -373,12 +372,12 @@ impl<RT: Runtime> SearcherImpl<RT> {
             TextStorageKeys::MultiSegment(fragment_keys) => {
                 anyhow::ensure!(searcher.segment_readers().len() == 1);
                 let (alive_bitset_path, deleted_terms_path) = try_join!(
-                    self.archive_cache.get(
+                    self.archive_cache.get_single_file(
                         search_storage.clone(),
                         &fragment_keys.alive_bitset,
                         SearchFileType::TextAliveBitset
                     ),
-                    self.archive_cache.get(
+                    self.archive_cache.get_single_file(
                         search_storage.clone(),
                         &fragment_keys.deleted_terms_table,
                         SearchFileType::TextDeletedTerms
@@ -459,6 +458,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         else {
             return Ok(vec![]);
         };
+
         let query = move || {
             let reader = index_reader_for_directory(&segment_path)?;
             let searcher = reader.searcher();
@@ -482,7 +482,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
             return Ok(Bm25Stats::empty());
         };
         let query = move || {
-            let reader = index_reader_for_directory(segment_path)?;
+            let reader = index_reader_for_directory(&segment_path)?;
             let searcher = reader.searcher();
             let segment = searcher.segment_reader(segment_ord);
             Self::query_bm25_stats_impl(segment, &deletion_tracker, terms)
@@ -502,7 +502,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
             TextStorageKeys::MultiSegment(ref fragment_keys) => {
                 let id_tracker_path = self
                     .archive_cache
-                    .get(
+                    .get_single_file(
                         search_storage.clone(),
                         &fragment_keys.id_tracker,
                         SearchFileType::TextIdTracker,
@@ -799,11 +799,17 @@ impl<RT: Runtime> SearcherImpl<RT> {
         let num_documents = deletion_tracker.num_alive_docs() as u64;
         let mut doc_frequencies = BTreeMap::new();
         for term in terms {
-            let Some(term_ord) = term_dict.term_ord(term.value_bytes())? else {
-                anyhow::bail!("Term not found: {:?}", term);
-            };
-            let doc_freq = deletion_tracker.doc_frequency(term_dict, term_ord)?;
-            doc_frequencies.insert(term, doc_freq);
+            if let Some(term_ord) = term_dict.term_ord(term.value_bytes())? {
+                let doc_freq = deletion_tracker.doc_frequency(term_dict, term_ord)?;
+                doc_frequencies.insert(term, doc_freq);
+            } else {
+                // Terms may not exist in one or more segments of a multi segment text index.
+                // Terms skipped here will (should!) be found in another segment
+                // and counted there. We could probably get away with skipping
+                // this entry entirely, but it seems more explicit to
+                // specifically return the count for every term.
+                doc_frequencies.insert(term, 0);
+            }
         }
         let stats = Bm25Stats {
             num_terms,
