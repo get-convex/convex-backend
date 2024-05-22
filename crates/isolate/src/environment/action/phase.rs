@@ -143,8 +143,6 @@ impl<RT: Runtime> ActionPhase<RT> {
             .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
         let import_time_unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
-        let mut modules = BTreeMap::new();
-
         let module_metadata = with_release_permit(timeout, permit_slot, async {
             let result = if self.component.is_root() {
                 ModuleModel::new(&mut tx)
@@ -177,16 +175,21 @@ impl<RT: Runtime> ActionPhase<RT> {
         })
         .await?;
 
-        for metadata in module_metadata {
-            if metadata.path.is_system() {
-                continue;
+        let modules = with_release_permit(timeout, permit_slot, async {
+            let mut modules = BTreeMap::new();
+            for metadata in module_metadata {
+                if metadata.path.is_system() {
+                    continue;
+                }
+                let path = metadata.path.clone();
+                let module = module_loader
+                    .get_module_with_metadata(&mut tx, metadata.clone())
+                    .await?;
+                modules.insert(path, (metadata.into_value(), module));
             }
-            let path = metadata.path.clone();
-            let module = module_loader
-                .get_module_with_metadata(&mut tx, metadata.clone())
-                .await?;
-            modules.insert(path, (metadata.into_value(), module));
-        }
+            Ok(modules)
+        })
+        .await?;
 
         let mut env_vars = system_env_vars;
         let user_env_vars = with_release_permit(

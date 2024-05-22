@@ -616,9 +616,10 @@ pub static ISOLATE_IDLE_TIMEOUT: LazyLock<Duration> =
 pub static ISOLATE_MAX_LIFETIME: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("ISOLATE_MAX_LIFETIME_SECONDS", 60 * 60)));
 
-/// Timeout for V8 actions.
+/// System timeout for V8 actions.
+/// This doesn't count most syscalls, but it does count module loading.
 pub static V8_ACTION_SYSTEM_TIMEOUT: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_SYSTEM_TIMEOUT_SECONDS", 15)));
+    LazyLock::new(|| Duration::from_secs(env_config("V8_ACTION_SYSTEM_TIMEOUT_SECONDS", 5 * 60)));
 
 /// The maximum amount of time
 pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
