@@ -386,10 +386,10 @@ mod tests {
         assert_eq!(
             value,
             json!({
-                "_topic": "_audit_log",
-                "_timestamp": 0,
-                "action": "create_environment_variable",
-                "actionMetadata": { "variable_name": "test_env_variable"},
+                "topic": "audit_log",
+                "timestamp": 0,
+                "audit_log_action": "create_environment_variable",
+                "audit_log_metadata": "{\"variable_name\":\"test_env_variable\"}",
             })
         );
         Ok(())

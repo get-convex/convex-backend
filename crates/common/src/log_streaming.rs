@@ -131,7 +131,7 @@ impl Display for LogEventFormatVersion {
 #[cfg(any(test, feature = "testing"))]
 impl Default for LogEventFormatVersion {
     fn default() -> Self {
-        Self::V1
+        Self::V2
     }
 }
 
@@ -478,11 +478,13 @@ mod tests {
     #[test]
     fn test_serialization_of_console_log_event() -> anyhow::Result<()> {
         let timestamp = UnixTimestamp::from_millis(1000);
+        let context = ExecutionContext::new_for_test();
+        let request_id = context.request_id.clone();
         let event = LogEvent {
             timestamp,
             event: StructuredLogEvent::Console {
                 source: FunctionEventSource {
-                    context: ExecutionContext::new_for_test(),
+                    context,
                     path: "test:test".to_string(),
                     udf_type: UdfType::Query,
                     module_environment: ModuleEnvironment::Isolate,
@@ -503,12 +505,18 @@ mod tests {
         assert_eq!(
             value,
             json!({
-                "_topic": "_console",
-                "_timestamp": 1000,
-                "_functionPath": "test:test",
-                "_functionType": "query",
-                "_functionCached": true,
-                "message": "[LOG] my test log",
+                "topic": "console",
+                "timestamp": 1000,
+                "function": json!({
+                    "path": "test:test",
+                    "type": "query",
+                    "cached": true,
+                    "request_id": request_id.to_string()
+                }),
+                "log_level": "LOG",
+                "message": "my test log",
+                "is_truncated": false,
+                "system_code": JsonValue::Null
             })
         );
         Ok(())
