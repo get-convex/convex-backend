@@ -249,7 +249,7 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
             let snapshot = TextIndexSnapshot {
                 data: TextIndexSnapshotData::MultiSegment(segments),
                 ts: backfill_ts,
-                version: TextSnapshotVersion::V0,
+                version: TextSnapshotVersion::V2UseStringIds,
             };
             let is_snapshotted = matches!(on_disk_state, SearchOnDiskState::SnapshottedAt(_));
             if is_snapshotted {
@@ -297,11 +297,16 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
 #[cfg(test)]
 mod tests {
     use common::{
-        bootstrap_model::index::IndexMetadata,
+        bootstrap_model::index::{
+            text_index::TextIndexState,
+            IndexConfig,
+            IndexMetadata,
+        },
         runtime::testing::TestRuntime,
         types::TabletIndexName,
     };
     use maplit::btreemap;
+    use must_let::must_let;
     use value::TableNamespace;
 
     use crate::tests::text_test_utils::{
@@ -409,6 +414,30 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
+    async fn backfill_with_two_documents_leaves_document_backfilling_after_first_flush(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+
+        fixtures.add_document("cat").await?;
+        fixtures.add_document("dog").await?;
+
+        let mut flusher = fixtures
+            .new_search_flusher_builder()
+            .set_incremental_multipart_threshold_bytes(0)
+            .build();
+        // Build the first segment, which stops because the document size is > 0
+        flusher.step().await?;
+        let metadata = fixtures.get_index_metadata(name).await?;
+        must_let!(let IndexConfig::Search { on_disk_state, .. }= &metadata.config);
+        must_let!(let TextIndexState::Backfilling(backfilling_meta) = on_disk_state);
+        assert_eq!(backfilling_meta.segments.len(), 1);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
     async fn backfill_with_two_documents_0_max_segment_size_includes_both_documents(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
@@ -434,6 +463,142 @@ mod tests {
 
         let dog_results = fixtures.search(name, "dog").await?;
         assert_eq!(dog_results.first().unwrap().id(), dog_doc_id);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_empty_index_adds_no_segments(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+
+        let segments = fixtures.get_segments_metadata(name).await?;
+        assert_eq!(0, segments.len());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_empty_backfilled_index_new_document_adds_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        fixtures.enable_index(&name).await?;
+        let results = fixtures.search(name, "cat").await?;
+        assert_eq!(doc_id, results.first().unwrap().id());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_non_empty_backfilled_index_new_document_adds_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        fixtures.add_document("dog").await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        fixtures.enable_index(&name).await?;
+        let results = fixtures.search(name, "cat").await?;
+        assert_eq!(doc_id, results.first().unwrap().id());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_empty_enabled_index_new_document_adds_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+        fixtures.enable_index(&name).await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        let results = fixtures.search(name, "cat").await?;
+        assert_eq!(doc_id, results.first().unwrap().id());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_non_empty_enabled_index_new_document_adds_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        fixtures.add_document("dog").await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+        fixtures.enable_index(&name).await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        let results = fixtures.search(name, "cat").await?;
+        assert_eq!(doc_id, results.first().unwrap().id());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_non_empty_enabled_index_new_document_adds_new_segment(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        fixtures.add_document("dog").await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+        fixtures.enable_index(&name).await?;
+
+        fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        let segments = fixtures.get_segments_metadata(name).await?;
+        assert_eq!(segments.len(), 2);
+
+        Ok(())
+    }
+    #[convex_macro::test_runtime]
+    async fn backfill_with_non_empty_backfilled_index_new_document_adds_new_segment(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        fixtures.add_document("dog").await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+
+        fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        fixtures.enable_index(&name).await?;
+        let segments = fixtures.get_segments_metadata(name).await?;
+        assert_eq!(segments.len(), 2);
 
         Ok(())
     }

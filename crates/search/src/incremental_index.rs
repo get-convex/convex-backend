@@ -275,7 +275,7 @@ pub async fn build_new_segment(
     tantivy_schema: TantivySearchIndexSchema,
     dir: &Path,
     previous_segments: &mut PreviousTextSegments,
-) -> anyhow::Result<NewTextSegment> {
+) -> anyhow::Result<Option<NewTextSegment>> {
     let index_path = dir.join("index_path");
     std::fs::create_dir(&index_path)?;
     let index = IndexBuilder::new()
@@ -296,6 +296,8 @@ pub async fn build_new_segment(
     let mut dangling_deletes = BTreeSet::new();
 
     let mut num_indexed_documents = 0;
+
+    let mut is_at_least_one_document_indexed = false;
 
     while let Some(revision_pair) = revision_stream.try_next().await? {
         let convex_id = revision_pair.id.internal_id();
@@ -335,6 +337,7 @@ pub async fn build_new_segment(
         }
         // Addition
         if let Some(new_document) = revision_pair.document() {
+            is_at_least_one_document_indexed = true;
             num_indexed_documents += 1;
             dangling_deletes.remove(&convex_id);
             let tantivy_document =
@@ -348,6 +351,9 @@ pub async fn build_new_segment(
         "Dangling deletes is not empty. A document was deleted that is not present in other \
          segments nor in this stream"
     );
+    if !is_at_least_one_document_indexed {
+        return Ok(None);
+    }
     segment_writer.finalize()?;
 
     let new_deletion_tracker = MemoryDeletionTracker::new(new_id_tracker.num_ids() as u32);
@@ -363,10 +369,10 @@ pub async fn build_new_segment(
         alive_bit_set_path,
         deleted_terms_path,
     };
-    Ok(NewTextSegment {
+    Ok(Some(NewTextSegment {
         paths,
         num_indexed_documents,
-    })
+    }))
 }
 
 pub struct SearchSegmentForMerge {

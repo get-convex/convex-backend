@@ -165,17 +165,13 @@ impl SearchIndex for TextSearchIndex {
         previous_segments: &mut Self::PreviousSegments,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
         let revision_stream = Box::pin(stream_revision_pairs(documents, &reader));
-        // TODO(CX-6496): Make build_segment return None if there are no new documents
-        // to index.
-        Ok(Some(
-            build_new_segment(
-                revision_stream,
-                schema.clone(),
-                index_path,
-                previous_segments,
-            )
-            .await?,
-        ))
+        build_new_segment(
+            revision_stream,
+            schema.clone(),
+            index_path,
+            previous_segments,
+        )
+        .await
     }
 
     async fn upload_new_segment<RT: Runtime>(

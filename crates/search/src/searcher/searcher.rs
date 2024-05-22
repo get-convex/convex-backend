@@ -1506,7 +1506,8 @@ mod tests {
             test_dir.path(),
             &mut previous_segments,
         )
-        .await?;
+        .await?
+        .unwrap();
         let updated_segments = previous_segments.finalize();
         assert!(updated_segments.is_empty());
         println!("Indexed {dataset_path} in {:?}", start.elapsed());
@@ -1637,8 +1638,11 @@ mod tests {
 
     #[derive(Clone)]
     struct TestIndex {
+        /// Only used for printing debug info.
         strings_by_id: BTreeMap<ResolvedDocumentId, Option<String>>,
-        segment_paths: TextSegmentPaths,
+        /// Note - this is only the latest segment.  This struct and tests don't
+        /// support querying multiple segments within an index.
+        segment_paths: Option<TextSegmentPaths>,
         #[allow(dead_code)]
         previous_segment_dirs: Vec<PathBuf>,
     }
@@ -1703,7 +1707,7 @@ mod tests {
         }
         Ok(TestIndex {
             strings_by_id,
-            segment_paths: new_segment.paths,
+            segment_paths: new_segment.map(|segment| segment.paths),
             previous_segment_dirs,
         })
     }
@@ -1738,6 +1742,10 @@ mod tests {
         test_index: TestIndex,
     ) -> anyhow::Result<Vec<(PostingListMatch, String)>> {
         let segment_paths = test_index.segment_paths;
+        let Some(segment_paths) = segment_paths else {
+            println!("Empty segment!");
+            return Ok(vec![]);
+        };
 
         let index_reader = index_reader_for_directory(&segment_paths.index_path)?;
         let searcher = index_reader.searcher();
@@ -1925,13 +1933,29 @@ mod tests {
         let (posting_list_match, s) = posting_list_matches.first().unwrap();
         assert_eq!(posting_list_match.internal_id, id);
         assert_eq!(s, "emma is awesome!");
-        let previous_segments =
-            PreviousTextSegments(vec![UpdatableTextSegment::load(&test_index.segment_paths)?]);
+        let previous_segments = PreviousTextSegments(vec![UpdatableTextSegment::load(
+            &test_index.segment_paths.clone().unwrap(),
+        )?]);
         let test_dir = TempDir::new()?;
         let delete_document: Vec<_> = vec![(id, Some("emma is awesome!"), None)];
 
-        let test_index =
+        let new_test_index =
             build_test_index(delete_document.into(), test_dir.path(), previous_segments).await?;
+
+        let previous_segment_paths = new_test_index.previous_segment_dirs.first().unwrap();
+        let alive_bitset_path = previous_segment_paths.join(ALIVE_BITSET_PATH);
+        let deleted_terms_path = previous_segment_paths.join(DELETED_TERMS_PATH);
+
+        let test_index = TestIndex {
+            strings_by_id: new_test_index.strings_by_id,
+            segment_paths: Some(TextSegmentPaths {
+                alive_bit_set_path: alive_bitset_path,
+                deleted_terms_path,
+                ..test_index.segment_paths.unwrap()
+            }),
+            previous_segment_dirs: new_test_index.previous_segment_dirs,
+        };
+
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_index.clone()).await?;
         assert_eq!(posting_list_matches.len(), 0);
@@ -1978,8 +2002,8 @@ mod tests {
         assert_eq!(s, "emma is awesome!");
 
         let segments = vec![
-            search_segment_from_path(&test_index_1.segment_paths)?,
-            search_segment_from_path(&test_index_2.segment_paths)?,
+            search_segment_from_path(&test_index_1.segment_paths.unwrap())?,
+            search_segment_from_path(&test_index_2.segment_paths.unwrap())?,
         ];
 
         let merged_dir = TempDir::new()?;
@@ -1989,7 +2013,7 @@ mod tests {
         merged_strings_by_id.append(&mut test_index_2.strings_by_id.clone());
         let merged_index = TestIndex {
             strings_by_id: merged_strings_by_id,
-            segment_paths: merged_paths,
+            segment_paths: Some(merged_paths),
             previous_segment_dirs: vec![],
         };
         let mut posting_list_matches =

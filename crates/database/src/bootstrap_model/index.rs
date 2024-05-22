@@ -172,7 +172,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         let metadata = self
             .pending_index_metadata(namespace, index)?
             .ok_or_else(|| anyhow::anyhow!("Failed to find pending index: {}", index))?;
-        self.enable_index(&metadata.into_value()).await
+        self.enable_index(&metadata.into_value()).await?;
+        Ok(())
     }
 
     async fn enable_index(&mut self, backfilled_index: &TabletIndexMetadata) -> anyhow::Result<()> {
