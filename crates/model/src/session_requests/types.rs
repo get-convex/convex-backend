@@ -22,6 +22,10 @@ use value::ConvexObject;
 
 /// Identifier for a single request in a session
 #[derive(Clone, Debug)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq)
+)]
 pub struct SessionRequestIdentifier {
     pub session_id: SessionId,
     pub request_id: SessionRequestSeqNumber,

@@ -345,6 +345,12 @@ impl SessionId {
     }
 }
 
+impl From<SessionId> for Uuid {
+    fn from(id: SessionId) -> Self {
+        id.0
+    }
+}
+
 #[cfg(any(test, feature = "testing"))]
 impl proptest::arbitrary::Arbitrary for SessionId {
     type Parameters = ();
