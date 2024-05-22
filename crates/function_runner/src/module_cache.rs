@@ -26,10 +26,7 @@ use model::{
     },
 };
 use storage::Storage;
-use value::{
-    ResolvedDocumentId,
-    TableNamespace,
-};
+use value::ResolvedDocumentId;
 
 use crate::in_memory_indexes::TransactionIngredients;
 
@@ -72,15 +69,18 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         // this module loader was created.
         assert_eq!(tx.begin_timestamp(), self.transaction_ingredients.ts);
 
+        let namespace = tx
+            .table_mapping()
+            .tablet_namespace(module_metadata.id().table().tablet_id)?;
         // If this transaction wrote to module_versions (true for REPLs), we cannot use
         // the cache, load the module directly.
         let module_versions_table_id = tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .id(&MODULE_VERSIONS_TABLE)?;
         if tx.writes().has_written_to(&module_versions_table_id) {
             let source = ModuleModel::new(tx)
-                .get_source(module_metadata.id(), module_metadata.latest_version)
+                .get_source_from_db(module_metadata.id(), module_metadata.latest_version)
                 .await?;
             return Ok(Arc::new(source));
         }
@@ -90,13 +90,15 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             module_id: module_metadata.id(),
             module_version: module_metadata.latest_version,
         };
-        let transaction = self.transaction_ingredients.clone().try_into()?;
+        let mut transaction = self.transaction_ingredients.clone().try_into()?;
+        let modules_storage = self.modules_storage.clone();
         let result = self
             .cache
             .0
             .get(
                 key.clone(),
-                get_module(transaction, self.modules_storage.clone(), module_metadata).boxed(),
+                async move { get_module(&mut transaction, modules_storage, module_metadata).await }
+                    .boxed(),
             )
             .await?;
         // Record read dependency on the module version so the transactions

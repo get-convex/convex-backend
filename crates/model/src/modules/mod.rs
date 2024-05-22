@@ -9,7 +9,6 @@ use common::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
         ComponentDefinitionId,
-        COMPONENTS_ENABLED,
     },
     document::{
         ParsedDocument,
@@ -184,10 +183,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         component: ComponentDefinitionId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
-        // TODO(CX-6379): Remove this branch once we've made modules component-aware.
-        if !*COMPONENTS_ENABLED {
-            anyhow::ensure!(component.is_root());
-        }
         let index_query = Query::full_table_scan(MODULES_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, component.into(), index_query)?;
 
@@ -256,7 +251,11 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             order: Order::Asc,
         };
         let module_query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, module_query)?;
+        let namespace = self
+            .tx
+            .table_mapping()
+            .tablet_namespace(module_id.table().tablet_id)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, namespace, module_query)?;
         let module_version: ParsedDocument<ModuleVersionMetadata> = query_stream
             .expect_at_most_one(self.tx)
             .await?
@@ -269,7 +268,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Ok(module_version)
     }
 
-    pub async fn get_source(
+    pub async fn get_source_from_db(
         &mut self,
         module_id: ResolvedDocumentId,
         version: ModuleVersion,
@@ -299,12 +298,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
         let timer = get_module_metadata_timer();
 
-        // TODO(CX-6379): Remove this branch once we've made modules component-aware.
-        let is_system = if !*COMPONENTS_ENABLED {
-            path.as_root_module_path()?.is_system()
-        } else {
-            path.module_path.is_system()
-        };
+        let is_system = path.module_path.is_system();
         if is_system && !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("get_module"))
         }
@@ -435,14 +429,8 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         path: CanonicalizedComponentModulePath,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
-        // TODO(CX-6379): Remove this branch once we've made modules component-aware.
-        let module_path = if !*COMPONENTS_ENABLED {
-            path.as_root_module_path()?
-        } else {
-            &path.module_path
-        };
         let namespace = path.component.into();
-        let module_path = ConvexValue::try_from(module_path.as_str())?;
+        let module_path = ConvexValue::try_from(path.module_path.as_str())?;
         let index_range = IndexRange {
             index_name: MODULE_INDEX_BY_PATH.clone(),
             range: vec![IndexRangeExpression::Eq(
@@ -468,12 +456,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         path: &CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
-        // TODO(CX-6379): Remove this branch once we've made modules component-aware.
-        let udf_path = if !*COMPONENTS_ENABLED {
-            path.as_root_udf_path()?
-        } else {
-            &path.udf_path
-        };
+        let udf_path = &path.udf_path;
         let Some(module) = self.get_metadata_for_function(path.clone()).await? else {
             let err = ModuleNotFoundError::new(udf_path.module().as_str());
             return Ok(Err(ErrorMetadata::bad_request(

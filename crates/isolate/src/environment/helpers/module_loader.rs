@@ -21,14 +21,14 @@ use crate::{
 };
 
 pub async fn get_module<RT: Runtime>(
-    mut tx: Transaction<RT>,
+    tx: &mut Transaction<RT>,
     // TODO(lee) fetch from module storage
     _modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
 ) -> anyhow::Result<FullModuleSource> {
     let _timer = module_load_timer();
-    let source = ModuleModel::new(&mut tx)
-        .get_source(module_metadata.id(), module_metadata.latest_version)
+    let source = ModuleModel::new(tx)
+        .get_source_from_db(module_metadata.id(), module_metadata.latest_version)
         .await?;
     Ok(source)
 }

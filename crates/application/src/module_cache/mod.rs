@@ -15,6 +15,7 @@ use database::{
     Transaction,
 };
 use futures::FutureExt;
+use isolate::environment::helpers::module_loader::get_module;
 use keybroker::Identity;
 use model::{
     config::module_loader::ModuleLoader,
@@ -35,24 +36,6 @@ use value::{
 };
 
 mod metrics;
-
-#[derive(Clone)]
-pub struct ModuleVersionFetcher<RT: Runtime> {
-    database: Database<RT>,
-    // TODO(lee) read module source from storage.
-    #[allow(unused)]
-    modules_storage: Arc<dyn Storage>,
-}
-
-impl<RT: Runtime> ModuleVersionFetcher<RT> {
-    async fn generate_value(
-        self,
-        key: (ResolvedDocumentId, ModuleVersion),
-    ) -> anyhow::Result<FullModuleSource> {
-        let mut tx = self.database.begin(Identity::system()).await?;
-        ModuleModel::new(&mut tx).get_source(key.0, key.1).await
-    }
-}
 
 #[derive(Clone)]
 pub struct ModuleCache<RT: Runtime> {
@@ -97,19 +80,21 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
             .id(&MODULE_VERSIONS_TABLE)?;
         if tx.writes().has_written_to(&module_versions_table_id) {
             let source = ModuleModel::new(tx)
-                .get_source(module_metadata.id(), module_metadata.latest_version)
+                .get_source_from_db(module_metadata.id(), module_metadata.latest_version)
                 .await?;
             return Ok(Arc::new(source));
         }
 
         let key = (module_metadata.id(), module_metadata.latest_version);
-        let fetcher = ModuleVersionFetcher {
-            database: self.database.clone(),
-            modules_storage: self.modules_storage.clone(),
-        };
+        let mut cache_tx = self.database.begin(Identity::system()).await?;
+        let modules_storage = self.modules_storage.clone();
         let result = self
             .cache
-            .get(key, fetcher.generate_value(key).boxed())
+            .get(
+                key,
+                async move { get_module(&mut cache_tx, modules_storage, module_metadata).await }
+                    .boxed(),
+            )
             .await?;
         // Record read dependency on the module version so the transactions
         // read same is the same regardless if we hit the cache or not.
