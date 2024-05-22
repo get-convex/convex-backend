@@ -8,9 +8,13 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    bootstrap_model::components::definition::{
+        ComponentDefinitionMetadata,
+        SerializedComponentDefinitionMetadata,
+    },
     components::{
         ComponentDefinitionPath,
-        ComponentId,
+        ComponentPath,
     },
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
@@ -71,14 +75,14 @@ use crate::{
 pub struct AppDefinitionEvaluator {
     pub app_definition: ModuleConfig,
     pub component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
-    pub dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+    pub dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
 }
 
 impl AppDefinitionEvaluator {
     pub fn new(
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
-        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
     ) -> Self {
         Self {
             app_definition,
@@ -94,11 +98,11 @@ impl AppDefinitionEvaluator {
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         let mut visited = BTreeSet::new();
         enum TraversalState {
-            FirstVisit(Option<ComponentDefinitionPath>),
-            SecondVisit(Option<ComponentDefinitionPath>),
+            FirstVisit(ComponentDefinitionPath),
+            SecondVisit(ComponentDefinitionPath),
         }
 
-        let mut stack = vec![TraversalState::FirstVisit(None)];
+        let mut stack = vec![TraversalState::FirstVisit(ComponentDefinitionPath::root())];
         let mut definitions = BTreeMap::new();
 
         // Perform a post-order DFS, evaluating dependencies before their parents.
@@ -117,46 +121,41 @@ impl AppDefinitionEvaluator {
                         .dependency_graph
                         .range(start..)
                         .take_while(|(p, _)| p == &path)
-                        .map(|(_, c)| TraversalState::FirstVisit(Some(c.clone())));
+                        .map(|(_, c)| TraversalState::FirstVisit(c.clone()));
                     stack.extend(dependencies);
                 },
-                // Evaluating a component definition.
-                TraversalState::SecondVisit(Some(path)) => {
-                    let component_definition = self
-                        .component_definitions
-                        .get(&path)
-                        .context("Component definition not found")?;
-                    let source = FullModuleSource {
-                        source: component_definition.source.clone(),
-                        source_map: component_definition.source_map.clone(),
-                    };
-                    let result = self
-                        .evaluate_definition(
-                            client_id.clone(),
-                            isolate,
-                            &definitions,
-                            COMPONENT_CONFIG_FILE_NAME,
-                            source,
-                        )
-                        .await?;
-                    definitions.insert(Some(path), result);
-                },
-                // Evaluating the app definition.
-                TraversalState::SecondVisit(None) => {
-                    let source = FullModuleSource {
-                        source: self.app_definition.source.clone(),
-                        source_map: self.app_definition.source_map.clone(),
-                    };
-                    let result = self
-                        .evaluate_definition(
-                            client_id.clone(),
-                            isolate,
-                            &definitions,
+                TraversalState::SecondVisit(path) => {
+                    let (filename, source) = if path.is_root() {
+                        (
                             APP_CONFIG_FILE_NAME,
+                            FullModuleSource {
+                                source: self.app_definition.source.clone(),
+                                source_map: self.app_definition.source_map.clone(),
+                            },
+                        )
+                    } else {
+                        let component_definition = self
+                            .component_definitions
+                            .get(&path)
+                            .context("Component definition not found")?;
+                        (
+                            COMPONENT_CONFIG_FILE_NAME,
+                            FullModuleSource {
+                                source: component_definition.source.clone(),
+                                source_map: component_definition.source_map.clone(),
+                            },
+                        )
+                    };
+                    let result = self
+                        .evaluate_definition(
+                            client_id.clone(),
+                            isolate,
+                            &definitions,
+                            filename,
                             source,
                         )
                         .await?;
-                    definitions.insert(None, result);
+                    definitions.insert(path, result);
                 },
             }
         }
@@ -167,10 +166,10 @@ impl AppDefinitionEvaluator {
         &self,
         client_id: String,
         isolate: &mut Isolate<RT>,
-        evaluated_components: &BTreeMap<Option<ComponentDefinitionPath>, JsonValue>,
+        evaluated_components: &BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
         filename: &str,
         source: FullModuleSource,
-    ) -> anyhow::Result<JsonValue> {
+    ) -> anyhow::Result<ComponentDefinitionMetadata> {
         let env = DefinitionEnvironment {
             expected_filename: filename.to_string(),
             source,
@@ -178,7 +177,7 @@ impl AppDefinitionEvaluator {
         };
 
         let (handle, state) = isolate
-            .start_request(ComponentId::Root, client_id.into(), env)
+            .start_request(ComponentPath::root(), client_id.into(), env)
             .await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
@@ -246,7 +245,11 @@ impl AppDefinitionEvaluator {
             let v8_result = export
                 .call(&mut scope, default_export.into(), &[])
                 .context("Failed to call export function")?;
-            serde_v8::from_v8(&mut scope, v8_result)?
+            let metadata: SerializedComponentDefinitionMetadata =
+                serde_v8::from_v8(&mut scope, v8_result)
+                    .map_err(|e| ErrorMetadata::bad_request("InvalidDefinition", e.to_string()))?;
+            ComponentDefinitionMetadata::try_from(metadata)
+                .map_err(|e| ErrorMetadata::bad_request("InvalidDefinition", e.to_string()))?
         };
 
         isolate_context.scope.perform_microtask_checkpoint();
@@ -264,7 +267,7 @@ struct DefinitionEnvironment {
     expected_filename: String,
     source: FullModuleSource,
 
-    evaluated_definitions: BTreeMap<Option<ComponentDefinitionPath>, JsonValue>,
+    evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
@@ -331,15 +334,17 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
                 ComponentDefinitionPath::from_str(&def_path_str)?
             };
             let def_path =
-                Some(r.map_err(|e| ErrorMetadata::bad_request("InvalidModule", e.to_string()))?);
-            let Some(source) = self.evaluated_definitions.get(&def_path) else {
+                r.map_err(|e| ErrorMetadata::bad_request("InvalidModule", e.to_string()))?;
+            let Some(def) = self.evaluated_definitions.get(&def_path) else {
                 return Ok(None);
             };
+            let serialized_def = SerializedComponentDefinitionMetadata::try_from(def.clone())?;
             let synthetic_module = FullModuleSource {
                 source: format!(
-                    "export default {{ export: () => {{ return {source} }}, \
-                     componentDefinitionPath: \"{}\", }}",
-                    String::from(def_path.clone().unwrap())
+                    "export default {{ export: () => {{ return {} }}, componentDefinitionPath: \
+                     \"{}\", }}",
+                    serde_json::to_string(&serialized_def)?,
+                    String::from(def_path.clone())
                 ),
                 source_map: None,
             };

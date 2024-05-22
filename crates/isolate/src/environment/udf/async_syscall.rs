@@ -10,6 +10,7 @@ use common::{
     components::{
         ComponentFunctionPath,
         ComponentId,
+        ComponentPath,
     },
     document::DeveloperDocument,
     execution_context::ExecutionContext,
@@ -625,7 +626,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
         let udf_path = with_argument_error("scheduler", || name.parse().context(ArgName("name")))?;
         let path = ComponentFunctionPath {
-            component: ComponentId::Root,
+            component: ComponentPath::root(),
             udf_path,
         };
 

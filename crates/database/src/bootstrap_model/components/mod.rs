@@ -133,7 +133,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             Some(doc) => doc,
             None => return Ok(None),
         };
-        for name in path.path.iter() {
+        for name in path.iter() {
             component_doc = match self
                 .component_in_parent(Some((component_doc.id().internal_id(), name.clone())))
                 .await?
@@ -171,7 +171,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             };
         }
         path.reverse();
-        Ok(ComponentPath { path })
+        Ok(ComponentPath::from(path))
     }
 
     pub async fn component_definition(
@@ -252,8 +252,17 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         &mut self,
         path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<CanonicalizedComponentModulePath> {
+        let definition_id = if path.component.is_root() {
+            ComponentDefinitionId::Root
+        } else {
+            let component_metadata = self
+                .resolve_path(path.component)
+                .await?
+                .context("Component not found")?;
+            ComponentDefinitionId::Child(component_metadata.definition_id)
+        };
         Ok(CanonicalizedComponentModulePath {
-            component: self.component_definition(path.component).await?,
+            component: definition_id,
             module_path: path.udf_path.module().clone(),
         })
     }
@@ -353,9 +362,7 @@ mod tests {
             )
             .await?;
         let resolved_path = BootstrapComponentsModel::new(&mut tx)
-            .resolve_path(ComponentPath {
-                path: vec!["subcomponent_child".parse()?],
-            })
+            .resolve_path(ComponentPath::from(vec!["subcomponent_child".parse()?]))
             .await?;
         assert_eq!(resolved_path.unwrap().id(), child_id);
         let path = BootstrapComponentsModel::new(&mut tx)
@@ -363,9 +370,7 @@ mod tests {
             .await?;
         assert_eq!(
             path,
-            ComponentPath {
-                path: vec!["subcomponent_child".parse()?]
-            }
+            ComponentPath::from(vec!["subcomponent_child".parse()?]),
         );
         Ok(())
     }

@@ -3,7 +3,7 @@ use std::str::FromStr;
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     types::UdfType,
 };
@@ -22,7 +22,7 @@ async fn test_get_analyzed_function(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = t.database.begin(Identity::system()).await?;
 
     let root_component_path = |s: &str| CanonicalizedComponentFunctionPath {
-        component: ComponentId::Root,
+        component: ComponentPath::root(),
         udf_path: UdfPath::from_str(s).unwrap().canonicalize(),
     };
 

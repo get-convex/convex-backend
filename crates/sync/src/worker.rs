@@ -26,7 +26,7 @@ use cmd_util::env::env_config;
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     minitrace_helpers::get_sampled_span,
@@ -456,7 +456,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             .mutation_udf(
                                 server_request_id,
                                 ComponentFunctionPath {
-                                    component: ComponentId::Root,
+                                    component: ComponentPath::root(),
                                     udf_path,
                                 },
                                 args,
@@ -524,7 +524,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                         .action_udf(
                             server_request_id,
                             ComponentFunctionPath {
-                                component: ComponentId::Root,
+                                component: ComponentPath::root(),
                                 udf_path,
                             },
                             args,
@@ -686,7 +686,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 // id.
                                 RequestId::new(),
                                 ComponentFunctionPath {
-                                    component: ComponentId::Root,
+                                    component: ComponentPath::root(),
                                     udf_path: query.udf_path,
                                 },
                                 query.args,

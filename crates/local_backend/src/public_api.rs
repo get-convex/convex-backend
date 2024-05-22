@@ -18,7 +18,7 @@ use axum::{
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     http::{
         extract::{
@@ -164,7 +164,7 @@ pub async fn public_function_post(
         .any_udf(
             request_id,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -229,7 +229,7 @@ pub async fn public_query_get(
             request_id,
             auth_token,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             args,
@@ -267,7 +267,7 @@ pub async fn public_query_post(
             request_id,
             auth_token,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -316,7 +316,7 @@ pub async fn public_query_batch_post(
             .read_only_udf_at_ts(
                 request_id.clone(),
                 ComponentFunctionPath {
-                    component: ComponentId::Root,
+                    component: ComponentPath::root(),
                     udf_path,
                 },
                 req.args.into_arg_vec(),
@@ -359,7 +359,7 @@ pub async fn public_mutation_post(
             request_id,
             auth_token,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -400,7 +400,7 @@ pub async fn public_action_post(
             request_id,
             auth_token,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             req.args.into_arg_vec(),

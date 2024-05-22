@@ -15,7 +15,7 @@ use common::{
     },
     components::{
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
         Reference,
         Resource,
     },
@@ -209,7 +209,7 @@ bar.invokeAction = async (requestId, argsStr) => {
         .action_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path: "foo:bar".parse()?,
             },
             vec![json!({})],

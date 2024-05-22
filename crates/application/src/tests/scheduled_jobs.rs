@@ -6,7 +6,7 @@ use std::{
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     execution_context::ExecutionContext,
     pause::{
@@ -53,7 +53,7 @@ use crate::{
 
 fn function_path() -> ComponentFunctionPath {
     ComponentFunctionPath {
-        component: ComponentId::Root,
+        component: ComponentPath::root(),
         udf_path: UdfPath::from_str("basic:insertObject").unwrap(),
     }
 }
@@ -295,7 +295,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
         .mutation_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path: UdfPath::from_str("scheduler:scheduleWithArbitraryJson")?,
             },
             vec![],
@@ -313,7 +313,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
         .action_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path: UdfPath::from_str("action:schedule")?,
             },
             vec![],

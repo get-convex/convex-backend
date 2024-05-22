@@ -7,7 +7,7 @@ use std::{
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
         Reference,
         Resource,
         COMPONENTS_ENABLED,
@@ -67,7 +67,7 @@ use crate::{
 pub struct TaskExecutor<RT: Runtime> {
     pub rt: RT,
     pub identity: Identity,
-    pub component: ComponentId,
+    pub component: ComponentPath,
     pub file_storage: TransactionalFileStorage<RT>,
     pub syscall_trace: Arc<Mutex<SyscallTrace>>,
     pub action_callbacks: Arc<dyn ActionCallbacks>,
@@ -200,7 +200,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             match reference {
                 Reference::Function(p) if self.component.is_root() => {
                     Resource::Function(ComponentFunctionPath {
-                        component: ComponentId::Root,
+                        component: ComponentPath::root(),
                         udf_path: p.clone(),
                     })
                 },

@@ -1,14 +1,32 @@
-use std::collections::BTreeSet;
+use std::collections::{
+    BTreeMap,
+    BTreeSet,
+};
 
 use common::{
+    bootstrap_model::components::definition::{
+        ComponentDefinitionMetadata,
+        SerializedComponentDefinitionMetadata,
+    },
     components::ComponentDefinitionPath,
+    schemas::DatabaseSchema,
     types::NodeDependency,
 };
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use serde_json::Value as JsonValue;
+use sync_types::CanonicalizedModulePath;
 
 use crate::{
     config::types::{
         ConfigMetadata,
         ModuleConfig,
+    },
+    modules::module_versions::{
+        AnalyzedModule,
+        SerializedAnalyzedModule,
     },
     udf_config::types::UdfConfig,
 };
@@ -84,5 +102,34 @@ impl ComponentDefinitionConfig {
         std::iter::once(&self.definition)
             .chain(self.schema.iter())
             .chain(&self.functions)
+    }
+}
+
+pub struct EvaluatedComponentDefinition {
+    pub definition: ComponentDefinitionMetadata,
+    pub schema: Option<DatabaseSchema>,
+    pub functions: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SerializedEvaluatedComponentDefinition {
+    definition: SerializedComponentDefinitionMetadata,
+    schema: Option<JsonValue>,
+    functions: BTreeMap<String, SerializedAnalyzedModule>,
+}
+
+impl TryFrom<EvaluatedComponentDefinition> for SerializedEvaluatedComponentDefinition {
+    type Error = anyhow::Error;
+
+    fn try_from(value: EvaluatedComponentDefinition) -> Result<Self, Self::Error> {
+        Ok(SerializedEvaluatedComponentDefinition {
+            definition: value.definition.try_into()?,
+            schema: value.schema.map(|schema| schema.try_into()).transpose()?,
+            functions: value
+                .functions
+                .into_iter()
+                .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
+                .collect::<anyhow::Result<_>>()?,
+        })
     }
 }

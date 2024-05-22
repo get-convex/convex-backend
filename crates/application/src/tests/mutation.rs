@@ -2,7 +2,7 @@ use anyhow::Context;
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     knobs::UDF_EXECUTOR_OCC_MAX_RETRIES,
     pause::{
@@ -34,7 +34,7 @@ async fn insert_object(
         .mutation_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path: "basic:insertObject".parse()?,
             },
             vec![obj],
@@ -58,7 +58,7 @@ async fn insert_and_count(
         .mutation_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path: "basic:insertAndCount".parse()?,
             },
             vec![obj],

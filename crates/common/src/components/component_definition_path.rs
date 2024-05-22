@@ -24,6 +24,16 @@ impl ComponentDefinitionPath {
             path: PathBuf::new(),
         }
     }
+
+    pub fn root() -> Self {
+        ComponentDefinitionPath {
+            path: PathBuf::new(),
+        }
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.path.as_os_str().is_empty()
+    }
 }
 
 impl FromStr for ComponentDefinitionPath {

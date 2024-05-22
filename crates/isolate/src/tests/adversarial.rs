@@ -11,7 +11,7 @@ use common::{
     },
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     log_lines::TRUNCATED_LINE_SUFFIX,
     types::{
@@ -820,7 +820,7 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
 
     let path = CanonicalizedComponentFunctionPath {
-        component: ComponentId::Root,
+        component: ComponentPath::root(),
         udf_path: CanonicalizedUdfPath::from_str("myFunc.js:default")?,
     };
     let result = ValidatedPathAndArgs::new(

@@ -3,7 +3,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     errors::JsError,
     identity::InertIdentity,
@@ -214,9 +214,12 @@ impl Arbitrary for ValidatedPathAndArgs {
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
 
-        any::<(CanonicalizedComponentFunctionPath, ConvexArray)>().prop_map(|(path, args)| {
+        any::<(CanonicalizedUdfPath, ConvexArray)>().prop_map(|(udf_path, args)| {
             ValidatedPathAndArgs {
-                path,
+                path: CanonicalizedComponentFunctionPath {
+                    component: ComponentPath::root(),
+                    udf_path,
+                },
                 args,
                 npm_version: None,
             }
@@ -491,7 +494,7 @@ impl ValidatedPathAndArgs {
         let args = ConvexArray::try_from(args_value)?;
         Ok(Self {
             path: CanonicalizedComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path: path
                     .ok_or_else(|| anyhow::anyhow!("Missing udf_path"))?
                     .parse()?,
@@ -546,7 +549,7 @@ impl ValidatedHttpPath {
         }
         Ok(Self {
             path: CanonicalizedComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             npm_version,

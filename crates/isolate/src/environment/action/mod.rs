@@ -19,7 +19,7 @@ use anyhow::anyhow;
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -231,7 +231,7 @@ pub struct ActionEnvironment<RT: Runtime> {
 impl<RT: Runtime> ActionEnvironment<RT> {
     pub fn new(
         rt: RT,
-        component: ComponentId,
+        component: ComponentPath,
         EnvironmentData {
             key_broker,
             system_env_vars,
@@ -251,7 +251,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let (task_retval_sender, task_responses) = mpsc::unbounded();
         let resources = Arc::new(Mutex::new(BTreeMap::new()));
         let task_executor = TaskExecutor {
-            component,
+            component: component.clone(),
             rt: rt.clone(),
             identity: identity.clone(),
             file_storage,
@@ -310,7 +310,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
         let (handle, state) = isolate
-            .start_request(ComponentId::Root, client_id.clone(), self)
+            .start_request(ComponentPath::root(), client_id.clone(), self)
             .await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
@@ -594,7 +594,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
 
-        let component = request_params.path_and_args.path().component;
+        let component = request_params.path_and_args.path().component.clone();
         let (handle, state) = isolate
             .start_request(component, client_id.clone(), self)
             .await?;

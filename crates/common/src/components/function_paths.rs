@@ -10,7 +10,7 @@ use value::heap_size::HeapSize;
 
 use super::{
     component_definition_path::ComponentDefinitionPath,
-    ComponentId,
+    ComponentPath,
 };
 
 pub struct ComponentDefinitionFunctionPath {
@@ -21,7 +21,7 @@ pub struct ComponentDefinitionFunctionPath {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentFunctionPath {
-    pub component: ComponentId,
+    pub component: ComponentPath,
     pub udf_path: UdfPath,
 }
 
@@ -52,8 +52,9 @@ impl ComponentFunctionPath {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SerializedComponentFunctionPath {
-    pub component: Option<String>,
+    pub component: String,
     pub udf_path: String,
 }
 
@@ -62,10 +63,7 @@ impl TryFrom<SerializedComponentFunctionPath> for ComponentFunctionPath {
 
     fn try_from(p: SerializedComponentFunctionPath) -> anyhow::Result<Self> {
         Ok(Self {
-            component: match p.component {
-                Some(component) => ComponentId::Child(component.parse()?),
-                None => ComponentId::Root,
-            },
+            component: p.component.parse()?,
             udf_path: p.udf_path.parse()?,
         })
     }
@@ -76,10 +74,7 @@ impl TryFrom<ComponentFunctionPath> for SerializedComponentFunctionPath {
 
     fn try_from(p: ComponentFunctionPath) -> anyhow::Result<Self> {
         Ok(Self {
-            component: match p.component {
-                ComponentId::Root => None,
-                ComponentId::Child(component) => Some(component.to_string()),
-            },
+            component: String::from(p.component),
             udf_path: p.udf_path.to_string(),
         })
     }
@@ -88,7 +83,7 @@ impl TryFrom<ComponentFunctionPath> for SerializedComponentFunctionPath {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct CanonicalizedComponentFunctionPath {
-    pub component: ComponentId,
+    pub component: ComponentPath,
     pub udf_path: CanonicalizedUdfPath,
 }
 

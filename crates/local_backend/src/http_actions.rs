@@ -24,7 +24,7 @@ use axum::{
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     http::{
         ExtractRequestId,
@@ -117,7 +117,7 @@ pub async fn http_any_method(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     // All HTTP actions run the default export of the http.js path.
     let path = ComponentFunctionPath {
-        component: ComponentId::Root,
+        component: ComponentPath::root(),
         udf_path: "http.js".parse()?,
     };
     let mut http_response_stream = stream_http_response(

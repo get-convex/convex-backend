@@ -1659,7 +1659,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
-        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         self.analyze_isolate
             .evaluate_app_definitions(app_definition, component_definitions, dependency_graph)

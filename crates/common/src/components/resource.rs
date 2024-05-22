@@ -23,9 +23,9 @@ pub enum Resource {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum SerializedResource {
-    Value {
-        value: String,
-    },
+    #[serde(rename_all = "camelCase")]
+    Value { value: String },
+    #[serde(rename_all = "camelCase")]
     Function {
         path: SerializedComponentFunctionPath,
     },
@@ -39,8 +39,8 @@ impl TryFrom<Resource> for SerializedResource {
             Resource::Value(v) => Ok(Self::Value {
                 value: serde_json::to_string(&JsonValue::try_from(v)?)?,
             }),
-            Resource::Function(p) => Ok(Self::Function {
-                path: p.try_into()?,
+            Resource::Function(path) => Ok(Self::Function {
+                path: path.try_into()?,
             }),
         }
     }
@@ -52,9 +52,9 @@ impl TryFrom<SerializedResource> for Resource {
     fn try_from(r: SerializedResource) -> anyhow::Result<Self> {
         match r {
             SerializedResource::Value { value: s } => {
-                Ok(Self::Value(ConvexValue::try_from(serde_json::from_str::<
-                    JsonValue,
-                >(&s)?)?))
+                let json_value = serde_json::from_str::<JsonValue>(&s)?;
+                let value = ConvexValue::try_from(json_value)?;
+                Ok(Self::Value(value))
             },
             SerializedResource::Function { path } => Ok(Self::Function(path.try_into()?)),
         }

@@ -11,7 +11,7 @@ use common::{
     backoff::Backoff,
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     document::ParsedDocument,
     errors::{
@@ -274,7 +274,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         // Since we don't specify the function type in the cron, we have to use
         // the analyzed result.
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentId::Root,
+            component: ComponentPath::root(),
             udf_path: job.cron_spec.udf_path.clone(),
         };
         let udf_type = ModuleModel::new(&mut tx)
@@ -356,7 +356,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let caller = FunctionCaller::Cron;
         let context = ExecutionContext::new(request_id, &caller);
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentId::Root,
+            component: ComponentPath::root(),
             udf_path: job.cron_spec.udf_path.clone(),
         };
         let mutation_result = self
@@ -491,7 +491,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 // Execute the action
                 let context = ExecutionContext::new(request_id, &caller);
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentId::Root,
+                    component: ComponentPath::root(),
                     udf_path: job.cron_spec.udf_path.clone(),
                 };
                 let completion = self
@@ -578,7 +578,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     .await?;
 
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentId::Root,
+                    component: ComponentPath::root(),
                     udf_path: job.cron_spec.udf_path,
                 };
                 self.function_log.log_action_system_error(
@@ -692,7 +692,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                              runs are in the past"
                         ),
                         CanonicalizedComponentFunctionPath {
-                            component: ComponentId::Root,
+                            component: ComponentPath::root(),
                             udf_path: job.cron_spec.udf_path.clone(),
                         },
                         job.cron_spec.udf_args.clone(),
@@ -709,7 +709,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                              runs are in the past"
                         ),
                         CanonicalizedComponentFunctionPath {
-                            component: ComponentId::Root,
+                            component: ComponentPath::root(),
                             udf_path: job.cron_spec.udf_path.clone(),
                         },
                         job.cron_spec.udf_args.clone(),

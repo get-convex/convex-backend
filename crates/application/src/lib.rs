@@ -45,7 +45,7 @@ use common::{
         ComponentDefinitionId,
         ComponentDefinitionPath,
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     document::{
         DocumentUpdate,
@@ -1591,7 +1591,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
-        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         self.runner
             .evaluate_app_definitions(app_definition, component_definitions, dependency_graph)
@@ -1981,7 +1981,7 @@ impl<RT: Runtime> Application<RT> {
         // 4. run the function within the transaction
         let function_name = FunctionName::default_export();
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentId::Root,
+            component: ComponentPath::root(),
             udf_path: CanonicalizedUdfPath::new(module_path, function_name),
         };
         let arguments = parse_udf_args(&path.clone().into(), args)?;

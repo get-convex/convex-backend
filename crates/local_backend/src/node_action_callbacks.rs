@@ -18,7 +18,7 @@ use axum::{
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     execution_context::{
         ExecutionContext,
@@ -103,7 +103,7 @@ pub async fn internal_query_post(
         .read_only_udf(
             context.request_id,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -148,7 +148,7 @@ pub async fn internal_mutation_post(
         .mutation_udf(
             context.request_id,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -198,7 +198,7 @@ pub async fn internal_action_post(
         .action_udf(
             context.request_id,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -260,7 +260,7 @@ pub async fn schedule_job(
         .schedule_job(
             identity,
             ComponentFunctionPath {
-                component: ComponentId::Root,
+                component: ComponentPath::root(),
                 udf_path,
             },
             udf_args,

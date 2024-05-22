@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use common::{
-    components::ComponentId,
+    components::ComponentPath,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
@@ -197,7 +197,7 @@ impl SchemaEnvironment {
         };
         let client_id = Arc::new(client_id);
         let (handle, state) = isolate
-            .start_request(ComponentId::Root, client_id, environment)
+            .start_request(ComponentPath::root(), client_id, environment)
             .await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);

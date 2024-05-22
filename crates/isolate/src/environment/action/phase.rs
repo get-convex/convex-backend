@@ -4,9 +4,12 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context;
 use common::{
     components::{
+        ComponentDefinitionId,
         ComponentId,
+        ComponentPath,
         Reference,
         Resource,
         COMPONENTS_ENABLED,
@@ -70,7 +73,7 @@ use crate::{
 /// and environment variables), and all writes will be handled in their own
 /// separate transactions.
 pub struct ActionPhase<RT: Runtime> {
-    component: ComponentId,
+    component: ComponentPath,
     phase: Phase,
     pub rt: RT,
     preloaded: ActionPreloaded<RT>,
@@ -95,7 +98,7 @@ enum ActionPreloaded<RT: Runtime> {
 impl<RT: Runtime> ActionPhase<RT> {
     pub fn new(
         rt: RT,
-        component: ComponentId,
+        component: ComponentPath,
         tx: Transaction<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -143,27 +146,36 @@ impl<RT: Runtime> ActionPhase<RT> {
         let mut modules = BTreeMap::new();
 
         let module_metadata = with_release_permit(timeout, permit_slot, async {
-            let component_definition = BootstrapComponentsModel::new(&mut tx)
-                .component_definition(self.component)
-                .await?;
-            ModuleModel::new(&mut tx)
-                .get_all_metadata(component_definition)
-                .await
+            let result = if self.component.is_root() {
+                ModuleModel::new(&mut tx)
+                    .get_all_metadata(ComponentDefinitionId::Root)
+                    .await?
+            } else {
+                anyhow::ensure!(*COMPONENTS_ENABLED);
+
+                let metadata = BootstrapComponentsModel::new(&mut tx)
+                    .resolve_path(self.component.clone())
+                    .await?
+                    .context("Failed to find component")?;
+                let component_id = ComponentId::Child(metadata.id().internal_id());
+                let definition_id = ComponentDefinitionId::Child(metadata.definition_id);
+                let module_metadata = ModuleModel::new(&mut tx)
+                    .get_all_metadata(definition_id)
+                    .await?;
+
+                let loaded_resources = ComponentsModel::new(&mut tx)
+                    .preload_resources(component_id)
+                    .await?;
+                {
+                    let mut resources = resources.lock();
+                    *resources = loaded_resources;
+                }
+
+                module_metadata
+            };
+            Ok(result)
         })
         .await?;
-
-        if *COMPONENTS_ENABLED {
-            let loaded_resources = with_release_permit(timeout, permit_slot, async {
-                ComponentsModel::new(&mut tx)
-                    .preload_resources(self.component)
-                    .await
-            })
-            .await?;
-            {
-                let mut resources = resources.lock();
-                *resources = loaded_resources;
-            }
-        }
 
         for metadata in module_metadata {
             if metadata.path.is_system() {

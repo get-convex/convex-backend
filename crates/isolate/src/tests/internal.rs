@@ -6,7 +6,7 @@ use std::{
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     types::{
         AllowedVisibility,
@@ -38,15 +38,15 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
 
     let internal_function = CanonicalizedComponentFunctionPath {
-        component: ComponentId::Root,
+        component: ComponentPath::root(),
         udf_path: CanonicalizedUdfPath::from_str("internal.js:myInternalMutation")?,
     };
     let public_function = CanonicalizedComponentFunctionPath {
-        component: ComponentId::Root,
+        component: ComponentPath::root(),
         udf_path: CanonicalizedUdfPath::from_str("internal.js:publicMutation")?,
     };
     let non_existent_function = CanonicalizedComponentFunctionPath {
-        component: ComponentId::Root,
+        component: ComponentPath::root(),
         udf_path: CanonicalizedUdfPath::from_str("internal.js:doesNotExist")?,
     };
 

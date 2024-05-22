@@ -12,7 +12,7 @@ use common::{
     backoff::Backoff,
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     document::ParsedDocument,
     errors::{
@@ -430,7 +430,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             job_id: job_id.into(),
         };
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentId::Root,
+            component: ComponentPath::root(),
             udf_path: job.udf_path.clone(),
         };
         let udf_type = match ModuleModel::new(&mut tx)
@@ -553,7 +553,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let context = ExecutionContext::new(request_id, &caller);
         let identity = tx.inert_identity();
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentId::Root,
+            component: ComponentPath::root(),
             udf_path: job.udf_path.clone(),
         };
         let result = self
@@ -662,7 +662,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // Execute the action
                 let context = ExecutionContext::new(request_id, &caller);
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentId::Root,
+                    component: ComponentPath::root(),
                     udf_path: job.udf_path.clone(),
                 };
                 let completion = self
@@ -714,7 +714,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // we can log correctly here.
                 let context = ExecutionContext::new(request_id, &caller);
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentId::Root,
+                    component: ComponentPath::root(),
                     udf_path: job.udf_path.clone(),
                 };
                 self.function_log.log_action_system_error(

@@ -12,6 +12,11 @@ use axum::{
 };
 use common::{
     auth::AuthInfo,
+    bootstrap_model::components::definition::{
+        ComponentDefinitionMetadata,
+        SerializedComponentDefinitionMetadata,
+    },
+    components::ComponentDefinitionPath,
     http::{
         extract::Json,
         HttpResponseError,
@@ -27,10 +32,19 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use model::{
-    components::types::{
-        AppDefinitionConfig,
-        ComponentDefinitionConfig,
-        ProjectConfig,
+    components::{
+        file_based_routing::add_file_based_routing,
+        type_checking::{
+            SerializedCheckedComponent,
+            TypecheckContext,
+        },
+        types::{
+            AppDefinitionConfig,
+            ComponentDefinitionConfig,
+            EvaluatedComponentDefinition,
+            ProjectConfig,
+            SerializedEvaluatedComponentDefinition,
+        },
     },
     config::types::{
         ConfigFile,
@@ -179,14 +193,17 @@ pub struct StartPushResponse {
     component_packages: BTreeMap<String, String>,
 
     // Analysis results.
-    auth_info: Vec<AuthInfo>,
-    app_analysis: AnalyzedComponent,
-    component_analysis: BTreeMap<String, AnalyzedComponent>,
+    app_auth: Vec<AuthInfo>,
+    analysis: BTreeMap<String, SerializedEvaluatedComponentDefinition>,
+
+    // Typechecking results.
+    app: SerializedCheckedComponent,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyzedComponent {
+    definition: SerializedComponentDefinitionMetadata,
     schema: Option<JsonValue>,
     modules: BTreeMap<String, SerializedAnalyzedModule>,
 }
@@ -330,25 +347,28 @@ pub async fn start_push_handler(
         }
     }
 
+    let mut evaluated_definitions = BTreeMap::new();
+
     if let Some(ref app_definition) = config.app_definition.definition {
         let mut dependency_graph = BTreeSet::new();
         let mut component_definitions = BTreeMap::new();
 
         for dep in &config.app_definition.dependencies {
-            dependency_graph.insert((None, dep.clone()));
+            dependency_graph.insert((ComponentDefinitionPath::root(), dep.clone()));
         }
 
         for component_def in &config.component_definitions {
+            anyhow::ensure!(!component_def.definition_path.is_root());
             component_definitions.insert(
                 component_def.definition_path.clone(),
                 component_def.definition.clone(),
             );
             for dep in &component_def.dependencies {
-                dependency_graph.insert((Some(component_def.definition_path.clone()), dep.clone()));
+                dependency_graph.insert((component_def.definition_path.clone(), dep.clone()));
             }
         }
 
-        let r = st
+        evaluated_definitions = st
             .application
             .evaluate_app_definitions(
                 app_definition.clone(),
@@ -356,15 +376,51 @@ pub async fn start_push_handler(
                 dependency_graph,
             )
             .await?;
-        for (path, json) in r {
-            tracing::info!("Evaluated {path:?}: {json}");
-        }
+    } else {
+        evaluated_definitions.insert(
+            ComponentDefinitionPath::root(),
+            ComponentDefinitionMetadata::default_root(),
+        );
     }
 
-    // TODO:
-    // build component tree
-    // Submit pending schema changes
-    // Compute config hash
+    let mut evaluated_components = BTreeMap::new();
+    evaluated_components.insert(
+        ComponentDefinitionPath::root(),
+        EvaluatedComponentDefinition {
+            definition: evaluated_definitions[&ComponentDefinitionPath::root()].clone(),
+            schema: app_schema.clone(),
+            functions: app_analysis.clone(),
+        },
+    );
+    for (path, definition) in &evaluated_definitions {
+        if path.is_root() {
+            continue;
+        }
+        evaluated_components.insert(
+            path.clone(),
+            EvaluatedComponentDefinition {
+                definition: definition.clone(),
+                schema: component_schema_by_def_path.get(path).cloned(),
+                functions: component_analysis_by_def_path
+                    .get(path)
+                    .context("Missing analysis for component?")?
+                    .clone(),
+            },
+        );
+    }
+
+    // Add in file-based routing.
+    for definition in evaluated_components.values_mut() {
+        add_file_based_routing(definition)?;
+    }
+
+    // Build and typecheck the component tree.
+    let ctx = TypecheckContext::new(&evaluated_components);
+    let app = ctx
+        .instantiate_root()
+        .map_err(|e| ErrorMetadata::bad_request("TypecheckError", e.to_string()))?;
+
+    tracing::info!("Instantiated root: {app:#?}");
 
     let resp = StartPushResponse {
         external_deps_id: external_deps_id_and_pkg
@@ -374,42 +430,12 @@ pub async fn start_push_handler(
             .into_iter()
             .map(|(def_path, pkg)| (String::from(def_path), String::from(pkg.storage_key)))
             .collect(),
-
-        // Analysis results.
-        auth_info,
-        app_analysis: AnalyzedComponent {
-            schema: app_schema.map(JsonValue::try_from).transpose()?,
-            modules: app_analysis
-                .into_iter()
-                .map(|(module_path, analyzed_module)| {
-                    Ok((
-                        String::from(module_path),
-                        SerializedAnalyzedModule::try_from(analyzed_module)?,
-                    ))
-                })
-                .collect::<anyhow::Result<_>>()?,
-        },
-        component_analysis: component_analysis_by_def_path
+        app_auth: auth_info,
+        analysis: evaluated_components
             .into_iter()
-            .map(|(def_path, analysis)| {
-                let analysis = AnalyzedComponent {
-                    schema: component_schema_by_def_path
-                        .remove(&def_path)
-                        .map(JsonValue::try_from)
-                        .transpose()?,
-                    modules: analysis
-                        .into_iter()
-                        .map(|(module_path, analyzed_module)| {
-                            Ok((
-                                String::from(module_path),
-                                SerializedAnalyzedModule::try_from(analyzed_module)?,
-                            ))
-                        })
-                        .collect::<anyhow::Result<_>>()?,
-                };
-                Ok((String::from(def_path), analysis))
-            })
+            .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
             .collect::<anyhow::Result<_>>()?,
+        app: app.try_into()?,
     };
     Ok(resp)
 }

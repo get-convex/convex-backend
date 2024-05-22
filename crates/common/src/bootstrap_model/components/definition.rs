@@ -29,6 +29,17 @@ pub struct ComponentDefinitionMetadata {
     pub exports: BTreeMap<Identifier, ComponentExport>,
 }
 
+impl ComponentDefinitionMetadata {
+    pub fn default_root() -> Self {
+        Self {
+            path: ComponentDefinitionPath::root(),
+            definition_type: ComponentDefinitionType::App,
+            child_components: Vec::new(),
+            exports: BTreeMap::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ComponentDefinitionType {
@@ -66,7 +77,7 @@ pub enum ComponentArgument {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedComponentDefinitionMetadata {
+pub struct SerializedComponentDefinitionMetadata {
     path: String,
     definition_type: SerializedComponentDefinitionType,
     child_components: Vec<SerializedComponentInstantiation>,

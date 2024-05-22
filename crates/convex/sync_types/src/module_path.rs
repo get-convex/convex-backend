@@ -38,6 +38,16 @@ impl ModulePath {
         &self.path
     }
 
+    pub fn components(&self) -> impl Iterator<Item = &str> {
+        self.path
+            .components()
+            .map(|component| match component {
+                Component::Normal(c) => c,
+                c => panic!("Unexpected component {c:?}"),
+            })
+            .map(|c| c.to_str().expect("Non-unicode data in module path?"))
+    }
+
     /// Does a module live within the `_system/` directory?
     pub fn is_system(&self) -> bool {
         self.is_system

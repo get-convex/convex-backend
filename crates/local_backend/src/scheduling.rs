@@ -7,7 +7,7 @@ use axum::{
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     http::{
         extract::Json,
@@ -57,7 +57,7 @@ pub async fn cancel_all_jobs(
             "CancelAllJobs requires an optional canonicalized UdfPath",
         ))?;
     let path = udf_path.map(|udf_path| CanonicalizedComponentFunctionPath {
-        component: ComponentId::Root,
+        component: ComponentPath::root(),
         udf_path,
     });
     st.application.cancel_all_jobs(path, identity).await?;

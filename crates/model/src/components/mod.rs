@@ -1,3 +1,5 @@
+pub mod file_based_routing;
+pub mod type_checking;
 pub mod types;
 
 use std::collections::BTreeMap;
@@ -74,9 +76,10 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                 resource.clone()
             },
             Reference::Function(udf_path) => {
-                let definition_id = BootstrapComponentsModel::new(self.tx)
-                    .component_definition(component_id)
-                    .await?;
+                let mut m = BootstrapComponentsModel::new(self.tx);
+                let definition_id = m.component_definition(component_id).await?;
+                let component_path = m.get_component_path(component_id).await?;
+
                 let canonicalized = udf_path.clone().canonicalize();
                 let module_path = CanonicalizedComponentModulePath {
                     component: definition_id,
@@ -110,7 +113,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                     ));
                 }
                 let path = ComponentFunctionPath {
-                    component: component_id,
+                    component: component_path,
                     udf_path: udf_path.clone(),
                 };
                 Resource::Function(path)
@@ -194,6 +197,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         })?;
         let definition_id = m.component_definition(component_id).await?;
         let definition = m.load_definition(definition_id).await?;
+        let component_path = m.get_component_path(component_id).await?;
 
         let mut result = BTreeMap::new();
 
@@ -217,12 +221,13 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             for function in &analyze_result.functions {
                 let udf_path =
                     CanonicalizedUdfPath::new(module.path.clone(), function.name.clone()).strip();
+                let function_path = ComponentFunctionPath {
+                    component: component_path.clone(),
+                    udf_path: udf_path.clone(),
+                };
                 result.insert(
-                    Reference::Function(udf_path.clone()),
-                    Resource::Function(ComponentFunctionPath {
-                        component: component_id,
-                        udf_path,
-                    }),
+                    Reference::Function(udf_path),
+                    Resource::Function(function_path),
                 );
             }
         }

@@ -15,6 +15,7 @@ use std::{
 use ::metrics::Timer;
 use async_trait::async_trait;
 use common::{
+    bootstrap_model::components::definition::ComponentDefinitionMetadata,
     codel_queue::{
         new_codel_queue_async,
         CoDelQueueReceiver,
@@ -24,7 +25,7 @@ use common::{
     components::{
         ComponentDefinitionPath,
         ComponentFunctionPath,
-        ComponentId,
+        ComponentPath,
     },
     errors::{
         recapture_stacktrace,
@@ -408,7 +409,8 @@ impl<RT: Runtime> Request<RT> {
     }
 }
 
-pub type EvaluateAppDefinitionsResult = BTreeMap<Option<ComponentDefinitionPath>, JsonValue>;
+pub type EvaluateAppDefinitionsResult =
+    BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>;
 
 pub enum RequestType<RT: Runtime> {
     Udf {
@@ -460,7 +462,7 @@ pub enum RequestType<RT: Runtime> {
     EvaluateAppDefinitions {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
-        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
         response: oneshot::Sender<anyhow::Result<EvaluateAppDefinitionsResult>>,
     },
 }
@@ -867,7 +869,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         &self,
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
-        dependency_graph: BTreeSet<(Option<ComponentDefinitionPath>, ComponentDefinitionPath)>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         anyhow::ensure!(
             app_definition.environment == ModuleEnvironment::Isolate,
@@ -1647,7 +1649,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 let udf_path: CanonicalizedUdfPath = request.router_path.path().udf_path.clone();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
-                    ComponentId::Root,
+                    ComponentPath::root(),
                     environment_data,
                     request.identity,
                     request.transaction,
@@ -1691,7 +1693,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&UdfType::Action);
-                let component = request.params.path_and_args.path().component;
+                let component = request.params.path_and_args.path().component.clone();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
                     component,

@@ -11,7 +11,7 @@ use value::identifier::Identifier;
 // All components under a component have a unique `ComponentName`. For example,
 // the root app component may have a waitlist component identified by
 // "chatWaitlist".
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentName(Identifier);
 
@@ -53,10 +53,42 @@ impl Deref for ComponentName {
 // path can potentially change when the component tree changes during a push, so
 // we should resolve this path to a `ComponentId` within a transaction
 // as soon as possible.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentPath {
-    pub path: Vec<ComponentName>,
+    path: Vec<ComponentName>,
+}
+
+impl ComponentPath {
+    pub fn root() -> Self {
+        Self { path: Vec::new() }
+    }
+
+    pub fn is_root(&self) -> bool {
+        self.path.is_empty()
+    }
+}
+
+impl Deref for ComponentPath {
+    type Target = [ComponentName];
+
+    fn deref(&self) -> &Self::Target {
+        &self.path
+    }
+}
+
+impl From<Vec<ComponentName>> for ComponentPath {
+    fn from(path: Vec<ComponentName>) -> Self {
+        Self { path }
+    }
+}
+
+impl ComponentPath {
+    pub fn push(&self, name: ComponentName) -> Self {
+        let mut path = self.path.clone();
+        path.push(name);
+        Self { path }
+    }
 }
 
 impl From<ComponentPath> for String {
@@ -70,7 +102,11 @@ impl FromStr for ComponentPath {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self {
-            path: s.split('/').map(str::parse).try_collect()?,
+            path: if s.is_empty() {
+                vec![]
+            } else {
+                s.split('/').map(str::parse).try_collect()?
+            },
         })
     }
 }
