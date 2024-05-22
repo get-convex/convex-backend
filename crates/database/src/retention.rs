@@ -45,6 +45,7 @@ use common::{
         DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS,
         INDEX_RETENTION_DELAY,
         MAX_RETENTION_DELAY_SECONDS,
+        RESET_DOCUMENT_RETENTION,
         RETENTION_DELETES_ENABLED,
         RETENTION_DELETE_BATCH,
         RETENTION_DELETE_CHUNK,
@@ -230,6 +231,15 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         snapshot_reader: Reader<SnapshotManager>,
         follower_retention_manager: FollowerRetentionManager<RT>,
     ) -> anyhow::Result<LeaderRetentionManager<RT>> {
+        if *RESET_DOCUMENT_RETENTION {
+            persistence
+                .write_persistence_global(
+                    PersistenceGlobalKey::DocumentRetentionConfirmedDeletedTimestamp,
+                    ConvexValue::from(i64::from(Timestamp::MIN)).into(),
+                )
+                .await?;
+        }
+
         let reader = persistence.reader();
         let min_snapshot_ts =
             latest_retention_min_snapshot_ts(reader.as_ref(), RetentionType::Index).await?;

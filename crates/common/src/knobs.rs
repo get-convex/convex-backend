@@ -323,6 +323,10 @@ pub static DOCUMENT_RETENTION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config("DOCUMENT_RETENTION_DELAY", 60 * 60 * 24 * 90))
 });
 
+/// Resets DocumentRetentionConfirmedDeletedTimestamp to Timestamp::MIN
+pub static RESET_DOCUMENT_RETENTION: LazyLock<bool> =
+    LazyLock::new(|| env_config("RESET_DOCUMENT_RETENTION", false));
+
 /// The time backend should wait before it acquires the lease. This wait allows
 /// for the backend to be added to service discovery, before it renders the
 /// previous backends unusable.
@@ -403,7 +407,7 @@ pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyL
 /// there are a bunch of writes at single timestamp. Then, we go until there are
 /// no more writes at that timestamp.
 pub static DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS: LazyLock<usize> =
-    LazyLock::new(|| env_config("DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS", 500));
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS", 250));
 
 /// Whether or not we run document retention in dry run mode
 pub static DOCUMENT_RETENTION_DRY_RUN: LazyLock<bool> =
