@@ -121,7 +121,7 @@ mod usage_tracking;
 mod vector_tests;
 
 mod apply_function_runner_tx;
-pub mod search_test_utils;
+pub mod text_test_utils;
 pub mod vector_test_utils;
 
 const TEST_PREFETCH_HINT: usize = 2;

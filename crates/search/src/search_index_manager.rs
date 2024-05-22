@@ -389,6 +389,16 @@ impl SearchIndexManager {
                                     ..
                                 },
                                 IndexConfig::Search {
+                                    on_disk_state: TextIndexState::Backfilling { .. },
+                                    ..
+                                },
+                            ) => (None, None),
+                            (
+                                IndexConfig::Search {
+                                    on_disk_state: TextIndexState::Backfilling { .. },
+                                    ..
+                                },
+                                IndexConfig::Search {
                                     on_disk_state: TextIndexState::Backfilled(snapshot),
                                     ..
                                 },

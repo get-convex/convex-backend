@@ -93,7 +93,7 @@ pub mod tests {
             LastFastForwardInfo,
         },
         tests::{
-            search_test_utils::{
+            text_test_utils::{
                 IndexData,
                 TextFixtures,
             },

@@ -40,6 +40,7 @@ use crate::{
             IndexBuild,
             IndexBuildResult,
             SearchFlusher,
+            SearchIndexLimits,
         },
         MultiSegmentBackfillResult,
     },
@@ -76,9 +77,7 @@ pub(crate) struct FlusherBuilder<RT: Runtime> {
     database: Database<RT>,
     reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
-    index_size_soft_limit: usize,
-    full_scan_threshold_kb: usize,
-    incremental_multipart_threshold_bytes: usize,
+    limits: SearchIndexLimits,
     #[cfg(any(test, feature = "testing"))]
     should_terminate: bool,
     #[cfg(any(test, feature = "testing"))]
@@ -97,9 +96,11 @@ impl<RT: Runtime> FlusherBuilder<RT> {
             database,
             reader,
             storage,
-            index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
-            full_scan_threshold_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-            incremental_multipart_threshold_bytes: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+            limits: SearchIndexLimits {
+                index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+                full_scan_segment_max_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+                incremental_multipart_threshold_bytes: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+            },
             #[cfg(any(test, feature = "testing"))]
             should_terminate: false,
             #[cfg(any(test, feature = "testing"))]
@@ -110,7 +111,21 @@ impl<RT: Runtime> FlusherBuilder<RT> {
     #[allow(dead_code)]
     pub fn set_soft_limit(self, limit: usize) -> Self {
         Self {
-            index_size_soft_limit: limit,
+            limits: SearchIndexLimits {
+                index_size_soft_limit: limit,
+                ..self.limits
+            },
+            ..self
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn set_incremental_multipart_threshold_bytes(self, limit: usize) -> Self {
+        Self {
+            limits: SearchIndexLimits {
+                incremental_multipart_threshold_bytes: limit,
+                ..self.limits
+            },
             ..self
         }
     }
@@ -121,9 +136,7 @@ impl<RT: Runtime> FlusherBuilder<RT> {
             self.database.clone(),
             self.reader,
             self.storage,
-            self.index_size_soft_limit,
-            self.full_scan_threshold_kb,
-            self.incremental_multipart_threshold_bytes,
+            self.limits,
         );
         TextIndexFlusher2 {
             flusher,
@@ -284,13 +297,14 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
 #[cfg(test)]
 mod tests {
     use common::{
+        bootstrap_model::index::IndexMetadata,
         runtime::testing::TestRuntime,
         types::TabletIndexName,
     };
     use maplit::btreemap;
     use value::TableNamespace;
 
-    use crate::tests::search_test_utils::{
+    use crate::tests::text_test_utils::{
         IndexData,
         TextFixtures,
     };
@@ -350,6 +364,30 @@ mod tests {
         let mut flusher = fixtures.new_search_flusher2();
         let (metrics, _) = flusher.step().await?;
         assert_eq!(metrics, btreemap! { resolved_index_name => 1 });
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_two_documents_0_max_segment_size_creates_two_segments(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+
+        fixtures.add_document("some text").await?;
+        fixtures.add_document("some other text").await?;
+
+        let mut flusher = fixtures
+            .new_search_flusher_builder()
+            .set_incremental_multipart_threshold_bytes(0)
+            .build();
+        // Build the first segment, which stops because the document size is > 0
+        flusher.step().await?;
+        // Build the second segment and finalize the index metadata.
+        flusher.step().await?;
+
+        let segments = fixtures.get_segments_metadata(name).await?;
+        assert_eq!(segments.len(), 2);
         Ok(())
     }
 }

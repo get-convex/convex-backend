@@ -85,10 +85,36 @@ pub struct Params<RT: Runtime> {
     database: Database<RT>,
     reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
-    index_size_soft_limit: usize,
-    full_scan_threshold_kb: usize,
-    // Used for constraining the part size of incremental multi segment builds
-    incremental_multipart_threshold_bytes: usize,
+    limits: SearchIndexLimits,
+}
+
+#[derive(Clone)]
+pub struct SearchIndexLimits {
+    /// The size at which we will start building a new segment. It's a 'soft'
+    /// limit because we will allow writes to continue even after this size
+    /// is reached. Writes are only blocked after we hit a hard index size
+    /// limit not specified here.
+    pub index_size_soft_limit: usize,
+    /// The maximum segment size at which it's reasonable to search the segment
+    /// by simply iterating over every item individually.
+    ///
+    /// This is only used for vector search where:
+    /// 1. We want to avoid the CPU  cost of building an expensive HNSW segment
+    ///    for small segments
+    /// 2. It's more accurate/efficient to perform a linear scan than use HNSW
+    ///    anyway.
+    pub full_scan_segment_max_kb: usize,
+    /// The number of bytes we'll write to each individual segment when
+    /// backfilling a new index.
+    ///
+    /// For example, if we add an index to a table with 10GiB of documents, we
+    /// don't want to build one single 10GiB segment on backend (very costly
+    /// in terms of disk/cpu/memory). So instead we build N smaller segments
+    /// and allow compaction to merge them (or not) as necessary.
+    ///
+    /// This number determines the size of each of the N smaller segments based
+    /// on an estimate of the size of each document we index.
+    pub incremental_multipart_threshold_bytes: usize,
 }
 
 impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
@@ -97,9 +123,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
-        index_size_soft_limit: usize,
-        full_scan_threshold_kb: usize,
-        incremental_multipart_threshold_bytes: usize,
+        limits: SearchIndexLimits,
     ) -> Self {
         Self {
             params: Params {
@@ -107,9 +131,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                 database,
                 reader,
                 storage,
-                index_size_soft_limit,
-                full_scan_threshold_kb,
-                incremental_multipart_threshold_bytes,
+                limits,
             },
             _config: PhantomData,
         }
@@ -164,8 +186,8 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                             index_age
                         );
                     }
-                    let too_large =
-                        (index_size > self.index_size_soft_limit).then_some(BuildReason::TooLarge);
+                    let too_large = (index_size > self.limits.index_size_soft_limit)
+                        .then_some(BuildReason::TooLarge);
                     // Order matters! Too large is more urgent than too old.
                     too_large.or(too_old)
                 },
@@ -352,6 +374,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         // Cursor and completion state for MultipartBuildType::IncrementalComplete
         let mut new_cursor = None;
         let mut is_backfill_complete = true;
+        let mut is_size_exceeded = false;
         let qdrant_schema = T::IndexType::new_schema(&developer_config);
 
         let (documents, previous_segments) = match build_type {
@@ -377,6 +400,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                     .stream_documents_in_table(*index_name.table(), by_id, cursor)
                     .boxed()
                     .scan(0_u64, |total_size, res| {
+                        if is_size_exceeded {
+                            is_backfill_complete = false;
+                            return future::ready(None);
+                        }
                         let updated_cursor = if let Ok((doc, _)) = &res {
                             let size = T::IndexType::estimate_document_size(&qdrant_schema, doc);
                             *total_size += size;
@@ -384,19 +411,23 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                         } else {
                             None
                         };
-                        // Conditionally update cursor and proceed with iteration if
-                        // we haven't exceeded incremental part size threshold.
-                        future::ready(
-                            if *total_size <= params.incremental_multipart_threshold_bytes as u64 {
-                                if let Some(updated_cursor) = updated_cursor {
-                                    new_cursor = Some(updated_cursor);
-                                }
-                                Some(res)
-                            } else {
-                                is_backfill_complete = false;
-                                None
-                            },
-                        )
+                        if *total_size >= params.limits.incremental_multipart_threshold_bytes as u64
+                        {
+                            // The size is exceeded, but we don't know whether the backfill is
+                            // complete until we see if there is another document. So set a boolean
+                            // and see if we loop again. If we do, then we know the backfill isn't
+                            // finished. If we don't, then this happens to be the last document and
+                            // the backfill is done.
+                            // This behavior is only really important for very large documents or
+                            // very small incremental_multipart_threshold_bytes values where you can
+                            // have weird behavior if we returned early here instead (like never
+                            // marking the index as backfilled).
+                            is_size_exceeded = true;
+                        }
+                        if let Some(updated_cursor) = updated_cursor {
+                            new_cursor = Some(updated_cursor);
+                        }
+                        future::ready(Some(res))
                     })
                     .map_ok(|(doc, ts)| (ts, doc.id_with_table_id(), Some(doc)))
                     .boxed();
@@ -421,7 +452,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             &index_path,
             documents,
             persistence,
-            params.full_scan_threshold_kb,
+            params.limits.full_scan_segment_max_kb,
             &mut mutable_previous_segments,
         )
         .await?;

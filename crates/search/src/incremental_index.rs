@@ -162,7 +162,6 @@ impl UpdatableTextSegment {
         let tmp_dir = TempDir::new()?;
 
         let index_path = tmp_dir.path().join("index_path");
-        std::fs::create_dir(&index_path)?;
 
         // TODO(CX-6494): Fetch the term statistics file instead of the index.
         let stream = storage

@@ -24,6 +24,7 @@ use crate::{
             IndexBuild,
             IndexBuildResult,
             SearchFlusher,
+            SearchIndexLimits,
         },
     },
     metrics,
@@ -60,9 +61,11 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             database,
             reader,
             storage,
-            *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-            *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-            *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+            SearchIndexLimits {
+                index_size_soft_limit: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+                full_scan_segment_max_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+                incremental_multipart_threshold_bytes: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+            },
         );
         Self {
             flusher,
@@ -221,7 +224,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         index_size_soft_limit: usize,
-        full_scan_threshold_kb: usize,
+        full_scan_segment_max_kb: usize,
         incremental_multipart_threshold_bytes: usize,
         pause_client: Option<PauseClient>,
     ) -> Self {
@@ -231,9 +234,11 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             database,
             reader,
             storage,
-            index_size_soft_limit,
-            full_scan_threshold_kb,
-            incremental_multipart_threshold_bytes,
+            SearchIndexLimits {
+                index_size_soft_limit,
+                full_scan_segment_max_kb,
+                incremental_multipart_threshold_bytes,
+            },
         );
         Self {
             flusher,

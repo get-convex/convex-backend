@@ -400,7 +400,7 @@ pub(crate) mod tests {
     use value::TableNamespace;
 
     use crate::{
-        tests::search_test_utils::{
+        tests::text_test_utils::{
             add_document,
             IndexData,
             TextFixtures,

@@ -18,10 +18,10 @@ use tokio::io::AsyncRead;
 pub mod cache;
 mod metrics;
 
-/// Extract the archive stream to the specified output directory, which will be
-/// created if it does not exist. This function should only be used for trusted
-/// ZIP archives; we don't make any attempt to guard against directory traversal
-/// attacks nor do we sanitize paths.
+/// Extract the archive stream to the specified output directory, which must not
+/// exist or this method will return an Error. This function should only be used
+/// for trusted ZIP archives; we don't make any attempt to guard against
+/// directory traversal attacks nor do we sanitize paths.
 pub(crate) async fn extract_zip<P: AsRef<Path>>(
     output_directory: P,
     archive: impl AsyncRead,

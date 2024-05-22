@@ -70,7 +70,7 @@ pub trait SearchIndex {
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
         reader: RepeatablePersistence,
-        full_scan_threshold_bytes: usize,
+        large_segment_threshold_bytes: usize,
         previous_segments: &mut Self::PreviousSegments,
     ) -> anyhow::Result<Option<Self::NewSegment>>;
 

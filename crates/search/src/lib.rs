@@ -329,6 +329,26 @@ impl TantivySearchIndexSchema {
         search_value_to_bytes(value)
     }
 
+    /// This is a pretty wild over-estimate for documents with lots of shared
+    /// terms. But it does at least provide some maximum value we can use
+    /// when a super rough estimate is sufficient (e.g. capping the maximum
+    /// size of a new segment).
+    pub fn estimate_size(&self, document: &ResolvedDocument) -> u64 {
+        let document_size = if let Some(ConvexValue::String(ref s)) =
+            document.value().get_path(&self.search_field_path)
+        {
+            s.len()
+        } else {
+            0
+        };
+        let mut filter_field_sizes = 0;
+        for field_path in self.filter_fields.keys() {
+            let value = TantivySearchIndexSchema::filter_field_bytes(document, field_path);
+            filter_field_sizes += value.len();
+        }
+        (document_size + filter_field_sizes) as u64
+    }
+
     pub fn index_into_terms(
         &self,
         document: &ResolvedDocument,

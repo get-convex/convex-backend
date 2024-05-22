@@ -332,7 +332,7 @@ impl QdrantSchema {
         &self,
         index_path: &Path,
         revision_stream: DocumentStream<'_>,
-        full_scan_threshold_kb: usize,
+        hnsw_threshold_bytes: usize,
         previous_segments: &mut Vec<&mut impl PreviousSegment>,
     ) -> anyhow::Result<Option<VectorDiskSegmentValues>> {
         let tmpdir = TempDir::new()?;
@@ -420,7 +420,7 @@ impl QdrantSchema {
         let estimated_size_bytes =
             memory_segment.total_point_count() * self.dimension * VECTOR_ELEMENT_SIZE;
         let estmated_size_kb = estimated_size_bytes / 1024;
-        let index_type = if estmated_size_kb >= full_scan_threshold_kb {
+        let index_type = if estmated_size_kb >= hnsw_threshold_bytes {
             QdrantVectorIndexType::HNSW
         } else {
             QdrantVectorIndexType::Plain

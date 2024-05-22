@@ -12,6 +12,7 @@ use common::{
             FragmentedTextSegment,
             TextIndexBackfillState,
             TextIndexSnapshot,
+            TextIndexSnapshotData,
             TextIndexState,
         },
         IndexConfig,
@@ -151,8 +152,8 @@ impl SearchIndex for TextSearchIndex {
         .await
     }
 
-    fn estimate_document_size(_schema: &Self::Schema, _doc: &ResolvedDocument) -> u64 {
-        0
+    fn estimate_document_size(schema: &Self::Schema, doc: &ResolvedDocument) -> u64 {
+        schema.estimate_size(doc)
     }
 
     async fn build_disk_index(
@@ -160,7 +161,7 @@ impl SearchIndex for TextSearchIndex {
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
         reader: RepeatablePersistence,
-        _full_scan_threshold_bytes: usize,
+        _large_segment_threshold_bytes: usize,
         previous_segments: &mut Self::PreviousSegments,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
         let revision_stream = Box::pin(stream_revision_pairs(documents, &reader));
@@ -225,8 +226,14 @@ impl From<TextIndexSnapshot> for SearchSnapshot<TextSearchIndex> {
     fn from(snapshot: TextIndexSnapshot) -> Self {
         Self {
             ts: snapshot.ts,
-            // TODO(sam): Implement this.
-            data: SnapshotData::Unknown,
+            data: match snapshot.data {
+                TextIndexSnapshotData::SingleSegment(_) | TextIndexSnapshotData::Unknown(_) => {
+                    SnapshotData::Unknown
+                },
+                TextIndexSnapshotData::MultiSegment(segments) => {
+                    SnapshotData::MultiSegment(segments)
+                },
+            },
         }
     }
 }
