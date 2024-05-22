@@ -46,8 +46,10 @@ use pb::searchlight::{
     FragmentedVectorSegmentPaths,
     MultiSegmentMetadata,
     QueryBm25StatsResponse,
+    SegmentTermMetadataResponse,
     SingleSegmentMetadata,
     StorageKey,
+    TermOrdDeleteCount,
 };
 use storage::Storage;
 pub use tantivy::Term;
@@ -61,6 +63,7 @@ use tantivy::{
         EnableScoring,
     },
     schema::Field,
+    termdict::TermOrdinal,
     SegmentReader,
 };
 use text_search::tracker::{
@@ -128,6 +131,7 @@ use crate::{
     TantivySearchIndexSchema,
     CREATION_TIME_FIELD_NAME,
     INTERNAL_ID_FIELD_NAME,
+    SEARCH_FIELD_ID,
     TS_FIELD_NAME,
 };
 
@@ -175,6 +179,87 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
         storage_keys: TextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>>;
+}
+
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq, Debug, Clone)
+)]
+/// Metadata about terms for a specific segment.
+pub struct SegmentTermMetadata {
+    /// The number of documents containing the term that have been deleted, by
+    /// term ordinal.
+    pub term_documents_deleted: BTreeMap<TermOrdinal, u32>,
+    /// The number of terms that have been completely deleted from the segment.
+    pub num_terms_deleted: u64,
+}
+
+impl TryFrom<SegmentTermMetadataResponse> for SegmentTermMetadata {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        SegmentTermMetadataResponse {
+            term_ords_and_delete_counts,
+            num_terms_deleted,
+        }: SegmentTermMetadataResponse,
+    ) -> Result<Self, Self::Error> {
+        let term_documents_deleted = term_ords_and_delete_counts
+            .into_iter()
+            .map(
+                |TermOrdDeleteCount {
+                     term_ord,
+                     num_docs_deleted,
+                 }| {
+                    let term_ord = term_ord.context("Missing term ord")?;
+                    let num_docs_deleted = num_docs_deleted.context("Missing term delete count")?;
+                    anyhow::Ok::<(TermOrdinal, u32)>((term_ord, num_docs_deleted))
+                },
+            )
+            .try_collect()?;
+        let num_terms_deleted = num_terms_deleted.context("Missing num terms deleted")?;
+        Ok(SegmentTermMetadata {
+            term_documents_deleted,
+            num_terms_deleted,
+        })
+    }
+}
+
+impl From<SegmentTermMetadata> for SegmentTermMetadataResponse {
+    fn from(
+        SegmentTermMetadata {
+            term_documents_deleted,
+            num_terms_deleted,
+        }: SegmentTermMetadata,
+    ) -> Self {
+        let term_ords_and_delete_counts = term_documents_deleted
+            .into_iter()
+            .map(|(term_ord, num_docs_deleted)| TermOrdDeleteCount {
+                term_ord: Some(term_ord),
+                num_docs_deleted: Some(num_docs_deleted),
+            })
+            .collect();
+        SegmentTermMetadataResponse {
+            term_ords_and_delete_counts,
+            num_terms_deleted: Some(num_terms_deleted),
+        }
+    }
+}
+
+/// The value of a tantivy `Term`, should only be constructed from
+/// `term.value_bytes()` or protos that contain the same bytes.
+pub type TermValue = Vec<u8>;
+
+#[async_trait]
+pub trait SegmentTermMetadataFetcher {
+    /// Gets the term ordinal from term values and determines how many terms
+    /// have been completely deleted from a segment, given the number of
+    /// documents deleted containing each term.
+    async fn segment_term_metadata(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        segment: ObjectKey,
+        terms: BTreeMap<TermValue, u32>,
+    ) -> anyhow::Result<SegmentTermMetadata>;
 }
 
 pub struct SearcherImpl<RT: Runtime> {
@@ -532,6 +617,43 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         };
         let resp = self.text_search_pool.execute(query).await??;
         Ok(resp)
+    }
+}
+
+#[async_trait]
+impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
+    async fn segment_term_metadata(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        segment: ObjectKey,
+        terms: BTreeMap<TermValue, u32>,
+    ) -> anyhow::Result<SegmentTermMetadata> {
+        let segment_path = self
+            .archive_cache
+            .get(search_storage, &segment, SearchFileType::Text)
+            .await?;
+        let reader = index_reader_for_directory(segment_path)?;
+        let searcher = reader.searcher();
+        // Multisegment indexes only write to one segment.
+        let segment = searcher.segment_reader(0);
+        let inverted_index = segment.inverted_index(Field::from_field_id(SEARCH_FIELD_ID))?;
+        let term_dict = inverted_index.terms();
+        let mut term_documents_deleted = BTreeMap::new();
+        let mut num_terms_deleted = 0;
+        for (term, num_documents_deleted) in terms {
+            let term_ord = term_dict
+                .term_ord(term)?
+                .context("Segment must contain term")?;
+            let doc_freq = term_dict.term_info_from_ord(term_ord).doc_freq;
+            if doc_freq == num_documents_deleted {
+                num_terms_deleted += 1;
+            }
+            term_documents_deleted.insert(term_ord, num_documents_deleted);
+        }
+        Ok(SegmentTermMetadata {
+            term_documents_deleted,
+            num_terms_deleted,
+        })
     }
 }
 
@@ -1399,6 +1521,12 @@ mod tests {
         types::Timestamp,
     };
     use futures::StreamExt;
+    use pb::searchlight::SegmentTermMetadataResponse;
+    use proptest::{
+        arbitrary::any,
+        prelude::*,
+        proptest,
+    };
     use runtime::testing::TestRuntime;
     use tantivy::{
         Index,
@@ -1411,13 +1539,17 @@ mod tests {
     };
     use value::{
         assert_obj,
+        testing::assert_roundtrips,
         FieldPath,
         InternalId,
         ResolvedDocumentId,
         TabletIdAndTableNumber,
     };
 
-    use super::PostingListMatch;
+    use super::{
+        PostingListMatch,
+        SegmentTermMetadata,
+    };
     use crate::{
         convex_query::OrTerm,
         disk_index::index_reader_for_directory,
@@ -2035,5 +2167,15 @@ mod tests {
             alive_bitset: load_alive_bitset(&paths.alive_bit_set_path)?,
             id_tracker: StaticIdTracker::load_from_path(paths.id_tracker_path.clone())?,
         })
+    }
+
+    proptest! {
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
+        #[test]
+        fn term_metadata_roundtrips(term_metadata in any::<SegmentTermMetadata>()) {
+            assert_roundtrips::<SegmentTermMetadata, SegmentTermMetadataResponse>(term_metadata);
+        }
     }
 }

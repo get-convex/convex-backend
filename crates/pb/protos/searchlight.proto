@@ -12,6 +12,7 @@ service Searchlight {
   rpc QueueVectorPrefetch(VectorPrefetchRequest) returns (VectorPrefetchResponse);
 
   rpc NumberOfSegments(SegmentRequest) returns (SegmentResponse);
+  rpc SegmentTermMetadata(SegmentTermMetadataRequest) returns (SegmentTermMetadataResponse);
 
   // Query a set of tokens against the term dictionary, optionally allowing
   // for fuzzy matching and prefix matching. Take the top `K` results with
@@ -223,6 +224,27 @@ message SegmentRequest {
 
 message SegmentResponse {
     uint32 number_of_segments = 1;
+}
+
+message SegmentTermMetadataRequest {
+  StorageType storage_type = 1;
+  StorageKey segment = 2;
+  repeated TermValueDeleteCount term_values_and_delete_counts = 3;
+}
+
+message TermValueDeleteCount {
+  optional bytes term_value = 1;
+  optional uint32 num_docs_deleted = 2;
+}
+
+message SegmentTermMetadataResponse {
+  repeated TermOrdDeleteCount term_ords_and_delete_counts = 1;
+  optional uint64 num_terms_deleted = 2;
+}
+
+message TermOrdDeleteCount {
+  optional uint64 term_ord = 1;
+  optional uint32 num_docs_deleted = 2;
 }
 
 message QueryTokensRequest {
