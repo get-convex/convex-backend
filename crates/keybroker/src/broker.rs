@@ -492,6 +492,10 @@ impl AdminIdentity {
             key: access_token,
         }
     }
+
+    pub fn member_id(&self) -> MemberId {
+        self.member_id
+    }
 }
 
 #[cfg(any(test, feature = "testing"))]
