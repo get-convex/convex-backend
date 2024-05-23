@@ -225,7 +225,7 @@ pub async fn public_query_get(
     let journal = None;
     let query_result = api
         .execute_public_query(
-            host,
+            host.as_deref(),
             request_id,
             auth_token,
             ComponentFunctionPath {
@@ -263,7 +263,7 @@ pub async fn public_query_post(
     let journal = None;
     let query_return = api
         .execute_public_query(
-            host,
+            host.as_deref(),
             request_id,
             auth_token,
             ComponentFunctionPath {
@@ -355,7 +355,7 @@ pub async fn public_mutation_post(
     let udf_path = parse_udf_path(&req.path)?;
     let udf_result = api
         .execute_public_mutation(
-            host,
+            host.as_deref(),
             request_id,
             auth_token,
             ComponentFunctionPath {
@@ -396,7 +396,7 @@ pub async fn public_action_post(
 
     let action_result = api
         .execute_public_action(
-            host,
+            host.as_deref(),
             request_id,
             auth_token,
             ComponentFunctionPath {

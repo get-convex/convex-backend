@@ -45,7 +45,7 @@ pub enum ExecuteQueryTimestamp {
 pub trait ApplicationApi: Send + Sync {
     async fn execute_public_query(
         &self,
-        host: Option<String>,
+        host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: ComponentFunctionPath,
@@ -57,7 +57,7 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn execute_public_mutation(
         &self,
-        host: Option<String>,
+        host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: ComponentFunctionPath,
@@ -69,7 +69,7 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn execute_public_action(
         &self,
-        host: Option<String>,
+        host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: ComponentFunctionPath,
@@ -83,7 +83,7 @@ pub trait ApplicationApi: Send + Sync {
 impl<RT: Runtime> ApplicationApi for Application<RT> {
     async fn execute_public_query(
         &self,
-        _host: Option<String>,
+        _host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: ComponentFunctionPath,
@@ -110,7 +110,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_public_mutation(
         &self,
-        _host: Option<String>,
+        _host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: ComponentFunctionPath,
@@ -141,7 +141,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_public_action(
         &self,
-        _host: Option<String>,
+        _host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: ComponentFunctionPath,

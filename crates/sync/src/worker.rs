@@ -14,6 +14,10 @@ use std::{
 
 use ::metrics::StatusTimer;
 use application::{
+    api::{
+        ApplicationApi,
+        ExecuteQueryTimestamp,
+    },
     redaction::{
         RedactedJsError,
         RedactedLogLines,
@@ -30,7 +34,6 @@ use common::{
     },
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     minitrace_helpers::get_sampled_span,
-    pause::PauseClient,
     runtime::{
         Runtime,
         WithTimeout,
@@ -194,10 +197,13 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);
 const MAX_TRANSITION_AGE: Duration = Duration::from_secs(30);
 
 pub struct SyncWorker<RT: Runtime> {
+    api: Arc<dyn ApplicationApi>,
+    // TODO(presley): Delete application once all functionality is migrated to api.
     application: Application<RT>,
     config: SyncWorkerConfig,
     rt: RT,
     state: SyncState,
+    host: Option<String>,
 
     rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
     tx: SingleFlightSender<RT>,
@@ -238,18 +244,24 @@ struct TransitionState {
 impl<RT: Runtime> SyncWorker<RT> {
     pub fn new(
         application: Application<RT>,
+        host: Option<String>,
         config: SyncWorkerConfig,
         rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
         tx: SingleFlightSender<RT>,
     ) -> Self {
+        // Use api implemented by application until all functionality is migrated
+        // and we no longer need application.
+        let api = Arc::new(application.clone());
         let rt = application.runtime().clone();
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = receiver.buffered(1); // Execute at most one operation at a time.
         SyncWorker {
+            api,
             application,
             config,
             rt,
             state: SyncState::new(),
+            host,
             rx,
             tx,
             mutation_futures,
@@ -445,25 +457,23 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let rt = self.rt.clone();
                 let client_version = self.config.client_version.clone();
                 let timer = mutation_queue_timer();
-                let application = self.application.clone();
+                let api = self.api.clone();
+                let host = self.host.clone();
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
                         timer.finish();
-                        let identity = application
-                            .authenticate(auth_token, application.runtime().system_time())
-                            .await?;
-                        let result = application
-                            .mutation_udf(
+                        let result = api
+                            .execute_public_mutation(
+                                host.as_deref(),
                                 server_request_id,
+                                auth_token,
                                 ComponentFunctionPath {
                                     component: ComponentPath::root(),
                                     udf_path,
                                 },
                                 args,
-                                identity,
-                                mutation_identifier,
                                 FunctionCaller::SyncWorker(client_version),
-                                PauseClient::new(),
+                                mutation_identifier,
                             )
                             .in_span(root)
                             .await?;
@@ -500,7 +510,8 @@ impl<RT: Runtime> SyncWorker<RT> {
             } => {
                 let auth_token = self.state.auth_token();
 
-                let application = self.application.clone();
+                let api = self.api.clone();
+                let host = self.host.clone();
                 let client_version = self.config.client_version.clone();
                 let server_request_id = match self.state.session_id() {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
@@ -517,18 +528,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                     )
                 });
                 let future = async move {
-                    let identity = application
-                        .authenticate(auth_token, application.runtime().system_time())
-                        .await?;
-                    let result = application
-                        .action_udf(
+                    let result = api
+                        .execute_public_action(
+                            host.as_deref(),
                             server_request_id,
+                            auth_token,
                             ComponentFunctionPath {
                                 component: ComponentPath::root(),
                                 udf_path,
                             },
                             args,
-                            identity,
                             FunctionCaller::SyncWorker(client_version),
                         )
                         .in_span(root)
@@ -636,12 +645,13 @@ impl<RT: Runtime> SyncWorker<RT> {
 
         // Step 3: Take all remaining subscriptions.
         let mut remaining_subscriptions = self.state.take_subscriptions();
-        let validate_time = self.rt.system_time();
 
         // Step 4: Refresh subscriptions up to new_ts and run queries which
         // subscriptions are no longer current.
         let mut futures = vec![];
         for query in self.state.need_fetch() {
+            let api = self.api.clone();
+            let host = self.host.clone();
             let application_ = self.application.clone();
             let auth_token_ = auth_token.clone();
             let client_version = self.config.client_version.clone();
@@ -675,25 +685,23 @@ impl<RT: Runtime> SyncWorker<RT> {
                     None => {
                         // We failed to refresh the subscription or it was invalid to start
                         // with. Rerun the query.
-                        let identity = application_
-                            .authenticate(auth_token_, validate_time)
-                            .await?;
-                        let udf_return = application_
-                            .read_only_udf_at_ts(
+                        let udf_return = api
+                            .execute_public_query(
                                 // This query run might have been triggered due to invalidation
                                 // of a subscription. The sync worker is effectively the owner of
                                 // the query so we do not want to re-use the original query request
                                 // id.
+                                host.as_deref(),
                                 RequestId::new(),
+                                auth_token_,
                                 ComponentFunctionPath {
                                     component: ComponentPath::root(),
                                     udf_path: query.udf_path,
                                 },
                                 query.args,
-                                identity,
-                                new_ts,
-                                query.journal,
                                 FunctionCaller::SyncWorker(client_version),
+                                ExecuteQueryTimestamp::At(new_ts),
+                                query.journal,
                             )
                             .await?;
                         let subscription = application_.subscribe(udf_return.token).await?;

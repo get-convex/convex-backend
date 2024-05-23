@@ -36,6 +36,7 @@ use common::{
     },
     http::{
         ExtractClientVersion,
+        ExtractHost,
         HttpResponseError,
     },
     runtime::Runtime,
@@ -121,6 +122,7 @@ impl Drop for SyncSocketDropToken {
 // gracefully close the socket.
 async fn run_sync_socket(
     st: LocalAppState,
+    host: Option<String>,
     config: SyncWorkerConfig,
     socket: WebSocket,
     sentry_scope: sentry::Scope,
@@ -219,8 +221,13 @@ async fn run_sync_socket(
     };
     let mut identity_version: Option<IdentityVersion> = None;
     let sync_worker_go = async {
-        let mut sync_worker =
-            SyncWorker::new(st.application.clone(), config.clone(), client_rx, server_tx);
+        let mut sync_worker = SyncWorker::new(
+            st.application.clone(),
+            host,
+            config.clone(),
+            client_rx,
+            server_tx,
+        );
         let r = sync_worker.go().await;
         identity_version = Some(sync_worker.identity_version());
         // Explicit drop for emphasis: dropping triggers send_messages to complete.
@@ -331,6 +338,7 @@ fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncW
 
 pub async fn sync_client_version_url(
     State(st): State<LocalAppState>,
+    ExtractHost(host): ExtractHost,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -341,12 +349,13 @@ pub async fn sync_client_version_url(
     let upgrade_timer = websocket_upgrade_timer();
     Ok(ws.on_upgrade(move |ws: WebSocket| {
         upgrade_timer.finish();
-        run_sync_socket(st, config, ws, sentry_scope)
+        run_sync_socket(st, host, config, ws, sentry_scope)
     }))
 }
 
 pub async fn sync(
     State(st): State<LocalAppState>,
+    ExtractHost(host): ExtractHost,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -358,7 +367,7 @@ pub async fn sync(
     Ok(ws.on_upgrade(move |ws: WebSocket| {
         upgrade_timer.finish();
         let monitor = ProdRuntime::task_monitor("sync_socket");
-        monitor.instrument(run_sync_socket(st, config, ws, sentry_scope))
+        monitor.instrument(run_sync_socket(st, host, config, ws, sentry_scope))
     }))
 }
 
