@@ -144,13 +144,12 @@ impl<RT: Runtime> ActionPhase<RT> {
         let import_time_unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
         let module_metadata = with_release_permit(timeout, permit_slot, async {
-            let result = if self.component.is_root() {
+            let result = if !*COMPONENTS_ENABLED {
+                anyhow::ensure!(self.component.is_root());
                 ModuleModel::new(&mut tx)
                     .get_all_metadata(ComponentDefinitionId::Root)
                     .await?
             } else {
-                anyhow::ensure!(*COMPONENTS_ENABLED);
-
                 let metadata = BootstrapComponentsModel::new(&mut tx)
                     .resolve_path(self.component.clone())
                     .await?
