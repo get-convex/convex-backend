@@ -9,6 +9,7 @@ use common::{
     types::{
         AllowedVisibility,
         FunctionCaller,
+        RepeatableTimestamp,
     },
     RequestId,
 };
@@ -80,6 +81,12 @@ pub trait ApplicationApi: Send + Sync {
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
+
+    async fn latest_timestamp(
+        &self,
+        host: Option<&str>,
+        request_id: RequestId,
+    ) -> anyhow::Result<RepeatableTimestamp>;
 }
 
 // Implements ApplicationApi via Application.
@@ -174,5 +181,13 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         };
         self.action_udf(request_id, path, args, identity, caller)
             .await
+    }
+
+    async fn latest_timestamp(
+        &self,
+        _host: Option<&str>,
+        _request_id: RequestId,
+    ) -> anyhow::Result<RepeatableTimestamp> {
+        Ok(self.now_ts_for_reads())
     }
 }

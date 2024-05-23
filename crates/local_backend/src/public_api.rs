@@ -294,30 +294,31 @@ pub struct QueryBatchResponse {
 }
 
 pub async fn public_query_batch_post(
-    State(st): State<LocalAppState>,
+    State(api): State<Arc<dyn ApplicationApi>>,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractIdentity(identity): ExtractIdentity,
+    ExtractHost(host): ExtractHost,
+    ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req_batch): Json<QueryBatchArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut results = vec![];
-    let ts = *st.application.now_ts_for_reads();
+    // All queries execute at the same timestamp.
+    let ts = api
+        .latest_timestamp(host.as_deref(), request_id.clone())
+        .await?;
     for req in req_batch.queries {
         let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
         let udf_path = parse_udf_path(&req.path)?;
-        let udf_return = st
-            .application
-            .read_only_udf_at_ts(
+        let udf_return = api
+            .execute_public_query(
+                host.as_deref(),
                 request_id.clone(),
-                ComponentFunctionPath {
-                    component: ComponentPath::root(),
-                    udf_path,
-                },
+                auth_token.clone(),
+                udf_path,
                 req.args.into_arg_vec(),
-                identity.clone(),
-                ts,
-                None,
                 FunctionCaller::HttpApi(client_version.clone()),
+                ExecuteQueryTimestamp::At(*ts),
+                None,
             )
             .await?;
         let response = match udf_return.result {
