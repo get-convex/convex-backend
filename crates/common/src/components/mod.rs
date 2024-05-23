@@ -57,11 +57,16 @@ impl ComponentId {
 
 impl From<ComponentId> for TableNamespace {
     fn from(value: ComponentId) -> Self {
-        // TODO(lee) convert these to the correct namespaces:
-        // RootComponent and ByComponent respectively.
-        match value {
-            ComponentId::Root => TableNamespace::Global,
-            ComponentId::Child(_id) => TableNamespace::Global,
+        if *COMPONENTS_ENABLED {
+            match value {
+                ComponentId::Root => TableNamespace::RootComponent,
+                ComponentId::Child(id) => TableNamespace::ByComponent(id),
+            }
+        } else {
+            match value {
+                ComponentId::Root => TableNamespace::Global,
+                ComponentId::Child(_id) => TableNamespace::Global,
+            }
         }
     }
 }
@@ -108,11 +113,16 @@ impl ComponentDefinitionId {
 
 impl From<ComponentDefinitionId> for TableNamespace {
     fn from(value: ComponentDefinitionId) -> Self {
-        // TODO(lee) convert these to the correct namespaces:
-        // RootComponentDefinition and ByComponentDefinition respectively.
-        match value {
-            ComponentDefinitionId::Root => TableNamespace::Global,
-            ComponentDefinitionId::Child(_id) => TableNamespace::Global,
+        if *COMPONENTS_ENABLED {
+            match value {
+                ComponentDefinitionId::Root => TableNamespace::RootComponentDefinition,
+                ComponentDefinitionId::Child(id) => TableNamespace::ByComponentDefinition(id),
+            }
+        } else {
+            match value {
+                ComponentDefinitionId::Root => TableNamespace::Global,
+                ComponentDefinitionId::Child(_id) => TableNamespace::Global,
+            }
         }
     }
 }
