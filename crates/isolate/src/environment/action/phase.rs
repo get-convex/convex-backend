@@ -154,8 +154,14 @@ impl<RT: Runtime> ActionPhase<RT> {
                     .resolve_path(self.component.clone())
                     .await?
                     .context("Failed to find component")?;
-                let component_id = ComponentId::Child(metadata.id().internal_id());
-                let definition_id = ComponentDefinitionId::Child(metadata.definition_id);
+                let (component_id, definition_id) = if self.component.is_root() {
+                    (ComponentId::Root, ComponentDefinitionId::Root)
+                } else {
+                    (
+                        ComponentId::Child(metadata.id().internal_id()),
+                        ComponentDefinitionId::Child(metadata.definition_id),
+                    )
+                };
                 let module_metadata = ModuleModel::new(&mut tx)
                     .get_all_metadata(definition_id)
                     .await?;

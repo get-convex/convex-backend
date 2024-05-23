@@ -56,7 +56,6 @@ use value::{
     values_to_bytes,
     FieldPath,
     TableName,
-    TableNamespace,
 };
 
 use self::{
@@ -323,7 +322,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("put_module"));
         }
-        if path.as_root_module_path()?.is_system() {
+        if path.module_path.is_system() {
             anyhow::bail!("You cannot push a function under '_system/'");
         }
         anyhow::ensure!(
@@ -396,7 +395,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 em
             }
         }))?;
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, path.component.into())
             .insert(&MODULE_VERSIONS_TABLE, new_version)
             .await?;
         Ok(())
@@ -407,9 +406,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("delete_module"));
         }
+        let namespace = path.component.into();
         if let Some(module_metadata) = self.module_metadata(path).await? {
             let module_id = module_metadata.id();
-            SystemMetadataModel::new(self.tx, TableNamespace::Global)
+            SystemMetadataModel::new(self.tx, namespace)
                 .delete(module_id)
                 .await?;
 
@@ -417,7 +417,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             let module_version = self
                 .get_version(module_id, module_metadata.latest_version)
                 .await?;
-            SystemMetadataModel::new(self.tx, TableNamespace::Global)
+            SystemMetadataModel::new(self.tx, namespace)
                 .delete(module_version.id())
                 .await?;
         }
@@ -494,15 +494,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     ) -> anyhow::Result<()> {
         let fields = vec![MODULE_ID_FIELD.clone()];
         let values = vec![Some(ConvexValue::from(module_id))];
+        let namespace = self
+            .tx
+            .table_mapping()
+            .tablet_namespace(module_id.table().tablet_id)?;
         let module_index_name = MODULE_VERSION_INDEX
             .clone()
-            .map_table(
-                &self
-                    .tx
-                    .table_mapping()
-                    .namespace(TableNamespace::Global)
-                    .name_to_id(),
-            )?
+            .map_table(&self.tx.table_mapping().namespace(namespace).name_to_id())?
             .into();
         self.tx.record_system_table_cache_hit(
             module_index_name,

@@ -5,7 +5,6 @@ use async_trait::async_trait;
 #[cfg(any(test, feature = "testing"))]
 use common::pause::PauseClient;
 use common::{
-    components::ComponentPath,
     errors::report_error,
     runtime::Runtime,
     types::UdfType,
@@ -131,10 +130,12 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = service_request_timer(&UdfType::Action);
-                let udf_path = request.params.path_and_args.path().udf_path.to_owned();
+                let path = request.params.path_and_args.path();
+                let udf_path = path.udf_path.to_owned();
+                let component = path.component.to_owned();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
-                    ComponentPath::root(),
+                    component,
                     environment_data,
                     request.identity,
                     request.transaction,
