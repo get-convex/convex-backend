@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use common::{
-    components::ComponentFunctionPath,
+    components::{
+        ComponentFunctionPath,
+        ComponentPath,
+    },
     pause::PauseClient,
     runtime::Runtime,
     types::{
@@ -15,6 +18,7 @@ use sync_types::{
     AuthenticationToken,
     SerializedQueryJournal,
     Timestamp,
+    UdfPath,
 };
 
 use crate::{
@@ -48,7 +52,7 @@ pub trait ApplicationApi: Send + Sync {
         host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
-        path: ComponentFunctionPath,
+        path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
@@ -60,7 +64,7 @@ pub trait ApplicationApi: Send + Sync {
         host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
-        path: ComponentFunctionPath,
+        path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
@@ -72,7 +76,7 @@ pub trait ApplicationApi: Send + Sync {
         host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
-        path: ComponentFunctionPath,
+        path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
@@ -86,7 +90,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
-        path: ComponentFunctionPath,
+        udf_path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
@@ -104,6 +108,10 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             ExecuteQueryTimestamp::Latest => *self.now_ts_for_reads(),
             ExecuteQueryTimestamp::At(ts) => ts,
         };
+        let path = ComponentFunctionPath {
+            component: ComponentPath::root(),
+            udf_path,
+        };
         self.read_only_udf_at_ts(request_id, path, args, identity, ts, journal, caller)
             .await
     }
@@ -113,7 +121,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
-        path: ComponentFunctionPath,
+        udf_path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
@@ -127,6 +135,10 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         let validate_time = self.runtime().system_time();
         let identity = self.authenticate(auth_token, validate_time).await?;
 
+        let path = ComponentFunctionPath {
+            component: ComponentPath::root(),
+            udf_path,
+        };
         self.mutation_udf(
             request_id,
             path,
@@ -144,7 +156,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: Option<&str>,
         request_id: RequestId,
         auth_token: AuthenticationToken,
-        path: ComponentFunctionPath,
+        udf_path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
@@ -156,6 +168,10 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         let validate_time = self.runtime().system_time();
         let identity = self.authenticate(auth_token, validate_time).await?;
 
+        let path = ComponentFunctionPath {
+            component: ComponentPath::root(),
+            udf_path,
+        };
         self.action_udf(request_id, path, args, identity, caller)
             .await
     }

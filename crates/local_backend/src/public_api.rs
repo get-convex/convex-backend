@@ -228,10 +228,7 @@ pub async fn public_query_get(
             host.as_deref(),
             request_id,
             auth_token,
-            ComponentFunctionPath {
-                component: ComponentPath::root(),
-                udf_path,
-            },
+            udf_path,
             args,
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
@@ -266,10 +263,7 @@ pub async fn public_query_post(
             host.as_deref(),
             request_id,
             auth_token,
-            ComponentFunctionPath {
-                component: ComponentPath::root(),
-                udf_path,
-            },
+            udf_path,
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
@@ -358,10 +352,7 @@ pub async fn public_mutation_post(
             host.as_deref(),
             request_id,
             auth_token,
-            ComponentFunctionPath {
-                component: ComponentPath::root(),
-                udf_path,
-            },
+            udf_path,
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             None,
@@ -399,10 +390,7 @@ pub async fn public_action_post(
             host.as_deref(),
             request_id,
             auth_token,
-            ComponentFunctionPath {
-                component: ComponentPath::root(),
-                udf_path,
-            },
+            udf_path,
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
         )

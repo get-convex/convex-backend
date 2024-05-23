@@ -28,10 +28,6 @@ use application::{
 };
 use cmd_util::env::env_config;
 use common::{
-    components::{
-        ComponentFunctionPath,
-        ComponentPath,
-    },
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     minitrace_helpers::get_sampled_span,
     runtime::{
@@ -467,10 +463,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 host.as_deref(),
                                 server_request_id,
                                 auth_token,
-                                ComponentFunctionPath {
-                                    component: ComponentPath::root(),
-                                    udf_path,
-                                },
+                                udf_path,
                                 args,
                                 FunctionCaller::SyncWorker(client_version),
                                 mutation_identifier,
@@ -533,10 +526,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             host.as_deref(),
                             server_request_id,
                             auth_token,
-                            ComponentFunctionPath {
-                                component: ComponentPath::root(),
-                                udf_path,
-                            },
+                            udf_path,
                             args,
                             FunctionCaller::SyncWorker(client_version),
                         )
@@ -694,10 +684,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 host.as_deref(),
                                 RequestId::new(),
                                 auth_token_,
-                                ComponentFunctionPath {
-                                    component: ComponentPath::root(),
-                                    udf_path: query.udf_path,
-                                },
+                                query.udf_path,
                                 query.args,
                                 FunctionCaller::SyncWorker(client_version),
                                 ExecuteQueryTimestamp::At(new_ts),
