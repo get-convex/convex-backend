@@ -136,13 +136,14 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// after the transaction has committed.
     pub async fn add_system_index(
         &mut self,
+        namespace: TableNamespace,
         index: IndexMetadata<TableName>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.tx.identity().is_admin() || self.tx.identity().is_system(),
             unauthorized_error("add_system_index")
         );
-        self._add_index(TableNamespace::Global, index).await?;
+        self._add_index(namespace, index).await?;
         Ok(())
     }
 

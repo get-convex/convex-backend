@@ -2121,12 +2121,12 @@ impl<RT: Runtime> Application<RT> {
                         .drop_index(existing_index_metadata.id())
                         .await?;
                     IndexModel::new(&mut tx)
-                        .add_system_index(index_metadata)
+                        .add_system_index(TableNamespace::Global, index_metadata)
                         .await?;
                 }
             } else {
                 IndexModel::new(&mut tx)
-                    .add_system_index(index_metadata)
+                    .add_system_index(TableNamespace::Global, index_metadata)
                     .await?;
             }
         }

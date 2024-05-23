@@ -212,8 +212,13 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
 ) -> anyhow::Result<()> {
     let mut tx = database.begin(Identity::system()).await?;
     for table in app_system_tables() {
-        let is_new =
-            initialize_application_system_table(&mut tx, table, &DEFAULT_TABLE_NUMBERS).await?;
+        let is_new = initialize_application_system_table(
+            &mut tx,
+            table,
+            TableNamespace::Global,
+            &DEFAULT_TABLE_NUMBERS,
+        )
+        .await?;
 
         if is_new {
             // This is a bit ugly to put here for initialization, but it's a bit more
@@ -232,11 +237,12 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
 pub async fn initialize_application_system_table<RT: Runtime>(
     tx: &mut Transaction<RT>,
     table: &dyn SystemTable,
+    namespace: TableNamespace,
     default_table_numbers: &BTreeMap<TableName, TableNumber>,
 ) -> anyhow::Result<bool> {
     let is_new = tx
         .create_system_table(
-            TableNamespace::Global,
+            namespace,
             table.table_name(),
             default_table_numbers.get(table.table_name()).cloned(),
         )
@@ -244,7 +250,9 @@ pub async fn initialize_application_system_table<RT: Runtime>(
     if is_new {
         for index in table.indexes() {
             let index_metadata = IndexMetadata::new_enabled(index.name, index.fields);
-            IndexModel::new(tx).add_system_index(index_metadata).await?;
+            IndexModel::new(tx)
+                .add_system_index(namespace, index_metadata)
+                .await?;
         }
     } else {
         // Create new indexes as backfilling.
@@ -285,7 +293,9 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                         index.name,
                         index.fields,
                     );
-                    IndexModel::new(tx).add_system_index(index_metadata).await?;
+                    IndexModel::new(tx)
+                        .add_system_index(namespace, index_metadata)
+                        .await?;
                 },
             }
         }
