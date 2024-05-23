@@ -25,6 +25,7 @@ use common::{
             TABLES_TABLE,
         },
     },
+    components::COMPONENTS_ENABLED,
     document::{
         CreationTime,
         DocumentUpdate,
@@ -644,19 +645,19 @@ impl<RT: Runtime> Transaction<RT> {
         default_table_number: Option<TableNumber>,
     ) -> anyhow::Result<TableNumber> {
         Ok(if let Some(default_table_number) = default_table_number {
-            let table_number = if self
+            let existing_name = self
                 .table_mapping()
-                .namespace(TableNamespace::Global)
-                .table_number_exists()(default_table_number)
-            {
+                .iter()
+                .find(|(_, _, table_number, _)| *table_number == default_table_number);
+            let table_number = if let Some((_, _, _, existing_name)) = existing_name {
                 // In tests, have a hard failure on conflicting default table numbers. In
                 // real system, have a looser fallback where we pick
                 // another table number.
-                if cfg!(any(test, feature = "testing")) {
-                    let table_mapping = self.table_mapping().namespace(TableNamespace::Global);
-                    let existing_tn = table_mapping.name_by_number_if_exists(default_table_number);
+                // Also allow this when components are enabled, because system tables in
+                // different namespaces have different table numbers.
+                if !*COMPONENTS_ENABLED && cfg!(any(test, feature = "testing")) {
                     anyhow::bail!(
-                        "{default_table_number} is used by both {table_name} and {existing_tn:?}"
+                        "{default_table_number} is used by both {table_name} and {existing_name}"
                     );
                 }
 

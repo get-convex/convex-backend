@@ -258,7 +258,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
         // Create new indexes as backfilling.
         let table_id = tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(namespace)
             .id(table.table_name())?
             .tablet_id;
         let mut index_model = IndexModel::new(tx);

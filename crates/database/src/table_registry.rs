@@ -210,8 +210,8 @@ impl TableRegistry {
         anyhow::ensure!(
             !self
                 .table_mapping
-                .namespace(TableNamespace::Global)
-                .table_number_exists()(table_number),
+                .iter()
+                .any(|(_, _, number, _)| number == table_number),
             "Cannot add a table with table number {table_number} since it already exists in the \
              table mapping"
         );
