@@ -26,7 +26,10 @@ use metrics::{
     Timer,
     STATUS_LABEL,
 };
-use prometheus::VMHistogram;
+use prometheus::{
+    VMHistogram,
+    VMHistogramVec,
+};
 use sync_types::CanonicalizedUdfPath;
 
 use crate::{
@@ -566,7 +569,9 @@ pub fn log_source_map_origin_in_separate_module() {
     log_counter(&SOURCE_MAP_ORIGIN_IN_SEPARATE_MODULE_TOTAL, 1);
 }
 
-register_convex_histogram!(MODULE_LOAD_SECONDS, "Time to loado modules");
-pub fn module_load_timer() -> Timer<VMHistogram> {
-    Timer::new(&MODULE_LOAD_SECONDS)
+register_convex_histogram!(MODULE_LOAD_SECONDS, "Time to load modules", &["source"]);
+pub fn module_load_timer(source: &'static str) -> Timer<VMHistogramVec> {
+    let mut timer = Timer::new_with_labels(&MODULE_LOAD_SECONDS);
+    timer.add_label(MetricLabel::new_const("source", source));
+    timer
 }

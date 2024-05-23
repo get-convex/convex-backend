@@ -12,7 +12,7 @@ use common::{
 };
 use database::Transaction;
 use futures::FutureExt;
-use isolate::environment::helpers::module_loader::get_module;
+use isolate::environment::helpers::module_loader::get_module_and_prefetch;
 use model::{
     config::module_loader::ModuleLoader,
     modules::{
@@ -85,6 +85,7 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             return Ok(Arc::new(source));
         }
 
+        let instance_name = self.instance_name.clone();
         let key = ModuleCacheKey {
             instance_name: self.instance_name.clone(),
             module_id: module_metadata.id(),
@@ -95,10 +96,27 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         let result = self
             .cache
             .0
-            .get(
+            .get_and_prepopulate(
                 key.clone(),
-                async move { get_module(&mut transaction, modules_storage, module_metadata).await }
-                    .boxed(),
+                async move {
+                    let modules =
+                        get_module_and_prefetch(&mut transaction, modules_storage, module_metadata)
+                            .await;
+                    modules
+                        .into_iter()
+                        .map(move |((module_id, module_version), source)| {
+                            (
+                                ModuleCacheKey {
+                                    instance_name: instance_name.clone(),
+                                    module_id,
+                                    module_version,
+                                },
+                                source,
+                            )
+                        })
+                        .collect()
+                }
+                .boxed(),
             )
             .await?;
         // Record read dependency on the module version so the transactions

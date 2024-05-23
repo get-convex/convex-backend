@@ -1027,3 +1027,7 @@ pub static STARTUP_RATE_LIMIT_ENABLED: LazyLock<bool> =
 /// Use multi segment search algorithm for search queries.
 pub static USE_MULTI_SEGMENT_SEARCH_QUERY: LazyLock<bool> =
     LazyLock::new(|| env_config("USE_MULTI_SEGMENT_SEARCH_QUERY", false));
+
+/// Read modules from SourcePackage instead of _module_versions.
+pub static READ_MODULES_FROM_SOURCE_PACKAGE: LazyLock<bool> =
+    LazyLock::new(|| env_config("READ_MODULES_FROM_SOURCE_PACKAGE", false));

@@ -15,7 +15,7 @@ use database::{
     Transaction,
 };
 use futures::FutureExt;
-use isolate::environment::helpers::module_loader::get_module;
+use isolate::environment::helpers::module_loader::get_module_and_prefetch;
 use keybroker::Identity;
 use model::{
     config::module_loader::ModuleLoader,
@@ -90,10 +90,12 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
         let modules_storage = self.modules_storage.clone();
         let result = self
             .cache
-            .get(
+            .get_and_prepopulate(
                 key,
-                async move { get_module(&mut cache_tx, modules_storage, module_metadata).await }
-                    .boxed(),
+                async move {
+                    get_module_and_prefetch(&mut cache_tx, modules_storage, module_metadata).await
+                }
+                .boxed(),
             )
             .await?;
         // Record read dependency on the module version so the transactions
