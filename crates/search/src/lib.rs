@@ -499,6 +499,10 @@ impl TantivySearchIndexSchema {
             *existing_key = cmp::min(*existing_key, sort_key);
         }
         let terms = results_by_term.keys().cloned().collect_vec();
+        // No matches, nothing left to do!
+        if terms.is_empty() {
+            return Ok(vec![]);
+        }
 
         // Step 3: Given the terms we decided on, query BM25 statistics across all of
         // the indexes and merge their results.
@@ -536,6 +540,13 @@ impl TantivySearchIndexSchema {
                 };
                 or_terms.push(or_term);
             }
+        }
+
+        // or_terms is the set of text tokens that matches our query. and_terms only
+        // filters these terms further. So if we have no or_terms, our result is
+        // empty regardless of any matching and_terms.
+        if or_terms.is_empty() {
+            return Ok(vec![]);
         }
 
         // Step 5: Execute the posting list query against the memory index's tombstones

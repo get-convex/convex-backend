@@ -602,4 +602,51 @@ mod tests {
 
         Ok(())
     }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_one_doc_added_then_deleted_single_build_does_not_include_deleted_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+        flusher.step().await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&name).await?;
+
+        let results = fixtures.search(name, "cat").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_one_doc_added_then_deleted_separate_builds_does_not_include_deleted_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexMetadata { name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&name).await?;
+
+        let results = fixtures.search(name, "cat").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
 }

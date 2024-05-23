@@ -47,6 +47,7 @@ use crate::{
         download_single_file_zip,
         upload_single_file,
     },
+    DocumentTerm,
     SearchFileType,
     TantivySearchIndexSchema,
     SEARCH_FIELD_ID,
@@ -319,12 +320,18 @@ pub async fn build_new_segment(
                 let terms = tantivy_schema.index_into_terms(prev_document)?;
                 // Create a set of unique terms so we don't double count terms. The count is the
                 // number of documents deleted containing the term.
-                let term_set: BTreeSet<_> = terms.into_iter().map(Term::from).collect();
+                let term_set: BTreeSet<_> = terms.into_iter()
+                    // TODO(sam): We don't actually want to filter out filter terms here. This will
+                    // be fixed in a follow-up that replaces directly opening the index with a
+                    // searchlight RPC
+                    .filter(|document_term| matches!(document_term, DocumentTerm::Search { .. }))
+                    .map(Term::from)
+                    .collect();
                 for term in term_set {
-                    let term_ord = segment
-                        .term_dict()
+                    let term_dict = segment.term_dict();
+                    let term_ord = term_dict
                         .term_ord(term.value_bytes())?
-                        .context("Term not found in dictionary")?;
+                        .context(format!("Term not found in dictionary: {term:?}"))?;
                     segment
                         .deletion_tracker
                         .increment_deleted_documents_for_term(term_ord, 1);
