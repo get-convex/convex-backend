@@ -25,7 +25,22 @@ use crate::{
 pub struct ComponentDefinitionMetadata {
     pub path: ComponentDefinitionPath,
     pub definition_type: ComponentDefinitionType,
+
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "proptest::collection::vec(proptest::prelude::any::<ComponentInstantiation>(), 0..2)"
+        )
+    )]
     pub child_components: Vec<ComponentInstantiation>,
+
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "proptest::collection::btree_map(proptest::prelude::any::<Identifier>(), \
+                        proptest::prelude::any::<ComponentExport>(), 0..4)"
+        )
+    )]
     pub exports: BTreeMap<Identifier, ComponentExport>,
 }
 
@@ -331,31 +346,6 @@ impl proptest::arbitrary::Arbitrary for ComponentExport {
             prop::collection::btree_map(any::<Identifier>(), inner, 1..4)
                 .prop_map(ComponentExport::Branch)
         })
-    }
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for ComponentDefinitionPath {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = ComponentDefinitionPath>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-
-        (0..=4, prop::collection::vec(any::<ComponentName>(), 0..=4))
-            .prop_map(|(depth, components)| {
-                let mut path = String::new();
-                for _ in 0..depth {
-                    path.push_str("../");
-                }
-                for component in components {
-                    path.push_str(&component);
-                    path.push('/');
-                }
-                path.parse().unwrap()
-            })
-            .boxed()
     }
 }
 
