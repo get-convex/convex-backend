@@ -320,7 +320,7 @@ impl<'a> Update<'a> {
             if table_update.activates() {
                 self.metadata.table_mapping.insert(
                     table_update.table_id_and_number.tablet_id,
-                    TableNamespace::Global,
+                    table_update.namespace,
                     table_update.table_id_and_number.table_number,
                     table_update.table_name.clone(),
                 );
