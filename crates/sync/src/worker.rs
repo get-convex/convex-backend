@@ -1,5 +1,4 @@
 use std::{
-    cmp,
     collections::BTreeMap,
     sync::{
         atomic::{
@@ -190,7 +189,6 @@ impl<RT: Runtime> SingleFlightReceiver<RT> {
 }
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);
-const MAX_TRANSITION_AGE: Duration = Duration::from_secs(30);
 
 pub struct SyncWorker<RT: Runtime> {
     api: Arc<dyn ApplicationApi>,
@@ -214,8 +212,7 @@ pub struct SyncWorker<RT: Runtime> {
     transition_future: Option<Fuse<BoxFuture<'static, anyhow::Result<TransitionState>>>>,
 
     // Has an update been scheduled for the future?
-    // If so, what is the minimum timestamp at which we should compute the transition.
-    update_scheduled: Option<Timestamp>,
+    update_scheduled: bool,
 
     connect_timer: Option<StatusTimer>,
 }
@@ -264,16 +261,13 @@ impl<RT: Runtime> SyncWorker<RT> {
             mutation_sender,
             action_futures: FuturesUnordered::new(),
             transition_future: None,
-            update_scheduled: None,
+            update_scheduled: false,
             connect_timer: Some(connect_timer()),
         }
     }
 
     fn schedule_update(&mut self) {
-        self.update_scheduled = cmp::max(
-            self.update_scheduled,
-            Some(*self.application.now_ts_for_reads()),
-        );
+        self.update_scheduled = true;
     }
 
     /// Run the sync protocol worker, returning `Ok(())` on clean exit and `Err`
@@ -303,8 +297,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 // We need to provide a guarantee that we can't transition to a
                 // timestamp past a pending mutation or otherwise optimistic updates
                 // might be flaky. To do that, we need to behave differently if we
-                // have pending operation future or not. We should also make update_scheduled
-                // be a min target timestamp instead of a boolean.
+                // have pending operation future or not.
                 result = self.mutation_futures.next().fuse() => {
                     let message = match result {
                         Some(m) => m?,
@@ -327,7 +320,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 },
                 _ = self.tx.message_consumed().fuse() => {
                     // Wake up if any message is consumed from the send buffer
-                    // in case we update_scheduled is True.
+                    // in case update_scheduled is True.
                     None
                 }
                 _ = ping_timeout => Some(ServerMessage::Ping {}),
@@ -351,15 +344,20 @@ impl<RT: Runtime> SyncWorker<RT> {
             }
             // Send update unless the send channel already contains enough transitions,
             // and unless we are already computing an update.
-            if let Some(mut target_ts) = self.update_scheduled
+            if self.update_scheduled
                 && self.tx.transition_count() < *SYNC_MAX_SEND_TRANSITION_COUNT
                 && self.transition_future.is_none()
             {
-                // If target_ts is too old, bump it to latest.
-                let now_ts = *self.application.now_ts_for_reads();
-                if now_ts.sub(MAX_TRANSITION_AGE)? > target_ts {
-                    target_ts = now_ts;
-                }
+                // Always transition to the latest timestamp. In the future,
+                // when we have Sync Worker running on the edge, we can remove this
+                // call by making self.update_scheduled to be a Option<Timestamp>,
+                // and set it accordingly based on the operation that triggered the
+                // Transition. We would choose the latest timestamp available at
+                // the edge for the initial sync.
+                let target_ts = *self
+                    .api
+                    .latest_timestamp(self.host.as_deref(), RequestId::new())
+                    .await?;
                 let new_transition_future = self.begin_update_queries(target_ts)?;
                 self.transition_future = Some(
                     async move {
@@ -373,7 +371,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     .boxed()
                     .fuse(),
                 );
-                self.update_scheduled = None;
+                self.update_scheduled = false;
             }
         }
         Ok(())
@@ -397,7 +395,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                 }
                 self.state.set_session_id(session_id);
                 if let Some(max_observed_timestamp) = max_observed_timestamp {
-                    let latest_timestamp = *self.application.now_ts_for_reads();
+                    let latest_timestamp = *self
+                        .api
+                        .latest_timestamp(self.host.as_deref(), RequestId::new())
+                        .await?;
                     if max_observed_timestamp > latest_timestamp {
                         // Unless there is a bug, this means the client have communicated
                         // with a backend that have database writes we are not aware of. If

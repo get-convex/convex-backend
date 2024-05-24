@@ -607,6 +607,7 @@ mod tests {
             .uri("/api/actions/schedule_job")
             .method("POST")
             .header("Authorization", backend.admin_auth_header.0.encode())
+            .header("Host", "localhost")
             .header("Content-Type", "application/json")
             .header("Convex-Action-Callback-Token", callback_token.clone())
             .body(schedule_body.clone().into())?;
@@ -624,6 +625,7 @@ mod tests {
             .uri("/api/query")
             .method("POST")
             .header("Authorization", backend.admin_auth_header.0.encode())
+            .header("Host", "localhost")
             .header("Content-Type", "application/json")
             .body(body)?;
         let result: JsonValue = backend.expect_success(req).await?;
@@ -653,6 +655,7 @@ mod tests {
             .uri("/api/actions/schedule_job")
             .method("POST")
             .header("Authorization", backend.admin_auth_header.0.encode())
+            .header("Host", "localhost")
             .header("Content-Type", "application/json")
             .header("Convex-Action-Callback-Token", callback_token.clone())
             .header("Convex-Parent-Scheduled-Job", system_job_id.clone())
@@ -687,6 +690,7 @@ mod tests {
             .uri("/api/query")
             .method("POST")
             .header("Authorization", backend.admin_auth_header.0.encode())
+            .header("Host", "localhost")
             .header("Content-Type", "application/json")
             .body(body)?;
         let result: JsonValue = backend.expect_success(req).await?;
