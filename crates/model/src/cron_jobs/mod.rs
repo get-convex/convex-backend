@@ -23,7 +23,9 @@ use database::{
     SystemMetadataModel,
     Transaction,
 };
+use sync_types::CanonicalizedModulePath;
 use value::{
+    heap_size::WithHeapSize,
     ConvexValue,
     FieldPath,
     ResolvedDocumentId,
@@ -32,6 +34,7 @@ use value::{
 };
 
 use crate::{
+    config::types::CronDiff,
     cron_jobs::{
         next_ts::compute_next_ts,
         types::{
@@ -44,6 +47,7 @@ use crate::{
             CronSpec,
         },
     },
+    modules::module_versions::AnalyzedModule,
     SystemIndex,
     SystemTable,
 };
@@ -137,6 +141,55 @@ pub struct CronModel<'a, RT: Runtime> {
 impl<'a, RT: Runtime> CronModel<'a, RT> {
     pub fn new(tx: &'a mut Transaction<RT>) -> Self {
         Self { tx }
+    }
+
+    pub async fn apply(
+        &mut self,
+        analyze_results: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+    ) -> anyhow::Result<CronDiff> {
+        let crons_js = "crons.js".parse()?;
+        let new_crons: WithHeapSize<BTreeMap<CronIdentifier, CronSpec>> =
+            if let Some(module) = analyze_results.get(&crons_js) {
+                module.cron_specs.clone().unwrap_or_default()
+            } else {
+                WithHeapSize::default()
+            };
+
+        let mut cron_model = CronModel::new(self.tx);
+        let old_crons = cron_model.list().await?;
+        let mut added_crons: Vec<&CronIdentifier> = vec![];
+        let mut updated_crons: Vec<&CronIdentifier> = vec![];
+        let mut deleted_crons: Vec<&CronIdentifier> = vec![];
+        for (name, cron_spec) in &new_crons {
+            match old_crons.get(&name.clone()) {
+                Some(cron_job) => {
+                    if cron_job.cron_spec != cron_spec.clone() {
+                        cron_model
+                            .update(cron_job.clone(), cron_spec.clone())
+                            .await?;
+                        updated_crons.push(name);
+                    }
+                },
+                None => {
+                    cron_model.create(name.clone(), cron_spec.clone()).await?;
+                    added_crons.push(name);
+                },
+            }
+        }
+        for (name, cron_job) in &old_crons {
+            match new_crons.get(&name.clone()) {
+                Some(_) => {},
+                None => {
+                    cron_model.delete(cron_job.clone()).await?;
+                    deleted_crons.push(name);
+                },
+            }
+        }
+        tracing::info!(
+            "Crons Added: {added_crons:?}, Updated: {updated_crons:?}, Deleted: {deleted_crons:?}"
+        );
+        let cron_diff = CronDiff::new(added_crons, updated_crons, deleted_crons);
+        Ok(cron_diff)
     }
 
     pub async fn create(

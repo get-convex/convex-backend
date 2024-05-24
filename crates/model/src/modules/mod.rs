@@ -1,5 +1,8 @@
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     sync::LazyLock,
 };
 
@@ -77,7 +80,10 @@ use self::{
 use crate::{
     config::{
         module_loader::ModuleLoader,
-        types::ModuleConfig,
+        types::{
+            ModuleConfig,
+            ModuleDiff,
+        },
     },
     source_packages::types::SourcePackageId,
     SystemIndex,
@@ -175,6 +181,68 @@ pub struct ModuleModel<'a, RT: Runtime> {
 impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub fn new(tx: &'a mut Transaction<RT>) -> Self {
         Self { tx }
+    }
+
+    pub async fn apply(
+        &mut self,
+        modules: Vec<ModuleConfig>,
+        source_package_id: Option<SourcePackageId>,
+        mut analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+    ) -> anyhow::Result<ModuleDiff> {
+        if modules.iter().any(|c| c.path.is_system()) {
+            anyhow::bail!("You cannot push functions under the '_system/' directory.");
+        }
+
+        let mut added_modules = BTreeSet::new();
+
+        // Add new modules.
+        let mut remaining_modules: BTreeSet<_> = self
+            .get_application_metadata(ComponentDefinitionId::Root)
+            .await?
+            .into_iter()
+            .map(|module| module.into_value().path)
+            .collect();
+        for module in modules {
+            let path = module.path.canonicalize();
+            if !remaining_modules.remove(&path) {
+                added_modules.insert(path.clone());
+            }
+            let analyze_result = if !path.is_deps() {
+                // We expect AnalyzeResult to always be set for non-dependency modules.
+                let analyze_result = analyze_results.remove(&path).context(format!(
+                    "Missing analyze result for module {}",
+                    path.as_str()
+                ))?;
+                Some(analyze_result)
+            } else {
+                // We don't analyze dependencies.
+                None
+            };
+            self.put(
+                CanonicalizedComponentModulePath {
+                    component: ComponentDefinitionId::Root,
+                    module_path: path.clone(),
+                },
+                module.source,
+                source_package_id,
+                module.source_map,
+                analyze_result,
+                module.environment,
+            )
+            .await?;
+        }
+
+        let mut removed_modules = BTreeSet::new();
+        for path in remaining_modules {
+            removed_modules.insert(path.clone());
+            ModuleModel::new(self.tx)
+                .delete(CanonicalizedComponentModulePath {
+                    component: ComponentDefinitionId::Root,
+                    module_path: path,
+                })
+                .await?;
+        }
+        ModuleDiff::new(added_modules, removed_modules)
     }
 
     /// Returns the registered modules metadata, including system modules.

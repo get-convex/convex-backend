@@ -12,18 +12,10 @@ mod index_tests;
 pub mod module_loader;
 pub mod types;
 
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
-};
+use std::collections::BTreeMap;
 
-use anyhow::Context;
 use common::{
-    bootstrap_model::schema::SchemaState,
-    components::{
-        CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
-    },
+    components::ComponentDefinitionId,
     runtime::Runtime,
     schemas::DatabaseSchema,
 };
@@ -35,10 +27,7 @@ use database::{
     Transaction,
 };
 use sync_types::CanonicalizedModulePath;
-use value::{
-    heap_size::WithHeapSize,
-    ResolvedDocumentId,
-};
+use value::ResolvedDocumentId;
 
 use self::module_loader::ModuleLoader;
 use crate::{
@@ -46,19 +35,10 @@ use crate::{
     config::types::{
         ConfigDiff,
         ConfigMetadata,
-        CronDiff,
         ModuleConfig,
-        ModuleDiff,
-        SchemaDiff,
         AUTH_CONFIG_FILE_NAME,
     },
-    cron_jobs::{
-        types::{
-            CronIdentifier,
-            CronSpec,
-        },
-        CronModel,
-    },
+    cron_jobs::CronModel,
     modules::{
         module_versions::AnalyzedModule,
         ModuleModel,
@@ -89,16 +69,14 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         modules: Vec<ModuleConfig>,
         new_config: UdfConfig,
         source_package: Option<SourcePackage>,
-        mut analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+        analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
         schema_id: Option<ResolvedDocumentId>,
     ) -> anyhow::Result<(ConfigDiff, Option<DatabaseSchema>)> {
         // TODO: Move this check up to `Application`.
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("apply_config"));
         }
-        if modules.iter().any(|c| c.path.is_system()) {
-            anyhow::bail!("You cannot push functions under the '_system/' directory.");
-        }
+
         let source_package_id = match source_package {
             Some(source_package) => {
                 Some(SourcePackageModel::new(self.tx).put(source_package).await?)
@@ -106,143 +84,15 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             None => None,
         };
 
-        let crons_js = "crons.js".parse()?;
-        let new_crons: WithHeapSize<BTreeMap<CronIdentifier, CronSpec>> =
-            if let Some(module) = analyze_results.get(&crons_js) {
-                module.cron_specs.clone().unwrap_or_default()
-            } else {
-                WithHeapSize::default()
-            };
+        let cron_diff = CronModel::new(self.tx).apply(&analyze_results).await?;
 
-        // TODO: Push some of this logic down into `cron_jobs/`.
-        let mut cron_model = CronModel::new(self.tx);
-        let old_crons = cron_model.list().await?;
-        let mut added_crons: Vec<&CronIdentifier> = vec![];
-        let mut updated_crons: Vec<&CronIdentifier> = vec![];
-        let mut deleted_crons: Vec<&CronIdentifier> = vec![];
-        for (name, cron_spec) in &new_crons {
-            match old_crons.get(&name.clone()) {
-                Some(cron_job) => {
-                    if cron_job.cron_spec != cron_spec.clone() {
-                        cron_model
-                            .update(cron_job.clone(), cron_spec.clone())
-                            .await?;
-                        updated_crons.push(name);
-                    }
-                },
-                None => {
-                    cron_model.create(name.clone(), cron_spec.clone()).await?;
-                    added_crons.push(name);
-                },
-            }
-        }
-        for (name, cron_job) in &old_crons {
-            match new_crons.get(&name.clone()) {
-                Some(_) => {},
-                None => {
-                    cron_model.delete(cron_job.clone()).await?;
-                    deleted_crons.push(name);
-                },
-            }
-        }
-        tracing::info!(
-            "Crons Added: {added_crons:?}, Updated: {updated_crons:?}, Deleted: {deleted_crons:?}"
-        );
-        let cron_diff = CronDiff::new(added_crons, updated_crons, deleted_crons);
+        let (schema_diff, next_schema) = SchemaModel::new(self.tx).apply(schema_id).await?;
 
-        // TODO: Extract this logic into `schema/`.
-        let mut schema_model = SchemaModel::new(self.tx);
-        let previous_schema = schema_model
-            .get_by_state(SchemaState::Active)
-            .await?
-            .map(|(_id, schema)| schema);
-        let next_schema = if let Some(schema_id) = schema_id {
-            Some(schema_model.get_validated_or_active(schema_id).await?.1)
-        } else {
-            None
-        };
-        let schema_diff: Option<SchemaDiff> =
-            (previous_schema != next_schema).then_some(SchemaDiff {
-                previous_schema,
-                next_schema: next_schema.clone(),
-            });
-        if let Some(schema_id) = schema_id {
-            schema_model.mark_active(schema_id).await?;
-        } else {
-            schema_model.clear_active().await?;
-        }
+        let index_diff = IndexModel::new(self.tx).apply(&next_schema).await?;
 
-        let empty = BTreeMap::new();
-        let tables_in_schema = next_schema
-            .as_ref()
-            .map(|schema| &schema.tables)
-            .unwrap_or(&empty);
-
-        // Without a schema id, we cannot accurately determine the status of
-        // indexes. So for legacy CLIs, we do nothing here and instead rely
-        // on build_indexes / legacy_get_indexes to commit index changes.
-        let index_diff = IndexModel::new(self.tx)
-            .commit_indexes_for_schema(tables_in_schema)
+        let module_diff = ModuleModel::new(self.tx)
+            .apply(modules, source_package_id, analyze_results)
             .await?;
-
-        tracing::info!(
-            "Committed indexes: (added {}. dropped {}) for schema: {schema_id:?}",
-            index_diff.added.len(),
-            index_diff.dropped.len(),
-        );
-
-        // TODO: Extract this logic into `modules/`.
-        let mut added_modules = BTreeSet::new();
-
-        // Add new modules.
-        let mut remaining_modules: BTreeSet<_> = ModuleModel::new(self.tx)
-            .get_application_metadata(ComponentDefinitionId::Root)
-            .await?
-            .into_iter()
-            .map(|module| module.into_value().path)
-            .collect();
-        for module in modules {
-            let path = module.path.canonicalize();
-            if !remaining_modules.remove(&path) {
-                added_modules.insert(path.clone());
-            }
-            let analyze_result = if !path.is_deps() {
-                // We expect AnalyzeResult to always be set for non-dependency modules.
-                let analyze_result = analyze_results.remove(&path).context(format!(
-                    "Missing analyze result for module {}",
-                    path.as_str()
-                ))?;
-                Some(analyze_result)
-            } else {
-                // We don't analyze dependencies.
-                None
-            };
-            ModuleModel::new(self.tx)
-                .put(
-                    CanonicalizedComponentModulePath {
-                        component: ComponentDefinitionId::Root,
-                        module_path: path.clone(),
-                    },
-                    module.source,
-                    source_package_id,
-                    module.source_map,
-                    analyze_result,
-                    module.environment,
-                )
-                .await?;
-        }
-
-        let mut removed_modules = BTreeSet::new();
-        for path in remaining_modules {
-            removed_modules.insert(path.clone());
-            ModuleModel::new(self.tx)
-                .delete(CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
-                    module_path: path,
-                })
-                .await?;
-        }
-        let module_diff = ModuleDiff::new(added_modules, removed_modules)?;
 
         // Update auth info.
         let auth_diff = AuthInfoModel::new(self.tx).put(config.auth_info).await?;

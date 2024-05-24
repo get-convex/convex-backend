@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests;
+pub mod types;
 
 use std::{
     sync::LazyLock,
@@ -40,6 +41,7 @@ use value::{
     TableNamespace,
 };
 
+use self::types::SchemaDiff;
 use crate::{
     defaults::{
         system_index,
@@ -89,6 +91,34 @@ pub struct SchemaModel<'a, RT: Runtime> {
 impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     pub fn new(tx: &'a mut Transaction<RT>) -> Self {
         Self { tx }
+    }
+
+    pub async fn apply(
+        &mut self,
+        schema_id: Option<ResolvedDocumentId>,
+    ) -> anyhow::Result<(Option<SchemaDiff>, Option<DatabaseSchema>)> {
+        let mut schema_model = SchemaModel::new(self.tx);
+        let previous_schema = schema_model
+            .get_by_state(SchemaState::Active)
+            .await?
+            .map(|(_id, schema)| schema);
+        let next_schema = if let Some(schema_id) = schema_id {
+            Some(schema_model.get_validated_or_active(schema_id).await?.1)
+        } else {
+            None
+        };
+        let schema_diff: Option<SchemaDiff> =
+            (previous_schema != next_schema).then_some(SchemaDiff {
+                previous_schema,
+                next_schema: next_schema.clone(),
+            });
+        if let Some(schema_id) = schema_id {
+            schema_model.mark_active(schema_id).await?;
+        } else {
+            schema_model.clear_active().await?;
+        }
+
+        Ok((schema_diff, next_schema))
     }
 
     pub async fn enforce(&mut self, document: &ResolvedDocument) -> anyhow::Result<()> {

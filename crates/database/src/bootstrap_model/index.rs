@@ -252,6 +252,31 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     // This method assumes it's being called in apply_config, or at least after
     // indexes have been added and backfilled.
+    pub async fn apply(
+        &mut self,
+        next_schema: &Option<DatabaseSchema>,
+    ) -> anyhow::Result<IndexDiff> {
+        let empty = std::collections::BTreeMap::new();
+        let tables_in_schema = next_schema
+            .as_ref()
+            .map(|schema| &schema.tables)
+            .unwrap_or(&empty);
+
+        // Without a schema id, we cannot accurately determine the status of
+        // indexes. So for legacy CLIs, we do nothing here and instead rely
+        // on build_indexes / legacy_get_indexes to commit index changes.
+        let index_diff = IndexModel::new(self.tx)
+            .commit_indexes_for_schema(tables_in_schema)
+            .await?;
+
+        tracing::info!(
+            "Committed indexes: (added {}. dropped {})",
+            index_diff.added.len(),
+            index_diff.dropped.len(),
+        );
+        Ok(index_diff)
+    }
+
     pub async fn commit_indexes_for_schema(
         &mut self,
         tables_in_schema: &BTreeMap<TableName, TableDefinition>,
