@@ -23,12 +23,14 @@ use common::{
     runtime::Runtime,
     types::{
         IndexId,
+        ObjectKey,
         TabletIndexName,
     },
 };
 use storage::Storage;
 use sync_types::Timestamp;
 use value::{
+    ConvexObject,
     InternalId,
     TabletId,
 };
@@ -66,35 +68,16 @@ pub trait SearchIndex: Clone {
 
     type Schema: Send + Sync;
 
-    /// Parse metadata from the IndexMetadata required to complete a compaction.
-    ///
-    /// In contrast to `extract_flush_metadata` below, this method requires that
-    /// a timestamp be present in the metadata. This is safe for any
-    /// compaction because a timestamp is always present if at least one
-    /// segment was ever built. Compaction never runs on empty indexes, so
-    /// at least one segment and therefore a timestamp must be available.
-    ///
-    /// The returned metadata will be mutated and written back to disk.
-    fn extract_compaction_metadata(
-        metadata: &mut ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(&Timestamp, &mut Vec<Self::Segment>)>;
+    // TODO(CX-6589): Make this infallible
+    fn new_metadata(
+        name: TabletIndexName,
+        developer_config: Self::DeveloperConfig,
+        new_state: SearchOnDiskState<Self>,
+    ) -> anyhow::Result<IndexMetadata<TabletId>>;
 
-    /// Parse metadata from the IndexMetadata required to complete a flush.
-    ///
-    /// In contrast to `extract_compaction_metadata`, this method will not
-    /// mutate the results but will instead write a new copy of the metadata
-    /// to disk. Flushes require a bit more information than compaction.
-    ///
-    /// A timestamp is required here because this may be the first flush for an
-    /// index, in which case a timestamp will not be present.
-    fn extract_flush_metadata(
+    fn extract_metadata(
         metadata: ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(
-        Option<Timestamp>,
-        Vec<Self::Segment>,
-        bool, // True if the index is snapshotted, false if it's backfilled or backfilling.
-        Self::DeveloperConfig,
-    )>;
+    ) -> anyhow::Result<(Self::DeveloperConfig, SearchOnDiskState<Self>)>;
 
     fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics>;
 
@@ -118,14 +101,6 @@ pub trait SearchIndex: Clone {
     fn segment_id(segment: &Self::Segment) -> String;
 
     fn estimate_document_size(schema: &Self::Schema, doc: &ResolvedDocument) -> u64;
-
-    fn new_metadata(
-        name: TabletIndexName,
-        developer_config: Self::DeveloperConfig,
-        new_and_modified_segments: Vec<Self::Segment>,
-        new_ts: Timestamp,
-        new_state: IndexMetadataState,
-    ) -> IndexMetadata<TabletId>;
 
     async fn build_disk_index(
         schema: &Self::Schema,
@@ -157,12 +132,6 @@ pub trait SearchIndex: Clone {
     ) -> anyhow::Result<Vec<Self::Segment>>;
 }
 
-pub enum IndexMetadataState {
-    SnapshottedAt,
-    Backfilled,
-    Backfilling(Option<InternalId>),
-}
-
 pub trait SegmentStatistics: Default {
     fn add(lhs: anyhow::Result<Self>, rhs: anyhow::Result<Self>) -> anyhow::Result<Self>;
     fn log(&self);
@@ -189,12 +158,75 @@ pub enum SearchOnDiskState<T: SearchIndex> {
     SnapshottedAt(SearchSnapshot<T>),
 }
 
-#[derive(Debug)]
+impl<T: SearchIndex> SearchOnDiskState<T> {
+    pub fn segments(&self) -> Vec<T::Segment> {
+        match self {
+            SearchOnDiskState::Backfilling(ref backfill_state) => backfill_state.segments.clone(),
+            SearchOnDiskState::Backfilled(ref snapshot)
+            | SearchOnDiskState::SnapshottedAt(ref snapshot) => snapshot.data.clone().segments(),
+        }
+    }
+
+    pub fn ts(&self) -> Option<&Timestamp> {
+        match self {
+            SearchOnDiskState::Backfilling(ref backfill_state) => {
+                backfill_state.backfill_snapshot_ts.as_ref()
+            },
+            SearchOnDiskState::Backfilled(ref snapshot)
+            | SearchOnDiskState::SnapshottedAt(ref snapshot) => Some(&snapshot.ts),
+        }
+    }
+
+    pub fn with_updated_snapshot(
+        self,
+        ts: Timestamp,
+        segments: Vec<T::Segment>,
+    ) -> anyhow::Result<Self> {
+        let snapshot = SearchSnapshot {
+            ts,
+            data: SnapshotData::MultiSegment(segments),
+        };
+        match self {
+            Self::Backfilling(_) => anyhow::bail!("Can't update backfilling index!"),
+            Self::Backfilled(_) => Ok(Self::Backfilled(snapshot)),
+            Self::SnapshottedAt(_) => Ok(Self::SnapshottedAt(snapshot)),
+        }
+    }
+
+    pub fn with_updated_segments(self, segments: Vec<T::Segment>) -> anyhow::Result<Self> {
+        match self {
+            Self::Backfilling(backfill) => Ok(Self::Backfilling(BackfillState {
+                segments,
+                ..backfill
+            })),
+            Self::Backfilled(snapshot) => Ok(Self::Backfilled(SearchSnapshot {
+                data: SnapshotData::MultiSegment(segments),
+                ..snapshot
+            })),
+            Self::SnapshottedAt(snapshot) => Ok(Self::SnapshottedAt(SearchSnapshot {
+                data: SnapshotData::MultiSegment(segments),
+                ..snapshot
+            })),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub enum SnapshotData<T> {
     /// An unrecognized snapshot, probably from a newer version of backend than
     /// this one that we subsequently rolled back.
-    Unknown,
+    Unknown(ConvexObject),
+    SingleSegment(ObjectKey),
     MultiSegment(Vec<T>),
+}
+
+impl<T> SnapshotData<T> {
+    pub fn segments(self) -> Vec<T> {
+        match self {
+            SnapshotData::Unknown(_) | SnapshotData::SingleSegment(_) => vec![],
+            SnapshotData::MultiSegment(segments) => segments,
+        }
+    }
 }
 
 impl<T> SnapshotData<T> {

@@ -219,8 +219,11 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
         } = result;
 
         match data {
-            SnapshotData::Unknown => {
-                anyhow::bail!("Created an unknown snapshot data type")
+            SnapshotData::Unknown(_) => {
+                anyhow::bail!("Created an unknown snapshot data type");
+            },
+            SnapshotData::SingleSegment(_) => {
+                anyhow::bail!("Created a single segment snapshot?");
             },
             SnapshotData::MultiSegment(segments) => {
                 self.write_search_metadata(job, snapshot_ts, segments, backfill_result)

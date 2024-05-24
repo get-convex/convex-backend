@@ -48,7 +48,6 @@ use search::{
     UpdatableTextSegment,
 };
 use storage::Storage;
-use sync_types::Timestamp;
 use value::{
     InternalId,
     TabletId,
@@ -57,7 +56,6 @@ use value::{
 use crate::{
     index_workers::index_meta::{
         BackfillState,
-        IndexMetadataState,
         PreviousSegmentsType,
         SearchIndex,
         SearchIndexConfig,
@@ -242,31 +240,18 @@ impl SearchIndex for TextSearchIndex {
         })
     }
 
-    fn extract_compaction_metadata(
-        _metadata: &mut ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(&Timestamp, &mut Vec<Self::Segment>)> {
-        anyhow::bail!("Not implemented");
-    }
-
-    fn extract_flush_metadata(
+    fn extract_metadata(
         _metadata: ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(
-        Option<Timestamp>,
-        Vec<Self::Segment>,
-        bool,
-        Self::DeveloperConfig,
-    )> {
+    ) -> anyhow::Result<(Self::DeveloperConfig, SearchOnDiskState<Self>)> {
         anyhow::bail!("Not implemented");
     }
 
     fn new_metadata(
         _name: TabletIndexName,
         _developer_config: Self::DeveloperConfig,
-        _new_and_modified_segments: Vec<Self::Segment>,
-        _new_ts: Timestamp,
-        _new_state: IndexMetadataState,
-    ) -> IndexMetadata<TabletId> {
-        panic!("Not implemented");
+        _new_state: SearchOnDiskState<Self>,
+    ) -> anyhow::Result<IndexMetadata<TabletId>> {
+        anyhow::bail!("Not implemented");
     }
 }
 
@@ -300,9 +285,8 @@ impl From<TextIndexSnapshot> for SearchSnapshot<TextSearchIndex> {
         Self {
             ts: snapshot.ts,
             data: match snapshot.data {
-                TextIndexSnapshotData::SingleSegment(_) | TextIndexSnapshotData::Unknown(_) => {
-                    SnapshotData::Unknown
-                },
+                TextIndexSnapshotData::SingleSegment(key) => SnapshotData::SingleSegment(key),
+                TextIndexSnapshotData::Unknown(obj) => SnapshotData::Unknown(obj),
                 TextIndexSnapshotData::MultiSegment(segments) => {
                     SnapshotData::MultiSegment(segments)
                 },

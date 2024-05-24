@@ -238,7 +238,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                 match snapshot.data {
                     // If we're on an old or unrecognized version, rebuild everything. The formats
                     // are not compatible.
-                    SnapshotData::Unknown => (
+                    SnapshotData::SingleSegment(_) | SnapshotData::Unknown(_) => (
                         vec![],
                         MultipartBuildType::IncrementalComplete {
                             cursor: None,

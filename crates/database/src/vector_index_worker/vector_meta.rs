@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
@@ -45,7 +44,6 @@ use search::{
     },
 };
 use storage::Storage;
-use sync_types::Timestamp;
 use value::{
     InternalId,
     TabletId,
@@ -58,7 +56,6 @@ use vector::{
 use crate::{
     index_workers::index_meta::{
         BackfillState,
-        IndexMetadataState,
         PreviousSegmentsType,
         SearchIndex,
         SearchIndexConfig,
@@ -88,17 +85,35 @@ impl SearchIndexConfigParser for VectorIndexConfigParser {
         };
         Some(SearchIndexConfig {
             developer_config,
-            on_disk_state: match on_disk_state {
-                VectorIndexState::Backfilling(backfill_state) => {
-                    SearchOnDiskState::Backfilling(backfill_state.into())
-                },
-                VectorIndexState::Backfilled(snapshot) => {
-                    SearchOnDiskState::Backfilled(snapshot.into())
-                },
-                VectorIndexState::SnapshottedAt(snapshot) => {
-                    SearchOnDiskState::SnapshottedAt(snapshot.into())
-                },
+            on_disk_state: SearchOnDiskState::from(on_disk_state),
+        })
+    }
+}
+
+impl From<VectorIndexState> for SearchOnDiskState<VectorSearchIndex> {
+    fn from(value: VectorIndexState) -> Self {
+        match value {
+            VectorIndexState::Backfilling(backfill_state) => {
+                SearchOnDiskState::Backfilling(backfill_state.into())
             },
+            VectorIndexState::Backfilled(snapshot) => {
+                SearchOnDiskState::Backfilled(snapshot.into())
+            },
+            VectorIndexState::SnapshottedAt(snapshot) => {
+                SearchOnDiskState::SnapshottedAt(snapshot.into())
+            },
+        }
+    }
+}
+
+impl TryFrom<SearchOnDiskState<VectorSearchIndex>> for VectorIndexState {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SearchOnDiskState<VectorSearchIndex>) -> anyhow::Result<Self> {
+        Ok(match value {
+            SearchOnDiskState::Backfilling(state) => Self::Backfilling(state.into()),
+            SearchOnDiskState::Backfilled(snapshot) => Self::Backfilled(snapshot.try_into()?),
+            SearchOnDiskState::SnapshottedAt(snapshot) => Self::SnapshottedAt(snapshot.try_into()?),
         })
     }
 }
@@ -226,14 +241,9 @@ impl SearchIndex for VectorSearchIndex {
         })
     }
 
-    fn extract_flush_metadata(
+    fn extract_metadata(
         metadata: ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(
-        Option<Timestamp>,
-        Vec<Self::Segment>,
-        bool,
-        Self::DeveloperConfig,
-    )> {
+    ) -> anyhow::Result<(Self::DeveloperConfig, SearchOnDiskState<Self>)> {
         let (on_disk_state, developer_config) = match metadata.into_value().config {
             IndexConfig::Database { .. } | IndexConfig::Search { .. } => {
                 anyhow::bail!("Index type changed!");
@@ -244,107 +254,22 @@ impl SearchIndex for VectorSearchIndex {
             } => (on_disk_state, developer_config),
         };
 
-        let is_snapshotted = match on_disk_state {
-            VectorIndexState::Backfilling(_) | VectorIndexState::Backfilled(_) => false,
-            VectorIndexState::SnapshottedAt(_) => true,
-        };
-        let (snapshot_ts, current_segments) = match on_disk_state {
-            VectorIndexState::Backfilling(state) => (state.backfill_snapshot_ts, state.segments),
-            VectorIndexState::Backfilled(snapshot) | VectorIndexState::SnapshottedAt(snapshot) => {
-                let current_segments = match snapshot.data {
-                    VectorIndexSnapshotData::Unknown(_) => {
-                        // We might be migrating to the multi segment format, so we have to be
-                        // lenient.
-                        vec![]
-                    },
-                    VectorIndexSnapshotData::MultiSegment(segments) => segments,
-                };
-
-                (Some(snapshot.ts), current_segments)
-            },
-        };
-
-        Ok((
-            snapshot_ts,
-            current_segments,
-            is_snapshotted,
-            developer_config,
-        ))
-    }
-
-    fn extract_compaction_metadata(
-        metadata: &mut ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(&Timestamp, &mut Vec<Self::Segment>)> {
-        let on_disk_state = match &mut metadata.config {
-            IndexConfig::Database { .. } | IndexConfig::Search { .. } => {
-                anyhow::bail!("Index type changed!");
-            },
-            IndexConfig::Vector {
-                ref mut on_disk_state,
-                ..
-            } => on_disk_state,
-        };
-        let (segments, snapshot_ts) = match on_disk_state {
-            VectorIndexState::Backfilling(VectorIndexBackfillState {
-                segments,
-                backfill_snapshot_ts,
-                ..
-            }) => (
-                segments,
-                backfill_snapshot_ts.as_ref().context(
-                    "cannot compact backfilling index without a backfill snapshot set yet",
-                )?,
-            ),
-            VectorIndexState::Backfilled(snapshot) | VectorIndexState::SnapshottedAt(snapshot) => {
-                let current_segments = match snapshot.data {
-                    VectorIndexSnapshotData::Unknown(_) => {
-                        anyhow::bail!("Index version changed!")
-                    },
-                    VectorIndexSnapshotData::MultiSegment(ref mut segments) => segments,
-                };
-                (current_segments, &snapshot.ts)
-            },
-        };
-        Ok((snapshot_ts, segments))
+        Ok((developer_config, SearchOnDiskState::from(on_disk_state)))
     }
 
     fn new_metadata(
         name: TabletIndexName,
         developer_config: Self::DeveloperConfig,
-        new_and_modified_segments: Vec<Self::Segment>,
-        new_ts: Timestamp,
-        new_state: IndexMetadataState,
-    ) -> IndexMetadata<TabletId> {
-        let new_on_disk_state = match new_state {
-            IndexMetadataState::SnapshottedAt => {
-                let snapshot = VectorIndexSnapshot {
-                    data: VectorIndexSnapshotData::MultiSegment(new_and_modified_segments),
-                    ts: new_ts,
-                };
-                VectorIndexState::SnapshottedAt(snapshot)
-            },
-            IndexMetadataState::Backfilled => {
-                let snapshot = VectorIndexSnapshot {
-                    data: VectorIndexSnapshotData::MultiSegment(new_and_modified_segments),
-                    ts: new_ts,
-                };
-                VectorIndexState::Backfilled(snapshot)
-            },
-            IndexMetadataState::Backfilling(cursor) => {
-                VectorIndexState::Backfilling(VectorIndexBackfillState {
-                    segments: new_and_modified_segments,
-                    cursor,
-                    backfill_snapshot_ts: Some(new_ts),
-                })
-            },
-        };
-        IndexMetadata {
+        new_state: SearchOnDiskState<Self>,
+    ) -> anyhow::Result<IndexMetadata<TabletId>> {
+        let new_on_disk_state = VectorIndexState::try_from(new_state)?;
+        Ok(IndexMetadata {
             name,
             config: IndexConfig::Vector {
                 on_disk_state: new_on_disk_state,
                 developer_config: developer_config.clone(),
             },
-        }
+        })
     }
 }
 
@@ -379,6 +304,16 @@ impl From<VectorIndexBackfillState> for BackfillState<VectorSearchIndex> {
     }
 }
 
+impl From<BackfillState<VectorSearchIndex>> for VectorIndexBackfillState {
+    fn from(value: BackfillState<VectorSearchIndex>) -> Self {
+        Self {
+            segments: value.segments,
+            cursor: value.cursor,
+            backfill_snapshot_ts: value.backfill_snapshot_ts,
+        }
+    }
+}
+
 impl From<VectorIndexSnapshot> for SearchSnapshot<VectorSearchIndex> {
     fn from(snapshot: VectorIndexSnapshot) -> Self {
         Self {
@@ -388,11 +323,38 @@ impl From<VectorIndexSnapshot> for SearchSnapshot<VectorSearchIndex> {
     }
 }
 
+// TODO(CX-6589): Make this infallible
+impl TryFrom<SearchSnapshot<VectorSearchIndex>> for VectorIndexSnapshot {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SearchSnapshot<VectorSearchIndex>) -> anyhow::Result<Self> {
+        Ok(VectorIndexSnapshot {
+            data: value.data.try_into()?,
+            ts: value.ts,
+        })
+    }
+}
+
 impl From<VectorIndexSnapshotData> for SnapshotData<FragmentedVectorSegment> {
     fn from(value: VectorIndexSnapshotData) -> Self {
         match value {
             VectorIndexSnapshotData::MultiSegment(values) => SnapshotData::MultiSegment(values),
-            VectorIndexSnapshotData::Unknown(_) => SnapshotData::Unknown,
+            VectorIndexSnapshotData::Unknown(obj) => SnapshotData::Unknown(obj),
         }
+    }
+}
+
+// TODO(CX-6589): Make this infallible
+impl TryFrom<SnapshotData<FragmentedVectorSegment>> for VectorIndexSnapshotData {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SnapshotData<FragmentedVectorSegment>) -> anyhow::Result<Self> {
+        Ok(match value {
+            SnapshotData::Unknown(obj) => Self::Unknown(obj),
+            SnapshotData::SingleSegment(_) => {
+                anyhow::bail!("Vector search can't have single segment indexes!")
+            },
+            SnapshotData::MultiSegment(data) => Self::MultiSegment(data),
+        })
     }
 }

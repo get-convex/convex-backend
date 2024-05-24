@@ -35,10 +35,13 @@ use value::ResolvedDocumentId;
 use crate::{
     index_workers::{
         index_meta::{
-            IndexMetadataState,
+            BackfillState,
             PreviousSegmentsType,
             SearchIndex,
+            SearchOnDiskState,
+            SearchSnapshot,
             SegmentType,
+            SnapshotData,
         },
         search_flusher::IndexBuild,
         MultiSegmentBackfillResult,
@@ -87,7 +90,7 @@ impl<RT: Runtime, T: SearchIndex> VectorMetadataWriter<RT, T> {
     /// the flusher because we're writing the result from the compactor.
     ///
     /// The race we're worried about is that the flusher may have written one or
-    /// more deletes to to the set of segments we just compacted. We need to
+    /// more deletes to the set of segments we just compacted. We need to
     /// ensure those new deletes end up in our newly compacted segment. To
     /// do so, we'll read the document log from the snapshot timestamp
     /// in the index metadata when compaction started and the current snapshot
@@ -218,10 +221,13 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let timer = vector_compaction_merge_commit_timer();
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let mut metadata = Self::require_index_metadata(&mut tx, index_id).await?;
-        let (snapshot_ts, mut current_segments) = T::extract_compaction_metadata(&mut metadata)?;
+
+        let (developer_config, state) = T::extract_metadata(metadata)?;
+        let snapshot_ts = *state.ts().context("Compacted a segment without a ts?")?;
+        let mut current_segments = state.segments().clone();
 
         let is_merge_required =
-            Self::is_compaction_merge_required(&segments_to_compact, current_segments)?;
+            Self::is_compaction_merge_required(&segments_to_compact, &current_segments)?;
         if is_merge_required {
             // Drop and then restart the transaction, it could take a while to
             // merge deletes.
@@ -230,7 +236,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                 .merge_deletes(
                     vec![new_segment],
                     start_compaction_ts,
-                    *snapshot_ts,
+                    snapshot_ts,
                     index_name.clone(),
                     rate_limit_pages_per_second,
                 )
@@ -239,7 +245,8 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             new_segment = results.into_iter().next().unwrap();
             tx = self.database.begin(Identity::system()).await?;
             metadata = Self::require_index_metadata(&mut tx, index_id).await?;
-            (_, current_segments) = T::extract_compaction_metadata(&mut metadata)?;
+            let (_, disk_state) = T::extract_metadata(metadata)?;
+            current_segments = disk_state.segments().clone();
         }
 
         let removed_segment_ids = segments_to_compact
@@ -252,10 +259,15 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .cloned()
             .chain(iter::once(new_segment))
             .collect_vec();
-        *current_segments = new_segments;
+
+        let new_metadata = T::new_metadata(
+            index_name,
+            developer_config,
+            state.with_updated_segments(new_segments)?,
+        )?;
 
         SystemMetadataModel::new_global(&mut tx)
-            .replace(metadata.id(), metadata.into_value().try_into()?)
+            .replace(index_id, new_metadata.try_into()?)
             .await?;
         self.database
             .commit_with_write_source(tx, "vector_index_worker_commit_compaction")
@@ -310,11 +322,9 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
-        // assert index metadata is in backfilling state
         anyhow::ensure!(metadata.config.is_backfilling());
 
-        // Get current segments in database and developer config
-        let (_, current_segments, _, developer_config) = T::extract_flush_metadata(metadata)?;
+        let (developer_config, state) = T::extract_metadata(metadata)?;
 
         // Find new segment and add to current segments to avoid race with compactor
         let new_segment = new_segment_id
@@ -325,7 +335,8 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                     .context("Missing new segment in segments list!")
             })
             .transpose()?;
-        new_and_modified_segments = current_segments
+        new_and_modified_segments = state
+            .segments()
             .into_iter()
             .chain(new_segment.into_iter())
             .collect_vec();
@@ -333,18 +344,21 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let metadata = T::new_metadata(
             job.index_name.clone(),
             developer_config,
-            new_and_modified_segments,
-            backfill_complete_ts,
             if backfill_result.is_backfill_complete {
-                IndexMetadataState::Backfilled
+                SearchOnDiskState::Backfilled(SearchSnapshot {
+                    ts: backfill_complete_ts,
+                    data: SnapshotData::MultiSegment(new_and_modified_segments),
+                })
             } else {
-                IndexMetadataState::Backfilling(
-                    backfill_result
+                SearchOnDiskState::Backfilling(BackfillState {
+                    segments: new_and_modified_segments,
+                    cursor: backfill_result
                         .new_cursor
                         .map(|cursor| cursor.internal_id()),
-                )
+                    backfill_snapshot_ts: Some(backfill_complete_ts),
+                })
             },
-        );
+        )?;
 
         SystemMetadataModel::new_global(&mut tx)
             .replace(job.metadata_id, metadata.try_into()?)
@@ -367,8 +381,9 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
-        let (start_snapshot_ts, current_segments, is_snapshotted, developer_config) =
-            T::extract_flush_metadata(metadata.clone())?;
+        let (developer_config, current_disk_state) = T::extract_metadata(metadata.clone())?;
+
+        let current_segments = current_disk_state.segments();
         let is_merge_required = Self::is_merge_flush_required(
             &new_and_modified_segments,
             &current_segments,
@@ -382,11 +397,12 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             // we necesssarily must have a snapshot timestamp for when those
             // segments were valid. So it's an error if we think we need to
             // merge with a compaction but have no snapshot timestamp.
-            let start_snapshot_ts =
-                start_snapshot_ts.context("Compaction ran before index had a snapshot")?;
+            let start_snapshot_ts = *current_disk_state
+                .ts()
+                .context("Compaction ran before index had a snapshot")?;
             let updated_segments = self
                 .merge_deletes(
-                    current_segments.clone(),
+                    current_segments,
                     // We're assuming that nothing else can touch the snapshot other than flushes.
                     // Right now this works because the flusher is already serial and its
                     // the only thing that advances the the metadata timestamp. If that were
@@ -420,14 +436,8 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let metadata = T::new_metadata(
             job.index_name.clone(),
             developer_config,
-            new_and_modified_segments,
-            new_ts,
-            if is_snapshotted {
-                IndexMetadataState::SnapshottedAt
-            } else {
-                IndexMetadataState::Backfilled
-            },
-        );
+            current_disk_state.with_updated_snapshot(new_ts, new_and_modified_segments)?,
+        )?;
 
         SystemMetadataModel::new_global(&mut tx)
             .replace(job.metadata_id, metadata.try_into()?)

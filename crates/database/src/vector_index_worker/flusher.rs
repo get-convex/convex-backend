@@ -145,8 +145,11 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         } = result;
 
         match data {
-            SnapshotData::Unknown => {
-                anyhow::bail!("Created an unknown snapshot data type")
+            SnapshotData::Unknown(_) => {
+                anyhow::bail!("Created an unknown snapshot data type");
+            },
+            SnapshotData::SingleSegment(_) => {
+                anyhow::bail!("Created a single segment snapshot?");
             },
             SnapshotData::MultiSegment(segments) => {
                 self.writer
