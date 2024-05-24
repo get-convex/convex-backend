@@ -50,7 +50,7 @@ pub enum ExecuteQueryTimestamp {
 pub trait ApplicationApi: Send + Sync {
     async fn execute_public_query(
         &self,
-        host: Option<&str>,
+        host: &str,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: UdfPath,
@@ -62,7 +62,7 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn execute_public_mutation(
         &self,
-        host: Option<&str>,
+        host: &str,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: UdfPath,
@@ -74,7 +74,7 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn execute_public_action(
         &self,
-        host: Option<&str>,
+        host: &str,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         path: UdfPath,
@@ -84,7 +84,7 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn latest_timestamp(
         &self,
-        host: Option<&str>,
+        host: &str,
         request_id: RequestId,
     ) -> anyhow::Result<RepeatableTimestamp>;
 }
@@ -94,7 +94,7 @@ pub trait ApplicationApi: Send + Sync {
 impl<RT: Runtime> ApplicationApi for Application<RT> {
     async fn execute_public_query(
         &self,
-        _host: Option<&str>,
+        _host: &str,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         udf_path: UdfPath,
@@ -125,7 +125,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_public_mutation(
         &self,
-        _host: Option<&str>,
+        _host: &str,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         udf_path: UdfPath,
@@ -160,7 +160,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_public_action(
         &self,
-        _host: Option<&str>,
+        _host: &str,
         request_id: RequestId,
         auth_token: AuthenticationToken,
         udf_path: UdfPath,
@@ -185,7 +185,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn latest_timestamp(
         &self,
-        _host: Option<&str>,
+        _host: &str,
         _request_id: RequestId,
     ) -> anyhow::Result<RepeatableTimestamp> {
         Ok(self.now_ts_for_reads())

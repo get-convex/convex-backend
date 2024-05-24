@@ -12,7 +12,10 @@ use application::{
     },
 };
 use axum::{
-    extract::State,
+    extract::{
+        Host,
+        State,
+    },
     response::IntoResponse,
 };
 use common::{
@@ -26,7 +29,6 @@ use common::{
             Query,
         },
         ExtractClientVersion,
-        ExtractHost,
         ExtractRequestId,
         HttpResponseError,
     },
@@ -215,8 +217,8 @@ pub fn export_value(
 pub async fn public_query_get(
     State(api): State<Arc<dyn ApplicationApi>>,
     Query(req): Query<UdfArgsQuery>,
+    Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractHost(host): ExtractHost,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -225,7 +227,7 @@ pub async fn public_query_get(
     let journal = None;
     let query_result = api
         .execute_public_query(
-            host.as_deref(),
+            host.as_str(),
             request_id,
             auth_token,
             udf_path,
@@ -250,8 +252,8 @@ pub async fn public_query_get(
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
     State(api): State<Arc<dyn ApplicationApi>>,
+    Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractHost(host): ExtractHost,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
@@ -260,7 +262,7 @@ pub async fn public_query_post(
     let journal = None;
     let query_return = api
         .execute_public_query(
-            host.as_deref(),
+            host.as_str(),
             request_id,
             auth_token,
             udf_path,
@@ -295,8 +297,8 @@ pub struct QueryBatchResponse {
 
 pub async fn public_query_batch_post(
     State(api): State<Arc<dyn ApplicationApi>>,
+    Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractHost(host): ExtractHost,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req_batch): Json<QueryBatchArgs>,
@@ -304,14 +306,14 @@ pub async fn public_query_batch_post(
     let mut results = vec![];
     // All queries execute at the same timestamp.
     let ts = api
-        .latest_timestamp(host.as_deref(), request_id.clone())
+        .latest_timestamp(host.as_str(), request_id.clone())
         .await?;
     for req in req_batch.queries {
         let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
         let udf_path = parse_udf_path(&req.path)?;
         let udf_return = api
             .execute_public_query(
-                host.as_deref(),
+                host.as_str(),
                 request_id.clone(),
                 auth_token.clone(),
                 udf_path,
@@ -341,8 +343,8 @@ pub async fn public_query_batch_post(
 #[minitrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
     State(api): State<Arc<dyn ApplicationApi>>,
+    Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractHost(host): ExtractHost,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
@@ -350,7 +352,7 @@ pub async fn public_mutation_post(
     let udf_path = parse_udf_path(&req.path)?;
     let udf_result = api
         .execute_public_mutation(
-            host.as_deref(),
+            host.as_str(),
             request_id,
             auth_token,
             udf_path,
@@ -378,8 +380,8 @@ pub async fn public_mutation_post(
 #[minitrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
     State(api): State<Arc<dyn ApplicationApi>>,
+    Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractHost(host): ExtractHost,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
@@ -388,7 +390,7 @@ pub async fn public_action_post(
 
     let action_result = api
         .execute_public_action(
-            host.as_deref(),
+            host.as_str(),
             request_id,
             auth_token,
             udf_path,
@@ -450,6 +452,7 @@ mod tests {
             .uri(uri)
             .method("POST")
             .header("Content-Type", "application/json")
+            .header("Host", "localhost")
             .body(body)?;
         match expected {
             Ok(expected) => {

@@ -197,7 +197,7 @@ pub struct SyncWorker<RT: Runtime> {
     config: SyncWorkerConfig,
     rt: RT,
     state: SyncState,
-    host: Option<String>,
+    host: String,
 
     rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
     tx: SingleFlightSender<RT>,
@@ -237,7 +237,7 @@ struct TransitionState {
 impl<RT: Runtime> SyncWorker<RT> {
     pub fn new(
         application: Application<RT>,
-        host: Option<String>,
+        host: String,
         config: SyncWorkerConfig,
         rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
         tx: SingleFlightSender<RT>,
@@ -356,7 +356,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 // the edge for the initial sync.
                 let target_ts = *self
                     .api
-                    .latest_timestamp(self.host.as_deref(), RequestId::new())
+                    .latest_timestamp(self.host.as_str(), RequestId::new())
                     .await?;
                 let new_transition_future = self.begin_update_queries(target_ts)?;
                 self.transition_future = Some(
@@ -397,7 +397,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 if let Some(max_observed_timestamp) = max_observed_timestamp {
                     let latest_timestamp = *self
                         .api
-                        .latest_timestamp(self.host.as_deref(), RequestId::new())
+                        .latest_timestamp(self.host.as_str(), RequestId::new())
                         .await?;
                     if max_observed_timestamp > latest_timestamp {
                         // Unless there is a bug, this means the client have communicated
@@ -461,7 +461,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                         timer.finish();
                         let result = api
                             .execute_public_mutation(
-                                host.as_deref(),
+                                host.as_ref(),
                                 server_request_id,
                                 auth_token,
                                 udf_path,
@@ -524,7 +524,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let future = async move {
                     let result = api
                         .execute_public_action(
-                            host.as_deref(),
+                            host.as_ref(),
                             server_request_id,
                             auth_token,
                             udf_path,
@@ -682,7 +682,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 // of a subscription. The sync worker is effectively the owner of
                                 // the query so we do not want to re-use the original query request
                                 // id.
-                                host.as_deref(),
+                                host.as_ref(),
                                 RequestId::new(),
                                 auth_token_,
                                 query.udf_path,

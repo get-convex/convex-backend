@@ -25,6 +25,7 @@ use axum::{
             WebSocket,
             WebSocketUpgrade,
         },
+        Host,
         State,
     },
     response::IntoResponse,
@@ -36,7 +37,6 @@ use common::{
     },
     http::{
         ExtractClientVersion,
-        ExtractHost,
         HttpResponseError,
     },
     runtime::Runtime,
@@ -122,7 +122,7 @@ impl Drop for SyncSocketDropToken {
 // gracefully close the socket.
 async fn run_sync_socket(
     st: LocalAppState,
-    host: Option<String>,
+    host: String,
     config: SyncWorkerConfig,
     socket: WebSocket,
     sentry_scope: sentry::Scope,
@@ -338,7 +338,7 @@ fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncW
 
 pub async fn sync_client_version_url(
     State(st): State<LocalAppState>,
-    ExtractHost(host): ExtractHost,
+    Host(host): Host,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -355,7 +355,7 @@ pub async fn sync_client_version_url(
 
 pub async fn sync(
     State(st): State<LocalAppState>,
-    ExtractHost(host): ExtractHost,
+    Host(host): Host,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {

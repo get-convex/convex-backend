@@ -132,9 +132,10 @@ impl SyncTest {
         let future = async move {
             // TODO(CX-597): The panic in this future currently gets swallowed by
             // `futures::RemoteHandle`.
-            if let Err(e) = SyncWorker::new(application_, None, config, client_rx, server_tx)
-                .go()
-                .await
+            if let Err(e) =
+                SyncWorker::new(application_, "".to_owned(), config, client_rx, server_tx)
+                    .go()
+                    .await
             {
                 worker_failed_.lock().replace(e);
             }
