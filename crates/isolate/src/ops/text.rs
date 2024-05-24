@@ -18,6 +18,7 @@ use serde_json::{
 };
 
 use super::OpProvider;
+use crate::request_scope::TextDecoderResource;
 
 #[convex_macro::v8_op]
 pub fn op_text_encoder_encode<'b, P: OpProvider<'b>>(
@@ -87,7 +88,7 @@ pub fn op_text_encoder_encode_into<'b, P: OpProvider<'b>>(
 }
 
 #[convex_macro::v8_op]
-pub fn op_text_encoder_decode<'b, P: OpProvider<'b>>(
+pub fn op_text_encoder_decode_single<'b, P: OpProvider<'b>>(
     provider: &mut P,
     args: TextDecodeArgs,
 ) -> anyhow::Result<JsonValue> {
@@ -124,6 +125,80 @@ pub fn op_text_encoder_decode<'b, P: OpProvider<'b>>(
         }
     } else {
         let (result, _, written, _) = decoder.decode_to_utf8(data.as_ref(), &mut output, true);
+        match result {
+            CoderResult::InputEmpty => {
+                output.truncate(written);
+                let text = std::str::from_utf8(&output).expect("decoded utf8 not valid");
+                Ok(json!({ "text": text }))
+            },
+            CoderResult::OutputFull => Ok(json!({ "error": "Provided buffer too small" })),
+        }
+    }
+}
+
+#[convex_macro::v8_op]
+pub fn op_text_encoder_new_decoder<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    encoding: String,
+    fatal: bool,
+    ignore_bom: bool,
+) -> anyhow::Result<JsonValue> {
+    let Some(encoding) = Encoding::for_label(encoding.as_bytes()) else {
+        return Ok(
+            json!({ "errorRangeError": format!("The encoding label provided ('{}') is invalid.", encoding) }),
+        );
+    };
+
+    let decoder = if ignore_bom {
+        encoding.new_decoder_without_bom_handling()
+    } else {
+        encoding.new_decoder_with_bom_removal()
+    };
+
+    let rid = provider.create_text_decoder(TextDecoderResource { decoder, fatal })?;
+    Ok(json!({ "result": rid.to_string() }))
+}
+
+#[convex_macro::v8_op]
+pub fn op_text_encoder_cleanup<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    decoder_id: uuid::Uuid,
+) -> anyhow::Result<JsonValue> {
+    provider.remove_text_decoder(&decoder_id)?;
+    Ok(JsonValue::Null)
+}
+
+#[convex_macro::v8_op]
+pub fn op_text_encoder_decode<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    data: JsBuffer,
+    decoder_id: uuid::Uuid,
+    stream: bool,
+) -> anyhow::Result<JsonValue> {
+    let resource = provider.get_text_decoder(&decoder_id)?;
+    let decoder = &mut resource.decoder;
+    let fatal = resource.fatal;
+
+    let Some(max_buffer_length) = decoder.max_utf8_buffer_length(data.len()) else {
+        return Ok(json!({ "error": "Value too large to decode" }));
+    };
+
+    let mut output = vec![0; max_buffer_length];
+
+    if fatal {
+        let (result, _, written) =
+            decoder.decode_to_utf8_without_replacement(data.as_ref(), &mut output, !stream);
+        match result {
+            DecoderResult::InputEmpty => {
+                output.truncate(written);
+                let text = std::str::from_utf8(&output).expect("decoded utf8 not valid");
+                Ok(json!({ "text": text }))
+            },
+            DecoderResult::OutputFull => Ok(json!({ "error": "Provided buffer too small" })),
+            DecoderResult::Malformed(..) => Ok(json!({ "error": "The encoded data is not valid" })),
+        }
+    } else {
+        let (result, _, written, _) = decoder.decode_to_utf8(data.as_ref(), &mut output, !stream);
         match result {
             CoderResult::InputEmpty => {
                 output.truncate(written);

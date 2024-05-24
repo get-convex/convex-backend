@@ -459,7 +459,10 @@ mod op_provider {
         environment::AsyncOpRequest,
         isolate2::client::PendingAsyncOp,
         ops::OpProvider,
-        request_scope::StreamListener,
+        request_scope::{
+            StreamListener,
+            TextDecoderResource,
+        },
     };
 
     impl<'callback, 'scope: 'callback> OpProvider<'scope> for CallbackContext<'callback, 'scope> {
@@ -571,6 +574,18 @@ mod op_provider {
             self.context_state()?
                 .environment
                 .get_table_mapping_without_system_tables()
+        }
+
+        fn create_text_decoder(&mut self, decoder: TextDecoderResource) -> anyhow::Result<Uuid> {
+            self.context_state()?.create_text_decoder(decoder)
+        }
+
+        fn get_text_decoder(&mut self, uuid: &Uuid) -> anyhow::Result<&mut TextDecoderResource> {
+            self.context_state()?.get_text_decoder(uuid)
+        }
+
+        fn remove_text_decoder(&mut self, uuid: &Uuid) -> anyhow::Result<TextDecoderResource> {
+            self.context_state()?.remove_text_decoder(uuid)
         }
     }
 }

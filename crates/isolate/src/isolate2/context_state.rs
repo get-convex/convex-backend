@@ -34,6 +34,7 @@ use crate::{
     request_scope::{
         ReadableStream,
         StreamListener,
+        TextDecoderResource,
     },
 };
 
@@ -54,6 +55,10 @@ pub struct ContextState {
     pub stream_listeners: WithHeapSize<BTreeMap<Uuid, StreamListener>>,
 
     pub console_timers: WithHeapSize<BTreeMap<String, UnixTimestamp>>,
+
+    // This is not wrapped in `WithHeapSize` so we can return `&mut TextDecoderStream`.
+    // Additionally, `TextDecoderResource` should have a fairly small heap size.
+    pub text_decoders: BTreeMap<uuid::Uuid, TextDecoderResource>,
 
     pub environment: Box<dyn Environment>,
 
@@ -79,6 +84,8 @@ impl ContextState {
             stream_listeners: BTreeMap::new().into(),
 
             console_timers: BTreeMap::new().into(),
+
+            text_decoders: BTreeMap::new(),
 
             environment,
 
@@ -163,6 +170,34 @@ impl ContextState {
             anyhow::bail!("cannot read from the same stream twice");
         }
         Ok(())
+    }
+
+    pub fn create_text_decoder(&mut self, resource: TextDecoderResource) -> anyhow::Result<Uuid> {
+        let id = CryptoOps::random_uuid(self.environment.rng()?)?;
+        self.text_decoders.insert(id, resource);
+        Ok(id)
+    }
+
+    pub fn get_text_decoder(
+        &mut self,
+        decoder_id: &uuid::Uuid,
+    ) -> anyhow::Result<&mut TextDecoderResource> {
+        let decoder = self
+            .text_decoders
+            .get_mut(decoder_id)
+            .ok_or_else(|| anyhow::anyhow!("Text decoder resource not found"))?;
+        Ok(decoder)
+    }
+
+    pub fn remove_text_decoder(
+        &mut self,
+        decoder_id: &uuid::Uuid,
+    ) -> anyhow::Result<TextDecoderResource> {
+        let decoder = self
+            .text_decoders
+            .remove(decoder_id)
+            .ok_or_else(|| anyhow::anyhow!("Text decoder resource not found"))?;
+        Ok(decoder)
     }
 }
 

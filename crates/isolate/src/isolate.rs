@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     ffi,
     ptr,
     sync::Arc,
@@ -303,6 +304,7 @@ impl<RT: Runtime> Isolate<RT> {
             streams: WithHeapSize::default(),
             stream_listeners: WithHeapSize::default(),
             console_timers: WithHeapSize::default(),
+            text_decoders: BTreeMap::new(),
         };
         Ok((self.handle.clone(), state))
     }

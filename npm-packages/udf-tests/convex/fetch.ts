@@ -112,6 +112,7 @@ export default action(async () => {
     fetchResponseStreamIsLockedWhileReadingBlob,
     fetchForbidden,
     fetchOlaf,
+    fetchBodyTextDecoderStream,
   });
 });
 
@@ -1754,4 +1755,28 @@ async function fetchOlaf() {
     headers: { "X-Olaf": "⛄" },
   });
   assert.strictEqual(response.headers.get("X-Olaf"), "â\x9B\x84");
+}
+
+async function fetchBodyTextDecoderStream() {
+  const data = JSON.stringify({
+    hello: "world",
+    foo: "bar",
+    baz: "qux",
+  });
+  const response = await fetch("http://localhost:4545/echo_server", {
+    method: "POST",
+    body: data,
+  });
+  assert(response.body !== null);
+  const decodedStream = response.body!.pipeThrough(new TextDecoderStream());
+  const reader = decodedStream.getReader();
+  let decodedBody = "";
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    assert(value);
+    decodedBody += value;
+  }
+  assert.strictEqual(decodedBody, data);
 }

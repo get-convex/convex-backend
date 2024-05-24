@@ -19,6 +19,7 @@ use deno_core::{
     v8,
     ModuleSpecifier,
 };
+use encoding_rs::Decoder;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
@@ -95,6 +96,14 @@ pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     pub streams: WithHeapSize<BTreeMap<uuid::Uuid, anyhow::Result<ReadableStream>>>,
     pub stream_listeners: WithHeapSize<BTreeMap<uuid::Uuid, StreamListener>>,
     pub console_timers: WithHeapSize<BTreeMap<String, UnixTimestamp>>,
+    // This is not wrapped in `WithHeapSize` so we can return `&mut TextDecoderStream`.
+    // Additionally, `TextDecoderResource` should have a fairly small heap size.
+    pub text_decoders: BTreeMap<uuid::Uuid, TextDecoderResource>,
+}
+
+pub struct TextDecoderResource {
+    pub decoder: Decoder,
+    pub fatal: bool,
 }
 
 #[derive(Debug, Default)]
@@ -137,6 +146,38 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
         let uuid = CryptoOps::random_uuid(rng)?;
         self.streams.insert(uuid, Ok(ReadableStream::default()));
         Ok(uuid)
+    }
+
+    pub fn create_text_decoder(
+        &mut self,
+        decoder: TextDecoderResource,
+    ) -> anyhow::Result<uuid::Uuid> {
+        let rng = self.environment.rng()?;
+        let uuid = CryptoOps::random_uuid(rng)?;
+        self.text_decoders.insert(uuid, decoder);
+        Ok(uuid)
+    }
+
+    pub fn get_text_decoder(
+        &mut self,
+        decoder_id: &uuid::Uuid,
+    ) -> anyhow::Result<&mut TextDecoderResource> {
+        let decoder = self
+            .text_decoders
+            .get_mut(decoder_id)
+            .ok_or_else(|| anyhow::anyhow!("Text decoder resource not found"))?;
+        Ok(decoder)
+    }
+
+    pub fn remove_text_decoder(
+        &mut self,
+        decoder_id: &uuid::Uuid,
+    ) -> anyhow::Result<TextDecoderResource> {
+        let decoder = self
+            .text_decoders
+            .remove(decoder_id)
+            .ok_or_else(|| anyhow::anyhow!("Text decoder resource not found"))?;
+        Ok(decoder)
     }
 
     #[allow(unused)]

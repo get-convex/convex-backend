@@ -114,9 +114,12 @@ use self::{
     text::{
         op_atob,
         op_btoa,
+        op_text_encoder_cleanup,
         op_text_encoder_decode,
+        op_text_encoder_decode_single,
         op_text_encoder_encode,
         op_text_encoder_encode_into,
+        op_text_encoder_new_decoder,
         op_text_encoder_normalize_label,
     },
     time::{
@@ -140,6 +143,7 @@ use crate::{
     request_scope::{
         ReadableStream,
         StreamListener,
+        TextDecoderResource,
     },
 };
 
@@ -178,6 +182,10 @@ pub trait OpProvider<'b> {
         stream_id: Uuid,
         listener: StreamListener,
     ) -> anyhow::Result<()>;
+
+    fn create_text_decoder(&mut self, decoder: TextDecoderResource) -> anyhow::Result<Uuid>;
+    fn get_text_decoder(&mut self, uuid: &Uuid) -> anyhow::Result<&mut TextDecoderResource>;
+    fn remove_text_decoder(&mut self, uuid: &Uuid) -> anyhow::Result<TextDecoderResource>;
 
     fn get_environment_variable(&mut self, name: EnvVarName)
         -> anyhow::Result<Option<EnvVarValue>>;
@@ -299,6 +307,18 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
         self.update_stream_listeners()
     }
 
+    fn create_text_decoder(&mut self, decoder: TextDecoderResource) -> anyhow::Result<Uuid> {
+        self.state_mut()?.create_text_decoder(decoder)
+    }
+
+    fn get_text_decoder(&mut self, uuid: &Uuid) -> anyhow::Result<&mut TextDecoderResource> {
+        self.state_mut()?.get_text_decoder(uuid)
+    }
+
+    fn remove_text_decoder(&mut self, uuid: &Uuid) -> anyhow::Result<TextDecoderResource> {
+        self.state_mut()?.remove_text_decoder(uuid)
+    }
+
     fn get_environment_variable(
         &mut self,
         name: EnvVarName,
@@ -358,7 +378,10 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         "stream/extend" => op_stream_extend(provider, args, rv)?,
         "textEncoder/encode" => op_text_encoder_encode(provider, args, rv)?,
         "textEncoder/encodeInto" => op_text_encoder_encode_into(provider, args, rv)?,
+        "textEncoder/decodeSingle" => op_text_encoder_decode_single(provider, args, rv)?,
         "textEncoder/decode" => op_text_encoder_decode(provider, args, rv)?,
+        "textEncoder/newDecoder" => op_text_encoder_new_decoder(provider, args, rv)?,
+        "textEncoder/cleanup" => op_text_encoder_cleanup(provider, args, rv)?,
         "textEncoder/normalizeLabel" => op_text_encoder_normalize_label(provider, args, rv)?,
         "atob" => op_atob(provider, args, rv)?,
         "btoa" => op_btoa(provider, args, rv)?,
