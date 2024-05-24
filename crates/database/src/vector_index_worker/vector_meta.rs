@@ -121,9 +121,13 @@ impl PreviousSegmentsType for PreviousVectorSegments {
         self.maybe_delete_convex(convex_id)
     }
 }
+pub struct BuildVectorIndexArgs {
+    pub full_scan_threshold_bytes: usize,
+}
 
 #[async_trait]
 impl SearchIndex for VectorSearchIndex {
+    type BuildIndexArgs = BuildVectorIndexArgs;
     type DeveloperConfig = DeveloperVectorIndexConfig;
     type NewSegment = VectorDiskSegmentValues;
     type PreviousSegments = PreviousVectorSegments;
@@ -187,8 +191,10 @@ impl SearchIndex for VectorSearchIndex {
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
         _reader: RepeatablePersistence,
-        full_scan_threshold_bytes: usize,
         previous_segments: &mut Self::PreviousSegments,
+        BuildVectorIndexArgs {
+            full_scan_threshold_bytes,
+        }: Self::BuildIndexArgs,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
         schema
             .build_disk_index(

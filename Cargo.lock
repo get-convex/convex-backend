@@ -7182,6 +7182,7 @@ dependencies = [
  "byteorder",
  "common 0.1.0",
  "csf",
+ "maplit",
  "metrics",
  "sucds",
  "tantivy",

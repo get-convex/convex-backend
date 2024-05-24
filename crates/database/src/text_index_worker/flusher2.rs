@@ -18,15 +18,13 @@ use common::{
         },
         IndexMetadata,
     },
-    knobs::{
-        MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-        SEARCH_INDEX_SIZE_SOFT_LIMIT,
-    },
+    knobs::SEARCH_INDEX_SIZE_SOFT_LIMIT,
     persistence::PersistenceReader,
     runtime::Runtime,
     types::TabletIndexName,
 };
 use keybroker::Identity;
+use search::searcher::SegmentTermMetadataFetcher;
 use storage::Storage;
 use sync_types::Timestamp;
 
@@ -49,6 +47,7 @@ use crate::{
         log_documents_per_new_segment,
     },
     text_index_worker::text_meta::{
+        BuildTextIndexArgs,
         TextIndexConfigParser,
         TextSearchIndex,
     },
@@ -63,6 +62,8 @@ pub(crate) const FLUSH_RUNNING_LABEL: &str = "flush_running";
 pub struct TextIndexFlusher2<RT: Runtime> {
     flusher: SearchFlusher<RT, TextIndexConfigParser>,
     database: Database<RT>,
+    storage: Arc<dyn Storage>,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
 
     #[allow(unused)]
     #[cfg(any(test, feature = "testing"))]
@@ -77,6 +78,7 @@ pub(crate) struct FlusherBuilder<RT: Runtime> {
     database: Database<RT>,
     reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     limits: SearchIndexLimits,
     #[cfg(any(test, feature = "testing"))]
     should_terminate: bool,
@@ -90,15 +92,16 @@ impl<RT: Runtime> FlusherBuilder<RT> {
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
+        segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     ) -> Self {
         Self {
             runtime,
             database,
             reader,
             storage,
+            segment_term_metadata_fetcher,
             limits: SearchIndexLimits {
                 index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
-                full_scan_segment_max_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
                 incremental_multipart_threshold_bytes: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
             },
             #[cfg(any(test, feature = "testing"))]
@@ -135,12 +138,14 @@ impl<RT: Runtime> FlusherBuilder<RT> {
             self.runtime,
             self.database.clone(),
             self.reader,
-            self.storage,
+            self.storage.clone(),
             self.limits,
         );
         TextIndexFlusher2 {
             flusher,
             database: self.database,
+            storage: self.storage,
+            segment_term_metadata_fetcher: self.segment_term_metadata_fetcher,
             #[cfg(any(test, feature = "testing"))]
             should_terminate: self.should_terminate,
             #[cfg(any(test, feature = "testing"))]
@@ -155,8 +160,9 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
+        segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     ) -> Self {
-        FlusherBuilder::new(runtime, database, reader, storage).build()
+        FlusherBuilder::new(runtime, database, reader, storage, segment_metadata_fetcher).build()
     }
 
     /// Run one step of the IndexFlusher's main loop.
@@ -193,7 +199,14 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
     async fn build_one(&self, job: IndexBuild<TextSearchIndex>) -> anyhow::Result<u32> {
         let timer = crate::metrics::search::build_one_timer();
 
-        let result = self.flusher.build_multipart_segment(&job).await?;
+        let build_index_args = BuildTextIndexArgs {
+            search_storage: self.storage.clone(),
+            segment_term_metadata_fetcher: self.segment_term_metadata_fetcher.clone(),
+        };
+        let result = self
+            .flusher
+            .build_multipart_segment(&job, build_index_args)
+            .await?;
         tracing::debug!("Built a text segment for: {result:#?}");
 
         let IndexBuildResult {

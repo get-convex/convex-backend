@@ -41,6 +41,7 @@ use common::{
 use search::{
     build_new_segment,
     disk_index::upload_text_segment,
+    searcher::SegmentTermMetadataFetcher,
     NewTextSegment,
     PreviousTextSegments,
     TantivySearchIndexSchema,
@@ -120,8 +121,14 @@ impl SegmentType for FragmentedTextSegment {
         0
     }
 }
+pub struct BuildTextIndexArgs {
+    pub search_storage: Arc<dyn Storage>,
+    pub segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+}
+
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
+    type BuildIndexArgs = BuildTextIndexArgs;
     type DeveloperConfig = DeveloperSearchIndexConfig;
     type NewSegment = NewTextSegment;
     type PreviousSegments = PreviousTextSegments;
@@ -158,16 +165,19 @@ impl SearchIndex for TextSearchIndex {
         storage: Arc<dyn Storage>,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments> {
-        Ok(PreviousTextSegments(
-            try_join_buffer_unordered(
-                rt,
-                "download_text_meta",
-                segments
-                    .into_iter()
-                    .map(move |segment| UpdatableTextSegment::download(segment, storage.clone())),
-            )
-            .await?,
-        ))
+        let segments: Vec<_> = try_join_buffer_unordered(
+            rt,
+            "download_text_meta",
+            segments
+                .into_iter()
+                .map(move |segment| UpdatableTextSegment::download(segment, storage.clone())),
+        )
+        .await?;
+        let segments = segments
+            .into_iter()
+            .map(|updatable_segment| (updatable_segment.segment_key().clone(), updatable_segment))
+            .collect();
+        Ok(PreviousTextSegments(segments))
     }
 
     async fn upload_previous_segments<RT: Runtime>(
@@ -180,7 +190,7 @@ impl SearchIndex for TextSearchIndex {
             "upload_text_metadata",
             segments
                 .0
-                .into_iter()
+                .into_values()
                 .map(move |segment| segment.upload_metadata(storage.clone())),
         )
         .await
@@ -195,15 +205,21 @@ impl SearchIndex for TextSearchIndex {
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
         reader: RepeatablePersistence,
-        _large_segment_threshold_bytes: usize,
         previous_segments: &mut Self::PreviousSegments,
+        BuildTextIndexArgs {
+            search_storage,
+            segment_term_metadata_fetcher,
+        }: BuildTextIndexArgs,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
         let revision_stream = Box::pin(stream_revision_pairs(documents, &reader));
+
         build_new_segment(
             revision_stream,
             schema.clone(),
             index_path,
             previous_segments,
+            segment_term_metadata_fetcher,
+            search_storage,
         )
         .await
     }

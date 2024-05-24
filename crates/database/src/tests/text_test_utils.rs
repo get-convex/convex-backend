@@ -38,6 +38,7 @@ use maplit::btreeset;
 use must_let::must_let;
 use search::{
     searcher::InProcessSearcher,
+    SegmentTermMetadataFetcher,
     MAX_CANDIDATE_REVISIONS,
 };
 use storage::Storage;
@@ -72,11 +73,13 @@ pub struct TextFixtures {
     pub storage: Arc<dyn Storage>,
     pub db: Database<TestRuntime>,
     pub reader: Arc<dyn PersistenceReader>,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     namespace: TableNamespace,
 }
 
 impl TextFixtures {
     pub async fn new(rt: TestRuntime) -> anyhow::Result<Self> {
+        let in_process_searcher = InProcessSearcher::new(rt.clone()).await?;
         let DbFixtures {
             tp,
             db,
@@ -85,17 +88,19 @@ impl TextFixtures {
         } = DbFixtures::new_with_args(
             &rt,
             DbFixturesArgs {
-                searcher: Some(Arc::new(InProcessSearcher::new(rt.clone()).await?)),
+                searcher: Some(Arc::new(in_process_searcher.clone())),
                 ..Default::default()
             },
         )
         .await?;
+        let segment_term_metadata_fetcher = Arc::new(in_process_searcher);
 
         Ok(Self {
             rt,
             db,
             reader: tp.reader(),
             storage: search_storage,
+            segment_term_metadata_fetcher,
             namespace: TableNamespace::Global,
         })
     }
@@ -115,6 +120,7 @@ impl TextFixtures {
             self.db.clone(),
             self.reader.clone(),
             self.storage.clone(),
+            self.segment_term_metadata_fetcher.clone(),
         )
     }
 

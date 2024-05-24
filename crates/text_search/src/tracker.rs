@@ -299,15 +299,18 @@ impl MemoryDeletionTracker {
         Ok(())
     }
 
-    pub fn increment_deleted_documents_for_term(&mut self, term_ord: TermOrdinal, count: u32) {
-        self.term_to_deleted_documents
-            .entry(term_ord)
-            .and_modify(|n| *n += count)
-            .or_insert(count);
-    }
-
-    pub fn set_num_deleted_terms(&mut self, num_deleted_terms: u32) {
-        self.num_deleted_terms = num_deleted_terms;
+    pub fn update_term_metadata(
+        &mut self,
+        term_documents_deleted: BTreeMap<TermOrdinal, u32>,
+        num_terms_deleted: u64,
+    ) {
+        for (term_ord, num_docs_deleted) in term_documents_deleted {
+            self.term_to_deleted_documents
+                .entry(term_ord)
+                .and_modify(|n| *n += num_docs_deleted)
+                .or_insert(num_docs_deleted);
+        }
+        self.num_deleted_terms = num_terms_deleted as u32;
     }
 
     pub fn write_to_path<P: AsRef<Path>>(
@@ -374,6 +377,8 @@ impl MemoryDeletionTracker {
 #[cfg(test)]
 mod tests {
 
+    use maplit::btreemap;
+
     use super::MemoryDeletionTracker;
     use crate::tracker::DeletedTermsTable;
 
@@ -394,10 +399,11 @@ mod tests {
     #[test]
     fn test_deleted_term_table_roundtrips() -> anyhow::Result<()> {
         let mut memory_tracker = MemoryDeletionTracker::new(10);
-        let term_ord_1 = 5;
-        memory_tracker.increment_deleted_documents_for_term(term_ord_1, 2);
-        let term_ord_2 = 3;
-        memory_tracker.increment_deleted_documents_for_term(term_ord_2, 1);
+        let term_documents_deleted = btreemap! {
+            5 => 2,
+            3 => 1,
+        };
+        memory_tracker.update_term_metadata(term_documents_deleted, 0);
 
         let mut buf = Vec::new();
         MemoryDeletionTracker::write_deleted_terms(
@@ -410,8 +416,8 @@ mod tests {
         let (num_deleted_terms, deleted_terms_table) = DeletedTermsTable::load(file_len, &buf[..])?;
         assert_eq!(num_deleted_terms, 0);
         let deleted_terms_table = deleted_terms_table.unwrap();
-        assert_eq!(deleted_terms_table.term_documents_deleted(term_ord_1)?, 2);
-        assert_eq!(deleted_terms_table.term_documents_deleted(term_ord_2)?, 1);
+        assert_eq!(deleted_terms_table.term_documents_deleted(5)?, 2);
+        assert_eq!(deleted_terms_table.term_documents_deleted(3)?, 1);
         Ok(())
     }
 }

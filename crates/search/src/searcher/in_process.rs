@@ -23,13 +23,17 @@ use vector::{
     VectorSearcher,
 };
 
-use super::searcher::{
-    Bm25Stats,
-    PostingListMatch,
-    PostingListQuery,
-    TextStorageKeys,
-    TokenMatch,
-    TokenQuery,
+use super::{
+    searcher::{
+        Bm25Stats,
+        PostingListMatch,
+        PostingListQuery,
+        TextStorageKeys,
+        TokenMatch,
+        TokenQuery,
+    },
+    SegmentTermMetadata,
+    TermValuesAndDeleteCounts,
 };
 use crate::{
     query::{
@@ -40,6 +44,7 @@ use crate::{
     searcher::SearcherImpl,
     tantivy_query::SearchQueryResult,
     Searcher,
+    SegmentTermMetadataFetcher,
     TantivySearchIndexSchema,
 };
 
@@ -125,6 +130,18 @@ impl VectorSearcher for SearcherStub {
     }
 }
 
+#[async_trait]
+impl SegmentTermMetadataFetcher for SearcherStub {
+    async fn segment_term_metadata(
+        &self,
+        _search_storage: Arc<dyn Storage>,
+        _storage_key: ObjectKey,
+        _terms: TermValuesAndDeleteCounts,
+    ) -> anyhow::Result<SegmentTermMetadata> {
+        unimplemented!()
+    }
+}
+
 #[derive(Clone)]
 pub struct InProcessSearcher<RT: Runtime> {
     searcher: Arc<SearcherImpl<RT>>,
@@ -141,6 +158,20 @@ impl<RT: Runtime> InProcessSearcher<RT> {
             ),
             _tmpdir: Arc::new(tmpdir),
         })
+    }
+}
+
+#[async_trait]
+impl<RT: Runtime> SegmentTermMetadataFetcher for InProcessSearcher<RT> {
+    async fn segment_term_metadata(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        storage_key: ObjectKey,
+        terms: TermValuesAndDeleteCounts,
+    ) -> anyhow::Result<SegmentTermMetadata> {
+        self.searcher
+            .segment_term_metadata(search_storage, storage_key, terms)
+            .await
     }
 }
 

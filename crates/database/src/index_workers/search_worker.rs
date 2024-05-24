@@ -18,7 +18,10 @@ use futures::{
     select_biased,
     FutureExt,
 };
-use search::Searcher;
+use search::{
+    searcher::SegmentTermMetadataFetcher,
+    Searcher,
+};
 use storage::Storage;
 use sync_types::backoff::Backoff;
 
@@ -70,6 +73,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         reader: Arc<dyn PersistenceReader>,
         search_storage: Arc<dyn Storage>,
         searcher: Arc<dyn Searcher>,
+        segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     ) {
         let vector_writer =
             VectorMetadataWriter::new(runtime.clone(), database.clone(), search_storage.clone());
@@ -106,6 +110,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 database.clone(),
                 reader,
                 search_storage,
+                segment_term_metadata_fetcher,
             ))
         } else {
             SearchIndexWorker::TextFlusher(TextIndexFlusher::new(

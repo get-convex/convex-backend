@@ -62,6 +62,8 @@ pub trait SearchIndex: Clone {
 
     type Statistics: SegmentStatistics;
 
+    type BuildIndexArgs: Send;
+
     type Schema: Send + Sync;
 
     /// Parse metadata from the IndexMetadata required to complete a compaction.
@@ -130,8 +132,8 @@ pub trait SearchIndex: Clone {
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
         reader: RepeatablePersistence,
-        large_segment_threshold_bytes: usize,
         previous_segments: &mut Self::PreviousSegments,
+        build_index_args: Self::BuildIndexArgs,
     ) -> anyhow::Result<Option<Self::NewSegment>>;
 
     fn new_schema(config: &Self::DeveloperConfig) -> Self::Schema;

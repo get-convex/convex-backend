@@ -136,7 +136,10 @@ pub use self::{
         SearchIndexManagerState,
         SnapshotInfo,
     },
-    searcher::Searcher,
+    searcher::{
+        Searcher,
+        SegmentTermMetadataFetcher,
+    },
 };
 use crate::{
     aggregation::TokenMatchAggregator,

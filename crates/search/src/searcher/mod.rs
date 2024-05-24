@@ -20,6 +20,7 @@ pub use searcher::{
     SegmentTermMetadataFetcher,
     Term,
     TermValue,
+    TermValuesAndDeleteCounts,
     TextStorageKeys,
     TokenMatch,
     TokenQuery,

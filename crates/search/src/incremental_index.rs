@@ -1,5 +1,8 @@
 use std::{
-    collections::BTreeSet,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     path::{
         Path,
         PathBuf,
@@ -13,8 +16,13 @@ use common::{
     bootstrap_model::index::text_index::FragmentedTextSegment,
     id_tracker::StaticIdTracker,
     persistence::DocumentRevisionStream,
+    types::ObjectKey,
 };
-use futures::TryStreamExt;
+use futures::{
+    stream,
+    StreamExt,
+    TryStreamExt,
+};
 use storage::{
     Storage,
     StorageExt,
@@ -22,13 +30,10 @@ use storage::{
 use tantivy::{
     directory::MmapDirectory,
     fastfield::AliveBitSet,
-    schema::Field,
-    termdict::TermDictionary,
     DocAddress,
     DocId,
     Index,
     IndexBuilder,
-    InvertedIndexReader,
     SingleSegmentIndexWriter,
     Term,
 };
@@ -47,10 +52,14 @@ use crate::{
         download_single_file_zip,
         upload_single_file,
     },
+    searcher::{
+        SegmentTermMetadata,
+        SegmentTermMetadataFetcher,
+        TermValuesAndDeleteCounts,
+    },
     DocumentTerm,
     SearchFileType,
     TantivySearchIndexSchema,
-    SEARCH_FIELD_ID,
 };
 
 /// The maximum size of a segment in bytes. 10MB.
@@ -76,35 +85,22 @@ pub struct TextSegmentPaths {
 }
 
 pub struct UpdatableTextSegment {
-    // TODO(CX-6494): Use the term statistics diff file instead of reading the index contents.
-    inverted_index: Arc<InvertedIndexReader>,
     id_tracker: StaticIdTracker,
-    deletion_tracker: MemoryDeletionTracker,
+    pub(crate) deletion_tracker: MemoryDeletionTracker,
     original: FragmentedTextSegment,
 }
 
-fn inverted_index_from_index(index: &Index) -> anyhow::Result<Arc<InvertedIndexReader>> {
-    let index_reader = index.reader()?;
-    let searcher = index_reader.searcher();
-    let segment_reader = searcher.segment_reader(0);
-    let inverted_index = segment_reader.inverted_index(Field::from_field_id(SEARCH_FIELD_ID))?;
-    Ok(inverted_index)
-}
 impl UpdatableTextSegment {
-    pub fn term_dict(&self) -> &TermDictionary {
-        self.inverted_index.terms()
+    pub fn segment_key(&self) -> &ObjectKey {
+        &self.original.segment_key
     }
 
     #[cfg(any(test, feature = "testing"))]
     pub fn load(paths: &TextSegmentPaths) -> anyhow::Result<Self> {
-        let mmap_directory = MmapDirectory::open(&paths.index_path)?;
-        let index = Index::open(mmap_directory)?;
-        let inverted_index = inverted_index_from_index(&index)?;
         let id_tracker = StaticIdTracker::load_from_path(&paths.id_tracker_path)?;
         let deletion_tracker =
             MemoryDeletionTracker::load(&paths.alive_bit_set_path, &paths.deleted_terms_path)?;
         Ok(UpdatableTextSegment {
-            inverted_index,
             id_tracker,
             deletion_tracker,
             // TODO(sam): We should probably create this outside of this method, then pass it
@@ -176,9 +172,6 @@ impl UpdatableTextSegment {
             .into_async_read()
             .compat();
         extract_zip(&index_path, stream).await?;
-        let mmap_directory = MmapDirectory::open(index_path)?;
-        let index = Index::open(mmap_directory)?;
-        let inverted_index = inverted_index_from_index(&index)?;
 
         let id_tracker_path = tmp_dir.path().join(ID_TRACKER_PATH);
         download_single_file_zip(&original.id_tracker_key, &id_tracker_path, storage.clone())
@@ -204,7 +197,6 @@ impl UpdatableTextSegment {
             MemoryDeletionTracker::load(&alive_bitset_path, &deleted_terms_path)?;
 
         Ok(UpdatableTextSegment {
-            inverted_index,
             id_tracker,
             deletion_tracker,
             original,
@@ -213,55 +205,58 @@ impl UpdatableTextSegment {
 }
 
 #[derive(Default)]
-pub struct PreviousTextSegments(pub Vec<UpdatableTextSegment>);
+pub struct PreviousTextSegments(pub BTreeMap<ObjectKey, UpdatableTextSegment>);
 
 impl PreviousTextSegments {
     /// Returns the index to the segment containing the live document and the
     /// tantivy id, if it exists
-    fn segment_for_document(&self, convex_id: InternalId) -> Option<(usize, DocId)> {
-        for (i, segment) in self.0.iter().enumerate() {
+    fn segment_for_document(&self, convex_id: InternalId) -> Option<(ObjectKey, DocId)> {
+        for (segment_key, segment) in self.0.iter() {
             if let Some(tantivy_id) = segment.id_tracker.lookup(convex_id.0)
                 && segment.deletion_tracker.alive_bitset.contains(tantivy_id)
             {
-                return Some((i, tantivy_id));
+                return Some((segment_key.clone(), tantivy_id));
             }
         }
         None
     }
 
-    /// Deletes a document (if present) and returns the index to the segment
-    /// that it was deleted from
-    pub fn delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<Option<usize>> {
-        let Some((segment_idx, tantivy_id)) = self.segment_for_document(convex_id) else {
+    /// Deletes a document (if present) and returns the segment key of the
+    /// segment that it was deleted from
+    pub fn delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<Option<ObjectKey>> {
+        let Some((segment_key, tantivy_id)) = self.segment_for_document(convex_id) else {
             return Ok(None);
         };
-        self.0[segment_idx]
+        self.must_get_mut(&segment_key)
             .deletion_tracker
             .alive_bitset
             .remove(tantivy_id);
-        Ok(Some(segment_idx))
+        Ok(Some(segment_key.clone()))
     }
 
-    // TODO(sam): Call this when uploading previous segments.
-    pub fn finalize(self) -> Vec<MemoryDeletionTracker> {
-        self.0
-            .into_iter()
-            .map(|mut segment| {
-                let num_deleted_terms = segment
-                    .deletion_tracker
-                    .term_to_deleted_documents
-                    .iter()
-                    .filter(|(term_ord, num_deleted_docs)| {
-                        let term_info = segment.term_dict().term_info_from_ord(**term_ord);
-                        term_info.doc_freq == **num_deleted_docs
-                    })
-                    .count() as u32;
-                segment
-                    .deletion_tracker
-                    .set_num_deleted_terms(num_deleted_terms);
-                segment.deletion_tracker
-            })
-            .collect()
+    /// Returns the segment with the given key, panics if not found. This is
+    /// useful if we got the segment key from one of these other methods so we
+    /// know the key exists.
+    fn must_get_mut(&mut self, segment_key: &ObjectKey) -> &mut UpdatableTextSegment {
+        self.0.get_mut(segment_key).expect("Segment key not found")
+    }
+
+    fn update_term_deletion_metadata(
+        &mut self,
+        segments_term_metadata: Vec<(ObjectKey, SegmentTermMetadata)>,
+    ) {
+        for (
+            segment_key,
+            SegmentTermMetadata {
+                term_documents_deleted,
+                num_terms_deleted,
+            },
+        ) in segments_term_metadata
+        {
+            self.must_get_mut(&segment_key)
+                .deletion_tracker
+                .update_term_metadata(term_documents_deleted, num_terms_deleted);
+        }
     }
 }
 
@@ -276,6 +271,8 @@ pub async fn build_new_segment(
     tantivy_schema: TantivySearchIndexSchema,
     dir: &Path,
     previous_segments: &mut PreviousTextSegments,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+    search_storage: Arc<dyn Storage>,
 ) -> anyhow::Result<Option<NewTextSegment>> {
     let index_path = dir.join("index_path");
     std::fs::create_dir(&index_path)?;
@@ -299,6 +296,8 @@ pub async fn build_new_segment(
     let mut num_indexed_documents = 0;
 
     let mut is_at_least_one_document_indexed = false;
+    let mut term_deletes_by_segment: BTreeMap<ObjectKey, TermValuesAndDeleteCounts> =
+        BTreeMap::new();
 
     while let Some(revision_pair) = revision_stream.try_next().await? {
         let convex_id = revision_pair.id.internal_id();
@@ -313,10 +312,13 @@ pub async fn build_new_segment(
         document_ids_seen.insert(convex_id);
         // Delete
         if let Some(prev_document) = revision_pair.prev_document() {
-            if let Some(segment_idx) =
+            if let Some(segment_key) =
                 previous_segments.delete_document(prev_document.id().internal_id())?
             {
-                let segment = &mut previous_segments.0[segment_idx];
+                let segment = previous_segments
+                    .0
+                    .get(&segment_key)
+                    .context("Segment key not found")?;
                 let terms = tantivy_schema.index_into_terms(prev_document)?;
                 // Create a set of unique terms so we don't double count terms. The count is the
                 // number of documents deleted containing the term.
@@ -328,13 +330,30 @@ pub async fn build_new_segment(
                     .map(Term::from)
                     .collect();
                 for term in term_set {
-                    let term_dict = segment.term_dict();
-                    let term_ord = term_dict
-                        .term_ord(term.value_bytes())?
-                        .context(format!("Term not found in dictionary: {term:?}"))?;
-                    segment
-                        .deletion_tracker
-                        .increment_deleted_documents_for_term(term_ord, 1);
+                    let term_value = term.value_bytes().to_vec();
+                    if let Some(term_values_and_delete_counts) =
+                        term_deletes_by_segment.get_mut(&segment.original.segment_key)
+                    {
+                        term_values_and_delete_counts
+                            .entry(term_value)
+                            .and_modify(|count| {
+                                *count += 1;
+                            })
+                            .or_insert(1);
+                    } else {
+                        let mut term_values_and_delete_counts =
+                            TermValuesAndDeleteCounts::default();
+                        term_values_and_delete_counts
+                            .entry(term_value)
+                            .and_modify(|count| {
+                                *count += 1;
+                            })
+                            .or_insert(1);
+                        term_deletes_by_segment.insert(
+                            segment.original.segment_key.clone(),
+                            term_values_and_delete_counts,
+                        );
+                    }
                 }
             } else {
                 // Add this document to dangling deletes because it was not present in other
@@ -358,18 +377,26 @@ pub async fn build_new_segment(
         "Dangling deletes is not empty. A document was deleted that is not present in other \
          segments nor in this stream"
     );
+
+    let segments_term_metadata = get_all_segment_term_metadata(
+        search_storage,
+        segment_term_metadata_fetcher,
+        term_deletes_by_segment,
+    )
+    .await?;
+    previous_segments.update_term_deletion_metadata(segments_term_metadata);
+
     if !is_at_least_one_document_indexed {
         return Ok(None);
     }
+    // Finalize the segment and write to trackers
     segment_writer.finalize()?;
-
     let new_deletion_tracker = MemoryDeletionTracker::new(new_id_tracker.num_ids() as u32);
     let alive_bit_set_path = dir.join(ALIVE_BITSET_PATH);
     let deleted_terms_path = dir.join(DELETED_TERMS_PATH);
     new_deletion_tracker.write_to_path(&alive_bit_set_path, &deleted_terms_path)?;
     let id_tracker_path = dir.join(ID_TRACKER_PATH);
     new_id_tracker.write(&id_tracker_path)?;
-
     let paths = TextSegmentPaths {
         index_path,
         id_tracker_path,
@@ -380,6 +407,38 @@ pub async fn build_new_segment(
         paths,
         num_indexed_documents,
     }))
+}
+
+async fn get_all_segment_term_metadata(
+    storage: Arc<dyn Storage>,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+    term_deletes_by_segment: BTreeMap<ObjectKey, TermValuesAndDeleteCounts>,
+) -> anyhow::Result<Vec<(ObjectKey, SegmentTermMetadata)>> {
+    let segment_term_metadata_futs = term_deletes_by_segment.into_iter().map(
+        move |(segment_key, term_values_and_delete_counts)| {
+            let segment_key = segment_key.clone();
+            let segment_term_metadata_fetcher = segment_term_metadata_fetcher.clone();
+            let storage = storage.clone();
+            async move {
+                let term_metadata = segment_term_metadata_fetcher
+                    .clone()
+                    .segment_term_metadata(
+                        storage.clone(),
+                        segment_key.clone(),
+                        term_values_and_delete_counts,
+                    )
+                    .await?;
+                anyhow::Ok::<(ObjectKey, SegmentTermMetadata)>((segment_key, term_metadata))
+            }
+        },
+    );
+    // TODO: Use `try_join_buffer_unordered` helper here. We couldn't figure out the
+    // higher-ranked lifetime error.
+    let segments_term_metadata: Vec<_> = stream::iter(segment_term_metadata_futs)
+        .buffer_unordered(10)
+        .try_collect::<Vec<_>>()
+        .await?;
+    Ok(segments_term_metadata)
 }
 
 pub struct SearchSegmentForMerge {

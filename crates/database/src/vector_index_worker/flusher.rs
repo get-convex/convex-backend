@@ -16,7 +16,10 @@ use common::{
 };
 use storage::Storage;
 
-use super::writer::VectorMetadataWriter;
+use super::{
+    vector_meta::BuildVectorIndexArgs,
+    writer::VectorMetadataWriter,
+};
 use crate::{
     index_workers::{
         index_meta::SnapshotData,
@@ -39,6 +42,15 @@ use crate::{
 pub struct VectorIndexFlusher<RT: Runtime> {
     writer: VectorMetadataWriter<RT, VectorSearchIndex>,
     flusher: SearchFlusher<RT, VectorIndexConfigParser>,
+    /// The maximum vector segment size at which it's reasonable to search the
+    /// segment by simply iterating over every item individually.
+    ///
+    /// This is only used for vector search where:
+    /// 1. We want to avoid the CPU  cost of building an expensive HNSW segment
+    ///    for small segments
+    /// 2. It's more accurate/efficient to perform a linear scan than use HNSW
+    ///    anyway.
+    pub full_scan_segment_max_kb: usize,
 
     #[allow(unused)]
     #[cfg(any(test, feature = "testing"))]
@@ -63,13 +75,13 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             storage,
             SearchIndexLimits {
                 index_size_soft_limit: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-                full_scan_segment_max_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
                 incremental_multipart_threshold_bytes: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
             },
         );
         Self {
             flusher,
             writer,
+            full_scan_segment_max_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             #[cfg(any(test, feature = "testing"))]
             should_terminate: false,
             #[cfg(any(test, feature = "testing"))]
@@ -111,7 +123,15 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     async fn build_one(&self, job: IndexBuild<VectorSearchIndex>) -> anyhow::Result<u32> {
         let timer = metrics::vector::build_one_timer();
 
-        let result = self.flusher.build_multipart_segment(&job).await?;
+        let result = self
+            .flusher
+            .build_multipart_segment(
+                &job,
+                BuildVectorIndexArgs {
+                    full_scan_threshold_bytes: self.full_scan_segment_max_kb,
+                },
+            )
+            .await?;
         tracing::debug!("Built a vector segment for: {result:#?}");
 
         // 3. Update the vector index metadata.
@@ -236,12 +256,12 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             storage,
             SearchIndexLimits {
                 index_size_soft_limit,
-                full_scan_segment_max_kb,
                 incremental_multipart_threshold_bytes,
             },
         );
         Self {
             flusher,
+            full_scan_segment_max_kb,
             should_terminate: true,
             writer,
             pause_client,

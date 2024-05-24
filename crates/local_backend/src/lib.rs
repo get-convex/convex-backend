@@ -68,6 +68,7 @@ use runtime::prod::ProdRuntime;
 use search::{
     searcher::InProcessSearcher,
     Searcher,
+    SegmentTermMetadataFetcher,
 };
 use serde::Serialize;
 
@@ -143,7 +144,11 @@ pub async fn make_app(
     preempt_tx: ShutdownSignal,
 ) -> anyhow::Result<LocalAppState> {
     let key_broker = config.key_broker()?;
-    let searcher: Arc<dyn Searcher> = Arc::new(InProcessSearcher::new(runtime.clone()).await?);
+    let in_process_searcher = InProcessSearcher::new(runtime.clone()).await?;
+    let searcher: Arc<dyn Searcher> = Arc::new(in_process_searcher.clone());
+    // TODO(CX-6572) Separate `SegmentMetadataFetcher` from `SearcherImpl`
+    let segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher> =
+        Arc::new(in_process_searcher);
     let database = Database::load(
         persistence.clone(),
         runtime.clone(),
@@ -242,6 +247,7 @@ pub async fn make_app(
         config.convex_origin_url(),
         config.convex_site_url(),
         searcher.clone(),
+        segment_metadata_fetcher.clone(),
         persistence,
         actions,
         fetch_client,

@@ -228,7 +228,10 @@ use scheduled_jobs::ScheduledJobRunner;
 use schema_worker::SchemaWorker;
 use search::{
     query::RevisionWithKeys,
-    searcher::Searcher,
+    searcher::{
+        Searcher,
+        SegmentTermMetadataFetcher,
+    },
 };
 use semver::Version;
 use serde_json::Value as JsonValue;
@@ -512,6 +515,7 @@ impl<RT: Runtime> Application<RT> {
         convex_origin: ConvexOrigin,
         convex_site: ConvexSite,
         searcher: Arc<dyn Searcher>,
+        segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
         persistence: Arc<dyn Persistence>,
         node_actions: Actions,
         fetch_client: Arc<dyn FetchClient>,
@@ -548,6 +552,7 @@ impl<RT: Runtime> Application<RT> {
             persistence.reader(),
             search_storage.clone(),
             searcher,
+            segment_term_metadata_fetcher,
         );
         let search_worker = Arc::new(Mutex::new(runtime.spawn("search_worker", search_worker)));
         let search_and_vector_bootstrap_worker = Arc::new(Mutex::new(

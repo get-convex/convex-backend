@@ -249,8 +249,11 @@ impl From<SegmentTermMetadata> for SegmentTermMetadataResponse {
 /// `term.value_bytes()` or protos that contain the same bytes.
 pub type TermValue = Vec<u8>;
 
+/// Map from the term value to the number of documents containing that term that
+/// have been deleted.
+pub type TermValuesAndDeleteCounts = BTreeMap<TermValue, u32>;
 #[async_trait]
-pub trait SegmentTermMetadataFetcher {
+pub trait SegmentTermMetadataFetcher: Send + Sync + 'static {
     /// Gets the term ordinal from term values and determines how many terms
     /// have been completely deleted from a segment, given the number of
     /// documents deleted containing each term.
@@ -258,7 +261,7 @@ pub trait SegmentTermMetadataFetcher {
         &self,
         search_storage: Arc<dyn Storage>,
         segment: ObjectKey,
-        terms: BTreeMap<TermValue, u32>,
+        terms: TermValuesAndDeleteCounts,
     ) -> anyhow::Result<SegmentTermMetadata>;
 }
 
@@ -1503,7 +1506,10 @@ mod tests {
             Path,
             PathBuf,
         },
-        sync::LazyLock,
+        sync::{
+            Arc,
+            LazyLock,
+        },
     };
 
     use common::{
@@ -1528,6 +1534,10 @@ mod tests {
         proptest,
     };
     use runtime::testing::TestRuntime;
+    use storage::{
+        LocalDirStorage,
+        Storage,
+    };
     use tantivy::{
         Index,
         Term,
@@ -1558,7 +1568,6 @@ mod tests {
             merge_segments,
             PreviousTextSegments,
             SearchSegmentForMerge,
-            UpdatableTextSegment,
             ALIVE_BITSET_PATH,
             DELETED_TERMS_PATH,
             ID_TRACKER_PATH,
@@ -1568,6 +1577,7 @@ mod tests {
                 PostingListQuery,
                 TokenQuery,
             },
+            InProcessSearcher,
             SearcherImpl,
         },
         TantivySearchIndexSchema,
@@ -1582,9 +1592,9 @@ mod tests {
         id_generator.user_table_id(&table_name)
     });
 
-    #[tokio::test]
+    #[convex_macro::test_runtime]
     #[ignore]
-    async fn test_incremental_search() -> anyhow::Result<()> {
+    async fn test_incremental_search(rt: TestRuntime) -> anyhow::Result<()> {
         let start = std::time::Instant::now();
         let test_dir = TempDir::new()?;
 
@@ -1631,17 +1641,20 @@ mod tests {
         });
         let revision_stream = futures::stream::iter(revisions).boxed();
         let mut previous_segments = PreviousTextSegments::default();
+        let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt).await?);
 
         let new_segment = build_new_segment(
             revision_stream,
             schema.clone(),
             test_dir.path(),
             &mut previous_segments,
+            segment_term_metadata_fetcher,
+            storage,
         )
         .await?
         .unwrap();
-        let updated_segments = previous_segments.finalize();
-        assert!(updated_segments.is_empty());
+        assert!(previous_segments.0.is_empty());
         println!("Indexed {dataset_path} in {:?}", start.elapsed());
 
         let index_reader = index_reader_for_directory(new_segment.paths.index_path)?;
@@ -1780,9 +1793,9 @@ mod tests {
     }
 
     async fn build_test_index(
+        rt: TestRuntime,
         revisions: StringRevisions,
         index_dir: &Path,
-        mut previous_segments: PreviousTextSegments,
     ) -> anyhow::Result<TestIndex> {
         let mut strings_by_id = BTreeMap::new();
         let revisions = revisions.0.into_iter().map(
@@ -1820,20 +1833,29 @@ mod tests {
         );
         let revision_stream = futures::stream::iter(revisions).boxed();
         let schema = test_schema();
+        // This storage and segment_term_metadata_fetcher won't work correctly in these
+        // tests because they don't use the same directory that the indexes are stored
+        // in, which means we must use empty PreviousTextSegments in these tests.
+        let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt).await?);
+        let mut previous_segments = PreviousTextSegments::default();
         let new_segment = build_new_segment(
             revision_stream,
             schema.clone(),
             index_dir,
             &mut previous_segments,
+            segment_term_metadata_fetcher,
+            storage,
         )
         .await?;
         let previous_segment_dir = index_dir.join("previous_segments");
         std::fs::create_dir(&previous_segment_dir)?;
         let mut previous_segment_dirs = vec![];
-        for (i, updated_deletion_tracker) in previous_segments.finalize().into_iter().enumerate() {
-            let dir = previous_segment_dir.join(format!("segment_{i}"));
+        for (object_key, updated_text_segment) in previous_segments.0.into_iter() {
+            let dir = previous_segment_dir.join(object_key.to_string());
             std::fs::create_dir(&dir)?;
-            updated_deletion_tracker
+            updated_text_segment
+                .deletion_tracker
                 .write_to_path(dir.join(ALIVE_BITSET_PATH), dir.join(DELETED_TERMS_PATH))?;
             previous_segment_dirs.push(dir);
         }
@@ -1997,8 +2019,8 @@ mod tests {
         Ok(posting_list_matches_and_strings)
     }
 
-    #[tokio::test]
-    async fn test_incremental_search_with_deletion() -> anyhow::Result<()> {
+    #[convex_macro::test_runtime]
+    async fn test_incremental_search_with_deletion(rt: TestRuntime) -> anyhow::Result<()> {
         let query = "emma";
         let mut id_generator = TestIdGenerator::new();
         let id1 = id_generator.generate_internal();
@@ -2009,20 +2031,15 @@ mod tests {
             (id1, None, Some("emma works at convex")),
         ];
         let test_dir = TempDir::new()?;
-        let test_index = build_test_index(
-            revisions.into(),
-            test_dir.path(),
-            PreviousTextSegments::default(),
-        )
-        .await?;
+        let test_index = build_test_index(rt, revisions.into(), test_dir.path()).await?;
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_index).await?;
         assert!(posting_list_matches.is_empty());
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_incremental_search_with_replace() -> anyhow::Result<()> {
+    #[convex_macro::test_runtime]
+    async fn test_incremental_search_with_replace(rt: TestRuntime) -> anyhow::Result<()> {
         let query = "emma";
         let mut id_generator = TestIdGenerator::new();
         let id = id_generator.generate_internal();
@@ -2031,12 +2048,7 @@ mod tests {
             (id, None, Some("emma is awesome!")),
         ];
         let test_dir = TempDir::new()?;
-        let test_index = build_test_index(
-            revisions.into(),
-            test_dir.path(),
-            PreviousTextSegments::default(),
-        )
-        .await?;
+        let test_index = build_test_index(rt, revisions.into(), test_dir.path()).await?;
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_index).await?;
         assert_eq!(posting_list_matches.len(), 1);
@@ -2046,71 +2058,15 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn test_delete_from_another_segment() -> anyhow::Result<()> {
-        let query = "emma";
-        let mut id_generator = TestIdGenerator::new();
-        let id = id_generator.generate_internal();
-        let add_document = vec![(id, None, Some("emma is awesome!"))];
-        let test_dir = TempDir::new()?;
-        let test_index = build_test_index(
-            add_document.into(),
-            test_dir.path(),
-            PreviousTextSegments::default(),
-        )
-        .await?;
-        let posting_list_matches =
-            incremental_search_with_deletions_helper(query, test_index.clone()).await?;
-        assert_eq!(posting_list_matches.len(), 1);
-        let (posting_list_match, s) = posting_list_matches.first().unwrap();
-        assert_eq!(posting_list_match.internal_id, id);
-        assert_eq!(s, "emma is awesome!");
-        let previous_segments = PreviousTextSegments(vec![UpdatableTextSegment::load(
-            &test_index.segment_paths.clone().unwrap(),
-        )?]);
-        let test_dir = TempDir::new()?;
-        let delete_document: Vec<_> = vec![(id, Some("emma is awesome!"), None)];
-
-        let new_test_index =
-            build_test_index(delete_document.into(), test_dir.path(), previous_segments).await?;
-
-        let previous_segment_paths = new_test_index.previous_segment_dirs.first().unwrap();
-        let alive_bitset_path = previous_segment_paths.join(ALIVE_BITSET_PATH);
-        let deleted_terms_path = previous_segment_paths.join(DELETED_TERMS_PATH);
-
-        let test_index = TestIndex {
-            strings_by_id: new_test_index.strings_by_id,
-            segment_paths: Some(TextSegmentPaths {
-                alive_bit_set_path: alive_bitset_path,
-                deleted_terms_path,
-                ..test_index.segment_paths.unwrap()
-            }),
-            previous_segment_dirs: new_test_index.previous_segment_dirs,
-        };
-
-        let posting_list_matches =
-            incremental_search_with_deletions_helper(query, test_index.clone()).await?;
-        assert_eq!(posting_list_matches.len(), 0);
-        // Check that searching the old segment does not show the deleted document
-        let posting_list_matches =
-            incremental_search_with_deletions_helper(query, test_index).await?;
-        assert_eq!(posting_list_matches.len(), 0);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_merge_tantivy_segments() -> anyhow::Result<()> {
+    #[convex_macro::test_runtime]
+    async fn test_merge_tantivy_segments(rt: TestRuntime) -> anyhow::Result<()> {
         let query = "emma";
         let mut id_generator = TestIdGenerator::new();
         let id1 = id_generator.generate_internal();
         let revisions = vec![(id1, None, Some("emma is gr8"))];
         let test_dir_1 = TempDir::new()?;
-        let test_index_1 = build_test_index(
-            revisions.into(),
-            test_dir_1.path(),
-            PreviousTextSegments::default(),
-        )
-        .await?;
+        let test_index_1 =
+            build_test_index(rt.clone(), revisions.into(), test_dir_1.path()).await?;
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_index_1.clone()).await?;
         assert_eq!(posting_list_matches.len(), 1);
@@ -2120,12 +2076,8 @@ mod tests {
         let id2 = id_generator.generate_internal();
         let revisions = vec![(id2, None, Some("emma is awesome!"))];
         let test_dir_2 = TempDir::new()?;
-        let test_index_2 = build_test_index(
-            revisions.into(),
-            test_dir_2.path(),
-            PreviousTextSegments::default(),
-        )
-        .await?;
+        let test_index_2 =
+            build_test_index(rt.clone(), revisions.into(), test_dir_2.path()).await?;
         let posting_list_matches =
             incremental_search_with_deletions_helper(query, test_index_2.clone()).await?;
         assert_eq!(posting_list_matches.len(), 1);

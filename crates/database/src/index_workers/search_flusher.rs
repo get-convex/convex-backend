@@ -95,15 +95,6 @@ pub struct SearchIndexLimits {
     /// is reached. Writes are only blocked after we hit a hard index size
     /// limit not specified here.
     pub index_size_soft_limit: usize,
-    /// The maximum segment size at which it's reasonable to search the segment
-    /// by simply iterating over every item individually.
-    ///
-    /// This is only used for vector search where:
-    /// 1. We want to avoid the CPU  cost of building an expensive HNSW segment
-    ///    for small segments
-    /// 2. It's more accurate/efficient to perform a linear scan than use HNSW
-    ///    anyway.
-    pub full_scan_segment_max_kb: usize,
     /// The number of bytes we'll write to each individual segment when
     /// backfilling a new index.
     ///
@@ -215,6 +206,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     pub async fn build_multipart_segment(
         &self,
         job: &IndexBuild<T::IndexType>,
+        build_index_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
     ) -> anyhow::Result<IndexBuildResult<T::IndexType>> {
         let index_path = TempDir::new()?;
         let mut tx = self.database.begin(Identity::system()).await?;
@@ -271,7 +263,14 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             updated_previous_segments,
             backfill_result,
         } = self
-            .build_multipart_segment_in_dir(job, &index_path, new_ts, build_type, previous_segments)
+            .build_multipart_segment_in_dir(
+                job,
+                &index_path,
+                new_ts,
+                build_type,
+                previous_segments,
+                build_index_args,
+            )
             .await?;
 
         let new_segment = if let Some(new_segment) = new_segment {
@@ -326,6 +325,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         snapshot_ts: RepeatableTimestamp,
         build_type: MultipartBuildType,
         previous_segments: Vec<<T::IndexType as SearchIndex>::Segment>,
+        build_index_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
     ) -> anyhow::Result<MultiSegmentBuildResult<T::IndexType>> {
         let (tx, rx) = oneshot::channel();
         let index_name = job.index_name.clone();
@@ -345,6 +345,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                 developer_config,
                 index_path,
                 previous_segments,
+                build_index_args,
             )
             .await;
             _ = tx.send(result);
@@ -362,6 +363,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         developer_config: <T::IndexType as SearchIndex>::DeveloperConfig,
         index_path: PathBuf,
         previous_segments: Vec<<T::IndexType as SearchIndex>::Segment>,
+        build_index_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
     ) -> anyhow::Result<MultiSegmentBuildResult<T::IndexType>> {
         let row_rate_limiter = new_rate_limiter(
             params.runtime.clone(),
@@ -452,8 +454,8 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             &index_path,
             documents,
             persistence,
-            params.limits.full_scan_segment_max_kb,
             &mut mutable_previous_segments,
+            build_index_args,
         )
         .await?;
 

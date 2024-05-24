@@ -154,6 +154,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let convex_origin: ConvexOrigin = "http://127.0.0.1:8000".into();
         let convex_site = "http://127.0.0.1:8001".into();
         let searcher = Arc::new(search::searcher::SearcherStub {});
+        let segment_term_metadata_fetcher = Arc::new(search::searcher::SearcherStub {});
         let persistence = args.tp.unwrap_or_else(TestPersistence::new);
         let snapshot_import_pause_client = args.snapshot_import_pause_client.unwrap_or_default();
         let database = Database::load(
@@ -239,7 +240,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             function_runner,
             convex_origin,
             convex_site,
-            searcher.clone(),
+            searcher,
+            segment_term_metadata_fetcher,
             Arc::new(persistence.clone()),
             actions,
             fetch_client,
