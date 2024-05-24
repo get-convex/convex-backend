@@ -14,6 +14,10 @@ use authentication::{
 use cmd_util::env::config_test;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
+    components::{
+        ComponentDefinitionId,
+        ComponentId,
+    },
     db_schema,
     http::fetch::StaticFetchClient,
     knobs::ACTION_USER_TIMEOUT,
@@ -87,6 +91,7 @@ use crate::{
 };
 
 pub static OBJECTS_TABLE: LazyLock<TableName> = LazyLock::new(|| "objects".parse().unwrap());
+pub static OBJECTS_TABLE_COMPONENT: ComponentId = ComponentId::Root;
 
 #[derive(Default)]
 pub struct ApplicationFixtureArgs {
@@ -343,7 +348,7 @@ async fn insert_validated_schema<RT: Runtime>(
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<ResolvedDocumentId> {
     let schema = db_schema!();
-    let mut model = SchemaModel::new(tx);
+    let mut model = SchemaModel::new(tx, ComponentDefinitionId::Root);
     let (schema_id, _) = model.submit_pending(schema).await?;
     model.mark_validated(schema_id).await?;
     Ok(schema_id)

@@ -489,6 +489,9 @@ impl<RT: Runtime> Transaction<RT> {
         value: PatchValue,
     ) -> anyhow::Result<ResolvedDocument> {
         let table_name = self.table_mapping().tablet_name(id.table().tablet_id)?;
+        let namespace = self
+            .table_mapping()
+            .tablet_namespace(id.table().tablet_id)?;
 
         let (old_document, _) =
             self.get_inner(id, table_name.clone())
@@ -504,7 +507,10 @@ impl<RT: Runtime> Transaction<RT> {
                 .apply(old_document.value().clone().into_value())?;
             old_document.replace_value(patched_value)?
         };
-        SchemaModel::new(self).enforce(&new_document).await?;
+        SchemaModel::new_applied_to_namespace(self, namespace)
+            .await?
+            .enforce(&new_document)
+            .await?;
 
         self.apply_validated_write(id, Some(old_document), Some(new_document.clone()))?;
         Ok(new_document)
@@ -530,6 +536,9 @@ impl<RT: Runtime> Transaction<RT> {
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocument> {
         let table_name = self.table_mapping().tablet_name(id.table().tablet_id)?;
+        let namespace = self
+            .table_mapping()
+            .tablet_namespace(id.table().tablet_id)?;
         let (old_document, _) =
             self.get_inner(id, table_name)
                 .await?
@@ -541,7 +550,10 @@ impl<RT: Runtime> Transaction<RT> {
         // Replace document.
         let new_document = old_document.replace_value(value)?;
 
-        SchemaModel::new(self).enforce(&new_document).await?;
+        SchemaModel::new_applied_to_namespace(self, namespace)
+            .await?
+            .enforce(&new_document)
+            .await?;
 
         self.apply_validated_write(
             new_document.id(),
@@ -921,8 +933,14 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         document: ResolvedDocument,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        SchemaModel::new(self).enforce(&document).await?;
         let document_id = document.id();
+        let namespace = self
+            .table_mapping()
+            .tablet_namespace(document_id.table().tablet_id)?;
+        SchemaModel::new_applied_to_namespace(self, namespace)
+            .await?
+            .enforce(&document)
+            .await?;
         self.apply_validated_write(document_id, None, Some(document))?;
         Ok(document_id)
     }

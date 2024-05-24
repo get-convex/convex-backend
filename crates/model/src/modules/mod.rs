@@ -185,6 +185,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
     pub async fn apply(
         &mut self,
+        component: ComponentDefinitionId,
         modules: Vec<ModuleConfig>,
         source_package_id: Option<SourcePackageId>,
         mut analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
@@ -197,7 +198,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
         // Add new modules.
         let mut remaining_modules: BTreeSet<_> = self
-            .get_application_metadata(ComponentDefinitionId::Root)
+            .get_application_metadata(component)
             .await?
             .into_iter()
             .map(|module| module.into_value().path)
@@ -220,7 +221,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             };
             self.put(
                 CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
+                    component,
                     module_path: path.clone(),
                 },
                 module.source,
@@ -237,7 +238,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             removed_modules.insert(path.clone());
             ModuleModel::new(self.tx)
                 .delete(CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
+                    component,
                     module_path: path,
                 })
                 .await?;

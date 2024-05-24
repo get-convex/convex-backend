@@ -15,7 +15,10 @@ pub mod types;
 use std::collections::BTreeMap;
 
 use common::{
-    components::ComponentDefinitionId,
+    components::{
+        ComponentDefinitionId,
+        ComponentId,
+    },
     runtime::Runtime,
     schemas::DatabaseSchema,
 };
@@ -84,14 +87,25 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             None => None,
         };
 
-        let cron_diff = CronModel::new(self.tx).apply(&analyze_results).await?;
+        let cron_diff = CronModel::new(self.tx, ComponentId::Root)
+            .apply(&analyze_results)
+            .await?;
 
-        let (schema_diff, next_schema) = SchemaModel::new(self.tx).apply(schema_id).await?;
+        let (schema_diff, next_schema) = SchemaModel::new(self.tx, ComponentDefinitionId::Root)
+            .apply(schema_id)
+            .await?;
 
-        let index_diff = IndexModel::new(self.tx).apply(&next_schema).await?;
+        let index_diff = IndexModel::new(self.tx)
+            .apply(ComponentId::Root, &next_schema)
+            .await?;
 
         let module_diff = ModuleModel::new(self.tx)
-            .apply(modules, source_package_id, analyze_results)
+            .apply(
+                ComponentDefinitionId::Root,
+                modules,
+                source_package_id,
+                analyze_results,
+            )
             .await?;
 
         // Update auth info.

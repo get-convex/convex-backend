@@ -7,6 +7,7 @@ use std::{
 use common::{
     components::{
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     document::ParsedDocument,
@@ -45,12 +46,12 @@ use model::{
 };
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
-use value::TableNamespace;
 
 use crate::{
     test_helpers::{
         ApplicationTestExt,
         OBJECTS_TABLE,
+        OBJECTS_TABLE_COMPONENT,
     },
     Application,
 };
@@ -65,7 +66,7 @@ async fn create_cron_job(
     BTreeMap<CronIdentifier, ParsedDocument<CronJob>>,
     CronModel<TestRuntime>,
 )> {
-    let mut cron_model = CronModel::new(tx);
+    let mut cron_model = CronModel::new(tx, ComponentId::Root);
     let mut map = serde_json::Map::new();
     map.insert(
         "key".to_string(),
@@ -86,10 +87,13 @@ async fn create_cron_job(
     Ok((original_jobs, cron_model))
 }
 
-fn cron_log_query<RT: Runtime>(tx: &mut Transaction<RT>) -> anyhow::Result<DeveloperQuery<RT>> {
+fn cron_log_query<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+    component: ComponentId,
+) -> anyhow::Result<DeveloperQuery<RT>> {
     DeveloperQuery::new(
         tx,
-        TableNamespace::Global,
+        component.into(),
         Query::index_range(IndexRange {
             index_name: CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
             range: vec![IndexRangeExpression::Eq(
@@ -117,7 +121,7 @@ pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()
     let mut table_model = TableModel::new(&mut tx);
     assert!(
         table_model
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
 
@@ -130,10 +134,10 @@ pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()
     let mut table_model = TableModel::new(&mut tx);
     assert!(
         !table_model
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
-    let mut logs_query = cron_log_query(&mut tx)?;
+    let mut logs_query = cron_log_query(&mut tx, OBJECTS_TABLE_COMPONENT)?;
     assert!(logs_query.next(&mut tx, None).await?.is_some());
     Ok(())
 }
@@ -201,7 +205,7 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     let mut table_model = TableModel::new(&mut tx);
     assert!(
         table_model
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
     application.commit_test(tx).await?;
@@ -214,10 +218,10 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     let mut table_model = TableModel::new(&mut tx);
     assert!(
         table_model
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
-    let mut logs_query = cron_log_query(&mut tx)?;
+    let mut logs_query = cron_log_query(&mut tx, ComponentId::Root)?;
     assert!(logs_query.next(&mut tx, Some(1)).await?.is_none());
 
     // Resuming the backend should make the jobs execute.
@@ -229,10 +233,10 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
     let mut table_model = TableModel::new(&mut tx);
     assert!(
         !table_model
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
-    let mut logs_query = cron_log_query(&mut tx)?;
+    let mut logs_query = cron_log_query(&mut tx, ComponentId::Root)?;
     assert!(logs_query.next(&mut tx, None).await?.is_some());
 
     Ok(())

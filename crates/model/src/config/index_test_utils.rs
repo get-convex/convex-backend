@@ -6,6 +6,7 @@ use std::{
 
 use common::{
     bootstrap_model::schema::SchemaState,
+    components::ComponentId,
     persistence::{
         NoopRetentionValidator,
         Persistence,
@@ -147,9 +148,9 @@ pub async fn prepare_schema(
 ) -> anyhow::Result<GenericDocumentId<TabletIdAndTableNumber>> {
     let mut tx = db.begin_system().await?;
     IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(&schema)
+        .prepare_new_and_mutated_indexes(ComponentId::Root, &schema)
         .await?;
-    let mut schema_model = SchemaModel::new(&mut tx);
+    let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
     let (schema_id, state) = schema_model.submit_pending(schema).await?;
     // Mimic schema_worker running, without actually running it.
     if state != SchemaState::Validated {

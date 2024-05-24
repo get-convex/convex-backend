@@ -4,6 +4,7 @@ use std::{
 };
 
 use common::{
+    components::ComponentId,
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -30,7 +31,6 @@ use value::{
     FieldPath,
     ResolvedDocumentId,
     TableName,
-    TableNamespace,
 };
 
 use crate::{
@@ -136,11 +136,12 @@ const MAX_LOGS_PER_CRON: usize = 5;
 
 pub struct CronModel<'a, RT: Runtime> {
     pub tx: &'a mut Transaction<RT>,
+    pub component: ComponentId,
 }
 
 impl<'a, RT: Runtime> CronModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
-        Self { tx }
+    pub fn new(tx: &'a mut Transaction<RT>, component: ComponentId) -> Self {
+        Self { tx, component }
     }
 
     pub async fn apply(
@@ -155,8 +156,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
                 WithHeapSize::default()
             };
 
-        let mut cron_model = CronModel::new(self.tx);
-        let old_crons = cron_model.list().await?;
+        let old_crons = self.list().await?;
         let mut added_crons: Vec<&CronIdentifier> = vec![];
         let mut updated_crons: Vec<&CronIdentifier> = vec![];
         let mut deleted_crons: Vec<&CronIdentifier> = vec![];
@@ -164,14 +164,12 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             match old_crons.get(&name.clone()) {
                 Some(cron_job) => {
                     if cron_job.cron_spec != cron_spec.clone() {
-                        cron_model
-                            .update(cron_job.clone(), cron_spec.clone())
-                            .await?;
+                        self.update(cron_job.clone(), cron_spec.clone()).await?;
                         updated_crons.push(name);
                     }
                 },
                 None => {
-                    cron_model.create(name.clone(), cron_spec.clone()).await?;
+                    self.create(name.clone(), cron_spec.clone()).await?;
                     added_crons.push(name);
                 },
             }
@@ -180,7 +178,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             match new_crons.get(&name.clone()) {
                 Some(_) => {},
                 None => {
-                    cron_model.delete(cron_job.clone()).await?;
+                    self.delete(cron_job.clone()).await?;
                     deleted_crons.push(name);
                 },
             }
@@ -205,7 +203,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             state: CronJobState::Pending,
             prev_ts: None,
         };
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, self.component.into())
             .insert(&CRON_JOBS_TABLE, cron.try_into()?)
             .await?;
         Ok(())
@@ -227,7 +225,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
     }
 
     pub async fn delete(&mut self, cron_job: ParsedDocument<CronJob>) -> anyhow::Result<()> {
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, self.component.into())
             .delete(cron_job.clone().id())
             .await?;
         self.apply_job_log_retention(cron_job.name.clone(), 0)
@@ -243,9 +241,9 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(self.component.into())
             .number_matches_name(id.table().table_number, &CRON_JOBS_TABLE));
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, self.component.into())
             .replace(id, job.try_into()?)
             .await?;
         Ok(())
@@ -267,7 +265,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             log_lines,
             execution_time,
         };
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, self.component.into())
             .insert_metadata(&CRON_JOB_LOGS_TABLE, cron_job_log.try_into()?)
             .await?;
         self.apply_job_log_retention(job.name.clone(), MAX_LOGS_PER_CRON)
@@ -279,7 +277,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         &mut self,
     ) -> anyhow::Result<BTreeMap<CronIdentifier, ParsedDocument<CronJob>>> {
         let cron_query = Query::full_table_scan(CRON_JOBS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, cron_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), cron_query)?;
         let mut cron_jobs = BTreeMap::new();
         while let Some(job) = query_stream.next(self.tx, None).await? {
             let cron: ParsedDocument<CronJob> = job.try_into()?;
@@ -306,7 +304,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             )],
             order: Order::Desc,
         });
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), index_query)?;
         let mut num_logs = 0;
         let mut to_delete = Vec::new();
         while let Some(doc) = query_stream.next(self.tx, None).await? {
@@ -316,7 +314,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             }
         }
         for doc_id in to_delete.into_iter() {
-            SystemMetadataModel::new(self.tx, TableNamespace::Global)
+            SystemMetadataModel::new(self.tx, self.component.into())
                 .delete(doc_id)
                 .await?;
         }

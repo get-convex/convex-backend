@@ -1,5 +1,6 @@
 use anyhow::Context;
 use common::{
+    components::ComponentDefinitionId,
     document::{
         CreationTime,
         ResolvedDocument,
@@ -109,7 +110,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         };
 
         let document = ResolvedDocument::new(id, creation_time, value)?;
-        SchemaModel::new(self.tx)
+        SchemaModel::new(self.tx, ComponentDefinitionId::Root)
             .enforce_with_table_mapping(
                 &document,
                 &table_mapping_for_schema.namespace(TableNamespace::Global),

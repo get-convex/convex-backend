@@ -182,7 +182,8 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         if !self.table_exists(namespace, &table_name) {
             return Ok(());
         }
-        SchemaModel::new(self.tx)
+        SchemaModel::new_applied_to_namespace(self.tx, namespace)
+            .await?
             .enforce_table_deletion(table_name.clone())
             .await?;
 
@@ -680,7 +681,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let mut tx = new_tx(rt).await?;
 
-        let mut schema_model = SchemaModel::new(&mut tx);
+        let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
         let (schema_id, _state) = schema_model
             .submit_pending(db_schema!("my_table" => DocumentSchema::Any))
             .await?;
@@ -695,7 +696,7 @@ mod tests {
             .delete_table(TableNamespace::Global, table_name.clone())
             .await?;
 
-        let mut schema_model = SchemaModel::new(&mut tx);
+        let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
         assert!(schema_model
             .get_by_state(SchemaState::Validated)
             .await?
@@ -736,7 +737,7 @@ mod tests {
         tx: &mut Transaction<TestRuntime>,
         schema: DatabaseSchema,
     ) -> anyhow::Result<()> {
-        let mut schema_model = SchemaModel::new(tx);
+        let mut schema_model = SchemaModel::new_root_for_test(tx);
         let (schema_id, _state) = schema_model.submit_pending(schema).await?;
         schema_model.mark_validated(schema_id).await?;
         schema_model.mark_active(schema_id).await?;

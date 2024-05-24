@@ -258,7 +258,7 @@ async fn test_schema_in_deployment_audit_log(rt: TestRuntime) -> anyhow::Result<
     // Add a new schema
     let mut tx = database.begin(Identity::system()).await?;
     let first_schema = db_schema!("table1" => DocumentSchema::Any);
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     let (first_schema_id, _) = model.submit_pending(first_schema.clone()).await?;
     model.mark_validated(first_schema_id).await?;
     let (config_diff, schema) = ConfigModel::new(&mut tx)
@@ -280,7 +280,7 @@ async fn test_schema_in_deployment_audit_log(rt: TestRuntime) -> anyhow::Result<
 
     // Edit the schema
     let mut tx = database.begin(Identity::system()).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     let second_schema = db_schema!(
         "table1" => DocumentSchema::Any,
         "table2" => DocumentSchema::Union(vec![

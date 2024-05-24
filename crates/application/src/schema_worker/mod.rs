@@ -3,6 +3,7 @@ use std::time::Duration;
 use common::{
     backoff::Backoff,
     bootstrap_model::schema::SchemaState,
+    components::ComponentDefinitionId,
     errors::report_error,
     runtime::Runtime,
     schemas::DatabaseSchema,
@@ -68,7 +69,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
         let status = log_worker_starting("SchemaWorker");
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let snapshot = self.database.snapshot(tx.begin_timestamp())?;
-        if let Some((id, db_schema)) = SchemaModel::new(&mut tx)
+        if let Some((id, db_schema)) = SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
             .get_by_state(SchemaState::Pending)
             .await?
         {
@@ -77,7 +78,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
             let virtual_table_mapping = tx.virtual_table_mapping().clone();
 
-            let active_schema = SchemaModel::new(&mut tx)
+            let active_schema = SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
                 .get_by_state(SchemaState::Active)
                 .await?
                 .map(|(_id, active_schema)| active_schema);
@@ -116,7 +117,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                         let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
                         while backoff.failures() < MAX_COMMIT_FAILURES {
                             let mut tx = self.database.begin(Identity::system()).await?;
-                            SchemaModel::new(&mut tx)
+                            SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
                                 .mark_failed(id, schema_error.clone())
                                 .await?;
                             if let Err(e) = self
@@ -146,7 +147,10 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 }
             }
             let mut tx = self.database.begin(Identity::system()).await?;
-            if let Err(error) = SchemaModel::new(&mut tx).mark_validated(id).await {
+            if let Err(error) = SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
+                .mark_validated(id)
+                .await
+            {
                 if error.is_bad_request() {
                     timer.finish_developer_error();
                 }
@@ -222,7 +226,9 @@ mod tests {
             tables: btreemap! { table_name.clone() => table_definition },
             schema_validation: true,
         };
-        let (id, _) = SchemaModel::new(&mut tx).submit_pending(db_schema).await?;
+        let (id, _) = SchemaModel::new_root_for_test(&mut tx)
+            .submit_pending(db_schema)
+            .await?;
         // Insert a document that matches the schema
         UserFacingModel::new_root_for_test(&mut tx)
             .insert(table_name.clone(), assert_obj!())
@@ -241,7 +247,9 @@ mod tests {
             DocumentSchema::Union(vec![object_validator!("field" => FieldValidator::required_field_type(Validator::Int64))]),
         );
 
-        let (bad_schema_id, state) = SchemaModel::new(&mut tx).submit_pending(db_schema).await?;
+        let (bad_schema_id, state) = SchemaModel::new_root_for_test(&mut tx)
+            .submit_pending(db_schema)
+            .await?;
         assert_eq!(state, SchemaState::Pending);
         db.commit(tx).await?;
         schema_worker.run().await?;

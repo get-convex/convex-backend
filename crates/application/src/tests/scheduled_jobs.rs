@@ -38,7 +38,6 @@ use serde_json::Value as JsonValue;
 use sync_types::UdfPath;
 use value::{
     GenericDocumentId,
-    TableNamespace,
     TabletIdAndTableNumber,
 };
 
@@ -48,6 +47,7 @@ use crate::{
         ApplicationFixtureArgs,
         ApplicationTestExt,
         OBJECTS_TABLE,
+        OBJECTS_TABLE_COMPONENT,
     },
     Application,
 };
@@ -106,7 +106,7 @@ async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     let (job_id, _model) = create_scheduled_job(&rt, &mut tx).await?;
     assert!(
         TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
 
@@ -119,7 +119,7 @@ async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(state, ScheduledJobState::Success);
     assert!(
         !TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
     Ok(())
@@ -188,7 +188,7 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
     let (job_id, _model) = create_scheduled_job(&rt, &mut tx).await?;
     assert!(
         TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
 
@@ -201,7 +201,7 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
     assert_eq!(state, ScheduledJobState::Success);
     assert!(
         !TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
 
@@ -245,7 +245,7 @@ async fn test_scheduled_jobs_helper(
     let (job_id, _model) = create_scheduled_job(&rt, &mut tx).await?;
     assert!(
         TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
 
@@ -257,7 +257,7 @@ async fn test_scheduled_jobs_helper(
     assert_eq!(state, ScheduledJobState::Pending);
     assert!(
         TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
 
@@ -272,7 +272,7 @@ async fn test_scheduled_jobs_helper(
     assert_eq!(state, ScheduledJobState::Success);
     assert!(
         !TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &OBJECTS_TABLE)
+            .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
 

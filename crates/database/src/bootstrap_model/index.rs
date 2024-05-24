@@ -27,6 +27,7 @@ use common::{
         TabletIndexMetadata,
         INDEX_TABLE,
     },
+    components::ComponentId,
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -254,6 +255,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     // indexes have been added and backfilled.
     pub async fn apply(
         &mut self,
+        component: ComponentId,
         next_schema: &Option<DatabaseSchema>,
     ) -> anyhow::Result<IndexDiff> {
         let empty = std::collections::BTreeMap::new();
@@ -266,7 +268,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         // indexes. So for legacy CLIs, we do nothing here and instead rely
         // on build_indexes / legacy_get_indexes to commit index changes.
         let index_diff = IndexModel::new(self.tx)
-            .commit_indexes_for_schema(tables_in_schema)
+            .commit_indexes_for_schema(component, tables_in_schema)
             .await?;
 
         tracing::info!(
@@ -279,9 +281,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     pub async fn commit_indexes_for_schema(
         &mut self,
+        component: ComponentId,
         tables_in_schema: &BTreeMap<TableName, TableDefinition>,
     ) -> anyhow::Result<IndexDiff> {
-        let index_diff: IndexDiff = self.get_index_diff(tables_in_schema).await?;
+        let index_diff: IndexDiff = self.get_index_diff(component, tables_in_schema).await?;
 
         let IndexDiff {
             added,
@@ -347,6 +350,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     ///  and pending/enablded state of the indexes to determine the diff.
     pub async fn get_index_diff(
         &mut self,
+        component: ComponentId,
         tables_in_schema: &BTreeMap<TableName, TableDefinition>,
     ) -> anyhow::Result<IndexDiff> {
         let mut indexes_in_schema: Vec<IndexMetadata<TableName>> = Vec::new();
@@ -395,7 +399,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         for new_index in indexes_in_schema {
             remaining_indexes.remove(&new_index.name);
 
-            match self.compare_new_and_existing_indexes(TableNamespace::Global, new_index)? {
+            match self.compare_new_and_existing_indexes(component.into(), new_index)? {
                 IndexComparison::Added(index) => diff.added.push(index),
                 IndexComparison::Identical(index) => diff.identical.push(index),
                 IndexComparison::Replaced {
@@ -473,9 +477,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// immediately applied (the rest will be applied in apply_config)
     pub async fn prepare_new_and_mutated_indexes(
         &mut self,
+        component: ComponentId,
         schema: &DatabaseSchema,
     ) -> anyhow::Result<IndexDiff> {
-        let diff: IndexDiff = self.get_index_diff(&schema.tables).await?;
+        let diff: IndexDiff = self.get_index_diff(component, &schema.tables).await?;
 
         // If an index is currently pending and we're mutating it, we need to drop the
         // currently pending index immediately so that we avoid having multiple pending
@@ -506,9 +511,10 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     pub async fn build_indexes(
         &mut self,
+        component: ComponentId,
         schema: &DatabaseSchema,
     ) -> anyhow::Result<LegacyIndexDiff> {
-        let diff: LegacyIndexDiff = self.get_index_diff(&schema.tables).await?.into();
+        let diff: LegacyIndexDiff = self.get_index_diff(component, &schema.tables).await?.into();
 
         if diff.is_empty() {
             return Ok(diff);

@@ -46,7 +46,7 @@ use crate::{
 async fn test_submit_same_pending_schema(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt.clone()).await;
     let mut tx = db.begin(Identity::system()).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
 
     assert!(model.get_by_state(SchemaState::Pending).await?.is_none());
     let db_schema = DatabaseSchema::default();
@@ -99,7 +99,7 @@ async fn test_submit_same_pending_schema(rt: TestRuntime) -> anyhow::Result<()> 
 async fn test_submit_new_pending_schema(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt.clone()).await;
     let mut tx = db.begin(Identity::system()).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
 
     let db_schema_1 = DatabaseSchema::default();
     let (id, state) = model.submit_pending(db_schema_1.clone()).await?;
@@ -145,7 +145,7 @@ async fn test_submit_new_pending_schema(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_mark_schema_as_validated(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt.clone()).await;
     let mut tx = db.begin(Identity::system()).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
 
     let db_schema = DatabaseSchema::default();
     let (id, state) = model.submit_pending(db_schema.clone()).await?;
@@ -160,7 +160,7 @@ async fn test_mark_schema_as_validated(rt: TestRuntime) -> anyhow::Result<()> {
         .try_into()?;
     assert_eq!(schema_metadata.state, SchemaState::Validated);
     // Marking an already validated schema as validated should fail
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     assert_eq!(
         model.mark_validated(id).await.unwrap_err().to_string(),
         String::from("Schema is already validated.")
@@ -179,7 +179,7 @@ async fn test_mark_schema_as_validated(rt: TestRuntime) -> anyhow::Result<()> {
         .into_value()
         .try_into()?;
     assert_eq!(schema_metadata.state, SchemaState::Overwritten);
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     let error = model.mark_validated(id).await.unwrap_err();
     assert!(error.is_bad_request());
     assert_eq!(error.short_msg(), "SchemaAlreadyOverwritten");
@@ -194,7 +194,7 @@ async fn test_mark_schema_as_validated(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(schema_metadata.state, SchemaState::Validated);
 
     // Active schema cannot be marked validated
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_active(new_id).await?;
     assert_eq!(
         model.mark_validated(new_id).await.unwrap_err().to_string(),
@@ -226,7 +226,7 @@ async fn test_mark_schema_as_validated(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_mark_schema_as_active(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt.clone()).await;
     let mut tx = db.begin(Identity::system()).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
 
     let db_schema = DatabaseSchema::default();
     let (id, state) = model.submit_pending(db_schema.clone()).await?;
@@ -243,7 +243,7 @@ async fn test_mark_schema_as_active(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(schema_metadata.state, SchemaState::Active);
 
     // Ok to mark as active twice
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_active(id).await?;
 
     // Add another schema and make sure the old one is overwritten.
@@ -260,7 +260,7 @@ async fn test_mark_schema_as_active(rt: TestRuntime) -> anyhow::Result<()> {
         .into_value()
         .try_into()?;
     assert_eq!(schema_metadata.state, SchemaState::Overwritten);
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     let err = model.mark_active(id).await.unwrap_err();
     assert!(err.is_bad_request());
     assert_eq!(err.short_msg(), "SchemaAlreadyOverwritten");
@@ -274,7 +274,7 @@ async fn test_mark_schema_as_active(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(schema_metadata.state, SchemaState::Active);
 
     // Check that failed schemas can't be marked active
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     let (failed_id, state) = model.submit_pending(db_schema).await?;
     assert_eq!(state, SchemaState::Pending);
     let schema_error = SchemaValidationError::ExistingDocument {
@@ -299,7 +299,7 @@ async fn test_mark_schema_as_active(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_mark_schema_as_failed(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt.clone()).await;
     let mut tx = db.begin(Identity::system()).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
 
     let db_schema = DatabaseSchema::default();
     let (id, state) = model.submit_pending(db_schema.clone()).await?;
@@ -339,7 +339,7 @@ async fn test_mark_schema_as_failed(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_schema_enforced_on_write(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt.clone()).await;
     let mut tx = db.begin(Identity::system()).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
 
     let table = "table".parse::<TableName>()?;
     let object_validator = object_validator!("name" => FieldValidator::required_field_type(Validator::String), "age" => FieldValidator::required_field_type(Validator::Int64));
@@ -395,7 +395,7 @@ async fn test_schema_enforced_on_write(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt.clone()).await;
     let mut tx = db.begin(Identity::system()).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
 
     let table = "table".parse::<TableName>()?;
     let object_validator = object_validator!("name" => FieldValidator::required_field_type(Validator::String), "age" => FieldValidator::required_field_type(Validator::Int64));
@@ -437,7 +437,7 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
 
     // Replacing a document that does not match the schema should mark the schema as
     // failed and succeed
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
     UserFacingModel::new_root_for_test(&mut tx)
         .replace(id, bad_object.clone())
@@ -453,7 +453,7 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
 
     // Updating a document that does not match the schema should mark the schema as
     // failed and succeed
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     let (schema_id, _state) = model.submit_pending(db_schema.clone()).await?;
     UserFacingModel::new_root_for_test(&mut tx)
         .patch(id, bad_object.into())
@@ -474,7 +474,7 @@ async fn overwrite_schema_by_state_with_no_schemas_does_nothing(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
     let mut tx = new_tx(rt).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
 
     model.overwrite_all().await?;
 
@@ -495,7 +495,7 @@ async fn insert_new_pending_schema_of_table(
     tx: &mut Transaction<TestRuntime>,
     name: &str,
 ) -> anyhow::Result<ResolvedDocumentId> {
-    let mut model = SchemaModel::new(tx);
+    let mut model = SchemaModel::new_root_for_test(tx);
     let table = name.parse::<TableName>()?;
     let object_validator = object_validator!("name" => FieldValidator::required_field_type(Validator::String), "age" => FieldValidator::required_field_type(Validator::Int64));
     let document_schema = DocumentSchema::Union(vec![object_validator]);
@@ -526,7 +526,7 @@ async fn mark_schema_as_failed(
     tx: &mut Transaction<TestRuntime>,
     schema_id: &ResolvedDocumentId,
 ) -> anyhow::Result<()> {
-    let mut model = SchemaModel::new(tx);
+    let mut model = SchemaModel::new_root_for_test(tx);
     let schema_error = SchemaValidationError::ExistingDocument {
         validation_error: ValidationError::NoMatch {
             value: ConvexValue::Null,
@@ -546,7 +546,7 @@ async fn overwrite_schema_by_state_with_active_schema_returns_true(
 ) -> anyhow::Result<()> {
     let mut tx = new_tx(rt).await?;
     let schema_id = insert_new_pending_schema(&mut tx).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_validated(schema_id).await?;
     model.mark_active(schema_id).await?;
     assert!(model.overwrite_all().await?);
@@ -559,7 +559,7 @@ async fn overwrite_schema_by_state_with_active_schema_sets_active_to_overwritten
 ) -> anyhow::Result<()> {
     let mut tx = new_tx(rt).await?;
     let schema_id = insert_new_pending_schema(&mut tx).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_validated(schema_id).await?;
     model.mark_active(schema_id).await?;
     model.overwrite_all().await?;
@@ -577,7 +577,7 @@ async fn overwrite_schema_by_state_with_validated_schema_sets_state_to_overwritt
 ) -> anyhow::Result<()> {
     let mut tx = new_tx(rt).await?;
     let schema_id = insert_new_pending_schema(&mut tx).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_validated(schema_id).await?;
     model.overwrite_all().await?;
 
@@ -594,7 +594,7 @@ async fn overwrite_schema_by_state_with_pending_schema_sets_state_to_overwritten
 ) -> anyhow::Result<()> {
     let mut tx = new_tx(rt).await?;
     let schema_id = insert_new_pending_schema(&mut tx).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.overwrite_all().await?;
     let schema_metadata = query_schema_metadata(&mut tx, schema_id).await?;
 
@@ -609,7 +609,7 @@ async fn overwrite_schema_by_state_with_failed_schema_returns_false(
     let mut tx = new_tx(rt).await?;
     let schema_id = insert_new_pending_schema(&mut tx).await?;
     mark_schema_as_failed(&mut tx, &schema_id).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     assert!(!(model.overwrite_all().await?));
     Ok(())
 }
@@ -621,7 +621,7 @@ async fn overwrite_schema_by_state_with_failed_schema_does_not_overwrite_schema(
     let mut tx = new_tx(rt).await?;
     let schema_id = insert_new_pending_schema(&mut tx).await?;
     mark_schema_as_failed(&mut tx, &schema_id).await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.overwrite_all().await?;
     let schema_metadata = query_schema_metadata(&mut tx, schema_id).await?;
 
@@ -637,13 +637,13 @@ async fn overwrite_schema_by_state_with_overwritten_and_active_schema_overrides_
 ) -> anyhow::Result<()> {
     let mut tx = new_tx(rt).await?;
     let first_schema_id = insert_new_pending_schema_of_table(&mut tx, "first_table").await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_validated(first_schema_id).await?;
     model.mark_active(first_schema_id).await?;
 
     // Activate a second schema so that the first is marked as overwritten.
     let second_schema_id = insert_new_pending_schema_of_table(&mut tx, "other_table").await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_validated(second_schema_id).await?;
     model.mark_active(second_schema_id).await?;
 
@@ -653,7 +653,7 @@ async fn overwrite_schema_by_state_with_overwritten_and_active_schema_overrides_
 
     // Verify we neither changed the overwritten schema state nor crashed when
     // processing.
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.overwrite_all().await?;
     let first_schema_metadata = query_schema_metadata(&mut tx, first_schema_id).await?;
     let second_schema_metadata = query_schema_metadata(&mut tx, second_schema_id).await?;
@@ -668,13 +668,13 @@ async fn overwrite_schema_by_state_with_overwritten_and_active_schema_returns_tr
 ) -> anyhow::Result<()> {
     let mut tx = new_tx(rt).await?;
     let first_schema_id = insert_new_pending_schema_of_table(&mut tx, "first_table").await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_validated(first_schema_id).await?;
     model.mark_active(first_schema_id).await?;
 
     // Activate a second schema so that the first is marked as overwritten.
     let second_schema_id = insert_new_pending_schema_of_table(&mut tx, "other_table").await?;
-    let mut model = SchemaModel::new(&mut tx);
+    let mut model = SchemaModel::new_root_for_test(&mut tx);
     model.mark_validated(second_schema_id).await?;
     model.mark_active(second_schema_id).await?;
 

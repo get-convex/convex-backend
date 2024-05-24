@@ -29,6 +29,10 @@ use common::{
             SchemaState,
         },
     },
+    components::{
+        ComponentDefinitionId,
+        ComponentId,
+    },
     http::{
         extract::{
             Json,
@@ -275,16 +279,18 @@ pub async fn prepare_schema_handler(
     let index_diff: LegacyIndexDiff = if dry_run {
         let mut tx = st.application.begin(identity.clone()).await?;
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(&schema)
+            .prepare_new_and_mutated_indexes(ComponentId::Root, &schema)
             .await?
     } else {
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(&schema)
+            .prepare_new_and_mutated_indexes(ComponentId::Root, &schema)
             .await?
     }
     .into();
 
-    let (schema_id, schema_state) = SchemaModel::new(&mut tx).submit_pending(schema).await?;
+    let (schema_id, schema_state) = SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
+        .submit_pending(schema)
+        .await?;
     let should_save_new_schema = match schema_state {
         SchemaState::Pending => anyhow::Ok(true),
         SchemaState::Validated | SchemaState::Active => Ok(false),

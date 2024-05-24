@@ -20,6 +20,7 @@ use common::{
         IndexConfig,
         IndexMetadata,
     },
+    components::ComponentId,
     db_schema,
     document::{
         CreationTime,
@@ -266,7 +267,9 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
         schema_validation: true,
     };
 
-    let changes = IndexModel::new(&mut tx).build_indexes(&schema).await?;
+    let changes = IndexModel::new(&mut tx)
+        .build_indexes(ComponentId::Root, &schema)
+        .await?;
     assert_eq!(changes.added.len(), 2);
     assert_eq!(changes.added[0].name.to_string(), "table.a_and_b");
     assert_eq!(changes.added[1].name.to_string(), "table.c_and_d");
@@ -320,7 +323,9 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
         schema_validation: true,
     };
 
-    let changes = IndexModel::new(&mut tx).build_indexes(&schema).await?;
+    let changes = IndexModel::new(&mut tx)
+        .build_indexes(ComponentId::Root, &schema)
+        .await?;
     assert_eq!(
         changes
             .added
@@ -1066,7 +1071,7 @@ async fn test_importing_table_schema_validated(rt: TestRuntime) -> anyhow::Resul
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    let mut schema_model = SchemaModel::new(&mut tx);
+    let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
     let db_schema = db_schema!(table_name.clone() => DocumentSchema::Union(
         vec![
             object_validator!(
@@ -1144,7 +1149,7 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    let mut schema_model = SchemaModel::new(&mut tx);
+    let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
     let db_schema = db_schema!(table_name.clone() => DocumentSchema::Union(
         vec![
             object_validator!(
@@ -1262,7 +1267,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    let mut schema_model = SchemaModel::new(&mut tx);
+    let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
     let db_schema = db_schema!(table_name.clone() => DocumentSchema::Union(
         vec![
             object_validator!(
