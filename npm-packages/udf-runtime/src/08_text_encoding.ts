@@ -97,7 +97,7 @@ class TextDecoder {
       );
       return text;
     } finally {
-      if (this.#rid !== null) {
+      if (!stream && this.#rid !== null) {
         performOp("textEncoder/cleanup", this.#rid);
       }
     }
