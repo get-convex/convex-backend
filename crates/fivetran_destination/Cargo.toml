@@ -39,7 +39,11 @@ tonic = { workspace = true, features = ["gzip"] }
 url = { workspace = true }
 
 [build-dependencies]
+bytes = { workspace = true }
 cfg-if = { workspace = true }
+futures-util = { workspace = true }
+reqwest = { workspace = true, features = ["native-tls-vendored"] }
+tokio = { workspace = true }
 tonic-build = { workspace = true }
 
 [dev-dependencies]

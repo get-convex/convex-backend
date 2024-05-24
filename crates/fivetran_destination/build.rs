@@ -1,7 +1,20 @@
 use std::{
+    env,
     io::Result,
-    path::Path,
+    path::{
+        Path,
+        PathBuf,
+    },
 };
+
+use bytes::Bytes;
+use futures_util::future::join_all;
+use tokio::fs::{
+    self,
+    create_dir_all,
+};
+
+const REV: &str = "08da2f841be6042a410b0de6354025c44d5cf59a";
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {
@@ -27,13 +40,58 @@ fn set_protoc_path() {
     }
 }
 
-fn main() -> Result<()> {
+async fn download_bytes_of_file(url: &str) -> reqwest::Result<Bytes> {
+    reqwest::get(url).await?.bytes().await
+}
+
+async fn try_download_file(url: String, destination: &PathBuf) {
+    match download_bytes_of_file(&url).await {
+        Ok(bytes) => fs::write(destination, bytes)
+            .await
+            .expect("Can’t write the proto file"),
+        Err(err) => {
+            if destination.exists() {
+                println!(
+                    "cargo:warning=Could not download proto file from {url}. Proceeding with the \
+                     existing proto file."
+                );
+            } else {
+                panic!("Can’t download the proto file from {url}: {err}");
+            }
+        },
+    };
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
     set_protoc_path();
 
-    tonic_build::configure().btree_map(["."]).compile(
-        &["protos/common.proto", "protos/destination_sdk.proto"],
-        &["protos/"],
-    )?;
+    let protos: &[&str] = &["common.proto", "destination_sdk.proto"];
+    let protos_dir = Path::join(Path::new(&env::var("OUT_DIR").unwrap()), "protos");
+    create_dir_all(protos_dir.clone()).await?;
+
+    let source_urls: Vec<String> = protos
+        .iter()
+        .map(|proto| {
+            format!("https://raw.githubusercontent.com/fivetran/fivetran_sdk/{REV}/{proto}")
+        })
+        .collect();
+    let destination_files: Vec<PathBuf> = protos
+        .iter()
+        .map(|proto| Path::join(&protos_dir, proto))
+        .collect();
+
+    join_all(
+        source_urls
+            .into_iter()
+            .zip(&destination_files)
+            .map(|(source_url, destination_file)| try_download_file(source_url, destination_file)),
+    )
+    .await;
+
+    tonic_build::configure()
+        .btree_map(["."])
+        .compile(&destination_files, &[protos_dir])?;
 
     Ok(())
 }
