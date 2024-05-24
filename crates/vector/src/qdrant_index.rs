@@ -328,12 +328,12 @@ impl QdrantSchema {
         Ok(results)
     }
 
-    pub async fn build_disk_index(
+    pub async fn build_disk_index<T: PreviousVectorSegmentsHack>(
         &self,
         index_path: &Path,
         revision_stream: DocumentStream<'_>,
         hnsw_threshold_bytes: usize,
-        previous_segments: &mut Vec<&mut impl PreviousSegment>,
+        previous_segments: &mut T,
     ) -> anyhow::Result<Option<VectorDiskSegmentValues>> {
         let tmpdir = TempDir::new()?;
         let memory_timer = metrics::qdrant_segment_memory_build_timer();
@@ -385,9 +385,7 @@ impl QdrantSchema {
             // would require extra queries and logic, so instead we just try mutating each
             // segment in memory. This removes an opportunity to verify
             // consistency, but it's faster and simpler.
-            for segment in &mut *previous_segments {
-                segment.maybe_delete(*point_id)?;
-            }
+            previous_segments.maybe_delete_qdrant(*point_id)?;
         }
         // We encode all of our index values as strings.
         let field_schema = Some(&PayloadFieldSchema::FieldType(PayloadSchemaType::Keyword));
@@ -595,13 +593,22 @@ impl TryFrom<proto::VectorIndexConfig> for QdrantSchema {
 
 /// A workaround for circular dependencies between database
 /// (vector_index_worker) and qdrant.
-pub trait PreviousSegment {
+pub trait PreviousVectorSegmentsHack {
     /// Marks the id deleted, returning a failure of an invariant was violated
     /// (this should never happen!)
-    fn maybe_delete(&mut self, external_id: ExtendedPointId) -> anyhow::Result<()>;
+    fn maybe_delete_qdrant(&mut self, external_id: ExtendedPointId) -> anyhow::Result<()>;
 }
 
 pub struct QdrantExternalId(PointIdType);
+
+impl TryFrom<InternalId> for QdrantExternalId {
+    type Error = anyhow::Error;
+
+    fn try_from(value: InternalId) -> Result<Self, Self::Error> {
+        let uuid = Uuid::from_bytes(value[..].try_into()?);
+        Ok(Self(PointIdType::Uuid(uuid)))
+    }
+}
 
 impl<T: TableIdentifier> TryFrom<&GenericDocumentId<T>> for QdrantExternalId {
     type Error = anyhow::Error;

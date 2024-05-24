@@ -231,7 +231,7 @@ impl PreviousTextSegments {
 
     /// Deletes a document (if present) and returns the index to the segment
     /// that it was deleted from
-    fn delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<Option<usize>> {
+    pub fn delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<Option<usize>> {
         let Some((segment_idx, tantivy_id)) = self.segment_for_document(convex_id) else {
             return Ok(None);
         };

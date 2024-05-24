@@ -37,7 +37,7 @@ pub use self::{
         VECTOR_INDEX_TYPE_LABEL,
     },
     qdrant_index::{
-        PreviousSegment,
+        PreviousVectorSegmentsHack,
         QdrantDocument,
         QdrantExternalId,
         QdrantSchema,

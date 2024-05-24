@@ -30,9 +30,13 @@ use common::{
 };
 use search::{
     disk_index::upload_vector_segment,
-    fragmented_segment::MutableFragmentedSegmentMetadata,
+    fragmented_segment::{
+        MutableFragmentedSegmentMetadata,
+        PreviousVectorSegments,
+    },
 };
 use storage::Storage;
+use value::InternalId;
 use vector::{
     qdrant_segments::VectorDiskSegmentValues,
     QdrantSchema,
@@ -41,6 +45,7 @@ use vector::{
 use crate::{
     index_workers::index_meta::{
         BackfillState,
+        PreviousSegmentsType,
         SearchIndex,
         SearchIndexConfig,
         SearchIndexConfigParser,
@@ -86,11 +91,17 @@ impl SearchIndexConfigParser for VectorIndexConfigParser {
 #[derive(Debug)]
 pub struct VectorSearchIndex;
 
+impl PreviousSegmentsType for PreviousVectorSegments {
+    fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()> {
+        self.maybe_delete_convex(convex_id)
+    }
+}
+
 #[async_trait]
 impl SearchIndex for VectorSearchIndex {
     type DeveloperConfig = DeveloperVectorIndexConfig;
     type NewSegment = VectorDiskSegmentValues;
-    type PreviousSegments = Vec<MutableFragmentedSegmentMetadata>;
+    type PreviousSegments = PreviousVectorSegments;
     type Schema = QdrantSchema;
     type Segment = FragmentedVectorSegment;
     type Statistics = VectorStatistics;
@@ -115,14 +126,15 @@ impl SearchIndex for VectorSearchIndex {
         storage: Arc<dyn Storage>,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments> {
-        try_join_buffer_unordered(
-            rt.clone(),
+        let segments = try_join_buffer_unordered(
+            rt,
             "upload_vector_metadata",
             segments.into_iter().map(move |segment| {
                 MutableFragmentedSegmentMetadata::download(segment, storage.clone())
             }),
         )
-        .await
+        .await?;
+        Ok(PreviousVectorSegments(segments))
     }
 
     async fn upload_previous_segments<RT: Runtime>(
@@ -134,6 +146,7 @@ impl SearchIndex for VectorSearchIndex {
             rt,
             "upload_vector_metadata",
             segments
+                .0
                 .into_iter()
                 .map(move |segment| segment.upload_deleted_bitset(storage.clone())),
         )
@@ -157,7 +170,7 @@ impl SearchIndex for VectorSearchIndex {
                 index_path,
                 documents,
                 full_scan_threshold_bytes,
-                &mut previous_segments.iter_mut().collect::<Vec<_>>(),
+                previous_segments,
             )
             .await
     }

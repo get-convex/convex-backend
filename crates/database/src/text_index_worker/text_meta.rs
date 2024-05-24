@@ -39,10 +39,12 @@ use search::{
     UpdatableTextSegment,
 };
 use storage::Storage;
+use value::InternalId;
 
 use crate::{
     index_workers::index_meta::{
         BackfillState,
+        PreviousSegmentsType,
         SearchIndex,
         SearchIndexConfig,
         SearchIndexConfigParser,
@@ -81,6 +83,13 @@ impl SearchIndexConfigParser for TextIndexConfigParser {
                 },
             },
         })
+    }
+}
+
+impl PreviousSegmentsType for PreviousTextSegments {
+    fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()> {
+        self.delete_document(convex_id)?;
+        Ok(())
     }
 }
 

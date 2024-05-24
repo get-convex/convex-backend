@@ -29,6 +29,7 @@ use qdrant_segment::{
 };
 use storage::Storage;
 use tempfile::TempDir;
+use value::InternalId;
 use vector::{
     id_tracker::VectorStaticIdTracker,
     qdrant_segments::{
@@ -36,7 +37,8 @@ use vector::{
         merge_disk_segments_hnsw,
         UntarredVectorDiskSegmentPaths,
     },
-    PreviousSegment,
+    PreviousVectorSegmentsHack,
+    QdrantExternalId,
 };
 
 use crate::{
@@ -211,6 +213,25 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
     }
 }
 
+pub struct PreviousVectorSegments(pub Vec<MutableFragmentedSegmentMetadata>);
+
+// A circular dependency workaround for search / database / vector.
+impl PreviousVectorSegmentsHack for PreviousVectorSegments {
+    fn maybe_delete_qdrant(&mut self, qdrant_id: ExtendedPointId) -> anyhow::Result<()> {
+        for segment in &mut self.0 {
+            segment.maybe_delete(qdrant_id)?;
+        }
+        Ok(())
+    }
+}
+
+impl PreviousVectorSegments {
+    pub fn maybe_delete_convex(&mut self, convex_id: InternalId) -> anyhow::Result<()> {
+        let point_id = QdrantExternalId::try_from(convex_id)?;
+        self.maybe_delete_qdrant(*point_id)
+    }
+}
+
 /// Fetches fragmented vector segments, allows their deleted bitsets to be
 /// mutated, then re-uploads the deleted bitsets.
 pub struct MutableFragmentedSegmentMetadata {
@@ -306,13 +327,6 @@ impl MutableFragmentedSegmentMetadata {
             self.is_modified = true;
         }
         Ok(())
-    }
-}
-
-// A circular dependency workaround for search / database / vector.
-impl PreviousSegment for MutableFragmentedSegmentMetadata {
-    fn maybe_delete(&mut self, external_id: ExtendedPointId) -> anyhow::Result<()> {
-        MutableFragmentedSegmentMetadata::maybe_delete(self, external_id)
     }
 }
 

@@ -30,13 +30,17 @@ pub trait SearchIndexConfigParser {
     fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self::IndexType>>;
 }
 
+pub trait PreviousSegmentsType {
+    fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()>;
+}
+
 #[async_trait]
 pub trait SearchIndex {
     type DeveloperConfig: Clone + Send;
     type Segment: Clone + Send + 'static;
     type NewSegment: Send;
 
-    type PreviousSegments;
+    type PreviousSegments: PreviousSegmentsType;
 
     type Statistics: SegmentStatistics;
 
