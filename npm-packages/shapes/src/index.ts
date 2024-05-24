@@ -143,3 +143,15 @@ export function stringifyShape(shape: Shape): string {
     }
   }
 }
+
+export function topLevelFieldsFromShape(shape: Shape): Array<string> {
+  if (shape.type === "Object") {
+    return shape.fields.map((f) => f.fieldName);
+  }
+  if (shape.type === "Union") {
+    return Array.from(
+      new Set(shape.shapes.flatMap((s: Shape) => topLevelFieldsFromShape(s))),
+    );
+  }
+  return [];
+}
