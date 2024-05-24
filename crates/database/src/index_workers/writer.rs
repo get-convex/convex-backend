@@ -65,12 +65,12 @@ use crate::{
 /// conflicting writes that may have happened due to concurrent modifications in
 /// the flusher and compactor.
 #[derive(Clone)]
-pub(crate) struct VectorMetadataWriter<RT: Runtime, T: SearchIndex> {
+pub(crate) struct SearchIndexMetadataWriter<RT: Runtime, T: SearchIndex> {
     inner: Arc<Mutex<Inner<RT, T>>>,
     search_type: SearchType,
 }
 
-impl<RT: Runtime, T: SearchIndex> VectorMetadataWriter<RT, T> {
+impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
     pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
@@ -391,8 +391,8 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .commit_with_write_source(
                 tx,
                 match self.search_type {
-                    SearchType::Vector => "vector_index_woker_commit_backfill",
-                    SearchType::Text => "text_index_woker_commit_backfill",
+                    SearchType::Vector => "vector_index_worker_commit_backfill",
+                    SearchType::Text => "text_index_worker_commit_backfill",
                 },
             )
             .await?;

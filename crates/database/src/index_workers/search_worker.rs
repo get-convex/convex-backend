@@ -33,13 +33,11 @@ use crate::{
             RetriableWorker,
         },
         timeout_with_jitter,
+        writer::SearchIndexMetadataWriter,
     },
     metrics::log_worker_starting,
     text_index_worker::flusher2::TextIndexFlusher2,
-    vector_index_worker::{
-        compactor::CompactionConfig,
-        writer::VectorMetadataWriter,
-    },
+    vector_index_worker::compactor::CompactionConfig,
     Database,
     TextIndexFlusher,
     VectorIndexCompactor,
@@ -76,7 +74,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     ) {
-        let vector_writer = VectorMetadataWriter::new(
+        let vector_writer = SearchIndexMetadataWriter::new(
             runtime.clone(),
             database.clone(),
             search_storage.clone(),

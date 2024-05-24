@@ -34,8 +34,8 @@ use search::searcher::Searcher;
 use storage::Storage;
 use value::ResolvedDocumentId;
 
-use super::writer::VectorMetadataWriter;
 use crate::{
+    index_workers::writer::SearchIndexMetadataWriter,
     metrics::vector::{
         finish_compaction_timer,
         log_vector_compaction_compacted_segment_num_vectors_total,
@@ -54,7 +54,7 @@ pub struct VectorIndexCompactor<RT: Runtime> {
     searcher: Arc<dyn Searcher>,
     search_storage: Arc<dyn Storage>,
     config: CompactionConfig,
-    writer: VectorMetadataWriter<RT, VectorSearchIndex>,
+    writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
 }
 
 impl<RT: Runtime> VectorIndexCompactor<RT> {
@@ -63,7 +63,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
         config: CompactionConfig,
-        writer: VectorMetadataWriter<RT, VectorSearchIndex>,
+        writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
     ) -> Self {
         Self {
             database,
@@ -83,7 +83,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         config: CompactionConfig,
     ) -> Self {
         use search::metrics::SearchType;
-        let writer = VectorMetadataWriter::new(
+        let writer = SearchIndexMetadataWriter::new(
             runtime,
             database.clone(),
             search_storage.clone(),

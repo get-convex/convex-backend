@@ -16,10 +16,7 @@ use common::{
 };
 use storage::Storage;
 
-use super::{
-    vector_meta::BuildVectorIndexArgs,
-    writer::VectorMetadataWriter,
-};
+use super::vector_meta::BuildVectorIndexArgs;
 use crate::{
     index_workers::{
         index_meta::SnapshotData,
@@ -29,6 +26,7 @@ use crate::{
             SearchFlusher,
             SearchIndexLimits,
         },
+        writer::SearchIndexMetadataWriter,
     },
     metrics,
     vector_index_worker::vector_meta::{
@@ -40,7 +38,7 @@ use crate::{
 };
 
 pub struct VectorIndexFlusher<RT: Runtime> {
-    writer: VectorMetadataWriter<RT, VectorSearchIndex>,
+    writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
     flusher: SearchFlusher<RT, VectorIndexConfigParser>,
     /// The maximum vector segment size at which it's reasonable to search the
     /// segment by simply iterating over every item individually.
@@ -66,7 +64,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
-        writer: VectorMetadataWriter<RT, VectorSearchIndex>,
+        writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
     ) -> Self {
         let flusher = SearchFlusher::new(
             runtime,
@@ -203,7 +201,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         else {
             anyhow::bail!("Missing by_id index for {index_name:?}");
         };
-        let writer = VectorMetadataWriter::new(
+        let writer = SearchIndexMetadataWriter::new(
             runtime.clone(),
             database.clone(),
             storage.clone(),
@@ -258,7 +256,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         pause_client: Option<PauseClient>,
     ) -> Self {
         use search::metrics::SearchType;
-        let writer = VectorMetadataWriter::new(
+        let writer = SearchIndexMetadataWriter::new(
             runtime.clone(),
             database.clone(),
             storage.clone(),

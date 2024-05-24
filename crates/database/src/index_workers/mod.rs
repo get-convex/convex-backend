@@ -3,6 +3,7 @@ pub mod index_meta;
 pub mod retriable_worker;
 pub mod search_flusher;
 pub mod search_worker;
+pub mod writer;
 
 use std::{
     num::NonZeroU32,
