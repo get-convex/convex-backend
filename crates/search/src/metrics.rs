@@ -451,7 +451,13 @@ pub enum SearchType {
     Text,
 }
 
-pub const SEARCH_TYPE_LABEL: [&str; 1] = ["search_type"];
+impl SearchType {
+    pub fn tag(self) -> StaticMetricLabel {
+        search_type_label(self)
+    }
+}
+
+pub const SEARCH_TYPE_LABEL: &str = "search_type";
 pub fn search_type_label(search_type: SearchType) -> StaticMetricLabel {
     let type_str = match search_type {
         SearchType::Vector => "vector",

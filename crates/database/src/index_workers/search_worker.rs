@@ -19,6 +19,7 @@ use futures::{
     FutureExt,
 };
 use search::{
+    metrics::SearchType,
     searcher::SegmentTermMetadataFetcher,
     Searcher,
 };
@@ -75,8 +76,12 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     ) {
-        let vector_writer =
-            VectorMetadataWriter::new(runtime.clone(), database.clone(), search_storage.clone());
+        let vector_writer = VectorMetadataWriter::new(
+            runtime.clone(),
+            database.clone(),
+            search_storage.clone(),
+            SearchType::Vector,
+        );
         let vector_flush = retry_loop_expect_occs_and_overloaded(
             "VectorFlusher",
             runtime.clone(),

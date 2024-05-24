@@ -28,6 +28,7 @@ use futures::TryStreamExt;
 use governor::Quota;
 use itertools::Itertools;
 use keybroker::Identity;
+use search::metrics::SearchType;
 use storage::Storage;
 use sync_types::Timestamp;
 use value::ResolvedDocumentId;
@@ -46,13 +47,13 @@ use crate::{
         search_flusher::IndexBuild,
         MultiSegmentBackfillResult,
     },
-    metrics::vector::{
-        finish_vector_index_merge_timer,
-        vector_compaction_merge_commit_timer,
-        vector_flush_merge_commit_timer,
-        vector_writer_lock_wait_timer,
-        VectorIndexMergeType,
-        VectorWriterLockWaiter,
+    metrics::{
+        finish_search_index_merge_timer,
+        search_compaction_merge_commit_timer,
+        search_flush_merge_commit_timer,
+        search_writer_lock_wait_timer,
+        SearchIndexMergeType,
+        SearchWriterLockWaiter,
     },
     Database,
     IndexModel,
@@ -66,19 +67,35 @@ use crate::{
 #[derive(Clone)]
 pub(crate) struct VectorMetadataWriter<RT: Runtime, T: SearchIndex> {
     inner: Arc<Mutex<Inner<RT, T>>>,
+    search_type: SearchType,
 }
 
 impl<RT: Runtime, T: SearchIndex> VectorMetadataWriter<RT, T> {
-    pub(crate) fn new(runtime: RT, database: Database<RT>, storage: Arc<dyn Storage>) -> Self {
+    pub(crate) fn new(
+        runtime: RT,
+        database: Database<RT>,
+        storage: Arc<dyn Storage>,
+        search_type: SearchType,
+    ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Inner {
                 runtime: runtime.clone(),
                 database,
                 storage,
+                search_type,
                 // Use small limits because we should only ever run one job at a time.
-                thread_pool: BoundedThreadPool::new(runtime, 2, 1, "vector_writer"),
+                thread_pool: BoundedThreadPool::new(
+                    runtime,
+                    2,
+                    1,
+                    match search_type {
+                        SearchType::Vector => "vector_writer",
+                        SearchType::Text => "text_writer",
+                    },
+                ),
                 _phantom_data: Default::default(),
             })),
+            search_type,
         }
     }
 
@@ -105,7 +122,7 @@ impl<RT: Runtime, T: SearchIndex> VectorMetadataWriter<RT, T> {
         new_segment: T::Segment,
         rate_limit_pages_per_second: NonZeroU32,
     ) -> anyhow::Result<()> {
-        self.inner(VectorWriterLockWaiter::Compactor)
+        self.inner(SearchWriterLockWaiter::Compactor)
             .await
             .commit_compaction(
                 index_id,
@@ -140,7 +157,7 @@ impl<RT: Runtime, T: SearchIndex> VectorMetadataWriter<RT, T> {
         new_segment_id: Option<String>,
         index_backfill_result: Option<MultiSegmentBackfillResult>,
     ) -> anyhow::Result<()> {
-        let inner = self.inner(VectorWriterLockWaiter::Flusher).await;
+        let inner = self.inner(SearchWriterLockWaiter::Flusher).await;
 
         if let Some(index_backfill_result) = index_backfill_result {
             inner
@@ -159,8 +176,8 @@ impl<RT: Runtime, T: SearchIndex> VectorMetadataWriter<RT, T> {
         }
     }
 
-    async fn inner(&self, waiter: VectorWriterLockWaiter) -> MutexGuard<Inner<RT, T>> {
-        let lock_timer = vector_writer_lock_wait_timer(waiter);
+    async fn inner(&self, waiter: SearchWriterLockWaiter) -> MutexGuard<Inner<RT, T>> {
+        let lock_timer = search_writer_lock_wait_timer(waiter, self.search_type);
         let inner = self.inner.lock().await;
         drop(lock_timer);
         inner
@@ -172,6 +189,7 @@ struct Inner<RT: Runtime, T: SearchIndex> {
     database: Database<RT>,
     storage: Arc<dyn Storage>,
     thread_pool: BoundedThreadPool<RT>,
+    search_type: SearchType,
     _phantom_data: PhantomData<T>,
 }
 
@@ -218,7 +236,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         mut new_segment: T::Segment,
         rate_limit_pages_per_second: NonZeroU32,
     ) -> anyhow::Result<()> {
-        let timer = vector_compaction_merge_commit_timer();
+        let timer = search_compaction_merge_commit_timer(self.search_type);
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let mut metadata = Self::require_index_metadata(&mut tx, index_id).await?;
 
@@ -270,14 +288,20 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .replace(index_id, new_metadata.try_into()?)
             .await?;
         self.database
-            .commit_with_write_source(tx, "vector_index_worker_commit_compaction")
+            .commit_with_write_source(
+                tx,
+                match self.search_type {
+                    SearchType::Vector => "vector_index_worker_commit_compaction",
+                    SearchType::Text => "text_index_worker_commit_compaction",
+                },
+            )
             .await?;
-        finish_vector_index_merge_timer(
+        finish_search_index_merge_timer(
             timer,
             if is_merge_required {
-                VectorIndexMergeType::Required
+                SearchIndexMergeType::Required
             } else {
-                VectorIndexMergeType::NotRequired
+                SearchIndexMergeType::NotRequired
             },
         );
         Ok(())
@@ -318,7 +342,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         new_segment_id: Option<String>,
         backfill_result: MultiSegmentBackfillResult,
     ) -> anyhow::Result<()> {
-        let timer = vector_flush_merge_commit_timer();
+        let timer = search_flush_merge_commit_timer(self.search_type);
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
@@ -364,9 +388,15 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .replace(job.metadata_id, metadata.try_into()?)
             .await?;
         self.database
-            .commit_with_write_source(tx, "vector_index_woker_commit_backfill")
+            .commit_with_write_source(
+                tx,
+                match self.search_type {
+                    SearchType::Vector => "vector_index_woker_commit_backfill",
+                    SearchType::Text => "text_index_woker_commit_backfill",
+                },
+            )
             .await?;
-        finish_vector_index_merge_timer(timer, VectorIndexMergeType::NotRequired);
+        finish_search_index_merge_timer(timer, SearchIndexMergeType::NotRequired);
         Ok(())
     }
 
@@ -377,7 +407,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         mut new_and_modified_segments: Vec<T::Segment>,
         new_segment_id: Option<String>,
     ) -> anyhow::Result<()> {
-        let timer = vector_flush_merge_commit_timer();
+        let timer = search_flush_merge_commit_timer(self.search_type);
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
@@ -443,14 +473,20 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .replace(job.metadata_id, metadata.try_into()?)
             .await?;
         self.database
-            .commit_with_write_source(tx, "vector_index_worker_commit_snapshot")
+            .commit_with_write_source(
+                tx,
+                match self.search_type {
+                    SearchType::Vector => "vector_index_worker_commit_snapshot",
+                    SearchType::Text => "text_index_worker_commit_snapshot",
+                },
+            )
             .await?;
-        finish_vector_index_merge_timer(
+        finish_search_index_merge_timer(
             timer,
             if is_merge_required {
-                VectorIndexMergeType::Required
+                SearchIndexMergeType::Required
             } else {
-                VectorIndexMergeType::NotRequired
+                SearchIndexMergeType::NotRequired
             },
         );
         Ok(())

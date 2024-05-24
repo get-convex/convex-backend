@@ -177,6 +177,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         use anyhow::Context;
         use common::types::IndexName;
         use keybroker::Identity;
+        use search::metrics::SearchType;
         use value::TableNamespace;
 
         use crate::{
@@ -202,7 +203,12 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         else {
             anyhow::bail!("Missing by_id index for {index_name:?}");
         };
-        let writer = VectorMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
+        let writer = VectorMetadataWriter::new(
+            runtime.clone(),
+            database.clone(),
+            storage.clone(),
+            SearchType::Vector,
+        );
         let worker = Self::new(runtime, database, reader, storage, writer);
         let job = IndexBuild {
             index_name,
@@ -251,7 +257,13 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         incremental_multipart_threshold_bytes: usize,
         pause_client: Option<PauseClient>,
     ) -> Self {
-        let writer = VectorMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
+        use search::metrics::SearchType;
+        let writer = VectorMetadataWriter::new(
+            runtime.clone(),
+            database.clone(),
+            storage.clone(),
+            SearchType::Vector,
+        );
         let flusher = SearchFlusher::new(
             runtime,
             database,

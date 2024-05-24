@@ -1,3 +1,7 @@
+use ::search::metrics::{
+    SearchType,
+    SEARCH_TYPE_LABEL,
+};
 use common::{
     runtime::Runtime,
     types::Timestamp,
@@ -19,7 +23,10 @@ use metrics::{
     Timer,
     STATUS_LABEL,
 };
-use prometheus::VMHistogram;
+use prometheus::{
+    VMHistogram,
+    VMHistogramVec,
+};
 
 use crate::{
     transaction::FinalTransaction,
@@ -717,6 +724,90 @@ pub fn finish_bootstrap(num_revisions: usize, bytes: usize, timer: StatusTimer) 
     timer.finish();
 }
 
+pub enum SearchWriterLockWaiter {
+    Compactor,
+    Flusher,
+}
+
+const SEARCH_WRITER_WAITER_LABEL: &str = "waiter";
+
+impl SearchWriterLockWaiter {
+    fn tag(&self) -> StaticMetricLabel {
+        let label = match self {
+            SearchWriterLockWaiter::Compactor => "compactor",
+            SearchWriterLockWaiter::Flusher => "flusher",
+        };
+        StaticMetricLabel::new(SEARCH_WRITER_WAITER_LABEL, label)
+    }
+}
+
+register_convex_histogram!(
+    SEARCH_WRITER_LOCK_WAIT_SECONDS,
+    "The amount of time spent waiting for the writer lock to commit a vector/text index metadata \
+     change",
+    &[SEARCH_TYPE_LABEL, SEARCH_WRITER_WAITER_LABEL]
+);
+pub fn search_writer_lock_wait_timer(
+    waiter: SearchWriterLockWaiter,
+    search_type: SearchType,
+) -> Timer<VMHistogramVec> {
+    let mut timer = Timer::new_with_labels(&SEARCH_WRITER_LOCK_WAIT_SECONDS);
+    timer.add_label(search_type.tag());
+    timer.add_label(waiter.tag());
+    timer
+}
+
+const MERGE_LABEL: &str = "merge_required";
+
+pub enum SearchIndexMergeType {
+    Unknown,
+    Required,
+    NotRequired,
+}
+
+impl SearchIndexMergeType {
+    fn metric_label(&self) -> StaticMetricLabel {
+        let label = match self {
+            SearchIndexMergeType::Unknown => "unknown",
+            SearchIndexMergeType::Required => "required",
+            SearchIndexMergeType::NotRequired => "not_required",
+        };
+        StaticMetricLabel::new(MERGE_LABEL, label)
+    }
+}
+
+register_convex_histogram!(
+    SEARCH_COMPACTION_MERGE_COMMIT_SECONDS,
+    "Time to merge deletes and commit after compaction",
+    &[STATUS_LABEL[0], SEARCH_TYPE_LABEL, MERGE_LABEL],
+);
+pub fn search_compaction_merge_commit_timer(search_type: SearchType) -> StatusTimer {
+    let mut timer = StatusTimer::new(&SEARCH_COMPACTION_MERGE_COMMIT_SECONDS);
+    timer.add_label(search_type.tag());
+    timer.add_label(SearchIndexMergeType::Unknown.metric_label());
+    timer
+}
+
+register_convex_histogram!(
+    SEARCH_FLUSH_MERGE_COMMIT_SECONDS,
+    "Time to merge deletes and commit after flushing",
+    &[STATUS_LABEL[0], SEARCH_TYPE_LABEL, MERGE_LABEL],
+);
+pub fn search_flush_merge_commit_timer(search_type: SearchType) -> StatusTimer {
+    let mut timer = StatusTimer::new(&SEARCH_FLUSH_MERGE_COMMIT_SECONDS);
+    timer.add_label(search_type.tag());
+    timer.add_label(SearchIndexMergeType::Unknown.metric_label());
+    timer
+}
+
+pub fn finish_search_index_merge_timer(mut timer: StatusTimer, merge_type: SearchIndexMergeType) {
+    timer.replace_label(
+        SearchIndexMergeType::Unknown.metric_label(),
+        merge_type.metric_label(),
+    );
+    timer.finish();
+}
+
 pub mod search {
 
     use metrics::{
@@ -811,10 +902,8 @@ pub mod vector {
         CancelableTimer,
         StaticMetricLabel,
         StatusTimer,
-        Timer,
         STATUS_LABEL,
     };
-    use prometheus::VMHistogramVec;
 
     register_convex_histogram!(
         DATABASE_VECTOR_BUILD_ONE_SECONDS,
@@ -930,86 +1019,5 @@ pub mod vector {
             &VECTOR_COMPACTION_COMPACTED_SEGMENT_NUM_VECTORS_TOTAL,
             total_vectors as f64,
         );
-    }
-
-    pub enum VectorWriterLockWaiter {
-        Compactor,
-        Flusher,
-    }
-
-    const VECTOR_WRITER_WAITER_LABEL: &str = "waiter";
-
-    impl VectorWriterLockWaiter {
-        fn tag(&self) -> StaticMetricLabel {
-            let label = match self {
-                VectorWriterLockWaiter::Compactor => "compactor",
-                VectorWriterLockWaiter::Flusher => "flusher",
-            };
-            StaticMetricLabel::new(VECTOR_WRITER_WAITER_LABEL, label)
-        }
-    }
-
-    register_convex_histogram!(
-        VECTOR_WRITER_LOCK_WAIT_SECONDS,
-        "The amount of time spent waiting for the writer lock to commit a vector index metadata \
-         change",
-        &[VECTOR_WRITER_WAITER_LABEL]
-    );
-    pub fn vector_writer_lock_wait_timer(waiter: VectorWriterLockWaiter) -> Timer<VMHistogramVec> {
-        let mut timer = Timer::new_with_labels(&VECTOR_WRITER_LOCK_WAIT_SECONDS);
-        timer.add_label(waiter.tag());
-        timer
-    }
-
-    const MERGE_LABEL: &str = "merge_required";
-
-    pub enum VectorIndexMergeType {
-        Unknown,
-        Required,
-        NotRequired,
-    }
-
-    impl VectorIndexMergeType {
-        fn metric_label(&self) -> StaticMetricLabel {
-            let label = match self {
-                VectorIndexMergeType::Unknown => "unknown",
-                VectorIndexMergeType::Required => "required",
-                VectorIndexMergeType::NotRequired => "not_required",
-            };
-            StaticMetricLabel::new(MERGE_LABEL, label)
-        }
-    }
-
-    register_convex_histogram!(
-        VECTOR_COMPACTION_MERGE_COMMIT_SECONDS,
-        "Time to merge deletes and commit after compaction",
-        &[STATUS_LABEL[0], MERGE_LABEL],
-    );
-    pub fn vector_compaction_merge_commit_timer() -> StatusTimer {
-        let mut timer = StatusTimer::new(&VECTOR_COMPACTION_MERGE_COMMIT_SECONDS);
-        timer.add_label(VectorIndexMergeType::Unknown.metric_label());
-        timer
-    }
-
-    register_convex_histogram!(
-        VECTOR_FLUSH_MERGE_COMMIT_SECONDS,
-        "Time to merge deletes and commit after flushing",
-        &[STATUS_LABEL[0], MERGE_LABEL],
-    );
-    pub fn vector_flush_merge_commit_timer() -> StatusTimer {
-        let mut timer = StatusTimer::new(&VECTOR_COMPACTION_MERGE_COMMIT_SECONDS);
-        timer.add_label(VectorIndexMergeType::Unknown.metric_label());
-        timer
-    }
-
-    pub fn finish_vector_index_merge_timer(
-        mut timer: StatusTimer,
-        merge_type: VectorIndexMergeType,
-    ) {
-        timer.replace_label(
-            VectorIndexMergeType::Unknown.metric_label(),
-            merge_type.metric_label(),
-        );
-        timer.finish();
     }
 }
