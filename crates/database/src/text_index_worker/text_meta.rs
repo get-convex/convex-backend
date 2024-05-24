@@ -16,8 +16,13 @@ use common::{
             TextIndexState,
         },
         IndexConfig,
+        IndexMetadata,
+        TabletIndexMetadata,
     },
-    document::ResolvedDocument,
+    document::{
+        ParsedDocument,
+        ResolvedDocument,
+    },
     persistence::{
         DocumentStream,
         RepeatablePersistence,
@@ -28,7 +33,10 @@ use common::{
         try_join_buffer_unordered,
         Runtime,
     },
-    types::IndexId,
+    types::{
+        IndexId,
+        TabletIndexName,
+    },
 };
 use search::{
     build_new_segment,
@@ -39,11 +47,16 @@ use search::{
     UpdatableTextSegment,
 };
 use storage::Storage;
-use value::InternalId;
+use sync_types::Timestamp;
+use value::{
+    InternalId,
+    TabletId,
+};
 
 use crate::{
     index_workers::index_meta::{
         BackfillState,
+        IndexMetadataState,
         PreviousSegmentsType,
         SearchIndex,
         SearchIndexConfig,
@@ -51,6 +64,7 @@ use crate::{
         SearchOnDiskState,
         SearchSnapshot,
         SegmentStatistics,
+        SegmentType,
         SnapshotData,
     },
     Snapshot,
@@ -93,8 +107,19 @@ impl PreviousSegmentsType for PreviousTextSegments {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TextSearchIndex;
+
+impl SegmentType for FragmentedTextSegment {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn num_deleted(&self) -> u32 {
+        // TODO(sam): Implement me!
+        0
+    }
+}
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
     type DeveloperConfig = DeveloperSearchIndexConfig;
@@ -199,6 +224,33 @@ impl SearchIndex for TextSearchIndex {
         Ok(TextStatistics {
             num_indexed_documents: segment.num_indexed_documents,
         })
+    }
+
+    fn extract_compaction_metadata(
+        _metadata: &mut ParsedDocument<TabletIndexMetadata>,
+    ) -> anyhow::Result<(&Timestamp, &mut Vec<Self::Segment>)> {
+        anyhow::bail!("Not implemented");
+    }
+
+    fn extract_flush_metadata(
+        _metadata: ParsedDocument<TabletIndexMetadata>,
+    ) -> anyhow::Result<(
+        Option<Timestamp>,
+        Vec<Self::Segment>,
+        bool,
+        Self::DeveloperConfig,
+    )> {
+        anyhow::bail!("Not implemented");
+    }
+
+    fn new_metadata(
+        _name: TabletIndexName,
+        _developer_config: Self::DeveloperConfig,
+        _new_and_modified_segments: Vec<Self::Segment>,
+        _new_ts: Timestamp,
+        _new_state: IndexMetadataState,
+    ) -> IndexMetadata<TabletId> {
+        panic!("Not implemented");
     }
 }
 

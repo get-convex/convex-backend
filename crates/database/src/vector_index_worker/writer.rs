@@ -1,5 +1,6 @@
 use std::{
     iter,
+    marker::PhantomData,
     num::NonZeroU32,
     ops::Bound,
     sync::Arc,
@@ -7,19 +8,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::index::{
-        vector_index::{
-            DeveloperVectorIndexConfig,
-            FragmentedVectorSegment,
-            VectorIndexBackfillState,
-            VectorIndexSnapshot,
-            VectorIndexSnapshotData,
-            VectorIndexState,
-        },
-        IndexConfig,
-        IndexMetadata,
-        TabletIndexMetadata,
-    },
+    bootstrap_model::index::TabletIndexMetadata,
     bounded_thread_pool::BoundedThreadPool,
     document::ParsedDocument,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
@@ -27,7 +16,6 @@ use common::{
     query::Order,
     runtime::{
         new_rate_limiter,
-        try_join_buffer_unordered,
         Runtime,
     },
     sync::{
@@ -40,14 +28,18 @@ use futures::TryStreamExt;
 use governor::Quota;
 use itertools::Itertools;
 use keybroker::Identity;
-use search::fragmented_segment::MutableFragmentedSegmentMetadata;
 use storage::Storage;
 use sync_types::Timestamp;
 use value::ResolvedDocumentId;
-use vector::QdrantExternalId;
 
 use crate::{
     index_workers::{
+        index_meta::{
+            IndexMetadataState,
+            PreviousSegmentsType,
+            SearchIndex,
+            SegmentType,
+        },
         search_flusher::IndexBuild,
         MultiSegmentBackfillResult,
     },
@@ -59,7 +51,6 @@ use crate::{
         VectorIndexMergeType,
         VectorWriterLockWaiter,
     },
-    vector_index_worker::vector_meta::VectorSearchIndex,
     Database,
     IndexModel,
     SystemMetadataModel,
@@ -70,11 +61,11 @@ use crate::{
 /// conflicting writes that may have happened due to concurrent modifications in
 /// the flusher and compactor.
 #[derive(Clone)]
-pub(crate) struct VectorMetadataWriter<RT: Runtime> {
-    inner: Arc<Mutex<Inner<RT>>>,
+pub(crate) struct VectorMetadataWriter<RT: Runtime, T: SearchIndex> {
+    inner: Arc<Mutex<Inner<RT, T>>>,
 }
 
-impl<RT: Runtime> VectorMetadataWriter<RT> {
+impl<RT: Runtime, T: SearchIndex> VectorMetadataWriter<RT, T> {
     pub(crate) fn new(runtime: RT, database: Database<RT>, storage: Arc<dyn Storage>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Inner {
@@ -83,6 +74,7 @@ impl<RT: Runtime> VectorMetadataWriter<RT> {
                 storage,
                 // Use small limits because we should only ever run one job at a time.
                 thread_pool: BoundedThreadPool::new(runtime, 2, 1, "vector_writer"),
+                _phantom_data: Default::default(),
             })),
         }
     }
@@ -106,8 +98,8 @@ impl<RT: Runtime> VectorMetadataWriter<RT> {
         index_id: ResolvedDocumentId,
         index_name: TabletIndexName,
         start_compaction_ts: Timestamp,
-        segments_to_compact: Vec<FragmentedVectorSegment>,
-        new_segment: FragmentedVectorSegment,
+        segments_to_compact: Vec<T::Segment>,
+        new_segment: T::Segment,
         rate_limit_pages_per_second: NonZeroU32,
     ) -> anyhow::Result<()> {
         self.inner(VectorWriterLockWaiter::Compactor)
@@ -139,9 +131,9 @@ impl<RT: Runtime> VectorMetadataWriter<RT> {
     /// we can append our new segment (if present) and write the updated result.
     pub(crate) async fn commit_flush(
         &self,
-        job: &IndexBuild<VectorSearchIndex>,
+        job: &IndexBuild<T>,
         new_ts: Timestamp,
-        new_and_modified_segments: Vec<FragmentedVectorSegment>,
+        new_and_modified_segments: Vec<T::Segment>,
         new_segment_id: Option<String>,
         index_backfill_result: Option<MultiSegmentBackfillResult>,
     ) -> anyhow::Result<()> {
@@ -164,7 +156,7 @@ impl<RT: Runtime> VectorMetadataWriter<RT> {
         }
     }
 
-    async fn inner(&self, waiter: VectorWriterLockWaiter) -> MutexGuard<Inner<RT>> {
+    async fn inner(&self, waiter: VectorWriterLockWaiter) -> MutexGuard<Inner<RT, T>> {
         let lock_timer = vector_writer_lock_wait_timer(waiter);
         let inner = self.inner.lock().await;
         drop(lock_timer);
@@ -172,14 +164,15 @@ impl<RT: Runtime> VectorMetadataWriter<RT> {
     }
 }
 
-struct Inner<RT: Runtime> {
+struct Inner<RT: Runtime, T: SearchIndex> {
     runtime: RT,
     database: Database<RT>,
     storage: Arc<dyn Storage>,
     thread_pool: BoundedThreadPool<RT>,
+    _phantom_data: PhantomData<T>,
 }
 
-impl<RT: Runtime> Inner<RT> {
+impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
     async fn require_index_metadata(
         tx: &mut Transaction<RT>,
         index_id: ResolvedDocumentId,
@@ -188,50 +181,14 @@ impl<RT: Runtime> Inner<RT> {
         index_model.require_index_by_id(index_id).await
     }
 
-    fn compaction_vector_metadata(
-        metadata: &mut ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(&Timestamp, &mut Vec<FragmentedVectorSegment>)> {
-        let on_disk_state = match &mut metadata.config {
-            IndexConfig::Database { .. } | IndexConfig::Search { .. } => {
-                anyhow::bail!("Index type changed!");
-            },
-            IndexConfig::Vector {
-                ref mut on_disk_state,
-                ..
-            } => on_disk_state,
-        };
-        let (segments, snapshot_ts) = match on_disk_state {
-            VectorIndexState::Backfilling(VectorIndexBackfillState {
-                segments,
-                backfill_snapshot_ts,
-                ..
-            }) => (
-                segments,
-                backfill_snapshot_ts.as_ref().context(
-                    "cannot compact backfilling index without a backfill snapshot set yet",
-                )?,
-            ),
-            VectorIndexState::Backfilled(snapshot) | VectorIndexState::SnapshottedAt(snapshot) => {
-                let current_segments = match snapshot.data {
-                    VectorIndexSnapshotData::Unknown(_) => {
-                        anyhow::bail!("Index version changed!")
-                    },
-                    VectorIndexSnapshotData::MultiSegment(ref mut segments) => segments,
-                };
-                (current_segments, &snapshot.ts)
-            },
-        };
-        Ok((snapshot_ts, segments))
-    }
-
     fn is_compaction_merge_required(
-        segments_to_compact: &Vec<FragmentedVectorSegment>,
-        current_segments: &Vec<FragmentedVectorSegment>,
+        segments_to_compact: &Vec<T::Segment>,
+        current_segments: &Vec<T::Segment>,
     ) -> anyhow::Result<bool> {
         for original_segment in segments_to_compact {
             let current_version = current_segments
                 .iter()
-                .find(|segment| segment.id == original_segment.id);
+                .find(|segment| segment.id() == original_segment.id());
             let Some(current_version) = current_version else {
                 // Only the compactor should remove segments, so they should never be removed
                 // concurrently.
@@ -242,7 +199,7 @@ impl<RT: Runtime> Inner<RT> {
             // which creates a new segment with a new id. So if the number of deletes has
             // changed, it's due to an increase from a conflicting write by the
             // flusher.
-            if current_version.num_deleted != original_segment.num_deleted {
+            if current_version.num_deleted() != original_segment.num_deleted() {
                 return Ok(true);
             }
         }
@@ -254,14 +211,14 @@ impl<RT: Runtime> Inner<RT> {
         index_id: ResolvedDocumentId,
         index_name: TabletIndexName,
         start_compaction_ts: Timestamp,
-        segments_to_compact: Vec<FragmentedVectorSegment>,
-        mut new_segment: FragmentedVectorSegment,
+        segments_to_compact: Vec<T::Segment>,
+        mut new_segment: T::Segment,
         rate_limit_pages_per_second: NonZeroU32,
     ) -> anyhow::Result<()> {
         let timer = vector_compaction_merge_commit_timer();
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let mut metadata = Self::require_index_metadata(&mut tx, index_id).await?;
-        let (snapshot_ts, mut current_segments) = Self::compaction_vector_metadata(&mut metadata)?;
+        let (snapshot_ts, mut current_segments) = T::extract_compaction_metadata(&mut metadata)?;
 
         let is_merge_required =
             Self::is_compaction_merge_required(&segments_to_compact, current_segments)?;
@@ -282,16 +239,16 @@ impl<RT: Runtime> Inner<RT> {
             new_segment = results.into_iter().next().unwrap();
             tx = self.database.begin(Identity::system()).await?;
             metadata = Self::require_index_metadata(&mut tx, index_id).await?;
-            (_, current_segments) = Self::compaction_vector_metadata(&mut metadata)?;
+            (_, current_segments) = T::extract_compaction_metadata(&mut metadata)?;
         }
 
-        let removed_sement_ids = segments_to_compact
+        let removed_segment_ids = segments_to_compact
             .into_iter()
-            .map(|segment| segment.id)
+            .map(|segment| segment.id().to_string())
             .collect_vec();
         let new_segments = current_segments
             .iter()
-            .filter(|segment| !removed_sement_ids.contains(&segment.id))
+            .filter(|segment| !removed_segment_ids.contains(&segment.id().to_string()))
             .cloned()
             .chain(iter::once(new_segment))
             .collect_vec();
@@ -315,15 +272,15 @@ impl<RT: Runtime> Inner<RT> {
     }
 
     fn is_merge_flush_required(
-        new_segments: &Vec<FragmentedVectorSegment>,
-        current_segments: &Vec<FragmentedVectorSegment>,
+        new_segments: &Vec<T::Segment>,
+        current_segments: &Vec<T::Segment>,
         new_segment_id: &Option<String>,
     ) -> bool {
         // TODO(sam): We could be more efficient if we only counted new segments to
         // which our flush actually added at least one delete.
         let current_segment_ids = current_segments
             .iter()
-            .map(|segment| &segment.id)
+            .map(|segment| segment.id().to_string())
             .collect_vec();
         // If any of the segments other than the one the flush optionally added is
         // missing, then some conflicting compaction must have happened.
@@ -334,64 +291,18 @@ impl<RT: Runtime> Inner<RT> {
             .filter(|segment| {
                 new_segment_id
                     .as_ref()
-                    .map(|new_segment_id| *new_segment_id != segment.id)
+                    .map(|new_segment_id| *new_segment_id != segment.id())
                     .unwrap_or(true)
             })
             // Check to see if any of our other new segments were removed while we flushed.
-            .any(|segment| !current_segment_ids.contains(&&segment.id))
-    }
-
-    fn flush_vector_metadata(
-        metadata: ParsedDocument<TabletIndexMetadata>,
-    ) -> anyhow::Result<(
-        Option<Timestamp>,
-        Vec<FragmentedVectorSegment>,
-        bool,
-        DeveloperVectorIndexConfig,
-    )> {
-        let (on_disk_state, developer_config) = match metadata.into_value().config {
-            IndexConfig::Database { .. } | IndexConfig::Search { .. } => {
-                anyhow::bail!("Index type changed!");
-            },
-            IndexConfig::Vector {
-                on_disk_state,
-                developer_config,
-            } => (on_disk_state, developer_config),
-        };
-
-        let is_snapshotted = match on_disk_state {
-            VectorIndexState::Backfilling(_) | VectorIndexState::Backfilled(_) => false,
-            VectorIndexState::SnapshottedAt(_) => true,
-        };
-        let (snapshot_ts, current_segments) = match on_disk_state {
-            VectorIndexState::Backfilling(state) => (state.backfill_snapshot_ts, state.segments),
-            VectorIndexState::Backfilled(snapshot) | VectorIndexState::SnapshottedAt(snapshot) => {
-                let current_segments = match snapshot.data {
-                    VectorIndexSnapshotData::Unknown(_) => {
-                        // We might be migrating to the multi segment format, so we have to be
-                        // lenient.
-                        vec![]
-                    },
-                    VectorIndexSnapshotData::MultiSegment(segments) => segments,
-                };
-
-                (Some(snapshot.ts), current_segments)
-            },
-        };
-
-        Ok((
-            snapshot_ts,
-            current_segments,
-            is_snapshotted,
-            developer_config,
-        ))
+            .any(|segment| !current_segment_ids.contains(&segment.id().to_string()))
     }
 
     async fn commit_backfill_flush(
         &self,
-        job: &IndexBuild<VectorSearchIndex>,
+        job: &IndexBuild<T>,
         backfill_complete_ts: Timestamp,
-        mut new_and_modified_segments: Vec<FragmentedVectorSegment>,
+        mut new_and_modified_segments: Vec<T::Segment>,
         new_segment_id: Option<String>,
         backfill_result: MultiSegmentBackfillResult,
     ) -> anyhow::Result<()> {
@@ -400,23 +311,17 @@ impl<RT: Runtime> Inner<RT> {
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
         // assert index metadata is in backfilling state
-        anyhow::ensure!(matches!(
-            metadata.config,
-            IndexConfig::Vector {
-                on_disk_state: VectorIndexState::Backfilling(_),
-                ..
-            }
-        ));
+        anyhow::ensure!(metadata.config.is_backfilling());
 
         // Get current segments in database and developer config
-        let (_, current_segments, _, developer_config) = Self::flush_vector_metadata(metadata)?;
+        let (_, current_segments, _, developer_config) = T::extract_flush_metadata(metadata)?;
 
         // Find new segment and add to current segments to avoid race with compactor
         let new_segment = new_segment_id
             .map(|new_segment_id| {
                 new_and_modified_segments
                     .into_iter()
-                    .find(|segment| segment.id == new_segment_id)
+                    .find(|segment| segment.id() == new_segment_id)
                     .context("Missing new segment in segments list!")
             })
             .transpose()?;
@@ -425,34 +330,24 @@ impl<RT: Runtime> Inner<RT> {
             .chain(new_segment.into_iter())
             .collect_vec();
 
-        // Build disk state and commit
-        let new_on_disk_state = if backfill_result.is_backfill_complete {
-            VectorIndexState::Backfilled(VectorIndexSnapshot {
-                data: VectorIndexSnapshotData::MultiSegment(new_and_modified_segments),
-                ts: backfill_complete_ts,
-            })
-        } else {
-            VectorIndexState::Backfilling(VectorIndexBackfillState {
-                segments: new_and_modified_segments,
-                cursor: backfill_result
-                    .new_cursor
-                    .map(|cursor| cursor.internal_id()),
-                backfill_snapshot_ts: Some(backfill_complete_ts),
-            })
-        };
+        let metadata = T::new_metadata(
+            job.index_name.clone(),
+            developer_config,
+            new_and_modified_segments,
+            backfill_complete_ts,
+            if backfill_result.is_backfill_complete {
+                IndexMetadataState::Backfilled
+            } else {
+                IndexMetadataState::Backfilling(
+                    backfill_result
+                        .new_cursor
+                        .map(|cursor| cursor.internal_id()),
+                )
+            },
+        );
 
         SystemMetadataModel::new_global(&mut tx)
-            .replace(
-                job.metadata_id,
-                IndexMetadata {
-                    name: job.index_name.clone(),
-                    config: IndexConfig::Vector {
-                        on_disk_state: new_on_disk_state,
-                        developer_config: developer_config.clone(),
-                    },
-                }
-                .try_into()?,
-            )
+            .replace(job.metadata_id, metadata.try_into()?)
             .await?;
         self.database
             .commit_with_write_source(tx, "vector_index_woker_commit_backfill")
@@ -463,9 +358,9 @@ impl<RT: Runtime> Inner<RT> {
 
     async fn commit_snapshot_flush(
         &self,
-        job: &IndexBuild<VectorSearchIndex>,
+        job: &IndexBuild<T>,
         new_ts: Timestamp,
-        mut new_and_modified_segments: Vec<FragmentedVectorSegment>,
+        mut new_and_modified_segments: Vec<T::Segment>,
         new_segment_id: Option<String>,
     ) -> anyhow::Result<()> {
         let timer = vector_flush_merge_commit_timer();
@@ -473,7 +368,7 @@ impl<RT: Runtime> Inner<RT> {
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
         let (start_snapshot_ts, current_segments, is_snapshotted, developer_config) =
-            Self::flush_vector_metadata(metadata.clone())?;
+            T::extract_flush_metadata(metadata.clone())?;
         let is_merge_required = Self::is_merge_flush_required(
             &new_and_modified_segments,
             &current_segments,
@@ -511,7 +406,7 @@ impl<RT: Runtime> Inner<RT> {
                 .map(|new_segment_id| {
                     new_and_modified_segments
                         .into_iter()
-                        .find(|segment| segment.id == new_segment_id)
+                        .find(|segment| segment.id() == new_segment_id)
                         .context("Missing new segment in segments list!")
                 })
                 .transpose()?;
@@ -522,33 +417,20 @@ impl<RT: Runtime> Inner<RT> {
             tx = self.database.begin(Identity::system()).await?;
         }
 
-        // If index_backfill_result is not None, the flusher's build step made progress
-        // on a backfilling index. If complete, the new on-disk state uses the
-        // `backfill_completed_ts` set in the result, which matches
-        // `backfill_snapshot_ts` set on first iteration of the incremental
-        // index build.
-        let snapshot = VectorIndexSnapshot {
-            data: VectorIndexSnapshotData::MultiSegment(new_and_modified_segments),
-            ts: new_ts,
-        };
-        let new_on_disk_state = if is_snapshotted {
-            VectorIndexState::SnapshottedAt(snapshot)
-        } else {
-            VectorIndexState::Backfilled(snapshot)
-        };
+        let metadata = T::new_metadata(
+            job.index_name.clone(),
+            developer_config,
+            new_and_modified_segments,
+            new_ts,
+            if is_snapshotted {
+                IndexMetadataState::SnapshottedAt
+            } else {
+                IndexMetadataState::Backfilled
+            },
+        );
 
         SystemMetadataModel::new_global(&mut tx)
-            .replace(
-                job.metadata_id,
-                IndexMetadata {
-                    name: job.index_name.clone(),
-                    config: IndexConfig::Vector {
-                        on_disk_state: new_on_disk_state,
-                        developer_config: developer_config.clone(),
-                    },
-                }
-                .try_into()?,
-            )
+            .replace(job.metadata_id, metadata.try_into()?)
             .await?;
         self.database
             .commit_with_write_source(tx, "vector_index_worker_commit_snapshot")
@@ -566,12 +448,12 @@ impl<RT: Runtime> Inner<RT> {
 
     async fn merge_deletes(
         &self,
-        segments_to_update: Vec<FragmentedVectorSegment>,
+        segments_to_update: Vec<T::Segment>,
         start_ts: Timestamp,
         current_ts: Timestamp,
         index_name: TabletIndexName,
         rate_limit_pages_per_second: NonZeroU32,
-    ) -> anyhow::Result<Vec<FragmentedVectorSegment>> {
+    ) -> anyhow::Result<Vec<T::Segment>> {
         let storage = self.storage.clone();
         let runtime = self.runtime.clone();
         let database = self.database.clone();
@@ -595,13 +477,13 @@ impl<RT: Runtime> Inner<RT> {
     async fn merge_deletes_on_thread(
         runtime: RT,
         database: Database<RT>,
-        segments_to_update: Vec<FragmentedVectorSegment>,
+        segments_to_update: Vec<T::Segment>,
         start_ts: Timestamp,
         current_ts: Timestamp,
         index_name: TabletIndexName,
         storage: Arc<dyn Storage>,
         rate_limit_pages_per_second: NonZeroU32,
-    ) -> anyhow::Result<Vec<FragmentedVectorSegment>> {
+    ) -> anyhow::Result<Vec<T::Segment>> {
         let row_rate_limiter = new_rate_limiter(
             runtime.clone(),
             Quota::per_second(
@@ -610,15 +492,9 @@ impl<RT: Runtime> Inner<RT> {
                     .context("Invalid row rate limit")?,
             ),
         );
-        let storage_ = storage.clone();
-        let mut loaded_segments: Vec<_> = try_join_buffer_unordered(
-            runtime.clone(),
-            "download_vector_meta",
-            segments_to_update.into_iter().map(move |segment| {
-                MutableFragmentedSegmentMetadata::download(segment, storage_.clone())
-            }),
-        )
-        .await?;
+        let mut previous_segments =
+            T::download_previous_segments(runtime.clone(), storage.clone(), segments_to_update)
+                .await?;
         let mut documents = database.load_documents_in_table(
             *index_name.table(),
             TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(current_ts)))?,
@@ -628,20 +504,10 @@ impl<RT: Runtime> Inner<RT> {
 
         while let Some((_, id, document)) = documents.try_next().await? {
             if document.is_none() {
-                let point_id = QdrantExternalId::try_from(&id)?;
-                for segment in &mut loaded_segments {
-                    segment.maybe_delete(*point_id)?;
-                }
+                previous_segments.maybe_delete_document(id.internal_id())?;
             }
         }
 
-        try_join_buffer_unordered(
-            runtime,
-            "upload_vector_meta",
-            loaded_segments
-                .into_iter()
-                .map(move |segment| segment.upload_deleted_bitset(storage.clone())),
-        )
-        .await
+        T::upload_previous_segments(runtime, storage, previous_segments).await
     }
 }

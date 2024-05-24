@@ -6,19 +6,32 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
-    bootstrap_model::index::IndexConfig,
-    document::ResolvedDocument,
+    bootstrap_model::index::{
+        IndexConfig,
+        IndexMetadata,
+        TabletIndexMetadata,
+    },
+    document::{
+        ParsedDocument,
+        ResolvedDocument,
+    },
     persistence::{
         DocumentStream,
         RepeatablePersistence,
     },
     query::Order,
     runtime::Runtime,
-    types::IndexId,
+    types::{
+        IndexId,
+        TabletIndexName,
+    },
 };
 use storage::Storage;
 use sync_types::Timestamp;
-use value::InternalId;
+use value::{
+    InternalId,
+    TabletId,
+};
 
 use crate::Snapshot;
 
@@ -30,14 +43,19 @@ pub trait SearchIndexConfigParser {
     fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self::IndexType>>;
 }
 
-pub trait PreviousSegmentsType {
+pub trait PreviousSegmentsType: Send {
     fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()>;
+}
+pub trait SegmentType {
+    fn id(&self) -> &str;
+
+    fn num_deleted(&self) -> u32;
 }
 
 #[async_trait]
-pub trait SearchIndex {
+pub trait SearchIndex: Clone {
     type DeveloperConfig: Clone + Send;
-    type Segment: Clone + Send + 'static;
+    type Segment: SegmentType + Clone + Send + 'static;
     type NewSegment: Send;
 
     type PreviousSegments: PreviousSegmentsType;
@@ -45,6 +63,36 @@ pub trait SearchIndex {
     type Statistics: SegmentStatistics;
 
     type Schema: Send + Sync;
+
+    /// Parse metadata from the IndexMetadata required to complete a compaction.
+    ///
+    /// In contrast to `extract_flush_metadata` below, this method requires that
+    /// a timestamp be present in the metadata. This is safe for any
+    /// compaction because a timestamp is always present if at least one
+    /// segment was ever built. Compaction never runs on empty indexes, so
+    /// at least one segment and therefore a timestamp must be available.
+    ///
+    /// The returned metadata will be mutated and written back to disk.
+    fn extract_compaction_metadata(
+        metadata: &mut ParsedDocument<TabletIndexMetadata>,
+    ) -> anyhow::Result<(&Timestamp, &mut Vec<Self::Segment>)>;
+
+    /// Parse metadata from the IndexMetadata required to complete a flush.
+    ///
+    /// In contrast to `extract_compaction_metadata`, this method will not
+    /// mutate the results but will instead write a new copy of the metadata
+    /// to disk. Flushes require a bit more information than compaction.
+    ///
+    /// A timestamp is required here because this may be the first flush for an
+    /// index, in which case a timestamp will not be present.
+    fn extract_flush_metadata(
+        metadata: ParsedDocument<TabletIndexMetadata>,
+    ) -> anyhow::Result<(
+        Option<Timestamp>,
+        Vec<Self::Segment>,
+        bool, // True if the index is snapshotted, false if it's backfilled or backfilling.
+        Self::DeveloperConfig,
+    )>;
 
     fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics>;
 
@@ -68,6 +116,14 @@ pub trait SearchIndex {
     fn segment_id(segment: &Self::Segment) -> String;
 
     fn estimate_document_size(schema: &Self::Schema, doc: &ResolvedDocument) -> u64;
+
+    fn new_metadata(
+        name: TabletIndexName,
+        developer_config: Self::DeveloperConfig,
+        new_and_modified_segments: Vec<Self::Segment>,
+        new_ts: Timestamp,
+        new_state: IndexMetadataState,
+    ) -> IndexMetadata<TabletId>;
 
     async fn build_disk_index(
         schema: &Self::Schema,
@@ -97,6 +153,12 @@ pub trait SearchIndex {
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>>;
+}
+
+pub enum IndexMetadataState {
+    SnapshottedAt,
+    Backfilled,
+    Backfilling(Option<InternalId>),
 }
 
 pub trait SegmentStatistics: Default {

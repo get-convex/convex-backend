@@ -37,7 +37,7 @@ use crate::{
 };
 
 pub struct VectorIndexFlusher<RT: Runtime> {
-    writer: VectorMetadataWriter<RT>,
+    writer: VectorMetadataWriter<RT, VectorSearchIndex>,
     flusher: SearchFlusher<RT, VectorIndexConfigParser>,
 
     #[allow(unused)]
@@ -54,7 +54,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
-        writer: VectorMetadataWriter<RT>,
+        writer: VectorMetadataWriter<RT, VectorSearchIndex>,
     ) -> Self {
         let flusher = SearchFlusher::new(
             runtime,

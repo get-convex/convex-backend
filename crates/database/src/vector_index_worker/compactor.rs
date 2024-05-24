@@ -43,6 +43,7 @@ use crate::{
         vector_compaction_build_one_timer,
         CompactionReason,
     },
+    vector_index_worker::vector_meta::VectorSearchIndex,
     Database,
     IndexModel,
     Token,
@@ -53,7 +54,7 @@ pub struct VectorIndexCompactor<RT: Runtime> {
     searcher: Arc<dyn Searcher>,
     search_storage: Arc<dyn Storage>,
     config: CompactionConfig,
-    writer: VectorMetadataWriter<RT>,
+    writer: VectorMetadataWriter<RT, VectorSearchIndex>,
 }
 
 impl<RT: Runtime> VectorIndexCompactor<RT> {
@@ -62,7 +63,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
         config: CompactionConfig,
-        writer: VectorMetadataWriter<RT>,
+        writer: VectorMetadataWriter<RT, VectorSearchIndex>,
     ) -> Self {
         Self {
             database,
