@@ -45,16 +45,18 @@ pub trait SearchIndexConfigParser {
 pub trait PreviousSegmentsType: Send {
     fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()>;
 }
-pub trait SegmentType {
+pub trait SegmentType<T: SearchIndex> {
     fn id(&self) -> &str;
 
     fn num_deleted(&self) -> u32;
+
+    fn statistics(&self) -> anyhow::Result<T::Statistics>;
 }
 
 #[async_trait]
 pub trait SearchIndex: Clone {
     type DeveloperConfig: Clone + Send;
-    type Segment: SegmentType + Clone + Send + 'static;
+    type Segment: SegmentType<Self> + Clone + Send + 'static;
     type NewSegment: Send;
 
     type PreviousSegments: PreviousSegmentsType;
@@ -75,8 +77,6 @@ pub trait SearchIndex: Clone {
         metadata: ParsedDocument<TabletIndexMetadata>,
     ) -> anyhow::Result<(Self::DeveloperConfig, SearchOnDiskState<Self>)>;
 
-    fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics>;
-
     /// Determines the order in which we walk the document log when constructing
     /// partial segments that main contain deletes.
     ///
@@ -93,8 +93,6 @@ pub trait SearchIndex: Clone {
         storage: Arc<dyn Storage>,
         new_segment: Self::NewSegment,
     ) -> anyhow::Result<Self::Segment>;
-
-    fn segment_id(segment: &Self::Segment) -> String;
 
     fn estimate_document_size(schema: &Self::Schema, doc: &ResolvedDocument) -> u64;
 

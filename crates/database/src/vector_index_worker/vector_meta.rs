@@ -111,13 +111,21 @@ impl TryFrom<SearchOnDiskState<VectorSearchIndex>> for VectorIndexState {
     }
 }
 
-impl SegmentType for FragmentedVectorSegment {
+impl SegmentType<VectorSearchIndex> for FragmentedVectorSegment {
     fn id(&self) -> &str {
         &self.id
     }
 
     fn num_deleted(&self) -> u32 {
         self.num_deleted
+    }
+
+    fn statistics(&self) -> anyhow::Result<VectorStatistics> {
+        let non_deleted_vectors = self.non_deleted_vectors()?;
+        Ok(VectorStatistics {
+            non_deleted_vectors,
+            num_vectors: self.num_vectors,
+        })
     }
 }
 
@@ -220,18 +228,6 @@ impl SearchIndex for VectorSearchIndex {
         new_segment: Self::NewSegment,
     ) -> anyhow::Result<Self::Segment> {
         upload_vector_segment(rt, storage, new_segment).await
-    }
-
-    fn segment_id(segment: &Self::Segment) -> String {
-        segment.id.clone()
-    }
-
-    fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics> {
-        let non_deleted_vectors = segment.non_deleted_vectors()?;
-        Ok(VectorStatistics {
-            non_deleted_vectors,
-            num_vectors: segment.num_vectors,
-        })
     }
 
     fn extract_metadata(

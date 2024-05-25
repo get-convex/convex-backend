@@ -56,6 +56,7 @@ use crate::{
             SearchOnDiskState,
             SearchSnapshot,
             SegmentStatistics,
+            SegmentType,
             SnapshotData,
         },
         BuildReason,
@@ -281,10 +282,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         } else {
             None
         };
-        let new_segment_id = new_segment.as_ref().map(T::IndexType::segment_id);
+        let new_segment_id = new_segment.as_ref().map(|segment| segment.id().to_string());
         let new_segment_stats = new_segment
             .as_ref()
-            .map(T::IndexType::statistics)
+            .map(|segment| segment.statistics())
             .transpose()?;
 
         let new_and_updated_parts = if let Some(new_segment) = new_segment {
@@ -299,7 +300,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         let total_stats = new_and_updated_parts
             .iter()
             .map(|segment| {
-                let segment_stats = T::IndexType::statistics(segment)?;
+                let segment_stats = segment.statistics()?;
                 segment_stats.log();
                 Ok(segment_stats)
             })

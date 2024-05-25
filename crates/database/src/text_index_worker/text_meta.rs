@@ -104,7 +104,7 @@ impl PreviousSegmentsType for PreviousTextSegments {
 #[derive(Clone, Debug)]
 pub struct TextSearchIndex;
 
-impl SegmentType for FragmentedTextSegment {
+impl SegmentType<TextSearchIndex> for FragmentedTextSegment {
     fn id(&self) -> &str {
         &self.id
     }
@@ -112,6 +112,12 @@ impl SegmentType for FragmentedTextSegment {
     fn num_deleted(&self) -> u32 {
         // TODO(CX-6592): Add num_deleted to FragmentedTextSegment and implement this.
         0
+    }
+
+    fn statistics(&self) -> anyhow::Result<TextStatistics> {
+        Ok(TextStatistics {
+            num_indexed_documents: self.num_indexed_documents,
+        })
     }
 }
 pub struct BuildTextIndexArgs {
@@ -223,16 +229,6 @@ impl SearchIndex for TextSearchIndex {
         new_segment: Self::NewSegment,
     ) -> anyhow::Result<Self::Segment> {
         upload_text_segment(rt, storage, new_segment).await
-    }
-
-    fn segment_id(segment: &Self::Segment) -> String {
-        segment.id.clone()
-    }
-
-    fn statistics(segment: &Self::Segment) -> anyhow::Result<Self::Statistics> {
-        Ok(TextStatistics {
-            num_indexed_documents: segment.num_indexed_documents,
-        })
     }
 
     fn extract_metadata(
