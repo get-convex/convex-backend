@@ -8,7 +8,6 @@ use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
         IndexConfig,
-        IndexMetadata,
         TabletIndexMetadata,
     },
     document::{
@@ -24,7 +23,6 @@ use common::{
     types::{
         IndexId,
         ObjectKey,
-        TabletIndexName,
     },
 };
 use storage::Storage;
@@ -32,7 +30,6 @@ use sync_types::Timestamp;
 use value::{
     ConvexObject,
     InternalId,
-    TabletId,
 };
 
 use crate::Snapshot;
@@ -69,11 +66,10 @@ pub trait SearchIndex: Clone {
     type Schema: Send + Sync;
 
     // TODO(CX-6589): Make this infallible
-    fn new_metadata(
-        name: TabletIndexName,
+    fn new_index_config(
         developer_config: Self::DeveloperConfig,
         new_state: SearchOnDiskState<Self>,
-    ) -> anyhow::Result<IndexMetadata<TabletId>>;
+    ) -> anyhow::Result<IndexConfig>;
 
     fn extract_metadata(
         metadata: ParsedDocument<TabletIndexMetadata>,

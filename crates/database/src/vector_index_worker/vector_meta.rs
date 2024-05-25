@@ -16,7 +16,6 @@ use common::{
             VectorIndexState,
         },
         IndexConfig,
-        IndexMetadata,
         TabletIndexMetadata,
     },
     document::{
@@ -31,10 +30,7 @@ use common::{
         try_join_buffer_unordered,
         Runtime,
     },
-    types::{
-        IndexId,
-        TabletIndexName,
-    },
+    types::IndexId,
 };
 use search::{
     disk_index::upload_vector_segment,
@@ -44,10 +40,7 @@ use search::{
     },
 };
 use storage::Storage;
-use value::{
-    InternalId,
-    TabletId,
-};
+use value::InternalId;
 use vector::{
     qdrant_segments::VectorDiskSegmentValues,
     QdrantSchema,
@@ -257,18 +250,14 @@ impl SearchIndex for VectorSearchIndex {
         Ok((developer_config, SearchOnDiskState::from(on_disk_state)))
     }
 
-    fn new_metadata(
-        name: TabletIndexName,
+    fn new_index_config(
         developer_config: Self::DeveloperConfig,
         new_state: SearchOnDiskState<Self>,
-    ) -> anyhow::Result<IndexMetadata<TabletId>> {
-        let new_on_disk_state = VectorIndexState::try_from(new_state)?;
-        Ok(IndexMetadata {
-            name,
-            config: IndexConfig::Vector {
-                on_disk_state: new_on_disk_state,
-                developer_config: developer_config.clone(),
-            },
+    ) -> anyhow::Result<IndexConfig> {
+        let on_disk_state = VectorIndexState::try_from(new_state)?;
+        Ok(IndexConfig::Vector {
+            on_disk_state,
+            developer_config,
         })
     }
 }

@@ -10,13 +10,14 @@ use common::{
         text_index::{
             DeveloperSearchIndexConfig,
             FragmentedTextSegment,
+            TextBackfillCursor,
             TextIndexBackfillState,
             TextIndexSnapshot,
             TextIndexSnapshotData,
             TextIndexState,
+            TextSnapshotVersion,
         },
         IndexConfig,
-        IndexMetadata,
         TabletIndexMetadata,
     },
     document::{
@@ -33,10 +34,7 @@ use common::{
         try_join_buffer_unordered,
         Runtime,
     },
-    types::{
-        IndexId,
-        TabletIndexName,
-    },
+    types::IndexId,
 };
 use search::{
     build_new_segment,
@@ -48,10 +46,7 @@ use search::{
     UpdatableTextSegment,
 };
 use storage::Storage;
-use value::{
-    InternalId,
-    TabletId,
-};
+use value::InternalId;
 
 use crate::{
     index_workers::index_meta::{
@@ -115,7 +110,7 @@ impl SegmentType for FragmentedTextSegment {
     }
 
     fn num_deleted(&self) -> u32 {
-        // TODO(sam): Implement me!
+        // TODO(CX-6592): Add num_deleted to FragmentedTextSegment and implement this.
         0
     }
 }
@@ -241,23 +236,55 @@ impl SearchIndex for TextSearchIndex {
     }
 
     fn extract_metadata(
-        _metadata: ParsedDocument<TabletIndexMetadata>,
+        metadata: ParsedDocument<TabletIndexMetadata>,
     ) -> anyhow::Result<(Self::DeveloperConfig, SearchOnDiskState<Self>)> {
-        anyhow::bail!("Not implemented");
+        let (on_disk_state, developer_config) = match metadata.into_value().config {
+            IndexConfig::Database { .. } | IndexConfig::Vector { .. } => {
+                anyhow::bail!("Index type changed!")
+            },
+            IndexConfig::Search {
+                developer_config,
+                on_disk_state,
+            } => (on_disk_state, developer_config),
+        };
+        Ok((developer_config, SearchOnDiskState::from(on_disk_state)))
     }
 
-    fn new_metadata(
-        _name: TabletIndexName,
-        _developer_config: Self::DeveloperConfig,
-        _new_state: SearchOnDiskState<Self>,
-    ) -> anyhow::Result<IndexMetadata<TabletId>> {
-        anyhow::bail!("Not implemented");
+    fn new_index_config(
+        developer_config: Self::DeveloperConfig,
+        new_state: SearchOnDiskState<Self>,
+    ) -> anyhow::Result<IndexConfig> {
+        let on_disk_state = TextIndexState::try_from(new_state)?;
+        Ok(IndexConfig::Search {
+            on_disk_state,
+            developer_config,
+        })
     }
 }
 
 #[derive(Debug, Default)]
 pub struct TextStatistics {
     pub num_indexed_documents: u32,
+}
+
+impl From<SearchOnDiskState<TextSearchIndex>> for TextIndexState {
+    fn from(value: SearchOnDiskState<TextSearchIndex>) -> Self {
+        match value {
+            SearchOnDiskState::Backfilling(state) => Self::Backfilling(state.into()),
+            SearchOnDiskState::Backfilled(snapshot) => Self::Backfilled(snapshot.into()),
+            SearchOnDiskState::SnapshottedAt(snapshot) => Self::SnapshottedAt(snapshot.into()),
+        }
+    }
+}
+
+impl From<TextIndexState> for SearchOnDiskState<TextSearchIndex> {
+    fn from(value: TextIndexState) -> Self {
+        match value {
+            TextIndexState::Backfilling(state) => Self::Backfilling(state.into()),
+            TextIndexState::Backfilled(snapshot) => Self::Backfilled(snapshot.into()),
+            TextIndexState::SnapshottedAt(snapshot) => Self::SnapshottedAt(snapshot.into()),
+        }
+    }
 }
 
 impl SegmentStatistics for TextStatistics {
@@ -280,17 +307,60 @@ impl From<TextIndexBackfillState> for BackfillState<TextSearchIndex> {
     }
 }
 
+impl From<BackfillState<TextSearchIndex>> for TextIndexBackfillState {
+    fn from(value: BackfillState<TextSearchIndex>) -> Self {
+        let cursor = if let Some(cursor) = value.cursor
+            && let Some(backfill_snapshot_ts) = value.backfill_snapshot_ts
+        {
+            Some(TextBackfillCursor {
+                cursor,
+                backfill_snapshot_ts,
+            })
+        } else {
+            None
+        };
+        Self {
+            segments: value.segments,
+            cursor,
+        }
+    }
+}
+
 impl From<TextIndexSnapshot> for SearchSnapshot<TextSearchIndex> {
     fn from(snapshot: TextIndexSnapshot) -> Self {
         Self {
             ts: snapshot.ts,
-            data: match snapshot.data {
-                TextIndexSnapshotData::SingleSegment(key) => SnapshotData::SingleSegment(key),
-                TextIndexSnapshotData::Unknown(obj) => SnapshotData::Unknown(obj),
-                TextIndexSnapshotData::MultiSegment(segments) => {
-                    SnapshotData::MultiSegment(segments)
-                },
-            },
+            data: snapshot.data.into(),
+        }
+    }
+}
+
+impl From<SearchSnapshot<TextSearchIndex>> for TextIndexSnapshot {
+    fn from(value: SearchSnapshot<TextSearchIndex>) -> Self {
+        Self {
+            ts: value.ts,
+            data: value.data.into(),
+            version: TextSnapshotVersion::V2UseStringIds,
+        }
+    }
+}
+
+impl From<SnapshotData<FragmentedTextSegment>> for TextIndexSnapshotData {
+    fn from(value: SnapshotData<FragmentedTextSegment>) -> Self {
+        match value {
+            SnapshotData::Unknown(obj) => TextIndexSnapshotData::Unknown(obj),
+            SnapshotData::SingleSegment(key) => TextIndexSnapshotData::SingleSegment(key),
+            SnapshotData::MultiSegment(segments) => TextIndexSnapshotData::MultiSegment(segments),
+        }
+    }
+}
+
+impl From<TextIndexSnapshotData> for SnapshotData<FragmentedTextSegment> {
+    fn from(value: TextIndexSnapshotData) -> Self {
+        match value {
+            TextIndexSnapshotData::SingleSegment(key) => SnapshotData::SingleSegment(key),
+            TextIndexSnapshotData::Unknown(obj) => SnapshotData::Unknown(obj),
+            TextIndexSnapshotData::MultiSegment(segments) => SnapshotData::MultiSegment(segments),
         }
     }
 }

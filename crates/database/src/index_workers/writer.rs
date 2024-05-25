@@ -8,7 +8,10 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::index::TabletIndexMetadata,
+    bootstrap_model::index::{
+        IndexMetadata,
+        TabletIndexMetadata,
+    },
     bounded_thread_pool::BoundedThreadPool,
     document::ParsedDocument,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
@@ -278,24 +281,15 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .chain(iter::once(new_segment))
             .collect_vec();
 
-        let new_metadata = T::new_metadata(
+        self.write_metadata(
+            tx,
+            index_id,
             index_name,
             developer_config,
             state.with_updated_segments(new_segments)?,
-        )?;
+        )
+        .await?;
 
-        SystemMetadataModel::new_global(&mut tx)
-            .replace(index_id, new_metadata.try_into()?)
-            .await?;
-        self.database
-            .commit_with_write_source(
-                tx,
-                match self.search_type {
-                    SearchType::Vector => "vector_index_worker_commit_compaction",
-                    SearchType::Text => "text_index_worker_commit_compaction",
-                },
-            )
-            .await?;
         finish_search_index_merge_timer(
             timer,
             if is_merge_required {
@@ -304,6 +298,34 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                 SearchIndexMergeType::NotRequired
             },
         );
+        Ok(())
+    }
+
+    async fn write_metadata(
+        &self,
+        mut tx: Transaction<RT>,
+        id: ResolvedDocumentId,
+        name: TabletIndexName,
+        developer_config: T::DeveloperConfig,
+        state: SearchOnDiskState<T>,
+    ) -> anyhow::Result<()> {
+        let new_metadata = IndexMetadata {
+            name,
+            config: T::new_index_config(developer_config, state)?,
+        };
+
+        SystemMetadataModel::new_global(&mut tx)
+            .replace(id, new_metadata.try_into()?)
+            .await?;
+        self.database
+            .commit_with_write_source(
+                tx,
+                match self.search_type {
+                    SearchType::Vector => "search_index_metadata_writer_write_vector",
+                    SearchType::Text => "search_index_metadata_writer_write_text",
+                },
+            )
+            .await?;
         Ok(())
     }
 
@@ -365,7 +387,9 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             .chain(new_segment.into_iter())
             .collect_vec();
 
-        let metadata = T::new_metadata(
+        self.write_metadata(
+            tx,
+            job.metadata_id,
             job.index_name.clone(),
             developer_config,
             if backfill_result.is_backfill_complete {
@@ -382,20 +406,9 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                     backfill_snapshot_ts: Some(backfill_complete_ts),
                 })
             },
-        )?;
+        )
+        .await?;
 
-        SystemMetadataModel::new_global(&mut tx)
-            .replace(job.metadata_id, metadata.try_into()?)
-            .await?;
-        self.database
-            .commit_with_write_source(
-                tx,
-                match self.search_type {
-                    SearchType::Vector => "vector_index_worker_commit_backfill",
-                    SearchType::Text => "text_index_worker_commit_backfill",
-                },
-            )
-            .await?;
         finish_search_index_merge_timer(timer, SearchIndexMergeType::NotRequired);
         Ok(())
     }
@@ -463,24 +476,15 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             tx = self.database.begin(Identity::system()).await?;
         }
 
-        let metadata = T::new_metadata(
+        self.write_metadata(
+            tx,
+            job.metadata_id,
             job.index_name.clone(),
             developer_config,
             current_disk_state.with_updated_snapshot(new_ts, new_and_modified_segments)?,
-        )?;
+        )
+        .await?;
 
-        SystemMetadataModel::new_global(&mut tx)
-            .replace(job.metadata_id, metadata.try_into()?)
-            .await?;
-        self.database
-            .commit_with_write_source(
-                tx,
-                match self.search_type {
-                    SearchType::Vector => "vector_index_worker_commit_snapshot",
-                    SearchType::Text => "text_index_worker_commit_snapshot",
-                },
-            )
-            .await?;
         finish_search_index_merge_timer(
             timer,
             if is_merge_required {
