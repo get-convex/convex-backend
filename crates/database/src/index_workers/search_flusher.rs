@@ -135,7 +135,7 @@ pub struct SearchIndexLimits {
 }
 
 impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
-    pub fn new(
+    pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,
@@ -170,6 +170,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         }
     }
 
+    /// Run one step of the flusher's main loop.
+    ///
+    /// Returns a map of IndexName to number of documents indexed for each
+    /// index that was built.
     pub async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
         let mut metrics = BTreeMap::new();
 
@@ -239,7 +243,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     }
 
     /// Compute the set of indexes that need to be backfilled.
-    pub async fn needs_backfill(&self) -> anyhow::Result<(Vec<IndexBuild<T::IndexType>>, Token)> {
+    async fn needs_backfill(&self) -> anyhow::Result<(Vec<IndexBuild<T::IndexType>>, Token)> {
         let mut to_build = vec![];
 
         let mut tx = self.database.begin(Identity::system()).await?;
@@ -313,7 +317,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         Ok((to_build, tx.into_token()?))
     }
 
-    pub async fn build_multipart_segment(
+    async fn build_multipart_segment(
         &self,
         job: &IndexBuild<T::IndexType>,
         build_index_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
@@ -590,13 +594,13 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     }
 }
 
-pub struct IndexBuild<T: SearchIndex> {
-    pub index_name: TabletIndexName,
-    pub index_id: IndexId,
-    pub by_id: IndexId,
-    pub metadata_id: ResolvedDocumentId,
-    pub index_config: SearchIndexConfig<T>,
-    pub build_reason: BuildReason,
+pub(crate) struct IndexBuild<T: SearchIndex> {
+    pub(crate) index_name: TabletIndexName,
+    pub(crate) index_id: IndexId,
+    pub(crate) by_id: IndexId,
+    pub(crate) metadata_id: ResolvedDocumentId,
+    pub(crate) index_config: SearchIndexConfig<T>,
+    pub(crate) build_reason: BuildReason,
 }
 
 #[derive(Debug)]

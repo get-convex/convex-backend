@@ -18,7 +18,7 @@ use common::{
     version::Version,
 };
 use database::{
-    vector_index_worker::flusher::VectorIndexFlusher,
+    vector_index_worker::flusher::backfill_vector_indexes,
     Database,
     IndexModel,
     IndexWorker,
@@ -195,12 +195,11 @@ pub async fn backfill_indexes(
     let storage = LocalDirStorage::new(rt.clone())?;
     TextIndexFlusher::backfill_all_in_test(rt.clone(), db.clone(), Arc::new(storage.clone()))
         .await?;
-    VectorIndexFlusher::backfill_all_in_test(
+    backfill_vector_indexes(
         rt.clone(),
         db.clone(),
         tp.reader(),
         Arc::new(storage.clone()),
-        1000,
     )
     .await?;
     // As long as these tests don't actually have data in the tables, we could

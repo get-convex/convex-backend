@@ -86,7 +86,10 @@ use crate::{
         IndexData,
         VectorFixtures,
     },
-    vector_index_worker::flusher::VectorIndexFlusher,
+    vector_index_worker::flusher::{
+        backfill_vector_indexes,
+        new_vector_flusher_for_tests,
+    },
     Database,
     IndexModel,
     TableModel,
@@ -213,12 +216,11 @@ impl<RT: Runtime> Scenario<RT> {
     }
 
     async fn backfill(&self) -> anyhow::Result<()> {
-        VectorIndexFlusher::backfill_all_in_test(
+        backfill_vector_indexes(
             self.rt.clone(),
             self.database.clone(),
             self.reader.clone(),
             self.search_storage.clone(),
-            0,
         )
         .await?;
         Ok(())
@@ -759,7 +761,7 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
     scenario.add_vector_index(false).await?;
 
     // Create flusher
-    let mut flusher = VectorIndexFlusher::new_for_tests(
+    let mut flusher = new_vector_flusher_for_tests(
         rt.clone(),
         scenario.database.clone(),
         scenario.reader.clone(),
@@ -844,7 +846,7 @@ async fn test_incremental_backfill_with_compaction(rt: TestRuntime) -> anyhow::R
     scenario.add_vector_index(false).await?;
 
     // Create flusher
-    let mut flusher = VectorIndexFlusher::new_for_tests(
+    let mut flusher = new_vector_flusher_for_tests(
         rt.clone(),
         scenario.database.clone(),
         scenario.reader.clone(),

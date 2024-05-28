@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 #[cfg(any(test, feature = "testing"))]
 use common::pause::PauseClient;
@@ -12,7 +9,6 @@ use common::{
     },
     persistence::PersistenceReader,
     runtime::Runtime,
-    types::TabletIndexName,
 };
 use search::metrics::SearchType;
 use storage::Storage;
@@ -31,109 +27,93 @@ use crate::{
         VectorSearchIndex,
     },
     Database,
-    Token,
 };
 
-pub struct VectorIndexFlusher<RT: Runtime> {
-    pub(crate) flusher: SearchFlusher<RT, VectorIndexConfigParser>,
+pub type VectorIndexFlusher<RT> = SearchFlusher<RT, VectorIndexConfigParser>;
+
+/// Backfills all search indexes that are in a "backfilling" state.
+#[cfg(any(test, feature = "testing"))]
+pub async fn backfill_vector_indexes<RT: Runtime>(
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+) -> anyhow::Result<()> {
+    let mut flusher = new_vector_flusher_for_tests(
+        runtime,
+        database,
+        reader,
+        storage,
+        /* index_size_soft_limit= */ 0,
+        *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+        *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+        None,
+    );
+    flusher.step().await?;
+    Ok(())
 }
 
-impl<RT: Runtime> VectorIndexFlusher<RT> {
-    pub(crate) fn new(
-        runtime: RT,
-        database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
-        storage: Arc<dyn Storage>,
-        writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
-    ) -> Self {
-        let flusher = SearchFlusher::new(
-            runtime,
-            database,
-            reader,
-            storage,
-            SearchIndexLimits {
-                index_size_soft_limit: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-                incremental_multipart_threshold_bytes: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-            },
-            writer,
-            SearchType::Vector,
-            BuildVectorIndexArgs {
-                full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-            },
-            #[cfg(any(test, feature = "testing"))]
-            None,
-        );
-        Self { flusher }
-    }
-
-    /// Run one step of the VectorIndexFlusher's main loop.
-    ///
-    /// Returns a map of IndexName to number of documents indexed for each
-    /// index that was built.
-    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
-        self.flusher.step().await
-    }
-
-    /// Backfills all search indexes that are in a "backfilling" state.
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn backfill_all_in_test(
-        runtime: RT,
-        database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
-        storage: Arc<dyn Storage>,
-        index_size_soft_limit: usize,
-    ) -> anyhow::Result<()> {
-        let mut flusher = Self::new_for_tests(
-            runtime,
-            database,
-            reader,
-            storage,
+#[allow(unused)]
+#[cfg(any(test, feature = "testing"))]
+pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+    index_size_soft_limit: usize,
+    full_scan_segment_max_kb: usize,
+    incremental_multipart_threshold_bytes: usize,
+    pause_client: Option<PauseClient>,
+) -> VectorIndexFlusher<RT> {
+    use search::metrics::SearchType;
+    let writer = SearchIndexMetadataWriter::new(
+        runtime.clone(),
+        database.clone(),
+        storage.clone(),
+        SearchType::Vector,
+    );
+    SearchFlusher::new(
+        runtime,
+        database,
+        reader,
+        storage,
+        SearchIndexLimits {
             index_size_soft_limit,
-            *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
-            *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-            None,
-        );
-        flusher.step().await?;
-        Ok(())
-    }
+            incremental_multipart_threshold_bytes,
+        },
+        writer,
+        SearchType::Vector,
+        BuildVectorIndexArgs {
+            full_scan_threshold_bytes: full_scan_segment_max_kb,
+        },
+        pause_client,
+    )
+}
 
-    #[allow(unused)]
-    #[cfg(any(test, feature = "testing"))]
-    pub(crate) fn new_for_tests(
-        runtime: RT,
-        database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
-        storage: Arc<dyn Storage>,
-        index_size_soft_limit: usize,
-        full_scan_segment_max_kb: usize,
-        incremental_multipart_threshold_bytes: usize,
-        pause_client: Option<PauseClient>,
-    ) -> Self {
-        use search::metrics::SearchType;
-        let writer = SearchIndexMetadataWriter::new(
-            runtime.clone(),
-            database.clone(),
-            storage.clone(),
-            SearchType::Vector,
-        );
-        let flusher = SearchFlusher::new(
-            runtime,
-            database,
-            reader,
-            storage,
-            SearchIndexLimits {
-                index_size_soft_limit,
-                incremental_multipart_threshold_bytes,
-            },
-            writer,
-            SearchType::Vector,
-            BuildVectorIndexArgs {
-                full_scan_threshold_bytes: full_scan_segment_max_kb,
-            },
-            pause_client,
-        );
-        Self { flusher }
-    }
+pub(crate) fn new_vector_flusher<RT: Runtime>(
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+    writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
+) -> VectorIndexFlusher<RT> {
+    SearchFlusher::new(
+        runtime,
+        database,
+        reader,
+        storage,
+        SearchIndexLimits {
+            index_size_soft_limit: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+            incremental_multipart_threshold_bytes: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+        },
+        writer,
+        SearchType::Vector,
+        BuildVectorIndexArgs {
+            full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+        },
+        #[cfg(any(test, feature = "testing"))]
+        None,
+    )
 }
 
 #[cfg(test)]
@@ -183,7 +163,10 @@ mod tests {
         VectorSearch,
     };
 
-    use super::VectorIndexFlusher;
+    use super::{
+        new_vector_flusher_for_tests,
+        VectorIndexFlusher,
+    };
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
         test_helpers::DbFixtures,
@@ -208,7 +191,7 @@ mod tests {
         soft_limit: usize,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
         let storage = LocalDirStorage::new(rt.clone())?;
-        Ok(VectorIndexFlusher::new_for_tests(
+        Ok(new_vector_flusher_for_tests(
             rt.clone(),
             database.clone(),
             reader,

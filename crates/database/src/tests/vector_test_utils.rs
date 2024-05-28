@@ -91,7 +91,11 @@ use crate::{
     test_helpers::DbFixturesArgs,
     vector_index_worker::{
         compactor::CompactionConfig,
-        flusher::VectorIndexFlusher,
+        flusher::{
+            backfill_vector_indexes,
+            new_vector_flusher_for_tests,
+            VectorIndexFlusher,
+        },
     },
     Database,
     IndexModel,
@@ -151,7 +155,7 @@ impl VectorFixtures {
     }
 
     pub async fn backfill(&self) -> anyhow::Result<()> {
-        backfill(
+        backfill_vector_indexes(
             self.rt.clone(),
             self.db.clone(),
             self.reader.clone(),
@@ -256,7 +260,7 @@ impl VectorFixtures {
 
     pub async fn run_compaction_during_flush(&self) -> anyhow::Result<()> {
         let (mut pause, pause_client) = PauseController::new([FLUSH_RUNNING_LABEL]);
-        let mut flusher = VectorIndexFlusher::new_for_tests(
+        let mut flusher = new_vector_flusher_for_tests(
             self.rt.clone(),
             self.db.clone(),
             self.reader.clone(),
@@ -284,7 +288,7 @@ impl VectorFixtures {
         &self,
         full_scan_threshold_kb: usize,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
-        Ok(VectorIndexFlusher::new_for_tests(
+        Ok(new_vector_flusher_for_tests(
             self.rt.clone(),
             self.db.clone(),
             self.reader.clone(),
@@ -301,7 +305,7 @@ impl VectorFixtures {
         &self,
         incremental_part_threshold: usize,
     ) -> anyhow::Result<VectorIndexFlusher<TestRuntime>> {
-        Ok(VectorIndexFlusher::new_for_tests(
+        Ok(new_vector_flusher_for_tests(
             self.rt.clone(),
             self.db.clone(),
             self.reader.clone(),
@@ -449,7 +453,7 @@ pub async fn backfilled_vector_index(
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<IndexData> {
     let index_data = backfilling_vector_index(&db).await?;
-    backfill(rt, db.clone(), reader, storage).await?;
+    backfill_vector_indexes(rt, db.clone(), reader, storage).await?;
 
     Ok(index_data)
 }
@@ -500,18 +504,6 @@ pub async fn backfilled_vector_index_with_doc(
     db.commit(tx).await?;
 
     Ok(result)
-}
-
-// Avoid using index_test_utils.backfill because vector indexes use storage so
-// we need to pass around a consistent instance of storage but index_test_utils
-// creates a new one each time.
-pub async fn backfill<RT: Runtime>(
-    rt: RT,
-    db: Database<RT>,
-    reader: Arc<dyn PersistenceReader>,
-    storage: Arc<dyn Storage>,
-) -> anyhow::Result<()> {
-    VectorIndexFlusher::backfill_all_in_test(rt.clone(), db.clone(), reader, storage, 10).await
 }
 
 pub(crate) async fn assert_backfilled(
@@ -651,7 +643,7 @@ impl<RT: Runtime> VectorSearcher for DeleteOnCompactSearchlight<RT> {
             .delete(self.to_delete.into())
             .await?;
         self.db.commit(tx).await?;
-        backfill(
+        backfill_vector_indexes(
             self.rt.clone(),
             self.db.clone(),
             self.reader.clone(),

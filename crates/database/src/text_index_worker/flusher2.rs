@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 #[cfg(any(test, feature = "testing"))]
 use common::pause::PauseClient;
@@ -9,7 +6,6 @@ use common::{
     knobs::SEARCH_INDEX_SIZE_SOFT_LIMIT,
     persistence::PersistenceReader,
     runtime::Runtime,
-    types::TabletIndexName,
 };
 use search::{
     metrics::SearchType,
@@ -31,12 +27,7 @@ use crate::{
         TextSearchIndex,
     },
     Database,
-    Token,
 };
-
-pub struct TextIndexFlusher2<RT: Runtime> {
-    flusher: SearchFlusher<RT, TextIndexConfigParser>,
-}
 
 pub(crate) struct FlusherBuilder<RT: Runtime> {
     runtime: RT,
@@ -101,7 +92,7 @@ impl<RT: Runtime> FlusherBuilder<RT> {
             self.storage.clone(),
             SearchType::Text,
         );
-        let flusher = SearchFlusher::new(
+        SearchFlusher::new(
             self.runtime,
             self.database,
             self.reader,
@@ -115,30 +106,20 @@ impl<RT: Runtime> FlusherBuilder<RT> {
             },
             #[cfg(any(test, feature = "testing"))]
             self.pause_client,
-        );
-
-        TextIndexFlusher2 { flusher }
+        )
     }
 }
 
-impl<RT: Runtime> TextIndexFlusher2<RT> {
-    pub(crate) fn new(
-        runtime: RT,
-        database: Database<RT>,
-        reader: Arc<dyn PersistenceReader>,
-        storage: Arc<dyn Storage>,
-        segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
-    ) -> Self {
-        FlusherBuilder::new(runtime, database, reader, storage, segment_metadata_fetcher).build()
-    }
+pub type TextIndexFlusher2<RT> = SearchFlusher<RT, TextIndexConfigParser>;
 
-    /// Run one step of the IndexFlusher's main loop.
-    ///
-    /// Returns a map of IndexName to number of documents indexed for each
-    /// index that was built.
-    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
-        self.flusher.step().await
-    }
+pub(crate) fn new_text_flusher<RT: Runtime>(
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+    segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+) -> TextIndexFlusher2<RT> {
+    FlusherBuilder::new(runtime, database, reader, storage, segment_metadata_fetcher).build()
 }
 
 #[cfg(test)]

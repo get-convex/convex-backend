@@ -608,7 +608,7 @@ mod tests {
             DbFixtures,
             DbFixturesArgs,
         },
-        vector_index_worker::flusher::VectorIndexFlusher,
+        vector_index_worker::flusher::backfill_vector_indexes,
         Database,
         IndexModel,
         SystemMetadataModel,
@@ -632,7 +632,13 @@ mod tests {
 
         let db = reopen_db(&rt, &fixtures).await?;
         add_vector(&db, &index_metadata, [1f32, 2f32]).await?;
-        backfill_vector_indexes(&rt, &db, fixtures.tp.reader(), 0, fixtures.search_storage).await?;
+        backfill_vector_indexes(
+            rt.clone(),
+            db.clone(),
+            fixtures.tp.reader(),
+            fixtures.search_storage,
+        )
+        .await?;
 
         // This is a bit of a hack, backfilling with zero size forces all indexes to be
         // written to disk, which causes our boostrapping process to skip our
@@ -832,7 +838,7 @@ mod tests {
             .add_application_index(index_metadata.clone())
             .await?;
         db.commit(tx).await?;
-        backfill_vector_indexes(rt, db, reader, 1000, storage.clone()).await?;
+        backfill_vector_indexes(rt.clone(), db.clone(), reader, storage.clone()).await?;
         let mut tx = db.begin_system().await?;
         let resolved_index = IndexModel::new(&mut tx)
             .pending_index_metadata(TableNamespace::Global, &index_metadata.name)?
@@ -943,24 +949,6 @@ mod tests {
             btreeset![filter_field],
         );
         Ok(metadata)
-    }
-
-    async fn backfill_vector_indexes(
-        rt: &TestRuntime,
-        db: &Database<TestRuntime>,
-        reader: Arc<dyn PersistenceReader>,
-        index_size_soft_limit: usize,
-        storage: Arc<dyn Storage>,
-    ) -> anyhow::Result<()> {
-        VectorIndexFlusher::backfill_all_in_test(
-            rt.clone(),
-            db.clone(),
-            reader,
-            storage,
-            index_size_soft_limit,
-        )
-        .await?;
-        Ok(())
     }
 
     #[convex_macro::test_runtime]

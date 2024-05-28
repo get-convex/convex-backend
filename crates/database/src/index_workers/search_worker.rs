@@ -36,8 +36,14 @@ use crate::{
         writer::SearchIndexMetadataWriter,
     },
     metrics::log_worker_starting,
-    text_index_worker::flusher2::TextIndexFlusher2,
-    vector_index_worker::compactor::CompactionConfig,
+    text_index_worker::flusher2::{
+        new_text_flusher,
+        TextIndexFlusher2,
+    },
+    vector_index_worker::{
+        compactor::CompactionConfig,
+        flusher::new_vector_flusher,
+    },
     Database,
     TextIndexFlusher,
     VectorIndexCompactor,
@@ -86,7 +92,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             database.clone(),
             // Wait a bit since vector needs time to bootstrap. Makes startup logs a bit cleaner.
             Duration::from_secs(5),
-            SearchIndexWorker::VectorFlusher(VectorIndexFlusher::new(
+            SearchIndexWorker::VectorFlusher(new_vector_flusher(
                 runtime.clone(),
                 database.clone(),
                 reader.clone(),
@@ -108,7 +114,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             )),
         );
         let text_flusher = if *BUILD_MULTI_SEGMENT_TEXT_INDEXES {
-            SearchIndexWorker::TextFlusher2(TextIndexFlusher2::new(
+            SearchIndexWorker::TextFlusher2(new_text_flusher(
                 runtime.clone(),
                 database.clone(),
                 reader,

@@ -55,13 +55,13 @@ use database::{
         DbFixtures,
         DbFixturesArgs,
     },
+    vector_index_worker::flusher::backfill_vector_indexes,
     Database,
     FollowerRetentionManager,
     IndexModel,
     IndexWorker,
     TextIndexFlusher,
     Transaction,
-    VectorIndexFlusher,
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
@@ -809,12 +809,11 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
     }
 
     pub async fn backfill_vector_indexes(&self) -> anyhow::Result<()> {
-        VectorIndexFlusher::backfill_all_in_test(
+        backfill_vector_indexes(
             self.rt.clone(),
             self.database.clone(),
             self.persistence.reader(),
             self.search_storage.clone(),
-            1000,
         )
         .await?;
         self.enable_backfilled_indexes().await
