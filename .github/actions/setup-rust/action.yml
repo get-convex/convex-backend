@@ -35,8 +35,8 @@ runs:
       run: |
         echo "CARGO_TERM_COLOR=always" >> $GITHUB_ENV
         echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
+        echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
         if [ "$RUNNER_OS" == "Linux" ]; then
-          echo "RUSTC_WRAPPER=/home/runner/.cargo/bin/sccache" >> $GITHUB_ENV
           echo "SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
           echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
           echo "ROCKSDB_LIB_DIR=/usr/lib" >> $GITHUB_ENV
@@ -50,14 +50,9 @@ runs:
         echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
 
     - name: Install sccache
-      shell: bash
-      if: runner.os == 'Linux'
-      working-directory: "/home/runner"
-      run: |
-        curl -o- -sSLf --retry 3 --retry-delay 5 https://github.com/mozilla/sccache/releases/download/v0.8.1/sccache-v0.8.1-x86_64-unknown-linux-musl.tar.gz | tar xzf -
-        mv sccache-v0.8.1-x86_64-unknown-linux-musl/sccache .cargo/bin/sccache
-        chmod +x .cargo/bin/sccache
-        .cargo/bin/sccache --start-server
+      uses: mozilla-actions/sccache-action@v0.0.4
+      with:
+        version: "v0.7.7"
 
     # n.b. this action inspects the environment and variables starting with
     # `CARGO_` are used as part of the cache key.
