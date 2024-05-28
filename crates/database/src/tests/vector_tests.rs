@@ -32,7 +32,6 @@ use common::{
     types::{
         unchecked_repeatable_ts,
         IndexName,
-        TabletIndexName,
     },
 };
 use itertools::Itertools;
@@ -214,19 +213,12 @@ impl<RT: Runtime> Scenario<RT> {
     }
 
     async fn backfill(&self) -> anyhow::Result<()> {
-        let snapshot = self.database.latest_snapshot()?;
-        let table_id = snapshot
-            .table_mapping()
-            .namespace(TABLE_NAMESPACE)
-            .id(&TABLE_NAME.parse()?)?
-            .tablet_id;
-        VectorIndexFlusher::build_index_in_test(
-            TabletIndexName::new(table_id, INDEX_DESCRIPTOR.parse()?)?,
-            TABLE_NAME.parse()?,
+        VectorIndexFlusher::backfill_all_in_test(
             self.rt.clone(),
             self.database.clone(),
             self.reader.clone(),
             self.search_storage.clone(),
+            0,
         )
         .await?;
         Ok(())
