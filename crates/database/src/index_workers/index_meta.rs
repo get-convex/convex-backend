@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    fmt::Debug,
     path::PathBuf,
     sync::Arc,
 };
@@ -54,16 +55,16 @@ pub trait SegmentType<T: SearchIndex> {
 }
 
 #[async_trait]
-pub trait SearchIndex: Clone {
+pub trait SearchIndex: Clone + Debug {
     type DeveloperConfig: Clone + Send;
-    type Segment: SegmentType<Self> + Clone + Send + 'static;
+    type Segment: SegmentType<Self> + Clone + Debug + Send + 'static;
     type NewSegment: Send;
 
     type PreviousSegments: PreviousSegmentsType;
 
     type Statistics: SegmentStatistics;
 
-    type BuildIndexArgs: Send;
+    type BuildIndexArgs: Clone + Send;
 
     type Schema: Send + Sync;
 
@@ -126,7 +127,7 @@ pub trait SearchIndex: Clone {
     ) -> anyhow::Result<Vec<Self::Segment>>;
 }
 
-pub trait SegmentStatistics: Default {
+pub trait SegmentStatistics: Default + Debug {
     fn add(lhs: anyhow::Result<Self>, rhs: anyhow::Result<Self>) -> anyhow::Result<Self>;
 
     fn num_documents(&self) -> u64;

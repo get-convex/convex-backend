@@ -136,7 +136,17 @@ impl PreviousSegmentsType for PreviousVectorSegments {
         self.maybe_delete_convex(convex_id)
     }
 }
+
+#[derive(Clone)]
 pub struct BuildVectorIndexArgs {
+    /// The maximum vector segment size at which it's reasonable to search the
+    /// segment by simply iterating over every item individually.
+    ///
+    /// This is only used for vector search where:
+    /// 1. We want to avoid the CPU  cost of building an expensive HNSW segment
+    ///    for small segments
+    /// 2. It's more accurate/efficient to perform a linear scan than use HNSW
+    ///    anyway.
     pub full_scan_threshold_bytes: usize,
 }
 

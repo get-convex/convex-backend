@@ -120,6 +120,7 @@ impl SegmentType<TextSearchIndex> for FragmentedTextSegment {
         })
     }
 }
+#[derive(Clone)]
 pub struct BuildTextIndexArgs {
     pub search_storage: Arc<dyn Storage>,
     pub segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,

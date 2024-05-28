@@ -1,5 +1,8 @@
 use std::{
-    collections::Bound,
+    collections::{
+        BTreeMap,
+        Bound,
+    },
     future,
     iter,
     marker::PhantomData,
@@ -10,6 +13,8 @@ use std::{
 };
 
 use anyhow::Context;
+#[cfg(any(test, feature = "testing"))]
+use common::pause::PauseClient;
 use common::{
     knobs::{
         DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
@@ -38,6 +43,7 @@ use futures::{
 };
 use governor::Quota;
 use keybroker::Identity;
+use search::metrics::SearchType;
 use storage::Storage;
 use sync_types::Timestamp;
 use tempfile::TempDir;
@@ -59,21 +65,38 @@ use crate::{
             SegmentType,
             SnapshotData,
         },
+        writer::{
+            SearchIndexMetadataWriter,
+            SearchIndexWriteResult,
+        },
         BuildReason,
         MultiSegmentBackfillResult,
+    },
+    metrics::{
+        log_documents_per_new_search_segment,
+        log_documents_per_search_index,
+        log_documents_per_search_segment,
+        log_non_deleted_documents_per_search_index,
+        log_non_deleted_documents_per_search_segment,
     },
     Database,
     IndexModel,
     Token,
 };
 
+#[cfg(any(test, feature = "testing"))]
+pub(crate) const FLUSH_RUNNING_LABEL: &str = "flush_running";
+
 pub struct SearchFlusher<RT: Runtime, T: SearchIndexConfigParser> {
-    params: Params<RT>,
+    params: Params<RT, T::IndexType>,
+    writer: SearchIndexMetadataWriter<RT, T::IndexType>,
     _config: PhantomData<T>,
+    #[cfg(any(test, feature = "testing"))]
+    pause_client: Option<PauseClient>,
 }
 
 impl<RT: Runtime, T: SearchIndexConfigParser> Deref for SearchFlusher<RT, T> {
-    type Target = Params<RT>;
+    type Target = Params<RT, T::IndexType>;
 
     fn deref(&self) -> &Self::Target {
         &self.params
@@ -81,12 +104,14 @@ impl<RT: Runtime, T: SearchIndexConfigParser> Deref for SearchFlusher<RT, T> {
 }
 
 #[derive(Clone)]
-pub struct Params<RT: Runtime> {
+pub struct Params<RT: Runtime, T: SearchIndex> {
     runtime: RT,
     database: Database<RT>,
     reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     limits: SearchIndexLimits,
+    search_type: SearchType,
+    build_args: T::BuildIndexArgs,
 }
 
 #[derive(Clone)]
@@ -116,6 +141,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         limits: SearchIndexLimits,
+        writer: SearchIndexMetadataWriter<RT, T::IndexType>,
+        search_type: SearchType,
+        build_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
+        #[cfg(any(test, feature = "testing"))] pause_client: Option<PauseClient>,
     ) -> Self {
         Self {
             params: Params {
@@ -124,9 +153,89 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                 reader,
                 storage,
                 limits,
+                search_type,
+                build_args,
             },
+            writer,
             _config: PhantomData,
+            #[cfg(any(test, feature = "testing"))]
+            pause_client,
         }
+    }
+
+    fn index_type_name(&self) -> &'static str {
+        match self.search_type {
+            SearchType::Vector => "vector",
+            SearchType::Text => "text",
+        }
+    }
+
+    pub async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
+        let mut metrics = BTreeMap::new();
+
+        let (to_build, token) = self.needs_backfill().await?;
+        let num_to_build = to_build.len();
+        let index_type = self.index_type_name();
+        if num_to_build > 0 {
+            tracing::info!("{num_to_build} {index_type} indexes to build");
+        }
+
+        #[cfg(any(test, feature = "testing"))]
+        if let Some(pause_client) = &mut self.pause_client {
+            pause_client.wait(FLUSH_RUNNING_LABEL).await;
+        }
+
+        for job in to_build {
+            let index_name = job.index_name.clone();
+            let num_documents_indexed = self.build_one(job, self.build_args.clone()).await?;
+            metrics.insert(index_name, num_documents_indexed);
+        }
+
+        if num_to_build > 0 {
+            tracing::info!("built {num_to_build} {index_type} indexes");
+        }
+
+        Ok((metrics, token))
+    }
+
+    pub(crate) async fn build_one(
+        &self,
+        job: IndexBuild<T::IndexType>,
+        build_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
+    ) -> anyhow::Result<u64> {
+        let timer = crate::metrics::vector::build_one_timer();
+
+        let result = self.build_multipart_segment(&job, build_args).await?;
+        tracing::debug!(
+            "Built a {} segment for: {result:#?}",
+            self.index_type_name()
+        );
+
+        let SearchIndexWriteResult {
+            index_stats,
+            new_segment_stats,
+            per_segment_stats,
+        } = self.writer.commit_flush(&job, result).await?;
+
+        let new_segment_stats = new_segment_stats.unwrap_or_default();
+        log_documents_per_new_search_segment(new_segment_stats.num_documents(), self.search_type);
+
+        per_segment_stats.into_iter().for_each(|stats| {
+            log_documents_per_search_segment(stats.num_documents(), self.search_type);
+            log_non_deleted_documents_per_search_segment(
+                stats.num_non_deleted_documents(),
+                self.search_type,
+            );
+        });
+
+        log_documents_per_search_index(index_stats.num_documents(), self.search_type);
+        log_non_deleted_documents_per_search_index(
+            index_stats.num_non_deleted_documents(),
+            self.search_type,
+        );
+        timer.finish();
+
+        Ok(new_segment_stats.num_documents())
     }
 
     /// Compute the set of indexes that need to be backfilled.
@@ -351,7 +460,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     }
 
     async fn build_multipart_segment_on_thread(
-        params: Params<RT>,
+        params: Params<RT, T::IndexType>,
         rate_limit_pages_per_second: NonZeroU32,
         index_name: TabletIndexName,
         by_id: IndexId,

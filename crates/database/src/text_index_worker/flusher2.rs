@@ -19,22 +19,11 @@ use storage::Storage;
 
 use crate::{
     index_workers::{
-        index_meta::SegmentStatistics,
         search_flusher::{
-            IndexBuild,
             SearchFlusher,
             SearchIndexLimits,
         },
-        writer::{
-            SearchIndexMetadataWriter,
-            SearchIndexWriteResult,
-        },
-    },
-    metrics::{
-        log_documents_per_new_search_segment,
-        log_documents_per_search_segment,
-        log_non_deleted_documents_per_search_index,
-        log_non_deleted_documents_per_search_segment,
+        writer::SearchIndexMetadataWriter,
     },
     text_index_worker::text_meta::{
         BuildTextIndexArgs,
@@ -45,21 +34,8 @@ use crate::{
     Token,
 };
 
-#[cfg(any(test, feature = "testing"))]
-pub(crate) const FLUSH_RUNNING_LABEL: &str = "flush_running";
-
 pub struct TextIndexFlusher2<RT: Runtime> {
     flusher: SearchFlusher<RT, TextIndexConfigParser>,
-    storage: Arc<dyn Storage>,
-    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
-    writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
-
-    #[allow(unused)]
-    #[cfg(any(test, feature = "testing"))]
-    should_terminate: bool,
-    #[allow(unused)]
-    #[cfg(any(test, feature = "testing"))]
-    pause_client: Option<PauseClient>,
 }
 
 pub(crate) struct FlusherBuilder<RT: Runtime> {
@@ -69,8 +45,6 @@ pub(crate) struct FlusherBuilder<RT: Runtime> {
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     limits: SearchIndexLimits,
-    #[cfg(any(test, feature = "testing"))]
-    should_terminate: bool,
     #[cfg(any(test, feature = "testing"))]
     pause_client: Option<PauseClient>,
 }
@@ -93,8 +67,6 @@ impl<RT: Runtime> FlusherBuilder<RT> {
                 index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
                 incremental_multipart_threshold_bytes: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
             },
-            #[cfg(any(test, feature = "testing"))]
-            should_terminate: false,
             #[cfg(any(test, feature = "testing"))]
             pause_client: None,
         }
@@ -123,29 +95,29 @@ impl<RT: Runtime> FlusherBuilder<RT> {
     }
 
     pub(crate) fn build(self) -> TextIndexFlusher2<RT> {
-        let flusher = SearchFlusher::new(
+        let writer: SearchIndexMetadataWriter<RT, TextSearchIndex> = SearchIndexMetadataWriter::new(
             self.runtime.clone(),
             self.database.clone(),
-            self.reader,
-            self.storage.clone(),
-            self.limits,
-        );
-        let writer: SearchIndexMetadataWriter<RT, TextSearchIndex> = SearchIndexMetadataWriter::new(
-            self.runtime,
-            self.database,
             self.storage.clone(),
             SearchType::Text,
         );
-        TextIndexFlusher2 {
-            flusher,
-            storage: self.storage,
-            segment_term_metadata_fetcher: self.segment_term_metadata_fetcher,
+        let flusher = SearchFlusher::new(
+            self.runtime,
+            self.database,
+            self.reader,
+            self.storage.clone(),
+            self.limits,
             writer,
+            SearchType::Text,
+            BuildTextIndexArgs {
+                search_storage: self.storage.clone(),
+                segment_term_metadata_fetcher: self.segment_term_metadata_fetcher.clone(),
+            },
             #[cfg(any(test, feature = "testing"))]
-            should_terminate: self.should_terminate,
-            #[cfg(any(test, feature = "testing"))]
-            pause_client: self.pause_client,
-        }
+            self.pause_client,
+        );
+
+        TextIndexFlusher2 { flusher }
     }
 }
 
@@ -165,69 +137,7 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
     /// Returns a map of IndexName to number of documents indexed for each
     /// index that was built.
     pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
-        let mut metrics = BTreeMap::new();
-
-        let (to_build, token) = self.flusher.needs_backfill().await?;
-        let num_to_build = to_build.len();
-        if num_to_build > 0 {
-            tracing::info!("{num_to_build} text indexes to build");
-        }
-
-        #[cfg(any(test, feature = "testing"))]
-        if let Some(pause_client) = &mut self.pause_client {
-            pause_client.wait(FLUSH_RUNNING_LABEL).await;
-        }
-
-        for job in to_build {
-            let index_name = job.index_name.clone();
-            let num_documents_indexed = self.build_one(job).await?;
-            metrics.insert(index_name, num_documents_indexed);
-        }
-
-        if num_to_build > 0 {
-            tracing::info!("built {num_to_build} text indexes");
-        }
-
-        Ok((metrics, token))
-    }
-
-    async fn build_one(&self, job: IndexBuild<TextSearchIndex>) -> anyhow::Result<u64> {
-        let timer = crate::metrics::search::build_one_timer();
-
-        let build_index_args = BuildTextIndexArgs {
-            search_storage: self.storage.clone(),
-            segment_term_metadata_fetcher: self.segment_term_metadata_fetcher.clone(),
-        };
-        let result = self
-            .flusher
-            .build_multipart_segment(&job, build_index_args)
-            .await?;
-        tracing::debug!("Built a text segment for: {result:#?}");
-
-        let SearchIndexWriteResult {
-            index_stats,
-            new_segment_stats,
-            per_segment_stats,
-        } = self.writer.commit_flush(&job, result).await?;
-
-        let new_segment_stats = new_segment_stats.unwrap_or_default();
-        log_documents_per_new_search_segment(new_segment_stats.num_documents(), SearchType::Text);
-
-        per_segment_stats.into_iter().for_each(|stats| {
-            log_documents_per_search_segment(stats.num_documents(), SearchType::Text);
-            log_non_deleted_documents_per_search_segment(
-                stats.num_non_deleted_documents(),
-                SearchType::Text,
-            );
-        });
-
-        log_documents_per_new_search_segment(index_stats.num_documents(), SearchType::Text);
-        log_non_deleted_documents_per_search_index(
-            index_stats.num_non_deleted_documents(),
-            SearchType::Text,
-        );
-        timer.finish();
-        Ok(new_segment_stats.num_documents())
+        self.flusher.step().await
     }
 }
 

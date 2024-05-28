@@ -87,13 +87,11 @@ use vector::{
 
 use super::DbFixtures;
 use crate::{
+    index_workers::search_flusher::FLUSH_RUNNING_LABEL,
     test_helpers::DbFixturesArgs,
     vector_index_worker::{
         compactor::CompactionConfig,
-        flusher::{
-            VectorIndexFlusher,
-            FLUSH_RUNNING_LABEL,
-        },
+        flusher::VectorIndexFlusher,
     },
     Database,
     IndexModel,

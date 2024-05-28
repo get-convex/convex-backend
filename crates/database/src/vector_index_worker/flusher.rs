@@ -20,24 +20,11 @@ use storage::Storage;
 use super::vector_meta::BuildVectorIndexArgs;
 use crate::{
     index_workers::{
-        index_meta::SegmentStatistics,
         search_flusher::{
-            IndexBuild,
             SearchFlusher,
             SearchIndexLimits,
         },
-        writer::{
-            SearchIndexMetadataWriter,
-            SearchIndexWriteResult,
-        },
-    },
-    metrics,
-    metrics::{
-        log_documents_per_new_search_segment,
-        log_documents_per_search_index,
-        log_documents_per_search_segment,
-        log_non_deleted_documents_per_search_index,
-        log_non_deleted_documents_per_search_segment,
+        writer::SearchIndexMetadataWriter,
     },
     vector_index_worker::vector_meta::{
         VectorIndexConfigParser,
@@ -48,24 +35,7 @@ use crate::{
 };
 
 pub struct VectorIndexFlusher<RT: Runtime> {
-    writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
-    flusher: SearchFlusher<RT, VectorIndexConfigParser>,
-    /// The maximum vector segment size at which it's reasonable to search the
-    /// segment by simply iterating over every item individually.
-    ///
-    /// This is only used for vector search where:
-    /// 1. We want to avoid the CPU  cost of building an expensive HNSW segment
-    ///    for small segments
-    /// 2. It's more accurate/efficient to perform a linear scan than use HNSW
-    ///    anyway.
-    pub full_scan_segment_max_kb: usize,
-
-    #[allow(unused)]
-    #[cfg(any(test, feature = "testing"))]
-    should_terminate: bool,
-    #[allow(unused)]
-    #[cfg(any(test, feature = "testing"))]
-    pause_client: Option<PauseClient>,
+    pub(crate) flusher: SearchFlusher<RT, VectorIndexConfigParser>,
 }
 
 impl<RT: Runtime> VectorIndexFlusher<RT> {
@@ -85,16 +55,15 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                 index_size_soft_limit: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
                 incremental_multipart_threshold_bytes: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
             },
-        );
-        Self {
-            flusher,
             writer,
-            full_scan_segment_max_kb: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+            SearchType::Vector,
+            BuildVectorIndexArgs {
+                full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+            },
             #[cfg(any(test, feature = "testing"))]
-            should_terminate: false,
-            #[cfg(any(test, feature = "testing"))]
-            pause_client: None,
-        }
+            None,
+        );
+        Self { flusher }
     }
 
     /// Run one step of the VectorIndexFlusher's main loop.
@@ -102,71 +71,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     /// Returns a map of IndexName to number of documents indexed for each
     /// index that was built.
     pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
-        let mut metrics = BTreeMap::new();
-
-        let (to_build, token) = self.flusher.needs_backfill().await?;
-        let num_to_build = to_build.len();
-        if num_to_build > 0 {
-            tracing::info!("{num_to_build} vector indexes to build");
-        }
-
-        #[cfg(any(test, feature = "testing"))]
-        if let Some(pause_client) = &mut self.pause_client {
-            pause_client.wait(FLUSH_RUNNING_LABEL).await;
-        }
-
-        for job in to_build {
-            let index_name = job.index_name.clone();
-            let num_documents_indexed = self.build_one(job).await?;
-            metrics.insert(index_name, num_documents_indexed);
-        }
-
-        if num_to_build > 0 {
-            tracing::info!("built {num_to_build} vector indexes");
-        }
-
-        Ok((metrics, token))
-    }
-
-    async fn build_one(&self, job: IndexBuild<VectorSearchIndex>) -> anyhow::Result<u64> {
-        let timer = metrics::vector::build_one_timer();
-
-        let result = self
-            .flusher
-            .build_multipart_segment(
-                &job,
-                BuildVectorIndexArgs {
-                    full_scan_threshold_bytes: self.full_scan_segment_max_kb,
-                },
-            )
-            .await?;
-        tracing::debug!("Built a vector segment for: {result:#?}");
-
-        let SearchIndexWriteResult {
-            index_stats,
-            new_segment_stats,
-            per_segment_stats,
-        } = self.writer.commit_flush(&job, result).await?;
-
-        let new_segment_stats = new_segment_stats.unwrap_or_default();
-        log_documents_per_new_search_segment(new_segment_stats.num_documents(), SearchType::Vector);
-
-        per_segment_stats.into_iter().for_each(|stats| {
-            log_documents_per_search_segment(stats.num_documents(), SearchType::Vector);
-            log_non_deleted_documents_per_search_segment(
-                stats.num_non_deleted_documents(),
-                SearchType::Vector,
-            );
-        });
-
-        log_documents_per_search_index(index_stats.num_documents(), SearchType::Vector);
-        log_non_deleted_documents_per_search_index(
-            index_stats.num_non_deleted_documents(),
-            SearchType::Vector,
-        );
-        timer.finish();
-
-        Ok(new_segment_stats.num_documents())
+        self.flusher.step().await
     }
 
     #[cfg(any(test, feature = "testing"))]
@@ -186,6 +91,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         use crate::{
             index_workers::{
                 index_meta::SearchIndexConfigParser,
+                search_flusher::IndexBuild,
                 BuildReason,
             },
             IndexModel,
@@ -221,7 +127,15 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             metadata_id: metadata.clone().id(),
             build_reason: BuildReason::TooLarge,
         };
-        worker.build_one(job).await?;
+        worker
+            .flusher
+            .build_one(
+                job,
+                BuildVectorIndexArgs {
+                    full_scan_threshold_bytes: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
+                },
+            )
+            .await?;
         Ok(())
     }
 
@@ -276,19 +190,16 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
                 index_size_soft_limit,
                 incremental_multipart_threshold_bytes,
             },
-        );
-        Self {
-            flusher,
-            full_scan_segment_max_kb,
-            should_terminate: true,
             writer,
+            SearchType::Vector,
+            BuildVectorIndexArgs {
+                full_scan_threshold_bytes: full_scan_segment_max_kb,
+            },
             pause_client,
-        }
+        );
+        Self { flusher }
     }
 }
-
-#[cfg(any(test, feature = "testing"))]
-pub(crate) const FLUSH_RUNNING_LABEL: &str = "flush_running";
 
 #[cfg(test)]
 mod tests {
