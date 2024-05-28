@@ -25,6 +25,15 @@ pub struct ComponentMetadata {
     pub component_type: ComponentType,
 }
 
+impl ComponentMetadata {
+    pub fn parent_and_name(&self) -> Option<(InternalId, ComponentName)> {
+        match &self.component_type {
+            ComponentType::App => None,
+            ComponentType::ChildComponent { parent, name, .. } => Some((*parent, name.clone())),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ComponentType {
@@ -34,6 +43,12 @@ pub enum ComponentType {
         name: ComponentName,
         args: BTreeMap<Identifier, Resource>,
     },
+}
+
+impl ComponentType {
+    pub fn is_root(&self) -> bool {
+        matches!(self, ComponentType::App)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -523,7 +523,9 @@ impl IndexRegistry {
         }
         match self.get_pending(index_name) {
             Some(_) => anyhow::bail!(index_backfilling_error(printable_index_name)),
-            None => anyhow::bail!(index_not_found_error(printable_index_name)),
+            None => {
+                anyhow::bail!(index_not_found_error(printable_index_name))
+            },
         }
     }
 

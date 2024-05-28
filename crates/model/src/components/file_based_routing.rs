@@ -29,12 +29,7 @@ pub fn add_file_based_routing(evaluated: &mut EvaluatedComponentDefinition) -> a
             identifiers.push(identifier);
         }
         for function in &module.functions {
-            let visibility = function
-                .visibility
-                .clone()
-                // XXX: Is this right?
-                .unwrap_or(Visibility::Public);
-            if visibility != Visibility::Public {
+            if function.visibility != Some(Visibility::Public) {
                 continue;
             }
             let mut path = identifiers.clone();

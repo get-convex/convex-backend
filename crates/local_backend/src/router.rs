@@ -154,6 +154,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .route("/get_config", post(get_config))
         .route("/get_config_hashes", post(get_config_hashes))
         .route("/deploy2/start_push", post(deploy_config2::start_push))
+        .route("/deploy2/finish_push", post(deploy_config2::finish_push))
         .route("/schema_state/:schema_id", get(schema_state))
         .route("/stream_udf_execution", get(stream_udf_execution))
         .route("/stream_function_logs", get(stream_function_logs))

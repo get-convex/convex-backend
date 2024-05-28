@@ -105,6 +105,7 @@ impl ComponentDefinitionConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct EvaluatedComponentDefinition {
     pub definition: ComponentDefinitionMetadata,
     pub schema: Option<DatabaseSchema>,
@@ -129,6 +130,22 @@ impl TryFrom<EvaluatedComponentDefinition> for SerializedEvaluatedComponentDefin
                 .functions
                 .into_iter()
                 .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
+                .collect::<anyhow::Result<_>>()?,
+        })
+    }
+}
+
+impl TryFrom<SerializedEvaluatedComponentDefinition> for EvaluatedComponentDefinition {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedEvaluatedComponentDefinition) -> Result<Self, Self::Error> {
+        Ok(EvaluatedComponentDefinition {
+            definition: value.definition.try_into()?,
+            schema: value.schema.map(|schema| schema.try_into()).transpose()?,
+            functions: value
+                .functions
+                .into_iter()
+                .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
                 .collect::<anyhow::Result<_>>()?,
         })
     }

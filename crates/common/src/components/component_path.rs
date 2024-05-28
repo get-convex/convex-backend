@@ -15,6 +15,12 @@ use value::identifier::Identifier;
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentName(Identifier);
 
+impl ComponentName {
+    pub fn min() -> Self {
+        Self(Identifier::min())
+    }
+}
+
 impl FromStr for ComponentName {
     type Err = anyhow::Error;
 
@@ -66,6 +72,20 @@ impl ComponentPath {
 
     pub fn is_root(&self) -> bool {
         self.path.is_empty()
+    }
+
+    pub fn parent(&self) -> Option<(Self, ComponentName)> {
+        let mut path = self.path.clone();
+        match path.pop() {
+            None => None,
+            Some(name) => Some((Self { path }, name)),
+        }
+    }
+
+    pub fn join(&self, name: ComponentName) -> Self {
+        let mut path = self.path.clone();
+        path.push(name);
+        Self { path }
     }
 }
 

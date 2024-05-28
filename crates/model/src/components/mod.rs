@@ -1,3 +1,4 @@
+pub mod config;
 pub mod file_based_routing;
 pub mod type_checking;
 pub mod types;
@@ -214,10 +215,10 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             .get_application_metadata(definition_id)
             .await?;
         for module in module_metadata {
-            let analyze_result = module
-                .analyze_result
-                .as_ref()
-                .context("Module missing analyze result?")?;
+            let Some(ref analyze_result) = module.analyze_result else {
+                tracing::warn!("Module {:?} missing analyze result", module.path);
+                continue;
+            };
             for function in &analyze_result.functions {
                 let udf_path =
                     CanonicalizedUdfPath::new(module.path.clone(), function.name.clone()).strip();

@@ -16,7 +16,10 @@ use common::{
         ComponentDefinitionMetadata,
         SerializedComponentDefinitionMetadata,
     },
-    components::ComponentDefinitionPath,
+    components::{
+        ComponentDefinitionPath,
+        ComponentPath,
+    },
     http::{
         extract::Json,
         HttpResponseError,
@@ -27,14 +30,29 @@ use common::{
     },
     types::NodeDependency,
 };
+use database::WriteSource;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use keybroker::Identity;
 use model::{
+    auth::{
+        types::AuthDiff,
+        AuthInfoModel,
+    },
     components::{
+        config::{
+            ComponentConfigModel,
+            ComponentDefinitionConfigModel,
+            ComponentDefinitionDiff,
+            ComponentDiff,
+            SerializedComponentDefinitionDiff,
+            SerializedComponentDiff,
+        },
         file_based_routing::add_file_based_routing,
         type_checking::{
+            CheckedComponent,
             SerializedCheckedComponent,
             TypecheckContext,
         },
@@ -49,13 +67,24 @@ use model::{
     config::types::{
         ConfigFile,
         ConfigMetadata,
+        UdfServerVersionDiff,
     },
+    external_packages::types::ExternalDepsPackageId,
     modules::module_versions::{
         AnalyzedModule,
         SerializedAnalyzedModule,
     },
-    source_packages::types::PackageSize,
-    udf_config::types::UdfConfig,
+    source_packages::{
+        types::{
+            PackageSize,
+            SourcePackage,
+        },
+        upload_download::download_package,
+    },
+    udf_config::{
+        types::UdfConfig,
+        UdfConfigModel,
+    },
 };
 use rand::Rng;
 use serde::{
@@ -63,7 +92,10 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
-use value::DeveloperDocumentId;
+use value::{
+    ConvexObject,
+    DeveloperDocumentId,
+};
 
 use crate::{
     admin::must_be_admin_from_keybroker,
@@ -184,13 +216,92 @@ impl TryFrom<ComponentDefinitionConfigJson> for ComponentDefinitionConfig {
     }
 }
 
-#[derive(Serialize)]
+struct StartPushResponse {
+    udf_config: UdfConfig,
+
+    external_deps_id: Option<ExternalDepsPackageId>,
+    component_definition_packages: BTreeMap<ComponentDefinitionPath, SourcePackage>,
+
+    app_auth: Vec<AuthInfo>,
+    analysis: BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+
+    app: CheckedComponent,
+}
+
+impl TryFrom<StartPushResponse> for SerializedStartPushResponse {
+    type Error = anyhow::Error;
+
+    fn try_from(value: StartPushResponse) -> Result<Self, Self::Error> {
+        Ok(Self {
+            udf_config: ConvexObject::try_from(value.udf_config)?.try_into()?,
+            external_deps_id: value
+                .external_deps_id
+                .map(|id| String::from(DeveloperDocumentId::from(id))),
+            component_definition_packages: value
+                .component_definition_packages
+                .into_iter()
+                .map(|(k, v)| {
+                    Ok((
+                        String::from(k),
+                        JsonValue::try_from(ConvexObject::try_from(v)?)?,
+                    ))
+                })
+                .collect::<anyhow::Result<_>>()?,
+            app_auth: value.app_auth,
+            analysis: value
+                .analysis
+                .into_iter()
+                .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
+                .collect::<anyhow::Result<_>>()?,
+            app: value.app.try_into()?,
+        })
+    }
+}
+
+impl TryFrom<SerializedStartPushResponse> for StartPushResponse {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedStartPushResponse) -> Result<Self, Self::Error> {
+        Ok(Self {
+            udf_config: UdfConfig::try_from(ConvexObject::try_from(value.udf_config)?)?,
+            external_deps_id: value
+                .external_deps_id
+                .map(|id| {
+                    anyhow::Ok(ExternalDepsPackageId::from(
+                        id.parse::<DeveloperDocumentId>()?,
+                    ))
+                })
+                .transpose()?,
+            component_definition_packages: value
+                .component_definition_packages
+                .into_iter()
+                .map(|(k, v)| {
+                    Ok((
+                        k.parse()?,
+                        SourcePackage::try_from(ConvexObject::try_from(v)?)?,
+                    ))
+                })
+                .collect::<anyhow::Result<_>>()?,
+            app_auth: value.app_auth,
+            analysis: value
+                .analysis
+                .into_iter()
+                .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
+                .collect::<anyhow::Result<_>>()?,
+            app: value.app.try_into()?,
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StartPushResponse {
+struct SerializedStartPushResponse {
+    // Global evaluation
+    udf_config: JsonValue,
+
     // Pointers to uploaded code.
     external_deps_id: Option<String>,
-    app_package: String,
-    component_packages: BTreeMap<String, String>,
+    component_definition_packages: BTreeMap<String, JsonValue>,
 
     // Analysis results.
     app_auth: Vec<AuthInfo>,
@@ -216,7 +327,7 @@ pub async fn start_push(
     let resp = start_push_handler(&st, req)
         .await
         .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
-    Ok(Json(resp))
+    Ok(Json(SerializedStartPushResponse::try_from(resp)?))
 }
 
 #[minitrace::trace]
@@ -252,6 +363,8 @@ pub async fn start_push_handler(
         .map(|(_, pkg)| pkg.package_size)
         .unwrap_or(PackageSize::default());
 
+    let mut component_definition_packages = BTreeMap::new();
+
     let app_modules = config.app_definition.modules().cloned().collect();
     let app_pkg = st
         .application
@@ -259,8 +372,8 @@ pub async fn start_push_handler(
         .await?
         .context("No package for app?")?;
     total_size += app_pkg.package_size;
+    component_definition_packages.insert(ComponentDefinitionPath::root(), app_pkg);
 
-    let mut component_pkg_by_def_path = BTreeMap::new();
     for component_def in &config.component_definitions {
         let component_modules = component_def.modules().cloned().collect();
         let component_pkg = st
@@ -269,13 +382,16 @@ pub async fn start_push_handler(
             .await?
             .context("No package for component?")?;
         total_size += component_pkg.package_size;
-        anyhow::ensure!(component_pkg_by_def_path
+        anyhow::ensure!(component_definition_packages
             .insert(component_def.definition_path.clone(), component_pkg)
             .is_none());
     }
 
     total_size.verify_size()?;
 
+    let app_pkg = component_definition_packages
+        .get(&ComponentDefinitionPath::root())
+        .context("No package for app?")?;
     let mut app_analysis = analyze_modules(
         &st.application,
         config.udf_config.clone(),
@@ -322,7 +438,7 @@ pub async fn start_push_handler(
     let mut component_schema_by_def_path = BTreeMap::new();
 
     for component_def in &config.component_definitions {
-        let component_pkg = component_pkg_by_def_path
+        let component_pkg = component_definition_packages
             .get(&component_def.definition_path)
             .context("No package for component?")?;
         let component_analysis = analyze_modules(
@@ -414,28 +530,146 @@ pub async fn start_push_handler(
         add_file_based_routing(definition)?;
     }
 
-    // Build and typecheck the component tree.
+    // Build and typecheck the component tree. We don't strictly need to do this
+    // before `/finish_push`, but it's better to fail fast here on errors before
+    // waiting for schema backfills to complete.
     let ctx = TypecheckContext::new(&evaluated_components);
     let app = ctx
         .instantiate_root()
         .map_err(|e| ErrorMetadata::bad_request("TypecheckError", e.to_string()))?;
 
-    tracing::info!("Instantiated root: {app:#?}");
-
     let resp = StartPushResponse {
-        external_deps_id: external_deps_id_and_pkg
-            .map(|(id, _)| String::from(DeveloperDocumentId::from(id))),
-        app_package: String::from(app_pkg.storage_key),
-        component_packages: component_pkg_by_def_path
-            .into_iter()
-            .map(|(def_path, pkg)| (String::from(def_path), String::from(pkg.storage_key)))
-            .collect(),
+        udf_config: config.udf_config,
+        external_deps_id: external_deps_id_and_pkg.map(|(id, _)| id),
+        component_definition_packages,
         app_auth: auth_info,
-        analysis: evaluated_components
-            .into_iter()
-            .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
-            .collect::<anyhow::Result<_>>()?,
-        app: app.try_into()?,
+        analysis: evaluated_components,
+        app,
     };
     Ok(resp)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FinishPushRequest {
+    admin_key: String,
+    start_push: SerializedStartPushResponse,
+    dry_run: bool,
+}
+
+#[debug_handler]
+pub async fn finish_push(
+    State(st): State<LocalAppState>,
+    Json(req): Json<FinishPushRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let resp = finish_push_handler(&st, req)
+        .await
+        .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
+    Ok(Json(SerializedFinishPushDiff::try_from(resp)?))
+}
+
+async fn finish_push_handler(
+    st: &LocalAppState,
+    req: FinishPushRequest,
+) -> anyhow::Result<FinishPushDiff> {
+    let start_push = StartPushResponse::try_from(req.start_push)?;
+    let _identity = must_be_admin_from_keybroker(
+        st.application.key_broker(),
+        Some(st.instance_name.clone()),
+        req.admin_key.clone(),
+    )?;
+
+    // TODO: Verify that hash matches (env variables, schema, component tree).
+
+    // Download all source packages. We can remove this once we don't store source
+    // in the database.
+    let mut downloaded_source_packages = BTreeMap::new();
+    for (definition_path, source_package) in &start_push.component_definition_packages {
+        let package = download_package(
+            st.application.modules_storage().clone(),
+            source_package.storage_key.clone(),
+            source_package.sha256.clone(),
+        )
+        .await?;
+        downloaded_source_packages.insert(definition_path.clone(), package);
+    }
+
+    // TODO: We require system identity for creating system tables.
+    let mut tx = st.application.begin(Identity::system()).await?;
+
+    // Update app state: auth info and UDF server version.
+    let auth_diff = AuthInfoModel::new(&mut tx).put(start_push.app_auth).await?;
+    let udf_config_diff = UdfConfigModel::new(&mut tx)
+        .set(start_push.udf_config)
+        .await?;
+
+    // Diff the component definitions.
+    let definition_diffs = ComponentDefinitionConfigModel::new(&mut tx)
+        .diff_component_definitions(
+            &start_push.analysis,
+            &start_push.component_definition_packages,
+            &downloaded_source_packages,
+        )
+        .await?;
+
+    // Diff component tree.
+    let component_diffs = ComponentConfigModel::new(&mut tx)
+        .diff_component_tree(&start_push.app)
+        .await?;
+
+    if !req.dry_run {
+        st.application
+            .commit(tx, WriteSource::new("finish_push"))
+            .await?;
+    } else {
+        drop(tx);
+    }
+
+    let diff = FinishPushDiff {
+        auth_diff,
+        udf_config_diff,
+        definition_diffs,
+        component_diffs,
+    };
+    Ok(diff)
+}
+
+struct FinishPushDiff {
+    auth_diff: AuthDiff,
+    udf_config_diff: Option<UdfServerVersionDiff>,
+    definition_diffs: BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,
+    component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedFinishPushDiff {
+    auth_diff: JsonValue,
+    udf_config_diff: Option<JsonValue>,
+    definition_diffs: BTreeMap<String, SerializedComponentDefinitionDiff>,
+    component_diffs: BTreeMap<String, SerializedComponentDiff>,
+}
+
+impl TryFrom<FinishPushDiff> for SerializedFinishPushDiff {
+    type Error = anyhow::Error;
+
+    fn try_from(value: FinishPushDiff) -> Result<Self, Self::Error> {
+        Ok(Self {
+            auth_diff: JsonValue::try_from(ConvexObject::try_from(value.auth_diff)?)?,
+            udf_config_diff: value
+                .udf_config_diff
+                .map(|diff| anyhow::Ok(JsonValue::try_from(ConvexObject::try_from(diff)?)?))
+                .transpose()?,
+            definition_diffs: value
+                .definition_diffs
+                .into_iter()
+                .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
+                .collect::<anyhow::Result<_>>()?,
+            component_diffs: value
+                .component_diffs
+                .into_iter()
+                .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
+                .collect::<anyhow::Result<_>>()?,
+        })
+    }
 }

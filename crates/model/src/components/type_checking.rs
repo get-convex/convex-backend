@@ -442,8 +442,12 @@ mod json {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase", tag = "type")]
     pub enum SerializedCheckedExport {
-        Branch(BTreeMap<String, SerializedCheckedExport>),
-        Leaf(SerializedResource),
+        Branch {
+            children: BTreeMap<String, SerializedCheckedExport>,
+        },
+        Leaf {
+            resource: SerializedResource,
+        },
     }
 
     impl TryFrom<CheckedExport> for SerializedCheckedExport {
@@ -451,13 +455,15 @@ mod json {
 
         fn try_from(value: CheckedExport) -> Result<Self, Self::Error> {
             Ok(match value {
-                CheckedExport::Branch(branch) => Self::Branch(
-                    branch
+                CheckedExport::Branch(branch) => Self::Branch {
+                    children: branch
                         .into_iter()
                         .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
                         .collect::<anyhow::Result<_>>()?,
-                ),
-                CheckedExport::Leaf(leaf) => Self::Leaf(leaf.try_into()?),
+                },
+                CheckedExport::Leaf(leaf) => Self::Leaf {
+                    resource: leaf.try_into()?,
+                },
             })
         }
     }
@@ -467,13 +473,13 @@ mod json {
 
         fn try_from(value: SerializedCheckedExport) -> Result<Self, Self::Error> {
             Ok(match value {
-                SerializedCheckedExport::Branch(branch) => Self::Branch(
-                    branch
+                SerializedCheckedExport::Branch { children } => Self::Branch(
+                    children
                         .into_iter()
                         .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
                         .collect::<anyhow::Result<_>>()?,
                 ),
-                SerializedCheckedExport::Leaf(leaf) => Self::Leaf(leaf.try_into()?),
+                SerializedCheckedExport::Leaf { resource } => Self::Leaf(resource.try_into()?),
             })
         }
     }

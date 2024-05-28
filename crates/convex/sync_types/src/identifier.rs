@@ -38,6 +38,12 @@ pub fn is_valid_identifier(s: &str) -> bool {
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct Identifier(String);
 
+impl Identifier {
+    pub fn min() -> Self {
+        Identifier(MIN_IDENTIFIER.to_string())
+    }
+}
+
 impl FromStr for Identifier {
     type Err = anyhow::Error;
 

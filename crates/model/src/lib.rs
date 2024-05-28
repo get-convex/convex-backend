@@ -330,6 +330,20 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
     ]
 }
 
+pub fn component_definition_system_tables() -> Vec<&'static dyn SystemTable> {
+    vec![&ModulesTable, &ModuleVersionsTable]
+}
+
+pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
+    vec![
+        &SessionRequestsTable,
+        &FileStorageTable,
+        &ScheduledJobsTable,
+        &CronJobsTable,
+        &CronJobLogsTable,
+    ]
+}
+
 pub fn virtual_system_mapping() -> VirtualSystemMapping {
     let mut mapping = VirtualSystemMapping::default();
     for table in app_system_tables() {

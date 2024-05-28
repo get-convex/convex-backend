@@ -1,6 +1,9 @@
 pub mod definition;
 
-use std::sync::LazyLock;
+use std::{
+    collections::BTreeMap,
+    sync::LazyLock,
+};
 
 use anyhow::Context;
 use common::{
@@ -13,6 +16,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
         ComponentDefinitionId,
+        ComponentDefinitionPath,
         ComponentId,
         ComponentName,
         ComponentPath,
@@ -145,6 +149,21 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         Ok(Some(component_doc))
     }
 
+    pub async fn load_all_components(
+        &mut self,
+    ) -> anyhow::Result<Vec<ParsedDocument<ComponentMetadata>>> {
+        let mut query = ResolvedQuery::new(
+            self.tx,
+            TableNamespace::Global,
+            Query::full_table_scan(COMPONENTS_TABLE.clone(), Order::Asc),
+        )?;
+        let mut components = Vec::new();
+        while let Some(doc) = query.next(self.tx, None).await? {
+            components.push(doc.try_into()?);
+        }
+        Ok(components)
+    }
+
     pub async fn get_component_path(
         &mut self,
         mut component_id: ComponentId,
@@ -246,6 +265,26 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             .context("Missing component definition")?
             .try_into()?;
         Ok(doc)
+    }
+
+    pub async fn load_all_definitions(
+        &mut self,
+    ) -> anyhow::Result<
+        BTreeMap<ComponentDefinitionPath, ParsedDocument<ComponentDefinitionMetadata>>,
+    > {
+        let mut query = ResolvedQuery::new(
+            self.tx,
+            TableNamespace::Global,
+            Query::full_table_scan(COMPONENT_DEFINITIONS_TABLE.clone(), Order::Asc),
+        )?;
+        let mut definitions = BTreeMap::new();
+        while let Some(doc) = query.next(self.tx, None).await? {
+            let definition: ParsedDocument<ComponentDefinitionMetadata> = doc.try_into()?;
+            anyhow::ensure!(definitions
+                .insert(definition.path.clone(), definition)
+                .is_none());
+        }
+        Ok(definitions)
     }
 
     pub async fn function_path_to_module(
