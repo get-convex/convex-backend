@@ -299,11 +299,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
 
         let total_stats = new_and_updated_parts
             .iter()
-            .map(|segment| {
-                let segment_stats = segment.statistics()?;
-                segment_stats.log();
-                Ok(segment_stats)
-            })
+            .map(|segment| segment.statistics())
             .reduce(SegmentStatistics::add)
             .transpose()?
             .unwrap_or_default();

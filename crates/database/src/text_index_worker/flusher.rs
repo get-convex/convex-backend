@@ -95,7 +95,7 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
     ///
     /// Returns a map of IndexName to number of documents indexed for each
     /// index that was built.
-    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u32>, Token)> {
+    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
         let mut metrics = BTreeMap::new();
 
         let (to_build, token) = self.needs_backfill().await?;
@@ -107,7 +107,7 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
         for job in to_build {
             let index_name = job.index_name.clone();
             let num_documents_indexed = self.build_one(job).await?;
-            metrics.insert(index_name, num_documents_indexed as u32);
+            metrics.insert(index_name, num_documents_indexed as u64);
         }
 
         Ok((metrics, token))

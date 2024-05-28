@@ -143,7 +143,7 @@ pub struct SerializedFragmentedTextSegment {
     pub id_tracker_key: String,
     pub deleted_terms_table_key: String,
     pub alive_bitset_key: String,
-    pub num_indexed_documents: u32,
+    pub num_indexed_documents: u64,
     pub id: String,
 }
 
@@ -184,7 +184,12 @@ pub struct FragmentedTextSegment {
     pub id_tracker_key: ObjectKey,
     pub deleted_terms_table_key: ObjectKey,
     pub alive_bitset_key: ObjectKey,
-    pub num_indexed_documents: u32,
+    // 2^63 ~= 9.2 * 10^18. We only support i64 in Convex.
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "1u64..9223372000000000000")
+    )]
+    pub num_indexed_documents: u64,
     // A random UUID that can be used to identify a segment to determine if the
     // segment has changed during non-transactional index changes (compaction).
     pub id: String,

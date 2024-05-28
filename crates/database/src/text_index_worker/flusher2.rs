@@ -19,16 +19,22 @@ use storage::Storage;
 
 use crate::{
     index_workers::{
+        index_meta::SegmentStatistics,
         search_flusher::{
             IndexBuild,
             SearchFlusher,
             SearchIndexLimits,
         },
-        writer::SearchIndexMetadataWriter,
+        writer::{
+            SearchIndexMetadataWriter,
+            SearchIndexWriteResult,
+        },
     },
-    metrics::search::{
-        log_documents_per_index,
-        log_documents_per_new_segment,
+    metrics::{
+        log_documents_per_new_search_segment,
+        log_documents_per_search_segment,
+        log_non_deleted_documents_per_search_index,
+        log_non_deleted_documents_per_search_segment,
     },
     text_index_worker::text_meta::{
         BuildTextIndexArgs,
@@ -158,7 +164,7 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
     ///
     /// Returns a map of IndexName to number of documents indexed for each
     /// index that was built.
-    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u32>, Token)> {
+    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
         let mut metrics = BTreeMap::new();
 
         let (to_build, token) = self.flusher.needs_backfill().await?;
@@ -185,7 +191,7 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
         Ok((metrics, token))
     }
 
-    async fn build_one(&self, job: IndexBuild<TextSearchIndex>) -> anyhow::Result<u32> {
+    async fn build_one(&self, job: IndexBuild<TextSearchIndex>) -> anyhow::Result<u64> {
         let timer = crate::metrics::search::build_one_timer();
 
         let build_index_args = BuildTextIndexArgs {
@@ -198,13 +204,30 @@ impl<RT: Runtime> TextIndexFlusher2<RT> {
             .await?;
         tracing::debug!("Built a text segment for: {result:#?}");
 
-        let (total_stats, new_segment_stats) = self.writer.commit_flush(&job, result).await?;
+        let SearchIndexWriteResult {
+            index_stats,
+            new_segment_stats,
+            per_segment_stats,
+        } = self.writer.commit_flush(&job, result).await?;
 
-        let num_indexed_documents = new_segment_stats.unwrap_or_default().num_indexed_documents;
-        log_documents_per_new_segment(num_indexed_documents);
-        log_documents_per_index(total_stats.num_indexed_documents as usize);
+        let new_segment_stats = new_segment_stats.unwrap_or_default();
+        log_documents_per_new_search_segment(new_segment_stats.num_documents(), SearchType::Text);
+
+        per_segment_stats.into_iter().for_each(|stats| {
+            log_documents_per_search_segment(stats.num_documents(), SearchType::Text);
+            log_non_deleted_documents_per_search_segment(
+                stats.num_non_deleted_documents(),
+                SearchType::Text,
+            );
+        });
+
+        log_documents_per_new_search_segment(index_stats.num_documents(), SearchType::Text);
+        log_non_deleted_documents_per_search_index(
+            index_stats.num_non_deleted_documents(),
+            SearchType::Text,
+        );
         timer.finish();
-        Ok(num_indexed_documents)
+        Ok(new_segment_stats.num_documents())
     }
 }
 

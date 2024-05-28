@@ -808,6 +808,75 @@ pub fn finish_search_index_merge_timer(mut timer: StatusTimer, merge_type: Searc
     timer.finish();
 }
 
+register_convex_histogram!(
+    DOCUMENTS_PER_NEW_SEARCH_SEGMENT_TOTAL,
+    "Total number of documents in a newly built search index segment.",
+    &[SEARCH_TYPE_LABEL],
+);
+pub fn log_documents_per_new_search_segment(count: u64, search_type: SearchType) {
+    log_distribution_with_labels(
+        &DOCUMENTS_PER_NEW_SEARCH_SEGMENT_TOTAL,
+        count as f64,
+        vec![search_type.tag()],
+    );
+}
+
+register_convex_histogram!(
+    DOCUMENTS_PER_SEARCH_SEGMENT_TOTAL,
+    "Total number of documents in a specific search segment, including documents that were added \
+     to the segment but are deleted and excluded from any search results",
+    &[SEARCH_TYPE_LABEL],
+);
+pub fn log_documents_per_search_segment(count: u64, search_type: SearchType) {
+    log_distribution_with_labels(
+        &DOCUMENTS_PER_SEARCH_SEGMENT_TOTAL,
+        count as f64,
+        vec![search_type.tag()],
+    );
+}
+
+register_convex_histogram!(
+    NON_DELETED_DOCUMENTS_PER_SEARCH_SEGMENT_TOTAL,
+    "Total number of non-deleted documents in a specific search segment, excluding documents that \
+     were added to the segment but are deleted and excluded from any search results",
+    &[SEARCH_TYPE_LABEL],
+);
+pub fn log_non_deleted_documents_per_search_segment(count: u64, search_type: SearchType) {
+    log_distribution_with_labels(
+        &NON_DELETED_DOCUMENTS_PER_SEARCH_SEGMENT_TOTAL,
+        count as f64,
+        vec![search_type.tag()],
+    );
+}
+
+register_convex_histogram!(
+    DOCUMENTS_PER_SEARCH_INDEX_TOTAL,
+    "Total number of documents across all segments in a search index, including documents that \
+     were added to the index but are deleted and excluded from any search results",
+    &[SEARCH_TYPE_LABEL],
+);
+pub fn log_documents_per_search_index(count: u64, search_type: SearchType) {
+    log_distribution_with_labels(
+        &DOCUMENTS_PER_SEARCH_INDEX_TOTAL,
+        count as f64,
+        vec![search_type.tag()],
+    );
+}
+register_convex_histogram!(
+    NON_DELETED_DOCUMENTS_PER_SEARCH_INDEX_TOTAL,
+    "Total number of non-deleted documents across all segments in a search index segment, \
+     excluding documents that were added to the index but are deleted and excluded from any \
+     search results",
+    &[SEARCH_TYPE_LABEL],
+);
+pub fn log_non_deleted_documents_per_search_index(count: u64, search_type: SearchType) {
+    log_distribution_with_labels(
+        &NON_DELETED_DOCUMENTS_PER_SEARCH_INDEX_TOTAL,
+        count as f64,
+        vec![search_type.tag()],
+    );
+}
+
 pub mod search {
 
     use metrics::{
@@ -861,14 +930,6 @@ pub mod search {
     }
 
     register_convex_histogram!(
-        DATABASE_TEXT_DOCUMENTS_PER_NEW_SEGMENT_TOTAL,
-        "Number of documents in a newly built text search index segment",
-    );
-    pub fn log_documents_per_new_segment(count: u32) {
-        log_distribution(&DATABASE_TEXT_DOCUMENTS_PER_NEW_SEGMENT_TOTAL, count as f64);
-    }
-
-    register_convex_histogram!(
         DATABASE_SEARCH_ITERATOR_NEXT_SECONDS,
         "Time to fetch the next document in a search query iterator",
         &STATUS_LABEL
@@ -912,33 +973,6 @@ pub mod vector {
     );
     pub fn build_one_timer() -> StatusTimer {
         StatusTimer::new(&DATABASE_VECTOR_BUILD_ONE_SECONDS)
-    }
-
-    register_convex_histogram!(
-        DATABASE_VECTOR_DOCUMENTS_PER_INDEX_TOTAL,
-        "Number of documents per vector index",
-    );
-    pub fn log_documents_per_index(count: u64) {
-        log_distribution(&DATABASE_VECTOR_DOCUMENTS_PER_INDEX_TOTAL, count as f64);
-    }
-
-    register_convex_histogram!(
-        DATABASE_VECTOR_DOCUMENTS_PER_SEGMENT_TOTAL,
-        "Number of documents per vector index segment",
-    );
-    pub fn log_documents_per_segment(count: u64) {
-        log_distribution(&DATABASE_VECTOR_DOCUMENTS_PER_SEGMENT_TOTAL, count as f64);
-    }
-
-    register_convex_histogram!(
-        DATABASE_VECTOR_DOCUMENTS_PER_NEW_SEGMENT_TOTAL,
-        "Number of documents in a newly built vector index segment",
-    );
-    pub fn log_documents_per_new_segment(count: u32) {
-        log_distribution(
-            &DATABASE_VECTOR_DOCUMENTS_PER_NEW_SEGMENT_TOTAL,
-            count as f64,
-        );
     }
 
     register_convex_histogram!(

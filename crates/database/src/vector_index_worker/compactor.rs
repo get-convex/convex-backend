@@ -110,8 +110,8 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         Ok(())
     }
 
-    pub(crate) async fn step(&self) -> anyhow::Result<(BTreeMap<TabletIndexName, u32>, Token)> {
-        let mut metrics: BTreeMap<TabletIndexName, u32> = BTreeMap::new();
+    pub(crate) async fn step(&self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
+        let mut metrics = BTreeMap::new();
 
         let (to_build, token) = self.needs_compaction().await?;
         let num_to_build = to_build.len();
@@ -185,7 +185,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         Ok((to_build, tx.into_token()?))
     }
 
-    async fn build_one(&self, job: VectorCompaction) -> anyhow::Result<u32> {
+    async fn build_one(&self, job: VectorCompaction) -> anyhow::Result<u64> {
         let timer = vector_compaction_build_one_timer();
         let (segments, snapshot_ts) = match job.on_disk_state {
             VectorIndexState::Backfilling(VectorIndexBackfillState {
@@ -236,7 +236,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
                 *SEARCH_WORKER_PASSIVE_PAGES_PER_SECOND,
             )
             .await?;
-        let total_compacted_segments = total_compacted_segments as u32;
+        let total_compacted_segments = total_compacted_segments as u64;
 
         tracing::debug!(
             "Compacted {:#?} segments to {:#?}",
@@ -287,7 +287,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
                 size <= config.max_segment_size_bytes
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
-        if segments.len() >= config.min_compaction_segments {
+        if segments.len() >= config.min_compaction_segments as usize {
             Ok(Some(
                 segments
                     .into_iter()
@@ -436,7 +436,7 @@ pub(crate) struct CompactionConfig {
     // Don't allow compacting fewer than N segments. For example, we have N large segments, but
     // only 2 of those can actually be compacted due to the max size restriction, then we don't
     // want to compact yet.
-    pub(crate) min_compaction_segments: usize,
+    pub(crate) min_compaction_segments: u64,
     // 1.1 million vectors at the largest size
     pub(crate) max_segment_size_bytes: u64,
 }
@@ -544,7 +544,7 @@ mod tests {
         let (metrics, _) = compactor.step().await?;
         assert_eq!(
             metrics,
-            btreemap! { index_data.resolved_index_name => min_compaction_segments as u32}
+            btreemap! { index_data.resolved_index_name => min_compaction_segments}
         );
 
         let segments = fixtures
@@ -580,7 +580,7 @@ mod tests {
         let (metrics, _) = compactor.step().await?;
         assert_eq!(
             metrics,
-            btreemap! { index_data.resolved_index_name => min_compaction_segments as u32}
+            btreemap! { index_data.resolved_index_name => min_compaction_segments }
         );
 
         let segments = fixtures
@@ -611,7 +611,7 @@ mod tests {
         let (metrics, _) = compactor.step().await?;
         assert_eq!(
             metrics,
-            btreemap! { index_data.resolved_index_name => min_compaction_segments as u32}
+            btreemap! { index_data.resolved_index_name => min_compaction_segments }
         );
 
         let segments = fixtures
@@ -656,7 +656,7 @@ mod tests {
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let config = CompactionConfig::default();
-        let min_compaction_segments = config.min_compaction_segments as u64;
+        let min_compaction_segments = config.min_compaction_segments;
         let config = CompactionConfig {
             // Treat everything as a large segment
             small_segment_threshold_bytes: 0,
@@ -697,7 +697,7 @@ mod tests {
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let config = CompactionConfig::default();
-        let min_compaction_segments = config.min_compaction_segments as u64;
+        let min_compaction_segments = config.min_compaction_segments;
         let config = CompactionConfig {
             // N 8 byte vectors + slop
             max_segment_size_bytes: (min_compaction_segments * VECTOR_SIZE_BYTES) + 2,
@@ -718,7 +718,7 @@ mod tests {
         let (metrics, _) = compactor.step().await?;
         assert_eq!(
             metrics,
-            btreemap! { index_data.resolved_index_name => min_compaction_segments as u32 }
+            btreemap! { index_data.resolved_index_name => min_compaction_segments }
         );
         let segments = fixtures
             .get_segments_metadata(index_data.index_name)
@@ -739,7 +739,7 @@ mod tests {
             small_segment_threshold_bytes: 0,
             // Set the segment size so that we can create one large segment out
             // N small segments each of which contain 1 vector of 8 bytes.
-            max_segment_size_bytes: min_compaction_segments as u64 * VECTOR_SIZE_BYTES,
+            max_segment_size_bytes: min_compaction_segments * VECTOR_SIZE_BYTES,
             ..config
         };
         let fixtures = VectorFixtures::new_with_config(rt.clone(), config).await?;
@@ -767,7 +767,7 @@ mod tests {
         let (metrics, _) = compactor.step().await?;
         assert_eq!(
             metrics,
-            btreemap! { index_data.resolved_index_name => min_compaction_segments as u32}
+            btreemap! { index_data.resolved_index_name => min_compaction_segments }
         );
         let segments = fixtures
             .get_segments_metadata(index_data.index_name)
@@ -796,7 +796,7 @@ mod tests {
         let config = CompactionConfig {
             // Treat everything as a large segment
             small_segment_threshold_bytes: 0,
-            max_segment_size_bytes: min_compaction_segments as u64 * VECTOR_SIZE_BYTES,
+            max_segment_size_bytes: min_compaction_segments * VECTOR_SIZE_BYTES,
             ..config
         };
         let fixtures = VectorFixtures::new_with_config(rt.clone(), config).await?;
@@ -812,7 +812,7 @@ mod tests {
         let (metrics, _) = compactor.step().await?;
         assert_eq!(
             metrics,
-            btreemap! { index_data.resolved_index_name => min_compaction_segments as u32}
+            btreemap! { index_data.resolved_index_name => min_compaction_segments }
         );
         let segments = fixtures
             .get_segments_metadata(index_data.index_name)
@@ -961,7 +961,7 @@ mod tests {
         let (metrics, _) = compactor.step().await?;
         assert_eq!(
             metrics,
-            btreemap! { index_data.resolved_index_name => min_compaction_segments as u32}
+            btreemap! { index_data.resolved_index_name => min_compaction_segments }
         );
 
         // Then it should have the vectors from all 4 segments, but one should be

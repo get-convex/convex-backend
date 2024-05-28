@@ -260,7 +260,7 @@ impl SearchIndex for TextSearchIndex {
 
 #[derive(Debug, Default)]
 pub struct TextStatistics {
-    pub num_indexed_documents: u32,
+    pub num_indexed_documents: u64,
 }
 
 impl From<SearchOnDiskState<TextSearchIndex>> for TextIndexState {
@@ -290,7 +290,14 @@ impl SegmentStatistics for TextStatistics {
         })
     }
 
-    fn log(&self) {}
+    fn num_documents(&self) -> u64 {
+        self.num_indexed_documents
+    }
+
+    fn num_non_deleted_documents(&self) -> u64 {
+        // TODO(sam): Add a non-deleted number of documents.
+        self.num_indexed_documents
+    }
 }
 
 impl From<TextIndexBackfillState> for BackfillState<TextSearchIndex> {

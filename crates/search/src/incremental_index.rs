@@ -73,7 +73,7 @@ pub struct NewTextSegment {
     pub paths: TextSegmentPaths,
     /// The total number of indexed documents in this segment, including
     /// documents that were added and then marked as deleted.
-    pub num_indexed_documents: u32,
+    pub num_indexed_documents: u64,
 }
 
 #[derive(Clone)]

@@ -14,19 +14,31 @@ use common::{
     runtime::Runtime,
     types::TabletIndexName,
 };
+use search::metrics::SearchType;
 use storage::Storage;
 
 use super::vector_meta::BuildVectorIndexArgs;
 use crate::{
     index_workers::{
+        index_meta::SegmentStatistics,
         search_flusher::{
             IndexBuild,
             SearchFlusher,
             SearchIndexLimits,
         },
-        writer::SearchIndexMetadataWriter,
+        writer::{
+            SearchIndexMetadataWriter,
+            SearchIndexWriteResult,
+        },
     },
     metrics,
+    metrics::{
+        log_documents_per_new_search_segment,
+        log_documents_per_search_index,
+        log_documents_per_search_segment,
+        log_non_deleted_documents_per_search_index,
+        log_non_deleted_documents_per_search_segment,
+    },
     vector_index_worker::vector_meta::{
         VectorIndexConfigParser,
         VectorSearchIndex,
@@ -89,7 +101,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
     ///
     /// Returns a map of IndexName to number of documents indexed for each
     /// index that was built.
-    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u32>, Token)> {
+    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
         let mut metrics = BTreeMap::new();
 
         let (to_build, token) = self.flusher.needs_backfill().await?;
@@ -116,7 +128,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         Ok((metrics, token))
     }
 
-    async fn build_one(&self, job: IndexBuild<VectorSearchIndex>) -> anyhow::Result<u32> {
+    async fn build_one(&self, job: IndexBuild<VectorSearchIndex>) -> anyhow::Result<u64> {
         let timer = metrics::vector::build_one_timer();
 
         let result = self
@@ -130,13 +142,31 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             .await?;
         tracing::debug!("Built a vector segment for: {result:#?}");
 
-        let (total_stats, new_segment_stats) = self.writer.commit_flush(&job, result).await?;
+        let SearchIndexWriteResult {
+            index_stats,
+            new_segment_stats,
+            per_segment_stats,
+        } = self.writer.commit_flush(&job, result).await?;
 
-        let vectors_in_new_segment = new_segment_stats.unwrap_or_default().num_vectors;
-        metrics::vector::log_documents_per_index(total_stats.non_deleted_vectors);
-        metrics::vector::log_documents_per_new_segment(vectors_in_new_segment);
+        let new_segment_stats = new_segment_stats.unwrap_or_default();
+        log_documents_per_new_search_segment(new_segment_stats.num_documents(), SearchType::Vector);
+
+        per_segment_stats.into_iter().for_each(|stats| {
+            log_documents_per_search_segment(stats.num_documents(), SearchType::Vector);
+            log_non_deleted_documents_per_search_segment(
+                stats.num_non_deleted_documents(),
+                SearchType::Vector,
+            );
+        });
+
+        log_documents_per_search_index(index_stats.num_documents(), SearchType::Vector);
+        log_non_deleted_documents_per_search_index(
+            index_stats.num_non_deleted_documents(),
+            SearchType::Vector,
+        );
         timer.finish();
-        Ok(vectors_in_new_segment)
+
+        Ok(new_segment_stats.num_documents())
     }
 
     #[cfg(any(test, feature = "testing"))]
@@ -151,7 +181,6 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
         use anyhow::Context;
         use common::types::IndexName;
         use keybroker::Identity;
-        use search::metrics::SearchType;
         use value::TableNamespace;
 
         use crate::{

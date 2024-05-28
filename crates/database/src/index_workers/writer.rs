@@ -76,6 +76,16 @@ pub(crate) struct SearchIndexMetadataWriter<RT: Runtime, T: SearchIndex> {
     search_type: SearchType,
 }
 
+pub struct SearchIndexWriteResult<T: SearchIndex> {
+    /// Stats summing metrics across all segments in the index.
+    pub index_stats: T::Statistics,
+    /// Stats for just the new segment if a new segment was built.
+    pub new_segment_stats: Option<T::Statistics>,
+    /// Stats for all segments in the index, including the new segment if it was
+    /// built.
+    pub per_segment_stats: Vec<T::Statistics>,
+}
+
 impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
     pub(crate) fn new(
         runtime: RT,
@@ -159,7 +169,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
         &self,
         job: &IndexBuild<T>,
         result: IndexBuildResult<T>,
-    ) -> anyhow::Result<(T::Statistics, Option<T::Statistics>)> {
+    ) -> anyhow::Result<SearchIndexWriteResult<T>> {
         let IndexBuildResult {
             snapshot_ts,
             data,
@@ -171,6 +181,10 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
 
         let inner = self.inner(SearchWriterLockWaiter::Flusher).await;
         let segments = data.require_multi_segment()?;
+        let per_segment_stats = segments
+            .iter()
+            .map(|segment| segment.statistics())
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         if let Some(index_backfill_result) = backfill_result {
             inner
@@ -188,7 +202,11 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
                 .await?
         }
 
-        Ok((total_stats, new_segment_stats))
+        Ok(SearchIndexWriteResult {
+            index_stats: total_stats,
+            new_segment_stats,
+            per_segment_stats,
+        })
     }
 
     async fn inner(&self, waiter: SearchWriterLockWaiter) -> MutexGuard<Inner<RT, T>> {

@@ -128,7 +128,10 @@ pub trait SearchIndex: Clone {
 
 pub trait SegmentStatistics: Default {
     fn add(lhs: anyhow::Result<Self>, rhs: anyhow::Result<Self>) -> anyhow::Result<Self>;
-    fn log(&self);
+
+    fn num_documents(&self) -> u64;
+
+    fn num_non_deleted_documents(&self) -> u64;
 }
 pub struct SearchIndexConfig<T: SearchIndex> {
     pub developer_config: T::DeveloperConfig,

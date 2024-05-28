@@ -59,7 +59,6 @@ use crate::{
         SegmentType,
         SnapshotData,
     },
-    metrics::vector::log_documents_per_segment,
     Snapshot,
 };
 
@@ -274,8 +273,12 @@ impl SegmentStatistics for VectorStatistics {
         })
     }
 
-    fn log(&self) {
-        log_documents_per_segment(self.non_deleted_vectors);
+    fn num_documents(&self) -> u64 {
+        self.num_vectors as u64
+    }
+
+    fn num_non_deleted_documents(&self) -> u64 {
+        self.non_deleted_vectors
     }
 }
 
