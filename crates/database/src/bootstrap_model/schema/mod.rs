@@ -14,10 +14,6 @@ use common::{
         SchemaMetadata,
         SchemaState,
     },
-    components::{
-        ComponentDefinitionId,
-        ComponentId,
-    },
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -53,7 +49,6 @@ use crate::{
         SystemTable,
     },
     patch_value,
-    BootstrapComponentsModel,
     ResolvedQuery,
     SystemMetadataModel,
     TableModel,
@@ -91,44 +86,17 @@ impl SystemTable for SchemasTable {
 
 pub struct SchemaModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
-    component: ComponentDefinitionId,
+    namespace: TableNamespace,
 }
 
 impl<'a, RT: Runtime> SchemaModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>, component: ComponentDefinitionId) -> Self {
-        Self { tx, component }
-    }
-
-    /// Schemas are defined on a ComponentDefinition, but they apply structure
-    /// to a Component.
-    pub async fn new_applied_to_component(
-        tx: &'a mut Transaction<RT>,
-        component: ComponentId,
-    ) -> anyhow::Result<Self> {
-        let component_definition = BootstrapComponentsModel::new(tx)
-            .component_definition(component)
-            .await?;
-        Ok(Self::new(tx, component_definition))
-    }
-
-    /// When writing to a namespace, we want to apply a schema to validate the
-    /// writes.
-    pub async fn new_applied_to_namespace(
-        tx: &'a mut Transaction<RT>,
-        namespace: TableNamespace,
-    ) -> anyhow::Result<Self> {
-        let component = match namespace {
-            TableNamespace::ByComponent(id) => ComponentId::Child(id),
-            TableNamespace::RootComponent => ComponentId::Root,
-            // TODO(lee) figure out what to do here.
-            _ => ComponentId::Root,
-        };
-        Self::new_applied_to_component(tx, component).await
+    pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
+        Self { tx, namespace }
     }
 
     #[cfg(any(test, feature = "testing"))]
     pub fn new_root_for_test(tx: &'a mut Transaction<RT>) -> Self {
-        Self::new(tx, ComponentDefinitionId::Root)
+        Self::new(tx, TableNamespace::Global)
     }
 
     pub async fn apply(
@@ -258,7 +226,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             order: Order::Asc,
         };
         let query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, query)?;
         let schema = query_stream
             .expect_at_most_one(self.tx)
             .await?
@@ -326,7 +294,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             state: SchemaState::Pending,
             schema,
         };
-        let id = SystemMetadataModel::new(self.tx, self.component.into())
+        let id = SystemMetadataModel::new(self.tx, self.namespace)
             .insert(&SCHEMAS_TABLE, schema_metadata.try_into()?)
             .await?;
         Ok((id, SchemaState::Pending))
@@ -341,7 +309,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         let schema = SchemaMetadata::try_from(doc.into_value().into_value())?;
         match schema.state {
             SchemaState::Pending => {
-                SystemMetadataModel::new(self.tx, self.component.into())
+                SystemMetadataModel::new(self.tx, self.namespace)
                     .patch(
                         document_id,
                         patch_value!("state" => Some(SchemaState::Validated.try_into()?))?,
@@ -402,7 +370,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             // If it's validated, mark as active.
             SchemaState::Validated => {
                 self.clear_active().await?;
-                SystemMetadataModel::new(self.tx, self.component.into())
+                SystemMetadataModel::new(self.tx, self.namespace)
                     .patch(
                         document_id,
                         patch_value!("state" => Some(SchemaState::Active.try_into()?))?,
@@ -441,7 +409,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                         table_name, ..
                     } => table_name,
                 };
-                SystemMetadataModel::new(self.tx, self.component.into())
+                SystemMetadataModel::new(self.tx, self.namespace)
                     .patch(
                         document_id,
                         patch_value!(
@@ -496,7 +464,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     /// number of documents deleted. Keeps schemas table small.
     async fn delete_old_failed_and_overwritten_schemas(&mut self) -> anyhow::Result<usize> {
         let query = Query::full_table_scan(SCHEMAS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, query)?;
         let mut num_deleted = 0;
         while let Some(doc) = query_stream.next(self.tx, None).await? {
             let schema_doc: ParsedDocument<SchemaMetadata> = doc.try_into()?;
@@ -518,7 +486,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             {
                 break;
             }
-            SystemMetadataModel::new(self.tx, self.component.into())
+            SystemMetadataModel::new(self.tx, self.namespace)
                 .delete(schema_doc.id())
                 .await?;
             num_deleted += 1;
@@ -527,7 +495,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     }
 
     async fn mark_overwritten(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
-        SystemMetadataModel::new(self.tx, self.component.into())
+        SystemMetadataModel::new(self.tx, self.namespace)
             .patch(
                 id,
                 patch_value!("state" => Some(SchemaState::Overwritten.try_into()?))?,

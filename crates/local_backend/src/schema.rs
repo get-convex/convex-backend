@@ -29,10 +29,6 @@ use common::{
             SchemaState,
         },
     },
-    components::{
-        ComponentDefinitionId,
-        ComponentId,
-    },
     http::{
         extract::{
             Json,
@@ -59,6 +55,7 @@ use value::{
     ConvexValue,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -279,16 +276,16 @@ pub async fn prepare_schema_handler(
     let index_diff: LegacyIndexDiff = if dry_run {
         let mut tx = st.application.begin(identity.clone()).await?;
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(ComponentId::Root, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
             .await?
     } else {
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(ComponentId::Root, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
             .await?
     }
     .into();
 
-    let (schema_id, schema_state) = SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
+    let (schema_id, schema_state) = SchemaModel::new(&mut tx, TableNamespace::Global)
         .submit_pending(schema)
         .await?;
     let should_save_new_schema = match schema_state {

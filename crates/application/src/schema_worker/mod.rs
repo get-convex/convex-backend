@@ -3,7 +3,6 @@ use std::time::Duration;
 use common::{
     backoff::Backoff,
     bootstrap_model::schema::SchemaState,
-    components::ComponentDefinitionId,
     errors::report_error,
     runtime::Runtime,
     schemas::DatabaseSchema,
@@ -69,7 +68,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
         let status = log_worker_starting("SchemaWorker");
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let snapshot = self.database.snapshot(tx.begin_timestamp())?;
-        if let Some((id, db_schema)) = SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
+        if let Some((id, db_schema)) = SchemaModel::new(&mut tx, TableNamespace::Global)
             .get_by_state(SchemaState::Pending)
             .await?
         {
@@ -78,7 +77,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
             let virtual_table_mapping = tx.virtual_table_mapping().clone();
 
-            let active_schema = SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
+            let active_schema = SchemaModel::new(&mut tx, TableNamespace::Global)
                 .get_by_state(SchemaState::Active)
                 .await?
                 .map(|(_id, active_schema)| active_schema);
@@ -117,7 +116,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                         let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
                         while backoff.failures() < MAX_COMMIT_FAILURES {
                             let mut tx = self.database.begin(Identity::system()).await?;
-                            SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
+                            SchemaModel::new(&mut tx, TableNamespace::Global)
                                 .mark_failed(id, schema_error.clone())
                                 .await?;
                             if let Err(e) = self
@@ -147,7 +146,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 }
             }
             let mut tx = self.database.begin(Identity::system()).await?;
-            if let Err(error) = SchemaModel::new(&mut tx, ComponentDefinitionId::Root)
+            if let Err(error) = SchemaModel::new(&mut tx, TableNamespace::Global)
                 .mark_validated(id)
                 .await
             {

@@ -14,10 +14,7 @@ use authentication::{
 use cmd_util::env::config_test;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
-    components::{
-        ComponentDefinitionId,
-        ComponentId,
-    },
+    components::ComponentId,
     db_schema,
     http::fetch::StaticFetchClient,
     knobs::ACTION_USER_TIMEOUT,
@@ -78,6 +75,7 @@ use storage::{
 use value::{
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -350,7 +348,7 @@ async fn insert_validated_schema<RT: Runtime>(
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<ResolvedDocumentId> {
     let schema = db_schema!();
-    let mut model = SchemaModel::new(tx, ComponentDefinitionId::Root);
+    let mut model = SchemaModel::new(tx, TableNamespace::Global);
     let (schema_id, _) = model.submit_pending(schema).await?;
     model.mark_validated(schema_id).await?;
     Ok(schema_id)

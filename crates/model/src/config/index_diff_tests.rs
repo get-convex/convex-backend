@@ -1,4 +1,3 @@
-use common::components::ComponentId;
 use database::{
     test_helpers::{
         index_utils::{
@@ -12,6 +11,7 @@ use database::{
     IndexModel,
 };
 use runtime::testing::TestRuntime;
+use value::TableNamespace;
 
 use crate::{
     config::index_test_utils::{
@@ -30,7 +30,7 @@ async fn get_index_diff_with_no_indexes_returns_empty_diff(rt: TestRuntime) -> a
     let schema = db_schema_with_indexes!();
 
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema.tables)
+        .get_index_diff(TableNamespace::Global, &schema.tables)
         .await?;
 
     expect_diff!(diff ; added:[], dropped:[]);
@@ -49,7 +49,7 @@ async fn get_index_diff_with_no_existing_tables_and_one_new_index_returns_added_
     let schema = db_schema_with_indexes!(table_name => [(index_name, vec!["a"])]);
 
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema.tables)
+        .get_index_diff(TableNamespace::Global, &schema.tables)
         .await?;
 
     expect_diff!(diff; added:[(table_name, index_name, vec!["a"])], dropped:[]);
@@ -68,13 +68,13 @@ async fn get_index_diff_with_table_but_no_index_and_one_new_index_returns_added_
 
     let schema_table_only = db_schema_with_indexes!(table_name => []);
     IndexModel::new(&mut tx)
-        .build_indexes(ComponentId::Root, &schema_table_only)
+        .build_indexes(TableNamespace::Global, &schema_table_only)
         .await?;
 
     let schema_with_index = db_schema_with_indexes!(table_name => [(index_name, vec!["a"])]);
 
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema_with_index.tables)
+        .get_index_diff(TableNamespace::Global, &schema_with_index.tables)
         .await?;
 
     expect_diff!(diff; added:[(table_name, index_name, vec!["a"])], dropped:[]);
@@ -93,13 +93,13 @@ async fn get_index_diff_with_one_existing_index_that_is_removed_returns_dropped_
     let schema_with_index = db_schema_with_indexes!(table_name => [(index_name, vec!["a"])]);
 
     IndexModel::new(&mut tx)
-        .build_indexes(ComponentId::Root, &schema_with_index)
+        .build_indexes(TableNamespace::Global, &schema_with_index)
         .await?;
 
     let schema_without_index = db_schema_with_indexes!(table_name => []);
 
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema_without_index.tables)
+        .get_index_diff(TableNamespace::Global, &schema_without_index.tables)
         .await?;
 
     expect_diff!(diff; added:[], dropped:[(table_name, index_name, vec!["a"])]);
@@ -118,13 +118,13 @@ async fn get_index_diff_with_one_existing_index_when_table_is_removed_returns_dr
     let schema_with_index = db_schema_with_indexes!(table_name => [(index_name, vec!["a"])]);
 
     IndexModel::new(&mut tx)
-        .build_indexes(ComponentId::Root, &schema_with_index)
+        .build_indexes(TableNamespace::Global, &schema_with_index)
         .await?;
 
     let schema_without_index = db_schema_with_indexes!();
 
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema_without_index.tables)
+        .get_index_diff(TableNamespace::Global, &schema_without_index.tables)
         .await?;
 
     expect_diff!(diff; added:[], dropped:[(table_name, index_name, vec!["a"])]);
@@ -144,14 +144,17 @@ async fn get_index_diff_with_one_existing_index_that_is_mutated_returns_mutated_
         db_schema_with_indexes!(table_name => [(index_name, vec!["a"])]);
 
     IndexModel::new(&mut tx)
-        .build_indexes(ComponentId::Root, &schema_with_single_field_index)
+        .build_indexes(TableNamespace::Global, &schema_with_single_field_index)
         .await?;
 
     let schema_with_multi_field_index =
         db_schema_with_indexes!(table_name => [(index_name, vec!["a", "b"])]);
 
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema_with_multi_field_index.tables)
+        .get_index_diff(
+            TableNamespace::Global,
+            &schema_with_multi_field_index.tables,
+        )
         .await?;
 
     expect_diff!(diff;
@@ -175,7 +178,7 @@ async fn get_index_diff_with_new_indexes_from_two_tables_returns_added_indexes_f
         table_name1 => [(index_name1, vec!["a"])], table_name2 => [(index_name2, vec!["a"])]);
 
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema.tables)
+        .get_index_diff(TableNamespace::Global, &schema.tables)
         .await?;
 
     expect_diff!(diff ;
@@ -201,7 +204,7 @@ async fn get_index_diff_with_existing_unmodified_enabled_indexes_ignores_them(
 
     let mut tx = db.begin_system().await?;
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema.tables)
+        .get_index_diff(TableNamespace::Global, &schema.tables)
         .await?;
 
     expect_diff!(diff ;
@@ -225,7 +228,7 @@ async fn test_clean_index_diff_after_backfill(rt: TestRuntime) -> anyhow::Result
 
     let mut tx = db.begin_system().await?;
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema.tables)
+        .get_index_diff(TableNamespace::Global, &schema.tables)
         .await?;
 
     expect_diff!(diff ; added:[], dropped:[]);
@@ -251,7 +254,7 @@ async fn get_index_diff_with_existing_unmodified_backfilled_indexes_prepare_beha
 
     let mut tx = db.begin_system().await?;
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema.tables)
+        .get_index_diff(TableNamespace::Global, &schema.tables)
         .await?;
 
     expect_diff!(diff ; added:[], dropped:[]);
@@ -274,7 +277,7 @@ async fn test_same_index_name_across_two_tables(rt: TestRuntime) -> anyhow::Resu
     );
 
     let diff = IndexModel::new(&mut tx)
-        .get_index_diff(ComponentId::Root, &schema.tables)
+        .get_index_diff(TableNamespace::Global, &schema.tables)
         .await?;
 
     expect_diff!(diff ;

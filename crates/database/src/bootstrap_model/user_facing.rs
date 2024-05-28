@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    components::ComponentId,
     document::{
         DeveloperDocument,
         ResolvedDocument,
@@ -30,6 +29,7 @@ use value::{
     DeveloperDocumentId,
     Size,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -65,19 +65,19 @@ use crate::{
 //  5. We support branching on the `convex` NPM package's version.
 pub struct UserFacingModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
-    component: ComponentId,
+    namespace: TableNamespace,
 }
 
 impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>, component: ComponentId) -> Self {
-        Self { tx, component }
+    pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
+        Self { tx, namespace }
     }
 
     #[cfg(any(test, feature = "testing"))]
     pub fn new_root_for_test(tx: &'a mut Transaction<RT>) -> Self {
         Self {
             tx,
-            component: ComponentId::Root,
+            namespace: TableNamespace::Global,
         }
     }
 
@@ -149,7 +149,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                     if !self
                         .tx
                         .table_mapping()
-                        .namespace(self.component.into())
+                        .namespace(self.namespace)
                         .table_number_exists()(*id.table())
                     {
                         assert!(results.insert(batch_key, Ok(None)).is_none());
@@ -158,7 +158,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                     let id_ = id.map_table(
                         self.tx
                             .table_mapping()
-                            .namespace(self.component.into())
+                            .namespace(self.namespace)
                             .inject_table_id(),
                     )?;
                     let table_name = self.tx.table_mapping().tablet_name(id_.table().tablet_id)?;
@@ -248,13 +248,13 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         // table metadata. If the user then subsequently commits that transaction,
         // they'll have a record that points to a nonexistent table.
         TableModel::new(self.tx)
-            .insert_table_metadata(self.component.into(), &table)
+            .insert_table_metadata(self.namespace, &table)
             .await?;
         let document = ResolvedDocument::new(
             id.clone().map_table(
                 self.tx
                     .table_mapping()
-                    .namespace(self.component.into())
+                    .namespace(self.namespace)
                     .name_to_id_user_input(),
             )?,
             creation_time,
@@ -284,7 +284,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let id_ = id.map_table(
             self.tx
                 .table_mapping()
-                .namespace(self.component.into())
+                .namespace(self.namespace)
                 .inject_table_id(),
         )?;
 
@@ -319,7 +319,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let id_ = id.map_table(
             self.tx
                 .table_mapping()
-                .namespace(self.component.into())
+                .namespace(self.namespace)
                 .inject_table_id(),
         )?;
 
@@ -344,7 +344,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             &self
                 .tx
                 .table_mapping()
-                .namespace(self.component.into())
+                .namespace(self.namespace)
                 .inject_table_id(),
         )?;
         let document = self.tx.delete_inner(id_).await?;

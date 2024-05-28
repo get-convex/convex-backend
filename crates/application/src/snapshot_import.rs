@@ -30,7 +30,6 @@ use common::{
         schema::SchemaState,
         tables::TABLES_TABLE,
     },
-    components::ComponentDefinitionId,
     document::{
         CreationTime,
         ParsedDocument,
@@ -1584,7 +1583,7 @@ async fn finalize_import<RT: Runtime>(
 async fn schemas_for_import<RT: Runtime>(
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<Vec<Option<(ResolvedDocumentId, DatabaseSchema)>>> {
-    let mut schema_model = SchemaModel::new(tx, ComponentDefinitionId::Root);
+    let mut schema_model = SchemaModel::new(tx, TableNamespace::Global);
     let mut schemas = vec![];
     for schema_state in [
         SchemaState::Active,
@@ -2252,7 +2251,7 @@ async fn remap_empty_string_by_schema<'a, RT: Runtime>(
     tx: &mut Transaction<RT>,
     objects: BoxStream<'a, anyhow::Result<ImportUnit>>,
 ) -> anyhow::Result<BoxStream<'a, anyhow::Result<ImportUnit>>> {
-    if let Some((_, schema)) = SchemaModel::new(tx, ComponentDefinitionId::Root)
+    if let Some((_, schema)) = SchemaModel::new(tx, TableNamespace::Global)
         .get_by_state(SchemaState::Active)
         .await?
     {

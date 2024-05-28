@@ -5,7 +5,6 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
-    components::ComponentId,
     document::DeveloperDocument,
     index::IndexKeyBytes,
     interval::Interval,
@@ -26,6 +25,7 @@ use common::{
     },
     version::Version,
 };
+use value::TableNamespace;
 
 use super::{
     query_scanned_too_many_documents_error,
@@ -170,7 +170,7 @@ impl IndexRange {
             }
             self.cursor_interval.curr_exclusive = Some(CursorPosition::After(index_position));
             self.returned_results += 1;
-            UserFacingModel::new(tx, ComponentId::Root)
+            UserFacingModel::new(tx, TableNamespace::Global)
                 .record_read_document(&v, self.printable_index_name.table())?;
             // Database bandwidth for index reads
             tx.usage_tracker.track_database_egress_size(

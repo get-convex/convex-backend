@@ -6,7 +6,6 @@ use std::{
 
 use common::{
     bootstrap_model::schema::SchemaState,
-    components::ComponentId,
     persistence::{
         NoopRetentionValidator,
         Persistence,
@@ -28,6 +27,7 @@ use database::{
 };
 use runtime::testing::TestRuntime;
 use storage::LocalDirStorage;
+use value::TableNamespace;
 
 use crate::{
     config::ConfigModel,
@@ -148,7 +148,7 @@ pub async fn prepare_schema(
 ) -> anyhow::Result<GenericDocumentId<TabletIdAndTableNumber>> {
     let mut tx = db.begin_system().await?;
     IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(ComponentId::Root, &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
         .await?;
     let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
     let (schema_id, state) = schema_model.submit_pending(schema).await?;

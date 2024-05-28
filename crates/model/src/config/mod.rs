@@ -30,7 +30,10 @@ use database::{
     Transaction,
 };
 use sync_types::CanonicalizedModulePath;
-use value::ResolvedDocumentId;
+use value::{
+    ResolvedDocumentId,
+    TableNamespace,
+};
 
 use self::module_loader::ModuleLoader;
 use crate::{
@@ -91,12 +94,12 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             .apply(&analyze_results)
             .await?;
 
-        let (schema_diff, next_schema) = SchemaModel::new(self.tx, ComponentDefinitionId::Root)
+        let (schema_diff, next_schema) = SchemaModel::new(self.tx, TableNamespace::Global)
             .apply(schema_id)
             .await?;
 
         let index_diff = IndexModel::new(self.tx)
-            .apply(ComponentId::Root, &next_schema)
+            .apply(TableNamespace::Global, &next_schema)
             .await?;
 
         let module_diff = ModuleModel::new(self.tx)

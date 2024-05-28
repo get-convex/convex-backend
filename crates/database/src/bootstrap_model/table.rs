@@ -182,8 +182,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         if !self.table_exists(namespace, &table_name) {
             return Ok(());
         }
-        SchemaModel::new_applied_to_namespace(self.tx, namespace)
-            .await?
+        SchemaModel::new(self.tx, namespace)
             .enforce_table_deletion(table_name.clone())
             .await?;
 

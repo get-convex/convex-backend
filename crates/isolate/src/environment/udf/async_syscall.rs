@@ -9,7 +9,6 @@ use anyhow::Context;
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentId,
         ComponentPath,
     },
     document::DeveloperDocument,
@@ -686,7 +685,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table, false)?;
         let tx = provider.tx()?;
-        let document_id = UserFacingModel::new(tx, ComponentId::Root)
+        let document_id = UserFacingModel::new(tx, TableNamespace::Global)
             .insert(table, value)
             .await?;
         let id_str = document_id.encode();
@@ -716,7 +715,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx, ComponentId::Root)
+        let document = UserFacingModel::new(tx, TableNamespace::Global)
             .patch(id, value)
             .await?;
         Ok(document.into_value().0.into())
@@ -745,7 +744,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx, ComponentId::Root)
+        let document = UserFacingModel::new(tx, TableNamespace::Global)
             .replace(id, value)
             .await?;
         Ok(document.into_value().0.into())
@@ -939,7 +938,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx, ComponentId::Root)
+        let document = UserFacingModel::new(tx, TableNamespace::Global)
             .delete(id)
             .await?;
         Ok(document.into_value().0.into())

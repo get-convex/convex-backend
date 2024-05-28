@@ -507,8 +507,7 @@ impl<RT: Runtime> Transaction<RT> {
                 .apply(old_document.value().clone().into_value())?;
             old_document.replace_value(patched_value)?
         };
-        SchemaModel::new_applied_to_namespace(self, namespace)
-            .await?
+        SchemaModel::new(self, namespace)
             .enforce(&new_document)
             .await?;
 
@@ -550,8 +549,7 @@ impl<RT: Runtime> Transaction<RT> {
         // Replace document.
         let new_document = old_document.replace_value(value)?;
 
-        SchemaModel::new_applied_to_namespace(self, namespace)
-            .await?
+        SchemaModel::new(self, namespace)
             .enforce(&new_document)
             .await?;
 
@@ -937,10 +935,7 @@ impl<RT: Runtime> Transaction<RT> {
         let namespace = self
             .table_mapping()
             .tablet_namespace(document_id.table().tablet_id)?;
-        SchemaModel::new_applied_to_namespace(self, namespace)
-            .await?
-            .enforce(&document)
-            .await?;
+        SchemaModel::new(self, namespace).enforce(&document).await?;
         self.apply_validated_write(document_id, None, Some(document))?;
         Ok(document_id)
     }
