@@ -350,7 +350,7 @@ export type RegisteredAction<
  * @public
  */
 export type PublicHttpAction = {
-  (ctx: GenericActionCtx<any>, request: Request): Response;
+  (ctx: GenericActionCtx<any>, request: Request): Promise<Response>;
   isHttp: true;
   isRegistered?: true;
 
