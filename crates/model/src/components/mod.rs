@@ -284,3 +284,71 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use common::{
+        bootstrap_model::index::IndexMetadata,
+        components::{
+            CanonicalizedComponentModulePath,
+            ComponentDefinitionId,
+        },
+    };
+    use database::{
+        defaults::SystemTable,
+        test_helpers::DbFixtures,
+        IndexModel,
+        SystemMetadataModel,
+        COMPONENT_DEFINITIONS_TABLE,
+    };
+    use keybroker::Identity;
+    use runtime::testing::TestRuntime;
+    use value::obj;
+
+    use crate::{
+        modules::{
+            ModuleModel,
+            ModulesTable,
+        },
+        DEFAULT_TABLE_NUMBERS,
+    };
+
+    #[convex_macro::test_runtime]
+    async fn test_create_and_use_module_table(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+
+        let mut tx = db.begin(Identity::system()).await?;
+        let id = SystemMetadataModel::new_global(&mut tx)
+            .insert(&COMPONENT_DEFINITIONS_TABLE, obj!()?)
+            .await?;
+        let definition_id = ComponentDefinitionId::Child(id.internal_id());
+
+        let namespace = definition_id.into();
+        let table = ModulesTable;
+        let is_new = tx
+            .create_system_table(
+                namespace,
+                table.table_name(),
+                DEFAULT_TABLE_NUMBERS.get(table.table_name()).cloned(),
+            )
+            .await?;
+        assert!(is_new);
+
+        for index in table.indexes() {
+            let index_metadata = IndexMetadata::new_enabled(index.name, index.fields);
+            IndexModel::new(&mut tx)
+                .add_system_index(namespace, index_metadata)
+                .await?;
+        }
+
+        let m = ModuleModel::new(&mut tx)
+            .get_metadata(CanonicalizedComponentModulePath {
+                component: definition_id,
+                module_path: "a.js".parse()?,
+            })
+            .await?;
+        assert!(m.is_none());
+
+        Ok(())
+    }
+}

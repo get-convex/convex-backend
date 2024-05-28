@@ -36,7 +36,6 @@ use common::{
     types::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
-        GenericIndexName,
         IndexId,
         IndexName,
         RepeatableTimestamp,
@@ -50,7 +49,6 @@ use errors::ErrorMetadata;
 use futures::TryStreamExt;
 use imbl::OrdMap;
 use itertools::Itertools;
-use maplit::btreemap;
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -376,16 +374,19 @@ impl DatabaseIndexSnapshot {
             &range_request.printable_index_name,
         ) {
             Ok(index) => index,
-            // Allow default system defined indexes on all tables other than the _index
-            // table.
-            Err(_)
-                if range_request.index_name.table()
-                    != &self.index_registry.index_table().tablet_id
-                    && range_request.index_name.is_by_id_or_creation_time() =>
-            {
-                return Ok(Ok((vec![], CursorPosition::End)));
+            Err(e) => {
+                // We verify that indexes are enabled at the transaction index layer,
+                // so if an index is missing in our `index_registry` (which is from the
+                // beginning of the transaction), then it must have been
+                // inserted in this transaction. Return an empty result in this
+                // condition for all indexes on all tables except the `_index` table, which must
+                // always exist.
+                if range_request.index_name.table() != &self.index_registry.index_table().tablet_id
+                {
+                    return Ok(Ok((vec![], CursorPosition::End)));
+                }
+                anyhow::bail!(e);
             },
-            Err(e) => anyhow::bail!(e),
         };
 
         // Check that the index is indeed a database index.
@@ -548,48 +549,6 @@ impl DatabaseIndexSnapshot {
             }
         }
         Ok((results, cache_miss_results, CursorPosition::End))
-    }
-
-    /// Lookup the latest value of a document by id. Returns the document and
-    /// the timestamp it was written at.
-    #[minitrace::trace]
-    pub async fn lookup_document_with_ts(
-        &mut self,
-        id: ResolvedDocumentId,
-    ) -> anyhow::Result<Option<(ResolvedDocument, Timestamp)>> {
-        let index_name = GenericIndexName::by_id(id.table().tablet_id);
-        let printable_index_name = index_name
-            .clone()
-            .map_table(&self.table_mapping.tablet_to_name())?;
-        let index_key = IndexKey::new(vec![], id.into());
-        let range = Interval::prefix(index_key.into_bytes().into());
-
-        // We call next() twice due to the verification below.
-        let max_size = 2;
-        let (stream, cursor) = self
-            .range_batch(btreemap! { 0 => RangeRequest {
-                index_name,
-                printable_index_name,
-                interval: range,
-                order: Order::Asc,
-                max_size,
-            }})
-            .await
-            .remove(&0)
-            .context("batch_key missing")??;
-        let mut stream = stream.into_iter();
-        match stream.next() {
-            Some((key, ts, doc)) => {
-                anyhow::ensure!(
-                    stream.next().is_none(),
-                    "Got multiple values for key {:?}",
-                    key
-                );
-                anyhow::ensure!(matches!(cursor, CursorPosition::End));
-                Ok(Some((doc, ts)))
-            },
-            None => Ok(None),
-        }
     }
 
     pub fn timestamp(&self) -> RepeatableTimestamp {

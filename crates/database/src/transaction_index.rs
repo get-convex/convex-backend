@@ -308,7 +308,7 @@ impl TransactionIndex {
                             } => fields,
                             _ => Err(index_not_a_database_index_error(printable_index_name))?,
                         },
-                        // Range queries on missing system tables are allowed.
+                        // Range queries on missing system indexes are allowed.
                         Err(_) if index_name.is_by_id() => IndexedFields::by_id(),
                         Err(_) if index_name.is_creation_time() => IndexedFields::creation_time(),
                         Err(e) => Err(e)?,
@@ -1000,8 +1000,11 @@ mod tests {
 
         // Add the index. It should start returning errors since the index was not
         // backfilled at the snapshot.
-        let by_name_metadata =
-            IndexMetadata::new_enabled(messages_by_name.clone(), vec!["name".parse()?].try_into()?);
+        let by_name_metadata = IndexMetadata::new_backfilling(
+            Timestamp::must(1000),
+            messages_by_name.clone(),
+            vec!["name".parse()?].try_into()?,
+        );
         let by_name = gen_index_document(&mut id_generator, by_name_metadata)?;
         index.begin_update(None, Some(by_name))?.apply();
 
@@ -1022,7 +1025,8 @@ mod tests {
             Ok(_) => panic!("Should have failed!"),
             Err(ref err) => {
                 assert!(
-                    format!("{:?}", err).contains("Index messages.by_name not found."),
+                    format!("{:?}", err)
+                        .contains("Index messages.by_name is currently backfilling"),
                     "Actual: {err:?}"
                 )
             },
