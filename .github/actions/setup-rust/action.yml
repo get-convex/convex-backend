@@ -35,8 +35,8 @@ runs:
       run: |
         echo "CARGO_TERM_COLOR=always" >> $GITHUB_ENV
         echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
-        echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
         if [ "$RUNNER_OS" == "Linux" ]; then
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
           echo "SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
           echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
           echo "ROCKSDB_LIB_DIR=/usr/lib" >> $GITHUB_ENV
