@@ -54,8 +54,8 @@ runs:
       if: runner.os == 'Linux'
       working-directory: "/home/runner"
       run: |
-        curl -o- -sSLf --retry 3 --retry-delay 5 https://github.com/mozilla/sccache/releases/download/v0.3.3/sccache-v0.3.3-x86_64-unknown-linux-musl.tar.gz | tar xzf -
-        mv sccache-v0.3.3-x86_64-unknown-linux-musl/sccache .cargo/bin/sccache
+        curl -o- -sSLf --retry 3 --retry-delay 5 https://github.com/mozilla/sccache/releases/download/v0.8.0/sccache-v0.8.0-x86_64-unknown-linux-musl.tar.gz | tar xzf -
+        mv sccache-v0.8.0-x86_64-unknown-linux-musl/sccache .cargo/bin/sccache
         chmod +x .cargo/bin/sccache
         .cargo/bin/sccache --start-server
 
