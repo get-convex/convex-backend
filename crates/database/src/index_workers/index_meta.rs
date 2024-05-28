@@ -217,9 +217,16 @@ pub enum SnapshotData<T> {
 impl<T> SnapshotData<T> {
     pub fn segments(self) -> Vec<T> {
         match self {
-            SnapshotData::Unknown(_) | SnapshotData::SingleSegment(_) => vec![],
-            SnapshotData::MultiSegment(segments) => segments,
+            Self::Unknown(_) | Self::SingleSegment(_) => vec![],
+            Self::MultiSegment(segments) => segments,
         }
+    }
+
+    pub fn require_multi_segment(self) -> anyhow::Result<Vec<T>> {
+        let Self::MultiSegment(segments) = self else {
+            anyhow::bail!("Not a multi segment type!");
+        };
+        Ok(segments)
     }
 }
 

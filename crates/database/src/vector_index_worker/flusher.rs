@@ -19,10 +19,8 @@ use storage::Storage;
 use super::vector_meta::BuildVectorIndexArgs;
 use crate::{
     index_workers::{
-        index_meta::SnapshotData,
         search_flusher::{
             IndexBuild,
-            IndexBuildResult,
             SearchFlusher,
             SearchIndexLimits,
         },
@@ -132,29 +130,7 @@ impl<RT: Runtime> VectorIndexFlusher<RT> {
             .await?;
         tracing::debug!("Built a vector segment for: {result:#?}");
 
-        // 3. Update the vector index metadata.
-        let IndexBuildResult {
-            snapshot_ts,
-            data,
-            total_stats,
-            new_segment_stats,
-            new_segment_id,
-            backfill_result,
-        } = result;
-
-        match data {
-            SnapshotData::Unknown(_) => {
-                anyhow::bail!("Created an unknown snapshot data type");
-            },
-            SnapshotData::SingleSegment(_) => {
-                anyhow::bail!("Created a single segment snapshot?");
-            },
-            SnapshotData::MultiSegment(segments) => {
-                self.writer
-                    .commit_flush(&job, snapshot_ts, segments, new_segment_id, backfill_result)
-                    .await?;
-            },
-        }
+        let (total_stats, new_segment_stats) = self.writer.commit_flush(&job, result).await?;
 
         let vectors_in_new_segment = new_segment_stats.unwrap_or_default().num_vectors;
         metrics::vector::log_documents_per_index(total_stats.non_deleted_vectors);

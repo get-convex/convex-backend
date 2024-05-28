@@ -47,7 +47,10 @@ use crate::{
             SegmentType,
             SnapshotData,
         },
-        search_flusher::IndexBuild,
+        search_flusher::{
+            IndexBuild,
+            IndexBuildResult,
+        },
         MultiSegmentBackfillResult,
     },
     metrics::{
@@ -155,28 +158,37 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
     pub(crate) async fn commit_flush(
         &self,
         job: &IndexBuild<T>,
-        new_ts: Timestamp,
-        new_and_modified_segments: Vec<T::Segment>,
-        new_segment_id: Option<String>,
-        index_backfill_result: Option<MultiSegmentBackfillResult>,
-    ) -> anyhow::Result<()> {
-        let inner = self.inner(SearchWriterLockWaiter::Flusher).await;
+        result: IndexBuildResult<T>,
+    ) -> anyhow::Result<(T::Statistics, Option<T::Statistics>)> {
+        let IndexBuildResult {
+            snapshot_ts,
+            data,
+            total_stats,
+            new_segment_stats,
+            new_segment_id,
+            backfill_result,
+        } = result;
 
-        if let Some(index_backfill_result) = index_backfill_result {
+        let inner = self.inner(SearchWriterLockWaiter::Flusher).await;
+        let segments = data.require_multi_segment()?;
+
+        if let Some(index_backfill_result) = backfill_result {
             inner
                 .commit_backfill_flush(
                     job,
-                    new_ts,
-                    new_and_modified_segments,
+                    snapshot_ts,
+                    segments,
                     new_segment_id,
                     index_backfill_result,
                 )
-                .await
+                .await?
         } else {
             inner
-                .commit_snapshot_flush(job, new_ts, new_and_modified_segments, new_segment_id)
-                .await
+                .commit_snapshot_flush(job, snapshot_ts, segments, new_segment_id)
+                .await?
         }
+
+        Ok((total_stats, new_segment_stats))
     }
 
     async fn inner(&self, waiter: SearchWriterLockWaiter) -> MutexGuard<Inner<RT, T>> {
