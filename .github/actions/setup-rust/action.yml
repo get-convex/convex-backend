@@ -52,7 +52,7 @@ runs:
     - name: Install sccache
       uses: mozilla-actions/sccache-action@v0.0.4
       with:
-        version: "v0.3.3"
+        version: "v0.8.0"
 
     # n.b. this action inspects the environment and variables starting with
     # `CARGO_` are used as part of the cache key.
