@@ -68,6 +68,7 @@ use maplit::btreemap;
 use minitrace::prelude::*;
 use model::session_requests::types::SessionRequestIdentifier;
 use sync_types::{
+    AuthenticationToken,
     ClientMessage,
     IdentityVersion,
     QueryId,
@@ -431,7 +432,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 udf_path,
                 args,
             } => {
-                let auth_token = self.state.auth_token();
+                let identity = self.state.identity(self.rt.system_time())?;
                 let mutation_identifier =
                     self.state.session_id().map(|id| SessionRequestIdentifier {
                         session_id: id,
@@ -463,7 +464,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             .execute_public_mutation(
                                 host.as_ref(),
                                 server_request_id,
-                                auth_token,
+                                identity.into(),
                                 udf_path,
                                 args,
                                 FunctionCaller::SyncWorker(client_version),
@@ -502,7 +503,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 udf_path,
                 args,
             } => {
-                let auth_token = self.state.auth_token();
+                let identity = self.state.identity(self.rt.system_time())?;
 
                 let api = self.api.clone();
                 let host = self.host.clone();
@@ -526,7 +527,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                         .execute_public_action(
                             host.as_ref(),
                             server_request_id,
-                            auth_token,
+                            identity.into(),
                             udf_path,
                             args,
                             FunctionCaller::SyncWorker(client_version),
@@ -560,7 +561,11 @@ impl<RT: Runtime> SyncWorker<RT> {
                 token: auth_token,
                 base_version,
             } => {
-                self.state.modify_auth_token(auth_token, base_version)?;
+                let identity = self
+                    .application
+                    .authenticate(auth_token, self.rt.system_time())
+                    .await?;
+                self.state.modify_identity(identity, base_version)?;
                 self.schedule_update();
             },
             ClientMessage::Event(client_event) => {
@@ -591,11 +596,11 @@ impl<RT: Runtime> SyncWorker<RT> {
         let timer = metrics::update_queries_timer();
         let current_version = self.state.current_version();
 
-        let (modifications, new_query_version, pending_auth_token, new_identity_version) =
+        let (modifications, new_query_version, pending_identity, new_identity_version) =
             self.state.take_modifications();
 
         let mut identity_version = current_version.identity;
-        if let Some(new_auth_token) = pending_auth_token {
+        if let Some(new_identity) = pending_identity {
             // If the identity version has changed, invalidate all existing tokens.
             // TODO(CX-737): Don't invalidate queries that don't examine auth state.
             // TODO(CX-737): Don't invalidate the queries if the User the is the same
@@ -605,10 +610,10 @@ impl<RT: Runtime> SyncWorker<RT> {
             // validate auth tokens. Alternatively, we make Usher be able to validate tokens
             // long term.
             self.state.take_subscriptions();
-            self.state.insert_auth_token(new_auth_token);
+            self.state.insert_identity(new_identity);
             identity_version = new_identity_version;
         }
-        let auth_token = self.state.auth_token();
+        let auth_token: AuthenticationToken = self.state.identity(self.rt.system_time())?.into();
 
         // Step 1: Decide on a new target (query set version, identity version, ts) for
         // the system.

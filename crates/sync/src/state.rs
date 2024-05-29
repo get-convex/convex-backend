@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     mem,
+    time::SystemTime,
 };
 
 use application::redaction::{
@@ -28,8 +29,8 @@ use futures::{
     FutureExt,
     StreamExt,
 };
+use keybroker::Identity;
 use sync_types::{
-    AuthenticationToken,
     IdentityVersion,
     Query,
     QueryId,
@@ -124,7 +125,7 @@ pub struct SyncState {
     queries: BTreeMap<QueryId, SyncedQuery>,
     /// Queries being computed for the next transition.
     in_progress_queries: BTreeMap<QueryId, Query>,
-    auth_token: AuthenticationToken,
+    identity: Identity,
 
     // If this is true, it means we have invalidated but have not yet refilled
     // some query subscription. `next_invalidated_query` blocks forever until
@@ -135,7 +136,7 @@ pub struct SyncState {
     /// client since the last transition began computing.
     /// These are emptied before computing a new transition.
     pending_query_updates: Vec<QuerySetModification>,
-    pending_auth_token: Option<AuthenticationToken>,
+    pending_identity: Option<Identity>,
     /// These are the query set version and identity according to the client.
     received_client_version: ClientVersion,
 }
@@ -148,12 +149,12 @@ impl SyncState {
             invalidation_futures: FuturesUnordered::new(),
             queries: BTreeMap::new(),
             in_progress_queries: BTreeMap::new(),
-            auth_token: AuthenticationToken::None,
+            identity: Identity::Unknown,
 
             refill_needed: false,
 
             pending_query_updates: vec![],
-            pending_auth_token: None,
+            pending_identity: None,
             received_client_version: ClientVersion::initial(),
         }
     }
@@ -222,43 +223,51 @@ impl SyncState {
     ) -> (
         Vec<QuerySetModification>,
         QuerySetVersion,
-        Option<AuthenticationToken>,
+        Option<Identity>,
         IdentityVersion,
     ) {
         (
             mem::take(&mut self.pending_query_updates),
             self.received_client_version.query_set,
-            self.pending_auth_token.take(),
+            self.pending_identity.take(),
             self.received_client_version.identity,
         )
     }
 
-    /// Set the pending auth token for the current sync session, bumping the
+    /// Set the pending identity for the current sync session, bumping the
     /// pending identity version.
-    pub fn modify_auth_token(
+    pub fn modify_identity(
         &mut self,
-        new_auth_token: AuthenticationToken,
+        new_identity: Identity,
         base_version: IdentityVersion,
     ) -> anyhow::Result<()> {
         let current_version = self.received_client_version.identity;
         anyhow::ensure!(current_version == base_version);
-        self.pending_auth_token = Some(new_auth_token);
+        self.pending_identity = Some(new_identity);
         self.received_client_version.identity = current_version + 1;
         Ok(())
     }
 
-    /// Immediately set the current auth token.
-    pub fn insert_auth_token(&mut self, auth_token: AuthenticationToken) {
-        self.auth_token = auth_token;
+    /// Immediately set the current identity.
+    pub fn insert_identity(&mut self, identity: Identity) {
+        self.identity = identity;
     }
 
-    // Returns the current auth token. If the identity is a user ID
+    // Returns the current session identity. If the identity is a user ID
     // token, also validates using the current SystemTime that it hasn't expired.
     // If there is a pending update to the identity, use that instead.
-    pub fn auth_token(&self) -> AuthenticationToken {
-        self.pending_auth_token
+    pub fn identity(&self, current_time: SystemTime) -> anyhow::Result<Identity> {
+        let identity = self
+            .pending_identity
             .clone()
-            .unwrap_or_else(|| self.auth_token.clone())
+            .unwrap_or_else(|| self.identity.clone());
+        if let Identity::User(user) = &identity {
+            anyhow::ensure!(
+                !user.is_expired(current_time),
+                ErrorMetadata::unauthenticated("TokenExpired", "Convex token identity expired")
+            );
+        }
+        Ok(identity)
     }
 
     /// Wait on the next invalidated query future to break.
