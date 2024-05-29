@@ -794,7 +794,7 @@ function compareModules(
   for (const [path, oldHash] of oldModuleMap.entries()) {
     const newModule = newModuleMap.get(path);
     if (newModule === undefined) {
-      droppedModules.push();
+      droppedModules.push(path);
     } else if (newModule.hash !== oldHash) {
       updatedModules.push({
         path,
