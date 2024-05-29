@@ -207,6 +207,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         let inner = self.subscribe(token.clone()).await?;
         Ok(Box::new(ApplicationSubscription {
             initial_ts: token.ts(),
+            end_ts: token.ts(),
             reads: token.into_reads(),
             inner,
             log: self.database.log().clone(),
@@ -218,7 +219,9 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 pub trait SubscriptionTrait: Send + Sync {
     fn wait_for_invalidation(&self) -> BoxFuture<'static, anyhow::Result<()>>;
 
-    // Returns true if the subscription validity can be extended to new_ts.
+    // Returns true if the subscription validity can be extended to new_ts. Note
+    // that extend_validity might return false even if the subscription can be
+    // extended, but will never return true if it can't.
     async fn extend_validity(&mut self, new_ts: Timestamp) -> anyhow::Result<bool>;
 }
 
@@ -227,7 +230,13 @@ struct ApplicationSubscription {
     log: LogReader,
 
     reads: ReadSet,
+    // The initial timestamp the subscription was created at. This is known
+    // to be valid.
     initial_ts: Timestamp,
+    // The last timestamp the subscription is known to be valid for.
+    // NOTE that the inner subscription might be valid to a higher timestamp,
+    // but end_ts is not automatically updated.
+    end_ts: Timestamp,
 }
 
 #[async_trait]
@@ -242,16 +251,28 @@ impl SubscriptionTrait for ApplicationSubscription {
             return Ok(false);
         }
 
-        let Some(current_ts) = self.inner.current_ts() else {
-            // Subscription no longer valid.
-            return Ok(false);
-        };
+        if new_ts <= self.end_ts {
+            // We have already validated the subscription past new_ts.
+            return Ok(true);
+        }
 
-        let current_token = Token::new(self.reads.clone(), current_ts);
-        let Some(_new_token) = self.log.refresh_token(current_token, new_ts)? else {
-            // Subscription validity can't be extended.
+        // The inner subscription is periodically updated by the subscription
+        // worker.
+        let Some(current_ts) = self.inner.current_ts() else {
+            // Subscription is no longer valid. We could check validity from end_ts
+            // to new_ts, but this is likely to fail and is potentially unbounded amount of
+            // work, so we return false here. This is valid per the function contract.
             return Ok(false);
         };
+        self.end_ts = self.end_ts.max(current_ts);
+
+        let current_token = Token::new(self.reads.clone(), self.end_ts);
+        let Some(_new_token) = self.log.refresh_token(current_token, new_ts)? else {
+            // Subscription validity can't be extended. Note that returning false
+            // here also doesn't mean there is a conflict.
+            return Ok(false);
+        };
+        self.end_ts = self.end_ts.max(new_ts);
 
         return Ok(true);
     }
