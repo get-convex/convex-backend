@@ -211,6 +211,7 @@ pub async fn upload_text_segment<RT: Runtime>(
         // Brand-new text segments will never have any deleted documents. Deleted documents will
         // instead have just been excluded from the segment.
         num_deleted_documents: 0,
+        size_bytes_total: new_segment.size_bytes_total,
         id: rt.new_uuid_v4().to_string(),
     })
 }

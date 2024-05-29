@@ -145,6 +145,7 @@ pub struct SerializedFragmentedTextSegment {
     pub alive_bitset_key: String,
     pub num_indexed_documents: u64,
     pub num_deleted_documents: u64,
+    pub size_bytes_total: u64,
     pub id: String,
 }
 
@@ -159,6 +160,7 @@ impl TryFrom<FragmentedTextSegment> for SerializedFragmentedTextSegment {
             alive_bitset_key: value.alive_bitset_key.to_string(),
             num_indexed_documents: value.num_indexed_documents,
             num_deleted_documents: value.num_deleted_documents,
+            size_bytes_total: value.size_bytes_total,
             id: value.id,
         })
     }
@@ -175,6 +177,7 @@ impl TryFrom<SerializedFragmentedTextSegment> for FragmentedTextSegment {
             alive_bitset_key: value.alive_bitset_key.try_into()?,
             num_indexed_documents: value.num_indexed_documents,
             num_deleted_documents: value.num_deleted_documents,
+            size_bytes_total: value.size_bytes_total,
             id: value.id,
         })
     }
@@ -199,6 +202,20 @@ pub struct FragmentedTextSegment {
         proptest(strategy = "1u64..9223372000000000000")
     )]
     pub num_deleted_documents: u64,
+    /// The total size of all files in the segment when the segment was first
+    /// built. We assume that deletions do not substantially modify the Convex
+    /// segment's size (the tantivy index size is constant, but some deleted
+    /// term metadata will expand), so this remains reasonably accurate
+    /// throughout the life of the segment.
+    ///
+    /// This is the size of the segment on disk and may not match the size in s3
+    /// due to compression at upload time.
+    // 2^63 ~= 9.2 * 10^18. We only support i64 in Convex.
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "1u64..9223372000000000000")
+    )]
+    pub size_bytes_total: u64,
     // A random UUID that can be used to identify a segment to determine if the
     // segment has changed during non-transactional index changes (compaction).
     pub id: String,

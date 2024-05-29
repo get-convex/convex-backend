@@ -3,6 +3,7 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    os::unix::fs::MetadataExt,
     path::{
         Path,
         PathBuf,
@@ -74,6 +75,7 @@ pub struct NewTextSegment {
     /// The total number of indexed documents in this segment, including
     /// documents that were added and then marked as deleted.
     pub num_indexed_documents: u64,
+    pub size_bytes_total: u64,
 }
 
 #[derive(Clone)]
@@ -88,8 +90,8 @@ pub struct UpdatableTextSegment {
     id_tracker: StaticIdTracker,
     pub(crate) deletion_tracker: MemoryDeletionTracker,
     original: FragmentedTextSegment,
-    // The number of files deleted since this struct was created (not the total number of deletes
-    // in the segment).
+    /// The number of files deleted since this struct was created (not the total
+    /// number of deletes in the segment).
     num_deletes_in_updated: u64,
 }
 
@@ -145,6 +147,7 @@ impl UpdatableTextSegment {
                 num_indexed_documents: 0,
                 num_deleted_documents: 0,
                 id: "test_id".to_string(),
+                size_bytes_total: 0,
             },
         })
     }
@@ -411,6 +414,10 @@ pub async fn build_new_segment(
     new_deletion_tracker.write_to_path(&alive_bit_set_path, &deleted_terms_path)?;
     let id_tracker_path = dir.join(ID_TRACKER_PATH);
     new_id_tracker.write(&id_tracker_path)?;
+    let total_size_bytes = get_size(&index_path)?
+        + get_size(&id_tracker_path)?
+        + get_size(&alive_bit_set_path)?
+        + get_size(&deleted_terms_path)?;
     let paths = TextSegmentPaths {
         index_path,
         id_tracker_path,
@@ -420,7 +427,15 @@ pub async fn build_new_segment(
     Ok(Some(NewTextSegment {
         paths,
         num_indexed_documents,
+        size_bytes_total: total_size_bytes,
     }))
+}
+
+fn get_size(path: &PathBuf) -> anyhow::Result<u64> {
+    if path.is_file() {
+        return Ok(path.metadata()?.size());
+    }
+    std::fs::read_dir(path)?.try_fold(0, |acc, curr| Ok(acc + get_size(&curr?.path())?))
 }
 
 async fn get_all_segment_term_metadata(
