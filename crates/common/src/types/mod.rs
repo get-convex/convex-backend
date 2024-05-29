@@ -83,6 +83,7 @@ pub use timestamp::{
 
 // A developer using convex
 tuple_struct_u64!(MemberId);
+tuple_struct_u64!(TeamId);
 tuple_struct_string!(ConvexOrigin);
 tuple_struct_string!(ConvexSite);
 
