@@ -762,14 +762,6 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    pub async fn refresh_token(
-        &self,
-        token: Token,
-        ts: Timestamp,
-    ) -> anyhow::Result<Option<Token>> {
-        self.database.refresh_token(token, ts).await
-    }
-
     pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
         self.database.snapshot(ts)
     }

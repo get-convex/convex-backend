@@ -13,6 +13,16 @@ use common::{
     },
     RequestId,
 };
+use database::{
+    LogReader,
+    ReadSet,
+    Subscription,
+    Token,
+};
+use futures::{
+    future::BoxFuture,
+    FutureExt,
+};
 use model::session_requests::types::SessionRequestIdentifier;
 use serde_json::Value as JsonValue;
 use sync_types::{
@@ -87,6 +97,8 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
     ) -> anyhow::Result<RepeatableTimestamp>;
+
+    async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>>;
 }
 
 // Implements ApplicationApi via Application.
@@ -189,5 +201,58 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _request_id: RequestId,
     ) -> anyhow::Result<RepeatableTimestamp> {
         Ok(self.now_ts_for_reads())
+    }
+
+    async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>> {
+        let inner = self.subscribe(token.clone()).await?;
+        Ok(Box::new(ApplicationSubscription {
+            initial_ts: token.ts(),
+            reads: token.into_reads(),
+            inner,
+            log: self.database.log().clone(),
+        }))
+    }
+}
+
+#[async_trait]
+pub trait SubscriptionTrait: Send + Sync {
+    fn wait_for_invalidation(&self) -> BoxFuture<'static, anyhow::Result<()>>;
+
+    // Returns true if the subscription validity can be extended to new_ts.
+    async fn extend_validity(&mut self, new_ts: Timestamp) -> anyhow::Result<bool>;
+}
+
+struct ApplicationSubscription {
+    inner: Subscription,
+    log: LogReader,
+
+    reads: ReadSet,
+    initial_ts: Timestamp,
+}
+
+#[async_trait]
+impl SubscriptionTrait for ApplicationSubscription {
+    fn wait_for_invalidation(&self) -> BoxFuture<'static, anyhow::Result<()>> {
+        self.inner.wait_for_invalidation().map(Ok).boxed()
+    }
+
+    async fn extend_validity(&mut self, new_ts: Timestamp) -> anyhow::Result<bool> {
+        if new_ts < self.initial_ts {
+            // new_ts is before the initial subscription timestamp.
+            return Ok(false);
+        }
+
+        let Some(current_ts) = self.inner.current_ts() else {
+            // Subscription no longer valid.
+            return Ok(false);
+        };
+
+        let current_token = Token::new(self.reads.clone(), current_ts);
+        let Some(_new_token) = self.log.refresh_token(current_token, new_ts)? else {
+            // Subscription validity can't be extended.
+            return Ok(false);
+        };
+
+        return Ok(true);
     }
 }

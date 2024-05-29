@@ -86,7 +86,10 @@ pub use vector_index_worker::{
     flusher::VectorIndexFlusher,
 };
 pub use write_limits::BiggestDocumentWrites;
-pub use write_log::WriteSource;
+pub use write_log::{
+    LogReader,
+    WriteSource,
+};
 pub use writes::{
     DocumentWrite,
     TransactionWriteSize,

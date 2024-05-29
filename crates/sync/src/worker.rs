@@ -16,6 +16,7 @@ use application::{
     api::{
         ApplicationApi,
         ExecuteQueryTimestamp,
+        SubscriptionTrait,
     },
     redaction::{
         RedactedJsError,
@@ -41,7 +42,6 @@ use common::{
     version::ClientVersion,
     RequestId,
 };
-use database::Subscription;
 use futures::{
     channel::mpsc::{
         self,
@@ -228,7 +228,7 @@ enum QueryResult {
 }
 
 struct TransitionState {
-    udf_results: Vec<(QueryId, QueryResult, Subscription)>,
+    udf_results: Vec<(QueryId, QueryResult, Box<dyn SubscriptionTrait>)>,
     state_modifications: BTreeMap<QueryId, StateModification<ConvexValue>>,
     current_version: StateVersion,
     new_version: StateVersion,
@@ -311,7 +311,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                     self.schedule_update();
                     Some(result?)
                 },
-                _q = self.state.next_invalidated_query().fuse() => {
+                result = self.state.next_invalidated_query().fuse() => {
+                    let _ = result?;
                     self.schedule_update();
                     None
                 },
@@ -648,13 +649,9 @@ impl<RT: Runtime> SyncWorker<RT> {
         for query in self.state.need_fetch() {
             let api = self.api.clone();
             let host = self.host.clone();
-            let application_ = self.application.clone();
             let auth_token_ = auth_token.clone();
             let client_version = self.config.client_version.clone();
             let current_subscription = remaining_subscriptions.remove(&query.query_id);
-            let current_token = current_subscription
-                .as_ref()
-                .and_then(|s| s.current_token());
             let root = self.rt.with_rng(|rng| {
                 get_sampled_span(
                     "sync-worker/update-queries",
@@ -666,18 +663,18 @@ impl<RT: Runtime> SyncWorker<RT> {
                 )
             });
             let future = async move {
-                let refreshed_token = match current_token {
-                    Some(token) => application_.refresh_token(token, new_ts).await?,
+                let new_subscription = match current_subscription {
+                    Some(mut subscription) => {
+                        if subscription.extend_validity(new_ts).await? {
+                            Some(subscription)
+                        } else {
+                            None
+                        }
+                    },
                     None => None,
                 };
-                let (query_result, subscription) = match refreshed_token {
-                    Some(_) => {
-                        // We could create a new subscription with the refreshed token,
-                        // but instead we reuse the original subscription.
-                        let subscription = current_subscription
-                            .expect("Have a refreshed token without a current subscription?");
-                        (QueryResult::Refresh, subscription)
-                    },
+                let (query_result, subscription) = match new_subscription {
+                    Some(subscription) => (QueryResult::Refresh, subscription),
                     None => {
                         // We failed to refresh the subscription or it was invalid to start
                         // with. Rerun the query.
@@ -697,7 +694,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 query.journal,
                             )
                             .await?;
-                        let subscription = application_.subscribe(udf_return.token).await?;
+                        let subscription = api.subscribe(udf_return.token).await?;
                         (
                             QueryResult::Rerun {
                                 result: udf_return.result,

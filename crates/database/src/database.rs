@@ -1770,6 +1770,10 @@ impl<RT: Runtime> Database<RT> {
         self.log.refresh_token(token, ts)
     }
 
+    pub fn log(&self) -> &LogReader {
+        &self.log
+    }
+
     pub fn memory_consistency_check(&self) -> anyhow::Result<()> {
         let snapshot = self.snapshot_manager.lock().latest_snapshot();
         snapshot.search_indexes.consistency_check()?;

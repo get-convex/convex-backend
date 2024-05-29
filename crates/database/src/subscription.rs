@@ -267,7 +267,6 @@ impl SubscriptionManager {
             seq,
         });
         let subscription = Subscription {
-            reads: Some(reads),
             receiver,
             key: Some(key),
             sender: self.sender.clone(),
@@ -389,9 +388,6 @@ pub struct Subscription {
     key: Option<SubscriptionKey>,
     sender: mpsc::Sender<SubscriptionRequest>,
     _timer: Timer<VMHistogram>,
-
-    // Set if the subscription was initially valid.
-    reads: Option<ReadSet>,
 }
 
 impl Subscription {
@@ -404,7 +400,6 @@ impl Subscription {
     fn invalid(sender: mpsc::Sender<SubscriptionRequest>) -> Self {
         let (_, receiver) = new_state_channel(SubscriptionState::Invalid);
         Subscription {
-            reads: None,
             receiver,
             key: None,
             sender,
@@ -412,15 +407,9 @@ impl Subscription {
         }
     }
 
-    pub fn current_token(&self) -> Option<Token> {
+    pub fn current_ts(&self) -> Option<Timestamp> {
         match self.receiver.current_state() {
-            Ok(SubscriptionState::Valid(ts)) => {
-                let reads = self
-                    .reads
-                    .clone()
-                    .expect("reads should be set if subscription was ever valid");
-                Some(Token::new(reads, ts))
-            },
+            Ok(SubscriptionState::Valid(ts)) => Some(ts),
             Ok(SubscriptionState::Invalid) | Err(ClosedError) => None,
         }
     }

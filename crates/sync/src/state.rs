@@ -4,9 +4,12 @@ use std::{
     time::SystemTime,
 };
 
-use application::redaction::{
-    RedactedJsError,
-    RedactedLogLines,
+use application::{
+    api::SubscriptionTrait,
+    redaction::{
+        RedactedJsError,
+        RedactedLogLines,
+    },
 };
 use common::{
     sha256::{
@@ -16,7 +19,6 @@ use common::{
     types::SessionId,
     value::ConvexValue,
 };
-use database::Subscription;
 use errors::ErrorMetadata;
 use futures::{
     future::{
@@ -54,7 +56,7 @@ pub struct SyncedQuery {
     /// - Starts `None`: Query is newly inserted.
     /// - `None -> Some(subscription)`: `SyncState::complete_fetch`.
     /// - `Some(..) -> None`: `SyncState::prune_invalidated_queries`.
-    subscription: Option<Subscription>,
+    subscription: Option<Box<dyn SubscriptionTrait>>,
 
     /// What was the hash of the last successful return value? This allows us to
     /// deduplicate transitions for queries whose results haven't actually
@@ -121,7 +123,8 @@ pub struct SyncState {
     // without specifying a session ID.
     session_id: Option<SessionId>,
     current_version: StateVersion,
-    invalidation_futures: FuturesUnordered<BoxFuture<'static, Result<QueryId, Aborted>>>,
+    invalidation_futures:
+        FuturesUnordered<BoxFuture<'static, Result<anyhow::Result<QueryId>, Aborted>>>,
     queries: BTreeMap<QueryId, SyncedQuery>,
     /// Queries being computed for the next transition.
     in_progress_queries: BTreeMap<QueryId, Query>,
@@ -271,7 +274,7 @@ impl SyncState {
     }
 
     /// Wait on the next invalidated query future to break.
-    pub async fn next_invalidated_query(&mut self) -> QueryId {
+    pub async fn next_invalidated_query(&mut self) -> anyhow::Result<QueryId> {
         loop {
             // `FuturesUnordered` is ready immediately if it's empty, so if it's empty, just
             // never return. The layer above will select on this future and
@@ -282,6 +285,7 @@ impl SyncState {
             }
             match self.invalidation_futures.next().await {
                 Some(Ok(query_id)) => {
+                    let query_id = query_id?;
                     if let Some(query) = self.queries.get_mut(&query_id) {
                         // Leave the query's subscription intact since we'll look at it in
                         // `prune_invalidated_queries` below. Take the abort handle so we'll
@@ -289,7 +293,7 @@ impl SyncState {
                         query.invalidation_future.take();
                     }
                     self.refill_needed = true;
-                    return query_id;
+                    return Ok(query_id);
                 },
                 Some(Err(Aborted)) | None => continue,
             };
@@ -323,7 +327,7 @@ impl SyncState {
         Ok(())
     }
 
-    pub fn take_subscriptions(&mut self) -> BTreeMap<QueryId, Subscription> {
+    pub fn take_subscriptions(&mut self) -> BTreeMap<QueryId, Box<dyn SubscriptionTrait>> {
         let mut newly_invalidated = BTreeMap::new();
 
         for (query_id, query) in self.queries.iter_mut() {
@@ -351,7 +355,7 @@ impl SyncState {
     pub fn refill_subscription(
         &mut self,
         query_id: QueryId,
-        subscription: Subscription,
+        subscription: Box<dyn SubscriptionTrait>,
     ) -> anyhow::Result<()> {
         // Per the state machine, we should only be refilling subscriptions if we
         // had a valid subscription before, which means the query is non-pending
@@ -375,7 +379,7 @@ impl SyncState {
         result: Result<ConvexValue, RedactedJsError>,
         log_lines: RedactedLogLines,
         journal: SerializedQueryJournal,
-        subscription: Subscription,
+        subscription: Box<dyn SubscriptionTrait>,
     ) -> anyhow::Result<Option<StateModification<ConvexValue>>> {
         if let Some(query) = self.in_progress_queries.remove(&query_id) {
             let sq = SyncedQuery {
@@ -452,11 +456,11 @@ impl SyncState {
                 .subscription
                 .as_ref()
                 .ok_or_else(|| anyhow::anyhow!("Missing subscription for {}", query_id))?
-                .wait_for_invalidation();
+                .wait_for_invalidation()
+                .map(move |r| r.map(move |()| query_id));
             let (future, handle) = future::abortable(future);
-            let future = future.map(move |r| r.map(move |()| query_id)).boxed();
             sq.invalidation_future = Some(handle);
-            self.invalidation_futures.push(future);
+            self.invalidation_futures.push(future.boxed());
         }
         self.refill_needed = false;
         Ok(())
