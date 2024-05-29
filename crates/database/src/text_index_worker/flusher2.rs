@@ -7,10 +7,7 @@ use common::{
     persistence::PersistenceReader,
     runtime::Runtime,
 };
-use search::{
-    metrics::SearchType,
-    searcher::SegmentTermMetadataFetcher,
-};
+use search::searcher::SegmentTermMetadataFetcher;
 use storage::Storage;
 
 use crate::{
@@ -90,7 +87,6 @@ impl<RT: Runtime> FlusherBuilder<RT> {
             self.runtime.clone(),
             self.database.clone(),
             self.storage.clone(),
-            SearchType::Text,
         );
         SearchFlusher::new(
             self.runtime,
@@ -99,7 +95,6 @@ impl<RT: Runtime> FlusherBuilder<RT> {
             self.storage.clone(),
             self.limits,
             writer,
-            SearchType::Text,
             BuildTextIndexArgs {
                 search_storage: self.storage.clone(),
                 segment_term_metadata_fetcher: self.segment_term_metadata_fetcher.clone(),

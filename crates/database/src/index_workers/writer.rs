@@ -73,7 +73,6 @@ use crate::{
 #[derive(Clone)]
 pub(crate) struct SearchIndexMetadataWriter<RT: Runtime, T: SearchIndex> {
     inner: Arc<Mutex<Inner<RT, T>>>,
-    search_type: SearchType,
 }
 
 pub struct SearchIndexWriteResult<T: SearchIndex> {
@@ -87,31 +86,24 @@ pub struct SearchIndexWriteResult<T: SearchIndex> {
 }
 
 impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
-    pub(crate) fn new(
-        runtime: RT,
-        database: Database<RT>,
-        storage: Arc<dyn Storage>,
-        search_type: SearchType,
-    ) -> Self {
+    pub(crate) fn new(runtime: RT, database: Database<RT>, storage: Arc<dyn Storage>) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Inner {
                 runtime: runtime.clone(),
                 database,
                 storage,
-                search_type,
                 // Use small limits because we should only ever run one job at a time.
                 thread_pool: BoundedThreadPool::new(
                     runtime,
                     2,
                     1,
-                    match search_type {
+                    match T::search_type() {
                         SearchType::Vector => "vector_writer",
                         SearchType::Text => "text_writer",
                     },
                 ),
                 _phantom_data: Default::default(),
             })),
-            search_type,
         }
     }
 
@@ -210,7 +202,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
     }
 
     async fn inner(&self, waiter: SearchWriterLockWaiter) -> MutexGuard<Inner<RT, T>> {
-        let lock_timer = search_writer_lock_wait_timer(waiter, self.search_type);
+        let lock_timer = search_writer_lock_wait_timer(waiter, T::search_type());
         let inner = self.inner.lock().await;
         drop(lock_timer);
         inner
@@ -222,7 +214,6 @@ struct Inner<RT: Runtime, T: SearchIndex> {
     database: Database<RT>,
     storage: Arc<dyn Storage>,
     thread_pool: BoundedThreadPool<RT>,
-    search_type: SearchType,
     _phantom_data: PhantomData<T>,
 }
 
@@ -269,7 +260,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         mut new_segment: T::Segment,
         rate_limit_pages_per_second: NonZeroU32,
     ) -> anyhow::Result<()> {
-        let timer = search_compaction_merge_commit_timer(self.search_type);
+        let timer = search_compaction_merge_commit_timer(T::search_type());
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let mut metadata = Self::require_index_metadata(&mut tx, index_id).await?;
 
@@ -350,7 +341,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         self.database
             .commit_with_write_source(
                 tx,
-                match self.search_type {
+                match T::search_type() {
                     SearchType::Vector => "search_index_metadata_writer_write_vector",
                     SearchType::Text => "search_index_metadata_writer_write_text",
                 },
@@ -394,7 +385,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         new_segment_id: Option<String>,
         backfill_result: MultiSegmentBackfillResult,
     ) -> anyhow::Result<()> {
-        let timer = search_flush_merge_commit_timer(self.search_type);
+        let timer = search_flush_merge_commit_timer(T::search_type());
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
@@ -450,7 +441,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         mut new_and_modified_segments: Vec<T::Segment>,
         new_segment_id: Option<String>,
     ) -> anyhow::Result<()> {
-        let timer = search_flush_merge_commit_timer(self.search_type);
+        let timer = search_flush_merge_commit_timer(T::search_type());
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 

@@ -82,13 +82,8 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         searcher: Arc<dyn Searcher>,
         config: CompactionConfig,
     ) -> Self {
-        use search::metrics::SearchType;
-        let writer = SearchIndexMetadataWriter::new(
-            runtime,
-            database.clone(),
-            search_storage.clone(),
-            SearchType::Vector,
-        );
+        let writer =
+            SearchIndexMetadataWriter::new(runtime, database.clone(), search_storage.clone());
         Self::new(database, searcher, search_storage.clone(), config, writer)
     }
 

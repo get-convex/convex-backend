@@ -26,6 +26,7 @@ use common::{
         ObjectKey,
     },
 };
+use search::metrics::SearchType;
 use storage::Storage;
 use sync_types::Timestamp;
 use value::{
@@ -88,6 +89,8 @@ pub trait SearchIndex: Clone + Debug {
     fn partial_document_order() -> Order {
         Order::Asc
     }
+
+    fn search_type() -> SearchType;
 
     async fn upload_new_segment<RT: Runtime>(
         rt: &RT,

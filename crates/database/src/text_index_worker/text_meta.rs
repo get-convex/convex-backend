@@ -39,6 +39,7 @@ use common::{
 use search::{
     build_new_segment,
     disk_index::upload_text_segment,
+    metrics::SearchType,
     searcher::SegmentTermMetadataFetcher,
     NewTextSegment,
     PreviousTextSegments,
@@ -256,6 +257,10 @@ impl SearchIndex for TextSearchIndex {
             on_disk_state,
             developer_config,
         })
+    }
+
+    fn search_type() -> SearchType {
+        SearchType::Text
     }
 }
 

@@ -110,7 +110,6 @@ pub struct Params<RT: Runtime, T: SearchIndex> {
     reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     limits: SearchIndexLimits,
-    search_type: SearchType,
     build_args: T::BuildIndexArgs,
 }
 
@@ -142,7 +141,6 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         storage: Arc<dyn Storage>,
         limits: SearchIndexLimits,
         writer: SearchIndexMetadataWriter<RT, T::IndexType>,
-        search_type: SearchType,
         build_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
         #[cfg(any(test, feature = "testing"))] pause_client: Option<PauseClient>,
     ) -> Self {
@@ -153,7 +151,6 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                 reader,
                 storage,
                 limits,
-                search_type,
                 build_args,
             },
             writer,
@@ -164,7 +161,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     }
 
     fn index_type_name(&self) -> &'static str {
-        match self.search_type {
+        match Self::search_type() {
             SearchType::Vector => "vector",
             SearchType::Text => "text",
         }
@@ -202,6 +199,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         Ok((metrics, token))
     }
 
+    fn search_type() -> SearchType {
+        <T::IndexType as SearchIndex>::search_type()
+    }
+
     pub(crate) async fn build_one(
         &self,
         job: IndexBuild<T::IndexType>,
@@ -222,20 +223,23 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         } = self.writer.commit_flush(&job, result).await?;
 
         let new_segment_stats = new_segment_stats.unwrap_or_default();
-        log_documents_per_new_search_segment(new_segment_stats.num_documents(), self.search_type);
+        log_documents_per_new_search_segment(
+            new_segment_stats.num_documents(),
+            Self::search_type(),
+        );
 
         per_segment_stats.into_iter().for_each(|stats| {
-            log_documents_per_search_segment(stats.num_documents(), self.search_type);
+            log_documents_per_search_segment(stats.num_documents(), Self::search_type());
             log_non_deleted_documents_per_search_segment(
                 stats.num_non_deleted_documents(),
-                self.search_type,
+                Self::search_type(),
             );
         });
 
-        log_documents_per_search_index(index_stats.num_documents(), self.search_type);
+        log_documents_per_search_index(index_stats.num_documents(), Self::search_type());
         log_non_deleted_documents_per_search_index(
             index_stats.num_non_deleted_documents(),
-            self.search_type,
+            Self::search_type(),
         );
         timer.finish();
 

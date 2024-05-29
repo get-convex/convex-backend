@@ -19,7 +19,6 @@ use futures::{
     FutureExt,
 };
 use search::{
-    metrics::SearchType,
     searcher::SegmentTermMetadataFetcher,
     Searcher,
 };
@@ -84,7 +83,6 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             runtime.clone(),
             database.clone(),
             search_storage.clone(),
-            SearchType::Vector,
         );
         let vector_flush = retry_loop_expect_occs_and_overloaded(
             "VectorFlusher",

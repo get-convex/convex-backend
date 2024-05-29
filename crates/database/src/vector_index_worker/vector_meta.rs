@@ -38,6 +38,7 @@ use search::{
         MutableFragmentedSegmentMetadata,
         PreviousVectorSegments,
     },
+    metrics::SearchType,
 };
 use storage::Storage;
 use value::InternalId;
@@ -264,6 +265,10 @@ impl SearchIndex for VectorSearchIndex {
             on_disk_state,
             developer_config,
         })
+    }
+
+    fn search_type() -> SearchType {
+        SearchType::Vector
     }
 }
 

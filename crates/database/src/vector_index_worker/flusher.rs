@@ -10,7 +10,6 @@ use common::{
     persistence::PersistenceReader,
     runtime::Runtime,
 };
-use search::metrics::SearchType;
 use storage::Storage;
 
 use super::vector_meta::BuildVectorIndexArgs;
@@ -66,12 +65,7 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
     pause_client: Option<PauseClient>,
 ) -> VectorIndexFlusher<RT> {
     use search::metrics::SearchType;
-    let writer = SearchIndexMetadataWriter::new(
-        runtime.clone(),
-        database.clone(),
-        storage.clone(),
-        SearchType::Vector,
-    );
+    let writer = SearchIndexMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
     SearchFlusher::new(
         runtime,
         database,
@@ -82,7 +76,6 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
             incremental_multipart_threshold_bytes,
         },
         writer,
-        SearchType::Vector,
         BuildVectorIndexArgs {
             full_scan_threshold_bytes: full_scan_segment_max_kb,
         },
@@ -107,7 +100,6 @@ pub(crate) fn new_vector_flusher<RT: Runtime>(
             incremental_multipart_threshold_bytes: *VECTOR_INDEX_SIZE_SOFT_LIMIT,
         },
         writer,
-        SearchType::Vector,
         BuildVectorIndexArgs {
             full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         },
