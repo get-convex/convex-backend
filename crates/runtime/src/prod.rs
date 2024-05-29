@@ -114,18 +114,21 @@ impl ThreadHandle {
     {
         let (cancel_tx, mut cancel_rx) = oneshot::channel();
         let (done_tx, done_rx) = oneshot::channel();
-        let thread_handle = thread::spawn(move || {
-            let _guard = tokio_handle.enter();
-            let thread_body = async move {
-                let future = f();
-                let was_canceled = futures::select! {
-                    _ = cancel_rx => true,
-                    _ = future.fuse() => false,
+        let thread_handle = thread::Builder::new()
+            .stack_size(*RUNTIME_STACK_SIZE)
+            .spawn(move || {
+                let _guard = tokio_handle.enter();
+                let thread_body = async move {
+                    let future = f();
+                    let was_canceled = futures::select! {
+                        _ = cancel_rx => true,
+                        _ = future.fuse() => false,
+                    };
+                    let _ = done_tx.send(was_canceled);
                 };
-                let _ = done_tx.send(was_canceled);
-            };
-            tokio_handle.block_on(thread_body);
-        });
+                tokio_handle.block_on(thread_body);
+            })
+            .expect("Failed to start thread");
         ThreadHandle {
             handle: Some(thread_handle),
             cancel: Some(cancel_tx),

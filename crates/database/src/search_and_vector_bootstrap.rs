@@ -988,7 +988,7 @@ mod tests {
         let (index_id, _) =
             create_new_search_index(&rt, db, db_fixtures.search_storage.clone()).await?;
 
-        rt.advance_time(Duration::from_secs(10));
+        rt.advance_time(Duration::from_secs(10)).await;
 
         let mut tx = db.begin_system().await.unwrap();
         add_document(
@@ -999,7 +999,7 @@ mod tests {
         .await?;
         db.commit(tx).await?;
 
-        rt.advance_time(Duration::from_secs(10));
+        rt.advance_time(Duration::from_secs(10)).await;
 
         // We shouldn't ever fast forward across an update in real life, but doing so
         // and verifying we don't read the document is a simple way to verify we

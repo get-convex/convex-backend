@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_limiter() -> anyhow::Result<()> {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
         let limiter = ConcurrencyLimiter::new(8);
 

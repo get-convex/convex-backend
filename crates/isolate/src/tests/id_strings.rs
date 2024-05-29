@@ -233,7 +233,7 @@ proptest! {
 
     #[test]
     fn proptest_normalize_id(id in any::<InternalId>()) {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
         td.run_until(test_normalize_id(rt, id)).unwrap();
     }

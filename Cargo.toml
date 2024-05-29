@@ -30,7 +30,6 @@ clap = { version = "^4.1.8", features = [ "derive" ] }
 serde_bytes = "0.11.14"
 colored = "2"
 criterion = "0.5"
-crossbeam = "0.8"
 crossbeam-channel = "0.5"
 csf = "0.1.11"
 cstr = "0.2.11"

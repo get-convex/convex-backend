@@ -716,7 +716,7 @@ mod tests {
     }
 
     fn backfill_matches_test(table_name: TableName, vs: Vec<ConvexObject>) {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let runtime = td.rt();
         let test = async {
             let is_empty = vs.is_empty();
@@ -758,7 +758,7 @@ mod tests {
     }
 
     fn multiple_tables_test(values: BTreeMap<TableName, Vec<ConvexObject>>) {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let runtime = td.rt();
         let test = async {
             let DbFixtures {

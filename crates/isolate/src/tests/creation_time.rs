@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use common::{
     assert_obj,
     value::ConvexValue,
@@ -47,12 +49,13 @@ async fn test_creation_times_within_table_are_monotonic(rt: TestRuntime) -> anyh
 async fn test_creation_time_between_system_time(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         must_let!(let ConvexValue::Float64(t1) = t.query("basic:readTimeMs", assert_obj!()).await?);
-
+        t.rt.advance_time(Duration::from_secs(1)).await;
         must_let!(let ConvexValue::Object(obj) = t.mutation(
                 "basic:insertObject",
                 assert_obj!(),
             ).await?);
         must_let!(let Some(ConvexValue::Float64(t2)) = obj.get("_creationTime"));
+        t.rt.advance_time(Duration::from_secs(1)).await;
         must_let!(let ConvexValue::Float64(t3) = t.query("basic:readTimeMs", assert_obj!()).await?);
 
         assert!(t1 < *t2);

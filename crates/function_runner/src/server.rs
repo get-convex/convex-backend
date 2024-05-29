@@ -613,14 +613,14 @@ mod tests {
         function_runner_core.send_request(request)?;
         // Pausing a request while being executed should make the next request be
         // rejected because there are no available workers.
-        pause1.wait_for_blocked(PAUSE_REQUEST).await;
+        let _guard = pause1.wait_for_blocked(PAUSE_REQUEST).await.unwrap();
         let (sender, rx2) = oneshot::channel();
         let request2 = bogus_udf_request(&db, client1, None, sender).await?;
         function_runner_core.send_request(request2)?;
         let response =
             FunctionRunnerCore::<TestRuntime, InstanceStorage>::receive_response(rx2).await?;
         let err = response.unwrap_err();
-        assert!(err.is_rejected_before_execution());
+        assert!(err.is_rejected_before_execution(), "{err:?}");
         assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));
         Ok(())
     }
@@ -644,7 +644,7 @@ mod tests {
         function_runner_core.send_request(request)?;
         // Pausing a request should not affect the next one because we have 2 workers
         // and 2 requests from different clients.
-        pause1.wait_for_blocked(PAUSE_REQUEST).await;
+        let _guard = pause1.wait_for_blocked(PAUSE_REQUEST).await.unwrap();
         let (sender, rx2) = oneshot::channel();
         let client2 = "client2";
         let request2 = bogus_udf_request(&db, client2, None, sender).await?;
@@ -670,7 +670,7 @@ mod tests {
         function_runner_core.send_request(request)?;
         // Pausing the first request and sending a second should make the second fail
         // because there's only one worker left and it is reserved for other clients.
-        pause1.wait_for_blocked(PAUSE_REQUEST).await;
+        let _guard = pause1.wait_for_blocked(PAUSE_REQUEST).await.unwrap();
         let (sender, rx2) = oneshot::channel();
         let request2 = bogus_udf_request(&db, client, None, sender).await?;
         function_runner_core.send_request(request2)?;

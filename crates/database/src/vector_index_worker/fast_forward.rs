@@ -136,7 +136,7 @@ mod tests {
 
         // Check that fast-forwarding works when we write to another table. Advance time
         // so our commit's timestamp is past the debounce window.
-        rt.advance_time(Duration::from_secs(10));
+        rt.advance_time(Duration::from_secs(10)).await;
         for _ in 0..*DATABASE_WORKERS_MIN_COMMITS {
             let mut tx = database.begin_system().await?;
             let unrelated_document = assert_obj!("wise" => "tunes");
@@ -169,7 +169,7 @@ mod tests {
 
         // Check that we don't fast-forward if we bump the reproducible timestamp and
         // advance time but don't perform any commits.
-        rt.advance_time(Duration::from_secs(60));
+        rt.advance_time(Duration::from_secs(60)).await;
         database.bump_max_repeatable_ts().await?;
         let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
         assert!(metrics.is_empty());
@@ -184,7 +184,7 @@ mod tests {
 
         // Check that we fast-forward if we advance time sufficiently far forward past
         // DATABASE_WORKERS_MAX_CHECKPOINT_AGE.
-        rt.advance_time(Duration::from_secs(7200));
+        rt.advance_time(Duration::from_secs(7200)).await;
         database.bump_max_repeatable_ts().await?;
         let metrics = fast_forward(&rt, &database, &mut last_fast_forward_info).await?;
         assert_eq!(metrics, btreeset! { resolved_index_name.clone() });
@@ -197,7 +197,7 @@ mod tests {
 
         // Check that we don't fast-forward if we advance time but also write to the
         // indexed table. In this case, we expect the snapshot to stay in place.
-        rt.advance_time(Duration::from_secs(10));
+        rt.advance_time(Duration::from_secs(10)).await;
         let mut tx = database.begin_system().await?;
         let unrelated_document = assert_obj!("wise" => "jams");
         TestFacingModel::new(&mut tx)

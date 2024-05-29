@@ -37,7 +37,7 @@ proptest! {
 
     #[test]
     fn proptest_idv6_js_decode(id in any::<DeveloperDocumentId>()) {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
         td.run_until(test_idv6_js_decode(rt, id)).unwrap();
     }
@@ -46,7 +46,7 @@ proptest! {
     fn proptest_idv6_js_is_id_bytes(bytes in prop::collection::vec(any::<u8>(), 19..=23)) {
         // Generate bytestrings that pass the first few checks in decode to get more code
         // coverage for later errors.
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
         let id_str = base32::encode(&bytes);
         td.run_until(test_idv6_js_is_id(rt, id_str)).unwrap();
@@ -54,7 +54,7 @@ proptest! {
 
     #[test]
     fn proptest_idv6_js_is_id(id in any::<String>()) {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
         td.run_until(test_idv6_js_is_id(rt, id)).unwrap();
     }

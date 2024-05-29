@@ -596,7 +596,7 @@ pub(crate) mod tests {
 
         // Advance time past the max index age (and do an unrelated commit to bump the
         // repeatable timestamp).
-        rt.advance_time(Duration::from_secs(7200));
+        rt.advance_time(Duration::from_secs(7200)).await;
         let mut tx = database.begin_system().await?;
         let unrelated_document = assert_obj!("wise" => "ambience");
         TestFacingModel::new(&mut tx)

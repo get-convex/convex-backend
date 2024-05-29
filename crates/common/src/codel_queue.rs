@@ -314,66 +314,72 @@ mod codel_queue_tests {
 
     #[test]
     fn test_adaptive_lifo() -> anyhow::Result<()> {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
-        td.run_until(rt.wait(Duration::from_secs(10)));
-        let mut queue = CoDelQueue::new_for_test(
-            rt.clone(),
-            3,
-            Duration::from_secs(5),
-            Duration::from_secs(1),
-        );
-        queue.push(1)?;
-        queue.push(2)?;
-        queue.push(3)?;
-        assert_eq!(queue.pop(), Some((1, None)));
-        assert_eq!(queue.pop(), Some((2, None)));
-        // 3 stays in the queue for a while, so we switch to LIFO.
-        td.run_until(rt.wait(Duration::from_millis(5001)));
-        queue.push(4)?;
-        queue.push(5)?;
-        // But first we drain expired entries.
-        assert_eq!(queue.pop(), Some((3, Some(ExpiredInQueue))));
-        assert_eq!(queue.pop(), Some((5, None)));
-        assert_eq!(queue.pop(), Some((4, None)));
-        // Now it has been emptied, we switch back to FIFO.
-        queue.push(6)?;
-        queue.push(7)?;
-        assert_eq!(queue.pop(), Some((6, None)));
-        assert_eq!(queue.pop(), Some((7, None)));
-        Ok(())
+        td.run_until(async move {
+            rt.wait(Duration::from_secs(10)).await;
+            let mut queue = CoDelQueue::new_for_test(
+                rt.clone(),
+                3,
+                Duration::from_secs(5),
+                Duration::from_secs(1),
+            );
+            queue.push(1)?;
+            queue.push(2)?;
+            queue.push(3)?;
+            assert_eq!(queue.pop(), Some((1, None)));
+            assert_eq!(queue.pop(), Some((2, None)));
+            // 3 stays in the queue for a while, so we switch to LIFO.
+            rt.wait(Duration::from_millis(5001)).await;
+            queue.push(4)?;
+            queue.push(5)?;
+            // But first we drain expired entries.
+            assert_eq!(queue.pop(), Some((3, Some(ExpiredInQueue))));
+            assert_eq!(queue.pop(), Some((5, None)));
+            assert_eq!(queue.pop(), Some((4, None)));
+            // Now it has been emptied, we switch back to FIFO.
+            queue.push(6)?;
+            queue.push(7)?;
+            assert_eq!(queue.pop(), Some((6, None)));
+            assert_eq!(queue.pop(), Some((7, None)));
+            Ok(())
+        })
     }
 
     #[test]
     fn test_controlled_delay() -> anyhow::Result<()> {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
-        let mut queue = CoDelQueue::new_for_test(
-            rt.clone(),
-            5,
-            Duration::from_secs(5),
-            Duration::from_secs(1),
-        );
-        // 1, 2, and 3 have expiration of 5s.
-        queue.push(1)?;
-        queue.push(2)?;
-        td.run_until(rt.wait(Duration::from_millis(3001)));
-        assert_eq!(queue.pop(), Some((1, None)));
-        queue.push(3)?;
-        // 2 has stayed in the queue for a while, so we switch to shorter expirations.
-        td.run_until(rt.wait(Duration::from_millis(2001)));
-        assert_eq!(queue.pop(), Some((2, Some(ExpiredInQueue))));
-        // 4 and 5 have expiration of 1s.
-        queue.push(4)?;
-        queue.push(5)?;
-        td.run_until(rt.wait(Duration::from_millis(500)));
-        assert_eq!(queue.pop(), Some((5, None)));
-        td.run_until(rt.wait(Duration::from_millis(501)));
-        assert_eq!(queue.pop(), Some((4, Some(ExpiredInQueue))));
-        td.run_until(rt.wait(Duration::from_millis(1001)));
-        // 3 has been in the queue for 4s, less than its 5s timeout.
-        assert_eq!(queue.pop(), Some((3, None)));
-        Ok(())
+        td.run_until(async move {
+            let mut queue = CoDelQueue::new_for_test(
+                rt.clone(),
+                5,
+                Duration::from_secs(5),
+                Duration::from_secs(1),
+            );
+            // 1, 2, and 3 have expiration of 5s.
+            queue.push(1)?;
+            queue.push(2)?;
+
+            rt.wait(Duration::from_millis(3001)).await;
+
+            assert_eq!(queue.pop(), Some((1, None)));
+            queue.push(3)?;
+            // 2 has stayed in the queue for a while, so we switch to shorter expirations.
+            rt.wait(Duration::from_millis(2001)).await;
+            assert_eq!(queue.pop(), Some((2, Some(ExpiredInQueue))));
+            // 4 and 5 have expiration of 1s.
+            queue.push(4)?;
+            queue.push(5)?;
+            rt.wait(Duration::from_millis(500)).await;
+            assert_eq!(queue.pop(), Some((5, None)));
+            rt.wait(Duration::from_millis(501)).await;
+            assert_eq!(queue.pop(), Some((4, Some(ExpiredInQueue))));
+            rt.wait(Duration::from_millis(1001)).await;
+            // 3 has been in the queue for 4s, less than its 5s timeout.
+            assert_eq!(queue.pop(), Some((3, None)));
+            Ok(())
+        })
     }
 }
 #[cfg(test)]
@@ -388,46 +394,50 @@ mod codel_queue_async_tests {
 
     #[test]
     fn test_async_fifo() -> anyhow::Result<()> {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
-        let (sender, mut receiver) = new_codel_queue_async(rt, 2);
-        sender.try_send(1)?;
-        sender.try_send(2)?;
-        assert!(sender.try_send(3).is_err());
-        assert_eq!(td.run_until(receiver.next()), Some((1, None)));
-        sender.try_send(4)?;
-        assert_eq!(td.run_until(receiver.next()), Some((2, None)));
-        assert_eq!(td.run_until(receiver.next()), Some((4, None)));
-        let wait_for_next = receiver.next();
-        sender.try_send(5)?;
-        assert_eq!(td.run_until(wait_for_next), Some((5, None)));
-        Ok(())
+        td.run_until(async move {
+            let (sender, mut receiver) = new_codel_queue_async(rt, 2);
+            sender.try_send(1)?;
+            sender.try_send(2)?;
+            assert!(sender.try_send(3).is_err());
+            assert_eq!(receiver.next().await, Some((1, None)));
+            sender.try_send(4)?;
+            assert_eq!(receiver.next().await, Some((2, None)));
+            assert_eq!(receiver.next().await, Some((4, None)));
+            let wait_for_next = receiver.next();
+            sender.try_send(5)?;
+            assert_eq!(wait_for_next.await, Some((5, None)));
+            Ok(())
+        })
     }
 
     #[test]
     fn test_multiple_sender_receiver() -> anyhow::Result<()> {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
-        let (sender1, mut receiver1) = new_codel_queue_async(rt, 2);
-        let sender2 = sender1.clone();
-        sender1.try_send(1)?;
-        sender2.try_send(2)?;
-        assert!(sender1.try_send(3).is_err());
-        assert_eq!(td.run_until(receiver1.next()), Some((1, None)));
-        sender1.try_send(4)?;
-        let mut receiver2 = receiver1.clone();
-        assert_eq!(td.run_until(receiver2.next()), Some((2, None)));
-        assert_eq!(td.run_until(receiver1.next()), Some((4, None)));
-        sender1.try_send(5)?;
-        drop(sender1);
-        assert_eq!(td.run_until(receiver1.next()), Some((5, None)));
-        let wait_for_next1 = receiver1.next();
-        let wait_for_next2 = receiver2.next();
-        sender2.try_send(6)?;
-        drop(sender2);
-        assert_eq!(td.run_until(wait_for_next2), Some((6, None)));
-        assert_eq!(td.run_until(wait_for_next1), None);
-        assert_eq!(td.run_until(receiver2.next()), None);
-        Ok(())
+        td.run_until(async move {
+            let (sender1, mut receiver1) = new_codel_queue_async(rt, 2);
+            let sender2 = sender1.clone();
+            sender1.try_send(1)?;
+            sender2.try_send(2)?;
+            assert!(sender1.try_send(3).is_err());
+            assert_eq!(receiver1.next().await, Some((1, None)));
+            sender1.try_send(4)?;
+            let mut receiver2 = receiver1.clone();
+            assert_eq!(receiver2.next().await, Some((2, None)));
+            assert_eq!(receiver1.next().await, Some((4, None)));
+            sender1.try_send(5)?;
+            drop(sender1);
+            assert_eq!(receiver1.next().await, Some((5, None)));
+            let wait_for_next1 = receiver1.next();
+            let wait_for_next2 = receiver2.next();
+            sender2.try_send(6)?;
+            drop(sender2);
+            assert_eq!(wait_for_next2.await, Some((6, None)));
+            assert_eq!(wait_for_next1.await, None);
+            assert_eq!(receiver2.next().await, None);
+            Ok(())
+        })
     }
 }

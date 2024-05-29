@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use common::assert_obj;
 use runtime::testing::TestRuntime;
 use value::{
@@ -27,12 +29,14 @@ async fn test_globals(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_date(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let global_date1 = t.query("globals:getGlobalDate", assert_obj!()).await?;
+        t.rt.advance_time(Duration::from_secs(1)).await;
         let udf_date1 = t.query("globals:getDate", assert_obj!()).await?;
 
         // The UDF execution phase date should be higher than the import phase one.
         assert!(udf_date1 > global_date1);
 
         let global_date2 = t.query("globals:getGlobalDate", assert_obj!()).await?;
+        t.rt.advance_time(Duration::from_secs(1)).await;
         let udf_date2 = t.query("globals:getDate", assert_obj!()).await?;
         // Global date should not change between reruns.
         assert_eq!(global_date1, global_date2);

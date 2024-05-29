@@ -616,7 +616,7 @@ mod tests {
     }
 
     fn iterator_includes_all_documents_test(table_name: TableName, objects: Vec<ConvexObject>) {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let runtime = td.rt();
         let test = async {
             let database = new_test_database(runtime.clone()).await;
@@ -865,7 +865,7 @@ mod tests {
             initial in small_user_objects(),
             update_batches in racing_updates(),
         ) {
-            let mut td = TestDriver::new();
+            let td = TestDriver::new();
             td.run_until(
                 racing_commits_test(td.rt(), table_name, initial, update_batches),
             ).unwrap();

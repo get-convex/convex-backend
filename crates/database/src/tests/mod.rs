@@ -417,7 +417,7 @@ async fn test_delete_conflict(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_creation_time_success(rt: TestRuntime) -> anyhow::Result<()> {
-    let database = new_test_database(rt).await;
+    let database = new_test_database(rt.clone()).await;
     let mut tx = database.begin(Identity::system()).await?;
     TestFacingModel::new(&mut tx)
         .insert(&"table".parse()?, ConvexObject::empty())
@@ -425,6 +425,7 @@ async fn test_creation_time_success(rt: TestRuntime) -> anyhow::Result<()> {
     database.commit(tx).await?;
 
     let mut tx1 = database.begin(Identity::system()).await?;
+    rt.advance_time(Duration::from_secs(1)).await;
     let mut tx2 = database.begin(Identity::system()).await?;
 
     assert!(tx1.next_creation_time < tx2.next_creation_time);

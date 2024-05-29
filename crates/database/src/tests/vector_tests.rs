@@ -963,7 +963,7 @@ proptest! {
     fn proptest_vector_search_results(
         actions in prop::collection::vec(any::<TestAction>(), 1..16),
     ) {
-        let mut td = TestDriver::new();
+        let td = TestDriver::new();
         let rt = td.rt();
         let future = async move {
         let mut test = RandomizedTest::new(rt).await?;

@@ -531,7 +531,7 @@ enum TestAction {
     QueryAndCheckScores(TestQuery),
 }
 fn test_search_actions(actions: Vec<TestAction>) {
-    let mut td = TestDriver::new();
+    let td = TestDriver::new();
     let rt = td.rt();
     let future = async move {
         let mut scenario = Scenario::new(rt).await?;
@@ -1129,7 +1129,7 @@ async fn do_search_with_backfill_split(
 }
 
 fn do_search_for_fraction(test_case: FuzzyDeterminismTestCase, num_splits: usize) {
-    let mut td = TestDriver::new();
+    let td = TestDriver::new();
     let rt = td.rt();
     let future = async move {
         let mut last_result: Option<Vec<(ResolvedDocumentId, f64)>> = None;
