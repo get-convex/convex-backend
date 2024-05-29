@@ -138,7 +138,10 @@ use headers::{
     ContentLength,
     ContentType,
 };
-use http_client::cached_http_client;
+use http_client::{
+    cached_http_client_for,
+    ClientPurpose,
+};
 use isolate::{
     parse_udf_args,
     AuthConfig,
@@ -2248,7 +2251,7 @@ impl<RT: Runtime> Application<RT> {
 
                 let identity = validate_id_token(
                     Auth0IdToken(id_token),
-                    cached_http_client,
+                    cached_http_client_for(ClientPurpose::ProviderMetadata),
                     auth_infos
                         .into_iter()
                         .map(|auth_info| auth_info.into_value())

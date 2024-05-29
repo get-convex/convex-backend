@@ -9,10 +9,18 @@ doctest = false
 
 [dependencies]
 anyhow = { workspace = true }
+futures = { workspace = true }
+http-cache = { workspace = true }
 http-cache-reqwest = { workspace = true }
+metrics = { path = "../metrics" }
 openidconnect = { workspace = true }
 reqwest = { workspace = true }
 reqwest-middleware = { workspace = true }
+strum = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+metrics = { path = "../metrics", features = ["testing"] }
+tokio = { workspace = true }
 
 [features]

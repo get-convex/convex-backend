@@ -3112,11 +3112,16 @@ name = "http_client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures",
+ "http-cache",
  "http-cache-reqwest",
+ "metrics",
  "openidconnect",
  "reqwest",
  "reqwest-middleware",
+ "strum 0.26.2",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
