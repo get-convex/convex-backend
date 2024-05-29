@@ -5,19 +5,6 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::index::{
-        vector_index::{
-            DeveloperVectorIndexConfig,
-            FragmentedVectorSegment,
-            VectorDimensions,
-            VectorIndexBackfillState,
-            VectorIndexSnapshot,
-            VectorIndexSnapshotData,
-            VectorIndexState,
-        },
-        IndexConfig,
-        IndexMetadata,
-    },
     knobs::{
         MAX_SEGMENT_DELETED_PERCENTAGE,
         MIN_COMPACTION_SEGMENTS,
@@ -35,7 +22,19 @@ use storage::Storage;
 use value::ResolvedDocumentId;
 
 use crate::{
-    index_workers::writer::SearchIndexMetadataWriter,
+    index_workers::{
+        index_meta::{
+            BackfillState,
+            SearchIndex,
+            SearchIndexConfigParser,
+            SearchOnDiskState,
+            SearchSnapshot,
+            SegmentStatistics,
+            SegmentType,
+            SnapshotData,
+        },
+        writer::SearchIndexMetadataWriter,
+    },
     metrics::vector::{
         finish_compaction_timer,
         log_vector_compaction_compacted_segment_num_vectors_total,
@@ -43,29 +42,38 @@ use crate::{
         vector_compaction_build_one_timer,
         CompactionReason,
     },
-    vector_index_worker::vector_meta::VectorSearchIndex,
+    vector_index_worker::vector_meta::{
+        VectorIndexConfigParser,
+        VectorSearchIndex,
+    },
     Database,
     IndexModel,
     Token,
 };
 
-pub struct VectorIndexCompactor<RT: Runtime> {
+// TODO(sam): Finishing moving methods out, rename the original
+// VectorIndexCompactor -> SearchIndexCompactor, and rename this to
+// VectorIndexCompactor. For now this lets us avoid making VectorSearchIndex
+// public outside of the crate (which is where we want to end up).
+pub type VectorIndexCompactor2<RT> = VectorIndexCompactor<RT, VectorIndexConfigParser>;
+
+pub struct VectorIndexCompactor<RT: Runtime, T: SearchIndexConfigParser> {
     database: Database<RT>,
     searcher: Arc<dyn Searcher>,
     search_storage: Arc<dyn Storage>,
     config: CompactionConfig,
-    writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
+    writer: SearchIndexMetadataWriter<RT, T::IndexType>,
 }
 
-impl<RT: Runtime> VectorIndexCompactor<RT> {
+impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
     pub(crate) fn new(
         database: Database<RT>,
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
         config: CompactionConfig,
         writer: SearchIndexMetadataWriter<RT, VectorSearchIndex>,
-    ) -> Self {
-        Self {
+    ) -> VectorIndexCompactor2<RT> {
+        VectorIndexCompactor2 {
             database,
             searcher,
             search_storage,
@@ -81,7 +89,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         search_storage: Arc<dyn Storage>,
         searcher: Arc<dyn Searcher>,
         config: CompactionConfig,
-    ) -> Self {
+    ) -> VectorIndexCompactor2<RT> {
         let writer =
             SearchIndexMetadataWriter::new(runtime, database.clone(), search_storage.clone());
         Self::new(database, searcher, search_storage.clone(), config, writer)
@@ -94,7 +102,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         search_storage: Arc<dyn Storage>,
         searcher: Arc<dyn Searcher>,
     ) -> anyhow::Result<()> {
-        let compactor = Self::new_for_tests(
+        let compactor: VectorIndexCompactor2<RT> = Self::new_for_tests(
             runtime,
             database,
             search_storage,
@@ -127,25 +135,20 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         Ok((metrics, token))
     }
 
-    async fn needs_compaction(&self) -> anyhow::Result<(Vec<VectorCompaction>, Token)> {
+    async fn needs_compaction(&self) -> anyhow::Result<(Vec<CompactionJob<T::IndexType>>, Token)> {
         let mut to_build = vec![];
         let mut tx = self.database.begin(Identity::system()).await?;
 
         for index_doc in IndexModel::new(&mut tx).get_all_indexes().await? {
             let (index_id, index_metadata) = index_doc.into_id_and_value();
-            let IndexMetadata {
-                name,
-                config:
-                    IndexConfig::Vector {
-                        on_disk_state,
-                        developer_config,
-                    },
-            } = index_metadata
+            let Some(config) = <T as SearchIndexConfigParser>::get_config(index_metadata.config)
             else {
                 continue;
             };
-            let needs_compaction = match &on_disk_state {
-                VectorIndexState::Backfilling(VectorIndexBackfillState {
+            let name = index_metadata.name;
+
+            let needs_compaction = match &config.on_disk_state {
+                SearchOnDiskState::Backfilling(BackfillState {
                     segments,
                     backfill_snapshot_ts,
                     ..
@@ -153,26 +156,34 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
                     if backfill_snapshot_ts.is_none() {
                         false
                     } else {
-                        Self::segments_need_compaction(segments, &developer_config, &self.config)?
+                        Self::segments_need_compaction(
+                            segments,
+                            &config.developer_config,
+                            &self.config,
+                        )?
                     }
                 },
-                VectorIndexState::SnapshottedAt(VectorIndexSnapshot {
-                    data: VectorIndexSnapshotData::MultiSegment(segments),
+                SearchOnDiskState::SnapshottedAt(SearchSnapshot {
+                    data: SnapshotData::MultiSegment(segments),
                     ..
                 })
-                | VectorIndexState::Backfilled(VectorIndexSnapshot {
-                    data: VectorIndexSnapshotData::MultiSegment(segments),
+                | SearchOnDiskState::Backfilled(SearchSnapshot {
+                    data: SnapshotData::MultiSegment(segments),
                     ..
-                }) => Self::segments_need_compaction(segments, &developer_config, &self.config)?,
+                }) => Self::segments_need_compaction(
+                    segments,
+                    &config.developer_config,
+                    &self.config,
+                )?,
                 _ => false,
             };
             if needs_compaction {
-                tracing::info!("Queing vector index for compaction: {name:?}");
-                let job = VectorCompaction {
+                tracing::info!("Queueing vector index for compaction: {name:?}");
+                let job = CompactionJob {
                     index_id,
                     index_name: name.clone(),
-                    developer_config: developer_config.clone(),
-                    on_disk_state,
+                    developer_config: config.developer_config.clone(),
+                    on_disk_state: config.on_disk_state,
                 };
                 to_build.push(job);
             }
@@ -180,10 +191,10 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         Ok((to_build, tx.into_token()?))
     }
 
-    async fn build_one(&self, job: VectorCompaction) -> anyhow::Result<u64> {
+    async fn build_one(&self, job: CompactionJob<T::IndexType>) -> anyhow::Result<u64> {
         let timer = vector_compaction_build_one_timer();
         let (segments, snapshot_ts) = match job.on_disk_state {
-            VectorIndexState::Backfilling(VectorIndexBackfillState {
+            SearchOnDiskState::Backfilling(BackfillState {
                 segments,
                 backfill_snapshot_ts,
                 ..
@@ -192,12 +203,16 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
                     .context("Trying to compact backfilling segments with no backfill timestamp")?;
                 (segments, ts)
             },
-            VectorIndexState::Backfilled(snapshot) | VectorIndexState::SnapshottedAt(snapshot) => {
+            SearchOnDiskState::Backfilled(snapshot)
+            | SearchOnDiskState::SnapshottedAt(snapshot) => {
                 let segments = match snapshot.data {
-                    VectorIndexSnapshotData::Unknown(_) => {
-                        anyhow::bail!("Trying to compact unknown vector snapshot")
+                    SnapshotData::Unknown(_) => {
+                        anyhow::bail!("Trying to compact unknown vector snapshot");
                     },
-                    VectorIndexSnapshotData::MultiSegment(segments) => segments,
+                    SnapshotData::MultiSegment(segments) => segments,
+                    SnapshotData::SingleSegment(_) => {
+                        anyhow::bail!("Trying to compact a single segment index!");
+                    },
                 };
                 (segments, snapshot.ts)
             },
@@ -211,10 +226,11 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         log_vector_compaction_total_segments(total_compacted_segments);
 
         let new_segment = self
-            .compact(job.developer_config.dimensions, &segments_to_compact)
+            .compact(&job.developer_config, &segments_to_compact)
             .await?;
+        let stats = new_segment.statistics()?;
 
-        let total_vectors = new_segment.num_vectors - new_segment.num_deleted;
+        let total_vectors = stats.num_non_deleted_documents();
         log_vector_compaction_compacted_segment_num_vectors_total(total_vectors);
 
         self.writer
@@ -237,9 +253,9 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
             "Compacted {:#?} segments to {:#?}",
             segments_to_compact
                 .iter()
-                .map(|segment| Self::format(segment, job.developer_config.dimensions))
+                .map(|segment| Self::format(segment, &job.developer_config))
                 .collect::<anyhow::Result<Vec<_>>>()?,
-            Self::format(&new_segment, job.developer_config.dimensions)?,
+            Self::format(&new_segment, &job.developer_config)?,
         );
 
         finish_compaction_timer(timer, reason);
@@ -247,28 +263,38 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
     }
 
     fn format(
-        segment: &FragmentedVectorSegment,
-        dimension: VectorDimensions,
+        segment: &<T::IndexType as SearchIndex>::Segment,
+        developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
     ) -> anyhow::Result<String> {
+        let stats = segment.statistics()?;
         Ok(format!(
             "(id: {}, size: {}, vectors: {}, deletes: {})",
-            segment.id,
-            segment.total_size_bytes(dimension)?,
-            segment.num_vectors,
-            segment.num_deleted
+            segment.id(),
+            segment.total_size_bytes(developer_config)?,
+            stats.num_documents(),
+            stats.num_deleted_documents(),
         ))
     }
 
     fn max_compactable_segments<'a>(
-        segments: Vec<&'a FragmentedVectorSegment>,
-        dimensions: VectorDimensions,
-        config: &CompactionConfig,
-    ) -> anyhow::Result<Option<Vec<&'a FragmentedVectorSegment>>> {
+        segments: Vec<&'a <T::IndexType as SearchIndex>::Segment>,
+        developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
+        compaction_config: &CompactionConfig,
+    ) -> anyhow::Result<Option<Vec<&'a <T::IndexType as SearchIndex>::Segment>>> {
         let mut size: u64 = 0;
         let segments = segments
             .into_iter()
-            .sorted_by_key(|segment| segment.num_vectors)
-            .map(|segment| Ok((segment, segment.total_size_bytes(dimensions)?)))
+            .map(|segment| Ok((segment, segment.statistics()?.num_documents())))
+            // Allow errors to be propagated by giving them the lowest value for the ascending sort
+            // We might ignore errors anyway if there are enough successful and empty segments, but
+            // that seems unlikely.
+            .sorted_by_key(|result: &anyhow::Result<_>|
+                result.as_ref().map(|(_, num_docs)| *num_docs).unwrap_or(0)
+            )
+            .map_ok(|(segment, _)| {
+                Ok((segment, segment.total_size_bytes(developer_config)?))
+            })
+            .flatten()
             .take_while(|segment| {
                 let Ok((_, segment_size_bytes)) = segment else {
                     // Propagate the error to the outer collect.
@@ -279,10 +305,10 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
                     .checked_add(*segment_size_bytes)
                     .context("Overflowed size!")
                     .unwrap();
-                size <= config.max_segment_size_bytes
+                size <= compaction_config.max_segment_size_bytes
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
-        if segments.len() >= config.min_compaction_segments as usize {
+        if segments.len() >= compaction_config.min_compaction_segments as usize {
             Ok(Some(
                 segments
                     .into_iter()
@@ -295,21 +321,22 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
     }
 
     fn find_segments_to_compact<'a>(
-        segments: &'a Vec<FragmentedVectorSegment>,
-        developer_config: &'a DeveloperVectorIndexConfig,
-        config: &CompactionConfig,
-    ) -> anyhow::Result<(Vec<&'a FragmentedVectorSegment>, CompactionReason)> {
-        let dimensions = developer_config.dimensions;
-
+        segments: &'a Vec<<T::IndexType as SearchIndex>::Segment>,
+        developer_config: &'a <T::IndexType as SearchIndex>::DeveloperConfig,
+        compaction_config: &CompactionConfig,
+    ) -> anyhow::Result<(
+        Vec<&'a <T::IndexType as SearchIndex>::Segment>,
+        CompactionReason,
+    )> {
         let segments_and_sizes = segments
             .iter()
-            .map(|segment| Ok((segment, segment.total_size_bytes(dimensions)?)))
+            .map(|segment| Ok((segment, segment.total_size_bytes(developer_config)?)))
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         let (small_segments, large_segments): (Vec<_>, Vec<_>) = segments_and_sizes
             .into_iter()
             .partition(|(_, segment_size_bytes)| {
-                *segment_size_bytes <= config.small_segment_threshold_bytes
+                *segment_size_bytes <= compaction_config.small_segment_threshold_bytes
             });
         let small_segments = small_segments
             .into_iter()
@@ -318,7 +345,8 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
 
         // Compact small segments first because it's quick and reducing the total number
         // of segments helps us minimize query costs.
-        let compact_small = Self::max_compactable_segments(small_segments, dimensions, config)?;
+        let compact_small =
+            Self::max_compactable_segments(small_segments, developer_config, compaction_config)?;
         if let Some(compact_small) = compact_small {
             return Ok((compact_small, CompactionReason::SmallSegments));
         }
@@ -330,8 +358,8 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
                 .into_iter()
                 .map(|segment| segment.0)
                 .collect_vec(),
-            dimensions,
-            config,
+            developer_config,
+            compaction_config,
         )?;
         if let Some(compact_large) = compact_large {
             return Ok((compact_large, CompactionReason::LargeSegments));
@@ -341,13 +369,17 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
         // vectors and if so compact just that segment.
         let compact_deletes = large_segments
             .into_iter()
-            .find(|(segment, segment_size_bytes)| {
-                segment.num_deleted as f64 / segment.num_vectors as f64
-                         > config.max_deleted_percentage
+            .try_find(|(segment, segment_size_bytes)| {
+                let stats = segment.statistics()?;
+                let result: anyhow::Result<bool> = Ok(
+                    stats.num_deleted_documents() as f64 / stats.num_documents() as f64
+                         > compaction_config.max_deleted_percentage
                         // Below a certain size, don't bother to recompact on deletes because the
                         // whole segment will be compacted as a small segment in the future anyway.
-                        && *segment_size_bytes > config.small_segment_threshold_bytes
-            })
+                        && *segment_size_bytes > compaction_config.small_segment_threshold_bytes,
+                );
+                result
+            })?
             .map(|(segment, _)| vec![segment]);
         if let Some(compact_deletes) = compact_deletes {
             return Ok((compact_deletes, CompactionReason::Deletes));
@@ -356,19 +388,27 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
             "Found no segments to compact, segments: {:#?}",
             segments
                 .iter()
-                .map(|segment| (&segment.id, segment.num_vectors, segment.num_deleted))
+                .map(|segment| {
+                    // Avoid throwing while logging...
+                    let stats = segment.statistics().unwrap_or_default();
+                    (
+                        segment.id(),
+                        stats.num_documents(),
+                        stats.num_deleted_documents(),
+                    )
+                })
                 .collect_vec()
         );
         Ok((vec![], CompactionReason::Unknown))
     }
 
     fn segments_need_compaction(
-        segments: &Vec<FragmentedVectorSegment>,
-        developer_config: &DeveloperVectorIndexConfig,
-        config: &CompactionConfig,
+        segments: &Vec<<T::IndexType as SearchIndex>::Segment>,
+        developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
+        compaction_config: &CompactionConfig,
     ) -> anyhow::Result<bool> {
         Ok(
-            !Self::find_segments_to_compact(segments, developer_config, config)?
+            !Self::find_segments_to_compact(segments, developer_config, compaction_config)?
                 .0
                 .is_empty(),
         )
@@ -376,12 +416,12 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
 
     async fn compact(
         &self,
-        dimension: VectorDimensions,
-        segments: &Vec<&FragmentedVectorSegment>,
-    ) -> anyhow::Result<FragmentedVectorSegment> {
+        developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
+        segments: &Vec<&<T::IndexType as SearchIndex>::Segment>,
+    ) -> anyhow::Result<<T::IndexType as SearchIndex>::Segment> {
         let total_segment_size_bytes: u64 = segments
             .iter()
-            .map(|segment| segment.total_size_bytes(dimension))
+            .map(|segment| segment.total_size_bytes(developer_config))
             .try_fold(0u64, |sum, current| {
                 current.and_then(|current| {
                     sum.checked_add(current)
@@ -396,7 +436,7 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
             self.config.max_segment_size_bytes,
             segments
                 .iter()
-                .map(|segment| Self::format(segment, dimension))
+                .map(|segment| Self::format(segment, developer_config))
                 .collect_vec(),
         );
 
@@ -408,19 +448,17 @@ impl<RT: Runtime> VectorIndexCompactor<RT> {
             self.config.max_segment_size_bytes,
             segments
                 .iter()
-                .map(|segment| Self::format(segment, dimension))
+                .map(|segment| Self::format(segment, developer_config))
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
 
-        let protos: Vec<pb::searchlight::FragmentedVectorSegmentPaths> = segments
-            .iter()
-            .cloned()
-            .cloned()
-            .map(|segment| segment.to_paths_proto())
-            .collect::<anyhow::Result<Vec<_>>>()?;
-        self.searcher
-            .execute_vector_compaction(self.search_storage.clone(), protos, dimension.into())
-            .await
+        <T::IndexType as SearchIndex>::execute_compaction(
+            self.searcher.clone(),
+            self.search_storage.clone(),
+            developer_config,
+            segments,
+        )
+        .await
     }
 }
 
@@ -449,11 +487,11 @@ impl Default for CompactionConfig {
     }
 }
 
-struct VectorCompaction {
+struct CompactionJob<T: SearchIndex> {
     index_id: ResolvedDocumentId,
     index_name: TabletIndexName,
-    developer_config: DeveloperVectorIndexConfig,
-    on_disk_state: VectorIndexState,
+    developer_config: T::DeveloperConfig,
+    on_disk_state: SearchOnDiskState<T>,
 }
 
 #[cfg(test)]

@@ -90,7 +90,10 @@ use crate::{
     index_workers::search_flusher::FLUSH_RUNNING_LABEL,
     test_helpers::DbFixturesArgs,
     vector_index_worker::{
-        compactor::CompactionConfig,
+        compactor::{
+            CompactionConfig,
+            VectorIndexCompactor2,
+        },
         flusher::{
             backfill_vector_indexes,
             new_vector_flusher_for_tests,
@@ -102,7 +105,6 @@ use crate::{
     TestFacingModel,
     Transaction,
     UserFacingModel,
-    VectorIndexCompactor,
 };
 
 pub struct VectorFixtures {
@@ -219,7 +221,7 @@ impl VectorFixtures {
         Ok(result)
     }
 
-    pub async fn new_compactor(&self) -> anyhow::Result<VectorIndexCompactor<TestRuntime>> {
+    pub async fn new_compactor(&self) -> anyhow::Result<VectorIndexCompactor2<TestRuntime>> {
         self.new_compactor_with_searchlight(self.searcher.clone())
             .await
     }
@@ -227,7 +229,7 @@ impl VectorFixtures {
     pub async fn new_compactor_delete_on_compact(
         &self,
         id_to_delete: ResolvedDocumentId,
-    ) -> anyhow::Result<VectorIndexCompactor<TestRuntime>> {
+    ) -> anyhow::Result<VectorIndexCompactor2<TestRuntime>> {
         let searcher = DeleteOnCompactSearchlight {
             rt: self.rt.clone(),
             db: self.db.clone(),
@@ -244,8 +246,8 @@ impl VectorFixtures {
     async fn new_compactor_with_searchlight(
         &self,
         searcher: Arc<dyn Searcher>,
-    ) -> anyhow::Result<VectorIndexCompactor<TestRuntime>> {
-        Ok(VectorIndexCompactor::new_for_tests(
+    ) -> anyhow::Result<VectorIndexCompactor2<TestRuntime>> {
+        Ok(VectorIndexCompactor2::new_for_tests(
             self.rt.clone(),
             self.db.clone(),
             self.storage.clone(),

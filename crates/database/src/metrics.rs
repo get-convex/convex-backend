@@ -1048,7 +1048,7 @@ pub mod vector {
         VECTOR_COMPACTION_COMPACTED_SEGMENT_NUM_VECTORS_TOTAL,
         "Size of the newly generated compacted segment",
     );
-    pub fn log_vector_compaction_compacted_segment_num_vectors_total(total_vectors: u32) {
+    pub fn log_vector_compaction_compacted_segment_num_vectors_total(total_vectors: u64) {
         log_distribution(
             &VECTOR_COMPACTION_COMPACTED_SEGMENT_NUM_VECTORS_TOTAL,
             total_vectors as f64,

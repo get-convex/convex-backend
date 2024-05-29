@@ -43,6 +43,7 @@ use search::{
     searcher::SegmentTermMetadataFetcher,
     NewTextSegment,
     PreviousTextSegments,
+    Searcher,
     TantivySearchIndexSchema,
     UpdatableTextSegment,
 };
@@ -110,15 +111,18 @@ impl SegmentType<TextSearchIndex> for FragmentedTextSegment {
         &self.id
     }
 
-    fn num_deleted(&self) -> u64 {
-        self.num_deleted_documents
-    }
-
     fn statistics(&self) -> anyhow::Result<TextStatistics> {
         Ok(TextStatistics {
             num_indexed_documents: self.num_indexed_documents,
             num_deleted_documents: self.num_deleted_documents,
         })
+    }
+
+    fn total_size_bytes(
+        &self,
+        _config: &<TextSearchIndex as SearchIndex>::DeveloperConfig,
+    ) -> anyhow::Result<u64> {
+        Ok(self.size_bytes_total)
     }
 }
 #[derive(Clone)]
@@ -261,6 +265,15 @@ impl SearchIndex for TextSearchIndex {
 
     fn search_type() -> SearchType {
         SearchType::Text
+    }
+
+    async fn execute_compaction(
+        _searcher: Arc<dyn Searcher>,
+        _search_storage: Arc<dyn Storage>,
+        _config: &Self::DeveloperConfig,
+        _segments: &Vec<&Self::Segment>,
+    ) -> anyhow::Result<Self::Segment> {
+        unimplemented!()
     }
 }
 

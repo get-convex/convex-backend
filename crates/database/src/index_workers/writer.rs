@@ -44,6 +44,7 @@ use crate::{
             SearchIndex,
             SearchOnDiskState,
             SearchSnapshot,
+            SegmentStatistics,
             SegmentType,
             SnapshotData,
         },
@@ -244,7 +245,9 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             // which creates a new segment with a new id. So if the number of deletes has
             // changed, it's due to an increase from a conflicting write by the
             // flusher.
-            if current_version.num_deleted() != original_segment.num_deleted() {
+            if current_version.statistics()?.num_deleted_documents()
+                != original_segment.statistics()?.num_deleted_documents()
+            {
                 return Ok(true);
             }
         }

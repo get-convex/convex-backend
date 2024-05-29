@@ -26,7 +26,10 @@ use common::{
         ObjectKey,
     },
 };
-use search::metrics::SearchType;
+use search::{
+    metrics::SearchType,
+    Searcher,
+};
 use storage::Storage;
 use sync_types::Timestamp;
 use value::{
@@ -50,9 +53,9 @@ pub trait PreviousSegmentsType: Send {
 pub trait SegmentType<T: SearchIndex> {
     fn id(&self) -> &str;
 
-    fn num_deleted(&self) -> u64;
-
     fn statistics(&self) -> anyhow::Result<T::Statistics>;
+
+    fn total_size_bytes(&self, config: &T::DeveloperConfig) -> anyhow::Result<u64>;
 }
 
 #[async_trait]
@@ -128,6 +131,13 @@ pub trait SearchIndex: Clone + Debug {
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>>;
+
+    async fn execute_compaction(
+        searcher: Arc<dyn Searcher>,
+        search_storage: Arc<dyn Storage>,
+        config: &Self::DeveloperConfig,
+        segments: &Vec<&Self::Segment>,
+    ) -> anyhow::Result<Self::Segment>;
 }
 
 pub trait SegmentStatistics: Default + Debug {
@@ -136,6 +146,10 @@ pub trait SegmentStatistics: Default + Debug {
     fn num_documents(&self) -> u64;
 
     fn num_non_deleted_documents(&self) -> u64;
+
+    fn num_deleted_documents(&self) -> u64 {
+        self.num_documents() - self.num_non_deleted_documents()
+    }
 }
 pub struct SearchIndexConfig<T: SearchIndex> {
     pub developer_config: T::DeveloperConfig,

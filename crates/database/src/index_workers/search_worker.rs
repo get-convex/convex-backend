@@ -40,19 +40,21 @@ use crate::{
         TextIndexFlusher2,
     },
     vector_index_worker::{
-        compactor::CompactionConfig,
+        compactor::{
+            CompactionConfig,
+            VectorIndexCompactor2,
+        },
         flusher::new_vector_flusher,
     },
     Database,
     TextIndexFlusher,
-    VectorIndexCompactor,
     VectorIndexFlusher,
 };
 
 /// Builds and compacts text/vector search indexes.
 pub enum SearchIndexWorker<RT: Runtime> {
     VectorFlusher(VectorIndexFlusher<RT>),
-    VectorCompactor(VectorIndexCompactor<RT>),
+    VectorCompactor(VectorIndexCompactor2<RT>),
     TextFlusher(TextIndexFlusher<RT>),
     TextFlusher2(TextIndexFlusher2<RT>),
 }
@@ -103,7 +105,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             runtime.clone(),
             database.clone(),
             Duration::ZERO,
-            SearchIndexWorker::VectorCompactor(VectorIndexCompactor::new(
+            SearchIndexWorker::VectorCompactor(VectorIndexCompactor2::new(
                 database.clone(),
                 searcher,
                 search_storage.clone(),

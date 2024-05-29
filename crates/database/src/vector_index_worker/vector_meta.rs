@@ -39,6 +39,7 @@ use search::{
         PreviousVectorSegments,
     },
     metrics::SearchType,
+    Searcher,
 };
 use storage::Storage;
 use value::InternalId;
@@ -116,16 +117,19 @@ impl SegmentType<VectorSearchIndex> for FragmentedVectorSegment {
         &self.id
     }
 
-    fn num_deleted(&self) -> u64 {
-        self.num_deleted as u64
-    }
-
     fn statistics(&self) -> anyhow::Result<VectorStatistics> {
         let non_deleted_vectors = self.non_deleted_vectors()?;
         Ok(VectorStatistics {
             non_deleted_vectors,
             num_vectors: self.num_vectors,
         })
+    }
+
+    fn total_size_bytes(
+        &self,
+        config: &<VectorSearchIndex as SearchIndex>::DeveloperConfig,
+    ) -> anyhow::Result<u64> {
+        self.total_size_bytes(config.dimensions)
     }
 }
 
@@ -269,6 +273,23 @@ impl SearchIndex for VectorSearchIndex {
 
     fn search_type() -> SearchType {
         SearchType::Vector
+    }
+
+    async fn execute_compaction(
+        searcher: Arc<dyn Searcher>,
+        search_storage: Arc<dyn Storage>,
+        config: &Self::DeveloperConfig,
+        segments: &Vec<&Self::Segment>,
+    ) -> anyhow::Result<Self::Segment> {
+        let protos: Vec<pb::searchlight::FragmentedVectorSegmentPaths> = segments
+            .iter()
+            .cloned()
+            .cloned()
+            .map(|segment| segment.to_paths_proto())
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        searcher
+            .execute_vector_compaction(search_storage, protos, config.dimensions.into())
+            .await
     }
 }
 

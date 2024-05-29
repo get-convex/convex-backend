@@ -86,15 +86,17 @@ use crate::{
         IndexData,
         VectorFixtures,
     },
-    vector_index_worker::flusher::{
-        backfill_vector_indexes,
-        new_vector_flusher_for_tests,
+    vector_index_worker::{
+        compactor::VectorIndexCompactor2,
+        flusher::{
+            backfill_vector_indexes,
+            new_vector_flusher_for_tests,
+        },
     },
     Database,
     IndexModel,
     TableModel,
     UserFacingModel,
-    VectorIndexCompactor,
 };
 
 const TABLE_NAME: &str = "test";
@@ -206,7 +208,7 @@ impl<RT: Runtime> Scenario<RT> {
     }
 
     async fn compact(&mut self) -> anyhow::Result<()> {
-        VectorIndexCompactor::process_all_in_test(
+        VectorIndexCompactor2::process_all_in_test(
             self.rt.clone(),
             self.database.clone(),
             self.search_storage.clone(),
