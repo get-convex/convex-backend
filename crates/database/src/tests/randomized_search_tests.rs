@@ -39,7 +39,10 @@ use common::{
         Timestamp,
     },
     value::{
-        sorting::sorting_decode::bytes_to_values,
+        sorting::{
+            sorting_decode::bytes_to_values,
+            TotalOrdF64,
+        },
         ConvexValue,
         ResolvedDocumentId,
         TableName,
@@ -338,13 +341,17 @@ impl Scenario {
         search_field: Vec<TestValue>,
         filter_field: TestValue,
     ) -> BoxFuture<'_, anyhow::Result<Timestamp>> {
-        let text = search_field
-            .iter()
-            .map(|value| value.to_string())
-            .collect::<Vec<_>>()
-            .join(" ");
-        let filter_field = format!("{filter_field:?}");
-        self._patch(key.to_string(), text, filter_field).boxed()
+        let future = async move {
+            let text = search_field
+                .iter()
+                .map(|value| value.to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+            let filter_field = format!("{filter_field:?}");
+            let (_, ts) = self._patch(key.to_string(), text, filter_field).await?;
+            Ok(ts)
+        };
+        future.boxed()
     }
 
     async fn insert<S: Into<String>, F: Into<String>>(
@@ -369,18 +376,19 @@ impl Scenario {
         key: K,
         search_field: S,
         filter_field: F,
-    ) -> anyhow::Result<Timestamp> {
+    ) -> anyhow::Result<(ResolvedDocumentId, Timestamp)> {
         let key = key.into();
         let search_field = search_field.into();
         let filter_field = filter_field.into();
         let mut tx = self.database.begin(Identity::system()).await?;
         let new_document = assert_obj!("searchField" => search_field.clone(), "filterField" => filter_field.clone());
-        match self.model.entry(key) {
+        let document_id = match self.model.entry(key) {
             Entry::Vacant(e) => {
                 let document_id = TestFacingModel::new(&mut tx)
                     .insert(&self.table_name, new_document)
                     .await?;
                 e.insert((document_id, search_field, filter_field));
+                document_id
             },
             Entry::Occupied(mut e) => {
                 let (document_id, ..) = e.get();
@@ -389,9 +397,11 @@ impl Scenario {
                     .await?;
                 e.get_mut().1 = search_field;
                 e.get_mut().2 = filter_field;
+                e.get().0
             },
-        }
-        self.database.commit(tx).await
+        };
+        let ts = self.database.commit(tx).await?;
+        Ok((document_id, ts))
     }
 
     async fn execute(&mut self, action: TestAction) -> anyhow::Result<()> {
@@ -1070,8 +1080,10 @@ impl Default for FuzzyDeterminismArbitraryParams {
     fn default() -> Self {
         Self {
             query_size: 2..8,
-            num_docs: 128..2048,
-            fluff_len: 8..16,
+            // TODO: Since we don't have a deterministic order when querying within a Tantivy
+            // segment, we have to query less than 1024 results here.
+            num_docs: 2..1023,
+            fluff_len: 0..16,
         }
     }
 }
@@ -1109,22 +1121,24 @@ async fn do_search_with_backfill_split(
     mut scenario: Scenario,
     test_case: FuzzyDeterminismTestCase,
     split: usize,
-) -> anyhow::Result<Vec<(ResolvedDocumentId, f64)>> {
-    let docs = test_case.documents;
-
-    for (i, doc) in docs.into_iter().enumerate() {
+) -> anyhow::Result<Vec<(usize, f64)>> {
+    let mut index_by_document_id = BTreeMap::new();
+    for (i, doc) in test_case.documents.into_iter().enumerate() {
         if i == split {
             scenario.backfill().await?;
         }
+        let key = format!("{i}");
         let doc = doc.join(" ");
-        scenario._patch(format!("{i:}"), doc, "test").await?;
+        let (document_id, _) = scenario._patch(key, doc, "test").await?;
+        index_by_document_id.insert(document_id, i);
     }
-
     let query = test_case.query.join(" ");
     let results = scenario
         ._query_with_scores(query, None, None, SearchVersion::V2)
-        .await?;
-
+        .await?
+        .into_iter()
+        .map(|(document_id, score)| (index_by_document_id[&document_id], score))
+        .collect();
     Ok(results)
 }
 
@@ -1132,16 +1146,29 @@ fn do_search_for_fraction(test_case: FuzzyDeterminismTestCase, num_splits: usize
     let td = TestDriver::new();
     let rt = td.rt();
     let future = async move {
-        let mut last_result: Option<Vec<(ResolvedDocumentId, f64)>> = None;
+        let mut last_result: Option<BTreeSet<(usize, TotalOrdF64)>> = None;
         for split in 0..num_splits {
             let split_idx = (test_case.documents.len() * split) / num_splits;
             let scenario = Scenario::new(rt.clone()).await?;
-            let result =
-                do_search_with_backfill_split(scenario, test_case.clone(), split_idx).await?;
+            let result = do_search_with_backfill_split(scenario, test_case.clone(), split_idx)
+                .await?
+                .into_iter()
+                .map(|(i, score)| (i, TotalOrdF64::from(score)))
+                .collect::<BTreeSet<_>>();
             if let Some(last_result) = last_result {
-                assert_eq!(result.len(), last_result.len());
-                for i in 0..result.len() {
-                    assert_approx_equal(result[i].1, last_result[i].1);
+                if result != last_result {
+                    let mut msg = format!(
+                        "Results differ when doing {} vs. {} splits:",
+                        num_splits - 1,
+                        num_splits
+                    );
+                    for added in result.difference(&last_result) {
+                        msg.push_str(&format!("\n  added: {added:?}"));
+                    }
+                    for removed in last_result.difference(&result) {
+                        msg.push_str(&format!("\n  removed: {removed:?}"));
+                    }
+                    panic!("{msg}");
                 }
             }
             last_result = Some(result);
