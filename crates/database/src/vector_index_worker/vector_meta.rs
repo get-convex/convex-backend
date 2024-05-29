@@ -116,8 +116,8 @@ impl SegmentType<VectorSearchIndex> for FragmentedVectorSegment {
         &self.id
     }
 
-    fn num_deleted(&self) -> u32 {
-        self.num_deleted
+    fn num_deleted(&self) -> u64 {
+        self.num_deleted as u64
     }
 
     fn statistics(&self) -> anyhow::Result<VectorStatistics> {

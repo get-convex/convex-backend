@@ -110,14 +110,14 @@ impl SegmentType<TextSearchIndex> for FragmentedTextSegment {
         &self.id
     }
 
-    fn num_deleted(&self) -> u32 {
-        // TODO(CX-6592): Add num_deleted to FragmentedTextSegment and implement this.
-        0
+    fn num_deleted(&self) -> u64 {
+        self.num_deleted_documents
     }
 
     fn statistics(&self) -> anyhow::Result<TextStatistics> {
         Ok(TextStatistics {
             num_indexed_documents: self.num_indexed_documents,
+            num_deleted_documents: self.num_deleted_documents,
         })
     }
 }
@@ -267,6 +267,7 @@ impl SearchIndex for TextSearchIndex {
 #[derive(Debug, Default)]
 pub struct TextStatistics {
     pub num_indexed_documents: u64,
+    pub num_deleted_documents: u64,
 }
 
 impl From<SearchOnDiskState<TextSearchIndex>> for TextIndexState {
@@ -291,8 +292,11 @@ impl From<TextIndexState> for SearchOnDiskState<TextSearchIndex> {
 
 impl SegmentStatistics for TextStatistics {
     fn add(lhs: anyhow::Result<Self>, rhs: anyhow::Result<Self>) -> anyhow::Result<Self> {
+        let lhs = lhs?;
+        let rhs = rhs?;
         Ok(Self {
-            num_indexed_documents: lhs?.num_indexed_documents + rhs?.num_indexed_documents,
+            num_indexed_documents: lhs.num_indexed_documents + rhs.num_indexed_documents,
+            num_deleted_documents: lhs.num_deleted_documents + rhs.num_deleted_documents,
         })
     }
 
@@ -301,8 +305,7 @@ impl SegmentStatistics for TextStatistics {
     }
 
     fn num_non_deleted_documents(&self) -> u64 {
-        // TODO(sam): Add a non-deleted number of documents.
-        self.num_indexed_documents
+        self.num_indexed_documents - self.num_deleted_documents
     }
 }
 

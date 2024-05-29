@@ -50,7 +50,7 @@ pub trait PreviousSegmentsType: Send {
 pub trait SegmentType<T: SearchIndex> {
     fn id(&self) -> &str;
 
-    fn num_deleted(&self) -> u32;
+    fn num_deleted(&self) -> u64;
 
     fn statistics(&self) -> anyhow::Result<T::Statistics>;
 }

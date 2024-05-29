@@ -144,6 +144,7 @@ pub struct SerializedFragmentedTextSegment {
     pub deleted_terms_table_key: String,
     pub alive_bitset_key: String,
     pub num_indexed_documents: u64,
+    pub num_deleted_documents: u64,
     pub id: String,
 }
 
@@ -157,6 +158,7 @@ impl TryFrom<FragmentedTextSegment> for SerializedFragmentedTextSegment {
             deleted_terms_table_key: value.deleted_terms_table_key.to_string(),
             alive_bitset_key: value.alive_bitset_key.to_string(),
             num_indexed_documents: value.num_indexed_documents,
+            num_deleted_documents: value.num_deleted_documents,
             id: value.id,
         })
     }
@@ -172,6 +174,7 @@ impl TryFrom<SerializedFragmentedTextSegment> for FragmentedTextSegment {
             deleted_terms_table_key: value.deleted_terms_table_key.try_into()?,
             alive_bitset_key: value.alive_bitset_key.try_into()?,
             num_indexed_documents: value.num_indexed_documents,
+            num_deleted_documents: value.num_deleted_documents,
             id: value.id,
         })
     }
@@ -190,6 +193,12 @@ pub struct FragmentedTextSegment {
         proptest(strategy = "1u64..9223372000000000000")
     )]
     pub num_indexed_documents: u64,
+    // 2^63 ~= 9.2 * 10^18. We only support i64 in Convex.
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "1u64..9223372000000000000")
+    )]
+    pub num_deleted_documents: u64,
     // A random UUID that can be used to identify a segment to determine if the
     // segment has changed during non-transactional index changes (compaction).
     pub id: String,

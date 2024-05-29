@@ -88,11 +88,42 @@ pub struct UpdatableTextSegment {
     id_tracker: StaticIdTracker,
     pub(crate) deletion_tracker: MemoryDeletionTracker,
     original: FragmentedTextSegment,
+    // The number of files deleted since this struct was created (not the total number of deletes
+    // in the segment).
+    num_deletes_in_updated: u64,
 }
 
 impl UpdatableTextSegment {
     pub fn segment_key(&self) -> &ObjectKey {
         &self.original.segment_key
+    }
+
+    fn delete(&mut self, tantivy_id: DocId) {
+        self.num_deletes_in_updated += 1;
+        self.deletion_tracker.alive_bitset.remove(tantivy_id);
+    }
+
+    fn update_term_metadata(
+        &mut self,
+        segment_term_metadata: SegmentTermMetadata,
+    ) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.num_deletes_in_updated > 0,
+            "Trying to update term metadata without any new deletes?",
+        );
+        self.deletion_tracker
+            .update_term_metadata(segment_term_metadata);
+        Ok(())
+    }
+
+    fn get_tantivy_id(&self, convex_id: InternalId) -> Option<DocId> {
+        if let Some(tantivy_id) = self.id_tracker.lookup(convex_id.0)
+            && self.deletion_tracker.alive_bitset.contains(tantivy_id)
+        {
+            Some(tantivy_id)
+        } else {
+            None
+        }
     }
 
     #[cfg(any(test, feature = "testing"))]
@@ -103,6 +134,7 @@ impl UpdatableTextSegment {
         Ok(UpdatableTextSegment {
             id_tracker,
             deletion_tracker,
+            num_deletes_in_updated: 0,
             // TODO(sam): We should probably create this outside of this method, then pass it
             // through here. For now this is unused in these tests.
             original: FragmentedTextSegment {
@@ -111,6 +143,7 @@ impl UpdatableTextSegment {
                 deleted_terms_table_key: "deleted_terms".try_into()?,
                 alive_bitset_key: "bitset".try_into()?,
                 num_indexed_documents: 0,
+                num_deleted_documents: 0,
                 id: "test_id".to_string(),
             },
         })
@@ -120,8 +153,9 @@ impl UpdatableTextSegment {
         self,
         storage: Arc<dyn Storage>,
     ) -> anyhow::Result<FragmentedTextSegment> {
-        // TODO(CX-6511): Skip the upload and return the original file if this segment
-        // wasn't modified.
+        if self.num_deletes_in_updated == 0 {
+            return Ok(self.original);
+        }
 
         let mut bitset_buf = vec![];
         let mut deleted_terms_buf = vec![];
@@ -147,6 +181,8 @@ impl UpdatableTextSegment {
         Ok(FragmentedTextSegment {
             deleted_terms_table_key,
             alive_bitset_key,
+            num_deleted_documents: self.original.num_deleted_documents
+                + self.num_deletes_in_updated,
             ..self.original
         })
     }
@@ -200,6 +236,7 @@ impl UpdatableTextSegment {
             id_tracker,
             deletion_tracker,
             original,
+            num_deletes_in_updated: 0,
         })
     }
 }
@@ -212,9 +249,7 @@ impl PreviousTextSegments {
     /// tantivy id, if it exists
     fn segment_for_document(&self, convex_id: InternalId) -> Option<(ObjectKey, DocId)> {
         for (segment_key, segment) in self.0.iter() {
-            if let Some(tantivy_id) = segment.id_tracker.lookup(convex_id.0)
-                && segment.deletion_tracker.alive_bitset.contains(tantivy_id)
-            {
+            if let Some(tantivy_id) = segment.get_tantivy_id(convex_id) {
                 return Some((segment_key.clone(), tantivy_id));
             }
         }
@@ -227,10 +262,7 @@ impl PreviousTextSegments {
         let Some((segment_key, tantivy_id)) = self.segment_for_document(convex_id) else {
             return Ok(None);
         };
-        self.must_get_mut(&segment_key)
-            .deletion_tracker
-            .alive_bitset
-            .remove(tantivy_id);
+        self.must_get_mut(&segment_key).delete(tantivy_id);
         Ok(Some(segment_key.clone()))
     }
 
@@ -244,12 +276,12 @@ impl PreviousTextSegments {
     fn update_term_deletion_metadata(
         &mut self,
         segments_term_metadata: Vec<(ObjectKey, SegmentTermMetadata)>,
-    ) {
+    ) -> anyhow::Result<()> {
         for (segment_key, segment_term_metadata) in segments_term_metadata {
             self.must_get_mut(&segment_key)
-                .deletion_tracker
-                .update_term_metadata(segment_term_metadata);
+                .update_term_metadata(segment_term_metadata)?;
         }
+        Ok(())
     }
 }
 
@@ -366,7 +398,7 @@ pub async fn build_new_segment(
         term_deletes_by_segment,
     )
     .await?;
-    previous_segments.update_term_deletion_metadata(segments_term_metadata);
+    previous_segments.update_term_deletion_metadata(segments_term_metadata)?;
 
     if !is_at_least_one_document_indexed {
         return Ok(None);

@@ -208,6 +208,9 @@ pub async fn upload_text_segment<RT: Runtime>(
         deleted_terms_table_key,
         alive_bitset_key,
         num_indexed_documents: new_segment.num_indexed_documents,
+        // Brand-new text segments will never have any deleted documents. Deleted documents will
+        // instead have just been excluded from the segment.
+        num_deleted_documents: 0,
         id: rt.new_uuid_v4().to_string(),
     })
 }
