@@ -445,7 +445,7 @@ pub fn upload_archive_timer(search_file_type: SearchFileType) -> StatusTimer {
     timer
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum SearchType {
     Vector,
     Text,

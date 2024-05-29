@@ -673,7 +673,7 @@ fn log_worker_status(is_working: bool, name: &'static str) {
 
 register_convex_histogram!(
     SEARCH_AND_VECTOR_BOOTSTRAP_SECONDS,
-    "Time taken to bootstrap search and vector indexes",
+    "Time taken to bootstrap text and vector indexes",
     &STATUS_LABEL
 );
 pub fn bootstrap_timer() -> StatusTimer {
@@ -682,18 +682,18 @@ pub fn bootstrap_timer() -> StatusTimer {
 
 register_convex_histogram!(
     SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_SECONDS,
-    "Time to update search and vector index bootstrap in the committer"
+    "Time to update text and vector index bootstrap in the committer"
 );
 pub fn bootstrap_update_timer() -> Timer<VMHistogram> {
     Timer::new(&SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_SECONDS)
 }
 register_convex_counter!(
     SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_REVISIONS_TOTAL,
-    "Number of revisions loaded during search and vector bootstrap updates in the committer"
+    "Number of revisions loaded during text and vector bootstrap updates in the committer"
 );
 register_convex_counter!(
     SEARCH_AND_VECTOR_BOOTSTRAP_COMMITTER_UPDATE_REVISIONS_BYTES,
-    "Total size of revisions loaded during search and vector bootstrap updates in the committer"
+    "Total size of revisions loaded during text and vector bootstrap updates in the committer"
 );
 
 pub fn finish_bootstrap_update(num_revisions: usize, bytes: usize) {
@@ -709,11 +709,11 @@ pub fn finish_bootstrap_update(num_revisions: usize, bytes: usize) {
 
 register_convex_counter!(
     SEARCH_AND_VECTOR_BOOTSTRAP_REVISIONS_TOTAL,
-    "Number of revisions loaded during search and vector bootstrap"
+    "Number of revisions loaded during text and vector bootstrap"
 );
 register_convex_counter!(
     SEARCH_AND_VECTOR_BOOTSTRAP_REVISIONS_BYTES,
-    "Total size of revisions loaded during search and vector bootstrap"
+    "Total size of revisions loaded during text and vector bootstrap"
 );
 pub fn finish_bootstrap(num_revisions: usize, bytes: usize, timer: StatusTimer) {
     log_counter(
@@ -877,6 +877,76 @@ pub fn log_non_deleted_documents_per_search_index(count: u64, search_type: Searc
     );
 }
 
+const COMPACTION_REASON_LABEL: &str = "compaction_reason";
+
+pub enum CompactionReason {
+    Unknown,
+    SmallSegments,
+    LargeSegments,
+    Deletes,
+}
+
+impl CompactionReason {
+    fn metric_label(&self) -> StaticMetricLabel {
+        let label = match self {
+            CompactionReason::Unknown => "unknown",
+            CompactionReason::SmallSegments => "small",
+            CompactionReason::LargeSegments => "large",
+            CompactionReason::Deletes => "deletes",
+        };
+        StaticMetricLabel::new(COMPACTION_REASON_LABEL, label)
+    }
+}
+
+register_convex_histogram!(
+    COMPACTION_BUILD_ONE_SECONDS,
+    "Time to run a single vector/text index compaction",
+    &[STATUS_LABEL[0], COMPACTION_REASON_LABEL, SEARCH_TYPE_LABEL],
+);
+pub fn compaction_build_one_timer(search_type: SearchType) -> StatusTimer {
+    let mut timer = StatusTimer::new(&COMPACTION_BUILD_ONE_SECONDS);
+    timer.add_label(CompactionReason::Unknown.metric_label());
+    timer.add_label(search_type.tag());
+    timer
+}
+
+pub fn finish_compaction_timer(mut timer: StatusTimer, reason: CompactionReason) {
+    timer.replace_label(
+        CompactionReason::Unknown.metric_label(),
+        reason.metric_label(),
+    );
+    timer.finish();
+}
+
+register_convex_histogram!(
+    COMPACTION_COMPACTED_SEGMENTS_TOTAL,
+    "Total number of compacted segments",
+    &[SEARCH_TYPE_LABEL],
+);
+pub fn log_compaction_total_segments(total_segments: usize, search_type: SearchType) {
+    log_distribution_with_labels(
+        &COMPACTION_COMPACTED_SEGMENTS_TOTAL,
+        total_segments as f64,
+        vec![search_type.tag()],
+    );
+}
+
+register_convex_histogram!(
+    COMPACTION_COMPACTED_SEGMENT_NUM_DOCUMENTS_TOTAL,
+    "The number of documents in the newly generated compacted segment",
+    &[SEARCH_TYPE_LABEL],
+);
+pub fn log_compaction_compacted_segment_num_documents_total(
+    total_vectors: u64,
+    search_type: SearchType,
+) {
+    log_distribution_with_labels(
+        &COMPACTION_COMPACTED_SEGMENT_NUM_DOCUMENTS_TOTAL,
+        total_vectors as f64,
+        vec![search_type.tag()],
+    );
+}
+
 pub mod search {
 
     use metrics::{
@@ -941,7 +1011,7 @@ pub mod search {
 
 register_convex_histogram!(
     DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS,
-    "Time to bootstrap vector and search indexes",
+    "Time to bootstrap vector and text indexes",
     &STATUS_LABEL
 );
 pub fn search_and_vector_bootstrap_timer() -> StatusTimer {
@@ -950,7 +1020,7 @@ pub fn search_and_vector_bootstrap_timer() -> StatusTimer {
 
 register_convex_counter!(
     SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
-    "Number of documents skipped during vector and search index bootstrap",
+    "Number of documents skipped during vector and text index bootstrap",
 );
 pub fn log_document_skipped() {
     log_counter(&SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL, 1);
@@ -958,10 +1028,8 @@ pub fn log_document_skipped() {
 
 pub mod vector {
     use metrics::{
-        log_distribution,
         register_convex_histogram,
         CancelableTimer,
-        StaticMetricLabel,
         StatusTimer,
         STATUS_LABEL,
     };
@@ -991,67 +1059,5 @@ pub mod vector {
     );
     pub fn vector_search_with_retries_timer() -> CancelableTimer {
         CancelableTimer::new(&DATABASE_VECTOR_SEARCH_WITH_RETRIES_QUERY_SECONDS)
-    }
-
-    const COMPACTION_REASON_LABEL: &str = "compaction_reason";
-
-    pub enum CompactionReason {
-        Unknown,
-        SmallSegments,
-        LargeSegments,
-        Deletes,
-    }
-
-    impl CompactionReason {
-        fn metric_label(&self) -> StaticMetricLabel {
-            let label = match self {
-                CompactionReason::Unknown => "unknown",
-                CompactionReason::SmallSegments => "small",
-                CompactionReason::LargeSegments => "large",
-                CompactionReason::Deletes => "deletes",
-            };
-            StaticMetricLabel::new(COMPACTION_REASON_LABEL, label)
-        }
-    }
-
-    register_convex_histogram!(
-        VECTOR_COMPACTION_BUILD_ONE_SECONDS,
-        "Time to run a single vector compaction",
-        &[STATUS_LABEL[0], COMPACTION_REASON_LABEL],
-    );
-    pub fn vector_compaction_build_one_timer() -> StatusTimer {
-        let mut timer = StatusTimer::new(&VECTOR_COMPACTION_BUILD_ONE_SECONDS);
-        timer.add_label(CompactionReason::Unknown.metric_label());
-        timer
-    }
-
-    pub fn finish_compaction_timer(mut timer: StatusTimer, reason: CompactionReason) {
-        timer.replace_label(
-            CompactionReason::Unknown.metric_label(),
-            reason.metric_label(),
-        );
-        timer.finish();
-    }
-
-    register_convex_histogram!(
-        VECTOR_COMPACTION_COMPACTED_SEGMENTS_TOTAL,
-        "Total number of compacted segments",
-    );
-    pub fn log_vector_compaction_total_segments(total_segments: usize) {
-        log_distribution(
-            &VECTOR_COMPACTION_COMPACTED_SEGMENTS_TOTAL,
-            total_segments as f64,
-        );
-    }
-
-    register_convex_histogram!(
-        VECTOR_COMPACTION_COMPACTED_SEGMENT_NUM_VECTORS_TOTAL,
-        "Size of the newly generated compacted segment",
-    );
-    pub fn log_vector_compaction_compacted_segment_num_vectors_total(total_vectors: u64) {
-        log_distribution(
-            &VECTOR_COMPACTION_COMPACTED_SEGMENT_NUM_VECTORS_TOTAL,
-            total_vectors as f64,
-        );
     }
 }

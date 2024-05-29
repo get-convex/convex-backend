@@ -17,7 +17,10 @@ use common::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
-use search::searcher::Searcher;
+use search::{
+    metrics::SearchType,
+    searcher::Searcher,
+};
 use storage::Storage;
 use value::ResolvedDocumentId;
 
@@ -35,11 +38,11 @@ use crate::{
         },
         writer::SearchIndexMetadataWriter,
     },
-    metrics::vector::{
+    metrics::{
+        compaction_build_one_timer,
         finish_compaction_timer,
-        log_vector_compaction_compacted_segment_num_vectors_total,
-        log_vector_compaction_total_segments,
-        vector_compaction_build_one_timer,
+        log_compaction_compacted_segment_num_documents_total,
+        log_compaction_total_segments,
         CompactionReason,
     },
     vector_index_worker::vector_meta::{
@@ -113,13 +116,17 @@ impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
         Ok(())
     }
 
+    fn search_type() -> SearchType {
+        <T::IndexType as SearchIndex>::search_type()
+    }
+
     pub(crate) async fn step(&self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
         let mut metrics = BTreeMap::new();
 
         let (to_build, token) = self.needs_compaction().await?;
         let num_to_build = to_build.len();
         if num_to_build > 0 {
-            tracing::info!("{num_to_build} vector indexes to build");
+            tracing::info!("{num_to_build} {:?} indexes to build", Self::search_type());
         }
 
         for job in to_build {
@@ -129,7 +136,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
         }
 
         if num_to_build > 0 {
-            tracing::info!("built {num_to_build} vector indexes");
+            tracing::info!("built {num_to_build} {:?} indexes", Self::search_type());
         }
 
         Ok((metrics, token))
@@ -178,7 +185,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
                 _ => false,
             };
             if needs_compaction {
-                tracing::info!("Queueing vector index for compaction: {name:?}");
+                tracing::info!(
+                    "Queueing {:?} index for compaction: {name:?}",
+                    Self::search_type()
+                );
                 let job = CompactionJob {
                     index_id,
                     index_name: name.clone(),
@@ -192,26 +202,36 @@ impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
     }
 
     async fn build_one(&self, job: CompactionJob<T::IndexType>) -> anyhow::Result<u64> {
-        let timer = vector_compaction_build_one_timer();
+        let timer = compaction_build_one_timer(Self::search_type());
         let (segments, snapshot_ts) = match job.on_disk_state {
             SearchOnDiskState::Backfilling(BackfillState {
                 segments,
                 backfill_snapshot_ts,
                 ..
             }) => {
-                let ts = backfill_snapshot_ts
-                    .context("Trying to compact backfilling segments with no backfill timestamp")?;
+                let ts = backfill_snapshot_ts.with_context(|| {
+                    format!(
+                        "Trying to compact backfilling {:?} segments with no backfill timestamp",
+                        Self::search_type()
+                    )
+                })?;
                 (segments, ts)
             },
             SearchOnDiskState::Backfilled(snapshot)
             | SearchOnDiskState::SnapshottedAt(snapshot) => {
                 let segments = match snapshot.data {
                     SnapshotData::Unknown(_) => {
-                        anyhow::bail!("Trying to compact unknown vector snapshot");
+                        anyhow::bail!(
+                            "Trying to compact unknown {:?} snapshot",
+                            Self::search_type()
+                        );
                     },
                     SnapshotData::MultiSegment(segments) => segments,
                     SnapshotData::SingleSegment(_) => {
-                        anyhow::bail!("Trying to compact a single segment index!");
+                        anyhow::bail!(
+                            "Trying to compact a single segment {:?} index!",
+                            Self::search_type()
+                        );
                     },
                 };
                 (segments, snapshot.ts)
@@ -223,15 +243,15 @@ impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
         anyhow::ensure!(segments_to_compact.len() > 0);
 
         let total_compacted_segments = segments_to_compact.len();
-        log_vector_compaction_total_segments(total_compacted_segments);
+        log_compaction_total_segments(total_compacted_segments, Self::search_type());
 
         let new_segment = self
             .compact(&job.developer_config, &segments_to_compact)
             .await?;
         let stats = new_segment.statistics()?;
 
-        let total_vectors = stats.num_non_deleted_documents();
-        log_vector_compaction_compacted_segment_num_vectors_total(total_vectors);
+        let total_documents = stats.num_documents();
+        log_compaction_compacted_segment_num_documents_total(total_documents, Self::search_type());
 
         self.writer
             .commit_compaction(
@@ -268,11 +288,12 @@ impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
     ) -> anyhow::Result<String> {
         let stats = segment.statistics()?;
         Ok(format!(
-            "(id: {}, size: {}, vectors: {}, deletes: {})",
+            "(id: {}, size: {}, documents : {}, deletes: {}, type: {:?})",
             segment.id(),
             segment.total_size_bytes(developer_config)?,
             stats.num_documents(),
             stats.num_deleted_documents(),
+            Self::search_type(),
         ))
     }
 
@@ -366,7 +387,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
         }
 
         // Finally check to see if any individual segment has a large number of deleted
-        // vectors and if so compact just that segment.
+        // documents and if so compact just that segment.
         let compact_deletes = large_segments
             .into_iter()
             .try_find(|(segment, segment_size_bytes)| {
@@ -425,7 +446,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> VectorIndexCompactor<RT, T> {
             .try_fold(0u64, |sum, current| {
                 current.and_then(|current| {
                     sum.checked_add(current)
-                        .context("Summing vector sizes overflowed")
+                        .context("Summing document sizes overflowed")
                 })
             })?;
         anyhow::ensure!(
@@ -470,7 +491,6 @@ pub(crate) struct CompactionConfig {
     // only 2 of those can actually be compacted due to the max size restriction, then we don't
     // want to compact yet.
     pub(crate) min_compaction_segments: u64,
-    // 1.1 million vectors at the largest size
     pub(crate) max_segment_size_bytes: u64,
 }
 
