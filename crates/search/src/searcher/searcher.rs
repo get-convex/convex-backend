@@ -46,10 +46,8 @@ use pb::searchlight::{
     FragmentedVectorSegmentPaths,
     MultiSegmentMetadata,
     QueryBm25StatsResponse,
-    SegmentTermMetadataResponse,
     SingleSegmentMetadata,
     StorageKey,
-    TermOrdDeleteCount,
 };
 use storage::Storage;
 pub use tantivy::Term;
@@ -63,11 +61,12 @@ use tantivy::{
         EnableScoring,
     },
     schema::Field,
-    termdict::TermOrdinal,
     SegmentReader,
 };
 use text_search::tracker::{
     load_alive_bitset,
+    FieldTermMetadata,
+    SegmentTermMetadata,
     StaticDeletionTracker,
 };
 use value::InternalId;
@@ -131,7 +130,6 @@ use crate::{
     TantivySearchIndexSchema,
     CREATION_TIME_FIELD_NAME,
     INTERNAL_ID_FIELD_NAME,
-    SEARCH_FIELD_ID,
     TS_FIELD_NAME,
 };
 
@@ -181,77 +179,26 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
     ) -> anyhow::Result<Vec<PostingListMatch>>;
 }
 
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq, Debug, Clone)
-)]
-/// Metadata about terms for a specific segment.
-pub struct SegmentTermMetadata {
-    /// The number of documents containing the term that have been deleted, by
-    /// term ordinal.
-    pub term_documents_deleted: BTreeMap<TermOrdinal, u32>,
-    /// The number of terms that have been completely deleted from the segment.
-    pub num_terms_deleted: u64,
-}
-
-impl TryFrom<SegmentTermMetadataResponse> for SegmentTermMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        SegmentTermMetadataResponse {
-            term_ords_and_delete_counts,
-            num_terms_deleted,
-        }: SegmentTermMetadataResponse,
-    ) -> Result<Self, Self::Error> {
-        let term_documents_deleted = term_ords_and_delete_counts
-            .into_iter()
-            .map(
-                |TermOrdDeleteCount {
-                     term_ord,
-                     num_docs_deleted,
-                 }| {
-                    let term_ord = term_ord.context("Missing term ord")?;
-                    let num_docs_deleted = num_docs_deleted.context("Missing term delete count")?;
-                    anyhow::Ok::<(TermOrdinal, u32)>((term_ord, num_docs_deleted))
-                },
-            )
-            .try_collect()?;
-        let num_terms_deleted = num_terms_deleted.context("Missing num terms deleted")?;
-        Ok(SegmentTermMetadata {
-            term_documents_deleted,
-            num_terms_deleted,
-        })
-    }
-}
-
-impl From<SegmentTermMetadata> for SegmentTermMetadataResponse {
-    fn from(
-        SegmentTermMetadata {
-            term_documents_deleted,
-            num_terms_deleted,
-        }: SegmentTermMetadata,
-    ) -> Self {
-        let term_ords_and_delete_counts = term_documents_deleted
-            .into_iter()
-            .map(|(term_ord, num_docs_deleted)| TermOrdDeleteCount {
-                term_ord: Some(term_ord),
-                num_docs_deleted: Some(num_docs_deleted),
-            })
-            .collect();
-        SegmentTermMetadataResponse {
-            term_ords_and_delete_counts,
-            num_terms_deleted: Some(num_terms_deleted),
-        }
-    }
-}
-
 /// The value of a tantivy `Term`, should only be constructed from
 /// `term.value_bytes()` or protos that contain the same bytes.
 pub type TermValue = Vec<u8>;
 
-/// Map from the term value to the number of documents containing that term that
-/// have been deleted.
-pub type TermValuesAndDeleteCounts = BTreeMap<TermValue, u32>;
+/// Map from field to a map of term values to the number of documents containing
+/// that term that have been deleted.
+#[derive(Default)]
+pub struct TermDeletionsByField(pub BTreeMap<Field, BTreeMap<TermValue, u32>>);
+
+impl TermDeletionsByField {
+    pub fn increment(&mut self, field: Field, term_value: TermValue) {
+        self.0
+            .entry(field)
+            .or_default()
+            .entry(term_value)
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
+    }
+}
+
 #[async_trait]
 pub trait SegmentTermMetadataFetcher: Send + Sync + 'static {
     /// Gets the term ordinal from term values and determines how many terms
@@ -261,7 +208,7 @@ pub trait SegmentTermMetadataFetcher: Send + Sync + 'static {
         &self,
         search_storage: Arc<dyn Storage>,
         segment: ObjectKey,
-        terms: TermValuesAndDeleteCounts,
+        terms: TermDeletionsByField,
     ) -> anyhow::Result<SegmentTermMetadata>;
 }
 
@@ -629,7 +576,7 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         segment: ObjectKey,
-        terms: BTreeMap<TermValue, u32>,
+        terms: TermDeletionsByField,
     ) -> anyhow::Result<SegmentTermMetadata> {
         let segment_path = self
             .archive_cache
@@ -639,23 +586,33 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
         let searcher = reader.searcher();
         // Multisegment indexes only write to one segment.
         let segment = searcher.segment_reader(0);
-        let inverted_index = segment.inverted_index(Field::from_field_id(SEARCH_FIELD_ID))?;
-        let term_dict = inverted_index.terms();
-        let mut term_documents_deleted = BTreeMap::new();
-        let mut num_terms_deleted = 0;
-        for (term, num_documents_deleted) in terms {
-            let term_ord = term_dict
-                .term_ord(term)?
-                .context("Segment must contain term")?;
-            let doc_freq = term_dict.term_info_from_ord(term_ord).doc_freq;
-            if doc_freq == num_documents_deleted {
-                num_terms_deleted += 1;
+        let mut term_metadata_by_field = BTreeMap::new();
+        for (field, deleted_terms) in terms.0.into_iter() {
+            let mut num_terms_deleted = 0;
+            let mut term_documents_deleted = BTreeMap::new();
+            let inverted_index = segment.inverted_index(field)?;
+            let term_dict = inverted_index.terms();
+            for (term, num_documents_deleted) in deleted_terms {
+                let term_ord = term_dict
+                    .term_ord(term)?
+                    .context("Segment must contain term")?;
+                let doc_freq = term_dict.term_info_from_ord(term_ord).doc_freq;
+                if doc_freq == num_documents_deleted {
+                    num_terms_deleted += 1;
+                }
+                let maybe_term = term_documents_deleted.insert(term_ord, num_documents_deleted);
+                anyhow::ensure!(maybe_term.is_none(), "Duplicate term in term delete counts");
             }
-            term_documents_deleted.insert(term_ord, num_documents_deleted);
+            term_metadata_by_field.insert(
+                field,
+                FieldTermMetadata {
+                    term_documents_deleted,
+                    num_terms_deleted,
+                },
+            );
         }
         Ok(SegmentTermMetadata {
-            term_documents_deleted,
-            num_terms_deleted,
+            term_metadata_by_field,
         })
     }
 }
@@ -827,7 +784,8 @@ impl<RT: Runtime> SearcherImpl<RT> {
         query: &TokenQuery,
         results: &mut TokenMatchAggregator,
     ) -> anyhow::Result<()> {
-        let inverted_index = segment.inverted_index(query.term.field())?;
+        let field = query.term.field();
+        let inverted_index = segment.inverted_index(field)?;
         let term_dict = inverted_index.terms();
         let mut seen_terms = BTreeSet::new();
         'query: for distance in [0, 1, 2] {
@@ -837,7 +795,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 }
                 if distance == 0 && !prefix {
                     if let Some(term_ord) = term_dict.term_ord(query.term.value_bytes())? {
-                        if deletion_tracker.doc_frequency(term_dict, term_ord)? == 0 {
+                        if deletion_tracker.doc_frequency(field, term_dict, term_ord)? == 0 {
                             continue;
                         }
                         anyhow::ensure!(seen_terms.insert(query.term.clone()));
@@ -865,7 +823,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                         let match_term = Term::from_field_text(query.term.field(), match_str);
 
                         let term_ord = term_stream.term_ord();
-                        if deletion_tracker.doc_frequency(term_dict, term_ord)? == 0 {
+                        if deletion_tracker.doc_frequency(field, term_dict, term_ord)? == 0 {
                             continue;
                         }
 
@@ -919,13 +877,13 @@ impl<RT: Runtime> SearcherImpl<RT> {
         let term_dict = inverted_index.terms();
         let num_terms = inverted_index
             .total_num_tokens()
-            .checked_sub(deletion_tracker.num_terms_deleted() as u64)
+            .checked_sub(deletion_tracker.num_terms_deleted(field) as u64)
             .context("num_terms underflow")?;
         let num_documents = deletion_tracker.num_alive_docs() as u64;
         let mut doc_frequencies = BTreeMap::new();
         for term in terms {
             if let Some(term_ord) = term_dict.term_ord(term.value_bytes())? {
-                let doc_freq = deletion_tracker.doc_frequency(term_dict, term_ord)?;
+                let doc_freq = deletion_tracker.doc_frequency(field, term_dict, term_ord)?;
                 doc_frequencies.insert(term, doc_freq);
             } else {
                 // Terms may not exist in one or more segments of a multi segment text index.

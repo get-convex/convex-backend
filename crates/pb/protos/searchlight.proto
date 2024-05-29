@@ -229,7 +229,12 @@ message SegmentResponse {
 message SegmentTermMetadataRequest {
   StorageType storage_type = 1;
   StorageKey segment = 2;
-  repeated TermValueDeleteCount term_values_and_delete_counts = 3;
+  repeated FieldTermDeletions field_term_deletions = 3;
+}
+
+message FieldTermDeletions {
+  optional uint32 field = 1;
+  repeated TermValueDeleteCount term_values_and_delete_counts = 2;
 }
 
 message TermValueDeleteCount {
@@ -238,8 +243,13 @@ message TermValueDeleteCount {
 }
 
 message SegmentTermMetadataResponse {
-  repeated TermOrdDeleteCount term_ords_and_delete_counts = 1;
-  optional uint64 num_terms_deleted = 2;
+  repeated FieldTermMetadata field_term_metadata = 1;
+}
+
+message FieldTermMetadata {
+  optional uint32 field = 1;
+  repeated TermOrdDeleteCount term_ords_and_delete_counts = 2;
+  optional uint64 num_terms_deleted = 3;
 }
 
 message TermOrdDeleteCount {

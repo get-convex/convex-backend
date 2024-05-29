@@ -15,6 +15,9 @@ common = { path = "../common" }
 csf = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
+pb = { path = "../pb" }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
 sucds = { workspace = true }
 tantivy = { workspace = true }
 tantivy-common = { workspace = true }
@@ -24,7 +27,15 @@ value = { path = "../value" }
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
 value = { path = "../value", features = ["testing"] }
 
 [features]
-testing = ["common/testing", "metrics/testing", "value/testing"]
+testing = [
+    "common/testing",
+    "metrics/testing",
+    "proptest",
+    "proptest-derive",
+    "value/testing"
+]

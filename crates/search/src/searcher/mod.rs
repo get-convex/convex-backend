@@ -16,12 +16,12 @@ pub use searcher::{
     PostingListQuery,
     Searcher,
     SearcherImpl,
-    SegmentTermMetadata,
     SegmentTermMetadataFetcher,
     Term,
+    TermDeletionsByField,
     TermValue,
-    TermValuesAndDeleteCounts,
     TextStorageKeys,
     TokenMatch,
     TokenQuery,
 };
+pub use text_search::tracker::SegmentTermMetadata;

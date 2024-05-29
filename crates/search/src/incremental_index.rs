@@ -41,6 +41,7 @@ use tempfile::TempDir;
 use text_search::tracker::{
     MemoryDeletionTracker,
     SearchMemoryIdTracker,
+    SegmentTermMetadata,
 };
 use value::InternalId;
 
@@ -53,9 +54,8 @@ use crate::{
         upload_single_file,
     },
     searcher::{
-        SegmentTermMetadata,
         SegmentTermMetadataFetcher,
-        TermValuesAndDeleteCounts,
+        TermDeletionsByField,
     },
     DocumentTerm,
     SearchFileType,
@@ -245,17 +245,10 @@ impl PreviousTextSegments {
         &mut self,
         segments_term_metadata: Vec<(ObjectKey, SegmentTermMetadata)>,
     ) {
-        for (
-            segment_key,
-            SegmentTermMetadata {
-                term_documents_deleted,
-                num_terms_deleted,
-            },
-        ) in segments_term_metadata
-        {
+        for (segment_key, segment_term_metadata) in segments_term_metadata {
             self.must_get_mut(&segment_key)
                 .deletion_tracker
-                .update_term_metadata(term_documents_deleted, num_terms_deleted);
+                .update_term_metadata(segment_term_metadata);
         }
     }
 }
@@ -296,8 +289,7 @@ pub async fn build_new_segment(
     let mut num_indexed_documents = 0;
 
     let mut is_at_least_one_document_indexed = false;
-    let mut term_deletes_by_segment: BTreeMap<ObjectKey, TermValuesAndDeleteCounts> =
-        BTreeMap::new();
+    let mut term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField> = BTreeMap::new();
 
     while let Some(revision_pair) = revision_stream.try_next().await? {
         let convex_id = revision_pair.id.internal_id();
@@ -330,25 +322,15 @@ pub async fn build_new_segment(
                     .map(Term::from)
                     .collect();
                 for term in term_set {
+                    let field = term.field();
                     let term_value = term.value_bytes().to_vec();
                     if let Some(term_values_and_delete_counts) =
                         term_deletes_by_segment.get_mut(&segment.original.segment_key)
                     {
-                        term_values_and_delete_counts
-                            .entry(term_value)
-                            .and_modify(|count| {
-                                *count += 1;
-                            })
-                            .or_insert(1);
+                        term_values_and_delete_counts.increment(field, term_value);
                     } else {
-                        let mut term_values_and_delete_counts =
-                            TermValuesAndDeleteCounts::default();
-                        term_values_and_delete_counts
-                            .entry(term_value)
-                            .and_modify(|count| {
-                                *count += 1;
-                            })
-                            .or_insert(1);
+                        let mut term_values_and_delete_counts = TermDeletionsByField::default();
+                        term_values_and_delete_counts.increment(field, term_value);
                         term_deletes_by_segment.insert(
                             segment.original.segment_key.clone(),
                             term_values_and_delete_counts,
@@ -412,7 +394,7 @@ pub async fn build_new_segment(
 async fn get_all_segment_term_metadata(
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
-    term_deletes_by_segment: BTreeMap<ObjectKey, TermValuesAndDeleteCounts>,
+    term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField>,
 ) -> anyhow::Result<Vec<(ObjectKey, SegmentTermMetadata)>> {
     let segment_term_metadata_futs = term_deletes_by_segment.into_iter().map(
         move |(segment_key, term_values_and_delete_counts)| {

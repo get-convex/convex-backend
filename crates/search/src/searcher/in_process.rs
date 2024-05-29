@@ -16,6 +16,7 @@ use pb::searchlight::FragmentedVectorSegmentPaths;
 use storage::Storage;
 use tantivy::Term;
 use tempfile::TempDir;
+use text_search::tracker::SegmentTermMetadata;
 use vector::{
     CompiledVectorSearch,
     QdrantSchema,
@@ -32,8 +33,7 @@ use super::{
         TokenMatch,
         TokenQuery,
     },
-    SegmentTermMetadata,
-    TermValuesAndDeleteCounts,
+    TermDeletionsByField,
 };
 use crate::{
     query::{
@@ -136,7 +136,7 @@ impl SegmentTermMetadataFetcher for SearcherStub {
         &self,
         _search_storage: Arc<dyn Storage>,
         _storage_key: ObjectKey,
-        _terms: TermValuesAndDeleteCounts,
+        _terms: TermDeletionsByField,
     ) -> anyhow::Result<SegmentTermMetadata> {
         unimplemented!()
     }
@@ -167,7 +167,7 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for InProcessSearcher<RT> {
         &self,
         search_storage: Arc<dyn Storage>,
         storage_key: ObjectKey,
-        terms: TermValuesAndDeleteCounts,
+        terms: TermDeletionsByField,
     ) -> anyhow::Result<SegmentTermMetadata> {
         self.searcher
             .segment_term_metadata(search_storage, storage_key, terms)

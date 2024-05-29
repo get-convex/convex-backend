@@ -8,6 +8,7 @@ use std::{
         Write,
     },
     iter::zip,
+    ops::AddAssign,
     path::Path,
 };
 
@@ -20,6 +21,11 @@ use byteorder::{
 use common::id_tracker::{
     MemoryIdTracker,
     StaticIdTracker,
+};
+use pb::searchlight::{
+    FieldTermMetadata as FieldTermMetadataProto,
+    SegmentTermMetadataResponse,
+    TermOrdDeleteCount,
 };
 use sucds::{
     int_vectors::{
@@ -35,6 +41,7 @@ use sucds::{
 };
 use tantivy::{
     fastfield::AliveBitSet,
+    schema::Field,
     termdict::{
         TermDictionary,
         TermOrdinal,
@@ -56,9 +63,12 @@ use crate::metrics::{
 
 /// Version 1 of the deletion tracker has the following format:
 /// ```
-/// [ version ] [ num_terms_deleted ] [ deleted_term_ordinals_size ] [ counts_size ] [ deleted_term_ordinals ] [ counts ]
+/// [version] [field_header_size] [[field_id] [num_terms_deleted] [deleted_term_ordinals_size] [counts_size]]* [[deleted_term_ordinals] [counts]]*
 /// ```
 /// - version (u8): version number for the file format
+/// - field_header_size (little-endian u16): length of the header describing the
+///   deleted terms table for each field
+/// - field_id (little-endian u32): field id
 /// - num_terms_deleted (little-endian u32): number of terms that are completely
 ///   deleted from the segment
 /// - deleted_term_ordinals_size (little-endian u32): size of the term ordinals
@@ -70,66 +80,35 @@ use crate::metrics::{
 /// - counts (DacsOpt): number of deleted documents per term, indexed in the
 ///   same order as `deleted_term_ordinals`
 pub const DELETED_TERMS_TABLE_VERSION: u8 = 1;
+pub const SIZE_PER_FIELD_HEADER: u16 = 16;
 
 pub struct StaticDeletionTracker {
     alive_bitset: AliveBitSet,
-    /// Number of terms that are completed deleted from the segment
-    num_terms_deleted: u32,
-    deleted_terms_table: Option<DeletedTermsTable>,
+    deleted_terms_by_field: BTreeMap<Field, DeletedTermsTable>,
 }
 
+/// Efficient read-only data structure for storing term deletions. This can be
+/// converted into a mutable [FieldTermMetadata] to process updates.
 struct DeletedTermsTable {
+    /// Set of term ordinals of terms that are in documents that have been
+    /// deleted.
     term_ordinals: EliasFano,
+    /// Number of documents deleted for each term, corresponding to the order in
+    /// term_ordinals.
     term_documents_deleted: DacsOpt,
+    /// Number of terms that are completed deleted from the field in the segment
+    num_terms_deleted: u32,
+}
+
+struct FieldHeader {
+    field: Field,
+    num_terms_deleted: u32,
+    deleted_term_ordinals_size: u32,
+    counts_size: u32,
 }
 
 impl DeletedTermsTable {
-    /// Returns a tuple of num_terms_deleted and the deleted terms table, if
-    /// non-empty
-    fn load(file_len: usize, mut reader: impl Read) -> anyhow::Result<(u32, Option<Self>)> {
-        log_deleted_terms_table_size(file_len);
-        let _timer = load_deleted_terms_table_timer();
-        let mut expected_len = 0;
-        let version = reader.read_u8()?;
-        expected_len += 1;
-        anyhow::ensure!(version == DELETED_TERMS_TABLE_VERSION);
-
-        let num_terms_deleted = reader.read_u32::<LittleEndian>()?;
-        expected_len += 4;
-
-        let deleted_term_ordinals_size = reader.read_u32::<LittleEndian>()? as usize;
-        expected_len += 4;
-        if deleted_term_ordinals_size == 0 {
-            return Ok((num_terms_deleted, None));
-        }
-
-        let counts_size = reader.read_u32::<LittleEndian>()? as usize;
-        expected_len += 4;
-
-        let mut elias_fano_buf = vec![0; deleted_term_ordinals_size];
-        reader.read_exact(&mut elias_fano_buf).with_context(|| {
-            format!("Expected to fill EliasFano buffer with {deleted_term_ordinals_size} bytes")
-        })?;
-        expected_len += deleted_term_ordinals_size; // deleted_term_ordinals
-        let term_ordinals = EliasFano::deserialize_from(&elias_fano_buf[..])?;
-        let mut counts_buf = vec![0; counts_size];
-        reader.read_exact(&mut counts_buf)?;
-        expected_len += counts_size;
-        let term_documents_deleted = DacsOpt::deserialize_from(&counts_buf[..])?;
-
-        anyhow::ensure!(
-            file_len == expected_len,
-            "Deleted terms file length mismatch, expected {expected_len}, got {file_len}"
-        );
-        Ok((
-            num_terms_deleted,
-            Some(Self {
-                term_ordinals,
-                term_documents_deleted,
-            }),
-        ))
-    }
-
+    /// Returns the number of documents deleted containing a term.
     fn term_documents_deleted(&self, term_ord: TermOrdinal) -> anyhow::Result<u32> {
         if let Some(pos) = self.term_ordinals.binsearch(term_ord as usize) {
             self.term_documents_deleted
@@ -146,16 +125,45 @@ impl DeletedTermsTable {
     }
 }
 
-impl From<DeletedTermsTable> for BTreeMap<TermOrdinal, u32> {
+impl From<DeletedTermsTable> for FieldTermMetadata {
     fn from(
         DeletedTermsTable {
+            num_terms_deleted,
             term_ordinals,
             term_documents_deleted,
         }: DeletedTermsTable,
     ) -> Self {
-        zip(term_ordinals.iter(0), term_documents_deleted.iter())
+        let term_documents_deleted = zip(term_ordinals.iter(0), term_documents_deleted.iter())
             .map(|(term_ord, num_deleted)| (term_ord as u64, num_deleted as u32))
-            .collect()
+            .collect();
+        FieldTermMetadata {
+            term_documents_deleted,
+            num_terms_deleted: num_terms_deleted.into(),
+        }
+    }
+}
+
+impl TryFrom<FieldTermMetadata> for DeletedTermsTable {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        FieldTermMetadata {
+            term_documents_deleted,
+            num_terms_deleted,
+        }: FieldTermMetadata,
+    ) -> Result<Self, Self::Error> {
+        let (term_ordinals, counts): (Vec<_>, Vec<_>) = term_documents_deleted.into_iter().unzip();
+        let term_documents_deleted = DacsOpt::build_from_slice(&counts)?;
+        let highest_term_ord = term_ordinals.last().context("No term ordinals found")?;
+        let mut elias_fano_builder =
+            EliasFanoBuilder::new((*highest_term_ord + 1) as usize, term_ordinals.len())?;
+        elias_fano_builder.extend(term_ordinals.iter().map(|x| *x as usize))?;
+        let term_ordinals = elias_fano_builder.build();
+        Ok(DeletedTermsTable {
+            term_ordinals,
+            term_documents_deleted,
+            num_terms_deleted: num_terms_deleted as u32,
+        })
     }
 }
 
@@ -176,8 +184,7 @@ impl StaticDeletionTracker {
     pub fn empty(num_docs: u32) -> Self {
         Self {
             alive_bitset: AliveBitSet::from_bitset(&BitSet::with_max_value_and_full(num_docs)),
-            num_terms_deleted: 0,
-            deleted_terms_table: None,
+            deleted_terms_by_field: BTreeMap::new(),
         }
     }
 
@@ -185,31 +192,98 @@ impl StaticDeletionTracker {
         let deleted_terms_file = File::open(deleted_terms_path)?;
         let deleted_terms_file_len = deleted_terms_file.metadata()?.len() as usize;
         let deleted_terms_reader = BufReader::new(deleted_terms_file);
-        let (num_terms_deleted, deleted_terms_table) =
-            DeletedTermsTable::load(deleted_terms_file_len, deleted_terms_reader)?;
-
+        let deleted_terms_by_field =
+            Self::load_deleted_terms(deleted_terms_file_len, deleted_terms_reader)?;
         Ok(Self {
             alive_bitset,
-            num_terms_deleted,
-            deleted_terms_table,
+            deleted_terms_by_field,
         })
+    }
+
+    fn load_deleted_terms(
+        file_len: usize,
+        mut reader: impl Read,
+    ) -> anyhow::Result<BTreeMap<Field, DeletedTermsTable>> {
+        log_deleted_terms_table_size(file_len);
+        let _timer = load_deleted_terms_table_timer();
+        let mut expected_len = 0;
+        let version = reader.read_u8()?;
+        expected_len += 1;
+        anyhow::ensure!(version == DELETED_TERMS_TABLE_VERSION);
+
+        let field_header_size = reader.read_u16::<LittleEndian>()?;
+        expected_len += 2;
+
+        let mut field_headers = vec![];
+        for _ in 0..field_header_size / SIZE_PER_FIELD_HEADER {
+            let field_id = reader.read_u32::<LittleEndian>()?;
+            expected_len += 4;
+            let num_terms_deleted = reader.read_u32::<LittleEndian>()?;
+            expected_len += 4;
+            let deleted_term_ordinals_size = reader.read_u32::<LittleEndian>()?;
+            expected_len += 4;
+            let counts_size = reader.read_u32::<LittleEndian>()?;
+            expected_len += 4;
+
+            field_headers.push(FieldHeader {
+                field: Field::from_field_id(field_id),
+                num_terms_deleted,
+                deleted_term_ordinals_size,
+                counts_size,
+            });
+        }
+
+        let mut deleted_terms_by_field = BTreeMap::new();
+        for FieldHeader {
+            field,
+            num_terms_deleted,
+            deleted_term_ordinals_size,
+            counts_size,
+        } in field_headers
+        {
+            let mut elias_fano_buf = vec![0; deleted_term_ordinals_size as usize];
+            reader.read_exact(&mut elias_fano_buf).with_context(|| {
+                format!("Expected to fill EliasFano buffer with {deleted_term_ordinals_size} bytes")
+            })?;
+            expected_len += deleted_term_ordinals_size;
+            let term_ordinals = EliasFano::deserialize_from(&elias_fano_buf[..])?;
+            let mut counts_buf = vec![0; counts_size as usize];
+            reader.read_exact(&mut counts_buf)?;
+            expected_len += counts_size;
+            let term_documents_deleted = DacsOpt::deserialize_from(&counts_buf[..])?;
+            let deleted_terms_table = DeletedTermsTable {
+                term_ordinals,
+                term_documents_deleted,
+                num_terms_deleted,
+            };
+            deleted_terms_by_field.insert(field, deleted_terms_table);
+        }
+        anyhow::ensure!(
+            file_len == expected_len as usize,
+            "Deleted terms file length mismatch, expected {expected_len}, got {file_len}"
+        );
+        Ok(deleted_terms_by_field)
     }
 
     pub fn doc_frequency(
         &self,
+        field: Field,
         term_dict: &TermDictionary,
         term_ord: TermOrdinal,
     ) -> anyhow::Result<u64> {
         let term_info = term_dict.term_info_from_ord(term_ord);
-        let term_documents_deleted = self.term_documents_deleted(term_ord)?;
+        let term_documents_deleted = self.term_documents_deleted(field, term_ord)?;
         (term_info.doc_freq as u64)
             .checked_sub(term_documents_deleted as u64)
             .context("doc_frequency underflow")
     }
 
-    /// How many terms have been completely deleted from the segment?
-    pub fn num_terms_deleted(&self) -> u32 {
-        self.num_terms_deleted
+    /// How many terms have been completely deleted from the term dictionary for
+    /// a field?
+    pub fn num_terms_deleted(&self, field: Field) -> u32 {
+        self.deleted_terms_by_field
+            .get(&field)
+            .map_or(0, |t| t.num_terms_deleted)
     }
 
     /// How many documents in the segment are not deleted?
@@ -218,12 +292,14 @@ impl StaticDeletionTracker {
     }
 
     /// How many of a term's documents have been deleted?
-    pub fn term_documents_deleted(&self, term_ord: TermOrdinal) -> anyhow::Result<u32> {
-        if let Some(deleted_terms) = &self.deleted_terms_table {
-            deleted_terms.term_documents_deleted(term_ord)
-        } else {
-            Ok(0)
-        }
+    pub fn term_documents_deleted(
+        &self,
+        field: Field,
+        term_ord: TermOrdinal,
+    ) -> anyhow::Result<u32> {
+        self.deleted_terms_by_field
+            .get(&field)
+            .map_or(Ok(0), |t| t.term_documents_deleted(term_ord))
     }
 
     /// Which documents have been deleted in the segment?
@@ -256,18 +332,218 @@ impl SearchMemoryIdTracker {
     }
 }
 
+// TODO(CX-6565): Make protos private
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq, Debug, Clone)
+)]
+#[derive(Default)]
+/// Mutable data structure for tracking term deletions for a field in a segment.
+/// [DeletedTermsTable] is a more efficient read-only version of this data
+/// structure.
+pub struct FieldTermMetadata {
+    /// The number of documents containing the term that have been deleted, by
+    /// term ordinal.
+    pub term_documents_deleted: BTreeMap<TermOrdinal, u32>,
+    /// The number of terms that have been completely deleted from the field's
+    /// inverted index.
+    pub num_terms_deleted: u64,
+}
+
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Debug, Clone))]
+#[derive(Default)]
+/// Term deletion metadata for a segment, tracked by field.
+pub struct SegmentTermMetadata {
+    pub term_metadata_by_field: BTreeMap<Field, FieldTermMetadata>,
+}
+
+// TODO(CX-6565): Make protos private
+impl TryFrom<SegmentTermMetadataResponse> for SegmentTermMetadata {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        SegmentTermMetadataResponse {
+            field_term_metadata,
+        }: SegmentTermMetadataResponse,
+    ) -> Result<Self, Self::Error> {
+        let term_metadata_by_field = field_term_metadata
+            .into_iter()
+            .map(
+                |FieldTermMetadataProto {
+                     field,
+                     term_ords_and_delete_counts,
+                     num_terms_deleted,
+                 }| {
+                    let field = Field::from_field_id(field.context("Missing field")?);
+                    let term_documents_deleted = term_ords_and_delete_counts
+                        .into_iter()
+                        .map(
+                            |TermOrdDeleteCount {
+                                 term_ord,
+                                 num_docs_deleted,
+                             }| {
+                                let term_ord = term_ord.context("Missing term ord")?;
+                                let num_docs_deleted =
+                                    num_docs_deleted.context("Missing term delete count")?;
+                                anyhow::Ok::<(TermOrdinal, u32)>((term_ord, num_docs_deleted))
+                            },
+                        )
+                        .try_collect()?;
+                    let num_terms_deleted =
+                        num_terms_deleted.context("Missing num terms deleted")?;
+                    anyhow::Ok::<(Field, FieldTermMetadata)>((
+                        field,
+                        FieldTermMetadata {
+                            term_documents_deleted,
+                            num_terms_deleted,
+                        },
+                    ))
+                },
+            )
+            .try_collect()?;
+        Ok(SegmentTermMetadata {
+            term_metadata_by_field,
+        })
+    }
+}
+
+impl From<SegmentTermMetadata> for SegmentTermMetadataResponse {
+    fn from(
+        SegmentTermMetadata {
+            term_metadata_by_field,
+        }: SegmentTermMetadata,
+    ) -> Self {
+        let field_term_metadata = term_metadata_by_field
+            .into_iter()
+            .map(
+                |(
+                    field,
+                    FieldTermMetadata {
+                        term_documents_deleted,
+                        num_terms_deleted,
+                    },
+                )| {
+                    let field = Some(field.field_id());
+                    let term_ords_and_delete_counts = term_documents_deleted
+                        .into_iter()
+                        .map(|(term_ord, num_docs_deleted)| TermOrdDeleteCount {
+                            term_ord: Some(term_ord),
+                            num_docs_deleted: Some(num_docs_deleted),
+                        })
+                        .collect();
+                    let num_terms_deleted = Some(num_terms_deleted);
+                    FieldTermMetadataProto {
+                        field,
+                        term_ords_and_delete_counts,
+                        num_terms_deleted,
+                    }
+                },
+            )
+            .collect();
+        SegmentTermMetadataResponse {
+            field_term_metadata,
+        }
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl proptest::arbitrary::Arbitrary for SegmentTermMetadata {
+    type Parameters = ();
+
+    type Strategy = impl proptest::strategy::Strategy<Value = SegmentTermMetadata>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        any::<BTreeMap<u32, FieldTermMetadata>>().prop_map(|term_documents_deleted| {
+            let term_documents_deleted = term_documents_deleted
+                .into_iter()
+                .map(|(k, v)| (Field::from_field_id(k), v))
+                .collect();
+            SegmentTermMetadata {
+                term_metadata_by_field: term_documents_deleted,
+            }
+        })
+    }
+}
+
+impl AddAssign for SegmentTermMetadata {
+    fn add_assign(&mut self, other: Self) {
+        for (field, other_field_metadata) in other.term_metadata_by_field {
+            let field_metadata = self.term_metadata_by_field.entry(field).or_default();
+            for (term_ord, num_docs_deleted) in other_field_metadata.term_documents_deleted {
+                field_metadata
+                    .term_documents_deleted
+                    .entry(term_ord)
+                    .and_modify(|n| *n += num_docs_deleted)
+                    .or_insert(num_docs_deleted);
+            }
+            field_metadata.num_terms_deleted += other_field_metadata.num_terms_deleted;
+        }
+    }
+}
+
+impl SegmentTermMetadata {
+    pub fn write(self, mut out: impl Write) -> anyhow::Result<()> {
+        out.write_u8(DELETED_TERMS_TABLE_VERSION)?;
+        let field_header_size = self.term_metadata_by_field.len() as u16 * SIZE_PER_FIELD_HEADER;
+        out.write_u16::<LittleEndian>(field_header_size)?;
+        if self.term_metadata_by_field.is_empty() {
+            out.flush()?;
+            return Ok(());
+        }
+
+        let deleted_terms_tables: BTreeMap<Field, DeletedTermsTable> = self
+            .term_metadata_by_field
+            .into_iter()
+            .map(|(field, metadata)| {
+                anyhow::Ok::<(Field, DeletedTermsTable)>((
+                    field,
+                    DeletedTermsTable::try_from(metadata)?,
+                ))
+            })
+            .try_collect()?;
+        for (
+            field,
+            DeletedTermsTable {
+                num_terms_deleted,
+                term_ordinals,
+                term_documents_deleted,
+            },
+        ) in &deleted_terms_tables
+        {
+            out.write_u32::<LittleEndian>(field.field_id())?;
+            out.write_u32::<LittleEndian>(*num_terms_deleted)?;
+            out.write_u32::<LittleEndian>(term_ordinals.size_in_bytes().try_into()?)?;
+            out.write_u32::<LittleEndian>(term_documents_deleted.size_in_bytes().try_into()?)?;
+        }
+
+        for (
+            _,
+            DeletedTermsTable {
+                term_ordinals,
+                term_documents_deleted,
+                ..
+            },
+        ) in deleted_terms_tables
+        {
+            term_ordinals.serialize_into(&mut out)?;
+            term_documents_deleted.serialize_into(&mut out)?;
+        }
+        out.flush()?;
+        Ok(())
+    }
+}
+
 pub struct MemoryDeletionTracker {
     pub alive_bitset: BitSet,
-    pub term_to_deleted_documents: BTreeMap<TermOrdinal, u32>,
-    num_deleted_terms: u32,
+    segment_term_metadata: SegmentTermMetadata,
 }
 
 impl MemoryDeletionTracker {
     pub fn new(num_docs: u32) -> Self {
         Self {
             alive_bitset: BitSet::with_max_value_and_full(num_docs),
-            term_to_deleted_documents: BTreeMap::new(),
-            num_deleted_terms: 0,
+            segment_term_metadata: SegmentTermMetadata::default(),
         }
     }
 
@@ -277,13 +553,18 @@ impl MemoryDeletionTracker {
         let deleted_terms_file = File::open(deleted_terms_path)?;
         let file_len = deleted_terms_file.metadata()?.len() as usize;
         let deleted_terms_reader = BufReader::new(deleted_terms_file);
-        let (num_deleted_terms, deleted_terms_table) =
-            DeletedTermsTable::load(file_len, deleted_terms_reader)?;
-        let term_to_deleted_documents = deleted_terms_table.map(|t| t.into()).unwrap_or_default();
+        let deleted_terms_by_field =
+            StaticDeletionTracker::load_deleted_terms(file_len, deleted_terms_reader)?;
+        let term_metadata_by_field = deleted_terms_by_field
+            .into_iter()
+            .map(|(field, t)| (field, t.into()))
+            .collect();
+        let segment_term_metadata = SegmentTermMetadata {
+            term_metadata_by_field,
+        };
         Ok(Self {
             alive_bitset,
-            term_to_deleted_documents,
-            num_deleted_terms,
+            segment_term_metadata,
         })
     }
 
@@ -299,18 +580,8 @@ impl MemoryDeletionTracker {
         Ok(())
     }
 
-    pub fn update_term_metadata(
-        &mut self,
-        term_documents_deleted: BTreeMap<TermOrdinal, u32>,
-        num_terms_deleted: u64,
-    ) {
-        for (term_ord, num_docs_deleted) in term_documents_deleted {
-            self.term_to_deleted_documents
-                .entry(term_ord)
-                .and_modify(|n| *n += num_docs_deleted)
-                .or_insert(num_docs_deleted);
-        }
-        self.num_deleted_terms = num_terms_deleted as u32;
+    pub fn update_term_metadata(&mut self, segment_term_metadata: SegmentTermMetadata) {
+        self.segment_term_metadata += segment_term_metadata;
     }
 
     pub fn write_to_path<P: AsRef<Path>>(
@@ -332,44 +603,7 @@ impl MemoryDeletionTracker {
         mut deleted_terms: impl Write,
     ) -> anyhow::Result<()> {
         self.alive_bitset.serialize(&mut alive_bitset)?;
-        Self::write_deleted_terms(
-            self.term_to_deleted_documents,
-            self.num_deleted_terms,
-            &mut deleted_terms,
-        )?;
-        Ok(())
-    }
-
-    fn write_deleted_terms(
-        term_to_deleted_documents: BTreeMap<TermOrdinal, u32>,
-        num_deleted_terms: u32,
-        mut out: impl Write,
-    ) -> anyhow::Result<()> {
-        out.write_u8(DELETED_TERMS_TABLE_VERSION)?;
-        out.write_u32::<LittleEndian>(num_deleted_terms)?;
-        let (term_ordinals, counts): (Vec<_>, Vec<_>) =
-            term_to_deleted_documents.into_iter().unzip();
-        let dacs_opt = DacsOpt::build_from_slice(&counts)?;
-        let maybe_elias_fano = term_ordinals
-            .last()
-            .map(|last| {
-                let mut elias_fano_builder =
-                    EliasFanoBuilder::new((*last + 1) as usize, term_ordinals.len())?;
-                elias_fano_builder.extend(term_ordinals.iter().map(|x| *x as usize))?;
-                let elias_fano = elias_fano_builder.build();
-                anyhow::Ok(elias_fano)
-            })
-            .transpose()?;
-        let elias_fano_size = maybe_elias_fano
-            .as_ref()
-            .map_or(0, |elias_fano| elias_fano.size_in_bytes());
-        out.write_u32::<LittleEndian>(elias_fano_size.try_into()?)?;
-        out.write_u32::<LittleEndian>(dacs_opt.size_in_bytes().try_into()?)?;
-        if let Some(elias_fano) = maybe_elias_fano {
-            elias_fano.serialize_into(&mut out)?;
-        }
-        dacs_opt.serialize_into(&mut out)?;
-        out.flush()?;
+        self.segment_term_metadata.write(&mut deleted_terms)?;
         Ok(())
     }
 }
@@ -378,21 +612,24 @@ impl MemoryDeletionTracker {
 mod tests {
 
     use maplit::btreemap;
+    use tantivy::schema::Field;
 
-    use super::MemoryDeletionTracker;
-    use crate::tracker::DeletedTermsTable;
+    use super::{
+        FieldTermMetadata,
+        MemoryDeletionTracker,
+    };
+    use crate::tracker::{
+        SegmentTermMetadata,
+        StaticDeletionTracker,
+    };
 
     #[test]
     fn test_empty_deleted_term_table_roundtrips() -> anyhow::Result<()> {
         let memory_tracker = MemoryDeletionTracker::new(10);
         let mut buf = Vec::new();
-        MemoryDeletionTracker::write_deleted_terms(
-            memory_tracker.term_to_deleted_documents,
-            memory_tracker.num_deleted_terms,
-            &mut buf,
-        )?;
+        memory_tracker.segment_term_metadata.write(&mut buf)?;
         let file_len = buf.len();
-        assert!(DeletedTermsTable::load(file_len, &buf[..])?.1.is_none());
+        assert!(StaticDeletionTracker::load_deleted_terms(file_len, &buf[..])?.is_empty());
         Ok(())
     }
 
@@ -403,19 +640,24 @@ mod tests {
             5 => 2,
             3 => 1,
         };
-        memory_tracker.update_term_metadata(term_documents_deleted, 0);
+        let field = Field::from_field_id(1);
+        let segment_term_metadata = SegmentTermMetadata {
+            term_metadata_by_field: btreemap! {
+                field => FieldTermMetadata {
+                    term_documents_deleted,
+                    num_terms_deleted: 0,
+                }
+            },
+        };
+        memory_tracker.update_term_metadata(segment_term_metadata);
 
         let mut buf = Vec::new();
-        MemoryDeletionTracker::write_deleted_terms(
-            memory_tracker.term_to_deleted_documents,
-            memory_tracker.num_deleted_terms,
-            &mut buf,
-        )?;
+        memory_tracker.segment_term_metadata.write(&mut buf)?;
 
         let file_len = buf.len();
-        let (num_deleted_terms, deleted_terms_table) = DeletedTermsTable::load(file_len, &buf[..])?;
-        assert_eq!(num_deleted_terms, 0);
-        let deleted_terms_table = deleted_terms_table.unwrap();
+        let deleted_terms_tables = StaticDeletionTracker::load_deleted_terms(file_len, &buf[..])?;
+        assert_eq!(deleted_terms_tables.len(), 1);
+        let deleted_terms_table = deleted_terms_tables.get(&field).unwrap();
         assert_eq!(deleted_terms_table.term_documents_deleted(5)?, 2);
         assert_eq!(deleted_terms_table.term_documents_deleted(3)?, 1);
         Ok(())
