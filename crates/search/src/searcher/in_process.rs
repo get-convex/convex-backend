@@ -1,10 +1,7 @@
 /// Searcher trait and implementations
 /// - Stub implementation
 /// - InProcessSearcher implementation
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use common::{
@@ -90,11 +87,7 @@ impl Searcher for SearcherStub {
         _storage_keys: TextStorageKeys,
         _terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
-        Ok(Bm25Stats {
-            num_terms: 0,
-            num_documents: 0,
-            doc_frequencies: BTreeMap::new(),
-        })
+        Ok(Bm25Stats::empty())
     }
 
     async fn query_posting_lists(

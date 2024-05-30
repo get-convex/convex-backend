@@ -1,3 +1,4 @@
+use tantivy::schema::Field;
 pub mod art;
 mod bitset64;
 mod iter_set_bits;
@@ -98,13 +99,13 @@ pub struct Tombstone {
     term_list: TermList,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct TimestampStatistics {
     // NB: Since we never mutate this field and don't need copy-on-write, it's more memory
     // efficient to store it as a `BTreeMap` than an `OrdMap`.
     term_freq_diffs: BTreeMap<TermId, i32>,
     total_docs_diff: i32,
-    total_term_diff: i32,
+    total_term_diff_by_field: BTreeMap<Field, i32>,
 }
 
 #[derive(Clone, Debug)]
@@ -248,11 +249,7 @@ impl MemorySearchIndex {
                 if let Some((prev_ts, _)) = self.statistics.get_max() {
                     assert!(*prev_ts < ts);
                 }
-                let base = TimestampStatistics {
-                    term_freq_diffs: BTreeMap::new(),
-                    total_docs_diff: 0,
-                    total_term_diff: 0,
-                };
+                let base = TimestampStatistics::default();
                 self.statistics.insert(ts, base);
             }
             let stats = self.statistics.get_mut(&ts).unwrap();
@@ -279,15 +276,13 @@ impl MemorySearchIndex {
                         self.term_freqs_size += 1;
                     }
                 }
-                let total_term_diff = old_terms
-                    .iter()
-                    .filter(|doc_term| doc_term.field_id() == SEARCH_FIELD_ID)
-                    .count();
-                stats.total_term_diff =
-                    stats
-                        .total_term_diff
-                        .checked_sub(total_term_diff as i32)
-                        .ok_or_else(|| anyhow::anyhow!("Underflow on total term diff"))?;
+                for doc_term in old_terms {
+                    let field = Field::from_field_id(doc_term.field_id());
+                    let term_diff = stats.total_term_diff_by_field.entry(field).or_insert(0);
+                    *term_diff = term_diff
+                        .checked_sub(1)
+                        .context("Underflow on field num terms")?;
+                }
                 stats.total_docs_diff = stats
                     .total_docs_diff
                     .checked_sub(1)
@@ -315,15 +310,13 @@ impl MemorySearchIndex {
                         self.term_freqs_size += 1;
                     }
                 }
-                let total_term_diff = new_terms
-                    .iter()
-                    .filter(|doc_term| doc_term.field_id() == SEARCH_FIELD_ID)
-                    .count();
-                stats.total_term_diff =
-                    stats
-                        .total_term_diff
-                        .checked_add(total_term_diff as i32)
-                        .ok_or_else(|| anyhow::anyhow!("Overflow on total term diff"))?;
+                for doc_term in new_terms {
+                    let field = Field::from_field_id(doc_term.field_id());
+                    let term_diff = stats.total_term_diff_by_field.entry(field).or_insert(0);
+                    *term_diff = term_diff
+                        .checked_add(1)
+                        .context("Overflow on field num terms")?;
+                }
                 stats.total_docs_diff = stats
                     .total_docs_diff
                     .checked_add(1)
@@ -470,10 +463,12 @@ impl MemorySearchIndex {
                 .num_documents
                 .checked_add_signed(commit_stats.total_docs_diff as i64)
                 .context("num_documents underflow")?;
-            stats.num_terms = stats
-                .num_terms
-                .checked_add_signed(commit_stats.total_term_diff as i64)
-                .context("num_terms underflow")?;
+            for (field, total_term_diff) in &commit_stats.total_term_diff_by_field {
+                let term_diff = stats.num_terms_by_field.entry(*field).or_insert(0);
+                *term_diff = term_diff
+                    .checked_add_signed(*total_term_diff as i64)
+                    .context("num_terms underflow")?;
+            }
             for (term, term_id) in &term_ids {
                 let Some(&increment) = commit_stats.term_freq_diffs.get(term_id) else {
                     continue;
@@ -502,13 +497,17 @@ impl MemorySearchIndex {
             all_term_ids.insert(term_id);
             intersection_term_ids.insert(term_id);
         }
-        let average_fieldnorm = stats.num_terms as f32 / stats.num_documents as f32;
         let mut weights_by_union_id = BTreeMap::new();
         for or_term in or_terms {
             let Some(term_id) = self.term_table.get(&or_term.term) else {
                 continue;
             };
             all_term_ids.insert(term_id);
+            let average_fieldnorm = *stats
+                .num_terms_by_field
+                .get(&or_term.term.field())
+                .context("Missing num_terms for field")? as f32
+                / stats.num_documents as f32;
             let weight = Bm25Weight::for_one_term(
                 or_term.doc_frequency,
                 stats.num_documents,
@@ -805,7 +804,12 @@ impl MemorySearchIndex {
             .range((Bound::Excluded(from_ts), Bound::Unbounded))
         {
             num_documents += stats.total_docs_diff as i64;
-            num_tokens += stats.total_term_diff as i64;
+            // Only use the total_term_diff from SEARCH_FIELD_ID because this is called on
+            // the single segment search path.
+            num_tokens += *stats
+                .total_term_diff_by_field
+                .get(&Field::from_field_id(SEARCH_FIELD_ID))
+                .unwrap_or(&0) as i64;
         }
         (num_documents, num_tokens)
     }

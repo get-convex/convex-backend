@@ -307,9 +307,14 @@ message QueryBm25StatsRequest {
 }
 
 message QueryBm25StatsResponse {
-  uint64 num_terms = 1;
+  repeated NumTermsByField num_terms_by_field = 1;
   uint64 num_documents = 2;
   repeated DocFrequency doc_frequencies = 3;
+}
+
+message NumTermsByField {
+  optional uint32 field = 1;
+  optional uint64 num_terms = 2;
 }
 
 message DocFrequency {
@@ -327,7 +332,7 @@ message PostingListQuery {
   repeated bytes deleted_internal_ids = 1;
 
   // Global BM25 stats
-  uint64 num_terms = 2;
+  repeated NumTermsByField num_terms_by_field = 2;
   uint64 num_documents = 3;
 
   repeated OrTerm or_terms = 4;

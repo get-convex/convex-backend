@@ -563,7 +563,7 @@ impl TantivySearchIndexSchema {
         }
         let query = PostingListQuery {
             deleted_internal_ids,
-            num_terms: bm25_stats.num_terms,
+            num_terms_by_field: bm25_stats.num_terms_by_field,
             num_documents: bm25_stats.num_documents,
             or_terms,
             and_terms,

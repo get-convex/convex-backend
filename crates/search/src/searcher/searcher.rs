@@ -45,6 +45,8 @@ use pb::searchlight::{
     FragmentedTextSegmentPaths,
     FragmentedVectorSegmentPaths,
     MultiSegmentMetadata,
+    NumTermsByField,
+    PostingListQuery as PostingListQueryProto,
     QueryBm25StatsResponse,
     SingleSegmentMetadata,
     StorageKey,
@@ -61,7 +63,9 @@ use tantivy::{
         EnableScoring,
     },
     schema::Field,
+    InvertedIndexReader,
     SegmentReader,
+    TantivyError,
 };
 use text_search::tracker::{
     load_alive_bitset,
@@ -866,22 +870,25 @@ impl<RT: Runtime> SearcherImpl<RT> {
         deletion_tracker: &StaticDeletionTracker,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
-        let field = terms
-            .iter()
-            .map(|t| t.field())
-            .dedup()
-            .exactly_one()
-            .map_err(|_| anyhow::anyhow!("All terms must be in the same field"))?;
+        let fields: BTreeSet<Field> = terms.iter().map(|t| t.field()).collect();
+        let inverted_index_by_field: BTreeMap<_, _> = fields
+            .into_iter()
+            .map(|field| {
+                anyhow::Ok::<(Field, Arc<InvertedIndexReader>)>((
+                    field,
+                    segment.inverted_index(field)?,
+                ))
+            })
+            .try_collect()?;
 
-        let inverted_index = segment.inverted_index(field)?;
-        let term_dict = inverted_index.terms();
-        let num_terms = inverted_index
-            .total_num_tokens()
-            .checked_sub(deletion_tracker.num_terms_deleted(field) as u64)
-            .context("num_terms underflow")?;
         let num_documents = deletion_tracker.num_alive_docs() as u64;
         let mut doc_frequencies = BTreeMap::new();
         for term in terms {
+            let field = term.field();
+            let term_dict = inverted_index_by_field
+                .get(&field)
+                .context("Missing inverted index for field")?
+                .terms();
             if let Some(term_ord) = term_dict.term_ord(term.value_bytes())? {
                 let doc_freq = deletion_tracker.doc_frequency(field, term_dict, term_ord)?;
                 doc_frequencies.insert(term, doc_freq);
@@ -894,8 +901,19 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 doc_frequencies.insert(term, 0);
             }
         }
+
+        let num_terms_by_field = inverted_index_by_field
+            .into_iter()
+            .map(|(field, inverted_index)| {
+                let num_terms = inverted_index
+                    .total_num_tokens()
+                    .checked_sub(deletion_tracker.num_terms_deleted(field) as u64)
+                    .context("num_terms underflow")?;
+                Ok((field, num_terms))
+            })
+            .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
         let stats = Bm25Stats {
-            num_terms,
+            num_terms_by_field,
             num_documents,
             doc_frequencies,
         };
@@ -911,16 +929,8 @@ impl<RT: Runtime> SearcherImpl<RT> {
         deletion_tracker: &StaticDeletionTracker,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
-        let search_field = query
-            .or_terms
-            .iter()
-            .map(|t| t.term.field())
-            .dedup()
-            .exactly_one()
-            .map_err(|_| anyhow::anyhow!("All terms must be in the same field"))?;
         let stats_provider = StatsProvider {
-            search_field,
-            num_terms: query.num_terms,
+            num_terms_by_field: query.num_terms_by_field,
             num_documents: query.num_documents,
             doc_frequencies: query
                 .or_terms
@@ -997,22 +1007,18 @@ impl<RT: Runtime> SearcherImpl<RT> {
 }
 
 struct StatsProvider {
-    search_field: Field,
-
-    num_terms: u64,
+    num_terms_by_field: BTreeMap<Field, u64>,
     num_documents: u64,
     doc_frequencies: BTreeMap<Term, u64>,
 }
 
 impl Bm25StatisticsProvider for StatsProvider {
     fn total_num_tokens(&self, field: Field) -> tantivy::Result<u64> {
-        if field != self.search_field {
-            return Err(tantivy::TantivyError::InvalidArgument(format!(
-                "Invalid field {field:?} (expected {:?})",
-                self.search_field
-            )));
-        }
-        Ok(self.num_terms)
+        self.num_terms_by_field
+            .get(&field)
+            .copied()
+            .context("Missing search field")
+            .map_err(|e| TantivyError::InvalidArgument(e.to_string()))
     }
 
     fn total_num_docs(&self) -> tantivy::Result<u64> {
@@ -1234,15 +1240,18 @@ impl TryFrom<FragmentedVectorSegmentPaths> for FragmentedSegmentStorageKeys {
 
 #[derive(Debug)]
 pub struct Bm25Stats {
-    pub num_terms: u64,
+    /// The total number of terms in the inverted index for the field.
+    pub num_terms_by_field: BTreeMap<Field, u64>,
+    /// The total number of documents in the segment.
     pub num_documents: u64,
+    /// The number of documents that contain each term.
     pub doc_frequencies: BTreeMap<Term, u64>,
 }
 
 impl Bm25Stats {
     pub fn empty() -> Self {
         Self {
-            num_terms: 0,
+            num_terms_by_field: BTreeMap::new(),
             num_documents: 0,
             doc_frequencies: BTreeMap::new(),
         }
@@ -1260,46 +1269,72 @@ impl Add for Bm25Stats {
 
 impl AddAssign for Bm25Stats {
     fn add_assign(&mut self, rhs: Self) {
-        self.num_terms += rhs.num_terms;
+        for (field, num_terms) in rhs.num_terms_by_field {
+            *self.num_terms_by_field.entry(field).or_default() += num_terms;
+        }
         self.num_documents += rhs.num_documents;
         for (term, count) in rhs.doc_frequencies {
-            *self.doc_frequencies.entry(term).or_insert(0) += count;
+            *self.doc_frequencies.entry(term).or_default() += count;
         }
     }
 }
 
-impl TryFrom<Bm25Stats> for QueryBm25StatsResponse {
-    type Error = anyhow::Error;
-
-    fn try_from(value: Bm25Stats) -> Result<Self, Self::Error> {
-        let doc_frequencies = value
-            .doc_frequencies
+impl From<Bm25Stats> for QueryBm25StatsResponse {
+    fn from(
+        Bm25Stats {
+            num_terms_by_field,
+            num_documents,
+            doc_frequencies,
+        }: Bm25Stats,
+    ) -> Self {
+        let num_terms_by_field = num_terms_by_field
+            .into_iter()
+            .map(|(field, num_terms)| NumTermsByField {
+                field: Some(field.field_id()),
+                num_terms: Some(num_terms),
+            })
+            .collect();
+        let doc_frequencies = doc_frequencies
             .into_iter()
             .map(|(term, frequency)| pb::searchlight::DocFrequency {
                 term: term.as_slice().to_vec(),
                 frequency,
             })
             .collect();
-        Ok(QueryBm25StatsResponse {
-            num_terms: value.num_terms,
-            num_documents: value.num_documents,
+        QueryBm25StatsResponse {
+            num_terms_by_field,
+            num_documents,
             doc_frequencies,
-        })
+        }
     }
 }
 
 impl TryFrom<QueryBm25StatsResponse> for Bm25Stats {
     type Error = anyhow::Error;
 
-    fn try_from(value: QueryBm25StatsResponse) -> Result<Self, Self::Error> {
-        let doc_frequencies = value
-            .doc_frequencies
+    fn try_from(
+        QueryBm25StatsResponse {
+            num_terms_by_field,
+            num_documents,
+            doc_frequencies,
+        }: QueryBm25StatsResponse,
+    ) -> Result<Self, Self::Error> {
+        let num_terms_by_field = num_terms_by_field
+            .into_iter()
+            .map(|NumTermsByField { field, num_terms }| {
+                anyhow::Ok::<(Field, u64)>((
+                    Field::from_field_id(field.context("Missing field")?),
+                    num_terms.context("Missing num_terms")?,
+                ))
+            })
+            .try_collect()?;
+        let doc_frequencies = doc_frequencies
             .into_iter()
             .map(|df| (Term::wrap(df.term), df.frequency))
             .collect();
         Ok(Bm25Stats {
-            num_terms: value.num_terms,
-            num_documents: value.num_documents,
+            num_terms_by_field,
+            num_documents,
             doc_frequencies,
         })
     }
@@ -1309,7 +1344,7 @@ impl TryFrom<QueryBm25StatsResponse> for Bm25Stats {
 pub struct PostingListQuery {
     pub deleted_internal_ids: BTreeSet<InternalId>,
 
-    pub num_terms: u64,
+    pub num_terms_by_field: BTreeMap<Field, u64>,
     pub num_documents: u64,
 
     pub or_terms: Vec<OrTerm>,
@@ -1318,58 +1353,81 @@ pub struct PostingListQuery {
     pub max_results: usize,
 }
 
-impl TryFrom<pb::searchlight::PostingListQuery> for PostingListQuery {
+impl TryFrom<PostingListQueryProto> for PostingListQuery {
     type Error = anyhow::Error;
 
-    fn try_from(value: pb::searchlight::PostingListQuery) -> Result<Self, Self::Error> {
-        let deleted_internal_ids = value
-            .deleted_internal_ids
+    fn try_from(
+        PostingListQueryProto {
+            deleted_internal_ids,
+            num_terms_by_field,
+            num_documents,
+            or_terms,
+            and_terms,
+            max_results,
+        }: PostingListQueryProto,
+    ) -> Result<Self, Self::Error> {
+        let num_terms_by_field = num_terms_by_field
+            .into_iter()
+            .map(|NumTermsByField { field, num_terms }| {
+                anyhow::Ok::<(Field, u64)>((
+                    Field::from_field_id(field.context("Missing field")?),
+                    num_terms.context("Missing num_terms")?,
+                ))
+            })
+            .try_collect()?;
+        let deleted_internal_ids = deleted_internal_ids
             .into_iter()
             .map(|b| InternalId::try_from(&b[..]))
             .collect::<anyhow::Result<_>>()?;
-        let or_terms = value
-            .or_terms
-            .into_iter()
-            .map(|t| t.try_into())
-            .try_collect()?;
-        let and_terms = value.and_terms.into_iter().map(Term::wrap).collect();
+        let or_terms = or_terms.into_iter().map(|t| t.try_into()).try_collect()?;
+        let and_terms = and_terms.into_iter().map(Term::wrap).collect();
         Ok(PostingListQuery {
             deleted_internal_ids,
-            num_terms: value.num_terms,
-            num_documents: value.num_documents,
+            num_terms_by_field,
+            num_documents,
             or_terms,
             and_terms,
-            max_results: value.max_results as usize,
+            max_results: max_results as usize,
         })
     }
 }
 
-impl TryFrom<PostingListQuery> for pb::searchlight::PostingListQuery {
+impl TryFrom<PostingListQuery> for PostingListQueryProto {
     type Error = anyhow::Error;
 
-    fn try_from(value: PostingListQuery) -> Result<Self, Self::Error> {
-        let deleted_internal_ids = value
-            .deleted_internal_ids
+    fn try_from(
+        PostingListQuery {
+            deleted_internal_ids,
+            num_terms_by_field,
+            num_documents,
+            or_terms,
+            and_terms,
+            max_results,
+        }: PostingListQuery,
+    ) -> Result<Self, Self::Error> {
+        let deleted_internal_ids = deleted_internal_ids
             .into_iter()
             .map(|id| id.into())
             .collect();
-        let or_terms = value
-            .or_terms
+        let num_terms_by_field = num_terms_by_field
             .into_iter()
-            .map(|t| t.try_into())
-            .try_collect()?;
-        let and_terms = value
-            .and_terms
+            .map(|(field, num_terms)| NumTermsByField {
+                field: Some(field.field_id()),
+                num_terms: Some(num_terms),
+            })
+            .collect();
+        let or_terms = or_terms.into_iter().map(|t| t.try_into()).try_collect()?;
+        let and_terms = and_terms
             .into_iter()
             .map(|t| t.as_slice().to_vec())
             .collect();
-        Ok(pb::searchlight::PostingListQuery {
+        Ok(PostingListQueryProto {
             deleted_internal_ids,
-            num_terms: value.num_terms,
-            num_documents: value.num_documents,
+            num_terms_by_field,
+            num_documents,
             or_terms,
             and_terms,
-            max_results: value.max_results as u32,
+            max_results: max_results as u32,
         })
     }
 }
@@ -1704,7 +1762,7 @@ mod tests {
             deleted_internal_ids: BTreeSet::new(),
             or_terms,
             and_terms: vec![],
-            num_terms: stats.num_terms,
+            num_terms_by_field: stats.num_terms_by_field,
             num_documents: stats.num_documents,
             max_results,
         };
@@ -1949,7 +2007,7 @@ mod tests {
             deleted_internal_ids: BTreeSet::new(),
             or_terms,
             and_terms: vec![],
-            num_terms: stats.num_terms,
+            num_terms_by_field: stats.num_terms_by_field,
             num_documents: stats.num_documents,
             max_results,
         };
