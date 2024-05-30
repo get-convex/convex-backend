@@ -112,6 +112,7 @@ use crate::{
         FragmentedSegmentPrefetcher,
         FragmentedSegmentStorageKeys,
     },
+    incremental_index::fetch_compact_and_upload_text_segment,
     levenshtein_dfa::{
         build_fuzzy_dfa,
         LevenshteinDfaWrapper,
@@ -181,6 +182,12 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
         storage_keys: TextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>>;
+
+    async fn execute_text_compaction(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        segments: Vec<FragmentedTextStorageKeys>,
+    ) -> anyhow::Result<FragmentedTextSegment>;
 }
 
 /// The value of a tantivy `Term`, should only be constructed from
@@ -218,6 +225,7 @@ pub trait SegmentTermMetadataFetcher: Send + Sync + 'static {
 
 pub struct SearcherImpl<RT: Runtime> {
     pub(crate) archive_cache: ArchiveCacheManager<RT>,
+    rt: RT,
     segment_cache: SegmentCache<RT>,
     // A small thread pool whose size is aimed at capping the maximum memory size
     // from concurrent vector loads.
@@ -281,6 +289,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
             *MAX_CONCURRENT_VECTOR_SEGMENT_PREFETCHES,
         );
         Ok(Self {
+            rt: runtime.clone(),
             archive_cache,
             segment_cache: SegmentCache::new(
                 runtime,
@@ -571,6 +580,21 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         };
         let resp = self.text_search_pool.execute(query).await??;
         Ok(resp)
+    }
+
+    async fn execute_text_compaction(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        segments: Vec<FragmentedTextStorageKeys>,
+    ) -> anyhow::Result<FragmentedTextSegment> {
+        fetch_compact_and_upload_text_segment(
+            &self.rt,
+            search_storage,
+            self.archive_cache.clone(),
+            self.text_search_pool.clone(),
+            segments,
+        )
+        .await
     }
 }
 
@@ -1125,6 +1149,58 @@ pub struct FragmentedTextStorageKeys {
     pub id_tracker: ObjectKey,
     pub deleted_terms_table: ObjectKey,
     pub alive_bitset: ObjectKey,
+}
+
+impl TryFrom<FragmentedTextSegmentPaths> for FragmentedTextStorageKeys {
+    type Error = anyhow::Error;
+
+    fn try_from(value: FragmentedTextSegmentPaths) -> Result<Self, Self::Error> {
+        let from_path = |path: Option<StorageKey>| {
+            path.map(|p| p.storage_key)
+                .context("Missing path!")?
+                .try_into()
+        };
+        let segment = from_path(value.segment)?;
+        let segment_metadata = value.segment_metadata.context("Missing segment metadata")?;
+        let SegmentMetadata::MultiSegment(MultiSegmentMetadata {
+            id_tracker,
+            deleted_terms_table,
+            alive_bitset,
+        }) = segment_metadata
+        else {
+            anyhow::bail!("Expected multi segment metadata, but given single segment!");
+        };
+        let id_tracker = from_path(id_tracker)?;
+        let deleted_terms_table = from_path(deleted_terms_table)?;
+        let alive_bitset = from_path(alive_bitset)?;
+        Ok(Self {
+            segment,
+            id_tracker,
+            deleted_terms_table,
+            alive_bitset,
+        })
+    }
+}
+
+impl TryFrom<FragmentedTextStorageKeys> for FragmentedTextSegmentPaths {
+    type Error = anyhow::Error;
+
+    fn try_from(value: FragmentedTextStorageKeys) -> Result<Self, Self::Error> {
+        let segment_from = |segment_key: ObjectKey| {
+            Some(StorageKey {
+                storage_key: segment_key.into(),
+            })
+        };
+
+        Ok(Self {
+            segment: segment_from(value.segment),
+            segment_metadata: Some(SegmentMetadata::MultiSegment(MultiSegmentMetadata {
+                id_tracker: segment_from(value.id_tracker),
+                deleted_terms_table: segment_from(value.deleted_terms_table),
+                alive_bitset: segment_from(value.alive_bitset),
+            })),
+        })
+    }
 }
 
 impl TryFrom<FragmentedTextSegmentPaths> for TextStorageKeys {
@@ -2113,7 +2189,7 @@ mod tests {
         merged_strings_by_id.append(&mut test_index_2.strings_by_id.clone());
         let merged_index = TestIndex {
             strings_by_id: merged_strings_by_id,
-            segment_paths: Some(merged_paths),
+            segment_paths: Some(merged_paths.paths),
             previous_segment_dirs: vec![],
         };
         let mut posting_list_matches =

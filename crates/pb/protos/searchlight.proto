@@ -27,6 +27,10 @@ service Searchlight {
   // Given a AND + OR query of term pointers and BM25 statistics for the OR
   // terms, return the top `K` results with respect to BM25 score.
   rpc QueryPostingLists(QueryPostingListsRequest) returns (QueryPostingListsResponse);
+
+  // Given a set of text segments in a particular text index, merge them into a single segment, upload it and
+  // return pointers to the new segment.
+  rpc ExecuteTextCompaction(TextCompactionRequest) returns (TextCompactionResponse);
 }
 
 message QueryRequest {
@@ -114,6 +118,27 @@ message CandidateRevision {
   optional uint64 ts = 4;
   double creation_time = 5;
   bytes internal_id = 6;
+}
+
+
+message TextCompactionRequest {
+   repeated FragmentedTextSegmentPaths segments = 1;
+   StorageType storage_type = 2;
+}
+
+message FragmentedTextSegment {
+  StorageKey segment = 1;
+  StorageKey id_tracker = 2;
+  StorageKey deleted_terms_table = 3;
+  StorageKey alive_bitset = 4;
+  uint64 num_indexed_documents = 5;
+  uint64 num_deleted_documents = 6;
+  uint64 size_bytes_total = 7;
+  string id = 8;
+}
+
+message TextCompactionResponse {
+    FragmentedTextSegment segment = 1;
 }
 
 // Next field id: 6

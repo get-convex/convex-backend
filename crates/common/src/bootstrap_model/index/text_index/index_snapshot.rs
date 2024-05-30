@@ -1,3 +1,4 @@
+use anyhow::Context;
 use serde::{
     Deserialize,
     Serialize,
@@ -35,6 +36,62 @@ pub enum TextIndexSnapshotData {
     /// unintentionally when changing versions and rolling services
     /// backwards/forwards.
     Unknown(ConvexObject),
+}
+
+impl From<FragmentedTextSegment> for pb::searchlight::FragmentedTextSegment {
+    fn from(value: FragmentedTextSegment) -> Self {
+        fn storage_key_from_object_key(
+            object_key: ObjectKey,
+        ) -> Option<pb::searchlight::StorageKey> {
+            Some(pb::searchlight::StorageKey {
+                storage_key: object_key.into(),
+            })
+        }
+
+        Self {
+            segment: storage_key_from_object_key(value.segment_key),
+            id_tracker: storage_key_from_object_key(value.id_tracker_key),
+            deleted_terms_table: storage_key_from_object_key(value.deleted_terms_table_key),
+            alive_bitset: storage_key_from_object_key(value.alive_bitset_key),
+            num_indexed_documents: value.num_indexed_documents,
+            num_deleted_documents: value.num_deleted_documents,
+            size_bytes_total: value.size_bytes_total,
+            id: value.id,
+        }
+    }
+}
+
+impl TryFrom<pb::searchlight::FragmentedTextSegment> for FragmentedTextSegment {
+    type Error = anyhow::Error;
+
+    fn try_from(value: pb::searchlight::FragmentedTextSegment) -> Result<Self, Self::Error> {
+        Ok(Self {
+            segment_key: value
+                .segment
+                .context("Missing segment")?
+                .storage_key
+                .try_into()?,
+            id_tracker_key: value
+                .id_tracker
+                .context("Missing id tracker")?
+                .storage_key
+                .try_into()?,
+            deleted_terms_table_key: value
+                .deleted_terms_table
+                .context("Missing deleted terms")?
+                .storage_key
+                .try_into()?,
+            alive_bitset_key: value
+                .alive_bitset
+                .context("Missing alive bitset")?
+                .storage_key
+                .try_into()?,
+            num_indexed_documents: value.num_indexed_documents,
+            num_deleted_documents: value.num_deleted_documents,
+            size_bytes_total: value.size_bytes_total,
+            id: value.id,
+        })
+    }
 }
 
 #[cfg(any(test, feature = "testing"))]

@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use cmd_util::env::env_config;
 use common::{
     bootstrap_model::index::{
+        text_index::FragmentedTextSegment,
         vector_index::FragmentedVectorSegment,
         IndexMetadata,
     },
@@ -74,6 +75,7 @@ use search::{
     scoring::Bm25StatisticsDiff,
     searcher::{
         Bm25Stats,
+        FragmentedTextStorageKeys,
         InProcessSearcher,
         PostingListMatch,
         PostingListQuery,
@@ -1071,6 +1073,14 @@ impl Searcher for BrokenSearcher {
         _: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         anyhow::bail!("texte");
+    }
+
+    async fn execute_text_compaction(
+        &self,
+        _search_storage: Arc<dyn Storage>,
+        _segments: Vec<FragmentedTextStorageKeys>,
+    ) -> anyhow::Result<FragmentedTextSegment> {
+        anyhow::bail!("真不要")
     }
 }
 

@@ -5,7 +5,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use common::{
-    bootstrap_model::index::vector_index::FragmentedVectorSegment,
+    bootstrap_model::index::{
+        text_index::FragmentedTextSegment,
+        vector_index::FragmentedVectorSegment,
+    },
     runtime::Runtime,
     types::ObjectKey,
 };
@@ -30,6 +33,7 @@ use super::{
         TokenMatch,
         TokenQuery,
     },
+    FragmentedTextStorageKeys,
     TermDeletionsByField,
 };
 use crate::{
@@ -97,6 +101,14 @@ impl Searcher for SearcherStub {
         _query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         Ok(vec![])
+    }
+
+    async fn execute_text_compaction(
+        &self,
+        _search_storage: Arc<dyn Storage>,
+        _segments: Vec<FragmentedTextStorageKeys>,
+    ) -> anyhow::Result<FragmentedTextSegment> {
+        anyhow::bail!("Not implemented");
     }
 }
 
@@ -234,6 +246,16 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         self.searcher
             .query_posting_lists(search_storage, storage_keys, query)
+            .await
+    }
+
+    async fn execute_text_compaction(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        segments: Vec<FragmentedTextStorageKeys>,
+    ) -> anyhow::Result<FragmentedTextSegment> {
+        self.searcher
+            .execute_text_compaction(search_storage, segments)
             .await
     }
 }

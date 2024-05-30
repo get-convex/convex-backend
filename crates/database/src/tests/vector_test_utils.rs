@@ -4,6 +4,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
+        text_index::FragmentedTextSegment,
         vector_index::{
             FragmentedVectorSegment,
             VectorIndexBackfillState,
@@ -51,6 +52,7 @@ use search::{
     scoring::Bm25StatisticsDiff,
     searcher::{
         Bm25Stats,
+        FragmentedTextStorageKeys,
         InProcessSearcher,
         PostingListMatch,
         PostingListQuery,
@@ -612,6 +614,16 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         self.searcher
             .query_posting_lists(search_storage, storage_keys, query)
+            .await
+    }
+
+    async fn execute_text_compaction(
+        &self,
+        search_storage: Arc<dyn Storage>,
+        segments: Vec<FragmentedTextStorageKeys>,
+    ) -> anyhow::Result<FragmentedTextSegment> {
+        self.searcher
+            .execute_text_compaction(search_storage, segments)
             .await
     }
 }

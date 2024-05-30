@@ -40,7 +40,10 @@ use search::{
     build_new_segment,
     disk_index::upload_text_segment,
     metrics::SearchType,
-    searcher::SegmentTermMetadataFetcher,
+    searcher::{
+        FragmentedTextStorageKeys,
+        SegmentTermMetadataFetcher,
+    },
     NewTextSegment,
     PreviousTextSegments,
     Searcher,
@@ -268,12 +271,22 @@ impl SearchIndex for TextSearchIndex {
     }
 
     async fn execute_compaction(
-        _searcher: Arc<dyn Searcher>,
-        _search_storage: Arc<dyn Storage>,
+        searcher: Arc<dyn Searcher>,
+        search_storage: Arc<dyn Storage>,
         _config: &Self::DeveloperConfig,
-        _segments: &Vec<&Self::Segment>,
+        segments: &Vec<&Self::Segment>,
     ) -> anyhow::Result<Self::Segment> {
-        unimplemented!()
+        searcher
+            .execute_text_compaction(
+                search_storage,
+                segments
+                    .clone()
+                    .into_iter()
+                    .cloned()
+                    .map(FragmentedTextStorageKeys::from)
+                    .collect(),
+            )
+            .await
     }
 }
 

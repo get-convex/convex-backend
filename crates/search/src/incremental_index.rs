@@ -15,12 +15,15 @@ use anyhow::Context;
 use common::{
     async_compat::FuturesAsyncReadCompatExt,
     bootstrap_model::index::text_index::FragmentedTextSegment,
+    bounded_thread_pool::BoundedThreadPool,
     id_tracker::StaticIdTracker,
     persistence::DocumentRevisionStream,
+    runtime::Runtime,
     types::ObjectKey,
 };
 use futures::{
     stream,
+    FutureExt,
     StreamExt,
     TryStreamExt,
 };
@@ -40,6 +43,7 @@ use tantivy::{
 };
 use tempfile::TempDir;
 use text_search::tracker::{
+    load_alive_bitset,
     MemoryDeletionTracker,
     SearchMemoryIdTracker,
     SegmentTermMetadata,
@@ -47,14 +51,19 @@ use text_search::tracker::{
 use value::InternalId;
 
 use crate::{
-    archive::extract_zip,
+    archive::{
+        cache::ArchiveCacheManager,
+        extract_zip,
+    },
     constants::CONVEX_EN_TOKENIZER,
     convex_en,
     disk_index::{
         download_single_file_zip,
         upload_single_file,
+        upload_text_segment,
     },
     searcher::{
+        FragmentedTextStorageKeys,
         SegmentTermMetadataFetcher,
         TermDeletionsByField,
     },
@@ -476,11 +485,86 @@ pub struct SearchSegmentForMerge {
     pub id_tracker: StaticIdTracker,
 }
 
+pub async fn fetch_text_segment<RT: Runtime>(
+    archive_cache: ArchiveCacheManager<RT>,
+    storage: Arc<dyn Storage>,
+    keys: impl Into<FragmentedTextStorageKeys>,
+) -> anyhow::Result<TextSegmentPaths> {
+    let keys = keys.into();
+
+    let fetch_index_path = archive_cache.get(storage.clone(), &keys.segment, SearchFileType::Text);
+    let fetch_id_tracker_path = archive_cache.get_single_file(
+        storage.clone(),
+        &keys.id_tracker,
+        SearchFileType::TextIdTracker,
+    );
+    let fetch_alive_bitset_path = archive_cache.get_single_file(
+        storage.clone(),
+        &keys.alive_bitset,
+        SearchFileType::TextAliveBitset,
+    );
+    let fetch_deleted_terms = archive_cache.get_single_file(
+        storage.clone(),
+        &keys.deleted_terms_table,
+        SearchFileType::TextDeletedTerms,
+    );
+
+    let (index_path, id_tracker_path, alive_bit_set_path, deleted_terms_path) = futures::try_join!(
+        fetch_index_path,
+        fetch_id_tracker_path,
+        fetch_alive_bitset_path,
+        fetch_deleted_terms
+    )?;
+
+    Ok(TextSegmentPaths {
+        index_path,
+        id_tracker_path,
+        alive_bit_set_path,
+        deleted_terms_path,
+    })
+}
+
+pub fn open_text_segment_for_merge(
+    paths: TextSegmentPaths,
+) -> anyhow::Result<SearchSegmentForMerge> {
+    let id_tracker = StaticIdTracker::load_from_path(paths.id_tracker_path)?;
+    let alive_bitset = load_alive_bitset(&paths.alive_bit_set_path)?;
+
+    let index = Index::open_in_dir(paths.index_path)?;
+    Ok(SearchSegmentForMerge {
+        segment: index,
+        alive_bitset,
+        id_tracker,
+    })
+}
+pub async fn fetch_compact_and_upload_text_segment<RT: Runtime>(
+    rt: &RT,
+    storage: Arc<dyn Storage>,
+    cache: ArchiveCacheManager<RT>,
+    blocking_thread_pool: BoundedThreadPool<RT>,
+    segments: Vec<FragmentedTextStorageKeys>,
+) -> anyhow::Result<FragmentedTextSegment> {
+    let _storage = storage.clone();
+    let opened_segments: Vec<_> = stream::iter(segments)
+        .map(move |segment| fetch_text_segment(cache.clone(), storage.clone(), segment).boxed())
+        .buffer_unordered(20)
+        .and_then(|paths: TextSegmentPaths| {
+            let pool = blocking_thread_pool.clone();
+            async move { pool.execute(|| open_text_segment_for_merge(paths)).await? }
+        })
+        .try_collect()
+        .await?;
+
+    let dir = TempDir::new()?;
+    let new_segment = merge_segments(opened_segments, dir.path()).await?;
+    upload_text_segment(rt, _storage, new_segment).await
+}
+
 #[allow(dead_code)]
 pub async fn merge_segments(
     search_segments: Vec<SearchSegmentForMerge>,
     dir: &Path,
-) -> anyhow::Result<TextSegmentPaths> {
+) -> anyhow::Result<NewTextSegment> {
     let mut segments = vec![];
     let settings = search_segments
         .first()
@@ -533,15 +617,21 @@ pub async fn merge_segments(
     }
     let num_docs = new_segment_id_tracker.num_ids();
     let id_tracker_path = dir.to_path_buf().join(ID_TRACKER_PATH);
+    let num_indexed_documents = new_segment_id_tracker.num_ids() as u64;
     new_segment_id_tracker.write(&id_tracker_path)?;
     let tracker = MemoryDeletionTracker::new(num_docs as u32);
     let alive_bit_set_path = dir.to_path_buf().join(ALIVE_BITSET_PATH);
     let deleted_terms_path = dir.to_path_buf().join(DELETED_TERMS_PATH);
     tracker.write_to_path(&alive_bit_set_path, &deleted_terms_path)?;
-    Ok(TextSegmentPaths {
-        index_path: index_dir,
-        id_tracker_path,
-        alive_bit_set_path,
-        deleted_terms_path,
+    let size_bytes_total = get_size(&index_dir)?;
+    Ok(NewTextSegment {
+        num_indexed_documents,
+        paths: TextSegmentPaths {
+            index_path: index_dir,
+            id_tracker_path,
+            alive_bit_set_path,
+            deleted_terms_path,
+        },
+        size_bytes_total,
     })
 }
