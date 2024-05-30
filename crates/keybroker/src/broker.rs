@@ -459,7 +459,9 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
     ) -> Self {
         Self {
             instance_name: Some(instance_name),
-            member_id: Some(member_id.0),
+            principal: Some(pb::convex_identity::admin_identity::Principal::MemberId(
+                member_id.0,
+            )),
             key: Some(key),
         }
     }
@@ -470,9 +472,10 @@ impl AdminIdentity {
         let instance_name = msg
             .instance_name
             .ok_or_else(|| anyhow::anyhow!("Missing instance_name"))?;
-        let member_id = msg
-            .member_id
-            .ok_or_else(|| anyhow::anyhow!("Missing member_id"))?;
+        let member_id = match msg.principal {
+            Some(pb::convex_identity::admin_identity::Principal::MemberId(id)) => id,
+            _ => anyhow::bail!("Missing member_id"),
+        };
         let key = msg.key.ok_or_else(|| anyhow::anyhow!("Missing key"))?;
         Ok(Self {
             instance_name,
