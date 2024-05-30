@@ -1734,9 +1734,10 @@ mod tests {
         let revision_stream = futures::stream::iter(revisions).boxed();
         let mut previous_segments = PreviousTextSegments::default();
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt).await?);
+        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
 
         let new_segment = build_new_segment(
+            &rt,
             revision_stream,
             schema.clone(),
             test_dir.path(),
@@ -1929,9 +1930,10 @@ mod tests {
         // tests because they don't use the same directory that the indexes are stored
         // in, which means we must use empty PreviousTextSegments in these tests.
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt).await?);
+        let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
         let mut previous_segments = PreviousTextSegments::default();
         let new_segment = build_new_segment(
+            &rt,
             revision_stream,
             schema.clone(),
             index_dir,

@@ -564,6 +564,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             params.database.retention_validator(),
         );
         let new_segment = T::IndexType::build_disk_index(
+            &params.runtime,
             &qdrant_schema,
             &index_path,
             documents,

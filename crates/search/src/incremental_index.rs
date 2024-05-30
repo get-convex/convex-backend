@@ -18,15 +18,13 @@ use common::{
     bounded_thread_pool::BoundedThreadPool,
     id_tracker::StaticIdTracker,
     persistence::DocumentRevisionStream,
-    runtime::Runtime,
+    runtime::{
+        try_join_buffer_unordered,
+        Runtime,
+    },
     types::ObjectKey,
 };
-use futures::{
-    stream,
-    FutureExt,
-    StreamExt,
-    TryStreamExt,
-};
+use futures::TryStreamExt;
 use storage::{
     Storage,
     StorageExt,
@@ -303,7 +301,8 @@ impl PreviousTextSegments {
 /// Note the descending order requirement can be relaxed if the caller can
 /// guarantee that no deletes will be present in the stream. A caller can do so
 /// when providing this function with a stream from table iterator for example.
-pub async fn build_new_segment(
+pub async fn build_new_segment<RT: Runtime>(
+    rt: &RT,
     revision_stream: DocumentRevisionStream<'_>,
     tantivy_schema: TantivySearchIndexSchema,
     dir: &Path,
@@ -405,6 +404,7 @@ pub async fn build_new_segment(
     );
 
     let segments_term_metadata = get_all_segment_term_metadata(
+        rt,
         search_storage,
         segment_term_metadata_fetcher,
         term_deletes_by_segment,
@@ -447,7 +447,8 @@ fn get_size(path: &PathBuf) -> anyhow::Result<u64> {
     std::fs::read_dir(path)?.try_fold(0, |acc, curr| Ok(acc + get_size(&curr?.path())?))
 }
 
-async fn get_all_segment_term_metadata(
+async fn get_all_segment_term_metadata<RT: Runtime>(
+    rt: &RT,
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField>,
@@ -470,12 +471,9 @@ async fn get_all_segment_term_metadata(
             }
         },
     );
-    // TODO: Use `try_join_buffer_unordered` helper here. We couldn't figure out the
-    // higher-ranked lifetime error.
-    let segments_term_metadata: Vec<_> = stream::iter(segment_term_metadata_futs)
-        .buffer_unordered(10)
-        .try_collect::<Vec<_>>()
-        .await?;
+    let segments_term_metadata: Vec<_> =
+        try_join_buffer_unordered(rt.clone(), "text_term_metadata", segment_term_metadata_futs)
+            .await?;
     Ok(segments_term_metadata)
 }
 
@@ -545,15 +543,21 @@ pub async fn fetch_compact_and_upload_text_segment<RT: Runtime>(
     segments: Vec<FragmentedTextStorageKeys>,
 ) -> anyhow::Result<FragmentedTextSegment> {
     let _storage = storage.clone();
-    let opened_segments: Vec<_> = stream::iter(segments)
-        .map(move |segment| fetch_text_segment(cache.clone(), storage.clone(), segment).boxed())
-        .buffer_unordered(20)
-        .and_then(|paths: TextSegmentPaths| {
+    let opened_segments = try_join_buffer_unordered(
+        rt.clone(),
+        "text_segment_merge",
+        segments.into_iter().map(move |segment| {
             let pool = blocking_thread_pool.clone();
-            async move { pool.execute(|| open_text_segment_for_merge(paths)).await? }
-        })
-        .try_collect()
-        .await?;
+            let storage = storage.clone();
+            let cache = cache.clone();
+            let segment = segment.clone();
+            async move {
+                let paths = fetch_text_segment(cache, storage, segment).await?;
+                pool.execute(|| open_text_segment_for_merge(paths)).await?
+            }
+        }),
+    )
+    .await?;
 
     let dir = TempDir::new()?;
     let new_segment = merge_segments(opened_segments, dir.path()).await?;

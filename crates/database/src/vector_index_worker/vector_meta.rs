@@ -216,7 +216,8 @@ impl SearchIndex for VectorSearchIndex {
         schema.estimate_vector_size() as u64
     }
 
-    async fn build_disk_index(
+    async fn build_disk_index<RT: Runtime>(
+        _rt: &RT,
         schema: &Self::Schema,
         index_path: &PathBuf,
         documents: DocumentStream<'_>,

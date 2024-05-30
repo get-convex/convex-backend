@@ -208,7 +208,8 @@ impl SearchIndex for TextSearchIndex {
         schema.estimate_size(doc)
     }
 
-    async fn build_disk_index(
+    async fn build_disk_index<RT: Runtime>(
+        rt: &RT,
         schema: &Self::Schema,
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
@@ -222,6 +223,7 @@ impl SearchIndex for TextSearchIndex {
         let revision_stream = Box::pin(stream_revision_pairs(documents, &reader));
 
         build_new_segment(
+            rt,
             revision_stream,
             schema.clone(),
             index_path,

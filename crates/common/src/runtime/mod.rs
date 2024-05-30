@@ -112,10 +112,21 @@ pub async fn try_join_buffered<
         + Send
         + 'static,
 ) -> anyhow::Result<C> {
-    stream::iter(tasks.map(|task| try_join(rt.clone(), name, task)))
-        .buffered(JOIN_BUFFER_SIZE)
-        .try_collect()
-        .await
+    assert_send(
+        stream::iter(tasks.map(|task| assert_send(try_join(rt.clone(), name, assert_send(task)))))
+            .buffered(JOIN_BUFFER_SIZE)
+            .try_collect(),
+    )
+    .await
+}
+
+// Work around "higher-ranked lifetime errors" due to the borrow checker's
+// inability (bug) to determine that some futures are in fact send.  See
+// https://github.com/rust-lang/rust/issues/102211#issuecomment-1367900125
+fn assert_send<'a, T>(
+    fut: impl 'a + Send + Future<Output = T>,
+) -> impl 'a + Send + Future<Output = T> {
+    fut
 }
 
 pub async fn try_join_buffer_unordered<
@@ -129,10 +140,12 @@ pub async fn try_join_buffer_unordered<
         + Send
         + 'static,
 ) -> anyhow::Result<C> {
-    stream::iter(tasks.map(|task| try_join(rt.clone(), name, task)))
-        .buffer_unordered(JOIN_BUFFER_SIZE)
-        .try_collect()
-        .await
+    assert_send(
+        stream::iter(tasks.map(|task| try_join(rt.clone(), name, task)))
+            .buffer_unordered(JOIN_BUFFER_SIZE)
+            .try_collect(),
+    )
+    .await
 }
 
 pub async fn try_join<RT: Runtime, T: Send + 'static>(

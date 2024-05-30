@@ -103,7 +103,8 @@ pub trait SearchIndex: Clone + Debug {
 
     fn estimate_document_size(schema: &Self::Schema, doc: &ResolvedDocument) -> u64;
 
-    async fn build_disk_index(
+    async fn build_disk_index<RT: Runtime>(
+        rt: &RT,
         schema: &Self::Schema,
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
