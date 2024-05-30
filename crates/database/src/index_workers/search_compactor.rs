@@ -204,7 +204,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
         log_compaction_total_segments(total_compacted_segments, Self::search_type());
 
         let new_segment = self
-            .compact(&job.developer_config, &segments_to_compact)
+            .compact(&job.developer_config, segments_to_compact.clone())
             .await?;
         let stats = new_segment.statistics()?;
 
@@ -216,11 +216,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
                 job.index_id,
                 job.index_name,
                 snapshot_ts,
-                segments_to_compact
-                    .clone()
-                    .into_iter()
-                    .cloned()
-                    .collect_vec(),
+                segments_to_compact.clone(),
                 new_segment.clone(),
                 *SEARCH_WORKER_PASSIVE_PAGES_PER_SECOND,
             )
@@ -304,9 +300,13 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
         developer_config: &'a <T::IndexType as SearchIndex>::DeveloperConfig,
         compaction_config: &CompactionConfig,
     ) -> anyhow::Result<(
-        Vec<&'a <T::IndexType as SearchIndex>::Segment>,
+        Vec<<T::IndexType as SearchIndex>::Segment>,
         CompactionReason,
     )> {
+        fn to_owned<R: Clone>(borrowed: Vec<&R>) -> Vec<R> {
+            borrowed.into_iter().cloned().collect_vec()
+        }
+
         let segments_and_sizes = segments
             .iter()
             .map(|segment| Ok((segment, segment.total_size_bytes(developer_config)?)))
@@ -327,7 +327,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
         let compact_small =
             Self::max_compactable_segments(small_segments, developer_config, compaction_config)?;
         if let Some(compact_small) = compact_small {
-            return Ok((compact_small, CompactionReason::SmallSegments));
+            return Ok((to_owned(compact_small), CompactionReason::SmallSegments));
         }
         // Next check to see if we have too many larger segments and if so, compact
         // them.
@@ -341,7 +341,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
             compaction_config,
         )?;
         if let Some(compact_large) = compact_large {
-            return Ok((compact_large, CompactionReason::LargeSegments));
+            return Ok((to_owned(compact_large), CompactionReason::LargeSegments));
         }
 
         // Finally check to see if any individual segment has a large number of deleted
@@ -361,7 +361,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
             })?
             .map(|(segment, _)| vec![segment]);
         if let Some(compact_deletes) = compact_deletes {
-            return Ok((compact_deletes, CompactionReason::Deletes));
+            return Ok((to_owned(compact_deletes), CompactionReason::Deletes));
         }
         tracing::trace!(
             "Found no segments to compact, segments: {:#?}",
@@ -396,7 +396,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
     async fn compact(
         &self,
         developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
-        segments: &Vec<&<T::IndexType as SearchIndex>::Segment>,
+        segments: Vec<<T::IndexType as SearchIndex>::Segment>,
     ) -> anyhow::Result<<T::IndexType as SearchIndex>::Segment> {
         let total_segment_size_bytes: u64 = segments
             .iter()

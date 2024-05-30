@@ -137,7 +137,7 @@ pub trait SearchIndex: Clone + Debug {
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
         config: &Self::DeveloperConfig,
-        segments: &Vec<&Self::Segment>,
+        segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::Segment>;
 }
 

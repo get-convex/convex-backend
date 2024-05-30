@@ -276,15 +276,13 @@ impl SearchIndex for TextSearchIndex {
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
         _config: &Self::DeveloperConfig,
-        segments: &Vec<&Self::Segment>,
+        segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::Segment> {
         searcher
             .execute_text_compaction(
                 search_storage,
                 segments
-                    .clone()
                     .into_iter()
-                    .cloned()
                     .map(FragmentedTextStorageKeys::from)
                     .collect(),
             )

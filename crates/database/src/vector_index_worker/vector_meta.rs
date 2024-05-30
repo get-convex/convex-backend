@@ -280,12 +280,10 @@ impl SearchIndex for VectorSearchIndex {
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
         config: &Self::DeveloperConfig,
-        segments: &Vec<&Self::Segment>,
+        segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::Segment> {
         let protos: Vec<pb::searchlight::FragmentedVectorSegmentPaths> = segments
-            .iter()
-            .cloned()
-            .cloned()
+            .into_iter()
             .map(|segment| segment.to_paths_proto())
             .collect::<anyhow::Result<Vec<_>>>()?;
         searcher
