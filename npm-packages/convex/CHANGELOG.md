@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.12.1
+
+- Fix bug where `npx convex deploy` and `npx convex dev` would incorrectly skip
+  pushing if the only change was removing files
+
 ## 1.12.0
 
 - `npx convex env set` works with `ENV_VAR_NAME=value` syntax
