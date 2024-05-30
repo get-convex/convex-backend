@@ -332,7 +332,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OrTerm {
     pub term: Term,
     pub doc_frequency: u64,

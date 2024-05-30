@@ -449,7 +449,9 @@ impl TantivySearchIndexSchema {
             };
             token_queries.push(query);
         }
+        let mut exist_filter_conditions = false;
         for CompiledFilterCondition::Must(term) in compiled_query.filter_conditions {
+            exist_filter_conditions = true;
             let query = TokenQuery {
                 term,
                 max_distance: 0,
@@ -502,8 +504,14 @@ impl TantivySearchIndexSchema {
             *existing_key = cmp::min(*existing_key, sort_key);
         }
         let terms = results_by_term.keys().cloned().collect_vec();
-        // No matches, nothing left to do!
-        if terms.is_empty() {
+        // If there are no matches, short-circuit and return an empty result.
+        let no_and_tokens_present = results_by_term
+            .iter()
+            .filter(|(_, (_, _, token_ord))| *token_ord >= num_text_query_terms)
+            .count()
+            == 0;
+        let no_filter_matches = exist_filter_conditions && no_and_tokens_present;
+        if terms.is_empty() || no_filter_matches {
             return Ok(vec![]);
         }
 

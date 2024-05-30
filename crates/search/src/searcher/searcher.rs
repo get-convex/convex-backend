@@ -1340,7 +1340,7 @@ impl TryFrom<QueryBm25StatsResponse> for Bm25Stats {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PostingListQuery {
     pub deleted_internal_ids: BTreeSet<InternalId>,
 

@@ -689,6 +689,70 @@ async fn test_querying_with_zero_documents(rt: TestRuntime) -> anyhow::Result<()
     anyhow::Ok(())
 }
 
+#[convex_macro::test_runtime]
+async fn test_filtering_match(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        .patch(TestKey::A, vec![TestValue::A], TestValue::A)
+        .await?;
+    scenario
+        .execute(TestAction::QueryAndCheckScores(TestQuery {
+            search: vec![TestValue::A],
+            filter: Some(TestValue::A),
+        }))
+        .await?;
+    anyhow::Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_filtering_no_match(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        .patch(TestKey::A, vec![TestValue::A], TestValue::A)
+        .await?;
+    scenario
+        .execute(TestAction::QueryAndCheckScores(TestQuery {
+            search: vec![TestValue::A],
+            filter: Some(TestValue::B),
+        }))
+        .await?;
+    anyhow::Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_filtering_match_deleted(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        .patch(TestKey::A, vec![TestValue::A], TestValue::A)
+        .await?;
+    scenario.execute(TestAction::Delete(TestKey::A)).await?;
+    scenario
+        .execute(TestAction::QueryAndCheckScores(TestQuery {
+            search: vec![TestValue::A],
+            filter: Some(TestValue::A),
+        }))
+        .await?;
+    anyhow::Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_filtering_match_updates(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        .patch(TestKey::A, vec![TestValue::A], TestValue::A)
+        .await?;
+    scenario
+        .patch(TestKey::A, vec![TestValue::A], TestValue::B)
+        .await?;
+    scenario
+        .execute(TestAction::QueryAndCheckScores(TestQuery {
+            search: vec![TestValue::A],
+            filter: Some(TestValue::A),
+        }))
+        .await?;
+    anyhow::Ok(())
+}
+
 // Regression test: We had a bug where we were computing the index of a matching
 // union term incorrectly.
 //
