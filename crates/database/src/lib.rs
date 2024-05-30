@@ -82,10 +82,7 @@ pub use transaction_index::{
     SearchIndexManagerSnapshot,
     TransactionSearchSnapshot,
 };
-pub use vector_index_worker::{
-    compactor::VectorIndexCompactor,
-    flusher::VectorIndexFlusher,
-};
+pub use vector_index_worker::flusher::VectorIndexFlusher;
 pub use write_limits::BiggestDocumentWrites;
 pub use write_log::{
     LogReader,

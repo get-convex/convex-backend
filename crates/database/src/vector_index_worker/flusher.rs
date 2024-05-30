@@ -161,6 +161,7 @@ mod tests {
     };
     use crate::{
         bootstrap_model::index_workers::IndexWorkerMetadataModel,
+        index_workers::search_compactor::CompactionConfig,
         test_helpers::DbFixtures,
         tests::vector_test_utils::{
             add_document_vec,
@@ -169,7 +170,6 @@ mod tests {
             IndexData,
             VectorFixtures,
         },
-        vector_index_worker::compactor::CompactionConfig,
         Database,
         IndexModel,
         SystemMetadataModel,

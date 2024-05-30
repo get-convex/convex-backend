@@ -87,7 +87,7 @@ use crate::{
         VectorFixtures,
     },
     vector_index_worker::{
-        compactor::VectorIndexCompactor2,
+        compactor::compactor_vector_indexes_in_test,
         flusher::{
             backfill_vector_indexes,
             new_vector_flusher_for_tests,
@@ -208,7 +208,7 @@ impl<RT: Runtime> Scenario<RT> {
     }
 
     async fn compact(&mut self) -> anyhow::Result<()> {
-        VectorIndexCompactor2::process_all_in_test(
+        compactor_vector_indexes_in_test(
             self.rt.clone(),
             self.database.clone(),
             self.search_storage.clone(),

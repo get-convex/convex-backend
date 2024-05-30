@@ -31,6 +31,7 @@ use crate::{
             retry_loop_expect_occs_and_overloaded,
             RetriableWorker,
         },
+        search_compactor::CompactionConfig,
         timeout_with_jitter,
         writer::SearchIndexMetadataWriter,
     },
@@ -41,8 +42,8 @@ use crate::{
     },
     vector_index_worker::{
         compactor::{
-            CompactionConfig,
-            VectorIndexCompactor2,
+            new_vector_compactor,
+            VectorIndexCompactor,
         },
         flusher::new_vector_flusher,
     },
@@ -54,7 +55,7 @@ use crate::{
 /// Builds and compacts text/vector search indexes.
 pub enum SearchIndexWorker<RT: Runtime> {
     VectorFlusher(VectorIndexFlusher<RT>),
-    VectorCompactor(VectorIndexCompactor2<RT>),
+    VectorCompactor(VectorIndexCompactor<RT>),
     TextFlusher(TextIndexFlusher<RT>),
     TextFlusher2(TextIndexFlusher2<RT>),
 }
@@ -105,7 +106,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             runtime.clone(),
             database.clone(),
             Duration::ZERO,
-            SearchIndexWorker::VectorCompactor(VectorIndexCompactor2::new(
+            SearchIndexWorker::VectorCompactor(new_vector_compactor(
                 database.clone(),
                 searcher,
                 search_storage.clone(),
