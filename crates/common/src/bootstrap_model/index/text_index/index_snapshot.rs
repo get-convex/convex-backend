@@ -53,10 +53,10 @@ impl From<FragmentedTextSegment> for pb::searchlight::FragmentedTextSegment {
             id_tracker: storage_key_from_object_key(value.id_tracker_key),
             deleted_terms_table: storage_key_from_object_key(value.deleted_terms_table_key),
             alive_bitset: storage_key_from_object_key(value.alive_bitset_key),
-            num_indexed_documents: value.num_indexed_documents,
-            num_deleted_documents: value.num_deleted_documents,
-            size_bytes_total: value.size_bytes_total,
-            id: value.id,
+            num_indexed_documents: Some(value.num_indexed_documents),
+            num_deleted_documents: Some(value.num_deleted_documents),
+            size_bytes_total: Some(value.size_bytes_total),
+            id: Some(value.id),
         }
     }
 }
@@ -86,10 +86,10 @@ impl TryFrom<pb::searchlight::FragmentedTextSegment> for FragmentedTextSegment {
                 .context("Missing alive bitset")?
                 .storage_key
                 .try_into()?,
-            num_indexed_documents: value.num_indexed_documents,
-            num_deleted_documents: value.num_deleted_documents,
-            size_bytes_total: value.size_bytes_total,
-            id: value.id,
+            num_indexed_documents: value.num_indexed_documents.context("Missing num indexed")?,
+            num_deleted_documents: value.num_deleted_documents.context("Missing num deleted")?,
+            size_bytes_total: value.size_bytes_total.context("Missing size bytes total")?,
+            id: value.id.context("Missing id")?,
         })
     }
 }

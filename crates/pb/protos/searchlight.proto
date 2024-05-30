@@ -127,14 +127,14 @@ message TextCompactionRequest {
 }
 
 message FragmentedTextSegment {
-  StorageKey segment = 1;
-  StorageKey id_tracker = 2;
-  StorageKey deleted_terms_table = 3;
-  StorageKey alive_bitset = 4;
-  uint64 num_indexed_documents = 5;
-  uint64 num_deleted_documents = 6;
-  uint64 size_bytes_total = 7;
-  string id = 8;
+  optional StorageKey segment = 1;
+  optional StorageKey id_tracker = 2;
+  optional StorageKey deleted_terms_table = 3;
+  optional StorageKey alive_bitset = 4;
+  optional uint64 num_indexed_documents = 5;
+  optional uint64 num_deleted_documents = 6;
+  optional uint64 size_bytes_total = 7;
+  optional string id = 8;
 }
 
 message TextCompactionResponse {
