@@ -98,7 +98,7 @@ use value::{
 };
 
 use crate::{
-    admin::must_be_admin_from_keybroker,
+    admin::must_be_admin_from_key,
     deploy_config::{
         analyze_modules,
         ModuleJson,
@@ -335,11 +335,12 @@ pub async fn start_push_handler(
     st: &LocalAppState,
     config_json: ProjectConfigJson,
 ) -> anyhow::Result<StartPushResponse> {
-    let identity = must_be_admin_from_keybroker(
-        st.application.key_broker(),
-        Some(st.instance_name.clone()),
+    let identity = must_be_admin_from_key(
+        st.application.app_auth(),
+        st.instance_name.clone(),
         config_json.admin_key.clone(),
-    )?;
+    )
+    .await?;
 
     let rt = st.application.runtime();
     let rng_seed = rt.with_rng(|rng| rng.gen());
@@ -573,11 +574,12 @@ async fn finish_push_handler(
     req: FinishPushRequest,
 ) -> anyhow::Result<FinishPushDiff> {
     let start_push = StartPushResponse::try_from(req.start_push)?;
-    let _identity = must_be_admin_from_keybroker(
-        st.application.key_broker(),
-        Some(st.instance_name.clone()),
+    let _identity = must_be_admin_from_key(
+        st.application.app_auth(),
+        st.instance_name.clone(),
         req.admin_key.clone(),
-    )?;
+    )
+    .await?;
 
     // TODO: Verify that hash matches (env variables, schema, component tree).
 
