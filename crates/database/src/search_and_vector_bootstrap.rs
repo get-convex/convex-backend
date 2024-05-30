@@ -539,8 +539,7 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
                 }
             });
         let indexes_with_fast_forward_ts =
-            try_join_buffer_unordered(self.runtime.clone(), "get_index_futs", get_index_futs)
-                .await?;
+            try_join_buffer_unordered(&self.runtime, "get_index_futs", get_index_futs).await?;
         let indexes_to_bootstrap = IndexesToBootstrap::create(
             self.persistence.upper_bound(),
             indexes_with_fast_forward_ts,

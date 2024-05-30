@@ -122,13 +122,13 @@ pub trait SearchIndex: Clone + Debug {
         Self: Sized;
 
     async fn download_previous_segments<RT: Runtime>(
-        rt: RT,
+        rt: &RT,
         storage: Arc<dyn Storage>,
         segment: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments>;
 
     async fn upload_previous_segments<RT: Runtime>(
-        rt: RT,
+        rt: &RT,
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>>;

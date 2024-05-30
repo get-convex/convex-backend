@@ -313,7 +313,7 @@ impl<RT: Runtime> ExportWorker<RT> {
     }
 
     async fn upload_tables(
-        runtime: RT,
+        runtime: &RT,
         storage: Arc<dyn Storage>,
         format: ExportFormat,
         tables: BTreeMap<TabletId, (TableNumber, TableName, TableSummary)>,
@@ -398,7 +398,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             },
             ExportFormat::CleanJsonl | ExportFormat::InternalJson => {
                 let mut table_uploads = Self::upload_tables(
-                    self.runtime.clone(),
+                    &self.runtime,
                     self.storage.clone(),
                     format,
                     tables.clone(),
@@ -440,8 +440,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         }
                     });
                 let table_object_keys: BTreeMap<_, _> =
-                    try_join_buffered(self.runtime.clone(), "table_uploads", complete_upload_futs)
-                        .await?;
+                    try_join_buffered(&self.runtime, "table_uploads", complete_upload_futs).await?;
                 tracing::info!(
                     "Export succeeded! {} snapshots written to storage. Format: {format:?}",
                     tablet_ids.len()

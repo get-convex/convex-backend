@@ -106,14 +106,14 @@ pub async fn try_join_buffered<
     T: Send + 'static,
     C: Default + Send + 'static + Extend<T>,
 >(
-    rt: RT,
+    rt: &RT,
     name: &'static str,
     tasks: impl Iterator<Item = impl Future<Output = anyhow::Result<T>> + Send + 'static>
         + Send
         + 'static,
 ) -> anyhow::Result<C> {
     assert_send(
-        stream::iter(tasks.map(|task| assert_send(try_join(rt.clone(), name, assert_send(task)))))
+        stream::iter(tasks.map(|task| assert_send(try_join(rt, name, assert_send(task)))))
             .buffered(JOIN_BUFFER_SIZE)
             .try_collect(),
     )
@@ -134,14 +134,14 @@ pub async fn try_join_buffer_unordered<
     T: Send + 'static,
     C: Default + Send + 'static + Extend<T>,
 >(
-    rt: RT,
+    rt: &RT,
     name: &'static str,
     tasks: impl Iterator<Item = impl Future<Output = anyhow::Result<T>> + Send + 'static>
         + Send
         + 'static,
 ) -> anyhow::Result<C> {
     assert_send(
-        stream::iter(tasks.map(|task| try_join(rt.clone(), name, task)))
+        stream::iter(tasks.map(|task| try_join(rt, name, task)))
             .buffer_unordered(JOIN_BUFFER_SIZE)
             .try_collect(),
     )
@@ -149,7 +149,7 @@ pub async fn try_join_buffer_unordered<
 }
 
 pub async fn try_join<RT: Runtime, T: Send + 'static>(
-    rt: RT,
+    rt: &RT,
     name: &'static str,
     fut: impl Future<Output = anyhow::Result<T>> + Send + 'static,
 ) -> anyhow::Result<T> {

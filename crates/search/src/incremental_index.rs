@@ -472,8 +472,7 @@ async fn get_all_segment_term_metadata<RT: Runtime>(
         },
     );
     let segments_term_metadata: Vec<_> =
-        try_join_buffer_unordered(rt.clone(), "text_term_metadata", segment_term_metadata_futs)
-            .await?;
+        try_join_buffer_unordered(rt, "text_term_metadata", segment_term_metadata_futs).await?;
     Ok(segments_term_metadata)
 }
 
@@ -544,7 +543,7 @@ pub async fn fetch_compact_and_upload_text_segment<RT: Runtime>(
 ) -> anyhow::Result<FragmentedTextSegment> {
     let _storage = storage.clone();
     let opened_segments = try_join_buffer_unordered(
-        rt.clone(),
+        rt,
         "text_segment_merge",
         segments.into_iter().map(move |segment| {
             let pool = blocking_thread_pool.clone();

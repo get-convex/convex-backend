@@ -552,7 +552,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         };
 
         let mut mutable_previous_segments = T::IndexType::download_previous_segments(
-            params.runtime.clone(),
+            &params.runtime,
             params.storage.clone(),
             previous_segments,
         )
@@ -575,7 +575,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         .await?;
 
         let updated_previous_segments = T::IndexType::upload_previous_segments(
-            params.runtime.clone(),
+            &params.runtime,
             params.storage,
             mutable_previous_segments,
         )

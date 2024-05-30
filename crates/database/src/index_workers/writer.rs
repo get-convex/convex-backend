@@ -567,8 +567,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             ),
         );
         let mut previous_segments =
-            T::download_previous_segments(runtime.clone(), storage.clone(), segments_to_update)
-                .await?;
+            T::download_previous_segments(&runtime, storage.clone(), segments_to_update).await?;
         let mut documents = database.load_documents_in_table(
             *index_name.table(),
             TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(current_ts)))?,
@@ -582,6 +581,6 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             }
         }
 
-        T::upload_previous_segments(runtime, storage, previous_segments).await
+        T::upload_previous_segments(&runtime, storage, previous_segments).await
     }
 }

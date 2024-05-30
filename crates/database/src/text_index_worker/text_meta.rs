@@ -169,7 +169,7 @@ impl SearchIndex for TextSearchIndex {
     }
 
     async fn download_previous_segments<RT: Runtime>(
-        rt: RT,
+        rt: &RT,
         storage: Arc<dyn Storage>,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments> {
@@ -189,7 +189,7 @@ impl SearchIndex for TextSearchIndex {
     }
 
     async fn upload_previous_segments<RT: Runtime>(
-        rt: RT,
+        rt: &RT,
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>> {
