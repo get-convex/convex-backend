@@ -1,4 +1,5 @@
 use std::{
+    cmp,
     collections::BTreeMap,
     sync::Arc,
 };
@@ -124,7 +125,10 @@ impl<RT: Runtime> TryFrom<TransactionIngredients<RT>> for Transaction<RT> {
         }: TransactionIngredients<RT>,
     ) -> Result<Self, Self::Error> {
         let id_generator = TransactionIdGenerator::new(&rt)?;
-        let creation_time = CreationTime::try_from(*ts)?;
+        // The transaction timestamp might be few minutes behind if the backend
+        // has been idle. Make sure creation time is always recent. Existing writes to
+        // the transaction will advance next_creation_time in `merge_writes` below.
+        let creation_time = CreationTime::try_from(cmp::max(*ts, rt.generate_timestamp()?))?;
         let transaction_index = TransactionIndex::new(
             index_registry,
             database_index_snapshot,
