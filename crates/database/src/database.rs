@@ -1632,7 +1632,14 @@ impl<RT: Runtime> Database<RT> {
         );
         anyhow::ensure!(rows_read_limit >= rows_returned_limit);
         let snapshot = match snapshot {
-            Some(ts) => self.now_ts_for_reads().prior_ts(ts)?,
+            Some(ts) => {
+                self.now_ts_for_reads()
+                    .prior_ts(ts)
+                    .context(ErrorMetadata::bad_request(
+                        "SnapshotTooNew",
+                        format!("Snapshot value {ts} is in the future."),
+                    ))?
+            },
             None => self.now_ts_for_reads(),
         };
         let table_mapping = self.snapshot_table_mapping(snapshot).await?;
