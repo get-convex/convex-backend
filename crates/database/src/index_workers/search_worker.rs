@@ -36,9 +36,16 @@ use crate::{
         writer::SearchIndexMetadataWriter,
     },
     metrics::log_worker_starting,
-    text_index_worker::flusher2::{
-        new_text_flusher,
-        TextIndexFlusher2,
+    text_index_worker::{
+        compactor::{
+            new_text_compactor,
+            TextIndexCompactor,
+        },
+        flusher2::{
+            new_text_flusher,
+            TextIndexFlusher2,
+        },
+        TextIndexMetadataWriter,
     },
     vector_index_worker::{
         compactor::{
@@ -58,6 +65,7 @@ pub enum SearchIndexWorker<RT: Runtime> {
     VectorCompactor(VectorIndexCompactor<RT>),
     TextFlusher(TextIndexFlusher<RT>),
     TextFlusher2(TextIndexFlusher2<RT>),
+    TextCompactor(TextIndexCompactor<RT>),
 }
 
 #[async_trait]
@@ -82,11 +90,13 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     ) {
-        let vector_writer = SearchIndexMetadataWriter::new(
+        let vector_index_metadata_writer = SearchIndexMetadataWriter::new(
             runtime.clone(),
             database.clone(),
             search_storage.clone(),
         );
+        let text_index_metadata_writer =
+            TextIndexMetadataWriter::new(runtime.clone(), database.clone(), search_storage.clone());
         let vector_flush = retry_loop_expect_occs_and_overloaded(
             "VectorFlusher",
             runtime.clone(),
@@ -98,7 +108,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 database.clone(),
                 reader.clone(),
                 search_storage.clone(),
-                vector_writer.clone(),
+                vector_index_metadata_writer.clone(),
             )),
         );
         let vector_compact = retry_loop_expect_occs_and_overloaded(
@@ -108,10 +118,10 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             Duration::ZERO,
             SearchIndexWorker::VectorCompactor(new_vector_compactor(
                 database.clone(),
-                searcher,
+                searcher.clone(),
                 search_storage.clone(),
                 CompactionConfig::default(),
-                vector_writer,
+                vector_index_metadata_writer.clone(),
             )),
         );
         let text_flusher = if *BUILD_MULTI_SEGMENT_TEXT_INDEXES {
@@ -119,14 +129,15 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 runtime.clone(),
                 database.clone(),
                 reader,
-                search_storage,
+                search_storage.clone(),
                 segment_term_metadata_fetcher,
+                text_index_metadata_writer.clone(),
             ))
         } else {
             SearchIndexWorker::TextFlusher(TextIndexFlusher::new(
                 runtime.clone(),
                 database.clone(),
-                search_storage,
+                search_storage.clone(),
             ))
         };
         let search_flush = retry_loop_expect_occs_and_overloaded(
@@ -137,7 +148,26 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             text_flusher,
         );
 
-        join!(vector_flush, vector_compact, search_flush);
+        let text_compact = retry_loop_expect_occs_and_overloaded(
+            "TextCompactor",
+            runtime,
+            database.clone(),
+            Duration::ZERO,
+            SearchIndexWorker::TextCompactor(new_text_compactor(
+                database,
+                searcher,
+                search_storage,
+                CompactionConfig::default(),
+                text_index_metadata_writer,
+            )),
+        );
+        let text_compact = async move {
+            if *BUILD_MULTI_SEGMENT_TEXT_INDEXES {
+                text_compact.await;
+            }
+        };
+
+        join!(vector_flush, vector_compact, search_flush, text_compact);
     }
 
     async fn work_and_wait_for_changes(
@@ -154,6 +184,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 SearchIndexWorker::VectorCompactor(compactor) => compactor.step().await?,
                 SearchIndexWorker::TextFlusher(flusher) => flusher.step().await?,
                 SearchIndexWorker::TextFlusher2(flusher) => flusher.step().await?,
+                SearchIndexWorker::TextCompactor(compactor) => compactor.step().await?,
             };
             drop(status);
 

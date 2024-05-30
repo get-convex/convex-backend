@@ -38,6 +38,7 @@ use maplit::btreeset;
 use must_let::must_let;
 use search::{
     searcher::InProcessSearcher,
+    Searcher,
     SegmentTermMetadataFetcher,
     MAX_CANDIDATE_REVISIONS,
 };
@@ -52,13 +53,22 @@ use value::{
 };
 
 use crate::{
+    index_workers::search_compactor::CompactionConfig,
     test_helpers::{
         DbFixtures,
         DbFixturesArgs,
     },
-    text_index_worker::flusher2::{
-        FlusherBuilder,
-        TextIndexFlusher2,
+    text_index_worker::{
+        compactor::{
+            new_text_compactor_for_tests,
+            TextIndexCompactor,
+        },
+        flusher2::{
+            backfill_text_indexes,
+            FlusherBuilder,
+            TextIndexFlusher2,
+        },
+        TextIndexMetadataWriter,
     },
     Database,
     IndexModel,
@@ -73,17 +83,28 @@ pub struct TextFixtures {
     pub storage: Arc<dyn Storage>,
     pub db: Database<TestRuntime>,
     pub reader: Arc<dyn PersistenceReader>,
+    searcher: Arc<dyn Searcher>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+    writer: TextIndexMetadataWriter<TestRuntime>,
     namespace: TableNamespace,
+    config: CompactionConfig,
 }
 
 impl TextFixtures {
     pub async fn new(rt: TestRuntime) -> anyhow::Result<Self> {
+        Self::new_with_config(rt, CompactionConfig::default()).await
+    }
+
+    pub async fn new_with_config(
+        rt: TestRuntime,
+        config: CompactionConfig,
+    ) -> anyhow::Result<Self> {
         let in_process_searcher = InProcessSearcher::new(rt.clone()).await?;
         let DbFixtures {
             tp,
             db,
             search_storage,
+            searcher,
             ..
         } = DbFixtures::new_with_args(
             &rt,
@@ -94,6 +115,7 @@ impl TextFixtures {
         )
         .await?;
         let segment_term_metadata_fetcher = Arc::new(in_process_searcher);
+        let writer = TextIndexMetadataWriter::new(rt.clone(), db.clone(), search_storage.clone());
 
         Ok(Self {
             rt,
@@ -101,7 +123,10 @@ impl TextFixtures {
             reader: tp.reader(),
             storage: search_storage,
             segment_term_metadata_fetcher,
+            writer,
             namespace: TableNamespace::Global,
+            searcher,
+            config,
         })
     }
 
@@ -121,6 +146,7 @@ impl TextFixtures {
             self.reader.clone(),
             self.storage.clone(),
             self.segment_term_metadata_fetcher.clone(),
+            self.writer.clone(),
         )
     }
 
@@ -128,14 +154,42 @@ impl TextFixtures {
         self.new_search_flusher_builder().set_soft_limit(0).build()
     }
 
-    pub async fn insert_backfilling_text_index(&self) -> anyhow::Result<IndexMetadata<TableName>> {
+    pub fn new_compactor(&self) -> TextIndexCompactor<TestRuntime> {
+        new_text_compactor_for_tests(
+            self.rt.clone(),
+            self.db.clone(),
+            self.storage.clone(),
+            self.searcher.clone(),
+            self.config.clone(),
+        )
+    }
+
+    pub async fn enabled_text_index(&self) -> anyhow::Result<IndexData> {
+        let index_data = self.backfilled_text_index().await?;
         let mut tx = self.db.begin_system().await?;
-        let index_metadata = backfilling_text_index()?;
         IndexModel::new(&mut tx)
-            .add_application_index(index_metadata.clone())
+            .enable_index_for_testing(index_data.namespace, &index_data.index_name)
             .await?;
         self.db.commit(tx).await?;
-        Ok(index_metadata)
+        Ok(index_data)
+    }
+
+    pub async fn backfilled_text_index(&self) -> anyhow::Result<IndexData> {
+        let index_data = self.insert_backfilling_text_index().await?;
+        self.backfill().await?;
+
+        Ok(index_data)
+    }
+
+    pub async fn backfill(&self) -> anyhow::Result<()> {
+        backfill_text_indexes(
+            self.rt.clone(),
+            self.db.clone(),
+            self.reader.clone(),
+            self.storage.clone(),
+            self.segment_term_metadata_fetcher.clone(),
+        )
+        .await
     }
 
     pub async fn assert_backfilled(&self, index_name: &IndexName) -> anyhow::Result<Timestamp> {
@@ -154,14 +208,13 @@ impl TextFixtures {
         Ok(ts)
     }
 
-    pub async fn insert_backfilling_text_index_with_document(&self) -> anyhow::Result<IndexData> {
+    pub async fn insert_backfilling_text_index(&self) -> anyhow::Result<IndexData> {
+        let mut tx = self.db.begin_system().await?;
         let index_metadata = backfilling_text_index()?;
         let index_name = &index_metadata.name;
-        let mut tx = self.db.begin_system().await?;
         let index_id = IndexModel::new(&mut tx)
             .add_application_index(index_metadata.clone())
             .await?;
-        add_document(&mut tx, index_name.table(), "A long text field").await?;
         let table_id = tx
             .table_mapping()
             .namespace(self.namespace)
@@ -176,6 +229,14 @@ impl TextFixtures {
             index_name: index_name.clone(),
             namespace: self.namespace,
         })
+    }
+
+    pub async fn insert_backfilling_text_index_with_document(&self) -> anyhow::Result<IndexData> {
+        let index_data = self.insert_backfilling_text_index().await?;
+        let mut tx = self.db.begin_system().await?;
+        add_document(&mut tx, index_data.index_name.table(), "A long text field").await?;
+        self.db.commit(tx).await?;
+        Ok(index_data)
     }
 
     pub async fn get_index_metadata(

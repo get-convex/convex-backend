@@ -44,13 +44,13 @@ pub(crate) fn new_vector_compactor_for_tests<RT: Runtime>(
 }
 
 #[cfg(any(test, feature = "testing"))]
-pub async fn compactor_vector_indexes_in_test<RT: Runtime>(
+pub async fn compact_vector_indexes_in_test<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
 ) -> anyhow::Result<()> {
-    let compactor: VectorIndexCompactor<RT> = new_vector_compactor_for_tests(
+    let compactor = new_vector_compactor_for_tests(
         runtime,
         database,
         search_storage,
