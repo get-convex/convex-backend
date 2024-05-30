@@ -229,6 +229,7 @@ async function deployToNewPreviewDeployment(
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",
     url: previewUrl,
+    enableComponents: false,
   };
   showSpinner(ctx, `Deploying to ${previewUrl}...`);
   await runPush(oneoffContext, pushOptions);
@@ -316,6 +317,7 @@ async function deployToExistingDeployment(
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",
     url,
+    enableComponents: false,
   };
   showSpinner(
     ctx,

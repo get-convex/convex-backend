@@ -52,7 +52,7 @@ async function invokeMutation<
   return JSON.stringify(convexToJson(result === undefined ? null : result));
 }
 
-function validateReturnValue(v: any) {
+export function validateReturnValue(v: any) {
   if (v instanceof QueryInitializerImpl || v instanceof QueryImpl) {
     throw new Error(
       "Return value is a Query. Results must be retrieved with `.collect()`, `.take(n), `.unique()`, or `.first()`.",
@@ -60,7 +60,7 @@ function validateReturnValue(v: any) {
   }
 }
 
-async function invokeFunction<
+export async function invokeFunction<
   Ctx,
   Args extends any[],
   F extends (ctx: Ctx, ...args: Args) => any,

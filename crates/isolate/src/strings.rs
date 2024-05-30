@@ -79,6 +79,7 @@ declare_strings!(
     json_stringify => "JSON.stringify",
     lookup,
     op,
+    path,
     runRequest,
     setup,
     syscall,

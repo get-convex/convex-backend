@@ -28,6 +28,7 @@ export type PushOptions = {
   debugBundlePath?: string;
   codegen: boolean;
   url: string;
+  enableComponents: boolean;
 };
 
 export async function runPush(ctx: Context, options: PushOptions) {

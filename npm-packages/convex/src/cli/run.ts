@@ -78,6 +78,7 @@ export const run = new Command("run")
           debug: false,
           codegen: options.codegen === "enable",
           url: deploymentUrl,
+          enableComponents: false,
         },
         {
           once: true,

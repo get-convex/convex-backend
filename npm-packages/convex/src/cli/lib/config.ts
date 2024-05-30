@@ -301,7 +301,7 @@ export async function enforceDeprecatedConfigField(
 }
 
 /**
- * Given an {@link ProjectConfig}, add in the bundled modules to produce the
+ * Given a {@link ProjectConfig}, add in the bundled modules to produce the
  * complete config.
  */
 export async function configFromProjectConfig(

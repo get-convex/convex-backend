@@ -150,6 +150,7 @@ impl AppDefinitionEvaluator {
                         .evaluate_definition(
                             client_id.clone(),
                             isolate,
+                            &path,
                             &definitions,
                             filename,
                             source,
@@ -166,6 +167,7 @@ impl AppDefinitionEvaluator {
         &self,
         client_id: String,
         isolate: &mut Isolate<RT>,
+        path: &ComponentDefinitionPath,
         evaluated_components: &BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
         filename: &str,
         source: FullModuleSource,
@@ -245,6 +247,17 @@ impl AppDefinitionEvaluator {
             let v8_result = export
                 .call(&mut scope, default_export.into(), &[])
                 .context("Failed to call export function")?;
+
+            // Inject the component definition path into the exported result.
+            let result_obj: v8::Local<v8::Object> = v8_result.try_into().map_err(|_| {
+                ErrorMetadata::bad_request("InvalidDefinition", "Export is not an object")
+            })?;
+            let key = strings::path.create(&mut scope)?;
+            let path = String::from(path.clone());
+            let value =
+                v8::String::new(&mut scope, &path).context("Failed to create string for path")?;
+            anyhow::ensure!(result_obj.set(&mut scope, key.into(), value.into()) == Some(true));
+
             let metadata: SerializedComponentDefinitionMetadata =
                 serde_v8::from_v8(&mut scope, v8_result)
                     .map_err(|e| ErrorMetadata::bad_request("InvalidDefinition", e.to_string()))?;
