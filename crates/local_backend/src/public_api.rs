@@ -225,11 +225,18 @@ pub async fn public_query_get(
     let udf_path = parse_udf_path(&req.path)?;
     let args = req.args.into_arg_vec();
     let journal = None;
+    // NOTE: We could coalesce authenticating and executing the query into one
+    // rpc but we keep things simple by reusing the same method as the sync worker.
+    // Round trip latency between Usher and Backend is much smaller than between
+    // client and Usher.
+    let identity = api
+        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .await?;
     let query_result = api
         .execute_public_query(
             host.as_str(),
             request_id,
-            auth_token,
+            identity,
             udf_path,
             args,
             FunctionCaller::HttpApi(client_version.clone()),
@@ -260,11 +267,18 @@ pub async fn public_query_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
     let journal = None;
+    // NOTE: We could coalesce authenticating and executing the query into one
+    // rpc but we keep things simple by reusing the same method as the sync worker.
+    // Round trip latency between Usher and Backend is much smaller than between
+    // client and Usher.
+    let identity = api
+        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .await?;
     let query_return = api
         .execute_public_query(
             host.as_str(),
             request_id,
-            auth_token,
+            identity,
             udf_path,
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
@@ -308,6 +322,9 @@ pub async fn public_query_batch_post(
     let ts = api
         .latest_timestamp(host.as_str(), request_id.clone())
         .await?;
+    let identity = api
+        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .await?;
     for req in req_batch.queries {
         let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
         let udf_path = parse_udf_path(&req.path)?;
@@ -315,7 +332,7 @@ pub async fn public_query_batch_post(
             .execute_public_query(
                 host.as_str(),
                 request_id.clone(),
-                auth_token.clone(),
+                identity.clone(),
                 udf_path,
                 req.args.into_arg_vec(),
                 FunctionCaller::HttpApi(client_version.clone()),
@@ -350,11 +367,18 @@ pub async fn public_mutation_post(
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
+    // NOTE: We could coalesce authenticating and executing the query into one
+    // rpc but we keep things simple by reusing the same method as the sync worker.
+    // Round trip latency between Usher and Backend is much smaller than between
+    // client and Usher.
+    let identity = api
+        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .await?;
     let udf_result = api
         .execute_public_mutation(
             host.as_str(),
             request_id,
-            auth_token,
+            identity,
             udf_path,
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
@@ -388,11 +412,18 @@ pub async fn public_action_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let udf_path = parse_udf_path(&req.path)?;
 
+    // NOTE: We could coalesce authenticating and executing the query into one
+    // rpc but we keep things simple by reusing the same method as the sync worker.
+    // Round trip latency between Usher and Backend is much smaller than between
+    // client and Usher.
+    let identity = api
+        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .await?;
     let action_result = api
         .execute_public_action(
             host.as_str(),
             request_id,
-            auth_token,
+            identity,
             udf_path,
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),

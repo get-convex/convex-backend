@@ -68,7 +68,6 @@ use maplit::btreemap;
 use minitrace::prelude::*;
 use model::session_requests::types::SessionRequestIdentifier;
 use sync_types::{
-    AuthenticationToken,
     ClientMessage,
     IdentityVersion,
     QueryId,
@@ -462,7 +461,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             .execute_public_mutation(
                                 host.as_ref(),
                                 server_request_id,
-                                identity.into(),
+                                identity,
                                 udf_path,
                                 args,
                                 FunctionCaller::SyncWorker(client_version),
@@ -525,7 +524,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                         .execute_public_action(
                             host.as_ref(),
                             server_request_id,
-                            identity.into(),
+                            identity,
                             udf_path,
                             args,
                             FunctionCaller::SyncWorker(client_version),
@@ -611,7 +610,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             self.state.insert_identity(new_identity);
             identity_version = new_identity_version;
         }
-        let auth_token: AuthenticationToken = self.state.identity(self.rt.system_time())?.into();
+        let identity = self.state.identity(self.rt.system_time())?;
 
         // Step 1: Decide on a new target (query set version, identity version, ts) for
         // the system.
@@ -646,7 +645,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         for query in self.state.need_fetch() {
             let api = self.api.clone();
             let host = self.host.clone();
-            let auth_token_ = auth_token.clone();
+            let identity_ = identity.clone();
             let client_version = self.config.client_version.clone();
             let current_subscription = remaining_subscriptions.remove(&query.query_id);
             let root = self.rt.with_rng(|rng| {
@@ -683,7 +682,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 // id.
                                 host.as_ref(),
                                 RequestId::new(),
-                                auth_token_,
+                                identity_,
                                 query.udf_path,
                                 query.args,
                                 FunctionCaller::SyncWorker(client_version),

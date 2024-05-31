@@ -70,7 +70,7 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &str,
         request_id: RequestId,
-        auth_token: AuthenticationToken,
+        identity: Identity,
         path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
@@ -82,7 +82,7 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &str,
         request_id: RequestId,
-        auth_token: AuthenticationToken,
+        identity: Identity,
         path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
@@ -94,7 +94,7 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &str,
         request_id: RequestId,
-        auth_token: AuthenticationToken,
+        identity: Identity,
         path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
@@ -126,7 +126,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         &self,
         _host: &str,
         request_id: RequestId,
-        auth_token: AuthenticationToken,
+        identity: Identity,
         udf_path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
@@ -137,9 +137,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
         );
-
-        let validate_time = self.runtime().system_time();
-        let identity = self.authenticate(auth_token, validate_time).await?;
 
         let ts = match ts {
             ExecuteQueryTimestamp::Latest => *self.now_ts_for_reads(),
@@ -157,7 +154,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         &self,
         _host: &str,
         request_id: RequestId,
-        auth_token: AuthenticationToken,
+        identity: Identity,
         udf_path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
@@ -168,9 +165,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
         );
-
-        let validate_time = self.runtime().system_time();
-        let identity = self.authenticate(auth_token, validate_time).await?;
 
         let path = ComponentFunctionPath {
             component: ComponentPath::root(),
@@ -192,7 +186,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         &self,
         _host: &str,
         request_id: RequestId,
-        auth_token: AuthenticationToken,
+        identity: Identity,
         udf_path: UdfPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
@@ -201,9 +195,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
         );
-
-        let validate_time = self.runtime().system_time();
-        let identity = self.authenticate(auth_token, validate_time).await?;
 
         let path = ComponentFunctionPath {
             component: ComponentPath::root(),
