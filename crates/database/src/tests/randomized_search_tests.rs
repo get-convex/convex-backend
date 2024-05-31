@@ -603,15 +603,26 @@ async fn test_search_score(rt: TestRuntime) -> anyhow::Result<()> {
             .await?;
         assert_eq!(results.len(), 1);
 
-        // Constant taken from https://github.com/quickwit-oss/tantivy/blob/main/src/query/term_query/mod.rs#L20
-        assert_approx_equal(results.first().unwrap().1, 1.);
+        // Search scoring will be different with multisegment search query.
+        if std::env::var("USE_MULTI_SEGMENT_SEARCH_QUERY").is_ok() {
+            assert_approx_equal(results.first().unwrap().1, 0.2876);
+        } else {
+            // Constant taken from https://github.com/quickwit-oss/tantivy/blob/main/src/query/term_query/mod.rs#L20
+            assert_approx_equal(results.first().unwrap().1, 1.);
+        }
     }
     {
         let results = scenario
             .query_with_scores(&query, None, SearchVersion::V2)
             .await?;
         assert_eq!(results.len(), 1);
-        assert_approx_equal(results.first().unwrap().1, 1.);
+        // Search scoring will be different with multisegment search query.
+        if std::env::var("USE_MULTI_SEGMENT_SEARCH_QUERY").is_ok() {
+            assert_approx_equal(results.first().unwrap().1, 0.2876);
+        } else {
+            // Constant taken from https://github.com/quickwit-oss/tantivy/blob/main/src/query/term_query/mod.rs#L20
+            assert_approx_equal(results.first().unwrap().1, 1.);
+        }
     }
     anyhow::Ok(())
 }
