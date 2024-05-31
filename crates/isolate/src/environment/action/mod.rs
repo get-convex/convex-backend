@@ -258,7 +258,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             syscall_trace: syscall_trace.clone(),
             action_callbacks,
             fetch_client,
-            module_loader: module_loader.clone(),
+            _module_loader: module_loader.clone(),
             key_broker,
             task_order: Default::default(),
             task_retval_sender,

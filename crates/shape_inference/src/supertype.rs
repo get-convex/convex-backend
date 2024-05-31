@@ -38,62 +38,65 @@ pub fn supertype_candidates<C: ShapeConfig>(
     types: &[CountedShape<C>],
 ) -> impl Iterator<Item = (CountedShape<C>, Vec<usize>)> + '_ {
     assert!(types.len() >= 2);
-    iter::from_coroutine(move || {
-        // Phase 1: Try to merge overlapping types. We won't lose any precision in our
-        // unions as this stage since these types *must* be merged to preserve
-        // disjointness.
-        if let Some(candidate) = array_candidate(types) {
-            yield candidate;
-        }
-        if let Some(candidate) = set_candidate(types) {
-            yield candidate;
-        }
-        if let Some(candidate) = map_candidate(types) {
-            yield candidate;
-        }
-        // Include a record type in Phase 1 if we already have a record. Otherwise, we'd
-        // be widening an object type to a record, which can happen below.
-        let any_record = types
-            .iter()
-            .any(|t| matches!(&*t.variant, ShapeEnum::Record(..)));
-        if any_record {
-            if let Some(candidate) = record_candidate(types) {
+    iter::from_coroutine(
+        #[coroutine]
+        move || {
+            // Phase 1: Try to merge overlapping types. We won't lose any precision in our
+            // unions as this stage since these types *must* be merged to preserve
+            // disjointness.
+            if let Some(candidate) = array_candidate(types) {
                 yield candidate;
             }
-        }
-        // Phase 2: String supertypes. Propose `id` types, `field_name`, and eventually
-        // `string`.
-        for candidate in id_candidates(types) {
-            yield candidate;
-        }
-        if let Some(candidate) = field_name_candidate(types) {
-            yield candidate;
-        }
-        if let Some(candidate) = string_candidate(types) {
-            yield candidate;
-        }
-
-        // Phase 3: Float supertypes. Propose `float64` if it is a supertype of at least
-        // two input types.
-        if let Some(candidate) = float64_candidate(types) {
-            yield candidate;
-        }
-
-        // Phase 4: Object supertypes. Propose `object` types and potentially a `record`
-        // type that are a supertype of at least two input types.
-        if let Some(candidate) = object_candidate(types) {
-            yield candidate;
-        }
-        if !any_record {
-            if let Some(candidate) = record_candidate(types) {
+            if let Some(candidate) = set_candidate(types) {
                 yield candidate;
             }
-        }
-        // Phase 5: Finally, just emit the `unknown` type.
-        let unknown_type =
-            CountedShape::new(ShapeEnum::Unknown, types.iter().map(|t| t.num_values).sum());
-        yield (unknown_type, (0..types.len()).collect());
-    })
+            if let Some(candidate) = map_candidate(types) {
+                yield candidate;
+            }
+            // Include a record type in Phase 1 if we already have a record. Otherwise, we'd
+            // be widening an object type to a record, which can happen below.
+            let any_record = types
+                .iter()
+                .any(|t| matches!(&*t.variant, ShapeEnum::Record(..)));
+            if any_record {
+                if let Some(candidate) = record_candidate(types) {
+                    yield candidate;
+                }
+            }
+            // Phase 2: String supertypes. Propose `id` types, `field_name`, and eventually
+            // `string`.
+            for candidate in id_candidates(types) {
+                yield candidate;
+            }
+            if let Some(candidate) = field_name_candidate(types) {
+                yield candidate;
+            }
+            if let Some(candidate) = string_candidate(types) {
+                yield candidate;
+            }
+
+            // Phase 3: Float supertypes. Propose `float64` if it is a supertype of at least
+            // two input types.
+            if let Some(candidate) = float64_candidate(types) {
+                yield candidate;
+            }
+
+            // Phase 4: Object supertypes. Propose `object` types and potentially a `record`
+            // type that are a supertype of at least two input types.
+            if let Some(candidate) = object_candidate(types) {
+                yield candidate;
+            }
+            if !any_record {
+                if let Some(candidate) = record_candidate(types) {
+                    yield candidate;
+                }
+            }
+            // Phase 5: Finally, just emit the `unknown` type.
+            let unknown_type =
+                CountedShape::new(ShapeEnum::Unknown, types.iter().map(|t| t.num_values).sum());
+            yield (unknown_type, (0..types.len()).collect());
+        },
+    )
 }
 
 fn float64_candidate<C: ShapeConfig>(
@@ -124,31 +127,34 @@ fn float64_candidate<C: ShapeConfig>(
 fn id_candidates<C: ShapeConfig>(
     types: &[CountedShape<C>],
 ) -> impl Iterator<Item = (CountedShape<C>, Vec<usize>)> + '_ {
-    iter::from_coroutine(move || {
-        let mut candidates = BTreeMap::new();
-        for (i, t) in types.iter().enumerate() {
-            if let ShapeEnum::StringLiteral(ref s) = &*t.variant {
-                if let Ok(id) = DeveloperDocumentId::decode(s) {
-                    candidates
-                        .entry(*id.table())
-                        .or_insert_with(Vec::new)
-                        .push(i);
+    iter::from_coroutine(
+        #[coroutine]
+        move || {
+            let mut candidates = BTreeMap::new();
+            for (i, t) in types.iter().enumerate() {
+                if let ShapeEnum::StringLiteral(ref s) = &*t.variant {
+                    if let Ok(id) = DeveloperDocumentId::decode(s) {
+                        candidates
+                            .entry(*id.table())
+                            .or_insert_with(Vec::new)
+                            .push(i);
+                    }
+                }
+                if let ShapeEnum::Id(ref table) = &*t.variant {
+                    candidates.entry(*table).or_insert_with(Vec::new).push(i);
                 }
             }
-            if let ShapeEnum::Id(ref table) = &*t.variant {
-                candidates.entry(*table).or_insert_with(Vec::new).push(i);
+            for (table_number, indexes) in candidates {
+                if indexes.len() >= 2 {
+                    let new_type = CountedShape::new(
+                        ShapeEnum::Id(table_number),
+                        indexes.iter().map(|&i| types[i].num_values).sum(),
+                    );
+                    yield (new_type, indexes);
+                }
             }
-        }
-        for (table_number, indexes) in candidates {
-            if indexes.len() >= 2 {
-                let new_type = CountedShape::new(
-                    ShapeEnum::Id(table_number),
-                    indexes.iter().map(|&i| types[i].num_values).sum(),
-                );
-                yield (new_type, indexes);
-            }
-        }
-    })
+        },
+    )
 }
 
 fn field_name_candidate<C: ShapeConfig>(

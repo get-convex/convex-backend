@@ -208,7 +208,7 @@ impl CreationTime {
     pub fn increment(&mut self) -> anyhow::Result<Self> {
         let result = *self;
 
-        let next_float = self.ts_ms.next_after(std::f64::INFINITY);
+        let next_float = self.ts_ms.next_after(f64::INFINITY);
         *self = Self::try_from(next_float)?;
 
         Ok(result)

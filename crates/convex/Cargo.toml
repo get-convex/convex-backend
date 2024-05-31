@@ -4,7 +4,7 @@ description = "Client library for Convex (convex.dev)"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
 version = "0.6.0"
 edition = "2021"
-rust-version = "1.65.0"
+rust-version = "1.74.1"
 resolver = "2"
 license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-rs"
@@ -22,7 +22,10 @@ parking_lot = { workspace = true, optional = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 rand = { workspace = true }
-serde_json = { workspace = true, features = ["float_roundtrip", "preserve_order"] }
+serde_json = { workspace = true, features = [
+    "float_roundtrip",
+    "preserve_order",
+] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = { workspace = true, features = ["io-util", "sync"] }
@@ -33,7 +36,9 @@ uuid = { workspace = true, features = ["serde", "v4"] }
 
 [dev-dependencies]
 colored = { workspace = true }
-convex_sync_types = { path = "./sync_types", version = "=0.6.0", features = ["testing"] }
+convex_sync_types = { path = "./sync_types", version = "=0.6.0", features = [
+    "testing",
+] }
 dotenvy = { workspace = true }
 maplit = { workspace = true }
 parking_lot = { workspace = true }

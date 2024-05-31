@@ -24,6 +24,11 @@ use parking_lot::{
     Mutex,
     RwLock,
 };
+use qdrant_common::cpu::CpuPermit;
+use qdrant_segment::vector_storage::{
+    appendable_mmap_dense_vector_storage::open_appendable_memmap_vector_storage,
+    memmap_dense_vector_storage::open_memmap_vector_storage,
+};
 use qdrant_segment::{
     common::{
         rocksdb_wrapper::{
@@ -71,11 +76,7 @@ use qdrant_segment::{
         DEFAULT_FULL_SCAN_THRESHOLD,
         DEFAULT_HNSW_EF_CONSTRUCT,
     },
-    vector_storage::{
-        appendable_mmap_vector_storage::open_appendable_memmap_vector_storage,
-        memmap_vector_storage::open_memmap_vector_storage,
-        VectorStorage,
-    },
+    vector_storage::VectorStorage,
 };
 use rocksdb::DB;
 
@@ -133,6 +134,7 @@ pub(crate) fn segment_config(
     };
     SegmentConfig {
         vector_data: HashMap::from([(DEFAULT_VECTOR_NAME.to_string(), vector_data_config)]),
+        sparse_vector_data: Default::default(),
         payload_storage_type: PayloadStorageType::OnDisk,
     }
 }
@@ -158,9 +160,14 @@ pub fn create_mutable_segment(
     )?;
     let payload_index = Arc::new(AtomicRefCell::new(payload_index));
 
+    let stopped = AtomicBool::new(false);
     let vector_storage_path = get_vector_storage_path(path, DEFAULT_VECTOR_NAME);
-    let vector_storage =
-        open_appendable_memmap_vector_storage(&vector_storage_path, dimension, Distance::Cosine)?;
+    let vector_storage = open_appendable_memmap_vector_storage(
+        &vector_storage_path,
+        dimension,
+        Distance::Cosine,
+        &stopped,
+    )?;
     let point_count = id_tracker.borrow().total_point_count();
     let vector_count = vector_storage.borrow().total_vector_count();
     anyhow::ensure!(point_count == vector_count);
@@ -174,6 +181,7 @@ pub fn create_mutable_segment(
     let vector_data = VectorData {
         vector_storage,
         vector_index,
+        quantized_vectors: Arc::new(Default::default()),
     };
     let segment = Segment {
         version: None,
@@ -280,7 +288,8 @@ pub fn merge_disk_segments(
     for segment in segments {
         segment_builder.update_from(segment, &stopped)?;
     }
-    let disk_segment = segment_builder.build(&stopped)?;
+    let permit = CpuPermit::dummy(4);
+    let disk_segment = segment_builder.build(permit, &stopped)?;
 
     // The disk segment we just built was using a qdrant id tracker. We now need to
     // construct our own id tracker with the same set of ids. We could do this
@@ -447,11 +456,15 @@ pub fn load_disk_segment(paths: UntarredVectorDiskSegmentPaths) -> anyhow::Resul
             vector_config.size,
             vector_config.distance,
         )?,
-        VectorStorageType::ChunkedMmap => open_appendable_memmap_vector_storage(
-            &vector_storage_path,
-            vector_config.size,
-            vector_config.distance,
-        )?,
+        VectorStorageType::ChunkedMmap => {
+            let stopped = AtomicBool::new(false);
+            open_appendable_memmap_vector_storage(
+                &vector_storage_path,
+                vector_config.size,
+                vector_config.distance,
+                &stopped,
+            )?
+        },
     };
     let point_count = id_tracker.borrow().total_point_count();
     let vector_count = vector_storage.borrow().total_vector_count();
@@ -472,6 +485,7 @@ pub fn load_disk_segment(paths: UntarredVectorDiskSegmentPaths) -> anyhow::Resul
                 &vector_index_path,
                 id_tracker.clone(),
                 vector_storage.clone(),
+                Arc::new(AtomicRefCell::new(None)),
                 payload_index.clone(),
                 hnsw_config.clone(),
             )?)
@@ -482,6 +496,7 @@ pub fn load_disk_segment(paths: UntarredVectorDiskSegmentPaths) -> anyhow::Resul
     let vector_data = VectorData {
         vector_storage,
         vector_index,
+        quantized_vectors: Arc::new(AtomicRefCell::new(None)),
     };
     let segment = Segment {
         version: segment_state.version,
@@ -537,10 +552,14 @@ mod tests {
     use qdrant_segment::{
         data_types::{
             named_vectors::NamedVectors,
-            vectors::QueryVector,
+            vectors::{
+                QueryVector,
+                Vector,
+            },
         },
         entry::entry_point::SegmentEntry,
         id_tracker::IdTracker,
+        json_path::JsonPath,
         segment::Segment,
         types::{
             Condition,
@@ -626,8 +645,9 @@ mod tests {
             create_mutable_segment(&memory_path, id_tracker.clone(), dimensions, mutable_config)?;
 
         for (point_id, v) in vectors {
-            let vector = NamedVectors::from_ref(DEFAULT_VECTOR_NAME, &v);
-            memory_segment.upsert_point(OP_NUM, point_id, vector)?;
+            let vector = Vector::Dense(v);
+            let named_vector = NamedVectors::from_ref(DEFAULT_VECTOR_NAME, vector.to_vec_ref());
+            memory_segment.upsert_point(OP_NUM, point_id, named_vector)?;
         }
 
         Ok((memory_segment, id_tracker))
@@ -645,9 +665,10 @@ mod tests {
             create_mutable_segment(&memory_path, id_tracker.clone(), dimensions, mutable_config)?;
 
         for (point_id, v, payload) in vectors {
-            let vector = NamedVectors::from_ref(DEFAULT_VECTOR_NAME, &v);
-            memory_segment.upsert_point(OP_NUM, point_id, vector)?;
-            memory_segment.set_payload(OP_NUM, point_id, &payload.into())?;
+            let vector = Vector::Dense(v);
+            let named_vector = NamedVectors::from_ref(DEFAULT_VECTOR_NAME, vector.to_vec_ref());
+            memory_segment.upsert_point(OP_NUM, point_id, named_vector)?;
+            memory_segment.set_payload(OP_NUM, point_id, &payload.into(), &None)?;
         }
 
         Ok((memory_segment, id_tracker))
@@ -673,7 +694,7 @@ mod tests {
 
     fn include_test_payload() -> WithPayload {
         let payload_selector = PayloadSelectorInclude {
-            include: vec![TEST_PAYLOAD_PATH.to_string()],
+            include: vec![JsonPath::try_from(TEST_PAYLOAD_PATH).unwrap()],
         };
         WithPayload {
             enable: true,
@@ -693,7 +714,11 @@ mod tests {
 
     fn create_test_payload_index(segment: &mut Segment) -> anyhow::Result<()> {
         let field_schema = Some(&PayloadFieldSchema::FieldType(PayloadSchemaType::Keyword));
-        segment.create_field_index(OP_NUM, TEST_PAYLOAD_PATH, field_schema)?;
+        segment.create_field_index(
+            OP_NUM,
+            &JsonPath::try_from(TEST_PAYLOAD_PATH).unwrap(),
+            field_schema,
+        )?;
         Ok(())
     }
 
@@ -703,11 +728,12 @@ mod tests {
             value: ValueVariants::Keyword(base64::encode_urlsafe(&uuid.to_bytes_le())),
         });
         let conditions = vec![Condition::Field(FieldCondition::new_match(
-            TEST_PAYLOAD_PATH,
+            JsonPath::try_from(TEST_PAYLOAD_PATH).unwrap(),
             qdrant_match,
         ))];
         Filter {
             should: Some(conditions),
+            min_should: None,
             must: None,
             must_not: None,
         }
@@ -762,7 +788,7 @@ mod tests {
         Ok(segment
             .search(
                 DEFAULT_VECTOR_NAME,
-                &QueryVector::Nearest(vector),
+                &QueryVector::Nearest(Vector::Dense(vector)),
                 payload,
                 &WithVector::Bool(false),
                 filter,
@@ -792,6 +818,7 @@ mod tests {
         let with_payload = include_test_payload();
         let filter = Filter {
             should: None,
+            min_should: None,
             must: None,
             must_not: None,
         };
@@ -826,6 +853,7 @@ mod tests {
 
         let filter = Filter {
             should: Some(vec![]),
+            min_should: None,
             must: None,
             must_not: None,
         };
@@ -855,6 +883,7 @@ mod tests {
 
         let filter = Filter {
             should: Some(vec![]),
+            min_should: None,
             must: None,
             must_not: None,
         };

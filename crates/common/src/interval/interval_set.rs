@@ -96,33 +96,38 @@ impl IntervalSet {
         &'a self,
         interval: &'a Interval,
     ) -> impl Iterator<Item = Interval> + 'a {
-        iter::from_coroutine(move || {
-            // We *might* intersect with the preceeding interval.
-            if let Some((other_start, other_end)) = self
-                .intervals
-                .range((Bound::Unbounded, Bound::Excluded(interval.start.clone())))
-                .next_back()
-            {
-                let other = Interval {
-                    start: other_start.clone(),
-                    end: other_end.clone(),
-                };
-                if !interval.is_disjoint(&other) || interval.is_adjacent(&other) {
-                    yield other;
+        iter::from_coroutine(
+            #[coroutine]
+            move || {
+                // We *might* intersect with the preceeding interval.
+                if let Some((other_start, other_end)) = self
+                    .intervals
+                    .range((Bound::Unbounded, Bound::Excluded(interval.start.clone())))
+                    .next_back()
+                {
+                    let other = Interval {
+                        start: other_start.clone(),
+                        end: other_end.clone(),
+                    };
+                    if !interval.is_disjoint(&other) || interval.is_adjacent(&other) {
+                        yield other;
+                    }
                 }
-            }
 
-            // We definitely intersect with any interval with a `start` inside `interval`.
-            for (other_start, other_end) in self.intervals.range(&interval.start..) {
-                if interval.end.is_disjoint(other_start) && !interval.end.is_adjacent(other_start) {
-                    break;
+                // We definitely intersect with any interval with a `start` inside `interval`.
+                for (other_start, other_end) in self.intervals.range(&interval.start..) {
+                    if interval.end.is_disjoint(other_start)
+                        && !interval.end.is_adjacent(other_start)
+                    {
+                        break;
+                    }
+                    yield Interval {
+                        start: other_start.clone(),
+                        end: other_end.clone(),
+                    };
                 }
-                yield Interval {
-                    start: other_start.clone(),
-                    end: other_end.clone(),
-                };
-            }
-        })
+            },
+        )
     }
 
     /// Add the given `Interval` to the set.
@@ -231,87 +236,90 @@ impl IntervalSet {
         &'a self,
         target: &'a Interval,
     ) -> impl Iterator<Item = (bool, Interval)> + 'a {
-        iter::from_coroutine(|| {
-            if target.is_empty() {
-                return;
-            }
-            let Start::Included(target_start) = target.start.clone();
-            let interval_before = self.interval_preceding(&target_start);
-            let mut component_start = match interval_before {
-                None => target_start,
-                Some(interval_before) => {
-                    if target.end <= interval_before.end {
-                        yield (true, target.clone());
-                        return;
-                    }
-                    let interval_before_end = match &interval_before.end {
-                        End::Unbounded => unreachable!(),
-                        End::Excluded(interval_before_end) => interval_before_end.clone(),
-                    };
-                    if interval_before_end > target_start {
+        iter::from_coroutine(
+            #[coroutine]
+            || {
+                if target.is_empty() {
+                    return;
+                }
+                let Start::Included(target_start) = target.start.clone();
+                let interval_before = self.interval_preceding(&target_start);
+                let mut component_start = match interval_before {
+                    None => target_start,
+                    Some(interval_before) => {
+                        if target.end <= interval_before.end {
+                            yield (true, target.clone());
+                            return;
+                        }
+                        let interval_before_end = match &interval_before.end {
+                            End::Unbounded => unreachable!(),
+                            End::Excluded(interval_before_end) => interval_before_end.clone(),
+                        };
+                        if interval_before_end > target_start {
+                            yield (
+                                true,
+                                Interval {
+                                    start: target.start.clone(),
+                                    end: interval_before.end,
+                                },
+                            );
+                            interval_before_end
+                        } else {
+                            target_start
+                        }
+                    },
+                };
+                // `intersecting` is all intervals in `self` that intersect with `target`,
+                // excluding `interval_before`.
+                let intersecting = self.intervals.range((
+                    Bound::Excluded(Start::Included(component_start.clone())),
+                    match &target.end {
+                        End::Excluded(target_end) => {
+                            Bound::Excluded(Start::Included(target_end.clone()))
+                        },
+                        End::Unbounded => Bound::Unbounded,
+                    },
+                ));
+                for (interval_start, interval_end) in intersecting {
+                    let Start::Included(interval_start_bytes) = interval_start;
+                    yield (
+                        false,
+                        Interval {
+                            start: Start::Included(component_start),
+                            end: End::Excluded(interval_start_bytes.clone()),
+                        },
+                    );
+                    if &target.end <= interval_end {
                         yield (
                             true,
                             Interval {
-                                start: target.start.clone(),
-                                end: interval_before.end,
+                                start: interval_start.clone(),
+                                end: target.end.clone(),
                             },
                         );
-                        interval_before_end
-                    } else {
-                        target_start
+                        return;
                     }
-                },
-            };
-            // `intersecting` is all intervals in `self` that intersect with `target`,
-            // excluding `interval_before`.
-            let intersecting = self.intervals.range((
-                Bound::Excluded(Start::Included(component_start.clone())),
-                match &target.end {
-                    End::Excluded(target_end) => {
-                        Bound::Excluded(Start::Included(target_end.clone()))
-                    },
-                    End::Unbounded => Bound::Unbounded,
-                },
-            ));
-            for (interval_start, interval_end) in intersecting {
-                let Start::Included(interval_start_bytes) = interval_start;
-                yield (
-                    false,
-                    Interval {
-                        start: Start::Included(component_start),
-                        end: End::Excluded(interval_start_bytes.clone()),
-                    },
-                );
-                if &target.end <= interval_end {
                     yield (
                         true,
                         Interval {
                             start: interval_start.clone(),
-                            end: target.end.clone(),
+                            end: interval_end.clone(),
                         },
                     );
-                    return;
+                    component_start = match interval_end {
+                        End::Unbounded => unreachable!(),
+                        End::Excluded(interval_end) => interval_end.clone(),
+                    };
                 }
                 yield (
-                    true,
+                    false,
                     Interval {
-                        start: interval_start.clone(),
-                        end: interval_end.clone(),
+                        start: Start::Included(component_start),
+                        end: target.end.clone(),
                     },
                 );
-                component_start = match interval_end {
-                    End::Unbounded => unreachable!(),
-                    End::Excluded(interval_end) => interval_end.clone(),
-                };
-            }
-            yield (
-                false,
-                Interval {
-                    start: Start::Included(component_start),
-                    end: target.end.clone(),
-                },
-            );
-        })
+            },
+        )
     }
 }
 

@@ -37,7 +37,7 @@ impl TryFrom<Resource> for SerializedResource {
     fn try_from(r: Resource) -> anyhow::Result<Self> {
         match r {
             Resource::Value(v) => Ok(Self::Value {
-                value: serde_json::to_string(&JsonValue::try_from(v)?)?,
+                value: serde_json::to_string(&JsonValue::from(v))?,
             }),
             Resource::Function(path) => Ok(Self::Function {
                 path: path.try_into()?,
