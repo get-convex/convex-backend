@@ -959,21 +959,13 @@ pub static MAX_FUNRUN_RESPONSE_MESSAGE_SIZE: LazyLock<usize> =
 /// The maximum size for Backend HTTP and GRPC action callbacks. This is 8MiB
 /// for path and args, plus a buffer for the smaller fields This should also be
 /// enough for vector and text search callbacks.
-pub static MAX_BACKEND_ACTION_CALLBACKS_REQUEST_SIZE: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "MAX_BACKEND_ACTION_CALLBACKS_REQUEST_SIZE",
-        (1 << 23) + 2000,
-    )
-}); // 8 MiB + buffer
+pub static MAX_BACKEND_RPC_REQUEST_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_BACKEND_RPC_REQUEST_SIZE", (1 << 23) + 2000)); // 8 MiB + buffer
 
 /// The maximum size for Backend HTTP and GRPC action callbacks. This is 8MiB
 /// for function result, plus a buffer for the smaller fields.
-pub static MAX_BACKEND_ACTION_CALLBACKS_RESPONSE_SIZE: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "MAX_BACKEND_ACTION_CALLBACKS_RESPONSE_SIZE",
-        (1 << 23) + 2000,
-    )
-}); // 8 MiB + buffer
+pub static MAX_BACKEND_RPC_RESPONSE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_BACKEND_RPC_RESPONSE_SIZE", (1 << 23) + 2000)); // 8 MiB + buffer
 
 /// The maximum size for requests to the backend public API. Must be at least 8
 /// MiB for function arguments.

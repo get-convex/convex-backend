@@ -20,8 +20,8 @@ use common::{
         CONVEX_CLIENT_HEADER,
     },
     knobs::{
-        MAX_BACKEND_ACTION_CALLBACKS_REQUEST_SIZE,
         MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
+        MAX_BACKEND_RPC_REQUEST_SIZE,
         MAX_PUSH_BYTES,
     },
 };
@@ -221,8 +221,6 @@ pub fn action_callback_routes(st: LocalAppState) -> Router<LocalAppState> {
         .route("/mutation", post(internal_mutation_post))
         .route("/action", post(internal_action_post))
         .route("/schedule_job", post(schedule_job))
-        // All routes above this line get the increased limit
-        .layer(DefaultBodyLimit::max(*MAX_BACKEND_ACTION_CALLBACKS_REQUEST_SIZE))
         .route("/vector_search", post(vector_search))
         .route("/cancel_job", post(cancel_developer_job))
         // file storage endpoints
@@ -230,6 +228,8 @@ pub fn action_callback_routes(st: LocalAppState) -> Router<LocalAppState> {
         .route("/storage_get_url", post(storage_get_url))
         .route("/storage_get_metadata", post(storage_get_metadata))
         .route("/storage_delete", post(storage_delete))
+        // All routes above this line get the increased limit
+        .layer(DefaultBodyLimit::max(*MAX_BACKEND_RPC_REQUEST_SIZE))
         .layer(axum::middleware::from_fn_with_state(st.clone(), action_callbacks_middleware))
 }
 
