@@ -23,6 +23,7 @@ use futures::{
     future::BoxFuture,
     FutureExt,
 };
+use keybroker::Identity;
 use model::session_requests::types::SessionRequestIdentifier;
 use serde_json::Value as JsonValue;
 use sync_types::{
@@ -58,6 +59,13 @@ pub enum ExecuteQueryTimestamp {
 // version of Convex.
 #[async_trait]
 pub trait ApplicationApi: Send + Sync {
+    async fn authenticate(
+        &self,
+        host: &str,
+        request_id: RequestId,
+        auth_token: AuthenticationToken,
+    ) -> anyhow::Result<Identity>;
+
     async fn execute_public_query(
         &self,
         host: &str,
@@ -104,6 +112,16 @@ pub trait ApplicationApi: Send + Sync {
 // Implements ApplicationApi via Application.
 #[async_trait]
 impl<RT: Runtime> ApplicationApi for Application<RT> {
+    async fn authenticate(
+        &self,
+        _host: &str,
+        _request_id: RequestId,
+        auth_token: AuthenticationToken,
+    ) -> anyhow::Result<Identity> {
+        let validate_time = self.runtime().system_time();
+        self.authenticate(auth_token, validate_time).await
+    }
+
     async fn execute_public_query(
         &self,
         _host: &str,

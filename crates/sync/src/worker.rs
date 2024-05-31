@@ -193,8 +193,6 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);
 
 pub struct SyncWorker<RT: Runtime> {
     api: Arc<dyn ApplicationApi>,
-    // TODO(presley): Delete application once all functionality is migrated to api.
-    application: Application<RT>,
     config: SyncWorkerConfig,
     rt: RT,
     state: SyncState,
@@ -243,15 +241,14 @@ impl<RT: Runtime> SyncWorker<RT> {
         rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
         tx: SingleFlightSender<RT>,
     ) -> Self {
+        let rt = application.runtime().clone();
         // Use api implemented by application until all functionality is migrated
         // and we no longer need application.
-        let api = Arc::new(application.clone());
-        let rt = application.runtime().clone();
+        let api = Arc::new(application);
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = receiver.buffered(1); // Execute at most one operation at a time.
         SyncWorker {
             api,
-            application,
             config,
             rt,
             state: SyncState::new(),
@@ -563,8 +560,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                 base_version,
             } => {
                 let identity = self
-                    .application
-                    .authenticate(auth_token, self.rt.system_time())
+                    .api
+                    .authenticate(self.host.as_str(), RequestId::new(), auth_token)
                     .await?;
                 self.state.modify_identity(identity, base_version)?;
                 self.schedule_update();
