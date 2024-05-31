@@ -192,33 +192,27 @@ impl TermList {
     }
 
     pub fn iter_terms(&self) -> impl Iterator<Item = TermId> + '_ {
-        iter::from_coroutine(
-            #[coroutine]
-            move || {
-                let Some(ref inner) = self.inner else {
-                    return;
-                };
-                for t in inner.terms.iter(0) {
-                    yield t as TermId;
-                }
-            },
-        )
+        iter::from_coroutine(move || {
+            let Some(ref inner) = self.inner else {
+                return;
+            };
+            for t in inner.terms.iter(0) {
+                yield t as TermId;
+            }
+        })
     }
 
     pub fn iter_freqs(&self) -> impl Iterator<Item = u32> + '_ {
-        iter::from_coroutine(
-            #[coroutine]
-            move || {
-                let Some(ref inner) = self.inner else {
-                    return;
-                };
-                let mut current = 0;
-                for cumulative_freq in inner.cumulative_freqs.iter(0) {
-                    yield (cumulative_freq - current) as u32;
-                    current = cumulative_freq;
-                }
-            },
-        )
+        iter::from_coroutine(move || {
+            let Some(ref inner) = self.inner else {
+                return;
+            };
+            let mut current = 0;
+            for cumulative_freq in inner.cumulative_freqs.iter(0) {
+                yield (cumulative_freq - current) as u32;
+                current = cumulative_freq;
+            }
+        })
     }
 
     pub fn iter_term_freqs(&self) -> impl Iterator<Item = (TermId, u32)> + '_ {
@@ -227,24 +221,21 @@ impl TermList {
 
     #[cfg(test)]
     pub fn iter_positions(&self) -> impl Iterator<Item = Vec<u32>> + '_ {
-        iter::from_coroutine(
-            #[coroutine]
-            move || {
-                let Some(ref inner) = self.inner else {
-                    return;
-                };
-                let mut current_index = 0usize;
-                for term_freq in self.iter_freqs() {
-                    let term_freq = term_freq as usize;
-                    let mut positions = Vec::with_capacity(term_freq);
-                    for i in 0..term_freq {
-                        positions.push(inner.positions.access(current_index + i).unwrap() as u32);
-                    }
-                    yield positions;
-                    current_index += term_freq;
+        iter::from_coroutine(move || {
+            let Some(ref inner) = self.inner else {
+                return;
+            };
+            let mut current_index = 0usize;
+            for term_freq in self.iter_freqs() {
+                let term_freq = term_freq as usize;
+                let mut positions = Vec::with_capacity(term_freq);
+                for i in 0..term_freq {
+                    positions.push(inner.positions.access(current_index + i).unwrap() as u32);
                 }
-            },
-        )
+                yield positions;
+                current_index += term_freq;
+            }
+        })
     }
 
     pub fn matches(&self, query: &TermListBitsetQuery) -> bool {
@@ -454,26 +445,23 @@ impl NonemptyTermList {
         &'a self,
         sorted_terms: &'a [TermId],
     ) -> impl Iterator<Item = (usize, usize)> + 'a {
-        iter::from_coroutine(
-            #[coroutine]
-            move || {
-                for (i, term) in sorted_terms.iter().cloned().enumerate() {
-                    // Find the position of `term` as its "rank": The number of
-                    // terms in the sequence that are less than `term`.
-                    let Some(rank) = self.terms.rank(term as usize) else {
-                        break;
-                    };
-                    // If `term` is larger than all other terms in the sequence,
-                    // it can be `terms.len()` and then return `None`. here.
-                    let Some(current_term) = self.terms.select(rank) else {
-                        break;
-                    };
-                    if current_term == term as usize {
-                        yield (i, rank);
-                    }
+        iter::from_coroutine(move || {
+            for (i, term) in sorted_terms.iter().cloned().enumerate() {
+                // Find the position of `term` as its "rank": The number of
+                // terms in the sequence that are less than `term`.
+                let Some(rank) = self.terms.rank(term as usize) else {
+                    break;
+                };
+                // If `term` is larger than all other terms in the sequence,
+                // it can be `terms.len()` and then return `None`. here.
+                let Some(current_term) = self.terms.select(rank) else {
+                    break;
+                };
+                if current_term == term as usize {
+                    yield (i, rank);
                 }
-            },
-        )
+            }
+        })
     }
 }
 

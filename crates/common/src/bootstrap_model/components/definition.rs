@@ -277,7 +277,7 @@ impl TryFrom<ComponentArgument> for SerializedComponentArgument {
     fn try_from(r: ComponentArgument) -> anyhow::Result<Self> {
         Ok(match r {
             ComponentArgument::Value(v) => SerializedComponentArgument::Value {
-                value: serde_json::to_string(&JsonValue::from(v))?,
+                value: serde_json::to_string(&JsonValue::try_from(v)?)?,
             },
         })
     }

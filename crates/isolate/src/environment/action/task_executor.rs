@@ -72,7 +72,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub syscall_trace: Arc<Mutex<SyscallTrace>>,
     pub action_callbacks: Arc<dyn ActionCallbacks>,
     pub fetch_client: Arc<dyn FetchClient>,
-    pub _module_loader: Arc<dyn ModuleLoader<RT>>,
+    pub module_loader: Arc<dyn ModuleLoader<RT>>,
     pub key_broker: KeyBroker,
     pub task_order: TaskOrder,
     pub task_retval_sender: UnboundedSender<TaskResponse>,

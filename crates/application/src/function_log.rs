@@ -1305,7 +1305,7 @@ impl<RT: Runtime> Inner<RT> {
         let mut next_time =
             (since_epoch.as_secs() as f64 * 1e3) + (since_epoch.subsec_nanos() as f64 * 1e-6);
         if let Some((last_time, _)) = self.log.back() {
-            let lower_bound = last_time.next_after(f64::INFINITY);
+            let lower_bound = last_time.next_after(std::f64::INFINITY);
             if lower_bound > next_time {
                 next_time = lower_bound;
             }

@@ -107,10 +107,10 @@ impl ConvexObject {
     }
 
     /// Get a value at a given field name.
-    pub fn get<Q>(&self, field_name: &Q) -> Option<&ConvexValue>
+    pub fn get<Q: ?Sized>(&self, field_name: &Q) -> Option<&ConvexValue>
     where
         FieldName: Borrow<Q>,
-        Q: ?Sized + Eq + Ord,
+        Q: Eq + Ord,
     {
         self.fields.get(field_name)
     }

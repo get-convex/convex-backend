@@ -25,6 +25,7 @@
 #![feature(lazy_cell)]
 #![feature(const_option)]
 #![feature(is_sorted)]
+#![feature(bound_map)]
 #![feature(iterator_try_collect)]
 #![feature(never_type)]
 #![feature(try_blocks)]

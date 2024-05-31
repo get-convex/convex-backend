@@ -281,7 +281,7 @@ impl Validator {
                     }
                 }
                 for field in object.keys() {
-                    if !object_validator.0.contains_key::<str>(field.borrow()) {
+                    if object_validator.0.get::<str>(field.borrow()).is_none() {
                         return Err(ValidationError::ExtraField {
                             object: object.clone(),
                             field_name: field.clone(),
@@ -685,43 +685,40 @@ impl Validator {
     }
 
     pub fn foreign_keys<'a>(&'a self) -> Box<dyn Iterator<Item = &'a TableName> + 'a> {
-        Box::new(iter::from_coroutine(
-            #[coroutine]
-            move || match self {
-                Self::Id(table_name) => yield table_name,
-                Self::Object(object) => {
-                    for table_name in object.foreign_keys() {
-                        yield table_name;
-                    }
-                },
-                Self::Array(item) | Self::Set(item) => {
-                    for table_name in item.foreign_keys() {
-                        yield table_name;
-                    }
-                },
-                Self::Union(options) => {
-                    for table_name in options.iter().flat_map(|option| option.foreign_keys()) {
-                        yield table_name;
-                    }
-                },
-                Self::Record(key, value) | Self::Map(key, value) => {
-                    for table_name in key.foreign_keys() {
-                        yield table_name;
-                    }
-                    for table_name in value.foreign_keys() {
-                        yield table_name;
-                    }
-                },
-                Self::Any
-                | Self::Boolean
-                | Self::Bytes
-                | Self::String
-                | Self::Literal(_)
-                | Self::Null
-                | Self::Float64
-                | Self::Int64 => {},
+        Box::new(iter::from_coroutine(move || match self {
+            Self::Id(table_name) => yield table_name,
+            Self::Object(object) => {
+                for table_name in object.foreign_keys() {
+                    yield table_name;
+                }
             },
-        ))
+            Self::Array(item) | Self::Set(item) => {
+                for table_name in item.foreign_keys() {
+                    yield table_name;
+                }
+            },
+            Self::Union(options) => {
+                for table_name in options.iter().flat_map(|option| option.foreign_keys()) {
+                    yield table_name;
+                }
+            },
+            Self::Record(key, value) | Self::Map(key, value) => {
+                for table_name in key.foreign_keys() {
+                    yield table_name;
+                }
+                for table_name in value.foreign_keys() {
+                    yield table_name;
+                }
+            },
+            Self::Any
+            | Self::Boolean
+            | Self::Bytes
+            | Self::String
+            | Self::Literal(_)
+            | Self::Null
+            | Self::Float64
+            | Self::Int64 => {},
+        }))
     }
 
     pub fn has_map_or_set(&self) -> bool {

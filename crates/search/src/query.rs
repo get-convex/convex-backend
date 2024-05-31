@@ -277,7 +277,7 @@ impl TermShortlistBuilder {
         let mut shortlist_ids = vec![];
 
         for (distance, term) in matches {
-            let maybe_new_shortlist_id = if !self.term_to_shortlist.contains_key(&term) {
+            let maybe_new_shortlist_id = if self.term_to_shortlist.get(&term).is_none() {
                 let shortlist_id = ShortlistId(self.shortlist.len() as u16);
                 self.term_to_shortlist.insert(term.clone(), shortlist_id);
                 self.shortlist.push(term);

@@ -12,19 +12,17 @@ use common::{
         StaticIdTracker,
     },
 };
-use qdrant_common::types::PointOffsetType;
 use qdrant_segment::{
-    common::{
-        operation_error::{
-            OperationError,
-            OperationResult,
-        },
-        Flusher,
+    common::Flusher,
+    entry::entry_point::{
+        OperationError,
+        OperationResult,
     },
     id_tracker::IdTracker,
     types::{
         ExtendedPointId,
         PointIdType,
+        PointOffsetType,
         SeqNumberType,
     },
 };

@@ -233,14 +233,19 @@ impl TryFrom<StartPushResponse> for SerializedStartPushResponse {
 
     fn try_from(value: StartPushResponse) -> Result<Self, Self::Error> {
         Ok(Self {
-            udf_config: ConvexObject::try_from(value.udf_config)?.into(),
+            udf_config: ConvexObject::try_from(value.udf_config)?.try_into()?,
             external_deps_id: value
                 .external_deps_id
                 .map(|id| String::from(DeveloperDocumentId::from(id))),
             component_definition_packages: value
                 .component_definition_packages
                 .into_iter()
-                .map(|(k, v)| Ok((String::from(k), JsonValue::from(ConvexObject::try_from(v)?))))
+                .map(|(k, v)| {
+                    Ok((
+                        String::from(k),
+                        JsonValue::try_from(ConvexObject::try_from(v)?)?,
+                    ))
+                })
                 .collect::<anyhow::Result<_>>()?,
             app_auth: value.app_auth,
             analysis: value
@@ -652,10 +657,10 @@ impl TryFrom<FinishPushDiff> for SerializedFinishPushDiff {
 
     fn try_from(value: FinishPushDiff) -> Result<Self, Self::Error> {
         Ok(Self {
-            auth_diff: JsonValue::from(ConvexObject::try_from(value.auth_diff)?),
+            auth_diff: JsonValue::try_from(ConvexObject::try_from(value.auth_diff)?)?,
             udf_config_diff: value
                 .udf_config_diff
-                .map(|diff| anyhow::Ok(JsonValue::from(ConvexObject::try_from(diff)?)))
+                .map(|diff| anyhow::Ok(JsonValue::try_from(ConvexObject::try_from(diff)?)?))
                 .transpose()?,
             definition_diffs: value
                 .definition_diffs

@@ -83,18 +83,15 @@ pub enum ExportContext {
 impl<C: ShapeConfig, S: ShapeCounter> Shape<C, S> {
     fn union_options(&self) -> impl Iterator<Item = &Self> {
         // There are no nested unions, so this does not need to be recursive.
-        iter::from_coroutine(
-            #[coroutine]
-            || {
-                if let ShapeEnum::Union(options) = self.variant() {
-                    for option in options.iter() {
-                        yield option;
-                    }
-                } else {
-                    yield self;
+        iter::from_coroutine(|| {
+            if let ShapeEnum::Union(options) = self.variant() {
+                for option in options.iter() {
+                    yield option;
                 }
-            },
-        )
+            } else {
+                yield self;
+            }
+        })
     }
 
     fn array_element(&self) -> BTreeSet<&Self> {
@@ -360,62 +357,58 @@ impl ExportContext {
     fn possible_contexts_for_string<'a, C: ShapeConfig, S: ShapeCounter>(
         shape_options: &'a BTreeSet<&'a Shape<C, S>>,
     ) -> impl Iterator<Item = Self> + 'a {
-        iter::from_coroutine(
-            #[coroutine]
-            move || {
-                for shape in shape_options
-                    .iter()
-                    .flat_map(|option| option.union_options())
-                {
-                    match shape.variant() {
-                        ShapeEnum::Int64 => yield ExportContext::Int64,
-                        ShapeEnum::NegativeInf | ShapeEnum::PositiveInf => {
-                            yield ExportContext::Float64Inf
-                        },
-                        ShapeEnum::NaN | ShapeEnum::Float64 => {
-                            // We care about whether this function yields multiple distinct results,
-                            // to see if we can use Infer. There are
-                            // multiple values of NaN, and multiple
-                            // kinds of floats, so we mark NaN as not
-                            // inferrable by returning multiple distinct results.
-                            yield ExportContext::Float64NaN {
-                                nan_le_bytes: f64::NAN.to_le_bytes(),
-                            };
-                            yield ExportContext::Float64Inf;
-                        },
-                        ShapeEnum::StringLiteral(_)
-                        | ShapeEnum::Id(_)
-                        | ShapeEnum::FieldName
-                        | ShapeEnum::String => yield ExportContext::Infer,
-                        ShapeEnum::Bytes => yield ExportContext::Bytes,
-                        // Unknown could have any ExportContext that can be a string.
-                        ShapeEnum::Unknown => {
-                            yield ExportContext::Infer;
-                            yield ExportContext::Float64Inf;
-                            yield ExportContext::Float64NaN {
-                                nan_le_bytes: f64::NAN.to_le_bytes(),
-                            };
-                            yield ExportContext::Int64;
-                            yield ExportContext::Bytes;
-                        },
-                        // coroutine cannot be recursive, so unions are already handled by
-                        // union_options() above.
-                        ShapeEnum::Union(_) => unreachable!(),
-                        // Never exported as strings.
-                        ShapeEnum::Never
-                        | ShapeEnum::Null
-                        | ShapeEnum::NegativeZero
-                        | ShapeEnum::NormalFloat64
-                        | ShapeEnum::Boolean
-                        | ShapeEnum::Array(_)
-                        | ShapeEnum::Set(_)
-                        | ShapeEnum::Map(_)
-                        | ShapeEnum::Object(_)
-                        | ShapeEnum::Record(_) => {},
-                    }
+        iter::from_coroutine(move || {
+            for shape in shape_options
+                .iter()
+                .flat_map(|option| option.union_options())
+            {
+                match shape.variant() {
+                    ShapeEnum::Int64 => yield ExportContext::Int64,
+                    ShapeEnum::NegativeInf | ShapeEnum::PositiveInf => {
+                        yield ExportContext::Float64Inf
+                    },
+                    ShapeEnum::NaN | ShapeEnum::Float64 => {
+                        // We care about whether this function yields multiple distinct results, to
+                        // see if we can use Infer. There are multiple
+                        // values of NaN, and multiple kinds of floats, so we mark NaN as not
+                        // inferrable by returning multiple distinct results.
+                        yield ExportContext::Float64NaN {
+                            nan_le_bytes: f64::NAN.to_le_bytes(),
+                        };
+                        yield ExportContext::Float64Inf;
+                    },
+                    ShapeEnum::StringLiteral(_)
+                    | ShapeEnum::Id(_)
+                    | ShapeEnum::FieldName
+                    | ShapeEnum::String => yield ExportContext::Infer,
+                    ShapeEnum::Bytes => yield ExportContext::Bytes,
+                    // Unknown could have any ExportContext that can be a string.
+                    ShapeEnum::Unknown => {
+                        yield ExportContext::Infer;
+                        yield ExportContext::Float64Inf;
+                        yield ExportContext::Float64NaN {
+                            nan_le_bytes: f64::NAN.to_le_bytes(),
+                        };
+                        yield ExportContext::Int64;
+                        yield ExportContext::Bytes;
+                    },
+                    // coroutine cannot be recursive, so unions are already handled by
+                    // union_options() above.
+                    ShapeEnum::Union(_) => unreachable!(),
+                    // Never exported as strings.
+                    ShapeEnum::Never
+                    | ShapeEnum::Null
+                    | ShapeEnum::NegativeZero
+                    | ShapeEnum::NormalFloat64
+                    | ShapeEnum::Boolean
+                    | ShapeEnum::Array(_)
+                    | ShapeEnum::Set(_)
+                    | ShapeEnum::Map(_)
+                    | ShapeEnum::Object(_)
+                    | ShapeEnum::Record(_) => {},
                 }
-            },
-        )
+            }
+        })
         .dedup()
     }
 

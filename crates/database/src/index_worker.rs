@@ -867,7 +867,7 @@ impl<RT: Runtime> IndexWriter<RT> {
 
     async fn write_index_entries(
         &self,
-        updates: impl FusedStream<Item = (Timestamp, DatabaseIndexUpdate)>,
+        updates: impl Stream<Item = (Timestamp, DatabaseIndexUpdate)> + FusedStream,
         index_selector: &IndexSelector,
     ) -> anyhow::Result<()> {
         futures::pin_mut!(updates);

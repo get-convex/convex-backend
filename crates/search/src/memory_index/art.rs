@@ -402,43 +402,40 @@ impl<V: Clone> ARTNode<V> {
     }
 
     fn iter_children(&self) -> impl Iterator<Item = (u8, SlabKey)> + '_ {
-        std::iter::from_coroutine(
-            #[coroutine]
-            move || match self {
-                Self::Leaf(_) => (),
-                Self::Node4(n) => {
-                    for i in 0..4 {
-                        if let Some(byte) = n.0.keys[i] {
-                            yield (byte, n.0.children[i].expect("child missing from Node4"))
-                        }
+        std::iter::from_coroutine(move || match self {
+            Self::Leaf(_) => (),
+            Self::Node4(n) => {
+                for i in 0..4 {
+                    if let Some(byte) = n.0.keys[i] {
+                        yield (byte, n.0.children[i].expect("child missing from Node4"))
                     }
-                },
-                Self::Node16(n) => {
-                    for i in 0..16 {
-                        if let Some(byte) = n.0.keys[i] {
-                            yield (byte, n.0.children[i].expect("child missing from Node16"))
-                        }
-                    }
-                },
-                Self::Node48(n) => {
-                    for i in 0..=255 {
-                        if let Some(idx) = n.0.keys[i] {
-                            yield (
-                                i as u8,
-                                n.0.children[idx as usize].expect("child missing from Node16"),
-                            )
-                        }
-                    }
-                },
-                Self::Node256(n) => {
-                    for i in 0..=255 {
-                        if let Some(key) = n.0.children[i] {
-                            yield (i as u8, key)
-                        }
-                    }
-                },
+                }
             },
-        )
+            Self::Node16(n) => {
+                for i in 0..16 {
+                    if let Some(byte) = n.0.keys[i] {
+                        yield (byte, n.0.children[i].expect("child missing from Node16"))
+                    }
+                }
+            },
+            Self::Node48(n) => {
+                for i in 0..=255 {
+                    if let Some(idx) = n.0.keys[i] {
+                        yield (
+                            i as u8,
+                            n.0.children[idx as usize].expect("child missing from Node16"),
+                        )
+                    }
+                }
+            },
+            Self::Node256(n) => {
+                for i in 0..=255 {
+                    if let Some(key) = n.0.children[i] {
+                        yield (i as u8, key)
+                    }
+                }
+            },
+        })
     }
 }
 
@@ -774,10 +771,10 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
     }
 
     /// Removes key from trie, shrinking nodes as needed.
-    pub fn remove<Q>(&mut self, key: &Q) -> Option<V>
+    pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<V>
     where
         K: Borrow<Q>,
-        Q: AsRef<[u8]> + ?Sized,
+        Q: AsRef<[u8]>,
     {
         // We need to keep track of the last 2 states encountered during `seek`
         let mut parent_state_and_transition = None;
@@ -843,10 +840,10 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
     /// need to branch nodes.
     ///
     /// We can just use `seek` and use the last element in the trail.
-    pub fn get<Q>(&self, key: &Q) -> Option<&V>
+    pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&V>
     where
         K: Borrow<Q>,
-        Q: AsRef<[u8]> + ?Sized,
+        Q: AsRef<[u8]>,
     {
         let mut last_state = self.root?;
         let seek_succeeded = self.seek(key.as_ref(), |state, _, _| {
@@ -859,10 +856,10 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
         }
     }
 
-    pub fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
+    pub fn get_mut<Q: ?Sized>(&mut self, key: &Q) -> Option<&mut V>
     where
         K: Borrow<Q>,
-        Q: ?Sized + AsRef<[u8]>,
+        Q: AsRef<[u8]>,
     {
         let mut last_state = self.root?;
 
@@ -879,26 +876,23 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
     }
 
     pub fn iter_values(&self) -> impl Iterator<Item = &V> + '_ {
-        std::iter::from_coroutine(
-            #[coroutine]
-            move || {
-                let Some(curr) = self.root else {
-                    return;
-                };
+        std::iter::from_coroutine(move || {
+            let Some(curr) = self.root else {
+                return;
+            };
 
-                let mut stack = vec![curr];
-                while let Some(key) = stack.pop() {
-                    let curr_node = self.get_validated_node(key);
-                    if let Some(value) = curr_node.get_value() {
-                        yield value;
-                    }
-
-                    for (_, child_key) in curr_node.iter_children() {
-                        stack.push(child_key);
-                    }
+            let mut stack = vec![curr];
+            while let Some(key) = stack.pop() {
+                let curr_node = self.get_validated_node(key);
+                if let Some(value) = curr_node.get_value() {
+                    yield value;
                 }
-            },
-        )
+
+                for (_, child_key) in curr_node.iter_children() {
+                    stack.push(child_key);
+                }
+            }
+        })
     }
 
     fn iter_rec<'a>(
@@ -972,86 +966,78 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
         dfa: DFA,
         skip_prefix: Option<&'a [u8]>,
     ) -> impl Iterator<Item = (&'a V, EditDistance, Vec<u8>)> + 'a {
-        std::iter::from_coroutine(
-            #[coroutine]
-            move || {
-                if dfa.initial_state() == SINK_STATE {
-                    return;
-                }
-                let Some(mut root) = self.root else {
-                    return;
-                };
+        std::iter::from_coroutine(move || {
+            if dfa.initial_state() == SINK_STATE {
+                return;
+            }
+            let Some(mut root) = self.root else {
+                return;
+            };
 
-                // If a skip_prefix was specified, seek to node + prefix offset of that node
-                // which matches skip_prefix. Start search from there.
-                let prefix_offset = if let Some(skip_prefix) = skip_prefix {
-                    let mut skip_prefix_offset = 0;
-                    self.seek(skip_prefix, |last_state, _, depth| {
-                        root = last_state;
-                        skip_prefix_offset = depth;
-                    });
-                    let art_node = self.get_validated_node(root);
-                    let last_prefix = &art_node.get_meta().prefix;
-                    max_shared_prefix(last_prefix, &skip_prefix[skip_prefix_offset..])
+            // If a skip_prefix was specified, seek to node + prefix offset of that node
+            // which matches skip_prefix. Start search from there.
+            let prefix_offset = if let Some(skip_prefix) = skip_prefix {
+                let mut skip_prefix_offset = 0;
+                self.seek(skip_prefix, |last_state, _, depth| {
+                    root = last_state;
+                    skip_prefix_offset = depth;
+                });
+                let art_node = self.get_validated_node(root);
+                let last_prefix = &art_node.get_meta().prefix;
+                max_shared_prefix(last_prefix, &skip_prefix[skip_prefix_offset..])
+            } else {
+                0
+            };
+
+            let mut stack = vec![(root, dfa.initial_state(), None::<u8>, false, prefix_offset)];
+            let mut path = skip_prefix
+                .map(|prefix| prefix.to_vec())
+                .unwrap_or_default();
+            'outer: while let Some((art_key, mut dfa_state, transition, visited, prefix_offset)) =
+                stack.pop()
+            {
+                let art_node = self.get_validated_node(art_key);
+                let prefix = &art_node.get_meta().prefix[prefix_offset..];
+
+                if visited {
+                    assert!(path.len() >= prefix.len());
+                    // truncate the prefix + transition byte if it exists
+                    path.truncate(path.len() - prefix.len());
+                    if transition.is_some() {
+                        path.pop();
+                    }
                 } else {
-                    0
-                };
-
-                let mut stack = vec![(root, dfa.initial_state(), None::<u8>, false, prefix_offset)];
-                let mut path = skip_prefix
-                    .map(|prefix| prefix.to_vec())
-                    .unwrap_or_default();
-                'outer: while let Some((
-                    art_key,
-                    mut dfa_state,
-                    transition,
-                    visited,
-                    prefix_offset,
-                )) = stack.pop()
-                {
-                    let art_node = self.get_validated_node(art_key);
-                    let prefix = &art_node.get_meta().prefix[prefix_offset..];
-
-                    if visited {
-                        assert!(path.len() >= prefix.len());
-                        // truncate the prefix + transition byte if it exists
-                        path.truncate(path.len() - prefix.len());
-                        if transition.is_some() {
-                            path.pop();
+                    for byte in prefix.iter() {
+                        dfa_state = dfa.transition(dfa_state, *byte);
+                        if dfa_state == SINK_STATE {
+                            continue 'outer;
                         }
-                    } else {
-                        for byte in prefix.iter() {
-                            dfa_state = dfa.transition(dfa_state, *byte);
-                            if dfa_state == SINK_STATE {
-                                continue 'outer;
-                            }
-                        }
-                        if let Some(transition) = transition {
-                            path.push(transition);
-                        }
-                        path.extend_from_slice(prefix);
+                    }
+                    if let Some(transition) = transition {
+                        path.push(transition);
+                    }
+                    path.extend_from_slice(prefix);
 
-                        if let Some(value) = art_node.get_value()
-                            && let Distance::Exact(dist) = dfa.distance(dfa_state)
-                        {
-                            yield (value, dist, path.clone())
-                        }
+                    if let Some(value) = art_node.get_value()
+                        && let Distance::Exact(dist) = dfa.distance(dfa_state)
+                    {
+                        yield (value, dist, path.clone())
+                    }
 
-                        // Repush node with visited set to true so we can reset the elements pushed
-                        // to path
-                        stack.push((art_key, dfa_state, transition, true, prefix_offset));
+                    // Repush node with visited set to true so we can reset the elements pushed to
+                    // path
+                    stack.push((art_key, dfa_state, transition, true, prefix_offset));
 
-                        // Recurse on children for which a DFA transition exists
-                        for (transition_byte, child_key) in art_node.iter_children() {
-                            let new_state = dfa.transition(dfa_state, transition_byte);
-                            if new_state != SINK_STATE {
-                                stack.push((child_key, new_state, Some(transition_byte), false, 0));
-                            }
+                    // Recurse on children for which a DFA transition exists
+                    for (transition_byte, child_key) in art_node.iter_children() {
+                        let new_state = dfa.transition(dfa_state, transition_byte);
+                        if new_state != SINK_STATE {
+                            stack.push((child_key, new_state, Some(transition_byte), false, 0));
                         }
                     }
                 }
-            },
-        )
+            }
+        })
     }
 }
 

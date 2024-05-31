@@ -109,7 +109,7 @@ impl Writes {
         document_update: DocumentUpdate,
     ) -> anyhow::Result<()> {
         if document_update.old_document.is_none() {
-            anyhow::ensure!(!self.updates.contains_key(&document_id), "Duplicate insert");
+            anyhow::ensure!(self.updates.get(&document_id).is_none(), "Duplicate insert");
             self.register_new_id(reads, document_id)?;
         }
         Self::record_reads_for_write(bootstrap_tables, reads, *document_id.table())?;

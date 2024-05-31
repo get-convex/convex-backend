@@ -41,7 +41,7 @@ available on [docs.rs](https://docs.rs/convex/latest/convex/)
 
 # MSRV
 
-The Convex rust client works on stable rust 1.74.1 and higher. It also works on
+The Convex rust client works on stable rust 1.65.0 and higher. It also works on
 nightly.
 
 # Debug Logging

@@ -161,24 +161,21 @@ impl IndexRegistry {
         &'a self,
         document: &'a ResolvedDocument,
     ) -> impl Iterator<Item = (&'a Index, IndexKey)> + 'a {
-        iter::from_coroutine(
-            #[coroutine]
-            move || {
-                for index in self.indexes_by_table(document.table().tablet_id) {
-                    // Only yield fields from database indexes.
-                    if let IndexConfig::Database {
-                        developer_config: DeveloperDatabaseIndexConfig { fields },
-                        on_disk_state: _,
-                    } = &index.metadata.config
-                    {
-                        yield (
-                            index,
-                            document.index_key(&fields[..], self.persistence_version()),
-                        );
-                    }
+        iter::from_coroutine(move || {
+            for index in self.indexes_by_table(document.table().tablet_id) {
+                // Only yield fields from database indexes.
+                if let IndexConfig::Database {
+                    developer_config: DeveloperDatabaseIndexConfig { fields },
+                    on_disk_state: _,
+                } = &index.metadata.config
+                {
+                    yield (
+                        index,
+                        document.index_key(&fields[..], self.persistence_version()),
+                    );
                 }
-            },
-        )
+            }
+        })
     }
 
     pub fn index_updates<'a>(
