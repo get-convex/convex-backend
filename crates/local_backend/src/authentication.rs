@@ -132,8 +132,10 @@ impl FromRequestParts<LocalAppState> for TryExtractIdentity {
         parts: &mut axum::http::request::Parts,
         st: &LocalAppState,
     ) -> Result<Self, Self::Rejection> {
-        let token: AuthenticationToken =
-            parts.extract::<ExtractAuthenticationToken>().await?.into();
+        let token = match parts.extract::<ExtractAuthenticationToken>().await {
+            Ok(t) => t.into(),
+            Err(e) => return Ok(Self(Err(e.into()))),
+        };
 
         Ok(Self(
             st.application

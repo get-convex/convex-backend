@@ -525,6 +525,12 @@ impl From<anyhow::Error> for HttpResponseError {
     }
 }
 
+impl From<HttpResponseError> for anyhow::Error {
+    fn from(value: HttpResponseError) -> Self {
+        value.trace
+    }
+}
+
 pub trait RouteMapper: Send + Sync + Clone + 'static {
     fn map_route(&self, route: String) -> String;
 }
