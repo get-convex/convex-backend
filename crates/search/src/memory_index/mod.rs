@@ -464,10 +464,19 @@ impl MemorySearchIndex {
                 .checked_add_signed(commit_stats.total_docs_diff as i64)
                 .context("num_documents underflow")?;
             for (field, total_term_diff) in &commit_stats.total_term_diff_by_field {
-                let term_diff = stats.num_terms_by_field.entry(*field).or_insert(0);
-                *term_diff = term_diff
-                    .checked_add_signed(*total_term_diff as i64)
-                    .context("num_terms underflow")?;
+                // It's possible some fields are present in the commit statistics but not the
+                // Bm25Stats because the Bm25Stats are query-specific, and the commit statistics
+                // are not. e.g. a filter field that isn't in the query might not appear in the
+                // Bm25 stats. We only need to update the fields that are in the Bm25Stats.
+                if let Some(term_diff) = stats.num_terms_by_field.get_mut(field) {
+                    *term_diff = term_diff
+                        .checked_add_signed(*total_term_diff as i64)
+                        .context("num_terms underflow")?;
+                } else if field == &Field::from_field_id(SEARCH_FIELD_ID) {
+                    stats
+                        .num_terms_by_field
+                        .insert(*field, (*total_term_diff as i64).try_into()?);
+                }
             }
             for (term, term_id) in &term_ids {
                 let Some(&increment) = commit_stats.term_freq_diffs.get(term_id) else {

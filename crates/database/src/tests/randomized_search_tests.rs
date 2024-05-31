@@ -755,6 +755,26 @@ async fn test_filtering_match_updates(rt: TestRuntime) -> anyhow::Result<()> {
     anyhow::Ok(())
 }
 
+#[convex_macro::test_runtime]
+async fn test_bm25_stats_no_underflow(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt).await?;
+    scenario
+        .patch(TestKey::C, vec![TestValue::D], TestValue::A)
+        .await?;
+    scenario.execute(TestAction::Backfill).await?;
+    scenario.execute(TestAction::Delete(TestKey::C)).await?;
+    // This query doens't use the filter field, so the BM25 stats will not include
+    // the filter field while the commit statistics will in the memory index from
+    // the delete.
+    scenario
+        .execute(TestAction::QueryAndCheckScores(TestQuery {
+            search: vec![TestValue::D],
+            filter: None,
+        }))
+        .await?;
+    anyhow::Ok(())
+}
+
 // Regression test: We had a bug where we were computing the index of a matching
 // union term incorrectly.
 //
