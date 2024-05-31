@@ -1,4 +1,5 @@
 use std::{
+    future::Future,
     sync::Arc,
     time::Duration,
 };
@@ -10,7 +11,10 @@ use common::{
         DATABASE_WORKERS_POLL_INTERVAL,
     },
     persistence::PersistenceReader,
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        SpawnHandle,
+    },
 };
 use futures::{
     join,
@@ -150,7 +154,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
 
         let text_compact = retry_loop_expect_occs_and_overloaded(
             "TextCompactor",
-            runtime,
+            runtime.clone(),
             database.clone(),
             Duration::ZERO,
             SearchIndexWorker::TextCompactor(new_text_compactor(
@@ -167,7 +171,20 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
             }
         };
 
-        join!(vector_flush, vector_compact, search_flush, text_compact);
+        join!(
+            Self::spawn_and_join(runtime.clone(), "vector_flush", vector_flush),
+            Self::spawn_and_join(runtime.clone(), "vector_compact", vector_compact),
+            Self::spawn_and_join(runtime.clone(), "search_flush", search_flush),
+            Self::spawn_and_join(runtime, "text_compact", text_compact),
+        );
+    }
+
+    async fn spawn_and_join(
+        rt: RT,
+        name: &'static str,
+        fut: impl Future<Output = ()> + Send + 'static,
+    ) {
+        let _ = rt.spawn(name, fut).into_join_future().await;
     }
 
     async fn work_and_wait_for_changes(
