@@ -301,7 +301,7 @@ pub static RETENTION_READ_PARALLEL: LazyLock<usize> =
 /// How many parallel threads to use for deleting index entries that have
 /// expired.
 pub static RETENTION_DELETE_PARALLEL: LazyLock<usize> =
-    LazyLock::new(|| env_config("RETENTION_DELETE_PARALLEL", 4));
+    LazyLock::new(|| env_config("RETENTION_DELETE_PARALLEL", 1));
 
 /// INDEX_RETENTION_DELAY determines the size of the index retention window.
 ///
@@ -365,7 +365,7 @@ pub static RETENTION_READ_CHUNK: LazyLock<usize> =
 
 /// Chunk size of index entries for deleting from Persistence.
 pub static RETENTION_DELETE_CHUNK: LazyLock<usize> =
-    LazyLock::new(|| env_config("RETENTION_DELETE_CHUNK", 512));
+    LazyLock::new(|| env_config("RETENTION_DELETE_CHUNK", 128));
 
 /// Batch size of index entries to delete between checkpoints.
 pub static RETENTION_DELETE_BATCH: LazyLock<usize> =
