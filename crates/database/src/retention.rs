@@ -943,7 +943,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         }
         for entry in to_partition {
             let mut hash = DefaultHasher::new();
-            entry.1.hash(&mut hash);
+            entry.1 .1.hash(&mut hash);
             let i = (hash.finish() as usize) % *RETENTION_DELETE_PARALLEL;
             parts[i].push(entry);
         }
@@ -1591,6 +1591,7 @@ fn snapshot_invalid_error(
 mod tests {
     use std::{
         collections::BTreeSet,
+        env,
         sync::Arc,
     };
 
@@ -1631,6 +1632,7 @@ mod tests {
     };
     use errors::ErrorMetadataAnyhowExt;
     use futures::{
+        future::try_join_all,
         pin_mut,
         stream,
         TryStreamExt,
@@ -1900,6 +1902,101 @@ mod tests {
                 doc(id4, 2, Some(2))?,
                 doc(id5, 5, Some(4))?,
                 doc(id6, 6, Some(5))?,
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_delete_document_chunk(rt: TestRuntime) -> anyhow::Result<()> {
+        env::set_var("DOCUMENT_RETENTION_DRY_RUN", "false");
+        env::set_var("RETENTION_DELETE_PARALLEL", "4");
+        let p = Arc::new(TestPersistence::new());
+        let mut id_generator = TestIdGenerator::new();
+        let table: TableName = str::parse("table")?;
+
+        let id1 = id_generator.user_generate(&table);
+
+        let documents = vec![
+            doc(id1, 1, Some(1))?,
+            doc(id1, 2, Some(2))?,
+            doc(id1, 3, Some(3))?,
+            doc(id1, 4, Some(4))?,
+            doc(id1, 5, Some(5))?,
+            doc(id1, 6, Some(6))?,
+            doc(id1, 7, Some(7))?,
+            doc(id1, 8, Some(8))?,
+            doc(id1, 9, Some(9))?,
+            doc(id1, 10, Some(10))?,
+            // min_document_snapshot_ts: 11
+            doc(id1, 12, Some(12))?,
+            doc(id1, 13, Some(13))?,
+        ];
+
+        p.clone()
+            .write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
+            .await?;
+
+        let min_snapshot_ts = Timestamp::must(11);
+        // The max repeatable ts needs to be ahead of Timestamp::MIN by at least the
+        // retention delay, so the anyhow::ensure before we delete doesn't fail
+        let repeatable_ts =
+            unchecked_repeatable_ts(min_snapshot_ts.add(*DOCUMENT_RETENTION_DELAY)?);
+
+        let retention_validator = Arc::new(NoopRetentionValidator);
+        let reader = p.reader();
+        let reader =
+            RepeatablePersistence::new(reader.clone(), repeatable_ts, retention_validator.clone());
+
+        let scanned_stream = LeaderRetentionManager::<TestRuntime>::expired_documents(
+            &rt,
+            reader.clone(),
+            Timestamp::MIN,
+            min_snapshot_ts,
+        );
+        let scanned: Vec<_> = scanned_stream.try_collect().await?;
+        let expired: Vec<_> = scanned
+            .into_iter()
+            .filter_map(|doc| {
+                if doc.1.is_some() {
+                    Some((doc.0, doc.1.unwrap()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        assert_eq!(expired.len(), 9);
+        let results = try_join_all(
+            LeaderRetentionManager::<TestRuntime>::partition_document_chunk(expired)
+                .into_iter()
+                .map(|delete_chunk| {
+                    // Ensures that all documents with the same id are in the same chunk
+                    assert!(delete_chunk.is_empty() || delete_chunk.len() == 9);
+                    LeaderRetentionManager::<TestRuntime>::delete_document_chunk(
+                        delete_chunk,
+                        p.clone(),
+                        min_snapshot_ts,
+                    )
+                }),
+        )
+        .await?;
+        let (_, deleted_rows): (Vec<_>, Vec<_>) = results.into_iter().unzip();
+        let deleted_rows = deleted_rows.into_iter().sum::<usize>();
+        assert_eq!(deleted_rows, 9);
+
+        let reader = p.reader();
+
+        // All documents are still visible at snapshot ts=12.
+        let stream = reader.load_all_documents();
+        let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
+        assert_eq!(
+            results,
+            vec![
+                doc(id1, 10, Some(10))?,
+                doc(id1, 12, Some(12))?,
+                doc(id1, 13, Some(13))?,
             ]
         );
 
