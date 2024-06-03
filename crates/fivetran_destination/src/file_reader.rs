@@ -166,21 +166,24 @@ fn try_parse_fivetran_value(
             .timestamp(),
             nanos: 0,
         }),
-        FivetranDataType::NaiveTime => FivetranValue::NaiveTime(Timestamp {
-            seconds: NaiveDateTime::new(
+        FivetranDataType::NaiveTime => {
+            let dt = NaiveDateTime::new(
                 NaiveDate::default(),
-                NaiveTime::parse_from_str(&value, "%H:%M:%S")?,
+                NaiveTime::parse_from_str(&value, "%H:%M:%S%.f")?,
             )
-            .and_utc()
-            .timestamp(),
-            nanos: 0,
-        }),
-        FivetranDataType::NaiveDatetime => FivetranValue::NaiveDatetime(Timestamp {
-            seconds: NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M:%S")?
-                .and_utc()
-                .timestamp(),
-            nanos: 0,
-        }),
+            .and_utc();
+            FivetranValue::NaiveTime(Timestamp {
+                seconds: dt.timestamp(),
+                nanos: dt.timestamp_subsec_nanos() as i32,
+            })
+        },
+        FivetranDataType::NaiveDatetime => {
+            let dt = NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M:%S%.f")?.and_utc();
+            FivetranValue::NaiveDatetime(Timestamp {
+                seconds: dt.timestamp(),
+                nanos: dt.timestamp_subsec_nanos() as i32,
+            })
+        },
         FivetranDataType::UtcDatetime => {
             let date_time = DateTime::parse_from_rfc3339(&value)?;
             FivetranValue::UtcDatetime(Timestamp {
@@ -196,28 +199,6 @@ fn try_parse_fivetran_value(
         FivetranDataType::String => FivetranValue::String(value),
         FivetranDataType::Json => FivetranValue::Json(value),
     })
-}
-
-#[cfg(test)]
-fn to_fivetran_data_type(value: &FivetranValue) -> Option<FivetranDataType> {
-    match value {
-        FivetranValue::Null(_) => None,
-        FivetranValue::Bool(_) => Some(FivetranDataType::Boolean),
-        FivetranValue::Short(_) => Some(FivetranDataType::Short),
-        FivetranValue::Int(_) => Some(FivetranDataType::Int),
-        FivetranValue::Long(_) => Some(FivetranDataType::Long),
-        FivetranValue::Float(_) => Some(FivetranDataType::Float),
-        FivetranValue::Double(_) => Some(FivetranDataType::Double),
-        FivetranValue::NaiveDate(_) => Some(FivetranDataType::NaiveDate),
-        FivetranValue::NaiveTime(_) => Some(FivetranDataType::NaiveTime),
-        FivetranValue::NaiveDatetime(_) => Some(FivetranDataType::NaiveDatetime),
-        FivetranValue::UtcDatetime(_) => Some(FivetranDataType::UtcDatetime),
-        FivetranValue::Decimal(_) => Some(FivetranDataType::Decimal),
-        FivetranValue::Binary(_) => Some(FivetranDataType::Binary),
-        FivetranValue::String(_) => Some(FivetranDataType::String),
-        FivetranValue::Json(_) => Some(FivetranDataType::Json),
-        FivetranValue::Xml(_) => Some(FivetranDataType::Xml),
-    }
 }
 
 #[cfg(test)]
@@ -238,11 +219,11 @@ fn to_csv_string_representation(value: &FivetranValue) -> Option<String> {
         },
         FivetranValue::NaiveTime(Timestamp { seconds, nanos }) => {
             DateTime::from_timestamp(*seconds, *nanos as u32)
-                .map(|dt| dt.time().format("%H:%M:%S").to_string())
+                .map(|dt| dt.time().format("%H:%M:%S%.f").to_string())
         },
         FivetranValue::NaiveDatetime(Timestamp { seconds, nanos }) => {
             DateTime::from_timestamp(*seconds, *nanos as u32)
-                .map(|dt| dt.naive_utc().format("%Y-%m-%dT%H:%M:%S").to_string())
+                .map(|dt| dt.naive_utc().format("%Y-%m-%dT%H:%M:%S%.f").to_string())
         },
         FivetranValue::UtcDatetime(Timestamp { seconds, nanos }) => {
             DateTime::from_timestamp(*seconds, *nanos as u32)
@@ -277,11 +258,11 @@ mod tests {
     use crate::{
         aes::Aes256Key,
         api_types::FivetranFieldName,
+        convert::fivetran_data_type,
         file_reader::{
             create_csv_deserializer,
             read_rows,
             to_csv_string_representation,
-            to_fivetran_data_type,
             try_parse_fivetran_value,
             FileRow,
             FivetranFileEncryption,
@@ -770,6 +751,13 @@ mod tests {
                 nanos: 0,
             })
         );
+        assert_eq!(
+            try_parse_fivetran_value("19:41:30.500".into(), FivetranDataType::NaiveTime).unwrap(),
+            FivetranValue::NaiveTime(Timestamp {
+                seconds: 19 * 60 * 60 + 41 * 60 + 30,
+                nanos: 500_000_000,
+            })
+        );
     }
 
     #[test]
@@ -794,6 +782,17 @@ mod tests {
             FivetranValue::NaiveDatetime(Timestamp {
                 seconds: 0,
                 nanos: 0,
+            })
+        );
+        assert_eq!(
+            try_parse_fivetran_value(
+                "1970-01-01T00:00:00.123".into(),
+                FivetranDataType::NaiveDatetime
+            )
+            .unwrap(),
+            FivetranValue::NaiveDatetime(Timestamp {
+                seconds: 0,
+                nanos: 123_000_000,
             })
         );
     }
@@ -856,7 +855,7 @@ mod tests {
             if let FivetranValue::Null(_) = value {
                 return Ok(());
             }
-            let value_type = to_fivetran_data_type(&value).unwrap();
+            let value_type = fivetran_data_type(&value).unwrap();
 
             let as_str = to_csv_string_representation(&value).unwrap();
             prop_assert_eq!(value, try_parse_fivetran_value(as_str, value_type).unwrap());

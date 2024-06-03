@@ -6,6 +6,8 @@
 
 mod aes;
 mod api_types;
+mod constants;
+mod convert;
 mod error;
 mod file_reader;
 mod fivetran_sdk;

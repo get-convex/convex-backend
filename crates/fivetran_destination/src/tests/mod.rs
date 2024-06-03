@@ -6,9 +6,17 @@ use prost_types::Timestamp;
 
 use crate::fivetran_sdk::value_type::Inner as FivetranValue;
 
+const NS_IN_MS: i32 = 1_000_000;
+
 pub fn arbitrary_timestamp_strategy() -> impl Strategy<Value = prost_types::Timestamp> {
-    (-318384000..2206224000i64, 0..=999_999_999i32)
-        .prop_map(|(seconds, nanos)| Timestamp { nanos, seconds })
+    (-318384000..2206224000i64, 0..=999_999_999i32).prop_map(|(seconds, nanos)| {
+        Timestamp {
+            // Fivetran timestamps have millisecond precision
+            // https://github.com/fivetran/fivetran_sdk/blob/main/development-guide.md#truncate
+            nanos: nanos / NS_IN_MS * NS_IN_MS,
+            seconds,
+        }
+    })
 }
 
 impl Arbitrary for FivetranValue {
@@ -36,11 +44,15 @@ impl Arbitrary for FivetranValue {
                     nanos: 0,
                 })
             }),
-            arbitrary_timestamp_strategy().prop_map(|Timestamp { seconds, .. }| {
-                FivetranValue::NaiveDatetime(Timestamp { seconds, nanos: 0 })
+            arbitrary_timestamp_strategy().prop_map(|Timestamp { seconds, nanos }| {
+                FivetranValue::NaiveDatetime(Timestamp { seconds, nanos })
             }),
-            (0i64..60 * 60 * 24)
-                .prop_map(|seconds| FivetranValue::NaiveTime(Timestamp { seconds, nanos: 0 })),
+            (0i64..60 * 60 * 24, 0..1000).prop_map(|(seconds, milliseconds)| {
+                FivetranValue::NaiveTime(Timestamp {
+                    seconds,
+                    nanos: milliseconds * NS_IN_MS,
+                })
+            }),
             arbitrary_timestamp_strategy().prop_map(FivetranValue::UtcDatetime),
         ]
     }
