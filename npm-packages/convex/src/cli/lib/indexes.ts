@@ -86,10 +86,6 @@ export async function pushSchema(
 
   const schemaId = data.schemaId;
 
-  changeSpinner(
-    ctx,
-    "Backfilling indexes and checking that documents match your schema...",
-  );
   const schemaState = await waitForReadySchema(ctx, origin, adminKey, schemaId);
   logIndexChanges(ctx, data, dryRun);
   return { schemaId, schemaState };
@@ -123,10 +119,18 @@ async function waitForReadySchema(
       return await logAndHandleFetchError(ctx, err);
     }
   };
-  const validate = (data: SchemaStateResponse) =>
-    data.indexes.every((index) => index.backfill.state === "done") &&
-    data.schemaState.state !== "pending";
-  const data = await poll(fetch, validate);
+
+  // Set the spinner to the default progress message before the first `fetch` call returns.
+  setSchemaProgressSpinner(ctx, null);
+
+  const data = await poll(fetch, (data: SchemaStateResponse) => {
+    setSchemaProgressSpinner(ctx, data);
+    return (
+      data.indexes.every((index) => index.backfill.state === "done") &&
+      data.schemaState.state !== "pending"
+    );
+  });
+
   switch (data.schemaState.state) {
     case "failed":
       // Schema validation failed. This could be either because the data
@@ -148,6 +152,40 @@ async function waitForReadySchema(
       break;
   }
   return data.schemaState;
+}
+
+function setSchemaProgressSpinner(
+  ctx: Context,
+  data: SchemaStateResponse | null,
+) {
+  if (!data) {
+    changeSpinner(
+      ctx,
+      "Backfilling indexes and checking that documents match your schema...",
+    );
+    return;
+  }
+  const indexesCompleted = data.indexes.filter(
+    (index) => index.backfill.state === "done",
+  ).length;
+  const numIndexes = data.indexes.length;
+
+  const indexesDone = indexesCompleted === numIndexes;
+  const schemaDone = data.schemaState.state !== "pending";
+
+  if (indexesDone && schemaDone) {
+    return;
+  }
+
+  let msg: string;
+  if (!indexesDone && !schemaDone) {
+    msg = `Backfilling indexes (${indexesCompleted}/${numIndexes} ready) and checking that documents match your schema...`;
+  } else if (!indexesDone) {
+    msg = `Backfilling indexes (${indexesCompleted}/${numIndexes} ready)...`;
+  } else {
+    msg = "Checking that documents match your schema...";
+  }
+  changeSpinner(ctx, msg);
 }
 
 function logIndexChanges(
