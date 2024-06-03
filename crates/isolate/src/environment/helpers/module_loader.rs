@@ -105,9 +105,12 @@ async fn download_module_source_from_package<RT: Runtime>(
     .await?;
     let namespace = tx.table_mapping().tablet_namespace(modules_tablet)?;
     let component = match namespace {
+        // TODO(lee) global namespace should not have modules, but for existing data this is how
+        // it's represented.
+        TableNamespace::Global => ComponentDefinitionId::Root,
         TableNamespace::RootComponentDefinition => ComponentDefinitionId::Root,
         TableNamespace::ByComponentDefinition(id) => ComponentDefinitionId::Child(id),
-        _ => anyhow::bail!("_modules table namespace is not a component definition"),
+        _ => anyhow::bail!("_modules table namespace {namespace:?} is not a component definition"),
     };
     for module_metadata in ModuleModel::new(tx).get_all_metadata(component).await? {
         let source = package
