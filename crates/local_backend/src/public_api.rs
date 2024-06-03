@@ -1,11 +1,6 @@
-use std::sync::Arc;
-
 use anyhow::anyhow;
 use application::{
-    api::{
-        ApplicationApi,
-        ExecuteQueryTimestamp,
-    },
+    api::ExecuteQueryTimestamp,
     redaction::{
         RedactedJsError,
         RedactedLogLines,
@@ -55,6 +50,7 @@ use crate::{
     },
     parse::parse_udf_path,
     LocalAppState,
+    RouterState,
 };
 
 #[derive(Deserialize)]
@@ -215,7 +211,7 @@ pub fn export_value(
 
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_get(
-    State(api): State<Arc<dyn ApplicationApi>>,
+    State(st): State<RouterState>,
     Query(req): Query<UdfArgsQuery>,
     Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
@@ -229,10 +225,12 @@ pub async fn public_query_get(
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
-    let identity = api
+    let identity = st
+        .api
         .authenticate(host.as_str(), request_id.clone(), auth_token)
         .await?;
-    let query_result = api
+    let query_result = st
+        .api
         .execute_public_query(
             host.as_str(),
             request_id,
@@ -258,7 +256,7 @@ pub async fn public_query_get(
 
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
-    State(api): State<Arc<dyn ApplicationApi>>,
+    State(st): State<RouterState>,
     Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -271,10 +269,12 @@ pub async fn public_query_post(
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
-    let identity = api
+    let identity = st
+        .api
         .authenticate(host.as_str(), request_id.clone(), auth_token)
         .await?;
-    let query_return = api
+    let query_return = st
+        .api
         .execute_public_query(
             host.as_str(),
             request_id,
@@ -310,7 +310,7 @@ pub struct QueryBatchResponse {
 }
 
 pub async fn public_query_batch_post(
-    State(api): State<Arc<dyn ApplicationApi>>,
+    State(st): State<RouterState>,
     Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -319,16 +319,19 @@ pub async fn public_query_batch_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut results = vec![];
     // All queries execute at the same timestamp.
-    let ts = api
+    let ts = st
+        .api
         .latest_timestamp(host.as_str(), request_id.clone())
         .await?;
-    let identity = api
+    let identity = st
+        .api
         .authenticate(host.as_str(), request_id.clone(), auth_token)
         .await?;
     for req in req_batch.queries {
         let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
         let udf_path = parse_udf_path(&req.path)?;
-        let udf_return = api
+        let udf_return = st
+            .api
             .execute_public_query(
                 host.as_str(),
                 request_id.clone(),
@@ -359,7 +362,7 @@ pub async fn public_query_batch_post(
 
 #[minitrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
-    State(api): State<Arc<dyn ApplicationApi>>,
+    State(st): State<RouterState>,
     Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -371,10 +374,12 @@ pub async fn public_mutation_post(
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
-    let identity = api
+    let identity = st
+        .api
         .authenticate(host.as_str(), request_id.clone(), auth_token)
         .await?;
-    let udf_result = api
+    let udf_result = st
+        .api
         .execute_public_mutation(
             host.as_str(),
             request_id,
@@ -403,7 +408,7 @@ pub async fn public_mutation_post(
 
 #[minitrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
-    State(api): State<Arc<dyn ApplicationApi>>,
+    State(st): State<RouterState>,
     Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -416,10 +421,12 @@ pub async fn public_action_post(
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
     // client and Usher.
-    let identity = api
+    let identity = st
+        .api
         .authenticate(host.as_str(), request_id.clone(), auth_token)
         .await?;
-    let action_result = api
+    let action_result = st
+        .api
         .execute_public_action(
             host.as_str(),
             request_id,

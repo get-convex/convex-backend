@@ -22,7 +22,6 @@ use application::{
         RedactedJsError,
         RedactedLogLines,
     },
-    Application,
     RedactedActionError,
     RedactedMutationError,
 };
@@ -234,16 +233,13 @@ struct TransitionState {
 
 impl<RT: Runtime> SyncWorker<RT> {
     pub fn new(
-        application: Application<RT>,
+        api: Arc<dyn ApplicationApi>,
+        rt: RT,
         host: String,
         config: SyncWorkerConfig,
         rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
         tx: SingleFlightSender<RT>,
     ) -> Self {
-        let rt = application.runtime().clone();
-        // Use api implemented by application until all functionality is migrated
-        // and we no longer need application.
-        let api = Arc::new(application);
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = receiver.buffered(1); // Execute at most one operation at a time.
         SyncWorker {

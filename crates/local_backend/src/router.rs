@@ -3,7 +3,6 @@ use std::{
     time::Duration,
 };
 
-use application::api::ApplicationApi;
 use axum::{
     error_handling::HandleErrorLayer,
     extract::DefaultBodyLimit,
@@ -116,6 +115,7 @@ use crate::{
         sync_client_version_url,
     },
     LocalAppState,
+    RouterState,
 };
 
 pub async fn router(st: LocalAppState) -> Router {
@@ -168,7 +168,6 @@ pub async fn router(st: LocalAppState) -> Router {
         .route("/zip/:snapshot_ts", get(get_zip_export));
 
     let api_routes = Router::new()
-        .merge(browser_routes)
         .merge(cli_routes)
         .merge(dashboard_routes)
         .merge(public_api_routes())
@@ -176,10 +175,18 @@ pub async fn router(st: LocalAppState) -> Router {
         .nest("/export", snapshot_export_routes)
         .nest("/storage", storage_api_routes());
 
+    // Endpoints migrated to use the RouterState trait instead of application.
+    let migrated_api_routes = Router::new()
+        .merge(browser_routes)
+        .merge(migrated_public_api_routes());
     let migrated = Router::new()
-        .nest("/api", migrated_public_api_routes())
+        .nest("/api", migrated_api_routes)
         .layer(cors().await)
-        .with_state(Arc::new(st.application.clone()));
+        .with_state(RouterState {
+            api: Arc::new(st.application.clone()),
+            runtime: st.application.runtime().clone(),
+            live_ws_count: st.live_ws_count.clone(),
+        });
 
     Router::new()
         .nest("/api", api_routes)
@@ -194,13 +201,13 @@ pub async fn router(st: LocalAppState) -> Router {
 
 pub fn public_api_routes() -> Router<LocalAppState> {
     Router::new()
-        .route("/sync", get(sync))
         .route("/function", post(public_function_post))
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
 }
 
-pub fn migrated_public_api_routes() -> Router<Arc<dyn ApplicationApi>> {
+pub fn migrated_public_api_routes() -> Router<RouterState> {
     Router::new()
+        .route("/sync", get(sync))
         .route("/query", get(public_query_get))
         .route("/query", post(public_query_post))
         .route("/query_batch", post(public_query_batch_post))

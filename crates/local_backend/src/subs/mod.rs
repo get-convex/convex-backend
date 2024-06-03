@@ -81,7 +81,7 @@ use metrics::{
     websocket_upgrade_timer,
 };
 
-use crate::LocalAppState;
+use crate::RouterState;
 
 /// How often heartbeat pings are sent.
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -121,7 +121,7 @@ impl Drop for SyncSocketDropToken {
 // by returning `Ok(())`, and once all of them have cleanly exited, we'll
 // gracefully close the socket.
 async fn run_sync_socket(
-    st: LocalAppState,
+    st: RouterState,
     host: String,
     config: SyncWorkerConfig,
     socket: WebSocket,
@@ -160,7 +160,7 @@ async fn run_sync_socket(
                         })?;
                     log_websocket_message_in();
                     if client_tx
-                        .unbounded_send((body, st.application.runtime().monotonic_now()))
+                        .unbounded_send((body, st.runtime.monotonic_now()))
                         .is_err()
                     {
                         break;
@@ -208,7 +208,7 @@ async fn run_sync_socket(
                         Some(m) => m,
                         None => break 'top,
                     };
-                    let delay = st.application.runtime().monotonic_now() - send_time;
+                    let delay = st.runtime.monotonic_now() - send_time;
                     log_websocket_message_out(&message, delay);
                     let serialized = serde_json::to_string(&JsonValue::from(message))?;
                     if tx.send(Message::Text(serialized)).await.is_err() {
@@ -222,7 +222,8 @@ async fn run_sync_socket(
     let mut identity_version: Option<IdentityVersion> = None;
     let sync_worker_go = async {
         let mut sync_worker = SyncWorker::new(
-            st.application.clone(),
+            st.api.clone(),
+            st.runtime.clone(),
             host,
             config.clone(),
             client_rx,
@@ -337,7 +338,7 @@ fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncW
 }
 
 pub async fn sync_client_version_url(
-    State(st): State<LocalAppState>,
+    State(st): State<RouterState>,
     Host(host): Host,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
@@ -354,7 +355,7 @@ pub async fn sync_client_version_url(
 }
 
 pub async fn sync(
-    State(st): State<LocalAppState>,
+    State(st): State<RouterState>,
     Host(host): Host,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,

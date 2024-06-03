@@ -22,6 +22,7 @@ use ::storage::{
     StorageUseCase,
 };
 use application::{
+    api::ApplicationApi,
     log_visibility::AllowLogging,
     Application,
 };
@@ -131,6 +132,18 @@ impl Clone for LocalAppState {
             zombify_rx: self.zombify_rx.clone(),
         }
     }
+}
+
+// Contains state needed to serve most http routes. Similar to LocalAppState,
+// but uses ApplicationApi instead of Application, which allows it to be used
+// in both Backend and Usher.
+#[derive(Clone)]
+pub struct RouterState {
+    pub api: Arc<dyn ApplicationApi>,
+    pub runtime: ProdRuntime,
+
+    // Number of sync protocol workers.
+    pub live_ws_count: Arc<AtomicU64>,
 }
 
 #[derive(Serialize)]
