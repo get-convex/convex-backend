@@ -3,6 +3,7 @@ use std::{
     fmt,
 };
 
+use anyhow::Context;
 use tantivy::{
     fastfield::AliveBitSet,
     query::{
@@ -344,9 +345,9 @@ impl TryFrom<pb::searchlight::OrTerm> for OrTerm {
 
     fn try_from(value: pb::searchlight::OrTerm) -> Result<Self, Self::Error> {
         Ok(OrTerm {
-            term: Term::wrap(value.term),
-            doc_frequency: value.doc_frequency,
-            bm25_boost: value.bm25_boost,
+            term: Term::wrap(value.term.context("Missing term")?),
+            doc_frequency: value.doc_frequency.context("Missing doc_frequency")?,
+            bm25_boost: value.bm25_boost.context("Missing bm25_boost")?,
         })
     }
 }
@@ -356,9 +357,9 @@ impl TryFrom<OrTerm> for pb::searchlight::OrTerm {
 
     fn try_from(value: OrTerm) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::OrTerm {
-            term: value.term.as_slice().to_vec(),
-            doc_frequency: value.doc_frequency,
-            bm25_boost: value.bm25_boost,
+            term: Some(value.term.as_slice().to_vec()),
+            doc_frequency: Some(value.doc_frequency),
+            bm25_boost: Some(value.bm25_boost),
         })
     }
 }

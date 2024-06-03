@@ -286,7 +286,7 @@ message QueryTokensRequest {
   StorageType storage_type = 1;
   FragmentedTextSegmentPaths segment = 2;
   repeated TokenQuery token_queries = 3;
-  uint32 max_results = 4;
+  optional uint32 max_results = 4;
 }
 
 message FragmentedTextSegmentPaths {
@@ -308,9 +308,9 @@ message MultiSegmentMetadata {
 }
 
 message TokenQuery {
-  bytes term = 1;
-  uint32 max_distance = 2;
-  bool prefix = 3;
+  optional bytes term = 1;
+  optional uint32 max_distance = 2;
+  optional bool prefix = 3;
 }
 
 message QueryTokensResponse {
@@ -318,11 +318,11 @@ message QueryTokensResponse {
 }
 
 message TokenMatch {
-  uint32 distance = 1;
-  bool prefix = 2;
-  bytes tantivy_bytes = 3;
+  optional uint32 distance = 1;
+  optional bool prefix = 2;
+  optional bytes tantivy_bytes = 3;
   // Offset into `QueryTokensRequest.token_queries`.
-  uint32 token_ord = 4;
+  optional uint32 token_ord = 4;
 }
 
 message QueryBm25StatsRequest {
@@ -333,7 +333,7 @@ message QueryBm25StatsRequest {
 
 message QueryBm25StatsResponse {
   repeated NumTermsByField num_terms_by_field = 1;
-  uint64 num_documents = 2;
+  optional uint64 num_documents = 2;
   repeated DocFrequency doc_frequencies = 3;
 }
 
@@ -343,8 +343,8 @@ message NumTermsByField {
 }
 
 message DocFrequency {
-  bytes term = 1;
-  uint64 frequency = 2;
+  optional bytes term = 1;
+  optional uint64 frequency = 2;
 }
 
 message QueryPostingListsRequest {
@@ -358,18 +358,18 @@ message PostingListQuery {
 
   // Global BM25 stats
   repeated NumTermsByField num_terms_by_field = 2;
-  uint64 num_documents = 3;
+  optional uint64 num_documents = 3;
 
   repeated OrTerm or_terms = 4;
   repeated bytes and_terms = 5;
 
-  uint32 max_results = 6;
+  optional uint32 max_results = 6;
 }
 
 message OrTerm {
-  bytes term = 1;
-  uint64 doc_frequency = 2;
-  float bm25_boost = 3;
+  optional bytes term = 1;
+  optional uint64 doc_frequency = 2;
+  optional float bm25_boost = 3;
 }
 
 message QueryPostingListsResponse {
@@ -377,11 +377,11 @@ message QueryPostingListsResponse {
 }
 
 message PostingListMatch {
-  bytes internal_id = 1;
+  optional bytes internal_id = 1;
   oneof ts {
     uint64 committed = 2;
     google.protobuf.Empty pending = 3;
   }
-  double creation_time = 4;
-  float bm25_score = 5;
+  optional double creation_time = 4;
+  optional float bm25_score = 5;
 }

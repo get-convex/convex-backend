@@ -1068,9 +1068,9 @@ impl TryFrom<pb::searchlight::TokenQuery> for TokenQuery {
 
     fn try_from(value: pb::searchlight::TokenQuery) -> Result<Self, Self::Error> {
         Ok(TokenQuery {
-            term: Term::wrap(value.term),
-            max_distance: value.max_distance,
-            prefix: value.prefix,
+            term: Term::wrap(value.term.context("Missing term")?),
+            max_distance: value.max_distance.context("Missing max_distance")?,
+            prefix: value.prefix.context("Missing prefix")?,
         })
     }
 }
@@ -1080,9 +1080,9 @@ impl TryFrom<TokenQuery> for pb::searchlight::TokenQuery {
 
     fn try_from(value: TokenQuery) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::TokenQuery {
-            term: value.term.as_slice().to_vec(),
-            max_distance: value.max_distance,
-            prefix: value.prefix,
+            term: Some(value.term.as_slice().to_vec()),
+            max_distance: Some(value.max_distance),
+            prefix: Some(value.prefix),
         })
     }
 }
@@ -1100,10 +1100,10 @@ impl TryFrom<pb::searchlight::TokenMatch> for TokenMatch {
 
     fn try_from(value: pb::searchlight::TokenMatch) -> Result<Self, Self::Error> {
         Ok(TokenMatch {
-            distance: value.distance,
-            prefix: value.prefix,
-            term: Term::wrap(value.tantivy_bytes),
-            token_ord: value.token_ord,
+            distance: value.distance.context("Missing distance")?,
+            prefix: value.prefix.context("Missing prefix")?,
+            term: Term::wrap(value.tantivy_bytes.context("Missing term")?),
+            token_ord: value.token_ord.context("Missing token_ord")?,
         })
     }
 }
@@ -1113,10 +1113,10 @@ impl TryFrom<TokenMatch> for pb::searchlight::TokenMatch {
 
     fn try_from(value: TokenMatch) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::TokenMatch {
-            distance: value.distance,
-            prefix: value.prefix,
-            tantivy_bytes: value.term.as_slice().to_vec(),
-            token_ord: value.token_ord,
+            distance: Some(value.distance),
+            prefix: Some(value.prefix),
+            tantivy_bytes: Some(value.term.as_slice().to_vec()),
+            token_ord: Some(value.token_ord),
         })
     }
 }
@@ -1370,11 +1370,12 @@ impl From<Bm25Stats> for QueryBm25StatsResponse {
                 num_terms: Some(num_terms),
             })
             .collect();
+        let num_documents = Some(num_documents);
         let doc_frequencies = doc_frequencies
             .into_iter()
             .map(|(term, frequency)| pb::searchlight::DocFrequency {
-                term: term.as_slice().to_vec(),
-                frequency,
+                term: Some(term.as_slice().to_vec()),
+                frequency: Some(frequency),
             })
             .collect();
         QueryBm25StatsResponse {
@@ -1406,11 +1407,16 @@ impl TryFrom<QueryBm25StatsResponse> for Bm25Stats {
             .try_collect()?;
         let doc_frequencies = doc_frequencies
             .into_iter()
-            .map(|df| (Term::wrap(df.term), df.frequency))
-            .collect();
+            .map(|df| {
+                anyhow::Ok::<(Term, u64)>((
+                    Term::wrap(df.term.context("Missing term")?),
+                    df.frequency.context("Missing frequency")?,
+                ))
+            })
+            .try_collect()?;
         Ok(Bm25Stats {
             num_terms_by_field,
-            num_documents,
+            num_documents: num_documents.context("Missing num_documents")?,
             doc_frequencies,
         })
     }
@@ -1460,10 +1466,10 @@ impl TryFrom<PostingListQueryProto> for PostingListQuery {
         Ok(PostingListQuery {
             deleted_internal_ids,
             num_terms_by_field,
-            num_documents,
+            num_documents: num_documents.context("Missing num_documents")?,
             or_terms,
             and_terms,
-            max_results: max_results as usize,
+            max_results: max_results.context("Missing max_results")? as usize,
         })
     }
 }
@@ -1500,10 +1506,10 @@ impl TryFrom<PostingListQuery> for PostingListQueryProto {
         Ok(PostingListQueryProto {
             deleted_internal_ids,
             num_terms_by_field,
-            num_documents,
+            num_documents: Some(num_documents),
             or_terms,
             and_terms,
-            max_results: max_results as u32,
+            max_results: Some(max_results as u32),
         })
     }
 }
@@ -1545,7 +1551,9 @@ impl TryFrom<pb::searchlight::PostingListMatch> for PostingListMatch {
 
     fn try_from(value: pb::searchlight::PostingListMatch) -> Result<Self, Self::Error> {
         Ok(PostingListMatch {
-            internal_id: InternalId::try_from(&value.internal_id[..])?,
+            internal_id: InternalId::try_from(
+                &value.internal_id.context("Missing internal id")?[..],
+            )?,
             ts: match value.ts {
                 Some(pb::searchlight::posting_list_match::Ts::Committed(ts)) => {
                     WriteTimestamp::Committed(ts.try_into()?)
@@ -1555,8 +1563,11 @@ impl TryFrom<pb::searchlight::PostingListMatch> for PostingListMatch {
                 },
                 _ => anyhow::bail!("Missing ts field"),
             },
-            creation_time: value.creation_time.try_into()?,
-            bm25_score: value.bm25_score,
+            creation_time: value
+                .creation_time
+                .context("Missing creation_time")?
+                .try_into()?,
+            bm25_score: value.bm25_score.context("Missing bm25_score")?,
         })
     }
 }
@@ -1566,7 +1577,7 @@ impl TryFrom<PostingListMatch> for pb::searchlight::PostingListMatch {
 
     fn try_from(value: PostingListMatch) -> Result<Self, Self::Error> {
         Ok(pb::searchlight::PostingListMatch {
-            internal_id: value.internal_id.into(),
+            internal_id: Some(value.internal_id.into()),
             ts: match value.ts {
                 WriteTimestamp::Committed(ts) => Some(
                     pb::searchlight::posting_list_match::Ts::Committed(ts.try_into()?),
@@ -1575,8 +1586,8 @@ impl TryFrom<PostingListMatch> for pb::searchlight::PostingListMatch {
                     Some(pb::searchlight::posting_list_match::Ts::Pending(()))
                 },
             },
-            creation_time: value.creation_time.into(),
-            bm25_score: value.bm25_score,
+            creation_time: Some(value.creation_time.into()),
+            bm25_score: Some(value.bm25_score),
         })
     }
 }
