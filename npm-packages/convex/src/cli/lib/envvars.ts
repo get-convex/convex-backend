@@ -13,6 +13,7 @@ const FRAMEWORKS = [
   "Vite",
   "Remix",
   "SvelteKit",
+  "Expo",
 ] as const;
 type Framework = (typeof FRAMEWORKS)[number];
 
@@ -106,6 +107,14 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
     return {
       detectedFramework: "Next.js",
       envVar: "NEXT_PUBLIC_CONVEX_URL",
+    };
+  }
+
+  const isExpo = "expo" in packages;
+  if (isExpo) {
+    return {
+      detectedFramework: "Expo",
+      envVar: "EXPO_PUBLIC_CONVEX_URL",
     };
   }
 
@@ -221,6 +230,7 @@ const EXPECTED_NAMES = new Set([
   "NEXT_PUBLIC_CONVEX_URL",
   "VITE_CONVEX_URL",
   "REACT_APP_CONVEX_URL",
+  "EXPO_PUBLIC_CONVEX_URL",
 ]);
 
 export function buildEnvironment(): string | boolean {
