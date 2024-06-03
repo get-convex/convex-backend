@@ -8,6 +8,7 @@ export function tsconfigCodegen() {
     /* These settings are not required by Convex and can be modified. */
     "allowJs": true,
     "strict": true,
+    "moduleResolution": "Bundler",
 
     /* These compiler options are required by Convex */
     "target": "ESNext",
@@ -15,7 +16,6 @@ export function tsconfigCodegen() {
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
