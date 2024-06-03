@@ -287,11 +287,10 @@ export class Response {
   }
 }
 
-export const convexJsonFromResponse = ({
-  response,
-}: {
-  response: Response;
-}) => {
+export const convexJsonFromResponse = ({ response }: { response: any }) => {
+  if (!(response instanceof Response)) {
+    throw new Error("HTTP actions must return a Response");
+  }
   const streamId = constructStreamId(response.body);
   const headerPairs = [...response.headers.entries()];
   if (
