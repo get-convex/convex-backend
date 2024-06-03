@@ -52,14 +52,15 @@
    */
   "allowedAlternativeVersions": {
     /**
-     * Convex minimum version of TypeScript supported is 4.8.4;
-     * Don't use TypeScript 4.9 and 5.0 features!
-     * These include:
+     * Convex minimum version of TypeScript supported is 5.0;
+     * Whatever features were added after that, don't use them!
+     *
+     * We CAN use 4.9 and 5.0 things now though, which include:
      * - satisfies
      * - auto-accessors
      * - decorators
      * - const type parameters
      */
-    "typescript": ["~4.8.4"]
+    "typescript": ["5.0.4"]
   }
 }
