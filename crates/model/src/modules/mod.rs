@@ -307,7 +307,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         module_id: ResolvedDocumentId,
         version: ModuleVersion,
-    ) -> anyhow::Result<ParsedDocument<ModuleVersionMetadata>> {
+    ) -> anyhow::Result<Option<ParsedDocument<ModuleVersionMetadata>>> {
         let timer = get_module_version_timer();
         let module_id_value: ConvexValue = module_id.into();
         let index_range = IndexRange {
@@ -324,14 +324,14 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             .table_mapping()
             .tablet_namespace(module_id.table().tablet_id)?;
         let mut query_stream = ResolvedQuery::new(self.tx, namespace, module_query)?;
-        let module_version: ParsedDocument<ModuleVersionMetadata> = query_stream
+        let module_version: Option<ParsedDocument<ModuleVersionMetadata>> = query_stream
             .expect_at_most_one(self.tx)
             .await?
-            .context(format!(
-                "Dangling module version reference: {module_id}@{version}"
-            ))?
-            .try_into()?;
-        anyhow::ensure!(module_version.version == Some(version));
+            .map(TryFrom::try_from)
+            .transpose()?;
+        if let Some(module_version) = &module_version {
+            anyhow::ensure!(module_version.version == Some(version));
+        }
         timer.finish();
         Ok(module_version)
     }
@@ -341,7 +341,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         module_id: ResolvedDocumentId,
         version: ModuleVersion,
     ) -> anyhow::Result<FullModuleSource> {
-        let module_version = self.get_version(module_id, version).await?.into_value();
+        let module_version = self
+            .get_version(module_id, version)
+            .await?
+            .context(format!(
+                "Dangling module version reference: {module_id}@{version}"
+            ))?
+            .into_value();
         Ok(FullModuleSource {
             source: module_version.source,
             source_map: module_version.source_map,
@@ -448,7 +454,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 let previous_version_id = self
                     .get_version(module_metadata.id(), previous_version)
                     .await?
-                    .id();
+                    .map(|version| version.id());
 
                 let latest_version = previous_version + 1;
                 let new_metadata = ModuleMetadata {
@@ -462,9 +468,11 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     .replace(module_metadata.id(), new_metadata.try_into()?)
                     .await?;
 
-                SystemMetadataModel::new(self.tx, path.component.into())
-                    .delete(previous_version_id)
-                    .await?;
+                if let Some(previous_version_id) = previous_version_id {
+                    SystemMetadataModel::new(self.tx, path.component.into())
+                        .delete(previous_version_id)
+                        .await?;
+                }
 
                 (module_metadata.id(), latest_version)
             },
@@ -535,12 +543,14 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 .await?;
 
             // Delete the module version since it has no more references.
-            let module_version = self
+            if let Some(module_version) = self
                 .get_version(module_id, module_metadata.latest_version)
-                .await?;
-            SystemMetadataModel::new(self.tx, namespace)
-                .delete(module_version.id())
-                .await?;
+                .await?
+            {
+                SystemMetadataModel::new(self.tx, namespace)
+                    .delete(module_version.id())
+                    .await?;
+            }
         }
         Ok(())
     }
