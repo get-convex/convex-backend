@@ -122,13 +122,22 @@ use crate::{
         TermShortlist,
     },
     scoring::Bm25StatisticsDiff,
-    searcher::searchlight_knobs::{
-        MAX_CONCURRENT_SEGMENT_COMPACTIONS,
-        MAX_CONCURRENT_SEGMENT_FETCHES,
-        MAX_CONCURRENT_VECTOR_SEARCHES,
-        MAX_CONCURRENT_VECTOR_SEGMENT_PREFETCHES,
-        MAX_VECTOR_LRU_SIZE,
-        QUEUE_SIZE_MULTIPLIER,
+    searcher::{
+        metrics::{
+            text_compaction_searcher_latency_seconds,
+            text_number_of_segments_searcher_latency_seconds,
+            text_query_bm25_searcher_latency_seconds,
+            text_query_posting_lists_searcher_latency_seconds,
+            text_query_tokens_searcher_latency_seconds,
+        },
+        searchlight_knobs::{
+            MAX_CONCURRENT_SEGMENT_COMPACTIONS,
+            MAX_CONCURRENT_SEGMENT_FETCHES,
+            MAX_CONCURRENT_VECTOR_SEARCHES,
+            MAX_CONCURRENT_VECTOR_SEGMENT_PREFETCHES,
+            MAX_VECTOR_LRU_SIZE,
+            QUEUE_SIZE_MULTIPLIER,
+        },
     },
     SearchFileType,
     SearchQueryResult,
@@ -486,6 +495,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         search_storage: Arc<dyn Storage>,
         storage_key: ObjectKey,
     ) -> anyhow::Result<usize> {
+        let _timer = text_number_of_segments_searcher_latency_seconds();
         let segment_path = self
             .archive_cache
             .get(search_storage.clone(), &storage_key, SearchFileType::Text)
@@ -503,6 +513,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
+        let _timer = text_query_tokens_searcher_latency_seconds();
         let Some((segment_path, segment_ord, deletion_tracker)) = self
             .load_deletion_tracker(search_storage, storage_keys)
             .await?
@@ -527,6 +538,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         storage_keys: TextStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
+        let _timer = text_query_bm25_searcher_latency_seconds();
         let Some((segment_path, segment_ord, deletion_tracker)) = self
             .load_deletion_tracker(search_storage, storage_keys)
             .await?
@@ -550,6 +562,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         storage_keys: TextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
+        let _timer = text_query_posting_lists_searcher_latency_seconds();
         let id_tracker = match storage_keys {
             TextStorageKeys::SingleSegment { .. } => None,
             TextStorageKeys::MultiSegment(ref fragment_keys) => {
@@ -593,6 +606,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedTextStorageKeys>,
     ) -> anyhow::Result<FragmentedTextSegment> {
+        let _timer = text_compaction_searcher_latency_seconds();
         fetch_compact_and_upload_text_segment(
             &self.rt,
             search_storage,
