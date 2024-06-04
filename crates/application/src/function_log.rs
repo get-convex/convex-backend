@@ -607,12 +607,23 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         usage: TrackUsage,
         context: ExecutionContext,
     ) {
+        let udf_path = match outcome.path.clone().into_root_udf_path() {
+            Ok(udf_path) => udf_path,
+            Err(_) => {
+                tracing::warn!(
+                    "Skipping logging non-root query: {:?}:{:?}",
+                    outcome.path.component,
+                    outcome.path.udf_path
+                );
+                return;
+            },
+        };
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
                 self.usage_tracking.track_call(
-                    UdfIdentifier::Function(outcome.udf_path.clone()),
+                    UdfIdentifier::Function(udf_path.clone()),
                     context.execution_id.clone(),
                     if was_cached {
                         CallType::CachedQuery
@@ -625,7 +636,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
         };
-        if outcome.udf_path.is_system() {
+        if udf_path.is_system() {
             return;
         }
         let execution = FunctionExecution {
@@ -634,7 +645,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     Ok(_) => None,
                     Err(e) => Some(e),
                 },
-                identifier: outcome.udf_path.clone(),
+                identifier: udf_path.clone(),
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,
@@ -733,12 +744,23 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         usage: TrackUsage,
         context: ExecutionContext,
     ) {
+        let udf_path = match outcome.path.clone().into_root_udf_path() {
+            Ok(udf_path) => udf_path,
+            Err(_) => {
+                tracing::warn!(
+                    "Skipping logging non-root mutation: {:?}:{:?}",
+                    outcome.path.component,
+                    outcome.path.udf_path
+                );
+                return;
+            },
+        };
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
                 self.usage_tracking.track_call(
-                    UdfIdentifier::Function(outcome.udf_path.clone()),
+                    UdfIdentifier::Function(udf_path.clone()),
                     context.execution_id.clone(),
                     CallType::Mutation,
                     usage_stats,
@@ -747,7 +769,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
         };
-        if outcome.udf_path.is_system() {
+        if udf_path.is_system() {
             return;
         }
         let execution = FunctionExecution {
@@ -756,7 +778,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     Ok(_) => None,
                     Err(e) => Some(e),
                 },
-                identifier: outcome.udf_path.clone(),
+                identifier: udf_path.clone(),
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,

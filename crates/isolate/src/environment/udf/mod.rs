@@ -453,7 +453,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         )?;
         let outcome = match self.udf_type {
             UdfType::Query => FunctionOutcome::Query(UdfOutcome {
-                udf_path: self.path.into_root_udf_path()?,
+                path: self.path,
                 arguments: self.arguments,
                 identity: self.identity,
                 rng_seed,
@@ -472,7 +472,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // TODO: Add num_writes and write_bandwidth to UdfOutcome,
             // and use them in log_mutation.
             UdfType::Mutation => FunctionOutcome::Mutation(UdfOutcome {
-                udf_path: self.path.into_root_udf_path()?,
+                path: self.path,
                 arguments: self.arguments,
                 identity: self.identity,
                 rng_seed,

@@ -531,7 +531,7 @@ async fn run_request<RT: Runtime>(
         log_line_processor.into_join_future().await?;
         let log_lines = log_line_rx.await?.into();
         let outcome = UdfOutcome {
-            udf_path: path.into_root_udf_path()?,
+            path,
             arguments,
             identity: tx.inert_identity(),
             rng_seed: execution_time_seed.rng_seed,
@@ -673,7 +673,7 @@ async fn run_request<RT: Runtime>(
         },
     )?;
     let outcome = UdfOutcome {
-        udf_path: path.into_root_udf_path()?,
+        path,
         arguments,
         identity: provider.tx.inert_identity(),
         rng_seed: execution_time_seed.rng_seed,

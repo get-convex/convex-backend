@@ -56,7 +56,6 @@ use proptest::arbitrary::Arbitrary;
 use proptest::strategy::Strategy;
 use rand::Rng;
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::HeapSize,
     ConvexArray,
@@ -214,7 +213,7 @@ impl Arbitrary for ValidatedPathAndArgs {
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
 
-        any::<(CanonicalizedUdfPath, ConvexArray)>().prop_map(|(udf_path, args)| {
+        any::<(sync_types::CanonicalizedUdfPath, ConvexArray)>().prop_map(|(udf_path, args)| {
             ValidatedPathAndArgs {
                 path: CanonicalizedComponentFunctionPath {
                     component: ComponentPath::root(),
@@ -613,7 +612,7 @@ mod test {
 #[derive(Debug, Clone)]
 #[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct ValidatedUdfOutcome {
-    pub udf_path: CanonicalizedUdfPath,
+    pub path: CanonicalizedComponentFunctionPath,
     pub arguments: ConvexArray,
     pub identity: InertIdentity,
 
@@ -637,7 +636,7 @@ pub struct ValidatedUdfOutcome {
 
 impl HeapSize for ValidatedUdfOutcome {
     fn heap_size(&self) -> usize {
-        self.udf_path.heap_size()
+        self.path.heap_size()
             + self.arguments.heap_size()
             + self.identity.heap_size()
             + self.log_lines.heap_size()
@@ -659,7 +658,7 @@ impl ValidatedUdfOutcome {
         udf_server_version: Option<semver::Version>,
     ) -> anyhow::Result<Self> {
         Ok(ValidatedUdfOutcome {
-            udf_path: path.into_root_udf_path()?,
+            path,
             arguments,
             identity,
             rng_seed: rt.with_rng(|rng| rng.gen()),
@@ -681,7 +680,7 @@ impl ValidatedUdfOutcome {
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Self {
         let mut validated = ValidatedUdfOutcome {
-            udf_path: outcome.udf_path,
+            path: outcome.path,
             arguments: outcome.arguments,
             identity: outcome.identity,
             rng_seed: outcome.rng_seed,

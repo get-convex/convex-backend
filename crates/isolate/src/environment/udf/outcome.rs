@@ -27,7 +27,6 @@ use proptest::prelude::Arbitrary;
 use proptest::prelude::Strategy;
 use rand::Rng;
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::HeapSize,
     ConvexValue,
@@ -44,7 +43,7 @@ use crate::{
 #[derive(Debug, Clone)]
 #[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct UdfOutcome {
-    pub udf_path: CanonicalizedUdfPath,
+    pub path: CanonicalizedComponentFunctionPath,
     pub arguments: ConvexArray,
     pub identity: InertIdentity,
 
@@ -75,7 +74,7 @@ impl Arbitrary for UdfOutcome {
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
         (
-            any::<CanonicalizedUdfPath>(),
+            any::<CanonicalizedComponentFunctionPath>(),
             any::<ConvexArray>(),
             any::<InertIdentity>(),
             any::<[u8; 32]>(),
@@ -89,7 +88,7 @@ impl Arbitrary for UdfOutcome {
         )
             .prop_map(
                 |(
-                    udf_path,
+                    path,
                     arguments,
                     identity,
                     rng_seed,
@@ -101,7 +100,7 @@ impl Arbitrary for UdfOutcome {
                     result,
                     syscall_trace,
                 )| Self {
-                    udf_path,
+                    path,
                     arguments,
                     identity,
                     rng_seed,
@@ -121,7 +120,7 @@ impl Arbitrary for UdfOutcome {
 
 impl HeapSize for UdfOutcome {
     fn heap_size(&self) -> usize {
-        self.udf_path.heap_size()
+        self.path.heap_size()
             + self.arguments.heap_size()
             + self.identity.heap_size()
             + self.log_lines.heap_size()
@@ -136,7 +135,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
 
     fn try_from(
         UdfOutcome {
-            udf_path: _,
+            path: _,
             arguments: _,
             identity: _,
             rng_seed,
@@ -181,7 +180,7 @@ impl UdfOutcome {
         udf_server_version: Option<semver::Version>,
     ) -> anyhow::Result<Self> {
         Ok(UdfOutcome {
-            udf_path: path.into_root_udf_path()?,
+            path,
             arguments,
             identity,
             rng_seed: rt.with_rng(|rng| rng.gen()),
@@ -228,7 +227,7 @@ impl UdfOutcome {
         let (path, arguments, udf_server_version) = path_and_args.consume();
         let log_lines = log_lines.into_iter().map(LogLine::try_from).try_collect()?;
         Ok(Self {
-            udf_path: path.into_root_udf_path()?,
+            path,
             arguments,
             identity,
             rng_seed,
@@ -252,10 +251,6 @@ impl UdfOutcome {
 
 #[cfg(test)]
 mod tests {
-    use common::components::{
-        CanonicalizedComponentFunctionPath,
-        ComponentPath,
-    };
     use proptest::prelude::*;
 
     use super::{
@@ -272,15 +267,12 @@ mod tests {
         #[test]
         fn test_udf_outcome_roundtrips(udf_outcome in any::<UdfOutcome>()) {
             let udf_outcome_clone = udf_outcome.clone();
-            let udf_path = udf_outcome.udf_path.clone();
+            let path = udf_outcome.path.clone();
             let arguments = udf_outcome.arguments.clone();
             let version = udf_outcome.udf_server_version.clone();
             let identity = udf_outcome_clone.identity.clone();
             let path_and_args = ValidatedPathAndArgs::new_for_tests(
-                CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
-                    udf_path,
-                },
+                path,
                 arguments,
                 version
             );
