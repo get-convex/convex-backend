@@ -388,6 +388,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
         self.vector_search_pool.execute(search).await?
     }
 
+    #[minitrace::trace]
     async fn load_deletion_tracker(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -444,6 +445,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
 
 #[async_trait]
 impl<RT: Runtime> Searcher for SearcherImpl<RT> {
+    #[minitrace::trace]
     async fn execute_query(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -479,6 +481,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(results)
     }
 
+    #[minitrace::trace]
     async fn number_of_segments(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -493,6 +496,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(searcher.segment_readers().len())
     }
 
+    #[minitrace::trace]
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -517,6 +521,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(resp)
     }
 
+    #[minitrace::trace]
     async fn query_bm25_stats(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -539,6 +544,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(resp)
     }
 
+    #[minitrace::trace]
     async fn query_posting_lists(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -582,6 +588,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(resp)
     }
 
+    #[minitrace::trace]
     async fn execute_text_compaction(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -600,6 +607,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
 
 #[async_trait]
 impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
+    #[minitrace::trace]
     async fn segment_term_metadata(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -734,6 +742,7 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
 }
 
 impl<RT: Runtime> SearcherImpl<RT> {
+    #[minitrace::trace]
     fn query_tokens_impl(
         segment: &SegmentReader,
         deletion_tracker: &StaticDeletionTracker,
@@ -805,6 +814,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
         Ok(match_aggregator.into_results())
     }
 
+    #[minitrace::trace]
     fn visit_top_terms_for_query(
         segment: &SegmentReader,
         deletion_tracker: &StaticDeletionTracker,
@@ -889,6 +899,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
         Ok(())
     }
 
+    #[minitrace::trace]
     fn query_bm25_stats_impl(
         segment: &SegmentReader,
         deletion_tracker: &StaticDeletionTracker,
@@ -944,6 +955,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
         Ok(stats)
     }
 
+    #[minitrace::trace]
     fn query_posting_lists_impl(
         searcher: &tantivy::Searcher,
         segment: &SegmentReader,

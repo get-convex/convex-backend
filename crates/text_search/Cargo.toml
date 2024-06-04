@@ -15,6 +15,7 @@ common = { path = "../common" }
 csf = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
+minitrace = { workspace = true }
 pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }

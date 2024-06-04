@@ -442,6 +442,7 @@ fn tantivy_bound_and_evaluate_query_terms(
 }
 
 /// Entrypoint for querying Tantivy
+#[minitrace::trace]
 pub fn query_tantivy(
     search_field: Field,
     query: &CompiledQuery,

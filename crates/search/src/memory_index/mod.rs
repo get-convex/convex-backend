@@ -424,6 +424,7 @@ impl MemorySearchIndex {
         shortlist_and_id_mapping(query_term_matches)
     }
 
+    #[minitrace::trace]
     pub fn query_tokens(
         &self,
         queries: &[TokenQuery],
@@ -437,6 +438,7 @@ impl MemorySearchIndex {
         Ok(())
     }
 
+    #[minitrace::trace]
     pub fn update_bm25_stats(
         &self,
         snapshot_ts: Timestamp,
@@ -491,6 +493,7 @@ impl MemorySearchIndex {
         Ok(stats)
     }
 
+    #[minitrace::trace]
     pub fn prepare_posting_list_query(
         &self,
         and_terms: &[Term],
@@ -551,6 +554,7 @@ impl MemorySearchIndex {
         Ok(Some(prepared))
     }
 
+    #[minitrace::trace]
     pub fn query_tombstones(
         &self,
         snapshot_ts: Timestamp,
@@ -573,6 +577,7 @@ impl MemorySearchIndex {
         Ok(results)
     }
 
+    #[minitrace::trace]
     pub fn query_posting_lists(
         &self,
         snapshot_ts: Timestamp,

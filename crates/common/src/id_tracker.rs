@@ -48,6 +48,7 @@ pub struct StaticIdTracker {
 }
 
 impl StaticIdTracker {
+    #[minitrace::trace]
     pub fn load_from_path<P: AsRef<Path>>(id_table_path: P) -> anyhow::Result<Self> {
         let _timer = load_id_tracker_timer();
         let uuid_file = File::open(id_table_path)?;

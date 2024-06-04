@@ -26,6 +26,7 @@ itertools = { workspace = true }
 levenshtein_automata = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
+minitrace = { workspace = true }
 pb = { path = "../pb" }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }

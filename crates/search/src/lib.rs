@@ -432,6 +432,7 @@ impl TantivySearchIndexSchema {
         }
     }
 
+    #[minitrace::trace]
     pub async fn search2(
         &self,
         compiled_query: CompiledQuery,
