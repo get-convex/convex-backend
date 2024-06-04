@@ -707,7 +707,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             let args: UpdateArgs = serde_json::from_value(args)?;
 
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
-            let table_name = tx.resolve_idv6(id, table_filter).context(ArgName("id"))?;
+            let table_name = tx
+                .resolve_idv6(id, TableNamespace::Global, table_filter)
+                .context(ArgName("id"))?;
 
             let value = PatchValue::try_from(args.value).context(ArgName("value"))?;
             Ok((id, value, table_name))
@@ -736,7 +738,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             let args: ReplaceArgs = serde_json::from_value(args)?;
 
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
-            let table_name = tx.resolve_idv6(id, table_filter).context(ArgName("id"))?;
+            let table_name = tx
+                .resolve_idv6(id, TableNamespace::Global, table_filter)
+                .context(ArgName("id"))?;
 
             let value = ConvexValue::try_from(args.value).context(ArgName("value"))?;
             Ok((id, value.try_into().context(ArgName("value"))?, table_name))
@@ -815,11 +819,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                             let version = parse_version(args.version)?;
                             Ok((id, args.is_system, version))
                         })?;
-                        let name = tx.all_tables_number_to_name(table_filter)(*id.table());
+                        let name: Result<TableName, anyhow::Error> = tx
+                            .all_tables_number_to_name(TableNamespace::Global, table_filter)(
+                            *id.table(),
+                        );
                         if name.is_ok() {
                             system_table_guard(&name?, is_system)?;
                         }
-                        match tx.resolve_idv6(id, table_filter) {
+                        match tx.resolve_idv6(id, TableNamespace::Global, table_filter) {
                             Ok(table_name) => {
                                 let query = Query::get(table_name, id);
                                 Some((
@@ -932,7 +939,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let (id, table_name) = with_argument_error("db.delete", || {
             let args: RemoveArgs = serde_json::from_value(args)?;
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
-            let table_name = tx.resolve_idv6(id, table_filter).context(ArgName("id"))?;
+            let table_name = tx
+                .resolve_idv6(id, TableNamespace::Global, table_filter)
+                .context(ArgName("id"))?;
             Ok((id, table_name))
         })?;
 

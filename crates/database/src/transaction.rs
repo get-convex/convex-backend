@@ -243,6 +243,7 @@ impl<RT: Runtime> Transaction<RT> {
     /// the table doesn't exist.
     pub fn all_tables_number_to_name(
         &mut self,
+        namespace: TableNamespace,
         table_filter: TableFilter,
     ) -> impl Fn(TableNumber) -> anyhow::Result<TableName> + '_ {
         let table_mapping = self.table_mapping().clone();
@@ -251,9 +252,7 @@ impl<RT: Runtime> Transaction<RT> {
             if let Some(name) = virtual_table_mapping.name_if_exists(number) {
                 Ok(name)
             } else {
-                let name = table_mapping
-                    .namespace(TableNamespace::Global)
-                    .number_to_name()(number)?;
+                let name = table_mapping.namespace(namespace).number_to_name()(number)?;
                 match table_filter {
                     TableFilter::IncludePrivateSystemTables => {},
                     TableFilter::ExcludePrivateSystemTables => {
@@ -272,9 +271,10 @@ impl<RT: Runtime> Transaction<RT> {
     pub fn resolve_idv6(
         &mut self,
         id: DeveloperDocumentId,
+        namespace: TableNamespace,
         table_filter: TableFilter,
     ) -> anyhow::Result<TableName> {
-        match self.all_tables_number_to_name(table_filter)(*id.table()) {
+        match self.all_tables_number_to_name(namespace, table_filter)(*id.table()) {
             Ok(table_name) => Ok(table_name),
             Err(_) => anyhow::bail!("Table for ID \"{}\" not found", id.encode()),
         }

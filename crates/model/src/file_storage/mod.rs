@@ -271,7 +271,11 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
             FileStorageId::DocumentId(document_id) => {
                 let table_name = self
                     .tx
-                    .resolve_idv6(document_id, TableFilter::ExcludePrivateSystemTables)
+                    .resolve_idv6(
+                        document_id,
+                        TableNamespace::Global,
+                        TableFilter::ExcludePrivateSystemTables,
+                    )
                     .context(ErrorMetadata::bad_request(
                         "InvalidArgument",
                         format!(
