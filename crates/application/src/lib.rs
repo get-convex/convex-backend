@@ -1965,16 +1965,14 @@ impl<RT: Runtime> Application<RT> {
 
         // 3. Add the module
         ModuleModel::new(&mut tx)
-            .put(
+            .put_standalone(
                 CanonicalizedComponentModulePath {
                     component: ComponentDefinitionId::Root,
                     module_path: module_path.clone(),
                 },
                 module.source,
-                None,
                 module.source_map,
-                Some(analyzed_module),
-                ModuleEnvironment::Isolate,
+                analyzed_module,
             )
             .await?;
 

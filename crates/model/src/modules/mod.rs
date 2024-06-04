@@ -378,6 +378,33 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Ok(Some(module_metadata))
     }
 
+    /// Write a isolate-environment module to _module_versions, without source
+    /// package.
+    ///
+    /// This transaction must never be committed.
+    /// All future reads of modules on this transaction will read from the
+    /// database instead of the source package.
+    pub async fn put_standalone(
+        &mut self,
+        path: CanonicalizedComponentModulePath,
+        source: ModuleSource,
+        source_map: Option<SourceMap>,
+        analyze_result: AnalyzedModule,
+    ) -> anyhow::Result<()> {
+        if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
+            anyhow::bail!(unauthorized_error("put_standalone_module"));
+        }
+        if path.module_path.is_system() {
+            anyhow::bail!("You cannot push a function under '_system/'");
+        }
+        let component = path.component;
+        let (module_id, version) = self
+            .put_module_metadata(path, None, Some(analyze_result), ModuleEnvironment::Isolate)
+            .await?;
+        self.put_module_source_into_db(module_id, version, source, source_map, component)
+            .await
+    }
+
     /// Put a module's source at a given path.
     pub async fn put(
         &mut self,
@@ -398,6 +425,21 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             path.module_path.is_deps() || analyze_result.is_some(),
             "AnalyzedModule is required for non-dependency modules"
         );
+        let component = path.component;
+        let (module_id, version) = self
+            .put_module_metadata(path, source_package_id, analyze_result, environment)
+            .await?;
+        self.put_module_source_into_db(module_id, version, source, source_map, component)
+            .await
+    }
+
+    async fn put_module_metadata(
+        &mut self,
+        path: CanonicalizedComponentModulePath,
+        source_package_id: Option<SourcePackageId>,
+        analyze_result: Option<AnalyzedModule>,
+        environment: ModuleEnvironment,
+    ) -> anyhow::Result<(ResolvedDocumentId, ModuleVersion)> {
         let (module_id, version) = match self.module_metadata(path.clone()).await? {
             Some(module_metadata) => {
                 let previous_version = module_metadata.latest_version;
@@ -442,6 +484,17 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 (document_id, version)
             },
         };
+        Ok((module_id, version))
+    }
+
+    async fn put_module_source_into_db(
+        &mut self,
+        module_id: ResolvedDocumentId,
+        version: ModuleVersion,
+        source: ModuleSource,
+        source_map: Option<SourceMap>,
+        component: ComponentDefinitionId,
+    ) -> anyhow::Result<()> {
         let new_version = ModuleVersionMetadata {
             module_id: module_id.into(),
             source,
@@ -463,7 +516,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 em
             }
         }))?;
-        SystemMetadataModel::new(self.tx, path.component.into())
+        SystemMetadataModel::new(self.tx, component.into())
             .insert(&MODULE_VERSIONS_TABLE, new_version)
             .await?;
         Ok(())
