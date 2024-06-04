@@ -35,6 +35,8 @@ use sync_types::{
 
 use crate::{
     Application,
+    FunctionError,
+    FunctionReturn,
     RedactedActionError,
     RedactedActionReturn,
     RedactedMutationError,
@@ -99,6 +101,16 @@ pub trait ApplicationApi: Send + Sync {
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
+
+    async fn execute_any_function(
+        &self,
+        host: &str,
+        request_id: RequestId,
+        identity: Identity,
+        udf_path: UdfPath,
+        args: Vec<JsonValue>,
+        caller: FunctionCaller,
+    ) -> anyhow::Result<Result<FunctionReturn, FunctionError>>;
 
     async fn latest_timestamp(
         &self,
@@ -202,6 +214,22 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         };
         self.action_udf(request_id, path, args, identity, caller)
             .await
+    }
+
+    async fn execute_any_function(
+        &self,
+        _host: &str,
+        request_id: RequestId,
+        identity: Identity,
+        udf_path: UdfPath,
+        args: Vec<JsonValue>,
+        caller: FunctionCaller,
+    ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        let path = ComponentFunctionPath {
+            component: ComponentPath::root(),
+            udf_path,
+        };
+        self.any_udf(request_id, path, args, identity, caller).await
     }
 
     async fn latest_timestamp(

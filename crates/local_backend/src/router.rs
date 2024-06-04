@@ -170,7 +170,6 @@ pub async fn router(st: LocalAppState) -> Router {
     let api_routes = Router::new()
         .merge(cli_routes)
         .merge(dashboard_routes)
-        .merge(public_api_routes())
         .nest("/actions", action_callback_routes(st.clone()))
         .nest("/export", snapshot_export_routes)
         .nest("/storage", storage_api_routes());
@@ -178,7 +177,7 @@ pub async fn router(st: LocalAppState) -> Router {
     // Endpoints migrated to use the RouterState trait instead of application.
     let migrated_api_routes = Router::new()
         .merge(browser_routes)
-        .merge(migrated_public_api_routes());
+        .merge(public_api_routes());
     let migrated = Router::new()
         .nest("/api", migrated_api_routes)
         .layer(cors().await)
@@ -199,13 +198,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .merge(migrated)
 }
 
-pub fn public_api_routes() -> Router<LocalAppState> {
-    Router::new()
-        .route("/function", post(public_function_post))
-        .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
-}
-
-pub fn migrated_public_api_routes() -> Router<RouterState> {
+pub fn public_api_routes() -> Router<RouterState> {
     Router::new()
         .route("/sync", get(sync))
         .route("/query", get(public_query_get))
@@ -213,6 +206,7 @@ pub fn migrated_public_api_routes() -> Router<RouterState> {
         .route("/query_batch", post(public_query_batch_post))
         .route("/mutation", post(public_mutation_post))
         .route("/action", post(public_action_post))
+        .route("/function", post(public_function_post))
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
 }
 

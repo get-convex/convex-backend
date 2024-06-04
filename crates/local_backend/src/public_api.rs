@@ -14,10 +14,6 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
-    components::{
-        ComponentFunctionPath,
-        ComponentPath,
-    },
     http::{
         extract::{
             Json,
@@ -44,12 +40,8 @@ use value::{
 
 use crate::{
     admin::bad_admin_key_error,
-    authentication::{
-        ExtractAuthenticationToken,
-        ExtractIdentity,
-    },
+    authentication::ExtractAuthenticationToken,
     parse::parse_udf_path,
-    LocalAppState,
     RouterState,
 };
 
@@ -144,29 +136,37 @@ impl UdfResponse {
 
 /// Executes an arbitrary query/mutation/action from its name.
 pub async fn public_function_post(
-    State(st): State<LocalAppState>,
+    State(st): State<RouterState>,
+    Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractIdentity(identity): ExtractIdentity,
+    ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    // NOTE: We could coalesce authenticating and executing the query into one
+    // rpc but we keep things simple by reusing the same method as the sync worker.
+    // Round trip latency between Usher and Backend is much smaller than between
+    // client and Usher.
+    let identity = st
+        .api
+        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .await?;
+
     // We ensure for now that the user is logged in
     // (this can be removed if this endpoint is used publicly one day)
     if !identity.is_admin() {
-        return Result::Err(anyhow!(bad_admin_key_error(Some(st.instance_name.clone()))).into());
+        return Result::Err(anyhow!(bad_admin_key_error(None)).into());
     }
 
     let udf_path = parse_udf_path(&req.path)?;
     let udf_result = st
-        .application
-        .any_udf(
+        .api
+        .execute_any_function(
+            host.as_str(),
             request_id,
-            ComponentFunctionPath {
-                component: ComponentPath::root(),
-                udf_path,
-            },
-            req.args.into_arg_vec(),
             identity,
+            udf_path,
+            req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
         )
         .await?;
