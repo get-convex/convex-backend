@@ -85,8 +85,7 @@ impl TryFrom<TextIndexBackfillState> for SerializedTextIndexBackfillState {
             ),
             cursor: backfill_state
                 .cursor
-                .map(|cursor| cursor.try_into())
-                .transpose()?,
+                .map(SerializedTextBackfillCursor::from),
         })
     }
 }

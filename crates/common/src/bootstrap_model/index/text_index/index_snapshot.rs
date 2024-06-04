@@ -170,14 +170,11 @@ impl TryFrom<TextIndexSnapshotData> for WithUnknown<SerializedTextIndexSnapshotD
 
     fn try_from(value: TextIndexSnapshotData) -> Result<Self, Self::Error> {
         match value {
-            TextIndexSnapshotData::SingleSegment(segment) => {
-                let serialized_segment = segment.try_into()?;
-                Ok(WithUnknown::Known(
-                    SerializedTextIndexSnapshotData::SingleSegment {
-                        segment: serialized_segment,
-                    },
-                ))
-            },
+            TextIndexSnapshotData::SingleSegment(segment) => Ok(WithUnknown::Known(
+                SerializedTextIndexSnapshotData::SingleSegment {
+                    segment: segment.into(),
+                },
+            )),
             TextIndexSnapshotData::MultiSegment(segments) => {
                 let serialized_segments: Vec<SerializedFragmentedTextSegment> = segments
                     .into_iter()

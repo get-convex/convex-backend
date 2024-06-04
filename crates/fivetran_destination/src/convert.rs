@@ -300,7 +300,8 @@ fn roundtrip_converted_value(
             let dt = NaiveDateTime::new(
                 NaiveDate::parse_from_str(&v, "%Y-%m-%d")?,
                 NaiveTime::default(),
-            );
+            )
+            .and_utc();
             FivetranValue::NaiveDate(Timestamp {
                 seconds: dt.timestamp(),
                 nanos: dt.timestamp_subsec_nanos() as i32,

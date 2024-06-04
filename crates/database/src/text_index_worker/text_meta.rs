@@ -254,7 +254,7 @@ impl SearchIndex for TextSearchIndex {
         developer_config: Self::DeveloperConfig,
         new_state: SearchOnDiskState<Self>,
     ) -> anyhow::Result<IndexConfig> {
-        let on_disk_state = TextIndexState::try_from(new_state)?;
+        let on_disk_state = TextIndexState::from(new_state);
         Ok(IndexConfig::Search {
             on_disk_state,
             developer_config,

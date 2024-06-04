@@ -261,7 +261,7 @@ impl TryFrom<ComponentDefinitionDiff> for SerializedComponentDefinitionDiff {
 
     fn try_from(value: ComponentDefinitionDiff) -> Result<Self, Self::Error> {
         Ok(Self {
-            module_diff: JsonValue::try_from(ConvexObject::try_from(value.module_diff)?)?,
+            module_diff: JsonValue::from(ConvexObject::try_from(value.module_diff)?),
         })
     }
 }

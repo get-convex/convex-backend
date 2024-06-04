@@ -10,6 +10,7 @@ use std::{
         Path,
         PathBuf,
     },
+    str::FromStr,
     sync::{
         atomic::AtomicBool,
         Arc,
@@ -35,12 +36,20 @@ use common::{
 use errors::ErrorMetadata;
 use futures::TryStreamExt;
 use pb::searchlight as proto;
+use qdrant_common::types::{
+    DetailsLevel,
+    TelemetryDetail,
+};
 use qdrant_segment::{
     data_types::{
         named_vectors::NamedVectors,
-        vectors::VectorElementType,
+        vectors::{
+            VectorElementType,
+            VectorRef,
+        },
     },
     entry::entry_point::SegmentEntry,
+    json_path::JsonPath,
     segment::Segment,
     spaces::{
         metric::Metric,
@@ -251,7 +260,7 @@ impl QdrantSchema {
     pub fn search(
         &self,
         segment: &Segment,
-        query: &CompiledVectorSearch,
+        query: CompiledVectorSearch,
         overfetch_delta: u32,
         slow_vector_query_threshold_millis: u64,
         require_exact: bool,
@@ -261,14 +270,15 @@ impl QdrantSchema {
             .iter()
             .map(|(field_path, condition)| {
                 let field_condition = FieldCondition::new_match(
-                    encode_user_field_path(field_path),
+                    encode_user_field_path(field_path)?,
                     qdrant_filter_condition(condition),
                 );
-                Some(Condition::Field(field_condition))
+                Ok(Some(Condition::Field(field_condition)))
             })
-            .collect();
+            .collect::<anyhow::Result<Option<Vec<_>>>>()?;
         let qdrant_filter = Filter {
             should: qdrant_conditions,
+            min_should: None,
             must: None,
             must_not: None,
         };
@@ -279,12 +289,12 @@ impl QdrantSchema {
             indexed_only: false,
         };
         let payload_selector = PayloadSelectorInclude {
-            include: vec![TIMESTAMP_FIELD.to_string()],
+            include: vec![json_path_from_str(TIMESTAMP_FIELD)?],
         };
         let start = Instant::now();
         let qdrant_results = segment.search(
             DEFAULT_VECTOR_NAME,
-            &query.vector.0,
+            &query.vector.into(),
             &WithPayload {
                 enable: true,
                 payload_selector: Some(PayloadSelector::Include(payload_selector)),
@@ -297,10 +307,14 @@ impl QdrantSchema {
         )?;
         let duration = Instant::now().duration_since(start);
         if duration > Duration::from_millis(slow_vector_query_threshold_millis) {
+            let detail = TelemetryDetail {
+                level: DetailsLevel::Level2,
+                histograms: true,
+            };
             tracing::warn!(
                 "Slow qdrant query, duration: {}ms, segment telemetry: {:#?}",
                 duration.as_millis(),
-                segment.get_telemetry_data(),
+                segment.get_telemetry_data(detail),
             )
         }
         let mut results = Vec::with_capacity(qdrant_results.len());
@@ -361,8 +375,8 @@ impl QdrantSchema {
                     continue;
                 };
                 memory_segment.upsert_point(op_num, *point_id, qdrant_doc.qdrant_vector())?;
-                let payload = qdrant_doc.encode_payload(ts);
-                memory_segment.set_payload(op_num, *point_id, &payload.into())?;
+                let payload = qdrant_doc.encode_payload(ts)?;
+                memory_segment.set_payload(op_num, *point_id, &payload.into(), &None)?;
             } else {
                 // If the document was inserted and then deleted in this batch,
                 // then we might need to remove a vector we just
@@ -392,7 +406,7 @@ impl QdrantSchema {
         for field in self.filter_fields.iter() {
             memory_segment.create_field_index(
                 op_num,
-                encode_user_field_path(field).as_str(),
+                &encode_user_field_path(field)?,
                 field_schema,
             )?;
         }
@@ -470,14 +484,14 @@ pub struct QdrantDocument {
 
 impl QdrantDocument {
     pub fn qdrant_vector(&self) -> NamedVectors<'_> {
-        NamedVectors::from_ref(DEFAULT_VECTOR_NAME, &self.vector[..])
+        NamedVectors::from_ref(DEFAULT_VECTOR_NAME, VectorRef::Dense(&self.vector[..]))
     }
 
-    pub fn encode_payload(&self, ts: Timestamp) -> JsonValue {
+    pub fn encode_payload(&self, ts: Timestamp) -> anyhow::Result<JsonValue> {
         let mut map = serde_json::Map::new();
         for (field_path, field_value) in &self.filter_fields {
             map.insert(
-                encode_user_field_path(field_path),
+                encode_user_field_path(field_path)?.to_string(),
                 JsonValue::String(base64::encode_urlsafe(&field_value[..])),
             );
         }
@@ -485,7 +499,7 @@ impl QdrantDocument {
             TIMESTAMP_FIELD.to_string(),
             JsonValue::String(base64::encode_urlsafe(&u64::from(ts).to_le_bytes()[..])),
         );
-        map.into()
+        Ok(map.into())
     }
 
     /// Estimates size of `QdrantDocument` in bytes
@@ -534,8 +548,9 @@ impl NormalizedQdrantDocument {
     }
 }
 
-fn encode_user_field_path(field_path: &FieldPath) -> String {
-    String::from(field_path.clone())
+fn encode_user_field_path(field_path: &FieldPath) -> anyhow::Result<JsonPath> {
+    let key = String::from(field_path.clone());
+    json_path_from_str(key.as_str())
 }
 
 fn qdrant_filter_condition(condition: &CompiledVectorFilter) -> Match {
@@ -624,5 +639,14 @@ impl Deref for QdrantExternalId {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+fn json_path_from_str(s: &str) -> anyhow::Result<JsonPath> {
+    match JsonPath::from_str(s) {
+        Ok(path) => Ok(path),
+        Err(()) => {
+            anyhow::bail!("Unable to parse to JsonPath: {s}");
+        },
     }
 }

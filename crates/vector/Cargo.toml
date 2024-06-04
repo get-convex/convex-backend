@@ -25,9 +25,10 @@ parking_lot = { workspace = true }
 pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
+qdrant_common = { workspace = true }
 qdrant_segment = { workspace = true }
 rand = { workspace = true }
-rocksdb = { version = "0.21.0", default-features = false, features = [ "snappy" ] }
+rocksdb = { version = "0.22.0", default-features = false, features = [ "snappy" ] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 storage = { path = "../storage" }
