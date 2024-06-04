@@ -1,5 +1,4 @@
 use std::{
-    future::Future,
     sync::Arc,
     time::Duration,
 };
@@ -17,7 +16,6 @@ use common::{
     },
 };
 use futures::{
-    join,
     pin_mut,
     select_biased,
     FutureExt,
@@ -64,7 +62,11 @@ use crate::{
 };
 
 /// Builds and compacts text/vector search indexes.
-pub enum SearchIndexWorker<RT: Runtime> {
+pub struct SearchIndexWorkers<RT: Runtime> {
+    handles: Vec<<RT as Runtime>::Handle>,
+}
+
+enum SearchIndexWorker<RT: Runtime> {
     VectorFlusher(VectorIndexFlusher<RT>),
     VectorCompactor(VectorIndexCompactor<RT>),
     TextFlusher(TextIndexFlusher<RT>),
@@ -85,15 +87,15 @@ impl<RT: Runtime> RetriableWorker<RT> for SearchIndexWorker<RT> {
     }
 }
 
-impl<RT: Runtime> SearchIndexWorker<RT> {
-    pub async fn create_and_start(
+impl<RT: Runtime> SearchIndexWorkers<RT> {
+    pub fn create_and_start(
         runtime: RT,
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,
         search_storage: Arc<dyn Storage>,
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
-    ) {
+    ) -> Self {
         let vector_index_metadata_writer = SearchIndexMetadataWriter::new(
             runtime.clone(),
             database.clone(),
@@ -144,7 +146,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 search_storage.clone(),
             ))
         };
-        let search_flush = retry_loop_expect_occs_and_overloaded(
+        let text_flush = retry_loop_expect_occs_and_overloaded(
             "SearchFlusher",
             runtime.clone(),
             database.clone(),
@@ -165,28 +167,27 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 text_index_metadata_writer,
             )),
         );
-        let text_compact = async move {
-            if *BUILD_MULTI_SEGMENT_TEXT_INDEXES {
-                text_compact.await;
-            }
-        };
 
-        join!(
-            Self::spawn_and_join(&runtime, "vector_flush", vector_flush),
-            Self::spawn_and_join(&runtime, "vector_compact", vector_compact),
-            Self::spawn_and_join(&runtime, "search_flush", search_flush),
-            Self::spawn_and_join(&runtime, "text_compact", text_compact),
-        );
+        let vector_flush_handle = runtime.spawn("vector_flush", vector_flush);
+        let vector_compact_handle = runtime.spawn("vector_compact", vector_compact);
+        let text_flush_handle = runtime.spawn("text_flush", text_flush);
+        let text_compact_handle = runtime.spawn("text_compact", text_compact);
+        Self {
+            handles: vec![
+                vector_flush_handle,
+                vector_compact_handle,
+                text_flush_handle,
+                text_compact_handle,
+            ],
+        }
     }
 
-    async fn spawn_and_join(
-        rt: &RT,
-        name: &'static str,
-        fut: impl Future<Output = ()> + Send + 'static,
-    ) {
-        let _ = rt.spawn(name, fut).into_join_future().await;
+    pub fn shutdown(&mut self) {
+        self.handles.iter_mut().for_each(|handle| handle.shutdown())
     }
+}
 
+impl<RT: Runtime> SearchIndexWorker<RT> {
     async fn work_and_wait_for_changes(
         &mut self,
         name: &'static str,
@@ -197,11 +198,11 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         loop {
             let status = log_worker_starting(name);
             let (metrics, token) = match self {
-                SearchIndexWorker::VectorFlusher(flusher) => flusher.step().await?,
-                SearchIndexWorker::VectorCompactor(compactor) => compactor.step().await?,
-                SearchIndexWorker::TextFlusher(flusher) => flusher.step().await?,
-                SearchIndexWorker::TextFlusher2(flusher) => flusher.step().await?,
-                SearchIndexWorker::TextCompactor(compactor) => compactor.step().await?,
+                Self::VectorFlusher(flusher) => flusher.step().await?,
+                Self::VectorCompactor(compactor) => compactor.step().await?,
+                Self::TextFlusher(flusher) => flusher.step().await?,
+                Self::TextFlusher2(flusher) => flusher.step().await?,
+                Self::TextCompactor(compactor) => compactor.step().await?,
             };
             drop(status);
 

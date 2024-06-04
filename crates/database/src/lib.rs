@@ -57,7 +57,7 @@ pub use execution_size::FunctionExecutionSize;
 pub use index_worker::IndexWorker;
 pub use index_workers::{
     fast_forward::FastForwardIndexWorker,
-    search_worker::SearchIndexWorker,
+    search_worker::SearchIndexWorkers,
 };
 pub use patch::PatchValue;
 pub use preloaded::PreloadedIndexRange;

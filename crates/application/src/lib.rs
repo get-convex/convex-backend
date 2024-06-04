@@ -104,7 +104,7 @@ use database::{
     IndexModel,
     IndexWorker,
     OccRetryStats,
-    SearchIndexWorker,
+    SearchIndexWorkers,
     ShortBoxFuture,
     Snapshot,
     SnapshotPage,
@@ -452,7 +452,7 @@ pub struct Application<RT: Runtime> {
     cron_job_executor: Arc<Mutex<RT::Handle>>,
     index_worker: Arc<Mutex<RT::Handle>>,
     fast_forward_worker: Arc<Mutex<RT::Handle>>,
-    search_worker: Arc<Mutex<RT::Handle>>,
+    search_worker: Arc<Mutex<SearchIndexWorkers<RT>>>,
     search_and_vector_bootstrap_worker: Arc<Mutex<RT::Handle>>,
     table_summary_worker: TableSummaryClient<RT>,
     schema_worker: Arc<Mutex<RT::Handle>>,
@@ -549,7 +549,7 @@ impl<RT: Runtime> Application<RT> {
         let fast_forward_worker = Arc::new(Mutex::new(
             runtime.spawn("fast_forward_worker", fast_forward_worker),
         ));
-        let search_worker = SearchIndexWorker::create_and_start(
+        let search_worker = SearchIndexWorkers::create_and_start(
             runtime.clone(),
             database.clone(),
             persistence.reader(),
@@ -557,7 +557,7 @@ impl<RT: Runtime> Application<RT> {
             searcher,
             segment_term_metadata_fetcher,
         );
-        let search_worker = Arc::new(Mutex::new(runtime.spawn("search_worker", search_worker)));
+        let search_worker = Arc::new(Mutex::new(search_worker));
         let search_and_vector_bootstrap_worker = Arc::new(Mutex::new(
             database.start_search_and_vector_bootstrap(PauseClient::new()),
         ));
