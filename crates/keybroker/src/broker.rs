@@ -1,3 +1,4 @@
+use core::panic;
 use std::{
     fmt,
     time::{
@@ -32,6 +33,7 @@ use common::{
         AdminKey,
         MemberId,
         PersistenceVersion,
+        TeamId,
     },
 };
 use errors::ErrorMetadata;
@@ -68,6 +70,10 @@ use pb::{
 use proptest::prelude::{
     Arbitrary,
     Strategy,
+};
+use serde::{
+    Deserialize,
+    Serialize,
 };
 use sync_types::{
     AuthenticationToken,
@@ -196,8 +202,13 @@ impl From<Identity> for InertIdentity {
             Identity::System(_) => InertIdentity::System,
             Identity::Unknown => InertIdentity::Unknown,
             Identity::User(user) => InertIdentity::User(user.attributes.token_identifier),
-            Identity::ActingUser(identity, user) => {
-                InertIdentity::ActingUser(identity.member_id, user.token_identifier)
+            Identity::ActingUser(identity, user) => match identity.principal {
+                AdminIdentityPrincipal::Member(member_id) => {
+                    InertIdentity::ActingUser(member_id, user.token_identifier)
+                },
+                AdminIdentityPrincipal::Team(_) => {
+                    panic!("Impresonating user for team access token is not supported")
+                },
             },
         }
     }
@@ -234,8 +245,13 @@ impl Identity {
             Identity::System(_) => IdentityCacheKey::System,
             Identity::Unknown => IdentityCacheKey::Unknown,
             Identity::User(user) => IdentityCacheKey::User(user.attributes),
-            Identity::ActingUser(identity, user) => {
-                IdentityCacheKey::ActingUser(identity.member_id, user)
+            Identity::ActingUser(identity, user) => match identity.principal {
+                AdminIdentityPrincipal::Member(member_id) => {
+                    IdentityCacheKey::ActingUser(member_id, user)
+                },
+                AdminIdentityPrincipal::Team(_) => {
+                    panic!("Impresonating user for team access token is not supported")
+                },
             },
         }
     }
@@ -263,10 +279,21 @@ impl Identity {
     }
 
     /// Returns the admin's [`MemberId`] if this is an
-    /// [`Identity::InstanceAdmin`]
+    /// [`Identity::InstanceAdmin`] with a member principal
     pub fn member_id(&self) -> Option<MemberId> {
-        if let &Identity::InstanceAdmin(AdminIdentity { member_id, .. }) = self {
-            return Some(member_id);
+        if let Identity::InstanceAdmin(AdminIdentity { principal, .. }) = self {
+            return if let AdminIdentityPrincipal::Member(member_id) = principal {
+                Some(*member_id)
+            } else {
+                None
+            };
+        }
+        None
+    }
+
+    pub fn instance_admin_principal(&self) -> Option<AdminIdentityPrincipal> {
+        if let Identity::InstanceAdmin(AdminIdentity { principal, .. }) = self {
+            return Some(principal.clone());
         }
         None
     }
@@ -440,12 +467,19 @@ impl UserIdentity {
     }
 }
 
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum AdminIdentityPrincipal {
+    Member(MemberId),
+    Team(TeamId),
+}
+
 // Token indicating the possessor has authenticated as the admin for an
 // instance.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct AdminIdentity {
     instance_name: String,
-    member_id: MemberId,
+    principal: AdminIdentityPrincipal,
     key: String,
 }
 
@@ -453,15 +487,20 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
     fn from(
         AdminIdentity {
             instance_name,
-            member_id,
+            principal,
             key,
         }: AdminIdentity,
     ) -> Self {
         Self {
             instance_name: Some(instance_name),
-            principal: Some(pb::convex_identity::admin_identity::Principal::MemberId(
-                member_id.0,
-            )),
+            principal: match principal {
+                AdminIdentityPrincipal::Member(member_id) => Some(
+                    pb::convex_identity::admin_identity::Principal::MemberId(member_id.0),
+                ),
+                AdminIdentityPrincipal::Team(team_id) => Some(
+                    pb::convex_identity::admin_identity::Principal::TeamId(team_id.0),
+                ),
+            },
             key: Some(key),
         }
     }
@@ -472,32 +511,37 @@ impl AdminIdentity {
         let instance_name = msg
             .instance_name
             .ok_or_else(|| anyhow::anyhow!("Missing instance_name"))?;
-        let member_id = match msg.principal {
-            Some(pb::convex_identity::admin_identity::Principal::MemberId(id)) => id,
-            _ => anyhow::bail!("Missing member_id"),
+        let principal = match msg.principal {
+            Some(pb::convex_identity::admin_identity::Principal::MemberId(id)) => {
+                AdminIdentityPrincipal::Member(id.into())
+            },
+            Some(pb::convex_identity::admin_identity::Principal::TeamId(id)) => {
+                AdminIdentityPrincipal::Team(id.into())
+            },
+            None => anyhow::bail!("Missing principal"),
         };
         let key = msg.key.ok_or_else(|| anyhow::anyhow!("Missing key"))?;
         Ok(Self {
             instance_name,
-            member_id: MemberId(member_id),
+            principal,
             key,
         })
     }
 
     pub fn new_for_access_token(
         instance_name: String,
-        member_id: MemberId,
+        principal: AdminIdentityPrincipal,
         access_token: String,
     ) -> Self {
         Self {
             instance_name,
-            member_id,
+            principal,
             key: access_token,
         }
     }
 
-    pub fn member_id(&self) -> MemberId {
-        self.member_id
+    pub fn principal(&self) -> &AdminIdentityPrincipal {
+        &self.principal
     }
 }
 
@@ -509,9 +553,9 @@ impl Arbitrary for AdminIdentity {
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
-        any::<(u64, String)>().prop_map(|(member_id, key)| AdminIdentity {
+        any::<(AdminIdentityPrincipal, String)>().prop_map(|(principal, key)| AdminIdentity {
             instance_name: "fake-instance-name".to_string(),
-            member_id: MemberId(member_id),
+            principal,
             key,
         })
     }
@@ -522,7 +566,7 @@ impl AdminIdentity {
     pub fn new_for_test_only(instance_name: String, member_id: MemberId) -> AdminIdentity {
         AdminIdentity {
             instance_name,
-            member_id,
+            principal: AdminIdentityPrincipal::Member(member_id),
             key: "chocolate-charlies-cupcake".to_string(),
         }
     }
@@ -534,7 +578,11 @@ impl AdminIdentity {
 
 impl fmt::Debug for AdminIdentity {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/{}/{}", self.instance_name, self.member_id, self.key)
+        write!(
+            f,
+            "{}/{:?}/{}",
+            self.instance_name, self.principal, self.key
+        )
     }
 }
 
@@ -662,7 +710,7 @@ impl KeyBroker {
         Ok(match identity {
             AdminIdentityProto::MemberId(member_id) => Identity::InstanceAdmin(AdminIdentity {
                 instance_name: self.instance_name.clone(),
-                member_id: MemberId(member_id),
+                principal: AdminIdentityPrincipal::Member(MemberId(member_id)),
                 key: key.to_string(),
             }),
             AdminIdentityProto::System(()) => Identity::system(),

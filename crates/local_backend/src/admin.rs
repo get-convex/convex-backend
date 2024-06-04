@@ -3,6 +3,7 @@ use authentication::application_auth::ApplicationAuth;
 use common::types::MemberId;
 use errors::ErrorMetadata;
 use keybroker::{
+    AdminIdentityPrincipal,
     Identity,
     KeyBroker,
 };
@@ -30,11 +31,24 @@ pub async fn must_be_admin_from_key(
     Ok(identity)
 }
 
-pub fn must_be_admin(identity: &Identity) -> anyhow::Result<MemberId> {
-    let member_id = identity
-        .member_id()
-        .context(bad_admin_key_error(identity.instance_name()))?;
-    Ok(member_id)
+pub fn must_be_admin(identity: &Identity) -> anyhow::Result<AdminIdentityPrincipal> {
+    if let Identity::InstanceAdmin(admin_identity) = identity {
+        Ok(admin_identity.principal().clone())
+    } else {
+        Err(bad_admin_key_error(identity.instance_name()).into())
+    }
+}
+
+pub fn must_be_admin_member(identity: &Identity) -> anyhow::Result<MemberId> {
+    if let Identity::InstanceAdmin(admin_identity) = identity {
+        if let AdminIdentityPrincipal::Member(member_id) = admin_identity.principal() {
+            Ok(*member_id)
+        } else {
+            Err(bad_admin_key_error(identity.instance_name()).into())
+        }
+    } else {
+        Err(bad_admin_key_error(identity.instance_name()).into())
+    }
 }
 
 pub fn bad_admin_key_error(instance_name: Option<String>) -> ErrorMetadata {

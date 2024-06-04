@@ -3561,6 +3561,7 @@ dependencies = [
  "rand 0.8.5",
  "rsa",
  "runtime",
+ "serde",
  "sodiumoxide",
 ]
 

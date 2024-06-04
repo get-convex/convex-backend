@@ -15,6 +15,7 @@ pub use sync_types::UserIdentityAttributes;
 pub use self::{
     broker::{
         AdminIdentity,
+        AdminIdentityPrincipal,
         GetFileAuthorization,
         Identity,
         KeyBroker,

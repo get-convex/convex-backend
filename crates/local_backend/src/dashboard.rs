@@ -29,7 +29,7 @@ use value::{
 };
 
 use crate::{
-    admin::must_be_admin,
+    admin::must_be_admin_member,
     authentication::ExtractIdentity,
     schema::IndexMetadataResponse,
     LocalAppState,
@@ -48,7 +48,7 @@ pub async fn shapes2(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut out = serde_json::Map::new();
 
-    must_be_admin(&identity)?;
+    must_be_admin_member(&identity)?;
     let snapshot = st.application.latest_snapshot()?;
     let mapping = snapshot.table_mapping().namespace(TableNamespace::Global);
     let virtual_mapping = snapshot.table_registry.virtual_table_mapping();
@@ -72,7 +72,7 @@ pub async fn delete_tables(
     ExtractIdentity(identity): ExtractIdentity,
     Json(DeleteTableArgs { table_names }): Json<DeleteTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_member(&identity)?;
     let table_names = table_names
         .into_iter()
         .map(|t| Ok(t.parse::<ValidIdentifier<TableName>>()?.0))
@@ -92,7 +92,7 @@ pub async fn get_indexes(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_member(&identity)?;
     let mut tx = st.application.begin(identity.clone()).await?;
     let indexes = IndexModel::new(&mut tx).get_application_indexes().await?;
     Ok(Json(GetIndexesResponse {
@@ -115,7 +115,7 @@ pub async fn get_source_code(
     ExtractIdentity(identity): ExtractIdentity,
     Query(GetSourceCodeArgs { path }): Query<GetSourceCodeArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_member(&identity)?;
     let source_code = st
         .application
         .get_source_code(identity, path.parse()?)
