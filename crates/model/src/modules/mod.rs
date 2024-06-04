@@ -447,7 +447,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             source,
             source_map,
             version: Some(version),
-            environment: Some(environment),
         }.try_into()
         .map_err(|e: anyhow::Error| e.map_error_metadata(|em| {
             if em.short_msg == VALUE_TOO_LARGE_SHORT_MSG {

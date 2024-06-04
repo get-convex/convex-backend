@@ -7,7 +7,6 @@ use std::{
 use async_lru::async_lru::SizedValue;
 use common::types::{
     HttpActionRoute,
-    ModuleEnvironment,
     UdfType,
 };
 use errors::ErrorMetadata;
@@ -76,9 +75,6 @@ pub struct ModuleVersionMetadata {
     pub source_map: Option<SourceMap>,
     // Version number for this module version.
     pub version: Option<ModuleVersion>,
-
-    // Which environment this module was bundled for.
-    pub environment: Option<ModuleEnvironment>,
 }
 
 // A cache size implementation for module cache.
@@ -545,7 +541,6 @@ struct SerializedModuleVersionMetadata {
     source: String,
     source_map: Option<String>,
     version: Option<ModuleVersion>,
-    environment: Option<String>,
 }
 
 impl TryFrom<ModuleVersionMetadata> for SerializedModuleVersionMetadata {
@@ -557,7 +552,6 @@ impl TryFrom<ModuleVersionMetadata> for SerializedModuleVersionMetadata {
             source: m.source,
             source_map: m.source_map,
             version: m.version,
-            environment: m.environment.map(|e| e.to_string()),
         })
     }
 }
@@ -571,7 +565,6 @@ impl TryFrom<SerializedModuleVersionMetadata> for ModuleVersionMetadata {
             source: m.source,
             source_map: m.source_map,
             version: m.version,
-            environment: m.environment.map(|e| e.parse()).transpose()?,
         })
     }
 }
