@@ -869,9 +869,12 @@ pub static FUNRUN_SCHEDULER_MAX_PERCENT_PER_CLIENT: LazyLock<usize> =
 /// Name of the service to discover for when connecting to Funrun (e.g.
 /// funrun-default, funrun-staging, etc.)
 pub static FUNRUN_CLUSTER_NAME: LazyLock<String> =
-    LazyLock::new(|| env_config("FUNRUN_CLUSTER_NAME", String::from("funrun")));
+    LazyLock::new(|| env_config("FUNRUN_CLUSTER_NAME", String::from("funrun-default")));
 
-/// Name of the service to discover for when connecting to Searchlight.
+/// Name of the service to discover for when connecting to Searchlight. (e.g.
+/// searchlight-default, searchlight-staging, etc.)
+// TODO(CX-6645): Change the default value to searchlight-default after that
+// cluster is created.
 pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> =
     LazyLock::new(|| env_config("SEARCHLIGHT_CLUSTER_NAME", String::from("searchlight")));
 
