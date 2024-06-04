@@ -16,6 +16,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    knobs::SEARCHLIGHT_CLUSTER_NAME,
     query::{
         InternalSearch,
         InternalSearchFilterExpression,
@@ -195,7 +196,7 @@ impl SearchIndexManager {
         search_storage: Arc<dyn Storage>,
         version: SearchVersion,
     ) -> anyhow::Result<QueryResults> {
-        let timer = metrics::search_timer();
+        let timer = metrics::search_timer(&SEARCHLIGHT_CLUSTER_NAME);
         let tantivy_schema =
             TantivySearchIndexSchema::new_for_index(index, &search.printable_index_name()?)?;
         let (compiled_query, reads) = tantivy_schema.compile(search, version)?;
@@ -238,7 +239,7 @@ impl SearchIndexManager {
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
     ) -> anyhow::Result<RevisionWithKeys> {
-        let timer = metrics::search_timer();
+        let timer = metrics::search_timer(&SEARCHLIGHT_CLUSTER_NAME);
         let tantivy_schema = TantivySearchIndexSchema::new_for_index(index, printable_index_name)?;
         let compiled_query =
             CompiledQuery::try_from_text_query_proto(query, tantivy_schema.search_field)?;

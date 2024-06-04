@@ -1,4 +1,5 @@
 use metrics::{
+    cluster_label,
     log_counter,
     log_counter_with_labels,
     log_distribution,
@@ -7,6 +8,7 @@ use metrics::{
     MetricLabel,
     StaticMetricLabel,
     StatusTimer,
+    CLUSTER_LABEL,
     STATUS_LABEL,
 };
 
@@ -76,11 +78,15 @@ pub fn log_searchlight_overfetch_delta(overfetch_delta: usize) {
 register_convex_histogram!(
     VECTOR_SEARCH_SEARCHLIGHT_CLIENT_EXECUTE_SECONDS,
     "Time to execute a vector query against Searchlight",
-    &[STATUS_LABEL[0], VECTOR_INDEX_TYPE_LABEL],
+    &[STATUS_LABEL[0], VECTOR_INDEX_TYPE_LABEL, CLUSTER_LABEL],
 );
-pub fn searchlight_client_execute_timer(vector_index_type: VectorIndexType) -> StatusTimer {
+pub fn searchlight_client_execute_timer(
+    vector_index_type: VectorIndexType,
+    cluster: &'static str,
+) -> StatusTimer {
     let mut timer = StatusTimer::new(&VECTOR_SEARCH_SEARCHLIGHT_CLIENT_EXECUTE_SECONDS);
     timer.add_label(vector_index_type_label(vector_index_type));
+    timer.add_label(cluster_label(cluster));
     timer
 }
 
@@ -164,11 +170,12 @@ pub fn log_compiled_query(query: &CompiledVectorSearch) {
 register_convex_histogram!(
     VECTOR_INDEX_MANAGER_SEARCH_SECONDS,
     "Total vector search duration",
-    &[STATUS_LABEL[0], VECTOR_INDEX_TYPE_LABEL],
+    &[STATUS_LABEL[0], VECTOR_INDEX_TYPE_LABEL, CLUSTER_LABEL],
 );
-pub fn search_timer() -> StatusTimer {
+pub fn search_timer(cluster: &'static str) -> StatusTimer {
     let mut timer = StatusTimer::new(&VECTOR_INDEX_MANAGER_SEARCH_SECONDS);
     timer.add_label(vector_index_type_label(VectorIndexType::Unknown));
+    timer.add_label(cluster_label(cluster));
     timer
 }
 

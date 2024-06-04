@@ -1,4 +1,5 @@
 use metrics::{
+    cluster_label,
     log_counter,
     log_counter_with_labels,
     log_distribution,
@@ -10,6 +11,7 @@ use metrics::{
     StaticMetricLabel,
     StatusTimer,
     Timer,
+    CLUSTER_LABEL,
     STATUS_LABEL,
 };
 use prometheus::VMHistogram;
@@ -102,10 +104,12 @@ pub fn log_index_deleted() {
 register_convex_histogram!(
     SEARCH_INDEX_MANAGER_SEARCH_SECONDS,
     "Total search duration",
-    &STATUS_LABEL
+    &[STATUS_LABEL[0], CLUSTER_LABEL],
 );
-pub fn search_timer() -> StatusTimer {
-    StatusTimer::new(&SEARCH_INDEX_MANAGER_SEARCH_SECONDS)
+pub fn search_timer(cluster: &'static str) -> StatusTimer {
+    let mut timer = StatusTimer::new(&SEARCH_INDEX_MANAGER_SEARCH_SECONDS);
+    timer.add_label(cluster_label(cluster));
+    timer
 }
 
 register_convex_histogram!(
@@ -215,10 +219,12 @@ pub fn num_documents_with_term_timer() -> Timer<VMHistogram> {
 register_convex_histogram!(
     SEARCH_SEARCHLIGHT_CLIENT_EXECUTE_SECONDS,
     "Time to execute a query against Searchlight",
-    &STATUS_LABEL
+    &[STATUS_LABEL[0], CLUSTER_LABEL]
 );
-pub fn searchlight_client_execute_timer() -> StatusTimer {
-    StatusTimer::new(&SEARCH_SEARCHLIGHT_CLIENT_EXECUTE_SECONDS)
+pub fn searchlight_client_execute_timer(cluster: &'static str) -> StatusTimer {
+    let mut timer = StatusTimer::new(&SEARCH_SEARCHLIGHT_CLIENT_EXECUTE_SECONDS);
+    timer.add_label(cluster_label(cluster));
+    timer
 }
 
 register_convex_histogram!(

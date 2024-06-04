@@ -47,7 +47,10 @@ use common::{
     },
     document::ResolvedDocument,
     index::IndexKeyBytes,
-    knobs::USE_MULTI_SEGMENT_SEARCH_QUERY,
+    knobs::{
+        SEARCHLIGHT_CLUSTER_NAME,
+        USE_MULTI_SEGMENT_SEARCH_QUERY,
+    },
     query::{
         search_value_to_bytes,
         InternalSearch,
@@ -682,7 +685,7 @@ impl TantivySearchIndexSchema {
 
         // 4. Do disk query
         let search_results = {
-            let timer = metrics::searchlight_client_execute_timer();
+            let timer = metrics::searchlight_client_execute_timer(&SEARCHLIGHT_CLUSTER_NAME);
             let results = searcher
                 .execute_query(
                     search_storage,

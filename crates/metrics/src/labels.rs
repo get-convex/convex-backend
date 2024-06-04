@@ -76,3 +76,8 @@ impl IntoLabel for bool {
         }
     }
 }
+
+pub const CLUSTER_LABEL: &str = "cluster";
+pub fn cluster_label(cluster: &'static str) -> StaticMetricLabel {
+    StaticMetricLabel::new(CLUSTER_LABEL, cluster)
+}

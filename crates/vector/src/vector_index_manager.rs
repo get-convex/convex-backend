@@ -15,6 +15,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    knobs::SEARCHLIGHT_CLUSTER_NAME,
     types::{
         IndexId,
         Timestamp,
@@ -398,7 +399,7 @@ impl VectorIndexManager {
         searcher: Arc<dyn VectorSearcher>,
         search_storage: Arc<dyn Storage>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
-        let timer = metrics::search_timer();
+        let timer = metrics::search_timer(&SEARCHLIGHT_CLUSTER_NAME);
         let IndexConfig::Vector {
             ref developer_config,
             ..
@@ -458,8 +459,10 @@ impl VectorIndexManager {
             ts,
             |qdrant_schema, compiled_query, overfetch_delta| {
                 async move {
-                    let timer =
-                        metrics::searchlight_client_execute_timer(VectorIndexType::MultiSegment);
+                    let timer = metrics::searchlight_client_execute_timer(
+                        VectorIndexType::MultiSegment,
+                        &SEARCHLIGHT_CLUSTER_NAME,
+                    );
                     let total_segments = segments.len();
                     let results = searcher
                         .execute_multi_segment_vector_query(
