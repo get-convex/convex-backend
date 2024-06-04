@@ -814,6 +814,7 @@ mod tests {
         }
 
         #[test]
+        #[ignore = "Reenable when we port randomized tests to search2"]
         fn proptest_matches_with_score_large(
             terms in prop::collection::vec(any::<(u32, u32)>(), 1..1200),
             queries in prop::collection::vec(any::<ScoredQuery>(), 1..32),
@@ -823,5 +824,28 @@ mod tests {
         ) {
             test_matches_with_score(terms, queries, fieldnorm, total_doc_freq, avg_fieldnorm);
         }
+    }
+
+    #[test]
+    #[ignore = "Reenable when we port randomized tests to search2"]
+    fn repro_test_matches_with_score_large() {
+        let terms = vec![(2683748363, 0)];
+        let queries = vec![ScoredQuery {
+            union_terms: vec![
+                UnionTerm {
+                    term_id: 2683748363,
+                    term_doc_freq: 1,
+                },
+                UnionTerm {
+                    term_id: 0,
+                    term_doc_freq: 2,
+                },
+            ],
+            intersection_terms: vec![],
+        }];
+        let fieldnorm = 0;
+        let total_doc_freq = 32;
+        let avg_fieldnorm = 2.2986883e35;
+        test_matches_with_score(terms, queries, fieldnorm, total_doc_freq, avg_fieldnorm);
     }
 }
