@@ -59,7 +59,6 @@ use crate::{
         PreviousSegmentsType,
         SearchIndex,
         SearchIndexConfig,
-        SearchIndexConfigParser,
         SearchOnDiskState,
         SearchSnapshot,
         SegmentStatistics,
@@ -68,36 +67,6 @@ use crate::{
     },
     Snapshot,
 };
-
-pub struct TextIndexConfigParser;
-
-impl SearchIndexConfigParser for TextIndexConfigParser {
-    type IndexType = TextSearchIndex;
-
-    fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self::IndexType>> {
-        let IndexConfig::Search {
-            on_disk_state,
-            developer_config,
-        } = config
-        else {
-            return None;
-        };
-        Some(SearchIndexConfig {
-            developer_config,
-            on_disk_state: match on_disk_state {
-                TextIndexState::Backfilling(snapshot) => {
-                    SearchOnDiskState::Backfilling(snapshot.into())
-                },
-                TextIndexState::Backfilled(snapshot) => {
-                    SearchOnDiskState::Backfilled(snapshot.into())
-                },
-                TextIndexState::SnapshottedAt(snapshot) => {
-                    SearchOnDiskState::SnapshottedAt(snapshot.into())
-                },
-            },
-        })
-    }
-}
 
 impl PreviousSegmentsType for PreviousTextSegments {
     fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()> {
@@ -143,6 +112,30 @@ impl SearchIndex for TextSearchIndex {
     type Schema = TantivySearchIndexSchema;
     type Segment = FragmentedTextSegment;
     type Statistics = TextStatistics;
+
+    fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self>> {
+        let IndexConfig::Search {
+            on_disk_state,
+            developer_config,
+        } = config
+        else {
+            return None;
+        };
+        Some(SearchIndexConfig {
+            developer_config,
+            on_disk_state: match on_disk_state {
+                TextIndexState::Backfilling(snapshot) => {
+                    SearchOnDiskState::Backfilling(snapshot.into())
+                },
+                TextIndexState::Backfilled(snapshot) => {
+                    SearchOnDiskState::Backfilled(snapshot.into())
+                },
+                TextIndexState::SnapshottedAt(snapshot) => {
+                    SearchOnDiskState::SnapshottedAt(snapshot.into())
+                },
+            },
+        })
+    }
 
     // When iterating over the document log for partial segments, we must iterate in
     // reverse timestamp order to match assumptions made in build_disk_index

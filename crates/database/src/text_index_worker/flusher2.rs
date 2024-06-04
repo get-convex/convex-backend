@@ -20,7 +20,6 @@ use crate::{
     },
     text_index_worker::text_meta::{
         BuildTextIndexArgs,
-        TextIndexConfigParser,
         TextSearchIndex,
     },
     Database,
@@ -127,7 +126,7 @@ impl<RT: Runtime> FlusherBuilder<RT> {
     }
 }
 
-pub type TextIndexFlusher2<RT> = SearchFlusher<RT, TextIndexConfigParser>;
+pub type TextIndexFlusher2<RT> = SearchFlusher<RT, TextSearchIndex>;
 
 pub(crate) fn new_text_flusher<RT: Runtime>(
     runtime: RT,

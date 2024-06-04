@@ -54,7 +54,6 @@ use crate::{
         PreviousSegmentsType,
         SearchIndex,
         SearchIndexConfig,
-        SearchIndexConfigParser,
         SearchOnDiskState,
         SearchSnapshot,
         SegmentStatistics,
@@ -63,26 +62,6 @@ use crate::{
     },
     Snapshot,
 };
-
-pub struct VectorIndexConfigParser;
-
-impl SearchIndexConfigParser for VectorIndexConfigParser {
-    type IndexType = VectorSearchIndex;
-
-    fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self::IndexType>> {
-        let IndexConfig::Vector {
-            on_disk_state,
-            developer_config,
-        } = config
-        else {
-            return None;
-        };
-        Some(SearchIndexConfig {
-            developer_config,
-            on_disk_state: SearchOnDiskState::from(on_disk_state),
-        })
-    }
-}
 
 impl From<VectorIndexState> for SearchOnDiskState<VectorSearchIndex> {
     fn from(value: VectorIndexState) -> Self {
@@ -164,6 +143,20 @@ impl SearchIndex for VectorSearchIndex {
     type Schema = QdrantSchema;
     type Segment = FragmentedVectorSegment;
     type Statistics = VectorStatistics;
+
+    fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self>> {
+        let IndexConfig::Vector {
+            on_disk_state,
+            developer_config,
+        } = config
+        else {
+            return None;
+        };
+        Some(SearchIndexConfig {
+            developer_config,
+            on_disk_state: SearchOnDiskState::from(on_disk_state),
+        })
+    }
 
     fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>> {
         Ok(snapshot

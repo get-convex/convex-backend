@@ -58,7 +58,6 @@ use crate::{
         index_meta::{
             SearchIndex,
             SearchIndexConfig,
-            SearchIndexConfigParser,
             SearchOnDiskState,
             SearchSnapshot,
             SegmentStatistics,
@@ -87,16 +86,16 @@ use crate::{
 #[cfg(any(test, feature = "testing"))]
 pub(crate) const FLUSH_RUNNING_LABEL: &str = "flush_running";
 
-pub struct SearchFlusher<RT: Runtime, T: SearchIndexConfigParser> {
-    params: Params<RT, T::IndexType>,
-    writer: SearchIndexMetadataWriter<RT, T::IndexType>,
+pub struct SearchFlusher<RT: Runtime, T: SearchIndex> {
+    params: Params<RT, T>,
+    writer: SearchIndexMetadataWriter<RT, T>,
     _config: PhantomData<T>,
     #[cfg(any(test, feature = "testing"))]
     pause_client: Option<PauseClient>,
 }
 
-impl<RT: Runtime, T: SearchIndexConfigParser> Deref for SearchFlusher<RT, T> {
-    type Target = Params<RT, T::IndexType>;
+impl<RT: Runtime, T: SearchIndex> Deref for SearchFlusher<RT, T> {
+    type Target = Params<RT, T>;
 
     fn deref(&self) -> &Self::Target {
         &self.params
@@ -133,15 +132,15 @@ pub struct SearchIndexLimits {
     pub incremental_multipart_threshold_bytes: usize,
 }
 
-impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
+impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
     pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
         limits: SearchIndexLimits,
-        writer: SearchIndexMetadataWriter<RT, T::IndexType>,
-        build_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
+        writer: SearchIndexMetadataWriter<RT, T>,
+        build_args: T::BuildIndexArgs,
         #[cfg(any(test, feature = "testing"))] pause_client: Option<PauseClient>,
     ) -> Self {
         Self {
@@ -200,13 +199,13 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     }
 
     fn search_type() -> SearchType {
-        <T::IndexType as SearchIndex>::search_type()
+        T::search_type()
     }
 
     pub(crate) async fn build_one(
         &self,
-        job: IndexBuild<T::IndexType>,
-        build_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
+        job: IndexBuild<T>,
+        build_args: T::BuildIndexArgs,
     ) -> anyhow::Result<u64> {
         let timer = crate::metrics::vector::build_one_timer();
 
@@ -247,7 +246,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     }
 
     /// Compute the set of indexes that need to be backfilled.
-    async fn needs_backfill(&self) -> anyhow::Result<(Vec<IndexBuild<T::IndexType>>, Token)> {
+    async fn needs_backfill(&self) -> anyhow::Result<(Vec<IndexBuild<T>>, Token)> {
         let mut to_build = vec![];
 
         let mut tx = self.database.begin(Identity::system()).await?;
@@ -255,7 +254,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
 
         let snapshot = self.database.snapshot(step_ts)?;
 
-        let ready_index_sizes = T::IndexType::get_index_sizes(snapshot)?;
+        let ready_index_sizes = T::get_index_sizes(snapshot)?;
 
         for index_doc in IndexModel::new(&mut tx).get_all_indexes().await? {
             let (index_id, index_metadata) = index_doc.into_id_and_value();
@@ -268,7 +267,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                 SearchOnDiskState::Backfilling(_) => Some(BuildReason::Backfilling),
                 SearchOnDiskState::SnapshottedAt(snapshot)
                 | SearchOnDiskState::Backfilled(snapshot)
-                    if !T::IndexType::is_version_current(snapshot) =>
+                    if !T::is_version_current(snapshot) =>
                 {
                     Some(BuildReason::VersionMismatch)
                 },
@@ -323,9 +322,9 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
 
     async fn build_multipart_segment(
         &self,
-        job: &IndexBuild<T::IndexType>,
-        build_index_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
-    ) -> anyhow::Result<IndexBuildResult<T::IndexType>> {
+        job: &IndexBuild<T>,
+        build_index_args: T::BuildIndexArgs,
+    ) -> anyhow::Result<IndexBuildResult<T>> {
         let index_path = TempDir::new()?;
         let mut tx = self.database.begin(Identity::system()).await?;
         let table_id = tx.table_mapping().inject_table_number()(*job.index_name.table())?;
@@ -392,10 +391,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             .await?;
 
         let new_segment = if let Some(new_segment) = new_segment {
-            Some(
-                T::IndexType::upload_new_segment(&self.runtime, self.storage.clone(), new_segment)
-                    .await?,
-            )
+            Some(T::upload_new_segment(&self.runtime, self.storage.clone(), new_segment).await?)
         } else {
             None
         };
@@ -434,13 +430,13 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
 
     async fn build_multipart_segment_in_dir(
         &self,
-        job: &IndexBuild<T::IndexType>,
+        job: &IndexBuild<T>,
         index_path: &TempDir,
         snapshot_ts: RepeatableTimestamp,
         build_type: MultipartBuildType,
-        previous_segments: Vec<<T::IndexType as SearchIndex>::Segment>,
-        build_index_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
-    ) -> anyhow::Result<MultiSegmentBuildResult<T::IndexType>> {
+        previous_segments: Vec<T::Segment>,
+        build_index_args: T::BuildIndexArgs,
+    ) -> anyhow::Result<MultiSegmentBuildResult<T>> {
         let (tx, rx) = oneshot::channel();
         let index_name = job.index_name.clone();
         let index_path = index_path.path().to_owned();
@@ -468,17 +464,17 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
     }
 
     async fn build_multipart_segment_on_thread(
-        params: Params<RT, T::IndexType>,
+        params: Params<RT, T>,
         rate_limit_pages_per_second: NonZeroU32,
         index_name: TabletIndexName,
         by_id: IndexId,
         build_type: MultipartBuildType,
         snapshot_ts: RepeatableTimestamp,
-        developer_config: <T::IndexType as SearchIndex>::DeveloperConfig,
+        developer_config: T::DeveloperConfig,
         index_path: PathBuf,
-        previous_segments: Vec<<T::IndexType as SearchIndex>::Segment>,
-        build_index_args: <T::IndexType as SearchIndex>::BuildIndexArgs,
-    ) -> anyhow::Result<MultiSegmentBuildResult<T::IndexType>> {
+        previous_segments: Vec<T::Segment>,
+        build_index_args: T::BuildIndexArgs,
+    ) -> anyhow::Result<MultiSegmentBuildResult<T>> {
         let row_rate_limiter = new_rate_limiter(
             params.runtime.clone(),
             Quota::per_second(
@@ -491,7 +487,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         let mut new_cursor = None;
         let mut is_backfill_complete = true;
         let mut is_size_exceeded = false;
-        let qdrant_schema = T::IndexType::new_schema(&developer_config);
+        let qdrant_schema = T::new_schema(&developer_config);
 
         let (documents, previous_segments) = match build_type {
             MultipartBuildType::Partial(last_ts) => (
@@ -501,7 +497,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                         Bound::Excluded(*last_ts),
                         Bound::Included(*snapshot_ts),
                     ))?,
-                    T::IndexType::partial_document_order(),
+                    T::partial_document_order(),
                     &row_rate_limiter,
                 ),
                 previous_segments,
@@ -521,7 +517,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
                             return future::ready(None);
                         }
                         let updated_cursor = if let Ok((doc, _)) = &res {
-                            let size = T::IndexType::estimate_document_size(&qdrant_schema, doc);
+                            let size = T::estimate_document_size(&qdrant_schema, doc);
                             *total_size += size;
                             Some(doc.id())
                         } else {
@@ -551,7 +547,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             },
         };
 
-        let mut mutable_previous_segments = T::IndexType::download_previous_segments(
+        let mut mutable_previous_segments = T::download_previous_segments(
             &params.runtime,
             params.storage.clone(),
             previous_segments,
@@ -563,7 +559,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
             snapshot_ts,
             params.database.retention_validator(),
         );
-        let new_segment = T::IndexType::build_disk_index(
+        let new_segment = T::build_disk_index(
             &params.runtime,
             &qdrant_schema,
             &index_path,
@@ -574,12 +570,9 @@ impl<RT: Runtime, T: SearchIndexConfigParser + 'static> SearchFlusher<RT, T> {
         )
         .await?;
 
-        let updated_previous_segments = T::IndexType::upload_previous_segments(
-            &params.runtime,
-            params.storage,
-            mutable_previous_segments,
-        )
-        .await?;
+        let updated_previous_segments =
+            T::upload_previous_segments(&params.runtime, params.storage, mutable_previous_segments)
+                .await?;
 
         let index_backfill_result =
             if let MultipartBuildType::IncrementalComplete { .. } = build_type {

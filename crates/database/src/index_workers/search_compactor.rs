@@ -29,7 +29,6 @@ use crate::{
         index_meta::{
             BackfillState,
             SearchIndex,
-            SearchIndexConfigParser,
             SearchOnDiskState,
             SearchSnapshot,
             SegmentStatistics,
@@ -50,21 +49,21 @@ use crate::{
     Token,
 };
 
-pub struct SearchIndexCompactor<RT: Runtime, T: SearchIndexConfigParser> {
+pub struct SearchIndexCompactor<RT: Runtime, T: SearchIndex> {
     database: Database<RT>,
     searcher: Arc<dyn Searcher>,
     search_storage: Arc<dyn Storage>,
     config: CompactionConfig,
-    writer: SearchIndexMetadataWriter<RT, T::IndexType>,
+    writer: SearchIndexMetadataWriter<RT, T>,
 }
 
-impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
+impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
     pub(crate) fn new(
         database: Database<RT>,
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<dyn Storage>,
         config: CompactionConfig,
-        writer: SearchIndexMetadataWriter<RT, T::IndexType>,
+        writer: SearchIndexMetadataWriter<RT, T>,
     ) -> SearchIndexCompactor<RT, T> {
         SearchIndexCompactor {
             database,
@@ -76,7 +75,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
     }
 
     fn search_type() -> SearchType {
-        <T::IndexType as SearchIndex>::search_type()
+        T::search_type()
     }
 
     pub(crate) async fn step(&self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
@@ -101,7 +100,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
         Ok((metrics, token))
     }
 
-    async fn needs_compaction(&self) -> anyhow::Result<(Vec<CompactionJob<T::IndexType>>, Token)> {
+    async fn needs_compaction(&self) -> anyhow::Result<(Vec<CompactionJob<T>>, Token)> {
         let mut to_build = vec![];
         let mut tx = self.database.begin(Identity::system()).await?;
 
@@ -159,7 +158,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
         Ok((to_build, tx.into_token()?))
     }
 
-    async fn build_one(&self, job: CompactionJob<T::IndexType>) -> anyhow::Result<u64> {
+    async fn build_one(&self, job: CompactionJob<T>) -> anyhow::Result<u64> {
         let timer = compaction_build_one_timer(Self::search_type());
         let (segments, snapshot_ts) = match job.on_disk_state {
             SearchOnDiskState::Backfilling(BackfillState {
@@ -237,8 +236,8 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
     }
 
     fn format(
-        segment: &<T::IndexType as SearchIndex>::Segment,
-        developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
+        segment: &T::Segment,
+        developer_config: &T::DeveloperConfig,
     ) -> anyhow::Result<String> {
         let stats = segment.statistics()?;
         Ok(format!(
@@ -252,10 +251,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
     }
 
     fn max_compactable_segments<'a>(
-        segments: Vec<&'a <T::IndexType as SearchIndex>::Segment>,
-        developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
+        segments: Vec<&'a T::Segment>,
+        developer_config: &T::DeveloperConfig,
         compaction_config: &CompactionConfig,
-    ) -> anyhow::Result<Option<Vec<&'a <T::IndexType as SearchIndex>::Segment>>> {
+    ) -> anyhow::Result<Option<Vec<&'a T::Segment>>> {
         let mut size: u64 = 0;
         let segments = segments
             .into_iter()
@@ -296,13 +295,10 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
     }
 
     fn find_segments_to_compact<'a>(
-        segments: &'a Vec<<T::IndexType as SearchIndex>::Segment>,
-        developer_config: &'a <T::IndexType as SearchIndex>::DeveloperConfig,
+        segments: &'a Vec<T::Segment>,
+        developer_config: &'a T::DeveloperConfig,
         compaction_config: &CompactionConfig,
-    ) -> anyhow::Result<(
-        Vec<<T::IndexType as SearchIndex>::Segment>,
-        CompactionReason,
-    )> {
+    ) -> anyhow::Result<(Vec<T::Segment>, CompactionReason)> {
         fn to_owned<R: Clone>(borrowed: Vec<&R>) -> Vec<R> {
             borrowed.into_iter().cloned().collect_vec()
         }
@@ -382,8 +378,8 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
     }
 
     fn segments_need_compaction(
-        segments: &Vec<<T::IndexType as SearchIndex>::Segment>,
-        developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
+        segments: &Vec<T::Segment>,
+        developer_config: &T::DeveloperConfig,
         compaction_config: &CompactionConfig,
     ) -> anyhow::Result<bool> {
         Ok(
@@ -395,9 +391,9 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
 
     async fn compact(
         &self,
-        developer_config: &<T::IndexType as SearchIndex>::DeveloperConfig,
-        segments: Vec<<T::IndexType as SearchIndex>::Segment>,
-    ) -> anyhow::Result<<T::IndexType as SearchIndex>::Segment> {
+        developer_config: &T::DeveloperConfig,
+        segments: Vec<T::Segment>,
+    ) -> anyhow::Result<T::Segment> {
         let total_segment_size_bytes: u64 = segments
             .iter()
             .map(|segment| segment.total_size_bytes(developer_config))
@@ -431,7 +427,7 @@ impl<RT: Runtime, T: SearchIndexConfigParser> SearchIndexCompactor<RT, T> {
                 .collect::<anyhow::Result<Vec<_>>>()?,
         );
 
-        <T::IndexType as SearchIndex>::execute_compaction(
+        T::execute_compaction(
             self.searcher.clone(),
             self.search_storage.clone(),
             developer_config,

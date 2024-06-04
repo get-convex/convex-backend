@@ -21,14 +21,11 @@ use crate::{
         },
         writer::SearchIndexMetadataWriter,
     },
-    vector_index_worker::vector_meta::{
-        VectorIndexConfigParser,
-        VectorSearchIndex,
-    },
+    vector_index_worker::vector_meta::VectorSearchIndex,
     Database,
 };
 
-pub type VectorIndexFlusher<RT> = SearchFlusher<RT, VectorIndexConfigParser>;
+pub type VectorIndexFlusher<RT> = SearchFlusher<RT, VectorSearchIndex>;
 
 /// Backfills all search indexes that are in a "backfilling" state.
 #[cfg(any(test, feature = "testing"))]

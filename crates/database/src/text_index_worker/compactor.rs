@@ -10,13 +10,13 @@ use crate::{
         SearchIndexCompactor,
     },
     text_index_worker::{
-        text_meta::TextIndexConfigParser,
+        text_meta::TextSearchIndex,
         TextIndexMetadataWriter,
     },
     Database,
 };
 
-pub type TextIndexCompactor<RT> = SearchIndexCompactor<RT, TextIndexConfigParser>;
+pub type TextIndexCompactor<RT> = SearchIndexCompactor<RT, TextSearchIndex>;
 
 #[allow(dead_code)]
 pub(crate) fn new_text_compactor<RT: Runtime>(

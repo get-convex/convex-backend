@@ -39,14 +39,6 @@ use value::{
 
 use crate::Snapshot;
 
-pub trait SearchIndexConfigParser {
-    type IndexType: SearchIndex;
-
-    /// Returns the generalized `SearchIndexConfig` if it matches the type of
-    /// the parser (e.g. Text vs Vector) and `None` otherwise.
-    fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self::IndexType>>;
-}
-
 pub trait PreviousSegmentsType: Send {
     fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()>;
 }
@@ -71,6 +63,10 @@ pub trait SearchIndex: Clone + Debug {
     type BuildIndexArgs: Clone + Send;
 
     type Schema: Send + Sync;
+
+    /// Returns the generalized `SearchIndexConfig` if it matches the type of
+    /// the parser (e.g. Text vs Vector) and `None` otherwise.
+    fn get_config(_config: IndexConfig) -> Option<SearchIndexConfig<Self>>;
 
     // TODO(CX-6589): Make this infallible
     fn new_index_config(

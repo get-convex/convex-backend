@@ -12,14 +12,11 @@ use crate::{
         },
         writer::SearchIndexMetadataWriter,
     },
-    vector_index_worker::vector_meta::{
-        VectorIndexConfigParser,
-        VectorSearchIndex,
-    },
+    vector_index_worker::vector_meta::VectorSearchIndex,
     Database,
 };
 
-pub type VectorIndexCompactor<RT> = SearchIndexCompactor<RT, VectorIndexConfigParser>;
+pub type VectorIndexCompactor<RT> = SearchIndexCompactor<RT, VectorSearchIndex>;
 
 pub(crate) fn new_vector_compactor<RT: Runtime>(
     database: Database<RT>,

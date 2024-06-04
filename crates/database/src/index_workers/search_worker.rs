@@ -172,15 +172,15 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         };
 
         join!(
-            Self::spawn_and_join(runtime.clone(), "vector_flush", vector_flush),
-            Self::spawn_and_join(runtime.clone(), "vector_compact", vector_compact),
-            Self::spawn_and_join(runtime.clone(), "search_flush", search_flush),
-            Self::spawn_and_join(runtime, "text_compact", text_compact),
+            Self::spawn_and_join(&runtime, "vector_flush", vector_flush),
+            Self::spawn_and_join(&runtime, "vector_compact", vector_compact),
+            Self::spawn_and_join(&runtime, "search_flush", search_flush),
+            Self::spawn_and_join(&runtime, "text_compact", text_compact),
         );
     }
 
     async fn spawn_and_join(
-        rt: RT,
+        rt: &RT,
         name: &'static str,
         fut: impl Future<Output = ()> + Send + 'static,
     ) {
