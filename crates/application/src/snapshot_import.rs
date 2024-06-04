@@ -15,9 +15,12 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
-use async_zip::read::{
-    seek::ZipFileReader,
-    ZipEntryReader,
+use async_zip::{
+    error::ZipError,
+    read::{
+        seek::ZipFileReader,
+        ZipEntryReader,
+    },
 };
 use bytes::Bytes;
 use common::{
@@ -789,6 +792,15 @@ static DOCUMENTS_PATTERN: LazyLock<Regex> =
 static STORAGE_FILE_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?:.*/)?_storage/([^/.]+)(?:\.[^/]+)?$").unwrap());
 
+fn map_zip_error(e: ZipError) -> anyhow::Error {
+    match e {
+        // UpstreamReadError is probably a transient error from S3.
+        ZipError::UpstreamReadError(e) => anyhow::Error::from(e),
+        // Everything else indicates a Zip file that cannot be parsed.
+        e => ErrorMetadata::bad_request("InvalidZip", format!("invalid zip file: {e}")).into(),
+    }
+}
+
 /// Parse and stream units from the imported file, starting with a NewTable
 /// for each table and then Objects for each object to import into the table.
 /// stream_body returns the file as streamed bytes. stream_body() can be called
@@ -876,7 +888,9 @@ where
         },
         ImportFormat::Zip => {
             let mut reader = stream_body().await?.compat();
-            let mut zip_reader = ZipFileReader::new(&mut reader).await?;
+            let mut zip_reader = ZipFileReader::new(&mut reader)
+                .await
+                .map_err(map_zip_error)?;
             let filenames: Vec<_> = zip_reader
                 .entries()
                 .into_iter()
@@ -900,18 +914,21 @@ where
                     if let Some(table_name) = &documents_table_name
                         && table_name == &*TABLES_TABLE
                     {
-                        let entry_reader = zip_reader.entry_reader(i).await?;
+                        let entry_reader =
+                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
                         table_metadata = parse_documents_jsonl(entry_reader).try_collect().await?;
                     } else if let Some(table_name) = &documents_table_name
                         && table_name == &*FILE_STORAGE_VIRTUAL_TABLE
                     {
-                        let entry_reader = zip_reader.entry_reader(i).await?;
+                        let entry_reader =
+                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
                         storage_metadata =
                             parse_documents_jsonl(entry_reader).try_collect().await?;
                     } else if let Some(generated_schema_captures) =
                         GENERATED_SCHEMA_PATTERN.captures(filename)
                     {
-                        let entry_reader = zip_reader.entry_reader(i).await?;
+                        let entry_reader =
+                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
                         let table_name_str = generated_schema_captures
                             .get(1)
                             .expect("regex has one capture group")
@@ -949,7 +966,8 @@ where
                             if storage_id_str == "documents" {
                                 continue;
                             }
-                            let entry_reader = zip_reader.entry_reader(i).await?;
+                            let entry_reader =
+                                zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
                             let storage_id =
                                 DeveloperDocumentId::decode(storage_id_str).map_err(|e| {
                                     ErrorMetadata::bad_request(
@@ -987,7 +1005,7 @@ where
                 if let Some(table_name) = parse_documents_jsonl_table_name(filename)?
                     && !table_name.is_system()
                 {
-                    let entry_reader = zip_reader.entry_reader(i).await?;
+                    let entry_reader = zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
                     let stream = parse_documents_jsonl(entry_reader);
                     pin_mut!(stream);
                     while let Some(unit) = stream.try_next().await? {
