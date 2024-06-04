@@ -287,19 +287,29 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         Ok(definitions)
     }
 
+    pub async fn component_path_to_ids(
+        &mut self,
+        path: ComponentPath,
+    ) -> anyhow::Result<(ComponentDefinitionId, ComponentId)> {
+        if path.is_root() {
+            Ok((ComponentDefinitionId::Root, ComponentId::Root))
+        } else {
+            let component_metadata = self
+                .resolve_path(path)
+                .await?
+                .context("Component not found")?;
+            Ok((
+                ComponentDefinitionId::Child(component_metadata.definition_id),
+                ComponentId::Child(component_metadata.id().internal_id()),
+            ))
+        }
+    }
+
     pub async fn function_path_to_module(
         &mut self,
         path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<CanonicalizedComponentModulePath> {
-        let definition_id = if path.component.is_root() {
-            ComponentDefinitionId::Root
-        } else {
-            let component_metadata = self
-                .resolve_path(path.component)
-                .await?
-                .context("Component not found")?;
-            ComponentDefinitionId::Child(component_metadata.definition_id)
-        };
+        let (definition_id, _) = self.component_path_to_ids(path.component).await?;
         Ok(CanonicalizedComponentModulePath {
             component: definition_id,
             module_path: path.udf_path.module().clone(),

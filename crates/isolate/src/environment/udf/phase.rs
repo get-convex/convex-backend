@@ -13,6 +13,7 @@ use common::{
     components::{
         CanonicalizedComponentModulePath,
         ComponentDefinitionId,
+        ComponentPath,
     },
     runtime::{
         Runtime,
@@ -22,6 +23,7 @@ use common::{
 };
 use database::{
     BiggestDocumentWrites,
+    BootstrapComponentsModel,
     FunctionExecutionSize,
     Transaction,
 };
@@ -71,6 +73,7 @@ pub struct UdfPhase<RT: Runtime> {
     module_loader: Arc<dyn ModuleLoader<RT>>,
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     preloaded: UdfPreloaded,
+    component_path: ComponentPath,
 }
 
 enum UdfPreloaded {
@@ -81,6 +84,7 @@ enum UdfPreloaded {
         unix_timestamp: Option<UnixTimestamp>,
         observed_time_during_execution: AtomicBool,
         env_vars: PreloadedEnvironmentVariables,
+        component_definition: ComponentDefinitionId,
     },
 }
 
@@ -90,6 +94,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         rt: RT,
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        component_path: ComponentPath,
     ) -> Self {
         Self {
             phase: Phase::Importing,
@@ -98,6 +103,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             module_loader,
             system_env_vars,
             preloaded: UdfPreloaded::Created,
+            component_path,
         }
     }
 
@@ -130,12 +136,21 @@ impl<RT: Runtime> UdfPhase<RT> {
         )
         .await?;
 
+        let (component_definition, _) = with_release_permit(
+            timeout,
+            permit_slot,
+            BootstrapComponentsModel::new(&mut self.tx)
+                .component_path_to_ids(self.component_path.clone()),
+        )
+        .await?;
+
         self.preloaded = UdfPreloaded::Ready {
             rng,
             observed_rng_during_execution: false,
             unix_timestamp,
             observed_time_during_execution: AtomicBool::new(false),
             env_vars,
+            component_definition,
         };
         Ok(())
     }
@@ -152,8 +167,15 @@ impl<RT: Runtime> UdfPhase<RT> {
                 format!("Can't dynamically import {module_path:?} in a query or mutation")
             ));
         }
+        let UdfPreloaded::Ready {
+            component_definition,
+            ..
+        } = &self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
         let path = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
+            component: *component_definition,
             module_path: module_path.clone().canonicalize(),
         };
         let module = with_release_permit(

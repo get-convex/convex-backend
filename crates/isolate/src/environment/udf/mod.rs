@@ -348,6 +348,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     ) -> Self {
         let persistence_version = transaction.persistence_version();
         let (path, arguments, udf_server_version) = path_and_args.consume();
+        let component_path = path.component.clone();
         Self {
             rt: rt.clone(),
             udf_type,
@@ -356,7 +357,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             identity,
             udf_server_version,
 
-            phase: UdfPhase::new(transaction, rt, module_loader.clone(), system_env_vars),
+            phase: UdfPhase::new(
+                transaction,
+                rt,
+                module_loader.clone(),
+                system_env_vars,
+                component_path,
+            ),
             file_storage,
 
             query_manager: QueryManager::new(),
