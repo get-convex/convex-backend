@@ -160,7 +160,7 @@ pub struct Transaction<RT: Runtime> {
     /// are zero.
     pub(crate) table_count_deltas: BTreeMap<TabletId, i64>,
 
-    pub(crate) stats: BTreeMap<TableNumber, TableStats>,
+    pub(crate) stats: BTreeMap<TabletId, TableStats>,
 
     pub(crate) retention_validator: Arc<dyn RetentionValidator>,
 
@@ -372,6 +372,7 @@ impl<RT: Runtime> Transaction<RT> {
         updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
         generated_ids: BTreeSet<ResolvedDocumentId>,
         rows_read: BTreeMap<TableNumber, u64>,
+        rows_read_by_tablet: BTreeMap<TabletId, u64>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
             *self.begin_timestamp() == begin_timestamp,
@@ -383,8 +384,19 @@ impl<RT: Runtime> Transaction<RT> {
 
         self.merge_writes(updates, generated_ids)?;
 
-        for (table, rows_read) in rows_read {
-            self.stats.entry(table).or_default().rows_read += rows_read;
+        if rows_read_by_tablet.is_empty() {
+            for (table, rows_read) in rows_read {
+                let tablet_id = self
+                    .table_mapping()
+                    .namespace(TableNamespace::Global)
+                    .inject_table_id()(table)?
+                .tablet_id;
+                self.stats.entry(tablet_id).or_default().rows_read += rows_read;
+            }
+        } else {
+            for (tablet_id, rows_read) in rows_read_by_tablet {
+                self.stats.entry(tablet_id).or_default().rows_read += rows_read;
+            }
         }
 
         Ok(())
@@ -608,19 +620,30 @@ impl<RT: Runtime> Transaction<RT> {
         let stats = mem::take(&mut self.stats);
         stats
             .into_iter()
-            .map(|(table, stats)| {
+            .map(|(tablet, stats)| {
                 (
                     self.table_mapping()
-                        .namespace(TableNamespace::Global)
-                        .number_to_name()(table)
-                    .expect("table should exist"),
+                        .tablet_name(tablet)
+                        .expect("tablet should exist"),
                     stats,
                 )
             })
             .collect()
     }
 
-    pub fn stats(&self) -> &BTreeMap<TableNumber, TableStats> {
+    pub fn stats(&mut self) -> BTreeMap<TableNumber, TableStats> {
+        let mut stats = BTreeMap::new();
+        let table_mapping = self.table_mapping().clone();
+        for (tablet_id, table_stats) in self.stats.iter() {
+            let table_number = table_mapping
+                .tablet_number(*tablet_id)
+                .expect("tablet should exist");
+            stats.insert(table_number, *table_stats);
+        }
+        stats
+    }
+
+    pub fn stats_by_tablet(&self) -> &BTreeMap<TabletId, TableStats> {
         &self.stats
     }
 
@@ -845,7 +868,7 @@ impl<RT: Runtime> Transaction<RT> {
                     },
                 }
                 self.stats
-                    .entry(id.table().table_number)
+                    .entry(id.table().tablet_id)
                     .or_default()
                     .rows_read += 1;
             };
@@ -881,7 +904,7 @@ impl<RT: Runtime> Transaction<RT> {
             old_document.as_ref().map(|d| d.value().deref()),
             new_document.as_ref().map(|d| d.value().deref()),
         )?;
-        let stats = self.stats.entry(id.table().table_number).or_default();
+        let stats = self.stats.entry(id.table().tablet_id).or_default();
         let mut delta = 0;
         match (old_document.as_ref(), new_document.as_ref()) {
             (None, None) => {

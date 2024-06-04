@@ -48,6 +48,7 @@ use usage_tracking::FunctionUsageStats;
 use value::{
     ResolvedDocumentId,
     TableNumber,
+    TabletId,
 };
 
 mod in_memory_indexes;
@@ -92,13 +93,19 @@ pub struct FunctionFinalTransaction {
     pub reads: FunctionReads,
     pub writes: FunctionWrites,
     pub rows_read: BTreeMap<TableNumber, u64>,
+    pub rows_read_by_tablet: BTreeMap<TabletId, u64>,
 }
 
 impl<RT: Runtime> From<Transaction<RT>> for FunctionFinalTransaction {
-    fn from(tx: Transaction<RT>) -> Self {
+    fn from(mut tx: Transaction<RT>) -> Self {
         let begin_timestamp = *tx.begin_timestamp();
         let rows_read = tx
             .stats()
+            .iter()
+            .map(|(table, stats)| (*table, stats.rows_read))
+            .collect();
+        let rows_read_by_tablet = tx
+            .stats_by_tablet()
             .iter()
             .map(|(table, stats)| (*table, stats.rows_read))
             .collect();
@@ -108,6 +115,7 @@ impl<RT: Runtime> From<Transaction<RT>> for FunctionFinalTransaction {
             reads: reads.into(),
             writes: writes.into(),
             rows_read,
+            rows_read_by_tablet,
         }
     }
 }

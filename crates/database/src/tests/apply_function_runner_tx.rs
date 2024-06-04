@@ -80,6 +80,11 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
+    let rows_read_by_tablet = function_runner_tx
+        .stats_by_tablet()
+        .iter()
+        .map(|(table, stats)| (*table, stats.rows_read))
+        .collect();
     let (updates, generated_ids) = function_runner_tx
         .writes
         .clone()
@@ -93,6 +98,7 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
         updates,
         generated_ids,
         rows_read,
+        rows_read_by_tablet,
     )?;
     assert_eq!(
         backend_tx.next_creation_time,
@@ -137,6 +143,11 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
+    let rows_read_by_tablet = function_runner_tx
+        .stats_by_tablet()
+        .iter()
+        .map(|(table, stats)| (*table, stats.rows_read))
+        .collect();
     let (updates, generated_ids) = function_runner_tx
         .writes
         .clone()
@@ -150,6 +161,7 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
         updates,
         generated_ids,
         rows_read,
+        rows_read_by_tablet,
     )?;
 
     assert_transactions_match(backend_tx, function_runner_tx)?;
@@ -191,6 +203,11 @@ async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Resul
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
+    let rows_read_by_tablet = function_runner_tx
+        .stats_by_tablet()
+        .iter()
+        .map(|(table, stats)| (*table, stats.rows_read))
+        .collect();
     let (updates, generated_ids) = function_runner_tx
         .writes
         .clone()
@@ -204,6 +221,7 @@ async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Resul
         updates,
         generated_ids,
         rows_read,
+        rows_read_by_tablet,
     )?;
 
     assert_transactions_match(backend_tx, function_runner_tx)?;
@@ -248,6 +266,11 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
+    let rows_read_by_tablet = function_runner_tx
+        .stats_by_tablet()
+        .iter()
+        .map(|(table, stats)| (*table, stats.rows_read))
+        .collect();
     let (updates, generated_ids) = function_runner_tx
         .writes
         .clone()
@@ -261,6 +284,7 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
         updates,
         generated_ids,
         rows_read,
+        rows_read_by_tablet,
     )?;
 
     assert_transaction_writes_match(&backend_tx, &function_runner_tx)?;
@@ -304,6 +328,11 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
+    let rows_read_by_tablet = function_runner_tx
+        .stats_by_tablet()
+        .iter()
+        .map(|(table, stats)| (*table, stats.rows_read))
+        .collect();
     let (updates, generated_ids) = function_runner_tx
         .writes
         .clone()
@@ -318,6 +347,7 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
             updates,
             generated_ids,
             rows_read,
+            rows_read_by_tablet,
         )
         .is_err());
 

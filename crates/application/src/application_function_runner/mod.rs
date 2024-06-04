@@ -388,6 +388,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 updates,
                 generated_ids,
                 function_tx.rows_read,
+                function_tx.rows_read_by_tablet,
             )?;
             Some(tx)
         } else {
