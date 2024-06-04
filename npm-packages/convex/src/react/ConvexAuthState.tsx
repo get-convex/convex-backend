@@ -65,7 +65,7 @@ export function useConvexAuth(): {
  * should be a React hook that returns the provider's authentication state
  * and a function to fetch a JWT access token.
  *
- * See [Custom Auth Integration](https://docs.convex.dev/auth/custom-auth) for more information.
+ * See [Custom Auth Integration](https://docs.convex.dev/auth/advanced/custom-auth) for more information.
  *
  * @public
  */
