@@ -13,6 +13,7 @@ use common::{
     components::{
         CanonicalizedComponentModulePath,
         ComponentDefinitionId,
+        ComponentId,
         ComponentPath,
     },
     runtime::{
@@ -84,6 +85,7 @@ enum UdfPreloaded {
         unix_timestamp: Option<UnixTimestamp>,
         observed_time_during_execution: AtomicBool,
         env_vars: PreloadedEnvironmentVariables,
+        component: ComponentId,
         component_definition: ComponentDefinitionId,
     },
 }
@@ -136,7 +138,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         )
         .await?;
 
-        let (component_definition, _) = with_release_permit(
+        let (component_definition, component) = with_release_permit(
             timeout,
             permit_slot,
             BootstrapComponentsModel::new(&mut self.tx)
@@ -150,9 +152,17 @@ impl<RT: Runtime> UdfPhase<RT> {
             unix_timestamp,
             observed_time_during_execution: AtomicBool::new(false),
             env_vars,
+            component,
             component_definition,
         };
         Ok(())
+    }
+
+    pub fn component(&self) -> anyhow::Result<ComponentId> {
+        let UdfPreloaded::Ready { component, .. } = &self.preloaded else {
+            anyhow::bail!("Phase not initialized");
+        };
+        Ok(*component)
     }
 
     pub async fn get_module(

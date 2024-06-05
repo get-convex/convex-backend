@@ -9,6 +9,7 @@ use anyhow::Context;
 use common::{
     components::{
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     document::DeveloperDocument,
@@ -68,7 +69,6 @@ use value::{
     id_v6::DeveloperDocumentId,
     ConvexArray,
     TableName,
-    TableNamespace,
 };
 
 use super::DatabaseUdfEnvironment;
@@ -248,6 +248,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
 
     fn persistence_version(&self) -> PersistenceVersion;
     fn table_filter(&self) -> TableFilter;
+    fn component(&self) -> anyhow::Result<ComponentId>;
 
     fn log_async_syscall(&mut self, name: String, duration: Duration, is_success: bool);
 
@@ -284,6 +285,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
         self.phase.tx()
+    }
+
+    fn component(&self) -> anyhow::Result<ComponentId> {
+        self.phase.component()
     }
 
     fn key_broker(&self) -> &KeyBroker {
@@ -485,8 +490,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             let args: CountArgs = serde_json::from_value(args)?;
             args.table.parse().context(ArgName("table"))
         })?;
+        let component = provider.component()?;
         let tx = provider.tx()?;
-        let result = tx.count(TableNamespace::Global, &table).await?;
+        let result = tx.count(component.into(), &table).await?;
 
         // Trim to u32 and check for overflow.
         let result = u32::try_from(result)?;
@@ -684,8 +690,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         })?;
 
         system_table_guard(&table, false)?;
+        let component = provider.component()?;
         let tx = provider.tx()?;
-        let document_id = UserFacingModel::new(tx, TableNamespace::Global)
+        let document_id = UserFacingModel::new(tx, component.into())
             .insert(table, value)
             .await?;
         let id_str = document_id.encode();
@@ -702,13 +709,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             value: JsonValue,
         }
         let table_filter = provider.table_filter();
+        let component = provider.component()?;
         let tx = provider.tx()?;
         let (id, value, table_name) = with_argument_error("db.patch", || {
             let args: UpdateArgs = serde_json::from_value(args)?;
 
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
             let table_name = tx
-                .resolve_idv6(id, TableNamespace::Global, table_filter)
+                .resolve_idv6(id, component.into(), table_filter)
                 .context(ArgName("id"))?;
 
             let value = PatchValue::try_from(args.value).context(ArgName("value"))?;
@@ -717,7 +725,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx, TableNamespace::Global)
+        let document = UserFacingModel::new(tx, component.into())
             .patch(id, value)
             .await?;
         Ok(document.into_value().0.into())
@@ -733,13 +741,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             value: JsonValue,
         }
         let table_filter = provider.table_filter();
+        let component = provider.component()?;
         let tx = provider.tx()?;
         let (id, value, table_name) = with_argument_error("db.replace", || {
             let args: ReplaceArgs = serde_json::from_value(args)?;
 
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
             let table_name = tx
-                .resolve_idv6(id, TableNamespace::Global, table_filter)
+                .resolve_idv6(id, component.into(), table_filter)
                 .context(ArgName("id"))?;
 
             let value = ConvexValue::try_from(args.value).context(ArgName("value"))?;
@@ -748,7 +757,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx, TableNamespace::Global)
+        let document = UserFacingModel::new(tx, component.into())
             .replace(id, value)
             .await?;
         Ok(document.into_value().0.into())
@@ -798,9 +807,10 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                                 ))?;
                         let local_query = match managed_query {
                             ManagedQuery::Pending { query, version } => {
+                                let component = provider.component()?;
                                 DeveloperQuery::new_with_version(
                                     provider.tx()?,
-                                    TableNamespace::Global,
+                                    component.into(),
                                     query,
                                     version,
                                     table_filter,
@@ -811,6 +821,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         Some((Some(query_id), local_query))
                     },
                     AsyncRead::Get(args) => {
+                        let component = provider.component()?;
                         let tx = provider.tx()?;
                         let (id, is_system, version) = with_argument_error("db.get", || {
                             let args: GetArgs = serde_json::from_value(args)?;
@@ -820,20 +831,20 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                             Ok((id, args.is_system, version))
                         })?;
                         let name: Result<TableName, anyhow::Error> = tx
-                            .all_tables_number_to_name(TableNamespace::Global, table_filter)(
-                            *id.table(),
+                            .all_tables_number_to_name(component.into(), table_filter)(
+                            *id.table()
                         );
                         if name.is_ok() {
                             system_table_guard(&name?, is_system)?;
                         }
-                        match tx.resolve_idv6(id, TableNamespace::Global, table_filter) {
+                        match tx.resolve_idv6(id, component.into(), table_filter) {
                             Ok(table_name) => {
                                 let query = Query::get(table_name, id);
                                 Some((
                                     None,
                                     DeveloperQuery::new_with_version(
                                         tx,
-                                        TableNamespace::Global,
+                                        component.into(),
                                         query,
                                         version,
                                         table_filter,
@@ -935,19 +946,20 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         }
 
         let table_filter = provider.table_filter();
+        let component = provider.component()?;
         let tx = provider.tx()?;
         let (id, table_name) = with_argument_error("db.delete", || {
             let args: RemoveArgs = serde_json::from_value(args)?;
             let id = DeveloperDocumentId::decode(&args.id).context(ArgName("id"))?;
             let table_name = tx
-                .resolve_idv6(id, TableNamespace::Global, table_filter)
+                .resolve_idv6(id, component.into(), table_filter)
                 .context(ArgName("id"))?;
             Ok((id, table_name))
         })?;
 
         system_table_guard(&table_name, false)?;
 
-        let document = UserFacingModel::new(tx, TableNamespace::Global)
+        let document = UserFacingModel::new(tx, component.into())
             .delete(id)
             .await?;
         Ok(document.into_value().0.into())
@@ -1101,6 +1113,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
             None => provider.prev_journal().end_cursor.clone(),
         };
 
+        let component = provider.component()?;
         let tx = provider.tx()?;
 
         let (
@@ -1113,7 +1126,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         ) = {
             let query = DeveloperQuery::new_bounded(
                 tx,
-                TableNamespace::Global,
+                component.into(),
                 parsed_query,
                 start_cursor,
                 end_cursor,

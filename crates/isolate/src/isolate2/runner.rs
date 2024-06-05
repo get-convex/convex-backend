@@ -11,6 +11,7 @@ use common::{
         CanonicalizedComponentModulePath,
         ComponentDefinitionId,
         ComponentFunctionPath,
+        ComponentId,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -833,6 +834,11 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
         // We only process syscalls during the execution phase.
         Ok(self.tx)
+    }
+
+    fn component(&self) -> anyhow::Result<ComponentId> {
+        // TODO(lee) fix when we finish isolate2.
+        Ok(ComponentId::Root)
     }
 
     fn key_broker(&self) -> &KeyBroker {
