@@ -1,4 +1,3 @@
-// TODO read this
 import path from "path";
 import {
   ComponentDirectory,
@@ -14,33 +13,31 @@ import {
   logMessage,
   logWarning,
 } from "../../../../bundler/context.js";
-import esbuild, { Metafile, OutputFile, Plugin } from "esbuild";
+import esbuild, { BuildOptions, Metafile, OutputFile, Plugin } from "esbuild";
 import chalk from "chalk";
-import { DEFINITION_FILENAME } from "../constants.js";
 import { createRequire } from "module";
+import {
+  AppDefinitionSpecWithoutImpls,
+  ComponentDefinitionSpecWithoutImpls,
+} from "../../config.js";
 import {
   Bundle,
   bundle,
   bundleSchema,
   entryPointsByEnvironment,
 } from "../../../../bundler/index.js";
-import {
-  AppDefinitionSpecWithoutImpls,
-  ComponentDefinitionSpecWithoutImpls,
-} from "../../deploy2.js";
 
 /**
- * esbuild plugin to mark component definitions external or return a list of
+ * An esbuild plugin to mark component definitions external or return a list of
  * all component definitions.
  *
- * By default this plugin marks component definition files as external,
- * not traversing further.
+ * By default this plugin runs in "bundle" mode and marks all imported component
+ * definition files as external, not traversing further.
  *
- * If discover is specified it instead populates the components map,
- * continuing through the entire tree.
+ * If "discover" mode is specified it traverses the entire tree.
  */
 function componentPlugin({
-  mode,
+  mode = "bundle",
   rootComponentDirectory,
   verbose,
   ctx,
@@ -56,127 +53,174 @@ function componentPlugin({
     async setup(build) {
       // This regex can't be really precise since developers could import
       // "component.config", "component.config.js", "component.config.ts", etc.
-      build.onResolve(
-        // Will it be important when developers write npm package components
-        // for these to use a specific entry point or specific file name?
-        // I guess we can read the files from the filesystem ourselves!
-        // If developers want to import the component definition directly
-        // from somewhere else,
-        { filter: /.*component.config.*/ },
-        async (args) => {
-          verbose && logMessage(ctx, "esbuild resolving import:", args);
-          if (args.namespace !== "file") {
-            verbose && logMessage(ctx, "  Not a file.");
+      build.onResolve({ filter: /.*component.config.*/ }, async (args) => {
+        verbose && logMessage(ctx, "esbuild resolving import:", args);
+        if (args.namespace !== "file") {
+          verbose && logMessage(ctx, "  Not a file.");
+          return;
+        }
+        if (args.kind === "entry-point") {
+          verbose && logMessage(ctx, "  -> Top-level entry-point.");
+          const componentDirectory = await buildComponentDirectory(
+            ctx,
+            path.resolve(args.path),
+          );
+
+          // No attempt to resolve args.path is made for entry points so they
+          // must be relative or absolute file paths, not npm packages.
+          // Whether we're bundling or discovering, we're done.
+          if (components.get(args.path)) {
+            // We always invoke esbuild in a try/catch.
+            // eslint-disable-next-line no-restricted-syntax
+            throw new Error(
+              `Entry point component "${args.path}" already registered.`,
+            );
+          }
+          components.set(args.path, componentDirectory);
+          return;
+        }
+
+        const candidates = [args.path];
+        const ext = path.extname(args.path);
+        if (ext === ".js") {
+          candidates.push(args.path.slice(0, -".js".length) + ".ts");
+        }
+        if (ext !== ".js" && ext !== ".ts") {
+          candidates.push(args.path + ".js");
+          candidates.push(args.path + ".ts");
+        }
+        let resolvedPath = undefined;
+        for (const candidate of candidates) {
+          try {
+            // --experimental-import-meta-resolve is required for
+            // `import.meta.resolve` so we'll use `require.resolve`
+            // until then. Hopefully they aren't too different.
+            const require = createRequire(args.resolveDir);
+            resolvedPath = require.resolve(candidate, {
+              paths: [args.resolveDir],
+            });
+            break;
+          } catch (e: any) {
+            if (e.code === "MODULE_NOT_FOUND") {
+              continue;
+            }
+            // We always invoke esbuild in a try/catch.
+            // eslint-disable-next-line no-restricted-syntax
+            throw e;
+          }
+        }
+        if (resolvedPath === undefined) {
+          verbose && logMessage(ctx, `  -> ${args.path} not found.`);
+          return;
+        }
+
+        const parentDir = path.dirname(resolvedPath);
+        let imported = components.get(resolvedPath);
+        if (!imported) {
+          const isComponent = isComponentDirectory(ctx, parentDir, false);
+          if (isComponent.kind !== "ok") {
+            verbose && logMessage(ctx, "  -> Not a component:", isComponent);
             return;
           }
-          if (args.kind === "entry-point") {
-            verbose && logMessage(ctx, "  -> Top-level entry-point.");
-            const componentDirectory = {
-              name: path.basename(path.dirname(args.path)),
-              path: args.path,
-              definitionPath: path.join(args.path, DEFINITION_FILENAME),
-            };
-            if (components.get(args.path)) {
-              // programmer error
-              // eslint-disable-next-line no-restricted-syntax
-              throw new Error(
-                "why is the entry point component already registered?",
-              );
-            }
-            components.set(args.path, componentDirectory);
-            // For an entry point there's no resolution logic to puzzle through
-            // since we already have a proper file path.
-            // Whether we're bundling or discovering, we're done.
-            return;
-          }
-          const candidates = [args.path];
-          const ext = path.extname(args.path);
-          if (ext === ".js") {
-            candidates.push(args.path.slice(0, -".js".length) + ".ts");
-          }
-          if (ext !== ".js" && ext !== ".ts") {
-            candidates.push(args.path + ".js");
-            candidates.push(args.path + ".ts");
-          }
-          let resolvedPath = undefined;
-          for (const candidate of candidates) {
-            try {
-              // --experimental-import-meta-resolve is required for
-              // `import.meta.resolve` so we'll use `require.resolve`
-              // until then. Hopefully they aren't too different.
-              const require = createRequire(args.resolveDir);
+          imported = isComponent.component;
+          components.set(resolvedPath, imported);
+        }
 
-              // Sweet, this does all the Node.js stuff for us!
-              resolvedPath = require.resolve(candidate, {
-                paths: [args.resolveDir],
-              });
-              break;
-            } catch (e: any) {
-              if (e.code === "MODULE_NOT_FOUND") {
-                continue;
-              }
-              // We always catch outside of an esbuild invocation.
-              // eslint-disable-next-line no-restricted-syntax
-              throw e;
-            }
-          }
-          if (resolvedPath === undefined) {
-            // Let `esbuild` handle this itself.
-            verbose && logMessage(ctx, `  -> ${args.path} not found.`);
-            return;
-          }
+        verbose &&
+          logMessage(ctx, "  -> Component import! Recording it.", args.path);
 
-          const parentDir = path.dirname(resolvedPath);
+        if (mode === "discover") {
+          return {
+            path: resolvedPath,
+          };
+        } else {
+          // In bundle mode, transform external imports to use componentPaths:
+          // import rateLimiter from "convex_ratelimiter";
+          // => import rateLimiter from `_componentDeps/${base64('../node_modules/convex_ratelimiter')}`;
 
-          let imported = components.get(resolvedPath);
-          if (!imported) {
-            const isComponent = isComponentDirectory(ctx, parentDir, false);
-            if (isComponent.kind !== "ok") {
-              verbose && logMessage(ctx, "  -> Not a component:", isComponent);
-              return;
-            }
-            imported = isComponent.component;
-            components.set(resolvedPath, imported);
-          }
+          // A componentPath is path from the root component to the directory
+          // of the this component's definition file.
+          const componentPath = toComponentPath(
+            rootComponentDirectory,
+            imported,
+          );
+          const encodedPath = hackyMapping(componentPath);
+          return {
+            path: encodedPath,
+            external: true,
+          };
+        }
+      });
+      // A more efficient version of this is possible as long as we control
+      // the bundling of the convex library: we can mark a path there external
+      // and generate the synthetic "./current-convex-component-path" module
+      // here. It changes our package more though so let's start with this.
+      if (mode === "bundle") {
+        build.onLoad(
+          { filter: /.*(component.config|app.config).*/ },
+          async (args) => {
+            let text = ctx.fs.readUtf8File(args.path);
 
-          verbose &&
-            logMessage(ctx, "  -> Component import! Recording it.", args.path);
-
-          if (mode === "discover") {
-            return {
-              path: resolvedPath,
-            };
-          } else {
-            // In bundle mode, transform external imports to use componentPaths:
-            // import rateLimiter from "convex_ratelimiter";
-            // => import rateLimiter from `_componentDeps/${base64('../node_modules/convex_ratelimiter')}`;
-
-            // A componentPath is path from the root component to the directory
-            // of the this component's definition file.
+            const componentDirectory = await buildComponentDirectory(
+              ctx,
+              path.resolve(args.path),
+            );
             const componentPath = toComponentPath(
               rootComponentDirectory,
-              imported,
+              componentDirectory,
             );
-            const encodedPath = hackyMapping(componentPath);
+            text = text
+              .replace(
+                /defineComponent\(/g,
+                `defineComponent(${JSON.stringify(componentPath)},`,
+              )
+              .replace(
+                /defineApp\(/g,
+                `defineApp(${JSON.stringify(componentPath)},`,
+              );
+
             return {
-              path: encodedPath,
-              external: true,
+              contents: text,
+              // TODO does this need to preserve original loader?
+              loader: "tsx",
             };
-          }
-        },
-      );
+          },
+        );
+      }
     },
   };
 }
 
 /** The path on the deployment that identifier a component definition. */
-function hackyMapping(componentPath: string): string {
+function hackyMapping(componentPath: ComponentPath): string {
   return `./_componentDeps/${Buffer.from(componentPath).toString("base64").replace(/=+$/, "")}`;
 }
 
-// Use the metafile to discover the dependency graph in which component
+// Share configuration between the component definition discovery and bundling passes.
+const SHARED_ESBUILD_OPTIONS = {
+  bundle: true,
+  platform: "browser",
+  format: "esm",
+  target: "esnext",
+
+  // false is the default for splitting.
+  // It's simpler to evaluate these on the server when we don't need a whole
+  // filesystem. Enabled this for speed once the server supports it.
+  splitting: false,
+
+  // place output files in memory at their source locations
+  write: false,
+  outdir: "/",
+  outbase: "/",
+
+  minify: true,
+  keepNames: true,
+
+  metafile: true,
+} as const satisfies BuildOptions;
+
+// Use the esbuild metafile to discover the dependency graph in which component
 // definitions are nodes.
-// If it's cyclic, throw! That's no good!
 export async function componentGraph(
   ctx: Context,
   absWorkingDir: string,
@@ -188,9 +232,8 @@ export async function componentGraph(
 }> {
   let result;
   try {
-    // The discover plugin collects component directories in .components.
     result = await esbuild.build({
-      absWorkingDir, // mostly used for formatting error messages
+      absWorkingDir, // This is mostly useful for formatting error messages.
       entryPoints: [qualifiedDefinitionPath(rootComponentDirectory)],
       plugins: [
         componentPlugin({
@@ -200,22 +243,10 @@ export async function componentGraph(
           rootComponentDirectory,
         }),
       ],
-      bundle: true,
-      platform: "browser",
-      format: "esm",
-      target: "esnext",
-
       sourcemap: "external",
       sourcesContent: false,
 
-      // place output files in memory at their source locations
-      write: false,
-      outdir: "/",
-      outbase: "/",
-
-      minify: true,
-      keepNames: true,
-      metafile: true,
+      ...SHARED_ESBUILD_OPTIONS,
     });
     await registerEsbuildReads(ctx, absWorkingDir, result.metafile);
   } catch (err: any) {
@@ -229,7 +260,6 @@ export async function componentGraph(
     }
     return await ctx.crash(1, "invalid filesystem data");
   }
-  // TODO we're going to end up printing these warnings twice right now
   for (const warning of result.warnings) {
     console.log(chalk.yellow(`esbuild warning: ${warning.text}`));
   }
@@ -256,8 +286,9 @@ export function getDeps(
 /**
  * The returned dependency graph is an array of tuples of [importer, imported]
  *
- * This doesn't work on just any esbuild metafile; it has to be run with
- * the component esbuilt plugin run in "discover" mode so that it won't modify anything.
+ * This doesn't work on just any esbuild metafile because it assumes input
+ * imports have not been transformed. We run it on the metafile produced by
+ * the esbuild invocation that uses the component plugin in "discover" mode.
  */
 async function findComponentDependencies(
   ctx: Context,
@@ -266,13 +297,9 @@ async function findComponentDependencies(
   components: Map<string, ComponentDirectory>;
   dependencyGraph: [ComponentDirectory, ComponentDirectory][];
 }> {
-  // The esbuild metafile has inputs as relative paths from cwd
-  // but the imports for each input are absolute paths or unqualified
-  // paths when marked external.
   const { inputs } = metafile;
-  // TODO compress these inputs so that everything that is not a component.config.ts
-  // or app.config.ts has its dependencies compacted down.
-  // Until then we just let these missing links slip through.
+  // This filter means we only supports *direct imports* of component definitions
+  // from other component definitions.
   const componentInputs = Object.keys(inputs).filter((path) =>
     path.includes(".config."),
   );
@@ -312,14 +339,12 @@ async function findComponentDependencies(
   return { components, dependencyGraph };
 }
 
-/**
- * Bundle definitions listed in directories. An app.config.ts must exist
- * in the absWorkingDir.
- * If a directory linked to is not listed then there will be external links
- * with no corresponding definition bundle.
- * That could be made to throw an error but maybe those are already available
- * on the Convex definition filesystem somehow, e.g. builtin components.
- */
+// NB: If a directory linked to is not a member of the passed
+// componentDirectories array then there will be external links
+// with no corresponding definition bundle.
+// That could be made to throw an error but maybe those are already available
+// on the Convex definition filesystem somehow, e.g. builtin components.
+/** Bundle the component definitions listed. */
 export async function bundleDefinitions(
   ctx: Context,
   absWorkingDir: string,
@@ -333,9 +358,8 @@ export async function bundleDefinitions(
 }> {
   let result;
   try {
-    // TODO These should all come from ../../../bundler/index.js, at least helpers.
     result = await esbuild.build({
-      absWorkingDir: absWorkingDir,
+      absWorkingDir,
       entryPoints: componentDirectories.map((dir) =>
         qualifiedDefinitionPath(dir),
       ),
@@ -347,40 +371,14 @@ export async function bundleDefinitions(
           rootComponentDirectory,
         }),
       ],
-      bundle: true,
-      platform: "browser",
-      format: "esm",
-      target: "esnext",
-
-      // false is the default for splitting.
-      // It's simpler to evaluate these on the server when we don't need a whole
-      // filesystem. Enabled this for speed once the server supports it.
-      splitting: false,
-
-      // whatever
-      sourcemap: false,
-      sourcesContent: false,
-
-      // place output files in memory at their source locations
-      write: false,
-      outdir: "/",
-      outbase: "/",
-
-      // debugging over bundle size for now, change later
-      minify: false,
-      keepNames: true,
-
-      // Either we trust dependencies passed in or we build our own.
-      // Better to be consistent here?
-      metafile: true,
+      sourcemap: false, // we're just building a deps map
+      ...SHARED_ESBUILD_OPTIONS,
     });
     await registerEsbuildReads(ctx, absWorkingDir, result.metafile);
   } catch (err: any) {
     logError(ctx, `esbuild failed: ${err}`);
     return await ctx.crash(1, "invalid filesystem data");
   }
-  // TODO In theory we should get exactly the same errors here as we did the first time. Do something about that.
-  // TODO abstract out this esbuild wrapper stuff now that it's in two places
   if (result.errors.length) {
     for (const error of result.errors) {
       console.log(chalk.red(`esbuild error: ${error.text}`));
@@ -422,9 +420,14 @@ export async function bundleDefinitions(
     });
   }
 
-  const [appBundle] = outputs.filter(
+  const appBundles = outputs.filter(
     (out) => out.directory.path === rootComponentDirectory.path,
   );
+  if (appBundles.length !== 1) {
+    logError(ctx, "found wrong number of app bundles");
+    return await ctx.crash(1, "fatal");
+  }
+  const appBundle = appBundles[0];
   const componentBundles = outputs.filter(
     (out) => out.directory.path !== rootComponentDirectory.path,
   );
@@ -478,7 +481,7 @@ export async function bundleImplementations(
   componentImplementations: {
     schema: Bundle;
     functions: Bundle[];
-    definitionPath: string;
+    definitionPath: ComponentPath;
   }[];
 }> {
   let appImplementation;
@@ -492,8 +495,6 @@ export async function bundleImplementations(
     );
     const schema = (await bundleSchema(ctx, resolvedPath))[0] || null;
 
-    // TODO figure out how this logic applies to non convex directories
-    // for components not defined in one.
     const entryPoints = await entryPointsByEnvironment(
       ctx,
       resolvedPath,
@@ -506,16 +507,9 @@ export async function bundleImplementations(
     } = await bundle(ctx, resolvedPath, entryPoints.isolate, true, "browser");
 
     if (convexResult.externalDependencies.size !== 0) {
-      logError(ctx, "TODO external deps");
+      logError(ctx, "external dependencies not supported");
       return await ctx.crash(1, "fatal");
     }
-
-    // TODO Node compilation (how will Lambdas even work?)
-    const _nodeResult = {
-      bundles: [],
-      externalDependencies: new Map(),
-      bundledModuleNames: new Set(),
-    };
 
     const functions = convexResult.modules;
     if (isRoot) {
@@ -535,7 +529,6 @@ export async function bundleImplementations(
   }
 
   if (!appImplementation) {
-    // TODO should be enforced earlier
     logError(ctx, "No app implementation found");
     return await ctx.crash(1, "fatal");
   }
@@ -543,16 +536,18 @@ export async function bundleImplementations(
   return { appImplementation, componentImplementations };
 }
 
-// TODO ensure this isn't broken with changes to workingdir location
 async function registerEsbuildReads(
   ctx: Context,
   absWorkingDir: string,
   metafile: Metafile,
 ) {
   for (const [relPath, input] of Object.entries(metafile.inputs)) {
-    // TODO: esbuild outputs paths prefixed with "(disabled)"" when bundling our internal
-    // udf-system package. The files do actually exist locally, though.
     if (
+      // We rewrite these files so this integrity check isn't useful.
+      path.basename(relPath).includes("app.config") ||
+      path.basename(relPath).includes("component.config") ||
+      // TODO: esbuild outputs paths prefixed with "(disabled)" when bundling our internal
+      // udf-system package. The files do actually exist locally, though.
       relPath.indexOf("(disabled):") !== -1 ||
       relPath.startsWith("wasm-binary:") ||
       relPath.startsWith("wasm-stub:")

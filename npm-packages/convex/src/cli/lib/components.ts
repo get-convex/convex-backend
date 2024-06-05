@@ -14,7 +14,6 @@ import {
   bundleDefinitions,
   bundleImplementations,
   componentGraph,
-  // TODO probably just a
 } from "./components/definition/bundle.js";
 import { isComponentDirectory } from "./components/definition/directoryStructure.js";
 
@@ -41,13 +40,6 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
   }
 
   const convexDir = functionsDir(configPath, projectConfig);
-
-  // TODO
-  // Note we need to restart this whole process if any of these files change!
-  // We should track these separately if we can: if any thing observed
-  // by the definition traversal changes we need to restart at an earlier
-  // point than if something in one of the implementations changes.
-  // If one of the implementions changes we should be able to just rebuild that.
 
   // '.' means use the process current working directory, it's the default behavior.
   // Spelling it out here to be explicit for a future where this code can run
@@ -90,12 +82,10 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
     absWorkingDir,
     dependencyGraph,
     rootComponent,
-    // note this *includes* the root component (TODO update bundleImpls to work this way too)
+    // Note that this *includes* the root component.
     [...components.values()],
   );
 
-  // Is this possible to run in this world?
-  // Note that it bundles!!! That's a step we don't need.
   const { config: localConfig } = await configFromProjectConfig(
     ctx,
     projectConfig,
@@ -111,8 +101,6 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
       verbose,
     );
 
-  // This expects an auth (get it the normal way)
-  // and functions which are pretty normal?
   const appDefinition: AppDefinitionSpec = {
     ...appDefinitionSpecWithoutImpls,
     auth: localConfig.authConfig || null,
@@ -149,7 +137,7 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
     options.adminKey,
     options.url,
     projectConfig.functions, // this is where the convex folder is, just 'convex/'
-    udfServerVersion, // this comes from config?
+    udfServerVersion,
     appDefinition,
     componentDefinitions,
   );
@@ -163,9 +151,4 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
     startPushResponse,
   );
   console.log("finishPush:", finishPushResponse);
-
-  // TODO
-  // How to make this re-entrant? If there's a change you should be able to stop the current
-  // deploy and restart. If one component deep in the chain changes, you should be able.
-  // Cached results should be able to be used.
 }

@@ -54,14 +54,6 @@ function warnCrossFilesystem(dstPath: string) {
 export interface Filesystem {
   listDir(dirPath: string): Dirent[];
 
-  // Filtered version of `listDir` that doesn't take a read dependency
-  // on entries filtered out. Note that `fileFilter` only applies to
-  // regular files, not directories.
-  listDirFiltered(
-    dirPath: string,
-    fileFilter: (absPath: string) => boolean,
-  ): Dirent[];
-
   exists(path: string): boolean;
   stat(path: string): Stats;
   readUtf8File(path: string): string;
@@ -111,21 +103,6 @@ export async function mkdtemp(
 class NodeFs implements Filesystem {
   listDir(dirPath: string) {
     return stdFs.readdirSync(dirPath, { withFileTypes: true });
-  }
-  listDirFiltered(
-    dirPath: string,
-    fileFilter: (absPath: string) => boolean,
-  ): stdFs.Dirent[] {
-    const entries = stdFs.readdirSync(dirPath, { withFileTypes: true });
-    const filtered = [];
-    for (const entry of entries) {
-      const absPath = path.join(dirPath, entry.name);
-      if (entry.isFile() && !fileFilter(absPath)) {
-        continue;
-      }
-      filtered.push(entry);
-    }
-    return filtered;
   }
   exists(path: string) {
     try {
@@ -274,55 +251,6 @@ export class RecordingFs implements Filesystem {
     this.observedDirectories.set(absDirPath, observedNames);
 
     return entries;
-  }
-
-  listDirFiltered(
-    dirPath: string,
-    fileFilter: (absPath: string) => boolean,
-  ): stdFs.Dirent[] {
-    const absDirPath = path.resolve(dirPath);
-
-    // Register observing the directory itself.
-    const dirSt = nodeFs.stat(absDirPath);
-    this.registerNormalized(absDirPath, dirSt);
-
-    // List the directory, collecting all of its child entries.
-    const allEntries = nodeFs.listDir(dirPath);
-
-    // Filter the entry list, throwing out files that don't pass `fileFilter`.
-    // Register observing the filtered children.
-    const filteredEntries = [];
-    for (const entry of allEntries) {
-      const childPath = path.join(absDirPath, entry.name);
-      if (entry.isFile() && !fileFilter(childPath)) {
-        continue;
-      }
-      const childSt = nodeFs.stat(childPath);
-      this.registerPath(childPath, childSt);
-      filteredEntries.push(entry);
-    }
-
-    // Register observing the directory's children. Note that
-    // we use the full entry list here, not the filtered list,
-    // since we want this observation to be shared across
-    // `listDirFiltered` calls with different `fileFilter`s.
-    const observedNames = new Set(allEntries.map((e) => e.name));
-    const existingNames = this.observedDirectories.get(absDirPath);
-    if (existingNames) {
-      if (!setsEqual(observedNames, existingNames)) {
-        if (this.traceEvents) {
-          console.log(
-            "Invalidating due to directory children mismatch",
-            observedNames,
-            existingNames,
-          );
-        }
-        this.invalidated = true;
-      }
-    }
-    this.observedDirectories.set(absDirPath, observedNames);
-
-    return filteredEntries;
   }
 
   exists(path: string): boolean {

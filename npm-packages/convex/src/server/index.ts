@@ -159,6 +159,11 @@ export type {
 /**
  * @internal
  */
+export { defineApp, defineComponent } from "./components/index.js";
+
+/**
+ * @internal
+ */
 export type { Index, SearchIndex, VectorIndex } from "./schema.js";
 
 export type {

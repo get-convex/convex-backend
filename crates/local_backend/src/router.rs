@@ -143,6 +143,7 @@ pub async fn router(st: LocalAppState) -> Router {
     let cli_routes = Router::new()
         .route("/push_config", post(push_config))
         .route("/prepare_schema", post(prepare_schema))
+        .route("/deploy2/start_push", post(deploy_config2::start_push))
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(|_: BoxError| async {
@@ -151,10 +152,9 @@ pub async fn router(st: LocalAppState) -> Router {
                 .layer(RequestDecompressionLayer::new())
                 .layer(DefaultBodyLimit::max(*MAX_PUSH_BYTES)),
         )
+        .route("/deploy2/finish_push", post(deploy_config2::finish_push))
         .route("/get_config", post(get_config))
         .route("/get_config_hashes", post(get_config_hashes))
-        .route("/deploy2/start_push", post(deploy_config2::start_push))
-        .route("/deploy2/finish_push", post(deploy_config2::finish_push))
         .route("/schema_state/:schema_id", get(schema_state))
         .route("/stream_udf_execution", get(stream_udf_execution))
         .route("/stream_function_logs", get(stream_function_logs))
