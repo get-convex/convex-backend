@@ -526,7 +526,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 environment.arguments.clone(),
             )
         };
-        let udf_path = path.as_root_udf_path()?;
+        let udf_path = path.udf_path.clone();
 
         // Don't allow directly running a UDF within the `_deps` directory. We don't
         // really expect users to hit this unless someone is trying to exploit
@@ -790,7 +790,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     ) -> anyhow::Result<()> {
         // let execution_size = self.phase.execution_size();
         // let biggest_writes = self.phase.biggest_document_writes();
-        let udf_path = path.as_root_udf_path()?;
+        let udf_path = path.udf_path.clone();
         let system_udf_path = if udf_path.is_system() {
             Some(udf_path.clone())
         } else {
