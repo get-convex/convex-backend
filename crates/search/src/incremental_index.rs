@@ -60,6 +60,11 @@ use crate::{
         upload_single_file,
         upload_text_segment,
     },
+    metrics::{
+        log_compacted_segment_size_bytes,
+        log_text_document_indexed,
+        SearchType,
+    },
     searcher::{
         FragmentedTextStorageKeys,
         SegmentTermMetadataFetcher,
@@ -393,6 +398,7 @@ pub async fn build_new_segment<RT: Runtime>(
             dangling_deletes.remove(&convex_id);
             let tantivy_document =
                 tantivy_schema.index_into_tantivy_document(new_document, revision_pair.ts());
+            log_text_document_indexed(&tantivy_schema, &tantivy_document);
             let doc_id = segment_writer.add_document(tantivy_document)?;
             new_id_tracker.set_link(convex_id, doc_id)?;
         }
@@ -627,6 +633,7 @@ pub async fn merge_segments(
     let deleted_terms_path = dir.to_path_buf().join(DELETED_TERMS_PATH);
     tracker.write_to_path(&alive_bit_set_path, &deleted_terms_path)?;
     let size_bytes_total = get_size(&index_dir)?;
+    log_compacted_segment_size_bytes(size_bytes_total, SearchType::Text);
     Ok(NewTextSegment {
         num_indexed_documents,
         paths: TextSegmentPaths {

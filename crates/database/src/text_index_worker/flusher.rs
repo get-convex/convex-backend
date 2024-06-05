@@ -39,6 +39,7 @@ use search::{
         index_writer_for_directory,
         upload_index_archive_from_path,
     },
+    metrics::log_text_document_indexed,
     SearchFileType,
     TantivySearchIndexSchema,
 };
@@ -283,7 +284,7 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
                 while let Some((revision, revision_ts)) = revision_stream.try_next().await? {
                     let tantivy_document =
                         tantivy_schema.index_into_tantivy_document(&revision, revision_ts);
-                    metrics::search::log_document_indexed(&tantivy_schema, &tantivy_document);
+                    log_text_document_indexed(&tantivy_schema, &tantivy_document);
                     index_writer.add_document(tantivy_document)?;
                     num_indexed_documents += 1;
                 }

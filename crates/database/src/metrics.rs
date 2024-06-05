@@ -947,6 +947,34 @@ pub fn log_compaction_compacted_segment_num_documents_total(
     );
 }
 
+register_convex_histogram!(
+    DATABASE_SEARCH_INDEX_BUILD_ONE_SECONDS,
+    "Time to build one (multisegment) search index",
+    &[STATUS_LABEL[0], SEARCH_TYPE_LABEL],
+);
+pub fn build_one_search_index_timer(search_type: SearchType) -> StatusTimer {
+    let mut timer = StatusTimer::new(&DATABASE_SEARCH_INDEX_BUILD_ONE_SECONDS);
+    timer.add_label(search_type.tag());
+    timer
+}
+
+register_convex_histogram!(
+    DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS,
+    "Time to bootstrap vector and text indexes",
+    &STATUS_LABEL
+);
+pub fn search_and_vector_bootstrap_timer() -> StatusTimer {
+    StatusTimer::new(&DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS)
+}
+
+register_convex_counter!(
+    SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
+    "Number of documents skipped during vector and text index bootstrap",
+);
+pub fn log_document_skipped() {
+    log_counter(&SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL, 1);
+}
+
 pub mod search {
 
     use metrics::{
@@ -954,10 +982,6 @@ pub mod search {
         register_convex_histogram,
         StatusTimer,
         STATUS_LABEL,
-    };
-    use search::{
-        TantivyDocument,
-        TantivySearchIndexSchema,
     };
 
     register_convex_histogram!(
@@ -967,28 +991,6 @@ pub mod search {
     );
     pub fn build_one_timer() -> StatusTimer {
         StatusTimer::new(&DATABASE_SEARCH_BUILD_ONE_SECONDS)
-    }
-
-    register_convex_histogram!(
-        DATABASE_SEARCH_DOCUMENT_INDEXED_SEARCH_BYTES,
-        "Size of search fields in search index"
-    );
-    register_convex_histogram!(
-        DATABASE_SEARCH_DOCUMENT_INDEXED_FILTER_BYTES,
-        "Size of filter fields in search index"
-    );
-    pub fn log_document_indexed(schema: &TantivySearchIndexSchema, document: &TantivyDocument) {
-        let lengths = schema.document_lengths(document);
-        log_distribution(
-            &DATABASE_SEARCH_DOCUMENT_INDEXED_SEARCH_BYTES,
-            lengths.search_field as f64,
-        );
-        for (_, filter_len) in lengths.filter_fields {
-            log_distribution(
-                &DATABASE_SEARCH_DOCUMENT_INDEXED_FILTER_BYTES,
-                filter_len as f64,
-            );
-        }
     }
 
     register_convex_histogram!(
@@ -1009,23 +1011,6 @@ pub mod search {
     }
 }
 
-register_convex_histogram!(
-    DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS,
-    "Time to bootstrap vector and text indexes",
-    &STATUS_LABEL
-);
-pub fn search_and_vector_bootstrap_timer() -> StatusTimer {
-    StatusTimer::new(&DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS)
-}
-
-register_convex_counter!(
-    SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
-    "Number of documents skipped during vector and text index bootstrap",
-);
-pub fn log_document_skipped() {
-    log_counter(&SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL, 1);
-}
-
 pub mod vector {
     use metrics::{
         register_convex_histogram,
@@ -1033,15 +1018,6 @@ pub mod vector {
         StatusTimer,
         STATUS_LABEL,
     };
-
-    register_convex_histogram!(
-        DATABASE_VECTOR_BUILD_ONE_SECONDS,
-        "Time to build one vector index",
-        &STATUS_LABEL,
-    );
-    pub fn build_one_timer() -> StatusTimer {
-        StatusTimer::new(&DATABASE_VECTOR_BUILD_ONE_SECONDS)
-    }
 
     register_convex_histogram!(
         DATABASE_VECTOR_SEARCH_QUERY_SECONDS,

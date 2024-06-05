@@ -72,6 +72,7 @@ use crate::{
         MultiSegmentBackfillResult,
     },
     metrics::{
+        build_one_search_index_timer,
         log_documents_per_new_search_segment,
         log_documents_per_search_index,
         log_documents_per_search_segment,
@@ -207,7 +208,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         job: IndexBuild<T>,
         build_args: T::BuildIndexArgs,
     ) -> anyhow::Result<u64> {
-        let timer = crate::metrics::vector::build_one_timer();
+        let timer = build_one_search_index_timer(T::search_type());
 
         let result = self.build_multipart_segment(&job, build_args).await?;
         tracing::debug!(

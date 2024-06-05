@@ -3,6 +3,7 @@ use metrics::{
     log_counter,
     log_counter_with_labels,
     log_distribution,
+    log_distribution_with_labels,
     log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
@@ -24,6 +25,8 @@ use crate::{
     scoring::Bm25StatisticsDiff,
     tantivy_query::SearchQueryResult,
     SearchFileType,
+    TantivyDocument,
+    TantivySearchIndexSchema,
 };
 
 register_convex_histogram!(
@@ -412,13 +415,15 @@ pub fn log_vectors_in_compacted_segment_total(num_vectors: u32) {
 }
 
 register_convex_histogram!(
-    VECTOR_COMPACTION_COMPACTED_SEGMENT_SIZE_BYTES,
-    "The total number of vectors in the newly created compacted segment"
+    COMPACTION_COMPACTED_SEGMENT_SIZE_BYTES,
+    "The total size of the newly created compacted segment",
+    &[SEARCH_TYPE_LABEL],
 );
-pub fn log_compacted_segment_size_bytes(size_bytes: u64) {
-    log_distribution(
-        &VECTOR_COMPACTION_COMPACTED_SEGMENT_SIZE_BYTES,
+pub fn log_compacted_segment_size_bytes(size_bytes: u64, search_type: SearchType) {
+    log_distribution_with_labels(
+        &COMPACTION_COMPACTED_SEGMENT_SIZE_BYTES,
         size_bytes as f64,
+        vec![search_type.tag()],
     );
 }
 
@@ -449,6 +454,28 @@ pub fn upload_archive_timer(search_file_type: SearchFileType) -> StatusTimer {
     let mut timer = StatusTimer::new(&SEARCH_UPLOAD_ARCHIVE_SECONDS);
     timer.add_label(search_file_type.metric_label());
     timer
+}
+
+register_convex_histogram!(
+    DATABASE_SEARCH_DOCUMENT_INDEXED_SEARCH_BYTES,
+    "Size of search fields in a text index"
+);
+register_convex_histogram!(
+    DATABASE_SEARCH_DOCUMENT_INDEXED_FILTER_BYTES,
+    "Size of filter fields in a text index"
+);
+pub fn log_text_document_indexed(schema: &TantivySearchIndexSchema, document: &TantivyDocument) {
+    let lengths = schema.document_lengths(document);
+    log_distribution(
+        &DATABASE_SEARCH_DOCUMENT_INDEXED_SEARCH_BYTES,
+        lengths.search_field as f64,
+    );
+    for (_, filter_len) in lengths.filter_fields {
+        log_distribution(
+            &DATABASE_SEARCH_DOCUMENT_INDEXED_FILTER_BYTES,
+            filter_len as f64,
+        );
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

@@ -57,6 +57,7 @@ use crate::{
         vector_compact_fetch_segments_seconds_timer,
         vector_compact_seconds_timer,
         vector_prefetch_timer,
+        SearchType,
     },
     SearchFileType,
 };
@@ -197,7 +198,7 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
                     &target_path,
                 )?;
                 let segment_size = result.paths.segment.metadata()?.len();
-                log_compacted_segment_size_bytes(segment_size);
+                log_compacted_segment_size_bytes(segment_size, SearchType::Vector);
                 timer.finish();
                 Ok(result)
             })
