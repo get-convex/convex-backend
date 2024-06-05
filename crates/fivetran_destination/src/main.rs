@@ -6,8 +6,10 @@
 
 mod aes;
 mod api_types;
+mod config;
 mod constants;
 mod convert;
+mod convex_api;
 mod error;
 mod file_reader;
 mod fivetran_sdk;
