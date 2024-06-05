@@ -160,6 +160,10 @@ export type {
  * @internal
  */
 export { defineApp, defineComponent } from "./components/index.js";
+/**
+ * @internal
+ */
+export type { ComponentDefinition } from "./components/index.js";
 
 /**
  * @internal

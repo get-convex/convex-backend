@@ -36,13 +36,11 @@ type ComponentExport =
 // method of a component or app definition.
 export type ComponentDefinitionAnalysis = {
   name: string;
-  path: string;
   definitionType: ComponentDefinitionType;
   childComponents: ComponentInstantiation[];
   exports: ComponentExport;
 };
 export type AppDefinitionAnalysis = {
-  path: string;
   definitionType: AppDefinitionType;
   childComponents: ComponentInstantiation[];
   exports: ComponentExport;

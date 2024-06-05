@@ -151,42 +151,6 @@ function componentPlugin({
           };
         }
       });
-      // A more efficient version of this is possible as long as we control
-      // the bundling of the convex library: we can mark a path there external
-      // and generate the synthetic "./current-convex-component-path" module
-      // here. It changes our package more though so let's start with this.
-      if (mode === "bundle") {
-        build.onLoad(
-          { filter: /.*(component.config|app.config).*/ },
-          async (args) => {
-            let text = ctx.fs.readUtf8File(args.path);
-
-            const componentDirectory = await buildComponentDirectory(
-              ctx,
-              path.resolve(args.path),
-            );
-            const componentPath = toComponentPath(
-              rootComponentDirectory,
-              componentDirectory,
-            );
-            text = text
-              .replace(
-                /defineComponent\(/g,
-                `defineComponent(${JSON.stringify(componentPath)},`,
-              )
-              .replace(
-                /defineApp\(/g,
-                `defineApp(${JSON.stringify(componentPath)},`,
-              );
-
-            return {
-              contents: text,
-              // TODO does this need to preserve original loader?
-              loader: "tsx",
-            };
-          },
-        );
-      }
     },
   };
 }
