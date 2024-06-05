@@ -21,6 +21,7 @@ use common::{
         IndexMetadata,
     },
     floating_point::assert_approx_equal,
+    knobs::BUILD_MULTI_SEGMENT_TEXT_INDEXES,
     pause::PauseController,
     persistence::Persistence,
     query::{
@@ -103,11 +104,13 @@ use vector::{
 };
 
 use crate::{
+    index_workers::writer::SearchIndexMetadataWriter,
     search_and_vector_bootstrap::FINISHED_BOOTSTRAP_UPDATES,
     test_helpers::{
         DbFixtures,
         DbFixturesArgs,
     },
+    text_index_worker::flusher2::new_text_flusher,
     Database,
     IndexModel,
     ResolvedQuery,
@@ -214,19 +217,43 @@ impl Scenario {
 
     async fn backfill(&mut self) -> anyhow::Result<()> {
         let snapshot = self.database.latest_snapshot()?;
-        let table_id = snapshot
-            .table_mapping()
-            .namespace(TableNamespace::Global)
-            .id(&"test".parse()?)?
-            .tablet_id;
-        TextIndexFlusher::build_index_in_test(
-            TabletIndexName::new(table_id, "by_text".parse()?)?,
-            "test".parse()?,
-            self.rt.clone(),
-            self.database.clone(),
-            self.search_storage.clone(),
-        )
-        .await?;
+
+        let table_name: TableName = "test".parse()?;
+        let index_descriptor = "by_text".parse()?;
+
+        if *BUILD_MULTI_SEGMENT_TEXT_INDEXES {
+            let writer = SearchIndexMetadataWriter::new(
+                self.rt.clone(),
+                self.database.clone(),
+                self.search_storage.clone(),
+            );
+            let segment_term_metadata_fetcher =
+                Arc::new(InProcessSearcher::new(self.rt.clone()).await?);
+            let mut flusher = new_text_flusher(
+                self.rt.clone(),
+                self.database.clone(),
+                self.tp.reader(),
+                self.search_storage.clone(),
+                segment_term_metadata_fetcher,
+                writer,
+            );
+            flusher.step().await?;
+        } else {
+            let table_id = snapshot
+                .table_mapping()
+                .namespace(TableNamespace::Global)
+                .id(&table_name)?
+                .tablet_id;
+            let index_name = TabletIndexName::new(table_id, index_descriptor)?;
+            TextIndexFlusher::build_index_in_test(
+                index_name,
+                table_name,
+                self.rt.clone(),
+                self.database.clone(),
+                self.search_storage.clone(),
+            )
+            .await?;
+        }
 
         Ok(())
     }
@@ -597,14 +624,16 @@ async fn test_search_score(rt: TestRuntime) -> anyhow::Result<()> {
         search: vec![TestValue::A],
         filter: None,
     };
+    // Search scoring will be different with multisegment search query.
+    let is_multi_segment = std::env::var("USE_MULTI_SEGMENT_SEARCH_QUERY").is_ok()
+        || std::env::var("BUILD_MULTI_SEGMENT_TEXT_INDEXES").is_ok();
     {
         let results = scenario
             .query_with_scores(&query, None, SearchVersion::V1)
             .await?;
         assert_eq!(results.len(), 1);
 
-        // Search scoring will be different with multisegment search query.
-        if std::env::var("USE_MULTI_SEGMENT_SEARCH_QUERY").is_ok() {
+        if is_multi_segment {
             assert_approx_equal(results.first().unwrap().1, 0.2876);
         } else {
             // Constant taken from https://github.com/quickwit-oss/tantivy/blob/main/src/query/term_query/mod.rs#L20
@@ -616,8 +645,7 @@ async fn test_search_score(rt: TestRuntime) -> anyhow::Result<()> {
             .query_with_scores(&query, None, SearchVersion::V2)
             .await?;
         assert_eq!(results.len(), 1);
-        // Search scoring will be different with multisegment search query.
-        if std::env::var("USE_MULTI_SEGMENT_SEARCH_QUERY").is_ok() {
+        if is_multi_segment {
             assert_approx_equal(results.first().unwrap().1, 0.2876);
         } else {
             // Constant taken from https://github.com/quickwit-oss/tantivy/blob/main/src/query/term_query/mod.rs#L20
