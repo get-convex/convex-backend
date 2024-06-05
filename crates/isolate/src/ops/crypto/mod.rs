@@ -10,10 +10,7 @@ mod x25519;
 use std::num::NonZeroU32;
 
 use anyhow::Context;
-use deno_core::{
-    JsBuffer,
-    ToJsBuffer,
-};
+use deno_core::ToJsBuffer;
 use rand::Rng;
 use ring::{
     agreement::Algorithm as RingAlgorithm,
@@ -48,6 +45,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use serde_bytes::ByteBuf;
 use sha1::Sha1;
 use sha2::{
     Sha256,
@@ -112,8 +110,8 @@ pub fn op_crypto_sign<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_crypto_sign_ed25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    key: JsBuffer,
-    data: JsBuffer,
+    key: ByteBuf,
+    data: ByteBuf,
 ) -> anyhow::Result<Option<ToJsBuffer>> {
     Ok(CryptoOps::sign_ed25519(&key, &data))
 }
@@ -136,9 +134,9 @@ pub fn op_crypto_verify<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_crypto_verify_ed25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    key: JsBuffer,
-    data: JsBuffer,
-    signature: JsBuffer,
+    key: ByteBuf,
+    data: ByteBuf,
+    signature: ByteBuf,
 ) -> anyhow::Result<bool> {
     Ok(CryptoOps::verify_ed25519(&key, &data, &signature))
 }
@@ -147,18 +145,18 @@ pub fn op_crypto_verify_ed25519<'b, P: OpProvider<'b>>(
 pub fn op_crypto_derive_bits<'b, P: OpProvider<'b>>(
     provider: &mut P,
     arg: DeriveKeyArg,
-    salt: Option<JsBuffer>,
+    salt: Option<ByteBuf>,
 ) -> anyhow::Result<ToJsBuffer> {
-    CryptoOps::derive_bits(arg, salt)
+    CryptoOps::derive_bits(arg, salt.map(|b| b.into_vec()))
 }
 
 #[convex_macro::v8_op]
 pub fn op_crypto_digest<'b, P: OpProvider<'b>>(
     provider: &mut P,
     algorithm: CryptoHash,
-    data: JsBuffer,
+    data: ByteBuf,
 ) -> anyhow::Result<ToJsBuffer> {
-    CryptoOps::subtle_digest(algorithm, data)
+    CryptoOps::subtle_digest(algorithm, data.into_vec())
 }
 
 #[convex_macro::v8_op]
@@ -173,39 +171,39 @@ pub fn op_crypto_import_key<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_crypto_import_spki_ed25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    key_data: JsBuffer,
+    key_data: ByteBuf,
 ) -> anyhow::Result<Option<ToJsBuffer>> {
-    Ok(CryptoOps::import_spki_ed25519(key_data))
+    Ok(CryptoOps::import_spki_ed25519(&key_data))
 }
 
 #[convex_macro::v8_op]
 pub fn op_crypto_import_pkcs8_ed25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    key_data: JsBuffer,
+    key_data: ByteBuf,
 ) -> anyhow::Result<Option<ToJsBuffer>> {
-    Ok(CryptoOps::import_pkcs8_ed25519(key_data))
+    Ok(CryptoOps::import_pkcs8_ed25519(&key_data))
 }
 
 #[convex_macro::v8_op]
 pub fn op_crypto_import_spki_x25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    key_data: JsBuffer,
+    key_data: ByteBuf,
 ) -> anyhow::Result<Option<ToJsBuffer>> {
-    Ok(CryptoOps::import_spki_x25519(key_data))
+    Ok(CryptoOps::import_spki_x25519(key_data.into_vec()))
 }
 
 #[convex_macro::v8_op]
 pub fn op_crypto_import_pkcs8_x25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    key_data: JsBuffer,
+    key_data: ByteBuf,
 ) -> anyhow::Result<Option<ToJsBuffer>> {
-    Ok(CryptoOps::import_pkcs8_x25519(key_data))
+    Ok(CryptoOps::import_pkcs8_x25519(key_data.into_vec()))
 }
 
 #[convex_macro::v8_op]
 pub fn op_crypto_base64_url_encode<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    data: JsBuffer,
+    data: ByteBuf,
 ) -> anyhow::Result<String> {
     Ok(base64::encode_config(data, base64::URL_SAFE_NO_PAD))
 }
@@ -231,7 +229,7 @@ pub fn op_crypto_export_key<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_crypto_export_spki_ed25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    pubkey: JsBuffer,
+    pubkey: ByteBuf,
 ) -> anyhow::Result<ToJsBuffer> {
     CryptoOps::export_spki_ed25519(&pubkey)
 }
@@ -239,7 +237,7 @@ pub fn op_crypto_export_spki_ed25519<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_crypto_export_pkcs8_ed25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    pkey: JsBuffer,
+    pkey: ByteBuf,
 ) -> anyhow::Result<ToJsBuffer> {
     CryptoOps::export_pkcs8_ed25519(&pkey)
 }
@@ -247,7 +245,7 @@ pub fn op_crypto_export_pkcs8_ed25519<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_crypto_jwk_x_ed25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    pkey: JsBuffer,
+    pkey: ByteBuf,
 ) -> anyhow::Result<String> {
     CryptoOps::jwk_x_ed25519(&pkey)
 }
@@ -255,7 +253,7 @@ pub fn op_crypto_jwk_x_ed25519<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_crypto_export_spki_x25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    pubkey: JsBuffer,
+    pubkey: ByteBuf,
 ) -> anyhow::Result<ToJsBuffer> {
     CryptoOps::export_spki_x25519(&pubkey)
 }
@@ -263,7 +261,7 @@ pub fn op_crypto_export_spki_x25519<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_crypto_export_pkcs8_x25519<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    pkey: JsBuffer,
+    pkey: ByteBuf,
 ) -> anyhow::Result<ToJsBuffer> {
     CryptoOps::export_pkcs8_x25519(&pkey)
 }
@@ -271,10 +269,10 @@ pub fn op_crypto_export_pkcs8_x25519<'b, P: OpProvider<'b>>(
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CryptoSignArgs {
-    pub key: JsBuffer,
+    pub key: ByteBuf,
     pub algorithm: Algorithm,
     pub hash: Option<CryptoHash>,
-    pub data: JsBuffer,
+    pub data: ByteBuf,
     pub salt_length: Option<u32>,
     pub named_curve: Option<CryptoNamedCurve>,
 }
@@ -285,9 +283,9 @@ pub struct CryptoVerifyArgs {
     pub key: KeyData,
     pub algorithm: Algorithm,
     pub hash: Option<CryptoHash>,
-    pub signature: JsBuffer,
+    pub signature: ByteBuf,
     pub named_curve: Option<CryptoNamedCurve>,
-    pub data: JsBuffer,
+    pub data: ByteBuf,
 }
 
 #[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Debug)]
@@ -371,7 +369,7 @@ pub enum KeyType {
 #[serde(rename_all = "lowercase")]
 pub struct KeyData {
     r#type: KeyType,
-    data: JsBuffer,
+    data: ByteBuf,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -385,7 +383,7 @@ pub struct DeriveKeyArg {
     // public_key: Option<KeyData>,
     // named_curve: Option<CryptoNamedCurve>,
     // HKDF
-    // info: Option<JsBuffer>,
+    // info: Option<ByteBuf>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
@@ -638,7 +636,7 @@ impl CryptoOps {
         Ok(verification)
     }
 
-    pub fn derive_bits(args: DeriveKeyArg, salt: Option<JsBuffer>) -> anyhow::Result<ToJsBuffer> {
+    pub fn derive_bits(args: DeriveKeyArg, salt: Option<Vec<u8>>) -> anyhow::Result<ToJsBuffer> {
         let algorithm = args.algorithm;
         match algorithm {
             Algorithm::Pbkdf2 => {
@@ -670,7 +668,7 @@ impl CryptoOps {
         }
     }
 
-    pub fn subtle_digest(algorithm: CryptoHash, data: JsBuffer) -> anyhow::Result<ToJsBuffer> {
+    pub fn subtle_digest(algorithm: CryptoHash, data: Vec<u8>) -> anyhow::Result<ToJsBuffer> {
         // TODO: Maybe this should be using `spawn_blocking`?
         let output = digest::digest(algorithm.into(), &data)
             .as_ref()

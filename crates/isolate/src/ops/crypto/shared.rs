@@ -4,10 +4,7 @@
 use std::borrow::Cow;
 
 use common::errors::JsError;
-use deno_core::{
-    JsBuffer,
-    ToJsBuffer,
-};
+use deno_core::ToJsBuffer;
 use elliptic_curve::sec1::ToEncodedPoint;
 use errors::ErrorMetadata;
 use p256::pkcs8::DecodePrivateKey;
@@ -23,6 +20,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use serde_bytes::ByteBuf;
 
 use crate::environment::UncatchableDeveloperError;
 
@@ -63,9 +61,9 @@ pub enum EcNamedCurve {
 #[derive(Deserialize)]
 #[serde(rename_all = "lowercase", tag = "type", content = "data")]
 pub enum V8RawKeyData {
-    Secret(JsBuffer),
-    Private(JsBuffer),
-    Public(JsBuffer),
+    Secret(ByteBuf),
+    Private(ByteBuf),
+    Public(ByteBuf),
 }
 
 impl V8RawKeyData {

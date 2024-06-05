@@ -1,8 +1,6 @@
 use anyhow::Context;
-use deno_core::{
-    JsBuffer,
-    ToJsBuffer,
-};
+use deno_core::ToJsBuffer;
+use serde_bytes::ByteBuf;
 use uuid::Uuid;
 
 use super::OpProvider;
@@ -10,9 +8,9 @@ use super::OpProvider;
 #[convex_macro::v8_op]
 pub fn op_blob_create_part<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    bytes: JsBuffer,
+    bytes: ByteBuf,
 ) -> anyhow::Result<Uuid> {
-    provider.create_blob_part(bytes.into())
+    provider.create_blob_part(bytes.into_vec().into())
 }
 
 #[convex_macro::v8_op]

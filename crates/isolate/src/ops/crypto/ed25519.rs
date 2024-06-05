@@ -1,10 +1,7 @@
 // Copyright 2018-2023 the Deno authors. All rights reserved. MIT license.
 // https://github.com/denoland/deno/blob/main/ext/crypto/ed25519.rs
 
-use deno_core::{
-    JsBuffer,
-    ToJsBuffer,
-};
+use deno_core::ToJsBuffer;
 use elliptic_curve::pkcs8::PrivateKeyInfo;
 use p256::pkcs8::der::Decode as _;
 use ring::signature::{
@@ -48,10 +45,10 @@ impl CryptoOps {
             .is_ok()
     }
 
-    pub fn import_spki_ed25519(key_data: JsBuffer) -> Option<ToJsBuffer> {
+    pub fn import_spki_ed25519(key_data: &[u8]) -> Option<ToJsBuffer> {
         // 2-3.
         let pk_info: SubjectPublicKeyInfo<AnyRef, Vec<u8>> =
-            match spki::SubjectPublicKeyInfo::from_der(&key_data) {
+            match spki::SubjectPublicKeyInfo::from_der(key_data) {
                 Ok(pk_info) => pk_info,
                 Err(_) => return None,
             };
@@ -67,10 +64,10 @@ impl CryptoOps {
         Some(pk_info.subject_public_key.into())
     }
 
-    pub fn import_pkcs8_ed25519(key_data: JsBuffer) -> Option<ToJsBuffer> {
+    pub fn import_pkcs8_ed25519(key_data: &[u8]) -> Option<ToJsBuffer> {
         // 2-3.
         // This should probably use OneAsymmetricKey instead
-        let pk_info = match PrivateKeyInfo::from_der(&key_data) {
+        let pk_info = match PrivateKeyInfo::from_der(key_data) {
             Ok(pk_info) => pk_info,
             Err(_) => return None,
         };

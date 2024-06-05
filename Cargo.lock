@@ -3450,6 +3450,7 @@ dependencies = [
  "search",
  "semver 1.0.23",
  "serde",
+ "serde_bytes",
  "serde_json",
  "sha1",
  "sha2",

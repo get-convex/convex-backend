@@ -7,10 +7,10 @@ use deno_core::{
     v8::{
         self,
     },
-    JsBuffer,
     ToJsBuffer,
 };
 use serde::Serialize;
+use serde_bytes::ByteBuf;
 use uuid::Uuid;
 
 use super::OpProvider;
@@ -41,10 +41,10 @@ pub fn op_stream_create<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Resu
 pub fn op_stream_extend<'b, P: OpProvider<'b>>(
     provider: &mut P,
     id: Uuid,
-    bytes: Option<JsBuffer>,
+    bytes: Option<ByteBuf>,
     new_done: bool,
 ) -> anyhow::Result<()> {
-    provider.extend_stream(id, bytes.map(|b| b.into()), new_done)
+    provider.extend_stream(id, bytes.map(|b| b.into_vec().into()), new_done)
 }
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {

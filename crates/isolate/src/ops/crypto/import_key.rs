@@ -1,10 +1,7 @@
 // Copyright 2018-2023 the Deno authors. All rights reserved. MIT license.
 // https://github.com/denoland/deno/blob/main/ext/crypto/import_key.rs
 
-use deno_core::{
-    JsBuffer,
-    ToJsBuffer,
-};
+use deno_core::ToJsBuffer;
 use elliptic_curve::pkcs8::{
     der::Decode as _,
     PrivateKeyInfo,
@@ -19,6 +16,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use serde_bytes::ByteBuf;
 use spki::{
     der::Encode as SpkiEncode,
     SubjectPublicKeyInfoRef,
@@ -45,9 +43,9 @@ use crate::ops::crypto::shared::secure_rng_unavailable;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum KeyData {
-    Spki(JsBuffer),
-    Pkcs8(JsBuffer),
-    Raw(JsBuffer),
+    Spki(ByteBuf),
+    Pkcs8(ByteBuf),
+    Raw(ByteBuf),
     JwkSecret {
         k: String,
     },
@@ -524,13 +522,13 @@ fn import_key_ec_jwk(
             let pkcs8_der = match named_curve {
                 EcNamedCurve::P256 => {
                     let d = decode_b64url_to_field_bytes::<p256::NistP256>(&d)?;
-                    let pk = p256::SecretKey::from_be_bytes(&d)?;
+                    let pk = p256::SecretKey::from_be_bytes(&d[..])?;
 
                     pk.to_pkcs8_der().map_err(|e| anyhow::anyhow!(e))?
                 },
                 EcNamedCurve::P384 => {
                     let d = decode_b64url_to_field_bytes::<p384::NistP384>(&d)?;
-                    let pk = p384::SecretKey::from_be_bytes(&d)?;
+                    let pk = p384::SecretKey::from_be_bytes(&d[..])?;
 
                     pk.to_pkcs8_der().map_err(|e| anyhow::anyhow!(e))?
                 },

@@ -1,8 +1,5 @@
 use anyhow::Context;
-use deno_core::{
-    JsBuffer,
-    ToJsBuffer,
-};
+use deno_core::ToJsBuffer;
 use encoding_rs::{
     CoderResult,
     DecoderResult,
@@ -12,6 +9,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use serde_bytes::ByteBuf;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -171,7 +169,7 @@ pub fn op_text_encoder_cleanup<'b, P: OpProvider<'b>>(
 #[convex_macro::v8_op]
 pub fn op_text_encoder_decode<'b, P: OpProvider<'b>>(
     provider: &mut P,
-    data: JsBuffer,
+    data: ByteBuf,
     decoder_id: uuid::Uuid,
     stream: bool,
 ) -> anyhow::Result<JsonValue> {
@@ -226,7 +224,7 @@ pub fn op_text_encoder_normalize_label<'b, P: OpProvider<'b>>(
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct TextDecodeArgs {
-    bytes: JsBuffer,
+    bytes: ByteBuf,
     encoding: String,
     fatal: bool,
 
