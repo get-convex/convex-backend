@@ -228,7 +228,7 @@ impl Arbitrary for ValidatedPathAndArgs {
 
 impl ValidatedPathAndArgs {
     /// Check if the function being called matches the allowed visibility and
-    /// return a ValidatedPathAndARgs or an appropriate JsError.
+    /// return a ValidatedPathAndArgs or an appropriate JsError.
     ///
     /// We want to use the same error message for "this function exists, but
     /// with the wrong visibility" and "this function does not exist" so we

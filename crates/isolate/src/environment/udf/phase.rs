@@ -9,6 +9,7 @@ use std::{
     },
 };
 
+use anyhow::Context;
 use common::{
     components::{
         CanonicalizedComponentModulePath,
@@ -69,7 +70,12 @@ use crate::{
 /// step. This structure is responsible for enforcing these invariants.
 pub struct UdfPhase<RT: Runtime> {
     phase: Phase,
-    tx: Transaction<RT>,
+
+    // We "check out" the transaction when executing a cross-component
+    // call. Until we implement subtransactions, we cannot run any
+    // user code concurrently with a component call.
+    tx: Option<Transaction<RT>>,
+
     pub rt: RT,
     module_loader: Arc<dyn ModuleLoader<RT>>,
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -100,7 +106,7 @@ impl<RT: Runtime> UdfPhase<RT> {
     ) -> Self {
         Self {
             phase: Phase::Importing,
-            tx,
+            tx: Some(tx),
             rt,
             module_loader,
             system_env_vars,
@@ -123,7 +129,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         let udf_config = with_release_permit(
             timeout,
             permit_slot,
-            UdfConfigModel::new(&mut self.tx).get(),
+            UdfConfigModel::new(self.tx_mut()?).get(),
         )
         .await?;
         let rng = udf_config
@@ -134,15 +140,15 @@ impl<RT: Runtime> UdfPhase<RT> {
         let env_vars = with_release_permit(
             timeout,
             permit_slot,
-            EnvironmentVariablesModel::new(&mut self.tx).preload(),
+            EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
         )
         .await?;
 
+        let component_path = self.component_path.clone();
         let (component_definition, component) = with_release_permit(
             timeout,
             permit_slot,
-            BootstrapComponentsModel::new(&mut self.tx)
-                .component_path_to_ids(self.component_path.clone()),
+            BootstrapComponentsModel::new(self.tx_mut()?).component_path_to_ids(component_path),
         )
         .await?;
 
@@ -191,13 +197,15 @@ impl<RT: Runtime> UdfPhase<RT> {
         let module = with_release_permit(
             timeout,
             permit_slot,
-            ModuleModel::new(&mut self.tx).get_metadata(path.clone()),
+            ModuleModel::new(self.tx_mut()?).get_metadata(path.clone()),
         )
         .await?;
+
+        let module_loader = self.module_loader.clone();
         let module_version = with_release_permit(
             timeout,
             permit_slot,
-            self.module_loader.get_module(&mut self.tx, path),
+            module_loader.get_module(self.tx_mut()?, path),
         )
         .await?;
 
@@ -213,26 +221,51 @@ impl<RT: Runtime> UdfPhase<RT> {
         Ok(module_version.map(|m| (*m).clone()))
     }
 
-    pub fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
+    pub fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
         if self.phase != Phase::Executing {
-            return Err(ErrorMetadata::bad_request(
+            anyhow::bail!(ErrorMetadata::bad_request(
                 "NoDbDuringImport",
                 "Can't use database at import time",
             ));
         }
-        Ok(&mut self.tx)
+        self.tx_mut()
     }
 
-    pub fn into_transaction(self) -> Transaction<RT> {
+    pub fn take_tx(&mut self) -> anyhow::Result<Transaction<RT>> {
         self.tx
+            .take()
+            .context("Transaction missing due to concurrent component call")
     }
 
-    pub fn biggest_document_writes(&self) -> Option<BiggestDocumentWrites> {
-        self.tx.biggest_document_writes()
+    pub fn put_tx(&mut self, tx: Transaction<RT>) -> anyhow::Result<()> {
+        anyhow::ensure!(self.tx.is_none());
+        self.tx = Some(tx);
+        Ok(())
     }
 
-    pub fn execution_size(&self) -> FunctionExecutionSize {
-        self.tx.execution_size()
+    fn tx_mut(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
+        self.tx
+            .as_mut()
+            .context("Transaction missing due to concurrent component call")
+    }
+
+    fn tx_ref(&self) -> anyhow::Result<&Transaction<RT>> {
+        self.tx
+            .as_ref()
+            .context("Transaction missing due to concurrent component call")
+    }
+
+    pub fn into_transaction(self) -> anyhow::Result<Transaction<RT>> {
+        self.tx
+            .context("Transaction missing due to concurrent component call")
+    }
+
+    pub fn biggest_document_writes(&self) -> anyhow::Result<Option<BiggestDocumentWrites>> {
+        Ok(self.tx_ref()?.biggest_document_writes())
+    }
+
+    pub fn execution_size(&self) -> anyhow::Result<FunctionExecutionSize> {
+        Ok(self.tx_ref()?.execution_size())
     }
 
     pub fn begin_execution(
@@ -264,7 +297,11 @@ impl<RT: Runtime> UdfPhase<RT> {
         let UdfPreloaded::Ready { ref env_vars, .. } = self.preloaded else {
             anyhow::bail!("Phase not initialized");
         };
-        if let Some(var) = env_vars.get(&mut self.tx, &name)? {
+        let tx = self
+            .tx
+            .as_mut()
+            .context("Transaction missing due to concurrent component call")?;
+        if let Some(var) = env_vars.get(tx, &name)? {
             return Ok(Some(var.clone()));
         }
         Ok(self.system_env_vars.get(&name).cloned())
@@ -332,5 +369,13 @@ impl<RT: Runtime> UdfPhase<RT> {
             } => observed_time_during_execution.load(Ordering::SeqCst),
             UdfPreloaded::Created => false,
         }
+    }
+
+    pub fn system_env_vars(&self) -> &BTreeMap<EnvVarName, EnvVarValue> {
+        &self.system_env_vars
+    }
+
+    pub fn module_loader(&self) -> &Arc<dyn ModuleLoader<RT>> {
+        &self.module_loader
     }
 }

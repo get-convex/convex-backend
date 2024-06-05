@@ -123,6 +123,7 @@ use crate::{
     client::{
         EnvironmentData,
         SharedIsolateHeapStats,
+        UdfCallback,
         UdfRequest,
     },
     concurrency_limiter::ConcurrencyPermit,
@@ -205,6 +206,8 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     heap_stats: SharedIsolateHeapStats,
 
     context: ExecutionContext,
+
+    udf_callback: Box<dyn UdfCallback<RT>>,
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
@@ -345,6 +348,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             journal,
             context,
         }: UdfRequest<RT>,
+        udf_callback: Box<dyn UdfCallback<RT>>,
     ) -> Self {
         let persistence_version = transaction.persistence_version();
         let (path, arguments, udf_server_version) = path_and_args.consume();
@@ -378,6 +382,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             syscall_trace: SyscallTrace::new(),
             heap_stats,
             context,
+
+            udf_callback,
         }
     }
 
@@ -437,8 +443,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             &self.path,
             &self.arguments,
             execution_time,
-            self.phase.execution_size(),
-            self.phase.biggest_document_writes(),
+            self.phase.execution_size()?,
+            self.phase.biggest_document_writes()?,
             success_result_value,
             |warning| {
                 self.log_lines.push(LogLine::new_system_log_line(
@@ -490,7 +496,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             }),
             _ => anyhow::bail!("UdfEnvironment should only run queries and mutations"),
         };
-        Ok((self.phase.into_transaction(), outcome))
+        Ok((self.phase.into_transaction()?, outcome))
     }
 
     #[convex_macro::instrument_future]

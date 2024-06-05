@@ -418,6 +418,7 @@ pub enum RequestType<RT: Runtime> {
         environment_data: EnvironmentData<RT>,
         response: oneshot::Sender<anyhow::Result<(Transaction<RT>, FunctionOutcome)>>,
         queue_timer: Timer<VMHistogram>,
+        udf_callback: Box<dyn UdfCallback<RT>>,
     },
     Action {
         request: ActionRequest<RT>,
@@ -465,6 +466,21 @@ pub enum RequestType<RT: Runtime> {
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
         response: oneshot::Sender<anyhow::Result<EvaluateAppDefinitionsResult>>,
     },
+}
+
+#[async_trait]
+pub trait UdfCallback<RT: Runtime>: Send + Sync {
+    async fn execute_udf(
+        &self,
+        client_id: String,
+        identity: Identity,
+        udf_type: UdfType,
+        path_and_args: ValidatedPathAndArgs,
+        environment_data: EnvironmentData<RT>,
+        transaction: Transaction<RT>,
+        journal: QueryJournal,
+        context: ExecutionContext,
+    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)>;
 }
 
 impl<RT: Runtime> Request<RT> {
@@ -702,6 +718,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             },
             response: tx,
             queue_timer: queue_timer(),
+            udf_callback: Box::new(self.clone()),
         };
         self.send_request(Request::new(
             self.instance_name.clone(),
@@ -994,6 +1011,24 @@ impl<RT: Runtime> IsolateClient<RT> {
         // The only reason a oneshot response channel wil be dropped prematurely if the
         // isolate worker is shutting down.
         rx.await.map_err(|_| shutdown_error())
+    }
+}
+
+#[async_trait]
+impl<RT: Runtime> UdfCallback<RT> for IsolateClient<RT> {
+    async fn execute_udf(
+        &self,
+        _client_id: String,
+        _identity: Identity,
+        udf_type: UdfType,
+        path_and_args: ValidatedPathAndArgs,
+        _environment_data: EnvironmentData<RT>,
+        transaction: Transaction<RT>,
+        journal: QueryJournal,
+        context: ExecutionContext,
+    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
+        self.execute_udf(udf_type, path_and_args, transaction, journal, context)
+            .await
     }
 }
 
@@ -1602,6 +1637,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 environment_data,
                 mut response,
                 queue_timer,
+                udf_callback,
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&request.udf_type);
@@ -1611,6 +1647,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     environment_data,
                     heap_stats.clone(),
                     request,
+                    udf_callback,
                 );
                 let r = environment
                     .run(

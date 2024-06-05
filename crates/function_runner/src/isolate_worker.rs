@@ -86,6 +86,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 environment_data,
                 mut response,
                 queue_timer,
+                udf_callback,
             } => {
                 drop(queue_timer);
                 // TODO: Add metrics with funrun tagging
@@ -96,6 +97,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                     environment_data,
                     heap_stats.clone(),
                     request,
+                    udf_callback,
                 );
                 let r = environment
                     .run(

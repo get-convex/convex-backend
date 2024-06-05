@@ -142,6 +142,7 @@ use crate::{
         Request,
         RequestType,
         SharedIsolateHeapStats,
+        UdfCallback,
         UdfRequest,
         PAUSE_RECREATE_CLIENT,
     },
@@ -1184,6 +1185,23 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
 }
 
 #[async_trait]
+impl<RT: Runtime, P: Persistence + Clone> UdfCallback<RT> for UdfTest<RT, P> {
+    async fn execute_udf(
+        &self,
+        _client_id: String,
+        _identity: Identity,
+        _udf_type: UdfType,
+        _path_and_args: ValidatedPathAndArgs,
+        _environment_data: EnvironmentData<RT>,
+        _transaction: Transaction<RT>,
+        _journal: QueryJournal,
+        _context: ExecutionContext,
+    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
+        anyhow::bail!("Component calls not implemented in tests yet")
+    }
+}
+
+#[async_trait]
 impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_query(
         &self,
@@ -1368,6 +1386,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
         environment_data: test_environment_data(db.runtime().clone())?,
         response: sender,
         queue_timer: queue_timer(),
+        udf_callback: Box::new(BogusUdfCallback),
     };
     Ok(Request {
         client_id: client_id.to_string(),
@@ -1375,6 +1394,25 @@ pub async fn bogus_udf_request<RT: Runtime>(
         pause_client: pause_client.unwrap_or_default(),
         parent_trace: EncodedSpan::empty(),
     })
+}
+
+struct BogusUdfCallback;
+
+#[async_trait]
+impl<RT: Runtime> UdfCallback<RT> for BogusUdfCallback {
+    async fn execute_udf(
+        &self,
+        _client_id: String,
+        _identity: Identity,
+        _udf_type: UdfType,
+        _path_and_args: ValidatedPathAndArgs,
+        _environment_data: EnvironmentData<RT>,
+        _transaction: Transaction<RT>,
+        _journal: QueryJournal,
+        _context: ExecutionContext,
+    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
+        anyhow::bail!("BogusUdfCallback called")
+    }
 }
 
 pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWorker<RT>>(

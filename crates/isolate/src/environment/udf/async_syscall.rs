@@ -11,6 +11,8 @@ use common::{
         ComponentFunctionPath,
         ComponentId,
         ComponentPath,
+        Reference,
+        Resource,
     },
     document::DeveloperDocument,
     execution_context::ExecutionContext,
@@ -26,7 +28,11 @@ use common::{
         RuntimeInstant,
         UnixTimestamp,
     },
-    types::PersistenceVersion,
+    types::{
+        AllowedVisibility,
+        PersistenceVersion,
+        UdfType,
+    },
     value::ConvexValue,
     version::Version,
 };
@@ -36,6 +42,7 @@ use database::{
         TableFilter,
     },
     soft_data_limit,
+    BootstrapComponentsModel,
     DeveloperQuery,
     PatchValue,
     Transaction,
@@ -49,6 +56,7 @@ use errors::{
 use itertools::Itertools;
 use keybroker::KeyBroker;
 use model::{
+    components::ComponentsModel,
     file_storage::{
         types::FileStorageEntry,
         BatchKey,
@@ -68,13 +76,17 @@ use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     ConvexArray,
+    ConvexObject,
     TableName,
+    TableNamespace,
 };
 
 use super::DatabaseUdfEnvironment;
 use crate::{
+    client::EnvironmentData,
     environment::helpers::{
         parse_version,
+        syscall_error::clone_error_for_batch,
         validation::validate_schedule_args,
         with_argument_error,
         ArgName,
@@ -82,6 +94,8 @@ use crate::{
     helpers::UdfArgsJson,
     isolate2::client::QueryId,
     metrics::async_syscall_timer,
+    FunctionOutcome,
+    ValidatedPathAndArgs,
 };
 
 pub struct PendingSyscall {
@@ -240,7 +254,7 @@ pub enum ManagedQuery<RT: Runtime> {
 #[allow(async_fn_in_trait)]
 pub trait AsyncSyscallProvider<RT: Runtime> {
     fn rt(&self) -> &RT;
-    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata>;
+    fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>>;
     fn key_broker(&self) -> &KeyBroker;
     fn context(&self) -> &ExecutionContext;
 
@@ -276,6 +290,13 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
         &mut self,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<FileStorageEntry>>;
+
+    async fn run_udf(
+        &mut self,
+        udf_type: UdfType,
+        reference: Reference,
+        args: ConvexObject,
+    ) -> anyhow::Result<ConvexValue>;
 }
 
 impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
@@ -283,7 +304,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         &self.phase.rt
     }
 
-    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
+    fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
         self.phase.tx()
     }
 
@@ -375,7 +396,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             Err(e) => {
                 return storage_ids
                     .into_keys()
-                    .map(|batch_key| (batch_key, Err(e.clone().into())))
+                    .map(|batch_key| (batch_key, Err(clone_error_for_batch(&e))))
                     .collect();
             },
         };
@@ -393,6 +414,109 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         self.file_storage
             .get_file_entry(self.phase.tx()?, storage_id)
             .await
+    }
+
+    async fn run_udf(
+        &mut self,
+        udf_type: UdfType,
+        reference: Reference,
+        args: ConvexObject,
+    ) -> anyhow::Result<ConvexValue> {
+        match (self.udf_type, udf_type) {
+            // Queries can call other queries.
+            (UdfType::Query, UdfType::Query) => (),
+            // Mutations can call queries or mutations,
+            (UdfType::Mutation, UdfType::Query | UdfType::Mutation) => (),
+            _ => {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "InvalidFunctionCall",
+                    format!(
+                        "Cannot call a {} function from a {} function",
+                        udf_type, self.udf_type
+                    )
+                ));
+            },
+        }
+
+        let tx = self.phase.tx()?;
+
+        // TODO(CX-6667): Which table namespace do we want to use for running validators
+        // here?
+        let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
+        let virtual_table_mapping = tx.virtual_table_mapping().clone();
+
+        let (_, component_id) = BootstrapComponentsModel::new(tx)
+            .component_path_to_ids(self.path.component.clone())
+            .await?;
+        let resource = ComponentsModel::new(tx)
+            .resolve(component_id, &reference)
+            .await?;
+        let function_path = match resource {
+            Resource::Value(_) => {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "InvalidResource",
+                    "Cannot execute a value resource"
+                ));
+            },
+            Resource::Function(p) => p.canonicalize(),
+        };
+        let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
+            AllowedVisibility::PublicOnly,
+            tx,
+            function_path,
+            ConvexArray::try_from(vec![args.into()])?,
+            udf_type,
+        )
+        .await?;
+        let (path_and_args, returns_validator) = match path_and_args_result {
+            Ok(r) => r,
+            Err(e) => {
+                // TODO: Propagate this JsError to user space correctly.
+                anyhow::bail!(ErrorMetadata::bad_request("InvalidArgs", e.message));
+            },
+        };
+        let tx = self.phase.take_tx()?;
+        let (tx, outcome) = self
+            .udf_callback
+            .execute_udf(
+                // TODO: Remove this `client_id` once we do isolate2.
+                "component".to_string(),
+                tx.identity().clone(),
+                udf_type,
+                path_and_args,
+                EnvironmentData {
+                    key_broker: self.key_broker.clone(),
+                    system_env_vars: self.phase.system_env_vars().clone(),
+                    file_storage: self.file_storage.clone(),
+                    module_loader: self.phase.module_loader().clone(),
+                },
+                tx,
+                QueryJournal::new(),
+                self.context.clone(),
+            )
+            .await?;
+        self.phase.put_tx(tx)?;
+
+        let outcome = match (udf_type, outcome) {
+            (UdfType::Query, FunctionOutcome::Query(outcome)) => outcome,
+            (UdfType::Mutation, FunctionOutcome::Mutation(outcome)) => outcome,
+            _ => anyhow::bail!("Unexpected outcome for {udf_type:?}"),
+        };
+        let result = match outcome.result {
+            Ok(r) => r.unpack(),
+            Err(e) => {
+                // TODO: How do we want to propagate stack traces between component calls?
+                // TODO: Using `ErrorMetadata::bad_request` here is a hack.
+                // TODO: Also, propagate ConvexError correctly.
+                anyhow::bail!(ErrorMetadata::bad_request("UdfFailed", e.message));
+            },
+        };
+        if let Some(e) =
+            returns_validator.check_output(&result, &table_mapping, &virtual_table_mapping)
+        {
+            anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
+        }
+        Ok(result)
     }
 }
 
@@ -448,6 +572,10 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     // Scheduling
                     "1.0/schedule" => Box::pin(Self::schedule(provider, args)).await,
                     "1.0/cancel_job" => Box::pin(Self::cancel_job(provider, args)).await,
+
+                    // Components
+                    "1.0/runUdf" => Box::pin(Self::run_udf(provider, args)).await,
+
                     #[cfg(test)]
                     "slowSyscall" => {
                         std::thread::sleep(std::time::Duration::from_secs(1));
@@ -878,7 +1006,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let tx = match provider.tx() {
             Ok(tx) => tx,
             Err(e) => {
-                return (0..batch_size).map(|_| Err(e.clone().into())).collect_vec();
+                return (0..batch_size)
+                    .map(|_| Err(clone_error_for_batch(&e)))
+                    .collect_vec();
             },
         };
 
@@ -963,6 +1093,29 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             .delete(id)
             .await?;
         Ok(document.into_value().0.into())
+    }
+
+    #[convex_macro::instrument_future]
+    async fn run_udf(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct RunUdfArgs {
+            udf_type: String,
+            reference: String,
+            args: JsonValue,
+        }
+        let (udf_type, reference, args) = with_argument_error("runUdf", || {
+            let args: RunUdfArgs = serde_json::from_value(args)?;
+            let udf_type: UdfType = args.udf_type.parse().context(ArgName("udfType"))?;
+            let reference = args.reference.parse().context(ArgName("reference"))?;
+            let args: ConvexObject = ConvexValue::try_from(args.args)
+                .context(ArgName("args"))?
+                .try_into()
+                .context(ArgName("args"))?;
+            Ok((udf_type, reference, args))
+        })?;
+        let value = provider.run_udf(udf_type, reference, args).await?;
+        Ok(value.into())
     }
 }
 

@@ -48,6 +48,7 @@ pub use self::{
         FunctionResult,
         IsolateClient,
         IsolateConfig,
+        UdfCallback,
     },
     concurrency_limiter::ConcurrencyLimiter,
     environment::{

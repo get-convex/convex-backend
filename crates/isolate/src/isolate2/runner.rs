@@ -12,6 +12,7 @@ use common::{
         ComponentDefinitionId,
         ComponentFunctionPath,
         ComponentId,
+        Reference,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -68,6 +69,8 @@ use serde_json::Value as JsonValue;
 use tokio::sync::Semaphore;
 use value::{
     ConvexArray,
+    ConvexObject,
+    ConvexValue,
     NamespacedTableMapping,
     TableMapping,
     TableMappingValue,
@@ -831,7 +834,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
         &self.rt
     }
 
-    fn tx(&mut self) -> Result<&mut Transaction<RT>, ErrorMetadata> {
+    fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
         // We only process syscalls during the execution phase.
         Ok(self.tx)
     }
@@ -919,6 +922,15 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
 
     fn cleanup_query(&mut self, query_id: u32) -> bool {
         self.shared.cleanup_query(query_id)
+    }
+
+    async fn run_udf(
+        &mut self,
+        _udf_type: UdfType,
+        _reference: Reference,
+        _args: ConvexObject,
+    ) -> anyhow::Result<ConvexValue> {
+        todo!();
     }
 }
 

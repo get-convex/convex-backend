@@ -76,6 +76,7 @@ use isolate::{
     ConcurrencyLimiter,
     FunctionOutcome,
     IsolateConfig,
+    UdfCallback,
     ValidatedPathAndArgs,
 };
 use keybroker::{
@@ -163,6 +164,21 @@ pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     storage: S,
     index_cache: InMemoryIndexCache<RT>,
     module_cache: ModuleCache<RT>,
+}
+
+impl<RT: Runtime, S: StorageForInstance<RT>> Clone for FunctionRunnerCore<RT, S> {
+    fn clone(&self) -> Self {
+        Self {
+            rt: self.rt.clone(),
+            sender: self.sender.clone(),
+            scheduler: self.scheduler.clone(),
+            concurrency_logger: self.concurrency_logger.clone(),
+            handles: self.handles.clone(),
+            storage: self.storage.clone(),
+            index_cache: self.index_cache.clone(),
+            module_cache: self.module_cache.clone(),
+        }
+    }
 }
 
 #[minitrace::trace]
@@ -413,6 +429,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         environment_data,
                         response: tx,
                         queue_timer: queue_timer(),
+                        udf_callback: Box::new(self.clone()),
                     },
                     EncodedSpan::from_parent(SpanContext::current_local_parent()),
                 );
@@ -454,6 +471,44 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 anyhow::bail!("Funrun does not support http actions yet")
             },
         }
+    }
+}
+
+#[async_trait]
+impl<RT: Runtime, S: StorageForInstance<RT>> UdfCallback<RT> for FunctionRunnerCore<RT, S> {
+    async fn execute_udf(
+        &self,
+        client_id: String,
+        identity: Identity,
+        udf_type: UdfType,
+        path_and_args: ValidatedPathAndArgs,
+        environment_data: EnvironmentData<RT>,
+        transaction: Transaction<RT>,
+        journal: QueryJournal,
+        context: ExecutionContext,
+    ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
+        let (tx, rx) = oneshot::channel();
+        let request = IsolateRequest::new(
+            client_id,
+            IsolateRequestType::Udf {
+                request: UdfRequest {
+                    path_and_args,
+                    udf_type,
+                    identity: identity.into(),
+                    transaction,
+                    journal,
+                    context,
+                },
+                environment_data,
+                response: tx,
+                queue_timer: queue_timer(),
+                udf_callback: Box::new(self.clone()),
+            },
+            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+        );
+        self.send_request(request)?;
+        let result = Self::receive_response(rx).await??;
+        Ok(result)
     }
 }
 
