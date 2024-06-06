@@ -111,7 +111,9 @@ pub trait SearchIndex: Clone + Debug {
 
     fn new_schema(config: &Self::DeveloperConfig) -> Self::Schema;
 
-    fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>>;
+    fn get_index_sizes<RT: Runtime>(
+        snapshot: Snapshot<RT>,
+    ) -> anyhow::Result<BTreeMap<IndexId, usize>>;
 
     fn is_version_current(data: &SearchSnapshot<Self>) -> bool
     where

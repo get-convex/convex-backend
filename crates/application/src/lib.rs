@@ -762,11 +762,11 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
+    pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot<RT>> {
         self.database.snapshot(ts)
     }
 
-    pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot> {
+    pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot<RT>> {
         self.database.latest_snapshot()
     }
 

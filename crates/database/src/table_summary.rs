@@ -424,11 +424,16 @@ pub async fn bootstrap<RT: Runtime>(
         TableSummarySnapshot::load(persistence.as_ref()).await?
     };
     let recent_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
-    let (table_mapping, _, index_registry, ..) = DatabaseSnapshot::load_table_and_index_metadata(
-        &RepeatablePersistence::new(persistence.clone(), recent_ts, retention_validator.clone())
+    let (table_mapping, _, index_registry, ..) =
+        DatabaseSnapshot::<RT>::load_table_and_index_metadata(
+            &RepeatablePersistence::new(
+                persistence.clone(),
+                recent_ts,
+                retention_validator.clone(),
+            )
             .read_snapshot(recent_ts)?,
-    )
-    .await?;
+        )
+        .await?;
     let (base_snapshot, base_snapshot_ts) = match stored_snapshot {
         Some(base) => base,
         None => {

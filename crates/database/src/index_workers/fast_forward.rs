@@ -261,7 +261,8 @@ pub trait IndexFastForward<RT: Runtime, V: PartialEq + Send> {
         model: IndexWorkerMetadataModel<'_, RT>,
         index_id: IndexId,
     ) -> anyhow::Result<ParsedDocument<IndexWorkerMetadataRecord>>;
-    fn num_transactions(snapshot: Snapshot, index_id: IndexId) -> anyhow::Result<Option<usize>>;
+    fn num_transactions(snapshot: Snapshot<RT>, index_id: IndexId)
+        -> anyhow::Result<Option<usize>>;
 }
 
 pub async fn load_metadata_fast_forward_ts(

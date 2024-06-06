@@ -149,7 +149,7 @@ pub struct Committer<RT: Runtime> {
     // External log of writes for subscriptions.
     log: LogWriter,
 
-    snapshot_manager: Writer<SnapshotManager>,
+    snapshot_manager: Writer<SnapshotManager<RT>>,
     persistence: Arc<dyn Persistence>,
     runtime: RT,
 
@@ -166,7 +166,7 @@ pub struct Committer<RT: Runtime> {
 impl<RT: Runtime> Committer<RT> {
     pub(crate) fn start(
         log: LogWriter,
-        snapshot_manager: Writer<SnapshotManager>,
+        snapshot_manager: Writer<SnapshotManager<RT>>,
         persistence: Arc<dyn Persistence>,
         runtime: RT,
         retention_validator: Arc<dyn RetentionValidator>,
@@ -197,7 +197,7 @@ impl<RT: Runtime> Committer<RT> {
         }
     }
 
-    async fn go(mut self, mut rx: mpsc::Receiver<CommitterMessage>) {
+    async fn go(mut self, mut rx: mpsc::Receiver<CommitterMessage<RT>>) {
         let mut last_bumped_repeatable_ts = self.runtime.monotonic_now();
         // Assume there were commits just before the backend restarted, so first do a
         // quick bump.
@@ -315,7 +315,7 @@ impl<RT: Runtime> Committer<RT> {
             search_index_manager,
             vector_index_manager,
             tables_with_indexes,
-        }: &mut BootstrappedSearchAndVectorIndexes,
+        }: &mut BootstrappedSearchAndVectorIndexes<RT>,
         bootstrap_ts: Timestamp,
         persistence: RepeatablePersistence,
         registry: &IndexRegistry,
@@ -359,7 +359,7 @@ impl<RT: Runtime> Committer<RT> {
 
     async fn finish_search_and_vector_bootstrap(
         &mut self,
-        mut bootstrapped_indexes: BootstrappedSearchAndVectorIndexes,
+        mut bootstrapped_indexes: BootstrappedSearchAndVectorIndexes<RT>,
         bootstrap_ts: RepeatableTimestamp,
         result: oneshot::Sender<anyhow::Result<()>>,
     ) {
@@ -830,10 +830,10 @@ struct ValidatedDocumentWrite {
 
 pub struct CommitterClient<RT: Runtime> {
     handle: Arc<Mutex<RT::Handle>>,
-    sender: mpsc::Sender<CommitterMessage>,
+    sender: mpsc::Sender<CommitterMessage<RT>>,
     persistence_reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
-    snapshot_reader: Reader<SnapshotManager>,
+    snapshot_reader: Reader<SnapshotManager<RT>>,
 }
 
 impl<RT: Runtime> Clone for CommitterClient<RT> {
@@ -851,7 +851,7 @@ impl<RT: Runtime> Clone for CommitterClient<RT> {
 impl<RT: Runtime> CommitterClient<RT> {
     pub async fn finish_search_and_vector_bootstrap(
         &self,
-        bootstrapped_indexes: BootstrappedSearchAndVectorIndexes,
+        bootstrapped_indexes: BootstrappedSearchAndVectorIndexes<RT>,
         bootstrap_ts: RepeatableTimestamp,
     ) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
@@ -1000,7 +1000,7 @@ impl<RT: Runtime> CommitterClient<RT> {
     }
 }
 
-enum CommitterMessage {
+enum CommitterMessage<RT: Runtime> {
     Commit {
         queue_timer: Timer<VMHistogram>,
         transaction: FinalTransaction,
@@ -1015,7 +1015,7 @@ enum CommitterMessage {
         result: oneshot::Sender<anyhow::Result<()>>,
     },
     FinishSearchAndVectorBootstrap {
-        bootstrapped_indexes: BootstrappedSearchAndVectorIndexes,
+        bootstrapped_indexes: BootstrappedSearchAndVectorIndexes<RT>,
         bootstrap_ts: RepeatableTimestamp,
         result: oneshot::Sender<anyhow::Result<()>>,
     },

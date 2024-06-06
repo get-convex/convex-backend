@@ -255,7 +255,7 @@ pub struct Database<RT: Runtime> {
     committer: CommitterClient<RT>,
     subscriptions: SubscriptionsClient<RT>,
     log: LogReader,
-    snapshot_manager: Reader<SnapshotManager>,
+    snapshot_manager: Reader<SnapshotManager<RT>>,
     pub(crate) runtime: RT,
     reader: Arc<dyn PersistenceReader>,
     write_commits_since_load: Arc<AtomicUsize>,
@@ -288,10 +288,10 @@ struct ListSnapshotTableIteratorCacheEntry {
 }
 
 #[derive(Clone)]
-pub struct DatabaseSnapshot {
+pub struct DatabaseSnapshot<RT: Runtime> {
     ts: RepeatableTimestamp,
     pub bootstrap_metadata: BootstrapMetadata,
-    pub snapshot: Snapshot,
+    pub snapshot: Snapshot<RT>,
     pub persistence_snapshot: PersistenceSnapshot,
 
     summaries_num_rows: usize,
@@ -342,7 +342,7 @@ pub struct BootstrapMetadata {
     pub index_tablet_id: TabletId,
 }
 
-impl DatabaseSnapshot {
+impl<RT: Runtime> DatabaseSnapshot<RT> {
     pub async fn max_ts(reader: &dyn PersistenceReader) -> anyhow::Result<Timestamp> {
         reader
             .max_ts()
@@ -496,7 +496,7 @@ impl DatabaseSnapshot {
         Ok(table_registry)
     }
 
-    pub fn table_iterator<RT: Runtime>(&self, runtime: RT) -> TableIterator<RT> {
+    pub fn table_iterator(&self, runtime: RT) -> TableIterator<RT> {
         TableIterator::new(
             runtime,
             self.timestamp(),
@@ -507,7 +507,7 @@ impl DatabaseSnapshot {
         )
     }
 
-    pub async fn full_table_scan<'a, RT: Runtime>(
+    pub async fn full_table_scan<'a>(
         &'a self,
         runtime: &RT,
         tablet_id: TabletId,
@@ -558,7 +558,7 @@ impl DatabaseSnapshot {
         })
     }
 
-    pub async fn load<RT: Runtime>(
+    pub async fn load(
         rt: &RT,
         persistence: Arc<dyn PersistenceReader>,
         snapshot: RepeatableTimestamp,
@@ -595,6 +595,7 @@ impl DatabaseSnapshot {
         drop(load_indexes_into_memory_timer);
 
         let search = SearchIndexManager::new(
+            rt.clone(),
             SearchIndexManagerState::Bootstrapping,
             persistence.version(),
         );
@@ -780,7 +781,7 @@ impl<RT: Runtime> Database<RT> {
 
         // Get the latest timestamp to perform the load at.
         let snapshot_ts = new_idle_repeatable_ts(persistence.as_ref(), &runtime).await?;
-        let original_max_ts = DatabaseSnapshot::max_ts(&*reader).await?;
+        let original_max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
 
         let db_snapshot = DatabaseSnapshot::load(
             &runtime,
@@ -789,7 +790,7 @@ impl<RT: Runtime> Database<RT> {
             Arc::new(follower_retention_manager.clone()),
         )
         .await?;
-        let max_ts = DatabaseSnapshot::max_ts(&*reader).await?;
+        let max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
         anyhow::ensure!(
             original_max_ts == max_ts,
             "race while loading DatabaseSnapshot: max ts {original_max_ts} at start, {max_ts} at \
@@ -1470,11 +1471,11 @@ impl<RT: Runtime> Database<RT> {
         Ok(tx)
     }
 
-    pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
+    pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot<RT>> {
         self.snapshot_manager.lock().snapshot(*ts)
     }
 
-    pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot> {
+    pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot<RT>> {
         let snapshot = self.snapshot_manager.lock().latest_snapshot();
         Ok(snapshot)
     }

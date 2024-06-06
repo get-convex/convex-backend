@@ -11,6 +11,7 @@ use common::{
         DocumentUpdate,
         ResolvedDocument,
     },
+    runtime::Runtime,
     types::{
         DatabaseIndexUpdate,
         RepeatableReason,
@@ -56,8 +57,8 @@ const MAX_TRANSACTION_WINDOW: Duration = Duration::from_secs(10);
 /// We maintain a bounded time range of versions,
 /// determined by `MAX_TRANSACTION_WINDOW`, allowing the `Database` layer to
 /// begin a transaction in any timestamp within that range.
-pub struct SnapshotManager {
-    versions: VecDeque<(Timestamp, Snapshot)>,
+pub struct SnapshotManager<RT: Runtime> {
+    versions: VecDeque<(Timestamp, Snapshot<RT>)>,
 }
 
 #[derive(Clone)]
@@ -175,16 +176,16 @@ impl TableSummaries {
 }
 /// A snapshot of the database indexes and metadata at a certain timestamp.
 #[derive(Clone)]
-pub struct Snapshot {
+pub struct Snapshot<RT: Runtime> {
     pub table_registry: TableRegistry,
     pub table_summaries: TableSummaries,
     pub index_registry: IndexRegistry,
     pub in_memory_indexes: BackendInMemoryIndexes,
-    pub search_indexes: SearchIndexManager,
+    pub search_indexes: SearchIndexManager<RT>,
     pub vector_indexes: VectorIndexManager,
 }
 
-impl Snapshot {
+impl<RT: Runtime> Snapshot<RT> {
     pub(crate) fn update(
         &mut self,
         document_update: &DocumentUpdate,
@@ -281,14 +282,14 @@ impl Snapshot {
     }
 }
 
-impl SnapshotManager {
-    pub fn new(initial_ts: Timestamp, initial_snapshot: Snapshot) -> Self {
+impl<RT: Runtime> SnapshotManager<RT> {
+    pub fn new(initial_ts: Timestamp, initial_snapshot: Snapshot<RT>) -> Self {
         let mut versions = VecDeque::new();
         versions.push_back((initial_ts, initial_snapshot));
         Self { versions }
     }
 
-    pub fn latest(&self) -> (RepeatableTimestamp, Snapshot) {
+    pub fn latest(&self) -> (RepeatableTimestamp, Snapshot<RT>) {
         let (ts, snapshot) = self
             .versions
             .back()
@@ -300,7 +301,7 @@ impl SnapshotManager {
         )
     }
 
-    pub fn latest_snapshot(&self) -> Snapshot {
+    pub fn latest_snapshot(&self) -> Snapshot<RT> {
         let (_, snapshot) = self.latest();
         snapshot
     }
@@ -323,7 +324,7 @@ impl SnapshotManager {
 
     // Note that timestamp must be within MAX_TRANSACTION_WINDOW from the last
     // transaction
-    pub fn snapshot(&self, ts: Timestamp) -> anyhow::Result<Snapshot> {
+    pub fn snapshot(&self, ts: Timestamp) -> anyhow::Result<Snapshot<RT>> {
         if ts < self.earliest_ts() {
             return Err(
                 anyhow::anyhow!(ErrorMetadata::operational_internal_server_error()).context(
@@ -362,7 +363,7 @@ impl SnapshotManager {
     /// transient system errors (timeouts, database issues etc) and retry.
     pub fn overwrite_last_snapshot_search_and_vector_indexes(
         &mut self,
-        search_indexes: SearchIndexManager,
+        search_indexes: SearchIndexManager<RT>,
         vector_indexes: VectorIndexManager,
     ) {
         let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
@@ -388,7 +389,7 @@ impl SnapshotManager {
         snapshot.in_memory_indexes = in_memory_indexes;
     }
 
-    pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot) {
+    pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot<RT>) {
         assert!(*self.latest_ts() < ts);
         while self.versions.len() > 1 && (ts - self.earliest_ts()) > MAX_TRANSACTION_WINDOW {
             self.versions.pop_front();

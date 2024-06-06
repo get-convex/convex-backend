@@ -228,7 +228,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     pub async fn new(
         rt: RT,
         persistence: Arc<dyn Persistence>,
-        snapshot_reader: Reader<SnapshotManager>,
+        snapshot_reader: Reader<SnapshotManager<RT>>,
         follower_retention_manager: FollowerRetentionManager<RT>,
     ) -> anyhow::Result<LeaderRetentionManager<RT>> {
         if *RESET_DOCUMENT_RETENTION {
@@ -377,7 +377,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// Returns the timestamp which we would like to use as min_snapshot_ts.
     /// This timestamp is created relative to the `max_repeatable_ts`.
     async fn candidate_min_snapshot_ts(
-        snapshot_reader: &Reader<SnapshotManager>,
+        snapshot_reader: &Reader<SnapshotManager<RT>>,
         checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
     ) -> anyhow::Result<Timestamp> {
@@ -410,7 +410,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     async fn advance_timestamp(
         bounds_writer: &Writer<SnapshotBounds>,
         persistence: &dyn Persistence,
-        snapshot_reader: &Reader<SnapshotManager>,
+        snapshot_reader: &Reader<SnapshotManager<RT>>,
         checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
     ) -> anyhow::Result<Option<Timestamp>> {
@@ -485,7 +485,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         min_snapshot_sender: Sender<Timestamp>,
         min_document_snapshot_sender: Sender<Timestamp>,
-        snapshot_reader: Reader<SnapshotManager>,
+        snapshot_reader: Reader<SnapshotManager<RT>>,
     ) {
         loop {
             {
@@ -1048,7 +1048,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         mut min_snapshot_rx: Receiver<Timestamp>,
         checkpoint_writer: Writer<Checkpoint>,
-        snapshot_reader: Reader<SnapshotManager>,
+        snapshot_reader: Reader<SnapshotManager<RT>>,
     ) {
         let reader = persistence.reader();
 
@@ -1162,7 +1162,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
         mut min_document_snapshot_rx: Receiver<Timestamp>,
         checkpoint_writer: Writer<Checkpoint>,
-        snapshot_reader: Reader<SnapshotManager>,
+        snapshot_reader: Reader<SnapshotManager<RT>>,
     ) {
         // Wait with jitter on startup to avoid thundering herd
         Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS).await;
@@ -1300,7 +1300,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     async fn get_checkpoint(
         persistence: &dyn PersistenceReader,
         bounds_reader: Reader<SnapshotBounds>,
-        snapshot_reader: Reader<SnapshotManager>,
+        snapshot_reader: Reader<SnapshotManager<RT>>,
         retention_type: RetentionType,
     ) -> anyhow::Result<Timestamp> {
         let checkpoint = Self::get_checkpoint_no_logging(persistence, retention_type).await?;

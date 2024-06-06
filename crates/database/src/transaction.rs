@@ -1116,7 +1116,7 @@ impl<RT: Runtime> Transaction<RT> {
 
     pub async fn finalize(
         self,
-        snapshot_reader: Reader<SnapshotManager>,
+        snapshot_reader: Reader<SnapshotManager<RT>>,
     ) -> anyhow::Result<FinalTransaction> {
         FinalTransaction::new(self, snapshot_reader).await
     }
@@ -1156,7 +1156,7 @@ impl FinalTransaction {
 
     pub async fn new<RT: Runtime>(
         mut transaction: Transaction<RT>,
-        snapshot_reader: Reader<SnapshotManager>,
+        snapshot_reader: Reader<SnapshotManager<RT>>,
     ) -> anyhow::Result<Self> {
         let begin_timestamp = transaction.begin_timestamp();
         let table_mapping = transaction.table_mapping().clone();
@@ -1177,7 +1177,7 @@ impl FinalTransaction {
     fn validate_memory_index_sizes<RT: Runtime>(
         table_mapping: &TableMapping,
         transaction: &Transaction<RT>,
-        base_snapshot: &Snapshot,
+        base_snapshot: &Snapshot<RT>,
     ) -> anyhow::Result<()> {
         #[allow(unused_mut)]
         let mut vector_size_limit = *VECTOR_INDEX_SIZE_HARD_LIMIT;
@@ -1217,9 +1217,9 @@ impl FinalTransaction {
         Ok(())
     }
 
-    fn validate_memory_index_size(
+    fn validate_memory_index_size<RT: Runtime>(
         table_mapping: &TableMapping,
-        base_snapshot: &Snapshot,
+        base_snapshot: &Snapshot<RT>,
         modified_tables: &BTreeSet<TabletId>,
         iterator: impl Iterator<Item = (IndexId, usize)>,
         hard_limit: usize,

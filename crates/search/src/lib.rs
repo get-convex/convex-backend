@@ -56,6 +56,10 @@ use common::{
         InternalSearchFilterExpression,
         SearchVersion,
     },
+    runtime::{
+        try_join_buffer_unordered,
+        Runtime,
+    },
     types::{
         IndexName,
         ObjectKey,
@@ -432,8 +436,9 @@ impl TantivySearchIndexSchema {
     }
 
     #[minitrace::trace]
-    pub async fn search2(
+    pub async fn search2<RT: Runtime>(
         &self,
+        runtime: &RT,
         compiled_query: CompiledQuery,
         memory_index: &MemorySearchIndex,
         search_storage: Arc<dyn Storage>,
@@ -467,15 +472,26 @@ impl TantivySearchIndexSchema {
         // and merge the results to get the top terms.
         let mut match_aggregator = TokenMatchAggregator::new(MAX_UNIQUE_QUERY_TERMS);
         memory_index.query_tokens(&token_queries, &mut match_aggregator)?;
-        for segment in segments.clone() {
-            let segment_token_matches = searcher
-                .query_tokens(
-                    search_storage.clone(),
-                    segment,
-                    token_queries.clone(),
-                    MAX_UNIQUE_QUERY_TERMS,
-                )
-                .await?;
+        let searcher_clone = searcher.clone();
+        let search_storage_clone = search_storage.clone();
+        let token_match_futs = segments.clone().into_iter().map(move |segment| {
+            let searcher = searcher_clone.clone();
+            let search_storage = search_storage_clone.clone();
+            let token_queries = token_queries.clone();
+            async move {
+                searcher
+                    .query_tokens(
+                        search_storage,
+                        segment,
+                        token_queries,
+                        MAX_UNIQUE_QUERY_TERMS,
+                    )
+                    .await
+            }
+        });
+        let token_matches_by_segment: Vec<_> =
+            try_join_buffer_unordered(runtime, "query_tokens", token_match_futs).await?;
+        for segment_token_matches in token_matches_by_segment {
             anyhow::ensure!(segment_token_matches.is_sorted());
             for m in segment_token_matches {
                 // Since each segment returns results in sorted order, we can stop early once we
@@ -520,13 +536,31 @@ impl TantivySearchIndexSchema {
 
         // Step 3: Given the terms we decided on, query BM25 statistics across all of
         // the indexes and merge their results.
-        let mut bm25_stats = Bm25Stats::empty();
-        for segment in segments.clone() {
-            bm25_stats += searcher
-                .query_bm25_stats(search_storage.clone(), segment, terms.clone())
-                .await?;
-        }
-        bm25_stats = memory_index.update_bm25_stats(disk_index_ts, &terms, bm25_stats)?;
+        let terms_original = terms;
+        let terms = terms_original.clone();
+        let searcher_clone = searcher.clone();
+        let search_storage_clone = search_storage.clone();
+        let bm25_stats_futs = segments.clone().into_iter().map(move |segment| {
+            let searcher = searcher_clone.clone();
+            let search_storage = search_storage_clone.clone();
+            let terms = terms.clone();
+            async move {
+                searcher
+                    .query_bm25_stats(search_storage.clone(), segment, terms.clone())
+                    .await
+            }
+        });
+        let bm25_stats_per_segment: Vec<_> =
+            try_join_buffer_unordered(runtime, "query_bm25_stats", bm25_stats_futs).await?;
+
+        let mut bm25_stats =
+            bm25_stats_per_segment
+                .into_iter()
+                .fold(Bm25Stats::empty(), |mut acc, stats| {
+                    acc += stats;
+                    acc
+                });
+        bm25_stats = memory_index.update_bm25_stats(disk_index_ts, &terms_original, bm25_stats)?;
 
         // Step 4: Decide on our posting list queries given the previous results.
         let mut or_terms = vec![];
@@ -591,10 +625,19 @@ impl TantivySearchIndexSchema {
                 &mut match_aggregator,
             )?;
         }
-        for segment in segments {
-            let segment_matches = searcher
-                .query_posting_lists(search_storage.clone(), segment, query.clone())
-                .await?;
+        let posting_list_futs = segments.into_iter().map(move |segment| {
+            let searcher = searcher.clone();
+            let search_storage = search_storage.clone();
+            let query = query.clone();
+            async move {
+                searcher
+                    .query_posting_lists(search_storage.clone(), segment, query.clone())
+                    .await
+            }
+        });
+        let posting_list_results_per_segment: Vec<_> =
+            try_join_buffer_unordered(runtime, "query_posting_lists", posting_list_futs).await?;
+        for segment_matches in posting_list_results_per_segment {
             for m in segment_matches {
                 if !match_aggregator.insert(m) {
                     break;
@@ -627,8 +670,9 @@ impl TantivySearchIndexSchema {
         Ok(result)
     }
 
-    pub async fn search(
+    pub async fn search<RT: Runtime>(
         &self,
+        runtime: &RT,
         compiled_query: CompiledQuery,
         memory_index: &MemorySearchIndex,
         search_storage: Arc<dyn Storage>,
@@ -648,6 +692,7 @@ impl TantivySearchIndexSchema {
                 .collect();
             return self
                 .search2(
+                    runtime,
                     compiled_query,
                     memory_index,
                     search_storage,

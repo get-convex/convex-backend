@@ -108,8 +108,8 @@ struct IndexesToBootstrap {
     oldest_index_ts: Timestamp,
 }
 
-pub struct BootstrappedSearchAndVectorIndexes {
-    pub search_index_manager: SearchIndexManager,
+pub struct BootstrappedSearchAndVectorIndexes<RT: Runtime> {
+    pub search_index_manager: SearchIndexManager<RT>,
     pub vector_index_manager: VectorIndexManager,
     pub tables_with_indexes: BTreeSet<TabletId>,
 }
@@ -242,10 +242,11 @@ impl IndexesToBootstrap {
             .collect()
     }
 
-    async fn bootstrap(
+    async fn bootstrap<RT: Runtime>(
         mut self,
+        runtime: RT,
         persistence: &RepeatablePersistence,
-    ) -> anyhow::Result<BootstrappedSearchAndVectorIndexes> {
+    ) -> anyhow::Result<BootstrappedSearchAndVectorIndexes<RT>> {
         let _status = log_worker_starting("SearchAndVectorBootstrap");
         let timer = crate::metrics::bootstrap_timer();
         let upper_bound = persistence.upper_bound();
@@ -288,12 +289,17 @@ impl IndexesToBootstrap {
         );
         crate::metrics::finish_bootstrap(num_revisions, total_size, timer);
 
-        Ok(self.finish(persistence.version()))
+        Ok(self.finish(runtime, persistence.version()))
     }
 
-    fn finish(self, persistence_version: PersistenceVersion) -> BootstrappedSearchAndVectorIndexes {
+    fn finish<RT: Runtime>(
+        self,
+        runtime: RT,
+        persistence_version: PersistenceVersion,
+    ) -> BootstrappedSearchAndVectorIndexes<RT> {
         let tables_with_indexes = self.tables_with_indexes();
         let search_index_manager = SearchIndexManager::new(
+            runtime,
             SearchIndexManagerState::Ready(
                 self.table_to_search_indexes
                     .into_iter()
@@ -511,7 +517,7 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
             .await
     }
 
-    async fn bootstrap(&self) -> anyhow::Result<BootstrappedSearchAndVectorIndexes> {
+    async fn bootstrap(&self) -> anyhow::Result<BootstrappedSearchAndVectorIndexes<RT>> {
         // Load all of the fast forward timestamps first to ensure that we stay within
         // the comparatively short valid time for the persistence snapshot
         let snapshot = self
@@ -544,7 +550,9 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
             self.persistence.upper_bound(),
             indexes_with_fast_forward_ts,
         )?;
-        indexes_to_bootstrap.bootstrap(&self.persistence).await
+        indexes_to_bootstrap
+            .bootstrap(self.runtime.clone(), &self.persistence)
+            .await
     }
 }
 

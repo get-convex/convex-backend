@@ -305,7 +305,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         );
         let (index_documents, table_documents) =
             futures::future::try_join(index_documents_fut, table_documents_fut).await?;
-        let (table_mapping, table_states) = DatabaseSnapshot::table_mapping_and_states(
+        let (table_mapping, table_states) = DatabaseSnapshot::<RT>::table_mapping_and_states(
             table_documents.map(|doc| doc.try_into()).try_collect()?,
         );
         let index_registry = IndexRegistry::bootstrap(
@@ -332,14 +332,14 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             .await?
             .map(|doc| doc.try_into())
             .try_collect()?;
-        let virtual_table_mapping = DatabaseSnapshot::virtual_table_mapping(virtual_tables);
+        let virtual_table_mapping = DatabaseSnapshot::<RT>::virtual_table_mapping(virtual_tables);
         let table_registry = TableRegistry::bootstrap(
             table_mapping.clone(),
             table_states,
             persistence_snapshot.persistence().version(),
             virtual_table_mapping,
         )?;
-        DatabaseSnapshot::verify_invariants(&table_registry, &index_registry)?;
+        DatabaseSnapshot::<RT>::verify_invariants(&table_registry, &index_registry)?;
         let in_memory_indexes = FunctionRunnerInMemoryIndexes {
             cache: self.clone(),
             instance_name: instance_name.clone(),

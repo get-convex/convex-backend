@@ -144,7 +144,9 @@ impl SearchIndex for TextSearchIndex {
         Order::Desc
     }
 
-    fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>> {
+    fn get_index_sizes<RT: Runtime>(
+        snapshot: Snapshot<RT>,
+    ) -> anyhow::Result<BTreeMap<IndexId, usize>> {
         Ok(snapshot
             .search_indexes
             .backfilled_and_enabled_index_sizes()?

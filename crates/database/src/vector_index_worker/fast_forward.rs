@@ -54,7 +54,10 @@ impl<RT: Runtime> IndexFastForward<RT, ()> for VectorFastForward {
         model.get_or_create_vector_search(index_id).await
     }
 
-    fn num_transactions(snapshot: Snapshot, index_id: IndexId) -> anyhow::Result<Option<usize>> {
+    fn num_transactions(
+        snapshot: Snapshot<RT>,
+        index_id: IndexId,
+    ) -> anyhow::Result<Option<usize>> {
         snapshot.vector_indexes.num_transactions(index_id)
     }
 }

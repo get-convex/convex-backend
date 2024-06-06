@@ -22,6 +22,7 @@ use common::{
         InternalSearchFilterExpression,
         SearchVersion,
     },
+    runtime::Runtime,
     types::{
         IndexId,
         IndexName,
@@ -123,7 +124,8 @@ impl SearchIndex {
 }
 
 #[derive(Clone)]
-pub struct SearchIndexManager {
+pub struct SearchIndexManager<RT: Runtime> {
+    runtime: RT,
     indexes: SearchIndexManagerState,
     persistence_version: PersistenceVersion,
 }
@@ -134,13 +136,18 @@ pub enum SearchIndexManagerState {
     Ready(OrdMap<IndexId, SearchIndex>),
 }
 
-impl SearchIndexManager {
+impl<RT: Runtime> SearchIndexManager<RT> {
     pub fn is_bootstrapping(&self) -> bool {
         matches!(self.indexes, SearchIndexManagerState::Bootstrapping)
     }
 
-    pub fn new(indexes: SearchIndexManagerState, persistence_version: PersistenceVersion) -> Self {
+    pub fn new(
+        runtime: RT,
+        indexes: SearchIndexManagerState,
+        persistence_version: PersistenceVersion,
+    ) -> Self {
         Self {
+            runtime,
             indexes,
             persistence_version,
         }
@@ -214,6 +221,7 @@ impl SearchIndexManager {
 
         let revisions_with_keys = self
             .run_compiled_query(
+                &self.runtime,
                 index,
                 &search.printable_index_name()?,
                 tantivy_schema,
@@ -246,6 +254,7 @@ impl SearchIndexManager {
 
         let revisions_with_keys = self
             .run_compiled_query(
+                &self.runtime,
                 index,
                 printable_index_name,
                 tantivy_schema,
@@ -260,6 +269,7 @@ impl SearchIndexManager {
 
     async fn run_compiled_query(
         &self,
+        runtime: &RT,
         index: &Index,
         printable_index_name: &IndexName,
         tantivy_schema: TantivySearchIndexSchema,
@@ -278,6 +288,7 @@ impl SearchIndexManager {
             DiskIndex::SingleSegment(disk_index) => {
                 tantivy_schema
                     .search(
+                        runtime,
                         compiled_query,
                         memory_index,
                         search_storage,
@@ -290,6 +301,7 @@ impl SearchIndexManager {
             DiskIndex::MultiSegment(segments) => {
                 tantivy_schema
                     .search2(
+                        runtime,
                         compiled_query,
                         memory_index,
                         search_storage,
