@@ -115,16 +115,24 @@ async fn download_module_source_from_package<RT: Runtime>(
         _ => anyhow::bail!("_modules table namespace {namespace:?} is not a component definition"),
     };
     for module_metadata in ModuleModel::new(tx).get_all_metadata(component).await? {
-        let source = package
-            .remove(&module_metadata.path)
-            .context("module not found in package")?;
-        result.insert(
-            (module_metadata.id(), module_metadata.latest_version),
-            FullModuleSource {
-                source: source.source,
-                source_map: source.source_map,
+        match package.remove(&module_metadata.path) {
+            None => {
+                anyhow::bail!(
+                    "module {:?} not found in package {:?}",
+                    module_metadata.path,
+                    source_package_id
+                );
             },
-        );
+            Some(source) => {
+                result.insert(
+                    (module_metadata.id(), module_metadata.latest_version),
+                    FullModuleSource {
+                        source: source.source,
+                        source_map: source.source_map,
+                    },
+                );
+            },
+        }
     }
     Ok(result)
 }
