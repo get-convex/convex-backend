@@ -13,7 +13,6 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    async_compat::FuturesAsyncReadCompatExt,
     bootstrap_model::index::text_index::FragmentedTextSegment,
     bounded_thread_pool::BoundedThreadPool,
     id_tracker::StaticIdTracker,
@@ -25,10 +24,7 @@ use common::{
     types::ObjectKey,
 };
 use futures::TryStreamExt;
-use storage::{
-    Storage,
-    StorageExt,
-};
+use storage::Storage;
 use tantivy::{
     directory::MmapDirectory,
     fastfield::AliveBitSet,
@@ -49,10 +45,7 @@ use text_search::tracker::{
 use value::InternalId;
 
 use crate::{
-    archive::{
-        cache::ArchiveCacheManager,
-        extract_zip,
-    },
+    archive::cache::ArchiveCacheManager,
     constants::CONVEX_EN_TOKENIZER,
     convex_en,
     disk_index::{
@@ -70,7 +63,6 @@ use crate::{
         SegmentTermMetadataFetcher,
         TermDeletionsByField,
     },
-    DocumentTerm,
     SearchFileType,
     TantivySearchIndexSchema,
 };
@@ -208,21 +200,6 @@ impl UpdatableTextSegment {
     ) -> anyhow::Result<Self> {
         // Temp dir is fine because we're loading these into memory immediately.
         let tmp_dir = TempDir::new()?;
-
-        let index_path = tmp_dir.path().join("index_path");
-
-        // TODO(CX-6494): Fetch the term statistics file instead of the index.
-        let stream = storage
-            .get(&original.segment_key)
-            .await?
-            .context(format!(
-                "Failed to find stored file! {:?}",
-                &original.segment_key
-            ))?
-            .stream
-            .into_async_read()
-            .compat();
-        extract_zip(&index_path, stream).await?;
 
         let id_tracker_path = tmp_dir.path().join(ID_TRACKER_PATH);
         download_single_file_zip(&original.id_tracker_key, &id_tracker_path, storage.clone())
@@ -362,13 +339,7 @@ pub async fn build_new_segment<RT: Runtime>(
                 let terms = tantivy_schema.index_into_terms(prev_document)?;
                 // Create a set of unique terms so we don't double count terms. The count is the
                 // number of documents deleted containing the term.
-                let term_set: BTreeSet<_> = terms.into_iter()
-                    // TODO(sam): We don't actually want to filter out filter terms here. This will
-                    // be fixed in a follow-up that replaces directly opening the index with a
-                    // searchlight RPC
-                    .filter(|document_term| matches!(document_term, DocumentTerm::Search { .. }))
-                    .map(Term::from)
-                    .collect();
+                let term_set: BTreeSet<_> = terms.into_iter().map(Term::from).collect();
                 for term in term_set {
                     let field = term.field();
                     let term_value = term.value_bytes().to_vec();
