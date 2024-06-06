@@ -817,7 +817,7 @@ pub static ARCHIVE_FETCH_TIMEOUT_SECONDS: LazyLock<Duration> =
 /// The total number of modules across all versions that will be held in memory
 /// at once.
 pub static MODULE_CACHE_MAX_SIZE_BYTES: LazyLock<u64> =
-    LazyLock::new(|| env_config("MODULE_CACHE_MAX_SIZE_BYTES", 1 << 26 /* 64mb */));
+    LazyLock::new(|| env_config("MODULE_CACHE_MAX_SIZE_BYTES", 250_000_000));
 
 /// The maximum number of concurrent module fetches we'll allow.
 pub static MODULE_CACHE_MAX_CONCURRENCY: LazyLock<usize> =
@@ -833,7 +833,7 @@ pub static FUNRUN_INDEX_CACHE_CONCURRENCY: LazyLock<usize> =
 
 /// The maximum size of the module cache in Funrun in bytes.
 pub static FUNRUN_MODULE_CACHE_SIZE: LazyLock<u64> =
-    LazyLock::new(|| env_config("FUNRUN_MODULE_CACHE_SIZE", 50_000_000)); // 50 MB
+    LazyLock::new(|| env_config("FUNRUN_MODULE_CACHE_SIZE", 250_000_000));
 
 /// The maximum number of concurrent module cache requests in Funrun.
 pub static FUNRUN_MODULE_MAX_CONCURRENCY: LazyLock<usize> =
