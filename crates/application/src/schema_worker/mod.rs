@@ -68,6 +68,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
         let status = log_worker_starting("SchemaWorker");
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let snapshot = self.database.snapshot(tx.begin_timestamp())?;
+        let mut pending_schema_work = None;
         if let Some((id, db_schema)) = SchemaModel::new(&mut tx, TableNamespace::Global)
             .get_by_state(SchemaState::Pending)
             .await?
@@ -81,6 +82,32 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 .get_by_state(SchemaState::Active)
                 .await?
                 .map(|(_id, active_schema)| active_schema);
+            let ts = tx.begin_timestamp();
+            let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
+            pending_schema_work = Some((
+                id,
+                timer,
+                table_mapping,
+                virtual_table_mapping,
+                db_schema,
+                ts,
+                active_schema,
+                by_id_indexes,
+            ));
+        }
+        let token = tx.into_token()?;
+
+        if let Some((
+            id,
+            timer,
+            table_mapping,
+            virtual_table_mapping,
+            db_schema,
+            ts,
+            active_schema,
+            by_id_indexes,
+        )) = pending_schema_work
+        {
             let tables_to_check = DatabaseSchema::tables_to_validate(
                 &db_schema,
                 active_schema,
@@ -88,8 +115,6 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 &virtual_table_mapping,
                 &|table_name| snapshot.table_summary(table_name).inferred_type().clone(),
             )?;
-            let ts = tx.begin_timestamp();
-            let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
 
             for table_name in tables_to_check {
                 let table_iterator = self.database.table_iterator(ts, 1000, None);
@@ -111,7 +136,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                         &doc,
                         table_name,
                         &table_mapping,
-                        &tx.virtual_table_mapping().clone(),
+                        &virtual_table_mapping,
                     ) {
                         let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
                         while backoff.failures() < MAX_COMMIT_FAILURES {
@@ -164,7 +189,6 @@ impl<RT: Runtime> SchemaWorker<RT> {
         }
 
         drop(status);
-        let token = tx.into_token()?;
         tracing::debug!("SchemaWorker waiting...");
         let subscription = self.database.subscribe(token).await?;
         subscription.wait_for_invalidation().await;
