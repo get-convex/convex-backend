@@ -216,11 +216,11 @@ pub async fn download_package(
         .chain(source_maps.keys().map(|k| String::from(k.clone()) + ".map"))
         .collect();
     found_paths.sort();
+    let mut metadata_paths = metadata_json.module_paths.clone();
+    metadata_paths.sort();
     anyhow::ensure!(
-        metadata_json.module_paths == found_paths,
-        "{:?} != {:?}",
-        metadata_json.module_paths,
-        found_paths
+        metadata_paths == found_paths,
+        "metadata.json paths don't match paths in zip for source package {key:?}",
     );
 
     let mut module_environments: Option<BTreeMap<String, ModuleEnvironment>> = metadata_json
