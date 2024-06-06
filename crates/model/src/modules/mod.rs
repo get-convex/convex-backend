@@ -247,6 +247,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     }
 
     /// Returns the registered modules metadata, including system modules.
+    #[minitrace::trace]
     pub async fn get_all_metadata(
         &mut self,
         component: ComponentDefinitionId,
@@ -336,6 +337,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Ok(module_version)
     }
 
+    #[minitrace::trace]
     pub async fn get_source_from_db(
         &mut self,
         module_id: ResolvedDocumentId,

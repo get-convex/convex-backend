@@ -43,6 +43,7 @@ use crate::{
     metrics::module_load_timer,
 };
 
+#[minitrace::trace]
 pub async fn get_module_and_prefetch<RT: Runtime>(
     tx: &mut Transaction<RT>,
     modules_storage: Arc<dyn Storage>,
@@ -87,6 +88,7 @@ pub async fn get_module_and_prefetch<RT: Runtime>(
     }
 }
 
+#[minitrace::trace]
 async fn download_module_source_from_package<RT: Runtime>(
     tx: &mut Transaction<RT>,
     modules_storage: Arc<dyn Storage>,

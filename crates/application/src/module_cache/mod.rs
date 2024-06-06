@@ -65,6 +65,7 @@ impl<RT: Runtime> ModuleCache<RT> {
 
 #[async_trait]
 impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
+    #[minitrace::trace]
     async fn get_module_with_metadata(
         &self,
         tx: &mut Transaction<RT>,

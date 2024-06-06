@@ -60,6 +60,7 @@ pub(crate) struct FunctionRunnerModuleLoader<RT: Runtime> {
 
 #[async_trait]
 impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
+    #[minitrace::trace]
     async fn get_module_with_metadata(
         &self,
         tx: &mut Transaction<RT>,

@@ -372,6 +372,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Ok(outcome)
     }
 
+    #[minitrace::trace]
     #[convex_macro::instrument_future]
     async fn run_http_action_inner(
         client_id: Arc<String>,
@@ -761,6 +762,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         result.ok_or_else(|| anyhow::anyhow!("`run_inner` did not populate a result"))
     }
 
+    #[minitrace::trace]
     fn lookup_route(
         scope: &mut ExecutionScope<RT, Self>,
         router: &v8::Local<v8::Object>,
