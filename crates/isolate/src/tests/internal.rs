@@ -54,7 +54,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = t.database.begin(Identity::system()).await?;
     let (config_metadata, module_configs, _udf_config) = ConfigModel::new(&mut tx)
-        .get(t.module_loader.as_ref())
+        .get_with_module_source(t.module_loader.as_ref())
         .await?;
     let modules_by_path = module_configs
         .iter()

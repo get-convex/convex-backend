@@ -19,6 +19,7 @@ use common::{
         ComponentDefinitionId,
         ComponentId,
     },
+    document::ParsedDocument,
     runtime::Runtime,
     schemas::DatabaseSchema,
 };
@@ -47,6 +48,7 @@ use crate::{
     cron_jobs::CronModel,
     modules::{
         module_versions::AnalyzedModule,
+        types::ModuleMetadata,
         ModuleModel,
     },
     source_packages::{
@@ -133,7 +135,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
     /// user-configurable state and not internal derived state like shapes. We
     /// might want to store this config in memory but for now just reading it
     /// out of the metadata tables to avoid keeping too many sources of truth.
-    pub async fn get(
+    pub async fn get_with_module_source(
         &mut self,
         module_loader: &dyn ModuleLoader<RT>,
     ) -> anyhow::Result<(ConfigMetadata, Vec<ModuleConfig>, Option<UdfConfig>)> {
@@ -147,6 +149,42 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             .await?
             .into_values()
             .collect();
+
+        // If we have an auth config module do not include auth_info in the config
+        if !modules
+            .iter()
+            .any(|module| module.path == AUTH_CONFIG_FILE_NAME.parse().unwrap())
+        {
+            let auth_info = AuthInfoModel::new(self.tx).get().await?;
+            config.auth_info = auth_info.into_iter().map(|doc| doc.into_value()).collect();
+        }
+
+        let udf_config = UdfConfigModel::new(self.tx)
+            .get()
+            .await?
+            .map(|u| u.into_value());
+        Ok((config, modules, udf_config))
+    }
+
+    /// Return the latest database configuration. This includes only the
+    /// user-configurable state and not internal derived state like shapes. We
+    /// might want to store this config in memory but for now just reading it
+    /// out of the metadata tables to avoid keeping too many sources of truth.
+    pub async fn get_with_module_metadata(
+        &mut self,
+    ) -> anyhow::Result<(
+        ConfigMetadata,
+        Vec<ParsedDocument<ModuleMetadata>>,
+        Option<UdfConfig>,
+    )> {
+        // TODO: Move to `application/`.
+        if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
+            anyhow::bail!(unauthorized_error("get_config"));
+        }
+        let mut config = ConfigMetadata::new();
+        let modules = ModuleModel::new(self.tx)
+            .get_application_metadata(ComponentDefinitionId::Root)
+            .await?;
 
         // If we have an auth config module do not include auth_info in the config
         if !modules

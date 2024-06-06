@@ -56,6 +56,10 @@ use metrics::{
 };
 use sync_types::CanonicalizedModulePath;
 use value::{
+    sha256::{
+        Sha256,
+        Sha256Digest,
+    },
     values_to_bytes,
     FieldPath,
     TableName,
@@ -406,8 +410,15 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             anyhow::bail!("You cannot push a function under '_system/'");
         }
         let component = path.component;
+        let sha256 = hash_module_source(&source, source_map.as_ref());
         let (module_id, version) = self
-            .put_module_metadata(path, None, Some(analyze_result), ModuleEnvironment::Isolate)
+            .put_module_metadata(
+                path,
+                None,
+                Some(analyze_result),
+                ModuleEnvironment::Isolate,
+                sha256,
+            )
             .await?;
         self.put_module_source_into_db(module_id, version, source, source_map, component)
             .await
@@ -434,8 +445,9 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             "AnalyzedModule is required for non-dependency modules"
         );
         let component = path.component;
+        let sha256 = hash_module_source(&source, source_map.as_ref());
         let (module_id, version) = self
-            .put_module_metadata(path, source_package_id, analyze_result, environment)
+            .put_module_metadata(path, source_package_id, analyze_result, environment, sha256)
             .await?;
         self.put_module_source_into_db(module_id, version, source, source_map, component)
             .await
@@ -447,6 +459,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         source_package_id: Option<SourcePackageId>,
         analyze_result: Option<AnalyzedModule>,
         environment: ModuleEnvironment,
+        sha256: Sha256Digest,
     ) -> anyhow::Result<(ResolvedDocumentId, ModuleVersion)> {
         let (module_id, version) = match self.module_metadata(path.clone()).await? {
             Some(module_metadata) => {
@@ -465,6 +478,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     source_package_id,
                     environment,
                     analyze_result: analyze_result.clone(),
+                    sha256: Some(sha256),
                 };
                 SystemMetadataModel::new(self.tx, path.component.into())
                     .replace(module_metadata.id(), new_metadata.try_into()?)
@@ -486,6 +500,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     source_package_id,
                     environment,
                     analyze_result: analyze_result.clone(),
+                    sha256: Some(sha256),
                 };
 
                 let document_id = SystemMetadataModel::new(self.tx, path.component.into())
@@ -650,4 +665,17 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         };
         Ok(self.get_metadata(path).await?.is_some())
     }
+}
+
+/// Hash a module's source and source map. This same hash is also computed in
+/// the CLI to determine if a module has changed. Therefore this algorithm
+/// can never be changed (if you want a new algorithm, we need a new API
+/// endpoint and a new CLI version to call it).
+pub fn hash_module_source(source: &ModuleSource, source_map: Option<&SourceMap>) -> Sha256Digest {
+    let mut hasher = Sha256::new();
+    hasher.update(source.as_bytes());
+    if let Some(source_map) = source_map {
+        hasher.update(source_map.as_bytes());
+    }
+    hasher.finalize()
 }

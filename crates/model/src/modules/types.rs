@@ -9,6 +9,7 @@ use sync_types::{
 };
 use value::{
     codegen_convex_serialization,
+    sha256::Sha256Digest,
     DeveloperDocumentId,
 };
 
@@ -28,11 +29,11 @@ pub struct ModuleMetadata {
     /// What is the latest version of the module?
     pub latest_version: ModuleVersion,
 
-    // Fields previously in ModuleVersionMetadata.
-    // In migration phase, fields are duplicated here but not read.
     pub source_package_id: Option<SourcePackageId>,
     pub environment: ModuleEnvironment,
     pub analyze_result: Option<AnalyzedModule>,
+    // This is a hash of source + source_map.
+    pub sha256: Option<Sha256Digest>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -44,6 +45,7 @@ pub struct SerializedModuleMetadata {
     pub source_package_id: Option<String>,
     pub environment: String,
     pub analyze_result: Option<SerializedAnalyzedModule>,
+    pub sha256: Option<String>,
 }
 
 impl TryFrom<SerializedModuleMetadata> for ModuleMetadata {
@@ -65,6 +67,10 @@ impl TryFrom<SerializedModuleMetadata> for ModuleMetadata {
                 .map(|id| id.into()),
             environment: m.environment.parse()?,
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
+            sha256: m
+                .sha256
+                .map(|s| Sha256Digest::from_base64(&s))
+                .transpose()?,
         })
     }
 }
@@ -82,6 +88,7 @@ impl TryFrom<ModuleMetadata> for SerializedModuleMetadata {
                 .map(|s| DeveloperDocumentId::from(s).to_string()),
             environment: m.environment.to_string(),
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
+            sha256: m.sha256.map(|s| s.as_base64()),
         })
     }
 }

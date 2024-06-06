@@ -27,7 +27,6 @@ use common::{
     },
     runtime::Runtime,
     schemas::DatabaseSchema,
-    sha256::Sha256,
     types::NodeDependency,
     version::Version,
 };
@@ -48,10 +47,13 @@ use model::{
         },
         ConfigModel,
     },
-    modules::module_versions::{
-        AnalyzedModule,
-        ModuleSource,
-        SourceMap,
+    modules::{
+        hash_module_source,
+        module_versions::{
+            AnalyzedModule,
+            ModuleSource,
+            SourceMap,
+        },
     },
     source_packages::types::{
         PackageSize,
@@ -259,12 +261,7 @@ impl ModuleHashJson {
             environment,
         }: ModuleConfig,
     ) -> ModuleHashJson {
-        let mut hasher = Sha256::new();
-        hasher.update(source.as_bytes());
-        if let Some(source_map) = source_map {
-            hasher.update(source_map.as_bytes());
-        }
-        let hash = hasher.finalize();
+        let hash = hash_module_source(&source, source_map.as_ref());
         ModuleHashJson {
             path: path.into(),
             hash: hex::encode(hash),
@@ -327,7 +324,7 @@ pub async fn get_config(
 
     let mut tx = st.application.begin(identity).await?;
     let (config, modules, udf_config) = ConfigModel::new(&mut tx)
-        .get(st.application.modules_cache())
+        .get_with_module_source(st.application.modules_cache())
         .await?;
     let config = ConvexObject::try_from(config)?;
     let config: JsonValue = config.into();
@@ -356,13 +353,30 @@ pub async fn get_config_hashes(
     .await?;
 
     let mut tx = st.application.begin(identity).await?;
-    let (config, modules, udf_config) = ConfigModel::new(&mut tx)
-        .get(st.application.modules_cache())
-        .await?;
+    let (config, modules, udf_config) =
+        ConfigModel::new(&mut tx).get_with_module_metadata().await?;
+    let module_hashes: Vec<_> = if modules.iter().all(|m| m.sha256.is_some()) {
+        modules
+            .into_iter()
+            .map(|m| ModuleHashJson {
+                path: m.path.clone().into(),
+                hash: m.sha256.as_ref().expect("hash should exist").as_hex(),
+                environment: Some(m.environment.to_string()),
+            })
+            .collect()
+    } else {
+        // TODO(lee) remove this branch once all modules have a hash.
+        let (_, modules_with_source, _) = ConfigModel::new(&mut tx)
+            .get_with_module_source(st.application.modules_cache())
+            .await?;
+        modules_with_source
+            .into_iter()
+            .map(ModuleHashJson::hash)
+            .collect()
+    };
     let config = ConvexObject::try_from(config)?;
     let config: JsonValue = config.into();
 
-    let module_hashes = modules.into_iter().map(ModuleHashJson::hash).collect();
     let udf_server_version = udf_config.map(|config| format!("{}", config.server_version));
     Ok(Json(GetConfigHashesResponse {
         config,

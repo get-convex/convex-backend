@@ -108,7 +108,7 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
     // Fetch it back and it make sure it's there.
     let mut tx = database.begin(Identity::system()).await?;
     let (config_metadata_read, modules_read, ..) = ConfigModel::new(&mut tx)
-        .get(&UncachedModuleLoader { modules_storage })
+        .get_with_module_source(&UncachedModuleLoader { modules_storage })
         .await
         .expect("getting config should succeed");
     assert_eq!(config_metadata, config_metadata_read);
@@ -179,7 +179,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = database.begin(Identity::system()).await?;
     let (config_metadata_read, modules_read, ..) = ConfigModel::new(&mut tx)
-        .get(&UncachedModuleLoader { modules_storage })
+        .get_with_module_source(&UncachedModuleLoader { modules_storage })
         .await
         .expect("getting config should succeed");
     assert_eq!(config_metadata, config_metadata_read);
