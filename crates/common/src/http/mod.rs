@@ -705,11 +705,13 @@ pub async fn stats_middleware<RM: RouteMapper>(
         .map(|r| r.as_str().to_owned())
         .unwrap_or("unknown".to_owned());
 
-    // Configure tracing
+    // Configure tracing. Prefer path to route - since matched path can have *,
+    // notably for /http/*rest
+    let path = req.uri().path();
     let root = {
         let mut rng = rand::thread_rng();
         get_sampled_span(
-            route.as_str(),
+            path,
             &mut rng,
             btreemap!["request_id".to_owned() => request_id.to_string()],
         )
