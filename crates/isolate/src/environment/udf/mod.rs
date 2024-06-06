@@ -212,29 +212,13 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
-        // - 1 to reserve for the [ERROR] log line
-        match self.log_lines.len().cmp(&(MAX_LOG_LINES - 1)) {
-            Ordering::Less => self.log_lines.push(LogLine::new_developer_log_line(
-                level,
-                messages,
-                // Note: accessing the current time here is still deterministic since
-                // we don't externalize the time to the function.
-                self.rt.unix_timestamp(),
-            )),
-            Ordering::Equal => {
-                // Add a message about omitting log lines once
-                self.log_lines.push(LogLine::new_developer_log_line(
-                    LogLevel::Error,
-                    vec![format!(
-                        "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
-                    )],
-                    // Note: accessing the current time here is still deterministic since
-                    // we don't externalize the time to the function.
-                    self.rt.unix_timestamp(),
-                ))
-            },
-            Ordering::Greater => (),
-        };
+        self.emit_log_line(LogLine::new_developer_log_line(
+            level,
+            messages,
+            // Note: accessing the current time here is still deterministic since
+            // we don't externalize the time to the function.
+            self.rt.unix_timestamp(),
+        ));
         Ok(())
     }
 
@@ -782,6 +766,27 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         };
 
         Ok(result)
+    }
+
+    pub fn emit_log_line(&mut self, log_line: LogLine) {
+        // - 1 to reserve for the [ERROR] log line
+        match self.log_lines.len().cmp(&(MAX_LOG_LINES - 1)) {
+            Ordering::Less => self.log_lines.push(log_line),
+            Ordering::Equal => {
+                drop(log_line);
+                let log_line = LogLine::new_developer_log_line(
+                    LogLevel::Error,
+                    vec![format!(
+                        "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
+                    )],
+                    // Note: accessing the current time here is still deterministic since
+                    // we don't externalize the time to the function.
+                    self.rt.unix_timestamp(),
+                );
+                self.log_lines.push(log_line);
+            },
+            Ordering::Greater => (),
+        }
     }
 
     // Called when a function finishes

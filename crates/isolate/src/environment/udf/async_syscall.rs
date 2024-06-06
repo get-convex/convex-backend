@@ -502,6 +502,14 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             (UdfType::Mutation, FunctionOutcome::Mutation(outcome)) => outcome,
             _ => anyhow::bail!("Unexpected outcome for {udf_type:?}"),
         };
+
+        // TODO(CX-6401): Namespace UDF logging. We'll want to collate all
+        // of the overflow and system log lines into a single group at the
+        // end of the log lines.
+        for log_line in &outcome.log_lines {
+            self.emit_log_line(log_line.clone());
+        }
+
         let result = match outcome.result {
             Ok(r) => r.unpack(),
             Err(e) => {
