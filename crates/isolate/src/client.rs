@@ -97,7 +97,6 @@ use keybroker::{
     KeyBroker,
 };
 use minitrace::{
-    collector::SpanContext,
     full_name,
     future::FutureExt as _,
 };
@@ -723,7 +722,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            EncodedSpan::from_parent(),
         ))?;
         let (tx, outcome) = Self::receive_response(rx).await??;
         metrics::finish_execute_timer(timer, &outcome);
@@ -779,7 +778,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            EncodedSpan::from_parent(),
         ))?;
         let outcome = Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
@@ -833,7 +832,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            EncodedSpan::from_parent(),
         ))?;
         let outcome = Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
@@ -870,7 +869,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            EncodedSpan::from_parent(),
         ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
@@ -908,7 +907,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            EncodedSpan::from_parent(),
         ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
@@ -939,7 +938,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            EncodedSpan::from_parent(),
         ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {
@@ -970,7 +969,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,
-            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            EncodedSpan::from_parent(),
         ))?;
         Self::receive_response(rx).await?.map_err(|e| {
             if e.is_overloaded() {

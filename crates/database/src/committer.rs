@@ -910,7 +910,7 @@ impl<RT: Runtime> CommitterClient<RT> {
             transaction,
             result: tx,
             write_source,
-            parent_trace: EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            parent_trace: EncodedSpan::from_parent(),
         };
         self.sender.try_send(message).map_err(|e| match e {
             TrySendError::Full(..) => metrics::committer_full_error().into(),

@@ -195,6 +195,7 @@ mod tests {
             run_function_and_collect_log_lines,
             LogLines,
         },
+        minitrace_helpers::EncodedSpan,
         types::{
             ModuleEnvironment,
             UdfType,
@@ -216,7 +217,6 @@ mod tests {
         UserIdentity,
     };
     use maplit::btreemap;
-    use minitrace::collector::SpanContext;
     use model::{
         config::types::ModuleConfig,
         modules::{
@@ -305,8 +305,7 @@ mod tests {
             environment_variables: btreemap! {},
             callback_token: "".to_owned(),
             context: ExecutionContext::new_for_test(),
-            encoded_parent_trace: SpanContext::current_local_parent()
-                .map(|ctx| ctx.encode_w3c_traceparent()),
+            encoded_parent_trace: EncodedSpan::from_parent().0,
         }
     }
 

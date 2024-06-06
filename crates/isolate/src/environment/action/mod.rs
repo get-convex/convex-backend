@@ -66,7 +66,6 @@ use humansize::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
-use minitrace::collector::SpanContext;
 use model::{
     environment_variables::types::{
         EnvVarName,
@@ -574,7 +573,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .unbounded_send(TaskRequest {
                 task_id,
                 variant: TaskRequestEnum::AsyncOp(AsyncOpRequest::SendStream { stream, stream_id }),
-                parent_trace: EncodedSpan::from_parent(SpanContext::current_local_parent()),
+                parent_trace: EncodedSpan::from_parent(),
             })
             .expect("TaskExecutor went away?");
     }
@@ -1227,7 +1226,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .unbounded_send(TaskRequest {
                 task_id,
                 variant: request,
-                parent_trace: EncodedSpan::from_parent(SpanContext::current_local_parent()),
+                parent_trace: EncodedSpan::from_parent(),
             })
             .expect("TaskExecutor went away?");
         Ok(())

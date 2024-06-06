@@ -46,6 +46,7 @@ use common::{
         LogLines,
         SystemLogMetadata,
     },
+    minitrace_helpers::EncodedSpan,
     pause::PauseClient,
     query_journal::QueryJournal,
     runtime::{
@@ -127,7 +128,6 @@ use keybroker::{
     InstanceSecret,
     KeyBroker,
 };
-use minitrace::collector::SpanContext;
 use model::{
     config::{
         module_loader::ModuleLoader,
@@ -1327,8 +1327,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     environment_variables,
                     callback_token: self.key_broker.issue_action_token(),
                     context: context.clone(),
-                    encoded_parent_trace: SpanContext::current_local_parent()
-                        .map(|ctx| ctx.encode_w3c_traceparent()),
+                    encoded_parent_trace: EncodedSpan::from_parent().0,
                 };
 
                 let node_outcome_future = self

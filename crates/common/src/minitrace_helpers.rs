@@ -20,9 +20,9 @@ impl EncodedSpan {
         Self(None)
     }
 
-    /// Encodes the passed in `SpanContext`
-    pub fn from_parent(parent: Option<SpanContext>) -> Self {
-        Self(parent.map(|ctx| ctx.encode_w3c_traceparent()))
+    /// Encodes the current local parent `SpanContext`
+    pub fn from_parent() -> Self {
+        Self(SpanContext::current_local_parent().map(|ctx| ctx.encode_w3c_traceparent()))
     }
 }
 

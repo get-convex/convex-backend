@@ -84,7 +84,6 @@ use keybroker::{
     InstanceSecret,
     KeyBroker,
 };
-use minitrace::collector::SpanContext;
 use model::environment_variables::types::{
     EnvVarName,
     EnvVarValue,
@@ -431,7 +430,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         queue_timer: queue_timer(),
                         udf_callback: Box::new(self.clone()),
                     },
-                    EncodedSpan::from_parent(SpanContext::current_local_parent()),
+                    EncodedSpan::from_parent(),
                 );
                 self.send_request(request)?;
                 let (tx, outcome) = Self::receive_response(rx).await??;
@@ -457,7 +456,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         fetch_client,
                         log_line_sender,
                     },
-                    EncodedSpan::from_parent(SpanContext::current_local_parent()),
+                    EncodedSpan::from_parent(),
                 );
                 self.send_request(request)?;
                 let outcome = Self::receive_response(rx).await??;
@@ -504,7 +503,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> UdfCallback<RT> for FunctionRunnerC
                 queue_timer: queue_timer(),
                 udf_callback: Box::new(self.clone()),
             },
-            EncodedSpan::from_parent(SpanContext::current_local_parent()),
+            EncodedSpan::from_parent(),
         );
         self.send_request(request)?;
         let result = Self::receive_response(rx).await??;
