@@ -51,8 +51,6 @@ use crate::{
         SearchIndexSchema,
         TableDefinition,
         MAX_INDEXES_PER_TABLE,
-        MAX_SEARCH_INDEXES_PER_TABLE,
-        MAX_VECTOR_INDEXES_PER_TABLE,
     },
     types::{
         IndexDescriptor,
@@ -142,18 +140,14 @@ struct TableDefinitionJson {
 // complain complain about duplicate names
 fn parse_names_and_indexes<T: TryFrom<JsonValue, Error = anyhow::Error>>(
     table_name: &TableName,
-    indexes: Option<Vec<JsonValue>>,
+    indexes: Vec<JsonValue>,
     descriptor: impl Fn(&T) -> &IndexDescriptor,
 ) -> anyhow::Result<(Vec<IndexDescriptor>, BTreeMap<IndexDescriptor, T>)> {
     itertools::process_results(
-        indexes
-            .unwrap_or_default()
-            .into_iter()
-            .map(T::try_from)
-            .map_ok(|idx| {
-                let index_name = descriptor(&idx);
-                (index_name.clone(), (index_name.clone(), idx))
-            }),
+        indexes.into_iter().map(T::try_from).map_ok(|idx| {
+            let index_name = descriptor(&idx);
+            (index_name.clone(), (index_name.clone(), idx))
+        }),
         |iter| iter.unzip(),
     )
     .map_err(|e: anyhow::Error| e.wrap_error_message(|s| format!("In table \"{table_name}\": {s}")))
@@ -183,6 +177,8 @@ impl TryFrom<JsonValue> for TableDefinition {
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         let j: TableDefinitionJson = serde_json::from_value(value).with_context(invalid_json)?;
+        let search_indexes = j.search_indexes.unwrap_or_default();
+        let vector_indexes = j.vector_indexes.unwrap_or_default();
 
         let document_type = j.document_type.map(|t| t.try_into()).transpose()?;
 
@@ -195,7 +191,7 @@ impl TryFrom<JsonValue> for TableDefinition {
             index_validation_error::table_name_reserved(&table_name)
         );
 
-        if j.indexes.len() > MAX_INDEXES_PER_TABLE {
+        if j.indexes.len() + vector_indexes.len() + search_indexes.len() > MAX_INDEXES_PER_TABLE {
             anyhow::bail!(index_validation_error::too_many_indexes(
                 &table_name,
                 MAX_INDEXES_PER_TABLE
@@ -203,7 +199,7 @@ impl TryFrom<JsonValue> for TableDefinition {
         }
 
         let (index_names, indexes) =
-            parse_names_and_indexes(&table_name, Some(j.indexes), |idx: &IndexSchema| {
+            parse_names_and_indexes(&table_name, j.indexes, |idx: &IndexSchema| {
                 &idx.index_descriptor
             })?;
         for schema in indexes.values() {
@@ -218,7 +214,7 @@ impl TryFrom<JsonValue> for TableDefinition {
         )?;
 
         let (search_index_names, search_indexes) =
-            parse_names_and_indexes(&table_name, j.search_indexes, |idx: &SearchIndexSchema| {
+            parse_names_and_indexes(&table_name, search_indexes, |idx: &SearchIndexSchema| {
                 &idx.index_descriptor
             })?;
         validate_unique_index_fields(
@@ -226,15 +222,9 @@ impl TryFrom<JsonValue> for TableDefinition {
             |idx| idx.search_field.clone(),
             |index1, index2| search_field_not_unique(&table_name, index1, index2),
         )?;
-        if search_indexes.len() > MAX_SEARCH_INDEXES_PER_TABLE {
-            anyhow::bail!(index_validation_error::too_many_search_indexes(
-                &table_name,
-                MAX_SEARCH_INDEXES_PER_TABLE
-            ));
-        }
 
         let (vector_index_names, vector_indexes): (Vec<_>, BTreeMap<_, _>) =
-            parse_names_and_indexes(&table_name, j.vector_indexes, |idx: &VectorIndexSchema| {
+            parse_names_and_indexes(&table_name, vector_indexes, |idx: &VectorIndexSchema| {
                 &idx.index_descriptor
             })?;
         validate_unique_index_fields(
@@ -242,13 +232,6 @@ impl TryFrom<JsonValue> for TableDefinition {
             |idx| (idx.vector_field.clone(), idx.dimension),
             |index1, index2| vector_field_not_unique(&table_name, index1, index2),
         )?;
-
-        if vector_indexes.len() > MAX_VECTOR_INDEXES_PER_TABLE {
-            anyhow::bail!(index_validation_error::too_many_vector_indexes(
-                &table_name,
-                MAX_VECTOR_INDEXES_PER_TABLE
-            ));
-        }
 
         let all_index_names: Vec<_> = index_names
             .into_iter()

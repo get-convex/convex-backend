@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 use errors::ErrorMetadata;
+use itertools::Itertools;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -15,8 +16,6 @@ use crate::{
     schemas::{
         DatabaseSchema,
         MAX_INDEXES_PER_TABLE,
-        MAX_SEARCH_INDEXES_PER_TABLE,
-        MAX_VECTOR_INDEXES_PER_TABLE,
     },
 };
 
@@ -834,8 +833,57 @@ fn test_too_many_indexes() {
 }
 
 #[test]
-fn test_too_many_search_indexes() {
-    let indexes: Vec<_> = (0..MAX_SEARCH_INDEXES_PER_TABLE + 1)
+fn test_too_many_indexes_across_types() -> anyhow::Result<()> {
+    let num_indexes_per_type = (MAX_INDEXES_PER_TABLE / 3) + 1;
+    let indexes: Vec<JsonValue> = (0..num_indexes_per_type)
+        .map(|i| {
+            json!({
+                "indexDescriptor": format!("index{i}"),
+                "fields": [format!("field{i}")]
+            })
+        })
+        .collect_vec();
+    let text_indexes = (0..num_indexes_per_type)
+        .map(|i| {
+            json!({
+                "indexDescriptor": format!("search_index{}", i),
+                "searchField": format!("fieldName{}", i),
+                "filterFields": [],
+            })
+        })
+        .collect_vec();
+    let vector_indexes = (0..num_indexes_per_type)
+        .map(|i| {
+            json!({
+                "indexDescriptor": format!("vector_index{}", i),
+                "vectorField": format!("fieldName{}", i),
+                "filterFields": [],
+                "dimensions": 1536,
+            })
+        })
+        .collect_vec();
+    let value = json!({
+        "tables": [
+            {
+                "tableName": "test",
+                "indexes": indexes,
+                "searchIndexes": text_indexes,
+                "vectorIndexes": vector_indexes,
+            },
+        ],
+        "schemaValidation": true,
+    });
+    let err = index_validation_test(value);
+    assert_eq!(
+        err.short_msg, "TooManyIndexes",
+        "<{err}> does not match expected error type"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_many_search_indexes() -> anyhow::Result<()> {
+    let indexes: Vec<_> = (0..7)
         .map(|i| {
             json!({
                 "indexDescriptor": format!("index{}", i),
@@ -854,16 +902,13 @@ fn test_too_many_search_indexes() {
         ],
         "schemaValidation": true,
     });
-    let err = index_validation_test(value);
-    assert_eq!(
-        err.short_msg, "TooManySearchIndexes",
-        "<{err}> does not match expected error type"
-    );
+    DatabaseSchema::try_from(value)?;
+    Ok(())
 }
 
 #[test]
-fn test_too_many_vector_indexes() -> anyhow::Result<()> {
-    let indexes: Vec<_> = (0..MAX_VECTOR_INDEXES_PER_TABLE + 1)
+fn test_many_vector_indexes() -> anyhow::Result<()> {
+    let indexes: Vec<_> = (0..5)
         .map(|i| {
             json!({
                 "indexDescriptor": format!("index{}", i),
@@ -883,11 +928,7 @@ fn test_too_many_vector_indexes() -> anyhow::Result<()> {
         ],
         "schemaValidation": true,
     });
-    let err = index_validation_test(value);
-    assert_eq!(
-        err.short_msg, "TooManyVectorIndexes",
-        "<{err}> does not match expected error type"
-    );
+    DatabaseSchema::try_from(value)?;
     Ok(())
 }
 

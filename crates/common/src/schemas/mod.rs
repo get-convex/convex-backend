@@ -59,10 +59,7 @@ pub mod json;
 mod tests;
 pub mod validator;
 
-pub const MAX_INDEXES_PER_TABLE: usize = 32;
-pub const MAX_SEARCH_INDEXES_PER_TABLE: usize = 4;
-pub const MAX_VECTOR_INDEXES_PER_TABLE: usize = 4;
-
+pub const MAX_INDEXES_PER_TABLE: usize = 64;
 #[derive(derive_more::Display, Debug, Clone, PartialEq)]
 pub enum SchemaValidationError {
     #[display(

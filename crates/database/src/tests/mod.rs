@@ -39,6 +39,7 @@ use common::{
         QueryOperator,
         QuerySource,
     },
+    runtime::Runtime,
     schemas::{
         validator::{
             FieldValidator,
@@ -54,6 +55,7 @@ use common::{
         unchecked_repeatable_ts,
         IndexDescriptor,
         IndexName,
+        RepeatableTimestamp,
         TableName,
     },
     value::{
@@ -77,6 +79,8 @@ use value::{
     assert_val,
     id_v6::DeveloperDocumentId,
     val,
+    FieldPath,
+    ResolvedDocumentId,
     TableIdentifier,
     TableMapping,
     TableNamespace,
@@ -1536,6 +1540,82 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
 }
 
 #[convex_macro::test_runtime]
+async fn add_indexes_at_limit_with_backfilling_index_adds_index(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    // load once to initialize
+    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
+    let mut tx = db.begin(Identity::system()).await?;
+    let begin_ts = tx.begin_timestamp();
+
+    // Add the maximum allowed number of indexes.
+    for i in 0..MAX_INDEXES_PER_TABLE {
+        add_backfilling_index(&mut tx, begin_ts, i).await?;
+    }
+    db.commit(tx).await?;
+    let retention_validator = Arc::new(NoopRetentionValidator);
+    IndexWorker::new_terminating(rt, tp, retention_validator, db.clone()).await?;
+
+    let mut tx = db.begin_system().await?;
+    let begin_ts = tx.begin_timestamp();
+
+    // This just needs to be any index for which we added an Index (heh) in the loop
+    // above.
+    let index = 0;
+    let (index_name, _) = new_index_and_field_path(index)?;
+
+    // Adding a second backfilling/backfilled index that matches an existing one
+    // should fail.
+    let result = add_backfilling_index(&mut tx, begin_ts, index).await;
+    assert_single_pending_index_error(result);
+
+    // Now enable the index
+    IndexModel::new(&mut tx)
+        .enable_index_for_testing(TableNamespace::Global, &index_name)
+        .await?;
+
+    // Then make sure we can add a new backfilling copy of it.
+    add_backfilling_index(&mut tx, begin_ts, index).await?;
+    // But not a second backfilling copy of it.
+    let result = add_backfilling_index(&mut tx, begin_ts, index).await;
+    assert_single_pending_index_error(result);
+
+    Ok(())
+}
+
+fn assert_single_pending_index_error(result: anyhow::Result<ResolvedDocumentId>) {
+    let err = result
+        .expect_err("Successfully added a second pending index!")
+        .to_string();
+    assert!(
+        err.contains("Cannot create a second pending index"),
+        "Unexpected error {}",
+        err
+    );
+}
+
+fn new_index_and_field_path(index: usize) -> anyhow::Result<(IndexName, FieldPath)> {
+    let field_name = format!("field_{}", index);
+    let index_name = IndexName::new("table".parse()?, format!("by_{}", field_name).parse()?)?;
+    Ok((index_name, field_name.parse()?))
+}
+
+async fn add_backfilling_index<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+    begin_ts: RepeatableTimestamp,
+    index: usize,
+) -> anyhow::Result<ResolvedDocumentId> {
+    let (index_name, field_path) = new_index_and_field_path(index)?;
+    IndexModel::new(tx)
+        .add_application_index(IndexMetadata::new_backfilling(
+            *begin_ts,
+            index_name,
+            vec![field_path].try_into()?,
+        ))
+        .await
+}
+
+#[convex_macro::test_runtime]
 async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
     // load once to initialize
     let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
@@ -1544,33 +1624,11 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Add the maximum allowed number of indexes.
     for i in 0..MAX_INDEXES_PER_TABLE {
-        let field_name = format!("field_{}", i);
-        IndexModel::new(&mut tx)
-            .add_application_index(IndexMetadata::new_backfilling(
-                *begin_ts,
-                IndexName::new("table".parse()?, format!("by_{}", field_name).parse()?)?,
-                vec![field_name.parse()?].try_into()?,
-            ))
-            .await
-            .unwrap_or_else(|_| panic!("Failed to add index for {}", field_name));
+        add_backfilling_index(&mut tx, begin_ts, i).await?;
     }
     // Try to add one more. Should fail.
-    let err = IndexModel::new(&mut tx)
-        .add_application_index(IndexMetadata::new_backfilling(
-            *begin_ts,
-            IndexName::new("table".parse()?, "by_field_max".parse()?)?,
-            vec!["field_max".parse()?].try_into()?,
-        ))
-        .await
-        .expect_err("Succesfully added index field_max!")
-        .to_string();
-    assert!(
-        err.contains(&format!(
-            "Table \"table\" cannot have more than {MAX_INDEXES_PER_TABLE} indexes."
-        )),
-        "Unexpected error {}",
-        err
-    );
+    let err = add_backfilling_index(&mut tx, begin_ts, MAX_INDEXES_PER_TABLE + 1).await;
+    assert_too_many_indexes_error(err);
 
     // Commit
     db.commit(tx).await?;
@@ -1586,14 +1644,15 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
     let mut tx = db.begin(Identity::system()).await?;
     let begin_ts = tx.begin_timestamp();
-    let err = IndexModel::new(&mut tx)
-        .add_application_index(IndexMetadata::new_backfilling(
-            *begin_ts,
-            IndexName::new("table".parse()?, "by_field_max".parse()?)?,
-            vec!["field_32".parse()?].try_into()?,
-        ))
-        .await
-        .expect_err("Succesfully added index field_max!")
+    let err = add_backfilling_index(&mut tx, begin_ts, MAX_INDEXES_PER_TABLE + 1).await;
+    assert_too_many_indexes_error(err);
+
+    Ok(())
+}
+
+fn assert_too_many_indexes_error(result: anyhow::Result<ResolvedDocumentId>) {
+    let err = result
+        .expect_err("Successfully added index field_max!")
         .to_string();
     assert!(
         err.contains(&format!(
@@ -1602,8 +1661,6 @@ async fn test_add_indexes_limit(rt: TestRuntime) -> anyhow::Result<()> {
         "Unexpected error {}",
         err
     );
-
-    Ok(())
 }
 
 #[convex_macro::test_runtime]

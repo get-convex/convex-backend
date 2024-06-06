@@ -157,18 +157,7 @@ pub fn too_many_indexes(table_name: &TableName, num_indexes: usize) -> ErrorMeta
         format!("Table \"{table_name}\" cannot have more than {num_indexes} indexes."),
     )
 }
-pub fn too_many_search_indexes(table_name: &TableName, num_indexes: usize) -> ErrorMetadata {
-    ErrorMetadata::bad_request(
-        "TooManySearchIndexes",
-        format!("Table \"{table_name}\" cannot have more than {num_indexes} search indexes."),
-    )
-}
-pub fn too_many_vector_indexes(table_name: &TableName, num_indexes: usize) -> ErrorMetadata {
-    ErrorMetadata::bad_request(
-        "TooManyVectorIndexes",
-        format!("Table \"{table_name}\" cannot have more than {num_indexes} vector indexes."),
-    )
-}
+
 pub fn too_many_name_components(index_name: &str) -> ErrorMetadata {
     ErrorMetadata::bad_request(
         "IndexTooManyNameComponents",

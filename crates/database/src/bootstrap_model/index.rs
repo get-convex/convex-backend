@@ -1,5 +1,6 @@
 use std::collections::{
     BTreeMap,
+    BTreeSet,
     HashMap,
 };
 
@@ -60,6 +61,7 @@ use indexing::{
         Index,
     },
 };
+use itertools::Itertools;
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -118,14 +120,21 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             unauthorized_error("add_index")
         );
         anyhow::ensure!(!index.name.is_system_owned(), "Can't change system indexes");
-        let num_user_indexes_on_table = self
-            .get_application_indexes()
-            .await?
+        let application_indexes = self.get_application_indexes().await?;
+        // Indexes may exist in both a pending and an enabled state. If we're at or over
+        // the index limit, we should still be able to add a new pending copy of
+        // an enabled index with the expectation that the pending index will
+        // replace the enabled index eventually. We must have other checks to
+        // ensure we don't add multiple pending or enabled indexes, so
+        // here we just verify we're not increasing the total number of indexes.
+        let index_names_in_table = application_indexes
             .into_iter()
             .filter(|application_index| application_index.name.table() == index.name.table())
-            .count();
+            .map(|index| index.into_value().name)
+            .collect::<BTreeSet<_>>();
         anyhow::ensure!(
-            num_user_indexes_on_table < MAX_INDEXES_PER_TABLE,
+            index_names_in_table.contains(&index.name)
+                || index_names_in_table.len() < MAX_INDEXES_PER_TABLE,
             index_validation_error::too_many_indexes(index.name.table(), MAX_INDEXES_PER_TABLE)
         );
         self._add_index(TableNamespace::Global, index).await
