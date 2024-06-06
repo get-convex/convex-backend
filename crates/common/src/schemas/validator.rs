@@ -327,7 +327,7 @@ impl Validator {
         Ok(())
     }
 
-    pub fn from_type<C: ShapeConfig, S: ShapeCounter>(
+    pub fn from_shape<C: ShapeConfig, S: ShapeCounter>(
         t: &Shape<C, S>,
         table_mapping: &NamespacedTableMapping,
         virtual_table_mapping: &VirtualTableMapping,
@@ -356,23 +356,23 @@ impl Validator {
             ShapeEnum::FieldName => Self::String,
             ShapeEnum::String => Self::String,
             ShapeEnum::Bytes => Self::Bytes,
-            ShapeEnum::Array(array_type) => Self::Array(Box::new(Self::from_type(
+            ShapeEnum::Array(array_type) => Self::Array(Box::new(Self::from_shape(
                 array_type.element(),
                 table_mapping,
                 virtual_table_mapping,
             ))),
-            ShapeEnum::Set(set_type) => Self::Set(Box::new(Self::from_type(
+            ShapeEnum::Set(set_type) => Self::Set(Box::new(Self::from_shape(
                 set_type.element(),
                 table_mapping,
                 virtual_table_mapping,
             ))),
             ShapeEnum::Map(map_type) => Self::Map(
-                Box::new(Self::from_type(
+                Box::new(Self::from_shape(
                     map_type.key(),
                     table_mapping,
                     virtual_table_mapping,
                 )),
-                Box::new(Self::from_type(
+                Box::new(Self::from_shape(
                     map_type.value(),
                     table_mapping,
                     virtual_table_mapping,
@@ -385,7 +385,7 @@ impl Validator {
                         (
                             k.clone(),
                             FieldValidator {
-                                validator: Self::from_type(
+                                validator: Self::from_shape(
                                     &v.value_shape,
                                     table_mapping,
                                     virtual_table_mapping,
@@ -398,12 +398,12 @@ impl Validator {
                 Self::Object(ObjectValidator(object_fields))
             },
             ShapeEnum::Record(record_type) => Self::Record(
-                Box::new(Self::from_type(
+                Box::new(Self::from_shape(
                     record_type.field(),
                     table_mapping,
                     virtual_table_mapping,
                 )),
-                Box::new(Self::from_type(
+                Box::new(Self::from_shape(
                     record_type.value(),
                     table_mapping,
                     virtual_table_mapping,
@@ -412,7 +412,7 @@ impl Validator {
             ShapeEnum::Union(union_type) => Self::Union(
                 union_type
                     .iter()
-                    .map(|t| Self::from_type(t, table_mapping, virtual_table_mapping))
+                    .map(|t| Self::from_shape(t, table_mapping, virtual_table_mapping))
                     .collect(),
             ),
             ShapeEnum::Unknown => Self::Any,
@@ -740,6 +740,32 @@ impl Validator {
             Self::Record(k, v) => k.has_map_or_set() || v.has_map_or_set(),
             Self::Object(o) => o.has_map_or_set(),
             Self::Union(u) => u.iter().any(|o| o.has_map_or_set()),
+        }
+    }
+
+    // Filter out `_id` and `_creationTime` at the top level
+    pub fn filter_top_level_system_fields(self) -> Self {
+        match self {
+            Validator::Id(_)
+            | Validator::Null
+            | Validator::Float64
+            | Validator::Int64
+            | Validator::Boolean
+            | Validator::String
+            | Validator::Bytes
+            | Validator::Literal(_)
+            | Validator::Array(_)
+            | Validator::Set(_)
+            | Validator::Record(..)
+            | Validator::Map(..)
+            | Validator::Any => self,
+            Validator::Object(o) => Validator::Object(o.filter_system_fields()),
+            Validator::Union(validators) => Validator::Union(
+                validators
+                    .into_iter()
+                    .map(|v| v.filter_top_level_system_fields())
+                    .collect(),
+            ),
         }
     }
 }
@@ -1726,7 +1752,7 @@ mod tests {
             let table_mapping = empty_table_mapping();
             let virtual_table_mapping = VirtualTableMapping::new();
             let shape = CountedShape::<TestConfig>::empty().insert_value(&resolved_value);
-            let validator = Validator::from_type(&shape, &table_mapping, &virtual_table_mapping);
+            let validator = Validator::from_shape(&shape, &table_mapping, &virtual_table_mapping);
             prop_assert!(validator.check_value(
                 &resolved_value,
                 &table_mapping,

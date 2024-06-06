@@ -330,7 +330,10 @@ impl DatabaseSchema {
         }
 
         // Can skip validation thanks to the saved shape?
-        if Validator::from_type(table_shape, table_mapping, virtual_table_mapping)
+        let validator_from_shape =
+            Validator::from_shape(table_shape, table_mapping, virtual_table_mapping);
+        if validator_from_shape
+            .filter_top_level_system_fields()
             .is_subset(&next_schema_validator)
         {
             return Ok(false);

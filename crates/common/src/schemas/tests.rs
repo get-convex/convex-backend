@@ -899,10 +899,12 @@ mod tables_to_revalidate {
     #[test]
     fn test_type_narrower_than_schema() -> anyhow::Result<()> {
         let shape = CountedShape::<TestConfig>::empty().insert_value(&assert_val!("value"));
-        assert!(
-            !Validator::from_type(&shape, &empty_table_mapping(), &VirtualTableMapping::new())
-                .is_subset(&literals_validator(vec!["a", "b", "c", "d"])?)
-        );
+        assert!(!Validator::from_shape(
+            &shape,
+            &empty_table_mapping(),
+            &VirtualTableMapping::new()
+        )
+        .is_subset(&literals_validator(vec!["a", "b", "c", "d"])?));
         Ok(())
     }
 
@@ -938,7 +940,7 @@ mod tables_to_revalidate {
     fn test_schema_narrower_than_type() -> anyhow::Result<()> {
         let shape = CountedShape::<TestConfig>::empty().insert_value(&assert_val!("value"));
         assert!(
-            Validator::from_type(&shape, &empty_table_mapping(), &VirtualTableMapping::new())
+            Validator::from_shape(&shape, &empty_table_mapping(), &VirtualTableMapping::new())
                 .is_subset(&Validator::Union(vec![
                     Validator::String,
                     Validator::Float64
@@ -1010,7 +1012,7 @@ mod tables_to_revalidate {
         let mut id_generator = TestIdGenerator::new();
         let dog_id: ResolvedDocumentId = id_generator.user_generate(&"dogs".parse()?);
         let shape = CountedShape::<TestConfig>::empty().insert_value(&dog_id.into());
-        assert!(Validator::from_type(
+        assert!(Validator::from_shape(
             &shape,
             &id_generator.namespace(TableNamespace::Global),
             &VirtualTableMapping::new()
@@ -1024,7 +1026,7 @@ mod tables_to_revalidate {
         let mut id_generator = TestIdGenerator::new();
         let dog_id: DeveloperDocumentId = id_generator.generate_virtual(&"dogs".parse()?);
         let shape = CountedShape::<TestConfig>::empty().insert_value(&dog_id.into());
-        assert!(Validator::from_type(
+        assert!(Validator::from_shape(
             &shape,
             &empty_table_mapping(),
             &id_generator.virtual_table_mapping
