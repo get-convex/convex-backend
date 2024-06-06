@@ -1006,7 +1006,16 @@ pub static HTTP_SERVER_TIMEOUT_DURATION: LazyLock<Duration> =
 pub static MAX_PUSH_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_PUSH_BYTES", 100_000_000));
 
-/// Percentage of request traces that should sampled
+/// Percentage of request traces that should sampled.
+/// Can set a global value, as well as per-route values
+///
+/// Note that the regexes can't contain commas.
+///
+/// Examples:
+///   REQUEST_TRACE_SAMPLE_CONFIG=0.01
+///   REQUEST_TRACE_SAMPLE_CONFIG=/route1=0.50,0.01
+///   REQUEST_TRACE_SAMPLE_CONFIG=/route1=0.50,route2=0.50,0.01
+///   REQUEST_TRACE_SAMPLE_CONFIG=/http/.*=0.50
 pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> =
     LazyLock::new(|| env_config("REQUEST_TRACE_SAMPLE_CONFIG", SamplingConfig::default()));
 

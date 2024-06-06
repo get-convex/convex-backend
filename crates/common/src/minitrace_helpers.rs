@@ -9,6 +9,7 @@ use minitrace::{
     Span,
 };
 use rand::Rng;
+use regex::Regex;
 
 use crate::knobs::REQUEST_TRACE_SAMPLE_CONFIG;
 
@@ -44,7 +45,7 @@ pub fn get_sampled_span<R: Rng>(
 #[derive(Debug)]
 pub struct SamplingConfig {
     global: f64,
-    by_name: BTreeMap<String, f64>,
+    by_name_regex: BTreeMap<String, (Regex, f64)>,
 }
 
 impl Default for SamplingConfig {
@@ -52,14 +53,23 @@ impl Default for SamplingConfig {
         // No sampling by default
         Self {
             global: 0.0,
-            by_name: BTreeMap::new(),
+            by_name_regex: BTreeMap::new(),
         }
     }
 }
 
 impl SamplingConfig {
     fn sample_ratio(&self, name: &str) -> f64 {
-        *self.by_name.get(name).unwrap_or(&self.global)
+        self.by_name_regex
+            .values()
+            .find_map(|(name_regex, sample_ratio)| {
+                if name_regex.is_match(name) {
+                    Some(*sample_ratio)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(self.global)
     }
 }
 
@@ -68,14 +78,15 @@ impl FromStr for SamplingConfig {
 
     fn from_str(s: &str) -> anyhow::Result<Self> {
         let mut global = None;
-        let mut by_name = BTreeMap::new();
+        let mut by_name_regex = BTreeMap::new();
         for token in s.split(',') {
             let parts: Vec<_> = token.split('=').map(|s| s.trim()).collect();
             anyhow::ensure!(parts.len() <= 2, "Too many parts {}", token);
             if parts.len() == 2 {
                 let name = parts[0];
+                let name_regex = Regex::new(name).context("Failed to parse name regex")?;
                 let rate: f64 = parts[1].parse().context("Failed to parse sampling rate")?;
-                let old_value = by_name.insert(name.to_owned(), rate);
+                let old_value = by_name_regex.insert(name.to_owned(), (name_regex, rate));
                 anyhow::ensure!(old_value.is_none(), "{} set more than once", name);
             } else {
                 let rate: f64 = parts[0].parse().context("Failed to parse sampling rate")?;
@@ -85,7 +96,7 @@ impl FromStr for SamplingConfig {
         }
         Ok(SamplingConfig {
             global: global.unwrap_or(0.0),
-            by_name,
+            by_name_regex,
         })
     }
 }
@@ -108,23 +119,29 @@ mod tests {
     fn test_parse_sampling_config() -> anyhow::Result<()> {
         let config: SamplingConfig = "1".parse()?;
         assert_eq!(config.global, 1.0);
-        assert_eq!(config.by_name.len(), 0);
+        assert_eq!(config.by_name_regex.len(), 0);
         assert_eq!(config.sample_ratio("a"), 1.0);
 
         let config: SamplingConfig = "a=0.5,b=0.15".parse()?;
         assert_eq!(config.global, 0.0);
-        assert_eq!(config.by_name.len(), 2);
+        assert_eq!(config.by_name_regex.len(), 2);
         assert_eq!(config.sample_ratio("a"), 0.5);
         assert_eq!(config.sample_ratio("b"), 0.15);
         assert_eq!(config.sample_ratio("c"), 0.0);
 
         let config: SamplingConfig = "a=0.5,b=0.15,0.01".parse()?;
         assert_eq!(config.global, 0.01);
-        assert_eq!(config.by_name.len(), 2);
-        assert_eq!(config.by_name.len(), 2);
+        assert_eq!(config.by_name_regex.len(), 2);
+        assert_eq!(config.by_name_regex.len(), 2);
         assert_eq!(config.sample_ratio("a"), 0.5);
         assert_eq!(config.sample_ratio("b"), 0.15);
         assert_eq!(config.sample_ratio("c"), 0.01);
+
+        let config: SamplingConfig = "/f/.*=0.5".parse()?;
+        assert_eq!(config.by_name_regex.len(), 1);
+        assert_eq!(config.sample_ratio("/f/a"), 0.5);
+        assert_eq!(config.sample_ratio("/f/b"), 0.5);
+        assert_eq!(config.sample_ratio("c"), 0.0);
 
         // Invalid configs.
         let err = "100,200".parse::<SamplingConfig>().unwrap_err();
