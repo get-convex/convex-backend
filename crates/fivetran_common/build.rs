@@ -66,7 +66,11 @@ async fn try_download_file(url: String, destination: &PathBuf) {
 async fn main() -> Result<()> {
     set_protoc_path();
 
-    let protos: &[&str] = &["common.proto", "destination_sdk.proto"];
+    let protos: &[&str] = &[
+        "common.proto",
+        "connector_sdk.proto",
+        "destination_sdk.proto",
+    ];
     let protos_dir = Path::join(Path::new(&env::var("OUT_DIR").unwrap()), "protos");
     create_dir_all(protos_dir.clone()).await?;
 

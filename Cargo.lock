@@ -1265,6 +1265,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "convex_fivetran_common"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-compression 0.4.10",
+ "async-trait",
+ "base64 0.13.1",
+ "bytes",
+ "cfg-if",
+ "futures-util",
+ "maplit",
+ "proptest",
+ "proptest-derive",
+ "prost",
+ "prost-types",
+ "rand 0.8.5",
+ "reqwest 0.11.24",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-build",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "convex_fivetran_destination"
 version = "0.0.1"
 dependencies = [
@@ -1278,6 +1307,7 @@ dependencies = [
  "cfg-if",
  "chrono",
  "common",
+ "convex_fivetran_common",
  "csv-async",
  "derive_more",
  "futures",

@@ -15,6 +15,10 @@ use common::value::{
     FieldName,
     Namespace,
 };
+use convex_fivetran_common::fivetran_sdk::{
+    value_type::Inner as FivetranValue,
+    DataType as FivetranDataType,
+};
 use prost_types::Timestamp;
 use serde_json::Value as JsonValue;
 
@@ -32,63 +36,53 @@ use crate::{
         FileRow,
         FivetranFileValue,
     },
-    fivetran_sdk::{
-        value_type::Inner as FivetranValue,
-        DataType as FivetranDataType,
-    },
 };
 
-impl TryInto<ConvexValue> for FivetranValue {
-    type Error = anyhow::Error;
-
-    fn try_into(self) -> Result<ConvexValue, Self::Error> {
-        // https://www.notion.so/convex-dev/Fivetran-Destination-Connector-Implementation-bc917ad7f68b483a93212d93dbbf7b0d?pvs=4#b54c641656284be28451f4be06adf0ab
-        Ok(match self {
-            FivetranValue::Null(_) => ConvexValue::Null,
-            FivetranValue::Bool(v) => ConvexValue::Boolean(v),
-            FivetranValue::Short(v) => ConvexValue::Float64(v.into()),
-            FivetranValue::Int(v) => ConvexValue::Float64(v.into()),
-            FivetranValue::Long(v) => ConvexValue::Int64(v),
-            FivetranValue::Float(v) => ConvexValue::Float64(v.into()),
-            FivetranValue::Double(v) => ConvexValue::Float64(v),
-            FivetranValue::NaiveDate(Timestamp { seconds, nanos }) => ConvexValue::String(
-                DateTime::from_timestamp(seconds, nanos as u32)
-                    .context("Invalid datetime value")?
-                    .naive_utc()
-                    .date()
-                    .format("%Y-%m-%d")
-                    .to_string()
-                    .try_into()?,
-            ),
-            FivetranValue::NaiveTime(Timestamp { seconds, nanos }) => ConvexValue::String(
-                DateTime::from_timestamp(seconds, nanos as u32)
-                    .context("Invalid datetime value")?
-                    .time()
-                    .format("%H:%M:%S%.f")
-                    .to_string()
-                    .try_into()?,
-            ),
-            FivetranValue::NaiveDatetime(Timestamp { seconds, nanos }) => ConvexValue::String(
-                DateTime::from_timestamp(seconds, nanos as u32)
-                    .context("Invalid datetime value")?
-                    .naive_utc()
-                    .to_string()
-                    .try_into()?,
-            ),
-            FivetranValue::UtcDatetime(timestamp) => {
-                ConvexValue::Float64(timestamp_to_ms(timestamp))
-            },
-            FivetranValue::Decimal(v) => ConvexValue::String(v.try_into()?),
-            FivetranValue::Binary(v) => ConvexValue::Bytes(v.try_into()?),
-            FivetranValue::String(v) => ConvexValue::String(v.try_into()?),
-            FivetranValue::Xml(v) => ConvexValue::String(v.try_into()?),
-            FivetranValue::Json(v) => {
-                let json_value = serde_json::from_str(&v)
-                    .context("Your data source contains a JSON value which isn’t valid.")?;
-                to_convex_value(json_value, Level::Top).context("Your data source contains JSON data that isn’t supported by Convex. You can learn more about the values supported by Convex on https://docs.convex.dev/database/types")?
-            },
-        })
-    }
+fn fivetran_to_convex_value(value: FivetranValue) -> anyhow::Result<ConvexValue> {
+    // https://www.notion.so/convex-dev/Fivetran-Destination-Connector-Implementation-bc917ad7f68b483a93212d93dbbf7b0d?pvs=4#b54c641656284be28451f4be06adf0ab
+    Ok(match value {
+        FivetranValue::Null(_) => ConvexValue::Null,
+        FivetranValue::Bool(v) => ConvexValue::Boolean(v),
+        FivetranValue::Short(v) => ConvexValue::Float64(v.into()),
+        FivetranValue::Int(v) => ConvexValue::Float64(v.into()),
+        FivetranValue::Long(v) => ConvexValue::Int64(v),
+        FivetranValue::Float(v) => ConvexValue::Float64(v.into()),
+        FivetranValue::Double(v) => ConvexValue::Float64(v),
+        FivetranValue::NaiveDate(Timestamp { seconds, nanos }) => ConvexValue::String(
+            DateTime::from_timestamp(seconds, nanos as u32)
+                .context("Invalid datetime value")?
+                .naive_utc()
+                .date()
+                .format("%Y-%m-%d")
+                .to_string()
+                .try_into()?,
+        ),
+        FivetranValue::NaiveTime(Timestamp { seconds, nanos }) => ConvexValue::String(
+            DateTime::from_timestamp(seconds, nanos as u32)
+                .context("Invalid datetime value")?
+                .time()
+                .format("%H:%M:%S%.f")
+                .to_string()
+                .try_into()?,
+        ),
+        FivetranValue::NaiveDatetime(Timestamp { seconds, nanos }) => ConvexValue::String(
+            DateTime::from_timestamp(seconds, nanos as u32)
+                .context("Invalid datetime value")?
+                .naive_utc()
+                .to_string()
+                .try_into()?,
+        ),
+        FivetranValue::UtcDatetime(timestamp) => ConvexValue::Float64(timestamp_to_ms(timestamp)),
+        FivetranValue::Decimal(v) => ConvexValue::String(v.try_into()?),
+        FivetranValue::Binary(v) => ConvexValue::Bytes(v.try_into()?),
+        FivetranValue::String(v) => ConvexValue::String(v.try_into()?),
+        FivetranValue::Xml(v) => ConvexValue::String(v.try_into()?),
+        FivetranValue::Json(v) => {
+            let json_value = serde_json::from_str(&v)
+                .context("Your data source contains a JSON value which isn’t valid.")?;
+            json_to_convex_value(json_value, Level::Top).context("Your data source contains JSON data that isn’t supported by Convex. You can learn more about the values supported by Convex on https://docs.convex.dev/database/types")?
+        },
+    })
 }
 
 #[derive(PartialEq, Eq)]
@@ -105,7 +99,7 @@ enum Level {
 /// This conversion only supports arrays, objects and null at the top level. We
 /// do so because it forces JSON columns to be marked in the Convex schema with
 /// a type that Fivetran will recognize as representing a JSON column.
-fn to_convex_value(value: JsonValue, level: Level) -> anyhow::Result<ConvexValue> {
+fn json_to_convex_value(value: JsonValue, level: Level) -> anyhow::Result<ConvexValue> {
     Ok(match value {
         JsonValue::Null => ConvexValue::Null,
         JsonValue::Bool(b) => {
@@ -135,7 +129,7 @@ fn to_convex_value(value: JsonValue, level: Level) -> anyhow::Result<ConvexValue
         JsonValue::Array(arr) => {
             let mut out = Vec::with_capacity(arr.len());
             for a in arr {
-                out.push(to_convex_value(a, Level::Nested)?);
+                out.push(json_to_convex_value(a, Level::Nested)?);
             }
             ConvexValue::try_from(out)?
         },
@@ -143,7 +137,7 @@ fn to_convex_value(value: JsonValue, level: Level) -> anyhow::Result<ConvexValue
             let mut fields = BTreeMap::new();
             for (key, value) in map {
                 let field_name = FieldName::from_str(&key)?;
-                fields.insert(field_name, to_convex_value(value, Level::Nested)?);
+                fields.insert(field_name, json_to_convex_value(value, Level::Nested)?);
             }
             ConvexValue::try_from(fields)?
         },
@@ -208,10 +202,13 @@ impl TryInto<ConvexObject> for FileRow {
             } else if field_name == *SOFT_DELETE_FIVETRAN_FIELD_NAME {
                 metadata.insert(
                     SOFT_DELETE_CONVEX_FIELD_NAME.clone().into(),
-                    value.try_into()?,
+                    fivetran_to_convex_value(value)?,
                 );
             } else if field_name == *ID_FIVETRAN_FIELD_NAME {
-                metadata.insert(ID_CONVEX_FIELD_NAME.clone().into(), value.try_into()?);
+                metadata.insert(
+                    ID_CONVEX_FIELD_NAME.clone().into(),
+                    fivetran_to_convex_value(value)?,
+                );
             } else {
                 let field_name = FieldName::from_str(&field_name)
                     .context("Invalid field name in the source data")?;
@@ -219,7 +216,7 @@ impl TryInto<ConvexObject> for FileRow {
                     !field_name.is_system(),
                     "System field name in the source data"
                 );
-                row.insert(field_name, value.try_into()?);
+                row.insert(field_name, fivetran_to_convex_value(value)?);
             }
         }
 
@@ -343,10 +340,12 @@ mod tests {
             ConvexValue,
         },
     };
+    use convex_fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
     use maplit::btreemap;
     use proptest::prelude::*;
     use prost_types::Timestamp;
 
+    use super::fivetran_to_convex_value;
     use crate::{
         api_types::FivetranFieldName,
         convert::{
@@ -358,7 +357,6 @@ mod tests {
             FileRow,
             FivetranFileValue,
         },
-        fivetran_sdk::value_type::Inner as FivetranValue,
     };
 
     #[test]
@@ -412,11 +410,11 @@ mod tests {
     #[test]
     fn booleans_are_converted_directly() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Bool(false))?,
+            fivetran_to_convex_value(FivetranValue::Bool(false))?,
             ConvexValue::Boolean(false)
         );
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Bool(true))?,
+            fivetran_to_convex_value(FivetranValue::Bool(true))?,
             ConvexValue::Boolean(true)
         );
         Ok(())
@@ -425,11 +423,11 @@ mod tests {
     #[test]
     fn small_integer_types_are_converted_to_v_number() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Short(42))?,
+            fivetran_to_convex_value(FivetranValue::Short(42))?,
             ConvexValue::Float64(42.0)
         );
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Int(-4))?,
+            fivetran_to_convex_value(FivetranValue::Int(-4))?,
             ConvexValue::Float64(-4.0)
         );
         Ok(())
@@ -438,7 +436,7 @@ mod tests {
     #[test]
     fn longs_are_converted_directly() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Long(i64::MAX))?,
+            fivetran_to_convex_value(FivetranValue::Long(i64::MAX))?,
             ConvexValue::Int64(i64::MAX)
         );
         Ok(())
@@ -447,7 +445,7 @@ mod tests {
     #[test]
     fn decimals_are_represented_as_strings() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Decimal("123.456".to_string()))?,
+            fivetran_to_convex_value(FivetranValue::Decimal("123.456".to_string()))?,
             ConvexValue::String("123.456".try_into()?)
         );
         Ok(())
@@ -456,7 +454,7 @@ mod tests {
     #[test]
     fn floats_are_converted_to_doubles() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Float(1.0))?,
+            fivetran_to_convex_value(FivetranValue::Float(1.0))?,
             ConvexValue::Float64(1.0)
         );
         Ok(())
@@ -465,7 +463,7 @@ mod tests {
     #[test]
     fn doubles_are_converted_directly() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Double(std::f64::consts::PI))?,
+            fivetran_to_convex_value(FivetranValue::Double(std::f64::consts::PI))?,
             ConvexValue::Float64(std::f64::consts::PI)
         );
         Ok(())
@@ -474,14 +472,14 @@ mod tests {
     #[test]
     fn naive_date_is_converted_to_strings() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::NaiveDate(Timestamp {
+            fivetran_to_convex_value(FivetranValue::NaiveDate(Timestamp {
                 seconds: 1196640000,
                 nanos: 0
             }))?,
             ConvexValue::String("2007-12-03".try_into()?)
         );
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::NaiveDate(Timestamp {
+            fivetran_to_convex_value(FivetranValue::NaiveDate(Timestamp {
                 seconds: 0,
                 nanos: 0
             }))?,
@@ -493,7 +491,7 @@ mod tests {
     #[test]
     fn naive_time_is_converted_to_strings() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::NaiveTime(Timestamp {
+            fivetran_to_convex_value(FivetranValue::NaiveTime(Timestamp {
                 seconds: 19 * 60 * 60 + 41 * 60 + 30,
                 nanos: 0
             }))?,
@@ -505,21 +503,21 @@ mod tests {
     #[test]
     fn naive_datetime_is_converted_to_strings() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::NaiveDatetime(Timestamp {
+            fivetran_to_convex_value(FivetranValue::NaiveDatetime(Timestamp {
                 seconds: 1196676930,
                 nanos: 0
             }))?,
             ConvexValue::String("2007-12-03 10:15:30".try_into()?)
         );
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::NaiveDatetime(Timestamp {
+            fivetran_to_convex_value(FivetranValue::NaiveDatetime(Timestamp {
                 seconds: 1196676930,
                 nanos: 1_000_000
             }))?,
             ConvexValue::String("2007-12-03 10:15:30.001".try_into()?)
         );
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::NaiveDatetime(Timestamp {
+            fivetran_to_convex_value(FivetranValue::NaiveDatetime(Timestamp {
                 seconds: 0,
                 nanos: 0
             }))?,
@@ -531,7 +529,7 @@ mod tests {
     #[test]
     fn utc_datetimes_are_converted_to_ms_timestamps() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::UtcDatetime(Timestamp {
+            fivetran_to_convex_value(FivetranValue::UtcDatetime(Timestamp {
                 seconds: 1196676930,
                 nanos: 123_000_000,
             }))?,
@@ -543,7 +541,7 @@ mod tests {
     #[test]
     fn binary_is_converted_directly() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Binary(vec![0, 255, 1, 2, 3]))?,
+            fivetran_to_convex_value(FivetranValue::Binary(vec![0, 255, 1, 2, 3]))?,
             ConvexValue::Bytes(vec![0, 255, 1, 2, 3].try_into()?)
         );
         Ok(())
@@ -552,7 +550,7 @@ mod tests {
     #[test]
     fn xml_is_converted_to_string() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Xml(
+            fivetran_to_convex_value(FivetranValue::Xml(
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?><document/>".to_string()
             ))?,
             ConvexValue::String(
@@ -565,7 +563,7 @@ mod tests {
     #[test]
     fn string_is_converted_directly() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::String("Hello world".to_string()))?,
+            fivetran_to_convex_value(FivetranValue::String("Hello world".to_string()))?,
             ConvexValue::String("Hello world".try_into()?)
         );
         Ok(())
@@ -574,7 +572,7 @@ mod tests {
     #[test]
     fn json_objects_are_converted() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Json(
+            fivetran_to_convex_value(FivetranValue::Json(
                 "{
                     \"null\": null,
                     \"bool\": false,
@@ -602,7 +600,7 @@ mod tests {
     #[test]
     fn json_arrays_are_converted() -> anyhow::Result<()> {
         assert_eq!(
-            TryInto::<ConvexValue>::try_into(FivetranValue::Json("[1,2,3]".to_string()))?,
+            fivetran_to_convex_value(FivetranValue::Json("[1,2,3]".to_string()))?,
             ConvexValue::Array(
                 vec![
                     ConvexValue::Float64(1.0),
@@ -617,13 +615,13 @@ mod tests {
 
     #[test]
     fn other_json_values_are_not_converted() -> anyhow::Result<()> {
-        TryInto::<ConvexValue>::try_into(FivetranValue::Json("42".to_string())).unwrap_err();
+        fivetran_to_convex_value(FivetranValue::Json("42".to_string())).unwrap_err();
         Ok(())
     }
 
     #[test]
     fn json_conversions_can_fail() -> anyhow::Result<()> {
-        TryInto::<ConvexValue>::try_into(FivetranValue::Json("{\"$reserved\": true}".to_string()))
+        fivetran_to_convex_value(FivetranValue::Json("{\"$reserved\": true}".to_string()))
             .unwrap_err();
         Ok(())
     }
@@ -661,7 +659,7 @@ mod tests {
 
             let original_data_type = fivetran_data_type(&value)
                 .expect("The original value has no data type");
-            let Ok(converted_value) = TryInto::<ConvexValue>::try_into(value.clone()) else {
+            let Ok(converted_value) = fivetran_to_convex_value(value.clone()) else {
                 panic!("Can’t serialize the value {value:?}");
             };
             let roundtripped_value = roundtrip_converted_value(converted_value, original_data_type)

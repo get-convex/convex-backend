@@ -14,6 +14,7 @@ use common::{
     schemas::DatabaseSchema,
     value::TableName,
 };
+use convex_fivetran_common::config::Config;
 use serde::{
     de::DeserializeOwned,
     Serialize,
@@ -24,13 +25,10 @@ use tonic::codegen::http::{
     HeaderValue,
 };
 
-use crate::{
-    api_types::{
-        BatchWriteRow,
-        DeleteType,
-        TruncateTableArgs,
-    },
-    config::Config,
+use crate::api_types::{
+    BatchWriteRow,
+    DeleteType,
+    TruncateTableArgs,
 };
 
 #[allow(clippy::declare_interior_mutable_const)]

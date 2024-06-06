@@ -14,7 +14,7 @@ const CONFIG_KEY_DEPLOYMENT_KEY: &str = "key";
 #[derive(Debug, Clone, Copy)]
 pub struct AllowAllHosts(pub bool);
 
-/// The configuration parameters used by the destination, requested to users by
+/// The configuration parameters used by the connector, requested to users by
 /// the Fivetran UI. Users can obtain these values from the Convex dashboard in
 /// the deployment’s settings page.
 pub struct Config {

@@ -13,6 +13,12 @@ use chrono::{
     Timelike,
 };
 use common::async_compat::TokioAsyncReadCompatExt;
+use convex_fivetran_common::fivetran_sdk::{
+    value_type::Inner as FivetranValue,
+    Compression as FivetranFileCompression,
+    CsvFileParams,
+    DataType as FivetranDataType,
+};
 use futures::{
     stream::BoxStream,
     StreamExt,
@@ -32,12 +38,6 @@ use crate::{
         AesDecryptor,
     },
     api_types::FivetranFieldName,
-    fivetran_sdk::{
-        value_type::Inner as FivetranValue,
-        Compression as FivetranFileCompression,
-        CsvFileParams,
-        DataType as FivetranDataType,
-    },
     schema::FivetranTableSchema,
 };
 
@@ -246,6 +246,11 @@ mod tests {
         str::FromStr,
     };
 
+    use convex_fivetran_common::fivetran_sdk::{
+        value_type::Inner as FivetranValue,
+        Compression as FivetranFileCompression,
+        DataType as FivetranDataType,
+    };
     use futures::StreamExt;
     use maplit::btreemap;
     use proptest::prelude::*;
@@ -268,11 +273,6 @@ mod tests {
             FivetranFileEncryption,
             FivetranFileValue,
             FivetranReaderParams,
-        },
-        fivetran_sdk::{
-            value_type::Inner as FivetranValue,
-            Compression as FivetranFileCompression,
-            DataType as FivetranDataType,
         },
         schema::FivetranTableSchema,
     };
