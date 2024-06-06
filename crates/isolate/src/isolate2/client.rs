@@ -182,7 +182,9 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
         // Start the user timer after we acquire the permit.
         let user_start = Instant::now();
         let mut user_timeout = self.rt.wait(self.user_time_remaining);
-        self.sender.try_send(request)?;
+        self.sender
+            .try_send(request)
+            .map_err(|e| e.into_send_error())?;
         let result = futures::select_biased! {
             _ = user_timeout => {
                 // XXX: We need to terminate the isolate handle here in
