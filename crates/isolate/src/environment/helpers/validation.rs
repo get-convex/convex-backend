@@ -7,7 +7,6 @@ use common::{
     },
     errors::JsError,
     identity::InertIdentity,
-    knobs::FUNCTION_MAX_ARGS_SIZE,
     log_lines::LogLines,
     query_journal::QueryJournal,
     runtime::{
@@ -28,10 +27,6 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use humansize::{
-    FormatSize,
-    BINARY,
-};
 use keybroker::Identity;
 use model::{
     backend_state::{
@@ -61,12 +56,12 @@ use value::{
     ConvexArray,
     ConvexValue,
     NamespacedTableMapping,
-    Size,
     TableNamespace,
     VirtualTableMapping,
 };
 
 use crate::{
+    helpers::validate_udf_args_size,
     parse_udf_args,
     ActionOutcome,
     JsonPackedValue,
@@ -418,13 +413,9 @@ impl ValidatedPathAndArgs {
             ))));
         }
 
-        if args.size() > *FUNCTION_MAX_ARGS_SIZE {
-            return Ok(Err(JsError::from_message(format!(
-                "Arguments for {} are too large (actual: {}, limit: {})",
-                String::from(path.as_root_udf_path()?.clone()),
-                args.size().format_size(BINARY),
-                (*FUNCTION_MAX_ARGS_SIZE).format_size(BINARY),
-            ))));
+        match validate_udf_args_size(&path, &args) {
+            Ok(()) => (),
+            Err(err) => return Ok(Err(err)),
         }
 
         let table_mapping = &tx.table_mapping().namespace(TableNamespace::Global);

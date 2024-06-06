@@ -5,7 +5,10 @@ use common::{
         ComponentFunctionPath,
     },
     errors::JsError,
-    knobs::FUNCTION_MAX_RESULT_SIZE,
+    knobs::{
+        FUNCTION_MAX_ARGS_SIZE,
+        FUNCTION_MAX_RESULT_SIZE,
+    },
     value::{
         ConvexArray,
         ConvexValue,
@@ -117,6 +120,22 @@ pub fn parse_udf_args(
                 String::from(path.udf_path.clone()),
             ))
         })
+}
+
+pub fn validate_udf_args_size(
+    path: &CanonicalizedComponentFunctionPath,
+    args: &ConvexArray,
+) -> Result<(), JsError> {
+    if args.size() > *FUNCTION_MAX_ARGS_SIZE {
+        return Err(JsError::from_message(format!(
+            "Arguments for {} are too large (actual: {}, limit: {})",
+            path.udf_path.clone(),
+            args.size().format_size(BINARY),
+            (*FUNCTION_MAX_ARGS_SIZE).format_size(BINARY),
+        )));
+    }
+
+    Ok(())
 }
 
 pub fn deserialize_udf_result(
