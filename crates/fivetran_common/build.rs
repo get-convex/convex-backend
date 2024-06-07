@@ -40,26 +40,35 @@ fn set_protoc_path() {
     }
 }
 
-async fn download_bytes_of_file(url: &str) -> reqwest::Result<Bytes> {
-    reqwest::get(url).await?.bytes().await
+async fn download_bytes_of_file(url: &str) -> anyhow::Result<Bytes> {
+    Ok(reqwest::get(url).await?.bytes().await?)
 }
 
-async fn try_download_file(url: String, destination: &PathBuf) {
-    match download_bytes_of_file(&url).await {
-        Ok(bytes) => fs::write(destination, bytes)
-            .await
-            .expect("Can’t write the proto file"),
+async fn try_download_file(url: String, destination: &PathBuf) -> anyhow::Result<()> {
+    let bytes = match download_bytes_of_file(&url).await {
+        Ok(bytes) => bytes,
         Err(err) => {
             if destination.exists() {
                 println!(
-                    "cargo:warning=Could not download proto file from {url}. Proceeding with the \
-                     existing proto file."
+                    "cargo:warning=Could not download proto file from {url} ({err:?}). Proceeding \
+                     with the existing proto file."
                 );
-            } else {
-                panic!("Can’t download the proto file from {url}: {err}");
+                return Ok(());
             }
+            anyhow::bail!(err);
         },
     };
+    // Don't write to the file (and mark it as dirty) if it hasn't changed. Writing
+    // to a watched file during a build script bumps its modification time,
+    // which causes a subsequent `cargo build` to consider the file dirty.
+    if destination.exists() {
+        let existing_contents = fs::read(destination).await?;
+        if existing_contents == bytes {
+            return Ok(());
+        }
+    }
+    fs::write(destination, bytes).await?;
+    Ok(())
 }
 
 #[tokio::main]
@@ -85,13 +94,16 @@ async fn main() -> Result<()> {
         .map(|proto| Path::join(&protos_dir, proto))
         .collect();
 
-    join_all(
+    let result = join_all(
         source_urls
             .into_iter()
             .zip(&destination_files)
             .map(|(source_url, destination_file)| try_download_file(source_url, destination_file)),
     )
     .await;
+    for r in result {
+        r.expect("Failed to download proto file");
+    }
 
     tonic_build::configure()
         .btree_map(["."])
