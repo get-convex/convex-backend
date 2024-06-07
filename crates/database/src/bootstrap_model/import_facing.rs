@@ -109,10 +109,10 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         };
 
         let document = ResolvedDocument::new(id, creation_time, value)?;
-        SchemaModel::new(self.tx, TableNamespace::Global)
+        SchemaModel::new(self.tx, TableNamespace::by_component_TODO())
             .enforce_with_table_mapping(
                 &document,
-                &table_mapping_for_schema.namespace(TableNamespace::Global),
+                &table_mapping_for_schema.namespace(TableNamespace::by_component_TODO()),
             )
             .await?;
         self.tx.apply_validated_write(id, None, Some(document))?;

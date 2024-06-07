@@ -97,14 +97,14 @@ fn test_id_strings() -> anyhow::Result<()> {
     let deleted2_table = TableName::from_str("deleted2")?;
     let deleted1_id: DeveloperDocumentId = id_generator.user_generate(&deleted1_table).into();
     let deleted2_id: DeveloperDocumentId = id_generator.user_generate(&deleted2_table).into();
-    let table_mapping = id_generator.namespace(TableNamespace::Global);
+    let table_mapping = id_generator.namespace(TableNamespace::test_user());
 
     // Delete two of the tables
     let deleted1_table_id = table_mapping.id(&deleted1_table)?;
     id_generator.remove(deleted1_table_id.tablet_id);
     let deleted2_table_id = table_mapping.id(&deleted2_table)?;
     id_generator.remove(deleted2_table_id.tablet_id);
-    let table_mapping = id_generator.namespace(TableNamespace::Global);
+    let table_mapping = id_generator.namespace(TableNamespace::test_user());
 
     // Insert all of these into a type
     let inferred_type = CountedShape::<TestConfig>::empty()
@@ -119,7 +119,7 @@ fn test_id_strings() -> anyhow::Result<()> {
     );
     let shape_json = dashboard_shape_json(
         &reduced_shape,
-        &id_generator.namespace(TableNamespace::Global),
+        &id_generator.namespace(TableNamespace::test_user()),
         &id_generator.virtual_table_mapping,
     )?;
     assert_eq!(
@@ -140,7 +140,7 @@ fn test_float_merge_shape_inference() -> anyhow::Result<()> {
         .insert_value(&ConvexValue::Float64(f64::INFINITY))
         .insert_value(&ConvexValue::Float64(123.0))
         .insert_value(&ConvexValue::Null);
-    let table_mapping = id_generator.namespace(TableNamespace::Global);
+    let table_mapping = id_generator.namespace(TableNamespace::test_user());
 
     let reduced_shape = ReducedShape::from_type(
         &inferred_type,
@@ -149,7 +149,7 @@ fn test_float_merge_shape_inference() -> anyhow::Result<()> {
     );
     let shape_json = dashboard_shape_json(
         &reduced_shape,
-        &id_generator.namespace(TableNamespace::Global),
+        &id_generator.namespace(TableNamespace::test_user()),
         &VirtualTableMapping::new(),
     )?;
     assert_eq!(

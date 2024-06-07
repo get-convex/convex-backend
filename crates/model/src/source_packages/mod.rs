@@ -63,9 +63,10 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
     }
 
     pub async fn put(&mut self, source_package: SourcePackage) -> anyhow::Result<SourcePackageId> {
-        let document_id = SystemMetadataModel::new(self.tx, TableNamespace::Global)
-            .insert(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)
-            .await?;
+        let document_id =
+            SystemMetadataModel::new(self.tx, TableNamespace::by_component_definition_TODO())
+                .insert(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)
+                .await?;
         let id: DeveloperDocumentId = document_id.into();
         Ok(id.into())
     }
@@ -79,7 +80,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
             &self
                 .tx
                 .table_mapping()
-                .namespace(TableNamespace::Global)
+                .namespace(TableNamespace::by_component_definition_TODO())
                 .inject_table_id(),
         )?;
         self.tx

@@ -1649,7 +1649,7 @@ impl<RT: Runtime> Database<RT> {
             .map(|c| {
                 c.map_table(
                     table_mapping
-                        .namespace(TableNamespace::Global)
+                        .namespace(TableNamespace::by_component_TODO())
                         .inject_table_id(),
                 )
             })
@@ -1669,7 +1669,7 @@ impl<RT: Runtime> Database<RT> {
         let tablet_id = match table_numbers.next() {
             Some(first_table) => {
                 table_mapping
-                    .namespace(TableNamespace::Global)
+                    .namespace(TableNamespace::by_component_TODO())
                     .inject_table_id()(first_table)?
                 .tablet_id
             },
@@ -1730,7 +1730,7 @@ impl<RT: Runtime> Database<RT> {
         if let Some(new_cursor) = new_cursor {
             let resolved_new_cursor = new_cursor.map_table(
                 table_mapping
-                    .namespace(TableNamespace::Global)
+                    .namespace(TableNamespace::by_component_TODO())
                     .inject_table_id(),
             )?;
             let new_cache_key = ListSnapshotTableIteratorCacheEntry {
@@ -1919,7 +1919,9 @@ impl<RT: Runtime> Database<RT> {
         let timer = metrics::vector::vector_search_timer();
         let usage = FunctionUsageTracker::new();
         let snapshot = self.snapshot(ts)?;
-        let table_mapping = snapshot.table_mapping().namespace(TableNamespace::Global);
+        let table_mapping = snapshot
+            .table_mapping()
+            .namespace(TableNamespace::by_component_TODO());
         if !table_mapping.name_exists(query.index_name.table()) {
             return Ok((vec![], usage.gather_user_stats()));
         }

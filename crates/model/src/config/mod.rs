@@ -96,12 +96,13 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             .apply(&analyze_results)
             .await?;
 
-        let (schema_diff, next_schema) = SchemaModel::new(self.tx, TableNamespace::Global)
-            .apply(schema_id)
-            .await?;
+        let (schema_diff, next_schema) =
+            SchemaModel::new(self.tx, TableNamespace::by_component_TODO())
+                .apply(schema_id)
+                .await?;
 
         let index_diff = IndexModel::new(self.tx)
-            .apply(TableNamespace::Global, &next_schema)
+            .apply(TableNamespace::by_component_TODO(), &next_schema)
             .await?;
 
         let module_diff = ModuleModel::new(self.tx)

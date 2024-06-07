@@ -276,16 +276,16 @@ pub async fn prepare_schema_handler(
     let index_diff: LegacyIndexDiff = if dry_run {
         let mut tx = st.application.begin(identity.clone()).await?;
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::by_component_TODO(), &schema)
             .await?
     } else {
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::by_component_TODO(), &schema)
             .await?
     }
     .into();
 
-    let (schema_id, schema_state) = SchemaModel::new(&mut tx, TableNamespace::Global)
+    let (schema_id, schema_state) = SchemaModel::new(&mut tx, TableNamespace::by_component_TODO())
         .submit_pending(schema)
         .await?;
     let should_save_new_schema = match schema_state {

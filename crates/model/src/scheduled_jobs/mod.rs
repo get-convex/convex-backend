@@ -232,7 +232,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             let table_mapping = self.tx.table_mapping();
             let parent_scheduled_job = parent_scheduled_job.to_resolved(
                 &table_mapping
-                    .namespace(TableNamespace::Global)
+                    .namespace(TableNamespace::by_component_TODO())
                     .inject_table_id(),
             )?;
             if let Some(parent_scheduled_job_state) =
@@ -261,7 +261,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         } else {
             scheduled_job
         };
-        let id = SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        let id = SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
             .insert_metadata(&SCHEDULED_JOBS_TABLE, job.try_into()?)
             .await?;
 
@@ -276,9 +276,9 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::by_component_TODO())
             .number_matches_name(id.table().table_number, &SCHEDULED_JOBS_TABLE));
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
             .replace(id, job.try_into()?)
             .await?;
         Ok(())
@@ -322,7 +322,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         // job has already been processed
         job.next_ts = None;
         job.completed_ts = Some(*self.tx.begin_timestamp());
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
             .replace(id, job.try_into()?)
             .await?;
 
@@ -351,7 +351,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::by_component_TODO())
             .number_matches_name(id.table().table_number, &SCHEDULED_JOBS_TABLE));
         self.tx.delete_inner(id).await?;
         Ok(())
@@ -392,7 +392,8 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 })
             },
         };
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
+        let mut query_stream =
+            ResolvedQuery::new(self.tx, TableNamespace::by_component_TODO(), index_query)?;
         let mut count = 0;
         while count < limit
             && let Some(doc) = query_stream.next(self.tx, None).await?
@@ -405,8 +406,11 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
     pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<ScheduledJob>>> {
         let scheduled_query = Query::full_table_scan(SCHEDULED_JOBS_TABLE.clone(), Order::Asc);
-        let mut query_stream =
-            ResolvedQuery::new(self.tx, TableNamespace::Global, scheduled_query)?;
+        let mut query_stream = ResolvedQuery::new(
+            self.tx,
+            TableNamespace::by_component_TODO(),
+            scheduled_query,
+        )?;
         let mut scheduled_jobs = Vec::new();
         while let Some(job) = query_stream.next(self.tx, None).await? {
             let job: ParsedDocument<ScheduledJob> = job.try_into()?;

@@ -1152,7 +1152,7 @@ mod tests {
     };
 
     fn empty_table_mapping() -> NamespacedTableMapping {
-        TableMapping::new().namespace(TableNamespace::Global)
+        TableMapping::new().namespace(TableNamespace::test_user())
     }
 
     // Arbitrary `TryFrom` implementation for testing `check_value`.
@@ -1163,7 +1163,7 @@ mod tests {
         let value = match validator {
             Validator::Id(table_name) => {
                 let id = InternalId::MIN;
-                let namespaced_table_mapping = id_generator.namespace(TableNamespace::Global);
+                let namespaced_table_mapping = id_generator.namespace(TableNamespace::test_user());
                 let table_number = match namespaced_table_mapping.name_to_id()(table_name.clone()) {
                     Err(_) => id_generator.virtual_table_mapping.number(&table_name)?,
                     Ok(id) => id.table_number,
@@ -1248,7 +1248,7 @@ mod tests {
             let object = object_from_schema(v.clone(), &id_generator).unwrap();
             v.check_value(
                 &object,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &id_generator.virtual_table_mapping
             ).unwrap();
         }
@@ -1370,7 +1370,7 @@ mod tests {
         let err = validator
             .check_value(
                 &value_wrong_type,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &VirtualTableMapping::new(),
             )
             .unwrap_err();
@@ -1395,7 +1395,7 @@ mod tests {
         let err: ValidationError = validator
             .check_value(
                 &value_wrong_key,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &VirtualTableMapping::new(),
             )
             .unwrap_err();
@@ -1416,7 +1416,7 @@ mod tests {
         let err: ValidationError = validator
             .check_value(
                 &value_wrong_value,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &VirtualTableMapping::new(),
             )
             .unwrap_err();
@@ -1447,7 +1447,7 @@ mod tests {
         let err = validator
             .check_value(
                 &value_wrong_type,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &id_generator.virtual_table_mapping,
             )
             .unwrap_err();
@@ -1472,7 +1472,7 @@ mod tests {
         let err: ValidationError = validator
             .check_value(
                 &value_wrong_key,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &id_generator.virtual_table_mapping,
             )
             .unwrap_err();
@@ -1493,7 +1493,7 @@ mod tests {
         let err: ValidationError = validator
             .check_value(
                 &value_wrong_value,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &id_generator.virtual_table_mapping,
             )
             .unwrap_err();
@@ -1572,7 +1572,7 @@ mod tests {
         let err = id_validator
             .check_value(
                 &value,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &id_generator.virtual_table_mapping,
             )
             .unwrap_err();
@@ -1603,7 +1603,7 @@ mod tests {
         let err = id_validator
             .check_value(
                 &value,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &id_generator.virtual_table_mapping,
             )
             .unwrap_err();

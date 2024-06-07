@@ -206,7 +206,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
     ) -> anyhow::Result<ResolvedDocumentId> {
         // Call insert_metadata rather than insert because we already
         // did access check on `identity` rather than `self.identity`
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
             .insert_metadata(&FILE_STORAGE_TABLE, entry.try_into()?)
             .await
     }
@@ -273,7 +273,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
                     .tx
                     .resolve_idv6(
                         document_id,
-                        TableNamespace::Global,
+                        TableNamespace::by_component_TODO(),
                         TableFilter::ExcludePrivateSystemTables,
                     )
                     .context(ErrorMetadata::bad_request(
@@ -305,7 +305,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
                 Query::get(FILE_STORAGE_TABLE.clone(), document_id.into())
             },
         };
-        ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)
+        ResolvedQuery::new(self.tx, TableNamespace::by_component_TODO(), index_query)
     }
 
     pub async fn delete_file(
@@ -323,7 +323,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
             return Ok(None);
         };
         let document_id = entry.id();
-        SystemMetadataModel::new(self.tx, TableNamespace::Global)
+        SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
             .delete(document_id)
             .await?;
         Ok(Some(entry.into_value()))
@@ -331,7 +331,10 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
 
     pub async fn get_total_storage_count(&mut self) -> anyhow::Result<u64> {
         TableModel::new(self.tx)
-            .count(TableNamespace::Global, &FILE_STORAGE_TABLE.clone())
+            .count(
+                TableNamespace::by_component_TODO(),
+                &FILE_STORAGE_TABLE.clone(),
+            )
             .await
     }
 
@@ -341,7 +344,8 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
         }
 
         let query = Query::full_table_scan(FILE_STORAGE_TABLE.to_owned(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
+        let mut query_stream =
+            ResolvedQuery::new(self.tx, TableNamespace::by_component_TODO(), query)?;
         let mut total_size = 0;
         while let Some(storage_document) = query_stream.next(self.tx, None).await? {
             let storage_entry: ParsedDocument<FileStorageEntry> = storage_document.try_into()?;

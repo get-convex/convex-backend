@@ -1430,7 +1430,7 @@ impl ImportSchemaTableConstraint {
     async fn validate<RT: Runtime>(&self, tx: &mut Transaction<RT>) -> anyhow::Result<()> {
         let existing_table_mapping = tx.table_mapping();
         let Some(existing_table) = existing_table_mapping
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::by_component_TODO())
             .id_and_number_if_exists(&self.foreign_ref_table_in_import.0)
         else {
             // If a table doesn't have a table number,
@@ -1444,7 +1444,10 @@ impl ImportSchemaTableConstraint {
             return Ok(());
         }
         if TableModel::new(tx)
-            .count(TableNamespace::Global, &self.table_in_schema_not_in_import)
+            .count(
+                TableNamespace::by_component_TODO(),
+                &self.table_in_schema_not_in_import,
+            )
             .await?
             == 0
         {
@@ -1480,7 +1483,7 @@ impl ImportSchemaConstraints {
             };
             for (table, table_schema) in &schema.tables {
                 if table_mapping_for_import
-                    .namespace(TableNamespace::Global)
+                    .namespace(TableNamespace::by_component_TODO())
                     .name_exists(table)
                 {
                     // Schema's table is in the import => it's valid.
@@ -1491,7 +1494,7 @@ impl ImportSchemaConstraints {
                 };
                 for foreign_key_table in document_schema.foreign_keys() {
                     if let Some(foreign_key_table_number) = table_mapping_for_import
-                        .namespace(TableNamespace::Global)
+                        .namespace(TableNamespace::by_component_TODO())
                         .id_and_number_if_exists(foreign_key_table)
                     {
                         table_constraints.insert(ImportSchemaTableConstraint {
@@ -1601,7 +1604,7 @@ async fn finalize_import<RT: Runtime>(
 async fn schemas_for_import<RT: Runtime>(
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<Vec<Option<(ResolvedDocumentId, DatabaseSchema)>>> {
-    let mut schema_model = SchemaModel::new(tx, TableNamespace::Global);
+    let mut schema_model = SchemaModel::new(tx, TableNamespace::by_component_TODO());
     let mut schemas = vec![];
     for schema_state in [
         SchemaState::Active,
@@ -1671,7 +1674,7 @@ async fn import_tables_table<RT: Runtime>(
         .await?;
         table_mapping_for_import.insert(
             table_id.tablet_id,
-            TableNamespace::Global,
+            TableNamespace::by_component_TODO(),
             table_id.table_number,
             table_name.clone(),
         );
@@ -1955,7 +1958,7 @@ async fn import_single_table<RT: Runtime>(
         .map(|(_, _, _, table_name)| table_name.clone())
         .collect();
     let table_id = match table_mapping_for_import
-        .namespace(TableNamespace::Global)
+        .namespace(TableNamespace::by_component_TODO())
         .id_and_number_if_exists(&table_name)
     {
         Some(table_id) => table_id,
@@ -1971,7 +1974,7 @@ async fn import_single_table<RT: Runtime>(
             .await?;
             table_mapping_for_import.insert(
                 table_id.tablet_id,
-                TableNamespace::Global,
+                TableNamespace::by_component_TODO(),
                 table_id.table_number,
                 table_name.clone(),
             );
@@ -2141,13 +2144,13 @@ async fn prepare_table_for_import<RT: Runtime>(
     let mut tx = database.begin(identity.clone()).await?;
     let existing_table_id = tx
         .table_mapping()
-        .namespace(TableNamespace::Global)
+        .namespace(TableNamespace::by_component_TODO())
         .id_and_number_if_exists(table_name);
     let insert_into_existing_table_id = match mode {
         ImportMode::Append => existing_table_id,
         ImportMode::RequireEmpty => {
             if !TableModel::new(&mut tx)
-                .table_is_empty(TableNamespace::Global, table_name)
+                .table_is_empty(TableNamespace::by_component_TODO(), table_name)
                 .await?
             {
                 anyhow::bail!(ImportError::TableExists(table_name.clone()));
@@ -2172,7 +2175,7 @@ async fn prepare_table_for_import<RT: Runtime>(
                         // Create a new table in state Hidden, that will later be changed to Active.
                         let table_id = TableModel::new(tx)
                             .insert_table_for_import(
-                                TableNamespace::Global,
+                                TableNamespace::by_component_TODO(),
                                 table_name,
                                 table_number,
                                 tables_in_import,
@@ -2269,7 +2272,7 @@ async fn remap_empty_string_by_schema<'a, RT: Runtime>(
     tx: &mut Transaction<RT>,
     objects: BoxStream<'a, anyhow::Result<ImportUnit>>,
 ) -> anyhow::Result<BoxStream<'a, anyhow::Result<ImportUnit>>> {
-    if let Some((_, schema)) = SchemaModel::new(tx, TableNamespace::Global)
+    if let Some((_, schema)) = SchemaModel::new(tx, TableNamespace::by_component_TODO())
         .get_by_state(SchemaState::Active)
         .await?
     {
@@ -3019,7 +3022,7 @@ a
             let mut tx = app.begin(identity.clone()).await?;
             let mut index_model = IndexModel::new(&mut tx);
             let index = index_model
-                .enabled_index_metadata(TableNamespace::Global, &index_name)?
+                .enabled_index_metadata(TableNamespace::test_user(), &index_name)?
                 .context("index does not exist")?;
             assert_ne!(index.id(), index_id);
             assert!(index.config.is_enabled());
@@ -3099,7 +3102,7 @@ a
         let mut tx = app.begin(new_admin_id()).await?;
         let table_name = TableName::from_str(table_name)?;
         let query = common::query::Query::full_table_scan(table_name.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(&mut tx, TableNamespace::Global, query)?;
+        let mut query_stream = ResolvedQuery::new(&mut tx, TableNamespace::test_user(), query)?;
 
         let mut docs: Vec<ResolvedDocument> = Vec::new();
         while let Some(doc) = query_stream.next(&mut tx, None).await? {

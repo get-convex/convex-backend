@@ -27,7 +27,7 @@ pub fn parse_schema_id(
             let id = DeveloperDocumentId::decode(schema_id)?;
             id.to_resolved(
                 &table_mapping
-                    .namespace(TableNamespace::Global)
+                    .namespace(TableNamespace::by_component_TODO())
                     .inject_table_id(),
             )
         },

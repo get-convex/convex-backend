@@ -837,7 +837,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
 
         for index in indexes {
             IndexModel::new(&mut tx)
-                .enable_index_for_testing(TableNamespace::Global, &index.name)
+                .enable_index_for_testing(TableNamespace::test_user(), &index.name)
                 .await?
         }
 

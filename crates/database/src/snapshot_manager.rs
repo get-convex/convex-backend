@@ -272,7 +272,7 @@ impl<RT: Runtime> Snapshot<RT> {
     pub fn table_summary(&self, table: &TableName) -> TableSummary {
         let table_id = match self
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::TODO())
             .id(table)
         {
             Ok(table_id) => table_id,

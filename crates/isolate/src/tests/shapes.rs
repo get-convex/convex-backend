@@ -34,7 +34,7 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table_id = id_generator.user_table_id(&"test".parse()?);
     let table_number = id_generator.generate_virtual_table(&"test2".parse()?);
-    let table_mapping = id_generator.namespace(TableNamespace::Global);
+    let table_mapping = id_generator.namespace(TableNamespace::test_user());
     let values: Vec<(ConvexValue, &'static str)> = vec![
         (
             ConvexValue::from(ResolvedDocumentId::new(table_id, InternalId::MIN)),

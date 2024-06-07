@@ -778,7 +778,7 @@ mod tests {
         let db = reopen_db(&rt, &fixtures).await?;
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .enable_index_for_testing(TableNamespace::Global, &index_metadata.name)
+            .enable_index_for_testing(TableNamespace::test_user(), &index_metadata.name)
             .await?;
         db.commit(tx).await?;
 
@@ -848,7 +848,7 @@ mod tests {
         backfill_vector_indexes(rt.clone(), db.clone(), reader, storage.clone()).await?;
         let mut tx = db.begin_system().await?;
         let resolved_index = IndexModel::new(&mut tx)
-            .pending_index_metadata(TableNamespace::Global, &index_metadata.name)?
+            .pending_index_metadata(TableNamespace::test_user(), &index_metadata.name)?
             .expect("Missing index metadata!");
 
         Ok((resolved_index.id().internal_id(), index_metadata))
@@ -864,7 +864,7 @@ mod tests {
 
         let mut tx = db.begin_system().await?;
         let resolved_index = IndexModel::new(&mut tx)
-            .pending_index_metadata(TableNamespace::Global, &index_metadata.name)?
+            .pending_index_metadata(TableNamespace::test_user(), &index_metadata.name)?
             .expect("Missing index metadata!");
         IndexModel::new(&mut tx)
             .enable_backfilled_indexes(vec![resolved_index.clone().into_value()])
@@ -1180,7 +1180,7 @@ mod tests {
         let table_name: TableName = "test".parse()?;
         let mut tx = db.begin_system().await?;
         TableModel::new(&mut tx)
-            .insert_table_metadata_for_test(TableNamespace::Global, &table_name)
+            .insert_table_metadata_for_test(TableNamespace::test_user(), &table_name)
             .await?;
         let index = IndexMetadata::new_backfilling_search_index(
             "test.by_text".parse()?,
@@ -1195,7 +1195,7 @@ mod tests {
         let snapshot = db.latest_snapshot()?;
         let table_id = snapshot
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .id(&"test".parse()?)?
             .tablet_id;
         let index_name = TabletIndexName::new(table_id, "by_text".parse()?)?;
@@ -1212,7 +1212,7 @@ mod tests {
         let mut tx = db.begin_system().await?;
         let mut model = IndexModel::new(&mut tx);
         let index_doc = model
-            .pending_index_metadata(TableNamespace::Global, &index_name)?
+            .pending_index_metadata(TableNamespace::test_user(), &index_name)?
             .unwrap();
         Ok((index_doc.id().internal_id(), index_doc))
     }

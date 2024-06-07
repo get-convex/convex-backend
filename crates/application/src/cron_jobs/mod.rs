@@ -167,7 +167,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 order: Order::Asc,
             });
             let mut query_stream =
-                ResolvedQuery::new(&mut tx, TableNamespace::Global, index_query)?;
+                ResolvedQuery::new(&mut tx, TableNamespace::by_component_TODO(), index_query)?;
 
             let mut next_job_wait = None;
             while let Some(doc) = query_stream.next(&mut tx, None).await? {

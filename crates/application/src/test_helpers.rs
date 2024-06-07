@@ -348,7 +348,7 @@ async fn insert_validated_schema<RT: Runtime>(
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<ResolvedDocumentId> {
     let schema = db_schema!();
-    let mut model = SchemaModel::new(tx, TableNamespace::Global);
+    let mut model = SchemaModel::new(tx, TableNamespace::test_user());
     let (schema_id, _) = model.submit_pending(schema).await?;
     model.mark_validated(schema_id).await?;
     Ok(schema_id)

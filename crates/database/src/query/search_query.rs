@@ -99,7 +99,7 @@ impl SearchQuery {
             .collect();
         let table_number = tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::by_component_TODO())
             .id(&self.query.table)?
             .table_number;
         Ok(SearchResultIterator::new(
@@ -232,12 +232,13 @@ impl SearchResultIterator {
         self.next_index += 1;
 
         let id = self.table_number.id(candidate.id);
-        let (document, existing_doc_ts) = UserFacingModel::new(tx, TableNamespace::Global)
-            .get_with_ts(id, self.version.clone())
-            .await?
-            .ok_or_else(|| {
-                anyhow::anyhow!("Unable to load search result {id}@{:?}", candidate.ts)
-            })?;
+        let (document, existing_doc_ts) =
+            UserFacingModel::new(tx, TableNamespace::by_component_TODO())
+                .get_with_ts(id, self.version.clone())
+                .await?
+                .ok_or_else(|| {
+                    anyhow::anyhow!("Unable to load search result {id}@{:?}", candidate.ts)
+                })?;
 
         self.bytes_read += document.size();
 

@@ -530,7 +530,7 @@ impl<RT: Runtime> Transaction<RT> {
     pub fn is_system(&mut self, table_number: TableNumber) -> bool {
         let tablet_id = match self
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::TODO())
             .inject_table_id()(table_number)
         {
             Err(_) => None,

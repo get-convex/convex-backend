@@ -96,7 +96,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
 
     #[cfg(any(test, feature = "testing"))]
     pub fn new_root_for_test(tx: &'a mut Transaction<RT>) -> Self {
-        Self::new(tx, TableNamespace::Global)
+        Self::new(tx, TableNamespace::test_user())
     }
 
     pub async fn apply(
@@ -127,7 +127,10 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     }
 
     pub async fn enforce(&mut self, document: &ResolvedDocument) -> anyhow::Result<()> {
-        let schema_table_mapping = self.tx.table_mapping().namespace(TableNamespace::Global);
+        let schema_table_mapping = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::by_component_TODO());
         self.enforce_with_table_mapping(document, &schema_table_mapping)
             .await
     }
@@ -246,9 +249,9 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     ) -> anyhow::Result<(ResolvedDocumentId, SchemaState)> {
         let mut table_model = TableModel::new(self.tx);
         for name in schema.tables.keys() {
-            if !table_model.table_exists(TableNamespace::Global, name) {
+            if !table_model.table_exists(TableNamespace::by_component_TODO(), name) {
                 table_model
-                    .insert_table_metadata(TableNamespace::Global, name)
+                    .insert_table_metadata(TableNamespace::by_component_TODO(), name)
                     .await?;
             }
         }

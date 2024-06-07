@@ -329,7 +329,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             )],
             order: Order::Asc,
         });
-        let mut query_stream = ResolvedQuery::new(tx, TableNamespace::Global, index_query)?;
+        let mut query_stream =
+            ResolvedQuery::new(tx, TableNamespace::by_component_TODO(), index_query)?;
         while let Some(doc) = query_stream.next(tx, None).await? {
             let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
             let (job_id, job) = job.clone().into_id_and_value();
@@ -824,7 +825,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
             })
             .limit(*SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE);
             let mut query_stream =
-                ResolvedQuery::new(&mut tx, TableNamespace::Global, index_query)?;
+                ResolvedQuery::new(&mut tx, TableNamespace::by_component_TODO(), index_query)?;
 
             let mut next_job_wait = None;
             let mut jobs_to_delete = vec![];

@@ -124,7 +124,7 @@ impl TextFixtures {
             storage: search_storage,
             segment_term_metadata_fetcher,
             writer,
-            namespace: TableNamespace::Global,
+            namespace: TableNamespace::test_user(),
             searcher,
             config,
         })
@@ -311,7 +311,7 @@ impl TextFixtures {
         };
         let mut query_stream = ResolvedQuery::new_with_version(
             &mut tx,
-            TableNamespace::Global,
+            TableNamespace::test_user(),
             query,
             Some(MIN_NPM_VERSION_FOR_FUZZY_SEARCH.clone()),
         )?;

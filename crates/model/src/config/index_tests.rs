@@ -176,7 +176,7 @@ async fn prepare_new_mutated_indexes_with_new_index_marks_index_backfilling_and_
         let schema: DatabaseSchema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = new_tx(rt).await?;
         let result = IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         expect_diff!(result ; added:[(TABLE_NAME, INDEX_NAME, vec!["a"])], dropped:[]);
@@ -198,7 +198,7 @@ async fn prepare_new_mutated_indexes_with_removed_index_does_not_remove_it_but_d
         let mut tx = db.begin_system().await?;
         let schema = db_schema_with_indexes!(TABLE_NAME =>[]);
         let result = IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         expect_diff!(result ; added:[], dropped:[(TABLE_NAME, INDEX_NAME, vec!["a"])]);
@@ -215,19 +215,19 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_removes_
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = new_tx(rt).await?;
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         let current_index = IndexModel::new(&mut tx)
             .pending_index_metadata(
-                TableNamespace::Global,
+                TableNamespace::test_user(),
                 &new_index_name(TABLE_NAME, INDEX_NAME)?,
             )?
             .unwrap();
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "b", None)?;
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         assert!(!IndexModel::new(&mut tx)
@@ -249,17 +249,17 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_stores_n
         let mut tx = new_tx(rt).await?;
         let mut index_model = IndexModel::new(&mut tx);
         index_model
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "b", None)?;
         index_model
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         let new_index = index_model
             .pending_index_metadata(
-                TableNamespace::Global,
+                TableNamespace::test_user(),
                 &new_index_name(TABLE_NAME, INDEX_NAME)?,
             )?
             .unwrap()
@@ -280,12 +280,12 @@ async fn prepare_new_mutated_indexes_with_mutated_index_not_yet_enabled_backfill
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = new_tx(rt).await?;
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "b", None)?;
         let result = IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
 
         expect_diff!(result ; added:[(TABLE_NAME, INDEX_NAME, vec!["b"])], dropped: [(TABLE_NAME, INDEX_NAME, vec!["a"])]);
@@ -306,7 +306,7 @@ async fn prepare_new_mutated_indexes_with_enabled_and_pending_mutated_index_remo
         let mut tx = db.begin_system().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "b", None)?;
         let result = IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         expect_diff!(result ; added:[(TABLE_NAME, INDEX_NAME, vec!["b"])], dropped: [(TABLE_NAME, INDEX_NAME, vec!["a"])]);
         db.commit(tx).await?;
@@ -314,7 +314,7 @@ async fn prepare_new_mutated_indexes_with_enabled_and_pending_mutated_index_remo
         let mut tx = db.begin_system().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "c", None)?;
         let result = IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         expect_diff!(result ;
             added:[(TABLE_NAME, INDEX_NAME, vec!["c"])],
@@ -347,7 +347,7 @@ async fn test_prepare_editing_enabled_search_index(rt: TestRuntime) -> anyhow::R
     let mut tx = db.begin_system().await?;
     let schema = db_schema_with_search_indexes!(TABLE_NAME =>[(INDEX_NAME, "b")]);
     let result = IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     expect_diff!(result ;
         added:[(TABLE_NAME, INDEX_NAME, vec!["b"])],
@@ -375,14 +375,14 @@ async fn test_prepare_stacked_search_index_edits(rt: TestRuntime) -> anyhow::Res
     let mut tx = db.begin_system().await?;
     let schema = db_schema_with_search_indexes!(TABLE_NAME =>[(INDEX_NAME, "a")]);
     IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     db.commit(tx).await?;
 
     let mut tx = db.begin_system().await?;
     let schema = db_schema_with_search_indexes!(TABLE_NAME =>[(INDEX_NAME, "b")]);
     let result = IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     expect_diff!(result ;
         added: [(TABLE_NAME, INDEX_NAME, vec!["b"])],
@@ -407,7 +407,7 @@ async fn test_editing_backfilled_mutated_search_index(rt: TestRuntime) -> anyhow
     let mut tx = db.begin_system().await?;
     let schema = db_schema_with_search_indexes!(TABLE_NAME =>[(INDEX_NAME, "a")]);
     IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     db.commit(tx).await?;
     backfill_indexes(rt, db.clone(), tp).await?;
@@ -415,7 +415,7 @@ async fn test_editing_backfilled_mutated_search_index(rt: TestRuntime) -> anyhow
     let mut tx = db.begin_system().await?;
     let schema = db_schema_with_search_indexes!(TABLE_NAME =>[(INDEX_NAME, "b")]);
     let result = IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     expect_diff!(result ;
         added:[(TABLE_NAME, INDEX_NAME, vec!["b"])],
@@ -444,7 +444,7 @@ async fn prepare_new_mutated_indexes_with_enabled_mutated_index_does_not_remove_
         let mut tx = db.begin_system().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "b", None)?;
         let result = IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         expect_diff!(result ;
         added:[(TABLE_NAME, INDEX_NAME, vec!["b"])],
@@ -478,7 +478,7 @@ async fn backfill_indexes_with_pending_and_enabled_mutated_indexes_does_not_modi
         let mut tx = db.begin_system().await?;
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "b", None)?;
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         db.commit(tx).await?;
         backfill_indexes(rt, db.clone(), tp).await?;
@@ -534,7 +534,7 @@ async fn prepare_new_mutated_indexes_with_enabled_identical_index_does_not_backf
 
         let mut tx = db.begin_system().await?;
         let result = IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         expect_diff!(result ; added:[], dropped: []);
         db.commit(tx).await?;
@@ -557,7 +557,7 @@ async fn test_two_indexes_on_one_table(rt: TestRuntime) -> anyhow::Result<()> {
         db_schema_with_indexes!(TABLE_NAME =>[(INDEX_NAME, vec!["a"]), (other_index, vec!["b"])]);
     let mut tx = db.begin_system().await?;
     let result = IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     expect_diff!(result ; added:[(TABLE_NAME, other_index, vec!["b"])], dropped: []);
     db.commit(tx).await?;
@@ -576,7 +576,7 @@ async fn prepare_new_mutated_indexes_with_backfilled_identical_index_does_not_ba
         backfill_indexes(rt, db.clone(), tp).await?;
         let mut tx = db.begin_system().await?;
         let result = IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::Global, &schema)
+            .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
             .await?;
         expect_diff!(result ; added:[], dropped: []);
         db.commit(tx).await?;
@@ -888,7 +888,7 @@ async fn apply_config_with_enabled_index_ignores_it(rt: TestRuntime) -> anyhow::
         let mut tx = db.begin_system().await?;
         let generic_index_name = new_index_name(TABLE_NAME, INDEX_NAME)?;
         IndexModel::new(&mut tx)
-            .enable_index_for_testing(TableNamespace::Global, &generic_index_name)
+            .enable_index_for_testing(TableNamespace::test_user(), &generic_index_name)
             .await?;
         db.commit(tx).await?;
 
@@ -983,7 +983,7 @@ async fn build_indexes_with_backfilled_but_not_enabled_index_does_not_fail(
         let schema = new_schema_with_index(TABLE_NAME, INDEX_NAME, "a", None)?;
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .build_indexes(TableNamespace::Global, &schema)
+            .build_indexes(TableNamespace::test_user(), &schema)
             .await?;
         db.commit(tx).await?;
 
@@ -991,7 +991,7 @@ async fn build_indexes_with_backfilled_but_not_enabled_index_does_not_fail(
         // add it without removing it, which will trigger a failure.
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .build_indexes(TableNamespace::Global, &schema)
+            .build_indexes(TableNamespace::test_user(), &schema)
             .await?;
         db.commit(tx).await?;
         Ok(())
@@ -1052,7 +1052,7 @@ async fn assert_enabled_with_fields(
 ) -> anyhow::Result<()> {
     let mut tx = db.begin_system().await?;
     let index = IndexModel::new(&mut tx)
-        .enabled_index_metadata(TableNamespace::Global, &new_index_name(table, index)?)?
+        .enabled_index_metadata(TableNamespace::test_user(), &new_index_name(table, index)?)?
         .unwrap();
     let actual_field_names = get_index_fields(index.into_value());
 
@@ -1069,8 +1069,8 @@ async fn get_all_index_configs(
     let mut tx = db.begin_system().await?;
     let mut index_model = IndexModel::new(&mut tx);
     let index_name = new_index_name(table_name, index_name)?;
-    let pending = index_model.pending_index_metadata(TableNamespace::Global, &index_name)?;
-    let enabled = index_model.enabled_index_metadata(TableNamespace::Global, &index_name)?;
+    let pending = index_model.pending_index_metadata(TableNamespace::test_user(), &index_name)?;
+    let enabled = index_model.enabled_index_metadata(TableNamespace::test_user(), &index_name)?;
     Ok(vec![pending, enabled]
         .into_iter()
         .flatten()

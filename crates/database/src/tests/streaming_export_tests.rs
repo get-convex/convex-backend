@@ -160,7 +160,7 @@ async fn document_deltas_should_ignore_rows_from_deleted_tables(
     let mut tx = db.begin(Identity::system()).await?;
     let mut model = TableModel::new(&mut tx);
     model
-        .delete_table(TableNamespace::Global, "table".parse()?)
+        .delete_table(TableNamespace::test_user(), "table".parse()?)
         .await?;
     db.commit(tx).await?;
 
@@ -193,7 +193,7 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
     let mut tx = db.begin(Identity::system()).await?;
     let mut model = TableModel::new(&mut tx);
     model
-        .delete_table(TableNamespace::Global, "table2".parse()?)
+        .delete_table(TableNamespace::test_user(), "table2".parse()?)
         .await?;
     let table_mapping = tx.table_mapping().clone();
     let ts_latest = db.commit(tx).await?;
@@ -245,7 +245,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     let tablet_id = tx
         .table_mapping()
-        .namespace(TableNamespace::Global)
+        .namespace(TableNamespace::test_user())
         .inject_table_id()(doc4.table())?
     .tablet_id;
     let doc4 = doc4.to_resolved(tablet_id);

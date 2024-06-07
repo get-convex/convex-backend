@@ -442,7 +442,9 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
         // TODO(CX-6667): Which table namespace do we want to use for running validators
         // here?
-        let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
+        let table_mapping = tx
+            .table_mapping()
+            .namespace(TableNamespace::by_component_TODO());
         let virtual_table_mapping = tx.virtual_table_mapping().clone();
 
         let (_, component_id) = BootstrapComponentsModel::new(tx)

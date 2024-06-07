@@ -276,7 +276,7 @@ impl TableRegistry {
                 return Ok(table_number);
             }
             table_mapping
-                .namespace(TableNamespace::Global)
+                .namespace(TableNamespace::by_component_TODO())
                 .number_to_name()(number)
         }
     }

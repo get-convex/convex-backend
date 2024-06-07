@@ -68,16 +68,16 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
             .insert(user_table_name.clone(), assert_obj!())
             .await?;
         let user_table_number = tx.table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .id(&user_table_name)?.table_number;
 
         let storage_virtual_table_number = tx.virtual_table_mapping().number(&"_storage".parse()?)?;
         let storage_table_number = tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .id(&"_file_storage".parse()?)?
             .table_number;
-        let indexes_table_number = tx.table_mapping().namespace(TableNamespace::Global).id(&"_index".parse()?)?.table_number;
+        let indexes_table_number = tx.table_mapping().namespace(TableNamespace::test_user()).id(&"_index".parse()?)?.table_number;
 
         // Set the UDF server version to a version with string IDs
         UdfConfigModel::new(&mut tx)
@@ -187,7 +187,7 @@ async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::
         .await?;
     let table_number = tx
         .table_mapping()
-        .namespace(TableNamespace::Global)
+        .namespace(TableNamespace::test_user())
         .id(&table_name_a)?
         .table_number;
 

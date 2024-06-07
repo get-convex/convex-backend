@@ -169,8 +169,11 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
         let table_name: TableName = "_my_system_table".parse()?;
 
         assert!(
-            tx.create_system_table_testing(TableNamespace::Global, &table_name, Some(table_number))
-                .await?
+            tx.create_system_table_testing(
+                TableNamespace::test_user(),
+                &table_name,
+                Some(table_number),
+            ).await?
         );
         let nonexistent_system_table_id = DeveloperDocumentId::new(table_number, InternalId::MIN);
 

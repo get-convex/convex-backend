@@ -246,7 +246,8 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
         let tx = self.phase.tx()?;
         Ok((
-            tx.table_mapping().namespace(TableNamespace::Global),
+            tx.table_mapping()
+                .namespace(TableNamespace::by_component_TODO()),
             tx.virtual_table_mapping().clone(),
         ))
     }

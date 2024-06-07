@@ -63,7 +63,7 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             .phase
             .tx()?
             .table_mapping()
-            .namespace(TableNamespace::Global);
+            .namespace(TableNamespace::by_component_TODO());
         Ok(table_mapping.id_and_number_if_exists(name))
     }
 

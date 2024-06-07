@@ -137,7 +137,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 || index_names_in_table.len() < MAX_INDEXES_PER_TABLE,
             index_validation_error::too_many_indexes(index.name.table(), MAX_INDEXES_PER_TABLE)
         );
-        self._add_index(TableNamespace::Global, index).await
+        self._add_index(TableNamespace::by_component_TODO(), index)
+            .await
     }
 
     /// Add system index.
@@ -834,7 +835,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         let Some(active_table_id) = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::by_component_TODO())
             .id_if_exists(source_table)
         else {
             return Ok(());

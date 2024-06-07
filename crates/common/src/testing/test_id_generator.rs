@@ -119,7 +119,7 @@ impl TestIdGenerator {
     // For adding to physical table mapping
     pub fn user_table_id(&mut self, table_name: &TableName) -> TabletIdAndTableNumber {
         assert!(!table_name.is_system(), "use system_table_id instead");
-        if let Ok(table_id) = self.namespace(TableNamespace::Global).id(table_name) {
+        if let Ok(table_id) = self.namespace(TableNamespace::test_user()).id(table_name) {
             return table_id;
         }
         let tablet_id = TabletId(self.generate_internal());
@@ -130,7 +130,7 @@ impl TestIdGenerator {
             .expect("Could not increment table number");
         self.table_mapping.insert(
             tablet_id,
-            TableNamespace::Global,
+            TableNamespace::test_user(),
             table_number,
             table_name.clone(),
         );

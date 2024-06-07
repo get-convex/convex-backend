@@ -418,7 +418,9 @@ impl ValidatedPathAndArgs {
             Err(err) => return Ok(Err(err)),
         }
 
-        let table_mapping = &tx.table_mapping().namespace(TableNamespace::Global);
+        let table_mapping = &tx
+            .table_mapping()
+            .namespace(TableNamespace::by_component_TODO());
         let virtual_table_mapping = &tx.virtual_table_mapping().clone();
 
         // If the UDF has an args validator, check that these args match.

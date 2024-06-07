@@ -77,7 +77,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     pub fn new_root_for_test(tx: &'a mut Transaction<RT>) -> Self {
         Self {
             tx,
-            namespace: TableNamespace::Global,
+            namespace: TableNamespace::test_user(),
         }
     }
 

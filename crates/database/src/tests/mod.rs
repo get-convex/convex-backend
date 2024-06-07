@@ -230,7 +230,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
 
     let table_name: TableName = str::parse("table")?;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
 
     // Register two indexes and make sure it works.
     let index_name1 = IndexName::new(table_name.clone(), "a_and_b".parse()?)?;
@@ -271,7 +271,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     };
 
     let changes = IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::Global, &schema)
+        .build_indexes(TableNamespace::test_user(), &schema)
         .await?;
     assert_eq!(changes.added.len(), 2);
     assert_eq!(changes.added[0].name.to_string(), "table.a_and_b");
@@ -327,7 +327,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     };
 
     let changes = IndexModel::new(&mut tx)
-        .build_indexes(TableNamespace::Global, &schema)
+        .build_indexes(TableNamespace::test_user(), &schema)
         .await?;
     assert_eq!(
         changes
@@ -456,7 +456,7 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
         .await?;
     let id_ = id.map_table(
         &tx.table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .inject_table_id(),
     )?;
     let document = tx.get(id_).await?.unwrap();
@@ -519,7 +519,7 @@ async fn run_query(
 #[convex_macro::test_runtime]
 async fn test_query_filter(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let mut tx = database.begin(Identity::system()).await?;
     let doc1 = TestFacingModel::new(&mut tx)
         .insert_and_get(
@@ -568,7 +568,7 @@ async fn test_query_filter(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_query_limit(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let mut tx = database.begin(Identity::system()).await?;
     TestFacingModel::new(&mut tx)
         .insert(
@@ -614,7 +614,7 @@ async fn test_query_limit(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_full_table_scan_order(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let mut tx = database.begin(Identity::system()).await?;
     let doc1 = TestFacingModel::new(&mut tx)
         .insert_and_get("messages".parse()?, ConvexObject::empty())
@@ -687,7 +687,7 @@ where
         db: database, tp, ..
     } = DbFixtures::new(&rt).await?;
     let table_name: TableName = str::parse("messages")?;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let index_name = IndexName::new(table_name.clone(), "a_and_b".parse()?)?;
 
     let mut tx = database.begin(Identity::system()).await?;
@@ -873,7 +873,7 @@ proptest! {
 #[convex_macro::test_runtime]
 async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
     let database = new_test_database(rt).await;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let mut tx = database.begin(Identity::system()).await?;
 
     // Create 2 different queries.
@@ -1020,12 +1020,17 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(TableNamespace::Global, &table_name, None, &BTreeSet::new())
+        .insert_table_for_import(
+            TableNamespace::test_user(),
+            &table_name,
+            None,
+            &BTreeSet::new(),
+        )
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
         table_id.tablet_id,
-        TableNamespace::Global,
+        TableNamespace::test_user(),
         table_id.table_number,
         table_name.clone(),
     );
@@ -1070,7 +1075,12 @@ async fn test_importing_table_schema_validated(rt: TestRuntime) -> anyhow::Resul
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(TableNamespace::Global, &table_name, None, &BTreeSet::new())
+        .insert_table_for_import(
+            TableNamespace::test_user(),
+            &table_name,
+            None,
+            &BTreeSet::new(),
+        )
         .await?;
     database.commit(tx).await?;
 
@@ -1092,7 +1102,7 @@ async fn test_importing_table_schema_validated(rt: TestRuntime) -> anyhow::Resul
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
         table_id.tablet_id,
-        TableNamespace::Global,
+        TableNamespace::test_user(),
         table_id.table_number,
         table_name.clone(),
     );
@@ -1128,17 +1138,22 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
     let mut table_model = TableModel::new(&mut tx);
     let mut table_mapping_for_import = TableMapping::new();
     let table_id = table_model
-        .insert_table_for_import(TableNamespace::Global, &table_name, None, &BTreeSet::new())
+        .insert_table_for_import(
+            TableNamespace::test_user(),
+            &table_name,
+            None,
+            &BTreeSet::new(),
+        )
         .await?;
     table_mapping_for_import.insert(
         table_id.tablet_id,
-        TableNamespace::Global,
+        TableNamespace::test_user(),
         table_id.table_number,
         table_name.clone(),
     );
     let foreign_table_id = table_model
         .insert_table_for_import(
-            TableNamespace::Global,
+            TableNamespace::test_user(),
             &foreign_table_name,
             None,
             &BTreeSet::new(),
@@ -1146,7 +1161,7 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
         .await?;
     table_mapping_for_import.insert(
         foreign_table_id.tablet_id,
-        TableNamespace::Global,
+        TableNamespace::test_user(),
         foreign_table_id.table_number,
         foreign_table_name.clone(),
     );
@@ -1206,19 +1221,19 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     table_model
-        .insert_table_metadata(TableNamespace::Global, &table_name)
+        .insert_table_metadata(TableNamespace::test_user(), &table_name)
         .await?;
     table_model
-        .insert_table_metadata(TableNamespace::Global, &foreign_table_name)
+        .insert_table_metadata(TableNamespace::test_user(), &foreign_table_name)
         .await?;
     let active_table_number = tx
         .table_mapping()
-        .namespace(TableNamespace::Global)
+        .namespace(TableNamespace::test_user())
         .id(&table_name)?
         .table_number;
     let active_foreign_table_number = tx
         .table_mapping()
-        .namespace(TableNamespace::Global)
+        .namespace(TableNamespace::test_user())
         .id(&foreign_table_name)?
         .table_number;
     database.commit(tx).await?;
@@ -1230,7 +1245,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     let mut tables_in_import = BTreeSet::new();
     assert!(table_model
         .insert_table_for_import(
-            TableNamespace::Global,
+            TableNamespace::test_user(),
             &table_name,
             Some(active_foreign_table_number),
             &tables_in_import
@@ -1242,7 +1257,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     // If tables_in_import is populated, we're allowed to create both tables.
     let table_id = table_model
         .insert_table_for_import(
-            TableNamespace::Global,
+            TableNamespace::test_user(),
             &table_name,
             Some(active_foreign_table_number),
             &tables_in_import,
@@ -1250,13 +1265,13 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
         .await?;
     table_mapping_for_import.insert(
         table_id.tablet_id,
-        TableNamespace::Global,
+        TableNamespace::test_user(),
         table_id.table_number,
         table_name.clone(),
     );
     let foreign_table_id = table_model
         .insert_table_for_import(
-            TableNamespace::Global,
+            TableNamespace::test_user(),
             &foreign_table_name,
             Some(active_table_number),
             &tables_in_import,
@@ -1264,7 +1279,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
         .await?;
     table_mapping_for_import.insert(
         foreign_table_id.tablet_id,
-        TableNamespace::Global,
+        TableNamespace::test_user(),
         foreign_table_id.table_number,
         foreign_table_name.clone(),
     );
@@ -1365,7 +1380,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     let doc0_id = doc_id_user_facing.map_table(
         tx.table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .inject_table_id(),
     )?;
     let doc0_id_str: String = DeveloperDocumentId::from(doc0_id).encode();
@@ -1376,7 +1391,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
         .insert_table_for_import(
-            TableNamespace::Global,
+            TableNamespace::test_user(),
             &table_name,
             Some(doc0_id.table().table_number),
             &BTreeSet::new(),
@@ -1385,7 +1400,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
         table_id.tablet_id,
-        TableNamespace::Global,
+        TableNamespace::test_user(),
         table_id.table_number,
         table_name.clone(),
     );
@@ -1457,7 +1472,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
         .await?;
     let doc0_id_inner = doc0_id.map_table(
         &tx.table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .inject_table_id(),
     )?;
     database.commit(tx).await?;
@@ -1465,12 +1480,17 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let mut tx = database.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let table_id = table_model
-        .insert_table_for_import(TableNamespace::Global, &table_name, None, &BTreeSet::new())
+        .insert_table_for_import(
+            TableNamespace::test_user(),
+            &table_name,
+            None,
+            &BTreeSet::new(),
+        )
         .await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
     table_mapping_for_schema.insert(
         table_id.tablet_id,
-        TableNamespace::Global,
+        TableNamespace::test_user(),
         table_id.table_number,
         table_name.clone(),
     );
@@ -1497,7 +1517,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
         .is_none());
     // Delete the active table.
     TableModel::new(&mut tx)
-        .delete_table(TableNamespace::Global, table_name.clone())
+        .delete_table(TableNamespace::test_user(), table_name.clone())
         .await?;
     database.commit(tx).await?;
 
@@ -1571,7 +1591,7 @@ async fn add_indexes_at_limit_with_backfilling_index_adds_index(
 
     // Now enable the index
     IndexModel::new(&mut tx)
-        .enable_index_for_testing(TableNamespace::Global, &index_name)
+        .enable_index_for_testing(TableNamespace::test_user(), &index_name)
         .await?;
 
     // Then make sure we can add a new backfilling copy of it.
@@ -1724,7 +1744,7 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
     let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?;
 
     let table_name: TableName = str::parse("table")?;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let mut tx = db.begin_system().await?;
     let values = insert_documents(&mut tx, table_name.clone()).await?;
     db.commit(tx).await?;
@@ -1808,7 +1828,7 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
     } = DbFixtures::new(&rt).await?;
 
     let table_name: TableName = str::parse("table")?;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let mut tx = database.begin(Identity::system()).await?;
     let values = insert_documents(&mut tx, table_name.clone()).await?;
     database.commit(tx).await?;
@@ -1949,7 +1969,7 @@ async fn test_virtual_table_transaction(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_retries(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt).await;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     async fn insert(tx: &mut Transaction<TestRuntime>) -> anyhow::Result<()> {
         UserFacingModel::new_root_for_test(tx)
             .insert("table".parse()?, assert_obj!())

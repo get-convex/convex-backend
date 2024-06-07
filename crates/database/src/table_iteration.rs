@@ -628,10 +628,10 @@ mod tests {
                     .await?;
                 expected.insert(id.internal_id());
             }
-            let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
+            let table_mapping = tx.table_mapping().namespace(TableNamespace::test_user());
             let by_id = IndexName::by_id(table_name.clone());
             let by_id_metadata = IndexModel::new(&mut tx)
-                .enabled_index_metadata(TableNamespace::Global, &by_id)?
+                .enabled_index_metadata(TableNamespace::test_user(), &by_id)?
                 .unwrap();
             database.commit(tx).await?;
             let iterator = database.table_iterator(database.now_ts_for_reads(), 2, None);
@@ -672,10 +672,10 @@ mod tests {
         // We expect the iterator to produce the initial objects.
         let expected = objects.clone();
 
-        let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
+        let table_mapping = tx.table_mapping().namespace(TableNamespace::test_user());
         let by_id = IndexName::by_id(table_name.clone());
         let by_id_metadata = IndexModel::new(&mut tx)
-            .enabled_index_metadata(TableNamespace::Global, &by_id)?
+            .enabled_index_metadata(TableNamespace::test_user(), &by_id)?
             .unwrap();
         database.commit(tx).await?;
 
@@ -815,9 +815,9 @@ mod tests {
         let id = TestFacingModel::new(&mut tx)
             .insert(&table_name, assert_obj!("k" => "z"))
             .await?;
-        let table_mapping = tx.table_mapping().namespace(TableNamespace::Global);
+        let table_mapping = tx.table_mapping().namespace(TableNamespace::test_user());
         let by_k_metadata = IndexModel::new(&mut tx)
-            .enabled_index_metadata(TableNamespace::Global, &index_name)?
+            .enabled_index_metadata(TableNamespace::test_user(), &index_name)?
             .unwrap();
         let by_k_id = by_k_metadata.id().internal_id();
         let snapshot_ts = unchecked_repeatable_ts(database.commit(tx).await?);

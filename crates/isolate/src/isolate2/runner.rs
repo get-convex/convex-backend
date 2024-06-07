@@ -728,7 +728,7 @@ impl<RT: Runtime> UdfShared<RT> {
         let inner = self.inner.lock();
         Ok(inner
             .table_mapping
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::by_component_TODO())
             .id_and_number_if_exists(name))
     }
 
@@ -765,7 +765,9 @@ impl<RT: Runtime> UdfShared<RT> {
     fn get_all_table_mappings(&self) -> (NamespacedTableMapping, VirtualTableMapping) {
         let inner = self.inner.lock();
         (
-            inner.table_mapping.namespace(TableNamespace::Global),
+            inner
+                .table_mapping
+                .namespace(TableNamespace::by_component_TODO()),
             inner.virtual_table_mapping.clone(),
         )
     }

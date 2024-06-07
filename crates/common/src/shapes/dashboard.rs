@@ -180,7 +180,7 @@ mod tests {
             ShapeEnumJson::Id { table_name } => {
                 let name: TableName = table_name.parse()?;
                 ReducedShape::Id(all_tables_name_to_number(
-                    TableNamespace::Global,
+                    TableNamespace::by_component_TODO(),
                     mapping,
                     virtual_mapping,
                 )(name)?)
@@ -260,7 +260,7 @@ mod tests {
         for shape in shapes {
             let json_value = dashboard_shape_json(
                 &shape,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &id_generator.virtual_table_mapping,
             )?;
             assert_eq!(
@@ -304,7 +304,7 @@ mod tests {
         for shape in shapes {
             let json_value = dashboard_shape_json(
                 &shape,
-                &id_generator.namespace(TableNamespace::Global),
+                &id_generator.namespace(TableNamespace::test_user()),
                 &id_generator.virtual_table_mapping,
             )?;
             assert_eq!(

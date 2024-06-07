@@ -30,6 +30,37 @@ pub enum TableNamespace {
     ByComponentDefinition(InternalId),
 }
 
+impl TableNamespace {
+    /// Default namespace for user tables in tests.
+    /// Ideally we should be able to change this to a different namespace
+    /// without any test failures.
+    #[cfg(any(test, feature = "testing"))]
+    pub const fn test_user() -> Self {
+        Self::Global
+    }
+
+    /// Namespace that should be replaced with RootComponent or ByComponent,
+    /// but for now uses Global. For easy searching.
+    #[allow(non_snake_case)]
+    pub const fn by_component_TODO() -> Self {
+        Self::Global
+    }
+
+    /// Namespace that should be replaced with RootComponentDefinition or
+    /// ByComponentDefinition, but for now uses Global. For easy searching.
+    #[allow(non_snake_case)]
+    pub const fn by_component_definition_TODO() -> Self {
+        Self::Global
+    }
+
+    /// Namespace that should be passed down, and could be Global, ByComponent,
+    /// or ByComponentDefinition.
+    #[allow(non_snake_case)]
+    pub const fn TODO() -> Self {
+        Self::Global
+    }
+}
+
 // This TableMapping contains the mapping between TableNames and
 // TabletIdAndTableNumber. This only includes active tables and hidden tables
 // (i.e. not deleted tables).

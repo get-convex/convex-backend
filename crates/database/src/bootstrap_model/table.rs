@@ -548,7 +548,7 @@ mod tests {
         let mut tx = new_tx(rt).await?;
         let mut model = TableModel::new(&mut tx);
         model
-            .delete_table(TableNamespace::Global, TableName::from_str("missing")?)
+            .delete_table(TableNamespace::test_user(), TableName::from_str("missing")?)
             .await
     }
 
@@ -558,9 +558,9 @@ mod tests {
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
         model
-            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
-        assert!(model.table_exists(TableNamespace::Global, &table_name));
+        assert!(model.table_exists(TableNamespace::test_user(), &table_name));
         Ok(())
     }
 
@@ -570,12 +570,12 @@ mod tests {
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
         model
-            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         model
-            .delete_table(TableNamespace::Global, table_name.clone())
+            .delete_table(TableNamespace::test_user(), table_name.clone())
             .await?;
-        assert!(!model.table_exists(TableNamespace::Global, &table_name));
+        assert!(!model.table_exists(TableNamespace::test_user(), &table_name));
         Ok(())
     }
 
@@ -590,12 +590,12 @@ mod tests {
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
         model
-            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         model
-            .delete_table(TableNamespace::Global, table_name.clone())
+            .delete_table(TableNamespace::test_user(), table_name.clone())
             .await?;
-        assert!(!model.table_exists(TableNamespace::Global, &table_name));
+        assert!(!model.table_exists(TableNamespace::test_user(), &table_name));
         Ok(())
     }
 
@@ -610,12 +610,12 @@ mod tests {
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
         model
-            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         model
-            .delete_table(TableNamespace::Global, table_name.clone())
+            .delete_table(TableNamespace::test_user(), table_name.clone())
             .await?;
-        assert!(!model.table_exists(TableNamespace::Global, &table_name));
+        assert!(!model.table_exists(TableNamespace::test_user(), &table_name));
         Ok(())
     }
 
@@ -628,10 +628,10 @@ mod tests {
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
         model
-            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         let result = model
-            .delete_table(TableNamespace::Global, table_name.clone())
+            .delete_table(TableNamespace::test_user(), table_name.clone())
             .await;
         let error = result.unwrap_err();
         assert!(
@@ -658,10 +658,10 @@ mod tests {
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
         model
-            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         let result = model
-            .delete_table(TableNamespace::Global, table_name.clone())
+            .delete_table(TableNamespace::test_user(), table_name.clone())
             .await;
         let error = result.unwrap_err();
         assert!(
@@ -689,10 +689,10 @@ mod tests {
         let mut model = TableModel::new(&mut tx);
         let table_name = TableName::from_str("my_table")?;
         model
-            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         model
-            .delete_table(TableNamespace::Global, table_name.clone())
+            .delete_table(TableNamespace::test_user(), table_name.clone())
             .await?;
 
         let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
@@ -725,7 +725,7 @@ mod tests {
 
         let table_name = TableName::from_str("my_table")?;
         model
-            .insert_table_metadata(TableNamespace::Global, &table_name)
+            .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         let new_next_table_number: u32 = model.next_user_table_number().await?.into();
         assert_eq!(next_table_number + 1, new_next_table_number);

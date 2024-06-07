@@ -285,7 +285,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
 
     // Add a user index
     let table_name: TableName = "my_table".parse()?;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
         .begin_with_usage(Identity::system(), tx_usage.clone())

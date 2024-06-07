@@ -159,10 +159,10 @@ impl Scenario {
         .await?;
 
         let table_name: TableName = "test".parse()?;
-        let namespace = TableNamespace::Global;
+        let namespace = TableNamespace::test_user();
         let mut tx = database.begin(Identity::system()).await?;
         TableModel::new(&mut tx)
-            .insert_table_metadata_for_test(TableNamespace::Global, &table_name)
+            .insert_table_metadata_for_test(TableNamespace::test_user(), &table_name)
             .await?;
         let index = IndexMetadata::new_backfilling_search_index(
             "test.by_text".parse()?,
@@ -241,7 +241,7 @@ impl Scenario {
         } else {
             let table_id = snapshot
                 .table_mapping()
-                .namespace(TableNamespace::Global)
+                .namespace(TableNamespace::test_user())
                 .id(&table_name)?
                 .tablet_id;
             let index_name = TabletIndexName::new(table_id, index_descriptor)?;

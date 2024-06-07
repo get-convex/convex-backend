@@ -630,7 +630,7 @@ mod tests {
         let expected_ts1 = TableSummary::empty().insert(&value);
         let table_id = tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .id(&table_name)?;
         let ts1 = unchecked_repeatable_ts(database.commit(tx).await?);
 
@@ -752,7 +752,7 @@ mod tests {
 
             if !is_empty {
                 let table_id = table_mapping
-                    .namespace(TableNamespace::Global)
+                    .namespace(TableNamespace::test_user())
                     .id(&table_name)?;
                 assert_eq!(computed.tables.get(&table_id.tablet_id), Some(&expected));
             }
@@ -781,7 +781,7 @@ mod tests {
                         .await?;
                     let table_id = tx
                         .table_mapping()
-                        .namespace(TableNamespace::Global)
+                        .namespace(TableNamespace::test_user())
                         .id(table_name)?;
                     let summary = expected.entry(table_id).or_insert_with(TableSummary::empty);
                     let inserted = inserted.value().0.clone();
@@ -802,7 +802,7 @@ mod tests {
             for (table_name, values) in &values {
                 if !values.is_empty() {
                     let table_id = table_mapping
-                        .namespace(TableNamespace::Global)
+                        .namespace(TableNamespace::test_user())
                         .id(table_name)?;
                     let expected = expected.get(&table_id).unwrap();
                     assert_eq!(expected, computed.tables.get(&table_id.tablet_id).unwrap());

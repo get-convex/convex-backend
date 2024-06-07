@@ -157,7 +157,7 @@ impl VectorFixtures {
             storage: search_storage,
             searcher,
             config,
-            namespace: TableNamespace::Global,
+            namespace: TableNamespace::test_user(),
         })
     }
 
@@ -469,7 +469,7 @@ pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Res
     let index_metadata = new_backfilling_vector_index()?;
     let index_name = &index_metadata.name;
     let mut tx = db.begin_system().await?;
-    let namespace = TableNamespace::Global;
+    let namespace = TableNamespace::test_user();
     let index_id = IndexModel::new(&mut tx)
         .add_application_index(index_metadata.clone())
         .await?;

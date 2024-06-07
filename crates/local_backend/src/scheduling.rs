@@ -85,7 +85,8 @@ pub async fn cancel_job(
             async {
                 let id = parse_document_id(
                     &cancel_job_request.id,
-                    &tx.table_mapping().namespace(TableNamespace::Global),
+                    &tx.table_mapping()
+                        .namespace(TableNamespace::by_component_TODO()),
                     &SCHEDULED_JOBS_TABLE,
                 )?;
 

@@ -995,7 +995,7 @@ mod tests {
                 .unwrap();
             let tablet_id = tx
                 .table_mapping()
-                .namespace(TableNamespace::Global)
+                .namespace(TableNamespace::test_user())
                 .inject_table_id()(doc.table())?
             .tablet_id;
             let doc = doc.to_resolved(tablet_id);
@@ -1109,7 +1109,7 @@ mod tests {
         let mut tx = db.begin(Identity::system()).await?;
         let storage_table_id = tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .id(&"_file_storage".parse()?)?;
         let file1: ParsedDocument<FileStorageEntry> = tx
             .get(GenericDocumentId::new(
@@ -1186,7 +1186,7 @@ mod tests {
         db.commit(tx).await?;
         let mut tx = db.begin(Identity::system()).await?;
         TableModel::new(&mut tx)
-            .delete_table(TableNamespace::Global, "table_0".parse()?)
+            .delete_table(TableNamespace::test_user(), "table_0".parse()?)
             .await?;
         db.commit(tx).await?;
 

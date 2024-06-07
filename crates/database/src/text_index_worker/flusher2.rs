@@ -187,7 +187,7 @@ mod tests {
         let mut tx = fixtures.db.begin_system().await?;
         let table_id = tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::test_user())
             .id(index_data.index_name.table())?
             .tablet_id;
         let resolved_index_name =

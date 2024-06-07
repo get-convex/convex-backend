@@ -50,7 +50,9 @@ pub async fn shapes2(
 
     must_be_admin_member(&identity)?;
     let snapshot = st.application.latest_snapshot()?;
-    let mapping = snapshot.table_mapping().namespace(TableNamespace::Global);
+    let mapping = snapshot
+        .table_mapping()
+        .namespace(TableNamespace::by_component_TODO());
     let virtual_mapping = snapshot.table_registry.virtual_table_mapping();
 
     for table_name in snapshot.table_registry.user_table_names() {

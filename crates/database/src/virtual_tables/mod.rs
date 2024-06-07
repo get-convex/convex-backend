@@ -59,7 +59,7 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
                 let table_id = self
                     .tx
                     .table_mapping()
-                    .namespace(TableNamespace::Global)
+                    .namespace(TableNamespace::by_component_TODO())
                     .id(&system_table_name)?;
                 let id_ = ResolvedDocumentId::new(table_id, id.internal_id());
                 // NOTE we intentionally pass `system_table_name` in, which means this
@@ -190,7 +190,7 @@ impl VirtualSystemMapping {
         let virtual_doc_id = virtual_id_v6.map_table(virtual_table_mapping.number_to_name())?;
         let system_table_name = self.virtual_to_system_table(virtual_doc_id.table())?;
         let system_table_id = table_mapping
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::by_component_TODO())
             .id(system_table_name)?;
         Ok(system_table_id.id(virtual_id_v6.internal_id()))
     }

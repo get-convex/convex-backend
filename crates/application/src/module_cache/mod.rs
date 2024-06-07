@@ -77,7 +77,7 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
         // the cache, load the module directly.
         let module_versions_table_id = tx
             .table_mapping()
-            .namespace(TableNamespace::Global)
+            .namespace(TableNamespace::by_component_definition_TODO())
             .id(&MODULE_VERSIONS_TABLE)?;
         if tx.writes().has_written_to(&module_versions_table_id) {
             let source = ModuleModel::new(tx)

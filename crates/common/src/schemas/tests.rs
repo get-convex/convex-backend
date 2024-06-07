@@ -637,7 +637,7 @@ fn test_json_backwards_compatibility() -> anyhow::Result<()> {
 }
 
 fn empty_table_mapping() -> NamespacedTableMapping {
-    TableMapping::new().namespace(TableNamespace::Global)
+    TableMapping::new().namespace(TableNamespace::test_user())
 }
 
 mod tables_to_revalidate {
@@ -966,7 +966,7 @@ mod tables_to_revalidate {
         let tables_to_validate = DatabaseSchema::tables_to_validate(
             &new_schema,
             Some(old_schema),
-            &id_generator.namespace(TableNamespace::Global),
+            &id_generator.namespace(TableNamespace::test_user()),
             &VirtualTableMapping::new(),
             &|name| {
                 assert_eq!(&table_name, name);
@@ -1014,7 +1014,7 @@ mod tables_to_revalidate {
         let shape = CountedShape::<TestConfig>::empty().insert_value(&dog_id.into());
         assert!(Validator::from_shape(
             &shape,
-            &id_generator.namespace(TableNamespace::Global),
+            &id_generator.namespace(TableNamespace::test_user()),
             &VirtualTableMapping::new()
         )
         .is_subset(&Validator::Id(TableName::from_str("dogs")?)));

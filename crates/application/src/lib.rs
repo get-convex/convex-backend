@@ -2084,10 +2084,10 @@ impl<RT: Runtime> Application<RT> {
             );
             let mut table_model = TableModel::new(&mut tx);
             count += table_model
-                .count(TableNamespace::Global, &table_name)
+                .count(TableNamespace::by_component_TODO(), &table_name)
                 .await?;
             table_model
-                .delete_table(TableNamespace::Global, table_name)
+                .delete_table(TableNamespace::by_component_TODO(), table_name)
                 .await?;
         }
         self.commit(tx, "delete_tables").await?;
@@ -2102,14 +2102,15 @@ impl<RT: Runtime> Application<RT> {
         indexes: BTreeMap<IndexName, IndexedFields>,
     ) -> anyhow::Result<()> {
         let mut tx = self.begin(identity.clone()).await?;
+        let namespace = TableNamespace::by_component_TODO();
         for (index_name, index_fields) in indexes.into_iter() {
             let index_fields = self._validate_user_defined_index_fields(index_fields)?;
             let index_metadata =
                 IndexMetadata::new_backfilling(*tx.begin_timestamp(), index_name, index_fields);
             let mut model = IndexModel::new(&mut tx);
             if let Some(existing_index_metadata) = model
-                .pending_index_metadata(TableNamespace::Global, &index_metadata.name)?
-                .or(model.enabled_index_metadata(TableNamespace::Global, &index_metadata.name)?)
+                .pending_index_metadata(namespace, &index_metadata.name)?
+                .or(model.enabled_index_metadata(namespace, &index_metadata.name)?)
             {
                 if !index_metadata
                     .config
@@ -2119,12 +2120,12 @@ impl<RT: Runtime> Application<RT> {
                         .drop_index(existing_index_metadata.id())
                         .await?;
                     IndexModel::new(&mut tx)
-                        .add_system_index(TableNamespace::Global, index_metadata)
+                        .add_system_index(namespace, index_metadata)
                         .await?;
                 }
             } else {
                 IndexModel::new(&mut tx)
-                    .add_system_index(TableNamespace::Global, index_metadata)
+                    .add_system_index(namespace, index_metadata)
                     .await?;
             }
         }

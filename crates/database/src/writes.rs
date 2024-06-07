@@ -358,7 +358,7 @@ mod tests {
             ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table1.tablet_id.0),
             CreationTime::ONE,
             TableMetadata::new(
-                TableNamespace::Global,
+                TableNamespace::test_user(),
                 "big_table".parse()?,
                 user_table1.table_number,
             )
@@ -393,7 +393,7 @@ mod tests {
             ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table2.tablet_id.0),
             CreationTime::ONE,
             TableMetadata::new(
-                TableNamespace::Global,
+                TableNamespace::test_user(),
                 "small_table".parse()?,
                 user_table2.table_number,
             )
