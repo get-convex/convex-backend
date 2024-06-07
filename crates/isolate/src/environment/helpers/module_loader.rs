@@ -8,7 +8,7 @@ use anyhow::{
     Context,
 };
 use common::{
-    components::ComponentDefinitionId,
+    components::ComponentId,
     document::ParsedDocument,
     knobs::READ_MODULES_FROM_SOURCE_PACKAGE,
     runtime::Runtime,
@@ -109,10 +109,9 @@ async fn download_module_source_from_package<RT: Runtime>(
     let component = match namespace {
         // TODO(lee) global namespace should not have modules, but for existing data this is how
         // it's represented.
-        TableNamespace::Global => ComponentDefinitionId::Root,
-        TableNamespace::RootComponentDefinition => ComponentDefinitionId::Root,
-        TableNamespace::ByComponentDefinition(id) => ComponentDefinitionId::Child(id),
-        _ => anyhow::bail!("_modules table namespace {namespace:?} is not a component definition"),
+        TableNamespace::Global => ComponentId::Root,
+        TableNamespace::RootComponent => ComponentId::Root,
+        TableNamespace::ByComponent(id) => ComponentId::Child(id),
     };
     for module_metadata in ModuleModel::new(tx).get_all_metadata(component).await? {
         match package.remove(&module_metadata.path) {

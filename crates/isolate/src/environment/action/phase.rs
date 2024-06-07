@@ -148,14 +148,14 @@ impl<RT: Runtime> ActionPhase<RT> {
             let result = if !*COMPONENTS_ENABLED {
                 anyhow::ensure!(self.component.is_root());
                 ModuleModel::new(&mut tx)
-                    .get_all_metadata(ComponentDefinitionId::Root)
+                    .get_all_metadata(ComponentId::Root)
                     .await?
             } else {
                 let metadata = BootstrapComponentsModel::new(&mut tx)
                     .resolve_path(self.component.clone())
                     .await?
                     .context("Failed to find component")?;
-                let (component_id, definition_id) = if self.component.is_root() {
+                let (component_id, _) = if self.component.is_root() {
                     (ComponentId::Root, ComponentDefinitionId::Root)
                 } else {
                     (
@@ -164,7 +164,7 @@ impl<RT: Runtime> ActionPhase<RT> {
                     )
                 };
                 let module_metadata = ModuleModel::new(&mut tx)
-                    .get_all_metadata(definition_id)
+                    .get_all_metadata(component_id)
                     .await?;
 
                 let loaded_resources = ComponentsModel::new(&mut tx)

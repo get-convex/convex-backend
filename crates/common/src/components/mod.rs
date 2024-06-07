@@ -110,19 +110,3 @@ impl ComponentDefinitionId {
         matches!(self, ComponentDefinitionId::Root)
     }
 }
-
-impl From<ComponentDefinitionId> for TableNamespace {
-    fn from(value: ComponentDefinitionId) -> Self {
-        if *COMPONENTS_ENABLED {
-            match value {
-                ComponentDefinitionId::Root => TableNamespace::RootComponentDefinition,
-                ComponentDefinitionId::Child(id) => TableNamespace::ByComponentDefinition(id),
-            }
-        } else {
-            match value {
-                ComponentDefinitionId::Root => TableNamespace::Global,
-                ComponentDefinitionId::Child(_id) => TableNamespace::Global,
-            }
-        }
-    }
-}

@@ -11,7 +11,6 @@ use common::{
         schema::SchemaState,
     },
     components::{
-        ComponentDefinitionId,
         ComponentDefinitionPath,
         ComponentId,
         ComponentName,
@@ -47,7 +46,6 @@ use super::{
     types::EvaluatedComponentDefinition,
 };
 use crate::{
-    component_definition_system_tables,
     component_system_tables,
     config::types::{
         ModuleConfig,
@@ -85,7 +83,10 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
             ComponentDefinitionPath,
             BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         >,
-    ) -> anyhow::Result<BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>> {
+    ) -> anyhow::Result<(
+        BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,
+        BTreeMap<InternalId, NewModules>,
+    )> {
         let mut definition_diffs = BTreeMap::new();
 
         let existing_definitions = BootstrapComponentsModel::new(self.tx)
@@ -102,6 +103,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
                 .await?;
             definition_diffs.insert(definition_path.clone(), diff);
         }
+        let mut modules_by_definition = BTreeMap::new();
 
         for (definition_path, new_definition) in new_definitions {
             let source_package = source_packages.get(definition_path).ok_or_else(|| {
@@ -133,103 +135,56 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
                 new_modules.push(module.clone());
             }
 
-            let diff = match existing_definitions.get(definition_path) {
-                Some(existing_definition) => {
+            let (id, diff) = match existing_definitions.get(definition_path) {
+                Some(existing_definition) => (
+                    existing_definition.id().internal_id(),
                     self.modify_component_definition(
                         existing_definition,
-                        source_package_id,
-                        new_modules,
                         new_definition.definition.clone(),
-                        functions,
                     )
-                    .await?
-                },
+                    .await?,
+                ),
                 None => {
-                    self.create_component_definition(
-                        new_definition.definition.clone(),
-                        source_package_id,
-                        new_modules,
-                        functions,
-                    )
-                    .await?
+                    self.create_component_definition(new_definition.definition.clone())
+                        .await?
                 },
             };
             definition_diffs.insert(definition_path.clone(), diff);
+
+            modules_by_definition.insert(
+                id,
+                NewModules {
+                    modules: new_modules,
+                    source_package_id,
+                    analyze_results: functions,
+                },
+            );
         }
 
-        Ok(definition_diffs)
+        Ok((definition_diffs, modules_by_definition))
     }
 
     pub async fn create_component_definition(
         &mut self,
         definition: ComponentDefinitionMetadata,
-        source_package_id: SourcePackageId,
-        new_modules: Vec<ModuleConfig>,
-        functions: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
-    ) -> anyhow::Result<ComponentDefinitionDiff> {
-        let is_root = definition.path.is_root();
+    ) -> anyhow::Result<(InternalId, ComponentDefinitionDiff)> {
         let id = SystemMetadataModel::new_global(self.tx)
             .insert(&COMPONENT_DEFINITIONS_TABLE, definition.clone().try_into()?)
             .await?;
-        let definition_id = if is_root {
-            ComponentDefinitionId::Root
-        } else {
-            ComponentDefinitionId::Child(id.internal_id())
-        };
 
-        initialize_application_system_table(
-            self.tx,
-            &SchemasTable,
-            definition_id.into(),
-            &DEFAULT_TABLE_NUMBERS,
-        )
-        .await?;
-        for table in component_definition_system_tables() {
-            initialize_application_system_table(
-                self.tx,
-                table,
-                definition_id.into(),
-                &DEFAULT_TABLE_NUMBERS,
-            )
-            .await?;
-        }
-        let module_diff = ModuleModel::new(self.tx)
-            .apply(
-                definition_id,
-                new_modules,
-                Some(source_package_id),
-                functions,
-            )
-            .await?;
-        let diff = ComponentDefinitionDiff { module_diff };
-        Ok(diff)
+        let diff = ComponentDefinitionDiff {};
+        Ok((id.internal_id(), diff))
     }
 
     pub async fn modify_component_definition(
         &mut self,
         existing: &ParsedDocument<ComponentDefinitionMetadata>,
-        source_package_id: SourcePackageId,
-        new_modules: Vec<ModuleConfig>,
         new_definition: ComponentDefinitionMetadata,
-        new_functions: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
     ) -> anyhow::Result<ComponentDefinitionDiff> {
         SystemMetadataModel::new_global(self.tx)
             .replace(existing.id(), new_definition.clone().try_into()?)
             .await?;
-        let definition_id = if existing.path.is_root() {
-            ComponentDefinitionId::Root
-        } else {
-            ComponentDefinitionId::Child(existing.id().internal_id())
-        };
-        let module_diff = ModuleModel::new(self.tx)
-            .apply(
-                definition_id,
-                new_modules,
-                Some(source_package_id),
-                new_functions,
-            )
-            .await?;
-        let diff = ComponentDefinitionDiff { module_diff };
+        let diff = ComponentDefinitionDiff {};
         Ok(diff)
     }
 
@@ -240,42 +195,33 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         SystemMetadataModel::new_global(self.tx)
             .delete(existing.id())
             .await?;
-        let definition_id = if existing.path.is_root() {
-            ComponentDefinitionId::Root
-        } else {
-            ComponentDefinitionId::Child(existing.id().internal_id())
-        };
-        let module_diff = ModuleModel::new(self.tx)
-            .apply(definition_id, vec![], None, BTreeMap::new())
-            .await?;
-
         // TODO: Delete the module system tables.
-        Ok(ComponentDefinitionDiff { module_diff })
+        Ok(ComponentDefinitionDiff {})
     }
 }
 
-pub struct ComponentDefinitionDiff {
-    pub module_diff: ModuleDiff,
-}
+pub struct ComponentDefinitionDiff {}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SerializedComponentDefinitionDiff {
-    module_diff: ModuleDiff,
-}
+pub struct SerializedComponentDefinitionDiff {}
 
 impl TryFrom<ComponentDefinitionDiff> for SerializedComponentDefinitionDiff {
     type Error = anyhow::Error;
 
-    fn try_from(value: ComponentDefinitionDiff) -> Result<Self, Self::Error> {
-        Ok(Self {
-            module_diff: value.module_diff,
-        })
+    fn try_from(_: ComponentDefinitionDiff) -> Result<Self, Self::Error> {
+        Ok(Self {})
     }
 }
 
 pub struct ComponentConfigModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
+}
+
+pub struct NewModules {
+    modules: Vec<ModuleConfig>,
+    source_package_id: SourcePackageId,
+    analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
 }
 
 impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
@@ -402,6 +348,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         &mut self,
         app: &CheckedComponent,
         schema_change: &SchemaChange,
+        modules_by_definition: BTreeMap<InternalId, NewModules>,
     ) -> anyhow::Result<BTreeMap<ComponentPath, ComponentDiff>> {
         let definition_id_by_path = BootstrapComponentsModel::new(self.tx)
             .load_all_definitions()
@@ -453,11 +400,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                         .allocated_component_ids
                         .get(&path)
                         .context("Missing allocated component ID")?;
-                    self.create_component(internal_id, new_metadata).await?
+                    self.create_component(internal_id, new_metadata, &modules_by_definition)
+                        .await?
                 },
                 // Update a node.
                 (Some(existing_node), Some(new_metadata)) => {
-                    self.modify_component(existing_node, new_metadata).await?
+                    self.modify_component(existing_node, new_metadata, &modules_by_definition)
+                        .await?
                 },
                 // Delete an existing node.
                 (Some(existing_node), None) => self.delete_component(existing_node).await?,
@@ -509,39 +458,90 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         &mut self,
         id: InternalId,
         metadata: ComponentMetadata,
+        modules_by_definition: &BTreeMap<InternalId, NewModules>,
     ) -> anyhow::Result<(InternalId, ComponentDiff)> {
+        let modules = modules_by_definition
+            .get(&metadata.definition_id)
+            .context("Missing modules for component definition")?;
+        let is_root = metadata.component_type.is_root();
         let document_id = SystemMetadataModel::new_global(self.tx)
             .insert_with_internal_id(&COMPONENTS_TABLE, id, metadata.try_into()?)
             .await?;
         anyhow::ensure!(document_id.internal_id() == id);
+        let component_id = if is_root {
+            ComponentId::Root
+        } else {
+            ComponentId::Child(id)
+        };
+
+        let module_diff = ModuleModel::new(self.tx)
+            .apply(
+                component_id,
+                modules.modules.clone(),
+                Some(modules.source_package_id),
+                modules.analyze_results.clone(),
+            )
+            .await?;
 
         // TODO: Diff crons.
 
-        Ok((id, ComponentDiff::Create))
+        Ok((id, ComponentDiff::Create { module_diff }))
     }
 
     async fn modify_component(
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
         new_metadata: ComponentMetadata,
+        modules_by_definition: &BTreeMap<InternalId, NewModules>,
     ) -> anyhow::Result<(InternalId, ComponentDiff)> {
+        let component_id = if existing.parent_and_name().is_none() {
+            ComponentId::Root
+        } else {
+            ComponentId::Child(existing.id().internal_id())
+        };
+        let modules = modules_by_definition
+            .get(&new_metadata.definition_id)
+            .context("Missing modules for component definition")?;
         SystemMetadataModel::new_global(self.tx)
             .replace(existing.id(), new_metadata.try_into()?)
             .await?;
+        let module_diff = ModuleModel::new(self.tx)
+            .apply(
+                component_id,
+                modules.modules.clone(),
+                Some(modules.source_package_id),
+                modules.analyze_results.clone(),
+            )
+            .await?;
+
         // TODO: Diff crons.
-        Ok((existing.id().internal_id(), ComponentDiff::Modify))
+        Ok((
+            existing.id().internal_id(),
+            ComponentDiff::Modify { module_diff },
+        ))
     }
 
     async fn delete_component(
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
     ) -> anyhow::Result<(InternalId, ComponentDiff)> {
+        let component_id = if existing.parent_and_name().is_none() {
+            ComponentId::Root
+        } else {
+            ComponentId::Child(existing.id().internal_id())
+        };
         // TODO: Diff crons.
         // TODO: Delete the component's system tables.
         SystemMetadataModel::new_global(self.tx)
             .delete(existing.id())
             .await?;
-        Ok((existing.id().internal_id(), ComponentDiff::Delete))
+        let module_diff = ModuleModel::new(self.tx)
+            .apply(component_id, vec![], None, BTreeMap::new())
+            .await?;
+        Ok((
+            existing.id().internal_id(),
+            ComponentDiff::Delete { module_diff },
+        ))
     }
 }
 
@@ -599,17 +599,20 @@ struct TreeDiffChild<'a> {
 }
 
 pub enum ComponentDiff {
-    Create,
-    Modify,
-    Delete,
+    Create { module_diff: ModuleDiff },
+    Modify { module_diff: ModuleDiff },
+    Delete { module_diff: ModuleDiff },
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum SerializedComponentDiff {
-    Create,
-    Modify,
-    Delete,
+    #[serde(rename_all = "camelCase")]
+    Create { module_diff: ModuleDiff },
+    #[serde(rename_all = "camelCase")]
+    Modify { module_diff: ModuleDiff },
+    #[serde(rename_all = "camelCase")]
+    Delete { module_diff: ModuleDiff },
 }
 
 impl TryFrom<ComponentDiff> for SerializedComponentDiff {
@@ -617,9 +620,9 @@ impl TryFrom<ComponentDiff> for SerializedComponentDiff {
 
     fn try_from(value: ComponentDiff) -> Result<Self, Self::Error> {
         Ok(match value {
-            ComponentDiff::Create => Self::Create,
-            ComponentDiff::Modify => Self::Modify,
-            ComponentDiff::Delete => Self::Delete,
+            ComponentDiff::Create { module_diff } => Self::Create { module_diff },
+            ComponentDiff::Modify { module_diff } => Self::Modify { module_diff },
+            ComponentDiff::Delete { module_diff } => Self::Delete { module_diff },
         })
     }
 }

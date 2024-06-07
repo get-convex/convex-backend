@@ -23,11 +23,6 @@ pub enum TableNamespace {
     /// _file_storage, etc.
     RootComponent,
     ByComponent(InternalId),
-
-    /// Some tables are namespaced by component definition, like _modules and
-    /// _schemas.
-    RootComponentDefinition,
-    ByComponentDefinition(InternalId),
 }
 
 impl TableNamespace {

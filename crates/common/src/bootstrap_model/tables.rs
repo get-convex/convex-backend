@@ -145,10 +145,6 @@ enum SerializedTableNamespace {
         #[serde(skip_serializing_if = "Option::is_none")]
         id: Option<String>,
     },
-    ByComponentDefinition {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        id: Option<String>,
-    },
 }
 
 fn table_namespace_from_serialized(
@@ -160,12 +156,6 @@ fn table_namespace_from_serialized(
             TableNamespace::ByComponent(id.parse()?)
         },
         Some(SerializedTableNamespace::ByComponent { id: None }) => TableNamespace::RootComponent,
-        Some(SerializedTableNamespace::ByComponentDefinition { id: Some(id) }) => {
-            TableNamespace::ByComponentDefinition(id.parse()?)
-        },
-        Some(SerializedTableNamespace::ByComponentDefinition { id: None }) => {
-            TableNamespace::RootComponentDefinition
-        },
     })
 }
 
@@ -183,16 +173,6 @@ fn table_namespace_to_serialized(
         })),
         TableNamespace::RootComponent => {
             Ok(Some(SerializedTableNamespace::ByComponent { id: None }))
-        },
-        TableNamespace::ByComponentDefinition(id) => {
-            Ok(Some(SerializedTableNamespace::ByComponentDefinition {
-                id: Some(id.to_string()),
-            }))
-        },
-        TableNamespace::RootComponentDefinition => {
-            Ok(Some(SerializedTableNamespace::ByComponentDefinition {
-                id: None,
-            }))
         },
     }
 }

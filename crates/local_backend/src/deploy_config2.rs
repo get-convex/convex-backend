@@ -749,7 +749,7 @@ async fn finish_push_handler(
         .await?;
 
     // Diff the component definitions.
-    let definition_diffs = ComponentDefinitionConfigModel::new(&mut tx)
+    let (definition_diffs, modules_by_definition) = ComponentDefinitionConfigModel::new(&mut tx)
         .apply_component_definitions_diff(
             &start_push.analysis,
             &start_push.component_definition_packages,
@@ -759,7 +759,11 @@ async fn finish_push_handler(
 
     // Diff component tree.
     let component_diffs = ComponentConfigModel::new(&mut tx)
-        .apply_component_tree_diff(&start_push.app, &start_push.schema_change)
+        .apply_component_tree_diff(
+            &start_push.app,
+            &start_push.schema_change,
+            modules_by_definition,
+        )
         .await?;
 
     if !req.dry_run {

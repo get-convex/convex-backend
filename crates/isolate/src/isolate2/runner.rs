@@ -9,7 +9,6 @@ use anyhow::Context as AnyhowContext;
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
         ComponentFunctionPath,
         ComponentId,
         Reference,
@@ -505,7 +504,7 @@ async fn run_request<RT: Runtime>(
         while let Some(module_path) = stack.pop() {
             let module_specifier = module_specifier_from_path(&module_path)?;
             let path = CanonicalizedComponentModulePath {
-                component: ComponentDefinitionId::Root,
+                component: ComponentId::Root,
                 module_path: module_path.clone(),
             };
             let Some(module_metadata) = module_loader.get_module(tx, path).await? else {

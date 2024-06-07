@@ -78,12 +78,11 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             },
             Reference::Function(udf_path) => {
                 let mut m = BootstrapComponentsModel::new(self.tx);
-                let definition_id = m.component_definition(component_id).await?;
                 let component_path = m.get_component_path(component_id).await?;
 
                 let canonicalized = udf_path.clone().canonicalize();
                 let module_path = CanonicalizedComponentModulePath {
-                    component: definition_id,
+                    component: component_id,
                     module_path: canonicalized.module().clone(),
                 };
                 let module_metadata = ModuleModel::new(self.tx)
@@ -212,7 +211,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         }
 
         let module_metadata = ModuleModel::new(self.tx)
-            .get_application_metadata(definition_id)
+            .get_application_metadata(component_id)
             .await?;
         for module in module_metadata {
             let Some(ref analyze_result) = module.analyze_result else {
@@ -292,7 +291,7 @@ mod tests {
         bootstrap_model::index::IndexMetadata,
         components::{
             CanonicalizedComponentModulePath,
-            ComponentDefinitionId,
+            ComponentId,
         },
     };
     use database::{
@@ -300,7 +299,7 @@ mod tests {
         test_helpers::DbFixtures,
         IndexModel,
         SystemMetadataModel,
-        COMPONENT_DEFINITIONS_TABLE,
+        COMPONENTS_TABLE,
     };
     use keybroker::Identity;
     use runtime::testing::TestRuntime;
@@ -320,11 +319,11 @@ mod tests {
 
         let mut tx = db.begin(Identity::system()).await?;
         let id = SystemMetadataModel::new_global(&mut tx)
-            .insert(&COMPONENT_DEFINITIONS_TABLE, obj!()?)
+            .insert(&COMPONENTS_TABLE, obj!()?)
             .await?;
-        let definition_id = ComponentDefinitionId::Child(id.internal_id());
+        let component_id = ComponentId::Child(id.internal_id());
 
-        let namespace = definition_id.into();
+        let namespace = component_id.into();
         let table = ModulesTable;
         let is_new = tx
             .create_system_table(
@@ -344,7 +343,7 @@ mod tests {
 
         let m = ModuleModel::new(&mut tx)
             .get_metadata(CanonicalizedComponentModulePath {
-                component: definition_id,
+                component: component_id,
                 module_path: "a.js".parse()?,
             })
             .await?;

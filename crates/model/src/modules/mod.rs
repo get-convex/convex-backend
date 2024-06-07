@@ -11,7 +11,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
+        ComponentId,
     },
     document::{
         ParsedDocument,
@@ -189,7 +189,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
     pub async fn apply(
         &mut self,
-        component: ComponentDefinitionId,
+        component: ComponentId,
         modules: Vec<ModuleConfig>,
         source_package_id: Option<SourcePackageId>,
         mut analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
@@ -254,7 +254,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     #[minitrace::trace]
     pub async fn get_all_metadata(
         &mut self,
-        component: ComponentDefinitionId,
+        component: ComponentId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
         let index_query = Query::full_table_scan(MODULES_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, component.into(), index_query)?;
@@ -269,7 +269,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
     pub async fn get_application_metadata(
         &mut self,
-        component: ComponentDefinitionId,
+        component: ComponentId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
         let modules = self
             .get_all_metadata(component)
@@ -283,7 +283,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     /// Returns all registered modules that aren't system modules.
     pub async fn get_application_modules(
         &mut self,
-        component: ComponentDefinitionId,
+        component: ComponentId,
         module_loader: &dyn ModuleLoader<RT>,
     ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, ModuleConfig>> {
         let mut modules = BTreeMap::new();
@@ -518,7 +518,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         version: ModuleVersion,
         source: ModuleSource,
         source_map: Option<SourceMap>,
-        component: ComponentDefinitionId,
+        component: ComponentId,
     ) -> anyhow::Result<()> {
         let new_version = ModuleVersionMetadata {
             module_id: module_id.into(),
@@ -660,7 +660,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
     pub async fn has_http(&mut self) -> anyhow::Result<bool> {
         let path = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
+            component: ComponentId::Root,
             module_path: "http.js".parse()?,
         };
         Ok(self.get_metadata(path).await?.is_some())

@@ -13,7 +13,6 @@ use anyhow::Context;
 use common::{
     components::{
         CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
         ComponentId,
         ComponentPath,
     },
@@ -92,7 +91,6 @@ enum UdfPreloaded {
         observed_time_during_execution: AtomicBool,
         env_vars: PreloadedEnvironmentVariables,
         component: ComponentId,
-        component_definition: ComponentDefinitionId,
     },
 }
 
@@ -145,7 +143,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         .await?;
 
         let component_path = self.component_path.clone();
-        let (component_definition, component) = with_release_permit(
+        let (_, component) = with_release_permit(
             timeout,
             permit_slot,
             BootstrapComponentsModel::new(self.tx_mut()?).component_path_to_ids(component_path),
@@ -159,7 +157,6 @@ impl<RT: Runtime> UdfPhase<RT> {
             observed_time_during_execution: AtomicBool::new(false),
             env_vars,
             component,
-            component_definition,
         };
         Ok(())
     }
@@ -183,15 +180,11 @@ impl<RT: Runtime> UdfPhase<RT> {
                 format!("Can't dynamically import {module_path:?} in a query or mutation")
             ));
         }
-        let UdfPreloaded::Ready {
-            component_definition,
-            ..
-        } = &self.preloaded
-        else {
+        let UdfPreloaded::Ready { component, .. } = &self.preloaded else {
             anyhow::bail!("Phase not initialized");
         };
         let path = CanonicalizedComponentModulePath {
-            component: *component_definition,
+            component: *component,
             module_path: module_path.clone().canonicalize(),
         };
         let module = with_release_permit(

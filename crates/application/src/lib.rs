@@ -42,9 +42,9 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
-        ComponentDefinitionId,
         ComponentDefinitionPath,
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     document::{
@@ -802,7 +802,7 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<Option<String>> {
         let mut tx = self.begin(identity).await?;
         let path = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
+            component: ComponentId::Root,
             module_path: path.canonicalize(),
         };
         let Some(metadata) = ModuleModel::new(&mut tx).get_metadata(path.clone()).await? else {
@@ -1639,7 +1639,7 @@ impl<RT: Runtime> Application<RT> {
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<()> {
         let path = CanonicalizedComponentModulePath {
-            component: ComponentDefinitionId::Root,
+            component: ComponentId::Root,
             module_path: AUTH_CONFIG_FILE_NAME.parse()?,
         };
         let auth_config_metadata = ModuleModel::new(tx).get_metadata(path).await?;
@@ -1967,7 +1967,7 @@ impl<RT: Runtime> Application<RT> {
         ModuleModel::new(&mut tx)
             .put_standalone(
                 CanonicalizedComponentModulePath {
-                    component: ComponentDefinitionId::Root,
+                    component: ComponentId::Root,
                     module_path: module_path.clone(),
                 },
                 module.source,

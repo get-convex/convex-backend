@@ -309,9 +309,9 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         &mut self,
         path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<CanonicalizedComponentModulePath> {
-        let (definition_id, _) = self.component_path_to_ids(path.component).await?;
+        let (_, component) = self.component_path_to_ids(path.component).await?;
         Ok(CanonicalizedComponentModulePath {
-            component: definition_id,
+            component,
             module_path: path.udf_path.module().clone(),
         })
     }

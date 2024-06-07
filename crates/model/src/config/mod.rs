@@ -15,10 +15,7 @@ pub mod types;
 use std::collections::BTreeMap;
 
 use common::{
-    components::{
-        ComponentDefinitionId,
-        ComponentId,
-    },
+    components::ComponentId,
     document::ParsedDocument,
     runtime::Runtime,
     schemas::DatabaseSchema,
@@ -107,7 +104,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
 
         let module_diff = ModuleModel::new(self.tx)
             .apply(
-                ComponentDefinitionId::Root,
+                ComponentId::Root,
                 modules,
                 source_package_id,
                 analyze_results,
@@ -146,7 +143,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules: Vec<_> = ModuleModel::new(self.tx)
-            .get_application_modules(ComponentDefinitionId::Root, module_loader)
+            .get_application_modules(ComponentId::Root, module_loader)
             .await?
             .into_values()
             .collect();
@@ -184,7 +181,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules = ModuleModel::new(self.tx)
-            .get_application_metadata(ComponentDefinitionId::Root)
+            .get_application_metadata(ComponentId::Root)
             .await?;
 
         // If we have an auth config module do not include auth_info in the config
