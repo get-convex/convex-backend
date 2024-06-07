@@ -170,7 +170,7 @@ impl Scenario {
             btreeset! {"filterField".parse()?},
         );
         IndexModel::new(&mut tx)
-            .add_application_index(index)
+            .add_application_index(namespace, index)
             .await?;
         database.commit(tx).await?;
 

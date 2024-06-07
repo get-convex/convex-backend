@@ -2182,7 +2182,11 @@ async fn prepare_table_for_import<RT: Runtime>(
                             )
                             .await?;
                         IndexModel::new(tx)
-                            .copy_indexes_to_table(table_name, table_id.tablet_id)
+                            .copy_indexes_to_table(
+                                TableNamespace::by_component_TODO(),
+                                table_name,
+                                table_id.tablet_id,
+                            )
                             .await?;
                         Ok(table_id)
                     }
@@ -3007,10 +3011,10 @@ a
             let mut tx = app.begin(identity.clone()).await?;
             let mut index_model = IndexModel::new(&mut tx);
             let index_id = index_model
-                .add_application_index(IndexMetadata::new_enabled(
-                    index_name.clone(),
-                    vec!["a".parse()?].try_into()?,
-                ))
+                .add_application_index(
+                    TableNamespace::test_user(),
+                    IndexMetadata::new_enabled(index_name.clone(), vec!["a".parse()?].try_into()?),
+                )
                 .await?;
             app.commit_test(tx).await?;
             index_id

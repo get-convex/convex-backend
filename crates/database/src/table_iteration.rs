@@ -788,10 +788,10 @@ mod tests {
         let index_fields = IndexedFields::try_from(vec![field.clone()])?;
         let mut tx = database.begin(Identity::system()).await?;
         IndexModel::new(&mut tx)
-            .add_application_index(IndexMetadata::new_enabled(
-                index_name.clone(),
-                index_fields.clone(),
-            ))
+            .add_application_index(
+                TableNamespace::test_user(),
+                IndexMetadata::new_enabled(index_name.clone(), index_fields.clone()),
+            )
             .await?;
         database.commit(tx).await?;
         IndexWorker::new_terminating(

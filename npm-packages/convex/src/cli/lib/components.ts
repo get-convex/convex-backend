@@ -6,6 +6,7 @@ import {
   ComponentDefinitionSpec,
   finishPush,
   startPush,
+  waitForSchema,
 } from "./deploy2.js";
 import { version } from "../version.js";
 import { PushOptions } from "./push.js";
@@ -143,6 +144,8 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
   );
 
   console.log("startPush:", startPushResponse);
+
+  await waitForSchema(ctx, options.adminKey, options.url, startPushResponse);
 
   const finishPushResponse = await finishPush(
     ctx,

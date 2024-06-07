@@ -826,7 +826,7 @@ mod tests {
         let index_metadata = backfilling_vector_index()?;
         let mut tx = fixtures.db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .add_application_index(index_metadata.clone())
+            .add_application_index(TableNamespace::test_user(), index_metadata.clone())
             .await?;
         fixtures.db.commit(tx).await?;
         reopen_db(&rt, &fixtures).await?;
@@ -842,7 +842,7 @@ mod tests {
         let index_metadata = backfilling_vector_index()?;
         let mut tx = db.begin_system().await?;
         IndexModel::new(&mut tx)
-            .add_application_index(index_metadata.clone())
+            .add_application_index(TableNamespace::test_user(), index_metadata.clone())
             .await?;
         db.commit(tx).await?;
         backfill_vector_indexes(rt.clone(), db.clone(), reader, storage.clone()).await?;
@@ -1188,7 +1188,7 @@ mod tests {
             btreeset! {"filterField".parse()?},
         );
         IndexModel::new(&mut tx)
-            .add_application_index(index)
+            .add_application_index(TableNamespace::test_user(), index)
             .await?;
         db.commit(tx).await?;
 

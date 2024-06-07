@@ -403,7 +403,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             IndexedFields::try_from(vec![field.parse()?])?,
         );
         IndexModel::new(&mut tx)
-            .add_application_index(index)
+            .add_application_index(TableNamespace::test_user(), index)
             .await?;
         self.database.commit(tx).await?;
 
@@ -781,7 +781,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
     pub async fn add_index(&self, index: IndexMetadata<TableName>) -> anyhow::Result<()> {
         let mut tx = self.database.begin(Identity::system()).await?;
         IndexModel::new(&mut tx)
-            .add_application_index(index)
+            .add_application_index(TableNamespace::test_user(), index)
             .await?;
         self.database.commit(tx).await?;
         Ok(())
@@ -828,7 +828,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
     async fn enable_backfilled_indexes(&self) -> anyhow::Result<()> {
         let mut tx = self.database.begin_system().await?;
         let indexes: Vec<IndexMetadata<TableName>> = IndexModel::new(&mut tx)
-            .get_application_indexes()
+            .get_application_indexes(TableNamespace::test_user())
             .await?
             .into_iter()
             .map(|doc| doc.into_value())

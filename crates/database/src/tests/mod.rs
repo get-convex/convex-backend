@@ -693,11 +693,14 @@ where
     let mut tx = database.begin(Identity::system()).await?;
     let begin_ts = tx.begin_timestamp();
     IndexModel::new(&mut tx)
-        .add_application_index(IndexMetadata::new_backfilling(
-            *begin_ts,
-            index_name.clone(),
-            vec![str::parse("a")?, str::parse("b")?].try_into()?,
-        ))
+        .add_application_index(
+            namespace,
+            IndexMetadata::new_backfilling(
+                *begin_ts,
+                index_name.clone(),
+                vec![str::parse("a")?, str::parse("b")?].try_into()?,
+            ),
+        )
         .await?;
     database.commit(tx).await?;
 
@@ -1627,11 +1630,10 @@ async fn add_backfilling_index<RT: Runtime>(
 ) -> anyhow::Result<ResolvedDocumentId> {
     let (index_name, field_path) = new_index_and_field_path(index)?;
     IndexModel::new(tx)
-        .add_application_index(IndexMetadata::new_backfilling(
-            *begin_ts,
-            index_name,
-            vec![field_path].try_into()?,
-        ))
+        .add_application_index(
+            TableNamespace::test_user(),
+            IndexMetadata::new_backfilling(*begin_ts, index_name, vec![field_path].try_into()?),
+        )
         .await
 }
 
@@ -1753,11 +1755,14 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = db.begin_system().await?;
     let begin_ts = tx.begin_timestamp();
     IndexModel::new(&mut tx)
-        .add_application_index(IndexMetadata::new_backfilling(
-            *begin_ts,
-            index_name.clone(),
-            vec![str::parse("a")?, str::parse("b")?].try_into()?,
-        ))
+        .add_application_index(
+            namespace,
+            IndexMetadata::new_backfilling(
+                *begin_ts,
+                index_name.clone(),
+                vec![str::parse("a")?, str::parse("b")?].try_into()?,
+            ),
+        )
         .await?;
     db.commit(tx).await?;
 
@@ -1836,10 +1841,13 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
     let index_name = IndexName::new(table_name, "a_and_b".parse()?)?;
     let mut tx = database.begin(Identity::system()).await?;
     IndexModel::new(&mut tx)
-        .add_application_index(IndexMetadata::new_enabled(
-            index_name.clone(),
-            vec![str::parse("a")?, str::parse("b")?].try_into()?,
-        ))
+        .add_application_index(
+            namespace,
+            IndexMetadata::new_enabled(
+                index_name.clone(),
+                vec![str::parse("a")?, str::parse("b")?].try_into()?,
+            ),
+        )
         .await?;
     let ts = database.commit(tx).await?;
 

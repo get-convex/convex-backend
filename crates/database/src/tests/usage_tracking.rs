@@ -292,10 +292,10 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         .await?;
     let index_name = IndexName::new(table_name.clone(), "by_key".parse()?)?;
     IndexModel::new(&mut tx)
-        .add_application_index(IndexMetadata::new_enabled(
-            index_name.clone(),
-            vec!["key".parse()?].try_into()?,
-        ))
+        .add_application_index(
+            namespace,
+            IndexMetadata::new_enabled(index_name.clone(), vec!["key".parse()?].try_into()?),
+        )
         .await
         .unwrap_or_else(|e| panic!("Failed to add index for {} {:?}", "by_key", e));
     db.commit(tx).await?;

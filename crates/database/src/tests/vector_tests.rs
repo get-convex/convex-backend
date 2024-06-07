@@ -156,8 +156,9 @@ impl<RT: Runtime> Scenario<RT> {
     async fn add_vector_index(&self, should_backfill: bool) -> anyhow::Result<()> {
         let table_name: TableName = TABLE_NAME.parse()?;
         let mut tx = self.database.begin(Identity::system()).await?;
+        let namespace = TableNamespace::test_user();
         TableModel::new(&mut tx)
-            .insert_table_metadata_for_test(TableNamespace::test_user(), &table_name)
+            .insert_table_metadata_for_test(namespace, &table_name)
             .await?;
         let index = IndexMetadata::new_backfilling_vector_index(
             INDEX_NAME.parse()?,
@@ -166,7 +167,7 @@ impl<RT: Runtime> Scenario<RT> {
             FILTER_FIELDS.iter().map(|f| f.parse()).try_collect()?,
         );
         IndexModel::new(&mut tx)
-            .add_application_index(index)
+            .add_application_index(namespace, index)
             .await?;
         self.database.commit(tx).await?;
 

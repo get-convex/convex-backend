@@ -152,6 +152,10 @@ pub async fn router(st: LocalAppState) -> Router {
                 .layer(RequestDecompressionLayer::new())
                 .layer(DefaultBodyLimit::max(*MAX_PUSH_BYTES)),
         )
+        .route(
+            "/deploy2/wait_for_schema",
+            post(deploy_config2::wait_for_schema),
+        )
         .route("/deploy2/finish_push", post(deploy_config2::finish_push))
         .route("/get_config", post(get_config))
         .route("/get_config_hashes", post(get_config_hashes))

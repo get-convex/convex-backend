@@ -96,7 +96,9 @@ pub async fn get_indexes(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_member(&identity)?;
     let mut tx = st.application.begin(identity.clone()).await?;
-    let indexes = IndexModel::new(&mut tx).get_application_indexes().await?;
+    let indexes = IndexModel::new(&mut tx)
+        .get_application_indexes(TableNamespace::TODO())
+        .await?;
     Ok(Json(GetIndexesResponse {
         indexes: indexes
             .into_iter()

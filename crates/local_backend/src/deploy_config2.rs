@@ -12,12 +12,19 @@ use axum::{
 };
 use common::{
     auth::AuthInfo,
-    bootstrap_model::components::definition::{
-        ComponentDefinitionMetadata,
-        SerializedComponentDefinitionMetadata,
+    bootstrap_model::{
+        components::definition::{
+            ComponentDefinitionMetadata,
+            SerializedComponentDefinitionMetadata,
+        },
+        schema::{
+            SchemaMetadata,
+            SchemaState,
+        },
     },
     components::{
         ComponentDefinitionPath,
+        ComponentId,
         ComponentPath,
     },
     http::{
@@ -30,7 +37,11 @@ use common::{
     },
     types::NodeDependency,
 };
-use database::WriteSource;
+use database::{
+    BootstrapComponentsModel,
+    IndexModel,
+    WriteSource,
+};
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
@@ -47,8 +58,10 @@ use model::{
             ComponentDefinitionConfigModel,
             ComponentDefinitionDiff,
             ComponentDiff,
+            SchemaChange,
             SerializedComponentDefinitionDiff,
             SerializedComponentDiff,
+            SerializedSchemaChange,
         },
         file_based_routing::add_file_based_routing,
         type_checking::{
@@ -95,6 +108,7 @@ use serde_json::Value as JsonValue;
 use value::{
     ConvexObject,
     DeveloperDocumentId,
+    TableNamespace,
 };
 
 use crate::{
@@ -109,8 +123,9 @@ use crate::{
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ProjectConfigJson {
+pub struct StartPushRequest {
     pub admin_key: String,
+    pub dry_run: bool,
 
     pub functions: String,
     pub udf_server_version: String,
@@ -121,7 +136,7 @@ pub struct ProjectConfigJson {
     pub node_dependencies: Vec<NodeDependencyJson>,
 }
 
-impl ProjectConfigJson {
+impl StartPushRequest {
     pub fn into_project_config(
         self,
         import_phase_rng_seed: [u8; 32],
@@ -226,6 +241,8 @@ struct StartPushResponse {
     analysis: BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
 
     app: CheckedComponent,
+
+    schema_change: SchemaChange,
 }
 
 impl TryFrom<StartPushResponse> for SerializedStartPushResponse {
@@ -249,6 +266,7 @@ impl TryFrom<StartPushResponse> for SerializedStartPushResponse {
                 .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
                 .collect::<anyhow::Result<_>>()?,
             app: value.app.try_into()?,
+            schema_change: value.schema_change.try_into()?,
         })
     }
 }
@@ -284,6 +302,7 @@ impl TryFrom<SerializedStartPushResponse> for StartPushResponse {
                 .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
                 .collect::<anyhow::Result<_>>()?,
             app: value.app.try_into()?,
+            schema_change: value.schema_change.try_into()?,
         })
     }
 }
@@ -304,6 +323,16 @@ struct SerializedStartPushResponse {
 
     // Typechecking results.
     app: SerializedCheckedComponent,
+
+    // Schema changes.
+    schema_change: SerializedSchemaChange,
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedIndexDiff {
+    added: Vec<String>,
+    removed: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -317,7 +346,7 @@ pub struct AnalyzedComponent {
 #[debug_handler]
 pub async fn start_push(
     State(st): State<LocalAppState>,
-    Json(req): Json<ProjectConfigJson>,
+    Json(req): Json<StartPushRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let resp = start_push_handler(&st, req)
         .await
@@ -328,19 +357,21 @@ pub async fn start_push(
 #[minitrace::trace]
 pub async fn start_push_handler(
     st: &LocalAppState,
-    config_json: ProjectConfigJson,
+    request: StartPushRequest,
 ) -> anyhow::Result<StartPushResponse> {
-    let identity = must_be_admin_from_key(
+    let _identity = must_be_admin_from_key(
         st.application.app_auth(),
         st.instance_name.clone(),
-        config_json.admin_key.clone(),
+        request.admin_key.clone(),
     )
     .await?;
+    let identity = Identity::system();
 
     let rt = st.application.runtime();
     let rng_seed = rt.with_rng(|rng| rng.gen());
     let unix_timestamp = rt.unix_timestamp();
-    let config = config_json
+    let dry_run = request.dry_run;
+    let config = request
         .into_project_config(rng_seed, unix_timestamp)
         .map_err(|e| ErrorMetadata::bad_request("InvalidConfig", e.to_string()))?;
 
@@ -399,7 +430,7 @@ pub async fn start_push_handler(
     // Evaluate auth and add in an empty `auth.config.js` to the analysis.
     let auth_info = {
         let mut tx = st.application.begin(identity.clone()).await?;
-        Application::get_evaluated_auth_config(
+        let auth_info = Application::get_evaluated_auth_config(
             st.application.runner(),
             &mut tx,
             config.app_definition.auth.clone(),
@@ -412,7 +443,10 @@ pub async fn start_push_handler(
                 },
             },
         )
-        .await?
+        .await?;
+        // TODO: Fold in our reads here into the hash.
+        tx.into_token()?;
+        auth_info
     };
     if let Some(auth_module) = &config.app_definition.auth {
         app_analysis.insert(
@@ -534,6 +568,19 @@ pub async fn start_push_handler(
         .instantiate_root()
         .map_err(|e| ErrorMetadata::bad_request("TypecheckError", e.to_string()))?;
 
+    let schema_change = {
+        let mut tx = st.application.begin(identity.clone()).await?;
+        let schema_change = ComponentConfigModel::new(&mut tx)
+            .start_component_schema_changes(&app, &evaluated_components)
+            .await?;
+        if !dry_run {
+            st.application
+                .commit(tx, WriteSource::new("start_push"))
+                .await?;
+        }
+        schema_change
+    };
+
     let resp = StartPushResponse {
         udf_config: config.udf_config,
         external_deps_id: external_deps_id_and_pkg.map(|(id, _)| id),
@@ -541,8 +588,109 @@ pub async fn start_push_handler(
         app_auth: auth_info,
         analysis: evaluated_components,
         app,
+        schema_change,
     };
     Ok(resp)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WaitForSchemaRequest {
+    admin_key: String,
+    schema_change: SerializedSchemaChange,
+}
+
+#[debug_handler]
+pub async fn wait_for_schema(
+    State(st): State<LocalAppState>,
+    Json(req): Json<WaitForSchemaRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    wait_for_schema_handler(&st, req).await?;
+    Ok(Json(()))
+}
+
+async fn wait_for_schema_handler(
+    st: &LocalAppState,
+    req: WaitForSchemaRequest,
+) -> anyhow::Result<()> {
+    let identity = must_be_admin_from_key(
+        st.application.app_auth(),
+        st.instance_name.clone(),
+        req.admin_key,
+    )
+    .await?;
+    let schema_change: SchemaChange = req.schema_change.try_into()?;
+
+    loop {
+        let mut tx = st.application.begin(identity.clone()).await?;
+        let mut waiting = BTreeSet::new();
+
+        for (component_path, schema_id) in &schema_change.schema_ids {
+            let Some(schema_id) = schema_id else {
+                continue;
+            };
+            let schema_id = schema_id.map_table(tx.table_mapping().inject_table_number())?;
+            let document = tx
+                .get(schema_id)
+                .await?
+                .context("Missing schema document")?;
+            let SchemaMetadata { state, .. } = document.into_value().0.try_into()?;
+            let is_pending = match state {
+                SchemaState::Pending => true,
+                SchemaState::Active | SchemaState::Validated => false,
+                SchemaState::Failed { error, table_name } => {
+                    let msg = match table_name {
+                        Some(t) => format!("Schema for table `{t}` failed: {error}"),
+                        None => format!("Schema failed: {error}"),
+                    };
+                    anyhow::bail!(ErrorMetadata::bad_request("SchemaFailed", msg))
+                },
+                SchemaState::Overwritten => anyhow::bail!(ErrorMetadata::bad_request(
+                    "RaceDetected",
+                    "Push aborted since another push has been started."
+                )),
+            };
+            if is_pending {
+                waiting.insert(component_path.clone());
+            }
+
+            let component_id = if component_path.is_root() {
+                ComponentId::Root
+            } else {
+                let existing = BootstrapComponentsModel::new(&mut tx)
+                    .resolve_path(component_path.clone())
+                    .await?;
+                let allocated = schema_change.allocated_component_ids.get(component_path);
+                let internal_id = match (existing, allocated) {
+                    (None, Some(id)) => *id,
+                    (Some(doc), None) => doc.id().internal_id(),
+                    r => anyhow::bail!("Invalid existing component state: {r:?}"),
+                };
+                ComponentId::Child(internal_id)
+            };
+            let namespace = TableNamespace::from(component_id);
+            for index in IndexModel::new(&mut tx)
+                .get_application_indexes(namespace)
+                .await?
+            {
+                if index.config.is_backfilling() {
+                    waiting.insert(component_path.clone());
+                }
+            }
+        }
+
+        if waiting.is_empty() {
+            break;
+        }
+
+        tracing::info!("Waiting for schema changes to complete for {waiting:?}...");
+
+        let token = tx.into_token()?;
+        let subscription = st.application.subscribe(token).await?;
+        subscription.wait_for_invalidation().await;
+    }
+
+    Ok(())
 }
 
 #[derive(Deserialize)]
@@ -602,7 +750,7 @@ async fn finish_push_handler(
 
     // Diff the component definitions.
     let definition_diffs = ComponentDefinitionConfigModel::new(&mut tx)
-        .diff_component_definitions(
+        .apply_component_definitions_diff(
             &start_push.analysis,
             &start_push.component_definition_packages,
             &downloaded_source_packages,
@@ -611,7 +759,7 @@ async fn finish_push_handler(
 
     // Diff component tree.
     let component_diffs = ComponentConfigModel::new(&mut tx)
-        .diff_component_tree(&start_push.app)
+        .apply_component_tree_diff(&start_push.app, &start_push.schema_change)
         .await?;
 
     if !req.dry_run {

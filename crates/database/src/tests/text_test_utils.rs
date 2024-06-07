@@ -213,7 +213,7 @@ impl TextFixtures {
         let index_metadata = backfilling_text_index()?;
         let index_name = &index_metadata.name;
         let index_id = IndexModel::new(&mut tx)
-            .add_application_index(index_metadata.clone())
+            .add_application_index(self.namespace, index_metadata.clone())
             .await?;
         let table_id = tx
             .table_mapping()

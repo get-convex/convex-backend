@@ -359,7 +359,9 @@ pub async fn schema_state(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin(&identity)?;
     let mut tx = st.application.begin(identity.clone()).await?;
-    let indexes = IndexModel::new(&mut tx).get_application_indexes().await?;
+    let indexes = IndexModel::new(&mut tx)
+        .get_application_indexes(TableNamespace::TODO())
+        .await?;
     let schema_id =
         parse_schema_id(&schema_id, tx.table_mapping()).context(invalid_schema_id(&schema_id))?;
 

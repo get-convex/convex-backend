@@ -32,6 +32,7 @@
 #![feature(async_closure)]
 #![feature(trait_upcasting)]
 #![feature(impl_trait_in_assoc_type)]
+#![feature(iter_from_coroutine)]
 
 use std::{
     collections::BTreeMap,

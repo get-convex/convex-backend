@@ -28,7 +28,10 @@ export async function startPush(
   changeSpinner(ctx, "Analyzing and deploying source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
-      body: JSON.stringify(serializedConfig),
+      body: JSON.stringify({
+        ...serializedConfig,
+        dryRun: false,
+      }),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -39,6 +42,35 @@ export async function startPush(
   } catch (error: unknown) {
     // TODO incorporate AuthConfigMissingEnvironmentVariable logic
     logFailure(ctx, "Error: Unable to start push to " + url);
+    return await logAndHandleFetchError(ctx, error);
+  }
+}
+
+export async function waitForSchema(
+  ctx: Context,
+  adminKey: string,
+  url: string,
+  startPush: StartPushResponse,
+) {
+  const fetch = deploymentFetch(url);
+  changeSpinner(ctx, "Waiting for schema...");
+  try {
+    const response = await fetch("/api/deploy2/wait_for_schema", {
+      body: JSON.stringify({
+        adminKey,
+        schemaChange: (startPush as any).schemaChange,
+        dryRun: false,
+      }),
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Convex-Client": `npm-cli-${version}`,
+      },
+    });
+    return await response.json();
+  } catch (error: unknown) {
+    // TODO incorporate AuthConfigMissingEnvironmentVariable logic
+    logFailure(ctx, "Error: Unable to wait for schema from " + url);
     return await logAndHandleFetchError(ctx, error);
   }
 }

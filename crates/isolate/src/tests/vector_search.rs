@@ -11,7 +11,10 @@ use keybroker::Identity;
 use maplit::btreeset;
 use must_let::must_let;
 use runtime::testing::TestRuntime;
-use value::ConvexValue;
+use value::{
+    ConvexValue,
+    TableNamespace,
+};
 
 use super::assert_contains;
 use crate::{
@@ -28,7 +31,7 @@ async fn add_vector_index(t: &UdfTest<TestRuntime, TestPersistence>) -> anyhow::
         btreeset! { "filterA".parse()?, "filterB".parse()? },
     );
     IndexModel::new(&mut tx)
-        .add_application_index(index)
+        .add_application_index(TableNamespace::test_user(), index)
         .await?;
     t.database.commit(tx).await?;
 

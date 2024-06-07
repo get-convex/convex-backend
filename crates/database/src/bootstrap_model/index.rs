@@ -61,7 +61,6 @@ use indexing::{
         Index,
     },
 };
-use itertools::Itertools;
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -113,6 +112,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// transaction has committed.
     pub async fn add_application_index(
         &mut self,
+        namespace: TableNamespace,
         index: IndexMetadata<TableName>,
     ) -> anyhow::Result<ResolvedDocumentId> {
         anyhow::ensure!(
@@ -120,7 +120,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             unauthorized_error("add_index")
         );
         anyhow::ensure!(!index.name.is_system_owned(), "Can't change system indexes");
-        let application_indexes = self.get_application_indexes().await?;
+        let application_indexes = self.get_application_indexes(namespace).await?;
         // Indexes may exist in both a pending and an enabled state. If we're at or over
         // the index limit, we should still be able to add a new pending copy of
         // an enabled index with the expectation that the pending index will
@@ -137,8 +137,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 || index_names_in_table.len() < MAX_INDEXES_PER_TABLE,
             index_validation_error::too_many_indexes(index.name.table(), MAX_INDEXES_PER_TABLE)
         );
-        self._add_index(TableNamespace::by_component_TODO(), index)
-            .await
+        self._add_index(namespace, index).await
     }
 
     /// Add system index.
@@ -281,7 +280,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             .await?;
 
         tracing::info!(
-            "Committed indexes: (added {}. dropped {})",
+            "Committed indexes for {namespace:?}: (added {}. dropped {})",
             index_diff.added.len(),
             index_diff.dropped.len(),
         );
@@ -312,7 +311,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             added: vec![],
             dropped: dropped.clone(),
         };
-        self.apply_index_diff(&only_dropped_tables).await?;
+        self.apply_index_diff(namespace, &only_dropped_tables)
+            .await?;
 
         // Added indexes should have backfilled via build_indexes
         // (for < 0.14.0 CLIs) or in apply_config (for >= 0.14.0 CLIs).
@@ -339,7 +339,11 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn apply_index_diff(&mut self, diff: &LegacyIndexDiff) -> anyhow::Result<()> {
+    pub async fn apply_index_diff(
+        &mut self,
+        namespace: TableNamespace,
+        diff: &LegacyIndexDiff,
+    ) -> anyhow::Result<()> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("modify_indexes"));
         }
@@ -347,7 +351,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             self.drop_index(index.id()).await?;
         }
         for index in &diff.added {
-            self.add_application_index(index.clone()).await?;
+            self.add_application_index(namespace, index.clone()).await?;
         }
 
         Ok(())
@@ -398,7 +402,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
         let mut remaining_indexes: HashMap<IndexName, Vec<ParsedDocument<DeveloperIndexMetadata>>> =
             HashMap::new();
-        for index in self.get_application_indexes().await? {
+        for index in self.get_application_indexes(namespace).await? {
             remaining_indexes
                 .entry(index.name.clone())
                 .or_default()
@@ -513,7 +517,8 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         // Dropped will be removed in apply_config when the rest of the schema is
         // committed.
         if !only_new_and_mutated.is_empty() {
-            self.apply_index_diff(&only_new_and_mutated).await?;
+            self.apply_index_diff(namespace, &only_new_and_mutated)
+                .await?;
         }
         Ok(diff)
     }
@@ -527,7 +532,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         if diff.is_empty() {
             return Ok(diff);
         }
-        self.apply_index_diff(&diff).await?;
+        self.apply_index_diff(namespace, &diff).await?;
         Ok(diff)
     }
 
@@ -775,8 +780,9 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// name (but different configurations).
     pub async fn get_system_indexes(
         &mut self,
+        namespace: TableNamespace,
     ) -> anyhow::Result<Vec<ParsedDocument<DeveloperIndexMetadata>>> {
-        self.get_indexes(IndexCategory::System).await
+        self.get_indexes(IndexCategory::System, namespace).await
     }
 
     /// Returns all registered indexes that aren't system owned including both
@@ -786,23 +792,32 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// name (but different configurations).
     pub async fn get_application_indexes(
         &mut self,
+        namespace: TableNamespace,
     ) -> anyhow::Result<Vec<ParsedDocument<DeveloperIndexMetadata>>> {
-        self.get_indexes(IndexCategory::Application).await
+        self.get_indexes(IndexCategory::Application, namespace)
+            .await
     }
 
     async fn get_indexes(
         &mut self,
         category: IndexCategory,
+        namespace: TableNamespace,
     ) -> anyhow::Result<Vec<ParsedDocument<DeveloperIndexMetadata>>> {
-        let indexes_with_id = self.get_all_indexes().await?;
+        let indexes = self.get_all_indexes().await?;
         let table_mapping = self.tx.table_mapping();
-        indexes_with_id
-            .into_iter()
-            .filter(|doc| category.belongs(doc, table_mapping))
-            .map(|doc: ParsedDocument<TabletIndexMetadata>| {
-                doc.map(|metadata| metadata.map_table(&table_mapping.tablet_to_name()))
-            })
-            .try_collect()
+        let mut result = vec![];
+        for doc in indexes {
+            if !category.belongs(&doc, table_mapping) {
+                continue;
+            }
+            let tablet_id = *doc.name.table();
+            if table_mapping.tablet_namespace(tablet_id)? != namespace {
+                continue;
+            }
+            let doc = doc.map(|metadata| metadata.map_table(&table_mapping.tablet_to_name()))?;
+            result.push(doc);
+        }
+        Ok(result)
     }
 
     pub async fn drop_index(&mut self, index_id: ResolvedDocumentId) -> anyhow::Result<()> {
@@ -812,10 +827,14 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn drop_system_index(&mut self, index_name: IndexName) -> anyhow::Result<()> {
+    pub async fn drop_system_index(
+        &mut self,
+        namespace: TableNamespace,
+        index_name: IndexName,
+    ) -> anyhow::Result<()> {
         anyhow::ensure!(index_name.table().is_system());
         let system_index = self
-            .get_system_indexes()
+            .get_system_indexes(namespace)
             .await?
             .into_iter()
             .find(|index| index.name == index_name);
@@ -828,6 +847,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     pub async fn copy_indexes_to_table(
         &mut self,
+        namespace: TableNamespace,
         source_table: &TableName,
         target_table: TabletId,
     ) -> anyhow::Result<()> {
@@ -835,7 +855,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         let Some(active_table_id) = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::by_component_TODO())
+            .namespace(namespace)
             .id_if_exists(source_table)
         else {
             return Ok(());

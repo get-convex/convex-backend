@@ -2,10 +2,13 @@ use std::collections::BTreeMap;
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::components::{
-        definition::ComponentDefinitionMetadata,
-        ComponentMetadata,
-        ComponentType,
+    bootstrap_model::{
+        components::{
+            definition::ComponentDefinitionMetadata,
+            ComponentMetadata,
+            ComponentType,
+        },
+        schema::SchemaState,
     },
     components::{
         ComponentDefinitionId,
@@ -19,6 +22,8 @@ use common::{
 };
 use database::{
     BootstrapComponentsModel,
+    IndexModel,
+    SchemaModel,
     SchemasTable,
     SystemMetadataModel,
     Transaction,
@@ -26,9 +31,16 @@ use database::{
     COMPONENT_DEFINITIONS_TABLE,
 };
 use errors::ErrorMetadata;
-use serde::Serialize;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sync_types::CanonicalizedModulePath;
-use value::InternalId;
+use value::{
+    InternalDocumentId,
+    InternalId,
+    TableNamespace,
+};
 
 use super::{
     type_checking::CheckedComponent,
@@ -65,7 +77,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         Self { tx }
     }
 
-    pub async fn diff_component_definitions(
+    pub async fn apply_component_definitions_diff(
         &mut self,
         new_definitions: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
         source_packages: &BTreeMap<ComponentDefinitionPath, SourcePackage>,
@@ -271,9 +283,125 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         Self { tx }
     }
 
-    pub async fn diff_component_tree(
+    pub async fn start_component_schema_changes(
         &mut self,
         app: &CheckedComponent,
+        new_definitions: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+    ) -> anyhow::Result<SchemaChange> {
+        let existing_components_by_parent = BootstrapComponentsModel::new(self.tx)
+            .load_all_components()
+            .await?
+            .into_iter()
+            .map(|c| (c.parent_and_name(), c))
+            .collect::<BTreeMap<_, _>>();
+
+        let mut allocated_component_ids = BTreeMap::new();
+        let mut schema_ids = BTreeMap::new();
+
+        let existing_root = existing_components_by_parent.get(&None);
+        let mut stack = vec![(ComponentPath::root(), existing_root, Some(app))];
+        while let Some((path, existing_node, new_node)) = stack.pop() {
+            // First, diff the schemas of the existing and new nodes.
+            let internal_id = match (existing_node, new_node) {
+                // Creating a new component. We need to allocate a component ID
+                // here for the table namespace.
+                (None, Some(..)) => {
+                    let id = SystemMetadataModel::new_global(self.tx).allocate_internal_id()?;
+                    let component_id = if path.is_root() {
+                        ComponentId::Root
+                    } else {
+                        ComponentId::Child(id)
+                    };
+                    self.initialize_component_namespace(component_id).await?;
+                    allocated_component_ids.insert(path.clone(), id);
+                    id
+                },
+                // Updating an existing component.
+                (Some(node), Some(..)) => node.id().internal_id(),
+
+                // Deleting an existing component.
+                (Some(node), None) => node.id().internal_id(),
+
+                (None, None) => anyhow::bail!("Unexpected None/None in stack"),
+            };
+            let component_id = if path.is_root() {
+                ComponentId::Root
+            } else {
+                ComponentId::Child(internal_id)
+            };
+            if let Some(new_node) = new_node {
+                let namespace = TableNamespace::from(component_id);
+                let definition = new_definitions
+                    .get(&new_node.definition_path)
+                    .context("Missing definition for component")?;
+                let schema_id = if let Some(ref schema) = definition.schema {
+                    let index_diff = IndexModel::new(self.tx)
+                        .prepare_new_and_mutated_indexes(namespace, schema)
+                        .await?;
+
+                    // TODO: Return this to the client for presentation.
+                    tracing::info!("Index diff for {path:?}: {index_diff:?}");
+
+                    let (schema_id, schema_state) = SchemaModel::new(self.tx, namespace)
+                        .submit_pending(schema.clone())
+                        .await?;
+                    match schema_state {
+                        SchemaState::Pending | SchemaState::Validated | SchemaState::Active => (),
+                        SchemaState::Failed { .. } | SchemaState::Overwritten => {
+                            anyhow::bail!(
+                                "Unexpected state for newly written schema: {schema_state:?}"
+                            );
+                        },
+                    };
+                    Some(schema_id.into())
+                } else {
+                    None
+                };
+                schema_ids.insert(path.clone(), schema_id);
+            } else {
+                tracing::warn!(
+                    "Leaving existing schema and tables in place for deleted component: {path:?}"
+                );
+            }
+            // Second, push children to traverse onto the stack.
+            for child in tree_diff_children(&existing_components_by_parent, new_node, internal_id) {
+                stack.push((path.join(child.name.clone()), child.existing, child.new));
+            }
+        }
+
+        Ok(SchemaChange {
+            allocated_component_ids,
+            schema_ids,
+        })
+    }
+
+    async fn initialize_component_namespace(
+        &mut self,
+        component_id: ComponentId,
+    ) -> anyhow::Result<()> {
+        initialize_application_system_table(
+            self.tx,
+            &SchemasTable,
+            component_id.into(),
+            &DEFAULT_TABLE_NUMBERS,
+        )
+        .await?;
+        for table in component_system_tables() {
+            initialize_application_system_table(
+                self.tx,
+                table,
+                component_id.into(),
+                &DEFAULT_TABLE_NUMBERS,
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn apply_component_tree_diff(
+        &mut self,
+        app: &CheckedComponent,
+        schema_change: &SchemaChange,
     ) -> anyhow::Result<BTreeMap<ComponentPath, ComponentDiff>> {
         let definition_id_by_path = BootstrapComponentsModel::new(self.tx)
             .load_all_definitions()
@@ -320,7 +448,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             // Diff the node itself.
             let (internal_id, diff) = match (existing_node, new_metadata) {
                 // Create a new node.
-                (None, Some(new_metadata)) => self.create_component(new_metadata).await?,
+                (None, Some(new_metadata)) => {
+                    let internal_id = *schema_change
+                        .allocated_component_ids
+                        .get(&path)
+                        .context("Missing allocated component ID")?;
+                    self.create_component(internal_id, new_metadata).await?
+                },
                 // Update a node.
                 (Some(existing_node), Some(new_metadata)) => {
                     self.modify_component(existing_node, new_metadata).await?
@@ -331,40 +465,41 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             };
             diffs.insert(path.clone(), diff);
 
-            // After diffing the node, push children of the existing node onto the stack.
-            for (parent_and_name, existing_child) in
-                existing_components_by_parent.range(Some((internal_id, ComponentName::min()))..)
-            {
-                let Some((parent, name)) = parent_and_name else {
-                    break;
-                };
-                if parent != &internal_id {
-                    break;
-                }
-                let new_node = new_node.and_then(|new_node| new_node.child_components.get(name));
-                stack.push((
-                    path.join(name.clone()),
-                    Some((internal_id, name.clone())),
-                    Some(existing_child),
-                    new_node,
-                ));
+            let component_id = if path.is_root() {
+                ComponentId::Root
+            } else {
+                ComponentId::Child(internal_id)
+            };
+
+            // Apply schema changes when we're not deleting the component.
+            if new_node.is_some() {
+                let schema_id = schema_change
+                    .schema_ids
+                    .get(&path)
+                    .context("Missing schema ID")?
+                    .map(|id| id.map_table(self.tx.table_mapping().inject_table_number()))
+                    .transpose()?;
+                let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
+                    .apply(schema_id)
+                    .await?;
+                let index_diff = IndexModel::new(self.tx)
+                    .apply(component_id.into(), &next_schema)
+                    .await?;
+
+                // TODO: Return this to the client for presentation.
+                tracing::info!(
+                    "Schema diff for {path:?}: {schema_diff:?}, index diff: {index_diff:?}"
+                );
             }
 
-            // Then, push children of the new node that aren't in the existing node.
-            if let Some(new_node) = new_node {
-                for (name, new_child) in &new_node.child_components {
-                    if existing_components_by_parent
-                        .contains_key(&Some((internal_id, name.clone())))
-                    {
-                        continue;
-                    }
-                    stack.push((
-                        path.join(name.clone()),
-                        Some((internal_id, name.clone())),
-                        None,
-                        Some(new_child),
-                    ));
-                }
+            // After diffing the current node, push children to traverse onto the stack.
+            for child in tree_diff_children(&existing_components_by_parent, new_node, internal_id) {
+                stack.push((
+                    path.join(child.name.clone()),
+                    Some((internal_id, child.name)),
+                    child.existing,
+                    child.new,
+                ));
             }
         }
         Ok(diffs)
@@ -372,38 +507,17 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
 
     async fn create_component(
         &mut self,
+        id: InternalId,
         metadata: ComponentMetadata,
     ) -> anyhow::Result<(InternalId, ComponentDiff)> {
-        let is_root = metadata.component_type.is_root();
         let document_id = SystemMetadataModel::new_global(self.tx)
-            .insert(&COMPONENTS_TABLE, metadata.try_into()?)
+            .insert_with_internal_id(&COMPONENTS_TABLE, id, metadata.try_into()?)
             .await?;
-        let component_id = if is_root {
-            ComponentId::Root
-        } else {
-            ComponentId::Child(document_id.internal_id())
-        };
-
-        initialize_application_system_table(
-            self.tx,
-            &SchemasTable,
-            component_id.into(),
-            &DEFAULT_TABLE_NUMBERS,
-        )
-        .await?;
-        for table in component_system_tables() {
-            initialize_application_system_table(
-                self.tx,
-                table,
-                component_id.into(),
-                &DEFAULT_TABLE_NUMBERS,
-            )
-            .await?;
-        }
+        anyhow::ensure!(document_id.internal_id() == id);
 
         // TODO: Diff crons.
 
-        Ok((document_id.internal_id(), ComponentDiff::Create))
+        Ok((id, ComponentDiff::Create))
     }
 
     async fn modify_component(
@@ -431,6 +545,59 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
     }
 }
 
+fn tree_diff_children<'a>(
+    existing_components_by_parent: &'a BTreeMap<
+        Option<(InternalId, ComponentName)>,
+        ParsedDocument<ComponentMetadata>,
+    >,
+    new_node: Option<&'a CheckedComponent>,
+    internal_id: InternalId,
+) -> impl Iterator<Item = TreeDiffChild<'a>> {
+    std::iter::from_coroutine(
+        #[coroutine]
+        move || {
+            // First, visit children of the existing node.
+            for (parent_and_name, existing_child) in
+                existing_components_by_parent.range(Some((internal_id, ComponentName::min()))..)
+            {
+                let Some((parent, name)) = parent_and_name else {
+                    break;
+                };
+                if parent != &internal_id {
+                    break;
+                }
+                let new_node = new_node.and_then(|new_node| new_node.child_components.get(name));
+                yield TreeDiffChild {
+                    name: name.clone(),
+                    existing: Some(existing_child),
+                    new: new_node,
+                };
+            }
+            // Next, visit children of the new node that aren't in the existing node.
+            if let Some(new_node) = new_node {
+                for (name, new_child) in &new_node.child_components {
+                    if existing_components_by_parent
+                        .contains_key(&Some((internal_id, name.clone())))
+                    {
+                        continue;
+                    }
+                    yield TreeDiffChild {
+                        name: name.clone(),
+                        existing: None,
+                        new: Some(new_child),
+                    };
+                }
+            }
+        },
+    )
+}
+
+struct TreeDiffChild<'a> {
+    name: ComponentName,
+    existing: Option<&'a ParsedDocument<ComponentMetadata>>,
+    new: Option<&'a CheckedComponent>,
+}
+
 pub enum ComponentDiff {
     Create,
     Modify,
@@ -453,6 +620,56 @@ impl TryFrom<ComponentDiff> for SerializedComponentDiff {
             ComponentDiff::Create => Self::Create,
             ComponentDiff::Modify => Self::Modify,
             ComponentDiff::Delete => Self::Delete,
+        })
+    }
+}
+
+pub struct SchemaChange {
+    pub allocated_component_ids: BTreeMap<ComponentPath, InternalId>,
+    pub schema_ids: BTreeMap<ComponentPath, Option<InternalDocumentId>>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedSchemaChange {
+    allocated_component_ids: BTreeMap<String, String>,
+    schema_ids: BTreeMap<String, Option<String>>,
+}
+
+impl TryFrom<SchemaChange> for SerializedSchemaChange {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SchemaChange) -> Result<Self, Self::Error> {
+        Ok(Self {
+            allocated_component_ids: value
+                .allocated_component_ids
+                .into_iter()
+                .map(|(k, v)| (String::from(k), String::from(v)))
+                .collect(),
+            schema_ids: value
+                .schema_ids
+                .into_iter()
+                .map(|(k, v)| (String::from(k), v.map(|v| String::from(&v))))
+                .collect(),
+        })
+    }
+}
+
+impl TryFrom<SerializedSchemaChange> for SchemaChange {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedSchemaChange) -> Result<Self, Self::Error> {
+        Ok(Self {
+            allocated_component_ids: value
+                .allocated_component_ids
+                .into_iter()
+                .map(|(k, v)| Ok((k.parse()?, v.parse()?)))
+                .collect::<anyhow::Result<_>>()?,
+            schema_ids: value
+                .schema_ids
+                .into_iter()
+                .map(|(k, v)| Ok((k.parse()?, v.map(|v| v.parse()).transpose()?)))
+                .collect::<anyhow::Result<_>>()?,
         })
     }
 }

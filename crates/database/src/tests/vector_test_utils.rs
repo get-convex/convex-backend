@@ -471,7 +471,7 @@ pub async fn backfilling_vector_index(db: &Database<TestRuntime>) -> anyhow::Res
     let mut tx = db.begin_system().await?;
     let namespace = TableNamespace::test_user();
     let index_id = IndexModel::new(&mut tx)
-        .add_application_index(index_metadata.clone())
+        .add_application_index(namespace, index_metadata.clone())
         .await?;
     let table_id = tx
         .table_mapping()

@@ -5,9 +5,12 @@ use common::{
 };
 use value::{
     ConvexObject,
+    InternalId,
     ResolvedDocumentId,
+    TableIdentifier,
     TableName,
     TableNamespace,
+    TabletIdAndTableNumber,
 };
 
 use crate::{
@@ -57,8 +60,37 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         if !(self.tx.identity.is_system() || self.tx.identity.is_admin()) {
             anyhow::bail!(unauthorized_error("insert_metadata"));
         }
-        let table_id = self
-            .tx
+        let table_id = self.lookup_table_id(table)?;
+        let id = self.tx.id_generator.generate(&table_id);
+        let creation_time = self.tx.next_creation_time.increment()?;
+        let document = ResolvedDocument::new(id, creation_time, value)?;
+        self.tx.insert_document(document).await
+    }
+
+    pub fn allocate_internal_id(&mut self) -> anyhow::Result<InternalId> {
+        Ok(self.tx.id_generator.generate_internal())
+    }
+
+    /// Create a new document with a predetermined internal ID.
+    pub async fn insert_with_internal_id(
+        &mut self,
+        table: &TableName,
+        internal_id: InternalId,
+        value: ConvexObject,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        anyhow::ensure!(table.is_system());
+        if !(self.tx.identity.is_system() || self.tx.identity.is_admin()) {
+            anyhow::bail!(unauthorized_error("insert_metadata"));
+        }
+        let table_id = self.lookup_table_id(table)?;
+        let document_id = table_id.id(internal_id);
+        let creation_time = self.tx.next_creation_time.increment()?;
+        let document = ResolvedDocument::new(document_id, creation_time, value)?;
+        self.tx.insert_document(document).await
+    }
+
+    fn lookup_table_id(&mut self, table: &TableName) -> anyhow::Result<TabletIdAndTableNumber> {
+        self.tx
             .table_mapping()
             .namespace(self.namespace)
             .id(table)
@@ -71,11 +103,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
                 } else {
                     format!("Failed to find system table {table}")
                 }
-            })?;
-        let id = self.tx.id_generator.generate(&table_id);
-        let creation_time = self.tx.next_creation_time.increment()?;
-        let document = ResolvedDocument::new(id, creation_time, value)?;
-        self.tx.insert_document(document).await
+            })
     }
 
     /// Creates a new document with given value in the specified table without
