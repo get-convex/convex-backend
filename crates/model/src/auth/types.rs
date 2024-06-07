@@ -5,10 +5,13 @@ use std::collections::{
 
 use common::auth::AuthInfo;
 use openidconnect::IssuerUrl;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use serde_json::Value as JsonValue;
 use value::{
     obj,
-    remove_vec_of_strings,
     ConvexObject,
     ConvexValue,
 };
@@ -50,7 +53,7 @@ impl TryFrom<AuthInfoPersisted> for ConvexObject {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(
     any(test, feature = "testing"),
     derive(proptest_derive::Arbitrary, PartialEq, Default)
@@ -58,36 +61,6 @@ impl TryFrom<AuthInfoPersisted> for ConvexObject {
 pub struct AuthDiff {
     pub added: Vec<String>,
     pub removed: Vec<String>,
-}
-
-impl TryFrom<AuthDiff> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: AuthDiff) -> Result<Self, Self::Error> {
-        let added_values: Vec<ConvexValue> = value
-            .added
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .try_collect::<Vec<ConvexValue>>()?;
-        let removed_values: Vec<ConvexValue> = value
-            .removed
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .try_collect::<Vec<ConvexValue>>()?;
-        obj!("added" => added_values, "removed" => removed_values)
-    }
-}
-
-impl TryFrom<ConvexObject> for AuthDiff {
-    type Error = anyhow::Error;
-
-    fn try_from(obj: ConvexObject) -> anyhow::Result<Self> {
-        let mut fields = BTreeMap::from(obj);
-        Ok(Self {
-            added: remove_vec_of_strings(&mut fields, "added")?,
-            removed: remove_vec_of_strings(&mut fields, "removed")?,
-        })
-    }
 }
 
 impl AuthDiff {
@@ -114,31 +87,5 @@ impl AuthDiff {
             added: added_strings,
             removed: removed_strings,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use common::testing::assert_roundtrips;
-    use proptest::prelude::*;
-    use value::ConvexObject;
-
-    use crate::auth::types::{
-        AuthDiff,
-        AuthInfoPersisted,
-    };
-
-    proptest! {
-        #![proptest_config(ProptestConfig { cases: 16 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
-        #[test]
-        fn test_auth_info_roundtrips(v in any::<AuthInfoPersisted>()) {
-            assert_roundtrips::<AuthInfoPersisted, ConvexObject>(v);
-        }
-
-        #[test]
-        fn test_auth_diff_to_object(v in any::<AuthDiff>()) {
-            ConvexObject::try_from(v).unwrap();
-        }
     }
 }

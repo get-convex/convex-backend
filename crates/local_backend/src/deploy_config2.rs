@@ -641,8 +641,8 @@ struct FinishPushDiff {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SerializedFinishPushDiff {
-    auth_diff: JsonValue,
-    udf_config_diff: Option<JsonValue>,
+    auth_diff: AuthDiff,
+    udf_config_diff: Option<UdfServerVersionDiff>,
     definition_diffs: BTreeMap<String, SerializedComponentDefinitionDiff>,
     component_diffs: BTreeMap<String, SerializedComponentDiff>,
 }
@@ -652,11 +652,8 @@ impl TryFrom<FinishPushDiff> for SerializedFinishPushDiff {
 
     fn try_from(value: FinishPushDiff) -> Result<Self, Self::Error> {
         Ok(Self {
-            auth_diff: JsonValue::from(ConvexObject::try_from(value.auth_diff)?),
-            udf_config_diff: value
-                .udf_config_diff
-                .map(|diff| anyhow::Ok(JsonValue::from(ConvexObject::try_from(diff)?)))
-                .transpose()?,
+            auth_diff: value.auth_diff,
+            udf_config_diff: value.udf_config_diff,
             definition_diffs: value
                 .definition_diffs
                 .into_iter()

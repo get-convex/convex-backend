@@ -19,18 +19,20 @@ use common::{
 use database::{
     LegacyIndexDiff,
     SchemaDiff,
+    SerializedSchemaDiff,
 };
-use serde::Deserialize;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sync_types::{
     module_path::ACTIONS_DIR,
     CanonicalizedModulePath,
     ModulePath,
 };
 use value::{
-    remove_nullable_object,
-    remove_object,
+    codegen_convex_serialization,
     remove_string,
-    remove_vec_of_strings,
     ConvexArray,
     ConvexObject,
     ConvexValue,
@@ -216,47 +218,50 @@ pub struct ConfigDiff {
     pub schema_diff: Option<SchemaDiff>,
 }
 
-impl TryFrom<ConfigDiff> for ConvexObject {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializedConfigDiff {
+    pub auth: AuthDiff,
+    // NOTE: not camel-case
+    pub server_version: Option<UdfServerVersionDiff>,
+    pub modules: ModuleDiff,
+    pub crons: Option<CronDiff>,
+    pub indexes: Option<ConfigIndexDiff>,
+    pub schema: Option<SerializedSchemaDiff>,
+}
+
+codegen_convex_serialization!(ConfigDiff, SerializedConfigDiff);
+
+impl TryFrom<ConfigDiff> for SerializedConfigDiff {
     type Error = anyhow::Error;
 
     fn try_from(value: ConfigDiff) -> Result<Self, Self::Error> {
-        let server_version_value: ConvexValue = match value.udf_server_version_diff {
-            Some(server_version_diff) => {
-                ConvexValue::from(ConvexObject::try_from(server_version_diff)?)
-            },
-            None => ConvexValue::Null,
-        };
-        obj!(
-            "auth" => ConvexObject::try_from(value.auth_diff)?,
-            "server_version" => server_version_value,
-            "modules" => ConvexObject::try_from(value.module_diff)?,
-            "crons" => ConvexObject::try_from(value.cron_diff)?,
-            "indexes" => ConvexObject::try_from(value.index_diff)?,
-            "schema" => match value.schema_diff {
-                Some(schema_diff) => ConvexObject::try_from(schema_diff)?.into(),
-                None => ConvexValue::Null,
-            },
-        )
-    }
-}
-
-impl TryFrom<ConvexObject> for ConfigDiff {
-    type Error = anyhow::Error;
-
-    fn try_from(obj: ConvexObject) -> anyhow::Result<Self> {
-        let mut fields = BTreeMap::from(obj);
         Ok(Self {
-            auth_diff: remove_object(&mut fields, "auth")?,
-            udf_server_version_diff: remove_nullable_object(&mut fields, "server_version")?,
-            module_diff: remove_object(&mut fields, "modules")?,
-            cron_diff: remove_nullable_object(&mut fields, "crons")?.unwrap_or_default(),
-            index_diff: remove_nullable_object(&mut fields, "indexes")?.unwrap_or_default(),
-            schema_diff: remove_nullable_object(&mut fields, "schema")?,
+            auth: value.auth_diff,
+            server_version: value.udf_server_version_diff,
+            modules: value.module_diff,
+            crons: Some(value.cron_diff),
+            indexes: Some(value.index_diff),
+            schema: value.schema_diff.map(TryFrom::try_from).transpose()?,
         })
     }
 }
 
-#[derive(Debug, Clone, Default)]
+impl TryFrom<SerializedConfigDiff> for ConfigDiff {
+    type Error = anyhow::Error;
+
+    fn try_from(obj: SerializedConfigDiff) -> anyhow::Result<Self> {
+        Ok(Self {
+            auth_diff: obj.auth,
+            udf_server_version_diff: obj.server_version,
+            module_diff: obj.modules,
+            cron_diff: obj.crons.unwrap_or_default(),
+            index_diff: obj.indexes.unwrap_or_default(),
+            schema_diff: obj.schema.map(TryFrom::try_from).transpose()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(
     any(test, feature = "testing"),
     derive(proptest_derive::Arbitrary, PartialEq)
@@ -297,37 +302,7 @@ impl From<LegacyIndexDiff> for ConfigIndexDiff {
     }
 }
 
-impl TryFrom<ConfigIndexDiff> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConfigIndexDiff) -> Result<Self, Self::Error> {
-        let added_values: Vec<ConvexValue> = value
-            .added
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .collect::<anyhow::Result<Vec<ConvexValue>>>()?;
-        let deleted_values: Vec<ConvexValue> = value
-            .dropped
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .collect::<anyhow::Result<Vec<ConvexValue>>>()?;
-        obj!("added" => added_values, "dropped" => deleted_values)
-    }
-}
-
-impl TryFrom<ConvexObject> for ConfigIndexDiff {
-    type Error = anyhow::Error;
-
-    fn try_from(obj: ConvexObject) -> anyhow::Result<Self> {
-        let mut fields = BTreeMap::from(obj);
-        Ok(Self {
-            added: remove_vec_of_strings(&mut fields, "added")?,
-            dropped: remove_vec_of_strings(&mut fields, "dropped")?,
-        })
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(
     any(test, feature = "testing"),
     derive(proptest_derive::Arbitrary, PartialEq)
@@ -360,40 +335,10 @@ impl TryFrom<ConvexObject> for UdfServerVersionDiff {
     any(test, feature = "testing"),
     derive(proptest_derive::Arbitrary, Default)
 )]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModuleDiff {
-    pub added_functions: Vec<String>,
-    pub removed_functions: Vec<String>,
-}
-
-impl TryFrom<ModuleDiff> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ModuleDiff) -> Result<Self, Self::Error> {
-        let added_values: Vec<ConvexValue> = value
-            .added_functions
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .collect::<anyhow::Result<Vec<ConvexValue>>>()?;
-        let removed_values: Vec<ConvexValue> = value
-            .removed_functions
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .collect::<anyhow::Result<Vec<ConvexValue>>>()?;
-        obj!("added" => added_values, "removed" => removed_values)
-    }
-}
-
-impl TryFrom<ConvexObject> for ModuleDiff {
-    type Error = anyhow::Error;
-
-    fn try_from(obj: ConvexObject) -> anyhow::Result<Self> {
-        let mut fields = BTreeMap::from(obj);
-        Ok(Self {
-            added_functions: remove_vec_of_strings(&mut fields, "added")?,
-            removed_functions: remove_vec_of_strings(&mut fields, "removed")?,
-        })
-    }
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
 }
 
 impl ModuleDiff {
@@ -416,13 +361,13 @@ impl ModuleDiff {
             removed_functions.push(m.as_str().to_string());
         }
         Ok(Self {
-            added_functions,
-            removed_functions,
+            added: added_functions,
+            removed: removed_functions,
         })
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[cfg_attr(
     any(test, feature = "testing"),
     derive(proptest_derive::Arbitrary, PartialEq)
@@ -431,42 +376,6 @@ pub struct CronDiff {
     pub added: Vec<String>,
     pub updated: Vec<String>,
     pub deleted: Vec<String>,
-}
-
-impl TryFrom<CronDiff> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(value: CronDiff) -> Result<Self, Self::Error> {
-        let added_values: Vec<ConvexValue> = value
-            .added
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .collect::<anyhow::Result<Vec<ConvexValue>>>()?;
-        let updated_values: Vec<ConvexValue> = value
-            .updated
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .collect::<anyhow::Result<Vec<ConvexValue>>>()?;
-        let deleted_values: Vec<ConvexValue> = value
-            .deleted
-            .into_iter()
-            .map(ConvexValue::try_from)
-            .collect::<anyhow::Result<Vec<ConvexValue>>>()?;
-        obj!("added" => added_values, "updated" => updated_values, "deleted" => deleted_values)
-    }
-}
-
-impl TryFrom<ConvexObject> for CronDiff {
-    type Error = anyhow::Error;
-
-    fn try_from(obj: ConvexObject) -> anyhow::Result<Self> {
-        let mut fields = BTreeMap::from(obj);
-        Ok(Self {
-            added: remove_vec_of_strings(&mut fields, "added")?,
-            updated: remove_vec_of_strings(&mut fields, "updated")?,
-            deleted: remove_vec_of_strings(&mut fields, "deleted")?,
-        })
-    }
 }
 
 impl CronDiff {
@@ -479,32 +388,6 @@ impl CronDiff {
             added: added_crons.into_iter().map(|c| c.to_string()).collect(),
             updated: updated_crons.into_iter().map(|c| c.to_string()).collect(),
             deleted: deleted_crons.into_iter().map(|c| c.to_string()).collect(),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use cmd_util::env::env_config;
-    use common::testing::assert_roundtrips;
-    use proptest::prelude::*;
-    use value::ConvexObject;
-
-    use super::{
-        ConfigDiff,
-        ConfigMetadata,
-    };
-
-    proptest! {
-        #![proptest_config(ProptestConfig { cases: 16 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
-        #[test]
-        fn test_config_metadata_roundtrips(v in any::<ConfigMetadata>()) {
-            assert_roundtrips::<ConfigMetadata, ConvexObject>(v);
-        }
-
-        #[test]
-        fn test_config_diff_to_object(v in any::<ConfigDiff>()) {
-            ConvexObject::try_from(v).unwrap();
         }
     }
 }

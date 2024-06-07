@@ -27,12 +27,8 @@ use database::{
 };
 use errors::ErrorMetadata;
 use serde::Serialize;
-use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedModulePath;
-use value::{
-    ConvexObject,
-    InternalId,
-};
+use value::InternalId;
 
 use super::{
     type_checking::CheckedComponent,
@@ -253,7 +249,7 @@ pub struct ComponentDefinitionDiff {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedComponentDefinitionDiff {
-    module_diff: JsonValue,
+    module_diff: ModuleDiff,
 }
 
 impl TryFrom<ComponentDefinitionDiff> for SerializedComponentDefinitionDiff {
@@ -261,7 +257,7 @@ impl TryFrom<ComponentDefinitionDiff> for SerializedComponentDefinitionDiff {
 
     fn try_from(value: ComponentDefinitionDiff) -> Result<Self, Self::Error> {
         Ok(Self {
-            module_diff: JsonValue::from(ConvexObject::try_from(value.module_diff)?),
+            module_diff: value.module_diff,
         })
     }
 }

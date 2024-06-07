@@ -118,7 +118,10 @@ pub use self::{
             INDEX_WORKER_METADATA_TABLE,
         },
         schema::{
-            types::SchemaDiff,
+            types::{
+                SchemaDiff,
+                SerializedSchemaDiff,
+            },
             SchemaModel,
             SchemasTable,
             SCHEMAS_STATE_INDEX,
