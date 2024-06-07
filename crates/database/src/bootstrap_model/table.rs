@@ -1,5 +1,4 @@
 use std::{
-    cmp,
     collections::BTreeSet,
     sync::LazyLock,
 };
@@ -257,29 +256,38 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     }
 
     async fn next_table_number(&mut self, is_system: bool) -> anyhow::Result<TableNumber> {
-        let tables_query = Query::full_table_scan(TABLES_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, tables_query)?;
-        let mut max_table_number = TableNumber::try_from(if is_system {
+        let occupied_table_numbers = {
+            let mut occupied_table_numbers = BTreeSet::new();
+            let tables_query = Query::full_table_scan(TABLES_TABLE.clone(), Order::Asc);
+            let mut query_stream =
+                ResolvedQuery::new(self.tx, TableNamespace::Global, tables_query)?;
+            while let Some(table_metadata) = query_stream.next(self.tx, None).await? {
+                let parsed_metadata: ParsedDocument<TableMetadata> = table_metadata.try_into()?;
+                occupied_table_numbers.insert(parsed_metadata.number);
+            }
+            let virtual_tables_query =
+                Query::full_table_scan(VIRTUAL_TABLES_TABLE.clone(), Order::Asc);
+            let mut virtual_query_stream =
+                ResolvedQuery::new(self.tx, TableNamespace::Global, virtual_tables_query)?;
+            while let Some(table_metadata) = virtual_query_stream.next(self.tx, None).await? {
+                let parsed_metadata: ParsedDocument<VirtualTableMetadata> =
+                    table_metadata.try_into()?;
+                occupied_table_numbers.insert(parsed_metadata.number);
+            }
+            occupied_table_numbers
+        };
+
+        let mut candidate_table_number = TableNumber::try_from(if is_system {
             NUM_RESERVED_LEGACY_TABLE_NUMBERS
         } else {
             NUM_RESERVED_SYSTEM_TABLE_NUMBERS
-        })?;
-        while let Some(table_metadata) = query_stream.next(self.tx, None).await? {
-            let parsed_metadata: ParsedDocument<TableMetadata> = table_metadata.try_into()?;
-            max_table_number = cmp::max(max_table_number, parsed_metadata.number);
+        })?
+        .increment()?;
+        while occupied_table_numbers.contains(&candidate_table_number) {
+            candidate_table_number = candidate_table_number.increment()?;
         }
 
-        let virtual_tables_query = Query::full_table_scan(VIRTUAL_TABLES_TABLE.clone(), Order::Asc);
-        let mut virtual_query_stream =
-            ResolvedQuery::new(self.tx, TableNamespace::Global, virtual_tables_query)?;
-        while let Some(table_metadata) = virtual_query_stream.next(self.tx, None).await? {
-            let parsed_metadata: ParsedDocument<VirtualTableMetadata> =
-                table_metadata.try_into()?;
-            max_table_number = cmp::max(max_table_number, parsed_metadata.number);
-        }
-
-        let next_number = max_table_number.increment()?;
-        Ok(next_number)
+        Ok(candidate_table_number)
     }
 
     /// Checks for conflicts when replacing table, e.g. snapshot import.
@@ -729,6 +737,31 @@ mod tests {
             .await?;
         let new_next_table_number: u32 = model.next_user_table_number().await?.into();
         assert_eq!(next_table_number + 1, new_next_table_number);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_next_table_number_conflict(rt: TestRuntime) -> anyhow::Result<()> {
+        let mut tx = new_tx(rt).await?;
+
+        tx.create_system_table_testing(TableNamespace::test_user(), &"_system1".parse()?, None)
+            .await?;
+        TableModel::new(&mut tx)
+            .insert_table_metadata_for_test(TableNamespace::test_user(), &"users".parse()?)
+            .await?;
+        tx.create_system_table_testing(TableNamespace::test_user(), &"_system2".parse()?, None)
+            .await?;
+
+        let table_mapping = tx.table_mapping().namespace(TableNamespace::test_user());
+        let system_table_number1: u32 = table_mapping.id(&"_system1".parse()?)?.table_number.into();
+        let system_table_number2: u32 = table_mapping.id(&"_system2".parse()?)?.table_number.into();
+        let user_table_number: u32 = table_mapping.id(&"users".parse()?)?.table_number.into();
+
+        assert!(user_table_number > NUM_RESERVED_SYSTEM_TABLE_NUMBERS);
+        assert!(system_table_number1 < NUM_RESERVED_SYSTEM_TABLE_NUMBERS);
+        assert!(system_table_number2 < NUM_RESERVED_SYSTEM_TABLE_NUMBERS);
+        assert!(system_table_number1 + 1 == system_table_number2);
+
         Ok(())
     }
 

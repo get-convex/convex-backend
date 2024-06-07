@@ -677,6 +677,7 @@ impl<RT: Runtime> Transaction<RT> {
             } else {
                 default_table_number
             };
+            // TODO(CX-6699) handle system table number exhaustion.
             anyhow::ensure!(
                 table_number < TableNumber::try_from(NUM_RESERVED_SYSTEM_TABLE_NUMBERS)?,
                 "{table_number} picked for system table {table_name} is reserved for user tables"
