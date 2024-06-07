@@ -288,7 +288,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         let (tx, outcome) = self
             .function_runner_execute(tx, path_and_args, udf_type, journal, context, None)
             .await?;
-        let tx = tx.context("Missing transaction in response for {udf_type}")?;
+        let tx = tx.with_context(|| format!("Missing transaction in response for {udf_type}"))?;
         timer.finish();
         Ok((tx, outcome))
     }

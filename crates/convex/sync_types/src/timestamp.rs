@@ -43,7 +43,7 @@ impl Timestamp {
         let nanos = self
             .0
             .checked_add(duration.as_nanos() as u64)
-            .context("timestamp {self} + {duration:?} overflow u64")?;
+            .with_context(|| format!("timestamp {self} + {duration:?} overflow u64"))?;
 
         anyhow::ensure!(
             nanos <= u64::from(Self::MAX),

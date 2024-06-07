@@ -46,7 +46,7 @@ impl FromStr for ComponentDefinitionPath {
                 PathComponent::Normal(c) => {
                     let s = c
                         .to_str()
-                        .context("Path {s} has an invalid Unicode character")?;
+                        .with_context(|| format!("Path {s} has an invalid Unicode character"))?;
                     check_valid_path_component(s)?;
                 },
                 // Component paths are allowed to have `..` (since they're relative from the root
@@ -60,7 +60,7 @@ impl FromStr for ComponentDefinitionPath {
         }
         path.as_os_str()
             .to_str()
-            .context("Path {s} has an invalid Unicode character")?;
+            .with_context(|| format!("Path {s} has an invalid Unicode character"))?;
         Ok(ComponentDefinitionPath { path })
     }
 }
