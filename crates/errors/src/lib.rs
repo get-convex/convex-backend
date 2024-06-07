@@ -275,6 +275,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::BadRequest
     }
 
+    pub fn is_not_found(&self) -> bool {
+        self.code == ErrorCode::NotFound
+    }
+
     pub fn is_overloaded(&self) -> bool {
         self.code == ErrorCode::Overloaded
     }
@@ -446,6 +450,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_unauthenticated(&self) -> bool;
     fn is_out_of_retention(&self) -> bool;
     fn is_bad_request(&self) -> bool;
+    fn is_not_found(&self) -> bool;
     fn is_overloaded(&self) -> bool;
     fn is_rejected_before_execution(&self) -> bool;
     fn is_forbidden(&self) -> bool;
@@ -502,6 +507,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_bad_request(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_bad_request();
+        }
+        false
+    }
+
+    /// Returns true if error is tagged as NotFound
+    fn is_not_found(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_not_found();
         }
         false
     }

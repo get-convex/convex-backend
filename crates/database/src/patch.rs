@@ -11,7 +11,7 @@ use serde_json::Value as JsonValue;
 
 /// A object used in patch. Similar to GenericObject but also allows top level
 /// undefined fields.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PatchValue {
     fields: BTreeMap<FieldName, MaybeValue>,
 }
