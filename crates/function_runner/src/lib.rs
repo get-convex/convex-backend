@@ -47,7 +47,6 @@ use sync_types::Timestamp;
 use usage_tracking::FunctionUsageStats;
 use value::{
     ResolvedDocumentId,
-    TableNumber,
     TabletId,
 };
 
@@ -92,18 +91,12 @@ pub struct FunctionFinalTransaction {
     pub begin_timestamp: Timestamp,
     pub reads: FunctionReads,
     pub writes: FunctionWrites,
-    pub rows_read: BTreeMap<TableNumber, u64>,
     pub rows_read_by_tablet: BTreeMap<TabletId, u64>,
 }
 
 impl<RT: Runtime> From<Transaction<RT>> for FunctionFinalTransaction {
-    fn from(mut tx: Transaction<RT>) -> Self {
+    fn from(tx: Transaction<RT>) -> Self {
         let begin_timestamp = *tx.begin_timestamp();
-        let rows_read = tx
-            .stats()
-            .iter()
-            .map(|(table, stats)| (*table, stats.rows_read))
-            .collect();
         let rows_read_by_tablet = tx
             .stats_by_tablet()
             .iter()
@@ -114,7 +107,6 @@ impl<RT: Runtime> From<Transaction<RT>> for FunctionFinalTransaction {
             begin_timestamp,
             reads: reads.into(),
             writes: writes.into(),
-            rows_read,
             rows_read_by_tablet,
         }
     }

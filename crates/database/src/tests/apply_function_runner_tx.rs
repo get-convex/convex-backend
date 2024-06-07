@@ -75,11 +75,6 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
     let user_tx_size = function_runner_tx.reads.user_tx_size().clone();
     let system_tx_size = function_runner_tx.reads.system_tx_size().clone();
     let reads = function_runner_tx.reads.clone().into_read_set();
-    let rows_read = function_runner_tx
-        .stats()
-        .iter()
-        .map(|(table, stats)| (*table, stats.rows_read))
-        .collect();
     let rows_read_by_tablet = function_runner_tx
         .stats_by_tablet()
         .iter()
@@ -97,7 +92,6 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
         system_tx_size,
         updates,
         generated_ids,
-        rows_read,
         rows_read_by_tablet,
     )?;
     assert_eq!(
@@ -138,11 +132,6 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
     let user_tx_size = function_runner_tx.reads.user_tx_size().clone();
     let system_tx_size = function_runner_tx.reads.system_tx_size().clone();
     let reads = function_runner_tx.reads.clone().into_read_set();
-    let rows_read = function_runner_tx
-        .stats()
-        .iter()
-        .map(|(table, stats)| (*table, stats.rows_read))
-        .collect();
     let rows_read_by_tablet = function_runner_tx
         .stats_by_tablet()
         .iter()
@@ -160,7 +149,6 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
         system_tx_size,
         updates,
         generated_ids,
-        rows_read,
         rows_read_by_tablet,
     )?;
 
@@ -198,11 +186,6 @@ async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Resul
     let user_tx_size = function_runner_tx.reads.user_tx_size().clone();
     let system_tx_size = function_runner_tx.reads.system_tx_size().clone();
     let reads = function_runner_tx.reads.clone().into_read_set();
-    let rows_read = function_runner_tx
-        .stats()
-        .iter()
-        .map(|(table, stats)| (*table, stats.rows_read))
-        .collect();
     let rows_read_by_tablet = function_runner_tx
         .stats_by_tablet()
         .iter()
@@ -220,7 +203,6 @@ async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Resul
         system_tx_size,
         updates,
         generated_ids,
-        rows_read,
         rows_read_by_tablet,
     )?;
 
@@ -261,11 +243,6 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
     let user_tx_size = function_runner_tx.reads.user_tx_size().clone();
     let system_tx_size = function_runner_tx.reads.system_tx_size().clone();
     let reads = function_runner_tx.reads.clone().into_read_set();
-    let rows_read = function_runner_tx
-        .stats()
-        .iter()
-        .map(|(table, stats)| (*table, stats.rows_read))
-        .collect();
     let rows_read_by_tablet = function_runner_tx
         .stats_by_tablet()
         .iter()
@@ -283,7 +260,6 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
         system_tx_size,
         updates,
         generated_ids,
-        rows_read,
         rows_read_by_tablet,
     )?;
 
@@ -323,11 +299,6 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
     let user_tx_size = function_runner_tx.reads.user_tx_size().clone();
     let system_tx_size = function_runner_tx.reads.system_tx_size().clone();
     let reads = function_runner_tx.reads.clone().into_read_set();
-    let rows_read = function_runner_tx
-        .stats()
-        .iter()
-        .map(|(table, stats)| (*table, stats.rows_read))
-        .collect();
     let rows_read_by_tablet = function_runner_tx
         .stats_by_tablet()
         .iter()
@@ -346,7 +317,6 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
             system_tx_size,
             updates,
             generated_ids,
-            rows_read,
             rows_read_by_tablet,
         )
         .is_err());

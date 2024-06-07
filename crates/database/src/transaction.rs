@@ -371,7 +371,6 @@ impl<RT: Runtime> Transaction<RT> {
         system_tx_size: crate::reads::TransactionReadSize,
         updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
         generated_ids: BTreeSet<ResolvedDocumentId>,
-        rows_read: BTreeMap<TableNumber, u64>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
@@ -384,19 +383,8 @@ impl<RT: Runtime> Transaction<RT> {
 
         self.merge_writes(updates, generated_ids)?;
 
-        if rows_read_by_tablet.is_empty() {
-            for (table, rows_read) in rows_read {
-                let tablet_id = self
-                    .table_mapping()
-                    .namespace(TableNamespace::Global)
-                    .inject_table_id()(table)?
-                .tablet_id;
-                self.stats.entry(tablet_id).or_default().rows_read += rows_read;
-            }
-        } else {
-            for (tablet_id, rows_read) in rows_read_by_tablet {
-                self.stats.entry(tablet_id).or_default().rows_read += rows_read;
-            }
+        for (tablet_id, rows_read) in rows_read_by_tablet {
+            self.stats.entry(tablet_id).or_default().rows_read += rows_read;
         }
 
         Ok(())
@@ -629,18 +617,6 @@ impl<RT: Runtime> Transaction<RT> {
                 )
             })
             .collect()
-    }
-
-    pub fn stats(&mut self) -> BTreeMap<TableNumber, TableStats> {
-        let mut stats = BTreeMap::new();
-        let table_mapping = self.table_mapping().clone();
-        for (tablet_id, table_stats) in self.stats.iter() {
-            let table_number = table_mapping
-                .tablet_number(*tablet_id)
-                .expect("tablet should exist");
-            stats.insert(table_number, *table_stats);
-        }
-        stats
     }
 
     pub fn stats_by_tablet(&self) -> &BTreeMap<TabletId, TableStats> {
