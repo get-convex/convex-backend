@@ -11,6 +11,7 @@ pub use in_process::{
 };
 pub use searcher::{
     Bm25Stats,
+    FieldDeletions,
     FragmentedTextStorageKeys,
     PostingListMatch,
     PostingListQuery,

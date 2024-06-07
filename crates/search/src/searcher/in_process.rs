@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 /// Searcher trait and implementations
 /// - Stub implementation
 /// - InProcessSearcher implementation
@@ -14,9 +15,12 @@ use common::{
 };
 use pb::searchlight::FragmentedVectorSegmentPaths;
 use storage::Storage;
-use tantivy::Term;
+use tantivy::{
+    schema::Field,
+    termdict::TermOrdinal,
+    Term,
+};
 use tempfile::TempDir;
-use text_search::tracker::SegmentTermMetadata;
 use vector::{
     CompiledVectorSearch,
     QdrantSchema,
@@ -34,7 +38,7 @@ use super::{
         TokenQuery,
     },
     FragmentedTextStorageKeys,
-    TermDeletionsByField,
+    TermValue,
 };
 use crate::{
     query::{
@@ -137,12 +141,12 @@ impl VectorSearcher for SearcherStub {
 
 #[async_trait]
 impl SegmentTermMetadataFetcher for SearcherStub {
-    async fn segment_term_metadata(
+    async fn fetch_term_ordinals(
         &self,
         _search_storage: Arc<dyn Storage>,
-        _storage_key: ObjectKey,
-        _terms: TermDeletionsByField,
-    ) -> anyhow::Result<SegmentTermMetadata> {
+        _segment: ObjectKey,
+        _field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
+    ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>> {
         unimplemented!()
     }
 }
@@ -168,14 +172,14 @@ impl<RT: Runtime> InProcessSearcher<RT> {
 
 #[async_trait]
 impl<RT: Runtime> SegmentTermMetadataFetcher for InProcessSearcher<RT> {
-    async fn segment_term_metadata(
+    async fn fetch_term_ordinals(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_key: ObjectKey,
-        terms: TermDeletionsByField,
-    ) -> anyhow::Result<SegmentTermMetadata> {
+        segment: ObjectKey,
+        field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
+    ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>> {
         self.searcher
-            .segment_term_metadata(search_storage, storage_key, terms)
+            .fetch_term_ordinals(search_storage, segment, field_to_term_values)
             .await
     }
 }

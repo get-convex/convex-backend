@@ -63,14 +63,13 @@ use tantivy::{
         EnableScoring,
     },
     schema::Field,
+    termdict::TermOrdinal,
     InvertedIndexReader,
     SegmentReader,
     TantivyError,
 };
 use text_search::tracker::{
     load_alive_bitset,
-    FieldTermMetadata,
-    SegmentTermMetadata,
     StaticDeletionTracker,
 };
 use value::InternalId;
@@ -206,30 +205,47 @@ pub type TermValue = Vec<u8>;
 /// Map from field to a map of term values to the number of documents containing
 /// that term that have been deleted.
 #[derive(Default)]
-pub struct TermDeletionsByField(pub BTreeMap<Field, BTreeMap<TermValue, u32>>);
+pub struct TermDeletionsByField(pub BTreeMap<Field, FieldDeletions>);
+
+#[derive(Default)]
+pub struct FieldDeletions {
+    /// The number of documents that have been deleted for each specific term at
+    /// a given field.
+    pub term_value_to_deleted_documents: BTreeMap<TermValue, u32>,
+    /// The total number of non-uniqued terms deleted from the segment for a
+    /// given field.
+    pub num_terms_deleted: u64,
+}
 
 impl TermDeletionsByField {
-    pub fn increment(&mut self, field: Field, term_value: TermValue) {
+    pub fn delete_term(&mut self, field: Field) {
+        self.0
+            .entry(field)
+            .and_modify(|deletions| {
+                deletions.num_terms_deleted += 1;
+            })
+            .or_default();
+    }
+
+    pub fn delete_document(&mut self, field: Field, term_value: TermValue) {
         self.0
             .entry(field)
             .or_default()
+            .term_value_to_deleted_documents
             .entry(term_value)
-            .and_modify(|count| *count += 1)
+            .and_modify(|num_documents_deleted_for_term| *num_documents_deleted_for_term += 1)
             .or_insert(1);
     }
 }
 
 #[async_trait]
 pub trait SegmentTermMetadataFetcher: Send + Sync + 'static {
-    /// Gets the term ordinal from term values and determines how many terms
-    /// have been completely deleted from a segment, given the number of
-    /// documents deleted containing each term.
-    async fn segment_term_metadata(
+    async fn fetch_term_ordinals(
         &self,
         search_storage: Arc<dyn Storage>,
         segment: ObjectKey,
-        terms: TermDeletionsByField,
-    ) -> anyhow::Result<SegmentTermMetadata>;
+        field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
+    ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>>;
 }
 
 pub struct SearcherImpl<RT: Runtime> {
@@ -621,12 +637,12 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
 #[async_trait]
 impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
     #[minitrace::trace]
-    async fn segment_term_metadata(
+    async fn fetch_term_ordinals(
         &self,
         search_storage: Arc<dyn Storage>,
         segment: ObjectKey,
-        terms: TermDeletionsByField,
-    ) -> anyhow::Result<SegmentTermMetadata> {
+        field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
+    ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>> {
         let segment_path = self
             .archive_cache
             .get(search_storage, &segment, SearchFileType::Text)
@@ -635,34 +651,21 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
         let searcher = reader.searcher();
         // Multisegment indexes only write to one segment.
         let segment = searcher.segment_reader(0);
-        let mut term_metadata_by_field = BTreeMap::new();
-        for (field, deleted_terms) in terms.0.into_iter() {
-            let mut num_terms_deleted = 0;
-            let mut term_documents_deleted = BTreeMap::new();
+
+        let mut field_to_term_ordinals = BTreeMap::new();
+        for (field, term_values) in field_to_term_values {
+            let mut term_ordinals = vec![];
             let inverted_index = segment.inverted_index(field)?;
-            let term_dict = inverted_index.terms();
-            for (term, num_documents_deleted) in deleted_terms {
+            for term_value in term_values {
+                let term_dict = inverted_index.terms();
                 let term_ord = term_dict
-                    .term_ord(term)?
+                    .term_ord(term_value)?
                     .context("Segment must contain term")?;
-                let doc_freq = term_dict.term_info_from_ord(term_ord).doc_freq;
-                if doc_freq == num_documents_deleted {
-                    num_terms_deleted += 1;
-                }
-                let maybe_term = term_documents_deleted.insert(term_ord, num_documents_deleted);
-                anyhow::ensure!(maybe_term.is_none(), "Duplicate term in term delete counts");
+                term_ordinals.push(term_ord);
             }
-            term_metadata_by_field.insert(
-                field,
-                FieldTermMetadata {
-                    term_documents_deleted,
-                    num_terms_deleted,
-                },
-            );
+            field_to_term_ordinals.insert(field, term_ordinals);
         }
-        Ok(SegmentTermMetadata {
-            term_metadata_by_field,
-        })
+        Ok(field_to_term_ordinals)
     }
 }
 
@@ -1655,12 +1658,6 @@ mod tests {
         types::Timestamp,
     };
     use futures::StreamExt;
-    use pb::searchlight::SegmentTermMetadataResponse;
-    use proptest::{
-        arbitrary::any,
-        prelude::*,
-        proptest,
-    };
     use runtime::testing::TestRuntime;
     use storage::{
         LocalDirStorage,
@@ -1677,17 +1674,13 @@ mod tests {
     };
     use value::{
         assert_obj,
-        testing::assert_roundtrips,
         FieldPath,
         InternalId,
         ResolvedDocumentId,
         TabletIdAndTableNumber,
     };
 
-    use super::{
-        PostingListMatch,
-        SegmentTermMetadata,
-    };
+    use super::PostingListMatch;
     use crate::{
         convex_query::OrTerm,
         disk_index::index_reader_for_directory,
@@ -2249,15 +2242,5 @@ mod tests {
             alive_bitset: load_alive_bitset(&paths.alive_bit_set_path)?,
             id_tracker: StaticIdTracker::load_from_path(paths.id_tracker_path.clone())?,
         })
-    }
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn term_metadata_roundtrips(term_metadata in any::<SegmentTermMetadata>()) {
-            assert_roundtrips::<SegmentTermMetadata, SegmentTermMetadataResponse>(term_metadata);
-        }
     }
 }

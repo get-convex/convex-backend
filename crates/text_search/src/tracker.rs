@@ -22,11 +22,6 @@ use common::id_tracker::{
     MemoryIdTracker,
     StaticIdTracker,
 };
-use pb::searchlight::{
-    FieldTermMetadata as FieldTermMetadataProto,
-    SegmentTermMetadataResponse,
-    TermOrdDeleteCount,
-};
 use sucds::{
     int_vectors::{
         Access,
@@ -348,7 +343,7 @@ pub struct FieldTermMetadata {
     /// The number of documents containing the term that have been deleted, by
     /// term ordinal.
     pub term_documents_deleted: BTreeMap<TermOrdinal, u32>,
-    /// The number of terms that have been completely deleted from the field's
+    /// The number of non-unique terms that have been deleted from the field's
     /// inverted index.
     pub num_terms_deleted: u64,
 }
@@ -358,95 +353,6 @@ pub struct FieldTermMetadata {
 /// Term deletion metadata for a segment, tracked by field.
 pub struct SegmentTermMetadata {
     pub term_metadata_by_field: BTreeMap<Field, FieldTermMetadata>,
-}
-
-// TODO(CX-6565): Make protos private
-impl TryFrom<SegmentTermMetadataResponse> for SegmentTermMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        SegmentTermMetadataResponse {
-            field_term_metadata,
-        }: SegmentTermMetadataResponse,
-    ) -> Result<Self, Self::Error> {
-        let term_metadata_by_field = field_term_metadata
-            .into_iter()
-            .map(
-                |FieldTermMetadataProto {
-                     field,
-                     term_ords_and_delete_counts,
-                     num_terms_deleted,
-                 }| {
-                    let field = Field::from_field_id(field.context("Missing field")?);
-                    let term_documents_deleted = term_ords_and_delete_counts
-                        .into_iter()
-                        .map(
-                            |TermOrdDeleteCount {
-                                 term_ord,
-                                 num_docs_deleted,
-                             }| {
-                                let term_ord = term_ord.context("Missing term ord")?;
-                                let num_docs_deleted =
-                                    num_docs_deleted.context("Missing term delete count")?;
-                                anyhow::Ok::<(TermOrdinal, u32)>((term_ord, num_docs_deleted))
-                            },
-                        )
-                        .try_collect()?;
-                    let num_terms_deleted =
-                        num_terms_deleted.context("Missing num terms deleted")?;
-                    anyhow::Ok::<(Field, FieldTermMetadata)>((
-                        field,
-                        FieldTermMetadata {
-                            term_documents_deleted,
-                            num_terms_deleted,
-                        },
-                    ))
-                },
-            )
-            .try_collect()?;
-        Ok(SegmentTermMetadata {
-            term_metadata_by_field,
-        })
-    }
-}
-
-impl From<SegmentTermMetadata> for SegmentTermMetadataResponse {
-    fn from(
-        SegmentTermMetadata {
-            term_metadata_by_field,
-        }: SegmentTermMetadata,
-    ) -> Self {
-        let field_term_metadata = term_metadata_by_field
-            .into_iter()
-            .map(
-                |(
-                    field,
-                    FieldTermMetadata {
-                        term_documents_deleted,
-                        num_terms_deleted,
-                    },
-                )| {
-                    let field = Some(field.field_id());
-                    let term_ords_and_delete_counts = term_documents_deleted
-                        .into_iter()
-                        .map(|(term_ord, num_docs_deleted)| TermOrdDeleteCount {
-                            term_ord: Some(term_ord),
-                            num_docs_deleted: Some(num_docs_deleted),
-                        })
-                        .collect();
-                    let num_terms_deleted = Some(num_terms_deleted);
-                    FieldTermMetadataProto {
-                        field,
-                        term_ords_and_delete_counts,
-                        num_terms_deleted,
-                    }
-                },
-            )
-            .collect();
-        SegmentTermMetadataResponse {
-            field_term_metadata,
-        }
-    }
 }
 
 #[cfg(any(test, feature = "testing"))]

@@ -1163,6 +1163,90 @@ async fn empty_searches_with_broken_searcher_return_empty_results(
     Ok(())
 }
 
+#[test]
+fn test_scores_when_some_but_not_all_term_values_for_a_field_are_deleted() -> anyhow::Result<()> {
+    // This is taken directly from a proptest failure. We could simplify it further,
+    // but it catches a reasonably small error as is. The main thing to note is
+    // that the first Update action adds Document A, which is then replaced by
+    // the second update action, changing the term frequency. If the test fails,
+    // it means the memory and disk are index are not keeping the same statistics
+    // during the replace operation, or are not scoring the same based on the same
+    // statistics.
+    let actions = vec![
+        // 9 As, 2 Ds
+        TestAction::Update(TestUpdate {
+            key: TestKey::A,
+            search_field: vec![
+                TestValue::A,
+                TestValue::A,
+                TestValue::A,
+                TestValue::A,
+                TestValue::A,
+                TestValue::A,
+                TestValue::D,
+                TestValue::A,
+                TestValue::D,
+                TestValue::A,
+                TestValue::A,
+            ],
+            filter_field: TestValue::A,
+        }),
+        TestAction::QueryAndCheckScores(TestQuery {
+            search: vec![],
+            filter: None,
+        }),
+        // 4 As, 4 Cs
+        TestAction::Update(TestUpdate {
+            key: TestKey::A,
+            search_field: vec![
+                TestValue::A,
+                TestValue::C,
+                TestValue::A,
+                TestValue::C,
+                TestValue::C,
+                TestValue::A,
+                TestValue::A,
+                TestValue::C,
+            ],
+            filter_field: TestValue::A,
+        }),
+        // 6 As, 3 Bs, 2Cs, 8Ds
+        TestAction::Update(TestUpdate {
+            key: TestKey::B,
+            search_field: vec![
+                TestValue::C,
+                TestValue::D,
+                TestValue::D,
+                TestValue::D,
+                TestValue::C,
+                TestValue::A,
+                TestValue::A,
+                TestValue::B,
+                TestValue::D,
+                TestValue::D,
+                TestValue::C,
+                TestValue::D,
+                TestValue::D,
+                TestValue::A,
+                TestValue::A,
+                TestValue::A,
+                TestValue::B,
+                TestValue::B,
+                TestValue::D,
+                TestValue::A,
+                TestValue::B,
+            ],
+            filter_field: TestValue::C,
+        }),
+        TestAction::QueryAndCheckScores(TestQuery {
+            search: vec![TestValue::C],
+            filter: Some(TestValue::C),
+        }),
+    ];
+    test_search_actions(actions);
+    Ok(())
+}
+
 /// Generates ASCII alphanumeric strings of length 1..32
 fn tokenizable_string_strategy() -> impl Strategy<Value = String> {
     prop::string::string_regex("[a-zA-Z0-9]{1,32}").unwrap()

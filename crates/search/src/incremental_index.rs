@@ -3,6 +3,7 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    iter::zip,
     os::unix::fs::MetadataExt,
     path::{
         Path,
@@ -28,6 +29,7 @@ use storage::Storage;
 use tantivy::{
     directory::MmapDirectory,
     fastfield::AliveBitSet,
+    schema::Field,
     DocAddress,
     DocId,
     Index,
@@ -38,6 +40,7 @@ use tantivy::{
 use tempfile::TempDir;
 use text_search::tracker::{
     load_alive_bitset,
+    FieldTermMetadata,
     MemoryDeletionTracker,
     SearchMemoryIdTracker,
     SegmentTermMetadata,
@@ -59,9 +62,11 @@ use crate::{
         SearchType,
     },
     searcher::{
+        FieldDeletions,
         FragmentedTextStorageKeys,
         SegmentTermMetadataFetcher,
         TermDeletionsByField,
+        TermValue,
     },
     SearchFileType,
     TantivySearchIndexSchema,
@@ -337,23 +342,36 @@ pub async fn build_new_segment<RT: Runtime>(
                     .get(&segment_key)
                     .context("Segment key not found")?;
                 let terms = tantivy_schema.index_into_terms(prev_document)?;
-                // Create a set of unique terms so we don't double count terms. The count is the
-                // number of documents deleted containing the term.
-                let term_set: BTreeSet<_> = terms.into_iter().map(Term::from).collect();
-                for term in term_set {
+
+                let term_deletes_for_segment = if let Some(term_values_and_delete_counts) =
+                    term_deletes_by_segment.get_mut(&segment.original.segment_key)
+                {
+                    term_values_and_delete_counts
+                } else {
+                    let term_values_and_delete_counts = TermDeletionsByField::default();
+                    term_deletes_by_segment.insert(
+                        segment.original.segment_key.clone(),
+                        term_values_and_delete_counts,
+                    );
+                    term_deletes_by_segment
+                        .get_mut(&segment.original.segment_key)
+                        .unwrap()
+                };
+
+                let mut field_to_unique_term_value = BTreeMap::<Field, BTreeSet<TermValue>>::new();
+                for document_term in terms {
+                    let term = Term::from(document_term);
                     let field = term.field();
                     let term_value = term.value_bytes().to_vec();
-                    if let Some(term_values_and_delete_counts) =
-                        term_deletes_by_segment.get_mut(&segment.original.segment_key)
-                    {
-                        term_values_and_delete_counts.increment(field, term_value);
-                    } else {
-                        let mut term_values_and_delete_counts = TermDeletionsByField::default();
-                        term_values_and_delete_counts.increment(field, term_value);
-                        term_deletes_by_segment.insert(
-                            segment.original.segment_key.clone(),
-                            term_values_and_delete_counts,
-                        );
+                    term_deletes_for_segment.delete_term(field);
+                    field_to_unique_term_value
+                        .entry(field)
+                        .or_default()
+                        .insert(term_value);
+                }
+                for (field, unique_terms) in field_to_unique_term_value {
+                    for term_value in unique_terms {
+                        term_deletes_for_segment.delete_document(field, term_value);
                     }
                 }
             } else {
@@ -380,7 +398,7 @@ pub async fn build_new_segment<RT: Runtime>(
          segments nor in this stream"
     );
 
-    let segments_term_metadata = get_all_segment_term_metadata(
+    let segments_term_metadata = fetch_term_ordinals_and_remap_deletes(
         rt,
         search_storage,
         segment_term_metadata_fetcher,
@@ -424,33 +442,91 @@ fn get_size(path: &PathBuf) -> anyhow::Result<u64> {
     std::fs::read_dir(path)?.try_fold(0, |acc, curr| Ok(acc + get_size(&curr?.path())?))
 }
 
-async fn get_all_segment_term_metadata<RT: Runtime>(
+async fn fetch_term_ordinals_and_remap_deletes<RT: Runtime>(
     rt: &RT,
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField>,
 ) -> anyhow::Result<Vec<(ObjectKey, SegmentTermMetadata)>> {
-    let segment_term_metadata_futs = term_deletes_by_segment.into_iter().map(
+    let fetch_segment_metadata_futs = term_deletes_by_segment.into_iter().map(
         move |(segment_key, term_values_and_delete_counts)| {
-            let segment_key = segment_key.clone();
-            let segment_term_metadata_fetcher = segment_term_metadata_fetcher.clone();
-            let storage = storage.clone();
-            async move {
-                let term_metadata = segment_term_metadata_fetcher
-                    .clone()
-                    .segment_term_metadata(
-                        storage.clone(),
-                        segment_key.clone(),
-                        term_values_and_delete_counts,
-                    )
-                    .await?;
-                anyhow::Ok::<(ObjectKey, SegmentTermMetadata)>((segment_key, term_metadata))
-            }
+            fetch_segment_term_ordinal_and_remap_deletes(
+                storage.clone(),
+                segment_key,
+                segment_term_metadata_fetcher.clone(),
+                term_values_and_delete_counts,
+            )
         },
     );
+
     let segments_term_metadata: Vec<_> =
-        try_join_buffer_unordered(rt, "text_term_metadata", segment_term_metadata_futs).await?;
+        try_join_buffer_unordered(rt, "text_term_metadata", fetch_segment_metadata_futs).await?;
     Ok(segments_term_metadata)
+}
+
+async fn fetch_segment_term_ordinal_and_remap_deletes(
+    storage: Arc<dyn Storage>,
+    segment_key: ObjectKey,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+    deletions: TermDeletionsByField,
+) -> anyhow::Result<(ObjectKey, SegmentTermMetadata)> {
+    let term_values_by_field: BTreeMap<Field, Vec<TermValue>> = deletions
+        .0
+        .iter()
+        .map(|(field, deletions)| {
+            (
+                *field,
+                deletions
+                    .term_value_to_deleted_documents
+                    .keys()
+                    .cloned()
+                    .collect(),
+            )
+        })
+        .collect();
+    let term_ordinals_by_field = segment_term_metadata_fetcher
+        .fetch_term_ordinals(
+            storage.clone(),
+            segment_key.clone(),
+            term_values_by_field.clone(),
+        )
+        .await?;
+    let mut term_metadata_by_field = BTreeMap::new();
+    for (field, field_deletions) in deletions.0 {
+        let FieldDeletions {
+            term_value_to_deleted_documents,
+            num_terms_deleted,
+        } = field_deletions;
+
+        let mut term_documents_deleted = BTreeMap::new();
+        let term_ordinals = term_ordinals_by_field
+            .get(&field)
+            .with_context(|| format!("Failed to fetch term ordinals for {field:?}"))?;
+        let term_values = term_values_by_field
+            .get(&field)
+            .with_context(|| format!("Failed to find values for {field:?}"))?;
+        for (value, ordinal) in zip(term_values, term_ordinals) {
+            term_documents_deleted.insert(
+                *ordinal,
+                *term_value_to_deleted_documents
+                    .get(value)
+                    .with_context(|| format!("Failed to find deleted docs for {value:?}"))?,
+            );
+        }
+        term_metadata_by_field.insert(
+            field,
+            FieldTermMetadata {
+                term_documents_deleted,
+                num_terms_deleted,
+            },
+        );
+    }
+    Ok((
+        segment_key,
+        SegmentTermMetadata {
+            term_metadata_by_field,
+        },
+    ))
 }
 
 pub struct SearchSegmentForMerge {

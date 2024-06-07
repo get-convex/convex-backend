@@ -12,7 +12,7 @@ service Searchlight {
   rpc QueueVectorPrefetch(VectorPrefetchRequest) returns (VectorPrefetchResponse);
 
   rpc NumberOfSegments(SegmentRequest) returns (SegmentResponse);
-  rpc SegmentTermMetadata(SegmentTermMetadataRequest) returns (SegmentTermMetadataResponse);
+  rpc FetchTermOrdinals(FetchTermOrdinalsRequest) returns (FetchTermOrdinalsResponse);
 
   // Query a set of tokens against the term dictionary, optionally allowing
   // for fuzzy matching and prefix matching. Take the top `K` results with
@@ -257,25 +257,26 @@ message SegmentResponse {
     uint32 number_of_segments = 1;
 }
 
-message SegmentTermMetadataRequest {
-  StorageType storage_type = 1;
-  StorageKey segment = 2;
-  repeated FieldTermDeletions field_term_deletions = 3;
-  optional string encoded_parent_trace = 4;
+message FetchTermOrdinalsRequest {
+    StorageType storage_type = 1;
+    StorageKey segment = 2;
+    repeated FieldAndTermValues field_and_term_values = 3;
+    optional string encoded_parent_trace = 4;
 }
 
-message FieldTermDeletions {
-  optional uint32 field = 1;
-  repeated TermValueDeleteCount term_values_and_delete_counts = 2;
+message FetchTermOrdinalsResponse {
+    repeated FieldAndTermOrdinals field_and_term_ordinals = 1;
 }
 
-message TermValueDeleteCount {
-  optional bytes term_value = 1;
-  optional uint32 num_docs_deleted = 2;
+message FieldAndTermValues {
+    optional uint32 field = 1;
+    repeated bytes term_values = 2;
 }
 
-message SegmentTermMetadataResponse {
-  repeated FieldTermMetadata field_term_metadata = 1;
+message FieldAndTermOrdinals {
+    optional uint32 field = 1;
+    // This must exactly match the count and order of the input from FieldAndTermValues
+    repeated uint64 term_ordinals = 2;
 }
 
 message FieldTermMetadata {
