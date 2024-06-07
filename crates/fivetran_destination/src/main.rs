@@ -6,7 +6,7 @@
 
 mod aes;
 mod api_types;
-mod constants;
+pub mod constants;
 mod convert;
 mod convex_api;
 mod error;
