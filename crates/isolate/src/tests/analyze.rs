@@ -50,7 +50,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentId::Root, t.module_loader.as_ref())
+            .get_application_modules(ComponentId::test_user(), t.module_loader.as_ref())
             .await?
     };
 
@@ -209,7 +209,7 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
             ModuleModel::new(&mut tx)
-                .get_application_modules(ComponentId::Root, t.module_loader.as_ref())
+                .get_application_modules(ComponentId::test_user(), t.module_loader.as_ref())
                 .await?
         };
 
@@ -246,7 +246,7 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentId::Root, t.module_loader.as_ref())
+            .get_application_modules(ComponentId::test_user(), t.module_loader.as_ref())
             .await?
     };
 
@@ -336,7 +336,7 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
     let modules = {
         let mut tx = t.database.begin(Identity::system()).await?;
         ModuleModel::new(&mut tx)
-            .get_application_modules(ComponentId::Root, t.module_loader.as_ref())
+            .get_application_modules(ComponentId::test_user(), t.module_loader.as_ref())
             .await?
     };
 
@@ -540,7 +540,7 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
         let mut modules = {
             let mut tx = t.database.begin(Identity::system()).await?;
             ModuleModel::new(&mut tx)
-                .get_application_modules(ComponentId::Root, t.module_loader.as_ref())
+                .get_application_modules(ComponentId::test_user(), t.module_loader.as_ref())
                 .await?
         };
 

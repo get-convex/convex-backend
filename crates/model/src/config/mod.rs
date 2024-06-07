@@ -89,7 +89,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             None => None,
         };
 
-        let cron_diff = CronModel::new(self.tx, ComponentId::Root)
+        let cron_diff = CronModel::new(self.tx, ComponentId::TODO())
             .apply(&analyze_results)
             .await?;
 
@@ -104,7 +104,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
 
         let module_diff = ModuleModel::new(self.tx)
             .apply(
-                ComponentId::Root,
+                ComponentId::TODO(),
                 modules,
                 source_package_id,
                 analyze_results,

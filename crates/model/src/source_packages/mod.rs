@@ -94,7 +94,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
         let mut source_package_ids = vec![];
 
         for module in ModuleModel::new(self.tx)
-            .get_all_metadata(ComponentId::Root)
+            .get_all_metadata(ComponentId::TODO())
             .await?
         {
             source_package_ids.push(module.source_package_id);

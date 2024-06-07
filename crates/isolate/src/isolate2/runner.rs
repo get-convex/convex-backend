@@ -504,7 +504,7 @@ async fn run_request<RT: Runtime>(
         while let Some(module_path) = stack.pop() {
             let module_specifier = module_specifier_from_path(&module_path)?;
             let path = CanonicalizedComponentModulePath {
-                component: ComponentId::Root,
+                component: ComponentId::TODO(),
                 module_path: module_path.clone(),
             };
             let Some(module_metadata) = module_loader.get_module(tx, path).await? else {
@@ -842,7 +842,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
 
     fn component(&self) -> anyhow::Result<ComponentId> {
         // TODO(lee) fix when we finish isolate2.
-        Ok(ComponentId::Root)
+        Ok(ComponentId::TODO())
     }
 
     fn key_broker(&self) -> &KeyBroker {

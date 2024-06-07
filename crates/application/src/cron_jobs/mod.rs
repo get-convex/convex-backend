@@ -390,7 +390,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let execution_time_f64 = execution_time.as_secs_f64();
         let truncated_log_lines = self.truncate_log_lines(outcome.log_lines.clone());
 
-        let mut model = CronModel::new(&mut tx, ComponentId::Root);
+        let mut model = CronModel::new(&mut tx, ComponentId::TODO());
 
         if let Ok(ref result) = outcome.result {
             let truncated_result = self.truncate_result(result.clone());
@@ -435,7 +435,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 // Continue without updating since the job state has changed
                 return Ok(());
             };
-            let mut model = CronModel::new(&mut tx, ComponentId::Root);
+            let mut model = CronModel::new(&mut tx, ComponentId::TODO());
             let status = CronJobStatus::Err(e.to_string());
             model
                 .insert_cron_job_log(&job, status, truncated_log_lines, execution_time_f64)
@@ -482,7 +482,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 // Set state to in progress
                 let mut updated_job = job.clone();
                 updated_job.state = CronJobState::InProgress;
-                CronModel::new(&mut tx, ComponentId::Root)
+                CronModel::new(&mut tx, ComponentId::TODO())
                     .update_job_state(job_id, updated_job.clone())
                     .await?;
                 self.database
@@ -560,7 +560,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 // guess the correct behavior here is to store the executionId in the state so
                 // we can log correctly here.
                 let context = ExecutionContext::new(request_id, &caller);
-                let mut model = CronModel::new(&mut tx, ComponentId::Root);
+                let mut model = CronModel::new(&mut tx, ComponentId::TODO());
                 model
                     .insert_cron_job_log(&job, status, log_lines, 0.0)
                     .await?;
@@ -638,7 +638,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             // Continue without updating since the job state has changed
             return Ok(());
         };
-        let mut model = CronModel::new(&mut tx, ComponentId::Root);
+        let mut model = CronModel::new(&mut tx, ComponentId::TODO());
         model
             .insert_cron_job_log(expected_state, status, log_lines, execution_time)
             .await?;

@@ -89,7 +89,7 @@ use crate::{
 };
 
 pub static OBJECTS_TABLE: LazyLock<TableName> = LazyLock::new(|| "objects".parse().unwrap());
-pub static OBJECTS_TABLE_COMPONENT: ComponentId = ComponentId::Root;
+pub static OBJECTS_TABLE_COMPONENT: ComponentId = ComponentId::test_user();
 
 #[derive(Default)]
 pub struct ApplicationFixtureArgs {

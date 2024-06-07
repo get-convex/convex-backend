@@ -802,7 +802,7 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<Option<String>> {
         let mut tx = self.begin(identity).await?;
         let path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component: ComponentId::TODO(),
             module_path: path.canonicalize(),
         };
         let Some(metadata) = ModuleModel::new(&mut tx).get_metadata(path.clone()).await? else {

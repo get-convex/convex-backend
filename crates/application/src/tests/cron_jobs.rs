@@ -66,7 +66,7 @@ async fn create_cron_job(
     BTreeMap<CronIdentifier, ParsedDocument<CronJob>>,
     CronModel<TestRuntime>,
 )> {
-    let mut cron_model = CronModel::new(tx, ComponentId::Root);
+    let mut cron_model = CronModel::new(tx, ComponentId::test_user());
     let mut map = serde_json::Map::new();
     map.insert(
         "key".to_string(),
@@ -221,7 +221,7 @@ async fn test_cron_jobs_helper(rt: TestRuntime, backend_state: BackendState) -> 
             .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
             .await?
     );
-    let mut logs_query = cron_log_query(&mut tx, ComponentId::Root)?;
+    let mut logs_query = cron_log_query(&mut tx, ComponentId::test_user())?;
     assert!(logs_query.next(&mut tx, Some(1)).await?.is_none());
 
     // Resuming the backend should make the jobs execute.
