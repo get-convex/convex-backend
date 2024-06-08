@@ -13,8 +13,6 @@ anyhow = "1"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-async_zip = { workspace = true }
-bytes = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 errors = { path = "../errors" }

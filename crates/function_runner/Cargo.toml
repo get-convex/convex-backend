@@ -12,7 +12,6 @@ development = ["mysql"]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { path = "../async_lru" }
-cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 convex_macro = { path = "../convex_macro" }
 database = { path = "../database" }
@@ -26,7 +25,6 @@ metrics = { path = "../metrics" }
 minitrace = { workspace = true }
 model = { path = "../model" }
 parking_lot = { workspace = true }
-pb = { path = "../pb" }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }

@@ -16,7 +16,6 @@ errors = { path = "../errors" }
 futures = { workspace = true }
 imbl = { workspace = true }
 itertools = { workspace = true }
-maplit = { workspace = true }
 metrics = { path = "../metrics" }
 minitrace = { workspace = true }
 tracing = { workspace = true }

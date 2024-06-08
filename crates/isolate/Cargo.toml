@@ -28,7 +28,6 @@ cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 const-oid = { workspace = true }
 convex_macro = { path = "../convex_macro" }
-crossbeam-channel = { workspace = true }
 database = { path = "../database" }
 deno_core = { workspace = true }
 deno_core_icudata = { workspace = true }

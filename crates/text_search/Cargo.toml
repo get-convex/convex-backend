@@ -12,17 +12,14 @@ doctest = false
 anyhow = { workspace = true }
 byteorder = { workspace = true }
 common = { path = "../common" }
-csf = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
 minitrace = { workspace = true }
-pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 sucds = { workspace = true }
 tantivy = { workspace = true }
 tantivy-common = { workspace = true }
-tempfile = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]

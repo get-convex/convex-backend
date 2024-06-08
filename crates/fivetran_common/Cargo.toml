@@ -15,19 +15,10 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = { workspace = true }
-async-compression = { workspace = true }
-async-trait = { workspace = true }
-base64 = { workspace = true }
 proptest = { workspace = true, optional = true }
-proptest-derive = { workspace = true, optional = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-thiserror = { workspace = true }
-tokio = { workspace = true }
-tokio-stream = { workspace = true }
 tonic = { workspace = true, features = ["gzip"] }
 url = { workspace = true }
 
@@ -43,18 +34,19 @@ tonic-build = { workspace = true }
 [dev-dependencies]
 maplit = { workspace = true }
 proptest = { workspace = true }
-proptest-derive = { workspace = true }
-rand = { workspace = true }
-uuid = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = [
     # Build dependencies not understood
+    "bytes",
     "cfg_if",
+    "futures_util",
+    "reqwest",
+    "tokio",
     "tonic_build",
     # Prost required via tonic macro
     "prost",
 ]
 
 [features]
-testing = ["proptest", "proptest-derive"]
+testing = ["proptest"]

@@ -13,9 +13,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 atomic_refcell = { workspace = true }
 bitvec = { workspace = true }
-byteorder = { workspace = true }
 common = { path = "../common" }
-csf = { workspace = true }
 errors = { path = "../errors" }
 futures = { workspace = true }
 imbl = { workspace = true }

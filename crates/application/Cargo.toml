@@ -27,7 +27,6 @@ float_next_after = { workspace = true }
 function_runner = { path = "../function_runner" }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
-governor = { workspace = true }
 headers = { workspace = true }
 http = { workspace = true }
 http_client = { path = "../../crates/http_client" }

@@ -76,3 +76,9 @@ testing = [
     "storage/testing",
     "value/testing",
 ]
+
+[package.metadata.cargo-machete]
+ignored = [
+    # Used in a serde(with) clause
+    "serde_bytes",
+]
