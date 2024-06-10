@@ -1,0 +1,23 @@
+[package]
+name = "config_loader"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true }
+common = { path = "../../crates/common" }
+futures = { workspace = true }
+miette = { workspace = true, features = ["fancy"] }
+prost-reflect = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+common = { path = "../../crates/common", features = ["testing"] }
+convex_macro = { path = "../../crates/convex_macro" }
+pb = { path = "../../crates/pb" }
+runtime = { path = "../../crates/runtime", features = ["testing"] }
+tempfile = { workspace = true }

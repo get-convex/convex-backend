@@ -65,6 +65,7 @@ jsonschema = "0.18"
 levenshtein_automata = "0.2.1"
 lru = "0.12.0"
 maplit = "1"
+miette = "7.0"
 mime = "0.3"
 mime2ext = "0.1.52"
 minitrace = { version = "0.6", features = [ "enable" ] }
@@ -87,6 +88,7 @@ proptest-derive = "0.4.0"
 proptest-http = { git = "https://github.com/sujayakar/proptest-http", rev = "12ef4c4ac2002b050ab0944a9587d83d7ea9fce2" }
 prost = "0.12"
 prost-types = "0.12"
+prost-reflect = { version = "0.13.1", features = [ "text-format", "miette" ] }
 pyo3 = "0.20.3"
 pyo3-asyncio = { version = "0.20.0", features = [ "tokio-runtime" ] }
 pyo3-build-config = { version = "0.20.3", features = [ "resolve-config" ] }
@@ -124,7 +126,7 @@ thousands = "0.2.0"
 tokio = { version = "1", features = [ "full" ] }
 tokio-metrics-collector = { version = "0.2.0" }
 tokio-process-stream = { version = "0.4.0" }
-tokio-stream = { version = "^0.1.8", features = [ "io-util", "sync" ] }
+tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = "0.20.0"
 tonic = { version = "0.10.2", features = [ "gzip" ] }
 tonic-build = "0.10.0"
