@@ -38,6 +38,12 @@ use governor::{
     },
     Quota,
 };
+use minitrace::{
+    collector::SpanContext,
+    full_name,
+    future::FutureExt as MinitraceFutureExt,
+    Span,
+};
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 #[cfg(not(any(test, feature = "testing")))]
@@ -113,9 +119,14 @@ pub async fn try_join_buffered<
         + 'static,
 ) -> anyhow::Result<C> {
     assert_send(
-        stream::iter(tasks.map(|task| assert_send(try_join(rt, name, assert_send(task)))))
-            .buffered(JOIN_BUFFER_SIZE)
-            .try_collect(),
+        stream::iter(tasks.map(|task| {
+            let span = SpanContext::current_local_parent()
+                .map(|ctx| Span::root(format!("{}::{name}", full_name!()), ctx))
+                .unwrap_or(Span::noop());
+            assert_send(try_join(rt, name, assert_send(task), span))
+        }))
+        .buffered(JOIN_BUFFER_SIZE)
+        .try_collect(),
     )
     .await
 }
@@ -141,9 +152,14 @@ pub async fn try_join_buffer_unordered<
         + 'static,
 ) -> anyhow::Result<C> {
     assert_send(
-        stream::iter(tasks.map(|task| try_join(rt, name, task)))
-            .buffer_unordered(JOIN_BUFFER_SIZE)
-            .try_collect(),
+        stream::iter(tasks.map(|task| {
+            let span = SpanContext::current_local_parent()
+                .map(|ctx| Span::root(format!("{}::{name}", full_name!()), ctx))
+                .unwrap_or(Span::noop());
+            try_join(rt, name, task, span)
+        }))
+        .buffer_unordered(JOIN_BUFFER_SIZE)
+        .try_collect(),
     )
     .await
 }
@@ -152,12 +168,17 @@ pub async fn try_join<RT: Runtime, T: Send + 'static>(
     rt: &RT,
     name: &'static str,
     fut: impl Future<Output = anyhow::Result<T>> + Send + 'static,
+    span: Span,
 ) -> anyhow::Result<T> {
     let (tx, rx) = oneshot::channel();
-    let handle = rt.spawn(name, async {
-        let result = fut.await;
-        let _ = tx.send(result);
-    });
+    let handle = rt.spawn(
+        name,
+        async {
+            let result = fut.await;
+            let _ = tx.send(result);
+        }
+        .in_span(span),
+    );
     handle.into_join_future().await?;
     rx.await?
 }

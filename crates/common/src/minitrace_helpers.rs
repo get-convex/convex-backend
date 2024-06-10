@@ -13,7 +13,7 @@ use regex::Regex;
 
 use crate::knobs::REQUEST_TRACE_SAMPLE_CONFIG;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EncodedSpan(pub Option<String>);
 
 impl EncodedSpan {
