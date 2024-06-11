@@ -150,6 +150,7 @@ pub use self::{
 use crate::{
     aggregation::TokenMatchAggregator,
     constants::MAX_UNIQUE_QUERY_TERMS,
+    metrics::log_num_segments_searched_total,
     ranking::Ranker,
     searcher::{
         Bm25Stats,
@@ -446,6 +447,8 @@ impl TantivySearchIndexSchema {
         disk_index_ts: Timestamp,
         searcher: Arc<dyn Searcher>,
     ) -> anyhow::Result<RevisionWithKeys> {
+        log_num_segments_searched_total(segments.len());
+
         // Step 1: Map the old `CompiledQuery` struct onto `TokenQuery`s.
         let mut token_queries = vec![];
         let num_text_query_terms = compiled_query.text_query.len() as u32;

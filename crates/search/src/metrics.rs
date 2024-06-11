@@ -580,3 +580,11 @@ register_convex_counter!(
 pub fn log_vector_prefetch_expiration() {
     log_counter(&VECTOR_PREFETCH_EXPIRATIONS_TOTAL, 1);
 }
+
+register_convex_histogram!(
+    TEXT_SEARCH_NUMBER_OF_SEGMENTS_TOTAL,
+    "Number of text segments searched for a multi segment text index"
+);
+pub fn log_num_segments_searched_total(num_segments: usize) {
+    log_distribution(&TEXT_SEARCH_NUMBER_OF_SEGMENTS_TOTAL, num_segments as f64);
+}
