@@ -302,7 +302,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                 },
             };
             if let Some(build_reason) = needs_backfill {
-                tracing::info!("Queueing vector index for rebuild: {name:?} ({build_reason:?})");
+                tracing::info!(
+                    "Queueing {} index for rebuild: {name:?} ({build_reason:?})",
+                    self.index_type_name()
+                );
                 let table_id = name.table();
                 let by_id_metadata = IndexModel::new(&mut tx)
                     .by_id_index_metadata(*table_id)
