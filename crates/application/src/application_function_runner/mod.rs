@@ -2116,25 +2116,37 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        let mut tx = self.database.begin(identity).await?;
-        let (path, udf_args) = validate_schedule_args(
-            path,
-            udf_args,
-            scheduled_ts,
-            // Scheduling from actions is not transaction and happens at latest
-            // timestamp.
-            self.database.runtime().unix_timestamp(),
-            &mut tx,
-        )
-        .await?;
-
-        let virtual_id = VirtualSchedulerModel::new(&mut tx)
-            .schedule(path, udf_args, scheduled_ts, context)
+        let (_ts, virtual_id, _stats) = self
+            .database
+            .execute_with_occ_retries(
+                identity,
+                FunctionUsageTracker::new(),
+                PauseClient::new(),
+                "app_funrun_schedule_job",
+                |tx| {
+                    let path = path.clone();
+                    let args = udf_args.clone();
+                    let context = context.clone();
+                    async move {
+                        let (path, udf_args) = validate_schedule_args(
+                            path,
+                            args,
+                            scheduled_ts,
+                            // Scheduling from actions is not transaction and happens at latest
+                            // timestamp.
+                            self.database.runtime().unix_timestamp(),
+                            tx,
+                        )
+                        .await?;
+                        let virtual_id = VirtualSchedulerModel::new(tx)
+                            .schedule(path, udf_args, scheduled_ts, context)
+                            .await?;
+                        Ok(virtual_id)
+                    }
+                    .into()
+                },
+            )
             .await?;
-        self.database
-            .commit_with_write_source(tx, "app_funrun_schedule_job")
-            .await?;
-
         Ok(virtual_id)
     }
 
