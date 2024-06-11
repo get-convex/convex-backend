@@ -3,10 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::{
-    anyhow,
-    Context,
-};
+use anyhow::anyhow;
 use common::{
     components::ComponentId,
     document::ParsedDocument,
@@ -93,12 +90,10 @@ async fn download_module_source_from_package<RT: Runtime>(
     tx: &mut Transaction<RT>,
     modules_storage: Arc<dyn Storage>,
     modules_tablet: TabletId,
-    source_package_id: Option<SourcePackageId>,
+    source_package_id: SourcePackageId,
 ) -> anyhow::Result<HashMap<(ResolvedDocumentId, ModuleVersion), FullModuleSource>> {
     let mut result = HashMap::new();
-    let source_package = SourcePackageModel::new(tx)
-        .get(source_package_id.context("source package missing")?)
-        .await?;
+    let source_package = SourcePackageModel::new(tx).get(source_package_id).await?;
     let mut package = download_package(
         modules_storage,
         source_package.storage_key.clone(),

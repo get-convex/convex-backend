@@ -332,7 +332,7 @@ impl<RT: Runtime> Application<RT> {
                 ConfigMetadata::new(),
                 test_source.clone(),
                 udf_config,
-                source_package,
+                Some(source_package),
                 analyze_results,
                 Some(schema_id),
             )

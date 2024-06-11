@@ -74,9 +74,7 @@ pub mod test_module_loader {
             tx: &mut Transaction<RT>,
             module_metadata: ParsedDocument<ModuleMetadata>,
         ) -> anyhow::Result<Arc<FullModuleSource>> {
-            let source_package_id = module_metadata
-                .source_package_id
-                .with_context(|| format!("Missing source package {}", module_metadata.id()))?;
+            let source_package_id = module_metadata.source_package_id;
             let source_package = SourcePackageModel::new(tx)
                 .get(source_package_id)
                 .await?

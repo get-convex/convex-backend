@@ -98,7 +98,7 @@ impl SyncTest {
                     ConfigMetadata::new(),
                     modules,
                     udf_config,
-                    source_package,
+                    Some(source_package),
                     analyze_results,
                     None,
                 )

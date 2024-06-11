@@ -21,6 +21,7 @@ use keybroker::{
 };
 use model::{
     config::ConfigModel,
+    source_packages::SourcePackageModel,
     udf_config::types::UdfConfig,
 };
 use must_let::must_let;
@@ -65,6 +66,11 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .isolate
         .analyze(udf_config, modules_by_path, BTreeMap::new())
         .await??;
+
+    let source_package = SourcePackageModel::new(&mut tx)
+        .get_latest()
+        .await?
+        .unwrap();
     drop(tx);
 
     // Newer version + analyze results
@@ -74,7 +80,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
             config_metadata.clone(),
             module_configs.clone(),
             UdfConfig::new_for_test(&t.rt, post_internal_npm_version.clone()),
-            None,
+            Some(source_package.into_value()),
             analyze_results.clone(),
             None,
         )

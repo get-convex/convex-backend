@@ -29,7 +29,7 @@ pub struct ModuleMetadata {
     /// What is the latest version of the module?
     pub latest_version: ModuleVersion,
 
-    pub source_package_id: Option<SourcePackageId>,
+    pub source_package_id: SourcePackageId,
     pub environment: ModuleEnvironment,
     pub analyze_result: Option<AnalyzedModule>,
     // This is a hash of source + source_map.
@@ -42,7 +42,7 @@ pub struct SerializedModuleMetadata {
     pub path: String,
     pub latest_version: ModuleVersion,
     pub deleted: Option<bool>,
-    pub source_package_id: Option<String>,
+    pub source_package_id: String,
     pub environment: String,
     pub analyze_result: Option<SerializedAnalyzedModule>,
     pub sha256: Option<String>,
@@ -60,11 +60,7 @@ impl TryFrom<SerializedModuleMetadata> for ModuleMetadata {
                 path.canonicalize()
             },
             latest_version: m.latest_version,
-            source_package_id: m
-                .source_package_id
-                .map(|s| DeveloperDocumentId::decode(&s))
-                .transpose()?
-                .map(|id| id.into()),
+            source_package_id: DeveloperDocumentId::decode(&m.source_package_id)?.into(),
             environment: m.environment.parse()?,
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
             sha256: m
@@ -83,9 +79,7 @@ impl TryFrom<ModuleMetadata> for SerializedModuleMetadata {
             path: String::from(m.path),
             latest_version: m.latest_version,
             deleted: Some(false),
-            source_package_id: m
-                .source_package_id
-                .map(|s| DeveloperDocumentId::from(s).to_string()),
+            source_package_id: DeveloperDocumentId::from(m.source_package_id).to_string(),
             environment: m.environment.to_string(),
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
             sha256: m.sha256.map(|s| s.as_base64()),

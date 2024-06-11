@@ -396,8 +396,7 @@ pub async fn start_push_handler(
     let app_pkg = st
         .application
         .upload_package(&app_modules, external_deps_id_and_pkg.clone())
-        .await?
-        .context("No package for app?")?;
+        .await?;
     total_size += app_pkg.package_size;
     component_definition_packages.insert(ComponentDefinitionPath::root(), app_pkg);
 
@@ -406,8 +405,7 @@ pub async fn start_push_handler(
         let component_pkg = st
             .application
             .upload_package(&component_modules, None)
-            .await?
-            .context("No package for component?")?;
+            .await?;
         total_size += component_pkg.package_size;
         anyhow::ensure!(component_definition_packages
             .insert(component_def.definition_path.clone(), component_pkg)
@@ -423,7 +421,7 @@ pub async fn start_push_handler(
         &st.application,
         config.udf_config.clone(),
         config.app_definition.functions.clone(),
-        Some(app_pkg.clone()),
+        app_pkg.clone(),
     )
     .await?;
 
@@ -475,7 +473,7 @@ pub async fn start_push_handler(
             &st.application,
             config.udf_config.clone(),
             component_def.functions.clone(),
-            Some(component_pkg.clone()),
+            component_pkg.clone(),
         )
         .await?;
         anyhow::ensure!(component_analysis_by_def_path

@@ -439,11 +439,7 @@ pub async fn push_config_handler(
         .await?;
     let end_upload_source_package = Instant::now();
     // Verify that we have not exceeded the max zipped or unzipped file size
-    let combined_pkg_size = source_package
-        .as_ref()
-        .map(|pkg| pkg.package_size)
-        .unwrap_or(PackageSize::default())
-        + external_deps_pkg_size;
+    let combined_pkg_size = source_package.package_size + external_deps_pkg_size;
     combined_pkg_size.verify_size()?;
 
     let udf_config = UdfConfig {
@@ -506,7 +502,7 @@ pub async fn analyze_modules_with_auth_config(
     application: &Application<ProdRuntime>,
     udf_config: UdfConfig,
     modules: Vec<ModuleConfig>,
-    source_package: Option<SourcePackage>,
+    source_package: SourcePackage,
 ) -> anyhow::Result<(
     Option<ModuleConfig>,
     BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
@@ -536,7 +532,7 @@ pub async fn analyze_modules(
     application: &Application<ProdRuntime>,
     udf_config: UdfConfig,
     modules: Vec<ModuleConfig>,
-    source_package: Option<SourcePackage>,
+    source_package: SourcePackage,
 ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>> {
     let num_dep_modules = modules.iter().filter(|m| m.path.is_deps()).count();
     anyhow::ensure!(

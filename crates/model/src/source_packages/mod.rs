@@ -100,16 +100,15 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
             source_package_ids.push(module.source_package_id);
         }
 
-        // If there are no modules, or if all the modules lack a source_package_id -
-        // then return None
-        let Some(Some(source_package_id)) = source_package_ids.pop() else {
+        // If there are no modules - then return None
+        let Some(source_package_id) = source_package_ids.pop() else {
             return Ok(None);
         };
 
         // They should all match
         anyhow::ensure!(source_package_ids
             .into_iter()
-            .all(|id| id.as_ref() == Some(&source_package_id)));
+            .all(|id| &id == &source_package_id));
 
         Ok(Some(self.get(source_package_id).await?))
     }

@@ -229,7 +229,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     module_path: path.clone(),
                 },
                 module.source,
-                source_package_id,
+                source_package_id.context("missing source_package_id")?,
                 module.source_map,
                 analyze_result,
                 module.environment,
@@ -390,46 +390,12 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Ok(Some(module_metadata))
     }
 
-    /// Write a isolate-environment module to _module_versions, without source
-    /// package.
-    ///
-    /// This transaction must never be committed.
-    /// All future reads of modules on this transaction will read from the
-    /// database instead of the source package.
-    pub async fn put_standalone(
-        &mut self,
-        path: CanonicalizedComponentModulePath,
-        source: ModuleSource,
-        source_map: Option<SourceMap>,
-        analyze_result: AnalyzedModule,
-    ) -> anyhow::Result<()> {
-        if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
-            anyhow::bail!(unauthorized_error("put_standalone_module"));
-        }
-        if path.module_path.is_system() {
-            anyhow::bail!("You cannot push a function under '_system/'");
-        }
-        let component = path.component;
-        let sha256 = hash_module_source(&source, source_map.as_ref());
-        let (module_id, version) = self
-            .put_module_metadata(
-                path,
-                None,
-                Some(analyze_result),
-                ModuleEnvironment::Isolate,
-                sha256,
-            )
-            .await?;
-        self.put_module_source_into_db(module_id, version, source, source_map, component)
-            .await
-    }
-
     /// Put a module's source at a given path.
     pub async fn put(
         &mut self,
         path: CanonicalizedComponentModulePath,
         source: ModuleSource,
-        source_package_id: Option<SourcePackageId>,
+        source_package_id: SourcePackageId,
         source_map: Option<SourceMap>,
         analyze_result: Option<AnalyzedModule>,
         environment: ModuleEnvironment,
@@ -456,7 +422,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     async fn put_module_metadata(
         &mut self,
         path: CanonicalizedComponentModulePath,
-        source_package_id: Option<SourcePackageId>,
+        source_package_id: SourcePackageId,
         analyze_result: Option<AnalyzedModule>,
         environment: ModuleEnvironment,
         sha256: Sha256Digest,

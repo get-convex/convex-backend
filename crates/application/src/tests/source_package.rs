@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use anyhow::Context;
 use common::{
     components::ComponentId,
     runtime::Runtime,
@@ -49,10 +48,7 @@ async fn test_source_package(rt: ProdRuntime) -> anyhow::Result<()> {
         storage_key,
         sha256,
         ..
-    } = application
-        .upload_package(&package, None)
-        .await?
-        .context("With functions should upload")?;
+    } = application.upload_package(&package, None).await?;
 
     let result =
         download_package(application.modules_storage().clone(), storage_key, sha256).await?;

@@ -218,6 +218,7 @@ use model::{
     source_packages::{
         types::SourcePackage,
         upload_download::upload_package,
+        SourcePackageModel,
     },
     udf_config::{
         types::UdfConfig,
@@ -340,7 +341,7 @@ pub struct ApplyConfigArgs {
     pub schema_id: Option<String>,
     pub modules: Vec<ModuleConfig>,
     pub udf_config: UdfConfig,
-    pub source_package: Option<SourcePackage>,
+    pub source_package: SourcePackage,
     pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
 }
 
@@ -1526,7 +1527,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
-        source_package: Option<SourcePackage>,
+        source_package: SourcePackage,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         self.runner
             .analyze(udf_config, new_modules, source_package)
@@ -1746,7 +1747,7 @@ impl<RT: Runtime> Application<RT> {
                 config_metadata.clone(),
                 modules,
                 udf_config,
-                source_package,
+                Some(source_package),
                 analyze_results,
                 schema_id,
             )
@@ -1837,7 +1838,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         modules: &Vec<ModuleConfig>,
         external_deps_id_and_pkg: Option<(ExternalDepsPackageId, ExternalDepsPackage)>,
-    ) -> anyhow::Result<Option<SourcePackage>> {
+    ) -> anyhow::Result<SourcePackage> {
         // If there are any node actions, turn on the lambdas.
         if modules
             .iter()
@@ -1879,12 +1880,12 @@ impl<RT: Runtime> Application<RT> {
         tracing::info!("Source package size: {}", package_size);
         log_source_package_size_bytes_total(package_size);
 
-        Ok(Some(SourcePackage {
+        Ok(SourcePackage {
             storage_key,
             sha256,
             external_deps_package_id,
             package_size,
-        }))
+        })
     }
 
     // Clear all records for specified tables concurrently, potentially taking
@@ -1915,6 +1916,11 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
 
+        // Write (and commit) the module source to S3.
+        // This will become a dangling reference since the _modules entry won't
+        // be committed to the database, but we have to deal with those anyway.
+        let source_package = self.upload_package(&vec![module.clone()], None).await?;
+
         let mut tx = self.begin(identity.clone()).await?;
 
         // Use the last pushed version. If there hasn't been a push
@@ -1936,7 +1942,11 @@ impl<RT: Runtime> Application<RT> {
         };
 
         let analyze_results = self
-            .analyze(udf_config.clone(), vec![module.clone()], None)
+            .analyze(
+                udf_config.clone(),
+                vec![module.clone()],
+                source_package.clone(),
+            )
             .await?
             .map_err(|js_error| {
                 let metadata = ErrorMetadata::bad_request(
@@ -1963,16 +1973,20 @@ impl<RT: Runtime> Application<RT> {
         }
         let analyzed_function = analyzed_function.context("Missing default export.")?;
 
+        let source_package_id = SourcePackageModel::new(&mut tx).put(source_package).await?;
+
         // 3. Add the module
         ModuleModel::new(&mut tx)
-            .put_standalone(
+            .put(
                 CanonicalizedComponentModulePath {
                     component: ComponentId::Root,
                     module_path: module_path.clone(),
                 },
                 module.source,
+                source_package_id,
                 module.source_map,
-                analyzed_module,
+                Some(analyzed_module),
+                ModuleEnvironment::Isolate,
             )
             .await?;
 

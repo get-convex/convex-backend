@@ -1272,9 +1272,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     source_maps.insert(module_path.module_path.clone(), source_map);
                 }
 
-                let source_package_id = module.source_package_id.ok_or_else(|| {
-                    anyhow::anyhow!("Source package is required to execute actions")
-                })?;
+                let source_package_id = module.source_package_id;
                 let source_package = SourcePackageModel::new(&mut tx)
                     .get(source_package_id)
                     .await?
@@ -1674,7 +1672,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
-        source_package: Option<SourcePackage>,
+        source_package: SourcePackage,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         // We use the latest environment variables at the time of the deployment
         // this is not transactional with the rest of the deploy.
@@ -1715,9 +1713,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     source_maps.insert(path.clone(), source_map);
                 }
             }
-            let source_package = source_package.ok_or_else(|| {
-                anyhow::anyhow!("Source package is required to analyze action modules")
-            })?;
 
             // Fetch source and external_deps presigned URI first
             let source_uri_future = self
