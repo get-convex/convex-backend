@@ -2981,7 +2981,7 @@ packages:
   /@types/babel__template/7.4.2:
     resolution: {integrity: sha512-/AVzPICMhMOMYoSx9MoKpGDKdBRsIXMNByh1PXSZoa+v6ZoLa8xxtsT/uLQ/NJm0XVAWl/BvId4MlDeXJaeIZQ==}
     dependencies:
-      '@babel/parser': 7.23.0
+      '@babel/parser': 7.24.5
       '@babel/types': 7.24.0
     dev: true
 
