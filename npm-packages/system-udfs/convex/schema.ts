@@ -278,15 +278,6 @@ export default defineSchema({
     analyzeResult: v.union(analyzedModule, v.null()),
     sourcePackageId: v.string(),
   }).index("by_path", ["path"]),
-  _module_versions: defineTable({
-    module_id: v.id("_modules"),
-    source: v.string(),
-    sourceMap: v.union(v.string(), v.null()),
-
-    // version should never be read.
-    // read it from _modules instead.
-    version: v.int64(),
-  }).index("by_module_and_version", ["module_id", "version"]),
   _auth: defineTable({
     applicationID: v.string(),
     domain: v.string(),

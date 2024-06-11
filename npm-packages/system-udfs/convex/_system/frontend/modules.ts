@@ -6,46 +6,6 @@ import {
   Visibility,
 } from "./common";
 import { queryPrivateSystem } from "../secretSystemTables";
-import { v } from "convex/values";
-
-export const getSourceCode = queryPrivateSystem({
-  args: { path: v.string() },
-  handler: async ({ db }, { path }): Promise<string | null> => {
-    const module = await db
-      .query("_modules")
-      .withIndex("by_path", (q) => q.eq("path", path))
-      .unique();
-    if (!module) {
-      return null;
-    }
-    const moduleVersion = await db
-      .query("_module_versions")
-      .withIndex("by_module_and_version", (q) => q.eq("module_id", module._id))
-      .unique();
-    if (!moduleVersion) {
-      return null;
-    }
-    const analyzeResult = module.analyzeResult;
-    if (!analyzeResult) {
-      return null;
-    }
-
-    if (
-      analyzeResult.sourceMapped &&
-      analyzeResult.sourceMapped.sourceIndex !== null &&
-      moduleVersion.sourceMap
-    ) {
-      const sourceIndex = Number(analyzeResult.sourceMapped.sourceIndex);
-      try {
-        const sourceMap = JSON.parse(moduleVersion.sourceMap);
-        return sourceMap.sourcesContent[sourceIndex];
-      } catch (e: any) {
-        // Failed to load source map
-      }
-    }
-    return null;
-  },
-});
 
 export const list = queryPrivateSystem({
   args: {},
