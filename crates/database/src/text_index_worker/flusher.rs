@@ -144,9 +144,10 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
             // has grown too large or has the wrong format, it needs to be backfilled.
             let needs_backfill = match &on_disk_state {
                 TextIndexState::Backfilling(_) => Some(BuildReason::Backfilling),
-                TextIndexState::SnapshottedAt(TextIndexSnapshot { version, .. })
-                | TextIndexState::Backfilled(TextIndexSnapshot { version, .. })
-                    if *version != expected_version =>
+                TextIndexState::SnapshottedAt(TextIndexSnapshot { version, data, .. })
+                | TextIndexState::Backfilled(TextIndexSnapshot { version, data, .. })
+                    if *version != expected_version
+                        || !matches!(data, TextIndexSnapshotData::SingleSegment(_)) =>
                 {
                     Some(BuildReason::VersionMismatch)
                 },
