@@ -128,7 +128,7 @@ impl TryFrom<PackageSize> for ConvexObject {
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-#[derive(Debug, Clone, PartialEq, Eq, Copy, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy, PartialOrd, Ord, Hash)]
 pub struct SourcePackageId(DeveloperDocumentId);
 
 impl HeapSize for SourcePackageId {

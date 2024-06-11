@@ -311,7 +311,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub async fn get_version(
         &mut self,
         module_id: ResolvedDocumentId,
-        version: ModuleVersion,
+        version: Option<ModuleVersion>,
     ) -> anyhow::Result<Option<ParsedDocument<ModuleVersionMetadata>>> {
         let timer = get_module_version_timer();
         let module_id_value: ConvexValue = module_id.into();
@@ -335,7 +335,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             .map(TryFrom::try_from)
             .transpose()?;
         if let Some(module_version) = &module_version {
-            anyhow::ensure!(module_version.version == Some(version));
+            anyhow::ensure!(module_version.version == version);
         }
         timer.finish();
         Ok(module_version)
@@ -345,13 +345,13 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub async fn get_source_from_db(
         &mut self,
         module_id: ResolvedDocumentId,
-        version: ModuleVersion,
+        version: Option<ModuleVersion>,
     ) -> anyhow::Result<FullModuleSource> {
         let module_version = self
             .get_version(module_id, version)
             .await?
             .context(format!(
-                "Dangling module version reference: {module_id}@{version}"
+                "Dangling module version reference: {module_id}@{version:?}"
             ))?
             .into_value();
         Ok(FullModuleSource {
@@ -426,7 +426,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         analyze_result: Option<AnalyzedModule>,
         environment: ModuleEnvironment,
         sha256: Sha256Digest,
-    ) -> anyhow::Result<(ResolvedDocumentId, ModuleVersion)> {
+    ) -> anyhow::Result<(ResolvedDocumentId, Option<ModuleVersion>)> {
         let (module_id, version) = match self.module_metadata(path.clone()).await? {
             Some(module_metadata) => {
                 let previous_version = module_metadata.latest_version;
@@ -437,7 +437,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     .await?
                     .map(|version| version.id());
 
-                let latest_version = previous_version + 1;
+                let latest_version = previous_version.map(|v| v + 1);
                 let new_metadata = ModuleMetadata {
                     path: path.module_path,
                     latest_version,
@@ -459,7 +459,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 (module_metadata.id(), latest_version)
             },
             None => {
-                let version = 0;
+                let version = Some(0);
                 let new_metadata = ModuleMetadata {
                     path: path.module_path,
                     latest_version: version,
@@ -481,7 +481,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     async fn put_module_source_into_db(
         &mut self,
         module_id: ResolvedDocumentId,
-        version: ModuleVersion,
+        version: Option<ModuleVersion>,
         source: ModuleSource,
         source_map: Option<SourceMap>,
         component: ComponentId,
@@ -490,7 +490,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             module_id: module_id.into(),
             source,
             source_map,
-            version: Some(version),
+            version,
         }.try_into()
         .map_err(|e: anyhow::Error| e.map_error_metadata(|em| {
             if em.short_msg == VALUE_TOO_LARGE_SHORT_MSG {

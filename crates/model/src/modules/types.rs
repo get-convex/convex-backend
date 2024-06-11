@@ -27,7 +27,7 @@ pub struct ModuleMetadata {
     /// Path stored as a "path" field.
     pub path: CanonicalizedModulePath,
     /// What is the latest version of the module?
-    pub latest_version: ModuleVersion,
+    pub latest_version: Option<ModuleVersion>,
 
     pub source_package_id: SourcePackageId,
     pub environment: ModuleEnvironment,
@@ -40,7 +40,7 @@ pub struct ModuleMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct SerializedModuleMetadata {
     pub path: String,
-    pub latest_version: ModuleVersion,
+    pub latest_version: Option<ModuleVersion>,
     pub deleted: Option<bool>,
     pub source_package_id: String,
     pub environment: String,

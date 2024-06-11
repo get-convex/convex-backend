@@ -14,10 +14,7 @@ use database::Transaction;
 use deno_core::ModuleSpecifier;
 use model::{
     modules::{
-        module_versions::{
-            FullModuleSource,
-            ModuleVersion,
-        },
+        module_versions::FullModuleSource,
         types::ModuleMetadata,
         ModuleModel,
     },
@@ -45,7 +42,7 @@ pub async fn get_module_and_prefetch<RT: Runtime>(
     tx: &mut Transaction<RT>,
     modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
-) -> HashMap<(ResolvedDocumentId, ModuleVersion), anyhow::Result<FullModuleSource>> {
+) -> HashMap<(ResolvedDocumentId, SourcePackageId), anyhow::Result<FullModuleSource>> {
     let all_source_result = if *READ_MODULES_FROM_SOURCE_PACKAGE {
         let _timer = module_load_timer("package");
         download_module_source_from_package(
@@ -63,7 +60,7 @@ pub async fn get_module_and_prefetch<RT: Runtime>(
             .map(|source| {
                 let mut result = HashMap::new();
                 result.insert(
-                    (module_metadata.id(), module_metadata.latest_version),
+                    (module_metadata.id(), module_metadata.source_package_id),
                     source,
                 );
                 result
@@ -73,7 +70,7 @@ pub async fn get_module_and_prefetch<RT: Runtime>(
         Err(e) => {
             let mut result = HashMap::new();
             result.insert(
-                (module_metadata.id(), module_metadata.latest_version),
+                (module_metadata.id(), module_metadata.source_package_id),
                 Err(e),
             );
             result
@@ -91,7 +88,7 @@ async fn download_module_source_from_package<RT: Runtime>(
     modules_storage: Arc<dyn Storage>,
     modules_tablet: TabletId,
     source_package_id: SourcePackageId,
-) -> anyhow::Result<HashMap<(ResolvedDocumentId, ModuleVersion), FullModuleSource>> {
+) -> anyhow::Result<HashMap<(ResolvedDocumentId, SourcePackageId), FullModuleSource>> {
     let mut result = HashMap::new();
     let source_package = SourcePackageModel::new(tx).get(source_package_id).await?;
     let mut package = download_package(
@@ -119,7 +116,7 @@ async fn download_module_source_from_package<RT: Runtime>(
             },
             Some(source) => {
                 result.insert(
-                    (module_metadata.id(), module_metadata.latest_version),
+                    (module_metadata.id(), module_metadata.source_package_id),
                     FullModuleSource {
                         source: source.source,
                         source_map: source.source_map,

@@ -16,14 +16,11 @@ use isolate::environment::helpers::module_loader::get_module_and_prefetch;
 use model::{
     config::module_loader::ModuleLoader,
     modules::{
-        module_versions::{
-            FullModuleSource,
-            ModuleVersion,
-        },
+        module_versions::FullModuleSource,
         types::ModuleMetadata,
         ModuleModel,
-        MODULE_VERSIONS_TABLE,
     },
+    source_packages::types::SourcePackageId,
 };
 use storage::Storage;
 use value::ResolvedDocumentId;
@@ -34,7 +31,7 @@ use crate::in_memory_indexes::TransactionIngredients;
 pub(crate) struct ModuleCacheKey {
     instance_name: String,
     module_id: ResolvedDocumentId,
-    module_version: ModuleVersion,
+    source_package_id: SourcePackageId,
 }
 
 #[derive(Clone)]
@@ -70,27 +67,11 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         // this module loader was created.
         assert_eq!(tx.begin_timestamp(), self.transaction_ingredients.ts);
 
-        let namespace = tx
-            .table_mapping()
-            .tablet_namespace(module_metadata.id().table().tablet_id)?;
-        // If this transaction wrote to module_versions (true for REPLs), we cannot use
-        // the cache, load the module directly.
-        let module_versions_table_id = tx
-            .table_mapping()
-            .namespace(namespace)
-            .id(&MODULE_VERSIONS_TABLE)?;
-        if tx.writes().has_written_to(&module_versions_table_id) {
-            let source = ModuleModel::new(tx)
-                .get_source_from_db(module_metadata.id(), module_metadata.latest_version)
-                .await?;
-            return Ok(Arc::new(source));
-        }
-
         let instance_name = self.instance_name.clone();
         let key = ModuleCacheKey {
             instance_name: self.instance_name.clone(),
             module_id: module_metadata.id(),
-            module_version: module_metadata.latest_version,
+            source_package_id: module_metadata.source_package_id,
         };
         let mut transaction = self.transaction_ingredients.clone().try_into()?;
         let modules_storage = self.modules_storage.clone();
@@ -105,12 +86,12 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
                             .await;
                     modules
                         .into_iter()
-                        .map(move |((module_id, module_version), source)| {
+                        .map(move |((module_id, source_package_id), source)| {
                             (
                                 ModuleCacheKey {
                                     instance_name: instance_name.clone(),
                                     module_id,
-                                    module_version,
+                                    source_package_id,
                                 },
                                 source,
                             )

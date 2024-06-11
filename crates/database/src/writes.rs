@@ -66,8 +66,6 @@ pub struct Writes {
     user_tx_size: TransactionWriteSize,
     // Size of writes to system tables
     system_tx_size: TransactionWriteSize,
-    // When we write to module versions we cannot use the module cache.
-    written_tables: BTreeSet<TabletIdAndTableNumber>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -87,17 +85,12 @@ impl Writes {
             generated_ids: BTreeSet::new(),
             user_tx_size: TransactionWriteSize::default(),
             system_tx_size: TransactionWriteSize::default(),
-            written_tables: BTreeSet::new(),
         }
     }
 
     /// Are there any writes in the active transaction?
     pub fn is_empty(&self) -> bool {
         self.updates.is_empty()
-    }
-
-    pub fn has_written_to(&self, table_id: &TabletIdAndTableNumber) -> bool {
-        self.written_tables.contains(table_id)
     }
 
     pub fn update(
@@ -120,8 +113,6 @@ impl Writes {
             .as_ref()
             .map(|d| d.value().size())
             .unwrap_or(0);
-
-        self.written_tables.insert(*document_id.table());
 
         let tx_size = if is_system_document {
             &mut self.system_tx_size

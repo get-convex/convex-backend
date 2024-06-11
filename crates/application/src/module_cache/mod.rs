@@ -20,20 +20,14 @@ use keybroker::Identity;
 use model::{
     config::module_loader::ModuleLoader,
     modules::{
-        module_versions::{
-            FullModuleSource,
-            ModuleVersion,
-        },
+        module_versions::FullModuleSource,
         types::ModuleMetadata,
         ModuleModel,
-        MODULE_VERSIONS_TABLE,
     },
+    source_packages::types::SourcePackageId,
 };
 use storage::Storage;
-use value::{
-    ResolvedDocumentId,
-    TableNamespace,
-};
+use value::ResolvedDocumentId;
 
 mod metrics;
 
@@ -43,7 +37,7 @@ pub struct ModuleCache<RT: Runtime> {
 
     modules_storage: Arc<dyn Storage>,
 
-    cache: AsyncLru<RT, (ResolvedDocumentId, ModuleVersion), FullModuleSource>,
+    cache: AsyncLru<RT, (ResolvedDocumentId, SourcePackageId), FullModuleSource>,
 }
 
 impl<RT: Runtime> ModuleCache<RT> {
@@ -73,20 +67,7 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
     ) -> anyhow::Result<Arc<FullModuleSource>> {
         let timer = metrics::module_cache_get_module_timer();
 
-        // If this transaction wrote to module_versions (true for REPLs), we cannot use
-        // the cache, load the module directly.
-        let module_versions_table_id = tx
-            .table_mapping()
-            .namespace(TableNamespace::by_component_definition_TODO())
-            .id(&MODULE_VERSIONS_TABLE)?;
-        if tx.writes().has_written_to(&module_versions_table_id) {
-            let source = ModuleModel::new(tx)
-                .get_source_from_db(module_metadata.id(), module_metadata.latest_version)
-                .await?;
-            return Ok(Arc::new(source));
-        }
-
-        let key = (module_metadata.id(), module_metadata.latest_version);
+        let key = (module_metadata.id(), module_metadata.source_package_id);
         let mut cache_tx = self.database.begin(Identity::system()).await?;
         let modules_storage = self.modules_storage.clone();
         let result = self
