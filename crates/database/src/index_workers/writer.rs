@@ -52,6 +52,7 @@ use crate::{
             IndexBuild,
             IndexBuildResult,
         },
+        BuildReason,
         MultiSegmentBackfillResult,
     },
     metrics::{
@@ -392,7 +393,10 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
         let metadata = Self::require_index_metadata(&mut tx, job.metadata_id).await?;
 
-        anyhow::ensure!(metadata.config.is_backfilling());
+        anyhow::ensure!(
+            metadata.config.is_backfilling()
+                || matches!(job.build_reason, BuildReason::VersionMismatch)
+        );
 
         let (developer_config, state) = T::extract_metadata(metadata)?;
 
