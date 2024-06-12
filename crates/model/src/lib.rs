@@ -332,7 +332,6 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
 
 pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
     vec![
-        &SessionRequestsTable,
         &FileStorageTable,
         &ScheduledJobsTable,
         &CronJobsTable,
@@ -340,6 +339,7 @@ pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
         &ModulesTable,
         &ModuleVersionsTable,
         &SchemasTable,
+        &UdfConfigTable,
     ]
 }
 
