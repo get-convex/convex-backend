@@ -7,7 +7,6 @@ use anyhow::anyhow;
 use common::{
     components::ComponentId,
     document::ParsedDocument,
-    knobs::READ_MODULES_FROM_SOURCE_PACKAGE,
     runtime::Runtime,
 };
 use database::Transaction;
@@ -43,29 +42,14 @@ pub async fn get_module_and_prefetch<RT: Runtime>(
     modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
 ) -> HashMap<(ResolvedDocumentId, SourcePackageId), anyhow::Result<FullModuleSource>> {
-    let all_source_result = if *READ_MODULES_FROM_SOURCE_PACKAGE {
-        let _timer = module_load_timer("package");
-        download_module_source_from_package(
-            tx,
-            modules_storage,
-            module_metadata.id().table().tablet_id,
-            module_metadata.source_package_id,
-        )
-        .await
-    } else {
-        let _timer = module_load_timer("db");
-        ModuleModel::new(tx)
-            .get_source_from_db(module_metadata.id(), module_metadata.latest_version)
-            .await
-            .map(|source| {
-                let mut result = HashMap::new();
-                result.insert(
-                    (module_metadata.id(), module_metadata.source_package_id),
-                    source,
-                );
-                result
-            })
-    };
+    let _timer = module_load_timer("package");
+    let all_source_result = download_module_source_from_package(
+        tx,
+        modules_storage,
+        module_metadata.id().table().tablet_id,
+        module_metadata.source_package_id,
+    )
+    .await;
     match all_source_result {
         Err(e) => {
             let mut result = HashMap::new();

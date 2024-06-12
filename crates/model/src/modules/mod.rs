@@ -69,7 +69,6 @@ use self::{
     module_versions::{
         AnalyzedFunction,
         AnalyzedModule,
-        FullModuleSource,
         ModuleSource,
         ModuleVersion,
         ModuleVersionMetadata,
@@ -339,25 +338,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         }
         timer.finish();
         Ok(module_version)
-    }
-
-    #[minitrace::trace]
-    pub async fn get_source_from_db(
-        &mut self,
-        module_id: ResolvedDocumentId,
-        version: Option<ModuleVersion>,
-    ) -> anyhow::Result<FullModuleSource> {
-        let module_version = self
-            .get_version(module_id, version)
-            .await?
-            .context(format!(
-                "Dangling module version reference: {module_id}@{version:?}"
-            ))?
-            .into_value();
-        Ok(FullModuleSource {
-            source: module_version.source,
-            source_map: module_version.source_map,
-        })
     }
 
     pub async fn get_metadata_for_function(
