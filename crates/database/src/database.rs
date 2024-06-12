@@ -689,6 +689,12 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     pub fn table_summaries(&self) -> &TableSummaries {
         &self.snapshot.table_summaries
     }
+
+    pub fn get_user_document_and_index_storage(
+        &self,
+    ) -> anyhow::Result<BTreeMap<TableName, (usize, usize)>> {
+        self.snapshot.get_user_document_and_index_storage()
+    }
 }
 
 // Used by the database to signal it has encountered a fatal error.
@@ -1823,35 +1829,7 @@ impl<RT: Runtime> Database<RT> {
         }
 
         let (_, snapshot) = self.snapshot_manager.lock().latest();
-        let table_mapping = snapshot.table_mapping().clone();
-
-        let mut document_storage_by_table = BTreeMap::new();
-        for (table_name, summary) in snapshot.iter_user_table_summaries() {
-            let table_size = summary.total_size();
-            document_storage_by_table.insert(table_name, (table_size, 0));
-        }
-
-        // TODO: We are currently using document size * index count as a rough
-        // approximation for how much storage indexes use, but we should fix this to
-        // only charge for the fields that are indexed.
-        for index in snapshot.index_registry.all_enabled_indexes() {
-            let index_name = index
-                .name
-                .clone()
-                .map_table(&table_mapping.tablet_to_name())
-                .unwrap();
-            let table_name = index_name.table().clone();
-
-            if !index_name.is_system_owned() {
-                let (document_size, index_size) = *document_storage_by_table
-                    .get(&table_name)
-                    .expect("Index on a nonexistent table");
-                document_storage_by_table
-                    .insert(table_name, (document_size, index_size + document_size));
-            }
-        }
-
-        Ok(document_storage_by_table)
+        snapshot.get_user_document_and_index_storage()
     }
 
     pub fn usage_counter(&self) -> UsageCounter {

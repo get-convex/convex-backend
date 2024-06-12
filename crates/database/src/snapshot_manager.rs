@@ -1,5 +1,8 @@
 use std::{
-    collections::VecDeque,
+    collections::{
+        BTreeMap,
+        VecDeque,
+    },
     time::Duration,
 };
 
@@ -279,6 +282,42 @@ impl<RT: Runtime> Snapshot<RT> {
             Err(_) => return TableSummary::empty(),
         };
         self.table_summaries.tablet_summary(&table_id.tablet_id)
+    }
+
+    pub fn get_user_document_and_index_storage(
+        &self,
+    ) -> anyhow::Result<BTreeMap<TableName, (usize, usize)>> {
+        let table_mapping = self.table_mapping().clone();
+
+        let mut document_storage_by_table = BTreeMap::new();
+        for (table_name, summary) in self.iter_user_table_summaries() {
+            let table_size = summary.total_size();
+            document_storage_by_table.insert(table_name, (table_size, 0));
+        }
+
+        // TODO: We are currently using document size * index count as a rough
+        // approximation for how much storage indexes use, but we should fix this to
+        // only charge for the fields that are indexed.
+        for index in self.index_registry.all_enabled_indexes() {
+            let index_name = index
+                .name
+                .clone()
+                .map_table(&table_mapping.tablet_to_name())
+                .unwrap();
+            let table_name = index_name.table().clone();
+
+            if !index_name.is_system_owned() {
+                let (document_size, total_index_size) = *document_storage_by_table
+                    .get(&table_name)
+                    .expect("Index on a nonexistent table");
+                document_storage_by_table.insert(
+                    table_name,
+                    (document_size, total_index_size + document_size),
+                );
+            }
+        }
+
+        Ok(document_storage_by_table)
     }
 }
 
