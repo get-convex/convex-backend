@@ -14,6 +14,19 @@ describe("argument inference", () => {
     inlineNoArg: mutation(() => "result"),
     inlineUntypedArg: mutation((_ctx, { _arg }) => "result"),
     inlineTypedArg: mutation((_ctx, { _arg }: { _arg: string }) => "result"),
+
+    // There are unusual syntaxes.
+    inlineUntypedDefaultArg: mutation(
+      (_ctx, { _arg } = { _arg: 1 }) => "result",
+    ),
+    inlineTypedDefaultArg: mutation(
+      // @ts-expect-error This syntax has never been allowed.
+      (_ctx, { _arg }: { _arg: string } = { _arg: "default" }) => "result",
+    ),
+    inlineTypedOptionalDefaultArg: mutation(
+      (_ctx, { _arg }: { _arg?: string } = { _arg: "default" }) => "result",
+    ),
+
     configNoArg: mutation({
       handler: () => "result",
     }),
@@ -70,6 +83,56 @@ describe("argument inference", () => {
         return "result";
       },
     }),
+
+    // These are unusual syntaxes. We'd like to break some of them.
+    // Let's document them here so it's clear when we do that.
+    configUntypedDefaultArg: mutation({
+      handler: (_, { arg } = { arg: "default" }) => {
+        assert<Equals<typeof arg, unknown>>;
+        return "result";
+      },
+    }),
+    configTypedDefaultArg: mutation({
+      // @ts-expect-error This syntax has never been allowed.
+      handler: (_, { arg }: { arg: string } = { arg: "default" }) => {
+        assert<Equals<typeof arg, string>>;
+        return "result";
+      },
+    }),
+    configTypedOptionalDefaultArg: mutation({
+      handler: (_, { arg }: { arg?: string } = { arg: "default" }) => {
+        assert<Equals<typeof arg, string | undefined>>;
+        return "result";
+      },
+    }),
+    configValidatorUntypedDefaultArg: mutation({
+      args: {
+        arg: v.string(),
+      },
+      // @ts-expect-error This syntax has never been allowed.
+      handler: (_, { arg } = { arg: "default" }) => {
+        assert<Equals<typeof arg, string>>;
+        return "result";
+      },
+    }),
+    configValidatorTypedDefaultArg: mutation({
+      args: {
+        arg: v.string(),
+      },
+      handler: (_, { arg }: { arg: string } = { arg: "default" }) => {
+        assert<Equals<typeof arg, string>>;
+        return "result";
+      },
+    }),
+    configValidatorTypedOptionalDefaultArg: mutation({
+      args: {
+        arg: v.string(),
+      },
+      handler: (_, { arg }: { arg?: string } = { arg: "default" }) => {
+        assert<Equals<typeof arg, string | undefined>>;
+        return "result";
+      },
+    }),
   };
   type API = ApiFromModules<{ module: typeof module }>;
 
@@ -87,6 +150,29 @@ describe("argument inference", () => {
   test("inline with typed arg", () => {
     type Args = API["module"]["inlineTypedArg"]["_args"];
     type ExpectedArgs = { _arg: string };
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  // This is not a very useful type (allows any key) but let's
+  // test it so we know if it's changing.
+  test("inline with untyped arg with default value", () => {
+    type Args = API["module"]["inlineUntypedDefaultArg"]["_args"];
+    type ExpectedArgs = DefaultFunctionArgs | EmptyObject;
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  // This syntax is a type error where it is defined so it falls back.
+  test("inline with typed arg with default value", () => {
+    type Args = API["module"]["inlineTypedDefaultArg"]["_args"];
+    type ExpectedArgs = Record<string, any>;
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  // This is not a very useful type (allows any key) but add let's
+  // test it so we know if it's changing.
+  test("inline with typed arg with optional default value", () => {
+    type Args = API["module"]["inlineTypedOptionalDefaultArg"]["_args"];
+    type ExpectedArgs = DefaultFunctionArgs | EmptyObject;
     assert<Equals<Args, ExpectedArgs>>;
   });
 
@@ -129,6 +215,46 @@ describe("argument inference", () => {
 
   test("config with typed arg and validator", () => {
     type Args = API["module"]["configValidatorTypedArg"]["_args"];
+    type ExpectedArgs = { arg: string };
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  test("config with untyped arg and a default", () => {
+    type Args = API["module"]["configUntypedDefaultArg"]["_args"];
+    // This is not a very useful type
+    type ExpectedArgs = DefaultFunctionArgs | EmptyObject;
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  test("config with typed arg and a default", () => {
+    type Args = API["module"]["configTypedDefaultArg"]["_args"];
+    // This is a type error at the definition site so this is the fallback.
+    type ExpectedArgs = Record<string, any>;
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  test("config with typed optional arg and a default", () => {
+    type Args = API["module"]["configTypedOptionalDefaultArg"]["_args"];
+    // This is not a very useful type
+    type ExpectedArgs = DefaultFunctionArgs | EmptyObject;
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  test("config with untyped arg and a validator and a default", () => {
+    type Args = API["module"]["configValidatorUntypedDefaultArg"]["_args"];
+    type ExpectedArgs = { arg: string };
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  test("config with typed arg and a validator and a default", () => {
+    type Args = API["module"]["configValidatorTypedDefaultArg"]["_args"];
+    type ExpectedArgs = { arg: string };
+    assert<Equals<Args, ExpectedArgs>>;
+  });
+
+  test("config with typed optional arg and a validator and a default", () => {
+    type Args =
+      API["module"]["configValidatorTypedOptionalDefaultArg"]["_args"];
     type ExpectedArgs = { arg: string };
     assert<Equals<Args, ExpectedArgs>>;
   });
