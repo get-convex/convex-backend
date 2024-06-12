@@ -873,10 +873,13 @@ pub static FUNRUN_CLUSTER_NAME: LazyLock<String> =
 
 /// Name of the service to discover for when connecting to Searchlight. (e.g.
 /// searchlight-default, searchlight-staging, etc.)
-// TODO(CX-6645): Change the default value to searchlight-default after that
 // cluster is created.
-pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> =
-    LazyLock::new(|| env_config("SEARCHLIGHT_CLUSTER_NAME", String::from("searchlight")));
+pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
+    env_config(
+        "SEARCHLIGHT_CLUSTER_NAME",
+        String::from("searchlight-default"),
+    )
+});
 
 /// The maximum number of CPU cores that can be used simultaneously by the
 /// isolates. Zero means no limit.
