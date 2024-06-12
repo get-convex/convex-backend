@@ -1268,7 +1268,6 @@ impl TryFrom<FragmentedTextSegmentPaths> for TextStorageKeys {
     }
 }
 
-// TODO(CX-6514): Consider merging these two structs and removing the other one.
 impl From<FragmentedTextSegment> for FragmentedTextStorageKeys {
     fn from(value: FragmentedTextSegment) -> Self {
         Self {
