@@ -1928,23 +1928,26 @@ impl<RT: Runtime> Application<RT> {
 
         let mut tx = self.begin(identity.clone()).await?;
 
-        // Use the last pushed version. If there hasn't been a push
-        // yet, act like the most recent version.
-        let server_version = UdfConfigModel::new(&mut tx, component.into())
-            .get()
-            .await?
-            .map(|udf_config| udf_config.server_version.clone())
-            .unwrap_or_else(|| Version::parse("1000.0.0").unwrap());
+        let mut udf_config_model = UdfConfigModel::new(&mut tx, component.into());
+        let udf_config = match udf_config_model.get().await? {
+            Some(udf_config) => udf_config.into_value(),
+            None => {
+                // If there hasn't been a push
+                // yet, act like the most recent version.
+                let udf_config = UdfConfig {
+                    server_version: Version::new(1000, 0, 0),
+                    import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
+                    import_phase_unix_timestamp: self.runtime.unix_timestamp(),
+                };
+                udf_config_model.set(udf_config.clone()).await?;
+                udf_config
+            },
+        };
 
         // 1. analyze the module
         // We can analyze this module by itself, without combining it with the existing
         // modules since this module should be self-contained and not import
         // from other modules.
-        let udf_config = UdfConfig {
-            server_version,
-            import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
-            import_phase_unix_timestamp: self.runtime.unix_timestamp(),
-        };
 
         let analyze_results = self
             .analyze(
@@ -1973,10 +1976,16 @@ impl<RT: Runtime> Application<RT> {
             if function.name.is_default_export() {
                 analyzed_function = Some(function.clone());
             } else {
-                anyhow::bail!("Only `export default` is supported.");
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "InvalidTestQuery",
+                    "Only `export default` is supported."
+                ));
             }
         }
-        let analyzed_function = analyzed_function.context("Missing default export.")?;
+        let analyzed_function = analyzed_function.context(ErrorMetadata::bad_request(
+            "InvalidTestQuery",
+            "Default export is not a Convex function.",
+        ))?;
 
         let source_package_id = SourcePackageModel::new(&mut tx, component.into())
             .put(source_package)
@@ -2015,16 +2024,22 @@ impl<RT: Runtime> Application<RT> {
                      }| { (result, log_lines) },
                 ),
             UdfType::Mutation => {
-                anyhow::bail!("Mutations are not supported in the REPL yet.")
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "UnsupportedTestQuery",
+                    "Mutations are not supported in the REPL yet."
+                ))
             },
             UdfType::Action => {
-                anyhow::bail!("Actions are not supported in the REPL yet.")
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "UnsupportedTestQuery",
+                    "Actions are not supported in the REPL yet."
+                ))
             },
             UdfType::HttpAction => {
-                anyhow::bail!(
-                    "HTTP actions are not supported in the REPL. A \"not found\" message should \
-                     be returned instead."
-                )
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "UnsupportedTestQuery",
+                    "HTTP actions are not supported in the REPL yet."
+                ))
             },
         }?;
         let log_lines = RedactedLogLines::from_log_lines(log_lines, block_logging);
