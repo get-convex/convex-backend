@@ -14,7 +14,7 @@ pub struct Backoff {
 }
 
 impl Backoff {
-    pub fn new(initial_backoff: Duration, max_backoff: Duration) -> Self {
+    pub const fn new(initial_backoff: Duration, max_backoff: Duration) -> Self {
         Self {
             initial_backoff,
             max_backoff,

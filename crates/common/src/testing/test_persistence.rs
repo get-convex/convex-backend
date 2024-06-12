@@ -92,6 +92,8 @@ impl Persistence for TestPersistence {
         Arc::new(self.clone())
     }
 
+    fn set_ratelimiter_enabled(&self, _: bool) {}
+
     async fn write(
         &self,
         documents: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,

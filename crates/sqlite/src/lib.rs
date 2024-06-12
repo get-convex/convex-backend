@@ -243,6 +243,10 @@ impl Persistence for SqlitePersistence {
         })
     }
 
+    fn set_ratelimiter_enabled(&self, _: bool) {
+        // rate limiting is not implemented for SqlitePersistence
+    }
+
     async fn write(
         &self,
         documents: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,

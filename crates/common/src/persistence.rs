@@ -169,6 +169,8 @@ pub trait Persistence: Sync + Send + 'static {
 
     fn reader(&self) -> Arc<dyn PersistenceReader>;
 
+    fn set_ratelimiter_enabled(&self, enabled: bool);
+
     /// Writes documents and the respective derived indexes.
     async fn write(
         &self,
