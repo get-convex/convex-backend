@@ -176,6 +176,23 @@ pub enum TableSchemaError {
     WrongPrimaryKeyIndex(SuggestedIndex),
 }
 
+#[derive(Debug, Error)]
+pub enum DescribeTableError {
+    #[error(
+        "The table `{0}` in the Convex destination stores arbitrary documents, which is not \
+         supported by Fivetran. Please edit the schema of the table in `schema.ts` so that the \
+         table isn’t defined as `v.any()`."
+    )]
+    DestinationHasAnySchema(TableName),
+
+    #[error(
+        "The table `{0}` in the Convex destination stores multiple different types of documents, \
+         which is not supported by Fivetran. Please edit the schema of the table in `schema.ts` \
+         so that the table isn’t defiend as `v.union()`."
+    )]
+    DestinationHasMultipleSchemas(TableName),
+}
+
 /// Wrapper around `TableDefinition` that formats it in the same format as
 /// `schema.ts`.
 #[derive(Debug)]
