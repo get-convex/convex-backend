@@ -52,6 +52,7 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
+use value::TableNamespace;
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
@@ -136,8 +137,12 @@ impl<RT: Runtime> ActionPhase<RT> {
             anyhow::bail!("ActionPhase initialized twice");
         };
 
-        let udf_config =
-            with_release_permit(timeout, permit_slot, UdfConfigModel::new(&mut tx).get()).await?;
+        let udf_config = with_release_permit(
+            timeout,
+            permit_slot,
+            UdfConfigModel::new(&mut tx, TableNamespace::TODO()).get(),
+        )
+        .await?;
 
         let rng = udf_config
             .as_ref()

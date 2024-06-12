@@ -80,7 +80,7 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
         let indexes_table_number = tx.table_mapping().namespace(TableNamespace::test_user()).id(&"_index".parse()?)?.table_number;
 
         // Set the UDF server version to a version with string IDs
-        UdfConfigModel::new(&mut tx)
+        UdfConfigModel::new(&mut tx, TableNamespace::test_user())
             .set(UdfConfig::new_for_test(&t.rt, Version::parse("1000.0.0")?))
             .await?;
         t.database.commit(tx).await?;
@@ -192,7 +192,7 @@ async fn test_normalize_id(rt: TestRuntime, internal_id: InternalId) -> anyhow::
         .table_number;
 
     // Set the UDF server version to a version with string IDs
-    UdfConfigModel::new(&mut tx)
+    UdfConfigModel::new(&mut tx, TableNamespace::test_user())
         .set(UdfConfig::new_for_test(&t.rt, Version::parse("1000.0.0")?))
         .await?;
     t.database.commit(tx).await?;

@@ -351,6 +351,7 @@ impl<RT: Runtime> DeveloperQuery<RT> {
 
         let mut cur_node = match query.source {
             QuerySource::FullTableScan(full_table_scan) => QueryNode::IndexRange(IndexRange::new(
+                namespace,
                 stable_index_name,
                 index_name,
                 Interval::all(),
@@ -368,6 +369,7 @@ impl<RT: Runtime> DeveloperQuery<RT> {
                     .virtual_table_number_map(tx.table_mapping(), &virtual_table_mapping)?;
                 let interval = index_range.compile(indexed_fields, virtual_table_number_map)?;
                 QueryNode::IndexRange(IndexRange::new(
+                    namespace,
                     stable_index_name,
                     index_name,
                     interval,

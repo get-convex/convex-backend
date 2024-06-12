@@ -83,9 +83,11 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
 
         let source_package_id = match source_package {
-            Some(source_package) => {
-                Some(SourcePackageModel::new(self.tx).put(source_package).await?)
-            },
+            Some(source_package) => Some(
+                SourcePackageModel::new(self.tx, TableNamespace::by_component_TODO())
+                    .put(source_package)
+                    .await?,
+            ),
             None => None,
         };
 
@@ -113,7 +115,10 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
 
         // Update auth info.
         let auth_diff = AuthInfoModel::new(self.tx).put(config.auth_info).await?;
-        let udf_server_version_diff = UdfConfigModel::new(self.tx).set(new_config).await?;
+        let udf_server_version_diff =
+            UdfConfigModel::new(self.tx, TableNamespace::by_component_TODO())
+                .set(new_config)
+                .await?;
         let config_diff = ConfigDiff {
             module_diff,
             auth_diff,
@@ -143,7 +148,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules: Vec<_> = ModuleModel::new(self.tx)
-            .get_application_modules(ComponentId::Root, module_loader)
+            .get_application_modules(ComponentId::TODO(), module_loader)
             .await?
             .into_values()
             .collect();
@@ -157,7 +162,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             config.auth_info = auth_info.into_iter().map(|doc| doc.into_value()).collect();
         }
 
-        let udf_config = UdfConfigModel::new(self.tx)
+        let udf_config = UdfConfigModel::new(self.tx, TableNamespace::by_component_TODO())
             .get()
             .await?
             .map(|u| u.into_value());
@@ -193,7 +198,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             config.auth_info = auth_info.into_iter().map(|doc| doc.into_value()).collect();
         }
 
-        let udf_config = UdfConfigModel::new(self.tx)
+        let udf_config = UdfConfigModel::new(self.tx, TableNamespace::by_component_TODO())
             .get()
             .await?
             .map(|u| u.into_value());

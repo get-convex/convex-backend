@@ -45,6 +45,7 @@ use crate::{
 
 /// A `QueryStream` that scans a range of an index.
 pub struct IndexRange {
+    namespace: TableNamespace,
     stable_index_name: StableIndexName,
     /// For usage and error messages. If the table mapping has changed, this
     /// might get out of sync with `stable_index_name`, which is the index
@@ -84,6 +85,7 @@ pub struct IndexRange {
 
 impl IndexRange {
     pub fn new(
+        namespace: TableNamespace,
         stable_index_name: StableIndexName,
         printable_index_name: IndexName,
         interval: Interval,
@@ -112,6 +114,7 @@ impl IndexRange {
         };
 
         Self {
+            namespace,
             stable_index_name,
             printable_index_name,
             order,
@@ -170,7 +173,7 @@ impl IndexRange {
             }
             self.cursor_interval.curr_exclusive = Some(CursorPosition::After(index_position));
             self.returned_results += 1;
-            UserFacingModel::new(tx, TableNamespace::by_component_TODO())
+            UserFacingModel::new(tx, self.namespace)
                 .record_read_document(&v, self.printable_index_name.table())?;
             // Database bandwidth for index reads
             tx.usage_tracker.track_database_egress_size(

@@ -148,7 +148,9 @@ async fn udf_version<RT: Runtime>(
     path: &CanonicalizedComponentFunctionPath,
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<Result<Version, JsError>> {
-    let udf_config = UdfConfigModel::new(tx).get().await?;
+    let udf_config = UdfConfigModel::new(tx, TableNamespace::TODO())
+        .get()
+        .await?;
 
     let udf_version = match udf_config {
         Some(udf_config) if udf_config.server_version > DEPRECATION_THRESHOLD.npm.unsupported => {

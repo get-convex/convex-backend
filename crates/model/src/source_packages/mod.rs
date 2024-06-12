@@ -55,18 +55,18 @@ impl SystemTable for SourcePackagesTable {
 
 pub struct SourcePackageModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
+    namespace: TableNamespace,
 }
 
 impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
-        Self { tx }
+    pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
+        Self { tx, namespace }
     }
 
     pub async fn put(&mut self, source_package: SourcePackage) -> anyhow::Result<SourcePackageId> {
-        let document_id =
-            SystemMetadataModel::new(self.tx, TableNamespace::by_component_definition_TODO())
-                .insert(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)
-                .await?;
+        let document_id = SystemMetadataModel::new(self.tx, self.namespace)
+            .insert(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)
+            .await?;
         let id: DeveloperDocumentId = document_id.into();
         Ok(id.into())
     }
@@ -80,7 +80,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
             &self
                 .tx
                 .table_mapping()
-                .namespace(TableNamespace::by_component_definition_TODO())
+                .namespace(self.namespace)
                 .inject_table_id(),
         )?;
         self.tx

@@ -36,6 +36,7 @@ use sync_types::CanonicalizedUdfPath;
 use value::{
     assert_val,
     ConvexBytes,
+    TableNamespace,
 };
 
 use super::assert_contains;
@@ -814,8 +815,9 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = t.database.begin(Identity::system()).await?;
 
     // Delete the UDF config to simulate it never having existed.
-    must_let!(let Some(config) = UdfConfigModel::new(&mut tx).get().await?);
-    SystemMetadataModel::new_global(&mut tx)
+    let mut udf_config_model = UdfConfigModel::new(&mut tx, TableNamespace::test_user());
+    must_let!(let Some(config) = udf_config_model.get().await?);
+    SystemMetadataModel::new(&mut tx, TableNamespace::test_user())
         .delete(config.id())
         .await?;
 

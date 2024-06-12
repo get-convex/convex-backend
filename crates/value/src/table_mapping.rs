@@ -41,13 +41,6 @@ impl TableNamespace {
         Self::Global
     }
 
-    /// Namespace that should be replaced with RootComponentDefinition or
-    /// ByComponentDefinition, but for now uses Global. For easy searching.
-    #[allow(non_snake_case)]
-    pub const fn by_component_definition_TODO() -> Self {
-        Self::Global
-    }
-
     /// Namespace that should be passed down, and could be Global, ByComponent,
     /// or ByComponentDefinition.
     #[allow(non_snake_case)]

@@ -1252,7 +1252,10 @@ impl<RT: Runtime> Application<RT> {
                 let format = if zip {
                     ExportFormat::Zip { include_storage }
                 } else {
-                    match UdfConfigModel::new(&mut tx).get().await? {
+                    match UdfConfigModel::new(&mut tx, TableNamespace::by_component_TODO())
+                        .get()
+                        .await?
+                    {
                         Some(udf_config) => {
                             // Maintain legacy internal export format for older NPM versions
                             if udf_config.server_version
@@ -1907,6 +1910,8 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        let component = ComponentId::TODO();
+
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -1925,7 +1930,7 @@ impl<RT: Runtime> Application<RT> {
 
         // Use the last pushed version. If there hasn't been a push
         // yet, act like the most recent version.
-        let server_version = UdfConfigModel::new(&mut tx)
+        let server_version = UdfConfigModel::new(&mut tx, component.into())
             .get()
             .await?
             .map(|udf_config| udf_config.server_version.clone())
@@ -1973,13 +1978,15 @@ impl<RT: Runtime> Application<RT> {
         }
         let analyzed_function = analyzed_function.context("Missing default export.")?;
 
-        let source_package_id = SourcePackageModel::new(&mut tx).put(source_package).await?;
+        let source_package_id = SourcePackageModel::new(&mut tx, component.into())
+            .put(source_package)
+            .await?;
 
         // 3. Add the module
         ModuleModel::new(&mut tx)
             .put(
                 CanonicalizedComponentModulePath {
-                    component: ComponentId::Root,
+                    component,
                     module_path: module_path.clone(),
                 },
                 module.source,

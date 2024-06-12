@@ -54,17 +54,17 @@ impl SystemTable for UdfConfigTable {
 
 pub struct UdfConfigModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
+    namespace: TableNamespace,
 }
 
 impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
-        Self { tx }
+    pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
+        Self { tx, namespace }
     }
 
     pub async fn get(&mut self) -> anyhow::Result<Option<ParsedDocument<UdfConfig>>> {
         let index_query = Query::full_table_scan(UDF_CONFIG_TABLE.clone(), Order::Asc);
-        let mut query_stream =
-            ResolvedQuery::new(self.tx, TableNamespace::by_component_TODO(), index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, index_query)?;
         let config = query_stream
             .expect_at_most_one(self.tx)
             .await?
@@ -85,12 +85,12 @@ impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
 
         let existing_doc = self.get().await?;
         let opt_previous_version = if let Some(existing_doc) = existing_doc {
-            SystemMetadataModel::new_global(self.tx)
+            SystemMetadataModel::new(self.tx, self.namespace)
                 .replace(existing_doc.id(), value)
                 .await?;
             Some(existing_doc.into_value().server_version)
         } else {
-            SystemMetadataModel::new_global(self.tx)
+            SystemMetadataModel::new(self.tx, self.namespace)
                 .insert(&UDF_CONFIG_TABLE, value)
                 .await?;
             None

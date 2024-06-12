@@ -89,15 +89,17 @@ async fn download_module_source_from_package<RT: Runtime>(
     modules_tablet: TabletId,
     source_package_id: SourcePackageId,
 ) -> anyhow::Result<HashMap<(ResolvedDocumentId, SourcePackageId), FullModuleSource>> {
+    let namespace = tx.table_mapping().tablet_namespace(modules_tablet)?;
     let mut result = HashMap::new();
-    let source_package = SourcePackageModel::new(tx).get(source_package_id).await?;
+    let source_package = SourcePackageModel::new(tx, namespace)
+        .get(source_package_id)
+        .await?;
     let mut package = download_package(
         modules_storage,
         source_package.storage_key.clone(),
         source_package.sha256.clone(),
     )
     .await?;
-    let namespace = tx.table_mapping().tablet_namespace(modules_tablet)?;
     let component = match namespace {
         // TODO(lee) global namespace should not have modules, but for existing data this is how
         // it's represented.

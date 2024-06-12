@@ -27,7 +27,10 @@ use model::{
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use sync_types::CanonicalizedUdfPath;
-use value::ConvexArray;
+use value::{
+    ConvexArray,
+    TableNamespace,
+};
 
 use crate::{
     test_helpers::UdfTest,
@@ -67,7 +70,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .analyze(udf_config, modules_by_path, BTreeMap::new())
         .await??;
 
-    let source_package = SourcePackageModel::new(&mut tx)
+    let source_package = SourcePackageModel::new(&mut tx, TableNamespace::test_user())
         .get_latest()
         .await?
         .unwrap();

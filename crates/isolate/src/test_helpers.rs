@@ -725,7 +725,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         args: ConvexObject,
     ) -> anyhow::Result<JsError> {
         let mut tx = self.database.begin(Identity::system()).await?;
-        let udf_config = UdfConfigModel::new(&mut tx).get().await?;
+        let udf_config = UdfConfigModel::new(&mut tx, TableNamespace::test_user())
+            .get()
+            .await?;
         let npm_version = udf_config
             .context("Missing udf_config")?
             .server_version

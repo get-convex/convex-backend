@@ -742,7 +742,7 @@ async fn finish_push_handler(
 
     // Update app state: auth info and UDF server version.
     let auth_diff = AuthInfoModel::new(&mut tx).put(start_push.app_auth).await?;
-    let udf_config_diff = UdfConfigModel::new(&mut tx)
+    let udf_config_diff = UdfConfigModel::new(&mut tx, TableNamespace::TODO())
         .set(start_push.udf_config)
         .await?;
 

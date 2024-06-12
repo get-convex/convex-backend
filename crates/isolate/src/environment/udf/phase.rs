@@ -123,11 +123,19 @@ impl<RT: Runtime> UdfPhase<RT> {
             anyhow::bail!("UdfPhase initialized twice");
         };
 
+        let component_path = self.component_path.clone();
+        let (_, component) = with_release_permit(
+            timeout,
+            permit_slot,
+            BootstrapComponentsModel::new(self.tx_mut()?).component_path_to_ids(component_path),
+        )
+        .await?;
+
         // UdfConfig might not be defined for super old modules or system modules.
         let udf_config = with_release_permit(
             timeout,
             permit_slot,
-            UdfConfigModel::new(self.tx_mut()?).get(),
+            UdfConfigModel::new(self.tx_mut()?, component.into()).get(),
         )
         .await?;
         let rng = udf_config
@@ -139,14 +147,6 @@ impl<RT: Runtime> UdfPhase<RT> {
             timeout,
             permit_slot,
             EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
-        )
-        .await?;
-
-        let component_path = self.component_path.clone();
-        let (_, component) = with_release_permit(
-            timeout,
-            permit_slot,
-            BootstrapComponentsModel::new(self.tx_mut()?).component_path_to_ids(component_path),
         )
         .await?;
 

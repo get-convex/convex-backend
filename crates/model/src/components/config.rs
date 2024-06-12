@@ -112,9 +112,10 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
                     "Missing source package for component",
                 )
             })?;
-            let source_package_id = SourcePackageModel::new(self.tx)
-                .put(source_package.clone())
-                .await?;
+            let source_package_id =
+                SourcePackageModel::new(self.tx, TableNamespace::by_component_TODO())
+                    .put(source_package.clone())
+                    .await?;
 
             let downloaded_source_package = downloaded_source_packages
                 .get(definition_path)

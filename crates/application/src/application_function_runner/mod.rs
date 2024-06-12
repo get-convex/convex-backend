@@ -1273,10 +1273,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 }
 
                 let source_package_id = module.source_package_id;
-                let source_package = SourcePackageModel::new(&mut tx)
-                    .get(source_package_id)
-                    .await?
-                    .into_value();
+                let source_package =
+                    SourcePackageModel::new(&mut tx, TableNamespace::by_component_TODO())
+                        .get(source_package_id)
+                        .await?
+                        .into_value();
                 let mut environment_variables =
                     EnvironmentVariablesModel::new(&mut tx).get_all().await?;
                 // Insert special environment variables if not already provided by user

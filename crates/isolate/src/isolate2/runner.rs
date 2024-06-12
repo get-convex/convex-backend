@@ -1000,7 +1000,9 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     let total_timeout = Duration::from_secs(128);
 
     // TODO: Move these into the timeout.
-    let udf_config = UdfConfigModel::new(&mut tx).get().await?;
+    let udf_config = UdfConfigModel::new(&mut tx, TableNamespace::TODO())
+        .get()
+        .await?;
     let import_time_seed = SeedData {
         rng_seed: udf_config
             .as_ref()

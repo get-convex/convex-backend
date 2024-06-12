@@ -148,7 +148,7 @@ pub async fn prepare_schema(
 ) -> anyhow::Result<GenericDocumentId<TabletIdAndTableNumber>> {
     let mut tx = db.begin_system().await?;
     IndexModel::new(&mut tx)
-        .prepare_new_and_mutated_indexes(TableNamespace::by_component_TODO(), &schema)
+        .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
         .await?;
     let mut schema_model = SchemaModel::new_root_for_test(&mut tx);
     let (schema_id, state) = schema_model.submit_pending(schema).await?;
