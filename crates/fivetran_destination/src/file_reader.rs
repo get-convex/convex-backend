@@ -123,12 +123,15 @@ where
                         } else if value == params.null_string {
                             FivetranFileValue::Value(FivetranValue::Null(true))
                         } else {
-                            let target_type = schema
-                                .0
+                            let column = schema
+                                .columns
                                 .get(&field)
                                 .ok_or(anyhow!("Column not in schema"))?
                                 .to_owned();
-                            FivetranFileValue::Value(try_parse_fivetran_value(value, target_type)?)
+                            FivetranFileValue::Value(try_parse_fivetran_value(
+                                value,
+                                column.data_type,
+                            )?)
                         };
 
                         Ok((field, file_value))
@@ -242,6 +245,7 @@ fn to_csv_string_representation(value: &FivetranValue) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use std::{
+        collections::BTreeMap,
         env,
         str::FromStr,
     };
@@ -262,7 +266,10 @@ mod tests {
 
     use crate::{
         aes::Aes256Key,
-        api_types::FivetranFieldName,
+        api_types::{
+            FivetranFieldName,
+            FivetranTableName,
+        },
         convert::fivetran_data_type,
         file_reader::{
             create_csv_deserializer,
@@ -274,7 +281,10 @@ mod tests {
             FivetranFileValue,
             FivetranReaderParams,
         },
-        schema::FivetranTableSchema,
+        schema::{
+            FivetranTableColumn,
+            FivetranTableSchema,
+        },
     };
 
     fn fixture_path(fixture_name: &str) -> String {
@@ -290,18 +300,38 @@ mod tests {
         )
     }
 
+    fn fivetran_table_schema(
+        fields: BTreeMap<&'static str, FivetranDataType>,
+    ) -> FivetranTableSchema {
+        FivetranTableSchema {
+            name: FivetranTableName::from_str("my_table").unwrap(),
+            columns: fields
+                .into_iter()
+                .map(|(name, data_type)| {
+                    (
+                        FivetranFieldName::from_str(name).unwrap(),
+                        FivetranTableColumn {
+                            data_type,
+                            in_primary_key: false,
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
     #[tokio::test]
     async fn test_parse_a_fivetran_csv_file() -> anyhow::Result<()> {
         let params = FivetranReaderParams {
             unmodified_string: String::from("unmod-NcK9NIjPUutCsz4mjOQQztbnwnE1sY3"),
             null_string: String::from("magic-nullvalue"),
         };
-        let schema = FivetranTableSchema::from(btreemap! {
-            FivetranFieldName::from_str("id")? => FivetranDataType::Long,
-            FivetranFieldName::from_str("title")? => FivetranDataType::String,
-            FivetranFieldName::from_str("magic_number")? => FivetranDataType::Int,
-            FivetranFieldName::from_str("_fivetran_deleted")? => FivetranDataType::Boolean,
-            FivetranFieldName::from_str("_fivetran_synced")? => FivetranDataType::UtcDatetime,
+        let schema = fivetran_table_schema(btreemap! {
+            "id" => FivetranDataType::Long,
+            "title" => FivetranDataType::String,
+            "magic_number" => FivetranDataType::Int,
+            "_fivetran_deleted" => FivetranDataType::Boolean,
+            "_fivetran_synced" => FivetranDataType::UtcDatetime,
         });
         let mut deserializer = create_csv_deserializer(
             &fixture_path("books_update.csv"),
@@ -361,8 +391,8 @@ mod tests {
             unmodified_string: String::from("unmod"),
             null_string: String::from("null"),
         };
-        let schema = FivetranTableSchema::from(btreemap! {
-            FivetranFieldName::from_str("path")? => FivetranDataType::String,
+        let schema = fivetran_table_schema(btreemap! {
+            "path" => FivetranDataType::String,
         });
         let mut deserializer = create_csv_deserializer(
             &fixture_path("backslash.csv"),
@@ -391,12 +421,12 @@ mod tests {
             unmodified_string: String::from("unmod-NcK9NIjPUutCsz4mjOQQztbnwnE1sY3"),
             null_string: String::from("null-m8yilkvPsNulehxl2G6pmSQ3G3WWdLP"),
         };
-        let schema = FivetranTableSchema::from(btreemap! {
-            FivetranFieldName::from_str("id")? => FivetranDataType::Long,
-            FivetranFieldName::from_str("title")? => FivetranDataType::String,
-            FivetranFieldName::from_str("magic_number")? => FivetranDataType::Int,
-            FivetranFieldName::from_str("_fivetran_deleted")? => FivetranDataType::Boolean,
-            FivetranFieldName::from_str("_fivetran_synced")? => FivetranDataType::UtcDatetime,
+        let schema = fivetran_table_schema(btreemap! {
+            "id" => FivetranDataType::Long,
+            "title" => FivetranDataType::String,
+            "magic_number" => FivetranDataType::Int,
+            "_fivetran_deleted" => FivetranDataType::Boolean,
+            "_fivetran_synced" => FivetranDataType::UtcDatetime,
         });
         let mut deserializer = create_csv_deserializer(
             &fixture_path("books_delete.csv"),
@@ -432,12 +462,12 @@ mod tests {
             unmodified_string: String::from("unmod-NcK9NIjPUutCsz4mjOQQztbnwnE1sY3"),
             null_string: String::from("null-m8yilkvPsNulehxl2G6pmSQ3G3WWdLP"),
         };
-        let schema = FivetranTableSchema::from(btreemap! {
-            FivetranFieldName::from_str("id")? => FivetranDataType::Long,
-            FivetranFieldName::from_str("title")? => FivetranDataType::String,
-            FivetranFieldName::from_str("magic_number")? => FivetranDataType::Int,
-            FivetranFieldName::from_str("_fivetran_deleted")? => FivetranDataType::Boolean,
-            FivetranFieldName::from_str("_fivetran_synced")? => FivetranDataType::UtcDatetime,
+        let schema = fivetran_table_schema(btreemap! {
+            "id" => FivetranDataType::Long,
+            "title" => FivetranDataType::String,
+            "magic_number" => FivetranDataType::Int,
+            "_fivetran_deleted" => FivetranDataType::Boolean,
+            "_fivetran_synced" => FivetranDataType::UtcDatetime,
         });
         let mut deserializer = create_csv_deserializer(
             &fixture_path("books_delete.csv.zst"),
@@ -479,12 +509,12 @@ mod tests {
             unmodified_string: String::from(""),
             null_string: String::from(""),
         };
-        let schema = FivetranTableSchema::from(btreemap! {
-            FivetranFieldName::from_str("id")? => FivetranDataType::Long,
-            FivetranFieldName::from_str("title")? => FivetranDataType::String,
-            FivetranFieldName::from_str("magic_number")? => FivetranDataType::Int,
-            FivetranFieldName::from_str("_fivetran_deleted")? => FivetranDataType::Boolean,
-            FivetranFieldName::from_str("_fivetran_synced")? => FivetranDataType::UtcDatetime,
+        let schema = fivetran_table_schema(btreemap! {
+            "id" => FivetranDataType::Long,
+            "title" => FivetranDataType::String,
+            "magic_number" => FivetranDataType::Int,
+            "_fivetran_deleted" => FivetranDataType::Boolean,
+            "_fivetran_synced" => FivetranDataType::UtcDatetime,
         });
         let mut deserializer = create_csv_deserializer(
             &fixture_path("books_batch_1_insert.csv.zst.aes"),
@@ -536,12 +566,12 @@ mod tests {
             unmodified_string: String::from("unmod-NcK9NIjPUutCsz4mjOQQztbnwnE1sY3"),
             null_string: String::from("null-m8yilkvPsNulehxl2G6pmSQ3G3WWdLP"),
         };
-        let schema = FivetranTableSchema::from(btreemap! {
-            FivetranFieldName::from_str("id")? => FivetranDataType::Long,
-            FivetranFieldName::from_str("title")? => FivetranDataType::String,
-            FivetranFieldName::from_str("magic_number")? => FivetranDataType::Int,
-            FivetranFieldName::from_str("_fivetran_deleted")? => FivetranDataType::Boolean,
-            FivetranFieldName::from_str("_fivetran_synced")? => FivetranDataType::UtcDatetime,
+        let schema = fivetran_table_schema(btreemap! {
+            "id" => FivetranDataType::Long,
+            "title" => FivetranDataType::String,
+            "magic_number" => FivetranDataType::Int,
+            "_fivetran_deleted" => FivetranDataType::Boolean,
+            "_fivetran_synced" => FivetranDataType::UtcDatetime,
         });
         let mut deserializer = create_csv_deserializer(
             &fixture_path("books_delete.csv.gz"),
@@ -577,12 +607,12 @@ mod tests {
             unmodified_string: String::from("unmod-NcK9NIjPUutCsz4mjOQQztbnwnE1sY3"),
             null_string: String::from("magic-nullvalue"),
         };
-        let schema = FivetranTableSchema::from(btreemap! {
-            FivetranFieldName::from_str("id")? => FivetranDataType::Short,
-            FivetranFieldName::from_str("title")? => FivetranDataType::String,
+        let schema = fivetran_table_schema(btreemap! {
+            "id" => FivetranDataType::Short,
+            "title" => FivetranDataType::String,
             // magic_number missing
-            FivetranFieldName::from_str("_fivetran_deleted")? => FivetranDataType::Boolean,
-            FivetranFieldName::from_str("_fivetran_synced")? => FivetranDataType::UtcDatetime,
+            "_fivetran_deleted" => FivetranDataType::Boolean,
+            "_fivetran_synced" => FivetranDataType::UtcDatetime,
         });
         let mut deserializer = create_csv_deserializer(
             &fixture_path("books_update.csv"),
@@ -608,12 +638,12 @@ mod tests {
             unmodified_string: String::from("unmod-NcK9NIjPUutCsz4mjOQQztbnwnE1sY3"),
             null_string: String::from("magic-nullvalue"),
         };
-        let schema = FivetranTableSchema::from(btreemap! {
-            FivetranFieldName::from_str("id")? => FivetranDataType::Short,
-            FivetranFieldName::from_str("title")? => FivetranDataType::Int, // !
-            FivetranFieldName::from_str("magic_number")? => FivetranDataType::Int,
-            FivetranFieldName::from_str("_fivetran_deleted")? => FivetranDataType::Boolean,
-            FivetranFieldName::from_str("_fivetran_synced")? => FivetranDataType::UtcDatetime,
+        let schema = fivetran_table_schema(btreemap! {
+            "id" => FivetranDataType::Short,
+            "title" => FivetranDataType::Int, // !
+            "magic_number" => FivetranDataType::Int,
+            "_fivetran_deleted" => FivetranDataType::Boolean,
+            "_fivetran_synced" => FivetranDataType::UtcDatetime,
         });
         let mut deserializer = create_csv_deserializer(
             &fixture_path("books_update.csv"),

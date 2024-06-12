@@ -44,6 +44,12 @@ impl FieldPath {
         })
     }
 
+    pub fn for_root_field(field: IdentifierFieldName) -> Self {
+        Self {
+            fields: vec![field].into(),
+        }
+    }
+
     pub fn fields(&self) -> &[IdentifierFieldName] {
         &self.fields
     }

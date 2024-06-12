@@ -1,6 +1,8 @@
 use std::sync::LazyLock;
 
 use common::{
+    bootstrap_model::index::database_index::IndexedFields,
+    document::CREATION_TIME_FIELD_PATH,
     types::IndexDescriptor,
     value::{
         FieldPath,
@@ -46,3 +48,30 @@ pub static SYNCED_FIELD_PATH: LazyLock<FieldPath> = LazyLock::new(|| {
     ])
     .expect("Invalid field path")
 });
+
+pub static ID_FIELD_PATH: LazyLock<FieldPath> = LazyLock::new(|| {
+    FieldPath::new(vec![
+        METADATA_CONVEX_FIELD_NAME.clone(),
+        ID_CONVEX_FIELD_NAME.clone(),
+    ])
+    .expect("Invalid field path")
+});
+
+pub static FIVETRAN_SYNC_INDEX_WITHOUT_SOFT_DELETE_FIELDS: LazyLock<IndexedFields> =
+    LazyLock::new(|| {
+        IndexedFields::try_from(vec![
+            SYNCED_FIELD_PATH.clone(),
+            CREATION_TIME_FIELD_PATH.clone(),
+        ])
+        .expect("Invalid IndexedFields")
+    });
+
+pub static FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS: LazyLock<IndexedFields> =
+    LazyLock::new(|| {
+        IndexedFields::try_from(vec![
+            SOFT_DELETE_FIELD_PATH.clone(),
+            SYNCED_FIELD_PATH.clone(),
+            CREATION_TIME_FIELD_PATH.clone(),
+        ])
+        .expect("Invalid IndexedFields")
+    });
