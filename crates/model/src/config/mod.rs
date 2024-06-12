@@ -186,7 +186,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules = ModuleModel::new(self.tx)
-            .get_application_metadata(ComponentId::Root)
+            .get_application_metadata(ComponentId::TODO())
             .await?;
 
         // If we have an auth config module do not include auth_info in the config

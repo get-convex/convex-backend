@@ -80,7 +80,6 @@ use model::{
     config::types::{
         ConfigFile,
         ConfigMetadata,
-        UdfServerVersionDiff,
     },
     external_packages::types::ExternalDepsPackageId,
     modules::module_versions::{
@@ -94,10 +93,7 @@ use model::{
         },
         upload_download::download_package,
     },
-    udf_config::{
-        types::UdfConfig,
-        UdfConfigModel,
-    },
+    udf_config::types::UdfConfig,
 };
 use rand::Rng;
 use serde::{
@@ -742,9 +738,6 @@ async fn finish_push_handler(
 
     // Update app state: auth info and UDF server version.
     let auth_diff = AuthInfoModel::new(&mut tx).put(start_push.app_auth).await?;
-    let udf_config_diff = UdfConfigModel::new(&mut tx, TableNamespace::TODO())
-        .set(start_push.udf_config)
-        .await?;
 
     // Diff the component definitions.
     let (definition_diffs, modules_by_definition) = ComponentDefinitionConfigModel::new(&mut tx)
@@ -759,6 +752,7 @@ async fn finish_push_handler(
     let component_diffs = ComponentConfigModel::new(&mut tx)
         .apply_component_tree_diff(
             &start_push.app,
+            &start_push.udf_config,
             &start_push.schema_change,
             modules_by_definition,
         )
@@ -774,7 +768,6 @@ async fn finish_push_handler(
 
     let diff = FinishPushDiff {
         auth_diff,
-        udf_config_diff,
         definition_diffs,
         component_diffs,
     };
@@ -783,7 +776,6 @@ async fn finish_push_handler(
 
 struct FinishPushDiff {
     auth_diff: AuthDiff,
-    udf_config_diff: Option<UdfServerVersionDiff>,
     definition_diffs: BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,
     component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
 }
@@ -792,7 +784,6 @@ struct FinishPushDiff {
 #[serde(rename_all = "camelCase")]
 struct SerializedFinishPushDiff {
     auth_diff: AuthDiff,
-    udf_config_diff: Option<UdfServerVersionDiff>,
     definition_diffs: BTreeMap<String, SerializedComponentDefinitionDiff>,
     component_diffs: BTreeMap<String, SerializedComponentDiff>,
 }
@@ -803,7 +794,6 @@ impl TryFrom<FinishPushDiff> for SerializedFinishPushDiff {
     fn try_from(value: FinishPushDiff) -> Result<Self, Self::Error> {
         Ok(Self {
             auth_diff: value.auth_diff,
-            udf_config_diff: value.udf_config_diff,
             definition_diffs: value
                 .definition_diffs
                 .into_iter()

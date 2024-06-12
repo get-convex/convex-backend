@@ -69,7 +69,7 @@ pub async fn assemble_package<RT: Runtime>(
     modifications: BTreeMap<CanonicalizedModulePath, Option<ModuleConfig>>,
 ) -> anyhow::Result<Vec<ModuleConfig>> {
     let existing_modules = ModuleModel::new(tx)
-        .get_application_modules(ComponentId::TODO(), module_loader)
+        .get_application_modules(ComponentId::test_user(), module_loader)
         .await?;
     let mut modules = BTreeMap::new();
     for (path, module) in existing_modules {

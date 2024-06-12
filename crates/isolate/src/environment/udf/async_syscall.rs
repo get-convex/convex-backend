@@ -42,7 +42,6 @@ use database::{
         TableFilter,
     },
     soft_data_limit,
-    BootstrapComponentsModel,
     DeveloperQuery,
     PatchValue,
     Transaction,
@@ -78,7 +77,6 @@ use value::{
     ConvexArray,
     ConvexObject,
     TableName,
-    TableNamespace,
 };
 
 use super::DatabaseUdfEnvironment;
@@ -437,19 +435,13 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 ));
             },
         }
+        let component_id = self.component()?;
 
         let tx = self.phase.tx()?;
 
-        // TODO(CX-6667): Which table namespace do we want to use for running validators
-        // here?
-        let table_mapping = tx
-            .table_mapping()
-            .namespace(TableNamespace::by_component_TODO());
+        let table_mapping = tx.table_mapping().namespace(component_id.into());
         let virtual_table_mapping = tx.virtual_table_mapping().clone();
 
-        let (_, component_id) = BootstrapComponentsModel::new(tx)
-            .component_path_to_ids(self.path.component.clone())
-            .await?;
         let resource = ComponentsModel::new(tx)
             .resolve(component_id, &reference)
             .await?;

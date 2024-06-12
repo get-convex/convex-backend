@@ -187,7 +187,6 @@ use usage_tracking::{
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
-    TableNamespace,
 };
 use vector::{
     PublicVectorSearchQueryResult,
@@ -1019,10 +1018,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             FunctionOutcome::Mutation(o) => o,
             _ => anyhow::bail!("Received non-mutation outcome for mutation"),
         };
+        let (_, component) = BootstrapComponentsModel::new(&mut tx)
+            .component_path_to_ids(path.component.clone())
+            .await?;
 
-        let table_mapping = tx
-            .table_mapping()
-            .namespace(TableNamespace::by_component_TODO());
+        let table_mapping = tx.table_mapping().namespace(component.into());
         let virtual_table_mapping = tx.virtual_table_mapping().clone();
 
         let outcome = ValidatedUdfOutcome::new(
@@ -1162,6 +1162,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             UdfType::Action,
         )
         .await?;
+        let (_, component) = BootstrapComponentsModel::new(&mut tx)
+            .component_path_to_ids(path.component.clone())
+            .await?;
 
         // Fetch the returns_validator now to be used at a later ts.
         let (path_and_args, returns_validator) = match validate_result {
@@ -1189,9 +1192,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         // We should use table mappings from the same transaction as the output
         // validator was retrieved.
-        let table_mapping = tx
-            .table_mapping()
-            .namespace(TableNamespace::by_component_TODO());
+        let table_mapping = tx.table_mapping().namespace(component.into());
         let virtual_table_mapping = tx.virtual_table_mapping().clone();
         let udf_server_version = path_and_args.npm_version().clone();
         // We should not be missing the module given we validated the path above
@@ -1273,11 +1274,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 }
 
                 let source_package_id = module.source_package_id;
-                let source_package =
-                    SourcePackageModel::new(&mut tx, TableNamespace::by_component_TODO())
-                        .get(source_package_id)
-                        .await?
-                        .into_value();
+                let source_package = SourcePackageModel::new(&mut tx, component.into())
+                    .get(source_package_id)
+                    .await?
+                    .into_value();
                 let mut environment_variables =
                     EnvironmentVariablesModel::new(&mut tx).get_all().await?;
                 // Insert special environment variables if not already provided by user

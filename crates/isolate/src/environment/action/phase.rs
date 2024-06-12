@@ -4,10 +4,8 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
 use common::{
     components::{
-        ComponentDefinitionId,
         ComponentId,
         ComponentPath,
         Reference,
@@ -52,7 +50,6 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
-use value::TableNamespace;
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
@@ -137,10 +134,18 @@ impl<RT: Runtime> ActionPhase<RT> {
             anyhow::bail!("ActionPhase initialized twice");
         };
 
+        let component_id = with_release_permit(timeout, permit_slot, async {
+            let (_, component) = BootstrapComponentsModel::new(&mut tx)
+                .component_path_to_ids(self.component.clone())
+                .await?;
+            anyhow::Ok(component)
+        })
+        .await?;
+
         let udf_config = with_release_permit(
             timeout,
             permit_slot,
-            UdfConfigModel::new(&mut tx, TableNamespace::TODO()).get(),
+            UdfConfigModel::new(&mut tx, component_id.into()).get(),
         )
         .await?;
 
@@ -156,18 +161,6 @@ impl<RT: Runtime> ActionPhase<RT> {
                     .get_all_metadata(ComponentId::Root)
                     .await?
             } else {
-                let metadata = BootstrapComponentsModel::new(&mut tx)
-                    .resolve_path(self.component.clone())
-                    .await?
-                    .context("Failed to find component")?;
-                let (component_id, _) = if self.component.is_root() {
-                    (ComponentId::Root, ComponentDefinitionId::Root)
-                } else {
-                    (
-                        ComponentId::Child(metadata.id().internal_id()),
-                        ComponentDefinitionId::Child(metadata.definition_id),
-                    )
-                };
                 let module_metadata = ModuleModel::new(&mut tx)
                     .get_all_metadata(component_id)
                     .await?;

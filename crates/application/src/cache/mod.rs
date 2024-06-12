@@ -41,6 +41,7 @@ use common::{
     RequestId,
 };
 use database::{
+    BootstrapComponentsModel,
     Database,
     Token,
 };
@@ -80,7 +81,6 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::HeapSize,
     ConvexValue,
-    TableNamespace,
 };
 
 use crate::{
@@ -471,9 +471,10 @@ impl<RT: Runtime> CacheManager<RT> {
                         };
                         if let Ok(ref json_packed_value) = &query_outcome.result {
                             let output: ConvexValue = json_packed_value.unpack();
-                            let table_mapping = tx
-                                .table_mapping()
-                                .namespace(TableNamespace::by_component_TODO());
+                            let (_, component) = BootstrapComponentsModel::new(&mut tx)
+                                .component_path_to_ids(path.component.clone())
+                                .await?;
+                            let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_table_mapping = tx.virtual_table_mapping().clone();
                             let returns_validation_error = returns_validator.check_output(
                                 &output,

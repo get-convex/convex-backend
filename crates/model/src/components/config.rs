@@ -50,6 +50,7 @@ use crate::{
     config::types::{
         ModuleConfig,
         ModuleDiff,
+        UdfServerVersionDiff,
     },
     initialize_application_system_table,
     modules::{
@@ -57,11 +58,12 @@ use crate::{
         ModuleModel,
     },
     source_packages::{
-        types::{
-            SourcePackage,
-            SourcePackageId,
-        },
+        types::SourcePackage,
         SourcePackageModel,
+    },
+    udf_config::{
+        types::UdfConfig,
+        UdfConfigModel,
     },
     DEFAULT_TABLE_NUMBERS,
 };
@@ -112,10 +114,6 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
                     "Missing source package for component",
                 )
             })?;
-            let source_package_id =
-                SourcePackageModel::new(self.tx, TableNamespace::by_component_TODO())
-                    .put(source_package.clone())
-                    .await?;
 
             let downloaded_source_package = downloaded_source_packages
                 .get(definition_path)
@@ -156,7 +154,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
                 id,
                 NewModules {
                     modules: new_modules,
-                    source_package_id,
+                    source_package: source_package.clone(),
                     analyze_results: functions,
                 },
             );
@@ -221,7 +219,7 @@ pub struct ComponentConfigModel<'a, RT: Runtime> {
 
 pub struct NewModules {
     modules: Vec<ModuleConfig>,
-    source_package_id: SourcePackageId,
+    source_package: SourcePackage,
     analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
 }
 
@@ -348,6 +346,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
     pub async fn apply_component_tree_diff(
         &mut self,
         app: &CheckedComponent,
+        udf_config: &UdfConfig,
         schema_change: &SchemaChange,
         modules_by_definition: BTreeMap<InternalId, NewModules>,
     ) -> anyhow::Result<BTreeMap<ComponentPath, ComponentDiff>> {
@@ -401,13 +400,23 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                         .allocated_component_ids
                         .get(&path)
                         .context("Missing allocated component ID")?;
-                    self.create_component(internal_id, new_metadata, &modules_by_definition)
-                        .await?
+                    self.create_component(
+                        internal_id,
+                        new_metadata,
+                        &modules_by_definition,
+                        udf_config.clone(),
+                    )
+                    .await?
                 },
                 // Update a node.
                 (Some(existing_node), Some(new_metadata)) => {
-                    self.modify_component(existing_node, new_metadata, &modules_by_definition)
-                        .await?
+                    self.modify_component(
+                        existing_node,
+                        new_metadata,
+                        &modules_by_definition,
+                        udf_config.clone(),
+                    )
+                    .await?
                 },
                 // Delete an existing node.
                 (Some(existing_node), None) => self.delete_component(existing_node).await?,
@@ -460,6 +469,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         id: InternalId,
         metadata: ComponentMetadata,
         modules_by_definition: &BTreeMap<InternalId, NewModules>,
+        udf_config: UdfConfig,
     ) -> anyhow::Result<(InternalId, ComponentDiff)> {
         let modules = modules_by_definition
             .get(&metadata.definition_id)
@@ -474,19 +484,32 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         } else {
             ComponentId::Child(id)
         };
+        let udf_config_diff = UdfConfigModel::new(self.tx, component_id.into())
+            .set(udf_config)
+            .await?;
+        let source_package_id = SourcePackageModel::new(self.tx, component_id.into())
+            .put(modules.source_package.clone())
+            .await?;
 
         let module_diff = ModuleModel::new(self.tx)
             .apply(
                 component_id,
                 modules.modules.clone(),
-                Some(modules.source_package_id),
+                Some(source_package_id),
                 modules.analyze_results.clone(),
             )
             .await?;
 
         // TODO: Diff crons.
 
-        Ok((id, ComponentDiff::Create { module_diff }))
+        Ok((
+            id,
+            ComponentDiff {
+                diff_type: ComponentDiffType::Create,
+                module_diff,
+                udf_config_diff,
+            },
+        ))
     }
 
     async fn modify_component(
@@ -494,6 +517,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         existing: &ParsedDocument<ComponentMetadata>,
         new_metadata: ComponentMetadata,
         modules_by_definition: &BTreeMap<InternalId, NewModules>,
+        udf_config: UdfConfig,
     ) -> anyhow::Result<(InternalId, ComponentDiff)> {
         let component_id = if existing.parent_and_name().is_none() {
             ComponentId::Root
@@ -506,11 +530,17 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         SystemMetadataModel::new_global(self.tx)
             .replace(existing.id(), new_metadata.try_into()?)
             .await?;
+        let source_package_id = SourcePackageModel::new(self.tx, component_id.into())
+            .put(modules.source_package.clone())
+            .await?;
+        let udf_config_diff = UdfConfigModel::new(self.tx, component_id.into())
+            .set(udf_config)
+            .await?;
         let module_diff = ModuleModel::new(self.tx)
             .apply(
                 component_id,
                 modules.modules.clone(),
-                Some(modules.source_package_id),
+                Some(source_package_id),
                 modules.analyze_results.clone(),
             )
             .await?;
@@ -518,7 +548,11 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         // TODO: Diff crons.
         Ok((
             existing.id().internal_id(),
-            ComponentDiff::Modify { module_diff },
+            ComponentDiff {
+                diff_type: ComponentDiffType::Modify,
+                module_diff,
+                udf_config_diff,
+            },
         ))
     }
 
@@ -541,7 +575,11 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .await?;
         Ok((
             existing.id().internal_id(),
-            ComponentDiff::Delete { module_diff },
+            ComponentDiff {
+                diff_type: ComponentDiffType::Delete,
+                module_diff,
+                udf_config_diff: None,
+            },
         ))
     }
 }
@@ -599,31 +637,54 @@ struct TreeDiffChild<'a> {
     new: Option<&'a CheckedComponent>,
 }
 
-pub enum ComponentDiff {
-    Create { module_diff: ModuleDiff },
-    Modify { module_diff: ModuleDiff },
-    Delete { module_diff: ModuleDiff },
+pub enum ComponentDiffType {
+    Create,
+    Modify,
+    Delete,
+}
+
+pub struct ComponentDiff {
+    diff_type: ComponentDiffType,
+    module_diff: ModuleDiff,
+    udf_config_diff: Option<UdfServerVersionDiff>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-pub enum SerializedComponentDiff {
-    #[serde(rename_all = "camelCase")]
-    Create { module_diff: ModuleDiff },
-    #[serde(rename_all = "camelCase")]
-    Modify { module_diff: ModuleDiff },
-    #[serde(rename_all = "camelCase")]
-    Delete { module_diff: ModuleDiff },
+pub enum SerializedComponentDiffType {
+    Create,
+    Modify,
+    Delete,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedComponentDiff {
+    diff_type: SerializedComponentDiffType,
+    module_diff: ModuleDiff,
+    udf_config_diff: Option<UdfServerVersionDiff>,
+}
+
+impl TryFrom<ComponentDiffType> for SerializedComponentDiffType {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ComponentDiffType) -> Result<Self, Self::Error> {
+        Ok(match value {
+            ComponentDiffType::Create => Self::Create,
+            ComponentDiffType::Modify => Self::Modify,
+            ComponentDiffType::Delete => Self::Delete,
+        })
+    }
 }
 
 impl TryFrom<ComponentDiff> for SerializedComponentDiff {
     type Error = anyhow::Error;
 
     fn try_from(value: ComponentDiff) -> Result<Self, Self::Error> {
-        Ok(match value {
-            ComponentDiff::Create { module_diff } => Self::Create { module_diff },
-            ComponentDiff::Modify { module_diff } => Self::Modify { module_diff },
-            ComponentDiff::Delete { module_diff } => Self::Delete { module_diff },
+        Ok(Self {
+            diff_type: value.diff_type.try_into()?,
+            module_diff: value.module_diff,
+            udf_config_diff: value.udf_config_diff,
         })
     }
 }

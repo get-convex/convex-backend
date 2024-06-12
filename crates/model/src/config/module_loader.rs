@@ -49,7 +49,6 @@ pub mod test_module_loader {
     };
     use database::Transaction;
     use storage::Storage;
-    use value::TableNamespace;
 
     use super::ModuleLoader;
     use crate::{
@@ -76,7 +75,10 @@ pub mod test_module_loader {
             module_metadata: ParsedDocument<ModuleMetadata>,
         ) -> anyhow::Result<Arc<FullModuleSource>> {
             let source_package_id = module_metadata.source_package_id;
-            let source_package = SourcePackageModel::new(tx, TableNamespace::by_component_TODO())
+            let namespace = tx
+                .table_mapping()
+                .tablet_namespace(module_metadata.id().table().tablet_id)?;
+            let source_package = SourcePackageModel::new(tx, namespace)
                 .get(source_package_id)
                 .await?
                 .into_value();

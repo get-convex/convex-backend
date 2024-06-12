@@ -3,6 +3,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     errors::JsError,
@@ -24,6 +25,7 @@ use common::{
 };
 use database::{
     unauthorized_error,
+    BootstrapComponentsModel,
     Transaction,
 };
 use errors::ErrorMetadata;
@@ -56,7 +58,6 @@ use value::{
     ConvexArray,
     ConvexValue,
     NamespacedTableMapping,
-    TableNamespace,
     VirtualTableMapping,
 };
 
@@ -146,11 +147,10 @@ fn missing_or_internal_error(path: &CanonicalizedComponentFunctionPath) -> anyho
 
 async fn udf_version<RT: Runtime>(
     path: &CanonicalizedComponentFunctionPath,
+    component: ComponentId,
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<Result<Version, JsError>> {
-    let udf_config = UdfConfigModel::new(tx, TableNamespace::TODO())
-        .get()
-        .await?;
+    let udf_config = UdfConfigModel::new(tx, component.into()).get().await?;
 
     let udf_version = match udf_config {
         Some(udf_config) if udf_config.server_version > DEPRECATION_THRESHOLD.npm.unsupported => {
@@ -259,6 +259,10 @@ impl ValidatedPathAndArgs {
             return Ok(result);
         }
 
+        let (_, component) = BootstrapComponentsModel::new(tx)
+            .component_path_to_ids(path.component.clone())
+            .await?;
+
         let mut backend_state_model = BackendStateModel::new(tx);
         let backend_state = backend_state_model.get_backend_state().await?;
         match backend_state {
@@ -273,7 +277,7 @@ impl ValidatedPathAndArgs {
             },
         }
 
-        let udf_version = match udf_version(&path, tx).await? {
+        let udf_version = match udf_version(&path, component, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };
@@ -289,6 +293,7 @@ impl ValidatedPathAndArgs {
             allowed_visibility,
             tx,
             path,
+            component,
             args,
             expected_udf_type,
             analyzed_function,
@@ -338,7 +343,11 @@ impl ValidatedPathAndArgs {
             },
         }
 
-        let udf_version = match udf_version(&path, tx).await? {
+        let (_, component) = BootstrapComponentsModel::new(tx)
+            .component_path_to_ids(path.component.clone())
+            .await?;
+
+        let udf_version = match udf_version(&path, component, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };
@@ -362,6 +371,7 @@ impl ValidatedPathAndArgs {
             allowed_visibility,
             tx,
             path,
+            component,
             args,
             expected_udf_type,
             analyzed_function,
@@ -378,6 +388,7 @@ impl ValidatedPathAndArgs {
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,
         path: CanonicalizedComponentFunctionPath,
+        component: ComponentId,
         args: ConvexArray,
         expected_udf_type: UdfType,
         analyzed_function: AnalyzedFunction,
@@ -420,9 +431,7 @@ impl ValidatedPathAndArgs {
             Err(err) => return Ok(Err(err)),
         }
 
-        let table_mapping = &tx
-            .table_mapping()
-            .namespace(TableNamespace::by_component_TODO());
+        let table_mapping = &tx.table_mapping().namespace(component.into());
         let virtual_table_mapping = &tx.virtual_table_mapping().clone();
 
         // If the UDF has an args validator, check that these args match.
@@ -565,7 +574,10 @@ impl ValidatedHttpPath {
                 .fail_while_paused_or_disabled()
                 .await?;
         }
-        let udf_version = match udf_version(&path, tx).await? {
+        let (_, component) = BootstrapComponentsModel::new(tx)
+            .component_path_to_ids(path.component.clone())
+            .await?;
+        let udf_version = match udf_version(&path, component, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };

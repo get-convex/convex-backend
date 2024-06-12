@@ -340,6 +340,7 @@ pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
         &ModuleVersionsTable,
         &SchemasTable,
         &UdfConfigTable,
+        &SourcePackagesTable,
     ]
 }
 

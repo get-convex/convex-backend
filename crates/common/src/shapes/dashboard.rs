@@ -180,7 +180,7 @@ mod tests {
             ShapeEnumJson::Id { table_name } => {
                 let name: TableName = table_name.parse()?;
                 ReducedShape::Id(all_tables_name_to_number(
-                    TableNamespace::by_component_TODO(),
+                    TableNamespace::test_user(),
                     mapping,
                     virtual_mapping,
                 )(name)?)

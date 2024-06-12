@@ -97,13 +97,18 @@ impl SearchQuery {
             .into_iter()
             .filter(|(_, index_key)| self.cursor_interval.contains(index_key))
             .collect();
+        let namespace = match self.stable_index_name.tablet_index_name() {
+            Some(index_name) => tx.table_mapping().tablet_namespace(*index_name.table())?,
+            None => TableNamespace::Global,
+        };
         let table_number = tx
             .table_mapping()
-            .namespace(TableNamespace::by_component_TODO())
+            .namespace(namespace)
             .id(&self.query.table)?
             .table_number;
         Ok(SearchResultIterator::new(
             revisions_in_range,
+            namespace,
             table_number,
             self.version.clone(),
         ))
@@ -178,6 +183,7 @@ impl QueryStream for SearchQuery {
 
 #[derive(Clone)]
 struct SearchResultIterator {
+    namespace: TableNamespace,
     table_number: TableNumber,
     candidates: Vec<(CandidateRevision, IndexKeyBytes)>,
     next_index: usize,
@@ -188,10 +194,12 @@ struct SearchResultIterator {
 impl SearchResultIterator {
     fn new(
         candidates: Vec<(CandidateRevision, IndexKeyBytes)>,
+        namespace: TableNamespace,
         table_number: TableNumber,
         version: Option<Version>,
     ) -> Self {
         Self {
+            namespace,
             table_number,
             candidates,
             next_index: 0,
@@ -232,13 +240,12 @@ impl SearchResultIterator {
         self.next_index += 1;
 
         let id = self.table_number.id(candidate.id);
-        let (document, existing_doc_ts) =
-            UserFacingModel::new(tx, TableNamespace::by_component_TODO())
-                .get_with_ts(id, self.version.clone())
-                .await?
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Unable to load search result {id}@{:?}", candidate.ts)
-                })?;
+        let (document, existing_doc_ts) = UserFacingModel::new(tx, self.namespace)
+            .get_with_ts(id, self.version.clone())
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!("Unable to load search result {id}@{:?}", candidate.ts)
+            })?;
 
         self.bytes_read += document.size();
 

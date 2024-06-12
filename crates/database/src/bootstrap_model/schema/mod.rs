@@ -127,10 +127,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     }
 
     pub async fn enforce(&mut self, document: &ResolvedDocument) -> anyhow::Result<()> {
-        let schema_table_mapping = self
-            .tx
-            .table_mapping()
-            .namespace(TableNamespace::by_component_TODO());
+        let schema_table_mapping = self.tx.table_mapping().namespace(self.namespace);
         self.enforce_with_table_mapping(document, &schema_table_mapping)
             .await
     }
@@ -249,9 +246,9 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     ) -> anyhow::Result<(ResolvedDocumentId, SchemaState)> {
         let mut table_model = TableModel::new(self.tx);
         for name in schema.tables.keys() {
-            if !table_model.table_exists(TableNamespace::by_component_TODO(), name) {
+            if !table_model.table_exists(self.namespace, name) {
                 table_model
-                    .insert_table_metadata(TableNamespace::by_component_TODO(), name)
+                    .insert_table_metadata(self.namespace, name)
                     .await?;
             }
         }
