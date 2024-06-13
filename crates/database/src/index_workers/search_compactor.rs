@@ -111,16 +111,16 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
             };
             let name = index_metadata.name;
 
-            let needs_compaction = match &config.on_disk_state {
+            let maybe_segments_to_compact = match &config.on_disk_state {
                 SearchOnDiskState::Backfilling(BackfillState {
                     segments,
                     backfill_snapshot_ts,
                     ..
                 }) => {
                     if backfill_snapshot_ts.is_none() {
-                        false
+                        continue;
                     } else {
-                        Self::segments_need_compaction(
+                        Self::find_segments_to_compact(
                             segments,
                             &config.developer_config,
                             &self.config,
@@ -134,14 +134,14 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 | SearchOnDiskState::Backfilled(SearchSnapshot {
                     data: SnapshotData::MultiSegment(segments),
                     ..
-                }) => Self::segments_need_compaction(
+                }) => Self::find_segments_to_compact(
                     segments,
                     &config.developer_config,
                     &self.config,
                 )?,
-                _ => false,
+                _ => continue,
             };
-            if needs_compaction {
+            if let Some((segments_to_compact, compaction_reason)) = maybe_segments_to_compact {
                 tracing::info!(
                     "Queueing {:?} index for compaction: {name:?}",
                     Self::search_type()
@@ -151,6 +151,8 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                     index_name: name.clone(),
                     developer_config: config.developer_config.clone(),
                     on_disk_state: config.on_disk_state,
+                    segments_to_compact,
+                    compaction_reason,
                 };
                 to_build.push(job);
             }
@@ -160,43 +162,21 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
 
     async fn build_one(&self, job: CompactionJob<T>) -> anyhow::Result<u64> {
         let timer = compaction_build_one_timer(Self::search_type());
-        let (segments, snapshot_ts) = match job.on_disk_state {
+        let snapshot_ts = match job.on_disk_state {
             SearchOnDiskState::Backfilling(BackfillState {
-                segments,
                 backfill_snapshot_ts,
                 ..
-            }) => {
-                let ts = backfill_snapshot_ts.with_context(|| {
-                    format!(
-                        "Trying to compact backfilling {:?} segments with no backfill timestamp",
-                        Self::search_type()
-                    )
-                })?;
-                (segments, ts)
-            },
+            }) => backfill_snapshot_ts.with_context(|| {
+                format!(
+                    "Trying to compact backfilling {:?} segments with no backfill timestamp",
+                    Self::search_type()
+                )
+            })?,
             SearchOnDiskState::Backfilled(snapshot)
-            | SearchOnDiskState::SnapshottedAt(snapshot) => {
-                let segments = match snapshot.data {
-                    SnapshotData::Unknown(_) => {
-                        anyhow::bail!(
-                            "Trying to compact unknown {:?} snapshot",
-                            Self::search_type()
-                        );
-                    },
-                    SnapshotData::MultiSegment(segments) => segments,
-                    SnapshotData::SingleSegment(_) => {
-                        anyhow::bail!(
-                            "Trying to compact a single segment {:?} index!",
-                            Self::search_type()
-                        );
-                    },
-                };
-                (segments, snapshot.ts)
-            },
+            | SearchOnDiskState::SnapshottedAt(snapshot) => snapshot.ts,
         };
 
-        let (segments_to_compact, reason) =
-            Self::find_segments_to_compact(&segments, &job.developer_config, &self.config)?;
+        let segments_to_compact = job.segments_to_compact;
         anyhow::ensure!(segments_to_compact.len() > 0);
 
         let total_compacted_segments = segments_to_compact.len();
@@ -231,7 +211,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
             Self::format(&new_segment, &job.developer_config)?,
         );
 
-        finish_compaction_timer(timer, reason);
+        finish_compaction_timer(timer, job.compaction_reason);
         Ok(total_compacted_segments)
     }
 
@@ -290,7 +270,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         segments: &'a Vec<T::Segment>,
         developer_config: &'a T::DeveloperConfig,
         compaction_config: &CompactionConfig,
-    ) -> anyhow::Result<(Vec<T::Segment>, CompactionReason)> {
+    ) -> anyhow::Result<Option<(Vec<T::Segment>, CompactionReason)>> {
         fn to_owned<R: Clone>(borrowed: Vec<&R>) -> Vec<R> {
             borrowed.into_iter().cloned().collect_vec()
         }
@@ -315,7 +295,10 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         let compact_small =
             Self::get_compactable_segments(small_segments, developer_config, compaction_config)?;
         if let Some(compact_small) = compact_small {
-            return Ok((to_owned(compact_small), CompactionReason::SmallSegments));
+            return Ok(Some((
+                to_owned(compact_small),
+                CompactionReason::SmallSegments,
+            )));
         }
         // Next check to see if we have too many larger segments and if so, compact
         // them.
@@ -329,7 +312,10 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
             compaction_config,
         )?;
         if let Some(compact_large) = compact_large {
-            return Ok((to_owned(compact_large), CompactionReason::LargeSegments));
+            return Ok(Some((
+                to_owned(compact_large),
+                CompactionReason::LargeSegments,
+            )));
         }
 
         // Finally check to see if any individual segment has a large number of deleted
@@ -349,7 +335,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
             })?
             .map(|(segment, _)| vec![segment]);
         if let Some(compact_deletes) = compact_deletes {
-            return Ok((to_owned(compact_deletes), CompactionReason::Deletes));
+            return Ok(Some((to_owned(compact_deletes), CompactionReason::Deletes)));
         }
         tracing::trace!(
             "Found no segments to compact, segments: {:#?}",
@@ -366,19 +352,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 })
                 .collect_vec()
         );
-        Ok((vec![], CompactionReason::Unknown))
-    }
-
-    fn segments_need_compaction(
-        segments: &Vec<T::Segment>,
-        developer_config: &T::DeveloperConfig,
-        compaction_config: &CompactionConfig,
-    ) -> anyhow::Result<bool> {
-        Ok(
-            !Self::find_segments_to_compact(segments, developer_config, compaction_config)?
-                .0
-                .is_empty(),
-        )
+        Ok(None)
     }
 
     async fn compact(
@@ -461,4 +435,6 @@ struct CompactionJob<T: SearchIndex> {
     index_name: TabletIndexName,
     developer_config: T::DeveloperConfig,
     on_disk_state: SearchOnDiskState<T>,
+    segments_to_compact: Vec<T::Segment>,
+    compaction_reason: CompactionReason,
 }

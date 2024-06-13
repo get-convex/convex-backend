@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use ::search::metrics::{
     SearchType,
     SEARCH_TYPE_LABEL,
@@ -880,8 +882,6 @@ pub fn log_non_deleted_documents_per_search_index(count: u64, search_type: Searc
 const COMPACTION_REASON_LABEL: &str = "compaction_reason";
 
 pub enum CompactionReason {
-    // TODO(emma) remove and replace with optional result
-    Unknown,
     SmallSegments,
     LargeSegments,
     Deletes,
@@ -890,7 +890,6 @@ pub enum CompactionReason {
 impl CompactionReason {
     fn metric_label(&self) -> StaticMetricLabel {
         let label = match self {
-            CompactionReason::Unknown => "unknown",
             CompactionReason::SmallSegments => "small",
             CompactionReason::LargeSegments => "large",
             CompactionReason::Deletes => "deletes",
@@ -898,6 +897,8 @@ impl CompactionReason {
         StaticMetricLabel::new(COMPACTION_REASON_LABEL, label)
     }
 }
+static UNKNOWN_COMPACTION_LABEL: LazyLock<StaticMetricLabel> =
+    LazyLock::new(|| StaticMetricLabel::new(COMPACTION_REASON_LABEL, "unknown"));
 
 register_convex_histogram!(
     COMPACTION_BUILD_ONE_SECONDS,
@@ -906,16 +907,12 @@ register_convex_histogram!(
 );
 pub fn compaction_build_one_timer(search_type: SearchType) -> StatusTimer {
     let mut timer = StatusTimer::new(&COMPACTION_BUILD_ONE_SECONDS);
-    timer.add_label(CompactionReason::Unknown.metric_label());
-    timer.add_label(search_type.tag());
+    timer.replace_label(UNKNOWN_COMPACTION_LABEL.clone(), search_type.tag());
     timer
 }
 
 pub fn finish_compaction_timer(mut timer: StatusTimer, reason: CompactionReason) {
-    timer.replace_label(
-        CompactionReason::Unknown.metric_label(),
-        reason.metric_label(),
-    );
+    timer.add_label(reason.metric_label());
     timer.finish();
 }
 
