@@ -210,19 +210,15 @@ pub struct FieldDeletions {
     /// The number of documents that have been deleted for each specific term at
     /// a given field.
     pub term_value_to_deleted_documents: BTreeMap<TermValue, u32>,
-    /// The total number of non-uniqued terms deleted from the segment for a
+    /// The total number of non-unique terms deleted from the segment for a
     /// given field.
     pub num_terms_deleted: u64,
 }
 
 impl TermDeletionsByField {
     pub fn delete_term(&mut self, field: Field) {
-        self.0
-            .entry(field)
-            .and_modify(|deletions| {
-                deletions.num_terms_deleted += 1;
-            })
-            .or_default();
+        let deletions = self.0.entry(field).or_default();
+        deletions.num_terms_deleted += 1;
     }
 
     pub fn delete_document(&mut self, field: Field, term_value: TermValue) {

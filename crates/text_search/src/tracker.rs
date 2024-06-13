@@ -138,7 +138,7 @@ impl From<DeletedTermsTable> for FieldTermMetadata {
     }
 }
 
-impl TryFrom<FieldTermMetadata> for DeletedTermsTable {
+impl TryFrom<FieldTermMetadata> for Option<DeletedTermsTable> {
     type Error = anyhow::Error;
 
     fn try_from(
@@ -149,16 +149,21 @@ impl TryFrom<FieldTermMetadata> for DeletedTermsTable {
     ) -> Result<Self, Self::Error> {
         let (term_ordinals, counts): (Vec<_>, Vec<_>) = term_documents_deleted.into_iter().unzip();
         let term_documents_deleted = DacsOpt::build_from_slice(&counts)?;
-        let highest_term_ord = term_ordinals.last().context("No term ordinals found")?;
-        let mut elias_fano_builder =
-            EliasFanoBuilder::new((*highest_term_ord + 1) as usize, term_ordinals.len())?;
-        elias_fano_builder.extend(term_ordinals.iter().map(|x| *x as usize))?;
-        let term_ordinals = elias_fano_builder.build();
-        Ok(DeletedTermsTable {
-            term_ordinals,
-            term_documents_deleted,
-            num_terms_deleted: num_terms_deleted as u32,
-        })
+        let deleted_terms_table = term_ordinals
+            .last()
+            .map(|highest_term_ord| {
+                let mut elias_fano_builder =
+                    EliasFanoBuilder::new((*highest_term_ord + 1) as usize, term_ordinals.len())?;
+                elias_fano_builder.extend(term_ordinals.iter().map(|x| *x as usize))?;
+                let term_ordinals = elias_fano_builder.build();
+                anyhow::Ok(DeletedTermsTable {
+                    term_ordinals,
+                    term_documents_deleted,
+                    num_terms_deleted: num_terms_deleted as u32,
+                })
+            })
+            .transpose()?;
+        Ok(deleted_terms_table)
     }
 }
 
@@ -331,10 +336,7 @@ impl SearchMemoryIdTracker {
 }
 
 // TODO(CX-6565): Make protos private
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq, Debug, Clone)
-)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Debug, Clone))]
 #[derive(Default)]
 /// Mutable data structure for tracking term deletions for a field in a segment.
 /// [DeletedTermsTable] is a more efficient read-only version of this data
@@ -346,6 +348,32 @@ pub struct FieldTermMetadata {
     /// The number of non-unique terms that have been deleted from the field's
     /// inverted index.
     pub num_terms_deleted: u64,
+}
+#[cfg(any(test, feature = "testing"))]
+impl proptest::arbitrary::Arbitrary for FieldTermMetadata {
+    type Parameters = ();
+
+    type Strategy = impl proptest::strategy::Strategy<Value = FieldTermMetadata>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        (
+            any::<u32>(),
+            prop::collection::btree_map(any::<u64>(), any::<u32>(), 0..10),
+        )
+            .prop_filter_map(
+                "Invalid FieldTermMetadata",
+                |(num_terms_deleted, term_documents_deleted)| {
+                    if (num_terms_deleted == 0) != term_documents_deleted.is_empty() {
+                        return None;
+                    }
+                    Some(FieldTermMetadata {
+                        term_documents_deleted,
+                        num_terms_deleted: num_terms_deleted as u64,
+                    })
+                },
+            )
+    }
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Debug, Clone))]
@@ -363,15 +391,17 @@ impl proptest::arbitrary::Arbitrary for SegmentTermMetadata {
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
-        any::<BTreeMap<u32, FieldTermMetadata>>().prop_map(|term_documents_deleted| {
-            let term_documents_deleted = term_documents_deleted
-                .into_iter()
-                .map(|(k, v)| (Field::from_field_id(k), v))
-                .collect();
-            SegmentTermMetadata {
-                term_metadata_by_field: term_documents_deleted,
-            }
-        })
+        prop::collection::btree_map(any::<u32>(), any::<FieldTermMetadata>(), 0..10).prop_map(
+            |term_documents_deleted| {
+                let term_documents_deleted = term_documents_deleted
+                    .into_iter()
+                    .map(|(k, v)| (Field::from_field_id(k), v))
+                    .collect();
+                SegmentTermMetadata {
+                    term_metadata_by_field: term_documents_deleted,
+                }
+            },
+        )
     }
 }
 
@@ -394,23 +424,19 @@ impl AddAssign for SegmentTermMetadata {
 impl SegmentTermMetadata {
     pub fn write(self, mut out: impl Write) -> anyhow::Result<()> {
         out.write_u8(DELETED_TERMS_TABLE_VERSION)?;
-        let field_header_size = self.term_metadata_by_field.len() as u16 * SIZE_PER_FIELD_HEADER;
+        let mut deleted_terms_tables = BTreeMap::new();
+        for (field, metadata) in self.term_metadata_by_field {
+            if let Some(table) = Option::<DeletedTermsTable>::try_from(metadata)? {
+                deleted_terms_tables.insert(field, table);
+            }
+        }
+        let field_header_size =
+            <u16>::try_from(deleted_terms_tables.len())? * SIZE_PER_FIELD_HEADER;
         out.write_u16::<LittleEndian>(field_header_size)?;
-        if self.term_metadata_by_field.is_empty() {
+        if deleted_terms_tables.is_empty() {
             out.flush()?;
             return Ok(());
         }
-
-        let deleted_terms_tables: BTreeMap<Field, DeletedTermsTable> = self
-            .term_metadata_by_field
-            .into_iter()
-            .map(|(field, metadata)| {
-                anyhow::Ok::<(Field, DeletedTermsTable)>((
-                    field,
-                    DeletedTermsTable::try_from(metadata)?,
-                ))
-            })
-            .try_collect()?;
         for (
             field,
             DeletedTermsTable {
@@ -523,6 +549,7 @@ impl MemoryDeletionTracker {
 mod tests {
 
     use maplit::btreemap;
+    use proptest::prelude::*;
     use tantivy::schema::Field;
 
     use super::{
@@ -572,5 +599,31 @@ mod tests {
         assert_eq!(deleted_terms_table.term_documents_deleted(5)?, 2);
         assert_eq!(deleted_terms_table.term_documents_deleted(3)?, 1);
         Ok(())
+    }
+
+    proptest! {
+        #![proptest_config(
+            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+        )]
+        #[test]
+        fn randomized_deleted_term_table(segment_term_metadata in any::<SegmentTermMetadata>())  {
+            let mut memory_tracker = MemoryDeletionTracker::new(10);
+            memory_tracker.update_term_metadata(segment_term_metadata.clone());
+            let mut buf = Vec::new();
+            memory_tracker.segment_term_metadata.clone().write(&mut buf).unwrap();
+
+            let file_len = buf.len();
+            let deleted_terms_tables = StaticDeletionTracker::load_deleted_terms(
+                file_len, &buf[..]
+            ).unwrap();
+            for (field, deleted_terms_table) in deleted_terms_tables {
+                let field_term_metadata = segment_term_metadata
+                    .term_metadata_by_field
+                    .get(&field).unwrap();
+                let field_term_metadata_read = FieldTermMetadata::from(deleted_terms_table);
+                assert_eq!(field_term_metadata, &field_term_metadata_read);
+            }
+
+        }
     }
 }
