@@ -250,38 +250,30 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         ))
     }
 
-    fn max_compactable_segments<'a>(
+    fn get_compactable_segments<'a>(
         segments: Vec<&'a T::Segment>,
         developer_config: &T::DeveloperConfig,
         compaction_config: &CompactionConfig,
     ) -> anyhow::Result<Option<Vec<&'a T::Segment>>> {
-        let mut size: u64 = 0;
-        let segments = segments
+        let mut total_size: u64 = 0;
+        let segments_with_size: Vec<_> = segments
             .into_iter()
-            .map(|segment| Ok((segment, segment.statistics()?.num_documents())))
-            // Allow errors to be propagated by giving them the lowest value for the ascending sort
-            // We might ignore errors anyway if there are enough successful and empty segments, but
-            // that seems unlikely.
-            .sorted_by_key(|result: &anyhow::Result<_>|
-                result.as_ref().map(|(_, num_docs)| *num_docs).unwrap_or(0)
-            )
-            .map_ok(|(segment, _)| {
-                Ok((segment, segment.total_size_bytes(developer_config)?))
-            })
-            .flatten()
-            .take_while(|segment| {
-                let Ok((_, segment_size_bytes)) = segment else {
-                    // Propagate the error to the outer collect.
-                    return true;
-                };
+            .map(|segment| anyhow::Ok((segment, segment.total_size_bytes(developer_config)?)))
+            .try_collect()?;
+        // Sort segments in ascending size order and take as many as we can fit in the
+        // max segment
+        let segments = segments_with_size
+            .into_iter()
+            .sorted_by_key(|(_, size)| *size)
+            .take_while(|(_segment, segment_size_bytes)| {
                 // Some extra paranoia to fail loudly if we've misplaced some zeros somewhere.
-                size = size
+                total_size = total_size
                     .checked_add(*segment_size_bytes)
                     .context("Overflowed size!")
                     .unwrap();
-                size <= compaction_config.max_segment_size_bytes
+                total_size <= compaction_config.max_segment_size_bytes
             })
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .collect::<Vec<_>>();
         if segments.len() >= compaction_config.min_compaction_segments as usize {
             Ok(Some(
                 segments
@@ -321,13 +313,13 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         // Compact small segments first because it's quick and reducing the total number
         // of segments helps us minimize query costs.
         let compact_small =
-            Self::max_compactable_segments(small_segments, developer_config, compaction_config)?;
+            Self::get_compactable_segments(small_segments, developer_config, compaction_config)?;
         if let Some(compact_small) = compact_small {
             return Ok((to_owned(compact_small), CompactionReason::SmallSegments));
         }
         // Next check to see if we have too many larger segments and if so, compact
         // them.
-        let compact_large = Self::max_compactable_segments(
+        let compact_large = Self::get_compactable_segments(
             large_segments
                 .clone()
                 .into_iter()

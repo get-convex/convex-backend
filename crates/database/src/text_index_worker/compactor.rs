@@ -18,7 +18,6 @@ use crate::{
 
 pub type TextIndexCompactor<RT> = SearchIndexCompactor<RT, TextSearchIndex>;
 
-#[allow(dead_code)]
 pub(crate) fn new_text_compactor<RT: Runtime>(
     database: Database<RT>,
     searcher: Arc<dyn Searcher>,
