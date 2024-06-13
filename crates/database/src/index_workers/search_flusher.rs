@@ -585,6 +585,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             persistence,
             &mut mutable_previous_segments,
             build_index_args,
+            build_type,
         )
         .await?;
 
@@ -642,10 +643,13 @@ pub struct MultiSegmentBuildResult<T: SearchIndex> {
 /// Specifies how documents should be fetched to construct this segment
 #[derive(Clone, Copy)]
 pub enum MultipartBuildType {
+    // Build a part
     Partial(RepeatableTimestamp),
     // TODO(CX-6743): Remove this build type, it's expensive to run and we don't want to do so
     // inadvertently.
+    // Build the whole index in one part
     Complete,
+    // Build the whole index in parts
     IncrementalComplete {
         cursor: Option<ResolvedDocumentId>,
         backfill_snapshot_ts: RepeatableTimestamp,

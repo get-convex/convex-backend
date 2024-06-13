@@ -37,6 +37,7 @@ use value::{
     InternalId,
 };
 
+use super::search_flusher::MultipartBuildType;
 use crate::Snapshot;
 
 pub trait PreviousSegmentsType: Send {
@@ -107,6 +108,7 @@ pub trait SearchIndex: Clone + Debug {
         reader: RepeatablePersistence,
         previous_segments: &mut Self::PreviousSegments,
         build_index_args: Self::BuildIndexArgs,
+        multipart_build_type: MultipartBuildType,
     ) -> anyhow::Result<Option<Self::NewSegment>>;
 
     fn new_schema(config: &Self::DeveloperConfig) -> Self::Schema;

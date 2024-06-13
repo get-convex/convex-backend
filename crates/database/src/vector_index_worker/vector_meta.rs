@@ -49,16 +49,19 @@ use vector::{
 };
 
 use crate::{
-    index_workers::index_meta::{
-        BackfillState,
-        PreviousSegmentsType,
-        SearchIndex,
-        SearchIndexConfig,
-        SearchOnDiskState,
-        SearchSnapshot,
-        SegmentStatistics,
-        SegmentType,
-        SnapshotData,
+    index_workers::{
+        index_meta::{
+            BackfillState,
+            PreviousSegmentsType,
+            SearchIndex,
+            SearchIndexConfig,
+            SearchOnDiskState,
+            SearchSnapshot,
+            SegmentStatistics,
+            SegmentType,
+            SnapshotData,
+        },
+        search_flusher::MultipartBuildType,
     },
     Snapshot,
 };
@@ -221,6 +224,7 @@ impl SearchIndex for VectorSearchIndex {
         BuildVectorIndexArgs {
             full_scan_threshold_bytes,
         }: Self::BuildIndexArgs,
+        _multipart_build_type: MultipartBuildType,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
         schema
             .build_disk_index(

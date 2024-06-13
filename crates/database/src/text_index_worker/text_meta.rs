@@ -28,7 +28,11 @@ use common::{
         DocumentStream,
         RepeatablePersistence,
     },
-    persistence_helpers::stream_revision_pairs,
+    persistence_helpers::{
+        stream_revision_pairs,
+        DocumentRevision,
+        RevisionPair,
+    },
     query::Order,
     runtime::{
         try_join_buffer_unordered,
@@ -36,6 +40,7 @@ use common::{
     },
     types::IndexId,
 };
+use futures::StreamExt;
 use search::{
     build_new_segment,
     disk_index::upload_text_segment,
@@ -54,16 +59,19 @@ use storage::Storage;
 use value::InternalId;
 
 use crate::{
-    index_workers::index_meta::{
-        BackfillState,
-        PreviousSegmentsType,
-        SearchIndex,
-        SearchIndexConfig,
-        SearchOnDiskState,
-        SearchSnapshot,
-        SegmentStatistics,
-        SegmentType,
-        SnapshotData,
+    index_workers::{
+        index_meta::{
+            BackfillState,
+            PreviousSegmentsType,
+            SearchIndex,
+            SearchIndexConfig,
+            SearchOnDiskState,
+            SearchSnapshot,
+            SegmentStatistics,
+            SegmentType,
+            SnapshotData,
+        },
+        search_flusher::MultipartBuildType,
     },
     Snapshot,
 };
@@ -214,8 +222,29 @@ impl SearchIndex for TextSearchIndex {
             search_storage,
             segment_term_metadata_fetcher,
         }: BuildTextIndexArgs,
+        multipart_build_type: MultipartBuildType,
     ) -> anyhow::Result<Option<Self::NewSegment>> {
-        let revision_stream = Box::pin(stream_revision_pairs(documents, &reader));
+        let revision_stream = match multipart_build_type {
+            MultipartBuildType::Partial(_) => Box::pin(stream_revision_pairs(documents, &reader)),
+            // Create a fake revision stream for complete builds because we are building from
+            // scratch so we don't need to look up previous revisions. We know there are no deletes.
+            MultipartBuildType::Complete | MultipartBuildType::IncrementalComplete { .. } => {
+                documents
+                    .map(|result| {
+                        let (ts, id, maybe_doc) = result?;
+                        anyhow::ensure!(maybe_doc.is_some(), "Document must exist");
+                        Ok(RevisionPair {
+                            id,
+                            rev: DocumentRevision {
+                                ts,
+                                document: maybe_doc,
+                            },
+                            prev_rev: None,
+                        })
+                    })
+                    .boxed()
+            },
+        };
 
         build_new_segment(
             rt,
