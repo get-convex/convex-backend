@@ -379,10 +379,13 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
             .get(
                 cache_key.clone(),
                 archive_fetcher
-                    .generate_value(search_storage, key.clone(), search_file_type)
+                    .generate_value(search_storage.clone(), key.clone(), search_file_type)
                     .boxed(),
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!("Failed to get cache_key {cache_key:?} in {search_storage:?}")
+            })?;
 
         let path = result.path.clone();
         let current_size = self.cache.size();

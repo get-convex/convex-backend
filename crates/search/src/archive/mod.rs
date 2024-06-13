@@ -18,15 +18,15 @@ use tokio::io::AsyncRead;
 pub mod cache;
 mod metrics;
 
-/// Extract the archive stream to the specified output directory, which must not
-/// exist or this method will return an Error. This function should only be used
+/// Extract the archive stream to the specified output directory, which will be
+/// created if it doesn't already exist. This function should only be used
 /// for trusted ZIP archives; we don't make any attempt to guard against
 /// directory traversal attacks nor do we sanitize paths.
 pub(crate) async fn extract_zip<P: AsRef<Path>>(
     output_directory: P,
     archive: impl AsyncRead,
 ) -> anyhow::Result<u64> {
-    std::fs::create_dir(&output_directory)?;
+    std::fs::create_dir_all(&output_directory)?;
     pin_mut!(archive);
     let mut reader = ZipFileReader::new(archive);
     let mut created_paths: HashSet<PathBuf> = HashSet::new();

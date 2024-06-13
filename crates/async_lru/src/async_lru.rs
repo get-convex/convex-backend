@@ -185,6 +185,16 @@ enum Status<Value> {
     ),
 }
 
+impl<Value> std::fmt::Display for Status<Value> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Status::Ready(_) => write!(f, "Ready"),
+            Status::Waiting(_) => write!(f, "Waiting"),
+            Status::Kickoff(..) => write!(f, "Kickoff"),
+        }
+    }
+}
+
 impl<
         RT: Runtime,
         Key: Hash + Eq + Debug + Clone + Send + Sync + 'static,
@@ -370,7 +380,9 @@ impl<
         key: &Key,
         value_generator: ValueGenerator<Key, Value>,
     ) -> anyhow::Result<Arc<Value>> {
-        match self.get_sync(key, value_generator)? {
+        let status = self.get_sync(key, value_generator)?;
+        tracing::debug!("Getting key {key:?} with status {status}");
+        match status {
             Status::Ready(value) => Ok(value),
             Status::Waiting(rx) => Ok(Self::wait_for_value(key, rx).await?),
             Status::Kickoff(rx, timer) => {
