@@ -64,7 +64,7 @@ use crate::metrics::{
 /// - field_header_size (little-endian u16): length of the header describing the
 ///   deleted terms table for each field
 /// - field_id (little-endian u32): field id
-/// - num_terms_deleted (little-endian u32): number of terms that are completely
+/// - num_terms_deleted (little-endian u64): number of terms that are completely
 ///   deleted from the segment
 /// - deleted_term_ordinals_size (little-endian u32): size of the term ordinals
 ///   EliasFano
@@ -75,7 +75,7 @@ use crate::metrics::{
 /// - counts (DacsOpt): number of deleted documents per term, indexed in the
 ///   same order as `deleted_term_ordinals`
 pub const DELETED_TERMS_TABLE_VERSION: u8 = 1;
-pub const SIZE_PER_FIELD_HEADER: u16 = 16;
+pub const SIZE_PER_FIELD_HEADER: u16 = 20;
 
 pub struct StaticDeletionTracker {
     alive_bitset: AliveBitSet,
@@ -92,12 +92,12 @@ struct DeletedTermsTable {
     /// term_ordinals.
     term_documents_deleted: DacsOpt,
     /// Number of terms that are completed deleted from the field in the segment
-    num_terms_deleted: u32,
+    num_terms_deleted: u64,
 }
 
 struct FieldHeader {
     field: Field,
-    num_terms_deleted: u32,
+    num_terms_deleted: u64,
     deleted_term_ordinals_size: u32,
     counts_size: u32,
 }
@@ -133,7 +133,7 @@ impl From<DeletedTermsTable> for FieldTermMetadata {
             .collect();
         FieldTermMetadata {
             term_documents_deleted,
-            num_terms_deleted: num_terms_deleted.into(),
+            num_terms_deleted,
         }
     }
 }
@@ -159,7 +159,7 @@ impl TryFrom<FieldTermMetadata> for Option<DeletedTermsTable> {
                 anyhow::Ok(DeletedTermsTable {
                     term_ordinals,
                     term_documents_deleted,
-                    num_terms_deleted: num_terms_deleted as u32,
+                    num_terms_deleted,
                 })
             })
             .transpose()?;
@@ -220,8 +220,8 @@ impl StaticDeletionTracker {
         for _ in 0..field_header_size / SIZE_PER_FIELD_HEADER {
             let field_id = reader.read_u32::<LittleEndian>()?;
             expected_len += 4;
-            let num_terms_deleted = reader.read_u32::<LittleEndian>()?;
-            expected_len += 4;
+            let num_terms_deleted = reader.read_u64::<LittleEndian>()?;
+            expected_len += 8;
             let deleted_term_ordinals_size = reader.read_u32::<LittleEndian>()?;
             expected_len += 4;
             let counts_size = reader.read_u32::<LittleEndian>()?;
@@ -282,7 +282,7 @@ impl StaticDeletionTracker {
 
     /// How many terms have been completely deleted from the term dictionary for
     /// a field?
-    pub fn num_terms_deleted(&self, field: Field) -> u32 {
+    pub fn num_terms_deleted(&self, field: Field) -> u64 {
         self.deleted_terms_by_field
             .get(&field)
             .map_or(0, |t| t.num_terms_deleted)
@@ -349,6 +349,7 @@ pub struct FieldTermMetadata {
     /// inverted index.
     pub num_terms_deleted: u64,
 }
+
 #[cfg(any(test, feature = "testing"))]
 impl proptest::arbitrary::Arbitrary for FieldTermMetadata {
     type Parameters = ();
@@ -358,7 +359,7 @@ impl proptest::arbitrary::Arbitrary for FieldTermMetadata {
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
         (
-            any::<u32>(),
+            any::<u64>(),
             prop::collection::btree_map(any::<u64>(), any::<u32>(), 0..10),
         )
             .prop_filter_map(
@@ -369,7 +370,7 @@ impl proptest::arbitrary::Arbitrary for FieldTermMetadata {
                     }
                     Some(FieldTermMetadata {
                         term_documents_deleted,
-                        num_terms_deleted: num_terms_deleted as u64,
+                        num_terms_deleted,
                     })
                 },
             )
@@ -447,7 +448,7 @@ impl SegmentTermMetadata {
         ) in &deleted_terms_tables
         {
             out.write_u32::<LittleEndian>(field.field_id())?;
-            out.write_u32::<LittleEndian>(*num_terms_deleted)?;
+            out.write_u64::<LittleEndian>(*num_terms_deleted)?;
             out.write_u32::<LittleEndian>(term_ordinals.size_in_bytes().try_into()?)?;
             out.write_u32::<LittleEndian>(term_documents_deleted.size_in_bytes().try_into()?)?;
         }

@@ -941,7 +941,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                     .map(|(field, inverted_index)| {
                         let num_terms = inverted_index
                             .total_num_tokens()
-                            .checked_sub(deletion_tracker.num_terms_deleted(field) as u64)
+                            .checked_sub(deletion_tracker.num_terms_deleted(field))
                             .context("num_terms underflow")?;
                         Ok((field, num_terms))
                     })
