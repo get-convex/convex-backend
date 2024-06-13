@@ -5,6 +5,7 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
+    bootstrap_model::index::database_index::IndexedFields,
     document::DeveloperDocument,
     index::IndexKeyBytes,
     interval::Interval,
@@ -56,6 +57,7 @@ pub struct IndexRange {
     // cursor_interval, page, and unfetched_interval.
     // interval: Interval,
     order: Order,
+    indexed_fields: IndexedFields,
 
     /// The interval defined by the optional start and end cursors.
     /// The start cursor will move as we produce results, but this
@@ -72,6 +74,12 @@ pub struct IndexRange {
     /// order is Desc) advances whenever we repopulate `page`, even if we
     /// haven't yielded the results yet.
     unfetched_interval: Interval,
+
+    /// This is the interval queried trimmed to the cursor start and end. Before
+    /// the query has consumed any results, this will be identical to
+    /// `unfetched_interval`. This is used to track the intervals read in
+    /// the read set as we consume query results.
+    initial_unfetched_interval: Interval,
     page_count: usize,
     returned_results: usize,
     rows_read: usize,
@@ -90,6 +98,7 @@ impl IndexRange {
         printable_index_name: IndexName,
         interval: Interval,
         order: Order,
+        indexed_fields: IndexedFields,
         cursor_interval: CursorInterval,
         maximum_rows_read: Option<usize>,
         maximum_bytes_read: Option<usize>,
@@ -118,7 +127,9 @@ impl IndexRange {
             stable_index_name,
             printable_index_name,
             order,
+            initial_unfetched_interval: unfetched_interval.clone(),
             cursor_interval,
+            indexed_fields,
             intermediate_cursors: if should_compute_split_cursor {
                 Some(Vec::new())
             } else {
@@ -159,22 +170,47 @@ impl IndexRange {
             && let Some(maximum_bytes_read) = self.maximum_bytes_read
             && self.returned_bytes >= maximum_bytes_read
         {
+            // Note: we do not need to record the index range in the read set here
+            // since we will have recorded it in the previous `start_next` that read the
+            // document that put us over the data budget.
+
             // If we're over our data budget, throw an error.
             // We do this after we've already exceeded the limit to ensure that
             // paginated queries always scan at least one item so they can
             // make progress.
             return Err(query_scanned_too_much_data(self.returned_bytes).into());
         }
+        let Some(tablet_index_name) = self.tablet_index_name().cloned() else {
+            // This must be a missing index,
+            self.cursor_interval.curr_exclusive = Some(
+                self.cursor_interval
+                    .end_inclusive
+                    .clone()
+                    .unwrap_or(CursorPosition::End),
+            );
+            return Ok(QueryStreamNext::Ready(None));
+        };
 
         if let Some((index_position, v, timestamp)) = self.page.pop_front() {
             let index_bytes = index_position.len();
             if let Some(intermediate_cursors) = &mut self.intermediate_cursors {
                 intermediate_cursors.push(CursorPosition::After(index_position.clone()));
             }
-            self.cursor_interval.curr_exclusive = Some(CursorPosition::After(index_position));
+            let cursor_position = CursorPosition::After(index_position);
+            self.cursor_interval.curr_exclusive = Some(cursor_position.clone());
             self.returned_results += 1;
+            let (used_interval, _) = self
+                .initial_unfetched_interval
+                .split(cursor_position, self.order);
+
+            tx.reads.record_indexed_directly(
+                tablet_index_name.clone(),
+                self.indexed_fields.clone(),
+                used_interval,
+            )?;
             UserFacingModel::new(tx, self.namespace)
                 .record_read_document(&v, self.printable_index_name.table())?;
+
             // Database bandwidth for index reads
             tx.usage_tracker.track_database_egress_size(
                 self.printable_index_name.table().to_string(),
@@ -185,9 +221,19 @@ impl IndexRange {
             return Ok(QueryStreamNext::Ready(Some((v, timestamp))));
         }
         if let Some(CursorPosition::End) = self.cursor_interval.curr_exclusive {
+            tx.reads.record_indexed_directly(
+                tablet_index_name.clone(),
+                self.indexed_fields.clone(),
+                self.initial_unfetched_interval.clone(),
+            )?;
             return Ok(QueryStreamNext::Ready(None));
         }
         if self.unfetched_interval.is_empty() {
+            tx.reads.record_indexed_directly(
+                tablet_index_name.clone(),
+                self.indexed_fields.clone(),
+                self.initial_unfetched_interval.clone(),
+            )?;
             // We're out of results. If we have an end cursor then we must
             // have reached it. Otherwise we're at the end of the entire
             // query.

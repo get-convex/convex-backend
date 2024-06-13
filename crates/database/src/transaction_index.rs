@@ -283,6 +283,11 @@ impl TransactionIndex {
         Ok(results.revisions_with_keys)
     }
 
+    /// Fetch a batch of index ranges. This method does not update the read set,
+    /// since we might be fetching more documents than the caller actually needs
+    /// due to filtering.
+    ///
+    /// Callers must call `record_indexed_directly` when consuming the results.
     pub async fn range_batch(
         &mut self,
         reads: &mut TransactionReadSet,
@@ -334,10 +339,10 @@ impl TransactionIndex {
         for (
             batch_key,
             RangeRequest {
-                index_name,
+                index_name: _,
                 printable_index_name: _,
                 interval,
-                order,
+                order: _,
                 max_size,
             },
         ) in ranges_to_fetch
@@ -372,15 +377,6 @@ impl TransactionIndex {
                     // of the page is the fetch cursor
                     fetch_cursor
                 };
-                let indexed_fields = indexed_fields_by_key
-                    .remove(&batch_key)
-                    .context("indexed_fields missing")?;
-                let (interval_read, _) = interval.split(cursor.clone(), order);
-                reads.record_indexed_directly(
-                    index_name.clone(),
-                    indexed_fields.clone(),
-                    interval_read,
-                )?;
                 if !interval.contains_cursor(&cursor) {
                     Err(anyhow::anyhow!(
                         "query for {interval:?} not making progress"
@@ -396,9 +392,11 @@ impl TransactionIndex {
 
     /// Returns the next page from the index range.
     /// NOTE: the caller must call reads.record_read_document for any
-    /// documents yielded from the index scan.
+    /// documents yielded from the index scan and
+    /// `reads.record_indexed_directly` for the interval actually read.
     /// Returns the remaining interval that was skipped because of max_size or
     /// transaction size limits.
+    #[cfg(any(test, feature = "testing"))]
     pub async fn range(
         &mut self,
         reads: &mut TransactionReadSet,
@@ -1352,7 +1350,8 @@ mod tests {
                     .into(),
             ),
         );
-        expected_reads.record_indexed_directly(by_id, IndexedFields::by_id(), Interval::all())?;
+        // Note: We do not expect the reads to include the range from this query, since
+        // that will be tracked later when the query results are consumed
         assert_eq!(reads, expected_reads);
         // Query by name in ascending order
         let IndexRangeResponse {

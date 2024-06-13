@@ -412,8 +412,8 @@ fn start_index_range<RT: Runtime>(
     }
 }
 
-/// NOTE: returns a page of results. Callers must call record_read_document
-/// for all documents returned from the index stream.
+/// NOTE: returns a page of results. Callers must call record_read_document +
+/// record_indexed_directly for all documents returned from the index stream.
 #[minitrace::trace]
 #[convex_macro::instrument_future]
 pub async fn index_range_batch<RT: Runtime>(

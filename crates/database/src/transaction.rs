@@ -1,7 +1,6 @@
 #[cfg(any(test, feature = "testing"))]
 use std::fmt::Debug;
 use std::{
-    cmp,
     collections::{
         BTreeMap,
         BTreeSet,
@@ -813,7 +812,13 @@ impl<RT: Runtime> Transaction<RT> {
         let mut results = self.index.range_batch(&mut self.reads, ranges).await;
         let mut batch_result = BTreeMap::new();
         for (batch_key, (id, table_name)) in ids {
+            let index_name = TabletIndexName::by_id(id.table().tablet_id);
             let result: anyhow::Result<_> = try {
+                let index_key = IndexKey::new(vec![], id.into());
+                let interval = Interval::prefix(index_key.into_bytes().into());
+                self.reads
+                    .record_indexed_directly(index_name, IndexedFields::by_id(), interval)?;
+
                 let IndexRangeResponse {
                     page: range_results,
                     cursor,
@@ -1004,76 +1009,6 @@ impl<RT: Runtime> Transaction<RT> {
             .await
     }
 
-    fn start_index_range(&mut self, request: IndexRangeRequest) -> anyhow::Result<RangeResponse> {
-        if request.interval.is_empty() {
-            return Ok(RangeResponse::Ready(IndexRangeResponse {
-                page: vec![],
-                cursor: CursorPosition::End,
-            }));
-        }
-        let tablet_index_name = match request.stable_index_name {
-            StableIndexName::Physical(tablet_index_name) => tablet_index_name,
-            StableIndexName::Virtual(..) => {
-                anyhow::bail!(
-                    "Can't query virtual tables from index_range (use \
-                     UserFacingModel::index_range instead)"
-                );
-            },
-            StableIndexName::Missing => {
-                return Ok(RangeResponse::Ready(IndexRangeResponse {
-                    page: vec![],
-                    cursor: CursorPosition::End,
-                }));
-            },
-        };
-        let index_name = tablet_index_name
-            .clone()
-            .map_table(&self.table_mapping().tablet_to_name())?;
-        let max_rows = cmp::min(request.max_rows, MAX_PAGE_SIZE);
-        Ok(RangeResponse::WaitingOn(RangeRequest {
-            index_name: tablet_index_name,
-            printable_index_name: index_name,
-            interval: request.interval,
-            order: request.order,
-            max_size: max_rows,
-        }))
-    }
-
-    /// NOTE: returns a page of results. Callers must call record_read_document
-    /// for all documents returned from the index stream.
-    #[minitrace::trace]
-    #[convex_macro::instrument_future]
-    pub async fn index_range_batch(
-        &mut self,
-        requests: BTreeMap<BatchKey, IndexRangeRequest>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<IndexRangeResponse>> {
-        let batch_size = requests.len();
-        let mut results = BTreeMap::new();
-        let mut fetch_requests = BTreeMap::new();
-        for (batch_key, request) in requests {
-            match self.start_index_range(request) {
-                Err(e) => {
-                    results.insert(batch_key, Err(e));
-                },
-                Ok(RangeResponse::Ready(result)) => {
-                    results.insert(batch_key, Ok(result));
-                },
-                Ok(RangeResponse::WaitingOn(fetch_request)) => {
-                    fetch_requests.insert(batch_key, fetch_request);
-                },
-            }
-        }
-        let fetch_results = self
-            .index
-            .range_batch(&mut self.reads, fetch_requests)
-            .await;
-        for (batch_key, fetch_result) in fetch_results {
-            results.insert(batch_key, fetch_result);
-        }
-        assert_eq!(results.len(), batch_size);
-        results
-    }
-
     /// Used when a system table is served from cache - to manually add a read
     /// dependency on that system table.
     pub fn record_system_table_cache_hit(
@@ -1099,17 +1034,13 @@ impl<RT: Runtime> Transaction<RT> {
     }
 }
 
+#[derive(Debug)]
 pub struct IndexRangeRequest {
     pub stable_index_name: StableIndexName,
     pub interval: Interval,
     pub order: Order,
     pub max_rows: usize,
     pub version: Option<Version>,
-}
-
-pub enum RangeResponse {
-    Ready(IndexRangeResponse),
-    WaitingOn(RangeRequest),
 }
 
 /// FinalTransaction is a finalized Transaction.

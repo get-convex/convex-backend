@@ -129,6 +129,7 @@ pub struct IndexRangeResponse {
     pub cursor: CursorPosition,
 }
 
+#[derive(Debug)]
 pub enum QueryStreamNext {
     Ready(Option<(DeveloperDocument, WriteTimestamp)>),
     WaitingOn(IndexRangeRequest),
@@ -356,6 +357,7 @@ impl<RT: Runtime> DeveloperQuery<RT> {
                 index_name,
                 Interval::all(),
                 full_table_scan.order,
+                indexed_fields,
                 cursor_interval,
                 maximum_rows_read,
                 maximum_bytes_read,
@@ -367,13 +369,15 @@ impl<RT: Runtime> DeveloperQuery<RT> {
                 let virtual_table_mapping = tx.virtual_table_mapping().clone();
                 let virtual_table_number_map = stable_index_name
                     .virtual_table_number_map(tx.table_mapping(), &virtual_table_mapping)?;
-                let interval = index_range.compile(indexed_fields, virtual_table_number_map)?;
+                let interval =
+                    index_range.compile(indexed_fields.clone(), virtual_table_number_map)?;
                 QueryNode::IndexRange(IndexRange::new(
                     namespace,
                     stable_index_name,
                     index_name,
                     interval,
                     order,
+                    indexed_fields,
                     cursor_interval,
                     maximum_rows_read,
                     maximum_bytes_read,

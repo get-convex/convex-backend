@@ -23,12 +23,16 @@ use common::{
     db_schema,
     document::{
         CreationTime,
+        PackedDocument,
         ResolvedDocument,
     },
     maybe_val,
     object_validator,
     pause::PauseClient,
-    persistence::NoopRetentionValidator,
+    persistence::{
+        NoopRetentionValidator,
+        Persistence,
+    },
     query::{
         Expression,
         FullTableScan,
@@ -55,6 +59,7 @@ use common::{
         unchecked_repeatable_ts,
         IndexDescriptor,
         IndexName,
+        PersistenceVersion,
         RepeatableTimestamp,
         TableName,
     },
@@ -888,7 +893,7 @@ async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
     compiled_query1.next(&mut tx, None).await?;
     let cursor1 = compiled_query1.cursor();
 
-    //G We can use this to continue query 1 without any errors.
+    // We can use this to continue query 1 without any errors.
     ResolvedQuery::<TestRuntime>::new_bounded(
         &mut tx,
         namespace,
@@ -2057,5 +2062,221 @@ async fn test_retries_includes_f(rt: TestRuntime) -> anyhow::Result<()> {
         .unwrap_err();
     assert!(err.is_overloaded());
 
+    Ok(())
+}
+
+async fn add_and_enable_index(
+    rt: TestRuntime,
+    database: &Database<TestRuntime>,
+    tp: Arc<dyn Persistence>,
+    namespace: TableNamespace,
+    index_name: &IndexName,
+    fields: IndexedFields,
+) -> anyhow::Result<()> {
+    let mut tx = database.begin(Identity::system()).await?;
+    let begin_ts = tx.begin_timestamp();
+    IndexModel::new(&mut tx)
+        .add_application_index(
+            namespace,
+            IndexMetadata::new_backfilling(*begin_ts, index_name.clone(), fields),
+        )
+        .await?;
+    database.commit(tx).await?;
+
+    let retention_validator = Arc::new(NoopRetentionValidator);
+
+    // Backfill the index.
+    let index_backfill_fut =
+        IndexWorker::new_terminating(rt, tp, retention_validator, database.clone());
+    index_backfill_fut.await?;
+
+    let mut tx = database.begin_system().await?;
+    IndexModel::new(&mut tx)
+        .enable_index_for_testing(namespace, index_name)
+        .await?;
+    database.commit(tx).await?;
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_query_filter_readset(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures {
+        db: database, tp, ..
+    } = DbFixtures::new(&rt).await?;
+    let namespace = TableNamespace::test_user();
+
+    let table_name: TableName = str::parse("messages")?;
+    let index_name = IndexName::new(table_name.clone(), "by_rank".parse()?)?;
+    let index_fields: IndexedFields = vec!["rank".parse()?].try_into()?;
+
+    add_and_enable_index(rt, &database, tp, namespace, &index_name, index_fields).await?;
+
+    // Insert 3 documents
+    let mut tx = database.begin(Identity::system()).await?;
+    let doc1 = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "hello",
+                "rank" => 1.0
+            ),
+        )
+        .await?;
+    let doc2 = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "hello again",
+                "rank" => 2.0
+            ),
+        )
+        .await?;
+    TestFacingModel::new(&mut tx)
+        .insert(
+            &"messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "@here",
+                "rank" => 3.0
+            ),
+        )
+        .await?;
+    database.commit(tx).await?;
+
+    // Query the first two -- e.g. `take(2)`, but prefetch more.
+    let query = Query {
+        source: QuerySource::IndexRange(IndexRange {
+            index_name,
+            range: vec![IndexRangeExpression::Gt(
+                "rank".parse()?,
+                ConvexValue::Float64(0.0),
+            )],
+            order: Order::Asc,
+        }),
+        operators: vec![QueryOperator::Filter(Expression::Eq(
+            Box::new(Expression::Literal(maybe_val!("eng"))),
+            Box::new(Expression::Field("channel".parse()?)),
+        ))],
+    };
+    let mut tx = database.begin(Identity::system()).await?;
+    let mut query_stream = ResolvedQuery::new(&mut tx, namespace, query)?;
+    let Some(result1) = query_stream.next(&mut tx, Some(3)).await? else {
+        anyhow::bail!("Query unexpectedly empty")
+    };
+    assert_eq!(result1, doc1);
+    let Some(result2) = query_stream.next(&mut tx, Some(3)).await? else {
+        anyhow::bail!("Query unexpectedly empty")
+    };
+    assert_eq!(result2, doc2);
+    let token = tx.into_token()?;
+
+    let mut tx = database.begin(Identity::system()).await?;
+    let out_of_range_doc = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "world",
+                "rank" => 2.5
+            ),
+        )
+        .await?;
+    let in_range_doc = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "world",
+                "rank" => 1.5
+            ),
+        )
+        .await?;
+
+    // A document at rank 2.5 should not overlap with the readset, even though we
+    // prefetched through rank 3.0
+    assert!(token
+        .reads()
+        .overlaps(
+            &PackedDocument::pack(out_of_range_doc),
+            PersistenceVersion::default()
+        )
+        .is_none());
+
+    // A document at rank 1.5 should overlap with the readest
+    assert!(token
+        .reads()
+        .overlaps(
+            &PackedDocument::pack(in_range_doc),
+            PersistenceVersion::default()
+        )
+        .is_some());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_query_readset_empty_query(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures {
+        db: database, tp, ..
+    } = DbFixtures::new(&rt).await?;
+    let namespace = TableNamespace::test_user();
+
+    let table_name: TableName = str::parse("messages")?;
+    let index_name = IndexName::new(table_name.clone(), "by_rank".parse()?)?;
+    let index_fields: IndexedFields = vec!["rank".parse()?].try_into()?;
+    add_and_enable_index(rt, &database, tp, namespace, &index_name, index_fields).await?;
+
+    // Insert a document
+    let mut tx = database.begin(Identity::system()).await?;
+    TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "hello",
+                "rank" => 1.0
+            ),
+        )
+        .await?;
+    database.commit(tx).await?;
+
+    // Query for an empty range
+    let query = Query {
+        source: QuerySource::IndexRange(IndexRange {
+            index_name,
+            range: vec![IndexRangeExpression::Lt(
+                "rank".parse()?,
+                ConvexValue::Float64(0.0),
+            )],
+            order: Order::Asc,
+        }),
+        operators: vec![],
+    };
+    let mut tx = database.begin(Identity::system()).await?;
+    let mut query_stream = ResolvedQuery::new(&mut tx, namespace, query)?;
+    assert!(query_stream.next(&mut tx, Some(3)).await?.is_none());
+    let token = tx.into_token()?;
+
+    let mut tx = database.begin(Identity::system()).await?;
+    let in_range_doc = TestFacingModel::new(&mut tx)
+        .insert_and_get(
+            "messages".parse()?,
+            assert_obj!(
+                "channel" => "eng",
+                "text" => "world",
+                "rank" => -5.0
+            ),
+        )
+        .await?;
+
+    // A document at rank -5.0 should overlap with the readest
+    assert!(token
+        .reads()
+        .overlaps(
+            &PackedDocument::pack(in_range_doc),
+            PersistenceVersion::default()
+        )
+        .is_some());
     Ok(())
 }
