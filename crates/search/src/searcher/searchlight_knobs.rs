@@ -80,3 +80,15 @@ pub static MAX_VECTOR_LRU_SIZE: LazyLock<u64> =
 /// given searchlight node.
 pub static MAX_CONCURRENT_VECTOR_SEGMENT_PREFETCHES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_CONCURRENT_VECTOR_PREFETCHES", 2));
+/// The maximum number of text segments (each backed by a single-segment tantiy
+/// index ) that we'll keep in memory in the LRU at once.
+pub static MAX_TEXT_LRU_ENTRIES: LazyLock<u64> =
+    LazyLock::new(|| env_config("MAX_TEXT_LRU_ENTRIES", 120));
+
+/// The maximum number of concurrent text searches we'll run at once,
+/// based on a very rough estimate of memory used per search.
+///
+/// The queue size for searches is set to QUEUE_SIZE_MULTIPLIER * this number,
+/// so this knob also determines the maximum queue length.
+pub static MAX_CONCURRENT_TEXT_SEARCHES: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_CONCURRENT_TEXT_SEARCHES", 20));
