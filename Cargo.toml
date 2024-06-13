@@ -150,7 +150,7 @@ panic = "abort"
 
 [profile.slim-release]
 inherits = "release"
-debug = "line-tables-only"
+strip = "debuginfo"
 
 [patch.crates-io]
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "061619b6e44ca7f3b94d97346152cab319895929" }
