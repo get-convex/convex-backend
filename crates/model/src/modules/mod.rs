@@ -424,7 +424,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     source_package_id,
                     environment,
                     analyze_result: analyze_result.clone(),
-                    sha256: Some(sha256),
+                    sha256,
                 };
                 SystemMetadataModel::new(self.tx, path.component.into())
                     .replace(module_metadata.id(), new_metadata.try_into()?)
@@ -446,7 +446,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     source_package_id,
                     environment,
                     analyze_result: analyze_result.clone(),
-                    sha256: Some(sha256),
+                    sha256,
                 };
 
                 let document_id = SystemMetadataModel::new(self.tx, path.component.into())

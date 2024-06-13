@@ -47,13 +47,10 @@ use model::{
         },
         ConfigModel,
     },
-    modules::{
-        hash_module_source,
-        module_versions::{
-            AnalyzedModule,
-            ModuleSource,
-            SourceMap,
-        },
+    modules::module_versions::{
+        AnalyzedModule,
+        ModuleSource,
+        SourceMap,
     },
     source_packages::types::{
         PackageSize,
@@ -252,24 +249,6 @@ impl From<ModuleConfig> for ModuleJson {
     }
 }
 
-impl ModuleHashJson {
-    fn hash(
-        ModuleConfig {
-            path,
-            source,
-            source_map,
-            environment,
-        }: ModuleConfig,
-    ) -> ModuleHashJson {
-        let hash = hash_module_source(&source, source_map.as_ref());
-        ModuleHashJson {
-            path: path.into(),
-            hash: hex::encode(hash),
-            environment: Some(environment.to_string()),
-        }
-    }
-}
-
 impl TryFrom<ModuleJson> for ModuleConfig {
     type Error = anyhow::Error;
 
@@ -355,25 +334,14 @@ pub async fn get_config_hashes(
     let mut tx = st.application.begin(identity).await?;
     let (config, modules, udf_config) =
         ConfigModel::new(&mut tx).get_with_module_metadata().await?;
-    let module_hashes: Vec<_> = if modules.iter().all(|m| m.sha256.is_some()) {
-        modules
-            .into_iter()
-            .map(|m| ModuleHashJson {
-                path: m.path.clone().into(),
-                hash: m.sha256.as_ref().expect("hash should exist").as_hex(),
-                environment: Some(m.environment.to_string()),
-            })
-            .collect()
-    } else {
-        // TODO(lee) remove this branch once all modules have a hash.
-        let (_, modules_with_source, _) = ConfigModel::new(&mut tx)
-            .get_with_module_source(st.application.modules_cache())
-            .await?;
-        modules_with_source
-            .into_iter()
-            .map(ModuleHashJson::hash)
-            .collect()
-    };
+    let module_hashes: Vec<_> = modules
+        .into_iter()
+        .map(|m| ModuleHashJson {
+            path: m.path.clone().into(),
+            hash: m.sha256.as_hex(),
+            environment: Some(m.environment.to_string()),
+        })
+        .collect();
     let config = ConvexObject::try_from(config)?;
     let config: JsonValue = config.into();
 
