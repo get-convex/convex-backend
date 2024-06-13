@@ -41,7 +41,6 @@ pub struct ModuleMetadata {
 pub struct SerializedModuleMetadata {
     pub path: String,
     pub latest_version: Option<ModuleVersion>,
-    pub deleted: Option<bool>,
     pub source_package_id: String,
     pub environment: String,
     pub analyze_result: Option<SerializedAnalyzedModule>,
@@ -78,7 +77,6 @@ impl TryFrom<ModuleMetadata> for SerializedModuleMetadata {
         Ok(Self {
             path: String::from(m.path),
             latest_version: m.latest_version,
-            deleted: Some(false),
             source_package_id: DeveloperDocumentId::from(m.source_package_id).to_string(),
             environment: m.environment.to_string(),
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
