@@ -14,7 +14,6 @@ import { DeploymentType, createProjectProvisioningDevOrProd } from "./api.js";
 import { doCodegen, doInitCodegen } from "./codegen.js";
 import {
   configFilepath,
-  getFunctionsDirectoryPath,
   readProjectConfig,
   upgradeOldAuthInfoToAuthConfig,
   writeProjectConfig,
@@ -121,21 +120,10 @@ export async function init(
   );
   await writeProjectConfig(ctx, projectConfig);
 
-  await doInitCodegen({
-    ctx,
-    functionsDirectoryPath: functionsPath,
-    quiet: true,
-  });
-  {
-    const functionsDirectoryPath = await getFunctionsDirectoryPath(ctx);
-    await doCodegen({
-      ctx,
-      functionsDirectoryPath,
-      // Don't typecheck because there isn't any code to check yet.
-      typeCheckMode: "disable",
-      quiet: true,
-    });
-  }
+  await doInitCodegen(ctx, functionsPath, true);
+
+  // Disable typechecking since there isn't any code yet.
+  await doCodegen(ctx, functionsPath, "disable");
 
   await finalizeConfiguration(
     ctx,

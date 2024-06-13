@@ -3,7 +3,7 @@ import { test, expect } from "@jest/globals";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { nodeFs, RecordingFs } from "./fs.js";
+import { nodeFs } from "./fs.js";
 
 test("nodeFs filesystem operations behave as expected", async () => {
   const tmpdir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
@@ -84,60 +84,4 @@ test("nodeFs filesystem operations behave as expected", async () => {
   } finally {
     fs.rmSync(tmpdir, { recursive: true });
   }
-});
-
-describe("RecordingFs", () => {
-  let tmpDir: string;
-  let recordingFs: RecordingFs;
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
-    recordingFs = new RecordingFs(false);
-  });
-
-  describe("rm", () => {
-    test("deletes file", () => {
-      const file = path.join(tmpDir, "file");
-      recordingFs.writeUtf8File(file, "contents");
-      expect(recordingFs.exists(file)).toBe(true);
-
-      recordingFs.rm(file);
-      expect(recordingFs.exists(file)).toBe(false);
-    });
-
-    test("throws an error on non-existent file", () => {
-      const nonexistentFile = path.join(tmpDir, "nonexistent_file");
-      expect(() => {
-        recordingFs.rm(nonexistentFile);
-      }).toThrow("ENOENT: no such file or directory");
-    });
-
-    test("does not throw error if `force` is used", () => {
-      const nonexistentFile = path.join(tmpDir, "nonexistent_file");
-      recordingFs.rm(nonexistentFile, { force: true });
-    });
-
-    test("recursively deletes a directory", () => {
-      const dir = path.join(tmpDir, "dir");
-      recordingFs.mkdir(dir);
-      const nestedFile = path.join(dir, "nested_file");
-      recordingFs.writeUtf8File(nestedFile, "content");
-      const nestedDir = path.join(dir, "nested_dir");
-      recordingFs.mkdir(nestedDir);
-
-      expect(recordingFs.exists(dir)).toBe(true);
-
-      recordingFs.rm(dir, { recursive: true });
-      expect(recordingFs.exists(dir)).toBe(false);
-    });
-
-    test("`recursive` and `force` work together", () => {
-      const nonexistentDir = path.join(tmpDir, "nonexistent_dir");
-      // Shouldn't throw an exception.
-      recordingFs.rm(nonexistentDir, { force: true, recursive: true });
-    });
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true });
-  });
 });

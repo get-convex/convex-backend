@@ -74,12 +74,7 @@ export async function reinit(
     deleteIfAllDefault: true,
   });
 
-  await doCodegen({
-    ctx,
-    functionsDirectoryPath: functionsDir(configPath, projectConfig),
-    typeCheckMode: "disable",
-    quiet: true,
-  });
+  await doCodegen(ctx, functionsDir(configPath, projectConfig), "disable");
 
   await finalizeConfiguration(
     ctx,

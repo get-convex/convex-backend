@@ -6,6 +6,7 @@ import stdFs, { Dirent, Mode, ReadStream, Stats } from "fs";
 import * as fsPromises from "fs/promises";
 import os from "os";
 import path from "path";
+import crypto from "crypto";
 
 export type NormalizedPath = string;
 
@@ -72,26 +73,34 @@ export interface Filesystem {
     dirPath: string,
     options?: { allowExisting?: boolean; recursive?: boolean },
   ): void;
-  rm(path: string, options?: { force?: boolean; recursive?: boolean }): void;
   rmdir(path: string): void;
   unlink(path: string): void;
-  renameFile(fromPath: string, toPath: string): void;
+  swapTmpFile(fromPath: TempPath, toPath: string): void;
 
   registerPath(path: string, st: Stats | null): void;
   invalidate(): void;
 }
 
+export type TempPath = string & { __tempPath: "tempPath" };
+
 export interface TempDir {
-  tmpPath: string;
+  writeUtf8File(contents: string): TempPath;
 }
 
-export async function mkdtemp(
-  prefix: string,
+export async function withTmpDir(
   callback: (tmpDir: TempDir) => Promise<void>,
 ): Promise<void> {
-  const tmpPath = stdFs.mkdtempSync(path.join(tmpDirRoot, prefix));
+  // Create temporary directories inside `tmpDirRoot` of the form `convex-<random>`.
+  const tmpPath = stdFs.mkdtempSync(path.join(tmpDirRoot, "convex"));
+  const tmpDir = {
+    writeUtf8File(contents: string): TempPath {
+      const filePath = path.join(tmpPath, crypto.randomUUID());
+      nodeFs.writeUtf8File(filePath, contents);
+      return filePath as TempPath;
+    },
+  };
   try {
-    await callback({ tmpPath });
+    await callback(tmpDir);
   } finally {
     stdFs.rmSync(tmpPath, { force: true, recursive: true });
   }
@@ -167,16 +176,13 @@ class NodeFs implements Filesystem {
       throw e;
     }
   }
-  rm(path: string, options?: { force?: boolean; recursive?: boolean }) {
-    stdFs.rmSync(path, options);
-  }
   rmdir(path: string) {
     stdFs.rmdirSync(path);
   }
   unlink(path: string) {
     return stdFs.unlinkSync(path);
   }
-  renameFile(fromPath: string, toPath: string) {
+  swapTmpFile(fromPath: TempPath, toPath: string) {
     try {
       return stdFs.renameSync(fromPath, toPath);
     } catch (e: any) {
@@ -189,7 +195,6 @@ class NodeFs implements Filesystem {
       throw e;
     }
   }
-
   registerPath(_path: string, _st: Stats | null) {
     // The node filesystem doesn't track reads, so we don't need to do anything here.
   }
@@ -343,31 +348,7 @@ export class RecordingFs implements Filesystem {
     }
     this.updateOnWrite(absPath);
   }
-  rm(entityPath: string, options?: { force?: boolean; recursive?: boolean }) {
-    const absPath = path.resolve(entityPath);
-    const isDir = this.exists(absPath) && this.stat(absPath).isDirectory();
 
-    // Handle `options.recursive` manually so that we correctly update our observations.
-    if (options?.recursive && isDir) {
-      const entries = this.listDir(entityPath);
-      for (const entry of entries) {
-        this.rm(path.join(absPath, entry.name), options);
-      }
-    }
-    try {
-      if (isDir) {
-        stdFs.rmdirSync(absPath);
-      } else {
-        stdFs.rmSync(absPath);
-      }
-    } catch (e: any) {
-      const allowed = options?.force && e.code === "ENOENT";
-      if (!allowed) {
-        throw e;
-      }
-    }
-    this.updateOnDelete(absPath);
-  }
   rmdir(dirPath: string) {
     const absPath = path.resolve(dirPath);
     stdFs.rmdirSync(absPath);
@@ -378,11 +359,9 @@ export class RecordingFs implements Filesystem {
     stdFs.unlinkSync(absPath);
     this.updateOnDelete(absPath);
   }
-  renameFile(fromPath: string, toPath: string) {
-    const absFromPath = path.resolve(fromPath);
+  swapTmpFile(fromPath: TempPath, toPath: string) {
     const absToPath = path.resolve(toPath);
-    nodeFs.renameFile(absFromPath, absToPath);
-    this.updateOnDelete(absFromPath);
+    nodeFs.swapTmpFile(fromPath, absToPath);
     this.updateOnWrite(absToPath);
   }
 

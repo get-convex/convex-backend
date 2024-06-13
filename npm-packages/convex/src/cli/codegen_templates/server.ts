@@ -1,6 +1,6 @@
-import { GeneratedJsWithTypes, header } from "./common.js";
+import { header } from "./common.js";
 
-export function serverCodegen(): GeneratedJsWithTypes {
+export function serverCodegen() {
   const serverDTS = `
     ${header(
       "Generated utilities for implementing server-side Convex query and mutation functions.",
@@ -27,7 +27,7 @@ export function serverCodegen(): GeneratedJsWithTypes {
      * @returns The wrapped query. Include this as an \`export\` to name it and make it accessible.
      */
     export declare const query: QueryBuilder<DataModel, "public">;
-    
+
     /**
      * Define a query that is only accessible from other Convex functions (but not from the client).
      *
@@ -63,7 +63,7 @@ export function serverCodegen(): GeneratedJsWithTypes {
      *
      * An action is a function which can execute any JavaScript code, including non-deterministic
      * code and code with side-effects, like calling third-party services.
-     * They can be run in Convex's JavaScript environment or in Node.js using the "use node" directive. 
+     * They can be run in Convex's JavaScript environment or in Node.js using the "use node" directive.
      * They can interact with the database indirectly by calling queries and mutations using the {@link ActionCtx}.
      *
      * @param func - The action. It receives an {@link ActionCtx} as its first argument.
@@ -197,7 +197,7 @@ export function serverCodegen(): GeneratedJsWithTypes {
      *
      * An action is a function which can execute any JavaScript code, including non-deterministic
      * code and code with side-effects, like calling third-party services.
-     * They can be run in Convex's JavaScript environment or in Node.js using the "use node" directive. 
+     * They can be run in Convex's JavaScript environment or in Node.js using the "use node" directive.
      * They can interact with the database indirectly by calling queries and mutations using the {@link ActionCtx}.
      *
      * @param func - The action. It receives an {@link ActionCtx} as its first argument.

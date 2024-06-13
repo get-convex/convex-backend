@@ -1,6 +1,7 @@
 import { Command } from "@commander-js/extra-typings";
 import { logFinishedStep, oneoffContext } from "../bundler/context.js";
 import { rootDirectory } from "./lib/utils.js";
+import { recursivelyDelete } from "./lib/fsUtils.js";
 
 export const logout = new Command("logout")
   .description("Log out of Convex on this machine")
@@ -8,7 +9,7 @@ export const logout = new Command("logout")
     const ctx = oneoffContext;
 
     const globalConfigDirectory = rootDirectory();
-    ctx.fs.rm(globalConfigDirectory, { recursive: true });
+    recursivelyDelete(ctx, globalConfigDirectory);
 
     logFinishedStep(
       ctx,

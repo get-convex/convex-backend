@@ -34,6 +34,7 @@ import { getTargetDeploymentName } from "./deployment.js";
 import { createHash } from "crypto";
 import { promisify } from "util";
 import zlib from "zlib";
+import { recursivelyDelete } from "./fsUtils.js";
 export { productionProvisionHost, provisionHost } from "./utils.js";
 
 const brotli = promisify(zlib.brotliCompress);
@@ -553,7 +554,7 @@ export function removedExistingConfig(
   if (!options.allowExistingConfig) {
     return false;
   }
-  ctx.fs.rm(configPath);
+  recursivelyDelete(ctx, configPath);
   logFinishedStep(ctx, `Removed existing ${configPath}`);
   return true;
 }

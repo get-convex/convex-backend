@@ -48,14 +48,12 @@ export async function runPush(ctx: Context, options: PushOptions) {
     const funcDir = functionsDir(configPath, projectConfig);
     await typeCheckFunctionsInMode(ctx, options.typecheck, funcDir);
   } else {
-    await doCodegen({
+    await doCodegen(
       ctx,
-      functionsDirectoryPath: functionsDir(configPath, projectConfig),
-      typeCheckMode: options.typecheck,
-      dryRun: options.dryRun,
-      debug: options.debug,
-      quiet: true,
-    });
+      functionsDir(configPath, projectConfig),
+      options.typecheck,
+      options,
+    );
     if (verbose) {
       logMessage(ctx, chalk.green("Codegen finished."));
     }

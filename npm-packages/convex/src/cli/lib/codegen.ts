@@ -1,10 +1,9 @@
 import path from "path";
 import prettier from "prettier";
-import { mkdtemp, nodeFs, TempDir } from "../../bundler/fs.js";
-import { entryPoints, walkDir } from "../../bundler/index.js";
+import { withTmpDir, TempDir } from "../../bundler/fs.js";
+import { entryPoints } from "../../bundler/index.js";
 import { apiCodegen } from "../codegen_templates/api.js";
 import { apiCjsCodegen } from "../codegen_templates/api_cjs.js";
-import { GeneratedJsWithTypes } from "../codegen_templates/common.js";
 import {
   dataModel,
   dataModelWithoutSchema,
@@ -20,413 +19,281 @@ import {
 } from "../../bundler/context.js";
 import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
 import { readProjectConfig } from "./config.js";
+import { recursivelyDelete } from "./fsUtils.js";
 
-/**
- * Run prettier so we don't have to think about formatting!
- *
- * This is a little sketchy because we are using the default prettier config
- * (not our user's one) but it's better than nothing.
- */
-function format(source: string, filetype: string): Promise<string> {
-  return prettier.format(source, { parser: filetype, pluginSearchDirs: false });
-}
-
-async function writeFile(
-  ctx: Context,
-  filename: string,
-  source: string,
-  dir: TempDir,
-  dryRun: boolean,
-  debug: boolean,
-  quiet: boolean,
-  filetype = "typescript",
-) {
-  const formattedSource = await format(source, filetype);
-  const dest = path.join(dir.tmpPath, filename);
-  if (debug) {
-    logOutput(ctx, `# ${filename}`);
-    logOutput(ctx, formattedSource);
-    return;
-  }
-  if (dryRun) {
-    if (ctx.fs.exists(dest)) {
-      const fileText = ctx.fs.readUtf8File(dest);
-      if (fileText !== formattedSource) {
-        logOutput(ctx, `Command would replace file: ${dest}`);
-      }
-    } else {
-      logOutput(ctx, `Command would create file: ${dest}`);
-    }
-    return;
-  }
-
-  if (!quiet) {
-    logMessage(ctx, `writing ${filename}`);
-  }
-
-  nodeFs.writeUtf8File(dest, formattedSource);
-}
-
-async function writeJsWithTypes(
-  ctx: Context,
-  name: string,
-  content: GeneratedJsWithTypes,
-  codegenDir: TempDir,
-  dryRun: boolean,
-  debug: boolean,
-  quiet: boolean,
-) {
-  const [jsName, dtsName] = name.endsWith(".cjs")
-    ? [name, `${name.slice(0, -4)}.d.cts`]
-    : name.endsWith(".mjs")
-      ? [name, `${name.slice(0, -4)}.d.mts`]
-      : name.endsWith(".js")
-        ? [name, `${name.slice(0, -3)}.d.ts`]
-        : [`${name}.js`, `${name}.d.ts`];
-  await writeFile(ctx, dtsName, content.DTS, codegenDir, dryRun, debug, quiet);
-  if (content.JS) {
-    await writeFile(ctx, jsName, content.JS, codegenDir, dryRun, debug, quiet);
-  }
-}
-
-async function doServerCodegen(
-  ctx: Context,
-  codegenDir: TempDir,
-  dryRun: boolean,
-  hasSchemaFile: boolean,
-  debug: boolean,
-  quiet = false,
-) {
-  if (hasSchemaFile) {
-    await writeJsWithTypes(
-      ctx,
-      "dataModel",
-      dataModel,
-      codegenDir,
-      dryRun,
-      debug,
-      quiet,
-    );
-  } else {
-    await writeJsWithTypes(
-      ctx,
-      "dataModel",
-      dataModelWithoutSchema,
-      codegenDir,
-      dryRun,
-      debug,
-      quiet,
-    );
-  }
-  await writeJsWithTypes(
-    ctx,
-    "server",
-    serverCodegen(),
-    codegenDir,
-    dryRun,
-    debug,
-    quiet,
-  );
-}
-
-async function doApiCodegen(
+export async function doInitCodegen(
   ctx: Context,
   functionsDir: string,
-  codegenDir: TempDir,
-  dryRun: boolean,
-  debug: boolean,
-  quiet = false,
-  commonjs = false,
-) {
-  const modulePaths = (await entryPoints(ctx, functionsDir, false)).map(
-    (entryPoint) => path.relative(functionsDir, entryPoint),
-  );
-  await writeJsWithTypes(
-    ctx,
-    "api",
-    apiCodegen(modulePaths),
-    codegenDir,
-    dryRun,
-    debug,
-    quiet,
-  );
-  if (commonjs) {
-    // We might generate a .d.ts file too if users need it
-    // since .d.cts may not be supported in older versions of TypeScript
-    await writeJsWithTypes(
-      ctx,
-      "api_cjs.cjs",
-      apiCjsCodegen(modulePaths),
-      codegenDir,
-      dryRun,
-      debug,
-      quiet,
-    );
-  }
+  skipIfExists: boolean,
+  opts?: { dryRun?: boolean; debug?: boolean },
+): Promise<void> {
+  await withTmpDir(async (tmpDir) => {
+    await doReadmeCodegen(ctx, tmpDir, functionsDir, skipIfExists, opts);
+    await doTsconfigCodegen(ctx, tmpDir, functionsDir, skipIfExists, opts);
+  });
 }
 
-export async function doCodegen({
-  ctx,
-  functionsDirectoryPath,
-  typeCheckMode,
-  dryRun = false,
-  debug = false,
-  quiet = false,
-  generateCommonJSApi = false,
-}: {
-  ctx: Context;
-  functionsDirectoryPath: string;
-  typeCheckMode: TypeCheckMode;
-  dryRun?: boolean;
-  debug?: boolean;
-  quiet?: boolean;
-  generateCommonJSApi?: boolean;
-}): Promise<void> {
+export async function doCodegen(
+  ctx: Context,
+  functionsDir: string,
+  typeCheckMode: TypeCheckMode,
+  opts?: { dryRun?: boolean; generateCommonJSApi?: boolean; debug?: boolean },
+) {
   const { projectConfig } = await readProjectConfig(ctx);
   // Delete the old _generated.ts because v0.1.2 used to put the react generated
   // code there
-  const legacyCodegenPath = path.join(functionsDirectoryPath, "_generated.ts");
+  const legacyCodegenPath = path.join(functionsDir, "_generated.ts");
   if (ctx.fs.exists(legacyCodegenPath)) {
-    if (!dryRun) {
-      logError(ctx, `Deleting legacy codegen file: ${legacyCodegenPath}}`);
-      ctx.fs.unlink(legacyCodegenPath);
-    } else {
+    if (opts?.dryRun) {
       logError(
         ctx,
         `Command would delete legacy codegen file: ${legacyCodegenPath}}`,
       );
+    } else {
+      logError(ctx, `Deleting legacy codegen file: ${legacyCodegenPath}}`);
+      ctx.fs.unlink(legacyCodegenPath);
     }
   }
 
-  // Create the function dir if it doesn't already exist.
-  ctx.fs.mkdir(functionsDirectoryPath, { allowExisting: true });
+  // Create the codegen dir if it doesn't already exist.
+  const codegenDir = path.join(functionsDir, "_generated");
+  ctx.fs.mkdir(codegenDir, { allowExisting: true, recursive: true });
 
-  const schemaPath = path.join(functionsDirectoryPath, "schema.ts");
-  const hasSchemaFile = ctx.fs.exists(schemaPath);
+  await withTmpDir(async (tmpDir) => {
+    // Write files in dependency order so a watching dev server doesn't
+    // see inconsistent results where a file we write imports from a
+    // file that doesn't exist yet. We'll collect all the paths we write
+    // and then delete any remaining paths at the end.
+    const writtenFiles = [];
 
-  // Recreate the codegen directory in a temp location
-  await mkdtemp("_generated", async (tempCodegenDir) => {
-    // Do things in a careful order so that we always generate code in
-    // dependency order.
-    //
-    // Ideally we would also typecheck sources before we use them. However,
-    // we can't typecheck a single file while respecting the tsconfig, which can
-    // produce misleading errors. Instead, we'll typecheck the generated code at
-    // the end.
-    //
-    // The dependency chain is:
-    // _generated/api.js
-    // -> query and mutation functions
-    // -> _generated/server.js
-    // -> schema.ts
-    // (where -> means "depends on")
-
-    // 1. Use the schema.ts file to create the server codegen
-    await doServerCodegen(
+    // First, `dataModel.d.ts` imports from the developer's `schema.js` file.
+    const schemaFiles = await doDataModelCodegen(
       ctx,
-      tempCodegenDir,
-      dryRun,
-      hasSchemaFile,
-      debug,
-      quiet,
+      tmpDir,
+      functionsDir,
+      codegenDir,
+      opts,
     );
+    writtenFiles.push(...schemaFiles);
 
-    // 2. Generate API
-    await doApiCodegen(
+    // Next, the `server.d.ts` file imports from `dataModel.d.ts`.
+    const serverFiles = await doServerCodegen(ctx, tmpDir, codegenDir, opts);
+    writtenFiles.push(...serverFiles);
+
+    // The `api.d.ts` file imports from the developer's modules, which then
+    // import from `server.d.ts`. Note that there's a cycle here, since the
+    // developer's modules could also import from the `api.{js,d.ts}` files.
+    const apiFiles = await doApiCodegen(
       ctx,
-      functionsDirectoryPath,
-      tempCodegenDir,
-      dryRun,
-      debug,
-      quiet,
-      generateCommonJSApi || projectConfig.generateCommonJSApi,
+      tmpDir,
+      functionsDir,
+      codegenDir,
+      opts?.generateCommonJSApi || projectConfig.generateCommonJSApi,
+      opts,
     );
+    writtenFiles.push(...apiFiles);
 
-    // If any files differ replace the codegen directory with its new contents
-    if (!debug && !dryRun) {
-      const codegenDir = path.join(functionsDirectoryPath, "_generated");
-      if (!canSkipSync(ctx, tempCodegenDir, codegenDir)) {
-        syncFromTemp(ctx, tempCodegenDir, codegenDir, true);
+    // Cleanup any files that weren't written in this run.
+    for (const file of ctx.fs.listDir(codegenDir)) {
+      if (!writtenFiles.includes(file.name)) {
+        recursivelyDelete(ctx, path.join(codegenDir, file.name), opts);
       }
     }
 
     // Generated code is updated, typecheck the query and mutation functions.
-    await typeCheckFunctionsInMode(ctx, typeCheckMode, functionsDirectoryPath);
-  });
-}
-
-function zipLongest<T>(a: T[], b: T[]): [T?, T?][] {
-  return [...Array(Math.max(a.length, b.length)).keys()].map((i) => [
-    a[i],
-    b[i],
-  ]);
-}
-
-function canSkipSync(ctx: Context, tempDir: TempDir, destDir: string) {
-  if (!ctx.fs.exists(destDir)) return false;
-  for (const [tmp, dest] of zipLongest(
-    [...walkDir(ctx.fs, tempDir.tmpPath)],
-    [...walkDir(ctx.fs, destDir)],
-  )) {
-    if (!tmp || !dest) return false;
-    const tmpRelPath = path.relative(tempDir.tmpPath, tmp.path);
-    const destRelPath = path.relative(destDir, dest.path);
-    if (tmpRelPath !== destRelPath) return false;
-    if (tmp.isDir !== dest.isDir) return false;
-    if (tmp.isDir) continue;
-    if (ctx.fs.readUtf8File(tmp.path) !== ctx.fs.readUtf8File(dest.path)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// TODO: this externalizes partial state to the watching dev server (eg vite)
-// Frameworks appear to be resilient to this - but if we find issues, we
-// could tighten this up per exchangedata(2) and renameat(2) - working
-// under the assumption that the temp dir is on the same filesystem
-// as the watched directory.
-function syncFromTemp(
-  ctx: Context,
-  tempDir: TempDir,
-  destDir: string,
-  eliminateExtras: boolean, // Eliminate extra files in destDir
-) {
-  ctx.fs.mkdir(destDir, { allowExisting: true });
-  const added = new Set();
-  // Copy in the newly codegen'd files
-  // Use Array.from to prevent mutation-while-iterating
-  for (const { isDir, path: fpath } of Array.from(
-    walkDir(ctx.fs, tempDir.tmpPath),
-  )) {
-    const relPath = path.relative(tempDir.tmpPath, fpath);
-    const destPath = path.join(destDir, relPath);
-
-    // Remove anything existing at the dest path.
-    if (ctx.fs.exists(destPath)) {
-      if (ctx.fs.stat(destPath).isDirectory()) {
-        if (!isDir) {
-          // converting dir -> file. Blow away old dir.
-          ctx.fs.rm(destPath, { recursive: true });
-        }
-        // Keep directory around in this case.
-      } else {
-        // Blow away files
-        ctx.fs.unlink(destPath);
-      }
-    }
-
-    // Move in the new file
-    if (isDir) {
-      ctx.fs.mkdir(destPath, { allowExisting: true });
-    } else {
-      ctx.fs.renameFile(fpath, destPath);
-    }
-    added.add(destPath);
-  }
-  // Eliminate any extra files/dirs in the destDir. Iterate in reverse topological
-  // because we're removing files.
-  // Use Array.from to prevent mutation-while-iterating
-  if (eliminateExtras) {
-    const destEntries = Array.from(walkDir(ctx.fs, destDir)).reverse();
-    for (const { isDir, path: fpath } of destEntries) {
-      if (!added.has(fpath)) {
-        if (isDir) {
-          ctx.fs.rmdir(fpath);
-        } else {
-          ctx.fs.unlink(fpath);
-        }
-      }
-    }
-  }
-}
-
-export async function doInitCodegen({
-  ctx,
-  functionsDirectoryPath,
-  dryRun = false,
-  debug = false,
-  quiet = false,
-  overwrite = false,
-}: {
-  ctx: Context;
-  functionsDirectoryPath: string;
-  dryRun?: boolean;
-  debug?: boolean;
-  quiet?: boolean;
-  overwrite?: boolean;
-}): Promise<void> {
-  await mkdtemp("convex", async (tempFunctionsDir) => {
-    await doReadmeCodegen(
-      ctx,
-      tempFunctionsDir,
-      dryRun,
-      debug,
-      quiet,
-      overwrite ? undefined : functionsDirectoryPath,
-    );
-    await doTsconfigCodegen(
-      ctx,
-      tempFunctionsDir,
-      dryRun,
-      debug,
-      quiet,
-      overwrite ? undefined : functionsDirectoryPath,
-    );
-    syncFromTemp(ctx, tempFunctionsDir, functionsDirectoryPath, false);
+    await typeCheckFunctionsInMode(ctx, typeCheckMode, functionsDir);
   });
 }
 
 async function doReadmeCodegen(
   ctx: Context,
-  tempFunctionsDir: TempDir,
-  dryRun = false,
-  debug = false,
-  quiet = false,
-  dontOverwriteFinalDestination?: string,
+  tmpDir: TempDir,
+  functionsDir: string,
+  skipIfExists: boolean,
+  opts?: { dryRun?: boolean; debug?: boolean },
 ) {
-  if (
-    dontOverwriteFinalDestination &&
-    ctx.fs.exists(path.join(dontOverwriteFinalDestination, "README.md"))
-  ) {
-    logMessage(ctx, `not overwriting README.md`);
+  const readmePath = path.join(functionsDir, "README.md");
+  if (skipIfExists && ctx.fs.exists(readmePath)) {
+    logMessage(ctx, `Not overwriting README.md.`);
     return;
   }
-  await writeFile(
+  await writeFormattedFile(
     ctx,
-    "README.md",
+    tmpDir,
     readmeCodegen(),
-    tempFunctionsDir,
-    dryRun,
-    debug,
-    quiet,
     "markdown",
+    readmePath,
+    opts,
   );
 }
 
 async function doTsconfigCodegen(
   ctx: Context,
-  tempFunctionsDir: TempDir,
-  dryRun = false,
-  debug = false,
-  quiet = false,
-  dontOverwriteFinalDestination?: string,
+  tmpDir: TempDir,
+  functionsDir: string,
+  skipIfExists: boolean,
+  opts?: { dryRun?: boolean; debug?: boolean },
 ) {
-  if (
-    dontOverwriteFinalDestination &&
-    ctx.fs.exists(path.join(dontOverwriteFinalDestination, "tsconfig.json"))
-  ) {
-    logMessage(ctx, `not overwriting tsconfig.json`);
+  const tsconfigPath = path.join(functionsDir, "tsconfig.json");
+  if (skipIfExists && ctx.fs.exists(tsconfigPath)) {
+    logMessage(ctx, `Not overwriting tsconfig.json.`);
     return;
   }
-  await writeFile(
+  await writeFormattedFile(
     ctx,
-    "tsconfig.json",
+    tmpDir,
     tsconfigCodegen(),
-    tempFunctionsDir,
-    dryRun,
-    debug,
-    quiet,
     "json",
+    tsconfigPath,
+    opts,
   );
+}
+
+async function doDataModelCodegen(
+  ctx: Context,
+  tmpDir: TempDir,
+  functionsDir: string,
+  codegenDir: string,
+  opts?: { dryRun?: boolean; debug?: boolean },
+) {
+  const schemaPath = path.join(functionsDir, "schema.ts");
+  const hasSchemaFile = ctx.fs.exists(schemaPath);
+  const schemaContent = hasSchemaFile ? dataModel : dataModelWithoutSchema;
+
+  await writeFormattedFile(
+    ctx,
+    tmpDir,
+    schemaContent.DTS,
+    "typescript",
+    path.join(codegenDir, "dataModel.d.ts"),
+    opts,
+  );
+  return ["dataModel.d.ts"];
+}
+
+async function doServerCodegen(
+  ctx: Context,
+  tmpDir: TempDir,
+  codegenDir: string,
+  opts?: { dryRun?: boolean; debug?: boolean },
+) {
+  const serverContent = serverCodegen();
+  await writeFormattedFile(
+    ctx,
+    tmpDir,
+    serverContent.JS,
+    "typescript",
+    path.join(codegenDir, "server.js"),
+    opts,
+  );
+
+  await writeFormattedFile(
+    ctx,
+    tmpDir,
+    serverContent.DTS,
+    "typescript",
+    path.join(codegenDir, "server.d.ts"),
+    opts,
+  );
+
+  return ["server.js", "server.d.ts"];
+}
+
+async function doApiCodegen(
+  ctx: Context,
+  tmpDir: TempDir,
+  functionsDir: string,
+  codegenDir: string,
+  generateCommonJSApi: boolean,
+  opts?: { dryRun?: boolean; debug?: boolean },
+) {
+  const absModulePaths = await entryPoints(ctx, functionsDir, false);
+  const modulePaths = absModulePaths.map((p) => path.relative(functionsDir, p));
+
+  const apiContent = apiCodegen(modulePaths);
+  await writeFormattedFile(
+    ctx,
+    tmpDir,
+    apiContent.JS,
+    "typescript",
+    path.join(codegenDir, "api.js"),
+    opts,
+  );
+  await writeFormattedFile(
+    ctx,
+    tmpDir,
+    apiContent.DTS,
+    "typescript",
+    path.join(codegenDir, "api.d.ts"),
+    opts,
+  );
+  const writtenFiles = ["api.js", "api.d.ts"];
+
+  if (generateCommonJSApi) {
+    const apiCjsContent = apiCjsCodegen(modulePaths);
+    await writeFormattedFile(
+      ctx,
+      tmpDir,
+      apiCjsContent.JS,
+      "typescript",
+      path.join(codegenDir, "api_cjs.cjs"),
+      opts,
+    );
+    await writeFormattedFile(
+      ctx,
+      tmpDir,
+      apiCjsContent.DTS,
+      "typescript",
+      path.join(codegenDir, "api_cjs.d.cts"),
+      opts,
+    );
+    writtenFiles.push("api_cjs.cjs", "api_cjs.d.cts");
+  }
+
+  return writtenFiles;
+}
+
+async function writeFormattedFile(
+  ctx: Context,
+  tmpDir: TempDir,
+  contents: string,
+  filetype: string,
+  destination: string,
+  options?: {
+    dryRun?: boolean;
+    debug?: boolean;
+  },
+) {
+  // Run prettier so we don't have to think about formatting!
+  //
+  // This is a little sketchy because we are using the default prettier config
+  // (not our user's one) but it's better than nothing.
+  const formattedContents = await prettier.format(contents, {
+    parser: filetype,
+    pluginSearchDirs: false,
+  });
+  if (options?.debug) {
+    // NB: The `test_codegen_projects_are_up_to_date` smoke test depends
+    // on this output format.
+    logOutput(ctx, `# ${path.basename(destination)}`);
+    logOutput(ctx, formattedContents);
+    return;
+  }
+  try {
+    const existing = ctx.fs.readUtf8File(destination);
+    if (existing === formattedContents) {
+      return;
+    }
+  } catch (err: any) {
+    if (err.code !== "ENOENT") {
+      // eslint-disable-next-line no-restricted-syntax
+      throw err;
+    }
+  }
+  if (options?.dryRun) {
+    logOutput(ctx, `Command would write file: ${destination}`);
+    return;
+  }
+  const tmpPath = tmpDir.writeUtf8File(formattedContents);
+  ctx.fs.swapTmpFile(tmpPath, destination);
 }

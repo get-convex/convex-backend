@@ -1,4 +1,4 @@
-import { GeneratedJsWithTypes, header } from "./common.js";
+import { header } from "./common.js";
 
 export function importPath(modulePath: string) {
   // Replace backslashes with forward slashes.
@@ -21,7 +21,7 @@ export function moduleIdentifier(modulePath: string) {
   return safeModulePath;
 }
 
-export function apiCodegen(modulePaths: string[]): GeneratedJsWithTypes {
+export function apiCodegen(modulePaths: string[]) {
   const apiDTS = `${header("Generated `api` utility.")}
   import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
   ${modulePaths
@@ -35,7 +35,7 @@ export function apiCodegen(modulePaths: string[]): GeneratedJsWithTypes {
 
   /**
    * A utility for referencing Convex functions in your app's API.
-   * 
+   *
    * Usage:
    * \`\`\`js
    * const myFunctionReference = api.myModule.myFunction;
@@ -58,7 +58,7 @@ export function apiCodegen(modulePaths: string[]): GeneratedJsWithTypes {
 
   /**
    * A utility for referencing Convex functions in your app's API.
-   * 
+   *
    * Usage:
    * \`\`\`js
    * const myFunctionReference = api.myModule.myFunction;

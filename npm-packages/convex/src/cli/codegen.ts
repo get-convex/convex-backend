@@ -42,12 +42,9 @@ export const codegen = new Command("codegen")
     await ensureHasConvexDependency(ctx, "codegen");
 
     if (options.init) {
-      await doInitCodegen({
-        ctx,
-        functionsDirectoryPath,
+      await doInitCodegen(ctx, functionsDirectoryPath, false, {
         dryRun: options.dryRun,
         debug: options.debug,
-        overwrite: true,
       });
     }
 
@@ -55,10 +52,7 @@ export const codegen = new Command("codegen")
       logMessage(ctx, chalk.gray("Running TypeScript typecheck…"));
     }
 
-    await doCodegen({
-      ctx,
-      functionsDirectoryPath: functionsDirectoryPath,
-      typeCheckMode: options.typecheck,
+    await doCodegen(ctx, functionsDirectoryPath, options.typecheck, {
       dryRun: options.dryRun,
       debug: options.debug,
       generateCommonJSApi: options.commonjs,
