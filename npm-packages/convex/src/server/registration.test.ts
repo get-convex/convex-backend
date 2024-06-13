@@ -73,13 +73,22 @@ describe("argument inference", () => {
         return "result";
       },
     }),
-    // This error could be prettier if we stop overloading the builders.
-    // @ts-expect-error  The arg type mismatches
     configValidatorMismatchedTypedArg: mutation({
       args: {
         _arg: v.number(),
       },
+      // @ts-expect-error  The arg type mismatches
       handler: (_, { _arg }: { _arg: string }) => {
+        return "result";
+      },
+    }),
+    configValidatorReturn: mutation({
+      args: {
+        _arg: v.number(),
+      },
+      returns: v.number(),
+      // @ts-expect-error  The return type mismatches
+      handler: (_, { _arg }) => {
         return "result";
       },
     }),
@@ -100,6 +109,7 @@ describe("argument inference", () => {
       },
     }),
     configTypedOptionalDefaultArg: mutation({
+      // This syntax is incidentally allowed, it is not supported.
       handler: (_, { arg }: { arg?: string } = { arg: "default" }) => {
         assert<Equals<typeof arg, string | undefined>>;
         return "result";
@@ -109,7 +119,6 @@ describe("argument inference", () => {
       args: {
         arg: v.string(),
       },
-      // @ts-expect-error This syntax has never been allowed.
       handler: (_, { arg } = { arg: "default" }) => {
         assert<Equals<typeof arg, string>>;
         return "result";
@@ -139,6 +148,8 @@ describe("argument inference", () => {
   test("inline with no arg", () => {
     type Args = API["module"]["inlineNoArg"]["_args"];
     assert<Equals<Args, EmptyObject>>();
+    type ReturnType = API["module"]["inlineNoArg"]["_returnType"];
+    assert<Equals<ReturnType, string>>();
   });
 
   test("inline with untyped arg", () => {
@@ -164,7 +175,7 @@ describe("argument inference", () => {
   // This syntax is a type error where it is defined so it falls back.
   test("inline with typed arg with default value", () => {
     type Args = API["module"]["inlineTypedDefaultArg"]["_args"];
-    type ExpectedArgs = Record<string, any>;
+    type ExpectedArgs = Record<string, unknown>;
     assert<Equals<Args, ExpectedArgs>>;
   });
 
@@ -229,7 +240,7 @@ describe("argument inference", () => {
   test("config with typed arg and a default", () => {
     type Args = API["module"]["configTypedDefaultArg"]["_args"];
     // This is a type error at the definition site so this is the fallback.
-    type ExpectedArgs = Record<string, any>;
+    type ExpectedArgs = Record<string, unknown>;
     assert<Equals<Args, ExpectedArgs>>;
   });
 

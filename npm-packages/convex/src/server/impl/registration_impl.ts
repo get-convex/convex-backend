@@ -161,7 +161,7 @@ function exportReturns(functionDefinition: FunctionDefinition) {
  *
  * @public
  */
-export const mutationGeneric: MutationBuilder<any, "public"> = (
+export const mutationGeneric: MutationBuilder<any, "public"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
   const func = (
@@ -182,7 +182,7 @@ export const mutationGeneric: MutationBuilder<any, "public"> = (
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   return func;
-};
+}) as MutationBuilder<any, "public">;
 
 /**
  * Define a mutation that is only accessible from other Convex functions (but not from the client).
@@ -197,7 +197,7 @@ export const mutationGeneric: MutationBuilder<any, "public"> = (
  *
  * @public
  */
-export const internalMutationGeneric: MutationBuilder<any, "internal"> = (
+export const internalMutationGeneric: MutationBuilder<any, "internal"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
   const func = (
@@ -218,7 +218,7 @@ export const internalMutationGeneric: MutationBuilder<any, "internal"> = (
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   return func;
-};
+}) as MutationBuilder<any, "internal">;
 
 async function invokeQuery<
   F extends (ctx: GenericQueryCtx<GenericDataModel>, ...args: any) => any,
@@ -250,7 +250,7 @@ async function invokeQuery<
  *
  * @public
  */
-export const queryGeneric: QueryBuilder<any, "public"> = (
+export const queryGeneric: QueryBuilder<any, "public"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
   const func = (
@@ -271,7 +271,7 @@ export const queryGeneric: QueryBuilder<any, "public"> = (
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   return func;
-};
+}) as QueryBuilder<any, "public">;
 
 /**
  * Define a query that is only accessible from other Convex functions (but not from the client).
@@ -286,7 +286,7 @@ export const queryGeneric: QueryBuilder<any, "public"> = (
  *
  * @public
  */
-export const internalQueryGeneric: QueryBuilder<any, "internal"> = (
+export const internalQueryGeneric: QueryBuilder<any, "internal"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
   const func = (
@@ -307,7 +307,7 @@ export const internalQueryGeneric: QueryBuilder<any, "internal"> = (
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   return func;
-};
+}) as QueryBuilder<any, "internal">;
 
 async function invokeAction<
   F extends (ctx: GenericActionCtx<GenericDataModel>, ...args: any) => any,
@@ -336,7 +336,7 @@ async function invokeAction<
  *
  * @public
  */
-export const actionGeneric: ActionBuilder<any, "public"> = (
+export const actionGeneric: ActionBuilder<any, "public"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
   const func = (
@@ -358,7 +358,7 @@ export const actionGeneric: ActionBuilder<any, "public"> = (
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   return func;
-};
+}) as ActionBuilder<any, "public">;
 
 /**
  * Define an action that is only accessible from other Convex functions (but not from the client).
@@ -371,7 +371,7 @@ export const actionGeneric: ActionBuilder<any, "public"> = (
  *
  * @public
  */
-export const internalActionGeneric: ActionBuilder<any, "internal"> = (
+export const internalActionGeneric: ActionBuilder<any, "internal"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
   const func = (
@@ -393,7 +393,7 @@ export const internalActionGeneric: ActionBuilder<any, "internal"> = (
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   return func;
-};
+}) as ActionBuilder<any, "internal">;
 
 async function invokeHttpAction<
   F extends (ctx: GenericActionCtx<GenericDataModel>, request: Request) => any,

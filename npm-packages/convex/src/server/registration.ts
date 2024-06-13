@@ -13,6 +13,7 @@ import {
   ValidatorTypeToReturnType,
 } from "../server/api.js";
 import {
+  Infer,
   ObjectType,
   PropertyValidators,
   Validator,
@@ -479,6 +480,28 @@ export interface ArgsAndReturnsValidatedFunction<
   ) => ValidatorTypeToReturnType<ReturnsValidator["type"]>;
 }
 
+// These types use a tuple of length 1 to avoid distribution over the union
+// https://github.com/microsoft/TypeScript/issues/29368#issuecomment-453529532
+// We also use `void` instead of `undefined` so that this works with `strictNullChecks: false`
+// which would treat `T | undefined` as equivalent to `T`.
+type ReturnValueForOptionalValidator<
+  ReturnsValidator extends Validator<any, any, any> | void,
+> = [ReturnsValidator] extends [Validator<any, any, any>]
+  ? ValidatorTypeToReturnType<Infer<ReturnsValidator>>
+  : any;
+
+type ArgsArrayForOptionalValidator<
+  ArgsValidator extends PropertyValidators | void,
+> = [ArgsValidator] extends [PropertyValidators]
+  ? OneArgArray<ObjectType<ArgsValidator>>
+  : ArgsArray;
+
+type DefaultArgsForOptionalValidator<
+  ArgsValidator extends PropertyValidators | void,
+> = [ArgsValidator] extends [PropertyValidators]
+  ? [ObjectType<ArgsValidator>]
+  : OneArgArray;
+
 /**
  * Internal type helper used by Convex code generation.
  *
@@ -489,38 +512,36 @@ export type MutationBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = {
-  <Returns, ArgsValidator extends PropertyValidators>(
-    func: ValidatedFunction<
-      GenericMutationCtx<DataModel>,
-      ArgsValidator,
-      Returns
-    >,
-  ): RegisteredMutation<Visibility, ObjectType<ArgsValidator>, Returns>;
-
-  /**
-   * Validate the arguments and return value of a function.
-   * Useful for generating API specs for functions.
-   *
-   * @internal
-   */
   <
-    ReturnsValidator extends Validator<any, any, any>,
-    ArgsValidator extends PropertyValidators,
+    ArgsValidator extends PropertyValidators | void,
+    ReturnsValidator extends Validator<any, any, any> | void,
+    ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
+    OneOrZeroArgs extends
+      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
-    func: ArgsAndReturnsValidatedFunction<
-      GenericMutationCtx<DataModel>,
-      ArgsValidator,
-      ReturnsValidator
-    >,
+    mutation:
+      | {
+          args?: ArgsValidator;
+          returns?: ReturnsValidator;
+          handler: (
+            ctx: GenericMutationCtx<DataModel>,
+            ...args: OneOrZeroArgs
+          ) => ReturnValue;
+        }
+      | {
+          // args and returns could be allowed here but this doesn't work at runtime today
+          //args?: ArgsValidator;
+          //returns?: ReturnsValidator;
+          (
+            ctx: GenericMutationCtx<DataModel>,
+            ...args: OneOrZeroArgs
+          ): ReturnValue;
+        },
   ): RegisteredMutation<
     Visibility,
-    ObjectType<ArgsValidator>,
-    ValidatorTypeToReturnType<ReturnsValidator["type"]>
+    ArgsArrayToObject<OneOrZeroArgs>,
+    ReturnValue
   >;
-
-  <Returns, Args extends ArgsArray = OneArgArray>(
-    func: UnvalidatedFunction<GenericMutationCtx<DataModel>, Args, Returns>,
-  ): RegisteredMutation<Visibility, ArgsArrayToObject<Args>, Returns>;
 };
 
 /**
@@ -533,34 +554,29 @@ export type QueryBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = {
-  <Returns, ArgsValidator extends PropertyValidators>(
-    func: ValidatedFunction<GenericQueryCtx<DataModel>, ArgsValidator, Returns>,
-  ): RegisteredQuery<Visibility, ObjectType<ArgsValidator>, Returns>;
-
-  /**
-   * Validate the arguments and return value of a function.
-   * Useful for generating API specs for functions.
-   *
-   * @internal
-   */
   <
-    ReturnsValidator extends Validator<any, any, any>,
-    ArgsValidator extends PropertyValidators,
+    ArgsValidator extends PropertyValidators | void,
+    ReturnsValidator extends Validator<any, any, any> | void,
+    ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
+    OneOrZeroArgs extends
+      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
-    func: ArgsAndReturnsValidatedFunction<
-      GenericQueryCtx<DataModel>,
-      ArgsValidator,
-      ReturnsValidator
-    >,
-  ): RegisteredQuery<
-    Visibility,
-    ObjectType<ArgsValidator>,
-    ValidatorTypeToReturnType<ReturnsValidator["type"]>
-  >;
-
-  <Returns, Args extends ArgsArray = OneArgArray>(
-    func: UnvalidatedFunction<GenericQueryCtx<DataModel>, Args, Returns>,
-  ): RegisteredQuery<Visibility, ArgsArrayToObject<Args>, Returns>;
+    query:
+      | {
+          args?: ArgsValidator;
+          returns?: ReturnsValidator;
+          handler: (
+            ctx: GenericQueryCtx<DataModel>,
+            ...args: OneOrZeroArgs
+          ) => ReturnValue;
+        }
+      | {
+          (
+            ctx: GenericQueryCtx<DataModel>,
+            ...args: OneOrZeroArgs
+          ): ReturnValue;
+        },
+  ): RegisteredQuery<Visibility, ArgsArrayToObject<OneOrZeroArgs>, ReturnValue>;
 };
 
 /**
@@ -573,38 +589,33 @@ export type ActionBuilder<
   DataModel extends GenericDataModel,
   Visibility extends FunctionVisibility,
 > = {
-  <Returns, ArgsValidator extends PropertyValidators>(
-    func: ValidatedFunction<
-      GenericActionCtx<DataModel>,
-      ArgsValidator,
-      Returns
-    >,
-  ): RegisteredAction<Visibility, ObjectType<ArgsValidator>, Returns>;
-
-  /**
-   * Validate the arguments and return value of a function.
-   * Useful for generating API specs for functions.
-   *
-   * @internal
-   */
   <
-    ReturnsValidator extends Validator<any, any, any>,
-    ArgsValidator extends PropertyValidators,
+    ArgsValidator extends PropertyValidators | void,
+    ReturnsValidator extends Validator<any, any, any> | void,
+    ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
+    OneOrZeroArgs extends
+      ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
   >(
-    func: ArgsAndReturnsValidatedFunction<
-      GenericActionCtx<DataModel>,
-      ArgsValidator,
-      ReturnsValidator
-    >,
+    func:
+      | {
+          args?: ArgsValidator;
+          returns?: ReturnsValidator;
+          handler: (
+            ctx: GenericActionCtx<DataModel>,
+            ...args: OneOrZeroArgs
+          ) => ReturnValue;
+        }
+      | {
+          (
+            ctx: GenericActionCtx<DataModel>,
+            ...args: OneOrZeroArgs
+          ): ReturnValue;
+        },
   ): RegisteredAction<
     Visibility,
-    ObjectType<ArgsValidator>,
-    ValidatorTypeToReturnType<ReturnsValidator["type"]>
+    ArgsArrayToObject<OneOrZeroArgs>,
+    ReturnValue
   >;
-
-  <Returns, Args extends ArgsArray = OneArgArray>(
-    func: UnvalidatedFunction<GenericActionCtx<DataModel>, Args, Returns>,
-  ): RegisteredAction<Visibility, ArgsArrayToObject<Args>, Returns>;
 };
 
 /**
