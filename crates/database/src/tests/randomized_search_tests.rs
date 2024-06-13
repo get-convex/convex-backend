@@ -624,33 +624,22 @@ async fn test_search_score(rt: TestRuntime) -> anyhow::Result<()> {
         search: vec![TestValue::A],
         filter: None,
     };
-    // Search scoring will be different with multisegment search query.
-    let is_multi_segment = std::env::var("USE_MULTI_SEGMENT_SEARCH_QUERY").is_ok()
-        || std::env::var("BUILD_MULTI_SEGMENT_TEXT_INDEXES").is_ok();
     {
         let results = scenario
             .query_with_scores(&query, None, SearchVersion::V1)
             .await?;
         assert_eq!(results.len(), 1);
 
-        if is_multi_segment {
-            assert_approx_equal(results.first().unwrap().1, 0.2876);
-        } else {
-            // Constant taken from https://github.com/quickwit-oss/tantivy/blob/main/src/query/term_query/mod.rs#L20
-            assert_approx_equal(results.first().unwrap().1, 1.);
-        }
+        assert_approx_equal(results.first().unwrap().1, 0.2876);
     }
+
     {
         let results = scenario
             .query_with_scores(&query, None, SearchVersion::V2)
             .await?;
         assert_eq!(results.len(), 1);
-        if is_multi_segment {
-            assert_approx_equal(results.first().unwrap().1, 0.2876);
-        } else {
-            // Constant taken from https://github.com/quickwit-oss/tantivy/blob/main/src/query/term_query/mod.rs#L20
-            assert_approx_equal(results.first().unwrap().1, 1.);
-        }
+
+        assert_approx_equal(results.first().unwrap().1, 0.2876);
     }
     anyhow::Ok(())
 }
