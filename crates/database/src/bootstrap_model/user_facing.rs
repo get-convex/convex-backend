@@ -3,7 +3,6 @@ use std::{
     collections::BTreeMap,
 };
 
-use anyhow::Context;
 use common::{
     document::{
         DeveloperDocument,
@@ -22,7 +21,6 @@ use indexing::backend_in_memory_indexes::{
     BatchKey,
     RangeRequest,
 };
-use maplit::btreemap;
 use value::{
     check_user_size,
     ConvexObject,
@@ -81,6 +79,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         }
     }
 
+    #[cfg(any(test, feature = "testing"))]
     #[convex_macro::instrument_future]
     pub async fn get(
         &mut self,
@@ -100,111 +99,41 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         id: DeveloperDocumentId,
         version: Option<Version>,
     ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
-        let mut batch_result = self
-            .get_batch(btreemap! {
-                0 => (id, version),
-            })
-            .await;
-        batch_result
-            .remove(&0)
-            .context("get_batch missing batch key")?
-    }
-
-    /// Fetches a batch of documents by id.
-    /// Stage 1: For each requested ID, set up the fetch, reading table and
-    ///     index ids, checking virtual tables, computing index intervals,
-    ///     and looking in the cache. In particular, cache hits for the
-    ///     entire batch are based on the initial state.
-    /// Stage 2: Execute all of the underlying fetches against persistence in
-    ///     parallel.
-    /// Stage 3: For each requested ID, add it to the cache and
-    ///     usage records, and munge the index range's results into
-    ///     DeveloperDocuments.
-    ///
-    /// This leads to completely deterministic results, down to usage counts
-    /// and which requests hit the cache.
-    /// Throughout the stages, each item in the batch is effectively separate,
-    /// so their errors are calculated independently.
-    /// Since stage 3 mutates common state in a loop, the items can affect each
-    /// other, e.g. if one item overflows the transaction limits, the remainder
-    /// of the batch will throw similar errors.
-    /// TODO(lee) dedupe duplicate fetches within a batch, which requires
-    /// cloning errors.
-    #[minitrace::trace]
-    #[convex_macro::instrument_future]
-    pub async fn get_batch(
-        &mut self,
-        ids: BTreeMap<BatchKey, (DeveloperDocumentId, Option<Version>)>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>>> {
-        let mut results = BTreeMap::new();
-        let mut ids_to_fetch = BTreeMap::new();
-        let mut virtual_ids_to_fetch = BTreeMap::new();
-        let batch_size = ids.len();
-        for (batch_key, (id, version)) in ids {
-            let resolve_result: anyhow::Result<_> = try {
-                if self.tx.virtual_table_mapping().number_exists(id.table()) {
-                    log_virtual_table_get();
-                    virtual_ids_to_fetch.insert(batch_key, (id, version));
-                } else {
-                    if !self
-                        .tx
-                        .table_mapping()
-                        .namespace(self.namespace)
-                        .table_number_exists()(*id.table())
-                    {
-                        assert!(results.insert(batch_key, Ok(None)).is_none());
-                        continue;
-                    }
-                    let id_ = id.map_table(
-                        self.tx
-                            .table_mapping()
-                            .namespace(self.namespace)
-                            .inject_table_id(),
-                    )?;
-                    let table_name = self.tx.table_mapping().tablet_name(id_.table().tablet_id)?;
-                    ids_to_fetch.insert(batch_key, (id_, table_name));
-                }
-            };
-            if let Err(e) = resolve_result {
-                assert!(results.insert(batch_key, Err(e)).is_none());
+        if self.tx.virtual_table_mapping().number_exists(id.table()) {
+            log_virtual_table_get();
+            let result = VirtualTable::new(self.tx).get(id, version).await;
+            if let Ok(Some((document, _))) = &result {
+                let table_name = self
+                    .tx
+                    .virtual_table_mapping()
+                    .name(*document.id().table())?;
+                self.tx.reads.record_read_document(
+                    table_name,
+                    document.size(),
+                    &self.tx.usage_tracker,
+                    true,
+                )?;
             }
-        }
-        let fetched_results = self.tx.get_inner_batch(ids_to_fetch).await;
-        for (batch_key, inner_result) in fetched_results {
-            let result: anyhow::Result<_> = try {
-                let developer_result = inner_result?.map(|(doc, ts)| (doc.to_developer(), ts));
-                assert!(results.insert(batch_key, Ok(developer_result)).is_none());
-            };
-            if let Err(e) = result {
-                assert!(results.insert(batch_key, Err(e)).is_none());
+            result
+        } else {
+            if !self
+                .tx
+                .table_mapping()
+                .namespace(self.namespace)
+                .table_number_exists()(*id.table())
+            {
+                return Ok(None);
             }
+            let id_ = id.map_table(
+                self.tx
+                    .table_mapping()
+                    .namespace(self.namespace)
+                    .inject_table_id(),
+            )?;
+            let table_name = self.tx.table_mapping().tablet_name(id_.table().tablet_id)?;
+            let result = self.tx.get_inner(id_, table_name).await?;
+            Ok(result.map(|(doc, ts)| (doc.to_developer(), ts)))
         }
-        let fetched_virtual_results = VirtualTable::new(self.tx)
-            .get_batch(virtual_ids_to_fetch)
-            .await;
-        for (batch_key, inner_result) in fetched_virtual_results {
-            let result: anyhow::Result<_> = try {
-                let inner_result = inner_result?;
-                if let Some(inner_result) = &inner_result {
-                    let table_name = self
-                        .tx
-                        .virtual_table_mapping()
-                        .name(*inner_result.0.id().table())?;
-                    self.tx.reads.record_read_document(
-                        table_name,
-                        inner_result.0.size(),
-                        &self.tx.usage_tracker,
-                        true,
-                    )?;
-                }
-                assert!(results.insert(batch_key, Ok(inner_result)).is_none());
-            };
-            if let Err(e) = result {
-                assert!(results.insert(batch_key, Err(e)).is_none());
-            }
-        }
-        assert_eq!(results.len(), batch_size);
-        results
     }
 
     /// Creates a new document with given value in the specified table.

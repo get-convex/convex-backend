@@ -72,10 +72,7 @@ use common::{
     version::Version,
 };
 use errors::ErrorMetadata;
-use indexing::backend_in_memory_indexes::{
-    BatchKey,
-    RangeRequest,
-};
+use indexing::backend_in_memory_indexes::RangeRequest;
 use keybroker::{
     Identity,
     UserIdentityAttributes,
@@ -775,91 +772,56 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         table_name: TableName,
     ) -> anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>> {
-        let mut batch_result = self
-            .get_inner_batch(btreemap! {
-                0 => (id, table_name),
-            })
+        let index_name = TabletIndexName::by_id(id.table().tablet_id);
+        let printable_index_name = IndexName::by_id(table_name.clone());
+        let index_key = IndexKey::new(vec![], id.into());
+        let interval = Interval::prefix(index_key.into_bytes().into());
+        let range_request = RangeRequest {
+            index_name: index_name.clone(),
+            printable_index_name,
+            interval: interval.clone(),
+            order: Order::Asc,
+            // Request 2 to best-effort verify uniqueness of by_id index.
+            max_size: 2,
+        };
+
+        let mut results = self
+            .index
+            .range_batch(&mut self.reads, btreemap! { 0 => range_request })
             .await;
-        batch_result
-            .remove(&0)
-            .context("get_inner_batch missing batch key")?
-    }
-
-    pub(crate) async fn get_inner_batch(
-        &mut self,
-        ids: BTreeMap<BatchKey, (ResolvedDocumentId, TableName)>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>>> {
-        let mut ranges = BTreeMap::new();
-        let batch_size = ids.len();
-        for (batch_key, (id, table_name)) in ids.iter() {
-            let index_name = TabletIndexName::by_id(id.table().tablet_id);
-            let printable_index_name = IndexName::by_id(table_name.clone());
-            let index_key = IndexKey::new(vec![], (*id).into());
-            let interval = Interval::prefix(index_key.into_bytes().into());
-            ranges.insert(
-                *batch_key,
-                RangeRequest {
-                    index_name,
-                    printable_index_name,
-                    interval,
-                    order: Order::Asc,
-                    // Request 2 to best-effort verify uniqueness of by_id index.
-                    max_size: 2,
-                },
-            );
+        self.reads
+            .record_indexed_directly(index_name, IndexedFields::by_id(), interval)?;
+        let IndexRangeResponse {
+            page: range_results,
+            cursor,
+        } = results.remove(&0).context("expected result")??;
+        if range_results.len() > 1 {
+            Err(anyhow::anyhow!("Got multiple values for id {id:?}"))?;
         }
-
-        let mut results = self.index.range_batch(&mut self.reads, ranges).await;
-        let mut batch_result = BTreeMap::new();
-        for (batch_key, (id, table_name)) in ids {
-            let index_name = TabletIndexName::by_id(id.table().tablet_id);
-            let result: anyhow::Result<_> = try {
-                let index_key = IndexKey::new(vec![], id.into());
-                let interval = Interval::prefix(index_key.into_bytes().into());
-                self.reads
-                    .record_indexed_directly(index_name, IndexedFields::by_id(), interval)?;
-
-                let IndexRangeResponse {
-                    page: range_results,
-                    cursor,
-                } = results.remove(&batch_key).context("expected result")??;
-                if range_results.len() > 1 {
-                    Err(anyhow::anyhow!("Got multiple values for id {id:?}"))?;
-                }
-                if !matches!(cursor, CursorPosition::End) {
-                    Err(anyhow::anyhow!(
-                        "Querying 2 items for a single id didn't exhaust interval for {id:?}"
-                    ))?;
-                }
-                match range_results.into_iter().next() {
-                    Some((_, doc, timestamp)) => {
-                        let is_virtual_table =
-                            self.virtual_table_mapping().name_exists(&table_name);
-                        self.reads.record_read_document(
-                            table_name,
-                            doc.size(),
-                            &self.usage_tracker,
-                            is_virtual_table,
-                        )?;
-                        assert!(batch_result
-                            .insert(batch_key, Ok(Some((doc, timestamp))))
-                            .is_none());
-                    },
-                    None => {
-                        assert!(batch_result.insert(batch_key, Ok(None)).is_none());
-                    },
-                }
-                self.stats
-                    .entry(id.table().tablet_id)
-                    .or_default()
-                    .rows_read += 1;
-            };
-            if let Err(e) = result {
-                assert!(batch_result.insert(batch_key, Err(e)).is_none());
-            }
+        if !matches!(cursor, CursorPosition::End) {
+            Err(anyhow::anyhow!(
+                "Querying 2 items for a single id didn't exhaust interval for {id:?}"
+            ))?;
         }
-        assert_eq!(batch_result.len(), batch_size);
-        batch_result
+        let result = match range_results.into_iter().next() {
+            Some((_, doc, timestamp)) => {
+                let is_virtual_table = self.virtual_table_mapping().name_exists(&table_name);
+                self.reads.record_read_document(
+                    table_name,
+                    doc.size(),
+                    &self.usage_tracker,
+                    is_virtual_table,
+                )?;
+
+                Some((doc, timestamp))
+            },
+            None => None,
+        };
+        self.stats
+            .entry(id.table().tablet_id)
+            .or_default()
+            .rows_read += 1;
+        Ok(result)
     }
 
     /// Apply a validated write to the [Transaction], updating the

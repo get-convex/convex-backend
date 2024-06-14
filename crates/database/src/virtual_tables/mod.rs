@@ -3,7 +3,6 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
 use common::{
     document::{
         DeveloperDocument,
@@ -18,7 +17,6 @@ use common::{
 };
 use errors::ErrorMetadata;
 use imbl::OrdMap;
-use indexing::backend_in_memory_indexes::BatchKey;
 use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
@@ -41,60 +39,42 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
     }
 
     #[minitrace::trace]
-    pub async fn get_batch(
+    pub async fn get(
         &mut self,
-        mut ids: BTreeMap<BatchKey, (DeveloperDocumentId, Option<Version>)>,
-    ) -> BTreeMap<BatchKey, anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>>> {
-        let batch_size = ids.len();
-        let mut results = BTreeMap::new();
-        let mut ids_to_fetch = BTreeMap::new();
-        for (batch_key, (id, _)) in &ids {
-            let result: anyhow::Result<_> = try {
-                let virtual_table_name = self.tx.virtual_table_mapping().name(*id.table())?;
-                let system_table_name = self
-                    .tx
-                    .virtual_system_mapping()
-                    .virtual_to_system_table(&virtual_table_name)?
-                    .clone();
-                let table_id = self
-                    .tx
-                    .table_mapping()
-                    .namespace(TableNamespace::by_component_TODO())
-                    .id(&system_table_name)?;
-                let id_ = ResolvedDocumentId::new(table_id, id.internal_id());
-                // NOTE we intentionally pass `system_table_name` in, which means this
-                // `get_inner` doesn't count as bandwidth. It's the caller's
-                // responsibility to count bandwidth.
-                ids_to_fetch.insert(*batch_key, (id_, system_table_name));
-            };
-            if let Err(e) = result {
-                results.insert(*batch_key, Err(e));
-            }
-        }
+        id: DeveloperDocumentId,
+        version: Option<Version>,
+    ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
+        let virtual_table_name = self.tx.virtual_table_mapping().name(*id.table())?;
+        let system_table_name = self
+            .tx
+            .virtual_system_mapping()
+            .virtual_to_system_table(&virtual_table_name)?
+            .clone();
+        let table_id = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::by_component_TODO())
+            .id(&system_table_name)?;
+        let id_ = ResolvedDocumentId::new(table_id, id.internal_id());
 
-        let fetch_results = self.tx.get_inner_batch(ids_to_fetch).await;
+        // NOTE we intentionally pass `system_table_name` in, which means this
+        // `get_inner` doesn't count as bandwidth. It's the caller's
+        // responsibility to count bandwidth.
+        let result = self.tx.get_inner(id_, system_table_name).await?;
         let table_mapping = self.tx.table_mapping().clone();
         let virtual_table_mapping = self.tx.virtual_table_mapping().clone();
-        for (batch_key, fetch_result) in fetch_results {
-            let result: anyhow::Result<_> = try {
-                let (_, version) = ids.remove(&batch_key).context("batch_key missing")?;
-                match fetch_result? {
-                    Some((doc, ts)) => {
-                        let doc = self.tx.virtual_system_mapping().system_to_virtual_doc(
-                            doc,
-                            &table_mapping,
-                            &virtual_table_mapping,
-                            version,
-                        )?;
-                        Some((doc, ts))
-                    },
-                    None => None,
-                }
-            };
-            results.insert(batch_key, result);
+        match result {
+            Some((doc, ts)) => {
+                let doc = self.tx.virtual_system_mapping().system_to_virtual_doc(
+                    doc,
+                    &table_mapping,
+                    &virtual_table_mapping,
+                    version,
+                )?;
+                Ok(Some((doc, ts)))
+            },
+            None => Ok(None),
         }
-        assert_eq!(results.len(), batch_size);
-        results
     }
 
     pub fn map_system_doc_to_virtual_doc(
