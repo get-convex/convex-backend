@@ -216,12 +216,12 @@ pub struct FieldDeletions {
 }
 
 impl TermDeletionsByField {
-    pub fn delete_term(&mut self, field: Field) {
+    pub fn increment_num_terms_deleted(&mut self, field: Field) {
         let deletions = self.0.entry(field).or_default();
         deletions.num_terms_deleted += 1;
     }
 
-    pub fn delete_document(&mut self, field: Field, term_value: TermValue) {
+    pub fn increment_num_docs_deleted_for_term(&mut self, field: Field, term_value: TermValue) {
         self.0
             .entry(field)
             .or_default()
@@ -613,7 +613,10 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
             .await?;
         let reader = index_reader_for_directory(segment_path)?;
         let searcher = reader.searcher();
+
         // Multisegment indexes only write to one segment.
+        let num_readers = searcher.segment_readers().len();
+        anyhow::ensure!(num_readers == 1, "Expected 1 reader, but got {num_readers}");
         let segment = searcher.segment_reader(0);
 
         let mut field_to_term_ordinals = BTreeMap::new();
@@ -1734,7 +1737,7 @@ mod tests {
             let revision_pair = RevisionPair {
                 id: id.into(),
                 rev: DocumentRevision {
-                    ts: Timestamp::MIN,
+                    ts: Timestamp::MIN.succ().unwrap(),
                     document: Some(new_doc),
                 },
                 prev_rev: None,
@@ -1754,6 +1757,7 @@ mod tests {
             &mut previous_segments,
             segment_term_metadata_fetcher,
             storage,
+            None,
         )
         .await?
         .unwrap();
@@ -1922,11 +1926,11 @@ mod tests {
                 let revision_pair = RevisionPair {
                     id: id.into(),
                     rev: DocumentRevision {
-                        ts: Timestamp::MIN,
+                        ts: Timestamp::MIN.succ().unwrap(),
                         document: new_doc,
                     },
                     prev_rev: old_doc.map(|d| DocumentRevision {
-                        ts: Timestamp::MIN,
+                        ts: Timestamp::MIN.succ().unwrap(),
                         document: Some(d),
                     }),
                 };
@@ -1949,6 +1953,7 @@ mod tests {
             &mut previous_segments,
             segment_term_metadata_fetcher,
             storage,
+            Some(Timestamp::MIN),
         )
         .await?;
         let previous_segment_dir = index_dir.join("previous_segments");

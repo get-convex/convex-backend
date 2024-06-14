@@ -56,6 +56,7 @@ use search::{
     UpdatableTextSegment,
 };
 use storage::Storage;
+use sync_types::Timestamp;
 use value::InternalId;
 
 use crate::{
@@ -218,6 +219,7 @@ impl SearchIndex for TextSearchIndex {
         documents: DocumentStream<'_>,
         reader: RepeatablePersistence,
         previous_segments: &mut Self::PreviousSegments,
+        lower_bound_ts: Option<Timestamp>,
         BuildTextIndexArgs {
             search_storage,
             segment_term_metadata_fetcher,
@@ -254,6 +256,7 @@ impl SearchIndex for TextSearchIndex {
             previous_segments,
             segment_term_metadata_fetcher,
             search_storage,
+            lower_bound_ts,
         )
         .await
     }

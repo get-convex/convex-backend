@@ -520,6 +520,115 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
+    async fn backfill_insert_then_replace_delete_one_segment_doesnt_panic(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        fixtures.replace_document(doc_id, "new_text").await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_then_replace_delete_second_segment_doesnt_panic(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        fixtures.replace_document(doc_id, "new_text").await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_replace_delete_doesnt_panic(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        fixtures.replace_document(doc_id, "new_text").await?;
+        fixtures.replace_document(doc_id, "really_new_text").await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name, "really_new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_replace_delete_different_segments_doesnt_panic(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        fixtures.replace_document(doc_id, "new_text").await?;
+        flusher.step().await?;
+        fixtures.replace_document(doc_id, "really_new_text").await?;
+        flusher.step().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name, "really_new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
     async fn backfill_with_backfilled_single_segment_format_backfills_with_multi_segment_format(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {

@@ -269,6 +269,21 @@ impl TextFixtures {
         Ok(segments.clone())
     }
 
+    pub async fn replace_document(
+        &self,
+        doc_id: ResolvedDocumentId,
+        text: &str,
+    ) -> anyhow::Result<()> {
+        let mut tx = self.db.begin_system().await?;
+        let document = assert_obj!(
+            "text" => text,
+            "channel" => "#general",
+        );
+        tx.replace_inner(doc_id, document).await?;
+        self.db.commit(tx).await?;
+        Ok(())
+    }
+
     pub async fn add_document(&self, text: &str) -> anyhow::Result<ResolvedDocumentId> {
         let table_name = TABLE_NAME.parse::<TableName>()?;
         let mut tx = self.db.begin_system().await?;

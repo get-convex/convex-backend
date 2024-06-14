@@ -22,7 +22,10 @@ use common::{
         try_join_buffer_unordered,
         Runtime,
     },
-    types::ObjectKey,
+    types::{
+        ObjectKey,
+        Timestamp,
+    },
 };
 use futures::TryStreamExt;
 use storage::Storage;
@@ -68,6 +71,7 @@ use crate::{
         TermDeletionsByField,
         TermValue,
     },
+    DocumentTerm,
     SearchFileType,
     TantivySearchIndexSchema,
 };
@@ -282,6 +286,47 @@ impl PreviousTextSegments {
     }
 }
 
+struct SegmentStatisticsUpdates {
+    term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField>,
+}
+impl SegmentStatisticsUpdates {
+    fn new() -> Self {
+        Self {
+            term_deletes_by_segment: BTreeMap::new(),
+        }
+    }
+
+    fn on_document_deleted(&mut self, segment_key: &ObjectKey, terms: Vec<DocumentTerm>) {
+        let term_deletes_for_segment = if let Some(term_values_and_delete_counts) =
+            self.term_deletes_by_segment.get_mut(segment_key)
+        {
+            term_values_and_delete_counts
+        } else {
+            let term_values_and_delete_counts = TermDeletionsByField::default();
+            self.term_deletes_by_segment
+                .insert(segment_key.clone(), term_values_and_delete_counts);
+            self.term_deletes_by_segment.get_mut(segment_key).unwrap()
+        };
+
+        let mut field_to_unique_term_value = BTreeMap::<Field, BTreeSet<TermValue>>::new();
+        for document_term in terms {
+            let term = Term::from(document_term);
+            let field = term.field();
+            let term_value = term.value_bytes().to_vec();
+            term_deletes_for_segment.increment_num_terms_deleted(field);
+            field_to_unique_term_value
+                .entry(field)
+                .or_default()
+                .insert(term_value);
+        }
+        for (field, unique_terms) in field_to_unique_term_value {
+            for term_value in unique_terms {
+                term_deletes_for_segment.increment_num_docs_deleted_for_term(field, term_value);
+            }
+        }
+    }
+}
+
 /// Builds a new segment from a stream of document revisions in descending
 /// timestamp order, updating existing segments if a document was deleted.
 ///
@@ -296,6 +341,7 @@ pub async fn build_new_segment<RT: Runtime>(
     previous_segments: &mut PreviousTextSegments,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     search_storage: Arc<dyn Storage>,
+    document_log_lower_bound: Option<Timestamp>,
 ) -> anyhow::Result<Option<NewTextSegment>> {
     let index_path = dir.join("index_path");
     std::fs::create_dir(&index_path)?;
@@ -308,88 +354,84 @@ pub async fn build_new_segment<RT: Runtime>(
     let mut segment_writer = SingleSegmentIndexWriter::new(index, SEGMENT_MAX_SIZE_BYTES)?;
     let mut new_id_tracker = SearchMemoryIdTracker::default();
     futures::pin_mut!(revision_stream);
-    // Keep track of the document IDs we've seen so we can check for duplicates.
-    // We'll discard revisions to documents that we've already seen because we are
-    // processing in reverse timestamp order.
-    let mut document_ids_seen = BTreeSet::new();
-    // Keep track of deletes that don't correspond to a document in another segment.
-    // It must appear later in the stream
+    // Keep track of the document IDs we've either added to our new segment or
+    // deleted from a previous segment. Because we process in reverse order, we
+    // may encounter each document id multiple times, but we only want to add or
+    // delete them once.
+    let mut document_ids_processed = BTreeSet::new();
+    // Deleted documents that either have a revision in a previous segment that we
+    // will eventually encounter in the log and delete. Or that were added and
+    // deleted within our new segment's time window and can be ignored.
     let mut dangling_deletes = BTreeSet::new();
+
+    // Keep track of deleted document ids whose previous revision was within our
+    // document log window for this new segment. We can't process previous
+    // revisions inside of our document window because mutations to the document
+    // may mean it has terms that don't match those in the previous segment. Use
+    // this set to skip deletes until we find the first delete for a given id
+    // whose previous revision's timestamp is outside our window.
+    // let mut pending_deletes = BTreeSet::new();
 
     let mut num_indexed_documents = 0;
 
     let mut is_at_least_one_document_indexed = false;
-    let mut term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField> = BTreeMap::new();
+    let mut segment_statistics_updates = SegmentStatisticsUpdates::new();
 
     while let Some(revision_pair) = revision_stream.try_next().await? {
+        // For each document, three possible outcomes:
+        // 1. We add the document to our new segment
+        // 2. We delete the document from a previous segment
+        // 3. We ignore the document because it was both added and removed within the
+        //    time bounds
+        // for our new segment.
         let convex_id = revision_pair.id.internal_id();
+
         // Skip documents we have already added to the segment, but update dangling
         // deletes
-        if document_ids_seen.contains(&convex_id) {
-            if revision_pair.document().is_some() && revision_pair.prev_document().is_none() {
-                dangling_deletes.remove(&convex_id);
-            }
+        if document_ids_processed.contains(&convex_id) {
             continue;
         }
-        document_ids_seen.insert(convex_id);
+        document_ids_processed.insert(convex_id);
+
+        // Addition
+        if let Some(new_document) = revision_pair.document() {
+            if dangling_deletes.contains(&convex_id) {
+                dangling_deletes.remove(&convex_id);
+                document_ids_processed.insert(convex_id);
+            } else {
+                is_at_least_one_document_indexed = true;
+                num_indexed_documents += 1;
+                let tantivy_document =
+                    tantivy_schema.index_into_tantivy_document(new_document, revision_pair.ts());
+                log_text_document_indexed(&tantivy_schema, &tantivy_document);
+                let doc_id = segment_writer.add_document(tantivy_document)?;
+                new_id_tracker.set_link(convex_id, doc_id)?;
+            }
+        }
+
         // Delete
-        if let Some(prev_document) = revision_pair.prev_document() {
-            if let Some(segment_key) =
-                previous_segments.delete_document(prev_document.id().internal_id())?
+        if let Some(prev_rev) = revision_pair.prev_rev
+            && let Some(prev_document) = prev_rev.document.as_ref()
+        {
+            if let Some(lower_bound_ts) = document_log_lower_bound
+                && prev_rev.ts > lower_bound_ts
             {
+                // might be an add, or might be replaced earlier in the log, we don't know.
+                dangling_deletes.insert(prev_document.id().internal_id());
+                document_ids_processed.remove(&prev_document.id().internal_id());
+            } else {
+                let segment_key = previous_segments
+                    .delete_document(prev_document.id().internal_id())?
+                    .context("Missing segment even though revision is not in our time bounds")?;
                 let segment = previous_segments
                     .0
                     .get(&segment_key)
                     .context("Segment key not found")?;
+
                 let terms = tantivy_schema.index_into_terms(prev_document)?;
-
-                let term_deletes_for_segment = if let Some(term_values_and_delete_counts) =
-                    term_deletes_by_segment.get_mut(&segment.original.segment_key)
-                {
-                    term_values_and_delete_counts
-                } else {
-                    let term_values_and_delete_counts = TermDeletionsByField::default();
-                    term_deletes_by_segment.insert(
-                        segment.original.segment_key.clone(),
-                        term_values_and_delete_counts,
-                    );
-                    term_deletes_by_segment
-                        .get_mut(&segment.original.segment_key)
-                        .unwrap()
-                };
-
-                let mut field_to_unique_term_value = BTreeMap::<Field, BTreeSet<TermValue>>::new();
-                for document_term in terms {
-                    let term = Term::from(document_term);
-                    let field = term.field();
-                    let term_value = term.value_bytes().to_vec();
-                    term_deletes_for_segment.delete_term(field);
-                    field_to_unique_term_value
-                        .entry(field)
-                        .or_default()
-                        .insert(term_value);
-                }
-                for (field, unique_terms) in field_to_unique_term_value {
-                    for term_value in unique_terms {
-                        term_deletes_for_segment.delete_document(field, term_value);
-                    }
-                }
-            } else {
-                // Add this document to dangling deletes because it was not present in other
-                // segments, so it must be added further down in this stream.
-                dangling_deletes.insert(convex_id);
-            };
-        }
-        // Addition
-        if let Some(new_document) = revision_pair.document() {
-            is_at_least_one_document_indexed = true;
-            num_indexed_documents += 1;
-            dangling_deletes.remove(&convex_id);
-            let tantivy_document =
-                tantivy_schema.index_into_tantivy_document(new_document, revision_pair.ts());
-            log_text_document_indexed(&tantivy_schema, &tantivy_document);
-            let doc_id = segment_writer.add_document(tantivy_document)?;
-            new_id_tracker.set_link(convex_id, doc_id)?;
+                segment_statistics_updates
+                    .on_document_deleted(&segment.original.segment_key, terms);
+            }
         }
     }
     anyhow::ensure!(
@@ -402,7 +444,7 @@ pub async fn build_new_segment<RT: Runtime>(
         rt,
         search_storage,
         segment_term_metadata_fetcher,
-        term_deletes_by_segment,
+        segment_statistics_updates.term_deletes_by_segment,
     )
     .await?;
     previous_segments.update_term_deletion_metadata(segments_term_metadata)?;

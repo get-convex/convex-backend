@@ -491,19 +491,23 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let mut is_size_exceeded = false;
         let qdrant_schema = T::new_schema(&developer_config);
 
+        let mut lower_bound_ts: Option<Timestamp> = None;
         let (documents, previous_segments) = match build_type {
-            MultipartBuildType::Partial(last_ts) => (
-                params.database.load_documents_in_table(
-                    *index_name.table(),
-                    TimestampRange::new((
-                        Bound::Excluded(*last_ts),
-                        Bound::Included(*snapshot_ts),
-                    ))?,
-                    T::partial_document_order(),
-                    &row_rate_limiter,
-                ),
-                previous_segments,
-            ),
+            MultipartBuildType::Partial(last_ts) => {
+                lower_bound_ts = Some(*last_ts);
+                (
+                    params.database.load_documents_in_table(
+                        *index_name.table(),
+                        TimestampRange::new((
+                            Bound::Excluded(*last_ts),
+                            Bound::Included(*snapshot_ts),
+                        ))?,
+                        T::partial_document_order(),
+                        &row_rate_limiter,
+                    ),
+                    previous_segments,
+                )
+            },
             MultipartBuildType::IncrementalComplete {
                 cursor,
                 backfill_snapshot_ts,
@@ -584,6 +588,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             documents,
             persistence,
             &mut mutable_previous_segments,
+            lower_bound_ts,
             build_index_args,
             build_type,
         )

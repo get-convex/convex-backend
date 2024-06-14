@@ -34,6 +34,17 @@ impl<'a, RT: Runtime> TestFacingModel<'a, RT> {
             .await
     }
 
+    #[convex_macro::instrument_future]
+    pub async fn replace(
+        &mut self,
+        id: ResolvedDocumentId,
+        value: ConvexObject,
+    ) -> anyhow::Result<ResolvedDocument> {
+        SystemMetadataModel::new(self.tx, TableNamespace::test_user())
+            .replace(id, value)
+            .await
+    }
+
     /// Insert a new document and immediately read it. Prefer using `insert`
     /// unless you need to read the creation time.
     #[convex_macro::instrument_future]

@@ -107,6 +107,7 @@ pub trait SearchIndex: Clone + Debug {
         documents: DocumentStream<'_>,
         reader: RepeatablePersistence,
         previous_segments: &mut Self::PreviousSegments,
+        document_log_lower_bound: Option<Timestamp>,
         build_index_args: Self::BuildIndexArgs,
         multipart_build_type: MultipartBuildType,
     ) -> anyhow::Result<Option<Self::NewSegment>>;

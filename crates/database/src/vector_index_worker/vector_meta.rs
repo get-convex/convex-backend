@@ -42,6 +42,7 @@ use search::{
     Searcher,
 };
 use storage::Storage;
+use sync_types::Timestamp;
 use value::InternalId;
 use vector::{
     qdrant_segments::VectorDiskSegmentValues,
@@ -221,6 +222,7 @@ impl SearchIndex for VectorSearchIndex {
         documents: DocumentStream<'_>,
         _reader: RepeatablePersistence,
         previous_segments: &mut Self::PreviousSegments,
+        _document_log_lower_bound: Option<Timestamp>,
         BuildVectorIndexArgs {
             full_scan_threshold_bytes,
         }: Self::BuildIndexArgs,
