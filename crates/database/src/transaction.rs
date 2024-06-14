@@ -971,18 +971,6 @@ impl<RT: Runtime> Transaction<RT> {
             .await
     }
 
-    /// Used when a system table is served from cache - to manually add a read
-    /// dependency on that system table.
-    pub fn record_system_table_cache_hit(
-        &mut self,
-        index_name: TabletIndexName,
-        fields: IndexedFields,
-        interval: Interval,
-    ) {
-        self.reads
-            .record_indexed_derived(index_name, fields, interval)
-    }
-
     #[cfg(any(test, feature = "testing"))]
     pub fn set_index_size_hard_limit(&mut self, size: usize) {
         self.index_size_override = Some(size);

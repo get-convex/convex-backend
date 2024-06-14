@@ -4,9 +4,9 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context;
 use common::{
     components::{
-        ComponentId,
         ComponentPath,
         Reference,
         Resource,
@@ -38,6 +38,7 @@ use model::{
         types::ModuleMetadata,
         ModuleModel,
     },
+    source_packages::SourcePackageModel,
     udf_config::UdfConfigModel,
 };
 use parking_lot::Mutex;
@@ -154,17 +155,16 @@ impl<RT: Runtime> ActionPhase<RT> {
             .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
         let import_time_unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
-        let module_metadata = with_release_permit(timeout, permit_slot, async {
-            let result = if !*COMPONENTS_ENABLED {
+        let (module_metadata, source_package) = with_release_permit(timeout, permit_slot, async {
+            let module_metadata = ModuleModel::new(&mut tx)
+                .get_all_metadata(component_id)
+                .await?;
+            let source_package = SourcePackageModel::new(&mut tx, component_id.into())
+                .get_latest()
+                .await?;
+            if !*COMPONENTS_ENABLED {
                 anyhow::ensure!(self.component.is_root());
-                ModuleModel::new(&mut tx)
-                    .get_all_metadata(ComponentId::Root)
-                    .await?
             } else {
-                let module_metadata = ModuleModel::new(&mut tx)
-                    .get_all_metadata(component_id)
-                    .await?;
-
                 let loaded_resources = ComponentsModel::new(&mut tx)
                     .preload_resources(component_id)
                     .await?;
@@ -172,22 +172,28 @@ impl<RT: Runtime> ActionPhase<RT> {
                     let mut resources = resources.lock();
                     *resources = loaded_resources;
                 }
-
-                module_metadata
-            };
-            Ok(result)
+            }
+            Ok((module_metadata, source_package))
         })
         .await?;
 
         let modules = with_release_permit(timeout, permit_slot, async {
             let mut modules = BTreeMap::new();
+            let paths_to_prefetch: BTreeMap<_, _> = module_metadata
+                .iter()
+                .map(|metadata| (metadata.id(), metadata.path.clone()))
+                .collect();
             for metadata in module_metadata {
                 if metadata.path.is_system() {
                     continue;
                 }
                 let path = metadata.path.clone();
                 let module = module_loader
-                    .get_module_with_metadata(&mut tx, metadata.clone())
+                    .get_module_with_metadata(
+                        metadata.clone(),
+                        source_package.clone().context("source package not found")?,
+                        paths_to_prefetch.clone(),
+                    )
                     .await?;
                 modules.insert(path, (metadata.into_value(), module));
             }

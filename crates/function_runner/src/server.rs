@@ -325,7 +325,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 retention_validator,
             )
             .await?;
-        let transaction = transaction_ingredients.clone().try_into()?;
+        let transaction = transaction_ingredients.try_into()?;
         Ok(transaction)
     }
 
@@ -387,7 +387,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 retention_validator,
             )
             .await?;
-        let mut transaction = transaction_ingredients.clone().try_into()?;
+        let mut transaction = transaction_ingredients.try_into()?;
         let storage = self
             .storage
             .storage_for_instance(&mut transaction, StorageUseCase::Files)
@@ -406,7 +406,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             module_loader: Arc::new(FunctionRunnerModuleLoader {
                 instance_name: instance_name.clone(),
                 cache: self.module_cache.clone(),
-                transaction_ingredients,
                 modules_storage,
             }),
         };

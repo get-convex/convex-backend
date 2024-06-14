@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+};
 
 use async_lru::async_lru::AsyncLru;
 use async_trait::async_trait;
@@ -10,38 +13,34 @@ use common::{
     },
     runtime::Runtime,
 };
-use database::{
-    Database,
-    Transaction,
-};
 use futures::FutureExt;
 use isolate::environment::helpers::module_loader::get_module_and_prefetch;
-use keybroker::Identity;
 use model::{
     config::module_loader::ModuleLoader,
     modules::{
         module_versions::FullModuleSource,
         types::ModuleMetadata,
-        ModuleModel,
     },
-    source_packages::types::SourcePackageId,
+    source_packages::types::{
+        SourcePackage,
+        SourcePackageId,
+    },
 };
 use storage::Storage;
+use sync_types::CanonicalizedModulePath;
 use value::ResolvedDocumentId;
 
 mod metrics;
 
 #[derive(Clone)]
 pub struct ModuleCache<RT: Runtime> {
-    database: Database<RT>,
-
     modules_storage: Arc<dyn Storage>,
 
     cache: AsyncLru<RT, (ResolvedDocumentId, SourcePackageId), FullModuleSource>,
 }
 
 impl<RT: Runtime> ModuleCache<RT> {
-    pub async fn new(rt: RT, database: Database<RT>, modules_storage: Arc<dyn Storage>) -> Self {
+    pub async fn new(rt: RT, modules_storage: Arc<dyn Storage>) -> Self {
         let cache = AsyncLru::new(
             rt.clone(),
             *MODULE_CACHE_MAX_SIZE_BYTES,
@@ -50,7 +49,6 @@ impl<RT: Runtime> ModuleCache<RT> {
         );
 
         Self {
-            database,
             modules_storage,
             cache,
         }
@@ -62,29 +60,27 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
     #[minitrace::trace]
     async fn get_module_with_metadata(
         &self,
-        tx: &mut Transaction<RT>,
         module_metadata: ParsedDocument<ModuleMetadata>,
+        source_package: ParsedDocument<SourcePackage>,
+        paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
     ) -> anyhow::Result<Arc<FullModuleSource>> {
         let timer = metrics::module_cache_get_module_timer();
 
         let key = (module_metadata.id(), module_metadata.source_package_id);
-        let mut cache_tx = self.database.begin(Identity::system()).await?;
         let modules_storage = self.modules_storage.clone();
         let result = self
             .cache
             .get_and_prepopulate(
                 key,
-                async move {
-                    get_module_and_prefetch(&mut cache_tx, modules_storage, module_metadata).await
-                }
+                get_module_and_prefetch(
+                    modules_storage,
+                    module_metadata,
+                    source_package,
+                    paths_to_prefetch,
+                )
                 .boxed(),
             )
             .await?;
-        // Record read dependency on the module version so the transactions
-        // read same is the same regardless if we hit the cache or not.
-        // This is not technically needed since the module version is immutable,
-        // but better safe and consistent that sorry.
-        ModuleModel::new(tx).record_module_version_read_dependency(key.0)?;
 
         timer.finish();
         Ok(result)

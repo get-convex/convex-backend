@@ -1,35 +1,30 @@
 use std::{
-    collections::HashMap,
+    collections::{
+        BTreeMap,
+        HashMap,
+    },
     sync::Arc,
 };
 
 use anyhow::anyhow;
-use common::{
-    components::ComponentId,
-    document::ParsedDocument,
-    runtime::Runtime,
-};
-use database::Transaction;
+use common::document::ParsedDocument;
 use deno_core::ModuleSpecifier;
 use model::{
     modules::{
         module_versions::FullModuleSource,
         types::ModuleMetadata,
-        ModuleModel,
     },
     source_packages::{
-        types::SourcePackageId,
+        types::{
+            SourcePackage,
+            SourcePackageId,
+        },
         upload_download::download_package,
-        SourcePackageModel,
     },
 };
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
-use value::{
-    ResolvedDocumentId,
-    TableNamespace,
-    TabletId,
-};
+use value::ResolvedDocumentId;
 
 use crate::{
     isolate::CONVEX_SCHEME,
@@ -37,19 +32,16 @@ use crate::{
 };
 
 #[minitrace::trace]
-pub async fn get_module_and_prefetch<RT: Runtime>(
-    tx: &mut Transaction<RT>,
+pub async fn get_module_and_prefetch(
     modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
+    source_package: ParsedDocument<SourcePackage>,
+    paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
 ) -> HashMap<(ResolvedDocumentId, SourcePackageId), anyhow::Result<FullModuleSource>> {
     let _timer = module_load_timer("package");
-    let all_source_result = download_module_source_from_package(
-        tx,
-        modules_storage,
-        module_metadata.id().table().tablet_id,
-        module_metadata.source_package_id,
-    )
-    .await;
+    let all_source_result =
+        download_module_source_from_package(modules_storage, source_package, paths_to_prefetch)
+            .await;
     match all_source_result {
         Err(e) => {
             let mut result = HashMap::new();
@@ -67,43 +59,31 @@ pub async fn get_module_and_prefetch<RT: Runtime>(
 }
 
 #[minitrace::trace]
-async fn download_module_source_from_package<RT: Runtime>(
-    tx: &mut Transaction<RT>,
+async fn download_module_source_from_package(
     modules_storage: Arc<dyn Storage>,
-    modules_tablet: TabletId,
-    source_package_id: SourcePackageId,
+    source_package: ParsedDocument<SourcePackage>,
+    paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
 ) -> anyhow::Result<HashMap<(ResolvedDocumentId, SourcePackageId), FullModuleSource>> {
-    let namespace = tx.table_mapping().tablet_namespace(modules_tablet)?;
     let mut result = HashMap::new();
-    let source_package = SourcePackageModel::new(tx, namespace)
-        .get(source_package_id)
-        .await?;
     let mut package = download_package(
         modules_storage,
         source_package.storage_key.clone(),
         source_package.sha256.clone(),
     )
     .await?;
-    // TODO(lee) we should probably pass the component through instead of inferring
-    // from tablet.
-    let component = match namespace {
-        TableNamespace::Global => ComponentId::Root,
-        TableNamespace::ByComponent(id) => ComponentId::Child(id),
-    };
-    // TODO(lee) consider lifting the requirement that all modules in a component
-    // have the same source package.
-    for module_metadata in ModuleModel::new(tx).get_all_metadata(component).await? {
-        match package.remove(&module_metadata.path) {
+    let source_package_id: SourcePackageId = source_package.developer_id().into();
+    for (module_id, module_path) in paths_to_prefetch {
+        match package.remove(&module_path) {
             None => {
                 anyhow::bail!(
                     "module {:?} not found in package {:?}",
-                    module_metadata.path,
+                    module_path,
                     source_package_id
                 );
             },
             Some(source) => {
                 result.insert(
-                    (module_metadata.id(), module_metadata.source_package_id),
+                    (module_id, source_package_id),
                     FullModuleSource {
                         source: source.source,
                         source_map: source.source_map,

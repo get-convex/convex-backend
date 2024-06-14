@@ -17,10 +17,6 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    interval::{
-        BinaryKey,
-        Interval,
-    },
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -60,7 +56,6 @@ use value::{
         Sha256,
         Sha256Digest,
     },
-    values_to_bytes,
     FieldPath,
     TableName,
 };
@@ -291,8 +286,15 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             if !path.is_system() {
                 let environment = metadata.environment;
                 let full_source = module_loader
-                    .get_module_with_metadata(self.tx, metadata)
-                    .await?;
+                    .get_module(
+                        self.tx,
+                        CanonicalizedComponentModulePath {
+                            component,
+                            module_path: metadata.path.clone(),
+                        },
+                    )
+                    .await?
+                    .context("Module source does not exist")?;
                 let module_config = ModuleConfig {
                     path: path.clone().into(),
                     source: full_source.source.clone(),
@@ -580,28 +582,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 .to_string(),
         )
         .into()))
-    }
-
-    pub fn record_module_version_read_dependency(
-        &mut self,
-        module_id: ResolvedDocumentId,
-    ) -> anyhow::Result<()> {
-        let fields = vec![MODULE_ID_FIELD.clone()];
-        let values = vec![Some(ConvexValue::from(module_id))];
-        let namespace = self
-            .tx
-            .table_mapping()
-            .tablet_namespace(module_id.table().tablet_id)?;
-        let module_index_name = MODULE_VERSION_INDEX
-            .clone()
-            .map_table(&self.tx.table_mapping().namespace(namespace).name_to_id())?
-            .into();
-        self.tx.record_system_table_cache_hit(
-            module_index_name,
-            fields.try_into().expect("Must be valid"),
-            Interval::prefix(BinaryKey::from(values_to_bytes(&values[..]))),
-        );
-        Ok(())
     }
 
     pub async fn has_http(&mut self) -> anyhow::Result<bool> {

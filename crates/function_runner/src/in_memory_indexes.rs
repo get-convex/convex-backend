@@ -87,9 +87,8 @@ use crate::{
     FunctionWrites,
 };
 
-/// Convenience struct for data required to create a [Transaction]. This struct
-/// is cloneable, while [Transaction] is not.
-#[derive(Clone)]
+/// Struct from which you can create a [Transaction].
+/// TODO: delete this in favor of using Transaction directly.
 pub struct TransactionIngredients<RT: Runtime> {
     pub ts: RepeatableTimestamp,
     pub identity: Identity,

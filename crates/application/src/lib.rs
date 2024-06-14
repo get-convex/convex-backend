@@ -529,8 +529,7 @@ impl<RT: Runtime> Application<RT> {
         scheduled_jobs_pause_client: PauseClient,
         app_auth: Arc<ApplicationAuth>,
     ) -> anyhow::Result<Self> {
-        let module_cache =
-            ModuleCache::new(runtime.clone(), database.clone(), modules_storage.clone()).await;
+        let module_cache = ModuleCache::new(runtime.clone(), modules_storage.clone()).await;
         let module_loader = Arc::new(module_cache.clone());
 
         let system_env_vars = btreemap! {
@@ -818,10 +817,9 @@ impl<RT: Runtime> Application<RT> {
         let Some(source_index) = source_mapped.source_index else {
             return Ok(None);
         };
-        let full_source = self
-            .module_cache
-            .get_module_with_metadata(&mut tx, metadata)
-            .await?;
+        let Some(full_source) = self.module_cache.get_module(&mut tx, path).await? else {
+            return Ok(None);
+        };
         let Some(source_map_str) = &full_source.source_map else {
             return Ok(None);
         };
@@ -1646,13 +1644,14 @@ impl<RT: Runtime> Application<RT> {
             component: ComponentId::Root,
             module_path: AUTH_CONFIG_FILE_NAME.parse()?,
         };
-        let auth_config_metadata = ModuleModel::new(tx).get_metadata(path).await?;
+        let auth_config_metadata = ModuleModel::new(tx).get_metadata(path.clone()).await?;
         if let Some(auth_config_metadata) = auth_config_metadata {
             let environment = auth_config_metadata.environment;
             let auth_config_source = runner
                 .module_cache
-                .get_module_with_metadata(tx, auth_config_metadata)
-                .await?;
+                .get_module(tx, path)
+                .await?
+                .context("Module has metadata but no source")?;
             let auth_config_module = ModuleConfig {
                 path: AUTH_CONFIG_FILE_NAME.parse()?,
                 source: auth_config_source.source.clone(),
