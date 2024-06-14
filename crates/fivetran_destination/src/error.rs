@@ -31,6 +31,9 @@ pub enum DestinationError {
     #[error("The name of table `{0}` isn’t supported by Convex: {1}")]
     UnsupportedTableName(String, anyhow::Error),
 
+    #[error("The name of column `{0}` in table `{1}` is invalid: {1}")]
+    InvalidColumnName(String, FivetranTableName, anyhow::Error),
+
     #[error("The name of column `{0}` in table `{1}` isn’t supported by Convex: {2}")]
     UnsupportedColumnName(FivetranFieldName, FivetranTableName, anyhow::Error),
 

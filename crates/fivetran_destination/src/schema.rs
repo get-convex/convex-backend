@@ -85,7 +85,7 @@ impl TryFrom<fivetran_sdk::Table> for FivetranTableSchema {
     type Error = DestinationError;
 
     fn try_from(table: fivetran_sdk::Table) -> Result<Self, Self::Error> {
-        let name: FivetranTableName = FivetranTableName::from_str(&table.name)
+        let table_name: FivetranTableName = FivetranTableName::from_str(&table.name)
             .map_err(|err| DestinationError::InvalidTableName(table.name, err))?;
 
         let columns = table
@@ -94,10 +94,9 @@ impl TryFrom<fivetran_sdk::Table> for FivetranTableSchema {
             .map(|column| -> Result<_, _> {
                 let data_type = column.r#type();
                 Ok((
-                    column
-                        .name
-                        .parse()
-                        .map_err(|err| DestinationError::InvalidTableName(column.name, err))?,
+                    column.name.parse().map_err(|err| {
+                        DestinationError::InvalidColumnName(column.name, table_name.clone(), err)
+                    })?,
                     FivetranTableColumn {
                         data_type,
                         in_primary_key: column.primary_key,
@@ -105,7 +104,10 @@ impl TryFrom<fivetran_sdk::Table> for FivetranTableSchema {
                 ))
             })
             .try_collect()?;
-        Ok(FivetranTableSchema { name, columns })
+        Ok(FivetranTableSchema {
+            name: table_name,
+            columns,
+        })
     }
 }
 
