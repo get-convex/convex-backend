@@ -84,13 +84,14 @@ async fn download_module_source_from_package<RT: Runtime>(
         source_package.sha256.clone(),
     )
     .await?;
+    // TODO(lee) we should probably pass the component through instead of inferring
+    // from tablet.
     let component = match namespace {
-        // TODO(lee) global namespace should not have modules, but for existing data this is how
-        // it's represented.
         TableNamespace::Global => ComponentId::Root,
-        TableNamespace::RootComponent => ComponentId::Root,
         TableNamespace::ByComponent(id) => ComponentId::Child(id),
     };
+    // TODO(lee) consider lifting the requirement that all modules in a component
+    // have the same source package.
     for module_metadata in ModuleModel::new(tx).get_all_metadata(component).await? {
         match package.remove(&module_metadata.path) {
             None => {

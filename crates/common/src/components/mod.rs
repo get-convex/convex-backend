@@ -74,7 +74,7 @@ impl From<ComponentId> for TableNamespace {
     fn from(value: ComponentId) -> Self {
         if *COMPONENTS_ENABLED {
             match value {
-                ComponentId::Root => TableNamespace::RootComponent,
+                ComponentId::Root => TableNamespace::root_component(),
                 ComponentId::Child(id) => TableNamespace::ByComponent(id),
             }
         } else {

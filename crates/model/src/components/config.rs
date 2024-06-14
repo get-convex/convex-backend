@@ -324,6 +324,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         &mut self,
         component_id: ComponentId,
     ) -> anyhow::Result<()> {
+        if matches!(component_id, ComponentId::Root) {
+            tracing::info!(
+                "No-op initializing component tables in global namespace, because they already \
+                 exist."
+            );
+            return Ok(());
+        }
         initialize_application_system_table(
             self.tx,
             &SchemasTable,

@@ -310,26 +310,22 @@ pub async fn initialize_application_system_table<RT: Runtime>(
 }
 
 pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
-    vec![
+    let mut system_tables: Vec<&'static dyn SystemTable> = vec![
         &DeploymentAuditLogsTable,
         &EnvironmentVariablesTable,
-        &UdfConfigTable,
         &AuthTable,
         &ExternalPackagesTable,
-        &ModulesTable,
-        &ModuleVersionsTable,
-        &SourcePackagesTable,
         &SessionRequestsTable,
-        &FileStorageTable,
-        &ScheduledJobsTable,
-        &CronJobsTable,
-        &CronJobLogsTable,
         &BackendStateTable,
         &ExportsTable,
         &SnapshotImportsTable,
-    ]
+    ];
+    system_tables.extend(component_system_tables());
+    system_tables
 }
 
+/// NOTE: Does not include _schemas because that's not an app system table,
+/// but it is created for each component.
 pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
     vec![
         &FileStorageTable,
@@ -338,7 +334,6 @@ pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
         &CronJobLogsTable,
         &ModulesTable,
         &ModuleVersionsTable,
-        &SchemasTable,
         &UdfConfigTable,
         &SourcePackagesTable,
     ]

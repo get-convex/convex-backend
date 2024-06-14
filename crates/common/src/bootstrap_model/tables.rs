@@ -141,10 +141,7 @@ codegen_convex_serialization!(TableMetadata, SerializedTableMetadata);
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[serde(rename_all = "camelCase", tag = "kind")]
 enum SerializedTableNamespace {
-    ByComponent {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        id: Option<String>,
-    },
+    ByComponent { id: String },
 }
 
 fn table_namespace_from_serialized(
@@ -152,10 +149,9 @@ fn table_namespace_from_serialized(
 ) -> anyhow::Result<TableNamespace> {
     Ok(match m {
         None => TableNamespace::Global,
-        Some(SerializedTableNamespace::ByComponent { id: Some(id) }) => {
+        Some(SerializedTableNamespace::ByComponent { id }) => {
             TableNamespace::ByComponent(id.parse()?)
         },
-        Some(SerializedTableNamespace::ByComponent { id: None }) => TableNamespace::RootComponent,
     })
 }
 
@@ -169,11 +165,8 @@ fn table_namespace_to_serialized(
     match m {
         TableNamespace::Global => Ok(None),
         TableNamespace::ByComponent(id) => Ok(Some(SerializedTableNamespace::ByComponent {
-            id: Some(id.to_string()),
+            id: id.to_string(),
         })),
-        TableNamespace::RootComponent => {
-            Ok(Some(SerializedTableNamespace::ByComponent { id: None }))
-        },
     }
 }
 

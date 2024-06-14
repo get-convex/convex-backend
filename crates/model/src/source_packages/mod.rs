@@ -93,11 +93,9 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
     pub async fn get_latest(&mut self) -> anyhow::Result<Option<ParsedDocument<SourcePackage>>> {
         let mut source_package_ids = vec![];
 
+        // TODO(lee) pass component down, instead of deriving it from the tablet.
         let component = match self.namespace {
-            // TODO(lee) global namespace should not have source package, but for existing data this
-            // is how it's represented.
             TableNamespace::Global => ComponentId::Root,
-            TableNamespace::RootComponent => ComponentId::Root,
             TableNamespace::ByComponent(id) => ComponentId::Child(id),
         };
 

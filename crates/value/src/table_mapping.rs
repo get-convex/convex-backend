@@ -17,11 +17,11 @@ use crate::{
 pub enum TableNamespace {
     /// For tables that have a single global namespace, e.g. _tables, _index,
     /// _db.
+    /// Also for tables in the root component.
     Global,
 
     /// Some tables are namespaced by component, like user tables,
     /// _file_storage, etc.
-    RootComponent,
     ByComponent(InternalId),
 }
 
@@ -31,6 +31,13 @@ impl TableNamespace {
     /// without any test failures.
     #[cfg(any(test, feature = "testing"))]
     pub const fn test_user() -> Self {
+        Self::Global
+    }
+
+    /// Use this to make it clear that a table pertains to the root component.
+    /// It doesn't extend between components like a plain Global.
+    /// This is useful for code searching.
+    pub const fn root_component() -> Self {
         Self::Global
     }
 
