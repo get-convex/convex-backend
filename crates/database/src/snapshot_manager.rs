@@ -309,7 +309,9 @@ impl<RT: Runtime> Snapshot<RT> {
             if !index_name.is_system_owned() {
                 let (document_size, total_index_size) = *document_storage_by_table
                     .get(&table_name)
-                    .expect("Index on a nonexistent table");
+                    .with_context(|| {
+                        format!("Index {index_name} on a nonexistent table {table_name}")
+                    })?;
                 document_storage_by_table.insert(
                     table_name,
                     (document_size, total_index_size + document_size),
