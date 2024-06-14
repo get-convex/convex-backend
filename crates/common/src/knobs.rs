@@ -1022,17 +1022,9 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
 pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> =
     LazyLock::new(|| env_config("REQUEST_TRACE_SAMPLE_CONFIG", SamplingConfig::default()));
 
-/// Write multi segment indexes for text search.
-///
-/// We always search using whatever index format is currently built. So this
-/// dictates not just want index type will be built, but also what type of query
-/// we'll use.
-///
-/// USE_MULTI_SEGMENT_SEARCH_QUERY does not dictate whether we'll use multi
-/// segment queries with multi segment indexes. Instead, it only enables using
-/// the multi segment query path against the old single segment index typ.e
+/// Write not yet complete multi segment indexes for text search.
 pub static BUILD_MULTI_SEGMENT_TEXT_INDEXES: LazyLock<bool> =
-    LazyLock::new(|| env_config("BUILD_MULTI_SEGMENT_TEXT_INDEXES", true));
+    LazyLock::new(|| env_config("BUILD_MULTI_SEGMENT_TEXT_INDEXES", false));
 
 /// If true, the backend will check the rate limiter service for capacity under
 /// the "backend_startup" domain keyed by db cluster name.
