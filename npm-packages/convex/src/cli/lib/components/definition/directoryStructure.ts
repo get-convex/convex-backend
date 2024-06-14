@@ -14,7 +14,7 @@ import { DEFINITION_FILENAME, ROOT_DEFINITION_FILENAME } from "../constants.js";
  * (e.g. 'convex-waitlist' instead of '../node_modules/convex-waitlist/component.config.ts')
  */
 export type ComponentDirectory = {
-  name: string;
+  isRoot: boolean;
   path: string;
   definitionPath: string;
 };
@@ -75,7 +75,7 @@ export function isComponentDirectory(
   return {
     kind: "ok",
     component: {
-      name: isRoot ? "App" : path.basename(directory),
+      isRoot,
       path: path.resolve(directory),
       definitionPath: definitionPath,
     },
@@ -112,18 +112,23 @@ export async function buildComponentDirectory(
  * the working directory. It is currently never the same as the working
  * directory since `npx convex` must be invoked from the package root instead.
  */
-export type ComponentPath = string & { __brand: "ComponentPath" };
+export type ComponentDefinitionPath = string & {
+  __brand: "ComponentDefinitionPath";
+};
 
-export function toComponentPath(
+export function toComponentDefinitionPath(
   rootComponent: ComponentDirectory,
   component: ComponentDirectory,
-): ComponentPath {
-  return path.relative(rootComponent.path, component.path) as ComponentPath;
+): ComponentDefinitionPath {
+  return path.relative(
+    rootComponent.path,
+    component.path,
+  ) as ComponentDefinitionPath;
 }
 
 export function toAbsolutePath(
   rootComponent: ComponentDirectory,
-  componentPath: ComponentPath,
+  componentDefinitionPath: ComponentDefinitionPath,
 ) {
-  return path.normalize(path.join(rootComponent.path, componentPath));
+  return path.normalize(path.join(rootComponent.path, componentDefinitionPath));
 }

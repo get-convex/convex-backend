@@ -4,6 +4,7 @@ import {
   jsonToConvex,
   v,
   Validator,
+  Value,
 } from "../../values/index.js";
 import { GenericDataModel } from "../data_model.js";
 import {
@@ -33,6 +34,10 @@ import {
   setupStorageReader,
   setupStorageWriter,
 } from "./storage_impl.js";
+import { functionName } from "../api.js";
+import { extractReferencePath } from "../components/index.js";
+import { parseArgs } from "../../common/index.js";
+import { performAsyncSyscall } from "./syscall.js";
 
 async function invokeMutation<
   F extends (ctx: GenericMutationCtx<GenericDataModel>, ...args: any) => any,
@@ -46,6 +51,10 @@ async function invokeMutation<
     auth: setupAuth(requestId),
     storage: setupStorageWriter(requestId),
     scheduler: setupMutationScheduler(),
+
+    runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
+    runMutation: (reference: any, args?: any) =>
+      runUdf("mutation", reference, args),
   };
   const result = await invokeFunction(func, mutationCtx, args as any);
   validateReturnValue(result);
@@ -231,6 +240,7 @@ async function invokeQuery<
     db: setupReader(),
     auth: setupAuth(requestId),
     storage: setupStorageReader(requestId),
+    runQuery: (reference: any, args?: any) => runUdf("query", reference, args),
   };
   const result = await invokeFunction(func, queryCtx, args as any);
   validateReturnValue(result);
@@ -438,3 +448,35 @@ export const httpActionGeneric = (
   q.invokeHttpAction = (request) => invokeHttpAction(func as any, request);
   return q;
 };
+
+function componentGetFunctionName(reference: any) {
+  // Legacy path for passing UDF paths directly to `runQuery`.
+  if (typeof reference === "string") {
+    return `_reference/function/${reference}`;
+  }
+  const functionPath = reference[functionName];
+  if (functionPath) {
+    return `_reference/function/${functionPath}`;
+  }
+  const referencePath = extractReferencePath(reference);
+  if (referencePath) {
+    return referencePath;
+  }
+  throw new Error(`${reference} is not a valid function reference`);
+}
+
+async function runUdf(
+  udfType: "query" | "mutation",
+  reference: any,
+  args?: Record<string, Value>,
+): Promise<any> {
+  const name = componentGetFunctionName(reference);
+  const queryArgs = parseArgs(args);
+  const syscallArgs = {
+    udfType,
+    reference: name,
+    args: convexToJson(queryArgs),
+  };
+  const result = await performAsyncSyscall("1.0/runUdf", syscallArgs);
+  return jsonToConvex(result);
+}

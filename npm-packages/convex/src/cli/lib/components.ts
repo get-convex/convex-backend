@@ -1,13 +1,7 @@
 import path from "path";
 import { Context, changeSpinner, logError } from "../../bundler/context.js";
 import { configFromProjectConfig, readProjectConfig } from "./config.js";
-import {
-  AppDefinitionSpec,
-  ComponentDefinitionSpec,
-  finishPush,
-  startPush,
-  waitForSchema,
-} from "./deploy2.js";
+import { finishPush, startPush, waitForSchema } from "./deploy2.js";
 import { version } from "../version.js";
 import { PushOptions } from "./push.js";
 import { ensureHasConvexDependency, functionsDir } from "./utils.js";
@@ -17,6 +11,16 @@ import {
   componentGraph,
 } from "./components/definition/bundle.js";
 import { isComponentDirectory } from "./components/definition/directoryStructure.js";
+import {
+  doFinalComponentCodegen,
+  doInitialComponentCodegen,
+} from "./codegen.js";
+import {
+  AppDefinitionConfig,
+  ComponentDefinitionConfig,
+} from "./deployApi/definitionConfig.js";
+import { typeCheckFunctionsInMode } from "./typecheck.js";
+import { withTmpDir } from "../../bundler/fs.js";
 
 export async function runComponentsPush(ctx: Context, options: PushOptions) {
   const { configPath, projectConfig } = await readProjectConfig(ctx);
@@ -73,6 +77,14 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
     verbose,
   );
 
+  changeSpinner(ctx, "Generating server code...");
+  await withTmpDir(async (tmpDir) => {
+    await doInitialComponentCodegen(ctx, tmpDir, rootComponent, options);
+    for (const directory of components.values()) {
+      await doInitialComponentCodegen(ctx, tmpDir, directory, options);
+    }
+  });
+
   changeSpinner(ctx, "Bundling component definitions...");
   // This bundles everything but the actual function definitions
   const {
@@ -102,13 +114,13 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
       verbose,
     );
 
-  const appDefinition: AppDefinitionSpec = {
+  const appDefinition: AppDefinitionConfig = {
     ...appDefinitionSpecWithoutImpls,
     auth: localConfig.authConfig || null,
     ...appImplementation,
   };
 
-  const componentDefinitions: ComponentDefinitionSpec[] = [];
+  const componentDefinitions: ComponentDefinitionConfig[] = [];
   for (const componentDefinition of componentDefinitionSpecsWithoutImpls) {
     const impl = componentImplementations.filter(
       (impl) =>
@@ -135,16 +147,48 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
 
   const startPushResponse = await startPush(
     ctx,
-    options.adminKey,
     options.url,
-    projectConfig.functions, // this is where the convex folder is, just 'convex/'
-    udfServerVersion,
-    appDefinition,
-    componentDefinitions,
+    {
+      adminKey: options.adminKey,
+      dryRun: false,
+      functions: projectConfig.functions,
+      udfServerVersion,
+      appDefinition,
+      componentDefinitions,
+      nodeDependencies: [],
+    },
+    verbose,
   );
 
-  console.log("startPush:", startPushResponse);
+  verbose && console.log("startPush:", startPushResponse);
 
+  changeSpinner(ctx, "Finalizing code generation...");
+  await withTmpDir(async (tmpDir) => {
+    await doFinalComponentCodegen(
+      ctx,
+      tmpDir,
+      rootComponent,
+      rootComponent,
+      startPushResponse,
+    );
+    for (const directory of components.values()) {
+      await doFinalComponentCodegen(
+        ctx,
+        tmpDir,
+        rootComponent,
+        directory,
+        startPushResponse,
+      );
+    }
+  });
+
+  changeSpinner(ctx, "Running TypeScript...");
+  await typeCheckFunctionsInMode(ctx, options.typecheck, rootComponent.path);
+  for (const directory of components.values()) {
+    await typeCheckFunctionsInMode(ctx, options.typecheck, directory.path);
+  }
+
+  changeSpinner(ctx, "Waiting for schema...");
   await waitForSchema(ctx, options.adminKey, options.url, startPushResponse);
 
   const finishPushResponse = await finishPush(
@@ -153,5 +197,5 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
     options.url,
     startPushResponse,
   );
-  console.log("finishPush:", finishPushResponse);
+  verbose && console.log("finishPush:", finishPushResponse);
 }

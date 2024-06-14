@@ -60,6 +60,24 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
    * A utility for scheduling Convex functions to run in the future.
    */
   scheduler: Scheduler;
+
+  /**
+   * @internal
+   */
+  runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
+    query: Query,
+    ...args: OptionalRestArgs<Query>
+  ) => Promise<FunctionReturnType<Query>>;
+
+  /**
+   * @internal
+   */
+  runMutation: <
+    Mutation extends FunctionReference<"mutation", "public" | "internal">,
+  >(
+    mutation: Mutation,
+    ...args: OptionalRestArgs<Mutation>
+  ) => Promise<FunctionReturnType<Mutation>>;
 }
 
 /**
@@ -89,6 +107,14 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
    * A utility for reading files in storage.
    */
   storage: StorageReader;
+
+  /**
+   * @internal
+   */
+  runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
+    query: Query,
+    ...args: OptionalRestArgs<Query>
+  ) => Promise<FunctionReturnType<Query>>;
 }
 
 /**

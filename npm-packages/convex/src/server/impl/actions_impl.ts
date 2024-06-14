@@ -2,7 +2,43 @@ import { convexToJson, jsonToConvex, Value } from "../../values/index.js";
 import { version } from "../../index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
-import { FunctionReference, getFunctionName } from "../../server/api.js";
+import { functionName, FunctionReference } from "../../server/api.js";
+import { extractReferencePath } from "../components/index.js";
+
+function syscallArgs(
+  requestId: string,
+  functionReference: any,
+  args?: Record<string, Value>,
+) {
+  // The `run*` syscalls expect either a UDF path at "name" or a serialized
+  // reference at "reference". Dispatch on `functionReference` to coerce
+  // it to one ore the other.
+  let functionAddress;
+
+  // Legacy path for passing in UDF paths directly as function references.
+  if (typeof functionReference === "string") {
+    functionAddress = { name: functionReference };
+  }
+  // Path for passing in a `FunctionReference`, either from `api` or directly
+  // created from a UDF path with `makeFunctionReference`.
+  else if (functionReference[functionName]) {
+    functionAddress = { name: functionReference[functionName] };
+  }
+  // Reference to a component's function derived from `app` or `component`.
+  else {
+    const referencePath = extractReferencePath(functionReference);
+    if (!referencePath) {
+      throw new Error(`${functionReference} is not a functionReference`);
+    }
+    functionAddress = { reference: referencePath };
+  }
+  return {
+    ...functionAddress,
+    args: convexToJson(parseArgs(args)),
+    version,
+    requestId,
+  };
+}
 
 export function setupActionCalls(requestId: string) {
   return {
@@ -10,17 +46,9 @@ export function setupActionCalls(requestId: string) {
       query: FunctionReference<"query", "public" | "internal">,
       args?: Record<string, Value>,
     ): Promise<any> => {
-      const name = getFunctionName(query);
-      const queryArgs = parseArgs(args);
-      const syscallArgs = {
-        name,
-        args: convexToJson(queryArgs),
-        version,
-        requestId,
-      };
       const result = await performAsyncSyscall(
         "1.0/actions/query",
-        syscallArgs,
+        syscallArgs(requestId, query, args),
       );
       return jsonToConvex(result);
     },
@@ -28,17 +56,9 @@ export function setupActionCalls(requestId: string) {
       mutation: FunctionReference<"mutation", "public" | "internal">,
       args?: Record<string, Value>,
     ): Promise<any> => {
-      const name = getFunctionName(mutation);
-      const mutationArgs = parseArgs(args);
-      const syscallArgs = {
-        name,
-        args: convexToJson(mutationArgs),
-        version,
-        requestId,
-      };
       const result = await performAsyncSyscall(
         "1.0/actions/mutation",
-        syscallArgs,
+        syscallArgs(requestId, mutation, args),
       );
       return jsonToConvex(result);
     },
@@ -46,17 +66,9 @@ export function setupActionCalls(requestId: string) {
       action: FunctionReference<"action", "public" | "internal">,
       args?: Record<string, Value>,
     ): Promise<any> => {
-      const name = getFunctionName(action);
-      const actionArgs = parseArgs(args);
-      const syscallArgs = {
-        name,
-        args: convexToJson(actionArgs),
-        version,
-        requestId,
-      };
       const result = await performAsyncSyscall(
         "1.0/actions/action",
-        syscallArgs,
+        syscallArgs(requestId, action, args),
       );
       return jsonToConvex(result);
     },

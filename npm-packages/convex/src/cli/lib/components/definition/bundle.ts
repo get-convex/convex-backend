@@ -1,11 +1,11 @@
 import path from "path";
 import {
   ComponentDirectory,
-  ComponentPath,
+  ComponentDefinitionPath,
   buildComponentDirectory,
   isComponentDirectory,
   qualifiedDefinitionPath,
-  toComponentPath,
+  toComponentDefinitionPath,
 } from "./directoryStructure.js";
 import {
   Context,
@@ -140,7 +140,7 @@ function componentPlugin({
 
           // A componentPath is path from the root component to the directory
           // of the this component's definition file.
-          const componentPath = toComponentPath(
+          const componentPath = toComponentDefinitionPath(
             rootComponentDirectory,
             imported,
           );
@@ -156,7 +156,7 @@ function componentPlugin({
 }
 
 /** The path on the deployment that identifier a component definition. */
-function hackyMapping(componentPath: ComponentPath): string {
+function hackyMapping(componentPath: ComponentDefinitionPath): string {
   return `./_componentDeps/${Buffer.from(componentPath).toString("base64").replace(/=+$/, "")}`;
 }
 
@@ -239,12 +239,14 @@ export function getDeps(
   rootComponent: ComponentDirectory,
   dependencyGraph: [ComponentDirectory, ComponentDirectory][],
   definitionPath: string,
-): ComponentPath[] {
+): ComponentDefinitionPath[] {
   return dependencyGraph
     .filter(
       ([importer, _imported]) => importer.definitionPath === definitionPath,
     )
-    .map(([_importer, imported]) => toComponentPath(rootComponent, imported));
+    .map(([_importer, imported]) =>
+      toComponentDefinitionPath(rootComponent, imported),
+    );
 }
 
 /**
@@ -445,7 +447,7 @@ export async function bundleImplementations(
   componentImplementations: {
     schema: Bundle;
     functions: Bundle[];
-    definitionPath: ComponentPath;
+    definitionPath: ComponentDefinitionPath;
   }[];
 }> {
   let appImplementation;
@@ -484,7 +486,10 @@ export async function bundleImplementations(
     } else {
       componentImplementations.push({
         // these needs to be a componentPath when sent to the server
-        definitionPath: toComponentPath(rootComponentDirectory, directory),
+        definitionPath: toComponentDefinitionPath(
+          rootComponentDirectory,
+          directory,
+        ),
         schema,
         functions,
       });

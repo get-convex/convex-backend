@@ -4,6 +4,7 @@ import {
   PropertyValidators,
   convexToJson,
 } from "../../values/index.js";
+import { AnyFunctionReference } from "../api.js";
 import { EmptyObject } from "../registration.js";
 import {
   AppDefinitionAnalysis,
@@ -243,3 +244,61 @@ export function defineApp(): AppDefinition {
   };
   return ret as AppDefinition;
 }
+
+type AnyInterfaceType = {
+  [key: string]: AnyInterfaceType;
+} & AnyFunctionReference;
+export type AnyComponentReference = Record<string, AnyInterfaceType>;
+
+type AnyChildComponents = Record<string, AnyComponentReference>;
+
+const toReferencePath = Symbol.for("toReferencePath");
+
+export function extractReferencePath(reference: any): string | null {
+  return reference[toReferencePath] ?? null;
+}
+
+function createChildComponents(
+  root: string,
+  pathParts: string[],
+): AnyChildComponents {
+  const handler: ProxyHandler<object> = {
+    get(_, prop: string | symbol) {
+      if (typeof prop === "string") {
+        const newParts = [...pathParts, prop];
+        return createChildComponents(root, newParts);
+      } else if (prop === toReferencePath) {
+        if (pathParts.length < 1) {
+          const found = [root, ...pathParts].join(".");
+          throw new Error(
+            `API path is expected to be of the form \`${root}.childComponent.functionName\`. Found: \`${found}\``,
+          );
+        }
+        return `_reference/childComponent/` + pathParts.join("/");
+      } else {
+        return undefined;
+      }
+    },
+  };
+  return new Proxy({}, handler);
+}
+
+/**
+ * @internal
+ */
+export const appGeneric = () => createChildComponents("app", []);
+
+/**
+ * @internal
+ */
+export type AnyApp = AnyChildComponents;
+
+/**
+ * @internal
+ */
+export const componentGeneric = () => createChildComponents("component", []);
+
+/**
+ * @internal
+ */
+export type AnyComponent = AnyChildComponents;

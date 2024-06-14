@@ -1,44 +1,40 @@
 import { changeSpinner, Context, logFailure } from "../../bundler/context.js";
 import { version } from "../version.js";
 import { deploymentFetch, logAndHandleFetchError } from "./utils.js";
-import { Bundle } from "../../bundler/index.js";
+import {
+  StartPushRequest,
+  startPushResponse,
+  StartPushResponse,
+} from "./deployApi/startPush.js";
+import {
+  AppDefinitionConfig,
+  ComponentDefinitionConfig,
+} from "./deployApi/definitionConfig.js";
 
 /** Push configuration2 to the given remote origin. */
-
 export async function startPush(
   ctx: Context,
-  adminKey: string,
   url: string,
-  functions: string,
-  udfServerVersion: string,
-  appDefinition: AppDefinitionSpec,
-  componentDefinitions: ComponentDefinitionSpec[],
+  request: StartPushRequest,
+  verbose?: boolean,
 ): Promise<StartPushResponse> {
-  const serializedConfig = config2JSON(
-    adminKey,
-    functions,
-    udfServerVersion,
-    appDefinition,
-    componentDefinitions,
-  );
-  const custom = (_k: string | number, s: any) =>
-    typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
-  console.log(JSON.stringify(serializedConfig, custom, 2));
+  if (verbose) {
+    const custom = (_k: string | number, s: any) =>
+      typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
+    console.log(JSON.stringify(request, custom, 2));
+  }
   const fetch = deploymentFetch(url);
   changeSpinner(ctx, "Analyzing and deploying source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
-      body: JSON.stringify({
-        ...serializedConfig,
-        dryRun: false,
-      }),
+      body: JSON.stringify(request),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Convex-Client": `npm-cli-${version}`,
       },
     });
-    return await response.json();
+    return startPushResponse.parse(await response.json());
   } catch (error: unknown) {
     // TODO incorporate AuthConfigMissingEnvironmentVariable logic
     logFailure(ctx, "Error: Unable to start push to " + url);
@@ -53,7 +49,6 @@ export async function waitForSchema(
   startPush: StartPushResponse,
 ) {
   const fetch = deploymentFetch(url);
-  changeSpinner(ctx, "Waiting for schema...");
   try {
     const response = await fetch("/api/deploy2/wait_for_schema", {
       body: JSON.stringify({
@@ -104,94 +99,11 @@ export async function finishPush(
   }
 }
 
-/** A component spec conains sufficient information to create a
- * bundles of code that must be analyzed.
- *
- * Most paths are relative to the directory of the definitionPath.
- */
-export type ComponentDefinitionSpec = {
-  /** This path is relative to the app (root component) directory. */
-  definitionPath: string;
-  /** Dependencies are paths to the directory of the dependency component definition from the app (root component) directory */
-  dependencies: string[];
-
-  // All other paths are relative to the directory of the definitionPath above.
-
-  definition: Bundle;
-  schema: Bundle;
-  functions: Bundle[];
-};
-
-export type AppDefinitionSpec = Omit<
-  ComponentDefinitionSpec,
-  "definitionPath"
-> & {
-  // Only app (root) component specs contain an auth bundle.
-  auth: Bundle | null;
-};
-
-export type ComponentDefinitionSpecWithoutImpls = Omit<
-  ComponentDefinitionSpec,
+export type ComponentDefinitionConfigWithoutImpls = Omit<
+  ComponentDefinitionConfig,
   "schema" | "functions"
 >;
-export type AppDefinitionSpecWithoutImpls = Omit<
-  AppDefinitionSpec,
+export type AppDefinitionConfigWithoutImpls = Omit<
+  AppDefinitionConfig,
   "schema" | "functions" | "auth"
 >;
-
-// TODO repetitive now, but this can do some denormalization if helpful
-export function config2JSON(
-  adminKey: string,
-  functions: string,
-  udfServerVersion: string,
-  appDefinition: AppDefinitionSpec,
-  componentDefinitions: ComponentDefinitionSpec[],
-): {
-  adminKey: string;
-  functions: string;
-  udfServerVersion: string;
-  appDefinition: AppDefinitionSpec;
-  componentDefinitions: ComponentDefinitionSpec[];
-  nodeDependencies: [];
-} {
-  return {
-    adminKey,
-    functions,
-    udfServerVersion,
-    appDefinition,
-    componentDefinitions,
-    nodeDependencies: [],
-  };
-}
-
-export type StartPushResponse = {
-  externalDepsId: null | unknown; // this is a guess
-  appPackage: string; // like '9e0fbcbe-b2bc-40a3-9273-6a24896ba8ec',
-  componentPackages: Record<string, string> /* like {
-    '../../convex_ratelimiter/ratelimiter': '4dab8e49-6e40-47fb-ae5b-f53f58ccd244',
-    '../examples/waitlist': 'b2eaba58-d320-4b84-85f1-476af834c17f'
-  },*/;
-  appAuth: unknown[];
-  analysis: Record<
-    string,
-    {
-      definition: {
-        path: string; // same as key?
-        definitionType: { type: "app" } | unknown;
-        childComponents: unknown[];
-        exports: unknown;
-      };
-      schema: { tables: unknown[]; schemaValidation: boolean };
-      // really this is "modules"
-      functions: Record<
-        string,
-        {
-          functions: unknown[];
-          httpRoutes: null | unknown;
-          cronSpecs: null | unknown;
-          sourceMapped: unknown;
-        }
-      >;
-    }
-  >;
-};

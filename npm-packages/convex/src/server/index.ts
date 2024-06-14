@@ -159,11 +159,20 @@ export type {
 /**
  * @internal
  */
-export { defineApp, defineComponent } from "./components/index.js";
+export {
+  defineApp,
+  defineComponent,
+  appGeneric,
+  componentGeneric,
+} from "./components/index.js";
 /**
  * @internal
  */
-export type { ComponentDefinition } from "./components/index.js";
+export type {
+  ComponentDefinition,
+  AnyApp,
+  AnyComponent,
+} from "./components/index.js";
 
 /**
  * @internal
