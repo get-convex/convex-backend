@@ -527,13 +527,14 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         search_storage: Arc<dyn Storage>,
         storage_key: ObjectKey,
     ) -> anyhow::Result<usize> {
-        let _timer = text_number_of_segments_searcher_latency_seconds();
+        let timer = text_number_of_segments_searcher_latency_seconds();
         let segment_path = self
             .archive_cache
             .get(search_storage.clone(), &storage_key, SearchFileType::Text)
             .await?;
         let reader = index_reader_for_directory(segment_path)?;
         let searcher = reader.searcher();
+        timer.finish();
         Ok(searcher.segment_readers().len())
     }
 
@@ -545,10 +546,11 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
-        let _timer = text_query_tokens_searcher_latency_seconds();
+        let timer = text_query_tokens_searcher_latency_seconds();
         let text_segment = self.load_text_segment(search_storage, storage_keys).await?;
         let query = move || Self::query_tokens_impl(text_segment, queries, max_results);
         let resp = self.text_search_pool.execute(query).await??;
+        timer.finish();
         Ok(resp)
     }
 
@@ -559,10 +561,11 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         storage_keys: TextStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
-        let _timer = text_query_bm25_searcher_latency_seconds();
+        let timer = text_query_bm25_searcher_latency_seconds();
         let text_segment = self.load_text_segment(search_storage, storage_keys).await?;
         let query = move || Self::query_bm25_stats_impl(text_segment, terms);
         let resp = self.text_search_pool.execute(query).await??;
+        timer.finish();
         Ok(resp)
     }
 
@@ -573,10 +576,11 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         storage_keys: TextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
-        let _timer = text_query_posting_lists_searcher_latency_seconds();
+        let timer = text_query_posting_lists_searcher_latency_seconds();
         let text_segment = self.load_text_segment(search_storage, storage_keys).await?;
         let query = move || Self::query_posting_lists_impl(text_segment, query);
         let resp = self.text_search_pool.execute(query).await??;
+        timer.finish();
         Ok(resp)
     }
 
@@ -586,15 +590,17 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedTextStorageKeys>,
     ) -> anyhow::Result<FragmentedTextSegment> {
-        let _timer = text_compaction_searcher_latency_seconds();
-        fetch_compact_and_upload_text_segment(
+        let timer = text_compaction_searcher_latency_seconds();
+        let result = fetch_compact_and_upload_text_segment(
             &self.rt,
             search_storage,
             self.archive_cache.clone(),
             self.text_search_pool.clone(),
             segments,
         )
-        .await
+        .await;
+        timer.finish();
+        result
     }
 }
 
