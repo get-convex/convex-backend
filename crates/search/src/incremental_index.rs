@@ -364,14 +364,6 @@ pub async fn build_new_segment<RT: Runtime>(
     // deleted within our new segment's time window and can be ignored.
     let mut dangling_deletes = BTreeSet::new();
 
-    // Keep track of deleted document ids whose previous revision was within our
-    // document log window for this new segment. We can't process previous
-    // revisions inside of our document window because mutations to the document
-    // may mean it has terms that don't match those in the previous segment. Use
-    // this set to skip deletes until we find the first delete for a given id
-    // whose previous revision's timestamp is outside our window.
-    // let mut pending_deletes = BTreeSet::new();
-
     let mut num_indexed_documents = 0;
 
     let mut is_at_least_one_document_indexed = false;
@@ -382,8 +374,7 @@ pub async fn build_new_segment<RT: Runtime>(
         // 1. We add the document to our new segment
         // 2. We delete the document from a previous segment
         // 3. We ignore the document because it was both added and removed within the
-        //    time bounds
-        // for our new segment.
+        //    time bounds for our new segment.
         let convex_id = revision_pair.id.internal_id();
 
         // Skip documents we have already added to the segment, but update dangling
