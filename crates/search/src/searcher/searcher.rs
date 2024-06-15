@@ -123,6 +123,7 @@ use crate::{
             text_number_of_segments_searcher_latency_seconds,
             text_query_bm25_searcher_latency_seconds,
             text_query_posting_lists_searcher_latency_seconds,
+            text_query_term_ordinals_searcher_timer,
             text_query_tokens_searcher_latency_seconds,
         },
         searchlight_knobs::{
@@ -613,6 +614,7 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
         segment: ObjectKey,
         field_to_term_values: BTreeMap<Field, Vec<TermValue>>,
     ) -> anyhow::Result<BTreeMap<Field, Vec<TermOrdinal>>> {
+        let timer = text_query_term_ordinals_searcher_timer();
         let segment_path = self
             .archive_cache
             .get(search_storage, &segment, SearchFileType::Text)
@@ -638,6 +640,7 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
             }
             field_to_term_ordinals.insert(field, term_ordinals);
         }
+        timer.finish();
         Ok(field_to_term_ordinals)
     }
 }

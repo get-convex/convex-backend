@@ -66,6 +66,15 @@ pub(crate) fn text_compaction_searcher_latency_seconds() -> StatusTimer {
 }
 
 register_convex_histogram!(
+    TEXT_QUERY_TERM_ORDINALS_SEARCHER_LATENCY_SECONDS,
+    "The amount of time it took to query for term ordinals for values in Searcher (searchlight)",
+    &STATUS_LABEL,
+);
+pub(crate) fn text_query_term_ordinals_searcher_timer() -> StatusTimer {
+    StatusTimer::new(&TEXT_QUERY_TERM_ORDINALS_SEARCHER_LATENCY_SECONDS)
+}
+
+register_convex_histogram!(
     SEARCHLIGHT_VECTOR_COMPACTION_PREFETCH_SECONDS,
     "The amount of time it takes to prefetch a new segment produced by vector compaction",
     &STATUS_LABEL
