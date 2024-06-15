@@ -31,7 +31,6 @@ use common::{
     value::{
         ConvexValue,
         ResolvedDocumentId,
-        VALUE_TOO_LARGE_SHORT_MSG,
     },
 };
 use database::{
@@ -42,14 +41,8 @@ use database::{
     SystemMetadataModel,
     Transaction,
 };
-use errors::{
-    ErrorMetadata,
-    ErrorMetadataAnyhowExt,
-};
-use metrics::{
-    get_module_metadata_timer,
-    get_module_version_timer,
-};
+use errors::ErrorMetadata;
+use metrics::get_module_metadata_timer;
 use sync_types::CanonicalizedModulePath;
 use value::{
     sha256::{
@@ -309,39 +302,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Ok(modules)
     }
 
-    pub async fn get_version(
-        &mut self,
-        module_id: ResolvedDocumentId,
-        version: Option<ModuleVersion>,
-    ) -> anyhow::Result<Option<ParsedDocument<ModuleVersionMetadata>>> {
-        let timer = get_module_version_timer();
-        let module_id_value: ConvexValue = module_id.into();
-        let index_range = IndexRange {
-            index_name: MODULE_VERSION_INDEX.clone(),
-            range: vec![IndexRangeExpression::Eq(
-                MODULE_ID_FIELD.clone(),
-                module_id_value.into(),
-            )],
-            order: Order::Asc,
-        };
-        let module_query = Query::index_range(index_range);
-        let namespace = self
-            .tx
-            .table_mapping()
-            .tablet_namespace(module_id.table().tablet_id)?;
-        let mut query_stream = ResolvedQuery::new(self.tx, namespace, module_query)?;
-        let module_version: Option<ParsedDocument<ModuleVersionMetadata>> = query_stream
-            .expect_at_most_one(self.tx)
-            .await?
-            .map(TryFrom::try_from)
-            .transpose()?;
-        if let Some(module_version) = &module_version {
-            anyhow::ensure!(module_version.version == version);
-        }
-        timer.finish();
-        Ok(module_version)
-    }
-
     pub async fn get_metadata_for_function(
         &mut self,
         path: CanonicalizedComponentFunctionPath,
@@ -392,13 +352,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             path.module_path.is_deps() || analyze_result.is_some(),
             "AnalyzedModule is required for non-dependency modules"
         );
-        let component = path.component;
         let sha256 = hash_module_source(&source, source_map.as_ref());
-        let (module_id, version) = self
-            .put_module_metadata(path, source_package_id, analyze_result, environment, sha256)
+        self.put_module_metadata(path, source_package_id, analyze_result, environment, sha256)
             .await?;
-        self.put_module_source_into_db(module_id, version, source, source_map, component)
-            .await
+        Ok(())
     }
 
     async fn put_module_metadata(
@@ -413,12 +370,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             Some(module_metadata) => {
                 let previous_version = module_metadata.latest_version;
 
-                // Delete the old module version since it has no more references.
-                let previous_version_id = self
-                    .get_version(module_metadata.id(), previous_version)
-                    .await?
-                    .map(|version| version.id());
-
                 let latest_version = previous_version.map(|v| v + 1);
                 let new_metadata = ModuleMetadata {
                     path: path.module_path,
@@ -431,12 +382,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 SystemMetadataModel::new(self.tx, path.component.into())
                     .replace(module_metadata.id(), new_metadata.try_into()?)
                     .await?;
-
-                if let Some(previous_version_id) = previous_version_id {
-                    SystemMetadataModel::new(self.tx, path.component.into())
-                        .delete(previous_version_id)
-                        .await?;
-                }
 
                 (module_metadata.id(), latest_version)
             },
@@ -460,41 +405,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Ok((module_id, version))
     }
 
-    async fn put_module_source_into_db(
-        &mut self,
-        module_id: ResolvedDocumentId,
-        version: Option<ModuleVersion>,
-        source: ModuleSource,
-        source_map: Option<SourceMap>,
-        component: ComponentId,
-    ) -> anyhow::Result<()> {
-        let new_version = ModuleVersionMetadata {
-            module_id: module_id.into(),
-            source,
-            source_map,
-            version,
-        }.try_into()
-        .map_err(|e: anyhow::Error| e.map_error_metadata(|em| {
-            if em.short_msg == VALUE_TOO_LARGE_SHORT_MSG {
-                // Remap the ValueTooLargeError message to something more specific
-                // to the modules use case.
-                let message = format!(
-                    "The functions, source maps, and their dependencies in \"convex/\" are too large. See our docs (https://docs.convex.dev/using/writing-convex-functions#using-libraries) for more details. You can also run `npx convex deploy -v` to print out each source file's bundled size.\n{}", em.msg
-                );
-                ErrorMetadata::bad_request(
-                    "ModulesTooLarge",
-                    message,
-                )
-            } else {
-                em
-            }
-        }))?;
-        SystemMetadataModel::new(self.tx, component.into())
-            .insert(&MODULE_VERSIONS_TABLE, new_version)
-            .await?;
-        Ok(())
-    }
-
     /// Delete a module, making it inaccessible for subsequent transactions.
     pub async fn delete(&mut self, path: CanonicalizedComponentModulePath) -> anyhow::Result<()> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
@@ -506,16 +416,6 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             SystemMetadataModel::new(self.tx, namespace)
                 .delete(module_id)
                 .await?;
-
-            // Delete the module version since it has no more references.
-            if let Some(module_version) = self
-                .get_version(module_id, module_metadata.latest_version)
-                .await?
-            {
-                SystemMetadataModel::new(self.tx, namespace)
-                    .delete(module_version.id())
-                    .await?;
-            }
         }
         Ok(())
     }
