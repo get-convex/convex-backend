@@ -133,7 +133,7 @@ type FunctionDefinition =
 
 function exportArgs(functionDefinition: FunctionDefinition) {
   return () => {
-    let args = v.any();
+    let args: Validator<any, boolean, any> = v.any();
     if (
       typeof functionDefinition === "object" &&
       functionDefinition.args !== undefined

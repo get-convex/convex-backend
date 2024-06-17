@@ -13,14 +13,13 @@ export type {
   Value,
   NumericValue,
 } from "./value.js";
-export { v, Validator } from "./validator.js";
+export { v } from "./validator.js";
+export type { PropertyValidators, ObjectType } from "./validator.js";
 export type {
-  PropertyValidators,
-  ObjectType,
-  ObjectValidator,
-} from "./validator.js";
-/* @internal */
-export type { ValidatorJSON, ObjectFieldType } from "./validator.js";
+  ValidatorJSON,
+  ObjectFieldType,
+  Validator,
+} from "./validators.js";
 import * as Base64 from "./base64.js";
 export { Base64 };
 export type { Infer } from "./validator.js";

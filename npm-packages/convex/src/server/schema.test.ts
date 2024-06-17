@@ -716,3 +716,23 @@ test("Infer", () => {
 
   assert<Equals<Actual, Expected>>();
 });
+
+test("defineSchema exposes table validators", () => {
+  const obj = {
+    ref: v.id("reference"),
+    string: v.string(),
+  } as const;
+  const table = defineTable(obj);
+  const actual = table.validator;
+  const expected = v.object(obj);
+  expect(actual).toEqual(expected);
+  assert<Equals<typeof actual, typeof expected>>();
+
+  const schema = defineSchema({
+    table: defineTable(obj),
+  });
+
+  const actual2 = schema.tables.table.validator;
+  expect(actual2).toEqual(expected);
+  assert<Equals<typeof actual2, typeof expected>>();
+});

@@ -120,9 +120,9 @@ function rewriteDtsToRemoveInternal(dirname) {
     dirname,
     "values/validator.d.ts",
     `/** @internal */
-    record<K extends string, ValueValidator extends Validator<any, any, any>>(keys: Validator<K, false, any>, values: ValueValidator): RecordValidator<K, ValueValidator>;`,
-    `/* internal record
-    record<K extends string, ValueValidator extends Validator<any, any, any>>(keys: Validator<K, false, any>, values: ValueValidator): RecordValidator<K, ValueValidator>; */`,
+    record<Key extends Validator<any, boolean, any>, Value extends Validator<any, boolean, any>>(keys: Key, values: Value): RecordValidator<Value["isOptional"] extends true ? { [key in Infer<Key>]?: Value["type"] | undefined; } : Record<Infer<Key>, Value["type"]>, Key, Value, false, never>;`,
+    `/* @internal
+    record<Key extends Validator<any, boolean, any>, Value extends Validator<any, boolean, any>>(keys: Key, values: Value): RecordValidator<Value["isOptional"] extends true ? { [key in Infer<Key>]?: Value["type"] | undefined; } : Record<Infer<Key>, Value["type"]>, Key, Value, false, never>; */`,
   );
   auditForInternal(path.join(dirname, "dist", "cjs-types"));
   auditForInternal(path.join(dirname, "dist", "esm-types"));

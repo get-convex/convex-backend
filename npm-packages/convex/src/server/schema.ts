@@ -30,7 +30,6 @@
 import {
   AnyDataModel,
   GenericDataModel,
-  GenericDocument,
   GenericTableIndexes,
   GenericTableSearchIndexes,
   GenericTableVectorIndexes,
@@ -43,7 +42,8 @@ import {
   SystemIndexes,
 } from "../server/system_fields.js";
 import { Expand } from "../type_utils.js";
-import { ObjectValidator, v, Validator } from "../values/validator.js";
+import { ObjectType, isValidator, v } from "../values/validator.js";
+import { ObjectValidator, Validator } from "../values/validators.js";
 
 /**
  * Extract all of the index field paths within a {@link Validator}.
@@ -149,8 +149,7 @@ export type SearchIndex = {
  * @public
  */
 export class TableDefinition<
-  Document extends GenericDocument = GenericDocument,
-  FieldPaths extends string = string,
+  DocumentType extends Validator<any, any, any> = Validator<any, any, any>,
   // eslint-disable-next-line @typescript-eslint/ban-types
   Indexes extends GenericTableIndexes = {},
   // eslint-disable-next-line @typescript-eslint/ban-types
@@ -162,16 +161,16 @@ export class TableDefinition<
   private searchIndexes: SearchIndex[];
   private vectorIndexes: VectorIndex[];
   // The type of documents stored in this table.
-  private documentType: Validator<any, any, any>;
+  validator: DocumentType;
 
   /**
    * @internal
    */
-  constructor(documentType: Validator<any, any, any>) {
+  constructor(documentType: DocumentType) {
     this.indexes = [];
     this.searchIndexes = [];
     this.vectorIndexes = [];
-    this.documentType = documentType;
+    this.validator = documentType;
   }
 
   /**
@@ -186,14 +185,13 @@ export class TableDefinition<
    */
   index<
     IndexName extends string,
-    FirstFieldPath extends FieldPaths,
-    RestFieldPaths extends FieldPaths[],
+    FirstFieldPath extends ExtractFieldPaths<DocumentType>,
+    RestFieldPaths extends ExtractFieldPaths<DocumentType>[],
   >(
     name: IndexName,
     fields: [FirstFieldPath, ...RestFieldPaths],
   ): TableDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     // Update `Indexes` to include the new index and use `Expand` to make the
     // types look pretty in editors.
     Expand<
@@ -221,14 +219,13 @@ export class TableDefinition<
    */
   searchIndex<
     IndexName extends string,
-    SearchField extends FieldPaths,
-    FilterFields extends FieldPaths = never,
+    SearchField extends ExtractFieldPaths<DocumentType>,
+    FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
     indexConfig: Expand<SearchIndexConfig<SearchField, FilterFields>>,
   ): TableDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     // Update `SearchIndexes` to include the new index and use `Expand` to make
     // the types look pretty in editors.
@@ -263,14 +260,13 @@ export class TableDefinition<
    */
   vectorIndex<
     IndexName extends string,
-    VectorField extends FieldPaths,
-    FilterFields extends FieldPaths = never,
+    VectorField extends ExtractFieldPaths<DocumentType>,
+    FilterFields extends ExtractFieldPaths<DocumentType> = never,
   >(
     name: IndexName,
     indexConfig: Expand<VectorIndexConfig<VectorField, FilterFields>>,
   ): TableDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     Expand<
@@ -298,8 +294,7 @@ export class TableDefinition<
    * Work around for https://github.com/microsoft/TypeScript/issues/57035
    */
   protected self(): TableDefinition<
-    Document,
-    FieldPaths,
+    DocumentType,
     Indexes,
     SearchIndexes,
     VectorIndexes
@@ -317,7 +312,7 @@ export class TableDefinition<
       indexes: this.indexes,
       searchIndexes: this.searchIndexes,
       vectorIndexes: this.vectorIndexes,
-      documentType: this.documentType.json,
+      documentType: this.validator.json,
     };
   }
 }
@@ -349,12 +344,7 @@ export class TableDefinition<
  */
 export function defineTable<
   DocumentSchema extends Validator<Record<string, any>, false, any>,
->(
-  documentSchema: DocumentSchema,
-): TableDefinition<
-  ExtractDocument<DocumentSchema>,
-  ExtractFieldPaths<DocumentSchema>
->;
+>(documentSchema: DocumentSchema): TableDefinition<DocumentSchema>;
 /**
  * Define a table in a schema.
  *
@@ -384,16 +374,13 @@ export function defineTable<
   DocumentSchema extends Record<string, Validator<any, any, any>>,
 >(
   documentSchema: DocumentSchema,
-): TableDefinition<
-  ExtractDocument<ObjectValidator<DocumentSchema>>,
-  ExtractFieldPaths<ObjectValidator<DocumentSchema>>
->;
+): TableDefinition<ObjectValidator<ObjectType<DocumentSchema>, DocumentSchema>>;
 export function defineTable<
   DocumentSchema extends
     | Validator<Record<string, any>, false, any>
     | Record<string, Validator<any, any, any>>,
->(documentSchema: DocumentSchema): TableDefinition<any, any> {
-  if (documentSchema instanceof Validator) {
+>(documentSchema: DocumentSchema): TableDefinition<any, any, any> {
+  if (isValidator(documentSchema)) {
     return new TableDefinition(documentSchema);
   } else {
     return new TableDefinition(v.object(documentSchema));
@@ -544,8 +531,7 @@ export type DataModelFromSchemaDefinition<
   {
     [TableName in keyof SchemaDef["tables"] &
       string]: SchemaDef["tables"][TableName] extends TableDefinition<
-      infer Document,
-      infer FieldPaths,
+      infer DocumentType,
       infer Indexes,
       infer SearchIndexes,
       infer VectorIndexes
@@ -553,8 +539,10 @@ export type DataModelFromSchemaDefinition<
       ? {
           // We've already added all of the system fields except for `_id`.
           // Add that here.
-          document: Expand<IdField<TableName> & Document>;
-          fieldPaths: keyof IdField<TableName> | FieldPaths;
+          document: Expand<IdField<TableName> & ExtractDocument<DocumentType>>;
+          fieldPaths:
+            | keyof IdField<TableName>
+            | ExtractFieldPaths<DocumentType>;
           indexes: Expand<Indexes & SystemIndexes>;
           searchIndexes: SearchIndexes;
           vectorIndexes: VectorIndexes;

@@ -613,7 +613,8 @@ interface BundledModuleInfo {
   platform: "node" | "convex";
 }
 
-/** A component definition spec contains enough information to create bundles
+/**
+ * A component definition spec contains enough information to create bundles
  * of code that must be analyzed in order to construct a ComponentDefinition.
  *
  * Most paths are relative to the directory of the definitionPath.

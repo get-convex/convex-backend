@@ -12,12 +12,7 @@ import {
   OptionalRestArgs,
   ValidatorTypeToReturnType,
 } from "../server/api.js";
-import {
-  Infer,
-  ObjectType,
-  PropertyValidators,
-  Validator,
-} from "../values/validator.js";
+import { Infer, ObjectType, PropertyValidators } from "../values/validator.js";
 import { Id } from "../values/value.js";
 import {
   GenericDataModel,
@@ -28,6 +23,7 @@ import {
 import { Scheduler } from "./scheduler.js";
 import { VectorSearchQuery } from "./vector_search.js";
 import { Expand } from "../type_utils.js";
+import { Validator } from "../values/validators.js";
 
 /**
  * A set of services for use within Convex mutation functions.
