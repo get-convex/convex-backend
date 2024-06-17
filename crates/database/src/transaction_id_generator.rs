@@ -17,7 +17,7 @@ use rand_chacha::ChaCha12Rng;
 
 /// A production ID generator scoped to a single transaction.
 ///
-/// This creates InternalIds with 15 bytes of randomness followed by the day in
+/// This creates InternalIds with 14 bytes of randomness followed by the day in
 /// 2 bytes.
 ///
 /// The time is pinned on construction, so only use for a single transaction!
