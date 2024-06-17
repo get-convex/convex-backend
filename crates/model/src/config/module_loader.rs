@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use common::{
@@ -10,8 +7,6 @@ use common::{
     runtime::Runtime,
 };
 use database::Transaction;
-use sync_types::CanonicalizedModulePath;
-use value::ResolvedDocumentId;
 
 use crate::{
     modules::{
@@ -31,7 +26,6 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
         &self,
         module_metadata: ParsedDocument<ModuleMetadata>,
         source_package: ParsedDocument<SourcePackage>,
-        paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
     ) -> anyhow::Result<Arc<FullModuleSource>>;
 
     async fn get_module(
@@ -47,13 +41,7 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
         let source_package = SourcePackageModel::new(tx, component.into())
             .get(module_metadata.source_package_id)
             .await?;
-        let paths_to_prefetch = ModuleModel::new(tx)
-            .get_all_metadata(component)
-            .await?
-            .iter()
-            .map(|metadata| (metadata.id(), metadata.path.clone()))
-            .collect();
-        self.get_module_with_metadata(module_metadata, source_package, paths_to_prefetch)
+        self.get_module_with_metadata(module_metadata, source_package)
             .await
             .map(Some)
     }
@@ -61,10 +49,7 @@ pub trait ModuleLoader<RT: Runtime>: Sync + Send + 'static {
 
 #[cfg(any(test, feature = "testing"))]
 pub mod test_module_loader {
-    use std::{
-        collections::BTreeMap,
-        sync::Arc,
-    };
+    use std::sync::Arc;
 
     use anyhow::Context;
     use async_trait::async_trait;
@@ -73,8 +58,6 @@ pub mod test_module_loader {
         runtime::Runtime,
     };
     use storage::Storage;
-    use sync_types::CanonicalizedModulePath;
-    use value::ResolvedDocumentId;
 
     use super::ModuleLoader;
     use crate::{
@@ -99,7 +82,6 @@ pub mod test_module_loader {
             &self,
             module_metadata: ParsedDocument<ModuleMetadata>,
             source_package: ParsedDocument<SourcePackage>,
-            _paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
         ) -> anyhow::Result<Arc<FullModuleSource>> {
             let source_package = source_package.into_value();
             let package = download_package(

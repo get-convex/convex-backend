@@ -1,8 +1,5 @@
 use std::{
-    collections::{
-        BTreeMap,
-        HashMap,
-    },
+    collections::HashMap,
     sync::Arc,
 };
 
@@ -24,7 +21,6 @@ use model::{
 };
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
-use value::ResolvedDocumentId;
 
 use crate::{
     isolate::CONVEX_SCHEME,
@@ -36,17 +32,18 @@ pub async fn get_module_and_prefetch(
     modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
     source_package: ParsedDocument<SourcePackage>,
-    paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
-) -> HashMap<(ResolvedDocumentId, SourcePackageId), anyhow::Result<FullModuleSource>> {
+) -> HashMap<(CanonicalizedModulePath, SourcePackageId), anyhow::Result<FullModuleSource>> {
     let _timer = module_load_timer("package");
     let all_source_result =
-        download_module_source_from_package(modules_storage, source_package, paths_to_prefetch)
-            .await;
+        download_module_source_from_package(modules_storage, source_package).await;
     match all_source_result {
         Err(e) => {
             let mut result = HashMap::new();
             result.insert(
-                (module_metadata.id(), module_metadata.source_package_id),
+                (
+                    module_metadata.path.clone(),
+                    module_metadata.source_package_id,
+                ),
                 Err(e),
             );
             result
@@ -62,35 +59,23 @@ pub async fn get_module_and_prefetch(
 async fn download_module_source_from_package(
     modules_storage: Arc<dyn Storage>,
     source_package: ParsedDocument<SourcePackage>,
-    paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
-) -> anyhow::Result<HashMap<(ResolvedDocumentId, SourcePackageId), FullModuleSource>> {
+) -> anyhow::Result<HashMap<(CanonicalizedModulePath, SourcePackageId), FullModuleSource>> {
     let mut result = HashMap::new();
-    let mut package = download_package(
+    let package = download_package(
         modules_storage,
         source_package.storage_key.clone(),
         source_package.sha256.clone(),
     )
     .await?;
     let source_package_id: SourcePackageId = source_package.developer_id().into();
-    for (module_id, module_path) in paths_to_prefetch {
-        match package.remove(&module_path) {
-            None => {
-                anyhow::bail!(
-                    "module {:?} not found in package {:?}",
-                    module_path,
-                    source_package_id
-                );
+    for (module_path, module_config) in package {
+        result.insert(
+            (module_path, source_package_id),
+            FullModuleSource {
+                source: module_config.source,
+                source_map: module_config.source_map,
             },
-            Some(source) => {
-                result.insert(
-                    (module_id, source_package_id),
-                    FullModuleSource {
-                        source: source.source,
-                        source_map: source.source_map,
-                    },
-                );
-            },
-        }
+        );
     }
     Ok(result)
 }

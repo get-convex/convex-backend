@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use async_lru::async_lru::AsyncLru;
 use async_trait::async_trait;
@@ -28,7 +25,6 @@ use model::{
 };
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
-use value::ResolvedDocumentId;
 
 mod metrics;
 
@@ -36,7 +32,7 @@ mod metrics;
 pub struct ModuleCache<RT: Runtime> {
     modules_storage: Arc<dyn Storage>,
 
-    cache: AsyncLru<RT, (ResolvedDocumentId, SourcePackageId), FullModuleSource>,
+    cache: AsyncLru<RT, (CanonicalizedModulePath, SourcePackageId), FullModuleSource>,
 }
 
 impl<RT: Runtime> ModuleCache<RT> {
@@ -62,23 +58,19 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
         &self,
         module_metadata: ParsedDocument<ModuleMetadata>,
         source_package: ParsedDocument<SourcePackage>,
-        paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
     ) -> anyhow::Result<Arc<FullModuleSource>> {
         let timer = metrics::module_cache_get_module_timer();
 
-        let key = (module_metadata.id(), module_metadata.source_package_id);
+        let key = (
+            module_metadata.path.clone(),
+            module_metadata.source_package_id,
+        );
         let modules_storage = self.modules_storage.clone();
         let result = self
             .cache
             .get_and_prepopulate(
                 key,
-                get_module_and_prefetch(
-                    modules_storage,
-                    module_metadata,
-                    source_package,
-                    paths_to_prefetch,
-                )
-                .boxed(),
+                get_module_and_prefetch(modules_storage, module_metadata, source_package).boxed(),
             )
             .await?;
 

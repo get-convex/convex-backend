@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use async_lru::async_lru::AsyncLru;
 use async_trait::async_trait;
@@ -28,12 +25,11 @@ use model::{
 };
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
-use value::ResolvedDocumentId;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct ModuleCacheKey {
     instance_name: String,
-    module_id: ResolvedDocumentId,
+    module_path: CanonicalizedModulePath,
     source_package_id: SourcePackageId,
 }
 
@@ -64,12 +60,11 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
         &self,
         module_metadata: ParsedDocument<ModuleMetadata>,
         source_package: ParsedDocument<SourcePackage>,
-        paths_to_prefetch: BTreeMap<ResolvedDocumentId, CanonicalizedModulePath>,
     ) -> anyhow::Result<Arc<FullModuleSource>> {
         let instance_name = self.instance_name.clone();
         let key = ModuleCacheKey {
             instance_name: self.instance_name.clone(),
-            module_id: module_metadata.id(),
+            module_path: module_metadata.path.clone(),
             source_package_id: module_metadata.source_package_id,
         };
         let modules_storage = self.modules_storage.clone();
@@ -79,20 +74,16 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
             .get_and_prepopulate(
                 key.clone(),
                 async move {
-                    let modules = get_module_and_prefetch(
-                        modules_storage,
-                        module_metadata,
-                        source_package,
-                        paths_to_prefetch,
-                    )
-                    .await;
+                    let modules =
+                        get_module_and_prefetch(modules_storage, module_metadata, source_package)
+                            .await;
                     modules
                         .into_iter()
-                        .map(move |((module_id, source_package_id), source)| {
+                        .map(move |((module_path, source_package_id), source)| {
                             (
                                 ModuleCacheKey {
                                     instance_name: instance_name.clone(),
-                                    module_id,
+                                    module_path,
                                     source_package_id,
                                 },
                                 source,

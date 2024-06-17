@@ -179,10 +179,6 @@ impl<RT: Runtime> ActionPhase<RT> {
 
         let modules = with_release_permit(timeout, permit_slot, async {
             let mut modules = BTreeMap::new();
-            let paths_to_prefetch: BTreeMap<_, _> = module_metadata
-                .iter()
-                .map(|metadata| (metadata.id(), metadata.path.clone()))
-                .collect();
             for metadata in module_metadata {
                 if metadata.path.is_system() {
                     continue;
@@ -192,7 +188,6 @@ impl<RT: Runtime> ActionPhase<RT> {
                     .get_module_with_metadata(
                         metadata.clone(),
                         source_package.clone().context("source package not found")?,
-                        paths_to_prefetch.clone(),
                     )
                     .await?;
                 modules.insert(path, (metadata.into_value(), module));
