@@ -149,10 +149,13 @@ impl DeveloperDocumentId {
 
     pub fn to_resolved(
         &self,
-        f: &impl Fn(TableNumber) -> anyhow::Result<TabletIdAndTableNumber>,
+        f: impl Fn(TableNumber) -> anyhow::Result<TabletIdAndTableNumber>,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let table_id = f(*self.table())?;
-        Ok(ResolvedDocumentId::new(table_id, self.internal_id()))
+        Ok(ResolvedDocumentId {
+            tablet_id: table_id.tablet_id,
+            developer_id: *self,
+        })
     }
 
     /// Decode a string to the closest valid ID with the given table number.
@@ -245,9 +248,7 @@ pub struct VirtualTableNumberMap {
 
 impl From<ResolvedDocumentId> for DeveloperDocumentId {
     fn from(document_id: ResolvedDocumentId) -> Self {
-        let internal_id = document_id.internal_id();
-        let table_number = document_id.table().table_number;
-        DeveloperDocumentId::new(table_number, internal_id)
+        document_id.developer_id
     }
 }
 

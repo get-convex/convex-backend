@@ -95,6 +95,7 @@ use maplit::{
 use tracing::log;
 use value::{
     InternalDocumentId,
+    TableIdentifier,
     TableNamespace,
 };
 
@@ -390,7 +391,10 @@ impl<RT: Runtime> IndexWorker<RT> {
         // The index may contain writes from before `ts` too, but that's okay. We'll
         // just overwrite them.
         let index_doc = tx
-            .get(ResolvedDocumentId::new(index_table_id, index_id))
+            .get(ResolvedDocumentId::new(
+                index_table_id.tablet_id,
+                index_table_id.table_number.id(index_id),
+            ))
             .await?
             .ok_or_else(|| anyhow::anyhow!("Index {index_id:?} no longer exists"))?;
         let index_metadata = TabletIndexMetadata::from_document(index_doc)?;
@@ -426,7 +430,10 @@ impl<RT: Runtime> IndexWorker<RT> {
         let index_table_id = tx.bootstrap_tables().index_id;
 
         let index_doc = tx
-            .get(ResolvedDocumentId::new(index_table_id, index_id))
+            .get(ResolvedDocumentId::new(
+                index_table_id.tablet_id,
+                index_table_id.table_number.id(index_id),
+            ))
             .await?
             .ok_or_else(|| anyhow::anyhow!("Index {index_id:?} no longer exists"))?;
         let mut index_metadata = TabletIndexMetadata::from_document(index_doc)?;
@@ -475,7 +482,10 @@ impl<RT: Runtime> IndexWorker<RT> {
         // checking that it wasn't written concurrently with our backfill.
         let mut tx = self.database.begin(Identity::system()).await?;
         let index_table_id = tx.bootstrap_tables().index_id;
-        let full_index_id = ResolvedDocumentId::new(index_table_id, index_id);
+        let full_index_id = ResolvedDocumentId::new(
+            index_table_id.tablet_id,
+            index_table_id.table_number.id(index_id),
+        );
         let index_doc = tx
             .get(full_index_id)
             .await?

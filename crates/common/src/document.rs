@@ -46,12 +46,10 @@ use value::{
     ConvexValue,
     FieldName,
     FieldPath,
-    GenericDocumentId,
     IdentifierFieldName,
     InternalDocumentId,
     Namespace,
     ResolvedDocumentId,
-    TableIdentifier,
     TableNumber,
     TabletId,
     TabletIdAndTableNumber,
@@ -320,11 +318,10 @@ impl TryFrom<ResolvedDocument> for ResolvedDocumentProto {
         }: ResolvedDocument,
     ) -> anyhow::Result<Self> {
         let value = serde_json::to_vec(&JsonValue::from(value.0))?;
-        let id = TabletIdAndTableNumber {
+        let id = ResolvedDocumentId {
             tablet_id,
-            table_number: *id.table(),
-        }
-        .id(id.internal_id());
+            developer_id: id,
+        };
         Ok(Self {
             id: Some(id.into()),
             creation_time: creation_time.map(|t| t.into()),
@@ -343,7 +340,7 @@ impl TryFrom<ResolvedDocumentProto> for ResolvedDocument {
             value,
         }: ResolvedDocumentProto,
     ) -> anyhow::Result<Self> {
-        let id: GenericDocumentId<TabletIdAndTableNumber> = id
+        let id: ResolvedDocumentId = id
             .ok_or_else(|| anyhow::anyhow!("Missing id"))?
             .try_into()?;
         let creation_time = creation_time.map(|t| t.try_into()).transpose()?;
@@ -353,7 +350,7 @@ impl TryFrom<ResolvedDocumentProto> for ResolvedDocument {
         .try_into()?;
 
         Ok(Self {
-            tablet_id: id.table().tablet_id,
+            tablet_id: id.tablet_id,
             document: DeveloperDocument {
                 id: id.into(),
                 creation_time,
@@ -405,7 +402,7 @@ impl ResolvedDocument {
             )),
         }
         let doc = Self {
-            tablet_id: id.table().tablet_id,
+            tablet_id: id.tablet_id,
             document: DeveloperDocument {
                 id: id.into(),
                 creation_time,
@@ -592,7 +589,7 @@ impl ResolvedDocument {
             _ => anyhow::bail!("Object {object} has invalid _creationTime field"),
         };
         Ok(Self {
-            tablet_id: document_id.table().tablet_id,
+            tablet_id: document_id.tablet_id,
             document: DeveloperDocument {
                 id: document_id.into(),
                 creation_time,
@@ -628,7 +625,7 @@ impl ResolvedDocument {
     }
 
     pub fn id(&self) -> ResolvedDocumentId {
-        ResolvedDocumentId::new(self.table(), self.id.internal_id())
+        ResolvedDocumentId::new(self.tablet_id, self.id)
     }
 
     pub fn developer_id(&self) -> DeveloperDocumentId {
@@ -750,8 +747,8 @@ impl PackedDocument {
 
     /// Same behavior as ResolvedDocument::table but you don't have to fully
     /// unpack.
-    pub fn table(&self) -> TabletIdAndTableNumber {
-        *self.id().table()
+    pub fn tablet_id_and_number(&self) -> TabletIdAndTableNumber {
+        self.id().tablet_id_and_number()
     }
 
     pub fn value(&self) -> &PackedValue<ByteBuffer> {
@@ -950,8 +947,8 @@ mod tests {
     use value::{
         id_v6::DeveloperDocumentId,
         ConvexValue,
-        GenericDocumentId,
         InternalId,
+        ResolvedDocumentId,
         TableIdentifier,
         TableMapping,
         TableName,
@@ -986,7 +983,10 @@ mod tests {
             table_name.clone(),
         );
         let doc = ResolvedDocument::new_internal(
-            GenericDocumentId::new(table_id, internal_id),
+            ResolvedDocumentId::new(
+                table_id.tablet_id,
+                DeveloperDocumentId::new(table_id.table_number, internal_id),
+            ),
             Some(CreationTime::ONE),
             assert_obj!(
                 "f" => 5
@@ -1017,7 +1017,7 @@ mod tests {
     #[test]
     fn test_index_key_missing_field() -> anyhow::Result<()> {
         let doc1 = ResolvedDocument::new(
-            GenericDocumentId::min(),
+            ResolvedDocumentId::min(),
             CreationTime::ONE,
             assert_obj!(
                 "_id" => DeveloperDocumentId::min(),
@@ -1028,7 +1028,7 @@ mod tests {
             ),
         )?;
         let doc2 = ResolvedDocument::new(
-            GenericDocumentId::min(),
+            ResolvedDocumentId::min(),
             CreationTime::ONE,
             assert_obj!(
                 "_id" => DeveloperDocumentId::min(),

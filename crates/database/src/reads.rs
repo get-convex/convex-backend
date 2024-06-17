@@ -136,7 +136,7 @@ impl ReadSet {
             },
         ) in self.indexed.iter()
         {
-            if *index.table() == document.table().tablet_id {
+            if *index.table() == document.id().tablet_id {
                 let index_key = document.index_key(fields, persistence_version).into_bytes();
                 if intervals.contains(&index_key) {
                     let stack_traces = stack_traces.as_ref().map(|st| {
@@ -160,7 +160,7 @@ impl ReadSet {
         }
 
         for (index, search_reads) in self.search.iter() {
-            if *index.table() == document.table().tablet_id && search_reads.overlaps(document) {
+            if *index.table() == document.id().tablet_id && search_reads.overlaps(document) {
                 return Some(ConflictingRead {
                     index: index.clone(),
                     id: document.id(),

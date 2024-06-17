@@ -304,7 +304,7 @@ impl Persistence for SqlitePersistence {
                         &u64::from(ts),
                         key,
                         &0,
-                        &doc_id.table().tablet_id.0[..],
+                        &doc_id.tablet_id.0[..],
                         &doc_id.internal_id()[..],
                     ])?;
                 },

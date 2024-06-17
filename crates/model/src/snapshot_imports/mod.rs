@@ -81,7 +81,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             .tx
             .table_mapping()
             .namespace(TableNamespace::Global)
-            .number_matches_name(id.table().table_number, SnapshotImportsTable.table_name()));
+            .tablet_matches_name(id.tablet_id, SnapshotImportsTable.table_name()));
         match self.tx.get(id).await? {
             None => Ok(None),
             Some(doc) => Ok(Some(doc.try_into()?)),

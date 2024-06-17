@@ -25,12 +25,12 @@ use crate::{
     heap_size::HeapSize,
     sha256::Sha256,
     table_name::TableIdentifier,
+    Size,
     TableNumber,
     TabletId,
     TabletIdAndTableNumber,
 };
 
-pub type ResolvedDocumentId = GenericDocumentId<TabletIdAndTableNumber>;
 pub type InternalDocumentId = GenericDocumentId<TabletId>;
 pub type DeveloperDocumentId = GenericDocumentId<TableNumber>;
 
@@ -42,17 +42,40 @@ pub struct GenericDocumentId<T: TableIdentifier> {
     internal_id: InternalId,
 }
 
+#[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Copy, Debug)]
+pub struct ResolvedDocumentId {
+    pub tablet_id: TabletId,
+    pub developer_id: DeveloperDocumentId,
+}
+
 #[cfg(any(test, feature = "testing"))]
 impl<T: TableIdentifier + proptest::arbitrary::Arbitrary> proptest::arbitrary::Arbitrary
     for GenericDocumentId<T>
 {
     type Parameters = ();
 
-    type Strategy = impl proptest::strategy::Strategy<Value = GenericDocumentId<T>>;
+    type Strategy = impl proptest::strategy::Strategy<Value = Self>;
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
         (any::<T>(), any::<InternalId>()).prop_map(|(t, id)| Self::new(t, id))
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl proptest::arbitrary::Arbitrary for ResolvedDocumentId {
+    type Parameters = ();
+
+    type Strategy = impl proptest::strategy::Strategy<Value = ResolvedDocumentId>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        (any::<TabletId>(), any::<DeveloperDocumentId>()).prop_map(|(tablet_id, developer_id)| {
+            Self {
+                tablet_id,
+                developer_id,
+            }
+        })
     }
 }
 
@@ -174,7 +197,59 @@ impl DeveloperDocumentId {
 
 impl From<ResolvedDocumentId> for InternalDocumentId {
     fn from(value: ResolvedDocumentId) -> Self {
-        GenericDocumentId::new(value.table.tablet_id, value.internal_id)
+        GenericDocumentId::new(value.tablet_id, value.developer_id.internal_id)
+    }
+}
+
+impl ResolvedDocumentId {
+    pub fn new(tablet_id: TabletId, developer_id: DeveloperDocumentId) -> Self {
+        Self {
+            tablet_id,
+            developer_id,
+        }
+    }
+
+    pub fn min() -> Self {
+        Self {
+            tablet_id: <TabletId as TableIdentifier>::min(),
+            developer_id: DeveloperDocumentId::min(),
+        }
+    }
+
+    pub fn internal_id(&self) -> InternalId {
+        self.developer_id.internal_id
+    }
+
+    pub fn tablet_id_and_number(&self) -> TabletIdAndTableNumber {
+        TabletIdAndTableNumber {
+            tablet_id: self.tablet_id,
+            table_number: *self.developer_id.table(),
+        }
+    }
+
+    pub fn size(&self) -> usize {
+        self.tablet_id.size() + self.developer_id.size()
+    }
+}
+
+impl HeapSize for ResolvedDocumentId {
+    fn heap_size(&self) -> usize {
+        0
+    }
+}
+
+impl Display for ResolvedDocumentId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.developer_id)
+    }
+}
+
+impl InternalDocumentId {
+    pub fn to_resolved(&self, table_number: TableNumber) -> ResolvedDocumentId {
+        ResolvedDocumentId {
+            tablet_id: self.table,
+            developer_id: DeveloperDocumentId::new(table_number, self.internal_id),
+        }
     }
 }
 

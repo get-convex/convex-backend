@@ -242,7 +242,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             .tx
             .table_mapping()
             .namespace(self.component.into())
-            .number_matches_name(id.table().table_number, &CRON_JOBS_TABLE));
+            .tablet_matches_name(id.tablet_id, &CRON_JOBS_TABLE));
         SystemMetadataModel::new(self.tx, self.component.into())
             .replace(id, job.try_into()?)
             .await?;

@@ -55,7 +55,10 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
             .table_mapping()
             .namespace(TableNamespace::by_component_TODO())
             .id(&system_table_name)?;
-        let id_ = ResolvedDocumentId::new(table_id, id.internal_id());
+        let id_ = ResolvedDocumentId::new(
+            table_id.tablet_id,
+            table_id.table_number.id(id.internal_id()),
+        );
 
         // NOTE we intentionally pass `system_table_name` in, which means this
         // `get_inner` doesn't count as bandwidth. It's the caller's
@@ -172,7 +175,10 @@ impl VirtualSystemMapping {
         let system_table_id = table_mapping
             .namespace(TableNamespace::by_component_TODO())
             .id(system_table_name)?;
-        Ok(system_table_id.id(virtual_id_v6.internal_id()))
+        Ok(ResolvedDocumentId::new(
+            system_table_id.tablet_id,
+            system_table_id.table_number.id(virtual_id_v6.internal_id()),
+        ))
     }
 
     // Converts a system table ResolvedDocumentId to the equivalent virtual table
@@ -183,7 +189,7 @@ impl VirtualSystemMapping {
         table_mapping: &TableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        let system_table_name = table_mapping.tablet_name(system_doc_id.table().tablet_id)?;
+        let system_table_name = table_mapping.tablet_name(system_doc_id.tablet_id)?;
         let virtual_table_name = match self.system_to_virtual.get(&system_table_name) {
             Some(virtual_table) => virtual_table.clone(),
             None => {

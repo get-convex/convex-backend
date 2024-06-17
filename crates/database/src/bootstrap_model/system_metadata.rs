@@ -61,7 +61,12 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
             anyhow::bail!(unauthorized_error("insert_metadata"));
         }
         let table_id = self.lookup_table_id(table)?;
-        let id = self.tx.id_generator.generate(&table_id);
+        let id = ResolvedDocumentId::new(
+            table_id.tablet_id,
+            table_id
+                .table_number
+                .id(self.tx.id_generator.generate_internal()),
+        );
         let creation_time = self.tx.next_creation_time.increment()?;
         let document = ResolvedDocument::new(id, creation_time, value)?;
         self.tx.insert_document(document).await
@@ -83,7 +88,8 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
             anyhow::bail!(unauthorized_error("insert_metadata"));
         }
         let table_id = self.lookup_table_id(table)?;
-        let document_id = table_id.id(internal_id);
+        let document_id =
+            ResolvedDocumentId::new(table_id.tablet_id, table_id.table_number.id(internal_id));
         let creation_time = self.tx.next_creation_time.increment()?;
         let document = ResolvedDocument::new(document_id, creation_time, value)?;
         self.tx.insert_document(document).await
@@ -123,7 +129,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
             .table_mapping()
             .namespace(self.namespace)
             .id(table)?;
-        let id = self.tx.id_generator.generate(&table_id);
+        let id = self.tx.id_generator.generate_resolved(table_id);
         let creation_time = self.tx.next_creation_time.increment()?;
         let document = ResolvedDocument::new(id, creation_time, value)?;
         self.tx.insert_document(document).await
@@ -138,10 +144,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         id: ResolvedDocumentId,
         value: PatchValue,
     ) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self
-            .tx
-            .table_mapping()
-            .is_system_tablet(id.table().tablet_id));
+        anyhow::ensure!(self.tx.table_mapping().is_system_tablet(id.tablet_id));
 
         self.tx.patch_inner(id, value).await
     }
@@ -153,10 +156,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         id: ResolvedDocumentId,
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self
-            .tx
-            .table_mapping()
-            .is_system_tablet(id.table().tablet_id));
+        anyhow::ensure!(self.tx.table_mapping().is_system_tablet(id.tablet_id));
         self.tx.replace_inner(id, value).await
     }
 
@@ -164,10 +164,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
     #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn delete(&mut self, id: ResolvedDocumentId) -> anyhow::Result<ResolvedDocument> {
-        anyhow::ensure!(self
-            .tx
-            .table_mapping()
-            .is_system_tablet(id.table().tablet_id));
+        anyhow::ensure!(self.tx.table_mapping().is_system_tablet(id.tablet_id));
         self.tx.delete_inner(id).await
     }
 }

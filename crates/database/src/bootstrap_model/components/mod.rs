@@ -38,6 +38,7 @@ use common::{
 use value::{
     FieldPath,
     InternalId,
+    ResolvedDocumentId,
     TableIdentifier,
     TableName,
     TableNamespace,
@@ -164,20 +165,48 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         Ok(components)
     }
 
-    pub async fn get_component_path(
+    pub fn resolve_component_id(
         &mut self,
-        mut component_id: ComponentId,
-    ) -> anyhow::Result<ComponentPath> {
-        let mut path = Vec::new();
+        component_internal_id: InternalId,
+    ) -> anyhow::Result<ResolvedDocumentId> {
         let component_table = self
             .tx
             .table_mapping()
             .namespace(TableNamespace::Global)
             .id(&COMPONENTS_TABLE)?;
+        Ok(ResolvedDocumentId::new(
+            component_table.tablet_id,
+            component_table.table_number.id(component_internal_id),
+        ))
+    }
+
+    pub fn resolve_component_definition_id(
+        &mut self,
+        component_definition_internal_id: InternalId,
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        let component_definitions_table = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&COMPONENT_DEFINITIONS_TABLE)?;
+        Ok(ResolvedDocumentId::new(
+            component_definitions_table.tablet_id,
+            component_definitions_table
+                .table_number
+                .id(component_definition_internal_id),
+        ))
+    }
+
+    pub async fn get_component_path(
+        &mut self,
+        mut component_id: ComponentId,
+    ) -> anyhow::Result<ComponentPath> {
+        let mut path = Vec::new();
         while let ComponentId::Child(internal_id) = component_id {
+            let component_doc_id = self.resolve_component_id(internal_id)?;
             let component_doc: ParsedDocument<ComponentMetadata> = self
                 .tx
-                .get(component_table.id(internal_id))
+                .get(component_doc_id)
                 .await?
                 .with_context(|| format!("component {internal_id} missing"))?
                 .try_into()?;
@@ -200,14 +229,10 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         let component_definition = match component {
             ComponentId::Root => ComponentDefinitionId::Root,
             ComponentId::Child(component_id) => {
-                let component_table = self
-                    .tx
-                    .table_mapping()
-                    .namespace(TableNamespace::Global)
-                    .id(&COMPONENTS_TABLE)?;
+                let component_doc_id = self.resolve_component_id(component_id)?;
                 let component_doc: ParsedDocument<ComponentMetadata> = self
                     .tx
-                    .get(component_table.id(component_id))
+                    .get(component_doc_id)
                     .await?
                     .context("component missing")?
                     .try_into()?;
@@ -224,13 +249,9 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         let result = match id {
             ComponentId::Root => self.root_component().await?,
             ComponentId::Child(internal_id) => {
-                let component_table = self
-                    .tx
-                    .table_mapping()
-                    .namespace(TableNamespace::Global)
-                    .id(&COMPONENTS_TABLE)?;
+                let component_doc_id = self.resolve_component_id(internal_id)?;
                 self.tx
-                    .get(component_table.id(internal_id))
+                    .get(component_doc_id)
                     .await?
                     .map(TryInto::try_into)
                     .transpose()?
@@ -253,14 +274,10 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             },
             ComponentDefinitionId::Child(id) => id,
         };
-        let component_definitions_table = self
-            .tx
-            .table_mapping()
-            .namespace(TableNamespace::Global)
-            .id(&COMPONENT_DEFINITIONS_TABLE)?;
+        let component_definition_doc_id = self.resolve_component_definition_id(internal_id)?;
         let doc: ParsedDocument<ComponentDefinitionMetadata> = self
             .tx
-            .get(component_definitions_table.id(internal_id))
+            .get(component_definition_doc_id)
             .await?
             .context("Missing component definition")?
             .try_into()?;

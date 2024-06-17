@@ -85,6 +85,7 @@ use value::{
     FieldPath,
     GenericDocumentId,
     InternalId,
+    ResolvedDocumentId,
     TableIdentifier,
 };
 
@@ -629,6 +630,15 @@ impl<T: TableIdentifier> TryFrom<&GenericDocumentId<T>> for QdrantExternalId {
     type Error = anyhow::Error;
 
     fn try_from(value: &GenericDocumentId<T>) -> Result<Self, Self::Error> {
+        let uuid = Uuid::from_bytes(value.internal_id()[..].try_into()?);
+        Ok(Self(PointIdType::Uuid(uuid)))
+    }
+}
+
+impl TryFrom<ResolvedDocumentId> for QdrantExternalId {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ResolvedDocumentId) -> Result<Self, Self::Error> {
         let uuid = Uuid::from_bytes(value.internal_id()[..].try_into()?);
         Ok(Self(PointIdType::Uuid(uuid)))
     }

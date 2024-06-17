@@ -104,6 +104,8 @@ use serde_json::Value as JsonValue;
 use value::{
     ConvexObject,
     DeveloperDocumentId,
+    ResolvedDocumentId,
+    TableIdentifier,
     TableNamespace,
 };
 
@@ -623,7 +625,11 @@ async fn wait_for_schema_handler(
             let Some(schema_id) = schema_id else {
                 continue;
             };
-            let schema_id = schema_id.map_table(tx.table_mapping().inject_table_number())?;
+            let schema_table_number = tx.table_mapping().tablet_number(*schema_id.table())?;
+            let schema_id = ResolvedDocumentId::new(
+                *schema_id.table(),
+                schema_table_number.id(schema_id.internal_id()),
+            );
             let document = tx
                 .get(schema_id)
                 .await?

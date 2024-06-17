@@ -394,14 +394,18 @@ impl NamespacedTableMapping {
         tablet_id == *active_tablet_id
     }
 
-    pub fn number_matches_name(&self, table_number: TableNumber, name: &TableName) -> bool {
-        match self.table_name_to_canonical_tablet.get(name) {
-            Some(table_id) => match self.tablet_to_table.get(table_id) {
-                Some((_, number, _)) => *number == table_number,
-                None => false,
-            },
+    pub fn tablet_matches_name(&self, tablet_id: TabletId, name: &TableName) -> bool {
+        match self.tablet_to_table.get(&tablet_id) {
+            Some((_, _, table_name)) => name == table_name,
             None => false,
         }
+    }
+
+    pub fn tablet_number(&self, id: TabletId) -> anyhow::Result<TableNumber> {
+        self.tablet_to_table
+            .get(&id)
+            .map(|(_, number, ..)| *number)
+            .ok_or_else(|| anyhow::anyhow!("cannot find table {id:?}"))
     }
 
     pub fn number_to_name(&self) -> impl Fn(TableNumber) -> anyhow::Result<TableName> + '_ {

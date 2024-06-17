@@ -590,7 +590,6 @@ mod tests {
         TableIdentifier,
         TableNumber,
         TabletId,
-        TabletIdAndTableNumber,
     };
 
     #[test]
@@ -693,12 +692,16 @@ mod tests {
 
         #[test]
         fn test_compatible_with_internal_id(l in any::<InternalId>(), r in any::<InternalId>())  {
-            let table_id = TabletIdAndTableNumber {
-                tablet_id: <TabletId as TableIdentifier>::min(),
-                table_number: <TableNumber as TableIdentifier>::min(),
+            let tablet_id = <TabletId as TableIdentifier>::min();
+            let table_number = <TableNumber as TableIdentifier>::min();
+            let l = ResolvedDocumentId {
+                tablet_id,
+                developer_id: DeveloperDocumentId::new(table_number, l),
             };
-            let l = ResolvedDocumentId::new(table_id, l);
-            let r = ResolvedDocumentId::new(table_id, r);
+            let r = ResolvedDocumentId {
+                tablet_id,
+                developer_id: DeveloperDocumentId::new(table_number, r),
+            };
             test_compatible_with_ord(ConvexValue::from(l), ConvexValue::from(r))
         }
 

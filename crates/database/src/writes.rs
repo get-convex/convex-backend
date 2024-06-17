@@ -29,13 +29,13 @@ use common::{
     value::{
         ResolvedDocumentId,
         Size,
-        TabletIdAndTableNumber,
     },
 };
 use errors::ErrorMetadata;
 use value::{
     values_to_bytes,
     TableIdentifier,
+    TabletId,
 };
 
 use crate::{
@@ -105,7 +105,7 @@ impl Writes {
             anyhow::ensure!(!self.updates.contains_key(&document_id), "Duplicate insert");
             self.register_new_id(reads, document_id)?;
         }
-        Self::record_reads_for_write(bootstrap_tables, reads, *document_id.table())?;
+        Self::record_reads_for_write(bootstrap_tables, reads, document_id.tablet_id)?;
 
         let id_size = document_id.size();
         let value_size = document_update
@@ -184,10 +184,10 @@ impl Writes {
     fn record_reads_for_write(
         table_mapping: BootstrapTableIds,
         reads: &mut TransactionReadSet,
-        table: TabletIdAndTableNumber,
+        tablet_id: TabletId,
     ) -> anyhow::Result<()> {
         // by_name index on _indexes table.
-        if table_mapping.is_index_table(table) || table_mapping.is_tables_table(table) {
+        if table_mapping.is_index_table(tablet_id) || table_mapping.is_tables_table(tablet_id) {
             // Changes in _tables or _index cannot race with any other table or
             // index. This is because TableRegistry and IndexRegistry check a
             // number of invariants between tables and index records.
@@ -207,11 +207,9 @@ impl Writes {
             );
         } else {
             // Writes to a table require the table still exists.
-            let table_id_bytes = IndexKey::new(
-                vec![],
-                table_mapping.tables_id.table_number.id(table.tablet_id.0),
-            )
-            .into_bytes();
+            let table_id_bytes =
+                IndexKey::new(vec![], table_mapping.tables_id.table_number.id(tablet_id.0))
+                    .into_bytes();
             reads.record_indexed_derived(
                 TabletIndexName::by_id(table_mapping.tables_id.tablet_id),
                 IndexedFields::by_id(),
@@ -225,7 +223,7 @@ impl Writes {
             // need to read the index. We only care about the name always mapping
             // to the same fields.
             let table_name_bytes =
-                values_to_bytes(&[Some(index_metadata_serialize_tablet_id(&table.tablet_id)?)]);
+                values_to_bytes(&[Some(index_metadata_serialize_tablet_id(&tablet_id)?)]);
             reads.record_indexed_derived(
                 TabletIndexName::new(table_mapping.index_id.tablet_id, "by_table_id".parse()?)?,
                 vec![TABLE_ID_FIELD_PATH.clone()].try_into()?,
@@ -255,7 +253,7 @@ impl Writes {
         // We check in CommitterClient that it never existed before the transaction's
         // begin timestamp, and here we take a dependency on the ID to make sure
         // it cannot be created by a parallel commit.
-        let index_name = TabletIndexName::by_id(document_id.table().tablet_id);
+        let index_name = TabletIndexName::by_id(document_id.tablet_id);
         let id_bytes = IndexKey::new(vec![], document_id.into()).into_bytes();
         reads.record_indexed_derived(
             index_name,
@@ -322,7 +320,6 @@ mod tests {
     use sync_types::Timestamp;
     use value::{
         assert_obj,
-        ResolvedDocumentId,
         TableNamespace,
     };
 
@@ -343,10 +340,14 @@ mod tests {
         // Writes to a table should OCC with modification of the table metadata
         // or an index of the same table.
         let mut user_table1_write = TransactionReadSet::new();
-        Writes::record_reads_for_write(bootstrap_tables, &mut user_table1_write, user_table1)?;
+        Writes::record_reads_for_write(
+            bootstrap_tables,
+            &mut user_table1_write,
+            user_table1.tablet_id,
+        )?;
 
         let user_table1_table_metadata_change = PackedDocument::pack(ResolvedDocument::new(
-            ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table1.tablet_id.0),
+            bootstrap_tables.table_resolved_doc_id(user_table1.tablet_id),
             CreationTime::ONE,
             TableMetadata::new(
                 TableNamespace::test_user(),
@@ -381,7 +382,7 @@ mod tests {
         // Writes to a table should *not* OCC with modification of the table metadata
         // or an index of unrelated same table.
         let user_table2_table_metadata_change = PackedDocument::pack(ResolvedDocument::new(
-            ResolvedDocumentId::new(bootstrap_tables.tables_id, user_table2.tablet_id.0),
+            bootstrap_tables.table_resolved_doc_id(user_table2.tablet_id),
             CreationTime::ONE,
             TableMetadata::new(
                 TableNamespace::test_user(),
@@ -417,7 +418,11 @@ mod tests {
         // other table or index metadata.
         let mut metadata_write = TransactionReadSet::new();
         let index_table_id = bootstrap_tables.index_id;
-        Writes::record_reads_for_write(bootstrap_tables, &mut metadata_write, index_table_id)?;
+        Writes::record_reads_for_write(
+            bootstrap_tables,
+            &mut metadata_write,
+            index_table_id.tablet_id,
+        )?;
 
         assert!(metadata_write
             .read_set()

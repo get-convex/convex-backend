@@ -459,7 +459,7 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
     let id = UserFacingModel::new_root_for_test(&mut tx)
         .insert("table".parse()?, assert_obj!())
         .await?;
-    let id_ = id.map_table(
+    let id_ = id.to_resolved(
         &tx.table_mapping()
             .namespace(TableNamespace::test_user())
             .inject_table_id(),
@@ -1045,7 +1045,10 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
     let doc1_id = ImportFacingModel::new(&mut tx)
         .insert(table_id, &table_name, object, &table_mapping_for_schema)
         .await?;
-    let doc1_id = table_id.id(doc1_id.internal_id());
+    let doc1_id = ResolvedDocumentId::new(
+        table_id.tablet_id,
+        table_id.table_number.id(doc1_id.internal_id()),
+    );
     let doc2_id = ImportFacingModel::new(&mut tx)
         .insert(
             table_id,
@@ -1054,7 +1057,10 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
             &table_mapping_for_schema,
         )
         .await?;
-    let doc2_id = table_id.id(doc2_id.internal_id());
+    let doc2_id = ResolvedDocumentId::new(
+        table_id.tablet_id,
+        table_id.table_number.id(doc2_id.internal_id()),
+    );
 
     database.commit(tx).await?;
 
@@ -1386,7 +1392,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let doc_id_user_facing = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), object.clone())
         .await?;
-    let doc0_id = doc_id_user_facing.map_table(
+    let doc0_id = doc_id_user_facing.to_resolved(
         tx.table_mapping()
             .namespace(TableNamespace::test_user())
             .inject_table_id(),
@@ -1401,7 +1407,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
         .insert_table_for_import(
             TableNamespace::test_user(),
             &table_name,
-            Some(doc0_id.table().table_number),
+            Some(*doc0_id.developer_id.table()),
             &BTreeSet::new(),
         )
         .await?;
@@ -1420,11 +1426,14 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
             &table_mapping_for_schema,
         )
         .await?;
-    let doc1_id = table_id.id(doc1_id.internal_id());
+    let doc1_id = ResolvedDocumentId::new(
+        table_id.tablet_id,
+        table_id.table_number.id(doc1_id.internal_id()),
+    );
     database.commit(tx).await?;
     assert_eq!(doc1_id.internal_id(), doc0_id.internal_id());
-    assert_eq!(doc1_id.table().table_number, doc0_id.table().table_number);
-    assert!(doc1_id.table().tablet_id != doc0_id.table().tablet_id);
+    assert_eq!(doc1_id.developer_id.table(), doc0_id.developer_id.table());
+    assert!(doc1_id.tablet_id != doc0_id.tablet_id);
 
     let mut tx = database.begin(Identity::system()).await?;
     let doc0 = tx.get_inner(doc0_id, table_name.clone()).await?.unwrap().0;
@@ -1478,7 +1487,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let doc0_id = UserFacingModel::new_root_for_test(&mut tx)
         .insert(table_name.clone(), object)
         .await?;
-    let doc0_id_inner = doc0_id.map_table(
+    let doc0_id_inner = doc0_id.to_resolved(
         &tx.table_mapping()
             .namespace(TableNamespace::test_user())
             .inject_table_id(),
@@ -1510,7 +1519,10 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
             &table_mapping_for_schema,
         )
         .await?;
-    let doc1_id_inner = table_id.id(doc1_id.internal_id());
+    let doc1_id_inner = ResolvedDocumentId::new(
+        table_id.tablet_id,
+        table_id.table_number.id(doc1_id.internal_id()),
+    );
     database.commit(tx).await?;
     // Now the import fails. The hidden table never gets activated.
     // The active table still works.

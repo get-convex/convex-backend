@@ -899,8 +899,8 @@ mod tests {
     use value::{
         assert_obj,
         export::ValueFormat,
-        GenericDocumentId,
         ResolvedDocumentId,
+        TableIdentifier,
         TableNamespace,
     };
 
@@ -1112,9 +1112,9 @@ mod tests {
             .namespace(TableNamespace::test_user())
             .id(&"_file_storage".parse()?)?;
         let file1: ParsedDocument<FileStorageEntry> = tx
-            .get(GenericDocumentId::new(
-                storage_table_id,
-                file1_id.internal_id(),
+            .get(ResolvedDocumentId::new(
+                storage_table_id.tablet_id,
+                storage_table_id.table_number.id(file1_id.internal_id()),
             ))
             .await?
             .unwrap()

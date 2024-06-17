@@ -8,11 +8,8 @@ use crate::{
     obj,
     ConvexObject,
     ConvexValue,
-    InternalId,
     ResolvedDocumentId,
     Size,
-    TableIdentifier,
-    TabletIdAndTableNumber,
 };
 
 #[test]
@@ -25,11 +22,7 @@ fn test_value_size() -> anyhow::Result<()> {
     // Changing the computed size of a value can make stored TableSummary
     // inconsistent, so when changing this you need to also rewrite all
     // TableSummary snapshots.
-    let value: ConvexValue = ResolvedDocumentId::new(
-        <TabletIdAndTableNumber as TableIdentifier>::min(),
-        InternalId::MIN,
-    )
-    .into();
+    let value: ConvexValue = ResolvedDocumentId::min().into();
     assert_eq!(value.size(), 33);
     Ok(())
 }

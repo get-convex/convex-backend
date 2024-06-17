@@ -21,7 +21,7 @@ pub fn parse_schema_id(
 ) -> anyhow::Result<ResolvedDocumentId> {
     // Try parsing as a document ID with TableId first
     match GenericDocumentId::<TabletId>::from_str(schema_id) {
-        Ok(s) => s.map_table(table_mapping.inject_table_number()),
+        Ok(s) => Ok(s.to_resolved(table_mapping.tablet_number(*s.table())?)),
         Err(_) => {
             // Try parsing as an IDv6 ID
             let id = DeveloperDocumentId::decode(schema_id)?;

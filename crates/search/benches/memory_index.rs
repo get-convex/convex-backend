@@ -45,6 +45,7 @@ use value::{
     assert_obj,
     InternalId,
     ResolvedDocumentId,
+    TableIdentifier,
     TableNumber,
     TabletId,
     TabletIdAndTableNumber,
@@ -108,7 +109,10 @@ impl Dataset {
                 let d: SearchDocument = serde_json::from_str(&line?)?;
                 let size = d.text.len();
                 let internal_id = alloc_id();
-                let id = ResolvedDocumentId::new(table_id, internal_id);
+                let id = ResolvedDocumentId::new(
+                    table_id.tablet_id,
+                    table_id.table_number.id(internal_id),
+                );
                 let value = assert_obj!("body" => d.text);
                 let creation_time = CreationTime::try_from(1.)?;
                 let document = ResolvedDocument::new(id, creation_time, value)?;

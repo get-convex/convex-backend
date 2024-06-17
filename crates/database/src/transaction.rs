@@ -468,7 +468,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
     ) -> anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>> {
-        let table_name = match self.table_mapping().tablet_name(id.table().tablet_id) {
+        let table_name = match self.table_mapping().tablet_name(id.tablet_id) {
             Ok(t) => t,
             Err(_) => return Ok(None),
         };
@@ -484,10 +484,8 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         value: PatchValue,
     ) -> anyhow::Result<ResolvedDocument> {
-        let table_name = self.table_mapping().tablet_name(id.table().tablet_id)?;
-        let namespace = self
-            .table_mapping()
-            .tablet_namespace(id.table().tablet_id)?;
+        let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
+        let namespace = self.table_mapping().tablet_namespace(id.tablet_id)?;
 
         let (old_document, _) =
             self.get_inner(id, table_name.clone())
@@ -530,10 +528,8 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocument> {
-        let table_name = self.table_mapping().tablet_name(id.table().tablet_id)?;
-        let namespace = self
-            .table_mapping()
-            .tablet_namespace(id.table().tablet_id)?;
+        let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
+        let namespace = self.table_mapping().tablet_namespace(id.tablet_id)?;
         let (old_document, _) =
             self.get_inner(id, table_name)
                 .await?
@@ -562,7 +558,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
     ) -> anyhow::Result<ResolvedDocument> {
-        let table_name = self.table_mapping().tablet_name(id.table().tablet_id)?;
+        let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
         let (document, _) =
             self.get_inner(id, table_name)
                 .await?
@@ -772,7 +768,7 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         table_name: TableName,
     ) -> anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>> {
-        let index_name = TabletIndexName::by_id(id.table().tablet_id);
+        let index_name = TabletIndexName::by_id(id.tablet_id);
         let printable_index_name = IndexName::by_id(table_name.clone());
         let index_key = IndexKey::new(vec![], id.into());
         let interval = Interval::prefix(index_key.into_bytes().into());
@@ -817,10 +813,7 @@ impl<RT: Runtime> Transaction<RT> {
             },
             None => None,
         };
-        self.stats
-            .entry(id.table().tablet_id)
-            .or_default()
-            .rows_read += 1;
+        self.stats.entry(id.tablet_id).or_default().rows_read += 1;
         Ok(result)
     }
 
@@ -837,7 +830,7 @@ impl<RT: Runtime> Transaction<RT> {
         // store. We first guarantee that the changes are valid for the index and
         // metadata and then let inserting into writes the commit
         // point so that the Transaction is never in an inconsistent state.
-        let is_system_document = self.table_mapping().is_system_tablet(id.table().tablet_id);
+        let is_system_document = self.table_mapping().is_system_tablet(id.tablet_id);
         let bootstrap_tables = self.bootstrap_tables();
         let index_update = self
             .index
@@ -848,7 +841,7 @@ impl<RT: Runtime> Transaction<RT> {
             old_document.as_ref().map(|d| d.value().deref()),
             new_document.as_ref().map(|d| d.value().deref()),
         )?;
-        let stats = self.stats.entry(id.table().tablet_id).or_default();
+        let stats = self.stats.entry(id.tablet_id).or_default();
         let mut delta = 0;
         match (old_document.as_ref(), new_document.as_ref()) {
             (None, None) => {
@@ -887,10 +880,7 @@ impl<RT: Runtime> Transaction<RT> {
         index_update.apply();
         metadata_update.apply();
 
-        *self
-            .table_count_deltas
-            .entry(id.table().tablet_id)
-            .or_default() += delta;
+        *self.table_count_deltas.entry(id.tablet_id).or_default() += delta;
         Ok(())
     }
 
@@ -901,7 +891,7 @@ impl<RT: Runtime> Transaction<RT> {
         let document_id = document.id();
         let namespace = self
             .table_mapping()
-            .tablet_namespace(document_id.table().tablet_id)?;
+            .tablet_namespace(document_id.tablet_id)?;
         SchemaModel::new(self, namespace).enforce(&document).await?;
         self.apply_validated_write(document_id, None, Some(document))?;
         Ok(document_id)
@@ -1054,7 +1044,7 @@ impl FinalTransaction {
         let modified_tables: BTreeSet<_> = transaction
             .writes
             .coalesced_writes()
-            .map(|(id, _)| id.table().tablet_id)
+            .map(|(id, _)| id.tablet_id)
             .collect();
         Self::validate_memory_index_size(
             table_mapping,

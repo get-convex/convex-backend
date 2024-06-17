@@ -36,10 +36,7 @@ use model::{
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
 use sync_types::UdfPath;
-use value::{
-    GenericDocumentId,
-    TabletIdAndTableNumber,
-};
+use value::ResolvedDocumentId;
 
 use crate::{
     scheduled_jobs::SCHEDULED_JOB_EXECUTED,
@@ -62,10 +59,7 @@ fn function_path() -> ComponentFunctionPath {
 async fn create_scheduled_job<'a>(
     rt: &'a TestRuntime,
     tx: &'a mut Transaction<TestRuntime>,
-) -> anyhow::Result<(
-    GenericDocumentId<TabletIdAndTableNumber>,
-    SchedulerModel<'a, TestRuntime>,
-)> {
+) -> anyhow::Result<(ResolvedDocumentId, SchedulerModel<'a, TestRuntime>)> {
     let mut map = serde_json::Map::new();
     map.insert(
         "key".to_string(),

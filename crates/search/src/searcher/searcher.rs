@@ -1669,6 +1669,7 @@ mod tests {
         FieldPath,
         InternalId,
         ResolvedDocumentId,
+        TableIdentifier,
         TabletIdAndTableNumber,
     };
 
@@ -1738,7 +1739,10 @@ mod tests {
 
         let mut strings_by_id = BTreeMap::new();
         let revisions = strings.into_iter().map(|s| {
-            let id = ResolvedDocumentId::new(*TEST_TABLE, id_generator.generate_internal());
+            let id = ResolvedDocumentId::new(
+                TEST_TABLE.tablet_id,
+                TEST_TABLE.table_number.id(id_generator.generate_internal()),
+            );
             strings_by_id.insert(id, s.clone());
             let creation_time = CreationTime::try_from(10.)?;
             let new_doc =
@@ -1881,7 +1885,10 @@ mod tests {
         );
         for result in &posting_list_matches {
             println!("{:?} @ {}", result.internal_id, result.bm25_score);
-            let id = ResolvedDocumentId::new(*TEST_TABLE, result.internal_id);
+            let id = ResolvedDocumentId::new(
+                TEST_TABLE.tablet_id,
+                TEST_TABLE.table_number.id(result.internal_id),
+            );
             println!("  {}", strings_by_id[&id]);
         }
 
@@ -1919,7 +1926,8 @@ mod tests {
                  prev_str,
                  new_str,
              }| {
-                let id = ResolvedDocumentId::new(*TEST_TABLE, id);
+                let id =
+                    ResolvedDocumentId::new(TEST_TABLE.tablet_id, TEST_TABLE.table_number.id(id));
                 strings_by_id.entry(id).or_insert(new_str.clone());
                 let creation_time = CreationTime::try_from(10.)?;
                 let old_doc = prev_str
@@ -2129,7 +2137,10 @@ mod tests {
         let mut posting_list_matches_and_strings = vec![];
         for result in posting_list_matches {
             println!("{:?} @ {}", result.internal_id, result.bm25_score);
-            let id = ResolvedDocumentId::new(*TEST_TABLE, result.internal_id);
+            let id = ResolvedDocumentId::new(
+                TEST_TABLE.tablet_id,
+                TEST_TABLE.table_number.id(result.internal_id),
+            );
             let s = test_index.strings_by_id[&id].as_ref().unwrap();
             println!("  {s}",);
             posting_list_matches_and_strings.push((result, s.clone()));

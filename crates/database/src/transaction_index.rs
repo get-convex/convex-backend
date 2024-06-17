@@ -525,10 +525,7 @@ impl TransactionIndex {
             .or(old_document.as_ref().map(|d| d.id()));
         if let Some(id) = document_id {
             // Add the update to all affected text search indexes.
-            for index in self
-                .index_registry
-                .search_indexes_by_table(id.table().tablet_id)
-            {
+            for index in self.index_registry.search_indexes_by_table(id.tablet_id) {
                 self.search_index_updates
                     .entry(index.id)
                     .or_default()

@@ -39,7 +39,7 @@ async fn test_table_mapping_from_system_udf(rt: TestRuntime) -> anyhow::Result<(
         let document = TestFacingModel::new(&mut tx)
             .insert_and_get("table".parse()?, assert_obj!())
             .await?;
-        let table_number = document.id().table().table_number;
+        let table_number = *document.id().developer_id.table();
         let table_number_field: FieldName = FieldName::from_str(table_number.to_string().as_ref())?;
         t.database.commit(tx).await?;
 

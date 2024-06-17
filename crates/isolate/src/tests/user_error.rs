@@ -185,7 +185,7 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
         let user_document = TestFacingModel::new(&mut tx)
             .insert_and_get("table".parse()?, assert_obj!())
             .await?;
-        let user_table_number = user_document.id().table().table_number;
+        let user_table_number = *user_document.id().developer_id.table();
         let nonexistent_user_table_id = DeveloperDocumentId::new(
             user_table_number, InternalId::MIN);
         t.database.commit(tx).await?;

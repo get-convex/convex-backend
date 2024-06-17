@@ -277,7 +277,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             .tx
             .table_mapping()
             .namespace(TableNamespace::by_component_TODO())
-            .number_matches_name(id.table().table_number, &SCHEDULED_JOBS_TABLE));
+            .tablet_matches_name(id.tablet_id, &SCHEDULED_JOBS_TABLE));
         SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
             .replace(id, job.try_into()?)
             .await?;
@@ -352,7 +352,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             .tx
             .table_mapping()
             .namespace(TableNamespace::by_component_TODO())
-            .number_matches_name(id.table().table_number, &SCHEDULED_JOBS_TABLE));
+            .tablet_matches_name(id.tablet_id, &SCHEDULED_JOBS_TABLE));
         self.tx.delete_inner(id).await?;
         Ok(())
     }

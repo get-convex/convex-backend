@@ -90,12 +90,10 @@ use common::{
     },
     value::{
         ConvexObject,
-        GenericDocumentId,
         ResolvedDocumentId,
         TableIdentifier,
         TableMapping,
         TabletId,
-        TabletIdAndTableNumber,
         VirtualTableMapping,
     },
 };
@@ -1124,8 +1122,10 @@ impl<RT: Runtime> Database<RT> {
             let table_id = table_mapping
                 .namespace(TableNamespace::Global)
                 .id(table_name)?;
-            let document_id: GenericDocumentId<TabletIdAndTableNumber> =
-                tables_table_id.id(table_id.tablet_id.0);
+            let document_id = ResolvedDocumentId::new(
+                tables_table_id.tablet_id,
+                tables_table_id.table_number.id(table_id.tablet_id.0),
+            );
             let metadata = TableMetadata::new(
                 TableNamespace::Global,
                 table_name.clone(),
@@ -1140,7 +1140,7 @@ impl<RT: Runtime> Database<RT> {
 
             // Create the default `by_id` index. Since the table is created just now there
             // is no need to backfill.
-            let index_id = id_generator.generate(&index_table_id);
+            let index_id = id_generator.generate_resolved(index_table_id);
             system_by_id.insert(table_name.clone(), index_id.internal_id());
             let metadata = IndexMetadata::new_enabled(
                 GenericIndexName::by_id(table_id.tablet_id),
@@ -1153,7 +1153,7 @@ impl<RT: Runtime> Database<RT> {
             // Create the `by_creation_time` index for all tables except "_index", which can
             // only have the "by_id" index.
             if table_name != &*INDEX_TABLE {
-                let index_id = id_generator.generate(&index_table_id);
+                let index_id = id_generator.generate_resolved(index_table_id);
                 let metadata = IndexMetadata::new_enabled(
                     GenericIndexName::by_creation_time(table_id.tablet_id),
                     IndexedFields::creation_time(),
@@ -1175,7 +1175,7 @@ impl<RT: Runtime> Database<RT> {
             let name = name
                 .map_table(&table_mapping.namespace(TableNamespace::Global).name_to_id())?
                 .into();
-            let document_id = id_generator.generate(&index_table_id);
+            let document_id = id_generator.generate_resolved(index_table_id);
             let index_metadata = IndexMetadata::new_enabled(name, fields);
             let document = ResolvedDocument::new(
                 document_id,
@@ -1189,7 +1189,7 @@ impl<RT: Runtime> Database<RT> {
         // Build the index metadata from the index documents.
         let index_documents = document_writes
             .iter()
-            .filter(|(id, _)| id.table() == &index_table_id)
+            .filter(|(id, _)| id.tablet_id_and_number() == index_table_id)
             .map(|(id, doc)| (*id, (ts, doc.clone())))
             .collect::<BTreeMap<_, _>>();
         let mut index_registry = IndexRegistry::bootstrap(
@@ -1606,7 +1606,8 @@ impl<RT: Runtime> Database<RT> {
                 // Ignore the row if it comes from a deleted table
                 continue;
             };
-            let id: DeveloperDocumentId = id.map_table(table_mapping.inject_table_number())?.into();
+            let table_id = table_mapping.inject_table_number()(*id.table())?;
+            let id = DeveloperDocumentId::new(table_id.table_number, id.internal_id());
             if Self::user_table_filter(&table_filter, &table_name) {
                 deltas.push((ts, id, table_name, maybe_doc));
                 if new_cursor.is_none() && deltas.len() >= rows_returned_limit {
@@ -1653,7 +1654,7 @@ impl<RT: Runtime> Database<RT> {
         let by_id_indexes = self.snapshot_by_id_indexes(snapshot).await?;
         let resolved_cursor = cursor
             .map(|c| {
-                c.map_table(
+                c.to_resolved(
                     table_mapping
                         .namespace(TableNamespace::by_component_TODO())
                         .inject_table_id(),
@@ -1666,7 +1667,7 @@ impl<RT: Runtime> Database<RT> {
                 Self::user_table_filter(&table_filter, name)
                     && resolved_cursor
                         .as_ref()
-                        .map(|c| table_number >= &c.table().table_number)
+                        .map(|c| table_number >= c.developer_id.table())
                         .unwrap_or(true)
             })
             .map(|(_, _, table_number, _)| table_number)
@@ -1720,7 +1721,7 @@ impl<RT: Runtime> Database<RT> {
         while let Some((doc, ts)) = document_stream.try_next().await? {
             rows_read += 1;
             let id = doc.developer_id();
-            let table_name = table_mapping.tablet_name(doc.id().table().tablet_id)?;
+            let table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
             documents.push((ts, table_name, doc));
             if rows_read >= rows_read_limit || documents.len() >= rows_returned_limit {
                 new_cursor = Some(id);
@@ -1734,7 +1735,7 @@ impl<RT: Runtime> Database<RT> {
             None => None,
         });
         if let Some(new_cursor) = new_cursor {
-            let resolved_new_cursor = new_cursor.map_table(
+            let resolved_new_cursor = new_cursor.to_resolved(
                 table_mapping
                     .namespace(TableNamespace::by_component_TODO())
                     .inject_table_id(),
@@ -2024,7 +2025,7 @@ impl ConflictingReadWithWriteSource {
         let occ_write_source = self.write_source.0.as_ref().map(|write_source| {
             occ_write_source_string(
                 write_source,
-                self.read.id.into(),
+                self.read.id.to_string(),
                 *current_writer == self.write_source,
             )
         });

@@ -92,7 +92,7 @@ impl TableRegistry {
         let table_update = if self
             .table_mapping
             .namespace(TableNamespace::Global)
-            .number_matches_name(id.table().table_number, &TABLES_TABLE)
+            .tablet_matches_name(id.tablet_id, &TABLES_TABLE)
         {
             let tablet_id = TabletId(id.internal_id());
             match (old_value, new_value) {
@@ -182,7 +182,7 @@ impl TableRegistry {
         if self
             .table_mapping
             .namespace(TableNamespace::Global)
-            .number_matches_name(id.table().table_number, &VIRTUAL_TABLES_TABLE)
+            .tablet_matches_name(id.tablet_id, &VIRTUAL_TABLES_TABLE)
         {
             match (old_value, new_value) {
                 // Virtual table creation

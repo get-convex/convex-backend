@@ -39,7 +39,7 @@ pub fn parse_document_id(
 ) -> anyhow::Result<ResolvedDocumentId> {
     let id = DeveloperDocumentId::decode(id)?.to_resolved(&table_mapping.inject_table_id())?;
     anyhow::ensure!(
-        table_mapping.number_matches_name(id.table().table_number, table_name),
+        table_mapping.tablet_matches_name(id.tablet_id, table_name),
         invalid_id_error(table_name)
     );
     Ok(id)

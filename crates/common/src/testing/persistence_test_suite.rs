@@ -27,6 +27,7 @@ use value::{
     ConvexValue,
     InternalDocumentId,
     ResolvedDocumentId,
+    TableIdentifier,
     TableMapping,
     TabletId,
 };
@@ -528,7 +529,7 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     let ts = Timestamp::must(1);
     let table: TableName = str::parse("table")?;
     let doc_id = id_generator.user_generate(&table);
-    let tablet_id = doc_id.table().tablet_id;
+    let tablet_id = doc_id.tablet_id;
     let value = val!(testing::generate::<Vec<u8>>());
 
     let doc = ResolvedDocument::new(
@@ -700,12 +701,12 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
     let table2_id = id_generator.user_table_id(&str::parse("table2")?);
 
     let doc1 = ResolvedDocument::new(
-        ResolvedDocumentId::new(table1_id, internal_id),
+        ResolvedDocumentId::new(table1_id.tablet_id, table1_id.table_number.id(internal_id)),
         CreationTime::ONE,
         assert_obj!("value" => 1),
     )?;
     let doc2 = ResolvedDocument::new(
-        ResolvedDocumentId::new(table2_id, internal_id),
+        ResolvedDocumentId::new(table2_id.tablet_id, table2_id.table_number.id(internal_id)),
         CreationTime::ONE,
         assert_obj!("value" => 2),
     )?;
@@ -797,7 +798,7 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
 
     let table: TableName = str::parse("table")?;
     let doc_id = id_generator.user_generate(&table);
-    let tablet_id = doc_id.table().tablet_id;
+    let tablet_id = doc_id.tablet_id;
 
     let mut ts_to_value: BTreeMap<Timestamp, ConvexValue> = BTreeMap::new();
     for ts in 0..=100 {

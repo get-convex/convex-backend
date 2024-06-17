@@ -349,7 +349,12 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                 (
                     backfill_state.segments.clone(),
                     MultipartBuildType::IncrementalComplete {
-                        cursor: cursor.map(|cursor| table_id.id(cursor)),
+                        cursor: cursor.map(|cursor| {
+                            ResolvedDocumentId::new(
+                                table_id.tablet_id,
+                                table_id.table_number.id(cursor),
+                            )
+                        }),
                         backfill_snapshot_ts,
                     },
                 )

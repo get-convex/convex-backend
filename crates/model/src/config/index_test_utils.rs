@@ -11,10 +11,6 @@ use common::{
         Persistence,
     },
     schemas::DatabaseSchema,
-    value::{
-        GenericDocumentId,
-        TabletIdAndTableNumber,
-    },
     version::Version,
 };
 use database::{
@@ -27,7 +23,10 @@ use database::{
 };
 use runtime::testing::TestRuntime;
 use storage::LocalDirStorage;
-use value::TableNamespace;
+use value::{
+    ResolvedDocumentId,
+    TableNamespace,
+};
 
 use crate::{
     config::ConfigModel,
@@ -145,7 +144,7 @@ pub async fn deploy_schema(
 pub async fn prepare_schema(
     db: &Database<TestRuntime>,
     schema: DatabaseSchema,
-) -> anyhow::Result<GenericDocumentId<TabletIdAndTableNumber>> {
+) -> anyhow::Result<ResolvedDocumentId> {
     let mut tx = db.begin_system().await?;
     IndexModel::new(&mut tx)
         .prepare_new_and_mutated_indexes(TableNamespace::test_user(), &schema)
@@ -162,7 +161,7 @@ pub async fn prepare_schema(
 
 pub async fn apply_config(
     db: Database<TestRuntime>,
-    schema_id: Option<GenericDocumentId<TabletIdAndTableNumber>>,
+    schema_id: Option<ResolvedDocumentId>,
 ) -> anyhow::Result<()> {
     // This is a kind of arbitrary version that supports schema validation. I'm not
     // even sure that the value here matters at all.

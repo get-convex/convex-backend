@@ -128,8 +128,10 @@ impl TableSummaries {
     ) -> anyhow::Result<()> {
         let mut table_summary = self
             .tables
-            .get(&document_id.table().tablet_id)
-            .ok_or_else(|| anyhow::anyhow!("Updating non-existent table {}", document_id.table()))?
+            .get(&document_id.tablet_id)
+            .ok_or_else(|| {
+                anyhow::anyhow!("Updating non-existent table {}", document_id.tablet_id)
+            })?
             .clone();
         if let Some(old_value) = old {
             table_summary = table_summary.remove(&old_value.value().0)?;
@@ -160,12 +162,9 @@ impl TableSummaries {
         }
         let new_info_num_values = table_summary.num_values();
         let new_info_total_size = table_summary.total_size();
-        match self
-            .tables
-            .insert(document_id.table().tablet_id, table_summary)
-        {
+        match self.tables.insert(document_id.tablet_id, table_summary) {
             Some(old_summary) => {
-                if !table_mapping.is_system_tablet(document_id.table().tablet_id) {
+                if !table_mapping.is_system_tablet(document_id.tablet_id) {
                     self.num_user_documents =
                         self.num_user_documents + new_info_num_values - old_summary.num_values();
                     self.user_size =

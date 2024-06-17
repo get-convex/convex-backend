@@ -174,7 +174,10 @@ impl TestIdGenerator {
             .name_to_id()(TABLES_TABLE.clone())?;
         for (table_id, namespace, table_number, table_name) in self.table_mapping.iter() {
             let table_metadata = TableMetadata::new(namespace, table_name.clone(), table_number);
-            let id = tables_table_id.id(table_id.0);
+            let id = ResolvedDocumentId::new(
+                tables_table_id.tablet_id,
+                tables_table_id.table_number.id(table_id.0),
+            );
             let doc = ResolvedDocument::new(id, CreationTime::ONE, table_metadata.try_into()?)?;
             let index_update = DatabaseIndexUpdate {
                 index_id: tables_by_id,
@@ -192,13 +195,19 @@ impl TestIdGenerator {
     pub fn user_generate(&mut self, table_name: &TableName) -> ResolvedDocumentId {
         assert!(!table_name.is_system(), "use system_generate instead");
         let table_id = self.user_table_id(table_name);
-        table_id.id(self.generate_internal())
+        ResolvedDocumentId::new(
+            table_id.tablet_id,
+            table_id.table_number.id(self.generate_internal()),
+        )
     }
 
     pub fn system_generate(&mut self, table_name: &TableName) -> ResolvedDocumentId {
         assert!(table_name.is_system(), "use user_generate instead");
         let table_id = self.system_table_id(table_name);
-        table_id.id(self.generate_internal())
+        ResolvedDocumentId::new(
+            table_id.tablet_id,
+            table_id.table_number.id(self.generate_internal()),
+        )
     }
 
     pub fn generate_virtual(&mut self, table_name: &TableName) -> DeveloperDocumentId {

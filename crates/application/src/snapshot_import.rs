@@ -1181,7 +1181,7 @@ pub async fn perform_import<RT: Runtime>(
             "snapshot_import_perform",
             |tx| {
                 async {
-                    let import_id = import_id.map_table(
+                    let import_id = import_id.to_resolved(
                         tx.table_mapping()
                             .namespace(TableNamespace::Global)
                             .inject_table_id(),
@@ -1214,7 +1214,7 @@ async fn wait_for_import_worker<RT: Runtime>(
 ) -> anyhow::Result<ParsedDocument<SnapshotImport>> {
     let snapshot_import = loop {
         let mut tx = application.begin(identity.clone()).await?;
-        let import_id = import_id.map_table(
+        let import_id = import_id.to_resolved(
             tx.table_mapping()
                 .namespace(TableNamespace::Global)
                 .inject_table_id(),

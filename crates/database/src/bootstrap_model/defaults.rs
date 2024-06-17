@@ -19,6 +19,7 @@ use common::{
     },
     document::ResolvedDocument,
     types::{
+        IndexId,
         IndexName,
         TableName,
     },
@@ -29,6 +30,8 @@ use common::{
 };
 use maplit::btreemap;
 use value::{
+    ResolvedDocumentId,
+    TableIdentifier,
     TableNamespace,
     TableNumber,
     TabletId,
@@ -166,19 +169,25 @@ impl BootstrapTableIds {
         }
     }
 
-    pub fn is_index_table(&self, table_id: TabletIdAndTableNumber) -> bool {
-        self.index_id == table_id
+    pub fn table_resolved_doc_id(&self, table_id: TabletId) -> ResolvedDocumentId {
+        ResolvedDocumentId::new(
+            self.tables_id.tablet_id,
+            self.tables_id.table_number.id(table_id.0),
+        )
     }
 
-    pub fn is_tables_table(&self, table_id: TabletIdAndTableNumber) -> bool {
-        self.tables_id == table_id
+    pub fn index_resolved_doc_id(&self, index_id: IndexId) -> ResolvedDocumentId {
+        ResolvedDocumentId::new(
+            self.index_id.tablet_id,
+            self.index_id.table_number.id(index_id),
+        )
     }
 
-    pub fn is_index_tablet_id(&self, tablet_id: TabletId) -> bool {
+    pub fn is_index_table(&self, tablet_id: TabletId) -> bool {
         self.index_id.tablet_id == tablet_id
     }
 
-    pub fn is_tables_tablet_id(&self, tablet_id: TabletId) -> bool {
+    pub fn is_tables_table(&self, tablet_id: TabletId) -> bool {
         self.tables_id.tablet_id == tablet_id
     }
 }

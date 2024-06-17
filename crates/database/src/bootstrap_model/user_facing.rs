@@ -25,7 +25,9 @@ use value::{
     check_user_size,
     ConvexObject,
     DeveloperDocumentId,
+    ResolvedDocumentId,
     Size,
+    TableIdentifier,
     TableName,
     TableNamespace,
 };
@@ -124,13 +126,13 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             {
                 return Ok(None);
             }
-            let id_ = id.map_table(
+            let id_ = id.to_resolved(
                 self.tx
                     .table_mapping()
                     .namespace(self.namespace)
                     .inject_table_id(),
             )?;
-            let table_name = self.tx.table_mapping().tablet_name(id_.table().tablet_id)?;
+            let table_name = self.tx.table_mapping().tablet_name(id_.tablet_id)?;
             let result = self.tx.get_inner(id_, table_name).await?;
             Ok(result.map(|(doc, ts)| (doc.to_developer(), ts)))
         }
@@ -153,7 +155,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
         check_user_size(value.size())?;
         self.tx.retention_validator.fail_if_falling_behind()?;
-        let id = self.tx.id_generator.generate(&table);
+        let internal_id = self.tx.id_generator.generate_internal();
 
         let creation_time = self.tx.next_creation_time.increment()?;
 
@@ -179,13 +181,13 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         TableModel::new(self.tx)
             .insert_table_metadata(self.namespace, &table)
             .await?;
+        let table_id = self
+            .tx
+            .table_mapping()
+            .namespace(self.namespace)
+            .name_to_id_user_input()(table)?;
         let document = ResolvedDocument::new(
-            id.clone().map_table(
-                self.tx
-                    .table_mapping()
-                    .namespace(self.namespace)
-                    .name_to_id_user_input(),
-            )?,
+            ResolvedDocumentId::new(table_id.tablet_id, table_id.table_number.id(internal_id)),
             creation_time,
             value,
         )?;
@@ -210,8 +212,9 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
 
-        let id_ = id.map_table(
-            self.tx
+        let id_ = id.to_resolved(
+            &self
+                .tx
                 .table_mapping()
                 .namespace(self.namespace)
                 .inject_table_id(),
@@ -245,8 +248,9 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             check_user_size(value.size())?;
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
-        let id_ = id.map_table(
-            self.tx
+        let id_ = id.to_resolved(
+            &self
+                .tx
                 .table_mapping()
                 .namespace(self.namespace)
                 .inject_table_id(),
@@ -269,7 +273,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
 
-        let id_ = id.map_table(
+        let id_ = id.to_resolved(
             &self
                 .tx
                 .table_mapping()

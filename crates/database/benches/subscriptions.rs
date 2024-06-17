@@ -56,6 +56,7 @@ use value::{
     FieldPath,
     InternalId,
     ResolvedDocumentId,
+    TableIdentifier,
     TabletId,
     TabletIdAndTableNumber,
 };
@@ -120,7 +121,8 @@ fn load_datasets(
             m += d.text.len();
             n += 1;
             let internal_id = alloc_id();
-            let id = ResolvedDocumentId::new(table_id, internal_id);
+            let id =
+                ResolvedDocumentId::new(table_id.tablet_id, table_id.table_number.id(internal_id));
             let tokenizer = convex_en();
             {
                 let mut stream = tokenizer.token_stream(&d.text);

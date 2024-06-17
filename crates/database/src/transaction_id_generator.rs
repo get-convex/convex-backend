@@ -14,6 +14,10 @@ use rand::{
     SeedableRng,
 };
 use rand_chacha::ChaCha12Rng;
+use value::{
+    ResolvedDocumentId,
+    TabletIdAndTableNumber,
+};
 
 /// A production ID generator scoped to a single transaction.
 ///
@@ -55,6 +59,18 @@ impl TransactionIdGenerator {
 
     pub fn generate<T: TableIdentifier>(&mut self, table_name: &T) -> GenericDocumentId<T> {
         table_name.id(self.generate_internal())
+    }
+
+    pub fn generate_resolved(
+        &mut self,
+        tablet_id_and_number: TabletIdAndTableNumber,
+    ) -> ResolvedDocumentId {
+        ResolvedDocumentId::new(
+            tablet_id_and_number.tablet_id,
+            tablet_id_and_number
+                .table_number
+                .id(self.generate_internal()),
+        )
     }
 }
 

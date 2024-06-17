@@ -45,6 +45,7 @@ use common::{
 use errors::ErrorMetadata;
 use value::{
     FieldPath,
+    ResolvedDocumentId,
     TableNamespace,
     TableNumber,
     TabletId,
@@ -229,7 +230,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         &mut self,
         tablet_id: TabletId,
     ) -> anyhow::Result<ParsedDocument<TableMetadata>> {
-        let table_doc_id = self.tx.bootstrap_tables().tables_id.id(tablet_id.0);
+        let table_doc_id = self.tx.bootstrap_tables().table_resolved_doc_id(tablet_id);
         self.tx
             .get(table_doc_id)
             .await?
@@ -386,7 +387,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             table_number,
             TableState::Active,
         );
-        let table_doc_id = self.tables_table_id()?.id(tablet_id.0);
+        let tables_table_id = self.tables_table_id()?;
+        let table_doc_id = ResolvedDocumentId::new(
+            tables_table_id.tablet_id,
+            tables_table_id.table_number.id(tablet_id.0),
+        );
         SystemMetadataModel::new_global(self.tx)
             .replace(table_doc_id, table_metadata.try_into()?)
             .await?;

@@ -15,6 +15,7 @@ use value::{
     ConvexValue,
     DeveloperDocumentId,
     FieldName,
+    ResolvedDocumentId,
     Size,
     TableIdentifier,
     TableMapping,
@@ -99,7 +100,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         } else {
             self.tx.id_generator.generate_internal()
         };
-        let id = table_id.id(internal_id);
+        let id = ResolvedDocumentId::new(table_id.tablet_id, table_id.table_number.id(internal_id));
 
         let creation_time_field = FieldName::from(CREATION_TIME_FIELD.clone());
         let creation_time = if let Some(ConvexValue::Float64(f)) = value.get(&creation_time_field) {

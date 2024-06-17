@@ -751,7 +751,7 @@ impl<RT: Runtime> Committer<RT> {
     ) {
         for (_, index_write) in index_writes {
             if let DatabaseIndexValue::NonClustered(doc) = index_write.value {
-                if let Ok(table_name) = table_mapping.tablet_name(doc.table().tablet_id) {
+                if let Ok(table_name) = table_mapping.tablet_name(doc.tablet_id) {
                     // Index metadata is never a vector
                     // Database bandwidth for index writes
                     usage_tracker.track_database_ingress_size(

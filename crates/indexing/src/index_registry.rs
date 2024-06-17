@@ -226,7 +226,7 @@ impl IndexRegistry {
         if let (Some(old_document), Some(new_document)) = (&old_document, &new_document) {
             anyhow::ensure!(old_document.id() == new_document.id());
             anyhow::ensure!(old_document.table() == new_document.table());
-            if *old_document.id().table() == self.index_table() {
+            if old_document.id().tablet_id_and_number() == self.index_table() {
                 let old_metadata = TabletIndexMetadata::from_document((*old_document).clone())?;
                 let new_metadata = TabletIndexMetadata::from_document((*new_document).clone())?;
                 anyhow::ensure!(
@@ -250,7 +250,7 @@ impl IndexRegistry {
         }
         // Checks performed when updating or removing a document.
         if let Some(old_document) = old_document {
-            if *old_document.id().table() == self.index_table() {
+            if old_document.id().tablet_id_and_number() == self.index_table() {
                 let metadata = TabletIndexMetadata::from_document(old_document.clone())?;
                 let index_name = metadata.name.clone();
                 if !self.enabled_indexes.contains_key(&index_name)
@@ -349,7 +349,7 @@ impl IndexRegistry {
     ) -> bool {
         let mut modified = false;
         if let Some(old_document) = deletion {
-            if *old_document.id().table() == self.index_table() {
+            if old_document.id().tablet_id_and_number() == self.index_table() {
                 let index = TabletIndexMetadata::from_document(old_document.clone()).unwrap();
                 self.remove(&index);
                 modified = true;

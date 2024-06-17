@@ -228,7 +228,7 @@ impl VectorIndexManager {
         ts: WriteTimestamp,
     ) -> anyhow::Result<bool> {
         let mut at_least_one_matching_index = false;
-        for index in index_registry.vector_indexes_by_table(id.table().tablet_id) {
+        for index in index_registry.vector_indexes_by_table(id.tablet_id) {
             let IndexConfig::Vector {
                 ref developer_config,
                 ..
@@ -256,7 +256,7 @@ impl VectorIndexManager {
         insertion: Option<&ResolvedDocument>,
         ts: WriteTimestamp,
     ) -> anyhow::Result<bool> {
-        if *id.table() != index_registry.index_table() {
+        if id.tablet_id_and_number() != index_registry.index_table() {
             return Ok(false);
         }
         match (deletion, insertion) {

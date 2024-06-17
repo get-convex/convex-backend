@@ -43,9 +43,13 @@ impl TryFrom<DeveloperDocumentIdProto> for DeveloperDocumentId {
 
 impl From<ResolvedDocumentId> for ResolvedDocumentIdProto {
     fn from(value: ResolvedDocumentId) -> Self {
-        let (table, internal_id) = value.into_table_and_id();
+        let tablet_id_and_number = TabletIdAndTableNumber {
+            tablet_id: value.tablet_id,
+            table_number: *value.developer_id.table(),
+        };
+        let internal_id = value.developer_id.internal_id();
         Self {
-            table: Some(table.into()),
+            table: Some(tablet_id_and_number.into()),
             internal_id: Some(internal_id.0.to_vec()),
         }
     }
@@ -57,13 +61,17 @@ impl TryFrom<ResolvedDocumentIdProto> for ResolvedDocumentId {
     fn try_from(
         ResolvedDocumentIdProto { table, internal_id }: ResolvedDocumentIdProto,
     ) -> anyhow::Result<Self> {
-        let table = table
+        let table: TabletIdAndTableNumber = table
             .ok_or_else(|| anyhow::anyhow!("Missing table"))?
             .try_into()?;
         let internal_id = internal_id
             .ok_or_else(|| anyhow::anyhow!("Missing internal_id"))?
             .try_into()?;
-        Ok(Self::new(table, internal_id))
+        let developer_id = DeveloperDocumentId::new(table.table_number, internal_id);
+        Ok(Self {
+            tablet_id: table.tablet_id,
+            developer_id,
+        })
     }
 }
 

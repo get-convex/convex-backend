@@ -143,8 +143,7 @@ mod tests {
         assert_obj,
         assert_val,
         ConvexValue,
-        GenericDocumentId,
-        TabletIdAndTableNumber,
+        ResolvedDocumentId,
     };
     use vector::{
         PublicVectorSearchQueryResult,
@@ -691,8 +690,8 @@ mod tests {
     async fn verify_segment_state(
         fixtures: &VectorFixtures,
         segment: &FragmentedVectorSegment,
-        expected_deletes: Vec<GenericDocumentId<TabletIdAndTableNumber>>,
-        expected_non_deleted: Vec<GenericDocumentId<TabletIdAndTableNumber>>,
+        expected_deletes: Vec<ResolvedDocumentId>,
+        expected_non_deleted: Vec<ResolvedDocumentId>,
     ) -> anyhow::Result<()> {
         assert_eq!(segment.num_deleted as usize, expected_deletes.len());
         assert_eq!(
@@ -703,7 +702,7 @@ mod tests {
         let segment = fixtures.load_segment(segment).await?;
 
         for doc_id in expected_deletes {
-            let external_id = QdrantExternalId::try_from(&doc_id)?;
+            let external_id = QdrantExternalId::try_from(doc_id)?;
             let internal_id = segment
                 .id_tracker
                 .borrow()
@@ -712,7 +711,7 @@ mod tests {
             assert!(segment.id_tracker.borrow().is_deleted_point(internal_id));
         }
         for doc_id in expected_non_deleted {
-            let external_id = QdrantExternalId::try_from(&doc_id)?;
+            let external_id = QdrantExternalId::try_from(doc_id)?;
             let internal_id = segment
                 .id_tracker
                 .borrow()

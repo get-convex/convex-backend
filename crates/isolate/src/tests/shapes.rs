@@ -23,6 +23,7 @@ use value::{
     id_v6::DeveloperDocumentId,
     val,
     ResolvedDocumentId,
+    TableIdentifier,
     TableNamespace,
 };
 
@@ -37,7 +38,10 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
     let table_mapping = id_generator.namespace(TableNamespace::test_user());
     let values: Vec<(ConvexValue, &'static str)> = vec![
         (
-            ConvexValue::from(ResolvedDocumentId::new(table_id, InternalId::MIN)),
+            ConvexValue::from(ResolvedDocumentId::new(
+                table_id.tablet_id,
+                table_id.table_number.id(InternalId::MIN),
+            )),
             r#"Id<"test">"#,
         ),
         (

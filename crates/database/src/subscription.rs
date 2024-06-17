@@ -338,7 +338,7 @@ impl SubscriptionManager {
         persistence_version: PersistenceVersion,
     ) {
         for (index, (fields, range_map)) in &self.subscriptions.indexed {
-            if *index.table() == document.table().tablet_id {
+            if *index.table() == document.id().tablet_id {
                 let index_key = document.index_key(fields, persistence_version);
                 for subscriber_id in range_map.query(index_key.into_bytes()) {
                     to_notify.insert(subscriber_id);
@@ -526,9 +526,9 @@ mod tests {
         ConvexObject,
         ConvexString,
         ConvexValue,
+        DeveloperDocumentId,
         FieldName,
         FieldPath,
-        GenericDocumentId,
         ResolvedDocumentId,
         TableNumber,
         TabletId,
@@ -663,14 +663,11 @@ mod tests {
             for query in &reads.text_queries {
                 // All we need is the table id of the index to match the table id of the doc.
                 let internal_id = id_generator.generate_internal();
-                let id = GenericDocumentId::new(
-                    TabletIdAndTableNumber::new_for_test(
-                        *index_name.table(),
-                        TableNumber::try_from(1).unwrap(),
-                    ),
-                    internal_id,
+                let id = ResolvedDocumentId::new(
+                    *index_name.table(),
+                    DeveloperDocumentId::new(TableNumber::try_from(1).unwrap(), internal_id),
                 );
-                assert_eq!(*index_name.table(), id.table().tablet_id);
+                assert_eq!(*index_name.table(), id.tablet_id);
 
                 let document = pack(create_document(
                     query.field_path.clone(),
@@ -680,7 +677,7 @@ mod tests {
                     },
                     id,
                 ));
-                assert_eq!(*index_name.table(), document.table().tablet_id);
+                assert_eq!(*index_name.table(), document.id().tablet_id);
                 result.push(document)
             }
         }
