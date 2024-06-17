@@ -366,7 +366,6 @@ pub async fn build_new_segment<RT: Runtime>(
 
     let mut num_indexed_documents = 0;
 
-    let mut is_at_least_one_document_indexed = false;
     let mut segment_statistics_updates = SegmentStatisticsUpdates::new();
 
     while let Some(revision_pair) = revision_stream.try_next().await? {
@@ -386,11 +385,11 @@ pub async fn build_new_segment<RT: Runtime>(
 
         // Addition
         if let Some(new_document) = revision_pair.document() {
+            // If we have already processed a delete for this document at a higher
+            // timestamp, we can ignore it. Otherwise, add it to the segment.
             if dangling_deletes.contains(&convex_id) {
                 dangling_deletes.remove(&convex_id);
-                document_ids_processed.insert(convex_id);
             } else {
-                is_at_least_one_document_indexed = true;
                 num_indexed_documents += 1;
                 let tantivy_document =
                     tantivy_schema.index_into_tantivy_document(new_document, revision_pair.ts());
@@ -407,7 +406,8 @@ pub async fn build_new_segment<RT: Runtime>(
             if let Some(lower_bound_ts) = document_log_lower_bound
                 && prev_rev.ts > lower_bound_ts
             {
-                // might be an add, or might be replaced earlier in the log, we don't know.
+                // This document might be an add, or might be replaced earlier in the log, we
+                // don't know, so we need to process it again later.
                 dangling_deletes.insert(prev_document.id().internal_id());
                 document_ids_processed.remove(&prev_document.id().internal_id());
             } else {
@@ -440,7 +440,7 @@ pub async fn build_new_segment<RT: Runtime>(
     .await?;
     previous_segments.update_term_deletion_metadata(segments_term_metadata)?;
 
-    if !is_at_least_one_document_indexed {
+    if num_indexed_documents == 0 {
         return Ok(None);
     }
     // Finalize the segment and write to trackers

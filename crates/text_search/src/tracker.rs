@@ -314,9 +314,11 @@ impl StaticDeletionTracker {
 pub struct SearchMemoryIdTracker(MemoryIdTracker);
 impl SearchMemoryIdTracker {
     pub fn set_link(&mut self, convex_id: InternalId, tantivy_id: DocId) -> anyhow::Result<()> {
+        let maybe_id = self.0.index_id(convex_id.0);
         anyhow::ensure!(
-            self.0.index_id(convex_id.0).is_none(),
-            "Id {convex_id} already exists in SearchIdTracker"
+            maybe_id.is_none(),
+            "Id {convex_id} already exists in SearchIdTracker with tantivy id: {maybe_id:?}, was \
+             going to be set to {tantivy_id}"
         );
         self.0.insert(tantivy_id, convex_id.0);
         Ok(())

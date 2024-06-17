@@ -99,6 +99,108 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
+    async fn compact_test(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt.clone()).await?;
+        let index_data = fixtures.enabled_text_index().await?;
+
+        let document_id = fixtures.add_document("horse").await?;
+        fixtures.backfill().await?;
+        fixtures.replace_document(document_id, "cat").await?;
+        fixtures.add_document("other").await?;
+        fixtures.backfill().await?;
+        fixtures.replace_document(document_id, "bat").await?;
+        fixtures.backfill().await?;
+        fixtures.replace_document(document_id, "rat").await?;
+        fixtures.backfill().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(document_id).await?;
+        fixtures.db.commit(tx).await?;
+        fixtures.backfill().await?;
+
+        let compactor = fixtures.new_compactor();
+        let (metrics, _) = compactor.step().await?;
+        assert_eq!(metrics, btreemap! { index_data.resolved_index_name => 4});
+
+        let segments = fixtures
+            .get_segments_metadata(index_data.index_name.clone())
+            .await?;
+        assert_eq!(segments.len(), 1);
+
+        assert_eq!(
+            fixtures
+                .search(index_data.index_name.clone(), "other")
+                .await?
+                .len(),
+            1
+        );
+        assert_eq!(
+            fixtures
+                .search(index_data.index_name.clone(), "horse")
+                .await?
+                .len(),
+            0
+        );
+        assert_eq!(
+            fixtures
+                .search(index_data.index_name.clone(), "cat")
+                .await?
+                .len(),
+            0
+        );
+        assert_eq!(
+            fixtures
+                .search(index_data.index_name.clone(), "bat")
+                .await?
+                .len(),
+            0
+        );
+        assert_eq!(
+            fixtures
+                .search(index_data.index_name.clone(), "rat")
+                .await?
+                .len(),
+            0
+        );
+
+        Ok(())
+    }
+
+    #[ignore]
+    #[convex_macro::test_runtime]
+    async fn compact_when_compaction_removes_data_in_all_segments_should_not_panic(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt.clone()).await?;
+        let index_data = fixtures.enabled_text_index().await?;
+
+        let document_id = fixtures.add_document("horse").await?;
+        fixtures.backfill().await?;
+        fixtures.replace_document(document_id, "cat").await?;
+        fixtures.backfill().await?;
+        fixtures.replace_document(document_id, "bat").await?;
+        fixtures.backfill().await?;
+        fixtures.replace_document(document_id, "rat").await?;
+        fixtures.backfill().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(document_id).await?;
+        fixtures.db.commit(tx).await?;
+        fixtures.backfill().await?;
+
+        let compactor = fixtures.new_compactor();
+        let (metrics, _) = compactor.step().await?;
+        assert_eq!(metrics, btreemap! { index_data.resolved_index_name => 4});
+
+        let segments = fixtures
+            .get_segments_metadata(index_data.index_name)
+            .await?;
+        assert_eq!(segments.len(), 1);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
     async fn compact_with_enabled_index_multiple_large_segments_compacts_them(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
@@ -154,9 +256,12 @@ mod tests {
         );
 
         let segments = fixtures
-            .get_segments_metadata(index_data.index_name)
+            .get_segments_metadata(index_data.index_name.clone())
             .await?;
         assert_eq!(segments.len(), 1);
+        fixtures.enable_index(&index_data.index_name).await?;
+        let results = fixtures.search(index_data.index_name, "sheep").await?;
+        assert_eq!(results.len() as u64, min_compaction_segments);
 
         Ok(())
     }

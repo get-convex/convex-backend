@@ -104,13 +104,19 @@ use vector::{
 };
 
 use crate::{
-    index_workers::writer::SearchIndexMetadataWriter,
+    index_workers::{
+        search_compactor::CompactionConfig,
+        writer::SearchIndexMetadataWriter,
+    },
     search_and_vector_bootstrap::FINISHED_BOOTSTRAP_UPDATES,
     test_helpers::{
         DbFixtures,
         DbFixturesArgs,
     },
-    text_index_worker::flusher2::new_text_flusher,
+    text_index_worker::{
+        compactor::new_text_compactor,
+        flusher2::new_text_flusher,
+    },
     Database,
     IndexModel,
     ResolvedQuery,
@@ -212,6 +218,24 @@ impl Scenario {
         self.searcher = searcher;
         self.search_storage = search_storage;
         self.tp = tp;
+        Ok(())
+    }
+
+    async fn compact(&mut self) -> anyhow::Result<()> {
+        let writer = SearchIndexMetadataWriter::new(
+            self.rt.clone(),
+            self.database.clone(),
+            self.search_storage.clone(),
+        );
+        new_text_compactor(
+            self.database.clone(),
+            self.searcher.clone(),
+            self.search_storage.clone(),
+            CompactionConfig::default(),
+            writer,
+        )
+        .step()
+        .await?;
         Ok(())
     }
 
@@ -502,6 +526,9 @@ impl Scenario {
                     .await?;
                 assert_query_results_approx_equal(&memory_results, &disk_results);
             },
+            TestAction::Compact => {
+                self.compact().await?;
+            },
         }
         self.database.memory_consistency_check()?;
         Ok(())
@@ -568,6 +595,7 @@ enum TestAction {
     Delete(TestKey),
     QueryAndCheckResults(TestQuery),
     QueryAndCheckScores(TestQuery),
+    Compact,
 }
 fn test_search_actions(actions: Vec<TestAction>) {
     let td = TestDriver::new();

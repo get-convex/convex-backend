@@ -170,7 +170,10 @@ mod tests {
     };
     use maplit::btreemap;
     use must_let::must_let;
-    use value::TableNamespace;
+    use value::{
+        assert_obj,
+        TableNamespace,
+    };
 
     use crate::{
         tests::text_test_utils::{
@@ -520,9 +523,50 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn backfill_insert_then_replace_delete_one_segment_doesnt_panic(
+    async fn backfill_one_doc_added_then_replaced_separate_builds_does_not_include_first_document(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.replace_inner(doc_id, assert_obj!()).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name, "cat").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_one_segment(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        fixtures.replace_document(doc_id, "new_text").await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(!results.is_empty());
+
+        Ok(())
+    }
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_delete_one_segment(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
         let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
         let mut flusher = fixtures.new_search_flusher2();
@@ -545,7 +589,57 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn backfill_insert_then_replace_delete_second_segment_doesnt_panic(
+    async fn backfill_insert_then_replace_delete_separate_segment(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+        fixtures.replace_document(doc_id, "new_text").await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_then_replace_delete_separate_segment_many_replaces(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        fixtures.replace_document(doc_id, "dog").await?;
+        flusher.step().await?;
+        fixtures.replace_document(doc_id, "newer_text").await?;
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name.clone(), "dog").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "newer_text").await?;
+        assert!(!results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_then_replace_delete_second_segment(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
@@ -573,7 +667,36 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn backfill_insert_replace_replace_delete_doesnt_panic(
+    async fn backfill_insert_then_replace_delete_separate_segments(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher2();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        fixtures.replace_document(doc_id, "new_text").await?;
+        flusher.step().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_replace_delete_single_segment(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
@@ -600,7 +723,7 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn backfill_insert_replace_replace_delete_different_segments_doesnt_panic(
+    async fn backfill_insert_replace_replace_delete_different_segments(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt).await?;
