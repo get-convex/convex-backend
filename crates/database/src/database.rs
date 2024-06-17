@@ -1172,9 +1172,11 @@ impl<RT: Runtime> Database<RT> {
             .into_iter()
             .flat_map(|t| t.indexes())
         {
-            let name = name
-                .map_table(&table_mapping.namespace(TableNamespace::Global).name_to_id())?
-                .into();
+            let name = name.map_table(
+                &table_mapping
+                    .namespace(TableNamespace::Global)
+                    .name_to_tablet(),
+            )?;
             let document_id = id_generator.generate_resolved(index_table_id);
             let index_metadata = IndexMetadata::new_enabled(name, fields);
             let document = ResolvedDocument::new(
@@ -1606,8 +1608,8 @@ impl<RT: Runtime> Database<RT> {
                 // Ignore the row if it comes from a deleted table
                 continue;
             };
-            let table_id = table_mapping.inject_table_number()(*id.table())?;
-            let id = DeveloperDocumentId::new(table_id.table_number, id.internal_id());
+            let table_number = table_mapping.tablet_number(*id.table())?;
+            let id = DeveloperDocumentId::new(table_number, id.internal_id());
             if Self::user_table_filter(&table_filter, &table_name) {
                 deltas.push((ts, id, table_name, maybe_doc));
                 if new_cursor.is_none() && deltas.len() >= rows_returned_limit {
@@ -1657,7 +1659,7 @@ impl<RT: Runtime> Database<RT> {
                 c.to_resolved(
                     table_mapping
                         .namespace(TableNamespace::by_component_TODO())
-                        .inject_table_id(),
+                        .number_to_tablet(),
                 )
             })
             .transpose()?;
@@ -1674,12 +1676,9 @@ impl<RT: Runtime> Database<RT> {
             .collect();
         let mut table_numbers = table_numbers.into_iter();
         let tablet_id = match table_numbers.next() {
-            Some(first_table) => {
-                table_mapping
-                    .namespace(TableNamespace::by_component_TODO())
-                    .inject_table_id()(first_table)?
-                .tablet_id
-            },
+            Some(first_table) => table_mapping
+                .namespace(TableNamespace::by_component_TODO())
+                .number_to_tablet()(first_table)?,
             None => {
                 return Ok(SnapshotPage {
                     documents: vec![],
@@ -1738,7 +1737,7 @@ impl<RT: Runtime> Database<RT> {
             let resolved_new_cursor = new_cursor.to_resolved(
                 table_mapping
                     .namespace(TableNamespace::by_component_TODO())
-                    .inject_table_id(),
+                    .number_to_tablet(),
             )?;
             let new_cache_key = ListSnapshotTableIteratorCacheEntry {
                 snapshot: *snapshot,
@@ -1908,8 +1907,7 @@ impl<RT: Runtime> Database<RT> {
         let index_name = query
             .index_name
             .clone()
-            .to_resolved(table_mapping.name_to_id())?
-            .into();
+            .to_resolved(table_mapping.name_to_tablet())?;
         let index = snapshot
             .index_registry
             .require_enabled(&index_name, &query.index_name)?;

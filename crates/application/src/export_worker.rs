@@ -996,8 +996,7 @@ mod tests {
             let tablet_id = tx
                 .table_mapping()
                 .namespace(TableNamespace::test_user())
-                .inject_table_id()(doc.table())?
-            .tablet_id;
+                .number_to_tablet()(doc.table())?;
             let doc = doc.to_resolved(tablet_id);
             let id_v6 = doc.developer_id().encode();
             expected_export_entries.insert(

@@ -1184,7 +1184,7 @@ pub async fn perform_import<RT: Runtime>(
                     let import_id = import_id.to_resolved(
                         tx.table_mapping()
                             .namespace(TableNamespace::Global)
-                            .inject_table_id(),
+                            .number_to_tablet(),
                     )?;
                     let mut import_model = SnapshotImportModel::new(tx);
                     import_model.confirm_import(import_id).await?;
@@ -1217,7 +1217,7 @@ async fn wait_for_import_worker<RT: Runtime>(
         let import_id = import_id.to_resolved(
             tx.table_mapping()
                 .namespace(TableNamespace::Global)
-                .inject_table_id(),
+                .number_to_tablet(),
         )?;
         let mut import_model = SnapshotImportModel::new(&mut tx);
         let snapshot_import =

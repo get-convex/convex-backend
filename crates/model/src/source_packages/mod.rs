@@ -81,7 +81,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
                 .tx
                 .table_mapping()
                 .namespace(self.namespace)
-                .inject_table_id(),
+                .number_to_tablet(),
         )?;
         self.tx
             .get(document_id)

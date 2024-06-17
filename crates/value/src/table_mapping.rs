@@ -207,20 +207,6 @@ impl TableMapping {
         |id| self.tablet_name(id)
     }
 
-    pub fn inject_table_number(
-        &self,
-    ) -> impl Fn(TabletId) -> anyhow::Result<TabletIdAndTableNumber> + '_ {
-        |table_id| {
-            self.tablet_to_table
-                .get(&table_id)
-                .ok_or_else(|| anyhow::anyhow!("could not find table id {table_id}"))
-                .map(|(_, table_number, _)| TabletIdAndTableNumber {
-                    table_number: *table_number,
-                    tablet_id: table_id,
-                })
-        }
-    }
-
     /// Assuming all system tables are in the table mapping,
     /// does a table id correspond to a system table?
     pub fn is_system_tablet(&self, tablet_id: TabletId) -> bool {
@@ -332,12 +318,12 @@ impl NamespacedTableMapping {
         self.table_name_to_canonical_tablet.contains_key(name)
     }
 
-    pub fn id_to_name(&self) -> impl Fn(TabletIdAndTableNumber) -> anyhow::Result<TableName> + '_ {
-        |id| self.tablet_name(id.tablet_id)
-    }
-
     pub fn name_to_id(&self) -> impl Fn(TableName) -> anyhow::Result<TabletIdAndTableNumber> + '_ {
         |name| self.id(&name)
+    }
+
+    pub fn name_to_tablet(&self) -> impl Fn(TableName) -> anyhow::Result<TabletId> + '_ {
+        |name| self.id(&name).map(|id| id.tablet_id)
     }
 
     pub fn tablet_name(&self, id: TabletId) -> anyhow::Result<TableName> {
@@ -418,31 +404,12 @@ impl NamespacedTableMapping {
         }
     }
 
-    pub fn inject_table_number(
-        &self,
-    ) -> impl Fn(TabletId) -> anyhow::Result<TabletIdAndTableNumber> + '_ {
-        |table_id| {
-            self.tablet_to_table
-                .get(&table_id)
-                .ok_or_else(|| anyhow::anyhow!("could not find table id {table_id}"))
-                .map(|(_, table_number, _)| TabletIdAndTableNumber {
-                    table_number: *table_number,
-                    tablet_id: table_id,
-                })
-        }
-    }
-
-    pub fn inject_table_id(
-        &self,
-    ) -> impl Fn(TableNumber) -> anyhow::Result<TabletIdAndTableNumber> + '_ {
+    pub fn number_to_tablet(&self) -> impl Fn(TableNumber) -> anyhow::Result<TabletId> + '_ {
         |table_number| {
             self.table_number_to_canonical_tablet
                 .get(&table_number)
                 .ok_or_else(|| anyhow::anyhow!("cannot find table with id {table_number}"))
-                .map(|table_id| TabletIdAndTableNumber {
-                    table_number,
-                    tablet_id: *table_id,
-                })
+                .copied()
         }
     }
 }

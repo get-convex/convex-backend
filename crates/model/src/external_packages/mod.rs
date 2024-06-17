@@ -85,7 +85,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
                 .tx
                 .table_mapping()
                 .namespace(TableNamespace::Global)
-                .inject_table_id(),
+                .number_to_tablet(),
         )?;
         self.tx
             .get(document_id)

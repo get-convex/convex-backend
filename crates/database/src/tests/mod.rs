@@ -462,7 +462,7 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
     let id_ = id.to_resolved(
         &tx.table_mapping()
             .namespace(TableNamespace::test_user())
-            .inject_table_id(),
+            .number_to_tablet(),
     )?;
     let document = tx.get(id_).await?.unwrap();
     database.commit(tx).await?;
@@ -1372,10 +1372,7 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
             table_mapping.namespace(namespace).id_if_exists(table_name),
             Some(table_id)
         );
-        assert_eq!(
-            table_mapping.inject_table_number()(table_id)?.table_number,
-            table_number
-        );
+        assert_eq!(table_mapping.tablet_number(table_id)?, table_number);
     }
 
     Ok(())
@@ -1395,7 +1392,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
     let doc0_id = doc_id_user_facing.to_resolved(
         tx.table_mapping()
             .namespace(TableNamespace::test_user())
-            .inject_table_id(),
+            .number_to_tablet(),
     )?;
     let doc0_id_str: String = DeveloperDocumentId::from(doc0_id).encode();
     database.commit(tx).await?;
@@ -1490,7 +1487,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
     let doc0_id_inner = doc0_id.to_resolved(
         &tx.table_mapping()
             .namespace(TableNamespace::test_user())
-            .inject_table_id(),
+            .number_to_tablet(),
     )?;
     database.commit(tx).await?;
 

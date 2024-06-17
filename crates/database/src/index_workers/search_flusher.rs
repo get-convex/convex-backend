@@ -331,7 +331,8 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
     ) -> anyhow::Result<IndexBuildResult<T>> {
         let index_path = TempDir::new()?;
         let mut tx = self.database.begin(Identity::system()).await?;
-        let table_id = tx.table_mapping().inject_table_number()(*job.index_name.table())?;
+        let tablet_id = *job.index_name.table();
+        let table_number = tx.table_mapping().tablet_number(tablet_id)?;
         let mut new_ts = tx.begin_timestamp();
         let (previous_segments, build_type) = match job.index_config.on_disk_state {
             SearchOnDiskState::Backfilling(ref backfill_state) => {
@@ -350,10 +351,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     backfill_state.segments.clone(),
                     MultipartBuildType::IncrementalComplete {
                         cursor: cursor.map(|cursor| {
-                            ResolvedDocumentId::new(
-                                table_id.tablet_id,
-                                table_id.table_number.id(cursor),
-                            )
+                            ResolvedDocumentId::new(tablet_id, table_number.id(cursor))
                         }),
                         backfill_snapshot_ts,
                     },

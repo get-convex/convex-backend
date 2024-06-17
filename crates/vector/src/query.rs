@@ -344,8 +344,7 @@ impl VectorSearch {
         let original_table_name = self.index_name.table().clone();
         let index_name = self
             .index_name
-            .to_resolved(table_mapping.name_to_id())?
-            .map_table(&|t| Ok(t.tablet_id))?;
+            .to_resolved(table_mapping.name_to_tablet())?;
         let result = InternalVectorSearch {
             index_name,
             vector: self.vector,

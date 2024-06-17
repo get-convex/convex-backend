@@ -19,7 +19,6 @@ use value::{
     TableMapping,
     TableName,
     TabletId,
-    TabletIdAndTableNumber,
     VirtualTableMapping,
 };
 
@@ -110,7 +109,6 @@ pub struct GenericIndexName<T: TableIdentifier> {
 
 pub type IndexName = GenericIndexName<TableName>;
 
-pub type ResolvedIndexName = GenericIndexName<TabletIdAndTableNumber>;
 pub type TabletIndexName = GenericIndexName<TabletId>;
 
 /// Like TabletIndexName in that it refers to a stable underlying index,
@@ -138,8 +136,7 @@ impl StableIndexName {
     ) -> anyhow::Result<Option<VirtualTableNumberMap>> {
         match self {
             StableIndexName::Physical(index_name) => {
-                let table_number =
-                    table_mapping.inject_table_number()(*index_name.table())?.table_number;
+                let table_number = table_mapping.tablet_number(*index_name.table())?;
                 Ok(Some(VirtualTableNumberMap {
                     virtual_table_number: table_number,
                     physical_table_number: table_number,
@@ -148,10 +145,8 @@ impl StableIndexName {
             StableIndexName::Virtual(index_name, tablet_index_name) => {
                 Ok(Some(VirtualTableNumberMap {
                     virtual_table_number: virtual_table_mapping.number(index_name.table())?,
-                    physical_table_number: table_mapping.inject_table_number()(
-                        *tablet_index_name.table(),
-                    )?
-                    .table_number,
+                    physical_table_number: table_mapping
+                        .tablet_number(*tablet_index_name.table())?,
                 }))
             },
             StableIndexName::Missing => Ok(None),
@@ -299,15 +294,6 @@ impl<T: TableIdentifier> GenericIndexName<T> {
     }
 }
 
-impl From<ResolvedIndexName> for GenericIndexName<TabletId> {
-    fn from(value: ResolvedIndexName) -> Self {
-        GenericIndexName {
-            table: value.table.tablet_id,
-            descriptor: value.descriptor().clone(),
-        }
-    }
-}
-
 impl IndexName {
     /// Is this index either an index on a system table or a system-defined
     /// index? These indexes do not count towards user quota.
@@ -319,8 +305,8 @@ impl IndexName {
 
     pub fn to_resolved(
         self,
-        f: impl Fn(TableName) -> anyhow::Result<TabletIdAndTableNumber>,
-    ) -> anyhow::Result<ResolvedIndexName> {
+        f: impl Fn(TableName) -> anyhow::Result<TabletId>,
+    ) -> anyhow::Result<TabletIndexName> {
         Ok(GenericIndexName {
             table: f(self.table)?,
             descriptor: self.descriptor,

@@ -165,9 +165,13 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         TableModel::new(self.tx)
             .insert_table_metadata(namespace, index.name.table())
             .await?;
-        let index: TabletIndexMetadata = index
-            .map_table(&self.tx.table_mapping().namespace(namespace).name_to_id())?
-            .into();
+        let index: TabletIndexMetadata = index.map_table(
+            &self
+                .tx
+                .table_mapping()
+                .namespace(namespace)
+                .name_to_tablet(),
+        )?;
         SystemMetadataModel::new_global(self.tx)
             .insert_metadata(&INDEX_TABLE, index.try_into()?)
             .await
@@ -694,10 +698,13 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         namespace: TableNamespace,
         index_name: &IndexName,
     ) -> anyhow::Result<TabletIndexName> {
-        let resolved = index_name
-            .clone()
-            .map_table(&self.tx.table_mapping().namespace(namespace).name_to_id())?;
-        Ok(resolved.into())
+        index_name.clone().map_table(
+            &self
+                .tx
+                .table_mapping()
+                .namespace(namespace)
+                .name_to_tablet(),
+        )
     }
 
     /// Returns by_id indexes for *all tablets*, including hidden ones.

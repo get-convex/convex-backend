@@ -37,7 +37,7 @@ pub fn parse_document_id(
     table_mapping: &NamespacedTableMapping,
     table_name: &TableName,
 ) -> anyhow::Result<ResolvedDocumentId> {
-    let id = DeveloperDocumentId::decode(id)?.to_resolved(&table_mapping.inject_table_id())?;
+    let id = DeveloperDocumentId::decode(id)?.to_resolved(&table_mapping.number_to_tablet())?;
     anyhow::ensure!(
         table_mapping.tablet_matches_name(id.tablet_id, table_name),
         invalid_id_error(table_name)

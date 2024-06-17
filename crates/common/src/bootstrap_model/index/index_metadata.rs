@@ -12,7 +12,6 @@ use value::{
     TableIdentifier,
     TableName,
     TabletId,
-    TabletIdAndTableNumber,
 };
 
 use super::{
@@ -47,7 +46,6 @@ use crate::{
     },
 };
 
-pub type ResolvedIndexMetadata = IndexMetadata<TabletIdAndTableNumber>;
 pub type TabletIndexMetadata = IndexMetadata<TabletId>;
 pub type DeveloperIndexMetadata = IndexMetadata<TableName>;
 
@@ -162,26 +160,6 @@ impl<T: TableIdentifier> IndexMetadata<T> {
             name: self.name.map_table(f)?,
             config: self.config,
         })
-    }
-}
-
-impl From<ResolvedIndexMetadata> for TabletIndexMetadata {
-    fn from(value: ResolvedIndexMetadata) -> Self {
-        Self {
-            name: value.name.into(),
-            config: value.config,
-        }
-    }
-}
-
-impl ResolvedIndexMetadata {
-    pub fn from_document(
-        f: impl Fn(TabletId) -> anyhow::Result<TabletIdAndTableNumber>,
-        document: ResolvedDocument,
-    ) -> anyhow::Result<ParsedDocument<Self>> {
-        let index_metadata_: ParsedDocument<TabletIndexMetadata> = document.try_into()?;
-        let index_metadata: ParsedDocument<Self> = index_metadata_.map(|d| d.map_table(&f))?;
-        Ok(index_metadata)
     }
 }
 

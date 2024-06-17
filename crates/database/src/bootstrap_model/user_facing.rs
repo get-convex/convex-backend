@@ -130,7 +130,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                 self.tx
                     .table_mapping()
                     .namespace(self.namespace)
-                    .inject_table_id(),
+                    .number_to_tablet(),
             )?;
             let table_name = self.tx.table_mapping().tablet_name(id_.tablet_id)?;
             let result = self.tx.get_inner(id_, table_name).await?;
@@ -217,7 +217,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                 .tx
                 .table_mapping()
                 .namespace(self.namespace)
-                .inject_table_id(),
+                .number_to_tablet(),
         )?;
 
         let new_document = self.tx.patch_inner(id_, value).await?;
@@ -253,7 +253,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                 .tx
                 .table_mapping()
                 .namespace(self.namespace)
-                .inject_table_id(),
+                .number_to_tablet(),
         )?;
 
         let new_document = self.tx.replace_inner(id_, value).await?;
@@ -278,7 +278,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                 .tx
                 .table_mapping()
                 .namespace(self.namespace)
-                .inject_table_id(),
+                .number_to_tablet(),
         )?;
         let document = self.tx.delete_inner(id_).await?;
         Ok(document.to_developer())

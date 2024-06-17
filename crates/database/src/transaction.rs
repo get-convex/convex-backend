@@ -513,10 +513,10 @@ impl<RT: Runtime> Transaction<RT> {
         let tablet_id = match self
             .table_mapping()
             .namespace(TableNamespace::TODO())
-            .inject_table_id()(table_number)
+            .number_to_tablet()(table_number)
         {
             Err(_) => None,
-            Ok(id) => Some(id.tablet_id),
+            Ok(id) => Some(id),
         };
         tablet_id.is_some_and(|id| self.table_mapping().is_system_tablet(id))
             || self.virtual_table_mapping().number_exists(&table_number)

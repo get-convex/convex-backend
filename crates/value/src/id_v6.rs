@@ -25,7 +25,7 @@ use crate::{
     table_name::TableNumber,
     InternalId,
     ResolvedDocumentId,
-    TabletIdAndTableNumber,
+    TabletId,
 };
 
 // The table number is encoded in one to five bytes with VInt encoding.
@@ -149,11 +149,10 @@ impl DeveloperDocumentId {
 
     pub fn to_resolved(
         &self,
-        f: impl Fn(TableNumber) -> anyhow::Result<TabletIdAndTableNumber>,
+        f: impl Fn(TableNumber) -> anyhow::Result<TabletId>,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        let table_id = f(*self.table())?;
         Ok(ResolvedDocumentId {
-            tablet_id: table_id.tablet_id,
+            tablet_id: f(*self.table())?,
             developer_id: *self,
         })
     }

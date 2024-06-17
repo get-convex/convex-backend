@@ -257,23 +257,6 @@ impl Display for TabletIdAndTableNumber {
     }
 }
 
-impl TableIdentifier for TabletIdAndTableNumber {
-    fn min() -> Self {
-        Self {
-            tablet_id: <TabletId as TableIdentifier>::min(),
-            table_number: <TableNumber as TableIdentifier>::min(),
-        }
-    }
-
-    fn write_sorted<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        self.table_number.write_sorted(writer)
-    }
-
-    fn document_id_to_string(&self, internal_id: InternalId) -> String {
-        self.table_number.document_id_to_string(internal_id)
-    }
-}
-
 pub trait TableIdentifier:
     Debug + Display + Clone + HeapSize + Size + Ord + Eq + Sync + Send + 'static
 {

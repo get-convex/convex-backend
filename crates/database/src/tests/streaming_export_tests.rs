@@ -246,8 +246,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let tablet_id = tx
         .table_mapping()
         .namespace(TableNamespace::test_user())
-        .inject_table_id()(doc4.table())?
-    .tablet_id;
+        .number_to_tablet()(doc4.table())?;
     let doc4 = doc4.to_resolved(tablet_id);
     let ts2 = db.commit(tx).await?;
     let mut docs2sorted = vec![

@@ -953,7 +953,8 @@ mod tests {
         TableMapping,
         TableName,
         TableNamespace,
-        TabletIdAndTableNumber,
+        TableNumber,
+        TabletId,
     };
 
     use super::{
@@ -973,19 +974,20 @@ mod tests {
     #[test]
     fn test_map_table() -> anyhow::Result<()> {
         let internal_id = InternalId::MAX;
-        let table_id = <TabletIdAndTableNumber as TableIdentifier>::min();
+        let tablet_id = <TabletId as TableIdentifier>::min();
+        let table_number = <TableNumber as TableIdentifier>::min();
         let table_name: TableName = "hewo".parse()?;
         let mut table_mapping = TableMapping::new();
         table_mapping.insert(
-            table_id.tablet_id,
+            tablet_id,
             TableNamespace::test_user(),
-            table_id.table_number,
+            table_number,
             table_name.clone(),
         );
         let doc = ResolvedDocument::new_internal(
             ResolvedDocumentId::new(
-                table_id.tablet_id,
-                DeveloperDocumentId::new(table_id.table_number, internal_id),
+                tablet_id,
+                DeveloperDocumentId::new(table_number, internal_id),
             ),
             Some(CreationTime::ONE),
             assert_obj!(
@@ -993,7 +995,7 @@ mod tests {
             ),
         )?;
         let mapped = doc.to_developer();
-        assert_eq!(mapped.id().table(), &table_id.table_number);
+        assert_eq!(mapped.id().table(), &table_number);
         Ok(())
     }
 

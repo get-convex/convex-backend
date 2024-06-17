@@ -28,7 +28,7 @@ pub fn parse_schema_id(
             id.to_resolved(
                 &table_mapping
                     .namespace(TableNamespace::by_component_TODO())
-                    .inject_table_id(),
+                    .number_to_tablet(),
             )
         },
     }

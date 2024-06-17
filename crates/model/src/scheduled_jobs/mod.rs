@@ -233,7 +233,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             let parent_scheduled_job = parent_scheduled_job.to_resolved(
                 &table_mapping
                     .namespace(TableNamespace::by_component_TODO())
-                    .inject_table_id(),
+                    .number_to_tablet(),
             )?;
             if let Some(parent_scheduled_job_state) =
                 self.check_status(parent_scheduled_job).await?

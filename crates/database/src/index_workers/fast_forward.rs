@@ -29,7 +29,6 @@ use common::{
         UnixTimestamp,
     },
     types::{
-        GenericIndexName,
         IndexId,
         TabletIndexName,
     },
@@ -46,7 +45,6 @@ use value::{
     ConvexValue,
     NamespacedTableMapping,
     ResolvedDocumentId,
-    TabletId,
 };
 
 use super::retriable_worker::retry_loop_expect_occs_and_overloaded;
@@ -274,8 +272,7 @@ pub async fn load_metadata_fast_forward_ts(
     let metadata_table_id = table_mapping.id(&INDEX_WORKER_METADATA_TABLE)?;
     let metadata_index_id = (*INDEX_DOC_ID_INDEX)
         .clone()
-        .map_table(&table_mapping.name_to_id())?;
-    let metadata_index_id: GenericIndexName<TabletId> = metadata_index_id.into();
+        .map_table(&table_mapping.name_to_tablet())?;
     let metadata_index_internal_id = registry.get_enabled(&metadata_index_id).unwrap().id();
 
     let id_value = ConvexValue::String(index.internal_id().to_string().try_into()?);

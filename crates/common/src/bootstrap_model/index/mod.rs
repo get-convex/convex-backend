@@ -17,7 +17,6 @@ pub use self::{
         index_metadata_serialize_tablet_id,
         DeveloperIndexMetadata,
         IndexMetadata,
-        ResolvedIndexMetadata,
         TabletIndexMetadata,
     },
 };
