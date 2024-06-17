@@ -407,11 +407,7 @@ pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyL
 /// there are a bunch of writes at single timestamp. Then, we go until there are
 /// no more writes at that timestamp.
 pub static DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS: LazyLock<usize> =
-    LazyLock::new(|| env_config("DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS", 500));
-
-/// Whether or not we run document retention in dry run mode
-pub static DOCUMENT_RETENTION_DRY_RUN: LazyLock<bool> =
-    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DRY_RUN", true));
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS", 250));
 
 /// Size at which a search index will be queued for snapshotting.
 pub static SEARCH_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =

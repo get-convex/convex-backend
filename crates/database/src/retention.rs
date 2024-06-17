@@ -41,7 +41,6 @@ use common::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS,
         DOCUMENT_RETENTION_DELAY,
-        DOCUMENT_RETENTION_DRY_RUN,
         DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS,
         INDEX_RETENTION_DELAY,
         MAX_RETENTION_DELAY_SECONDS,
@@ -900,11 +899,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 return Ok((new_cursor, total_expired_entries));
             }
         }
-        // Don't advance the retention confirmed deleted timestamp if dry run is enabled
-        if *DOCUMENT_RETENTION_DRY_RUN {
-            tracing::info!("DRY RUN: Would have deleted {total_expired_entries} documents");
-            return Ok((cursor, total_expired_entries));
-        }
         tracing::debug!(
             "delete: finished loop, returning {:?}",
             min_snapshot_ts.pred()
@@ -993,10 +987,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         mut new_cursor: Timestamp,
     ) -> anyhow::Result<(Timestamp, usize)> {
-        if *DOCUMENT_RETENTION_DRY_RUN {
-            tracing::info!("Would have deleted {} documents", delete_chunk.len());
-            return Ok((new_cursor, delete_chunk.len()));
-        }
         let _timer = retention_delete_document_chunk_timer();
         let documents_to_delete = delete_chunk.len();
         tracing::trace!("delete_documents: there are {documents_to_delete:?} documents to delete");
@@ -1910,7 +1900,6 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_delete_document_chunk(rt: TestRuntime) -> anyhow::Result<()> {
-        env::set_var("DOCUMENT_RETENTION_DRY_RUN", "false");
         env::set_var("RETENTION_DELETE_PARALLEL", "4");
         let p = Arc::new(TestPersistence::new());
         let mut id_generator = TestIdGenerator::new();
