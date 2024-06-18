@@ -2086,10 +2086,24 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         entry: FileStorageEntry,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        let mut tx = self.database.begin(identity).await?;
-        let id = self.file_storage.store_file_entry(&mut tx, entry).await?;
-        self.database
-            .commit_with_write_source(tx, "app_funrun_storage_store_file_entry")
+        let (_ts, id, _stats) = self
+            .database
+            .execute_with_occ_retries(
+                identity,
+                FunctionUsageTracker::new(),
+                PauseClient::new(),
+                "app_funrun_storage_store_file_entry",
+                |tx| {
+                    async {
+                        let id = self
+                            .file_storage
+                            .store_file_entry(tx, entry.clone())
+                            .await?;
+                        Ok(id)
+                    }
+                    .into()
+                },
+            )
             .await?;
         Ok(id)
     }
@@ -2099,13 +2113,22 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         storage_id: FileStorageId,
     ) -> anyhow::Result<()> {
-        let mut tx = self.database.begin(identity).await?;
-        self.file_storage
-            .delete(&mut tx, storage_id.clone())
-            .await?;
         self.database
-            .commit_with_write_source(tx, "app_funrun_storage_delete")
+            .execute_with_occ_retries(
+                identity,
+                FunctionUsageTracker::new(),
+                PauseClient::new(),
+                "app_funrun_storage_delete",
+                |tx| {
+                    async {
+                        self.file_storage.delete(tx, storage_id.clone()).await?;
+                        Ok(())
+                    }
+                    .into()
+                },
+            )
             .await?;
+
         Ok(())
     }
 
