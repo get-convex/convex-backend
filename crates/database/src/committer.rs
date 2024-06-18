@@ -22,7 +22,7 @@ use common::{
     },
     errors::recapture_stacktrace,
     knobs::{
-        COMMITER_QUEUE_SIZE,
+        COMMITTER_QUEUE_SIZE,
         MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY,
         MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY,
     },
@@ -174,7 +174,7 @@ impl<RT: Runtime> Committer<RT> {
     ) -> CommitterClient<RT> {
         let persistence_reader = persistence.reader();
         let conflict_checker = PendingWrites::new(persistence_reader.version());
-        let (tx, rx) = mpsc::channel(*COMMITER_QUEUE_SIZE);
+        let (tx, rx) = mpsc::channel(*COMMITTER_QUEUE_SIZE);
         let snapshot_reader = snapshot_manager.reader();
         let committer = Self {
             pending_writes: conflict_checker,

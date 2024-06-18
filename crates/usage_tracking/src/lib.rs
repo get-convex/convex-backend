@@ -519,9 +519,9 @@ impl StorageUsageTracker for UsageCounter {
 #[derive(Debug, Clone)]
 pub struct FunctionUsageTracker {
     // TODO: We should ideally not use an Arc<Mutex> here. The best way to achieve
-    // this is to move the logic for accounting ingress out of the Commiter into
+    // this is to move the logic for accounting ingress out of the Committer into
     // the Transaction. Then Transaction can solely own the counters and we can
-    // remove clone(). The alternative is for the Commiter to take ownership of
+    // remove clone(). The alternative is for the Committer to take ownership of
     // the usage tracker and then return it, but this will make it complicated if
     // we later decide to charge people for OCC bandwidth.
     state: Arc<Mutex<FunctionUsageStats>>,

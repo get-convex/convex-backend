@@ -575,14 +575,14 @@ pub static DATABASE_UDF_SYSTEM_TIMEOUT: LazyLock<Duration> =
 pub static ISOLATE_QUEUE_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_QUEUE_SIZE", 2000));
 
-/// The size of the pending commits in the commiter queue. This is a FIFO queue,
-/// so if the queue is too large, we run into a risk of all requests waiting too
-/// long and no requests going through during overload. The size of each commit
-/// request is also typically larger than a isolate request. For time being,
-/// allow 128 slots, which is the maximum number of isolate threads in
-/// any process.
-pub static COMMITER_QUEUE_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("COMMITER_QUEUE_SIZE", 128));
+/// The size of the pending commits in the committer queue. This is a FIFO
+/// queue, so if the queue is too large, we run into a risk of all requests
+/// waiting too long and no requests going through during overload. The size of
+/// each commit request is also typically larger than a isolate request. For
+/// time being, allow 128 slots, which is the maximum number of isolate threads
+/// in any process.
+pub static COMMITTER_QUEUE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("COMMITTER_QUEUE_SIZE", 128));
 
 /// 0 -> default (number of cores)
 pub static V8_THREADS: LazyLock<u32> = LazyLock::new(|| env_config("V8_THREADS", 0));
