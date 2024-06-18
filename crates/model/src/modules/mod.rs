@@ -58,7 +58,6 @@ use self::{
         AnalyzedFunction,
         AnalyzedModule,
         ModuleSource,
-        ModuleVersion,
         ModuleVersionMetadata,
         SourceMap,
     },
@@ -365,15 +364,11 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         analyze_result: Option<AnalyzedModule>,
         environment: ModuleEnvironment,
         sha256: Sha256Digest,
-    ) -> anyhow::Result<(ResolvedDocumentId, Option<ModuleVersion>)> {
-        let (module_id, version) = match self.module_metadata(path.clone()).await? {
+    ) -> anyhow::Result<ResolvedDocumentId> {
+        let module_id = match self.module_metadata(path.clone()).await? {
             Some(module_metadata) => {
-                let previous_version = module_metadata.latest_version;
-
-                let latest_version = previous_version.map(|v| v + 1);
                 let new_metadata = ModuleMetadata {
                     path: path.module_path,
-                    latest_version,
                     source_package_id,
                     environment,
                     analyze_result: analyze_result.clone(),
@@ -383,26 +378,23 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                     .replace(module_metadata.id(), new_metadata.try_into()?)
                     .await?;
 
-                (module_metadata.id(), latest_version)
+                module_metadata.id()
             },
             None => {
-                let version = Some(0);
                 let new_metadata = ModuleMetadata {
                     path: path.module_path,
-                    latest_version: version,
                     source_package_id,
                     environment,
                     analyze_result: analyze_result.clone(),
                     sha256,
                 };
 
-                let document_id = SystemMetadataModel::new(self.tx, path.component.into())
+                SystemMetadataModel::new(self.tx, path.component.into())
                     .insert(&MODULES_TABLE, new_metadata.try_into()?)
-                    .await?;
-                (document_id, version)
+                    .await?
             },
         };
-        Ok((module_id, version))
+        Ok(module_id)
     }
 
     /// Delete a module, making it inaccessible for subsequent transactions.

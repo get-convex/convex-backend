@@ -15,7 +15,6 @@ use value::{
 
 use super::module_versions::{
     AnalyzedModule,
-    ModuleVersion,
     SerializedAnalyzedModule,
 };
 use crate::source_packages::types::SourcePackageId;
@@ -26,8 +25,6 @@ use crate::source_packages::types::SourcePackageId;
 pub struct ModuleMetadata {
     /// Path stored as a "path" field.
     pub path: CanonicalizedModulePath,
-    /// What is the latest version of the module?
-    pub latest_version: Option<ModuleVersion>,
 
     pub source_package_id: SourcePackageId,
     pub environment: ModuleEnvironment,
@@ -40,7 +37,6 @@ pub struct ModuleMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct SerializedModuleMetadata {
     pub path: String,
-    pub latest_version: Option<ModuleVersion>,
     pub source_package_id: String,
     pub environment: String,
     pub analyze_result: Option<SerializedAnalyzedModule>,
@@ -54,11 +50,8 @@ impl TryFrom<SerializedModuleMetadata> for ModuleMetadata {
         Ok(Self {
             path: {
                 let path: ModulePath = m.path.parse()?;
-                // TODO: Remove this canonicalization once we've fully backfilled canonicalized
-                // module paths.
-                path.canonicalize()
+                path.assume_canonicalized()?
             },
-            latest_version: m.latest_version,
             source_package_id: DeveloperDocumentId::decode(&m.source_package_id)?.into(),
             environment: m.environment.parse()?,
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
@@ -73,7 +66,6 @@ impl TryFrom<ModuleMetadata> for SerializedModuleMetadata {
     fn try_from(m: ModuleMetadata) -> anyhow::Result<Self> {
         Ok(Self {
             path: String::from(m.path),
-            latest_version: m.latest_version,
             source_package_id: DeveloperDocumentId::from(m.source_package_id).to_string(),
             environment: m.environment.to_string(),
             analyze_result: m.analyze_result.map(|s| s.try_into()).transpose()?,
