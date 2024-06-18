@@ -133,18 +133,18 @@ impl<RT: Runtime> SchemaWorker<RT> {
 
             for table_name in tables_to_check {
                 let table_iterator = self.database.table_iterator(ts, 1000, None);
-                let table_id = table_mapping.id(table_name)?;
+                let tablet_id = table_mapping.name_to_tablet()(table_name.clone())?;
                 let stream = table_iterator.stream_documents_in_table(
-                    table_id.tablet_id,
-                    *by_id_indexes.get(&table_id.tablet_id).ok_or_else(|| {
-                        anyhow::anyhow!("Failed to find id index for table id {table_id}")
+                    tablet_id,
+                    *by_id_indexes.get(&tablet_id).ok_or_else(|| {
+                        anyhow::anyhow!("Failed to find id index for table id {tablet_id}")
                     })?,
                     None,
                 );
 
                 pin_mut!(stream);
                 while let Some((doc, _ts)) = stream.try_next().await? {
-                    let table_name = table_mapping.tablet_name(doc.table().tablet_id)?;
+                    let table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
                     log_document_validated();
                     log_document_bytes(doc.size());
                     if let Err(schema_error) = db_schema.check_existing_document(

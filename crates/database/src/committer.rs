@@ -773,7 +773,7 @@ impl<RT: Runtime> Committer<RT> {
             } = validated_write;
             if let Some(document) = document {
                 let document_write_size = document_id.size() + document.size();
-                if let Ok(table_name) = table_mapping.tablet_name(document.table().tablet_id) {
+                if let Ok(table_name) = table_mapping.tablet_name(document.id().tablet_id) {
                     // Database bandwidth for document writes
                     if *doc_in_vector_index == DocInVectorIndex::Absent {
                         usage_tracker.track_database_ingress_size(

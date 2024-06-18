@@ -584,12 +584,13 @@ impl TransactionIndex {
 
     fn record_interval(&self, reads: &mut TransactionReadSet, index: Option<&Index>) {
         let index_table = self.index_registry.index_table();
+        let index_table_number = self.index_registry.index_table_number();
         let interval = match index {
             // Note there is no _index.by_name index. In order for the
             // name->index mapping to depend only on index id, we rely
             // on index name being immutable.
             Some(index) => {
-                let full_index_id = DeveloperDocumentId::new(index_table.table_number, index.id());
+                let full_index_id = DeveloperDocumentId::new(index_table_number, index.id());
                 let index_key = IndexKey::new(vec![], full_index_id);
                 Interval::prefix(index_key.into_bytes().into())
             },
@@ -597,7 +598,7 @@ impl TransactionIndex {
             None => Interval::all(),
         };
         reads.record_indexed_derived(
-            TabletIndexName::by_id(index_table.tablet_id),
+            TabletIndexName::by_id(index_table),
             IndexedFields::by_id(),
             interval,
         );

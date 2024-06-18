@@ -1043,10 +1043,9 @@ impl<RT: Runtime> Database<RT> {
         let index_tablet_id = snapshot.index_registry.index_table();
         let index_by_id = snapshot
             .index_registry
-            .must_get_by_id(index_tablet_id.tablet_id)?
+            .must_get_by_id(index_tablet_id)?
             .id();
-        let stream =
-            table_iterator.stream_documents_in_table(index_tablet_id.tablet_id, index_by_id, None);
+        let stream = table_iterator.stream_documents_in_table(index_tablet_id, index_by_id, None);
         pin_mut!(stream);
         let mut by_id_indexes = BTreeMap::new();
         while let Some((index_doc, _)) = stream.try_next().await? {
@@ -1191,7 +1190,7 @@ impl<RT: Runtime> Database<RT> {
         // Build the index metadata from the index documents.
         let index_documents = document_writes
             .iter()
-            .filter(|(id, _)| id.tablet_id_and_number() == index_table_id)
+            .filter(|(id, _)| id.tablet_id == index_table_id.tablet_id)
             .map(|(id, doc)| (*id, (ts, doc.clone())))
             .collect::<BTreeMap<_, _>>();
         let mut index_registry = IndexRegistry::bootstrap(

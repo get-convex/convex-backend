@@ -51,8 +51,8 @@ use value::{
     InternalId,
     TableMapping,
     TableNamespace,
+    TableNumber,
     TabletId,
-    TabletIdAndTableNumber,
 };
 
 /// [`IndexRegistry`] maintains the metadata for indexes, indicating
@@ -72,7 +72,8 @@ use value::{
 /// that should not be used by applications.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct IndexRegistry {
-    index_table: TabletIdAndTableNumber,
+    index_table: TabletId,
+    index_table_number: TableNumber,
     // Indexes that are enabled and ready to be queried against.
     enabled_indexes: OrdMap<TabletIndexName, Index>,
     // Indexes that are not yet enabled for queries, typically backfilling or waiting to be
@@ -92,8 +93,12 @@ impl IndexRegistry {
         self.persistence_version = persistence_version
     }
 
-    pub fn index_table(&self) -> TabletIdAndTableNumber {
+    pub fn index_table(&self) -> TabletId {
         self.index_table
+    }
+
+    pub fn index_table_number(&self) -> TableNumber {
+        self.index_table_number
     }
 
     /// Fill out all of our index metadata given the latest version of each
@@ -107,21 +112,23 @@ impl IndexRegistry {
     ) -> anyhow::Result<Self> {
         let index_table = table_mapping
             .namespace(TableNamespace::Global)
-            .id(&INDEX_TABLE)?;
+            .name_to_tablet()(INDEX_TABLE.clone())?;
+        let index_table_number = table_mapping.tablet_number(index_table)?;
         let mut index = Self {
             index_table,
+            index_table_number,
             enabled_indexes: OrdMap::new(),
             pending_indexes: OrdMap::new(),
             indexes_by_table: OrdSet::new(),
             persistence_version,
         };
 
-        let meta_index_name = GenericIndexName::by_id(index_table.tablet_id);
+        let meta_index_name = GenericIndexName::by_id(index_table);
         let mut meta_index = None;
         let mut regular_indexes = vec![];
 
         for document in index_documents {
-            anyhow::ensure!(document.table() == index_table);
+            anyhow::ensure!(document.id().tablet_id == index_table);
             let metadata = TabletIndexMetadata::from_document(document.clone())?;
             if metadata.name == meta_index_name {
                 anyhow::ensure!(meta_index.is_none());
@@ -164,7 +171,7 @@ impl IndexRegistry {
         iter::from_coroutine(
             #[coroutine]
             move || {
-                for index in self.indexes_by_table(document.table().tablet_id) {
+                for index in self.indexes_by_table(document.id().tablet_id) {
                     // Only yield fields from database indexes.
                     if let IndexConfig::Database {
                         developer_config: DeveloperDatabaseIndexConfig { fields },
@@ -226,7 +233,7 @@ impl IndexRegistry {
         if let (Some(old_document), Some(new_document)) = (&old_document, &new_document) {
             anyhow::ensure!(old_document.id() == new_document.id());
             anyhow::ensure!(old_document.table() == new_document.table());
-            if old_document.id().tablet_id_and_number() == self.index_table() {
+            if old_document.id().tablet_id == self.index_table() {
                 let old_metadata = TabletIndexMetadata::from_document((*old_document).clone())?;
                 let new_metadata = TabletIndexMetadata::from_document((*new_document).clone())?;
                 anyhow::ensure!(
@@ -250,7 +257,7 @@ impl IndexRegistry {
         }
         // Checks performed when updating or removing a document.
         if let Some(old_document) = old_document {
-            if old_document.id().tablet_id_and_number() == self.index_table() {
+            if old_document.id().tablet_id == self.index_table() {
                 let metadata = TabletIndexMetadata::from_document(old_document.clone())?;
                 let index_name = metadata.name.clone();
                 if !self.enabled_indexes.contains_key(&index_name)
@@ -259,21 +266,21 @@ impl IndexRegistry {
                     anyhow::bail!("Updating nonexistent index {}", metadata.name);
                 }
             }
-            let table_key = (&old_document.table().tablet_id, &*INDEX_BY_ID_DESCRIPTOR);
+            let table_key = (&old_document.id().tablet_id, &*INDEX_BY_ID_DESCRIPTOR);
             if !self.indexes_by_table.contains(table_key.as_comparator()) {
                 anyhow::bail!("Removing document that doesn't exist in index");
             }
         }
         // Checks performed when updating or adding a document.
         if let Some(new_document) = new_document {
-            let table_id = new_document.table();
+            let tablet_id = new_document.id().tablet_id;
             anyhow::ensure!(
                 self.enabled_indexes
-                    .contains_key(&GenericIndexName::by_id(table_id.tablet_id)),
+                    .contains_key(&GenericIndexName::by_id(tablet_id)),
                 "Missing `by_id` index for table {}",
-                table_id,
+                tablet_id,
             );
-            if table_id == self.index_table() {
+            if tablet_id == self.index_table() {
                 let metadata = TabletIndexMetadata::from_document(new_document.clone())?;
 
                 // Only the "by_id" index is allowed on the index table itself. The IndexWorker
@@ -281,7 +288,7 @@ impl IndexRegistry {
                 // memory first when bootstrapping. After loading these records at the latest
                 // snapshot, it doesn't make sense to retraverse the `_index` table
                 // historically.
-                if metadata.name.table() == &self.index_table.tablet_id {
+                if metadata.name.table() == &self.index_table {
                     anyhow::ensure!(metadata.name.is_by_id());
                 }
 
@@ -349,7 +356,7 @@ impl IndexRegistry {
     ) -> bool {
         let mut modified = false;
         if let Some(old_document) = deletion {
-            if old_document.id().tablet_id_and_number() == self.index_table() {
+            if old_document.id().tablet_id == self.index_table() {
                 let index = TabletIndexMetadata::from_document(old_document.clone()).unwrap();
                 self.remove(&index);
                 modified = true;
@@ -358,7 +365,7 @@ impl IndexRegistry {
         if let Some(new_document) = insertion {
             // The default index should exist for a table before adding
             // any documents.
-            let table_id = new_document.table();
+            let table_id = new_document.id().tablet_id;
             if table_id == self.index_table() {
                 let metadata = TabletIndexMetadata::from_document(new_document.clone()).unwrap();
                 let index = Index::new(metadata.id().internal_id(), metadata.clone());

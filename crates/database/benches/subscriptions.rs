@@ -160,16 +160,13 @@ fn load_datasets(
 }
 
 fn create_subscription_token(
-    table_id: TabletIdAndTableNumber,
+    tablet_id: TabletId,
     prefix: bool,
     max_distance: FuzzyDistance,
     token: String,
 ) -> Token {
-    let index_name: GenericIndexName<TabletId> = GenericIndexName::new(
-        table_id.tablet_id,
-        IndexDescriptor::from_str("index").unwrap(),
-    )
-    .unwrap();
+    let index_name: GenericIndexName<TabletId> =
+        GenericIndexName::new(tablet_id, IndexDescriptor::from_str("index").unwrap()).unwrap();
 
     Token::text_search_token(
         index_name,
@@ -183,7 +180,7 @@ fn create_subscription_token(
 }
 
 fn create_tokens(
-    table_id: TabletIdAndTableNumber,
+    tablet_id: TabletId,
     terms_by_frequency: &Vec<String>,
     prefix: bool,
     max_distance: FuzzyDistance,
@@ -199,20 +196,20 @@ fn create_tokens(
         .take(count)
         .map(|chunk| {
             let token = chunk.into_iter().next().unwrap();
-            create_subscription_token(table_id, prefix, max_distance, token.clone())
+            create_subscription_token(tablet_id, prefix, max_distance, token.clone())
         })
         .collect::<Vec<_>>()
 }
 
 fn create_subscriptions(
-    table_id: TabletIdAndTableNumber,
+    tablet_id: TabletId,
     terms_by_frequency: &Vec<String>,
     prefix: bool,
     max_distance: FuzzyDistance,
     count: usize,
 ) -> SubscriptionManager {
     let mut subscription_manager = SubscriptionManager::new_for_testing();
-    let tokens = create_tokens(table_id, terms_by_frequency, prefix, max_distance, count);
+    let tokens = create_tokens(tablet_id, terms_by_frequency, prefix, max_distance, count);
     for token in tokens {
         subscription_manager.subscribe(token).unwrap();
     }
@@ -229,7 +226,7 @@ fn bench_query(c: &mut Criterion) {
     for (prefix, max_distance) in prefix_and_max_distances() {
         for (dataset, (data, terms_by_frequency)) in &datasets {
             let subscription_manager = create_subscriptions(
-                table_id,
+                table_id.tablet_id,
                 terms_by_frequency,
                 prefix,
                 max_distance,

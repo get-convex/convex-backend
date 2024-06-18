@@ -369,7 +369,7 @@ impl<RT: Runtime> SearchIndexManager<RT> {
         // Handle index maintenance operations first.
         // TODO: Move this validation to `IndexRegistry` and make this function
         // infallible.
-        if id.tablet_id_and_number() == index_registry.index_table() {
+        if id.tablet_id == index_registry.index_table() {
             match (deletion, insertion) {
                 (None, Some(insertion)) => {
                     let metadata = IndexMetadata::try_from(insertion.value().clone().0)?;

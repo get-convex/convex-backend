@@ -111,9 +111,7 @@ impl BackendInMemoryIndexes {
     ) -> anyhow::Result<Self> {
         // Load the indexes by_id index
         let meta_index = index_registry
-            .get_enabled(&TabletIndexName::by_id(
-                index_registry.index_table().tablet_id,
-            ))
+            .get_enabled(&TabletIndexName::by_id(index_registry.index_table()))
             .context("Missing meta index")?;
         let mut meta_index_map = DatabaseIndexMap::new_at(ts);
         for (ts, index_doc) in index_documents.into_values() {
@@ -225,7 +223,7 @@ impl BackendInMemoryIndexes {
         insertion: Option<ResolvedDocument>,
     ) -> Vec<DatabaseIndexUpdate> {
         if let (Some(old_document), None) = (&deletion, &insertion) {
-            if old_document.table() == index_registry.index_table() {
+            if old_document.id().tablet_id == index_registry.index_table() {
                 // Drop the index from memory.
                 self.in_memory_indexes
                     .remove(&old_document.id().internal_id());
@@ -381,8 +379,7 @@ impl DatabaseIndexSnapshot {
                 // inserted in this transaction. Return an empty result in this
                 // condition for all indexes on all tables except the `_index` table, which must
                 // always exist.
-                if range_request.index_name.table() != &self.index_registry.index_table().tablet_id
-                {
+                if range_request.index_name.table() != &self.index_registry.index_table() {
                     return Ok(Ok((vec![], CursorPosition::End)));
                 }
                 anyhow::bail!(e);

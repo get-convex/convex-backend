@@ -217,7 +217,7 @@ impl VirtualSystemMapping {
             .into());
         }
         let version = version.unwrap();
-        let system_table_name = table_mapping.tablet_name(doc.table().tablet_id)?;
+        let system_table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
         let Some(mapper) = self.system_to_virtual_doc_mapper.get(&system_table_name) else {
             anyhow::bail!("System document cannot be converted to a virtual document")
         };

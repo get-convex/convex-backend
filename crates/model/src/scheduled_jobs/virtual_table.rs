@@ -51,7 +51,7 @@ impl VirtualSystemDocMapper for ScheduledJobsDocMapper {
     ) -> anyhow::Result<DeveloperDocument> {
         // Note: in the future we may support different versions of our virtual table
         // APIs, which we determine based on the NPM client version
-        let system_table_name = table_mapping.tablet_name(doc.table().tablet_id)?;
+        let system_table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
         if system_table_name == SCHEDULED_JOBS_TABLE.clone()
             && version < *MIN_NPM_VERSION_SCHEDULED_JOBS_V1
         {

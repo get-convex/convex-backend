@@ -999,7 +999,7 @@ impl TextSearchSubscriptions {
         to_notify: &mut BTreeSet<SubscriberId>,
     ) {
         for (index, filter_conditions_map) in &self.filter_conditions {
-            if *index.table() != document.tablet_id_and_number().tablet_id {
+            if *index.table() != document.id().tablet_id {
                 continue;
             }
 
@@ -1031,7 +1031,7 @@ impl TextSearchSubscriptions {
         for (_, fuzzy_terms) in self
             .fuzzy_searches
             .iter()
-            .filter(|(index, _)| *index.table() == document.tablet_id_and_number().tablet_id)
+            .filter(|(index, _)| *index.table() == document.id().tablet_id)
         {
             matches.extend(fuzzy_terms.matching_values(&mut tokens));
         }

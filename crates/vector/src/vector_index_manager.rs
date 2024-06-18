@@ -256,7 +256,7 @@ impl VectorIndexManager {
         insertion: Option<&ResolvedDocument>,
         ts: WriteTimestamp,
     ) -> anyhow::Result<bool> {
-        if id.tablet_id_and_number() != index_registry.index_table() {
+        if id.tablet_id != index_registry.index_table() {
             return Ok(false);
         }
         match (deletion, insertion) {

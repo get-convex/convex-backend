@@ -228,33 +228,10 @@ impl TableNumber {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Hash)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub struct TabletIdAndTableNumber {
     pub table_number: TableNumber,
     pub tablet_id: TabletId,
-}
-
-impl TabletIdAndTableNumber {
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new_for_test(tablet_id: TabletId, table_number: TableNumber) -> Self {
-        TabletIdAndTableNumber {
-            tablet_id,
-            table_number,
-        }
-    }
-}
-
-impl HeapSize for TabletIdAndTableNumber {
-    fn heap_size(&self) -> usize {
-        0
-    }
-}
-
-impl Display for TabletIdAndTableNumber {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        Display::fmt(&self.table_number, f)
-    }
 }
 
 pub trait TableIdentifier:
@@ -334,13 +311,7 @@ impl TableIdentifier for TableName {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        InternalId,
-        TableName,
-        TableNumber,
-        TabletId,
-        TabletIdAndTableNumber,
-    };
+    use super::TableName;
 
     #[test]
     fn table_name_valid() {
@@ -363,31 +334,5 @@ mod tests {
         assert!("_elephant3".parse::<TableName>()?.is_system());
         assert!(!"elephant3".parse::<TableName>()?.is_system());
         Ok(())
-    }
-
-    #[test]
-    fn test_tablet_id_and_table_number_cmp() {
-        let id1 = TabletIdAndTableNumber {
-            table_number: TableNumber(1),
-            tablet_id: TabletId(InternalId::MIN),
-        };
-        let id2 = TabletIdAndTableNumber {
-            table_number: TableNumber(1),
-            tablet_id: TabletId(InternalId::MAX),
-        };
-        let id3 = TabletIdAndTableNumber {
-            table_number: TableNumber(2),
-            tablet_id: TabletId(InternalId::MIN),
-        };
-        let id4 = TabletIdAndTableNumber {
-            table_number: TableNumber(2),
-            tablet_id: TabletId(InternalId::MAX),
-        };
-        // Not equal despite same table number.
-        assert_ne!(id1, id2);
-        // Not equal despite same table id.
-        assert_ne!(id1, id3);
-        // Ordered by table number first.
-        assert!(id1 < id2 && id2 < id3 && id3 < id4);
     }
 }

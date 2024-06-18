@@ -257,9 +257,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let snapshot = snapshot_reader.lock().latest_snapshot();
         let index_registry = snapshot.index_registry;
         let meta_index_id = index_registry
-            .enabled_index_metadata(&TabletIndexName::by_id(
-                index_registry.index_table().tablet_id,
-            ))
+            .enabled_index_metadata(&TabletIndexName::by_id(index_registry.index_table()))
             .expect("meta index id must exist")
             .id()
             .internal_id();
@@ -277,7 +275,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             let reader = reader.read_snapshot(snapshot_ts)?;
             let mut meta_index_scan = reader.index_scan(
                 meta_index_id,
-                index_registry.index_table().tablet_id,
+                index_registry.index_table(),
                 &Interval::all(),
                 Order::Asc,
                 usize::MAX,

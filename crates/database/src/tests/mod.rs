@@ -89,6 +89,7 @@ use value::{
     TableIdentifier,
     TableMapping,
     TableNamespace,
+    TabletIdAndTableNumber,
 };
 
 use crate::{
@@ -474,7 +475,10 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
     let table_mapping_for_schema = tx.table_mapping().clone();
     ImportFacingModel::new(&mut tx)
         .insert(
-            document.table(),
+            TabletIdAndTableNumber {
+                tablet_id: document.id().tablet_id,
+                table_number: *document.id().developer_id.table(),
+            },
             &"table".parse()?,
             assert_obj!("_id" => id_v6),
             &table_mapping_for_schema,

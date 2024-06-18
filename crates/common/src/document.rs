@@ -52,7 +52,6 @@ use value::{
     ResolvedDocumentId,
     TableNumber,
     TabletId,
-    TabletIdAndTableNumber,
     MAX_DOCUMENT_NESTING,
 };
 
@@ -617,13 +616,6 @@ impl ResolvedDocument {
         InternalDocumentId::new(self.tablet_id, self.id.internal_id())
     }
 
-    pub fn table(&self) -> TabletIdAndTableNumber {
-        TabletIdAndTableNumber {
-            tablet_id: self.tablet_id,
-            table_number: *self.id.table(),
-        }
-    }
-
     pub fn id(&self) -> ResolvedDocumentId {
         ResolvedDocumentId::new(self.tablet_id, self.id)
     }
@@ -743,12 +735,6 @@ impl PackedDocument {
     /// unpack.
     pub fn id(&self) -> ResolvedDocumentId {
         self.1
-    }
-
-    /// Same behavior as ResolvedDocument::table but you don't have to fully
-    /// unpack.
-    pub fn tablet_id_and_number(&self) -> TabletIdAndTableNumber {
-        self.id().tablet_id_and_number()
     }
 
     pub fn value(&self) -> &PackedValue<ByteBuffer> {

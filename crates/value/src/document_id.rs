@@ -28,7 +28,6 @@ use crate::{
     Size,
     TableNumber,
     TabletId,
-    TabletIdAndTableNumber,
 };
 
 pub type InternalDocumentId = GenericDocumentId<TabletId>;
@@ -218,13 +217,6 @@ impl ResolvedDocumentId {
 
     pub fn internal_id(&self) -> InternalId {
         self.developer_id.internal_id
-    }
-
-    pub fn tablet_id_and_number(&self) -> TabletIdAndTableNumber {
-        TabletIdAndTableNumber {
-            tablet_id: self.tablet_id,
-            table_number: *self.developer_id.table(),
-        }
     }
 
     pub fn size(&self) -> usize {

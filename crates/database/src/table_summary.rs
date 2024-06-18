@@ -782,7 +782,7 @@ mod tests {
                     let table_id = tx
                         .table_mapping()
                         .namespace(TableNamespace::test_user())
-                        .id(table_name)?;
+                        .name_to_tablet()(table_name.clone())?;
                     let summary = expected.entry(table_id).or_insert_with(TableSummary::empty);
                     let inserted = inserted.value().0.clone();
                     *summary = summary.insert(&inserted);
@@ -804,7 +804,7 @@ mod tests {
                     let table_id = table_mapping
                         .namespace(TableNamespace::test_user())
                         .id(table_name)?;
-                    let expected = expected.get(&table_id).unwrap();
+                    let expected = expected.get(&table_id.tablet_id).unwrap();
                     assert_eq!(expected, computed.tables.get(&table_id.tablet_id).unwrap());
                 }
             }

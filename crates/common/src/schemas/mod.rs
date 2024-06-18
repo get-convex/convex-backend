@@ -352,7 +352,7 @@ impl DatabaseSchema {
         virtual_table_mapping: &VirtualTableMapping,
     ) -> Result<(), ValidationError> {
         if self.schema_validation
-            && let Ok(table_name) = table_mapping.tablet_name(doc.table().tablet_id)
+            && let Ok(table_name) = table_mapping.tablet_name(doc.id().tablet_id)
             && let Some(document_schema) = self.schema_for_table(&table_name)
         {
             return document_schema.check_value(

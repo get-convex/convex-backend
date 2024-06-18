@@ -484,28 +484,28 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             let table_doc_id = SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&TABLES_TABLE, table_metadata.try_into()?)
                 .await?;
-            let table_id = TabletIdAndTableNumber {
-                tablet_id: TabletId(table_doc_id.internal_id()),
-                table_number,
-            };
+            let tablet_id = TabletId(table_doc_id.internal_id());
 
             // Add the system defined indexes for the newly created table. Since the newly
             // created table is empty, we can start these indexes as `Enabled`.
             let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_id(table_id.tablet_id),
+                GenericIndexName::by_id(tablet_id),
                 IndexedFields::by_id(),
             );
             SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
             let metadata = IndexMetadata::new_enabled(
-                GenericIndexName::by_creation_time(table_id.tablet_id),
+                GenericIndexName::by_creation_time(tablet_id),
                 IndexedFields::creation_time(),
             );
             SystemMetadataModel::new_global(self.tx)
                 .insert_metadata(&INDEX_TABLE, metadata.try_into()?)
                 .await?;
-            Ok(table_id)
+            Ok(TabletIdAndTableNumber {
+                tablet_id,
+                table_number,
+            })
         }
     }
 
