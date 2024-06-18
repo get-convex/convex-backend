@@ -720,22 +720,32 @@ test("Infer", () => {
   assert<Equals<Actual, Expected>>();
 });
 
-test("defineSchema exposes table validators", () => {
+describe("defineSchema/defineTable expose table validators", () => {
   const obj = {
     ref: v.id("reference"),
     string: v.string(),
   } as const;
   const table = defineTable(obj);
-  const actual = table.validator;
-  const expected = v.object(obj);
-  expect(actual).toEqual(expected);
-  assert<Equals<typeof actual, typeof expected>>();
+  const schema = defineSchema({ table });
 
-  const schema = defineSchema({
-    table: defineTable(obj),
+  test("defineTable", () => {
+    const actual = table.validator;
+    const expected = v.object(obj);
+    expect(actual).toEqual(expected);
+    assert<Equals<typeof actual, typeof expected>>();
   });
 
-  const actual2 = schema.tables.table.validator;
-  expect(actual2).toEqual(expected);
-  assert<Equals<typeof actual2, typeof expected>>();
+  test("defineSchema", () => {
+    const actual = schema.tables.table.validator;
+    const expected = v.object(obj);
+    expect(actual).toEqual(expected);
+    assert<Equals<typeof actual, typeof expected>>();
+  });
+
+  test("system tables are not present", () => {
+    expect(table.validator).not.toHaveProperty("_id");
+    expect(table.validator).not.toHaveProperty("_creationTime");
+    expect(schema.tables.table.validator).not.toHaveProperty("_id");
+    expect(schema.tables.table.validator).not.toHaveProperty("_creationTime");
+  });
 });
