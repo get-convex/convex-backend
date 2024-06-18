@@ -27,8 +27,45 @@ import {
 export type GenericValidator = Validator<any, any, any>;
 
 export function isValidator(v: any): v is GenericValidator {
-  return !!v.isValidator;
+  return !!v.isConvexValidator;
 }
+
+/**
+ * Coerce an object with validators as properties to a validator.
+ * If a validator is passed, return it.
+ *
+ * @public
+ */
+export function asObjectValidator<
+  V extends Validator<any, any, any> | PropertyValidators,
+>(
+  obj: V,
+): V extends Validator<any, any, any>
+  ? V
+  : V extends PropertyValidators
+    ? Validator<ObjectType<V>>
+    : never {
+  if (isValidator(obj)) {
+    return obj as any;
+  } else {
+    return v.object(obj as PropertyValidators) as any;
+  }
+}
+
+/**
+ * Coerce an object with validators as properties to a validator.
+ * If a validator is passed, return it.
+ *
+ * @public
+ */
+export type AsObjectValidator<
+  V extends Validator<any, any, any> | PropertyValidators,
+> =
+  V extends Validator<any, any, any>
+    ? V
+    : V extends PropertyValidators
+      ? Validator<ObjectType<V>>
+      : never;
 
 /**
  * The validator builder.

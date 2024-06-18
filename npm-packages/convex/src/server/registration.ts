@@ -12,7 +12,12 @@ import {
   OptionalRestArgs,
   ValidatorTypeToReturnType,
 } from "../server/api.js";
-import { Infer, ObjectType, PropertyValidators } from "../values/validator.js";
+import {
+  GenericValidator,
+  Infer,
+  ObjectType,
+  PropertyValidators,
+} from "../values/validator.js";
 import { Id } from "../values/value.js";
 import {
   GenericDataModel,
@@ -514,22 +519,28 @@ export interface ValidatedFunction<
  */
 
 export type ReturnValueForOptionalValidator<
-  ReturnsValidator extends Validator<any, any, any> | void,
+  ReturnsValidator extends Validator<any, any, any> | PropertyValidators | void,
 > = [ReturnsValidator] extends [Validator<any, any, any>]
   ? ValidatorTypeToReturnType<Infer<ReturnsValidator>>
-  : any;
+  : [ReturnsValidator] extends [PropertyValidators]
+    ? ObjectType<ReturnsValidator>
+    : any;
 
 export type ArgsArrayForOptionalValidator<
-  ArgsValidator extends PropertyValidators | void,
-> = [ArgsValidator] extends [PropertyValidators]
-  ? OneArgArray<ObjectType<ArgsValidator>>
-  : ArgsArray;
+  ArgsValidator extends GenericValidator | PropertyValidators | void,
+> = [ArgsValidator] extends [Validator<any, any, any>]
+  ? OneArgArray<Infer<ArgsValidator>>
+  : [ArgsValidator] extends [PropertyValidators]
+    ? OneArgArray<ObjectType<ArgsValidator>>
+    : ArgsArray;
 
 export type DefaultArgsForOptionalValidator<
-  ArgsValidator extends PropertyValidators | void,
-> = [ArgsValidator] extends [PropertyValidators]
-  ? [ObjectType<ArgsValidator>]
-  : OneArgArray;
+  ArgsValidator extends GenericValidator | PropertyValidators | void,
+> = [ArgsValidator] extends [Validator<any, any, any>]
+  ? [Infer<ArgsValidator>]
+  : [ArgsValidator] extends [PropertyValidators]
+    ? [ObjectType<ArgsValidator>]
+    : OneArgArray;
 
 /**
  * Internal type helper used by Convex code generation.
@@ -542,8 +553,11 @@ export type MutationBuilder<
   Visibility extends FunctionVisibility,
 > = {
   <
-    ArgsValidator extends PropertyValidators | void,
-    ReturnsValidator extends Validator<any, any, any> | void,
+    ArgsValidator extends PropertyValidators | Validator<any, any, any> | void,
+    ReturnsValidator extends
+      | PropertyValidators
+      | Validator<any, any, any>
+      | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
     OneOrZeroArgs extends
       ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,

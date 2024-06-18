@@ -11,7 +11,7 @@ export class VId<Type, IsOptional extends OptionalProperty = "required"> {
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "id" as const;
-  readonly isValidator: true;
+  readonly isConvexValidator: true;
   constructor({
     isOptional,
     tableName,
@@ -21,7 +21,7 @@ export class VId<Type, IsOptional extends OptionalProperty = "required"> {
   }) {
     this.isOptional = isOptional;
     this.tableName = tableName;
-    this.isValidator = true;
+    this.isConvexValidator = true;
   }
   /** @internal */
   get json(): ValidatorJSON {
@@ -44,10 +44,10 @@ export class VFloat64<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "float64" as const;
-  readonly isValidator: true;
+  readonly isConvexValidator: true;
   constructor({ isOptional }: { isOptional: IsOptional }) {
     this.isOptional = isOptional;
-    this.isValidator = true;
+    this.isConvexValidator = true;
   }
   /** @internal */
   get json(): ValidatorJSON {
@@ -68,7 +68,7 @@ export class VInt64<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "int64" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({ isOptional }: { isOptional: IsOptional }) {
     this.isOptional = isOptional;
   }
@@ -91,7 +91,7 @@ export class VBoolean<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "boolean" as const;
-  isValidator = true as const;
+  isConvexValidator = true as const;
   constructor({ isOptional }: { isOptional: IsOptional }) {
     this.isOptional = isOptional;
   }
@@ -113,7 +113,7 @@ export class VBytes<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "bytes" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({ isOptional }: { isOptional: IsOptional }) {
     this.isOptional = isOptional;
   }
@@ -135,7 +135,7 @@ export class VString<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "string" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({ isOptional }: { isOptional: IsOptional }) {
     this.isOptional = isOptional;
   }
@@ -157,10 +157,10 @@ export class VNull<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "null" as const;
-  isValidator: true;
+  isConvexValidator: true;
   constructor({ isOptional }: { isOptional: IsOptional }) {
     this.isOptional = isOptional;
-    this.isValidator = true;
+    this.isConvexValidator = true;
   }
   /** @internal */
   get json(): ValidatorJSON {
@@ -181,7 +181,7 @@ export class VAny<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: FieldPaths;
   readonly kind = "any" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({ isOptional }: { isOptional: IsOptional }) {
     this.isOptional = isOptional;
   }
@@ -224,7 +224,7 @@ export class VObject<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: FieldPaths;
   readonly kind = "object" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({
     isOptional,
     fields,
@@ -268,7 +268,7 @@ export class VLiteral<Type, IsOptional extends OptionalProperty = "required"> {
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "literal" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({ isOptional, value }: { isOptional: IsOptional; value: Type }) {
     this.isOptional = isOptional;
     this.value = value;
@@ -299,7 +299,7 @@ export class VArray<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "array" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({
     isOptional,
     element,
@@ -339,7 +339,7 @@ export class VRecord<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: FieldPaths;
   readonly kind = "record" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({
     isOptional,
     key,
@@ -385,7 +385,7 @@ export class VUnion<
   readonly isOptional: IsOptional;
   readonly fieldPaths!: FieldPaths;
   readonly kind = "union" as const;
-  readonly isValidator = true as const;
+  readonly isConvexValidator = true as const;
   constructor({ isOptional, members }: { isOptional: IsOptional; members: T }) {
     this.isOptional = isOptional;
     this.members = members;

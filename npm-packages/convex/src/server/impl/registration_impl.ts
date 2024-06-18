@@ -39,6 +39,7 @@ import { functionName } from "../api.js";
 import { extractReferencePath } from "../components/index.js";
 import { parseArgs } from "../../common/index.js";
 import { performAsyncSyscall } from "./syscall.js";
+import { asObjectValidator } from "../../values/validator.js";
 
 async function invokeMutation<
   F extends (ctx: GenericMutationCtx<GenericDataModel>, ...args: any) => any,
@@ -127,8 +128,8 @@ function assertNotBrowser() {
 type FunctionDefinition =
   | ((ctx: any, args: DefaultFunctionArgs) => any)
   | {
-      args?: Record<string, GenericValidator>;
-      returns?: GenericValidator;
+      args?: GenericValidator | Record<string, GenericValidator>;
+      returns?: GenericValidator | Record<string, GenericValidator>;
       handler: (ctx: any, args: DefaultFunctionArgs) => any;
     };
 
@@ -139,7 +140,7 @@ function exportArgs(functionDefinition: FunctionDefinition) {
       typeof functionDefinition === "object" &&
       functionDefinition.args !== undefined
     ) {
-      args = v.object(functionDefinition.args);
+      args = asObjectValidator(functionDefinition.args);
     }
     return JSON.stringify(args.json);
   };
@@ -152,7 +153,7 @@ function exportReturns(functionDefinition: FunctionDefinition) {
       typeof functionDefinition === "object" &&
       functionDefinition.returns !== undefined
     ) {
-      returns = functionDefinition.returns;
+      returns = asObjectValidator(functionDefinition.returns);
     }
     return JSON.stringify(returns ? returns.json : null);
   };

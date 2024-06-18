@@ -1,7 +1,11 @@
 import { test } from "@jest/globals";
 import { assert, Equals } from "../test/type_testing.js";
 import { v } from "../values/validator.js";
-import { ApiFromModules, DefaultFunctionArgs } from "./index.js";
+import {
+  ApiFromModules,
+  DefaultFunctionArgs,
+  mutationGeneric,
+} from "./index.js";
 import { EmptyObject, MutationBuilder } from "./registration.js";
 
 describe("argument inference", () => {
@@ -268,5 +272,104 @@ describe("argument inference", () => {
       API["module"]["configValidatorTypedOptionalDefaultArg"]["_args"];
     type ExpectedArgs = { arg: string };
     assert<Equals<Args, ExpectedArgs>>;
+  });
+});
+
+describe("argument and return value validators can be objects or validators", () => {
+  // Test with mutation, but all the wrappers work the same way.
+  const mutation: MutationBuilder<any, "public"> = mutationGeneric;
+
+  const module = {
+    configArgsObject: mutation({
+      args: {
+        arg: v.string(),
+      },
+      handler: (_, args) => {
+        assert<Equals<(typeof args)["arg"], string>>;
+        return "result";
+      },
+    }),
+    configArgsValidatorIsNotSupported: mutation({
+      args: v.object({
+        arg: v.string(),
+      }),
+      handler: (_, args) => {
+        assert<Equals<(typeof args)["arg"], string>>;
+        return "result";
+      },
+    }),
+    configOutputObject: mutation({
+      returns: {
+        arg: v.string(),
+      },
+      handler: () => {
+        return { arg: "result" };
+      },
+    }),
+    configOutputValidator: mutation({
+      returns: v.object({
+        arg: v.string(),
+      }),
+      handler: () => {
+        return { arg: "result" };
+      },
+    }),
+  };
+  type API = ApiFromModules<{ module: typeof module }>;
+
+  const expectedArgsExport = {
+    type: "object",
+    value: {
+      arg: {
+        fieldType: {
+          type: "string",
+        },
+        optional: false,
+      },
+    },
+  };
+
+  const expectedReturnsExport = {
+    type: "object",
+    value: {
+      arg: {
+        fieldType: {
+          type: "string",
+        },
+        optional: false,
+      },
+    },
+  };
+
+  test("config with args validator", () => {
+    type Args = API["module"]["configArgsObject"]["_args"];
+    type ExpectedArgs = { arg: string };
+    assert<Equals<Args, ExpectedArgs>>;
+    const argsString = module.configArgsObject.exportArgs();
+    expect(JSON.parse(argsString)).toEqual(expectedArgsExport);
+  });
+
+  test("config with args object", () => {
+    type Args = API["module"]["configArgsValidatorIsNotSupported"]["_args"];
+    type ExpectedArgs = { arg: string };
+    assert<Equals<Args, ExpectedArgs>>;
+    const argsString = module.configArgsObject.exportArgs();
+    expect(JSON.parse(argsString)).toEqual(expectedArgsExport);
+  });
+
+  test("config with output validator", () => {
+    type ReturnType = API["module"]["configOutputObject"]["_returnType"];
+    type Expected = { arg: string };
+    assert<Equals<ReturnType, Expected>>;
+    const returnString = module.configOutputObject.exportReturns();
+    expect(JSON.parse(returnString)).toEqual(expectedReturnsExport);
+  });
+
+  test("config with output object", () => {
+    type ReturnType = API["module"]["configOutputValidator"]["_returnType"];
+    type Expected = { arg: string };
+    assert<Equals<ReturnType, Expected>>;
+    const returnString = module.configOutputValidator.exportReturns();
+    expect(JSON.parse(returnString)).toEqual(expectedReturnsExport);
   });
 });
