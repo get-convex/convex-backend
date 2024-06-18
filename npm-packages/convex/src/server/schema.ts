@@ -42,8 +42,13 @@ import {
   SystemIndexes,
 } from "../server/system_fields.js";
 import { Expand } from "../type_utils.js";
-import { ObjectType, isValidator, v } from "../values/validator.js";
-import { ObjectValidator, Validator } from "../values/validators.js";
+import {
+  GenericValidator,
+  ObjectType,
+  isValidator,
+  v,
+} from "../values/validator.js";
+import { VObject, Validator } from "../values/validators.js";
 
 /**
  * Extract all of the index field paths within a {@link Validator}.
@@ -343,7 +348,7 @@ export class TableDefinition<
  * @public
  */
 export function defineTable<
-  DocumentSchema extends Validator<Record<string, any>, false, any>,
+  DocumentSchema extends Validator<Record<string, any>, "required", any>,
 >(documentSchema: DocumentSchema): TableDefinition<DocumentSchema>;
 /**
  * Define a table in a schema.
@@ -371,14 +376,14 @@ export function defineTable<
  * @public
  */
 export function defineTable<
-  DocumentSchema extends Record<string, Validator<any, any, any>>,
+  DocumentSchema extends Record<string, GenericValidator>,
 >(
   documentSchema: DocumentSchema,
-): TableDefinition<ObjectValidator<ObjectType<DocumentSchema>, DocumentSchema>>;
+): TableDefinition<VObject<ObjectType<DocumentSchema>, DocumentSchema>>;
 export function defineTable<
   DocumentSchema extends
-    | Validator<Record<string, any>, false, any>
-    | Record<string, Validator<any, any, any>>,
+    | Validator<Record<string, any>, "required", any>
+    | Record<string, GenericValidator>,
 >(documentSchema: DocumentSchema): TableDefinition<any, any, any> {
   if (isValidator(documentSchema)) {
     return new TableDefinition(documentSchema);

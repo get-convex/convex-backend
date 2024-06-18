@@ -1,7 +1,7 @@
 // Argument-validated versions of wrappers for use in system UDFs necessary
 // because system UDFs are not analyzed.
 
-import { Validator, convexToJson } from "convex/values";
+import { GenericValidator, convexToJson } from "convex/values";
 // This is where the alternatives are defined
 import {
   // eslint-disable-next-line no-restricted-imports
@@ -36,12 +36,12 @@ import { DefaultFunctionArgs } from "convex/server";
 import { performOp } from "../syscall";
 
 type FunctionDefinition = {
-  args: Record<string, Validator<any, boolean>>;
+  args: Record<string, GenericValidator>;
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
 };
 
 type WrappedFunctionDefinition = {
-  args: Record<string, Validator<any, boolean>>;
+  args: Record<string, GenericValidator>;
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
   exportArgs(): string;
 };

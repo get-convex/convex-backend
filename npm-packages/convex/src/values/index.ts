@@ -14,11 +14,16 @@ export type {
   NumericValue,
 } from "./value.js";
 export { v } from "./validator.js";
-export type { PropertyValidators, ObjectType } from "./validator.js";
+export type {
+  PropertyValidators,
+  ObjectType,
+  GenericValidator,
+} from "./validator.js";
 export type {
   ValidatorJSON,
   ObjectFieldType,
   Validator,
+  OptionalProperty,
 } from "./validators.js";
 import * as Base64 from "./base64.js";
 export { Base64 };

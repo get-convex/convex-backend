@@ -1,6 +1,7 @@
 import {
   ConvexError,
   convexToJson,
+  GenericValidator,
   jsonToConvex,
   v,
   Validator,
@@ -126,14 +127,14 @@ function assertNotBrowser() {
 type FunctionDefinition =
   | ((ctx: any, args: DefaultFunctionArgs) => any)
   | {
-      args?: Record<string, Validator<any, boolean>>;
-      returns?: Validator<any, boolean>;
+      args?: Record<string, GenericValidator>;
+      returns?: GenericValidator;
       handler: (ctx: any, args: DefaultFunctionArgs) => any;
     };
 
 function exportArgs(functionDefinition: FunctionDefinition) {
   return () => {
-    let args: Validator<any, boolean, any> = v.any();
+    let args: GenericValidator = v.any();
     if (
       typeof functionDefinition === "object" &&
       functionDefinition.args !== undefined

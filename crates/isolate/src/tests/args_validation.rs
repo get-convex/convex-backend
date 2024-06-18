@@ -132,20 +132,23 @@ async fn test_correct_arg(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_record(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
-        let args_obj = assert_obj!(
-            "foo" => 0.,
-            "bar" => 1.,
-            "baz" => 2.,
+        must_let!(
+            let ConvexValue::Object(record) = t
+                .mutation(
+                    "args_validation:returnRecord",
+                    assert_obj!(),
+                )
+                .await?
         );
         must_let!(
             let ConvexValue::Object(result) = t
                 .query(
                     "args_validation:recordArg",
-                    assert_obj!("arg" => args_obj.clone()),
+                    assert_obj!("arg" => record.clone()),
                 )
                 .await?
         );
-        assert_eq!(result, args_obj);
+        assert_eq!(result, record);
         Ok(())
     })
     .await

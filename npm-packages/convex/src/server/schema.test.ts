@@ -53,7 +53,8 @@ describe("DataModelFromSchemaDefinition", () => {
       | "string"
       | "bytes"
       | "array"
-      | "record";
+      | "record"
+      | `record.${string}`;
 
     type ExpectedDataModel = {
       table: {
@@ -287,7 +288,11 @@ describe("DataModelFromSchemaDefinition", () => {
       _creationTime: number;
       property: Record<GenericId<"reference">, string>;
     };
-    type ExpectedFieldPaths = "_id" | "_creationTime" | "property";
+    type ExpectedFieldPaths =
+      | "_id"
+      | "_creationTime"
+      | "property"
+      | `property.${string}`;
     type ExpectedDataModel = {
       table: {
         document: ExpectedDocument;
@@ -303,22 +308,20 @@ describe("DataModelFromSchemaDefinition", () => {
   test("defineSchema handles records with type unions", () => {
     const schema = defineSchema({
       table: defineTable({
-        property: v.record(
-          v.union(v.literal("foo"), v.literal("bla")),
-          v.optional(v.string()),
-        ),
+        property: v.record(v.union(v.id("foo"), v.id("bla")), v.string()),
       }),
     });
     type DataModel = DataModelFromSchemaDefinition<typeof schema>;
     type ExpectedDocument = {
       _id: GenericId<"table">;
       _creationTime: number;
-      property: {
-        foo?: string;
-        bla?: string;
-      };
+      property: Record<GenericId<"foo"> | GenericId<"bla">, string>;
     };
-    type ExpectedFieldPaths = "_id" | "_creationTime" | "property";
+    type ExpectedFieldPaths =
+      | "_id"
+      | "_creationTime"
+      | "property"
+      | `property.${string}`;
     type ExpectedDataModel = {
       table: {
         document: ExpectedDocument;

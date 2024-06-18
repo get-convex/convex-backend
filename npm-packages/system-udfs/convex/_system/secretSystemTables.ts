@@ -5,7 +5,7 @@ import {
   DefaultFunctionArgs,
   TableNamesInDataModel,
 } from "convex/server";
-import { Validator } from "convex/values";
+import { GenericValidator } from "convex/values";
 import { query as baseQuery, queryGeneric as baseQueryGeneric } from "./server";
 import { Id } from "../_generated/dataModel";
 
@@ -92,7 +92,7 @@ function maskPublicSystem<T extends GenericDataModel>(
 }
 
 type FunctionDefinition = {
-  args: Record<string, Validator<any, boolean>>;
+  args: Record<string, GenericValidator>;
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
 };
 

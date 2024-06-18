@@ -1,26 +1,32 @@
 import { Expand } from "../type_utils.js";
 import { GenericId } from "./index.js";
-
-// Binding this module to `V` makes autocompletion pretty crummy in this file.
 import {
-  AnyValidator,
-  ArrayValidator,
-  BooleanValidator,
-  BytesValidator,
-  Float64Validator,
-  IdValidator,
-  Int64Validator,
-  LiteralValidator,
-  NullValidator,
-  ObjectValidator,
-  OptionalValidator,
-  RecordValidator,
-  StringValidator,
-  UnionValidator,
+  OptionalProperty,
+  VAny,
+  VArray,
+  VBoolean,
+  VBytes,
+  VFloat64,
+  VId,
+  VInt64,
+  VLiteral,
+  VNull,
+  VObject,
+  VOptional,
+  VRecord,
+  VString,
+  VUnion,
   Validator,
 } from "./validators.js";
 
-export function isValidator(v: any): v is Validator<any, boolean, any> {
+/**
+ * The type that all validators must extend.
+ *
+ * @public
+ */
+export type GenericValidator = Validator<any, any, any>;
+
+export function isValidator(v: any): v is GenericValidator {
   return !!v.isValidator;
 }
 
@@ -36,82 +42,81 @@ export function isValidator(v: any): v is Validator<any, boolean, any> {
  */
 export const v = {
   id<TableName extends string>(tableName: TableName) {
-    return new IdValidator<GenericId<TableName>, TableName>({
-      isOptional: false,
+    return new VId<GenericId<TableName>>({
+      isOptional: "required",
       tableName,
     });
   },
   null() {
-    return new NullValidator({ isOptional: false });
+    return new VNull({ isOptional: "required" });
   },
   /**
    * Alias for `v.float64()`
    */
   number() {
-    return new Float64Validator({ isOptional: false });
+    return new VFloat64({ isOptional: "required" });
   },
   float64() {
-    return new Float64Validator({ isOptional: false });
+    return new VFloat64({ isOptional: "required" });
   },
   /**
    * @deprecated Use `v.int64()` instead
    */
   bigint() {
-    return new Int64Validator({ isOptional: false });
+    return new VInt64({ isOptional: "required" });
   },
   int64() {
-    return new Int64Validator({ isOptional: false });
+    return new VInt64({ isOptional: "required" });
   },
   boolean() {
-    return new BooleanValidator({ isOptional: false });
+    return new VBoolean({ isOptional: "required" });
   },
   string() {
-    return new StringValidator({ isOptional: false });
+    return new VString({ isOptional: "required" });
   },
   bytes() {
-    return new BytesValidator({ isOptional: false });
+    return new VBytes({ isOptional: "required" });
   },
-  // this could be expanded for more kinds of literals
   literal<T extends string | number | bigint | boolean>(literal: T) {
-    return new LiteralValidator<T, T>({ isOptional: false, value: literal });
+    return new VLiteral<T>({ isOptional: "required", value: literal });
   },
-  array<T extends Validator<any, false, any>>(element: T) {
-    return new ArrayValidator<T["type"][], T>({ isOptional: false, element });
+  array<T extends Validator<any, "required", any>>(element: T) {
+    return new VArray<T["type"][], T>({ isOptional: "required", element });
   },
   object<T extends PropertyValidators>(fields: T) {
-    return new ObjectValidator<ObjectType<T>, T>({ isOptional: false, fields });
+    return new VObject<ObjectType<T>, T>({ isOptional: "required", fields });
   },
 
   /** @internal */
   record<
-    Key extends Validator<any, boolean, any>,
-    Value extends Validator<any, boolean, any>,
+    Key extends Validator<any, "required", any>,
+    Value extends Validator<any, "required", any>,
   >(keys: Key, values: Value) {
     // TODO enforce that Infer<key> extends string
-    return new RecordValidator<
+    return new VRecord<
       Value["isOptional"] extends true
         ? { [key in Infer<Key>]?: Value["type"] }
         : Record<Infer<Key>, Value["type"]>,
       Key,
       Value
     >({
-      isOptional: false,
+      isOptional: "required",
       key: keys,
       value: values,
     });
   },
 
-  union<T extends Validator<any, false, any>[]>(...members: T) {
-    return new UnionValidator<T[number]["type"], T>({
-      isOptional: false,
+  union<T extends Validator<any, "required", any>[]>(...members: T) {
+    return new VUnion<T[number]["type"], T>({
+      isOptional: "required",
       members,
     });
   },
   any() {
-    return new AnyValidator({ isOptional: false });
+    return new VAny({ isOptional: "required" });
   },
-  optional<T extends Validator<any, boolean, any>>(value: T) {
-    return value.optional() as OptionalValidator<T>;
+  optional<T extends GenericValidator>(value: T) {
+    return value.optional() as VOptional<T>;
   },
 };
 
@@ -123,7 +128,10 @@ export const v = {
  *
  * @public
  */
-export type PropertyValidators = Record<string, Validator<any, boolean, any>>;
+export type PropertyValidators = Record<
+  string,
+  Validator<any, OptionalProperty, any>
+>;
 
 /**
  * Compute the type of an object from {@link PropertyValidators}.
@@ -140,17 +148,15 @@ export type ObjectType<Fields extends PropertyValidators> = Expand<
   }
 >;
 
-type OptionalKeys<
-  PropertyValidators extends Record<string, Validator<any, boolean, any>>,
-> = {
-  [Property in keyof PropertyValidators]: PropertyValidators[Property]["isOptional"] extends true
-    ? Property
-    : never;
-}[keyof PropertyValidators];
+type OptionalKeys<PropertyValidators extends Record<string, GenericValidator>> =
+  {
+    [Property in keyof PropertyValidators]: PropertyValidators[Property]["isOptional"] extends "optional"
+      ? Property
+      : never;
+  }[keyof PropertyValidators];
 
-type RequiredKeys<
-  PropertyValidators extends Record<string, Validator<any, boolean, any>>,
-> = Exclude<keyof PropertyValidators, OptionalKeys<PropertyValidators>>;
+type RequiredKeys<PropertyValidators extends Record<string, GenericValidator>> =
+  Exclude<keyof PropertyValidators, OptionalKeys<PropertyValidators>>;
 
 /**
  * Extract a TypeScript type from a validator.
@@ -166,4 +172,4 @@ type RequiredKeys<
  *
  * @public
  */
-export type Infer<T extends Validator<any, boolean, any>> = T["type"];
+export type Infer<T extends Validator<any, OptionalProperty, any>> = T["type"];

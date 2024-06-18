@@ -1,14 +1,14 @@
+import { GenericId } from "./index.js";
+import { GenericValidator } from "./validator.js";
 import { JSONValue, convexToJson } from "./value.js";
 
-export class IdValidator<
-  Type,
-  TableName extends string,
-  IsOptional extends boolean = false,
-> {
-  readonly tableName: TableName;
+type TableNameFromType<T> =
+  T extends GenericId<infer TableName> ? TableName : string;
+
+export class VId<Type, IsOptional extends OptionalProperty = "required"> {
+  readonly tableName: TableNameFromType<Type>;
   readonly type!: Type;
   readonly isOptional: IsOptional;
-  // TODO are these fieldpaths necessary?
   readonly fieldPaths!: never;
   readonly kind = "id" as const;
   readonly isValidator: true;
@@ -17,7 +17,7 @@ export class IdValidator<
     tableName,
   }: {
     isOptional: IsOptional;
-    tableName: TableName;
+    tableName: TableNameFromType<Type>;
   }) {
     this.isOptional = isOptional;
     this.tableName = tableName;
@@ -29,16 +29,16 @@ export class IdValidator<
   }
   /** @internal */
   optional() {
-    return new IdValidator<Type, TableName, true>({
-      isOptional: true,
+    return new VId<Type, "optional">({
+      isOptional: "optional",
       tableName: this.tableName,
     });
   }
 }
 
-export class Float64Validator<
+export class VFloat64<
   Type = number,
-  IsOptional extends boolean = false,
+  IsOptional extends OptionalProperty = "required",
 > {
   readonly type!: Type;
   readonly isOptional: IsOptional;
@@ -56,11 +56,14 @@ export class Float64Validator<
   }
   /** @internal */
   optional() {
-    return new Float64Validator({ isOptional: true });
+    return new VFloat64({ isOptional: "optional" });
   }
 }
 
-export class Int64Validator<Type = bigint, IsOptional extends boolean = false> {
+export class VInt64<
+  Type = bigint,
+  IsOptional extends OptionalProperty = "required",
+> {
   readonly type!: Type;
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
@@ -76,13 +79,13 @@ export class Int64Validator<Type = bigint, IsOptional extends boolean = false> {
   }
   /** @internal */
   optional() {
-    return new Int64Validator({ isOptional: true });
+    return new VInt64({ isOptional: "optional" });
   }
 }
 
-export class BooleanValidator<
+export class VBoolean<
   Type = boolean,
-  IsOptional extends boolean = false,
+  IsOptional extends OptionalProperty = "required",
 > {
   readonly type!: Type;
   readonly isOptional: IsOptional;
@@ -98,13 +101,13 @@ export class BooleanValidator<
   }
   /** @internal */
   optional() {
-    return new BooleanValidator({ isOptional: true });
+    return new VBoolean({ isOptional: "optional" });
   }
 }
 
-export class BytesValidator<
+export class VBytes<
   Type = ArrayBuffer,
-  IsOptional extends boolean = false,
+  IsOptional extends OptionalProperty = "required",
 > {
   readonly type!: Type;
   readonly isOptional: IsOptional;
@@ -120,18 +123,17 @@ export class BytesValidator<
   }
   /** @internal */
   optional() {
-    return new BytesValidator({ isOptional: true });
+    return new VBytes({ isOptional: "optional" });
   }
 }
 
-export class StringValidator<
+export class VString<
   Type = string,
-  IsOptional extends boolean = false,
-  FieldPaths extends string = never,
+  IsOptional extends OptionalProperty = "required",
 > {
   readonly type!: Type;
   readonly isOptional: IsOptional;
-  readonly fieldPaths!: FieldPaths;
+  readonly fieldPaths!: never;
   readonly kind = "string" as const;
   readonly isValidator = true as const;
   constructor({ isOptional }: { isOptional: IsOptional }) {
@@ -143,18 +145,17 @@ export class StringValidator<
   }
   /** @internal */
   optional() {
-    return new StringValidator({ isOptional: true });
+    return new VString({ isOptional: "optional" });
   }
 }
 
-export class NullValidator<
+export class VNull<
   Type = null,
-  IsOptional extends boolean = false,
-  FieldPaths extends string = never,
+  IsOptional extends OptionalProperty = "required",
 > {
   readonly type!: Type;
   readonly isOptional: IsOptional;
-  readonly fieldPaths!: FieldPaths;
+  readonly fieldPaths!: never;
   readonly kind = "null" as const;
   isValidator: true;
   constructor({ isOptional }: { isOptional: IsOptional }) {
@@ -167,13 +168,13 @@ export class NullValidator<
   }
   /** @internal */
   optional() {
-    return new NullValidator({ isOptional: true });
+    return new VNull({ isOptional: "optional" });
   }
 }
 
-export class AnyValidator<
+export class VAny<
   Type = any,
-  IsOptional extends boolean = false,
+  IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = string,
 > {
   readonly type!: Type;
@@ -192,7 +193,7 @@ export class AnyValidator<
   }
   /** @internal */
   optional() {
-    return new AnyValidator({ isOptional: true });
+    return new VAny({ isOptional: "optional" });
   }
 }
 
@@ -207,10 +208,10 @@ export class AnyValidator<
  *
  * This is used within the validator builder, {@link v}.
  */
-export class ObjectValidator<
+export class VObject<
   Type,
-  Fields extends Record<string, Validator<any, boolean, any>>,
-  IsOptional extends boolean = false,
+  Fields extends Record<string, GenericValidator>,
+  IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = {
     [Property in keyof Fields]:
       | JoinFieldPaths<Property & string, Fields[Property]["fieldPaths"]>
@@ -241,32 +242,34 @@ export class ObjectValidator<
       value: globalThis.Object.fromEntries(
         globalThis.Object.entries(this.fields).map(([k, v]) => [
           k,
-          { fieldType: v.json, optional: v.isOptional },
+          {
+            fieldType: v.json,
+            optional:
+              typeof v.isOptional === "boolean"
+                ? (this.isOptional as unknown as boolean)
+                : v.isOptional === "optional",
+          },
         ]),
       ),
     };
   }
   /** @internal */
   optional() {
-    return new ObjectValidator<Type, Fields, true, FieldPaths>({
-      isOptional: true,
+    return new VObject<Type, Fields, "optional", FieldPaths>({
+      isOptional: "optional",
       fields: this.fields,
     });
   }
 }
 
-export class LiteralValidator<
-  Type,
-  Value extends string | number | bigint | boolean,
-  IsOptional extends boolean = false,
-> {
-  readonly value: Value;
+export class VLiteral<Type, IsOptional extends OptionalProperty = "required"> {
+  readonly value: Type;
   readonly type!: Type;
   readonly isOptional: IsOptional;
   readonly fieldPaths!: never;
   readonly kind = "literal" as const;
   readonly isValidator = true as const;
-  constructor({ isOptional, value }: { isOptional: IsOptional; value: Value }) {
+  constructor({ isOptional, value }: { isOptional: IsOptional; value: Type }) {
     this.isOptional = isOptional;
     this.value = value;
   }
@@ -274,28 +277,27 @@ export class LiteralValidator<
   get json(): ValidatorJSON {
     return {
       type: this.kind,
-      value: convexToJson(this.value),
+      value: convexToJson(this.value as string | boolean | number | bigint),
     };
   }
   /** @internal */
   optional() {
-    return new LiteralValidator<Type, Value, true>({
-      isOptional: true,
+    return new VLiteral<Type, "optional">({
+      isOptional: "optional",
       value: this.value,
     });
   }
 }
 
-export class ArrayValidator<
+export class VArray<
   Type,
-  Element extends Validator<any, false, any>,
-  IsOptional extends boolean = false,
-  FieldPaths extends string = never,
+  Element extends Validator<any, "required", any>,
+  IsOptional extends OptionalProperty = "required",
 > {
   element: Element;
   readonly type!: Type;
   readonly isOptional: IsOptional;
-  readonly fieldPaths!: FieldPaths;
+  readonly fieldPaths!: never;
   readonly kind = "array" as const;
   readonly isValidator = true as const;
   constructor({
@@ -317,19 +319,19 @@ export class ArrayValidator<
   }
   /** @internal */
   optional() {
-    return new ArrayValidator<Type, Element, true>({
-      isOptional: true,
+    return new VArray<Type, Element, "optional">({
+      isOptional: "optional",
       element: this.element,
     });
   }
 }
 
-export class RecordValidator<
+export class VRecord<
   Type,
-  Key extends Validator<string, boolean, any>,
-  Value extends Validator<any, boolean, any>,
-  IsOptional extends boolean = false,
-  FieldPaths extends string = never,
+  Key extends Validator<string, "required", any>,
+  Value extends Validator<any, "required", any>,
+  IsOptional extends OptionalProperty = "required",
+  FieldPaths extends string = string,
 > {
   key: Key;
   value: Value;
@@ -358,24 +360,24 @@ export class RecordValidator<
       keys: this.key.json,
       values: {
         fieldType: this.value.json,
-        optional: this.value.isOptional,
+        optional: false,
       },
     };
   }
   /** @internal */
   optional() {
-    return new RecordValidator<Type, Key, Value, true>({
-      isOptional: true,
+    return new VRecord<Type, Key, Value, "optional">({
+      isOptional: "optional",
       key: this.key,
       value: this.value,
     });
   }
 }
 
-export class UnionValidator<
+export class VUnion<
   Type,
-  T extends Validator<any, false, any>[],
-  IsOptional extends boolean = false,
+  T extends Validator<any, "required", any>[],
+  IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = T[number]["fieldPaths"],
 > {
   readonly members: T;
@@ -397,41 +399,48 @@ export class UnionValidator<
   }
   /** @internal */
   optional() {
-    return new UnionValidator<Type, T, true>({
-      isOptional: true,
+    return new VUnion<Type, T, "optional">({
+      isOptional: "optional",
       members: this.members,
     });
   }
 }
 
 // prettier-ignore
-export type OptionalValidator<T extends Validator<any, boolean, any>> =
-  T extends IdValidator<infer Type, infer TableName, boolean> ? IdValidator<Type, TableName, true>
-  : T extends StringValidator<infer Type, boolean>
-    ? StringValidator<Type, true>
-  : T extends Float64Validator<infer Type, boolean>
-    ? Float64Validator<Type, true>
-  : T extends Int64Validator<infer Type, boolean>
-    ? Int64Validator<Type, true>
-  : T extends BooleanValidator<infer Type, boolean>
-    ? BooleanValidator<Type, true>
-  : T extends NullValidator<infer Type, boolean>
-    ? NullValidator<Type, true>
-  : T extends AnyValidator<infer Type, boolean>
-    ? AnyValidator<Type, true>
-  : T extends LiteralValidator<infer Type, infer Value, boolean>
-    ? LiteralValidator<Type, Value, true>
-  : T extends BytesValidator<infer Type, boolean>
-    ? BytesValidator<Type, true>
-  : T extends ObjectValidator< infer Type, infer Fields, boolean, infer FieldPaths>
-    ? ObjectValidator<Type, Fields, true, FieldPaths>
-  : T extends ArrayValidator<infer Type, infer Element, boolean, infer FieldPaths>
-    ? ArrayValidator<Type, Element, true, FieldPaths>
-  : T extends RecordValidator< infer Type, infer Key, infer Value, boolean, infer FieldPaths>
-    ? RecordValidator<Type, Key, Value, true, FieldPaths>
-  : T extends UnionValidator<infer Type, infer Members, boolean, infer FieldPaths>
-    ? UnionValidator<Type, Members, true, FieldPaths>
+export type VOptional<T extends Validator<any, OptionalProperty, any>> =
+  T extends VId<infer Type, OptionalProperty> ? VId<Type, "optional">
+  : T extends VString<infer Type, OptionalProperty>
+    ? VString<Type, "optional">
+  : T extends VFloat64<infer Type, OptionalProperty>
+    ? VFloat64<Type, "optional">
+  : T extends VInt64<infer Type, OptionalProperty>
+    ? VInt64<Type, "optional">
+  : T extends VBoolean<infer Type, OptionalProperty>
+    ? VBoolean<Type, "optional">
+  : T extends VNull<infer Type, OptionalProperty>
+    ? VNull<Type, "optional">
+  : T extends VAny<infer Type, OptionalProperty>
+    ? VAny<Type, "optional">
+  : T extends VLiteral<infer Type, OptionalProperty>
+    ? VLiteral<Type, "optional">
+  : T extends VBytes<infer Type, OptionalProperty>
+    ? VBytes<Type, "optional">
+  : T extends VObject< infer Type, infer Fields, OptionalProperty, infer FieldPaths>
+    ? VObject<Type, Fields, "optional", FieldPaths>
+  : T extends VArray<infer Type, infer Element, OptionalProperty>
+    ? VArray<Type, Element, "optional">
+  : T extends VRecord< infer Type, infer Key, infer Value, OptionalProperty, infer FieldPaths>
+    ? VRecord<Type, Key, Value, "optional", FieldPaths>
+  : T extends VUnion<infer Type, infer Members, OptionalProperty, infer FieldPaths>
+    ? VUnion<Type, Members, "optional", FieldPaths>
   : never
+
+/**
+ * Type representing whether a property in an object is optional or required.
+ *
+ * @public
+ */
+export type OptionalProperty = "optional" | "required";
 
 /**
  * A validator for a Convex value.
@@ -460,33 +469,33 @@ export type OptionalValidator<T extends Validator<any, boolean, any>> =
 // How could this matter? Try reverting all this one and all the others to confirm.
 export type Validator<
   Type,
-  IsOptional extends boolean = false,
+  IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = never,
 > =
-  | IdValidator<Type, string, IsOptional>
-  | StringValidator<Type, IsOptional>
-  | Float64Validator<Type, IsOptional>
-  | Int64Validator<Type, IsOptional>
-  | BooleanValidator<Type, IsOptional>
-  | NullValidator<Type, IsOptional>
-  | AnyValidator<Type, IsOptional>
-  | LiteralValidator<Type, string | number | bigint | boolean, IsOptional>
-  | BytesValidator<Type, IsOptional>
-  | ObjectValidator<
+  | VId<Type, IsOptional>
+  | VString<Type, IsOptional>
+  | VFloat64<Type, IsOptional>
+  | VInt64<Type, IsOptional>
+  | VBoolean<Type, IsOptional>
+  | VNull<Type, IsOptional>
+  | VAny<Type, IsOptional>
+  | VLiteral<Type, IsOptional>
+  | VBytes<Type, IsOptional>
+  | VObject<
       Type,
-      Record<string, Validator<any, boolean, any>>,
+      Record<string, Validator<any, OptionalProperty, any>>,
       IsOptional,
       FieldPaths
     >
-  | ArrayValidator<Type, Validator<any, false, any>, IsOptional, FieldPaths>
-  | RecordValidator<
+  | VArray<Type, Validator<any, "required", any>, IsOptional>
+  | VRecord<
       Type,
-      Validator<any, boolean, any>,
-      Validator<any, boolean, any>,
+      Validator<string, "required", any>,
+      Validator<any, "required", any>,
       IsOptional,
       FieldPaths
     >
-  | UnionValidator<Type, Validator<any, false, any>[], IsOptional, FieldPaths>;
+  | VUnion<Type, Validator<any, "required", any>[], IsOptional, FieldPaths>;
 
 /**
  * Join together two index field paths.

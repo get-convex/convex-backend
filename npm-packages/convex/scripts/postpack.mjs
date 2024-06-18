@@ -120,9 +120,9 @@ function rewriteDtsToRemoveInternal(dirname) {
     dirname,
     "values/validator.d.ts",
     `/** @internal */
-    record<Key extends Validator<any, boolean, any>, Value extends Validator<any, boolean, any>>(keys: Key, values: Value): RecordValidator<Value["isOptional"] extends true ? { [key in Infer<Key>]?: Value["type"] | undefined; } : Record<Infer<Key>, Value["type"]>, Key, Value, false, never>;`,
+    record<Key extends Validator<any, "required", any>, Value extends Validator<any, "required", any>>(keys: Key, values: Value): VRecord<Value["isOptional"] extends true ? { [key in Infer<Key>]?: Value["type"] | undefined; } : Record<Infer<Key>, Value["type"]>, Key, Value, "required", string>;`,
     `/* @internal
-    record<Key extends Validator<any, boolean, any>, Value extends Validator<any, boolean, any>>(keys: Key, values: Value): RecordValidator<Value["isOptional"] extends true ? { [key in Infer<Key>]?: Value["type"] | undefined; } : Record<Infer<Key>, Value["type"]>, Key, Value, false, never>; */`,
+    record<Key extends Validator<any, "required", any>, Value extends Validator<any, "required", any>>(keys: Key, values: Value): VRecord<Value["isOptional"] extends true ? { [key in Infer<Key>]?: Value["type"] | undefined; } : Record<Infer<Key>, Value["type"]>, Key, Value, "required", string>; */`,
   );
   auditForInternal(path.join(dirname, "dist", "cjs-types"));
   auditForInternal(path.join(dirname, "dist", "esm-types"));
