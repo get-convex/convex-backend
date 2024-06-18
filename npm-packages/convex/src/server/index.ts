@@ -100,22 +100,26 @@ export type { IndexRange, IndexRangeBuilder } from "./index_range_builder.js";
 export * from "./pagination.js";
 export type { OrderedQuery, Query, QueryInitializer } from "./query.js";
 export type {
-  ActionBuilder,
   ArgsArray,
   DefaultFunctionArgs,
-  HttpActionBuilder,
   FunctionVisibility,
+  ActionBuilder,
+  MutationBuilder,
+  QueryBuilder,
+  HttpActionBuilder,
   GenericActionCtx,
   GenericMutationCtx,
   GenericQueryCtx,
-  MutationBuilder,
-  PublicHttpAction,
   RegisteredAction,
   RegisteredMutation,
   RegisteredQuery,
-  QueryBuilder,
+  PublicHttpAction,
   UnvalidatedFunction,
   ValidatedFunction,
+  ReturnValueForOptionalValidator,
+  ArgsArrayForOptionalValidator,
+  ArgsArrayToObject,
+  DefaultArgsForOptionalValidator,
 } from "./registration.js";
 export * from "./search_filter_builder.js";
 export * from "./storage.js";
