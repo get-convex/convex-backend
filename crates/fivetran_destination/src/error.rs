@@ -38,6 +38,22 @@ pub enum DestinationError {
     UnsupportedColumnName(FivetranFieldName, FivetranTableName, anyhow::Error),
 
     #[error(
+        "Your Convex destination is not using a schema.
+
+Please add a `schema.ts` file to add the `{0}` table. You can use the following table definition:
+{0}"
+    )]
+    DestinationHasNoSchema(SuggestedTable),
+
+    #[error(
+        "Your Convex destination is not using a schema.
+
+We are not able to suggest a schema because the following error happened:
+{0}"
+    )]
+    DestinationHasNoSchemaWithoutSuggestion(Box<DestinationError>),
+
+    #[error(
         "The table `{0}` from your data source is missing in the schema of your Convex \
          destination.
 
@@ -45,6 +61,15 @@ Please edit your `schema.ts` file to add the table. You can use the following ta
 {1}"
     )]
     MissingTable(TableName, SuggestedTable),
+
+    #[error(
+        "The table `{0}` from your data source is missing in the schema of your Convex \
+         destination.
+
+Please edit your `schema.ts` file to add the table. You can use the following table definition:
+{1}"
+    )]
+    MissingTableWithoutSuggestion(TableName, Box<DestinationError>),
 
     #[error(
         "The table `{0}` from your data source is incorrect in the schema of your Convex \
@@ -66,6 +91,29 @@ Hint: you can use the following table definition in your `schema.ts` file:
          support."
     )]
     InvalidKey,
+
+    #[error(
+        "The table `{0}` in the Convex destination stores arbitrary documents, which is not \
+         supported by Fivetran. Please edit the schema of the table in `schema.ts` so that the \
+         table isn’t defined as `v.any()`."
+    )]
+    DestinationHasAnySchema(TableName),
+
+    #[error(
+        "The table `{0}` in the Convex destination stores multiple different types of documents, \
+         which is not supported by Fivetran. Please edit the schema of the table in `schema.ts` \
+         so that the table isn’t defiend as `v.union()`."
+    )]
+    DestinationHasMultipleSchemas(TableName),
+
+    #[error("An error occurred on the Convex deployment: {0}")]
+    DeploymentError(anyhow::Error),
+
+    #[error("A row from your data source is invalid: {0}")]
+    InvalidRow(anyhow::Error),
+
+    #[error("Can’t read the file {0}: {1}. Please contact support.")]
+    FileReadError(String, anyhow::Error),
 }
 
 #[derive(Debug, Error)]
@@ -177,23 +225,6 @@ pub enum TableSchemaError {
          (`{0}`)."
     )]
     WrongPrimaryKeyIndex(SuggestedIndex),
-}
-
-#[derive(Debug, Error)]
-pub enum DescribeTableError {
-    #[error(
-        "The table `{0}` in the Convex destination stores arbitrary documents, which is not \
-         supported by Fivetran. Please edit the schema of the table in `schema.ts` so that the \
-         table isn’t defined as `v.any()`."
-    )]
-    DestinationHasAnySchema(TableName),
-
-    #[error(
-        "The table `{0}` in the Convex destination stores multiple different types of documents, \
-         which is not supported by Fivetran. Please edit the schema of the table in `schema.ts` \
-         so that the table isn’t defiend as `v.union()`."
-    )]
-    DestinationHasMultipleSchemas(TableName),
 }
 
 /// Wrapper around `TableDefinition` that formats it in the same format as

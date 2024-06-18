@@ -54,7 +54,6 @@ use crate::{
         SYNCED_FIVETRAN_FIELD_NAME,
     },
     error::{
-        DescribeTableError,
         DestinationError,
         SuggestedIndex,
         SuggestedTable,
@@ -151,6 +150,13 @@ fn suggested_validator(data_type: FivetranDataType, nullability: Nullability) ->
     } else {
         non_nullable_validator
     }
+}
+
+pub fn suggested_convex_table(
+    table: fivetran_sdk::Table,
+) -> Result<TableDefinition, DestinationError> {
+    let schema = FivetranTableSchema::try_from(table.clone())?;
+    schema.suggested_convex_table()
 }
 
 impl FivetranTableSchema {
@@ -500,9 +506,11 @@ pub fn validate_destination_schema_table(
     fivetran_table: fivetran_sdk::Table,
     convex_table: &TableDefinition,
 ) -> Result<(), DestinationError> {
-    let fivetran_table_name = fivetran_table.name.clone();
-    let table_name = TableName::from_str(&fivetran_table_name)
-        .map_err(|err| DestinationError::UnsupportedTableName(fivetran_table_name, err))?;
+    let fivetran_table_name = FivetranTableName::from_str(&fivetran_table.name)
+        .map_err(|err| DestinationError::InvalidTableName(fivetran_table.name.clone(), err))?;
+    let table_name = TableName::from_str(&fivetran_table.name).map_err(|err| {
+        DestinationError::UnsupportedTableName(fivetran_table_name.to_string(), err)
+    })?;
 
     let fivetran_table_schema = FivetranTableSchema::try_from(fivetran_table)?;
 
@@ -552,7 +560,7 @@ pub fn validate_destination_schema_table(
 #[allow(dead_code)]
 pub fn to_fivetran_table(
     convex_table: &TableDefinition,
-) -> anyhow::Result<fivetran_sdk::Table, DescribeTableError> {
+) -> anyhow::Result<fivetran_sdk::Table, DestinationError> {
     let fivetran_columns = to_fivetran_columns(convex_table)?;
 
     Ok(fivetran_sdk::Table {
@@ -616,14 +624,14 @@ fn user_columns(table_def: &TableDefinition, validator: &ObjectValidator) -> Vec
 
 fn to_fivetran_columns(
     table_def: &TableDefinition,
-) -> Result<Vec<fivetran_sdk::Column>, DescribeTableError> {
+) -> Result<Vec<fivetran_sdk::Column>, DestinationError> {
     let Some(DocumentSchema::Union(validators)) = &table_def.document_type else {
-        return Err(DescribeTableError::DestinationHasAnySchema(
+        return Err(DestinationError::DestinationHasAnySchema(
             table_def.table_name.clone(),
         ));
     };
     let [validator] = &validators[..] else {
-        return Err(DescribeTableError::DestinationHasMultipleSchemas(
+        return Err(DestinationError::DestinationHasMultipleSchemas(
             table_def.table_name.clone(),
         ));
     };
