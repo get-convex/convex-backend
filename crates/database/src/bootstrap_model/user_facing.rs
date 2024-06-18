@@ -27,7 +27,6 @@ use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
     Size,
-    TableIdentifier,
     TableName,
     TableNamespace,
 };
@@ -187,7 +186,10 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .namespace(self.namespace)
             .name_to_id_user_input()(table)?;
         let document = ResolvedDocument::new(
-            ResolvedDocumentId::new(table_id.tablet_id, table_id.table_number.id(internal_id)),
+            ResolvedDocumentId::new(
+                table_id.tablet_id,
+                DeveloperDocumentId::new(table_id.table_number, internal_id),
+            ),
             creation_time,
             value,
         )?;

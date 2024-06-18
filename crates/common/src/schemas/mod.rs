@@ -63,9 +63,8 @@ pub const MAX_INDEXES_PER_TABLE: usize = 64;
 #[derive(derive_more::Display, Debug, Clone, PartialEq)]
 pub enum SchemaValidationError {
     #[display(
-        fmt = "Document with ID \"{}\" in table \"{table_name}\" does not match the schema: \
-               {validation_error}",
-        "id.encode()"
+        fmt = "Document with ID \"{id}\" in table \"{table_name}\" does not match the schema: \
+               {validation_error}"
     )]
     ExistingDocument {
         validation_error: ValidationError,

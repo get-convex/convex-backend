@@ -5,9 +5,9 @@ use common::{
 };
 use value::{
     ConvexObject,
+    DeveloperDocumentId,
     InternalId,
     ResolvedDocumentId,
-    TableIdentifier,
     TableName,
     TableNamespace,
     TabletIdAndTableNumber,
@@ -63,9 +63,10 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         let table_id = self.lookup_table_id(table)?;
         let id = ResolvedDocumentId::new(
             table_id.tablet_id,
-            table_id
-                .table_number
-                .id(self.tx.id_generator.generate_internal()),
+            DeveloperDocumentId::new(
+                table_id.table_number,
+                self.tx.id_generator.generate_internal(),
+            ),
         );
         let creation_time = self.tx.next_creation_time.increment()?;
         let document = ResolvedDocument::new(id, creation_time, value)?;
@@ -88,8 +89,10 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
             anyhow::bail!(unauthorized_error("insert_metadata"));
         }
         let table_id = self.lookup_table_id(table)?;
-        let document_id =
-            ResolvedDocumentId::new(table_id.tablet_id, table_id.table_number.id(internal_id));
+        let document_id = ResolvedDocumentId::new(
+            table_id.tablet_id,
+            DeveloperDocumentId::new(table_id.table_number, internal_id),
+        );
         let creation_time = self.tx.next_creation_time.increment()?;
         let document = ResolvedDocument::new(document_id, creation_time, value)?;
         self.tx.insert_document(document).await

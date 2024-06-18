@@ -239,11 +239,6 @@ pub trait TableIdentifier:
 {
     fn min() -> Self;
 
-    /// Create a [`DocumentId`] for a given table.
-    fn id(&self, internal_id: InternalId) -> GenericDocumentId<Self> {
-        GenericDocumentId::new(self.clone(), internal_id)
-    }
-
     fn write_sorted<W: Write>(&self, writer: &mut W) -> io::Result<()>;
 
     fn document_id_to_string(&self, internal_id: InternalId) -> String;

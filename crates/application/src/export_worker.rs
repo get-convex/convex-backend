@@ -899,8 +899,8 @@ mod tests {
     use value::{
         assert_obj,
         export::ValueFormat,
+        DeveloperDocumentId,
         ResolvedDocumentId,
-        TableIdentifier,
         TableNamespace,
     };
 
@@ -1113,7 +1113,7 @@ mod tests {
         let file1: ParsedDocument<FileStorageEntry> = tx
             .get(ResolvedDocumentId::new(
                 storage_table_id.tablet_id,
-                storage_table_id.table_number.id(file1_id.internal_id()),
+                DeveloperDocumentId::new(storage_table_id.table_number, file1_id.internal_id()),
             ))
             .await?
             .unwrap()

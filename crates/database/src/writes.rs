@@ -34,7 +34,7 @@ use common::{
 use errors::ErrorMetadata;
 use value::{
     values_to_bytes,
-    TableIdentifier,
+    DeveloperDocumentId,
     TabletId,
 };
 
@@ -207,9 +207,11 @@ impl Writes {
             );
         } else {
             // Writes to a table require the table still exists.
-            let table_id_bytes =
-                IndexKey::new(vec![], table_mapping.tables_id.table_number.id(tablet_id.0))
-                    .into_bytes();
+            let table_id_bytes = IndexKey::new(
+                vec![],
+                DeveloperDocumentId::new(table_mapping.tables_id.table_number, tablet_id.0),
+            )
+            .into_bytes();
             reads.record_indexed_derived(
                 TabletIndexName::by_id(table_mapping.tables_id.tablet_id),
                 IndexedFields::by_id(),

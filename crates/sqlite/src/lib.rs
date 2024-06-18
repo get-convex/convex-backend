@@ -49,7 +49,6 @@ use common::{
     value::{
         ConvexValue,
         InternalDocumentId,
-        TableIdentifier,
         TabletId,
     },
 };
@@ -197,7 +196,7 @@ ORDER BY B.key {order}
                 anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
             })?;
             let table = TabletId(table.try_into()?);
-            let _document_id = table.id(InternalId::try_from(document_id)?);
+            let _document_id = InternalDocumentId::new(table, InternalId::try_from(document_id)?);
             let json_value = json_value.ok_or_else(|| {
                 anyhow::anyhow!("Index reference to deleted document {:?} {:?}", key, ts)
             })?;
@@ -445,7 +444,7 @@ impl PersistenceReader for SqlitePersistence {
                 let id = InternalId::try_from(id)?;
                 let ts = Timestamp::try_from(ts)?;
                 let table = TabletId(table.try_into()?);
-                let document_id = table.id(id);
+                let document_id = InternalDocumentId::new(table, id);
                 let document = if !deleted {
                     let json_value = json_value.ok_or_else(|| {
                         anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, ts)
@@ -492,7 +491,7 @@ impl PersistenceReader for SqlitePersistence {
                     let id = InternalId::try_from(id)?;
                     let table = TabletId(table.try_into()?);
                     let prev_ts = Timestamp::try_from(prev_ts)?;
-                    let document_id = table.id(id);
+                    let document_id = InternalDocumentId::new(table, id);
                     let document = if !deleted {
                         let json_value = json_value.ok_or_else(|| {
                             anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, prev_ts)

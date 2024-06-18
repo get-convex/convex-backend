@@ -91,7 +91,6 @@ use common::{
     value::{
         ConvexObject,
         ResolvedDocumentId,
-        TableIdentifier,
         TableMapping,
         TabletId,
         VirtualTableMapping,
@@ -1123,7 +1122,7 @@ impl<RT: Runtime> Database<RT> {
                 .id(table_name)?;
             let document_id = ResolvedDocumentId::new(
                 tables_table_id.tablet_id,
-                tables_table_id.table_number.id(table_id.tablet_id.0),
+                DeveloperDocumentId::new(tables_table_id.table_number, table_id.tablet_id.0),
             );
             let metadata = TableMetadata::new(
                 TableNamespace::Global,

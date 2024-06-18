@@ -37,13 +37,11 @@ use common::{
         TableName,
         TabletIndexName,
     },
-    value::{
-        TableIdentifier,
-        TabletIdAndTableNumber,
-    },
+    value::TabletIdAndTableNumber,
 };
 use errors::ErrorMetadata;
 use value::{
+    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableNamespace,
@@ -390,7 +388,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         let tables_table_id = self.tables_table_id()?;
         let table_doc_id = ResolvedDocumentId::new(
             tables_table_id.tablet_id,
-            tables_table_id.table_number.id(tablet_id.0),
+            DeveloperDocumentId::new(tables_table_id.table_number, tablet_id.0),
         );
         SystemMetadataModel::new_global(self.tx)
             .replace(table_doc_id, table_metadata.try_into()?)

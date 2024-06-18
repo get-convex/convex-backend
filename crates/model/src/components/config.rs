@@ -36,10 +36,10 @@ use serde::{
 };
 use sync_types::CanonicalizedModulePath;
 use value::{
+    DeveloperDocumentId,
     InternalDocumentId,
     InternalId,
     ResolvedDocumentId,
-    TableIdentifier,
     TableNamespace,
 };
 
@@ -449,7 +449,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                         let table_number = self.tx.table_mapping().tablet_number(*id.table())?;
                         anyhow::Ok(ResolvedDocumentId::new(
                             *id.table(),
-                            table_number.id(id.internal_id()),
+                            DeveloperDocumentId::new(table_number, id.internal_id()),
                         ))
                     })
                     .transpose()?;

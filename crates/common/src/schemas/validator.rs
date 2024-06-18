@@ -1034,10 +1034,8 @@ impl Display for FieldValidator {
 #[derive(derive_more::Display, Debug, Clone, PartialEq)]
 pub enum ValidationError {
     #[display(
-        fmt = "Found ID \"{}\" from table `{}`, which does not match the table name in validator \
-               `v.id(\"{validator_table}\")`.{context}",
-        "id.encode()",
-        found_table_name
+        fmt = "Found ID \"{id}\" from table `{found_table_name}`, which does not match the table \
+               name in validator `v.id(\"{validator_table}\")`.{context}"
     )]
     TableNamesDoNotMatch {
         id: DeveloperDocumentId,
@@ -1046,9 +1044,8 @@ pub enum ValidationError {
         context: ValidationContext,
     },
     #[display(
-        fmt = "Found ID \"{}\" from a system table, which does not match the table name in \
-               validator `v.id(\"{validator_table}\")`.{context}",
-        "id.encode()"
+        fmt = "Found ID \"{id}\" from a system table, which does not match the table name in \
+               validator `v.id(\"{validator_table}\")`.{context}"
     )]
     SystemTableReference {
         id: DeveloperDocumentId,

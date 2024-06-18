@@ -556,10 +556,7 @@ impl ResolvedDocument {
     pub fn from_database(tablet_id: TabletId, value: ConvexValue) -> anyhow::Result<Self> {
         let object: ConvexObject = value.try_into()?;
         let id = match object.get(&FieldName::from(ID_FIELD.clone())) {
-            Some(ConvexValue::String(s)) => {
-                let document_id = DeveloperDocumentId::decode(s)?;
-                DeveloperDocumentId::new(*document_id.table(), document_id.internal_id())
-            },
+            Some(ConvexValue::String(s)) => DeveloperDocumentId::decode(s)?,
             _ => anyhow::bail!("Object {} missing _id field", object),
         };
         let creation_time = match object.get(&FieldName::from(CREATION_TIME_FIELD.clone())) {

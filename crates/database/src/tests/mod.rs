@@ -86,7 +86,6 @@ use value::{
     val,
     FieldPath,
     ResolvedDocumentId,
-    TableIdentifier,
     TableMapping,
     TableNamespace,
     TabletIdAndTableNumber,
@@ -1051,7 +1050,7 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
         .await?;
     let doc1_id = ResolvedDocumentId::new(
         table_id.tablet_id,
-        table_id.table_number.id(doc1_id.internal_id()),
+        DeveloperDocumentId::new(table_id.table_number, doc1_id.internal_id()),
     );
     let doc2_id = ImportFacingModel::new(&mut tx)
         .insert(
@@ -1063,7 +1062,7 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
         .await?;
     let doc2_id = ResolvedDocumentId::new(
         table_id.tablet_id,
-        table_id.table_number.id(doc2_id.internal_id()),
+        DeveloperDocumentId::new(table_id.table_number, doc2_id.internal_id()),
     );
 
     database.commit(tx).await?;
@@ -1212,7 +1211,8 @@ async fn test_importing_foreign_reference_schema_validated(rt: TestRuntime) -> a
             &table_mapping_for_schema,
         )
         .await?;
-    let foreign_doc_id = foreign_table_id.table_number.id(foreign_doc.internal_id());
+    let foreign_doc_id =
+        DeveloperDocumentId::new(foreign_table_id.table_number, foreign_doc.internal_id());
     ImportFacingModel::new(&mut tx)
         .insert(
             table_id,
@@ -1324,7 +1324,10 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
     let active_foreign_doc = UserFacingModel::new_root_for_test(&mut tx)
         .insert(foreign_table_name.clone(), assert_obj!())
         .await?;
-    let active_foreign_doc_id = active_foreign_table_number.id(active_foreign_doc.internal_id());
+    let active_foreign_doc_id = DeveloperDocumentId::new(
+        active_foreign_table_number,
+        active_foreign_doc.internal_id(),
+    );
     UserFacingModel::new_root_for_test(&mut tx)
         .insert(
             table_name.clone(),
@@ -1346,7 +1349,8 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
             &table_mapping_for_schema,
         )
         .await?;
-    let foreign_doc_id = foreign_table_id.table_number.id(foreign_doc.internal_id());
+    let foreign_doc_id =
+        DeveloperDocumentId::new(foreign_table_id.table_number, foreign_doc.internal_id());
     ImportFacingModel::new(&mut tx)
         .insert(
             table_id,
@@ -1429,7 +1433,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     let doc1_id = ResolvedDocumentId::new(
         table_id.tablet_id,
-        table_id.table_number.id(doc1_id.internal_id()),
+        DeveloperDocumentId::new(table_id.table_number, doc1_id.internal_id()),
     );
     database.commit(tx).await?;
     assert_eq!(doc1_id.internal_id(), doc0_id.internal_id());
@@ -1522,7 +1526,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
         .await?;
     let doc1_id_inner = ResolvedDocumentId::new(
         table_id.tablet_id,
-        table_id.table_number.id(doc1_id.internal_id()),
+        DeveloperDocumentId::new(table_id.table_number, doc1_id.internal_id()),
     );
     database.commit(tx).await?;
     // Now the import fails. The hidden table never gets activated.

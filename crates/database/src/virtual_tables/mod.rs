@@ -20,7 +20,6 @@ use imbl::OrdMap;
 use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
-    TableIdentifier,
     TableMapping,
     TableName,
     TableNamespace,
@@ -57,7 +56,7 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
             .id(&system_table_name)?;
         let id_ = ResolvedDocumentId::new(
             table_id.tablet_id,
-            table_id.table_number.id(id.internal_id()),
+            DeveloperDocumentId::new(table_id.table_number, id.internal_id()),
         );
 
         // NOTE we intentionally pass `system_table_name` in, which means this
@@ -177,7 +176,7 @@ impl VirtualSystemMapping {
             .id(system_table_name)?;
         Ok(ResolvedDocumentId::new(
             system_table_id.tablet_id,
-            system_table_id.table_number.id(virtual_id_v6.internal_id()),
+            DeveloperDocumentId::new(system_table_id.table_number, virtual_id_v6.internal_id()),
         ))
     }
 

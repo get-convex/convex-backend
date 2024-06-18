@@ -48,8 +48,8 @@ use storage::Storage;
 use sync_types::Timestamp;
 use tempfile::TempDir;
 use value::{
+    DeveloperDocumentId,
     ResolvedDocumentId,
-    TableIdentifier,
 };
 
 use crate::{
@@ -351,7 +351,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     backfill_state.segments.clone(),
                     MultipartBuildType::IncrementalComplete {
                         cursor: cursor.map(|cursor| {
-                            ResolvedDocumentId::new(tablet_id, table_number.id(cursor))
+                            ResolvedDocumentId::new(
+                                tablet_id,
+                                DeveloperDocumentId::new(table_number, cursor),
+                            )
                         }),
                         backfill_snapshot_ts,
                     },

@@ -94,8 +94,8 @@ use maplit::{
 };
 use tracing::log;
 use value::{
+    DeveloperDocumentId,
     InternalDocumentId,
-    TableIdentifier,
     TableNamespace,
 };
 
@@ -393,7 +393,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         let index_doc = tx
             .get(ResolvedDocumentId::new(
                 index_table_id.tablet_id,
-                index_table_id.table_number.id(index_id),
+                DeveloperDocumentId::new(index_table_id.table_number, index_id),
             ))
             .await?
             .ok_or_else(|| anyhow::anyhow!("Index {index_id:?} no longer exists"))?;
@@ -432,7 +432,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         let index_doc = tx
             .get(ResolvedDocumentId::new(
                 index_table_id.tablet_id,
-                index_table_id.table_number.id(index_id),
+                DeveloperDocumentId::new(index_table_id.table_number, index_id),
             ))
             .await?
             .ok_or_else(|| anyhow::anyhow!("Index {index_id:?} no longer exists"))?;
@@ -484,7 +484,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         let index_table_id = tx.bootstrap_tables().index_id;
         let full_index_id = ResolvedDocumentId::new(
             index_table_id.tablet_id,
-            index_table_id.table_number.id(index_id),
+            DeveloperDocumentId::new(index_table_id.table_number, index_id),
         );
         let index_doc = tx
             .get(full_index_id)

@@ -25,7 +25,7 @@ use search::{
     MAX_CANDIDATE_REVISIONS,
 };
 use value::{
-    TableIdentifier,
+    DeveloperDocumentId,
     TableNamespace,
     TableNumber,
 };
@@ -239,7 +239,7 @@ impl SearchResultIterator {
 
         self.next_index += 1;
 
-        let id = self.table_number.id(candidate.id);
+        let id = DeveloperDocumentId::new(self.table_number, candidate.id);
         let (document, existing_doc_ts) = UserFacingModel::new(tx, self.namespace)
             .get_with_ts(id, self.version.clone())
             .await?

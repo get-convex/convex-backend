@@ -23,7 +23,6 @@ use value::{
     id_v6::DeveloperDocumentId,
     val,
     ResolvedDocumentId,
-    TableIdentifier,
     TableNamespace,
 };
 
@@ -40,7 +39,7 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
         (
             ConvexValue::from(ResolvedDocumentId::new(
                 table_id.tablet_id,
-                table_id.table_number.id(InternalId::MIN),
+                DeveloperDocumentId::new(table_id.table_number, InternalId::MIN),
             )),
             r#"Id<"test">"#,
         ),

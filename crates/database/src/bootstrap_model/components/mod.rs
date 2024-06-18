@@ -36,10 +36,10 @@ use common::{
     types::IndexName,
 };
 use value::{
+    DeveloperDocumentId,
     FieldPath,
     InternalId,
     ResolvedDocumentId,
-    TableIdentifier,
     TableName,
     TableNamespace,
 };
@@ -176,7 +176,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             .id(&COMPONENTS_TABLE)?;
         Ok(ResolvedDocumentId::new(
             component_table.tablet_id,
-            component_table.table_number.id(component_internal_id),
+            DeveloperDocumentId::new(component_table.table_number, component_internal_id),
         ))
     }
 
@@ -191,9 +191,10 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             .id(&COMPONENT_DEFINITIONS_TABLE)?;
         Ok(ResolvedDocumentId::new(
             component_definitions_table.tablet_id,
-            component_definitions_table
-                .table_number
-                .id(component_definition_internal_id),
+            DeveloperDocumentId::new(
+                component_definitions_table.table_number,
+                component_definition_internal_id,
+            ),
         ))
     }
 

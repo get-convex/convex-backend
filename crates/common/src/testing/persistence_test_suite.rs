@@ -25,9 +25,9 @@ use value::{
     val,
     ConvexObject,
     ConvexValue,
+    DeveloperDocumentId,
     InternalDocumentId,
     ResolvedDocumentId,
-    TableIdentifier,
     TableMapping,
     TabletId,
 };
@@ -701,12 +701,18 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
     let table2_id = id_generator.user_table_id(&str::parse("table2")?);
 
     let doc1 = ResolvedDocument::new(
-        ResolvedDocumentId::new(table1_id.tablet_id, table1_id.table_number.id(internal_id)),
+        ResolvedDocumentId::new(
+            table1_id.tablet_id,
+            DeveloperDocumentId::new(table1_id.table_number, internal_id),
+        ),
         CreationTime::ONE,
         assert_obj!("value" => 1),
     )?;
     let doc2 = ResolvedDocument::new(
-        ResolvedDocumentId::new(table2_id.tablet_id, table2_id.table_number.id(internal_id)),
+        ResolvedDocumentId::new(
+            table2_id.tablet_id,
+            DeveloperDocumentId::new(table2_id.table_number, internal_id),
+        ),
         CreationTime::ONE,
         assert_obj!("value" => 2),
     )?;

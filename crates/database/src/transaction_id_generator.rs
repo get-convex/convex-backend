@@ -3,10 +3,6 @@ use std::time::SystemTime;
 use common::{
     document::InternalId,
     runtime::Runtime,
-    value::{
-        GenericDocumentId,
-        TableIdentifier,
-    },
 };
 use rand::{
     Rng,
@@ -15,7 +11,9 @@ use rand::{
 };
 use rand_chacha::ChaCha12Rng;
 use value::{
+    DeveloperDocumentId,
     ResolvedDocumentId,
+    TableNumber,
     TabletIdAndTableNumber,
 };
 
@@ -57,8 +55,8 @@ impl TransactionIdGenerator {
         InternalId(id_bytes)
     }
 
-    pub fn generate<T: TableIdentifier>(&mut self, table_name: &T) -> GenericDocumentId<T> {
-        table_name.id(self.generate_internal())
+    pub fn generate(&mut self, table_number: TableNumber) -> DeveloperDocumentId {
+        DeveloperDocumentId::new(table_number, self.generate_internal())
     }
 
     pub fn generate_resolved(
@@ -67,9 +65,7 @@ impl TransactionIdGenerator {
     ) -> ResolvedDocumentId {
         ResolvedDocumentId::new(
             tablet_id_and_number.tablet_id,
-            tablet_id_and_number
-                .table_number
-                .id(self.generate_internal()),
+            DeveloperDocumentId::new(tablet_id_and_number.table_number, self.generate_internal()),
         )
     }
 }
@@ -79,11 +75,12 @@ mod tests {
 
     use std::time::SystemTime;
 
-    use common::{
-        runtime::Runtime,
-        types::TableName,
-    };
+    use common::runtime::Runtime;
     use runtime::testing::TestDriver;
+    use value::{
+        TableIdentifier,
+        TableNumber,
+    };
 
     use crate::transaction_id_generator::TransactionIdGenerator;
 
@@ -92,10 +89,10 @@ mod tests {
     #[test]
     fn generated_ids_include_day() -> anyhow::Result<()> {
         let td = TestDriver::new();
-        let table: TableName = str::parse("table")?;
+        let table: TableNumber = <TableNumber as TableIdentifier>::min();
 
         let mut id_generator = TransactionIdGenerator::new(&td.rt())?;
-        let id = id_generator.generate(&table);
+        let id = id_generator.generate(table);
         let bytes = &id.internal_id()[..];
         let mut day_bytes = [0u8; 8];
         day_bytes[6..].copy_from_slice(&bytes[14..]);
