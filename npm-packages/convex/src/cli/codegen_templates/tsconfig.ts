@@ -9,15 +9,16 @@ export function tsconfigCodegen() {
     "allowJs": true,
     "strict": true,
     "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
 
     /* These compiler options are required by Convex */
     "target": "ESNext",
     "lib": ["ES2021", "dom"],
     "forceConsistentCasingInFileNames": true,
-    "allowSyntheticDefaultImports": true,
     "module": "ESNext",
     "isolatedModules": true,
-    "skipLibCheck": true,
     "noEmit": true,
   },
   "include": ["./**/*"],
