@@ -1,4 +1,4 @@
-import { jest, test, expect } from "@jest/globals";
+import { vi, test, expect } from "vitest";
 import { parseProjectConfig } from "./config.js";
 import { oneoffContext } from "../../bundler/context.js";
 
@@ -11,7 +11,7 @@ test("parseProjectConfig", async () => {
       throw new Error();
     },
   };
-  const consoleSpy = jest
+  const consoleSpy = vi
     .spyOn(global.console, "error")
     .mockImplementation(() => {
       // Do nothing

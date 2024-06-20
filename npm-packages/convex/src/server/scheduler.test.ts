@@ -1,4 +1,4 @@
-import { test } from "@jest/globals";
+import { test } from "vitest";
 import { ApiFromModules, FunctionReference, justSchedulable } from "./api.js";
 import { assert, Equals } from "../test/type_testing.js";
 import {

@@ -1,7 +1,7 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
-import { expect, jest, test } from "@jest/globals";
+import { expect, vi, test } from "vitest";
 import jwtEncode from "jwt-encode";
 import {
   nodeWebSocket,
@@ -22,10 +22,10 @@ test("Authenticate via valid static token", async () => {
   await withInMemoryWebSocket(async ({ address, receive, send }) => {
     const client = testReactClient(address);
 
-    const tokenFetcher = jest.fn(async () =>
+    const tokenFetcher = vi.fn(async () =>
       jwtEncode({ iat: 1234500, exp: 1244500 }, "secret"),
     );
-    const onAuthChange = jest.fn();
+    const onAuthChange = vi.fn();
     client.setAuth(tokenFetcher, onAuthChange);
 
     expect((await receive()).type).toEqual("Connect");
@@ -73,8 +73,8 @@ async function testRauthenticationOnInvalidTokenSucceeds(
 
     let token = jwtEncode({ iat: 1234500, exp: 1244500 }, "wobabloobla");
     const fetchToken = async () => token;
-    const tokenFetcher = jest.fn(fetchToken);
-    const onAuthChange = jest.fn();
+    const tokenFetcher = vi.fn(fetchToken);
+    const onAuthChange = vi.fn();
     client.setAuth(tokenFetcher, onAuthChange);
 
     expect((await receive()).type).toEqual("Connect");
@@ -135,8 +135,8 @@ test("Reauthenticate after token cache failure", async () => {
       args.forceRefreshToken
         ? jwtEncode({ iat: 1234500, exp: 1244500 }, "secret")
         : token;
-    const tokenFetcher = jest.fn(fetchToken);
-    const onAuthChange = jest.fn();
+    const tokenFetcher = vi.fn(fetchToken);
+    const onAuthChange = vi.fn();
     void client.setAuth(tokenFetcher, onAuthChange);
 
     expect((await receive()).type).toEqual("Connect");
@@ -173,10 +173,8 @@ test("Reauthenticate after token cache failure", async () => {
 });
 
 // This is usually a misconfigured server rejecting any token
-test("Fail when tokens are always rejected without versioning", async () => {
+test("Fail when tokens are always rejected with and without versioning", async () => {
   await testRauthenticationFails(undefined);
-});
-test("Fail when tokens are always rejected with versioning", async () => {
   await testRauthenticationFails(0);
 });
 
@@ -186,15 +184,15 @@ async function testRauthenticationFails(
   await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
     const client = testReactClient(address);
 
-    const consoleSpy = jest
+    const consoleSpy = vi
       .spyOn(global.console, "error")
       .mockImplementation(() => {
         // Do nothing
       });
 
     let token = jwtEncode({ iat: 1234500, exp: 1244500 }, "wobabloobla");
-    const tokenFetcher = jest.fn(async () => token);
-    const onAuthChange = jest.fn();
+    const tokenFetcher = vi.fn(async () => token);
+    const onAuthChange = vi.fn();
     client.setAuth(tokenFetcher, onAuthChange);
 
     expect((await receive()).type).toEqual("Connect");
@@ -246,8 +244,8 @@ async function testRauthenticationFails(
 test("Fail when tokens cannot be fetched", async () => {
   await withInMemoryWebSocket(async ({ address, receive }) => {
     const client = testReactClient(address);
-    const tokenFetcher = jest.fn(async () => null);
-    const onAuthChange = jest.fn();
+    const tokenFetcher = vi.fn(async () => null);
+    const onAuthChange = vi.fn();
     void client.setAuth(tokenFetcher, onAuthChange);
 
     expect((await receive()).type).toEqual("Connect");
@@ -267,10 +265,10 @@ test("Client is protected against token rejection race", async () => {
   await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
     const client = testReactClient(address);
 
-    const badTokenFetcher = jest.fn(async () =>
+    const badTokenFetcher = vi.fn(async () =>
       jwtEncode({ iat: 1234500, exp: 1244500 }, "wobalooba"),
     );
-    const firstOnChange = jest.fn();
+    const firstOnChange = vi.fn();
     client.setAuth(badTokenFetcher, firstOnChange);
 
     expect((await receive()).type).toEqual("Connect");
@@ -279,11 +277,11 @@ test("Client is protected against token rejection race", async () => {
 
     const querySetVersion = client.sync["remoteQuerySet"]["version"];
 
-    const goodTokenFetcher = jest.fn(async () =>
+    const goodTokenFetcher = vi.fn(async () =>
       jwtEncode({ iat: 1234500, exp: 1244500 }, "secret"),
     );
 
-    const secondOnChange = jest.fn();
+    const secondOnChange = vi.fn();
     client.setAuth(goodTokenFetcher, secondOnChange);
 
     expect((await receive()).type).toEqual("Authenticate");

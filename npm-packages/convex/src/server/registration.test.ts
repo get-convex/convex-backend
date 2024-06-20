@@ -1,4 +1,4 @@
-import { test } from "@jest/globals";
+import { test, describe, expect } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";
 import { v } from "../values/validator.js";
 import {

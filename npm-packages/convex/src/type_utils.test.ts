@@ -1,4 +1,4 @@
-import { test } from "@jest/globals";
+import { describe, test } from "vitest";
 import { assert, Equals } from "./test/type_testing.js";
 import { BetterOmit } from "./type_utils.js";
 

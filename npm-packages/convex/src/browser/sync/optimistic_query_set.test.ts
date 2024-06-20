@@ -1,5 +1,5 @@
 import { Value } from "../../values/index.js";
-import { test, expect, beforeEach } from "@jest/globals";
+import { test, expect, beforeEach } from "vitest";
 
 import {
   OptimisticQueryResults,

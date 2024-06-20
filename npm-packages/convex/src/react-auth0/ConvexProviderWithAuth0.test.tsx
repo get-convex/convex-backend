@@ -1,7 +1,7 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
-import { test } from "@jest/globals";
+import { test } from "vitest";
 import React from "react";
 import { ConvexProviderWithAuth0 } from "./ConvexProviderWithAuth0.js";
 import { ConvexReactClient } from "../react/index.js";

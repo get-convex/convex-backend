@@ -1,7 +1,7 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
-import { jest, expect, test } from "@jest/globals";
+import { vi, expect, test, describe, beforeEach, afterEach } from "vitest";
 
 import { renderHook } from "@testing-library/react";
 import React from "react";
@@ -24,7 +24,7 @@ describe("env setup", () => {
 describe("preloadQuery and usePreloadedQuery", () => {
   beforeEach(() => {
     global.process.env.NEXT_PUBLIC_CONVEX_URL = address;
-    global.fetch = jest.fn().mockResolvedValue({
+    global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
         Promise.resolve({ status: "success", value: convexToJson({ x: 42 }) }),

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { GenericId } from "../values/index.js";
-import { describe, test } from "@jest/globals";
+import { describe, test } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";
 import { v, Infer } from "../values/validator.js";
 

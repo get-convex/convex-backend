@@ -2,10 +2,10 @@ import { Base64 } from "../../values/index.js";
 import { Long } from "../long.js";
 
 // --experimental-vm-modules which we use for jest doesn't support named exports
-import ws from "ws";
+import WebSocket, { AddressInfo, WebSocketServer } from "ws";
 
 // Let's pretend this ws WebSocket is a browser WebSocket (it's very close)
-export const nodeWebSocket = ws as unknown as typeof WebSocket;
+export const nodeWebSocket = WebSocket as unknown as typeof window.WebSocket;
 
 import { ClientMessage, ServerMessage } from "./protocol.js";
 
@@ -22,7 +22,7 @@ export async function withInMemoryWebSocket(
   cb: InMemoryWebSocketTest,
   debug = false,
 ) {
-  let wss = new ws.WebSocketServer({ port: 0 });
+  let wss = new WebSocketServer({ port: 0 });
 
   let received: (msg: string) => void;
   const messages: Promise<string>[] = [
@@ -30,9 +30,9 @@ export async function withInMemoryWebSocket(
       received = r;
     }),
   ];
-  let socket: ws.WebSocket | null = null;
+  let socket: WebSocket | null = null;
   const setupSocket = () => {
-    wss.on("connection", function connection(ws: ws.WebSocket) {
+    wss.on("connection", function connection(ws: WebSocket) {
       socket = ws;
       ws.on("message", function message(data: string) {
         received(data);
@@ -70,7 +70,9 @@ export async function withInMemoryWebSocket(
       close: () => {
         socket!.close();
         wss.close();
-        wss = new ws.WebSocketServer({ port: (s as ws.AddressInfo).port });
+        // TODO there's a rare race here:
+        // Error: listen EADDRINUSE: address already in use :::62257
+        wss = new WebSocketServer({ port: (s as AddressInfo).port });
         setupSocket();
       },
     });

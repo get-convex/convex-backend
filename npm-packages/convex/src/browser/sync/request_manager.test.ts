@@ -1,4 +1,4 @@
-import { test, expect, beforeEach } from "@jest/globals";
+import { test, expect, beforeEach } from "vitest";
 import { RequestManager } from "./request_manager.js";
 import { Long } from "../long.js";
 import { ActionRequest, MutationRequest } from "./protocol.js";

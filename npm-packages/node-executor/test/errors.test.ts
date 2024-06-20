@@ -1,4 +1,5 @@
 import { extractErrorMessage } from "../src/errors";
+import { describe, test, expect } from "vitest";
 
 describe("ConvexHttpClient", () => {
   test("error object", () => {

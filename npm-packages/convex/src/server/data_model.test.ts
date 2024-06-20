@@ -1,4 +1,4 @@
-import { test } from "@jest/globals";
+import { test } from "vitest";
 import { GenericId } from "../values/index.js";
 import { FieldTypeFromFieldPath } from "./data_model.js";
 import { assert, Equals } from "../test/type_testing.js";

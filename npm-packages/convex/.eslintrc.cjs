@@ -4,20 +4,25 @@ module.exports = {
   root: true,
   parser: "@typescript-eslint/parser",
   parserOptions: {
-    project: ["./tsconfig.json", "./src/cli/tsconfig.json"],
+    project: ["./tsconfig.json"],
     tsconfigRootDir: __dirname,
   },
-  plugins: ["@typescript-eslint", "react-hooks", "react", "jest"],
+  plugins: [
+    "@typescript-eslint",
+    "react-hooks",
+    "react",
+    "vitest",
+    "require-extensions",
+  ],
   extends: [
     "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
     "prettier",
-    "plugin:jest/recommended",
+    "plugin:require-extensions/recommended",
   ],
   env: {
     amd: true,
     browser: true,
-    jest: true,
     node: true,
   },
   rules: {
@@ -66,8 +71,9 @@ module.exports = {
       },
     ],
     eqeqeq: ["error", "always"],
-    "jest/expect-expect": "off",
-    "jest/no-conditional-expect": "off",
+
+    // vitest (manually enabled until we can upgrade eslint)
+    "vitest/no-focused-tests": ["error", { fixable: false }],
   },
-  ignorePatterns: ["node_modules", "dist", "*.js", "tmpDist*"],
+  ignorePatterns: ["node_modules", "dist", "*.js", "tmpDist*", "tmpPackage*"],
 };

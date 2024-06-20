@@ -17,18 +17,16 @@
     "build-cjs": "tsc --module commonjs --outDir dist/cjs --target es2015 && echo '{\"type\": \"commonjs\"}' > dist/cjs/package.json",
     "clean": "shx rm -rf dist",
     "prepare": "npm run build",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --passWithNoTests",
+    "test": "vitest",
     "test-esm": "node -e 'import(\"./dist/esm/index.js\")'"
   },
   "author": "Convex, Inc.",
   "license": "MIT",
   "devDependencies": {
     "typescript": "~5.0.3",
-    "jest": "^29.5.0",
-    "@types/jest": "^27.0.0",
-    "ts-jest": "^29.1.1",
+    "tsx": "~4.15.6",
     "shx": "~0.3.4",
-    "@jest/globals": "^28.1.0"
+    "vitest": "~1.6.0"
   },
   "dependencies": {
     "react": "^18.0.0",

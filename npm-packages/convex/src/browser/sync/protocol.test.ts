@@ -1,8 +1,8 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 
-import { test, expect } from "@jest/globals";
+import { test, expect } from "vitest";
 
 import { Long } from "../long.js";
 import { longToU64, u64ToLong } from "./protocol.js";

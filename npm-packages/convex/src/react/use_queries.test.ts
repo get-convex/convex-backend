@@ -2,15 +2,15 @@
  * @jest-environment jsdom
  */
 
-import { RequestForQueries, useQueriesHelper } from "./use_queries";
-import { test, expect, jest } from "@jest/globals";
+import { RequestForQueries, useQueriesHelper } from "./use_queries.js";
+import { test, expect, vi } from "vitest";
 import FakeWatch from "../test/fake_watch.js";
 import { act, renderHook } from "@testing-library/react";
 import { FunctionReference, anyApi, getFunctionName } from "../server/api.js";
 
 test("Adding a new query", () => {
   const values: Record<string, unknown> = {};
-  const createWatch = jest.fn((query: FunctionReference<"query">) => {
+  const createWatch = vi.fn((query: FunctionReference<"query">) => {
     const watch = new FakeWatch<any>();
     watch.value = values[getFunctionName(query)];
     return watch;
@@ -72,7 +72,7 @@ test("Adding a new query", () => {
 });
 
 test("Swapping queries and unsubscribing", () => {
-  const createWatch = jest.fn(() => new FakeWatch<any>()) as any;
+  const createWatch = vi.fn(() => new FakeWatch<any>()) as any;
 
   // Request 1 query.
   let queries: RequestForQueries = {
@@ -112,7 +112,7 @@ test("Swapping queries and unsubscribing", () => {
 
 test("Local results on initial render", () => {
   const value: string | undefined = "query1 result";
-  const createWatch = jest.fn(() => {
+  const createWatch = vi.fn(() => {
     const watch = new FakeWatch<any>();
     watch.value = value;
     return watch;

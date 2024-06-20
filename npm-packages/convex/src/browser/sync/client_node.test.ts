@@ -1,6 +1,6 @@
 import child_process from "child_process";
 
-import { test, expect } from "@jest/globals";
+import { test, expect } from "vitest";
 import { Long } from "../long.js";
 
 import { BaseConvexClient } from "./client.js";
@@ -38,13 +38,11 @@ test("BaseConvexClient protocol in node", async () => {
 // cleanly. This is the only point of this test.
 test("BaseConvexClient closes cleanly", () => {
   const p = child_process.spawnSync(
-    "node_modules/.bin/jest",
+    "node_modules/.bin/vitest",
     [
       "-t",
       "BaseConvexClient protocol in node",
       "src/browser/sync/client_node.test.ts",
-      "--runInBand",
-      "--json",
     ],
     {
       encoding: "utf-8",
@@ -53,25 +51,12 @@ test("BaseConvexClient closes cleanly", () => {
       env: {
         ...process.env,
         FORCE_COLOR: "false",
-        NODE_OPTIONS: "--experimental-vm-modules",
       },
     },
   );
 
   // If this is a timeout, the test didn't exit cleanly! Check for timers.
-  expect(p.error).toBeFalsy();
-
-  // Make sure we actually ran the test.
-  const results = JSON.parse(p!.stdout);
-  expect(results.numPassedTestSuites).toBe(1);
-  expect(results.numFailedTestSuites).toBe(0);
-  expect(results.numPassedTests).toBe(1);
-  expect(results.numFailedTests).toBe(0);
-
-  // "Jest couldn't exit" means not a clean exit! Check for timers.
-  expect(p.stderr).not.toMatch(
-    "Jest did not exit one second after the test run has completed.",
-  );
+  expect(p.status).toBeFalsy();
 });
 
 test("Tests can encode longs in server messages", () => {

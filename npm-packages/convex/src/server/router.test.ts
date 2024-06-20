@@ -1,6 +1,7 @@
 import { httpActionGeneric } from "./impl/registration_impl.js";
 import { HttpActionBuilder } from "./registration.js";
 import { httpRouter } from "./router.js";
+import { expect, test } from "vitest";
 
 const httpAction = httpActionGeneric as HttpActionBuilder;
 

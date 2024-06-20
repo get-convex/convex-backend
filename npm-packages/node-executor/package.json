@@ -6,7 +6,7 @@
     "build": "tsc && npx esbuild src/aws_lambda.ts --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outfile=dist/aws_lambda.cjs && npx esbuild src/local.ts --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outfile=dist/local.cjs",
     "pretest": "rm -rf dist",
     "build-test-modules": "npx esbuild test/modules/*.ts --format=esm --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outdir=dist/tests/modules && cp test/modules/*.js dist/tests/modules && cp test/metadata.json dist/tests/metadata.json && cp -r test/external_modules dist/tests/external_modules",
-    "test": "npx jest --forceExit; npm run build-test-modules && npx esbuild test/integration-test.ts --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outfile=dist/tests/integration-test.cjs && node --enable-source-maps dist/tests/integration-test.cjs"
+    "test": "npx vitest; npm run build-test-modules && npx esbuild test/integration-test.ts --log-level=warning --bundle --sourcemap --platform=node --target=esnext --outfile=dist/tests/integration-test.cjs && node --enable-source-maps dist/tests/integration-test.cjs"
   },
   "module": "esnext",
   "dependencies": {
@@ -28,19 +28,17 @@
     "@types/archiver": "~5.3.2",
     "@types/aws-lambda": "^8.10.106",
     "@types/concat-stream": "^2.0.3",
-    "@types/jest": "^27.0.0",
     "@types/node": "^18.17.0",
     "@types/node-fetch": "^2.6.1",
     "@types/uuid": "^8.3.4",
     "auth0": "^4.3.1",
     "esbuild": "^0.17.5",
     "googleapis": "^108.0.0",
-    "jest": "^29.5.0",
     "stripe": "^10.14.0",
-    "ts-jest": "^29.1.1",
     "twilio": "^4.22.0",
     "typescript": "~5.0.3",
     "undici": "5.28.4",
+    "vitest": "~1.6.0",
     "zod": "^3.21.4"
   }
 }

@@ -1,8 +1,8 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 /* eslint-disable @typescript-eslint/ban-types */
-import { expect, jest, test } from "@jest/globals";
+import { expect, vi, test, describe, beforeEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import React from "react";
 
@@ -14,7 +14,7 @@ import {
   PaginationResult,
 } from "../server/index.js";
 import { assert, Equals } from "../test/type_testing.js";
-import { Value } from "../values";
+import { Value } from "../values/index.js";
 import { ConvexProvider, ConvexReactClient } from "./client.js";
 import {
   PaginatedQueryArgs,
@@ -97,7 +97,7 @@ test.each([
 
 test("Returns nothing when args are 'skip'", () => {
   const convexClient = new ConvexReactClient(address);
-  const watchQuerySpy = jest.spyOn(convexClient, "watchQuery");
+  const watchQuerySpy = vi.spyOn(convexClient, "watchQuery");
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <ConvexProvider client={convexClient}>{children}</ConvexProvider>
   );
@@ -120,7 +120,7 @@ test("Returns nothing when args are 'skip'", () => {
 
 test("Initially returns LoadingFirstPage", () => {
   const convexClient = new ConvexReactClient(address);
-  const watchQuerySpy = jest.spyOn(convexClient, "watchQuery");
+  const watchQuerySpy = vi.spyOn(convexClient, "watchQuery");
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <ConvexProvider client={convexClient}>{children}</ConvexProvider>
   );
@@ -155,7 +155,7 @@ test("Initially returns LoadingFirstPage", () => {
 
 test("Updates to a new query if query name or args change", () => {
   const convexClient = new ConvexReactClient(address);
-  const watchQuerySpy = jest.spyOn(convexClient, "watchQuery");
+  const watchQuerySpy = vi.spyOn(convexClient, "watchQuery");
 
   let args: [
     query: FunctionReference<"query">,

@@ -1,5 +1,5 @@
 import { GenericId } from "../values/index.js";
-import { test } from "@jest/globals";
+import { test } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";
 import { GenericDatabaseReader } from "./database.js";
 import { SystemDataModel, SystemTableNames } from "./schema.js";

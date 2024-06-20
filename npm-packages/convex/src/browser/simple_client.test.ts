@@ -1,4 +1,4 @@
-import { test, expect } from "@jest/globals";
+import { test, expect } from "vitest";
 import { withInMemoryWebSocket } from "./sync/client_node_test_helpers.js";
 import { DefaultFunctionArgs, makeFunctionReference } from "../server/index.js";
 // This Node.js build sets up the WebSocket dependency automatically.

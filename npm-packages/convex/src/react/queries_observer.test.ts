@@ -1,22 +1,29 @@
 import { Value } from "../values/index.js";
-import { test, beforeEach, afterEach, expect, jest } from "@jest/globals";
+import {
+  test,
+  beforeEach,
+  afterEach,
+  expect,
+  vi,
+  MockedFunction,
+} from "vitest";
 import FakeWatch from "../test/fake_watch.js";
 import { QueriesObserver } from "./queries_observer.js";
 import { FunctionReference, anyApi } from "../server/api.js";
 
 let queriesObserver: QueriesObserver;
-let createWatch: jest.MockedFunction<
+let createWatch: MockedFunction<
   (
     query: FunctionReference<"query">,
     args: Record<string, Value>,
   ) => FakeWatch<any>
 >;
-let listener: jest.MockedFunction<() => void>;
+let listener: MockedFunction<() => void>;
 
 beforeEach(() => {
-  createWatch = jest.fn(() => new FakeWatch<any>()) as any;
+  createWatch = vi.fn(() => new FakeWatch<any>()) as any;
   queriesObserver = new QueriesObserver(createWatch);
-  listener = jest.fn() as any;
+  listener = vi.fn() as any;
   queriesObserver.subscribe(listener);
 });
 
@@ -150,7 +157,7 @@ test("swapping createWatch recreates subscriptions", async () => {
   createWatch.mock.results[0].value.setJournal("query journal");
 
   // Swap out the `createWatch` function.
-  const createWatch2 = jest.fn(() => new FakeWatch<any>()) as any;
+  const createWatch2 = vi.fn(() => new FakeWatch<any>()) as any;
   queriesObserver.setCreateWatch(createWatch2);
 
   // No subscriptions left for the original watch.

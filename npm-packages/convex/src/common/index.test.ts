@@ -1,5 +1,5 @@
-import { test, describe, expect } from "@jest/globals";
-import { validateDeploymentUrl } from ".";
+import { test, describe, expect } from "vitest";
+import { validateDeploymentUrl } from "./index.js";
 
 describe("validateDeploymentUrl", () => {
   test("localhost is valid", () => {

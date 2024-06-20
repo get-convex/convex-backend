@@ -1,4 +1,5 @@
-import { QueryImpl } from "./query_impl";
+import { QueryImpl } from "./query_impl.js";
+import { test, expect } from "vitest";
 
 // Mock to prevent
 // "The Convex database and auth objects are being used outside of a Convex backend..." errors

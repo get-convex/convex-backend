@@ -1,9 +1,9 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
-import { test } from "@jest/globals";
+import { test } from "vitest";
 import React from "react";
-import { Authenticated, AuthLoading, Unauthenticated } from "./auth_helpers";
+import { Authenticated, AuthLoading, Unauthenticated } from "./auth_helpers.js";
 
 test("Helpers are valid children", () => {
   const _element = (

@@ -1,8 +1,8 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 
-import { test, expect } from "@jest/globals";
+import { test, expect } from "vitest";
 
 import { BaseConvexClient } from "./client.js";
 import { anyApi } from "../../server/api.js";

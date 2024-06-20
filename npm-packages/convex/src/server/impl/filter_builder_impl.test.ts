@@ -1,4 +1,4 @@
-import { test, expect } from "@jest/globals";
+import { test, expect } from "vitest";
 import { filterBuilderImpl } from "./filter_builder_impl.js";
 
 test("Serialize expression with literals", () => {

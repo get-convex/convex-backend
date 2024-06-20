@@ -1,4 +1,4 @@
-import { test } from "@jest/globals";
+import { test } from "vitest";
 import { tsconfigCodegen } from "./tsconfig.js";
 import { readmeCodegen } from "./readme.js";
 

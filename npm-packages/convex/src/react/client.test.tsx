@@ -1,7 +1,7 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
-import { test, expect } from "@jest/globals";
+import { test, expect, describe } from "vitest";
 
 import { ConvexReactClient, createMutation, useQuery } from "./client.js";
 import { ConvexProvider } from "./index.js";
@@ -109,7 +109,6 @@ describe("useQuery", () => {
 });
 
 // Intentionally disabled because we're only testing types
-// eslint-disable-next-line jest/no-disabled-tests
 describe.skip("useQuery typing", () => {
   test("useQuery with no args query", () => {
     const queryWithNoArgs = makeFunctionReference<

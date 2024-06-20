@@ -10,7 +10,7 @@ import {
   AppDefinitionAnalysis,
   ComponentDefinitionAnalysis,
   ComponentDefinitionType,
-} from "./definition";
+} from "./definition.js";
 
 /**
  * An object of this type should be the default export of a

@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { expect, jest, test } from "@jest/globals";
+import { expect, vi, test } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import jwtEncode from "jwt-encode";
 import React, { createContext, useCallback, useContext, useMemo } from "react";
@@ -11,10 +11,12 @@ import {
   useConvexAuth,
 } from "./index.js";
 
-jest.useFakeTimers();
+vi.useFakeTimers();
 
-const flushPromises = () =>
-  act(() => new Promise((jest.requireActual("timers") as any).setImmediate));
+const flushPromises = async () => {
+  const timers = await vi.importActual("timers");
+  await act(() => new Promise((timers as any).setImmediate));
+};
 
 test("setAuth legacy signature typechecks and doesn't throw", async () => {
   const convex = new ConvexReactClient("https://127.0.0.1:3001");
@@ -115,7 +117,7 @@ test("ConvexProviderWithAuth works", async () => {
   );
   expect(screen.getByText("Loading...")).toBeDefined();
 
-  jest.runOnlyPendingTimers();
+  vi.runOnlyPendingTimers();
 
   await flushPromises();
 
@@ -129,7 +131,7 @@ test("ConvexProviderWithAuth works", async () => {
 // and the server currently requires JWT tokens.
 test("Tokens must be valid JWT", async () => {
   const client = new ConvexReactClient("https://127.0.0.1:3001");
-  const consoleSpy = jest
+  const consoleSpy = vi
     .spyOn(global.console, "error")
     .mockImplementation(() => {
       // Do nothing
@@ -164,7 +166,7 @@ test("Tokens are used to schedule refetch", async () => {
   const client = new ConvexReactClient("https://127.0.0.1:3001");
   const tokenLifetimeSeconds = 60;
   let tokenId = 0;
-  const tokenFetcher = jest.fn(async () =>
+  const tokenFetcher = vi.fn(async () =>
     jwtEncode(
       { iat: 1234500, exp: 1234500 + tokenLifetimeSeconds },
       "secret" + tokenId++, // simulate a new token on every fetch
@@ -189,7 +191,7 @@ test("Tokens are used to schedule refetch", async () => {
   expect(tokenFetcher).toHaveBeenCalledTimes(2);
 
   // Check that next refetch happens in time
-  jest.advanceTimersByTime(tokenLifetimeSeconds * 1000);
+  vi.advanceTimersByTime(tokenLifetimeSeconds * 1000);
   expect(tokenFetcher).toHaveBeenCalledTimes(3);
 });
 

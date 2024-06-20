@@ -1,4 +1,4 @@
-import { test, expect } from "@jest/globals";
+import { test, expect } from "vitest";
 import { Long } from "../browser/long.js";
 
 import ReactDOM from "react-dom";
