@@ -25,6 +25,20 @@ export type {
   ObjectFieldType,
   Validator,
   OptionalProperty,
+  VId,
+  VFloat64,
+  VInt64,
+  VBoolean,
+  VBytes,
+  VString,
+  VNull,
+  VAny,
+  VObject,
+  VLiteral,
+  VArray,
+  VRecord,
+  VUnion,
+  VOptional,
 } from "./validators.js";
 import * as Base64 from "./base64.js";
 export { Base64 };
