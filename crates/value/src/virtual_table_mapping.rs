@@ -31,12 +31,12 @@ impl VirtualTableMapping {
         self.table_name_to_table_number.contains_key(name)
     }
 
-    pub fn number_exists(&self, number: &TableNumber) -> bool {
-        self.table_number_to_table_name.contains_key(number)
+    pub fn number_exists(&self, number: TableNumber) -> bool {
+        self.table_number_to_table_name.contains_key(&number)
     }
 
     pub fn table_number_exists(&self) -> impl Fn(TableNumber) -> bool + '_ {
-        |n| self.number_exists(&n)
+        |n| self.number_exists(n)
     }
 
     pub fn name(&self, number: TableNumber) -> anyhow::Result<TableName> {

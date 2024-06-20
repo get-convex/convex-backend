@@ -91,9 +91,9 @@ impl ReducedShape {
             ShapeEnum::Boolean => ReducedShape::Boolean,
             ShapeEnum::StringLiteral(ref s) => {
                 if let Ok(id) = DeveloperDocumentId::decode(s)
-                    && (table_exists(*id.table()) || virtual_table_exists(*id.table()))
+                    && (table_exists(id.table()) || virtual_table_exists(id.table()))
                 {
-                    ReducedShape::Id(*id.table())
+                    ReducedShape::Id(id.table())
                 } else {
                     ReducedShape::String
                 }

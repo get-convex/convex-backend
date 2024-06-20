@@ -62,7 +62,7 @@ pub enum IdDecodeError {
 
 impl DeveloperDocumentId {
     pub fn encoded_len(&self) -> usize {
-        let byte_length = vint_len((*self.table()).into()) + 16 + 2;
+        let byte_length = vint_len(self.table().into()) + 16 + 2;
         base32::encoded_len(byte_length)
     }
 
@@ -71,7 +71,7 @@ impl DeveloperDocumentId {
 
         let mut pos = 0;
 
-        pos += vint_encode((*self.table()).into(), &mut buf[pos..]);
+        pos += vint_encode(self.table().into(), &mut buf[pos..]);
 
         buf[pos..(pos + 16)].copy_from_slice(&self.internal_id());
         pos += 16;
@@ -152,7 +152,7 @@ impl DeveloperDocumentId {
         f: impl Fn(TableNumber) -> anyhow::Result<TabletId>,
     ) -> anyhow::Result<ResolvedDocumentId> {
         Ok(ResolvedDocumentId {
-            tablet_id: f(*self.table())?,
+            tablet_id: f(self.table())?,
             developer_id: *self,
         })
     }
@@ -393,40 +393,40 @@ mod tests {
         let real_id = "kg27rxfv99gzp01wmph0gvt92d6hnvy6";
         let decoded = DeveloperDocumentId::decode(real_id).unwrap();
         assert_eq!(decoded.encode(), real_id);
-        let decoded_lossy = DeveloperDocumentId::decode_lossy(real_id, *decoded.table());
+        let decoded_lossy = DeveloperDocumentId::decode_lossy(real_id, decoded.table());
         assert_eq!(decoded_lossy, decoded);
 
         // Dropping the last character just affects the footer, so doesn't change the
         // decode_lossy result.
         let decoded_lossy =
-            DeveloperDocumentId::decode_lossy(&real_id[..real_id.len() - 1], *decoded.table());
+            DeveloperDocumentId::decode_lossy(&real_id[..real_id.len() - 1], decoded.table());
         assert_eq!(decoded_lossy, decoded);
 
         // Dropping several characters affects the internal id but not the table number.
-        let decoded_lossy = DeveloperDocumentId::decode_lossy(&real_id[..10], *decoded.table());
+        let decoded_lossy = DeveloperDocumentId::decode_lossy(&real_id[..10], decoded.table());
         assert_eq!(decoded_lossy.table(), decoded.table());
         assert!(decoded_lossy < decoded);
         assert!(decoded_lossy.internal_id() > InternalId::MIN);
 
         // Dropping most characters makes it out of the ID range.
-        let decoded_lossy = DeveloperDocumentId::decode_lossy("k", *decoded.table());
+        let decoded_lossy = DeveloperDocumentId::decode_lossy("k", decoded.table());
         assert_eq!(
             decoded_lossy,
-            DeveloperDocumentId::new(*decoded.table(), InternalId::MIN)
+            DeveloperDocumentId::new(decoded.table(), InternalId::MIN)
         );
 
         // Increasing the first character makes it out of the ID range in the
         // other direction.
-        let decoded_lossy = DeveloperDocumentId::decode_lossy("z", *decoded.table());
+        let decoded_lossy = DeveloperDocumentId::decode_lossy("z", decoded.table());
         assert_eq!(
             decoded_lossy,
-            DeveloperDocumentId::new(*decoded.table(), InternalId::MAX)
+            DeveloperDocumentId::new(decoded.table(), InternalId::MAX)
         );
     }
 
     fn test_decode_lossy_ordering(s: &str, id: DeveloperDocumentId) {
         let encoded = id.encode();
-        let decoded_lossy = DeveloperDocumentId::decode_lossy(s, *id.table());
+        let decoded_lossy = DeveloperDocumentId::decode_lossy(s, id.table());
         match s.cmp(&encoded) {
             cmp::Ordering::Less => {
                 assert!(decoded_lossy <= id);
@@ -449,7 +449,7 @@ mod tests {
         let mapped = DeveloperDocumentId::map_string_between_table_numbers(
             s,
             VirtualTableNumberMap {
-                virtual_table_number: *src_id.table(),
+                virtual_table_number: src_id.table(),
                 physical_table_number: dest_table_number,
             },
         );

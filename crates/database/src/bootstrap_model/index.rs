@@ -47,11 +47,11 @@ use common::{
         IndexDiff,
         IndexId,
         IndexName,
+        IndexTableIdentifier,
         StableIndexName,
         TableName,
         TabletIndexName,
     },
-    value::TableIdentifier,
 };
 use errors::ErrorMetadata;
 use indexing::{
@@ -952,7 +952,7 @@ impl IndexCategory {
     }
 }
 
-fn identical_dev_configs<T: TableIdentifier, Y: TableIdentifier>(
+fn identical_dev_configs<T: IndexTableIdentifier, Y: IndexTableIdentifier>(
     existing: &ParsedDocument<IndexMetadata<T>>,
     new: &IndexMetadata<Y>,
 ) -> bool {

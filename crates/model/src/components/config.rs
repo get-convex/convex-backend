@@ -446,9 +446,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                     .get(&path)
                     .context("Missing schema ID")?
                     .map(|id| {
-                        let table_number = self.tx.table_mapping().tablet_number(*id.table())?;
+                        let table_number = self.tx.table_mapping().tablet_number(id.table())?;
                         anyhow::Ok(ResolvedDocumentId::new(
-                            *id.table(),
+                            id.table(),
                             DeveloperDocumentId::new(table_number, id.internal_id()),
                         ))
                     })

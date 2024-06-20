@@ -19,7 +19,7 @@ async fn test_idv6_js_decode(rt: TestRuntime, id: DeveloperDocumentId) -> anyhow
     must_let!(let ConvexValue::Object(obj) = t.query("idEncoding:decode", assert_obj!("id" => id.encode())).await?);
     must_let!(let Some(ConvexValue::Float64(ref table_number)) = obj.get("tableNumber"));
     must_let!(let Some(ConvexValue::Bytes(ref internal_id)) = obj.get("internalId"));
-    assert_eq!(*table_number, u32::from(*id.table()) as f64);
+    assert_eq!(*table_number, u32::from(id.table()) as f64);
     assert_eq!(&internal_id[..], &id.internal_id()[..]);
     Ok(())
 }

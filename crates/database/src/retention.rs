@@ -564,7 +564,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     log_retention_scanned_document(maybe_doc.is_none(), true);
                     for (index_id, (_, index_fields)) in all_indexes
                         .iter()
-                        .filter(|(_, (index, _))| *index.table() == *id.table())
+                        .filter(|(_, (index, _))| *index.table() == id.table())
                     {
                         let index_key = prev_rev
                             .index_key(index_fields, persistence_version)

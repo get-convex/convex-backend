@@ -216,7 +216,7 @@ impl TableRegistry {
              table mapping"
         );
         anyhow::ensure!(
-            !self.virtual_table_mapping.number_exists(&table_number),
+            !self.virtual_table_mapping.number_exists(table_number),
             "Cannot add a table with table number {table_number} since it already exists in the \
              virtual table mapping"
         );

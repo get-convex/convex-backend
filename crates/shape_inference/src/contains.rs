@@ -34,7 +34,7 @@ impl<C: ShapeConfig> CountedShape<C> {
             },
             (ConvexValue::String(ref s), ShapeEnum::Id(ref table)) => {
                 if let Ok(ref id) = DeveloperDocumentId::decode(s) {
-                    id.table() == table
+                    id.table() == *table
                 } else {
                     false
                 }

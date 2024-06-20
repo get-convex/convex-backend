@@ -270,7 +270,7 @@ impl<RT: Runtime> Transaction<RT> {
         namespace: TableNamespace,
         table_filter: TableFilter,
     ) -> anyhow::Result<TableName> {
-        match self.all_tables_number_to_name(namespace, table_filter)(*id.table()) {
+        match self.all_tables_number_to_name(namespace, table_filter)(id.table()) {
             Ok(table_name) => Ok(table_name),
             Err(_) => anyhow::bail!("Table for ID \"{}\" not found", id.encode()),
         }
@@ -519,7 +519,7 @@ impl<RT: Runtime> Transaction<RT> {
             Ok(id) => Some(id),
         };
         tablet_id.is_some_and(|id| self.table_mapping().is_system_tablet(id))
-            || self.virtual_table_mapping().number_exists(&table_number)
+            || self.virtual_table_mapping().number_exists(table_number)
     }
 
     #[convex_macro::instrument_future]

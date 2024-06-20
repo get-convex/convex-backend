@@ -1709,7 +1709,7 @@ async fn import_storage_table<RT: Runtime>(
         let id = DeveloperDocumentId::decode(&metadata.id)
             .map_err(|e| ImportError::InvalidConvexValue(lineno, e.into()))?;
         anyhow::ensure!(
-            *id.table() == virtual_table_number,
+            id.table() == virtual_table_number,
             ErrorMetadata::bad_request(
                 "InvalidId",
                 format!(
@@ -2263,7 +2263,7 @@ async fn table_number_for_import(
                 return None;
             };
             let id_v6 = DeveloperDocumentId::decode(id).ok()?;
-            Some(*id_v6.table())
+            Some(id_v6.table())
         },
         ImportUnit::NewTable(_) => None,
         ImportUnit::GeneratedSchema(..) => None,

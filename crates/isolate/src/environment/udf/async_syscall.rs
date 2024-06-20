@@ -962,7 +962,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         })?;
                         let name: Result<TableName, anyhow::Error> = tx
                             .all_tables_number_to_name(component.into(), table_filter)(
-                            *id.table()
+                            id.table()
                         );
                         if name.is_ok() {
                             system_table_guard(&name?, is_system)?;

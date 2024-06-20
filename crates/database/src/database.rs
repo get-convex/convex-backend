@@ -1602,11 +1602,11 @@ impl<RT: Runtime> Database<RT> {
                 new_cursor = Some(ts);
             }
             // Skip deltas for system and non-selected tables.
-            let Ok(table_name) = table_mapping.tablet_name(*id.table()) else {
+            let Ok(table_name) = table_mapping.tablet_name(id.table()) else {
                 // Ignore the row if it comes from a deleted table
                 continue;
             };
-            let table_number = table_mapping.tablet_number(*id.table())?;
+            let table_number = table_mapping.tablet_number(id.table())?;
             let id = DeveloperDocumentId::new(table_number, id.internal_id());
             if Self::user_table_filter(&table_filter, &table_name) {
                 deltas.push((ts, id, table_name, maybe_doc));
@@ -1667,7 +1667,7 @@ impl<RT: Runtime> Database<RT> {
                 Self::user_table_filter(&table_filter, name)
                     && resolved_cursor
                         .as_ref()
-                        .map(|c| table_number >= c.developer_id.table())
+                        .map(|c| *table_number >= c.developer_id.table())
                         .unwrap_or(true)
             })
             .map(|(_, _, table_number, _)| table_number)

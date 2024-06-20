@@ -45,7 +45,7 @@ impl From<ResolvedDocumentId> for ResolvedDocumentIdProto {
     fn from(value: ResolvedDocumentId) -> Self {
         let tablet_id_and_number = TabletIdAndTableNumber {
             tablet_id: value.tablet_id,
-            table_number: *value.developer_id.table(),
+            table_number: value.developer_id.table(),
         };
         let internal_id = value.developer_id.internal_id();
         Self {

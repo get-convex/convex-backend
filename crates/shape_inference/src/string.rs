@@ -39,7 +39,7 @@ impl<C: ShapeConfig> StringLiteralShape<C> {
             return ShapeEnum::StringLiteral(literal_shape);
         }
         if let Ok(id) = DeveloperDocumentId::decode(s) {
-            return ShapeEnum::Id(*id.table());
+            return ShapeEnum::Id(id.table());
         }
         if is_valid_field_name(s) {
             return ShapeEnum::FieldName;

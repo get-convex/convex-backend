@@ -18,13 +18,11 @@ use common::{
         IndexDescriptor,
         IndexDiff,
         IndexName,
+        IndexTableIdentifier,
     },
 };
 use runtime::testing::TestRuntime;
-use value::{
-    TableIdentifier,
-    TableNamespace,
-};
+use value::TableNamespace;
 
 use crate::{
     Database,
@@ -147,13 +145,13 @@ pub fn index_descriptors_and_fields(diff: &IndexDiff) -> Vec<Vec<(IndexDescripto
         .collect()
 }
 
-pub fn values<T: TableIdentifier>(
+pub fn values<T: IndexTableIdentifier>(
     docs: Vec<ParsedDocument<IndexMetadata<T>>>,
 ) -> Vec<IndexMetadata<T>> {
     docs.into_iter().map(|doc| doc.into_value()).collect()
 }
 
-pub fn descriptors_and_fields<T: TableIdentifier>(
+pub fn descriptors_and_fields<T: IndexTableIdentifier>(
     metadata: Vec<IndexMetadata<T>>,
 ) -> Vec<(IndexDescriptor, Vec<String>)> {
     metadata
@@ -162,15 +160,17 @@ pub fn descriptors_and_fields<T: TableIdentifier>(
         .collect()
 }
 
-pub fn descriptors<T: TableIdentifier>(metadata: Vec<IndexMetadata<T>>) -> Vec<IndexDescriptor> {
+pub fn descriptors<T: IndexTableIdentifier>(
+    metadata: Vec<IndexMetadata<T>>,
+) -> Vec<IndexDescriptor> {
     metadata.iter().map(|index| descriptor(index)).collect()
 }
 
-fn descriptor<T: TableIdentifier>(metadata: &IndexMetadata<T>) -> IndexDescriptor {
+fn descriptor<T: IndexTableIdentifier>(metadata: &IndexMetadata<T>) -> IndexDescriptor {
     metadata.name.descriptor().clone()
 }
 
-pub fn get_index_fields<T: TableIdentifier>(index_metadata: IndexMetadata<T>) -> Vec<String> {
+pub fn get_index_fields<T: IndexTableIdentifier>(index_metadata: IndexMetadata<T>) -> Vec<String> {
     match index_metadata.config {
         IndexConfig::Database {
             developer_config, ..

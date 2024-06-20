@@ -527,7 +527,7 @@ fn add_revision(
     // subsequent table creations aren't in `snapshot` and must be
     // included.
     let tablet_id = TabletId(revision_pair.id.internal_id());
-    if table_mapping.is_tables_table(*revision_pair.id.table()) {
+    if table_mapping.is_tables_table(revision_pair.id.table()) {
         match (revision_pair.prev_document(), revision_pair.document()) {
             (None, Some(_)) => {
                 // Table creation creates a TableSummary::empty, if none exists.
@@ -543,13 +543,13 @@ fn add_revision(
         }
     }
     let id = &revision_pair.id;
-    let summary = match tables.get_mut(id.table()) {
+    let summary = match tables.get_mut(&id.table()) {
         Some(i) => i,
         None => {
             // In historical instances, some rows were created before their corresponding
             // `_table` row.
-            tables.insert(*id.table(), TableSummary::empty());
-            tables.get_mut(id.table()).unwrap()
+            tables.insert(id.table(), TableSummary::empty());
+            tables.get_mut(&id.table()).unwrap()
         },
     };
     if let Some(old_document) = revision_pair.prev_document() {

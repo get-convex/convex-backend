@@ -1036,7 +1036,7 @@ pub fn table_dependency_sort_key(
     id: InternalDocumentId,
     update: Option<&ResolvedDocument>,
 ) -> (usize, InternalDocumentId) {
-    let table = *id.table();
+    let table = id.table();
     let sort_key = if table == bootstrap_tables.tables_id.tablet_id {
         match update {
             Some(insertion) => {

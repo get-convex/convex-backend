@@ -1,13 +1,13 @@
 use errors::ErrorMetadata;
-use value::{
-    TableIdentifier,
-    TableName,
-};
+use value::TableName;
 
 use crate::{
     paths::FieldPath,
     schemas::IndexSchema,
-    types::IndexDescriptor,
+    types::{
+        IndexDescriptor,
+        IndexTableIdentifier,
+    },
 };
 
 pub fn empty_index(table_name: &TableName, index: &IndexSchema) -> ErrorMetadata {
@@ -91,7 +91,10 @@ pub fn vector_field_not_unique(
         ),
     )
 }
-pub fn name_reserved<T: TableIdentifier>(table_name: &T, name: &IndexDescriptor) -> ErrorMetadata {
+pub fn name_reserved<T: IndexTableIdentifier>(
+    table_name: &T,
+    name: &IndexDescriptor,
+) -> ErrorMetadata {
     ErrorMetadata::bad_request(
         "IndexNameReserved",
         format!(

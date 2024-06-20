@@ -267,7 +267,7 @@ impl IndexesToBootstrap {
             total_size += revision_pair.document().map(|d| d.size()).unwrap_or(0);
             if let Some(vector_indexes_to_update) = self
                 .table_to_vector_indexes
-                .get_mut(revision_pair.id.table())
+                .get_mut(&revision_pair.id.table())
             {
                 for vector_index in vector_indexes_to_update {
                     vector_index.update(&revision_pair)?;
@@ -275,7 +275,7 @@ impl IndexesToBootstrap {
             }
             if let Some(search_indexes_to_update) = self
                 .table_to_search_indexes
-                .get_mut(revision_pair.id.table())
+                .get_mut(&revision_pair.id.table())
             {
                 for search_index in search_indexes_to_update {
                     search_index.update(&revision_pair)?;
@@ -445,11 +445,11 @@ pub fn stream_revision_pairs_for_indexes<'a>(
     let document_stream = persistence
         .load_documents(range, Order::Asc)
         .try_filter(|(_, id, _)| {
-            let is_in_indexed_table = tables_with_indexes.contains(id.table());
+            let is_in_indexed_table = tables_with_indexes.contains(&id.table());
             if !is_in_indexed_table {
                 log_document_skipped();
             }
-            future::ready(tables_with_indexes.contains(id.table()))
+            future::ready(tables_with_indexes.contains(&id.table()))
         });
     stream_revision_pairs(document_stream, persistence)
 }
@@ -594,13 +594,12 @@ mod tests {
     use value::{
         assert_obj,
         ConvexValue,
+        DeveloperDocumentId,
         FieldPath,
-        GenericDocumentId,
         InternalId,
         ResolvedDocumentId,
         TableName,
         TableNamespace,
-        TableNumber,
     };
     use vector::{
         PublicVectorSearchQueryResult,
@@ -660,7 +659,7 @@ mod tests {
 
     fn assert_expected_vector(
         vectors: Vec<PublicVectorSearchQueryResult>,
-        expected: GenericDocumentId<TableNumber>,
+        expected: DeveloperDocumentId,
     ) {
         assert_eq!(
             vectors
@@ -914,7 +913,7 @@ mod tests {
         db: &Database<TestRuntime>,
         index_metadata: &IndexMetadata<TableName>,
         vector: [f32; 2],
-    ) -> anyhow::Result<GenericDocumentId<TableNumber>> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         add_vector_by_table(db, index_metadata.name.table().clone(), vector).await
     }
 
@@ -922,7 +921,7 @@ mod tests {
         db: &Database<TestRuntime>,
         table_name: TableName,
         vector: [f32; 2],
-    ) -> anyhow::Result<GenericDocumentId<TableNumber>> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         let mut tx = db.begin_system().await?;
         let values: ConvexValue = vector
             .into_iter()

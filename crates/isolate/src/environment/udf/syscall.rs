@@ -156,7 +156,7 @@ fn syscall_normalize_id<RT: Runtime, P: SyscallProvider<RT>>(
     let normalized_id = match table_number {
         Some(table_number) => {
             if let Ok(id_v6) = DeveloperDocumentId::decode(&id_string)
-                && *id_v6.table() == table_number
+                && id_v6.table() == table_number
             {
                 Some(id_v6)
             } else if let Ok(internal_id) = InternalId::from_developer_str(&id_string) {

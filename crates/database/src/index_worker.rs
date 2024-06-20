@@ -181,7 +181,7 @@ impl IndexSelector {
     fn filter_id(&self, id: InternalDocumentId) -> bool {
         match self {
             Self::All(_) => true,
-            Self::Index { name, .. } => name.table() == id.table(),
+            Self::Index { name, .. } => *name.table() == id.table(),
         }
     }
 }

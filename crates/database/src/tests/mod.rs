@@ -476,7 +476,7 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
         .insert(
             TabletIdAndTableNumber {
                 tablet_id: document.id().tablet_id,
-                table_number: *document.id().developer_id.table(),
+                table_number: document.id().developer_id.table(),
             },
             &"table".parse()?,
             assert_obj!("_id" => id_v6),
@@ -1412,7 +1412,7 @@ async fn test_overwrite_for_import(rt: TestRuntime) -> anyhow::Result<()> {
         .insert_table_for_import(
             TableNamespace::test_user(),
             &table_name,
-            Some(*doc0_id.developer_id.table()),
+            Some(doc0_id.developer_id.table()),
             &BTreeSet::new(),
         )
         .await?;

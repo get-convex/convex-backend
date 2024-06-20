@@ -4,15 +4,10 @@ use std::{
         Debug,
         Display,
     },
-    io::{
-        self,
-        Write,
-    },
     ops::Deref,
     str::FromStr,
 };
 
-use byteorder::WriteBytesExt;
 use derive_more::{
     Display,
     FromStr,
@@ -28,10 +23,6 @@ use crate::{
     identifier::{
         check_valid_identifier,
         MIN_IDENTIFIER,
-    },
-    sorting::{
-        write_escaped_bytes,
-        TERMINATOR_BYTE,
     },
     GenericDocumentId,
     Namespace,
@@ -208,10 +199,6 @@ impl TableIdentifier for TableNumber {
         TableNumber(1)
     }
 
-    fn write_sorted<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_escaped_bytes(&self.0.to_be_bytes(), writer)
-    }
-
     fn document_id_to_string(&self, internal_id: InternalId) -> String {
         let id_v6 = GenericDocumentId::new(*self, internal_id);
         id_v6.encode()
@@ -235,11 +222,9 @@ pub struct TabletIdAndTableNumber {
 }
 
 pub trait TableIdentifier:
-    Debug + Display + Clone + HeapSize + Size + Ord + Eq + Sync + Send + 'static
+    Debug + Display + Clone + Copy + HeapSize + Size + Ord + Eq + Sync + Send + 'static
 {
     fn min() -> Self;
-
-    fn write_sorted<W: Write>(&self, writer: &mut W) -> io::Result<()>;
 
     fn document_id_to_string(&self, internal_id: InternalId) -> String;
 }
@@ -262,45 +247,8 @@ impl TableIdentifier for TabletId {
         TabletId(InternalId::MIN)
     }
 
-    fn write_sorted<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        write_escaped_bytes(&self.0[..], writer)
-    }
-
     fn document_id_to_string(&self, internal_id: InternalId) -> String {
         format!("{}|{}", *self, internal_id)
-    }
-}
-
-impl TableIdentifier for TableName {
-    fn min() -> Self {
-        TableName::min()
-    }
-
-    fn write_sorted<W: Write>(&self, writer: &mut W) -> io::Result<()> {
-        // Manually write the table name as a byte string terminated with
-        // TERMINATOR_BYTE.
-
-        // This is almost the same as `write_escaped_string` except that we don't
-        // escape TERMINATOR_BYTE.
-        // This is because the InternalId could start with `ESCAPE_BYTE` which would
-        // be ambiguous. This works because table names have a restricted
-        // characterset that doesn't include TERMINATOR_BYTE.
-
-        for &byte in format!("{}", self).as_bytes() {
-            writer.write_u8(byte)?;
-            if byte == TERMINATOR_BYTE {
-                assert_ne!(
-                    byte, TERMINATOR_BYTE,
-                    "Table name {} contains a null byte",
-                    self
-                );
-            }
-        }
-        Ok(())
-    }
-
-    fn document_id_to_string(&self, internal_id: InternalId) -> String {
-        format!("{}|{}", self.clone(), internal_id)
     }
 }
 

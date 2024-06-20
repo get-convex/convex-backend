@@ -410,7 +410,7 @@ impl Persistence for SqlitePersistence {
         let mut count_deleted = 0;
 
         for (ts, internal_id) in documents {
-            let tablet_id: &TabletId = internal_id.table();
+            let tablet_id: TabletId = internal_id.table();
             let id = internal_id.internal_id();
             count_deleted += delete_document_query.execute(params![
                 &tablet_id.0[..],

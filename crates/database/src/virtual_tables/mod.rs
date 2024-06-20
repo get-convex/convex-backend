@@ -43,7 +43,7 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         id: DeveloperDocumentId,
         version: Option<Version>,
     ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
-        let virtual_table_name = self.tx.virtual_table_mapping().name(*id.table())?;
+        let virtual_table_name = self.tx.virtual_table_mapping().name(id.table())?;
         let system_table_name = self
             .tx
             .virtual_system_mapping()
@@ -169,8 +169,8 @@ impl VirtualSystemMapping {
         table_mapping: &TableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        let virtual_doc_id = virtual_id_v6.map_table(virtual_table_mapping.number_to_name())?;
-        let system_table_name = self.virtual_to_system_table(virtual_doc_id.table())?;
+        let virtual_table_name = virtual_table_mapping.number_to_name()(virtual_id_v6.table())?;
+        let system_table_name = self.virtual_to_system_table(&virtual_table_name)?;
         let system_table_id = table_mapping
             .namespace(TableNamespace::by_component_TODO())
             .id(system_table_name)?;

@@ -704,7 +704,7 @@ impl DeveloperDocument {
     }
 
     pub fn table(&self) -> TableNumber {
-        *self.id.table()
+        self.id.table()
     }
 }
 
@@ -978,7 +978,7 @@ mod tests {
             ),
         )?;
         let mapped = doc.to_developer();
-        assert_eq!(mapped.id().table(), &table_number);
+        assert_eq!(mapped.id().table(), table_number);
         Ok(())
     }
 

@@ -85,8 +85,8 @@ impl<T: TableIdentifier> GenericDocumentId<T> {
     }
 
     /// The table that the reference points into.
-    pub fn table(&self) -> &T {
-        &self.table
+    pub fn table(&self) -> T {
+        self.table
     }
 
     /// The ID of the document the reference points at.
@@ -140,27 +140,13 @@ impl<T: TableIdentifier> From<GenericDocumentId<T>> for JsonValue {
     }
 }
 
-impl<T: TableIdentifier + FromStr<Err = anyhow::Error>> TryFrom<JsonValue>
-    for GenericDocumentId<T>
-{
-    type Error = anyhow::Error;
-
-    fn try_from(v: JsonValue) -> anyhow::Result<GenericDocumentId<T>> {
-        if let JsonValue::String(s) = v {
-            s.parse()
-        } else {
-            Err(anyhow::anyhow!("DocumentId must be a string JSON value."))
-        }
-    }
-}
-
 impl<T: TableIdentifier> Display for GenericDocumentId<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", String::from(self.clone()))
+        write!(f, "{}", String::from(*self))
     }
 }
 
-impl<T: TableIdentifier + FromStr<Err = anyhow::Error>> FromStr for GenericDocumentId<T> {
+impl FromStr for InternalDocumentId {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -184,13 +170,6 @@ impl<T: TableIdentifier + FromStr<Err = anyhow::Error>> FromStr for GenericDocum
 impl<T: TableIdentifier> HeapSize for GenericDocumentId<T> {
     fn heap_size(&self) -> usize {
         self.table.heap_size()
-    }
-}
-
-impl DeveloperDocumentId {
-    /// A `to_string` method for user-facing error messages.
-    pub fn to_string_pretty(&self) -> String {
-        format!("Id(\"{}\", \"{}\")", self.table, self.internal_id)
     }
 }
 

@@ -86,7 +86,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
                 format!("invalid _id '{s}'"),
             ))?;
             anyhow::ensure!(
-                *id_v6.table() == table_id.table_number,
+                id_v6.table() == table_id.table_number,
                 ErrorMetadata::bad_request(
                     "ImportConflict",
                     format!(

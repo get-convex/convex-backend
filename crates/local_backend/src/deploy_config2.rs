@@ -624,9 +624,9 @@ async fn wait_for_schema_handler(
             let Some(schema_id) = schema_id else {
                 continue;
             };
-            let schema_table_number = tx.table_mapping().tablet_number(*schema_id.table())?;
+            let schema_table_number = tx.table_mapping().tablet_number(schema_id.table())?;
             let schema_id = ResolvedDocumentId::new(
-                *schema_id.table(),
+                schema_id.table(),
                 DeveloperDocumentId::new(schema_table_number, schema_id.internal_id()),
             );
             let document = tx

@@ -638,7 +638,7 @@ pub async fn test_load_documents<P: Persistence>(
         .await?;
     let docs: Vec<_> = docs
         .into_iter()
-        .filter(|(_, id, _)| !table_mapping.is_system_tablet(*id.table()))
+        .filter(|(_, id, _)| !table_mapping.is_system_tablet(id.table()))
         .collect();
     assert_eq!(docs, expected);
     Ok(())
@@ -677,7 +677,7 @@ pub async fn write_and_load_sorting<P: Persistence>(p: Arc<P>) -> anyhow::Result
     let docs: Vec<_> = p.reader().load_all_documents().try_collect().await?;
     let docs: Vec<_> = docs
         .into_iter()
-        .filter(|(_, id, _)| !id_generator.is_system_tablet(*id.table()))
+        .filter(|(_, id, _)| !id_generator.is_system_tablet(id.table()))
         .collect();
     assert_eq!(
         docs,
@@ -1252,7 +1252,7 @@ where
     let results: Vec<_> = stream.try_collect().await?;
     let results: Vec<_> = results
         .into_iter()
-        .filter(|(_, id, _)| !id_generator.is_system_tablet(*id.table()))
+        .filter(|(_, id, _)| !id_generator.is_system_tablet(id.table()))
         .collect();
     assert_eq!(
         results,

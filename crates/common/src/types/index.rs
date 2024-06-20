@@ -1,5 +1,9 @@
 use std::{
-    fmt,
+    fmt::{
+        self,
+        Debug,
+        Display,
+    },
     str::FromStr,
     sync::LazyLock,
 };
@@ -15,7 +19,6 @@ use value::{
     FieldName,
     InternalId,
     ResolvedDocumentId,
-    TableIdentifier,
     TableMapping,
     TableName,
     TabletId,
@@ -102,10 +105,18 @@ impl proptest::arbitrary::Arbitrary for IndexDescriptor {
 
 /// Unique name for an index.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GenericIndexName<T: TableIdentifier> {
+pub struct GenericIndexName<T: IndexTableIdentifier> {
     table: T,
     descriptor: IndexDescriptor,
 }
+
+pub trait IndexTableIdentifier:
+    Debug + Display + Clone + HeapSize + Ord + Eq + Sync + Send + 'static
+{
+}
+
+impl IndexTableIdentifier for TableName {}
+impl IndexTableIdentifier for TabletId {}
 
 pub type IndexName = GenericIndexName<TableName>;
 
@@ -160,7 +171,7 @@ impl HeapSize for TabletIndexName {
     }
 }
 
-impl<T: TableIdentifier + FromStr<Err = anyhow::Error>> FromStr for GenericIndexName<T> {
+impl<T: IndexTableIdentifier + FromStr<Err = anyhow::Error>> FromStr for GenericIndexName<T> {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -194,13 +205,13 @@ pub struct IndexDiff {
     pub dropped: Vec<ParsedDocument<IndexMetadata<TableName>>>,
 }
 
-impl<T: TableIdentifier> fmt::Display for GenericIndexName<T> {
+impl<T: IndexTableIdentifier> fmt::Display for GenericIndexName<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}", self.table, self.descriptor)
     }
 }
 
-impl<T: TableIdentifier> fmt::Debug for GenericIndexName<T> {
+impl<T: IndexTableIdentifier> fmt::Debug for GenericIndexName<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}", self.table, self.descriptor)
     }
@@ -212,7 +223,7 @@ pub static INDEX_BY_ID_DESCRIPTOR: LazyLock<IndexDescriptor> =
 pub static INDEX_BY_CREATION_TIME_DESCRIPTOR: LazyLock<IndexDescriptor> =
     LazyLock::new(|| "by_creation_time".parse().unwrap());
 
-impl<T: TableIdentifier> GenericIndexName<T> {
+impl<T: IndexTableIdentifier> GenericIndexName<T> {
     /// Create a new index name for the table and given descriptor,
     /// e.g., "users.by_email".
     pub fn new(table: T, descriptor: IndexDescriptor) -> anyhow::Result<Self> {
@@ -283,7 +294,7 @@ impl<T: TableIdentifier> GenericIndexName<T> {
         self.is_by_id() || self.is_creation_time()
     }
 
-    pub fn map_table<U: TableIdentifier>(
+    pub fn map_table<U: IndexTableIdentifier>(
         self,
         f: &impl Fn(T) -> anyhow::Result<U>,
     ) -> anyhow::Result<GenericIndexName<U>> {
@@ -315,7 +326,7 @@ impl IndexName {
 }
 
 #[cfg(any(test, feature = "testing"))]
-impl<T: TableIdentifier + proptest::arbitrary::Arbitrary> proptest::arbitrary::Arbitrary
+impl<T: IndexTableIdentifier + proptest::arbitrary::Arbitrary> proptest::arbitrary::Arbitrary
     for GenericIndexName<T>
 {
     type Parameters = ();

@@ -46,7 +46,7 @@ impl<C: ShapeConfig, S: ShapeCounter> ShapeEnum<C, S> {
             // A string literal type is a subtype of an `id<t>` type if it's a valid ID in `t`.
             (ShapeEnum::StringLiteral(ref s), ShapeEnum::Id(table_number)) => {
                 match DeveloperDocumentId::decode(s) {
-                    Ok(id) => id.table() == table_number,
+                    Ok(id) => id.table() == *table_number,
                     Err(_) => false,
                 }
             },
@@ -240,7 +240,7 @@ impl<C: ShapeConfig> CountedShape<C> {
                 let Ok(id) = DeveloperDocumentId::decode(s) else {
                     return None;
                 };
-                if id.table() != table_number {
+                if id.table() != *table_number {
                     return None;
                 }
                 ShapeEnum::Id(*table_number)

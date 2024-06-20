@@ -310,7 +310,7 @@ impl<RT: Runtime> TableIterator<RT> {
         pin_mut!(documents);
         while let Some(chunk) = documents.try_next().await? {
             for (_, id, _) in chunk {
-                if *id.table() == tablet_id {
+                if id.table() == tablet_id {
                     yield id;
                 }
             }

@@ -135,7 +135,7 @@ fn id_candidates<C: ShapeConfig>(
                 if let ShapeEnum::StringLiteral(ref s) = &*t.variant {
                     if let Ok(id) = DeveloperDocumentId::decode(s) {
                         candidates
-                            .entry(*id.table())
+                            .entry(id.table())
                             .or_insert_with(Vec::new)
                             .push(i);
                     }

@@ -9,7 +9,6 @@ use value::{
     codegen_convex_serialization,
     ConvexValue,
     FieldPath,
-    TableIdentifier,
     TableName,
     TabletId,
 };
@@ -43,6 +42,7 @@ use crate::{
     types::{
         GenericIndexName,
         IndexDescriptor,
+        IndexTableIdentifier,
     },
 };
 
@@ -52,7 +52,7 @@ pub type DeveloperIndexMetadata = IndexMetadata<TableName>;
 /// In-memory representation of an index's metadata.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct IndexMetadata<T: TableIdentifier> {
+pub struct IndexMetadata<T: IndexTableIdentifier> {
     /// Unique name for the index.
     pub name: GenericIndexName<T>,
 
@@ -60,7 +60,7 @@ pub struct IndexMetadata<T: TableIdentifier> {
     pub config: IndexConfig,
 }
 
-impl<T: TableIdentifier> IndexMetadata<T> {
+impl<T: IndexTableIdentifier> IndexMetadata<T> {
     pub fn new_backfilling(
         index_created_lower_bound: Timestamp,
         name: GenericIndexName<T>,
@@ -152,7 +152,7 @@ impl<T: TableIdentifier> IndexMetadata<T> {
         matches!(self.config, IndexConfig::Vector { .. })
     }
 
-    pub fn map_table<U: TableIdentifier>(
+    pub fn map_table<U: IndexTableIdentifier>(
         self,
         f: &impl Fn(T) -> anyhow::Result<U>,
     ) -> anyhow::Result<IndexMetadata<U>> {

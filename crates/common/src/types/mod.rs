@@ -65,6 +65,7 @@ pub use index::{
     IndexDiff,
     IndexId,
     IndexName,
+    IndexTableIdentifier,
     StableIndexName,
     TabletIndexName,
     INDEX_BY_CREATION_TIME_DESCRIPTOR,

@@ -367,7 +367,7 @@ impl<C: ShapeConfig> CountedShape<C> {
             },
             (ConvexValue::String(ref s), ShapeEnum::Id(table_number)) => {
                 if let Ok(id) = DeveloperDocumentId::decode(s)
-                    && id.table() == table_number
+                    && id.table() == *table_number
                 {
                     ShapeEnum::Id(*table_number)
                 } else {

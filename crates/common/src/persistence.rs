@@ -333,7 +333,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
         self.load_documents(range, order, page_size, retention_validator)
-            .try_filter(move |(_, doc_id, _)| future::ready(*doc_id.table() == tablet_id))
+            .try_filter(move |(_, doc_id, _)| future::ready(doc_id.table() == tablet_id))
             .boxed()
     }
 

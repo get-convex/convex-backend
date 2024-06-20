@@ -171,7 +171,7 @@ impl Validator {
         match (self, value) {
             (Validator::Id(validator_table), ConvexValue::String(s)) => {
                 if let Ok(id) = DeveloperDocumentId::decode(s)
-                    && let Ok(table_name) = all_tables_number_to_name(*id.table())
+                    && let Ok(table_name) = all_tables_number_to_name(id.table())
                 {
                     if &table_name != validator_table {
                         if table_name.is_system() {
