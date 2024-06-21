@@ -1,6 +1,10 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    ops::Deref,
+};
 
 use common::{
+    document::CREATION_TIME_FIELD_PATH,
     schemas::{
         validator::{
             FieldValidator,
@@ -66,7 +70,7 @@ Please edit your `schema.ts` file to add the table. You can use the following ta
         "The table `{0}` from your data source is missing in the schema of your Convex \
          destination.
 
-Please edit your `schema.ts` file to add the table. You can use the following table definition:
+We are not able to suggest a schema because the following error happened:
 {1}"
     )]
     MissingTableWithoutSuggestion(TableName, Box<DestinationError>),
@@ -243,9 +247,9 @@ impl Display for SuggestedTable {
             .0
             .indexes
             .values()
-            .map(|index| format!("    {}", SuggestedIndex(index.clone())))
+            .map(|index| format!("\n    {}", SuggestedIndex(index.clone())))
             .collect();
-        let indexes = indexes.join("\n");
+        let indexes = indexes.join("");
 
         write!(
             f,
@@ -258,8 +262,7 @@ export default defineSchema({{
 
   {table_name}: defineTable({{
 {fields}
-  }})
-{indexes}
+  }}){indexes},
 }});
 ```",
         )
@@ -298,6 +301,7 @@ impl Display for SuggestedIndex {
             .0
             .fields
             .iter()
+            .filter(|f| *f != CREATION_TIME_FIELD_PATH.deref())
             .map(|field| field.to_string())
             .collect();
         write!(
@@ -332,9 +336,13 @@ mod tests {
     fn it_formats_suggested_indexes() {
         let schema = IndexSchema {
             index_descriptor: "by_field_and_subfield".parse().unwrap(),
-            fields: vec!["field".parse().unwrap(), "field.subfield".parse().unwrap()]
-                .try_into()
-                .unwrap(),
+            fields: vec![
+                "field".parse().unwrap(),
+                "field.subfield".parse().unwrap(),
+                "_creationTime".parse().unwrap(),
+            ]
+            .try_into()
+            .unwrap(),
         };
 
         assert_eq!(
@@ -383,7 +391,7 @@ export default defineSchema({
     name: v.string(),
   })
     .index(\"by_email\", [\"email\"])
-    .index(\"by_name\", [\"name\"])
+    .index(\"by_name\", [\"name\"]),
 });
 ```"
             .to_string(),
