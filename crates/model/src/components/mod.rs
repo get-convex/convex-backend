@@ -16,6 +16,7 @@ use common::{
         CanonicalizedComponentModulePath,
         ComponentFunctionPath,
         ComponentId,
+        ComponentPath,
         Reference,
         Resource,
     },
@@ -27,7 +28,10 @@ use database::{
 };
 use errors::ErrorMetadata;
 use sync_types::CanonicalizedUdfPath;
-use value::identifier::Identifier;
+use value::{
+    identifier::Identifier,
+    TableNamespace,
+};
 
 use crate::modules::ModuleModel;
 
@@ -282,6 +286,19 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         }
 
         Ok(result)
+    }
+
+    pub async fn get_component_path_for_namespace(
+        &mut self,
+        namespace: TableNamespace,
+    ) -> anyhow::Result<ComponentPath> {
+        let component_id = match namespace {
+            TableNamespace::Global => ComponentId::Root,
+            TableNamespace::ByComponent(id) => ComponentId::Child(id),
+        };
+        BootstrapComponentsModel::new(self.tx)
+            .get_component_path(component_id)
+            .await
     }
 }
 

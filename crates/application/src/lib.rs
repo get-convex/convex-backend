@@ -2402,7 +2402,9 @@ impl<RT: Runtime> Application<RT> {
         path: Option<CanonicalizedComponentFunctionPath>,
         max_jobs: usize,
     ) -> anyhow::Result<(usize, Vec<DeploymentAuditLogEvent>)> {
-        let count = SchedulerModel::new(tx).cancel_all(path, max_jobs).await?;
+        let count = SchedulerModel::new(tx, TableNamespace::by_component_TODO())
+            .cancel_all(path, max_jobs)
+            .await?;
         Ok((count, vec![]))
     }
 

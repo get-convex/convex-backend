@@ -10,10 +10,7 @@ use std::{
 
 use common::{
     backoff::Backoff,
-    components::{
-        CanonicalizedComponentFunctionPath,
-        ComponentPath,
-    },
+    components::CanonicalizedComponentFunctionPath,
     document::ParsedDocument,
     errors::{
         report_error,
@@ -61,7 +58,9 @@ use futures::{
     select_biased,
     Future,
     FutureExt,
+    TryStreamExt,
 };
+use futures_async_stream::try_stream;
 use keybroker::Identity;
 use minitrace::future::FutureExt as _;
 use model::{
@@ -69,6 +68,7 @@ use model::{
         types::BackendState,
         BackendStateModel,
     },
+    components::ComponentsModel,
     modules::ModuleModel,
     scheduled_jobs::{
         types::{
@@ -80,6 +80,7 @@ use model::{
         NEXT_TS_FIELD,
         SCHEDULED_JOBS_INDEX,
         SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS,
+        SCHEDULED_JOBS_TABLE,
     },
 };
 use parking_lot::Mutex;
@@ -321,18 +322,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         job_finished_tx: &mpsc::Sender<ResolvedDocumentId>,
     ) -> anyhow::Result<Option<Timestamp>> {
         let now = self.rt.generate_timestamp()?;
-        let index_query = Query::index_range(IndexRange {
-            index_name: SCHEDULED_JOBS_INDEX.clone(),
-            range: vec![IndexRangeExpression::Gt(
-                NEXT_TS_FIELD.clone(),
-                value::ConvexValue::Null,
-            )],
-            order: Order::Asc,
-        });
-        let mut query_stream =
-            ResolvedQuery::new(tx, TableNamespace::by_component_TODO(), index_query)?;
-        while let Some(doc) = query_stream.next(tx, None).await? {
-            let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
+        let mut job_stream = self.stream_jobs_to_run(tx);
+        while let Some(job) = job_stream.try_next().await? {
             let (job_id, job) = job.clone().into_id_and_value();
             if running_job_ids.contains(&job_id) {
                 continue;
@@ -372,6 +363,49 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             // time.
         }
         Ok(None)
+    }
+
+    #[try_stream(boxed, ok = ParsedDocument<ScheduledJob>, error = anyhow::Error)]
+    async fn stream_jobs_to_run<'a>(&'a self, tx: &'a mut Transaction<RT>) {
+        let namespaces: Vec<_> = tx
+            .table_mapping()
+            .iter()
+            .filter(|(_, _, _, name)| **name == *SCHEDULED_JOBS_TABLE)
+            .map(|(_, namespace, ..)| namespace)
+            .collect();
+        let index_query = Query::index_range(IndexRange {
+            index_name: SCHEDULED_JOBS_INDEX.clone(),
+            range: vec![IndexRangeExpression::Gt(
+                NEXT_TS_FIELD.clone(),
+                value::ConvexValue::Null,
+            )],
+            order: Order::Asc,
+        });
+        // Key is (next_ts, namespace), where next_ts is for sorting and namespace
+        // is for deduping.
+        // Value is (job, query) where job is the job to run and query will get
+        // the next job to run in that namespace.
+        let mut queries = BTreeMap::new();
+        for namespace in namespaces {
+            let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
+            if let Some(doc) = query.next(tx, None).await? {
+                let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
+                let next_ts = job.next_ts.ok_or_else(|| {
+                    anyhow::anyhow!("Could not get next_ts to run scheduled job {}", job.id())
+                })?;
+                queries.insert((next_ts, namespace), (job, query));
+            }
+        }
+        while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
+            yield min_job;
+            if let Some(doc) = query.next(tx, None).await? {
+                let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
+                let next_ts = job.next_ts.ok_or_else(|| {
+                    anyhow::anyhow!("Could not get next_ts to run scheduled job {}", job.id())
+                })?;
+                queries.insert((next_ts, namespace), (job, query));
+            }
+        }
     }
 }
 
@@ -424,6 +458,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
         tracing::info!("Executing {:?}!", job.udf_path);
         let identity = tx.inert_identity();
+        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+        let component_path = ComponentsModel::new(&mut tx)
+            .get_component_path_for_namespace(namespace)
+            .await?;
 
         // Since we don't specify the function type when we schedule, we have to
         // use the analyzed result.
@@ -431,7 +469,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             job_id: job_id.into(),
         };
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: component_path,
             udf_path: job.udf_path.clone(),
         };
         let udf_type = match ModuleModel::new(&mut tx)
@@ -440,7 +478,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         {
             Ok(analyzed_function) => analyzed_function.udf_type,
             Err(error) => {
-                SchedulerModel::new(&mut tx)
+                SchedulerModel::new(&mut tx, namespace)
                     .complete(
                         job_id,
                         ScheduledJobState::Failed(error.user_facing_message()),
@@ -487,7 +525,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     UdfType::Mutation,
                     UdfType::Action,
                 );
-                SchedulerModel::new(&mut tx)
+                SchedulerModel::new(&mut tx, namespace)
                     .complete(job_id, ScheduledJobState::Failed(message.clone()))
                     .await?;
                 self.database
@@ -545,7 +583,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         &self,
         request_id: RequestId,
         caller: FunctionCaller,
-        tx: Transaction<RT>,
+        mut tx: Transaction<RT>,
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
         usage_tracker: FunctionUsageTracker,
@@ -553,8 +591,12 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let start = self.rt.monotonic_now();
         let context = ExecutionContext::new(request_id, &caller);
         let identity = tx.inert_identity();
+        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+        let component_path = ComponentsModel::new(&mut tx)
+            .get_component_path_for_namespace(namespace)
+            .await?;
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: component_path,
             udf_path: job.udf_path.clone(),
         };
         let result = self
@@ -587,7 +629,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let execution_time = start.elapsed();
 
         if outcome.result.is_ok() {
-            SchedulerModel::new(&mut tx)
+            SchedulerModel::new(&mut tx, namespace)
                 .complete(job_id, ScheduledJobState::Success)
                 .await?;
             if let Err(err) = self
@@ -614,7 +656,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // Continue without updating since the job state has changed
                 return Ok(());
             }
-            SchedulerModel::new(&mut tx)
+            SchedulerModel::new(&mut tx, namespace)
                 .complete(
                     job_id,
                     ScheduledJobState::Failed(outcome.result.clone().unwrap_err().to_string()),
@@ -648,12 +690,16 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
     ) -> anyhow::Result<()> {
         let identity = tx.identity().clone();
         let mut tx = self.database.begin(identity.clone()).await?;
+        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+        let component_path = ComponentsModel::new(&mut tx)
+            .get_component_path_for_namespace(namespace)
+            .await?;
         match job.state {
             ScheduledJobState::Pending => {
                 // Set state to in progress
                 let mut updated_job = job.clone();
                 updated_job.state = ScheduledJobState::InProgress;
-                SchedulerModel::new(&mut tx)
+                SchedulerModel::new(&mut tx, namespace)
                     .replace(job_id, updated_job.clone())
                     .await?;
                 self.database
@@ -663,7 +709,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // Execute the action
                 let context = ExecutionContext::new(request_id, &caller);
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
+                    component: component_path,
                     udf_path: job.udf_path.clone(),
                 };
                 let completion = self
@@ -703,7 +749,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // before updating the state. Since we execute actions at most once,
                 // complete this job and log the error.
                 let message = "Transient error while executing action".to_string();
-                SchedulerModel::new(&mut tx)
+                SchedulerModel::new(&mut tx, namespace)
                     .complete(job_id, ScheduledJobState::Failed(message.clone()))
                     .await?;
                 self.database
@@ -715,7 +761,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // we can log correctly here.
                 let context = ExecutionContext::new(request_id, &caller);
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
+                    component: component_path,
                     udf_path: job.udf_path.clone(),
                 };
                 self.function_log.log_action_system_error(
@@ -776,9 +822,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             // Continue without updating since the job state has changed
             return Ok(());
         }
+        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
 
         // Remove from the scheduled jobs table
-        SchedulerModel::new(&mut tx)
+        SchedulerModel::new(&mut tx, namespace)
             .complete(job_id, job_state)
             .await?;
         self.database
@@ -814,6 +861,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
     async fn run(&self, backoff: &mut Backoff) -> anyhow::Result<()> {
         loop {
             let mut tx = self.database.begin(Identity::system()).await?;
+            let namespace = TableNamespace::by_component_TODO();
             let now = self.rt.generate_timestamp()?;
             let index_query = Query::index_range(IndexRange {
                 index_name: SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
@@ -824,8 +872,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                 order: Order::Asc,
             })
             .limit(*SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE);
-            let mut query_stream =
-                ResolvedQuery::new(&mut tx, TableNamespace::by_component_TODO(), index_query)?;
+            let mut query_stream = ResolvedQuery::new(&mut tx, namespace, index_query)?;
 
             let mut next_job_wait = None;
             let mut jobs_to_delete = vec![];
@@ -855,7 +902,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                     "Garbage collecting {} finished scheduled jobs",
                     jobs_to_delete.len()
                 );
-                let mut model = SchedulerModel::new(&mut tx);
+                let mut model = SchedulerModel::new(&mut tx, namespace);
                 for job_id in jobs_to_delete {
                     model.delete(job_id).await?;
                 }

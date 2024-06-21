@@ -7,10 +7,7 @@ use std::{
 };
 
 use common::{
-    components::{
-        CanonicalizedComponentFunctionPath,
-        ComponentFunctionPath,
-    },
+    components::CanonicalizedComponentFunctionPath,
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -45,7 +42,10 @@ use database::{
 };
 use errors::ErrorMetadata;
 use maplit::btreemap;
-use sync_types::Timestamp;
+use sync_types::{
+    Timestamp,
+    UdfPath,
+};
 use value::{
     id_v6::DeveloperDocumentId,
     ConvexArray,
@@ -163,11 +163,12 @@ impl SystemTable for ScheduledJobsTable {
 // Maintains state for scheduling asynchronous functions (scheduled jobs).
 pub struct SchedulerModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
+    namespace: TableNamespace,
 }
 
 impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
-        Self { tx }
+    pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
+        Self { tx, namespace }
     }
 
     fn check_scheduling_limits(&mut self, args: &ConvexArray) -> anyhow::Result<()> {
@@ -201,12 +202,11 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
     pub async fn schedule(
         &mut self,
-        path: ComponentFunctionPath,
+        udf_path: UdfPath,
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        let udf_path = path.into_root_udf_path()?;
         if udf_path.is_system()
             && !(self.tx.identity().is_admin() || self.tx.identity().is_system())
         {
@@ -230,11 +230,8 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         };
         let job = if let Some(parent_scheduled_job) = context.parent_scheduled_job {
             let table_mapping = self.tx.table_mapping();
-            let parent_scheduled_job = parent_scheduled_job.to_resolved(
-                &table_mapping
-                    .namespace(TableNamespace::by_component_TODO())
-                    .number_to_tablet(),
-            )?;
+            let parent_scheduled_job = parent_scheduled_job
+                .to_resolved(&table_mapping.namespace(self.namespace).number_to_tablet())?;
             if let Some(parent_scheduled_job_state) =
                 self.check_status(parent_scheduled_job).await?
             {
@@ -261,7 +258,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         } else {
             scheduled_job
         };
-        let id = SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
+        let id = SystemMetadataModel::new(self.tx, self.namespace)
             .insert_metadata(&SCHEDULED_JOBS_TABLE, job.try_into()?)
             .await?;
 
@@ -276,9 +273,9 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::by_component_TODO())
+            .namespace(self.namespace)
             .tablet_matches_name(id.tablet_id, &SCHEDULED_JOBS_TABLE));
-        SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
+        SystemMetadataModel::new(self.tx, self.namespace)
             .replace(id, job.try_into()?)
             .await?;
         Ok(())
@@ -322,7 +319,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         // job has already been processed
         job.next_ts = None;
         job.completed_ts = Some(*self.tx.begin_timestamp());
-        SystemMetadataModel::new(self.tx, TableNamespace::by_component_TODO())
+        SystemMetadataModel::new(self.tx, self.namespace)
             .replace(id, job.try_into()?)
             .await?;
 
@@ -351,7 +348,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::by_component_TODO())
+            .namespace(self.namespace)
             .tablet_matches_name(id.tablet_id, &SCHEDULED_JOBS_TABLE));
         self.tx.delete_inner(id).await?;
         Ok(())
@@ -392,8 +389,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                 })
             },
         };
-        let mut query_stream =
-            ResolvedQuery::new(self.tx, TableNamespace::by_component_TODO(), index_query)?;
+        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, index_query)?;
         let mut count = 0;
         while count < limit
             && let Some(doc) = query_stream.next(self.tx, None).await?
@@ -406,11 +402,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
     pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<ScheduledJob>>> {
         let scheduled_query = Query::full_table_scan(SCHEDULED_JOBS_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(
-            self.tx,
-            TableNamespace::by_component_TODO(),
-            scheduled_query,
-        )?;
+        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, scheduled_query)?;
         let mut scheduled_jobs = Vec::new();
         while let Some(job) = query_stream.next(self.tx, None).await? {
             let job: ParsedDocument<ScheduledJob> = job.try_into()?;
@@ -440,22 +432,23 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 /// of the underlying system table.
 pub struct VirtualSchedulerModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
+    namespace: TableNamespace,
 }
 
 impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
-        Self { tx }
+    pub fn new(tx: &'a mut Transaction<RT>, namespace: TableNamespace) -> Self {
+        Self { tx, namespace }
     }
 
     pub async fn schedule(
         &mut self,
-        path: ComponentFunctionPath,
+        udf_path: UdfPath,
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        let system_id = SchedulerModel::new(self.tx)
-            .schedule(path, args, ts, context)
+        let system_id = SchedulerModel::new(self.tx, self.namespace)
+            .schedule(udf_path, args, ts, context)
             .await?;
         let table_mapping = self.tx.table_mapping().clone();
         let virtual_table_mapping = self.tx.virtual_table_mapping().clone();
@@ -478,6 +471,8 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
                 &table_mapping,
                 &self.tx.virtual_table_mapping().clone(),
             )?;
-        SchedulerModel::new(self.tx).cancel(system_id).await
+        SchedulerModel::new(self.tx, self.namespace)
+            .cancel(system_id)
+            .await
     }
 }

@@ -18,6 +18,7 @@ use common::{
     RequestId,
 };
 use database::{
+    BootstrapComponentsModel,
     TableModel,
     Transaction,
 };
@@ -36,7 +37,10 @@ use model::{
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
 use sync_types::UdfPath;
-use value::ResolvedDocumentId;
+use value::{
+    ResolvedDocumentId,
+    TableNamespace,
+};
 
 use crate::{
     scheduled_jobs::SCHEDULED_JOB_EXECUTED,
@@ -65,11 +69,14 @@ async fn create_scheduled_job<'a>(
         "key".to_string(),
         serde_json::Value::String("value".to_string()),
     );
-    let mut model = SchedulerModel::new(tx);
     let path = function_path();
+    let (_, component) = BootstrapComponentsModel::new(tx)
+        .component_path_to_ids(path.component.clone())
+        .await?;
+    let mut model = SchedulerModel::new(tx, component.into());
     let job_id = model
         .schedule(
-            path.clone(),
+            path.udf_path.clone(),
             parse_udf_args(&path, vec![JsonValue::Object(map)])?,
             rt.unix_timestamp(),
             ExecutionContext::new_for_test(),
@@ -108,7 +115,7 @@ async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
 
     wait_for_scheduled_job_execution(pause_controller).await;
     tx = application.begin(Identity::system()).await?;
-    let mut model = SchedulerModel::new(&mut tx);
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Success);
     assert!(
@@ -190,7 +197,7 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
 
     wait_for_scheduled_job_execution(pause_controller).await;
     tx = application.begin(Identity::system()).await?;
-    let mut model = SchedulerModel::new(&mut tx);
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Success);
     assert!(
@@ -202,7 +209,9 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
     // Wait for garbage collector to clean up the job
     rt.wait(Duration::from_secs(60)).await;
     tx = application.begin(Identity::system()).await?;
-    let state = SchedulerModel::new(&mut tx).check_status(job_id).await?;
+    let state = SchedulerModel::new(&mut tx, TableNamespace::test_user())
+        .check_status(job_id)
+        .await?;
     assert!(state.is_none());
 
     Ok(())
@@ -246,7 +255,7 @@ async fn test_scheduled_jobs_helper(
     application.commit_test(tx).await?;
 
     tx = application.begin(Identity::system()).await?;
-    let mut model = SchedulerModel::new(&mut tx);
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Pending);
     assert!(
@@ -261,7 +270,7 @@ async fn test_scheduled_jobs_helper(
     application.commit_test(tx).await?;
     wait_for_scheduled_job_execution(pause_controller).await;
     tx = application.begin(Identity::system()).await?;
-    let mut model = SchedulerModel::new(&mut tx);
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Success);
     assert!(
@@ -320,7 +329,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
         .await??;
 
     let mut tx = application.begin(Identity::system()).await?;
-    let mut model = SchedulerModel::new(&mut tx);
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let list = model.list().await?;
     assert_eq!(list.len(), 3);
     assert!(list

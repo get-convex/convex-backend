@@ -10,7 +10,6 @@ use common::{
     components::{
         ComponentFunctionPath,
         ComponentId,
-        ComponentPath,
         Reference,
         Resource,
     },
@@ -42,6 +41,7 @@ use database::{
         TableFilter,
     },
     soft_data_limit,
+    BootstrapComponentsModel,
     DeveloperQuery,
     PatchValue,
     Transaction,
@@ -760,8 +760,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let ScheduleArgs { name, ts, args }: ScheduleArgs =
             with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
         let udf_path = with_argument_error("scheduler", || name.parse().context(ArgName("name")))?;
+
+        // TODO(lee) allow scheduling functions in other components.
+        let component_id = provider.component()?;
+        let component_path = BootstrapComponentsModel::new(provider.tx()?)
+            .get_component_path(component_id)
+            .await?;
         let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: component_path,
             udf_path,
         };
 
@@ -772,8 +778,11 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
         let context = provider.context().clone();
         let tx = provider.tx()?;
-        let virtual_id = VirtualSchedulerModel::new(tx)
-            .schedule(path, udf_args, scheduled_ts, context)
+        let (_, component_id) = BootstrapComponentsModel::new(tx)
+            .component_path_to_ids(path.component)
+            .await?;
+        let virtual_id = VirtualSchedulerModel::new(tx, component_id.into())
+            .schedule(path.udf_path, udf_args, scheduled_ts, context)
             .await?;
 
         Ok(JsonValue::from(virtual_id))
@@ -786,6 +795,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         struct CancelJobArgs {
             id: String,
         }
+        let component = provider.component()?;
         let tx = provider.tx()?;
 
         let virtual_id_v6 = with_argument_error("db.cancel_job", || {
@@ -794,7 +804,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
             Ok(id)
         })?;
 
-        VirtualSchedulerModel::new(tx).cancel(virtual_id_v6).await?;
+        VirtualSchedulerModel::new(tx, component.into())
+            .cancel(virtual_id_v6)
+            .await?;
 
         Ok(JsonValue::Null)
     }

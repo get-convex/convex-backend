@@ -105,9 +105,14 @@ pub async fn validate_schedule_args<RT: Runtime>(
         .await?
         .with_context(|| {
             let p = String::from(path.udf_path.module().clone());
+            let component = if path.component.is_root() {
+                "".to_string()
+            } else {
+                format!("{} ", String::from(path.clone().component))
+            };
             ErrorMetadata::bad_request(
                 "InvalidScheduledFunction",
-                format!("Attempted to schedule function at nonexistent path: {p}",),
+                format!("Attempted to schedule function at nonexistent path: {component}{p}",),
             )
         })?;
 

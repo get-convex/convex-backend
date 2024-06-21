@@ -83,14 +83,14 @@ pub async fn cancel_job(
     st.application
         .execute_with_audit_log_events_and_occ_retries(identity.clone(), "cancel_job", |tx| {
             async {
+                let namespace = TableNamespace::by_component_TODO();
                 let id = parse_document_id(
                     &cancel_job_request.id,
-                    &tx.table_mapping()
-                        .namespace(TableNamespace::by_component_TODO()),
+                    &tx.table_mapping().namespace(namespace),
                     &SCHEDULED_JOBS_TABLE,
                 )?;
 
-                let mut model = SchedulerModel::new(tx);
+                let mut model = SchedulerModel::new(tx, namespace);
                 model.cancel(id).await?;
                 Ok(((), vec![]))
             }

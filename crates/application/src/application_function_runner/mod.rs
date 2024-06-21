@@ -187,6 +187,7 @@ use usage_tracking::{
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
+    TableNamespace,
 };
 use vector::{
     PublicVectorSearchQueryResult,
@@ -2162,8 +2163,11 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                             tx,
                         )
                         .await?;
-                        let virtual_id = VirtualSchedulerModel::new(tx)
-                            .schedule(path, udf_args, scheduled_ts, context)
+                        let (_, component) = BootstrapComponentsModel::new(tx)
+                            .component_path_to_ids(path.component.clone())
+                            .await?;
+                        let virtual_id = VirtualSchedulerModel::new(tx, component.into())
+                            .schedule(path.udf_path, udf_args, scheduled_ts, context)
                             .await?;
                         Ok(virtual_id)
                     }
@@ -2185,7 +2189,14 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 FunctionUsageTracker::new(),
                 PauseClient::new(),
                 "app_funrun_cancel_job",
-                |tx| async { VirtualSchedulerModel::new(tx).cancel(virtual_id).await }.into(),
+                |tx| {
+                    async {
+                        VirtualSchedulerModel::new(tx, TableNamespace::by_component_TODO())
+                            .cancel(virtual_id)
+                            .await
+                    }
+                    .into()
+                },
             )
             .await?;
         Ok(())

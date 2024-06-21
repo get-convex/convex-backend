@@ -19,6 +19,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     errors::JsError,
@@ -56,6 +57,7 @@ use database::{
         DbFixturesArgs,
     },
     vector_index_worker::flusher::backfill_vector_indexes,
+    BootstrapComponentsModel,
     Database,
     FollowerRetentionManager,
     IndexModel,
@@ -1326,9 +1328,12 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
             &mut tx,
         )
         .await?;
+        let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
+            .component_path_to_ids(path.component.clone())
+            .await?;
 
-        let virtual_id = VirtualSchedulerModel::new(&mut tx)
-            .schedule(path, udf_args, scheduled_ts, context)
+        let virtual_id = VirtualSchedulerModel::new(&mut tx, component_id.into())
+            .schedule(path.udf_path, udf_args, scheduled_ts, context)
             .await?;
         self.database.commit(tx).await?;
 
@@ -1341,7 +1346,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         virtual_id: DeveloperDocumentId,
     ) -> anyhow::Result<()> {
         let mut tx = self.database.begin(identity).await?;
-        VirtualSchedulerModel::new(&mut tx)
+        VirtualSchedulerModel::new(&mut tx, ComponentId::test_user().into())
             .cancel(virtual_id)
             .await?;
         self.database.commit(tx).await?;
