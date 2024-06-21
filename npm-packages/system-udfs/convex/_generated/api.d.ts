@@ -48,6 +48,7 @@ import type * as _system_frontend_paginatedScheduledJobs from "../_system/fronte
 import type * as _system_frontend_paginatedTableDocuments from "../_system/frontend/paginatedTableDocuments.js";
 import type * as _system_frontend_patchDocumentsFields from "../_system/frontend/patchDocumentsFields.js";
 import type * as _system_frontend_replaceDocument from "../_system/frontend/replaceDocument.js";
+import type * as _system_frontend_snapshotImport from "../_system/frontend/snapshotImport.js";
 import type * as _system_frontend_tableSize from "../_system/frontend/tableSize.js";
 import type * as _system_paginationLimits from "../_system/paginationLimits.js";
 import type * as _system_repl_wrappers from "../_system/repl/wrappers.js";
@@ -99,6 +100,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/paginatedTableDocuments": typeof _system_frontend_paginatedTableDocuments;
   "_system/frontend/patchDocumentsFields": typeof _system_frontend_patchDocumentsFields;
   "_system/frontend/replaceDocument": typeof _system_frontend_replaceDocument;
+  "_system/frontend/snapshotImport": typeof _system_frontend_snapshotImport;
   "_system/frontend/tableSize": typeof _system_frontend_tableSize;
   "_system/paginationLimits": typeof _system_paginationLimits;
   "_system/repl/wrappers": typeof _system_repl_wrappers;

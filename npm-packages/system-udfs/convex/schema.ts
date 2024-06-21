@@ -244,9 +244,13 @@ const snapshotImportsTable = defineTable({
     }),
     v.object({
       state: v.literal("waiting_for_confirmation"),
+      message_to_confirm: v.string(),
+      require_manual_confirmation: v.boolean(),
     }),
     v.object({
       state: v.literal("in_progress"),
+      progress_message: v.string(),
+      checkpoint_messages: v.array(v.string()),
     }),
     v.object({
       state: v.literal("completed"),
