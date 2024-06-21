@@ -8,7 +8,6 @@ use std::{
     sync::LazyLock,
 };
 
-use deno_core::ModuleSpecifier;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
@@ -28,6 +27,7 @@ use regex::Regex;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use sourcemap::SourceMap;
+use url::Url;
 use value::{
     heap_size::{
         HeapSize,
@@ -500,7 +500,7 @@ impl JsError {
         message: String,
         frame_data: Vec<FrameData>,
         custom_data: Option<ConvexValue>,
-        mut lookup_source_map: impl FnMut(&ModuleSpecifier) -> anyhow::Result<Option<SourceMap>>,
+        mut lookup_source_map: impl FnMut(&Url) -> anyhow::Result<Option<SourceMap>>,
     ) -> Self {
         let mut source_maps = BTreeMap::new();
         let mut mapped_frames = Vec::with_capacity(frame_data.len());
@@ -512,7 +512,7 @@ impl JsError {
                 ..
             } = frame
             {
-                let Ok(specifier) = ModuleSpecifier::parse(f) else {
+                let Ok(specifier) = Url::parse(f) else {
                     // We expect the file_name to be fully qualified URL but seems
                     // this is not always the case. Lets log warning here.
                     tracing::warn!("Skipping frame with invalid file_name: {f}");

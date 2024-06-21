@@ -1155,7 +1155,6 @@ dependencies = [
  "crossbeam-channel",
  "csf",
  "cstr",
- "deno_core",
  "derive_more",
  "enum-iterator",
  "errors",
