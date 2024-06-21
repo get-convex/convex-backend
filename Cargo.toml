@@ -17,7 +17,7 @@ csv-async = "1.2"
 atomic_refcell = "0.1.10"
 axum = { version = "0.6", features = [ "headers", "ws", "original-uri", "macros", "multipart" ] }
 base32 = "0.4.0"
-base-62 = "0.1.1"
+base-62 = { rev = "6f91a3da4b83f20379469835f64195bd52d7b9dd", git = "https://github.com/kryptco/base62.rs" }
 base64 = "0.13"
 biscuit = "0.7.0"
 bitvec = "1.0.1"
