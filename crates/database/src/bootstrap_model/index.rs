@@ -680,7 +680,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 )),
                 TableFilter::ExcludePrivateSystemTables => {
                     if index_name.table().is_system() {
-                        Ok(StableIndexName::Missing)
+                        Ok(StableIndexName::Missing(index_name.clone()))
                     } else {
                         Ok(StableIndexName::Physical(
                             self.resolve_index_name(namespace, index_name)?,
@@ -689,7 +689,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 },
             }
         } else {
-            Ok(StableIndexName::Missing)
+            Ok(StableIndexName::Missing(index_name.clone()))
         }
     }
 

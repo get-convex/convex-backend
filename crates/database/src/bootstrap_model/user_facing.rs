@@ -340,7 +340,7 @@ fn start_index_range<RT: Runtime>(
                 max_size: max_rows,
             }))
         },
-        StableIndexName::Missing => Ok(Ok(DeveloperIndexRangeResponse {
+        StableIndexName::Missing(_) => Ok(Ok(DeveloperIndexRangeResponse {
             page: vec![],
             cursor: CursorPosition::End,
         })),

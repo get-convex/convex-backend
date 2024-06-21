@@ -128,7 +128,7 @@ pub type TabletIndexName = GenericIndexName<TabletId>;
 pub enum StableIndexName {
     Physical(TabletIndexName),
     Virtual(IndexName, TabletIndexName),
-    Missing,
+    Missing(IndexName),
 }
 
 impl StableIndexName {
@@ -136,7 +136,15 @@ impl StableIndexName {
         match self {
             StableIndexName::Physical(tablet_index_name) => Some(tablet_index_name),
             StableIndexName::Virtual(_, tablet_index_name) => Some(tablet_index_name),
-            StableIndexName::Missing => None,
+            StableIndexName::Missing(_) => None,
+        }
+    }
+
+    pub fn tablet_index_name_or_missing(&self) -> Result<&TabletIndexName, &IndexName> {
+        match self {
+            StableIndexName::Physical(tablet_index_name) => Ok(tablet_index_name),
+            StableIndexName::Virtual(_, tablet_index_name) => Ok(tablet_index_name),
+            StableIndexName::Missing(index_name) => Err(index_name),
         }
     }
 
@@ -160,7 +168,7 @@ impl StableIndexName {
                         .tablet_number(*tablet_index_name.table())?,
                 }))
             },
-            StableIndexName::Missing => Ok(None),
+            StableIndexName::Missing(_) => Ok(None),
         }
     }
 }

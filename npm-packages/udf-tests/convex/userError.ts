@@ -124,21 +124,6 @@ export const nonexistentTable = mutation(
         "expected query filtering to fake ID to return 0 results",
       );
     }
-    // Querying a non-existent table is fine.
-    results = await db.query("missing" as any).collect();
-    if (results.length !== 0) {
-      throw new Error('expected db.query("missing") to return 0 results');
-    }
-
-    // Querying a non-existent table with filters is fine too
-    results = await db
-      .query("missing" as any)
-      .filter((q) => q.eq(q.field("foo"), "foo"))
-      .collect();
-    if (results.length !== 0) {
-      throw new Error('expected db.query("missing") to return 0 results');
-    }
-
     results = await db
       .query("boatVotes")
       .withIndex("by_boat", (q) => q.gt("boat", fakeId))
@@ -150,6 +135,54 @@ export const nonexistentTable = mutation(
     }
   },
 );
+
+export const indexOnNonexistentTable = mutation(async ({ db }) => {
+  // Querying a non-existent table by_creation_time is fine.
+  let results = await db.query("missing" as any).collect();
+  if (results.length !== 0) {
+    throw new Error('expected db.query("missing") to return 0 results');
+  }
+
+  // Querying a non-existent table with filters is fine too
+  results = await db
+    .query("missing" as any)
+    .filter((q) => q.eq(q.field("foo"), "foo"))
+    .collect();
+  if (results.length !== 0) {
+    throw new Error('expected db.query("missing") to return 0 results');
+  }
+
+  // Querying a non-existent table with index throws error about the index
+  // missing (not the table missing).
+  const assertIndexNotFound = async (
+    thunk: () => Promise<void>,
+    indexName: string,
+  ) => {
+    try {
+      await thunk();
+    } catch (error: any) {
+      if (!error.toString().includes(`Index ${indexName} not found`)) {
+        throw error;
+      }
+      return;
+    }
+    throw new Error("expected TableNotFound error");
+  };
+  await assertIndexNotFound(async () => {
+    await db
+      .query("missing" as any)
+      .withIndex("by_foo")
+      .collect();
+  }, "missing.by_foo");
+
+  // Same error with search index
+  await assertIndexNotFound(async () => {
+    await db
+      .query("missing" as any)
+      .withSearchIndex("search_foo", (q) => q.search("foo", "foo"))
+      .collect();
+  }, "missing.search_foo");
+});
 
 export const nonexistentId = mutation({
   handler: async (

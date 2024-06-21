@@ -162,6 +162,16 @@ async fn test_nonexistent_table(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn test_index_on_nonexistent_table(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        t.mutation("userError:indexOnNonexistentTable", assert_obj!())
+            .await?;
+        Ok(())
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
 async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
         let mut tx = t.database.begin(Identity::system()).await?;

@@ -20,6 +20,7 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
+use indexing::index_registry::index_not_found_error;
 use search::{
     CandidateRevision,
     MAX_CANDIDATE_REVISIONS,
@@ -97,15 +98,17 @@ impl SearchQuery {
             .into_iter()
             .filter(|(_, index_key)| self.cursor_interval.contains(index_key))
             .collect();
-        let namespace = match self.stable_index_name.tablet_index_name() {
-            Some(index_name) => tx.table_mapping().tablet_namespace(*index_name.table())?,
-            None => TableNamespace::Global,
+        let (namespace, table_number) = match self.stable_index_name.tablet_index_name_or_missing()
+        {
+            Ok(index_name) => {
+                let namespace = tx.table_mapping().tablet_namespace(*index_name.table())?;
+                let tablet_number = tx.table_mapping().tablet_number(*index_name.table())?;
+                (namespace, tablet_number)
+            },
+            Err(missing_index_name) => {
+                anyhow::bail!(index_not_found_error(missing_index_name));
+            },
         };
-        let table_number = tx
-            .table_mapping()
-            .namespace(namespace)
-            .id(&self.query.table)?
-            .table_number;
         Ok(SearchResultIterator::new(
             revisions_in_range,
             namespace,
