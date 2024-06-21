@@ -1,7 +1,7 @@
 [workspace]
 members = [ "crates/*", "crates/convex/sync_types" ]
 resolver = "2"
-exclude = [ "crates/fivetran_source", "crates/py_client", "crates/python_client_tests" ]
+exclude = [ "crates/py_client", "crates/python_client_tests" ]
 
 [workspace.dependencies]
 aes = { version = "0.8.4" }

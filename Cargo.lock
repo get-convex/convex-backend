@@ -1345,6 +1345,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "convex_fivetran_source"
+version = "0.6.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bytes",
+ "cfg-if",
+ "clap",
+ "convex",
+ "convex_fivetran_common",
+ "derive_more",
+ "futures",
+ "futures-async-stream",
+ "futures-util",
+ "maplit",
+ "proptest",
+ "proptest-derive",
+ "prost",
+ "prost-types",
+ "rand 0.8.5",
+ "reqwest 0.11.24",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "uuid",
+]
+
+[[package]]
 name = "convex_macro"
 version = "0.1.0"
 dependencies = [
