@@ -20,6 +20,10 @@ use common::{
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE,
+        SCHEDULED_JOB_GARBAGE_COLLECTION_INITIAL_BACKOFF,
+        SCHEDULED_JOB_GARBAGE_COLLECTION_MAX_BACKOFF,
+        SCHEDULED_JOB_INITIAL_BACKOFF,
+        SCHEDULED_JOB_MAX_BACKOFF,
         SCHEDULED_JOB_RETENTION,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
@@ -147,9 +151,6 @@ impl<RT: Runtime> ScheduledJobRunner<RT> {
     }
 }
 
-const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
-const MAX_BACKOFF: Duration = Duration::from_secs(5);
-
 pub struct ScheduledJobExecutor<RT: Runtime> {
     context: ScheduledJobContext<RT>,
     pause_client: PauseClient,
@@ -195,7 +196,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             pause_client,
         };
         async move {
-            let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
+            let mut backoff =
+                Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
             while let Err(mut e) = executor.run(&mut backoff).await {
                 let delay = executor.rt.with_rng(|rng| backoff.fail(rng));
                 tracing::error!("Scheduled job executor failed, sleeping {delay:?}");
@@ -417,7 +419,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
     ) -> ResolvedDocumentId {
-        let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
+        let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
         loop {
             // Generate a new request_id for every schedule job execution attempt.
             let request_id = RequestId::new();
@@ -731,7 +733,8 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // Mark the job as completed. Keep trying until we succeed (or
                 // detect the job state has changed). Don't bubble up the error
                 // since otherwise we will lose the original execution logs.
-                let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
+                let mut backoff =
+                    Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
                 while let Err(mut err) = self
                     .complete_action(job_id, &updated_job, usage_tracker.clone(), state.clone())
                     .await
@@ -844,7 +847,10 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
     pub fn start(rt: RT, database: Database<RT>) -> impl Future<Output = ()> + Send {
         let garbage_collector = Self { rt, database };
         async move {
-            let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
+            let mut backoff = Backoff::new(
+                *SCHEDULED_JOB_GARBAGE_COLLECTION_INITIAL_BACKOFF,
+                *SCHEDULED_JOB_GARBAGE_COLLECTION_MAX_BACKOFF,
+            );
             while let Err(mut e) = garbage_collector.run(&mut backoff).await {
                 let delay = garbage_collector.rt.with_rng(|rng| backoff.fail(rng));
                 tracing::error!("Scheduled job garbage collector failed, sleeping {delay:?}");

@@ -240,6 +240,22 @@ pub static TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES: LazyLock<usize> 
 pub static SCHEDULED_JOB_EXECUTION_PARALLELISM: LazyLock<usize> =
     LazyLock::new(|| env_config("SCHEDULED_JOB_EXECUTION_PARALLELISM", 10));
 
+/// Initial backoff in milliseconds on a system error from a scheduled job.
+pub static SCHEDULED_JOB_INITIAL_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("SCHEDULED_JOB_INITIAL_BACKOFF_MS", 10)));
+
+/// Max backoff in seconds on a system error from a scheduled job.
+pub static SCHEDULED_JOB_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_MAX_BACKOFF_SECS", 30)));
+
+/// Initial backoff in milliseconds on a system error from a scheduled job.
+pub static SCHEDULED_JOB_GARBAGE_COLLECTION_INITIAL_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("SCHEDULED_JOB_INITIAL_BACKOFF_MS", 10)));
+
+/// Max backoff in seconds on a system error from a scheduled job.
+pub static SCHEDULED_JOB_GARBAGE_COLLECTION_MAX_BACKOFF: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_MAX_BACKOFF_SECS", 30)));
+
 /// How long completed scheduled jobs are kept before getting garbage collected.
 pub static SCHEDULED_JOB_RETENTION: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config(
