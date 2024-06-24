@@ -1,4 +1,5 @@
 use std::{
+    cmp,
     collections::{
         BTreeMap,
         BTreeSet,
@@ -88,10 +89,7 @@ use futures::{
 use governor::Quota;
 use indexing::index_registry::IndexRegistry;
 use keybroker::Identity;
-use maplit::{
-    btreemap,
-    btreeset,
-};
+use maplit::btreeset;
 use tracing::log;
 use value::{
     DeveloperDocumentId,
@@ -147,7 +145,14 @@ pub struct IndexWriter<RT: Runtime> {
 #[derive(Clone)]
 pub enum IndexSelector {
     All(IndexRegistry),
-    Index { name: TabletIndexName, id: IndexId },
+    Index {
+        name: TabletIndexName,
+        id: IndexId,
+    },
+    ManyIndexes {
+        tablet_id: TabletId,
+        indexes: BTreeMap<IndexId, TabletIndexName>,
+    },
 }
 
 impl Display for IndexSelector {
@@ -155,6 +160,18 @@ impl Display for IndexSelector {
         match self {
             Self::All(_) => write!(f, "ALL"),
             Self::Index { name, .. } => write!(f, "{}", name),
+            Self::ManyIndexes { ref indexes, .. } => {
+                write!(f, "ManyIndexes(")?;
+                let mut first = true;
+                for name in indexes.values() {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    first = false;
+                    write!(f, "{name}")?;
+                }
+                write!(f, ")")
+            },
         }
     }
 }
@@ -164,24 +181,27 @@ impl IndexSelector {
         match self {
             Self::All(_) => true,
             Self::Index { id, .. } => id == &index_update.index_id,
+            Self::ManyIndexes { indexes, .. } => indexes.contains_key(&index_update.index_id),
         }
     }
 
     fn iterate_tables(&self) -> impl Iterator<Item = TabletId> {
-        match self {
+        let tables = match self {
             Self::All(index_registry) => index_registry
                 .all_tables_with_indexes()
                 .into_iter()
-                .collect::<BTreeSet<_>>()
-                .into_iter(),
-            Self::Index { name, .. } => btreeset!(*name.table()).into_iter(),
-        }
+                .collect(),
+            Self::Index { name, .. } => btreeset! { *name.table() },
+            Self::ManyIndexes { tablet_id, .. } => btreeset! { *tablet_id },
+        };
+        tables.into_iter()
     }
 
     fn filter_id(&self, id: InternalDocumentId) -> bool {
         match self {
             Self::All(_) => true,
             Self::Index { name, .. } => *name.table() == id.table(),
+            Self::ManyIndexes { tablet_id, .. } => *tablet_id == id.table(),
         }
     }
 }
@@ -294,25 +314,37 @@ impl<RT: Runtime> IndexWorker<RT> {
                     index_documents.insert(document.id(), document);
                 }
             }
-            let mut to_backfill = vec![];
+            let mut to_backfill_by_tablet = BTreeMap::new();
+            let mut num_to_backfill = 0;
             for (id, doc) in &index_documents {
                 let index_metadata: ParsedDocument<IndexMetadata<TabletId>> =
                     doc.clone().try_into()?;
                 if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config {
                     if matches!(*on_disk_state, DatabaseIndexState::Backfilling(_)) {
-                        to_backfill.push(id.internal_id());
+                        to_backfill_by_tablet
+                            .entry(*index_metadata.name.table())
+                            .or_insert_with(Vec::new)
+                            .push(id.internal_id());
+                        num_to_backfill += 1;
                     }
                 }
             }
-            let num_to_backfill = to_backfill.len();
             log::info!(
                 "{num_to_backfill} database indexes to backfill @ {}",
                 tx.begin_timestamp()
             );
-            for (i, index_id) in to_backfill.into_iter().enumerate() {
-                log_num_indexes_to_backfill(num_to_backfill - i);
-                self.backfill_one(index_id, tx.table_mapping(), index_documents.clone())
-                    .await?;
+
+            let mut num_backfilled = 0;
+            for (tablet_id, index_ids) in to_backfill_by_tablet {
+                log_num_indexes_to_backfill(num_to_backfill - num_backfilled);
+                num_backfilled += index_ids.len();
+                self.backfill_tablet(
+                    tablet_id,
+                    index_ids,
+                    tx.table_mapping(),
+                    index_documents.clone(),
+                )
+                .await?;
             }
             if num_to_backfill > 0 {
                 // We backfilled at least one index during this loop iteration.
@@ -337,9 +369,10 @@ impl<RT: Runtime> IndexWorker<RT> {
         }
     }
 
-    async fn backfill_one(
+    async fn backfill_tablet(
         &mut self,
-        index_id: IndexId,
+        tablet_id: TabletId,
+        index_ids: Vec<IndexId>,
         table_mapping: &TableMapping,
         index_documents: BTreeMap<ResolvedDocumentId, ResolvedDocument>,
     ) -> anyhow::Result<()> {
@@ -349,14 +382,29 @@ impl<RT: Runtime> IndexWorker<RT> {
             self.persistence_version,
         )?;
 
-        // If retention is already started, we have already done with the initial
-        // step of the backfill.
-        let (index_name, retention_started) = self.begin_backfill(index_id).await?;
-        if !retention_started {
-            log::info!("Starting backfill of index {}", index_name);
-            let index_selector = IndexSelector::Index {
-                name: index_name,
-                id: index_id,
+        let mut backfills = BTreeMap::new();
+        for index_id in &index_ids {
+            let (index_name, retention_started) = self.begin_backfill(*index_id).await?;
+            backfills.insert(*index_id, (index_name, retention_started));
+        }
+
+        let needs_backfill = backfills
+            .iter()
+            // If retention is already started, we're already done with the
+            // initial step of the backfill.
+            .filter(|(_, (_, retention_started))| !*retention_started)
+            .map(|(index_id, (index_name, _))| (*index_id, index_name.clone()))
+            .collect::<BTreeMap<_, _>>();
+
+        if !needs_backfill.is_empty() {
+            let table_name = table_mapping.tablet_to_name()(tablet_id)?;
+            log::info!(
+                "Starting backfill of {} indexes for {table_name}: {needs_backfill:?}",
+                needs_backfill.len()
+            );
+            let index_selector = IndexSelector::ManyIndexes {
+                tablet_id,
+                indexes: needs_backfill,
             };
             self.index_writer
                 .perform_backfill(
@@ -367,15 +415,32 @@ impl<RT: Runtime> IndexWorker<RT> {
                 .await?;
         }
 
-        // Run retention.
-        let (backfill_begin_ts, index_name, indexed_fields) =
-            self.begin_retention(index_id).await?;
-        log::info!("Started running retention for index {}", index_name);
-        self.index_writer
-            .run_retention(index_id, backfill_begin_ts, index_name, indexed_fields)
-            .await?;
+        let mut min_begin_ts = None;
+        let mut retention = BTreeMap::new();
+        for index_id in &index_ids {
+            let (backfill_begin_ts, index_name, indexed_fields) =
+                self.begin_retention(*index_id).await?;
 
-        self.finish_backfill(index_id).await?;
+            min_begin_ts = min_begin_ts
+                .map(|t| cmp::min(t, backfill_begin_ts))
+                .or(Some(backfill_begin_ts));
+
+            retention.insert(*index_id, (index_name, indexed_fields));
+        }
+        if let Some(min_begin_ts) = min_begin_ts {
+            log::info!(
+                "Started running retention for {} indexes: {retention:?}",
+                retention.len()
+            );
+            self.index_writer
+                .run_retention(min_begin_ts, retention)
+                .await?;
+        }
+
+        for index_id in index_ids {
+            self.finish_backfill(index_id).await?;
+        }
+
         Ok(())
     }
 
@@ -929,13 +994,10 @@ impl<RT: Runtime> IndexWriter<RT> {
 
     async fn run_retention(
         &self,
-        index_id: IndexId,
         backfill_begin_ts: Timestamp,
-        index_name: TabletIndexName,
-        indexed_fields: IndexedFields,
+        all_indexes: BTreeMap<IndexId, (TabletIndexName, IndexedFields)>,
     ) -> anyhow::Result<()> {
         let min_snapshot_ts = self.retention_validator.min_snapshot_ts().await?;
-        let all_indexes = btreemap! { index_id => (index_name, indexed_fields) };
         // TODO(lee) add checkpointing.
         LeaderRetentionManager::delete_all_no_checkpoint(
             backfill_begin_ts,
