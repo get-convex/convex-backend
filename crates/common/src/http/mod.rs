@@ -943,6 +943,29 @@ pub async fn metrics() -> Result<impl IntoResponse, HttpResponseError> {
     Ok(output)
 }
 
+/// Converts a [`HeaderMap`] into an iterator of key-value tuples, handling
+/// `None` keys by using the last seen `HeaderName`. This is needed as
+/// [`HeaderMap::into_iter`](http::header::HeaderMap#method.into_iter) provides
+/// an iterator of `(Option<HeaderName>, T)`.
+pub fn normalize_header_map<T>(header_map: HeaderMap<T>) -> impl Iterator<Item = (HeaderName, T)>
+where
+    T: Clone,
+{
+    let mut last_key: Option<HeaderName> = None;
+
+    header_map.into_iter().map(move |(key, value)| {
+        match key {
+            Some(ref key) => last_key = Some(key.clone()),
+            None => {},
+        }
+
+        let key = last_key
+            .clone()
+            .expect("HeaderMap should not have a None key without a previous Some key");
+        (key, value)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use axum::response::IntoResponse;
