@@ -14,7 +14,7 @@ use common::{
         },
         index_validation_error,
         text_index::{
-            DeveloperSearchIndexConfig,
+            DeveloperTextIndexConfig,
             TextIndexState,
         },
         vector_index::{
@@ -897,7 +897,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 } => IndexMetadata::new_backfilling(*self.tx.begin_timestamp(), index_name, fields),
                 IndexConfig::Search {
                     developer_config:
-                        DeveloperSearchIndexConfig {
+                        DeveloperTextIndexConfig {
                             search_field,
                             filter_fields,
                         },

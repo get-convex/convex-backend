@@ -8,6 +8,7 @@ use common::{
     knobs::{
         BUILD_MULTI_SEGMENT_TEXT_INDEXES,
         DATABASE_WORKERS_POLL_INTERVAL,
+        MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
     },
     persistence::PersistenceReader,
     runtime::{
@@ -47,6 +48,7 @@ use crate::{
             new_text_flusher,
             TextIndexFlusher2,
         },
+        BuildTextIndexArgs,
         TextIndexMetadataWriter,
     },
     vector_index_worker::{
@@ -55,6 +57,7 @@ use crate::{
             VectorIndexCompactor,
         },
         flusher::new_vector_flusher,
+        BuildVectorIndexArgs,
     },
     Database,
     TextIndexFlusher,
@@ -99,10 +102,22 @@ impl<RT: Runtime> SearchIndexWorkers<RT> {
         let vector_index_metadata_writer = SearchIndexMetadataWriter::new(
             runtime.clone(),
             database.clone(),
+            reader.clone(),
             search_storage.clone(),
+            BuildVectorIndexArgs {
+                full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+            },
         );
-        let text_index_metadata_writer =
-            TextIndexMetadataWriter::new(runtime.clone(), database.clone(), search_storage.clone());
+        let text_index_metadata_writer = TextIndexMetadataWriter::new(
+            runtime.clone(),
+            database.clone(),
+            reader.clone(),
+            search_storage.clone(),
+            BuildTextIndexArgs {
+                search_storage: search_storage.clone(),
+                segment_term_metadata_fetcher: segment_term_metadata_fetcher.clone(),
+            },
+        );
         let vector_flush = retry_loop_expect_occs_and_overloaded(
             "VectorFlusher",
             runtime.clone(),

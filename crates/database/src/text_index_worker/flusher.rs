@@ -6,7 +6,7 @@ use std::{
 use common::{
     bootstrap_model::index::{
         text_index::{
-            DeveloperSearchIndexConfig,
+            DeveloperTextIndexConfig,
             TextIndexSnapshot,
             TextIndexSnapshotData,
             TextIndexState,
@@ -372,7 +372,7 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
 struct IndexBuild {
     index_name: TabletIndexName,
     by_id: IndexId,
-    developer_config: DeveloperSearchIndexConfig,
+    developer_config: DeveloperTextIndexConfig,
     metadata_id: ResolvedDocumentId,
     on_disk_state: TextIndexState,
     _build_reason: BuildReason,

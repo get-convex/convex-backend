@@ -41,7 +41,7 @@ use aggregation::PostingListMatchAggregator;
 use anyhow::Context;
 use common::{
     bootstrap_model::index::{
-        text_index::DeveloperSearchIndexConfig,
+        text_index::DeveloperTextIndexConfig,
         IndexConfig,
     },
     document::ResolvedDocument,
@@ -126,8 +126,10 @@ use self::query::{
 pub use self::{
     incremental_index::{
         build_new_segment,
+        fetch_term_ordinals_and_remap_deletes,
         NewTextSegment,
         PreviousTextSegments,
+        SegmentStatisticsUpdates,
         TextSegmentPaths,
         UpdatableTextSegment,
     },
@@ -266,7 +268,7 @@ impl From<&TantivySearchIndexSchema> for pb::searchlight::SearchIndexConfig {
 }
 
 impl TantivySearchIndexSchema {
-    pub fn new(index_config: &DeveloperSearchIndexConfig) -> Self {
+    pub fn new(index_config: &DeveloperTextIndexConfig) -> Self {
         let analyzer = convex_en();
 
         let mut schema_builder = Schema::builder();
@@ -327,8 +329,8 @@ impl TantivySearchIndexSchema {
         Ok(Self::new(developer_config))
     }
 
-    pub fn to_index_config(&self) -> DeveloperSearchIndexConfig {
-        DeveloperSearchIndexConfig {
+    pub fn to_index_config(&self) -> DeveloperTextIndexConfig {
+        DeveloperTextIndexConfig {
             search_field: self.search_field_path.clone(),
             filter_fields: self.filter_fields.keys().cloned().collect(),
         }
@@ -1017,7 +1019,7 @@ pub enum SearchFileType {
 mod test {
     use std::collections::BTreeSet;
 
-    use common::bootstrap_model::index::text_index::DeveloperSearchIndexConfig;
+    use common::bootstrap_model::index::text_index::DeveloperTextIndexConfig;
 
     use crate::{
         TantivySearchIndexSchema,
@@ -1029,7 +1031,7 @@ mod test {
     /// tantivy.
     #[test]
     fn test_field_ids_dont_change() -> anyhow::Result<()> {
-        let schema = TantivySearchIndexSchema::new(&DeveloperSearchIndexConfig {
+        let schema = TantivySearchIndexSchema::new(&DeveloperTextIndexConfig {
             search_field: "mySearchField".parse()?,
             filter_fields: BTreeSet::new(),
         });

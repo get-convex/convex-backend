@@ -15,7 +15,12 @@ use common::{
     bounded_thread_pool::BoundedThreadPool,
     document::ParsedDocument,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
-    persistence::TimestampRange,
+    persistence::{
+        new_static_repeatable_ts,
+        PersistenceReader,
+        RepeatablePersistence,
+        TimestampRange,
+    },
     query::Order,
     runtime::{
         new_rate_limiter,
@@ -27,7 +32,6 @@ use common::{
     },
     types::TabletIndexName,
 };
-use futures::TryStreamExt;
 use governor::Quota;
 use itertools::Itertools;
 use keybroker::Identity;
@@ -40,7 +44,6 @@ use crate::{
     index_workers::{
         index_meta::{
             BackfillState,
-            PreviousSegmentsType,
             SearchIndex,
             SearchOnDiskState,
             SearchSnapshot,
@@ -88,11 +91,18 @@ pub struct SearchIndexWriteResult<T: SearchIndex> {
 }
 
 impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
-    pub(crate) fn new(runtime: RT, database: Database<RT>, storage: Arc<dyn Storage>) -> Self {
+    pub(crate) fn new(
+        runtime: RT,
+        database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
+        storage: Arc<dyn Storage>,
+        build_index_args: T::BuildIndexArgs,
+    ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(Inner {
                 runtime: runtime.clone(),
                 database,
+                reader,
                 storage,
                 // Use small limits because we should only ever run one job at a time.
                 thread_pool: BoundedThreadPool::new(
@@ -104,6 +114,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
                         SearchType::Text => "text_writer",
                     },
                 ),
+                build_index_args,
                 _phantom_data: Default::default(),
             })),
         }
@@ -131,6 +142,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
         segments_to_compact: Vec<T::Segment>,
         new_segment: T::Segment,
         rate_limit_pages_per_second: NonZeroU32,
+        schema: T::Schema,
     ) -> anyhow::Result<()> {
         self.inner(SearchWriterLockWaiter::Compactor)
             .await
@@ -141,6 +153,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
                 segments_to_compact,
                 new_segment,
                 rate_limit_pages_per_second,
+                schema,
             )
             .await
     }
@@ -179,6 +192,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
             .iter()
             .map(|segment| segment.statistics())
             .collect::<anyhow::Result<Vec<_>>>()?;
+        let schema = T::new_schema(&job.index_config.developer_config);
 
         if let Some(index_backfill_result) = backfill_result {
             inner
@@ -192,7 +206,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
                 .await?
         } else {
             inner
-                .commit_snapshot_flush(job, snapshot_ts, segments, new_segment_id)
+                .commit_snapshot_flush(job, snapshot_ts, segments, new_segment_id, schema)
                 .await?
         }
 
@@ -214,8 +228,10 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexMetadataWriter<RT, T> {
 struct Inner<RT: Runtime, T: SearchIndex> {
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
     thread_pool: BoundedThreadPool<RT>,
+    build_index_args: T::BuildIndexArgs,
     _phantom_data: PhantomData<T>,
 }
 
@@ -263,6 +279,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         segments_to_compact: Vec<T::Segment>,
         mut new_segment: T::Segment,
         rate_limit_pages_per_second: NonZeroU32,
+        schema: T::Schema,
     ) -> anyhow::Result<()> {
         let timer = search_compaction_merge_commit_timer(T::search_type());
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
@@ -285,6 +302,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                     snapshot_ts,
                     index_name.clone(),
                     rate_limit_pages_per_second,
+                    schema,
                 )
                 .await?;
             anyhow::ensure!(results.len() == 1);
@@ -354,6 +372,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         Ok(())
     }
 
+    /// A merge flush is required if a compaction happened.
     fn is_merge_flush_required(
         new_segments: &Vec<T::Segment>,
         current_segments: &Vec<T::Segment>,
@@ -447,6 +466,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         new_ts: Timestamp,
         mut new_and_modified_segments: Vec<T::Segment>,
         new_segment_id: Option<String>,
+        schema: T::Schema,
     ) -> anyhow::Result<()> {
         let timer = search_flush_merge_commit_timer(T::search_type());
         let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
@@ -483,6 +503,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                     new_ts,
                     job.index_name.clone(),
                     job.build_reason.read_max_pages_per_second(),
+                    schema,
                 )
                 .await?;
             // If we had a flush that involved only deletes, we may not have a new segment
@@ -531,21 +552,27 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         current_ts: Timestamp,
         index_name: TabletIndexName,
         rate_limit_pages_per_second: NonZeroU32,
+        schema: T::Schema,
     ) -> anyhow::Result<Vec<T::Segment>> {
         let storage = self.storage.clone();
         let runtime = self.runtime.clone();
         let database = self.database.clone();
+        let reader = self.reader.clone();
+        let build_index_args = self.build_index_args.clone();
         self.thread_pool
             .execute_async(move || async move {
                 Self::merge_deletes_on_thread(
                     runtime,
                     database,
+                    reader,
                     segments_to_update,
                     start_ts,
                     current_ts,
                     index_name,
                     storage,
                     rate_limit_pages_per_second,
+                    build_index_args,
+                    schema,
                 )
                 .await
             })
@@ -555,12 +582,15 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
     async fn merge_deletes_on_thread(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         segments_to_update: Vec<T::Segment>,
         start_ts: Timestamp,
         current_ts: Timestamp,
         index_name: TabletIndexName,
         storage: Arc<dyn Storage>,
         rate_limit_pages_per_second: NonZeroU32,
+        build_index_args: T::BuildIndexArgs,
+        schema: T::Schema,
     ) -> anyhow::Result<Vec<T::Segment>> {
         let row_rate_limiter = new_rate_limiter(
             runtime.clone(),
@@ -572,18 +602,26 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         );
         let mut previous_segments =
             T::download_previous_segments(&runtime, storage.clone(), segments_to_update).await?;
-        let mut documents = database.load_documents_in_table(
+        let documents = database.load_documents_in_table(
             *index_name.table(),
             TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(current_ts)))?,
             Order::Asc,
             &row_rate_limiter,
         );
 
-        while let Some((_, id, document)) = documents.try_next().await? {
-            if document.is_none() {
-                previous_segments.maybe_delete_document(id.internal_id())?;
-            }
-        }
+        let ts = new_static_repeatable_ts(current_ts, reader.as_ref(), &runtime).await?;
+        let repeatable_persistence =
+            RepeatablePersistence::new(reader, ts, database.retention_validator());
+        T::merge_deletes(
+            &runtime,
+            &mut previous_segments,
+            documents,
+            &repeatable_persistence,
+            build_index_args,
+            schema,
+            start_ts,
+        )
+        .await?;
 
         T::upload_previous_segments(&runtime, storage, previous_segments).await
     }

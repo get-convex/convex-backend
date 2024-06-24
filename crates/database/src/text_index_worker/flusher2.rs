@@ -34,7 +34,16 @@ pub async fn backfill_text_indexes<RT: Runtime>(
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
 ) -> anyhow::Result<()> {
-    let writer = SearchIndexMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
+    let writer = SearchIndexMetadataWriter::new(
+        runtime.clone(),
+        database.clone(),
+        reader.clone(),
+        storage.clone(),
+        BuildTextIndexArgs {
+            search_storage: storage.clone(),
+            segment_term_metadata_fetcher: segment_term_metadata_fetcher.clone(),
+        },
+    );
     let mut flusher = FlusherBuilder::new(
         runtime,
         database,

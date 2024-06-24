@@ -12,8 +12,8 @@ use super::{
         SerializedDeveloperDatabaseIndexConfig,
     },
     text_index::{
-        DeveloperSearchIndexConfig,
-        SerializedDeveloperSearchIndexConfig,
+        DeveloperTextIndexConfig,
+        SerializedDeveloperTextIndexConfig,
     },
     vector_index::{
         DeveloperVectorIndexConfig,
@@ -30,7 +30,7 @@ pub enum DeveloperIndexConfig {
     Database(DeveloperDatabaseIndexConfig),
 
     /// Full text search index.
-    Search(DeveloperSearchIndexConfig),
+    Search(DeveloperTextIndexConfig),
 
     Vector(DeveloperVectorIndexConfig),
 }
@@ -60,7 +60,7 @@ enum SerializedDeveloperIndexConfig {
     },
     Search {
         #[serde(flatten)]
-        config: SerializedDeveloperSearchIndexConfig,
+        config: SerializedDeveloperTextIndexConfig,
     },
     Vector {
         #[serde(flatten)]

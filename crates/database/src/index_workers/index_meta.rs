@@ -40,9 +40,6 @@ use value::{
 use super::search_flusher::MultipartBuildType;
 use crate::Snapshot;
 
-pub trait PreviousSegmentsType: Send {
-    fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()>;
-}
 pub trait SegmentType<T: SearchIndex> {
     fn id(&self) -> &str;
 
@@ -57,13 +54,13 @@ pub trait SearchIndex: Clone + Debug {
     type Segment: SegmentType<Self> + Clone + Debug + Send + 'static;
     type NewSegment: Send;
 
-    type PreviousSegments: PreviousSegmentsType;
+    type PreviousSegments: Send;
 
     type Statistics: SegmentStatistics;
 
-    type BuildIndexArgs: Clone + Send;
+    type BuildIndexArgs: Clone + Send + 'static;
 
-    type Schema: Send + Sync;
+    type Schema: Send + Sync + 'static;
 
     /// Returns the generalized `SearchIndexConfig` if it matches the type of
     /// the parser (e.g. Text vs Vector) and `None` otherwise.
@@ -140,6 +137,16 @@ pub trait SearchIndex: Clone + Debug {
         config: &Self::DeveloperConfig,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::Segment>;
+
+    async fn merge_deletes<RT: Runtime>(
+        runtime: &RT,
+        previous_segments: &mut Self::PreviousSegments,
+        document_stream: DocumentStream<'_>,
+        repeatable_persistence: &RepeatablePersistence,
+        build_index_args: Self::BuildIndexArgs,
+        schema: Self::Schema,
+        document_log_lower_bound: Timestamp,
+    ) -> anyhow::Result<()>;
 }
 
 pub trait SegmentStatistics: Default + Debug {

@@ -1,9 +1,15 @@
 use std::sync::Arc;
 
+#[cfg(any(test, feature = "testing"))]
+use common::persistence::PersistenceReader;
 use common::runtime::Runtime;
 use search::Searcher;
+#[cfg(any(test, feature = "testing"))]
+use search::SegmentTermMetadataFetcher;
 use storage::Storage;
 
+#[cfg(any(test, feature = "testing"))]
+use super::BuildTextIndexArgs;
 use crate::{
     index_workers::search_compactor::{
         CompactionConfig,
@@ -33,11 +39,22 @@ pub(crate) fn new_text_compactor<RT: Runtime>(
 pub(crate) fn new_text_compactor_for_tests<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     config: CompactionConfig,
 ) -> TextIndexCompactor<RT> {
-    let writer = TextIndexMetadataWriter::new(runtime, database.clone(), search_storage.clone());
+    let writer = TextIndexMetadataWriter::new(
+        runtime,
+        database.clone(),
+        reader,
+        search_storage.clone(),
+        BuildTextIndexArgs {
+            search_storage: search_storage.clone(),
+            segment_term_metadata_fetcher,
+        },
+    );
     SearchIndexCompactor::new(database, searcher, search_storage.clone(), config, writer)
 }
 
@@ -46,14 +63,18 @@ pub(crate) fn new_text_compactor_for_tests<RT: Runtime>(
 pub async fn compact_text_indexes_in_test<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
 ) -> anyhow::Result<()> {
     let compactor = new_text_compactor_for_tests(
         runtime,
         database,
+        reader,
         search_storage,
         searcher,
+        segment_term_metadata_fetcher,
         CompactionConfig::default(),
     );
     compactor.step().await?;

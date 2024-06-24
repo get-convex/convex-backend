@@ -212,6 +212,7 @@ impl<RT: Runtime> Scenario<RT> {
         compact_vector_indexes_in_test(
             self.rt.clone(),
             self.database.clone(),
+            self.reader.clone(),
             self.search_storage.clone(),
             self.searcher.clone(),
         )

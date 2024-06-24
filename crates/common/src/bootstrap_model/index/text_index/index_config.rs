@@ -10,7 +10,7 @@ use crate::paths::FieldPath;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct DeveloperSearchIndexConfig {
+pub struct DeveloperTextIndexConfig {
     /// The field to index for full text search.
     pub search_field: FieldPath,
 
@@ -20,15 +20,15 @@ pub struct DeveloperSearchIndexConfig {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SerializedDeveloperSearchIndexConfig {
+pub struct SerializedDeveloperTextIndexConfig {
     search_field: String,
     filter_fields: Vec<String>,
 }
 
-impl TryFrom<DeveloperSearchIndexConfig> for SerializedDeveloperSearchIndexConfig {
+impl TryFrom<DeveloperTextIndexConfig> for SerializedDeveloperTextIndexConfig {
     type Error = anyhow::Error;
 
-    fn try_from(config: DeveloperSearchIndexConfig) -> anyhow::Result<Self> {
+    fn try_from(config: DeveloperTextIndexConfig) -> anyhow::Result<Self> {
         Ok(Self {
             search_field: config.search_field.into(),
             filter_fields: config.filter_fields.into_iter().map(String::from).collect(),
@@ -36,10 +36,10 @@ impl TryFrom<DeveloperSearchIndexConfig> for SerializedDeveloperSearchIndexConfi
     }
 }
 
-impl TryFrom<SerializedDeveloperSearchIndexConfig> for DeveloperSearchIndexConfig {
+impl TryFrom<SerializedDeveloperTextIndexConfig> for DeveloperTextIndexConfig {
     type Error = anyhow::Error;
 
-    fn try_from(config: SerializedDeveloperSearchIndexConfig) -> anyhow::Result<Self> {
+    fn try_from(config: SerializedDeveloperTextIndexConfig) -> anyhow::Result<Self> {
         Ok(Self {
             search_field: config.search_field.parse()?,
             filter_fields: config
@@ -51,16 +51,13 @@ impl TryFrom<SerializedDeveloperSearchIndexConfig> for DeveloperSearchIndexConfi
     }
 }
 
-codegen_convex_serialization!(
-    DeveloperSearchIndexConfig,
-    SerializedDeveloperSearchIndexConfig
-);
+codegen_convex_serialization!(DeveloperTextIndexConfig, SerializedDeveloperTextIndexConfig);
 
-impl TryFrom<pb::searchlight::SearchIndexConfig> for DeveloperSearchIndexConfig {
+impl TryFrom<pb::searchlight::SearchIndexConfig> for DeveloperTextIndexConfig {
     type Error = anyhow::Error;
 
     fn try_from(proto: pb::searchlight::SearchIndexConfig) -> anyhow::Result<Self> {
-        Ok(DeveloperSearchIndexConfig {
+        Ok(DeveloperTextIndexConfig {
             search_field: proto
                 .search_field_path
                 .ok_or_else(|| anyhow::format_err!("Missing search_field_path"))?
@@ -76,8 +73,8 @@ impl TryFrom<pb::searchlight::SearchIndexConfig> for DeveloperSearchIndexConfig 
     }
 }
 
-impl From<DeveloperSearchIndexConfig> for pb::searchlight::SearchIndexConfig {
-    fn from(config: DeveloperSearchIndexConfig) -> Self {
+impl From<DeveloperTextIndexConfig> for pb::searchlight::SearchIndexConfig {
+    fn from(config: DeveloperTextIndexConfig) -> Self {
         pb::searchlight::SearchIndexConfig {
             search_field_path: Some(config.search_field.into()),
             filter_fields: config

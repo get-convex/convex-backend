@@ -17,7 +17,7 @@ use std::{
 };
 
 use common::{
-    bootstrap_model::index::text_index::DeveloperSearchIndexConfig,
+    bootstrap_model::index::text_index::DeveloperTextIndexConfig,
     document::{
         CreationTime,
         ResolvedDocument,
@@ -92,7 +92,7 @@ impl Dataset {
         };
         let index_name: IndexName = "messages.by_body".parse()?;
         let index_name = index_name.map_table(&|_| Ok(table_id.tablet_id))?;
-        let config = DeveloperSearchIndexConfig {
+        let config = DeveloperTextIndexConfig {
             search_field: "body".parse()?,
             filter_fields: BTreeSet::new(),
         };

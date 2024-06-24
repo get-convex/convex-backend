@@ -198,6 +198,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 segments_to_compact.clone(),
                 new_segment.clone(),
                 *SEARCH_WORKER_PASSIVE_PAGES_PER_SECOND,
+                T::new_schema(&job.developer_config),
             )
             .await?;
         let total_compacted_segments = total_compacted_segments as u64;

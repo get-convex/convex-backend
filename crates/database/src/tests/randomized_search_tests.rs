@@ -116,6 +116,7 @@ use crate::{
     text_index_worker::{
         compactor::new_text_compactor,
         flusher2::new_text_flusher,
+        BuildTextIndexArgs,
     },
     Database,
     IndexModel,
@@ -133,6 +134,7 @@ struct Scenario {
 
     search_storage: Arc<dyn Storage>,
     searcher: Arc<dyn Searcher>,
+    build_index_args: BuildTextIndexArgs,
     // Add test persistence here, or just change everything to use db fixtures.
     tp: Arc<dyn Persistence>,
 
@@ -180,12 +182,18 @@ impl Scenario {
             .await?;
         database.commit(tx).await?;
 
+        let build_index_args = BuildTextIndexArgs {
+            search_storage: search_storage.clone(),
+            segment_term_metadata_fetcher: Arc::new(InProcessSearcher::new(rt.clone()).await?),
+        };
+
         let mut self_ = Self {
             rt,
             database,
             search_storage,
             searcher,
             tp,
+            build_index_args,
 
             table_name,
             namespace,
@@ -225,7 +233,9 @@ impl Scenario {
         let writer = SearchIndexMetadataWriter::new(
             self.rt.clone(),
             self.database.clone(),
+            self.tp.reader(),
             self.search_storage.clone(),
+            self.build_index_args.clone(),
         );
         new_text_compactor(
             self.database.clone(),
@@ -249,16 +259,16 @@ impl Scenario {
             let writer = SearchIndexMetadataWriter::new(
                 self.rt.clone(),
                 self.database.clone(),
+                self.tp.reader(),
                 self.search_storage.clone(),
+                self.build_index_args.clone(),
             );
-            let segment_term_metadata_fetcher =
-                Arc::new(InProcessSearcher::new(self.rt.clone()).await?);
             let mut flusher = new_text_flusher(
                 self.rt.clone(),
                 self.database.clone(),
                 self.tp.reader(),
                 self.search_storage.clone(),
-                segment_term_metadata_fetcher,
+                self.build_index_args.segment_term_metadata_fetcher.clone(),
                 writer,
             );
             flusher.step().await?;

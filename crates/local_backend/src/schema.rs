@@ -12,7 +12,7 @@ use common::{
                 DeveloperDatabaseIndexConfig,
             },
             text_index::{
-                DeveloperSearchIndexConfig,
+                DeveloperTextIndexConfig,
                 TextIndexState,
             },
             vector_index::{
@@ -147,7 +147,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
             IndexConfig::Search {
                 on_disk_state,
                 developer_config:
-                    DeveloperSearchIndexConfig {
+                    DeveloperTextIndexConfig {
                         search_field,
                         filter_fields,
                     },

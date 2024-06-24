@@ -255,6 +255,7 @@ impl VectorFixtures {
         Ok(new_vector_compactor_for_tests(
             self.rt.clone(),
             self.db.clone(),
+            self.reader.clone(),
             self.storage.clone(),
             searcher,
             self.config.clone(),

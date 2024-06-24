@@ -62,7 +62,15 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
     pause_client: Option<PauseClient>,
 ) -> VectorIndexFlusher<RT> {
     use search::metrics::SearchType;
-    let writer = SearchIndexMetadataWriter::new(runtime.clone(), database.clone(), storage.clone());
+    let writer = SearchIndexMetadataWriter::new(
+        runtime.clone(),
+        database.clone(),
+        reader.clone(),
+        storage.clone(),
+        BuildVectorIndexArgs {
+            full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
+        },
+    );
     SearchFlusher::new(
         runtime,
         database,

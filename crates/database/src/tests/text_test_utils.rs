@@ -68,6 +68,7 @@ use crate::{
             FlusherBuilder,
             TextIndexFlusher2,
         },
+        BuildTextIndexArgs,
         TextIndexMetadataWriter,
     },
     Database,
@@ -115,7 +116,16 @@ impl TextFixtures {
         )
         .await?;
         let segment_term_metadata_fetcher = Arc::new(in_process_searcher);
-        let writer = TextIndexMetadataWriter::new(rt.clone(), db.clone(), search_storage.clone());
+        let writer = TextIndexMetadataWriter::new(
+            rt.clone(),
+            db.clone(),
+            tp.reader(),
+            search_storage.clone(),
+            BuildTextIndexArgs {
+                search_storage: search_storage.clone(),
+                segment_term_metadata_fetcher: segment_term_metadata_fetcher.clone(),
+            },
+        );
 
         Ok(Self {
             rt,
@@ -158,8 +168,10 @@ impl TextFixtures {
         new_text_compactor_for_tests(
             self.rt.clone(),
             self.db.clone(),
+            self.reader.clone(),
             self.storage.clone(),
             self.searcher.clone(),
+            self.segment_term_metadata_fetcher.clone(),
             self.config.clone(),
         )
     }

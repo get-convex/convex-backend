@@ -1636,7 +1636,7 @@ mod tests {
     };
 
     use common::{
-        bootstrap_model::index::text_index::DeveloperSearchIndexConfig,
+        bootstrap_model::index::text_index::DeveloperTextIndexConfig,
         document::{
             CreationTime,
             ResolvedDocument,
@@ -1720,7 +1720,7 @@ mod tests {
 
         let mut id_generator = TestIdGenerator::new();
         let field_path: FieldPath = "mySearchField".parse()?;
-        let schema = TantivySearchIndexSchema::new(&DeveloperSearchIndexConfig {
+        let schema = TantivySearchIndexSchema::new(&DeveloperTextIndexConfig {
             search_field: field_path.clone(),
             filter_fields: BTreeSet::new(),
         });
@@ -1897,7 +1897,7 @@ mod tests {
 
     fn test_schema() -> TantivySearchIndexSchema {
         let field_path: FieldPath = "mySearchField".parse().unwrap();
-        TantivySearchIndexSchema::new(&DeveloperSearchIndexConfig {
+        TantivySearchIndexSchema::new(&DeveloperTextIndexConfig {
             search_field: field_path.clone(),
             filter_fields: BTreeSet::new(),
         })

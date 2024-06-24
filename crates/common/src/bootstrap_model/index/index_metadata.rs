@@ -31,7 +31,7 @@ use super::{
 };
 use crate::{
     bootstrap_model::index::text_index::{
-        DeveloperSearchIndexConfig,
+        DeveloperTextIndexConfig,
         TextIndexBackfillState,
         TextIndexState,
     },
@@ -85,7 +85,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
     ) -> Self {
         Self::new_search_index(
             name,
-            DeveloperSearchIndexConfig {
+            DeveloperTextIndexConfig {
                 search_field,
                 filter_fields,
             },
@@ -118,7 +118,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
 
     pub fn new_search_index(
         name: GenericIndexName<T>,
-        developer_config: DeveloperSearchIndexConfig,
+        developer_config: DeveloperTextIndexConfig,
         on_disk_state: TextIndexState,
     ) -> Self {
         Self {

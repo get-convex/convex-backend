@@ -10,3 +10,4 @@ pub mod flusher2;
 mod text_meta;
 
 pub type TextIndexMetadataWriter<RT> = SearchIndexMetadataWriter<RT, TextSearchIndex>;
+pub use text_meta::BuildTextIndexArgs;

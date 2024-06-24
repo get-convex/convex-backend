@@ -32,6 +32,7 @@ use common::{
     },
     types::IndexId,
 };
+use futures::TryStreamExt;
 use search::{
     disk_index::upload_vector_segment,
     fragmented_segment::{
@@ -43,7 +44,6 @@ use search::{
 };
 use storage::Storage;
 use sync_types::Timestamp;
-use value::InternalId;
 use vector::{
     qdrant_segments::VectorDiskSegmentValues,
     QdrantSchema,
@@ -53,7 +53,6 @@ use crate::{
     index_workers::{
         index_meta::{
             BackfillState,
-            PreviousSegmentsType,
             SearchIndex,
             SearchIndexConfig,
             SearchOnDiskState,
@@ -118,12 +117,6 @@ impl SegmentType<VectorSearchIndex> for FragmentedVectorSegment {
 
 #[derive(Clone, Debug)]
 pub struct VectorSearchIndex;
-
-impl PreviousSegmentsType for PreviousVectorSegments {
-    fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()> {
-        self.maybe_delete_convex(convex_id)
-    }
-}
 
 #[derive(Clone)]
 pub struct BuildVectorIndexArgs {
@@ -290,6 +283,23 @@ impl SearchIndex for VectorSearchIndex {
         searcher
             .execute_vector_compaction(search_storage, protos, config.dimensions.into())
             .await
+    }
+
+    async fn merge_deletes<RT: Runtime>(
+        _runtime: &RT,
+        previous_segments: &mut Self::PreviousSegments,
+        mut documents: DocumentStream<'_>,
+        _repeatable_persistence: &RepeatablePersistence,
+        _build_index_args: Self::BuildIndexArgs,
+        _schema: Self::Schema,
+        _document_log_lower_bound: Timestamp,
+    ) -> anyhow::Result<()> {
+        while let Some((_, id, document)) = documents.try_next().await? {
+            if document.is_none() {
+                previous_segments.maybe_delete_convex(id.internal_id())?;
+            }
+        }
+        Ok(())
     }
 }
 

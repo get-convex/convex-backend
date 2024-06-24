@@ -14,8 +14,8 @@ use super::{
         SerializedDeveloperDatabaseIndexConfig,
     },
     text_index::{
-        DeveloperSearchIndexConfig,
-        SerializedDeveloperSearchIndexConfig,
+        DeveloperTextIndexConfig,
+        SerializedDeveloperTextIndexConfig,
         SerializedTextIndexState,
         TextIndexState,
     },
@@ -42,7 +42,7 @@ pub enum IndexConfig {
 
     /// Full text search index.
     Search {
-        developer_config: DeveloperSearchIndexConfig,
+        developer_config: DeveloperTextIndexConfig,
 
         /// Whether the index is fully backfilled or not on disk.
         on_disk_state: TextIndexState,
@@ -165,7 +165,7 @@ pub enum SerializedIndexConfig {
     #[serde(rename_all = "camelCase")]
     Search {
         #[serde(flatten)]
-        developer_config: SerializedDeveloperSearchIndexConfig,
+        developer_config: SerializedDeveloperTextIndexConfig,
         on_disk_state: SerializedTextIndexState,
     },
     #[serde(rename_all = "camelCase")]

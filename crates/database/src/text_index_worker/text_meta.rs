@@ -1,14 +1,18 @@
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     path::PathBuf,
     sync::Arc,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::{
         text_index::{
-            DeveloperSearchIndexConfig,
+            DeveloperTextIndexConfig,
             FragmentedTextSegment,
             TextBackfillCursor,
             TextIndexBackfillState,
@@ -40,10 +44,14 @@ use common::{
     },
     types::IndexId,
 };
-use futures::StreamExt;
+use futures::{
+    StreamExt,
+    TryStreamExt,
+};
 use search::{
     build_new_segment,
     disk_index::upload_text_segment,
+    fetch_term_ordinals_and_remap_deletes,
     metrics::SearchType,
     searcher::{
         FragmentedTextStorageKeys,
@@ -52,18 +60,17 @@ use search::{
     NewTextSegment,
     PreviousTextSegments,
     Searcher,
+    SegmentStatisticsUpdates,
     TantivySearchIndexSchema,
     UpdatableTextSegment,
 };
 use storage::Storage;
 use sync_types::Timestamp;
-use value::InternalId;
 
 use crate::{
     index_workers::{
         index_meta::{
             BackfillState,
-            PreviousSegmentsType,
             SearchIndex,
             SearchIndexConfig,
             SearchOnDiskState,
@@ -76,13 +83,6 @@ use crate::{
     },
     Snapshot,
 };
-
-impl PreviousSegmentsType for PreviousTextSegments {
-    fn maybe_delete_document(&mut self, convex_id: InternalId) -> anyhow::Result<()> {
-        self.delete_document(convex_id)?;
-        Ok(())
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct TextSearchIndex;
@@ -115,7 +115,7 @@ pub struct BuildTextIndexArgs {
 #[async_trait]
 impl SearchIndex for TextSearchIndex {
     type BuildIndexArgs = BuildTextIndexArgs;
-    type DeveloperConfig = DeveloperSearchIndexConfig;
+    type DeveloperConfig = DeveloperTextIndexConfig;
     type NewSegment = NewTextSegment;
     type PreviousSegments = PreviousTextSegments;
     type Schema = TantivySearchIndexSchema;
@@ -314,6 +314,97 @@ impl SearchIndex for TextSearchIndex {
                     .collect(),
             )
             .await
+    }
+
+    async fn merge_deletes<RT: Runtime>(
+        runtime: &RT,
+        previous_segments: &mut Self::PreviousSegments,
+        documents: DocumentStream<'_>,
+        repeatable_persistence: &RepeatablePersistence,
+        build_index_args: Self::BuildIndexArgs,
+        schema: Self::Schema,
+        document_log_lower_bound: Timestamp,
+    ) -> anyhow::Result<()> {
+        let revision_stream = stream_revision_pairs(documents, repeatable_persistence);
+        // Keep track of the document IDs we've either added to our new segment or
+        // deleted from a previous segment. Because we process in reverse order, we
+        // may encounter each document id multiple times, but we only want to add or
+        // delete them once.
+        let mut document_ids_processed = BTreeSet::new();
+        // Deleted documents that either have a revision in a previous segment that we
+        // will eventually encounter in the log and delete. Or that were added and
+        // deleted within our new segment's time window and can be ignored.
+        let mut dangling_deletes = BTreeSet::new();
+        let mut segment_statistics_updates = SegmentStatisticsUpdates::new();
+        futures::pin_mut!(revision_stream);
+        while let Some(revision_pair) = revision_stream.try_next().await? {
+            // We need to pass the schema through here.
+            // Update segment statistics
+            // For each document, three possible outcomes:
+            // 1. We add the document to our new segment
+            // 2. We delete the document from a previous segment
+            // 3. We ignore the document because it was both added and removed within the
+            //    time bounds for our new segment.
+            let convex_id = revision_pair.id.internal_id();
+
+            // Skip documents we have already added to the segment, but update dangling
+            // deletes
+            if document_ids_processed.contains(&convex_id) {
+                continue;
+            }
+            document_ids_processed.insert(convex_id);
+
+            // Addition
+            if let Some(_new_document) = revision_pair.document() {
+                // If we have already processed a delete for this document at a higher
+                // timestamp, we can ignore it. Otherwise, add it to the segment.
+                if dangling_deletes.contains(&convex_id) {
+                    dangling_deletes.remove(&convex_id);
+                }
+            }
+
+            // Delete
+            if let Some(prev_rev) = revision_pair.prev_rev
+                && let Some(prev_document) = prev_rev.document.as_ref()
+            {
+                if prev_rev.ts > document_log_lower_bound {
+                    // This document might be an add, or might be replaced earlier in the log,
+                    // we don't know, so we need to process it again
+                    // later.
+                    dangling_deletes.insert(prev_document.id().internal_id());
+                    document_ids_processed.remove(&prev_document.id().internal_id());
+                } else {
+                    let segment_key = previous_segments
+                        .delete_document(prev_document.id().internal_id())?
+                        .context(
+                            "Missing segment even though revision is not in our time bounds",
+                        )?;
+                    let segment = previous_segments
+                        .0
+                        .get(&segment_key)
+                        .context("Segment key not found")?;
+
+                    let terms = schema.index_into_terms(prev_document)?;
+                    segment_statistics_updates
+                        .on_document_deleted(&segment.original.segment_key, terms);
+                }
+            }
+        }
+        anyhow::ensure!(
+            dangling_deletes.is_empty(),
+            "Dangling deletes is not empty. A document was deleted that is not present in other \
+             segments nor in this stream"
+        );
+
+        let segments_term_metadata = fetch_term_ordinals_and_remap_deletes(
+            runtime,
+            build_index_args.search_storage.clone(),
+            build_index_args.segment_term_metadata_fetcher.clone(),
+            segment_statistics_updates.term_deletes_by_segment,
+        )
+        .await?;
+        previous_segments.update_term_deletion_metadata(segments_term_metadata)?;
+        Ok(())
     }
 }
 

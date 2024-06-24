@@ -102,7 +102,7 @@ pub struct TextSegmentPaths {
 pub struct UpdatableTextSegment {
     id_tracker: StaticIdTracker,
     pub(crate) deletion_tracker: MemoryDeletionTracker,
-    original: FragmentedTextSegment,
+    pub original: FragmentedTextSegment,
     /// The number of files deleted since this struct was created (not the total
     /// number of deletes in the segment).
     num_deletes_in_updated: u64,
@@ -274,7 +274,7 @@ impl PreviousTextSegments {
         self.0.get_mut(segment_key).expect("Segment key not found")
     }
 
-    fn update_term_deletion_metadata(
+    pub fn update_term_deletion_metadata(
         &mut self,
         segments_term_metadata: Vec<(ObjectKey, SegmentTermMetadata)>,
     ) -> anyhow::Result<()> {
@@ -286,17 +286,17 @@ impl PreviousTextSegments {
     }
 }
 
-struct SegmentStatisticsUpdates {
-    term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField>,
+pub struct SegmentStatisticsUpdates {
+    pub term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField>,
 }
 impl SegmentStatisticsUpdates {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             term_deletes_by_segment: BTreeMap::new(),
         }
     }
 
-    fn on_document_deleted(&mut self, segment_key: &ObjectKey, terms: Vec<DocumentTerm>) {
+    pub fn on_document_deleted(&mut self, segment_key: &ObjectKey, terms: Vec<DocumentTerm>) {
         let term_deletes_for_segment = if let Some(term_values_and_delete_counts) =
             self.term_deletes_by_segment.get_mut(segment_key)
         {
@@ -475,7 +475,7 @@ fn get_size(path: &PathBuf) -> anyhow::Result<u64> {
     std::fs::read_dir(path)?.try_fold(0, |acc, curr| Ok(acc + get_size(&curr?.path())?))
 }
 
-async fn fetch_term_ordinals_and_remap_deletes<RT: Runtime>(
+pub async fn fetch_term_ordinals_and_remap_deletes<RT: Runtime>(
     rt: &RT,
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
