@@ -23,6 +23,10 @@ use futures::{
     future::BoxFuture,
     FutureExt,
 };
+use isolate::{
+    HttpActionRequest,
+    HttpActionResponseStreamer,
+};
 use keybroker::Identity;
 use model::session_requests::types::SessionRequestIdentifier;
 use serde_json::Value as JsonValue;
@@ -119,6 +123,17 @@ pub trait ApplicationApi: Send + Sync {
     ) -> anyhow::Result<RepeatableTimestamp>;
 
     async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>>;
+
+    async fn execute_http_action(
+        &self,
+        host: &str,
+        request_id: RequestId,
+        path: UdfPath,
+        http_request_metadata: HttpActionRequest,
+        identity: Identity,
+        caller: FunctionCaller,
+        response_streamer: HttpActionResponseStreamer,
+    ) -> anyhow::Result<()>;
 }
 
 // Implements ApplicationApi via Application.
@@ -249,6 +264,31 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             inner,
             log: self.database.log().clone(),
         }))
+    }
+
+    async fn execute_http_action(
+        &self,
+        _host: &str,
+        request_id: RequestId,
+        path: UdfPath,
+        http_request_metadata: HttpActionRequest,
+        identity: Identity,
+        caller: FunctionCaller,
+        response_streamer: HttpActionResponseStreamer,
+    ) -> anyhow::Result<()> {
+        let path = ComponentFunctionPath {
+            component: ComponentPath::root(),
+            udf_path: path,
+        };
+        self.http_action_udf(
+            request_id,
+            path,
+            http_request_metadata,
+            identity,
+            caller,
+            response_streamer,
+        )
+        .await
     }
 }
 

@@ -8,12 +8,16 @@ use anyhow::{
 use async_trait::async_trait;
 use authentication::extract_bearer_token;
 use axum::{
-    extract::FromRequestParts,
+    extract::{
+        FromRequestParts,
+        Host,
+    },
     RequestPartsExt,
 };
 use common::{
     http::{
         extract::Query,
+        ExtractRequestId,
         HttpResponseError,
     },
     runtime::Runtime,
@@ -27,7 +31,10 @@ use sync_types::{
     UserIdentityAttributes,
 };
 
-use crate::LocalAppState;
+use crate::{
+    LocalAppState,
+    RouterState,
+};
 
 pub struct ExtractAuthenticationToken(pub AuthenticationToken);
 
@@ -125,22 +132,27 @@ impl From<ExtractIdentity> for Identity {
 pub struct TryExtractIdentity(pub anyhow::Result<Identity>);
 
 #[async_trait]
-impl FromRequestParts<LocalAppState> for TryExtractIdentity {
+impl FromRequestParts<RouterState> for TryExtractIdentity {
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        st: &LocalAppState,
+        st: &RouterState,
     ) -> Result<Self, Self::Rejection> {
         let token = match parts.extract::<ExtractAuthenticationToken>().await {
             Ok(t) => t.into(),
             Err(e) => return Ok(Self(Err(e.into()))),
         };
-
+        let host = match parts.extract::<Host>().await {
+            Ok(h) => h,
+            Err(e) => return Ok(Self(Err(e.into()))),
+        };
+        let request_id = match parts.extract::<ExtractRequestId>().await {
+            Ok(id) => id,
+            Err(e) => return Ok(Self(Err(e.into()))),
+        };
         Ok(Self(
-            st.application
-                .authenticate(token, st.application.runtime().system_time())
-                .await,
+            st.api.authenticate(&host.0, request_id.0, token).await,
         ))
     }
 }

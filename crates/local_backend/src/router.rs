@@ -185,6 +185,10 @@ pub async fn router(st: LocalAppState) -> Router {
     let migrated = Router::new()
         .nest("/api", migrated_api_routes)
         .layer(cors().await)
+        // Order matters. Layers only apply to routes above them.
+        // Notably, any layers added here won't apply to common routes
+        // added inside `serve_http`
+        .nest("/http/", http_action_routes())
         .with_state(RouterState {
             api: Arc::new(st.application.clone()),
             runtime: st.application.runtime().clone(),
@@ -194,10 +198,6 @@ pub async fn router(st: LocalAppState) -> Router {
     Router::new()
         .nest("/api", api_routes)
         .layer(cors().await)
-        // Order matters. Layers only apply to routes above them.
-        // Notably, any layers added here won't apply to common routes
-        // added inside `serve_http`
-        .nest("/http/", http_action_routes())
         .with_state(st)
         .merge(migrated)
 }
@@ -248,7 +248,7 @@ pub fn import_routes() -> Router<LocalAppState> {
         .route("/perform_import", post(perform_import))
 }
 
-pub fn http_action_routes() -> Router<LocalAppState> {
+pub fn http_action_routes() -> Router<RouterState> {
     Router::new()
         .route("/*rest", http_action_handler())
         .route("/", http_action_handler())
