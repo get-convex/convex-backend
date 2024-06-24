@@ -5,13 +5,39 @@ import { JSONValue, convexToJson } from "./value.js";
 type TableNameFromType<T> =
   T extends GenericId<infer TableName> ? TableName : string;
 
-export class VId<Type, IsOptional extends OptionalProperty = "required"> {
-  readonly tableName: TableNameFromType<Type>;
+/**
+ * Avoid using `instanceof BaseValidator`; this is inheritence for code reuse
+ * not type heirarchy.
+ */
+abstract class BaseValidator<
+  Type,
+  IsOptional extends OptionalProperty = "required",
+  FieldPaths extends string = never,
+> {
   readonly type!: Type;
   readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
-  readonly kind = "id" as const;
+  readonly fieldPaths!: FieldPaths;
   readonly isConvexValidator: true;
+  constructor({ isOptional }: { isOptional: IsOptional }) {
+    this.isOptional = isOptional;
+    this.isConvexValidator = true;
+  }
+  /** @deprecated - use isOptional instead */
+  get optional(): boolean {
+    return this.isOptional === "optional" ? true : false;
+  }
+  /** @internal */
+  abstract get json(): ValidatorJSON;
+  /** @internal */
+  abstract asOptional(): Validator<Type | undefined, "optional", FieldPaths>;
+}
+
+export class VId<
+  Type,
+  IsOptional extends OptionalProperty = "required",
+> extends BaseValidator<Type, IsOptional> {
+  readonly tableName: TableNameFromType<Type>;
+  readonly kind = "id" as const;
   constructor({
     isOptional,
     tableName,
@@ -19,17 +45,16 @@ export class VId<Type, IsOptional extends OptionalProperty = "required"> {
     isOptional: IsOptional;
     tableName: TableNameFromType<Type>;
   }) {
-    this.isOptional = isOptional;
+    super({ isOptional });
     this.tableName = tableName;
-    this.isConvexValidator = true;
   }
   /** @internal */
   get json(): ValidatorJSON {
     return { type: "id", tableName: this.tableName };
   }
   /** @internal */
-  optional() {
-    return new VId<Type, "optional">({
+  asOptional() {
+    return new VId<Type | undefined, "optional">({
       isOptional: "optional",
       tableName: this.tableName,
     });
@@ -39,136 +64,98 @@ export class VId<Type, IsOptional extends OptionalProperty = "required"> {
 export class VFloat64<
   Type = number,
   IsOptional extends OptionalProperty = "required",
-> {
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
+> extends BaseValidator<Type, IsOptional> {
   readonly kind = "float64" as const;
-  readonly isConvexValidator: true;
-  constructor({ isOptional }: { isOptional: IsOptional }) {
-    this.isOptional = isOptional;
-    this.isConvexValidator = true;
-  }
   /** @internal */
   get json(): ValidatorJSON {
-    // Server expects the old name `number`.
+    // Server expects the old name `number` string instead of `float64`.
     return { type: "number" };
   }
   /** @internal */
-  optional() {
-    return new VFloat64({ isOptional: "optional" });
+  asOptional() {
+    return new VFloat64<Type | undefined, "optional">({
+      isOptional: "optional",
+    });
   }
 }
 
 export class VInt64<
   Type = bigint,
   IsOptional extends OptionalProperty = "required",
-> {
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
+> extends BaseValidator<Type, IsOptional> {
   readonly kind = "int64" as const;
-  readonly isConvexValidator = true as const;
-  constructor({ isOptional }: { isOptional: IsOptional }) {
-    this.isOptional = isOptional;
-  }
   /** @internal */
   get json(): ValidatorJSON {
     // Server expects the old name `bigint`.
     return { type: "bigint" };
   }
   /** @internal */
-  optional() {
-    return new VInt64({ isOptional: "optional" });
+  asOptional() {
+    return new VInt64<Type | undefined, "optional">({ isOptional: "optional" });
   }
 }
 
 export class VBoolean<
   Type = boolean,
   IsOptional extends OptionalProperty = "required",
-> {
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
+> extends BaseValidator<Type, IsOptional> {
   readonly kind = "boolean" as const;
-  isConvexValidator = true as const;
-  constructor({ isOptional }: { isOptional: IsOptional }) {
-    this.isOptional = isOptional;
-  }
   /** @internal */
   get json(): ValidatorJSON {
     return { type: this.kind };
   }
   /** @internal */
-  optional() {
-    return new VBoolean({ isOptional: "optional" });
+  asOptional() {
+    return new VBoolean<Type | undefined, "optional">({
+      isOptional: "optional",
+    });
   }
 }
 
 export class VBytes<
   Type = ArrayBuffer,
   IsOptional extends OptionalProperty = "required",
-> {
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
+> extends BaseValidator<Type, IsOptional> {
   readonly kind = "bytes" as const;
-  readonly isConvexValidator = true as const;
-  constructor({ isOptional }: { isOptional: IsOptional }) {
-    this.isOptional = isOptional;
-  }
   /** @internal */
   get json(): ValidatorJSON {
     return { type: this.kind };
   }
   /** @internal */
-  optional() {
-    return new VBytes({ isOptional: "optional" });
+  asOptional() {
+    return new VBytes<Type | undefined, "optional">({ isOptional: "optional" });
   }
 }
 
 export class VString<
   Type = string,
   IsOptional extends OptionalProperty = "required",
-> {
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
+> extends BaseValidator<Type, IsOptional> {
   readonly kind = "string" as const;
-  readonly isConvexValidator = true as const;
-  constructor({ isOptional }: { isOptional: IsOptional }) {
-    this.isOptional = isOptional;
-  }
   /** @internal */
   get json(): ValidatorJSON {
     return { type: this.kind };
   }
   /** @internal */
-  optional() {
-    return new VString({ isOptional: "optional" });
+  asOptional() {
+    return new VString<Type | undefined, "optional">({
+      isOptional: "optional",
+    });
   }
 }
 
 export class VNull<
   Type = null,
   IsOptional extends OptionalProperty = "required",
-> {
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
+> extends BaseValidator<Type, IsOptional> {
   readonly kind = "null" as const;
-  isConvexValidator: true;
-  constructor({ isOptional }: { isOptional: IsOptional }) {
-    this.isOptional = isOptional;
-    this.isConvexValidator = true;
-  }
   /** @internal */
   get json(): ValidatorJSON {
     return { type: this.kind };
   }
   /** @internal */
-  optional() {
-    return new VNull({ isOptional: "optional" });
+  asOptional() {
+    return new VNull<Type | undefined, "optional">({ isOptional: "optional" });
   }
 }
 
@@ -176,15 +163,8 @@ export class VAny<
   Type = any,
   IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = string,
-> {
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: FieldPaths;
+> extends BaseValidator<Type, IsOptional, FieldPaths> {
   readonly kind = "any" as const;
-  readonly isConvexValidator = true as const;
-  constructor({ isOptional }: { isOptional: IsOptional }) {
-    this.isOptional = isOptional;
-  }
   /** @internal */
   get json(): ValidatorJSON {
     return {
@@ -192,8 +172,10 @@ export class VAny<
     };
   }
   /** @internal */
-  optional() {
-    return new VAny({ isOptional: "optional" });
+  asOptional() {
+    return new VAny<Type | undefined, "optional", FieldPaths>({
+      isOptional: "optional",
+    });
   }
 }
 
@@ -218,13 +200,10 @@ export class VObject<
       | Property;
   }[keyof Fields] &
     string,
-> {
-  fields: Fields;
+> extends BaseValidator<Type, IsOptional, FieldPaths> {
   readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: FieldPaths;
+  readonly fields: Fields;
   readonly kind = "object" as const;
-  readonly isConvexValidator = true as const;
   constructor({
     isOptional,
     fields,
@@ -232,7 +211,7 @@ export class VObject<
     isOptional: IsOptional;
     fields: Fields;
   }) {
-    this.isOptional = isOptional;
+    super({ isOptional });
     this.fields = fields;
   }
   /** @internal */
@@ -244,33 +223,30 @@ export class VObject<
           k,
           {
             fieldType: v.json,
-            optional:
-              typeof v.isOptional === "boolean"
-                ? (this.isOptional as unknown as boolean)
-                : v.isOptional === "optional",
+            optional: v.isOptional === "optional" ? true : false,
           },
         ]),
       ),
     };
   }
   /** @internal */
-  optional() {
-    return new VObject<Type, Fields, "optional", FieldPaths>({
+  asOptional() {
+    return new VObject<Type | undefined, Fields, "optional", FieldPaths>({
       isOptional: "optional",
       fields: this.fields,
     });
   }
 }
 
-export class VLiteral<Type, IsOptional extends OptionalProperty = "required"> {
+export class VLiteral<
+  Type,
+  IsOptional extends OptionalProperty = "required",
+> extends BaseValidator<Type, IsOptional> {
   readonly value: Type;
   readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
   readonly kind = "literal" as const;
-  readonly isConvexValidator = true as const;
   constructor({ isOptional, value }: { isOptional: IsOptional; value: Type }) {
-    this.isOptional = isOptional;
+    super({ isOptional });
     this.value = value;
   }
   /** @internal */
@@ -281,8 +257,8 @@ export class VLiteral<Type, IsOptional extends OptionalProperty = "required"> {
     };
   }
   /** @internal */
-  optional() {
-    return new VLiteral<Type, "optional">({
+  asOptional() {
+    return new VLiteral<Type | undefined, "optional">({
       isOptional: "optional",
       value: this.value,
     });
@@ -293,13 +269,9 @@ export class VArray<
   Type,
   Element extends Validator<any, "required", any>,
   IsOptional extends OptionalProperty = "required",
-> {
-  element: Element;
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: never;
+> extends BaseValidator<Type, IsOptional> {
+  readonly element: Element;
   readonly kind = "array" as const;
-  readonly isConvexValidator = true as const;
   constructor({
     isOptional,
     element,
@@ -307,7 +279,7 @@ export class VArray<
     isOptional: IsOptional;
     element: Element;
   }) {
-    this.isOptional = isOptional;
+    super({ isOptional });
     this.element = element;
   }
   /** @internal */
@@ -318,8 +290,8 @@ export class VArray<
     };
   }
   /** @internal */
-  optional() {
-    return new VArray<Type, Element, "optional">({
+  asOptional() {
+    return new VArray<Type | undefined, Element, "optional">({
       isOptional: "optional",
       element: this.element,
     });
@@ -332,14 +304,10 @@ export class VRecord<
   Value extends Validator<any, "required", any>,
   IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = string,
-> {
-  key: Key;
-  value: Value;
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: FieldPaths;
+> extends BaseValidator<Type, IsOptional, FieldPaths> {
+  readonly key: Key;
+  readonly value: Value;
   readonly kind = "record" as const;
-  readonly isConvexValidator = true as const;
   constructor({
     isOptional,
     key,
@@ -349,7 +317,7 @@ export class VRecord<
     key: Key;
     value: Value;
   }) {
-    this.isOptional = isOptional;
+    super({ isOptional });
     this.key = key;
     this.value = value;
   }
@@ -365,8 +333,8 @@ export class VRecord<
     };
   }
   /** @internal */
-  optional() {
-    return new VRecord<Type, Key, Value, "optional">({
+  asOptional() {
+    return new VRecord<Type | undefined, Key, Value, "optional", FieldPaths>({
       isOptional: "optional",
       key: this.key,
       value: this.value,
@@ -379,15 +347,11 @@ export class VUnion<
   T extends Validator<any, "required", any>[],
   IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = T[number]["fieldPaths"],
-> {
+> extends BaseValidator<Type, IsOptional, FieldPaths> {
   readonly members: T;
-  readonly type!: Type;
-  readonly isOptional: IsOptional;
-  readonly fieldPaths!: FieldPaths;
   readonly kind = "union" as const;
-  readonly isConvexValidator = true as const;
   constructor({ isOptional, members }: { isOptional: IsOptional; members: T }) {
-    this.isOptional = isOptional;
+    super({ isOptional });
     this.members = members;
   }
   /** @internal */
@@ -398,8 +362,8 @@ export class VUnion<
     };
   }
   /** @internal */
-  optional() {
-    return new VUnion<Type, T, "optional">({
+  asOptional() {
+    return new VUnion<Type | undefined, T, "optional">({
       isOptional: "optional",
       members: this.members,
     });
@@ -408,31 +372,31 @@ export class VUnion<
 
 // prettier-ignore
 export type VOptional<T extends Validator<any, OptionalProperty, any>> =
-  T extends VId<infer Type, OptionalProperty> ? VId<Type, "optional">
+  T extends VId<infer Type, OptionalProperty> ? VId<Type | undefined, "optional">
   : T extends VString<infer Type, OptionalProperty>
-    ? VString<Type, "optional">
+    ? VString<Type | undefined, "optional">
   : T extends VFloat64<infer Type, OptionalProperty>
-    ? VFloat64<Type, "optional">
+    ? VFloat64<Type | undefined, "optional">
   : T extends VInt64<infer Type, OptionalProperty>
-    ? VInt64<Type, "optional">
+    ? VInt64<Type | undefined, "optional">
   : T extends VBoolean<infer Type, OptionalProperty>
-    ? VBoolean<Type, "optional">
+    ? VBoolean<Type | undefined, "optional">
   : T extends VNull<infer Type, OptionalProperty>
-    ? VNull<Type, "optional">
+    ? VNull<Type | undefined, "optional">
   : T extends VAny<infer Type, OptionalProperty>
-    ? VAny<Type, "optional">
+    ? VAny<Type | undefined, "optional">
   : T extends VLiteral<infer Type, OptionalProperty>
-    ? VLiteral<Type, "optional">
+    ? VLiteral<Type | undefined, "optional">
   : T extends VBytes<infer Type, OptionalProperty>
-    ? VBytes<Type, "optional">
+    ? VBytes<Type | undefined, "optional">
   : T extends VObject< infer Type, infer Fields, OptionalProperty, infer FieldPaths>
-    ? VObject<Type, Fields, "optional", FieldPaths>
+    ? VObject<Type | undefined, Fields, "optional", FieldPaths>
   : T extends VArray<infer Type, infer Element, OptionalProperty>
-    ? VArray<Type, Element, "optional">
+    ? VArray<Type | undefined, Element, "optional">
   : T extends VRecord< infer Type, infer Key, infer Value, OptionalProperty, infer FieldPaths>
-    ? VRecord<Type, Key, Value, "optional", FieldPaths>
+    ? VRecord<Type | undefined, Key, Value, "optional", FieldPaths>
   : T extends VUnion<infer Type, infer Members, OptionalProperty, infer FieldPaths>
-    ? VUnion<Type, Members, "optional", FieldPaths>
+    ? VUnion<Type | undefined, Members, "optional", FieldPaths>
   : never
 
 /**
@@ -465,8 +429,6 @@ export type OptionalProperty = "optional" | "required";
  *
  * @public
  */
-// TODO: Using string for the first IdValidator type param fixed something... right?
-// How could this matter? Try reverting all this one and all the others to confirm.
 export type Validator<
   Type,
   IsOptional extends OptionalProperty = "required",

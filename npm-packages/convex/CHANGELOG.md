@@ -24,8 +24,7 @@
   The `Validator` export is no longer a class. It is now a discriminated union
   type of all validators where the `.kind` as the discriminator. The `Validator`
   type still has three type parameters with only the first (the TypeScript type
-  enforced by the validator) required. The second type parameter, `IsOptional`,
-  is no longer a boolean. It is instead either `"required"` or `"optional"`.
+  enforced by the validator) required.
 
   These are breaking changes if you're using the two optional type parameters of
   `Validator` or doing `instanceof` checks with `Validator`! We apologize for

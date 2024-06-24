@@ -153,7 +153,7 @@ export const v = {
     return new VAny({ isOptional: "required" });
   },
   optional<T extends GenericValidator>(value: T) {
-    return value.optional() as VOptional<T>;
+    return value.asOptional() as VOptional<T>;
   },
 };
 
@@ -179,7 +179,15 @@ export type ObjectType<Fields extends PropertyValidators> = Expand<
   // Map each key to the corresponding property validator's type making
   // the optional ones optional.
   {
-    [Property in OptionalKeys<Fields>]?: Infer<Fields[Property]>;
+    // This `Exclude<..., undefined>` does nothing unless
+    // the tsconfig.json option `"exactOptionalPropertyTypes": true,`
+    // is used. When it is it results in a more accurate type.
+    // When it is not the `Exclude` removes `undefined` but it is
+    // added again by the optional property.
+    [Property in OptionalKeys<Fields>]?: Exclude<
+      Infer<Fields[Property]>,
+      undefined
+    >;
   } & {
     [Property in RequiredKeys<Fields>]: Infer<Fields[Property]>;
   }

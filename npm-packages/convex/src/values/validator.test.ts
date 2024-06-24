@@ -19,21 +19,22 @@ describe("Validators", () => {
     const k = v.optional(v.record(v.string(), v.string()));
     const l = v.optional(v.union(v.string(), v.number()));
 
-    // Optional has no effect when not in an object.
-    assert<Equals<Infer<typeof a>, GenericId<"a">>>();
-    assert<Equals<Infer<typeof b>, null>>();
-    assert<Equals<Infer<typeof c>, number>>();
-    assert<Equals<Infer<typeof d>, bigint>>();
-    assert<Equals<Infer<typeof e>, boolean>>();
-    assert<Equals<Infer<typeof f>, string>>();
-    assert<Equals<Infer<typeof g>, ArrayBuffer>>();
-    assert<Equals<Infer<typeof h>, "a">>();
-    assert<Equals<Infer<typeof i>, string[]>>();
-    assert<Equals<Infer<typeof j>, { a: string }>>();
-    assert<Equals<Infer<typeof k>, Record<string, string>>>();
-    assert<Equals<Infer<typeof l>, string | number>>();
+    // Optional makes types a union with undefined.
+    assert<Equals<Infer<typeof a>, GenericId<"a"> | undefined>>();
+    assert<Equals<Infer<typeof b>, null | undefined>>();
+    assert<Equals<Infer<typeof c>, number | undefined>>();
+    assert<Equals<Infer<typeof d>, bigint | undefined>>();
+    assert<Equals<Infer<typeof e>, boolean | undefined>>();
+    assert<Equals<Infer<typeof f>, string | undefined>>();
+    assert<Equals<Infer<typeof g>, ArrayBuffer | undefined>>();
+    assert<Equals<Infer<typeof h>, "a" | undefined>>();
+    assert<Equals<Infer<typeof i>, string[] | undefined>>();
+    assert<Equals<Infer<typeof j>, { a: string } | undefined>>();
+    assert<Equals<Infer<typeof k>, Record<string, string> | undefined>>();
+    assert<Equals<Infer<typeof l>, string | number | undefined>>();
 
-    // Optional
+    // Note: this test does not actually verify this property unless
+    // the tsconfig.json option `"exactOptionalPropertyTypes": true` is used.
     const optionals = v.object({ a, b, c, d, e, f, g, h, i, j, k, l });
     assert<
       Equals<
@@ -54,6 +55,33 @@ describe("Validators", () => {
         }
       >
     >();
+  });
+
+  test("Most validators don't accept optional validators as children", () => {
+    const optional = v.optional(v.string());
+    const required = v.string();
+
+    v.object({ optional });
+
+    v.array(required);
+    // @ts-expect-error This should be an error
+    v.array(optional);
+
+    v.record(required, required);
+    // @ts-expect-error This should be an error
+    v.record(required, optional);
+    // @ts-expect-error This should be an error
+    v.record(optional, required);
+    // @ts-expect-error This should be an error
+    v.record(optional, optional);
+
+    v.union(required, required);
+    // @ts-expect-error This should be an error
+    v.union(optional, optional);
+    // @ts-expect-error This should be an error
+    v.union(required, optional);
+    // @ts-expect-error This should be an error
+    v.union(optional, required);
   });
 
   test("complex types look good", () => {
