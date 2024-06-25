@@ -1039,10 +1039,6 @@ pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> =
 /// We always search using whatever index format is currently built. So this
 /// dictates not just want index type will be built, but also what type of query
 /// we'll use.
-///
-/// USE_MULTI_SEGMENT_SEARCH_QUERY does not dictate whether we'll use multi
-/// segment queries with multi segment indexes. Instead, it only enables using
-/// the multi segment query path against the old single segment index typ.e
 pub static BUILD_MULTI_SEGMENT_TEXT_INDEXES: LazyLock<bool> =
     LazyLock::new(|| env_config("BUILD_MULTI_SEGMENT_TEXT_INDEXES", true));
 
@@ -1050,7 +1046,3 @@ pub static BUILD_MULTI_SEGMENT_TEXT_INDEXES: LazyLock<bool> =
 /// the "backend_startup" domain keyed by db cluster name.
 pub static STARTUP_RATE_LIMIT_ENABLED: LazyLock<bool> =
     LazyLock::new(|| env_config("STARTUP_RATE_LIMIT_ENABLED", false));
-
-/// Use multi segment search algorithm for search queries.
-pub static USE_MULTI_SEGMENT_SEARCH_QUERY: LazyLock<bool> =
-    LazyLock::new(|| env_config("USE_MULTI_SEGMENT_SEARCH_QUERY", false));

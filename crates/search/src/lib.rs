@@ -22,7 +22,6 @@ mod levenshtein_dfa;
 mod memory_index;
 pub mod metrics;
 pub mod query;
-mod ranking;
 pub mod scoring;
 mod search_index_manager;
 pub mod searcher;
@@ -46,10 +45,6 @@ use common::{
     },
     document::ResolvedDocument,
     index::IndexKeyBytes,
-    knobs::{
-        SEARCHLIGHT_CLUSTER_NAME,
-        USE_MULTI_SEGMENT_SEARCH_QUERY,
-    },
     query::{
         search_value_to_bytes,
         InternalSearch,
@@ -112,7 +107,6 @@ use tantivy::{
 };
 pub use tantivy_query::SearchQueryResult;
 use value::{
-    sorting::TotalOrdF64,
     values_to_bytes,
     ConvexValue,
     FieldPath,
@@ -153,7 +147,6 @@ use crate::{
     aggregation::TokenMatchAggregator,
     constants::MAX_UNIQUE_QUERY_TERMS,
     metrics::log_num_segments_searched_total,
-    ranking::Ranker,
     searcher::{
         Bm25Stats,
         PostingListQuery,
@@ -685,154 +678,25 @@ impl TantivySearchIndexSchema {
         disk_index_ts: Timestamp,
         searcher: Arc<dyn Searcher>,
     ) -> anyhow::Result<RevisionWithKeys> {
-        if *USE_MULTI_SEGMENT_SEARCH_QUERY {
-            let number_of_segments = searcher
-                .number_of_segments(search_storage.clone(), disk_index.clone())
-                .await?;
-            let segments = (0..number_of_segments)
-                .map(|i| TextStorageKeys::SingleSegment {
-                    storage_key: disk_index.clone(),
-                    segment_ord: i as u32,
-                })
-                .collect();
-            return self
-                .search2(
-                    runtime,
-                    compiled_query,
-                    memory_index,
-                    search_storage,
-                    segments,
-                    disk_index_ts,
-                    searcher,
-                )
-                .await;
-        }
-        // 1. Fetch the memory index matches for each QueryTerm in the query and bound.
-        let (term_shortlist, term_shortlist_ids) =
-            memory_index.bound_and_evaluate_query_terms(&compiled_query.text_query);
-
-        // 2. For the shortlisted terms, get the BM25 statistics for each term in the
-        //    memory index.
-        let memory_stats_diff =
-            memory_index.bm25_statistics_diff(disk_index_ts, &term_shortlist.terms())?;
-
-        // 3. Query memory index tombstones to count overfetch_delta
-        //
-        // Our goal is to end up with the top MAX_CANDIDATE_REVISIONS.
-        // Some of the ones in searchlight will be filtered out if they were edited
-        // since disk_index_ts. Count how many that is and fetch extra!
-        let tombstoned_matches = {
-            let term_list_query = memory_index.build_term_list_bitset_query(
-                &compiled_query,
-                &term_shortlist,
-                &term_shortlist_ids,
-            );
-            memory_index.tombstoned_matches(disk_index_ts, &term_list_query)?
-        };
-        let overfetch_delta = tombstoned_matches.len();
-        metrics::log_searchlight_overfetch_delta(overfetch_delta);
-        let limit = MAX_CANDIDATE_REVISIONS + overfetch_delta;
-
-        // 4. Do disk query
-        let search_results = {
-            let timer = metrics::searchlight_client_execute_timer(&SEARCHLIGHT_CLUSTER_NAME);
-            let results = searcher
-                .execute_query(
-                    search_storage,
-                    disk_index,
-                    self,
-                    compiled_query.clone(),
-                    memory_stats_diff,
-                    term_shortlist,
-                    limit,
-                )
-                .await?;
-            metrics::finish_searchlight_client_execute(timer, &results);
-            results
-        };
-
-        // 5. Do memory index query
-        let combined_term_shortlist = search_results.combined_shortlisted_terms;
-        let combined_term_ids =
-            memory_index.evaluate_shortlisted_query_terms(&combined_term_shortlist);
-        let memory_revisions = {
-            let term_list_query = memory_index.build_term_list_bitset_query(
-                &compiled_query,
-                &combined_term_shortlist,
-                &combined_term_ids,
-            );
-            let term_weights = build_term_weights(
-                &combined_term_shortlist,
-                &combined_term_ids,
-                &term_list_query,
-                search_results.combined_statistics,
-            )?;
-            memory_index.query(
-                disk_index_ts,
-                &term_list_query,
-                &combined_term_ids,
-                &term_weights,
-            )?
-        };
-
-        // 6. Filter out tombstones
-        let current_disk_revisions = search_results
-            .results
-            .into_iter()
-            .filter(|revision| !tombstoned_matches.contains(&revision.revision.id));
-
-        // 7. Use Bm25 to score top retrieval results
-        let mut revisions_with_keys: Vec<_> = memory_revisions
-            .into_iter()
-            .chain(current_disk_revisions)
-            .map(|candidate| {
-                (
-                    (
-                        TotalOrdF64::from(-f64::from(candidate.revision.score)),
-                        TotalOrdF64::from(-f64::from(candidate.revision.creation_time)),
-                        Vec::<u8>::from(candidate.revision.id),
-                    ),
-                    candidate,
-                )
+        let number_of_segments = searcher
+            .number_of_segments(search_storage.clone(), disk_index.clone())
+            .await?;
+        let segments = (0..number_of_segments)
+            .map(|i| TextStorageKeys::SingleSegment {
+                storage_key: disk_index.clone(),
+                segment_ord: i as u32,
             })
             .collect();
-        revisions_with_keys.sort_by_key(|(key, _)| key.clone());
-        let original_len = revisions_with_keys.len();
-        revisions_with_keys.truncate(MAX_CANDIDATE_REVISIONS);
-        metrics::log_num_discarded_revisions(original_len - revisions_with_keys.len());
-
-        // 8. Rank results
-        let ranker = Ranker::create(&compiled_query.text_query, &combined_term_shortlist);
-        let mut ranked_revisions: Vec<_> = revisions_with_keys
-            .into_iter()
-            .map(|(_, candidate)| {
-                // Search results are in decreasing score order and then tie break
-                // with decreasing creation time (newest first).
-                //
-                // This isn't a true index key -- notably, the last value is not the
-                // document ID, but we're just using the index key bytes for sorting
-                // and paginating search results within a table.
-                let ranking_score = ranker.score(&candidate);
-
-                let index_fields = vec![
-                    Some(ConvexValue::Float64(-f64::from(ranking_score))),
-                    Some(ConvexValue::Float64(-f64::from(
-                        candidate.revision.creation_time,
-                    ))),
-                    Some(ConvexValue::Bytes(
-                        Vec::<u8>::from(candidate.revision.id)
-                            .try_into()
-                            .expect("Could not convert internal ID to value"),
-                    )),
-                ];
-                let bytes = values_to_bytes(&index_fields);
-                let index_key_bytes = IndexKeyBytes(bytes);
-                (CandidateRevision::from(candidate), index_key_bytes)
-            })
-            .collect();
-        ranked_revisions.sort_by_key(|(_, key)| key.clone());
-
-        Ok(ranked_revisions)
+        self.search2(
+            runtime,
+            compiled_query,
+            memory_index,
+            search_storage,
+            segments,
+            disk_index_ts,
+            searcher,
+        )
+        .await
     }
 
     fn compile_tokens_with_typo_tolerance(

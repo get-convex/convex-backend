@@ -73,8 +73,7 @@ async fn test_search_disk_index_backfill_error(rt: TestRuntime) -> anyhow::Resul
 }
 
 fn is_multi_segment() -> bool {
-    std::env::var("USE_MULTI_SEGMENT_SEARCH_QUERY").is_ok()
-        || std::env::var("BUILD_MULTI_SEGMENT_TEXT_INDEXES").is_ok()
+    std::env::var("BUILD_MULTI_SEGMENT_TEXT_INDEXES").is_ok()
 }
 
 fn assert_search_result_order(results: ConvexArray) -> anyhow::Result<()> {
