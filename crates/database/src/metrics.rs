@@ -907,12 +907,13 @@ register_convex_histogram!(
 );
 pub fn compaction_build_one_timer(search_type: SearchType) -> StatusTimer {
     let mut timer = StatusTimer::new(&COMPACTION_BUILD_ONE_SECONDS);
-    timer.replace_label(UNKNOWN_COMPACTION_LABEL.clone(), search_type.tag());
+    timer.add_label(search_type.tag());
+    timer.add_label(UNKNOWN_COMPACTION_LABEL.clone());
     timer
 }
 
 pub fn finish_compaction_timer(mut timer: StatusTimer, reason: CompactionReason) {
-    timer.add_label(reason.metric_label());
+    timer.replace_label(UNKNOWN_COMPACTION_LABEL.clone(), reason.metric_label());
     timer.finish();
 }
 
