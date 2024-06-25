@@ -187,11 +187,8 @@ mod tests {
         Ok(())
     }
 
-    #[ignore]
     #[convex_macro::test_runtime]
-    async fn compact_when_compaction_removes_data_in_all_segments_should_not_panic(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
+    async fn skip_compact_when_there_is_no_data(rt: TestRuntime) -> anyhow::Result<()> {
         let fixtures = TextFixtures::new(rt.clone()).await?;
         let index_data = fixtures.enabled_text_index().await?;
 
@@ -211,12 +208,12 @@ mod tests {
 
         let compactor = fixtures.new_compactor();
         let (metrics, _) = compactor.step().await?;
-        assert_eq!(metrics, btreemap! { index_data.resolved_index_name => 4});
+        assert_eq!(metrics, btreemap! {});
 
         let segments = fixtures
             .get_segments_metadata(index_data.index_name)
             .await?;
-        assert_eq!(segments.len(), 1);
+        assert_eq!(segments.len(), 4);
 
         Ok(())
     }

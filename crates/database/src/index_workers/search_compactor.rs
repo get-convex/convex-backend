@@ -104,7 +104,8 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         let mut to_build = vec![];
         let mut tx = self.database.begin(Identity::system()).await?;
 
-        for index_doc in IndexModel::new(&mut tx).get_all_indexes().await? {
+        // Skip compaction on empty tables.
+        for index_doc in IndexModel::new(&mut tx).get_all_non_empty_indexes().await? {
             let (index_id, index_metadata) = index_doc.into_id_and_value();
             let Some(config) = T::get_config(index_metadata.config) else {
                 continue;

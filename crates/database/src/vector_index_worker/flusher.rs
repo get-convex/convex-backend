@@ -621,6 +621,11 @@ mod tests {
 
         // Create enough segments to trigger compaction.
         let mut deleted_doc_ids = vec![];
+        // Add a non-deleted document to ensure that we don't skip compaction because
+        // the table is empty.
+        let non_deleted = fixtures
+            .add_document_vec_array(index_name.table(), [3f64, 4f64])
+            .await?;
         for _ in 0..min_compaction_segments {
             deleted_doc_ids.push(
                 fixtures
@@ -658,7 +663,7 @@ mod tests {
         assert_eq!(1, segments.len());
         let segment = segments.first().unwrap();
 
-        verify_segment_state(&fixtures, segment, deleted_doc_ids, vec![]).await?;
+        verify_segment_state(&fixtures, segment, deleted_doc_ids, vec![non_deleted]).await?;
 
         Ok(())
     }
