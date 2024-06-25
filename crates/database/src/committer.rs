@@ -83,10 +83,7 @@ use indexing::index_registry::IndexRegistry;
 use minitrace::prelude::*;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
-use usage_tracking::{
-    DocInVectorIndex,
-    FunctionUsageTracker,
-};
+use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::WithHeapSize,
     id_v6::DeveloperDocumentId,
@@ -96,6 +93,7 @@ use value::{
     TableName,
     TabletId,
 };
+use vector::DocInVectorIndex;
 
 use crate::{
     bootstrap_model::defaults::BootstrapTableIds,

@@ -30,7 +30,6 @@ use indexing::{
     index_registry::IndexRegistry,
 };
 use search::SearchIndexManager;
-use usage_tracking::DocInVectorIndex;
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -38,7 +37,10 @@ use value::{
     TableNamespace,
     TabletId,
 };
-use vector::VectorIndexManager;
+use vector::{
+    DocInVectorIndex,
+    VectorIndexManager,
+};
 
 use crate::{
     table_registry::{

@@ -8193,7 +8193,6 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
- "usage_tracking",
  "uuid",
  "value",
 ]

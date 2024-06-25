@@ -83,21 +83,6 @@ impl HeapSize for UsageCounterState {
     }
 }
 
-/// Present if a document is in a table with one or more vector indexes and has
-/// an actual vector in at least one of those indexes.
-///
-/// Should be Absent if the table has no vector indexes or if this particular
-/// document does not have a vector in any of the vector indexes.
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(Debug, proptest_derive::Arbitrary)
-)]
-pub enum DocInVectorIndex {
-    Present,
-    Absent,
-}
-
 /// The core usage stats aggregator that is cheaply cloneable
 #[derive(Clone, Debug)]
 pub struct UsageCounter {

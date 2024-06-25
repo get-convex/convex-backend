@@ -32,7 +32,6 @@ serde_json = { workspace = true }
 storage = { path = "../storage" }
 tempfile = { workspace = true }
 tracing = { workspace = true }
-usage_tracking = { path = "../usage_tracking" }
 uuid = { workspace = true }
 value = { path = "../value" }
 
@@ -47,7 +46,6 @@ proptest = { workspace = true }
 proptest-derive = { workspace = true }
 storage = { path = "../storage", features = ["testing"] }
 tokio = { workspace = true }
-usage_tracking = { path = "../usage_tracking", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 
 [features]
@@ -58,7 +56,6 @@ testing = [
     "metrics/testing",
     "proptest",
     "proptest-derive",
-    "usage_tracking/testing",
     "value/testing",
     "storage/testing",
 ]

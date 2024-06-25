@@ -37,7 +37,6 @@ use indexing::index_registry::{
     IndexRegistry,
 };
 use storage::Storage;
-use usage_tracking::DocInVectorIndex;
 use value::{
     InternalId,
     ResolvedDocumentId,
@@ -57,6 +56,7 @@ use crate::{
     },
     searcher::VectorSearcher,
     CompiledVectorSearch,
+    DocInVectorIndex,
 };
 
 #[derive(Clone)]
