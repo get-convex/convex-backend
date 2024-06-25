@@ -93,6 +93,10 @@ export function showSpinner(ctx: Context, message: string) {
     // we can't pipe through `logMessage` et al gets printed
     text: message + "\n",
     stream: process.stderr,
+    // hideCursor: true doesn't work with `tsx`.
+    // see https://github.com/tapjs/signal-exit/issues/49#issuecomment-1459408082
+    // See CX-6822 for an issue to bring back cursor hiding, probably by upgrading libraries.
+    hideCursor: false,
   }).start();
 }
 
