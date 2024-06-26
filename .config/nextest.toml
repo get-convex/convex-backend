@@ -5,3 +5,14 @@ path = "junit.xml"
 fail-fast = false
 failure-output = "immediate-final"
 
+[[profile.ci.overrides]]
+filter = 'test(/model::tests::model_tests::/)'
+test-group = 'model-tests'
+
+[[profile.ci.overrides]]
+filter = 'test(/roundtrips/) or test(/proptest/)'
+test-group = 'proptests'
+
+[test-groups]
+model-tests = { max-threads = 4 }
+proptests = { max-threads = 4 }
