@@ -951,10 +951,18 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 let num_terms_by_field = inverted_index_by_field
                     .into_iter()
                     .map(|(field, inverted_index)| {
-                        let num_terms = inverted_index
-                            .total_num_tokens()
-                            .checked_sub(deletion_tracker.num_terms_deleted(field))
-                            .context("num_terms underflow")?;
+                        let total_num_tokens = inverted_index.total_num_tokens();
+                        let num_terms_deleted = deletion_tracker.num_terms_deleted(field);
+                        let num_terms = total_num_tokens
+                            .checked_sub(num_terms_deleted)
+                            // Tantivy's total_num_tokens count is only approximate, so we can't guarantee this won't underflow.
+                            .unwrap_or_else(|| {
+                                tracing::warn!(
+                                    "num_terms underflowed for field {field:?}, subtracted num_terms_deleted: {num_terms_deleted} from \
+                                    total_num_tokens: {total_num_tokens}"
+                                );
+                                0
+                            });
                         Ok((field, num_terms))
                     })
                     .collect::<anyhow::Result<BTreeMap<_, _>>>()?;
