@@ -64,8 +64,8 @@ use crate::metrics::{
 /// - field_header_size (little-endian u16): length of the header describing the
 ///   deleted terms table for each field
 /// - field_id (little-endian u32): field id
-/// - num_terms_deleted (little-endian u64): number of terms that are completely
-///   deleted from the segment
+/// - num_terms_deleted (little-endian u64): number of non-unique terms that
+///   were deleted from the segment
 /// - deleted_term_ordinals_size (little-endian u32): size of the term ordinals
 ///   EliasFano
 /// - counts_size (little-endian u32): size of the DacsOpt encoded counts of
@@ -91,7 +91,8 @@ struct DeletedTermsTable {
     /// Number of documents deleted for each term, corresponding to the order in
     /// term_ordinals.
     term_documents_deleted: DacsOpt,
-    /// Number of terms that are completed deleted from the field in the segment
+    /// Number of non-unique terms that were deleted from the field in the
+    /// segment
     num_terms_deleted: u64,
 }
 
@@ -280,8 +281,7 @@ impl StaticDeletionTracker {
             .context("doc_frequency underflow")
     }
 
-    /// How many terms have been completely deleted from the term dictionary for
-    /// a field?
+    /// Number of non-unique terms that have been deleted from a field
     pub fn num_terms_deleted(&self, field: Field) -> u64 {
         self.deleted_terms_by_field
             .get(&field)
