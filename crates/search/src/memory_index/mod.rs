@@ -473,7 +473,14 @@ impl MemorySearchIndex {
                 if let Some(term_diff) = stats.num_terms_by_field.get_mut(field) {
                     *term_diff = term_diff
                         .checked_add_signed(*total_term_diff as i64)
-                        .context("num_terms underflow")?;
+                        // Tantivy's total_num_tokens count is only approximate, so we can't guarantee this won't underflow.
+                        .unwrap_or_else(|| {
+                            tracing::warn!(
+                                "num_terms underflowed for field {field:?}, added {term_diff} and \
+                                 {total_term_diff}"
+                            );
+                            0
+                        });
                 } else if field == &Field::from_field_id(SEARCH_FIELD_ID) {
                     stats
                         .num_terms_by_field
