@@ -206,7 +206,9 @@ impl CallType {
 
     fn memory_megabytes(&self) -> u64 {
         match self {
-            CallType::Action { memory_in_mb, .. } => *memory_in_mb,
+            CallType::Action { memory_in_mb, .. } | CallType::HttpAction { memory_in_mb, .. } => {
+                *memory_in_mb
+            },
             _ => 0,
         }
     }
