@@ -14,14 +14,15 @@ use common::{
     version::Version,
 };
 use database::{
+    text_index_worker::flusher2::backfill_text_indexes,
     vector_index_worker::flusher::backfill_vector_indexes,
     Database,
     IndexModel,
     IndexWorker,
     SchemaModel,
-    TextIndexFlusher,
 };
 use runtime::testing::TestRuntime;
+use search::searcher::InProcessSearcher;
 use storage::LocalDirStorage;
 use value::{
     ResolvedDocumentId,
@@ -191,16 +192,17 @@ pub async fn backfill_indexes(
     db: Database<TestRuntime>,
     tp: Arc<dyn Persistence>,
 ) -> anyhow::Result<()> {
-    let storage = LocalDirStorage::new(rt.clone())?;
-    TextIndexFlusher::backfill_all_in_test(rt.clone(), db.clone(), Arc::new(storage.clone()))
-        .await?;
-    backfill_vector_indexes(
+    let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+    let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
+    backfill_text_indexes(
         rt.clone(),
         db.clone(),
         tp.reader(),
-        Arc::new(storage.clone()),
+        storage.clone(),
+        segment_term_metadata_fetcher,
     )
     .await?;
+    backfill_vector_indexes(rt.clone(), db.clone(), tp.reader(), storage).await?;
     // As long as these tests don't actually have data in the tables, we could
     // probably just mutate the index state. But running the whole IndexWorker
     // is easy and is a bit more robust to changes, so why not...

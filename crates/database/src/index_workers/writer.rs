@@ -76,7 +76,7 @@ use crate::{
 /// conflicting writes that may have happened due to concurrent modifications in
 /// the flusher and compactor.
 #[derive(Clone)]
-pub(crate) struct SearchIndexMetadataWriter<RT: Runtime, T: SearchIndex> {
+pub struct SearchIndexMetadataWriter<RT: Runtime, T: SearchIndex> {
     inner: Arc<Mutex<Inner<RT, T>>>,
 }
 

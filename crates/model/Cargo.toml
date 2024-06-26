@@ -35,6 +35,7 @@ proptest-derive = { workspace = true, optional = true }
 rand = { workspace = true }
 runtime = { path = "../runtime" }
 saffron = { workspace = true }
+search = { path = "../search" }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
@@ -57,6 +58,7 @@ metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
+search = { path = "../search", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = [
     "testing",
@@ -73,6 +75,7 @@ testing = [
     "proptest",
     "proptest-derive",
     "runtime/testing",
+    "search/testing",
     "storage/testing",
     "value/testing",
 ]

@@ -157,6 +157,7 @@ impl Scenario {
             search_storage,
             searcher,
             tp,
+            build_index_args,
         } = DbFixtures::new_with_args(
             &rt,
             DbFixturesArgs {
@@ -182,11 +183,6 @@ impl Scenario {
             .await?;
         database.commit(tx).await?;
 
-        let build_index_args = BuildTextIndexArgs {
-            search_storage: search_storage.clone(),
-            segment_term_metadata_fetcher: Arc::new(InProcessSearcher::new(rt.clone()).await?),
-        };
-
         let mut self_ = Self {
             rt,
             database,
@@ -210,6 +206,7 @@ impl Scenario {
             searcher,
             search_storage,
             tp,
+            build_index_args,
         } = DbFixtures::new_with_args(
             &self.rt,
             DbFixturesArgs {
@@ -226,6 +223,7 @@ impl Scenario {
         self.searcher = searcher;
         self.search_storage = search_storage;
         self.tp = tp;
+        self.build_index_args = build_index_args;
         Ok(())
     }
 

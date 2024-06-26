@@ -51,7 +51,7 @@ mod table_iteration;
 pub mod test_helpers;
 #[cfg(test)]
 pub mod tests;
-mod text_index_worker;
+pub mod text_index_worker;
 
 pub use execution_size::FunctionExecutionSize;
 pub use index_worker::IndexWorker;

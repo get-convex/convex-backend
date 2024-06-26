@@ -137,6 +137,36 @@ impl<RT: Runtime> FlusherBuilder<RT> {
 
 pub type TextIndexFlusher2<RT> = SearchFlusher<RT, TextSearchIndex>;
 
+#[allow(unused)]
+#[cfg(any(test, feature = "testing"))]
+pub fn new_text_flusher_for_tests<RT: Runtime>(
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+    segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+) -> TextIndexFlusher2<RT> {
+    let writer = SearchIndexMetadataWriter::new(
+        runtime.clone(),
+        database.clone(),
+        reader.clone(),
+        storage.clone(),
+        BuildTextIndexArgs {
+            search_storage: storage.clone(),
+            segment_term_metadata_fetcher: segment_metadata_fetcher.clone(),
+        },
+    );
+    FlusherBuilder::new(
+        runtime,
+        database,
+        reader,
+        storage,
+        segment_metadata_fetcher,
+        writer,
+    )
+    .build()
+}
+
 pub(crate) fn new_text_flusher<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,

@@ -11,7 +11,10 @@ use common::{
 };
 use events::usage::NoOpUsageEventLogger;
 use search::{
-    searcher::SearcherStub,
+    searcher::{
+        InProcessSearcher,
+        SearcherStub,
+    },
     Searcher,
 };
 use storage::{
@@ -20,6 +23,7 @@ use storage::{
 };
 
 use crate::{
+    text_index_worker::BuildTextIndexArgs,
     Database,
     ShutdownSignal,
     Transaction,
@@ -31,6 +35,7 @@ pub struct DbFixtures<RT: Runtime> {
     pub db: Database<RT>,
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<dyn Storage>,
+    pub build_index_args: BuildTextIndexArgs,
 }
 
 pub struct DbFixturesArgs {
@@ -89,11 +94,16 @@ impl<RT: Runtime> DbFixtures<RT> {
                 .into_join_future()
                 .await?;
         }
+        let build_index_args = BuildTextIndexArgs {
+            search_storage: search_storage.clone(),
+            segment_term_metadata_fetcher: Arc::new(InProcessSearcher::new(rt.clone()).await?),
+        };
         Ok(Self {
             tp,
             db,
             searcher,
             search_storage,
+            build_index_args,
         })
     }
 }

@@ -354,18 +354,6 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
         worker.build_one(job).await?;
         Ok(())
     }
-
-    /// Backfills all search indexes that are in a "backfilling" state.
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn backfill_all_in_test(
-        runtime: RT,
-        database: Database<RT>,
-        storage: Arc<dyn Storage>,
-    ) -> anyhow::Result<()> {
-        let mut worker = TextIndexFlusher::new(runtime, database, storage);
-        worker.step().await?;
-        Ok(())
-    }
 }
 
 #[derive(Clone)]

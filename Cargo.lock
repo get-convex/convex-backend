@@ -4228,6 +4228,7 @@ dependencies = [
  "rand 0.8.5",
  "runtime",
  "saffron",
+ "search",
  "semver 1.0.23",
  "serde",
  "serde_bytes",

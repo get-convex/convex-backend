@@ -580,7 +580,6 @@ mod tests {
         types::{
             IndexId,
             IndexName,
-            TabletIndexName,
             WriteTimestamp,
         },
     };
@@ -614,13 +613,13 @@ mod tests {
             DbFixtures,
             DbFixturesArgs,
         },
+        text_index_worker::flusher2::new_text_flusher_for_tests,
         vector_index_worker::flusher::backfill_vector_indexes,
         Database,
         IndexModel,
         SystemMetadataModel,
         TableModel,
         TestFacingModel,
-        TextIndexFlusher,
         Transaction,
         UserFacingModel,
     };
@@ -961,8 +960,7 @@ mod tests {
     async fn test_load_snapshot_without_fast_forward(rt: TestRuntime) -> anyhow::Result<()> {
         let db_fixtures = DbFixtures::new(&rt).await?;
         let db = &db_fixtures.db;
-        let (index_id, _) =
-            create_new_search_index(&rt, db, db_fixtures.search_storage.clone()).await?;
+        let (index_id, _) = create_new_search_index(&rt, &db_fixtures).await?;
 
         let mut tx = db.begin_system().await.unwrap();
         add_document(
@@ -991,8 +989,7 @@ mod tests {
     async fn test_load_snapshot_with_fast_forward(rt: TestRuntime) -> anyhow::Result<()> {
         let db_fixtures = DbFixtures::new(&rt).await?;
         let db = &db_fixtures.db;
-        let (index_id, _) =
-            create_new_search_index(&rt, db, db_fixtures.search_storage.clone()).await?;
+        let (index_id, _) = create_new_search_index(&rt, &db_fixtures).await?;
 
         rt.advance_time(Duration::from_secs(10)).await;
 
@@ -1041,8 +1038,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let db_fixtures = DbFixtures::new(&rt).await?;
         let db = &db_fixtures.db;
-        let (index_id, index_doc) =
-            create_new_search_index(&rt, db, db_fixtures.search_storage.clone()).await?;
+        let (index_id, index_doc) = create_new_search_index(&rt, &db_fixtures).await?;
 
         // We shouldn't ever fast forward across an update in real life, but doing so
         // and verifying we don't read the document is a simple way to verify we
@@ -1083,14 +1079,10 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_load_fast_forward_ts(rt: TestRuntime) -> anyhow::Result<()> {
-        let DbFixtures {
-            tp,
-            db,
-            search_storage,
-            ..
-        } = DbFixtures::new(&rt).await?;
-        let (index_id, index_doc) =
-            create_new_search_index(&rt, &db, search_storage.clone()).await?;
+        let db_fixtures = DbFixtures::new(&rt).await?;
+        let (index_id, index_doc) = create_new_search_index(&rt, &db_fixtures).await?;
+        let db = db_fixtures.db;
+        let tp = db_fixtures.tp;
         let mut tx = db.begin_system().await?;
         let mut model = IndexWorkerMetadataModel::new(&mut tx);
         let (metadata_id, mut metadata) = model
@@ -1128,7 +1120,7 @@ mod tests {
         let db = &db_fixtures.db;
         let search_storage = db_fixtures.search_storage.clone();
         // Add a search index at t0 to make bootstrapping start at t0
-        create_new_search_index(&rt, db, search_storage.clone()).await?;
+        create_new_search_index(&rt, &db_fixtures).await?;
         // Add a vector index to a table with a vector already in it
         add_vector_by_table(db, table(), [1f32, 2f32]).await?;
         add_and_enable_vector_index(&rt, db, db_fixtures.tp.reader(), search_storage).await?;
@@ -1154,7 +1146,7 @@ mod tests {
         )
         .await?;
         db.commit(tx).await?;
-        create_new_search_index(&rt, db, search_storage).await?;
+        create_new_search_index(&rt, &db_fixtures).await?;
         // Bootstrap
         reopen_db(&rt, &db_fixtures).await?;
         Ok(())
@@ -1173,9 +1165,15 @@ mod tests {
 
     async fn create_new_search_index<RT: Runtime>(
         rt: &RT,
-        db: &Database<RT>,
-        search_storage: Arc<dyn Storage>,
+        db_fixtures: &DbFixtures<RT>,
     ) -> anyhow::Result<(IndexId, ParsedDocument<TabletIndexMetadata>)> {
+        let DbFixtures {
+            tp,
+            db,
+            search_storage,
+            build_index_args,
+            ..
+        } = db_fixtures;
         let table_name: TableName = "test".parse()?;
         let mut tx = db.begin_system().await?;
         TableModel::new(&mut tx)
@@ -1191,21 +1189,14 @@ mod tests {
             .await?;
         db.commit(tx).await?;
 
-        let snapshot = db.latest_snapshot()?;
-        let table_id = snapshot
-            .table_mapping()
-            .namespace(TableNamespace::test_user())
-            .id(&"test".parse()?)?
-            .tablet_id;
-        let index_name = TabletIndexName::new(table_id, "by_text".parse()?)?;
-        TextIndexFlusher::build_index_in_test(
-            index_name.clone(),
-            "test".parse()?,
+        let mut flusher = new_text_flusher_for_tests(
             rt.clone(),
             db.clone(),
+            tp.reader(),
             search_storage.clone(),
-        )
-        .await?;
+            build_index_args.segment_term_metadata_fetcher.clone(),
+        );
+        flusher.step().await?;
 
         let index_name = IndexName::new(table_name, "by_text".parse()?)?;
         let mut tx = db.begin_system().await?;

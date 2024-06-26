@@ -46,7 +46,7 @@ async fn add_and_backfill_search_index(
     t: &UdfTest<TestRuntime, TestPersistence>,
 ) -> anyhow::Result<()> {
     add_search_index(t).await?;
-    t.backfill_search_indexes().await?;
+    t.backfill_text_indexes().await?;
 
     Ok(())
 }

@@ -56,13 +56,13 @@ use database::{
         DbFixtures,
         DbFixturesArgs,
     },
+    text_index_worker::flusher2::backfill_text_indexes,
     vector_index_worker::flusher::backfill_vector_indexes,
     BootstrapComponentsModel,
     Database,
     FollowerRetentionManager,
     IndexModel,
     IndexWorker,
-    TextIndexFlusher,
     Transaction,
 };
 use file_storage::TransactionalFileStorage;
@@ -808,11 +808,15 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         Ok(())
     }
 
-    pub async fn backfill_search_indexes(&self) -> anyhow::Result<()> {
-        TextIndexFlusher::backfill_all_in_test(
+    pub async fn backfill_text_indexes(&self) -> anyhow::Result<()> {
+        let segment_term_metadata_fetcher =
+            Arc::new(InProcessSearcher::new(self.rt.clone()).await?);
+        backfill_text_indexes(
             self.rt.clone(),
             self.database.clone(),
+            self.persistence.reader(),
             self.search_storage.clone(),
+            segment_term_metadata_fetcher,
         )
         .await?;
         self.enable_backfilled_indexes().await
