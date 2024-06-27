@@ -481,10 +481,16 @@ impl MemorySearchIndex {
                             );
                             0
                         });
-                } else if field == &Field::from_field_id(SEARCH_FIELD_ID) {
-                    stats
-                        .num_terms_by_field
-                        .insert(*field, (*total_term_diff as i64).try_into()?);
+                } else {
+                    let total_term_diff =
+                        (*total_term_diff as i64).try_into().unwrap_or_else(|e| {
+                            tracing::warn!(
+                                "Inserting 0 for num_terms for field {field:?} with \
+                                 {total_term_diff} and error {e}"
+                            );
+                            0
+                        });
+                    stats.num_terms_by_field.insert(*field, total_term_diff);
                 }
             }
             for (term, term_id) in &term_ids {

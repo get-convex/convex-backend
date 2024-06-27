@@ -958,7 +958,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                             // Tantivy's total_num_tokens count is only approximate, so we can't guarantee this won't underflow.
                             .unwrap_or_else(|| {
                                 tracing::warn!(
-                                    "num_terms underflowed for field {field:?}, subtracted num_terms_deleted: {num_terms_deleted} from \
+                                    "num_terms underflowed for field {field:?} in query_bm_25_stats_impl, subtracted num_terms_deleted: {num_terms_deleted} from \
                                     total_num_tokens: {total_num_tokens}"
                                 );
                                 0
@@ -971,6 +971,9 @@ impl<RT: Runtime> SearcherImpl<RT> {
                     num_documents,
                     doc_frequencies,
                 };
+                if stats.is_empty() {
+                    tracing::warn!("Empty BM25 stats");
+                }
                 Ok(stats)
             },
         }
@@ -1359,6 +1362,12 @@ impl Bm25Stats {
             num_documents: 0,
             doc_frequencies: BTreeMap::new(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.num_terms_by_field.is_empty()
+            && self.num_documents == 0
+            && self.doc_frequencies.is_empty()
     }
 }
 
