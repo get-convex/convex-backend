@@ -36,7 +36,7 @@ cstr = "0.2.11"
 deno_core = "0.284.0"
 deno_core_icudata = "0.73.0"
 derive_more = "0.99"
-divan = "0.1.11"
+divan = "0.1.14"
 dotenvy = "0.15.7"
 elliptic-curve = { version = "0.12.1", features = [ "std", "pem" ] }
 encoding_rs = "0.8.32"
