@@ -77,21 +77,6 @@ impl<RT: Runtime> TextIndexFlusher<RT> {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) fn new_with_soft_limit(
-        runtime: RT,
-        database: Database<RT>,
-        storage: Arc<dyn Storage>,
-        index_size_soft_limit: usize,
-    ) -> Self {
-        TextIndexFlusher {
-            runtime,
-            database,
-            storage,
-            index_size_soft_limit,
-        }
-    }
-
     /// Run one step of the SearchIndexWorker's main loop.
     ///
     /// Returns a map of IndexName to number of documents indexed for each
@@ -448,7 +433,7 @@ pub(crate) mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let mut worker = fixtures.new_search_flusher();
+        let mut worker = fixtures.new_search_flusher2();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -474,7 +459,7 @@ pub(crate) mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let mut worker = fixtures.new_search_flusher();
+        let mut worker = fixtures.new_search_flusher2_with_soft_limit();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -487,7 +472,8 @@ pub(crate) mod tests {
 
         // Write 10 more documents into the table to trigger a new snapshot.
         let mut tx = database.begin_system().await.unwrap();
-        for _ in 0..10 {
+        let num_new_documents = 10;
+        for _ in 0..num_new_documents {
             add_document(
                 &mut tx,
                 index_name.table(),
@@ -498,7 +484,10 @@ pub(crate) mod tests {
         database.commit(tx).await?;
 
         let (metrics, _) = worker.step().await?;
-        assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 11});
+        assert_eq!(
+            metrics,
+            btreemap! {resolved_index_name.clone() => num_new_documents}
+        );
 
         // Check that the metadata is updated so it's no longer backfilling.
         let new_snapshot_ts = fixtures.assert_backfilled(&index_name).await?;
@@ -519,7 +508,7 @@ pub(crate) mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let mut worker = fixtures.new_search_flusher();
+        let mut worker = fixtures.new_search_flusher2_with_soft_limit();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -532,7 +521,8 @@ pub(crate) mod tests {
         enable_pending_index(&fixtures.db, namespace, &index_name).await?;
         // Write 10 more documents into the table to trigger a new snapshot.
         let mut tx = fixtures.db.begin_system().await.unwrap();
-        for _ in 0..10 {
+        let num_new_documents = 10;
+        for _ in 0..num_new_documents {
             add_document(
                 &mut tx,
                 index_name.table(),
@@ -543,7 +533,10 @@ pub(crate) mod tests {
         fixtures.db.commit(tx).await?;
 
         let (metrics, _) = worker.step().await?;
-        assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 11});
+        assert_eq!(
+            metrics,
+            btreemap! {resolved_index_name.clone() => num_new_documents}
+        );
 
         // Check that the metadata is updated and still enabled.
         let new_snapshot_ts = assert_snapshotted(&fixtures.db, namespace, &index_name).await?;
@@ -556,7 +549,7 @@ pub(crate) mod tests {
     async fn test_advance_old_snapshot(rt: TestRuntime) -> anyhow::Result<()> {
         common::testing::init_test_logging();
         let fixtures = TextFixtures::new(rt.clone()).await?;
-        let mut worker = fixtures.new_search_flusher();
+        let mut worker = fixtures.new_search_flusher2_with_soft_limit();
         let database = &fixtures.db;
 
         let IndexData {
@@ -595,7 +588,7 @@ pub(crate) mod tests {
         database.commit(tx).await?;
 
         let (metrics, _) = worker.step().await?;
-        assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 2});
+        assert_eq!(metrics, btreemap! {resolved_index_name.clone() => 1});
         assert!(initial_snapshot_ts < fixtures.assert_backfilled(&index_name).await?);
 
         Ok(())

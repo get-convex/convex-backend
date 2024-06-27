@@ -75,7 +75,6 @@ use crate::{
     IndexModel,
     ResolvedQuery,
     TestFacingModel,
-    TextIndexFlusher,
     Transaction,
 };
 
@@ -140,15 +139,6 @@ impl TextFixtures {
         })
     }
 
-    pub fn new_search_flusher(&self) -> TextIndexFlusher<TestRuntime> {
-        TextIndexFlusher::new_with_soft_limit(
-            self.rt.clone(),
-            self.db.clone(),
-            self.storage.clone(),
-            2048,
-        )
-    }
-
     pub(crate) fn new_search_flusher_builder(&self) -> FlusherBuilder<TestRuntime> {
         FlusherBuilder::new(
             self.rt.clone(),
@@ -162,6 +152,12 @@ impl TextFixtures {
 
     pub fn new_search_flusher2(&self) -> TextIndexFlusher2<TestRuntime> {
         self.new_search_flusher_builder().set_soft_limit(0).build()
+    }
+
+    pub fn new_search_flusher2_with_soft_limit(&self) -> TextIndexFlusher2<TestRuntime> {
+        self.new_search_flusher_builder()
+            .set_soft_limit(2048)
+            .build()
     }
 
     pub fn new_compactor(&self) -> TextIndexCompactor<TestRuntime> {

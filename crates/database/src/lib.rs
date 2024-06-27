@@ -53,7 +53,6 @@ pub mod test_helpers;
 #[cfg(test)]
 pub mod tests;
 pub mod text_index_worker;
-
 pub use execution_size::FunctionExecutionSize;
 pub use index_worker::IndexWorker;
 pub use index_workers::{
