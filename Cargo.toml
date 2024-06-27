@@ -75,7 +75,7 @@ oauth2 = "4.4.2"
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "45a84cf974d45db998af10546a4c35abd5f0a487", features = [ "accept-rfc3339-timestamps" ] }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 paste = { version = "1.0.12" }
-phf = { version = "0.11.0", features = [ "macros" ] }
+phf = { version = "0.11.1", features = [ "macros" ] }
 pin-project = "1"
 p384 = "0.11.1"
 portpicker = "0.1"
