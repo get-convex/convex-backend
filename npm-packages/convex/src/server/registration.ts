@@ -564,7 +564,31 @@ export type MutationBuilder<
   >(
     mutation:
       | {
+          /**
+           * Argument validation.
+           *
+           * Examples:
+           *
+           * ```
+           * args: {}
+           * args: { input: v.optional(v.number()) }
+           * args: { message: v.string(), author: v.id("authors") }
+           * args: { messages: v.array(v.string()) }
+           * ```
+           */
           args?: ArgsValidator;
+          /**
+           * The return value validator.
+           *
+           * Examples:
+           *
+           * ```
+           * returns: v.null()
+           * returns: v.string()
+           * returns: { message: v.string(), author: v.id("authors") }
+           * returns: v.array(v.string())
+           * ```
+           */
           returns?: ReturnsValidator;
           /**
            * The implementation of this function.
@@ -627,7 +651,31 @@ export type QueryBuilder<
   >(
     query:
       | {
+          /**
+           * Argument validation.
+           *
+           * Examples:
+           *
+           * ```
+           * args: {}
+           * args: { input: v.optional(v.number()) }
+           * args: { message: v.string(), author: v.id("authors") }
+           * args: { messages: v.array(v.string()) }
+           * ```
+           */
           args?: ArgsValidator;
+          /**
+           * The return value validator.
+           *
+           * Examples:
+           *
+           * ```
+           * returns: v.null()
+           * returns: v.string()
+           * returns: { message: v.string(), author: v.id("authors") }
+           * returns: v.array(v.string())
+           * ```
+           */
           returns?: ReturnsValidator;
           /**
            * The implementation of this function.
@@ -686,7 +734,32 @@ export type ActionBuilder<
   >(
     func:
       | {
+          /**
+           * Argument validation.
+           *
+           * Examples:
+           *
+           * ```
+           * args: {}
+           * args: { input: v.optional(v.number()) }
+           * args: { message: v.string(), author: v.id("authors") }
+           * args: { messages: v.array(v.string()) }
+           * ```
+           *
+           */
           args?: ArgsValidator;
+          /**
+           * The return value validator.
+           *
+           * Examples:
+           *
+           * ```
+           * returns: v.null()
+           * returns: v.string()
+           * returns: { message: v.string(), author: v.id("authors") }
+           * returns: v.array(v.string())
+           * ```
+           */
           returns?: ReturnsValidator;
           /**
            * The implementation of this function.
