@@ -34,7 +34,6 @@ pub(crate) fn new_text_compactor<RT: Runtime>(
     TextIndexCompactor::new(database, searcher, search_storage, config, writer)
 }
 
-#[allow(dead_code)]
 #[cfg(any(test, feature = "testing"))]
 pub(crate) fn new_text_compactor_for_tests<RT: Runtime>(
     runtime: RT,
@@ -58,7 +57,6 @@ pub(crate) fn new_text_compactor_for_tests<RT: Runtime>(
     SearchIndexCompactor::new(database, searcher, search_storage.clone(), config, writer)
 }
 
-#[allow(dead_code)]
 #[cfg(any(test, feature = "testing"))]
 pub async fn compact_text_indexes_in_test<RT: Runtime>(
     runtime: RT,

@@ -302,14 +302,14 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
     }
 
     /// Returns the configured max capacity for this manager.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn max_size(&self) -> u64 {
         self.max_size
     }
 
     /// Returns the current number of bytes used on disk for all directories
     /// tracked by this manager.
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn usage(&self) -> u64 {
         self.cache.size()
     }

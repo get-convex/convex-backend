@@ -923,8 +923,6 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct QueryStreamNextArgs {
-            // not dead code, clippy is wrong.
-            #[allow(dead_code)]
             query_id: u32,
         }
 

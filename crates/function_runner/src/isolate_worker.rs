@@ -54,7 +54,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    #[allow(dead_code)]
+    #[cfg_attr(not(test), expect(dead_code))]
     fn new_for_tests(rt: RT, isolate_config: IsolateConfig, pause_client: PauseClient) -> Self {
         Self {
             rt,

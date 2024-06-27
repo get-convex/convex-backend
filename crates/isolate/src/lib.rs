@@ -11,6 +11,7 @@
 #![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(round_char_boundary)]
+#![feature(lint_reasons)]
 
 pub mod bundled_js;
 pub mod client;

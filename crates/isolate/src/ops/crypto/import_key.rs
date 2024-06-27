@@ -105,7 +105,7 @@ pub enum ImportKeyResult {
     #[serde(rename_all = "camelCase")]
     Ec { raw_data: RustRawKeyData },
     #[serde(rename_all = "camelCase")]
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     Aes { raw_data: RustRawKeyData },
     #[serde(rename_all = "camelCase")]
     Hmac { raw_data: RustRawKeyData },

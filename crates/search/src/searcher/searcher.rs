@@ -1918,8 +1918,7 @@ mod tests {
         /// Note - this is only the latest segment.  This struct and tests don't
         /// support querying multiple segments within an index.
         segment_paths: Option<TextSegmentPaths>,
-        #[allow(dead_code)]
-        previous_segment_dirs: Vec<PathBuf>,
+        _previous_segment_dirs: Vec<PathBuf>,
     }
 
     async fn build_test_index(
@@ -1997,7 +1996,7 @@ mod tests {
         Ok(TestIndex {
             strings_by_id,
             segment_paths: new_segment.map(|segment| segment.paths),
-            previous_segment_dirs,
+            _previous_segment_dirs: previous_segment_dirs,
         })
     }
 
@@ -2237,7 +2236,7 @@ mod tests {
         let merged_index = TestIndex {
             strings_by_id: merged_strings_by_id,
             segment_paths: Some(merged_paths.paths),
-            previous_segment_dirs: vec![],
+            _previous_segment_dirs: vec![],
         };
         let mut posting_list_matches =
             incremental_search_with_deletions_helper(query, merged_index).await?;

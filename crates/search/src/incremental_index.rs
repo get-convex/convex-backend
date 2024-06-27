@@ -649,7 +649,6 @@ pub async fn fetch_compact_and_upload_text_segment<RT: Runtime>(
     upload_text_segment(rt, _storage, new_segment).await
 }
 
-#[allow(dead_code)]
 pub async fn merge_segments(
     search_segments: Vec<SearchSegmentForMerge>,
     dir: &Path,

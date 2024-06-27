@@ -134,7 +134,7 @@ pub struct NodeDependencyJson {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub struct BundledModuleInfoJson {
     name: String,
     platform: String,
@@ -166,7 +166,6 @@ pub struct ConfigJson {
     // Additional information about the names of the bundled modules.
     // We can use that for stats as well provide better debug messages.
     // Used in CLI >= future
-    #[allow(dead_code)]
     pub bundled_module_infos: Option<Vec<BundledModuleInfoJson>>,
 }
 

@@ -1,4 +1,5 @@
 #![feature(assert_matches)]
+#![feature(lint_reasons)]
 #![feature(coroutines)]
 #![feature(result_flattening)]
 #![feature(iter_advance_by)]

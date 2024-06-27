@@ -2,6 +2,7 @@
 #![feature(iterator_try_collect)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(try_blocks)]
+#![feature(lint_reasons)]
 use std::{
     collections::{
         BTreeMap,

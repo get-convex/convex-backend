@@ -9,6 +9,7 @@
 #![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(trait_alias)]
+#![feature(lint_reasons)]
 
 mod aggregation;
 mod archive;

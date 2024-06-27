@@ -4,6 +4,7 @@
 #![feature(try_blocks)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
+#![feature(lint_reasons)]
 
 use std::{
     sync::{

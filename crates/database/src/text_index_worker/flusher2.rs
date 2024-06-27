@@ -25,7 +25,6 @@ use crate::{
     Database,
 };
 
-#[allow(dead_code)]
 #[cfg(any(test, feature = "testing"))]
 pub async fn backfill_text_indexes<RT: Runtime>(
     runtime: RT,
@@ -95,7 +94,7 @@ impl<RT: Runtime> FlusherBuilder<RT> {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg(any(test, feature = "testing"))]
     pub fn set_soft_limit(self, limit: usize) -> Self {
         Self {
             limits: SearchIndexLimits {
@@ -106,7 +105,8 @@ impl<RT: Runtime> FlusherBuilder<RT> {
         }
     }
 
-    #[allow(dead_code)]
+    #[cfg(any(test, feature = "testing"))]
+    #[cfg_attr(not(test), expect(dead_code))]
     pub fn set_incremental_multipart_threshold_bytes(self, limit: usize) -> Self {
         Self {
             limits: SearchIndexLimits {
