@@ -109,7 +109,10 @@ use value::{
 };
 
 use crate::{
-    admin::must_be_admin_from_key,
+    admin::{
+        must_be_admin_from_key,
+        must_be_admin_from_key_with_write_access,
+    },
     deploy_config::{
         analyze_modules,
         ModuleJson,
@@ -356,7 +359,7 @@ pub async fn start_push_handler(
     st: &LocalAppState,
     request: StartPushRequest,
 ) -> anyhow::Result<StartPushResponse> {
-    let _identity = must_be_admin_from_key(
+    let _identity = must_be_admin_from_key_with_write_access(
         st.application.app_auth(),
         st.instance_name.clone(),
         request.admin_key.clone(),
@@ -716,7 +719,7 @@ async fn finish_push_handler(
     req: FinishPushRequest,
 ) -> anyhow::Result<FinishPushDiff> {
     let start_push = StartPushResponse::try_from(req.start_push)?;
-    let _identity = must_be_admin_from_key(
+    let _identity = must_be_admin_from_key_with_write_access(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key.clone(),

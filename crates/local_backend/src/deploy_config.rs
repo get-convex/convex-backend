@@ -69,7 +69,10 @@ use sync_types::CanonicalizedModulePath;
 use value::ConvexObject;
 
 use crate::{
-    admin::must_be_admin_from_key,
+    admin::{
+        must_be_admin_from_key,
+        must_be_admin_with_write_access,
+    },
     parse::parse_module_path,
     EmptyResponse,
     LocalAppState,
@@ -380,6 +383,8 @@ pub async fn push_config_handler(
         .check_key(config.admin_key, application.instance_name())
         .await
         .context("bad admin key error")?;
+
+    must_be_admin_with_write_access(&identity)?;
 
     let udf_server_version = Version::parse(&config.udf_server_version).context(
         ErrorMetadata::bad_request("InvalidVersion", "The function version is invalid"),

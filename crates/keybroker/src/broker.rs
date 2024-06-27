@@ -34,6 +34,7 @@ use common::{
         MemberId,
         PersistenceVersion,
         TeamId,
+        UdfType,
     },
 };
 use errors::ErrorMetadata;
@@ -192,6 +193,25 @@ impl Identity {
             },
             UncheckedIdentityProto::Unknown(()) => Ok(Identity::Unknown),
         }
+    }
+
+    pub fn ensure_can_run_function(&self, udf_type: UdfType) -> anyhow::Result<()> {
+        // Everyone can run queries.
+        if udf_type == UdfType::Query {
+            return Ok(());
+        }
+        match self {
+            Identity::InstanceAdmin(admin_identity) | Identity::ActingUser(admin_identity, _) => {
+                if admin_identity.is_read_only() {
+                    anyhow::bail!(ErrorMetadata::forbidden(
+                        "Unauthorized",
+                        format!("You do not have permission to run {udf_type} functions.")
+                    ));
+                }
+            },
+            _ => {},
+        }
+        Ok(())
     }
 }
 
@@ -481,6 +501,11 @@ pub struct AdminIdentity {
     instance_name: String,
     principal: AdminIdentityPrincipal,
     key: String,
+    // is_read_only being true implies that this identity should not be able to write data.
+    // At the function level, read only admins are allowed to run queries but not mutations and
+    // actions. At the database level, they are allowed to read data from user and system tables
+    // but not write to them.
+    is_read_only: bool,
 }
 
 impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
@@ -489,6 +514,7 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
             instance_name,
             principal,
             key,
+            is_read_only,
         }: AdminIdentity,
     ) -> Self {
         Self {
@@ -502,6 +528,7 @@ impl From<AdminIdentity> for pb::convex_identity::AdminIdentity {
                 ),
             },
             key: Some(key),
+            is_read_only,
         }
     }
 }
@@ -521,10 +548,12 @@ impl AdminIdentity {
             None => anyhow::bail!("Missing principal"),
         };
         let key = msg.key.ok_or_else(|| anyhow::anyhow!("Missing key"))?;
+        let is_read_only: bool = msg.is_read_only;
         Ok(Self {
             instance_name,
             principal,
             key,
+            is_read_only,
         })
     }
 
@@ -537,11 +566,20 @@ impl AdminIdentity {
             instance_name,
             principal,
             key: access_token,
+            is_read_only: false,
         }
     }
 
     pub fn principal(&self) -> &AdminIdentityPrincipal {
         &self.principal
+    }
+
+    // is_read_only being true implies that this identity should not be able to
+    // write data. At the function level, read only admins are allowed to run
+    // queries but not mutations and actions. At the database level, they are
+    // allowed to read data from user and system tables but not write to them.
+    pub fn is_read_only(&self) -> bool {
+        self.is_read_only
     }
 }
 
@@ -557,6 +595,7 @@ impl Arbitrary for AdminIdentity {
             instance_name: "fake-instance-name".to_string(),
             principal,
             key,
+            is_read_only: false,
         })
     }
 }
@@ -568,6 +607,7 @@ impl AdminIdentity {
             instance_name,
             principal: AdminIdentityPrincipal::Member(member_id),
             key: "chocolate-charlies-cupcake".to_string(),
+            is_read_only: false,
         }
     }
 
@@ -623,11 +663,15 @@ impl KeyBroker {
     }
 
     pub fn issue_admin_key(&self, member_id: MemberId) -> AdminKey {
-        AdminKey::new(self.issue_key(Some(member_id)))
+        AdminKey::new(self.issue_key(Some(member_id), false))
+    }
+
+    pub fn issue_read_only_admin_key(&self, member_id: MemberId) -> AdminKey {
+        AdminKey::new(self.issue_key(Some(member_id), true))
     }
 
     pub fn issue_system_key(&self) -> SystemKey {
-        SystemKey::new(self.issue_key(None))
+        SystemKey::new(self.issue_key(None, false))
     }
 
     pub fn issue_store_file_authorization<RT: Runtime>(
@@ -652,7 +696,7 @@ impl KeyBroker {
     /// Private helper method to generate an admin key.
     /// If `member_id` is None, it generates a system key, otherwise
     /// an admin key for the given user.
-    fn issue_key(&self, member_id: Option<MemberId>) -> String {
+    fn issue_key(&self, member_id: Option<MemberId>, is_read_only: bool) -> String {
         let now = SystemTime::now();
         let since_epoch = now
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -666,6 +710,7 @@ impl KeyBroker {
             instance_name: None,
             issued_s: since_epoch.as_secs(),
             identity: Some(identity),
+            is_read_only,
         };
         format_admin_key(
             &self.instance_name,
@@ -691,6 +736,7 @@ impl KeyBroker {
             instance_name: instance_name_from_encrypted_part,
             issued_s,
             identity,
+            is_read_only,
         } = self
             .encryptor
             .decode_proto(ADMIN_KEY_VERSION, encrypted_part)
@@ -712,6 +758,7 @@ impl KeyBroker {
                 instance_name: self.instance_name.clone(),
                 principal: AdminIdentityPrincipal::Member(MemberId(member_id)),
                 key: key.to_string(),
+                is_read_only,
             }),
             AdminIdentityProto::System(()) => Identity::system(),
         })
@@ -996,6 +1043,7 @@ mod tests {
             instance_name: Some(kb.instance_name.clone()),
             issued_s: since_epoch.as_secs(),
             identity: Some(identity),
+            is_read_only: false,
         };
         kb.encryptor.encode_proto(ADMIN_KEY_VERSION, proto)
     }

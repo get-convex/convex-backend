@@ -61,7 +61,7 @@ use value::{
 use crate::{
     admin::{
         must_be_admin,
-        must_be_admin_from_key,
+        must_be_admin_from_key_with_write_access,
     },
     authentication::ExtractIdentity,
     deploy_config::ModuleJson,
@@ -256,7 +256,7 @@ pub async fn prepare_schema_handler(
     req: PrepareSchemaArgs,
 ) -> Result<(Json<PrepareSchemaResponse>, bool), HttpResponseError> {
     let bundle = req.bundle.try_into()?;
-    let identity = must_be_admin_from_key(
+    let identity = must_be_admin_from_key_with_write_access(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key,

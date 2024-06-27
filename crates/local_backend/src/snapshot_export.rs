@@ -26,7 +26,7 @@ use storage::StorageGetStream;
 use sync_types::Timestamp;
 
 use crate::{
-    admin::must_be_admin,
+    admin::must_be_admin_with_write_access,
     authentication::ExtractIdentity,
     custom_headers::ContentDispositionAttachment,
     LocalAppState,
@@ -39,7 +39,7 @@ pub async fn request_export(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_with_write_access(&identity)?;
     st.application
         .request_export(identity, false, false)
         .await?;
@@ -59,7 +59,7 @@ pub async fn request_zip_export(
     ExtractIdentity(identity): ExtractIdentity,
     Query(RequestZipExport { include_storage }): Query<RequestZipExport>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_with_write_access(&identity)?;
     st.application
         .request_export(identity, true, include_storage)
         .await?;
@@ -83,7 +83,7 @@ pub async fn get_export(
         table_name: file_name,
     }): Path<ExportRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_with_write_access(&identity)?;
     let ts: Timestamp = snapshot_ts.parse().context(ErrorMetadata::bad_request(
         "BadSnapshotTimestamp",
         "Snapshot timestamp did not parse to a timestamp.",
@@ -138,7 +138,7 @@ pub async fn get_zip_export(
     ExtractIdentity(identity): ExtractIdentity,
     Path(ZipExportRequest { snapshot_ts }): Path<ZipExportRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_with_write_access(&identity)?;
     let ts: Timestamp = snapshot_ts.parse().context(ErrorMetadata::bad_request(
         "BadSnapshotTimestamp",
         "Snapshot timestamp did not parse to a timestamp.",

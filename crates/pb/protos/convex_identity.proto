@@ -35,6 +35,7 @@ message AdminIdentity {
     uint64 member_id = 2;
     uint64 team_id = 5;
   }
+  bool is_read_only = 6;
 }
 
 message UserIdentity {

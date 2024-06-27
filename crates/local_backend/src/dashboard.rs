@@ -29,7 +29,10 @@ use value::{
 };
 
 use crate::{
-    admin::must_be_admin_member,
+    admin::{
+        must_be_admin_member,
+        must_be_admin_member_with_write_access,
+    },
     authentication::ExtractIdentity,
     schema::IndexMetadataResponse,
     LocalAppState,
@@ -74,7 +77,7 @@ pub async fn delete_tables(
     ExtractIdentity(identity): ExtractIdentity,
     Json(DeleteTableArgs { table_names }): Json<DeleteTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_member(&identity)?;
+    must_be_admin_member_with_write_access(&identity)?;
     let table_names = table_names
         .into_iter()
         .map(|t| Ok(t.parse::<ValidIdentifier<TableName>>()?.0))

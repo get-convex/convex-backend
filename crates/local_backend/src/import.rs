@@ -44,6 +44,7 @@ use value::{
 };
 
 use crate::{
+    admin::must_be_admin_with_write_access,
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -134,6 +135,7 @@ pub async fn import(
     }): Query<ImportQueryArgs>,
     stream: BodyStream,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
     let format = parse_format_arg(table_name, format)?;
     let body_stream = stream.map_err(anyhow::Error::from).boxed();
     let num_written = do_import(&st.application, identity, format, mode, body_stream).await?;
@@ -150,6 +152,7 @@ pub async fn import_start_upload(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
     let token = st
         .application
         .start_upload_for_snapshot_import(identity)
@@ -169,6 +172,7 @@ pub async fn import_upload_part(
     }): Query<ImportUploadPartArgs>,
     body_stream: BodyStream,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
     let body_bytes = body_stream
         .map_ok(|chunk| chunk.to_vec())
         .try_concat()
@@ -203,6 +207,7 @@ pub async fn import_finish_upload(
         part_tokens,
     }): Json<ImportFinishUploadArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
     let format = parse_format_arg(table_name, format)?;
     let import_id = st
         .application
@@ -238,6 +243,7 @@ pub async fn prepare_import(
     }): Query<ImportQueryArgs>,
     stream: BodyStream,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
     let format = parse_format_arg(table_name, format)?;
     let body_stream = stream.map_err(anyhow::Error::from).boxed();
     let import_id =
@@ -258,6 +264,7 @@ pub async fn perform_import(
     ExtractIdentity(identity): ExtractIdentity,
     Json(PerformImportArgs { import_id }): Json<PerformImportArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
     let import_id = DeveloperDocumentId::decode(&import_id).context(ErrorMetadata::bad_request(
         "InvalidImport",
         format!("invalid import id {import_id}"),

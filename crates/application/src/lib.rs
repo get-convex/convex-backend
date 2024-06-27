@@ -937,6 +937,7 @@ impl<RT: Runtime> Application<RT> {
         caller: FunctionCaller,
         pause_client: PauseClient,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
+        identity.ensure_can_run_function(UdfType::Mutation)?;
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -999,6 +1000,8 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
+        identity.ensure_can_run_function(UdfType::Action)?;
+
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -1064,6 +1067,7 @@ impl<RT: Runtime> Application<RT> {
         caller: FunctionCaller,
         mut response_streamer: HttpActionResponseStreamer,
     ) -> anyhow::Result<()> {
+        identity.ensure_can_run_function(UdfType::HttpAction)?;
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -1164,6 +1168,8 @@ impl<RT: Runtime> Application<RT> {
                 log_lines: RedactedLogLines::empty(),
             }));
         };
+
+        identity.ensure_can_run_function(analyzed_function.udf_type)?;
 
         match analyzed_function.udf_type {
             UdfType::Query => self

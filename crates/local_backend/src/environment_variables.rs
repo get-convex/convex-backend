@@ -16,7 +16,7 @@ use model::environment_variables::types::{
 use serde::Deserialize;
 
 use crate::{
-    admin::must_be_admin,
+    admin::must_be_admin_with_write_access,
     authentication::ExtractIdentity,
     LocalAppState,
 };
@@ -56,7 +56,7 @@ pub async fn update_environment_variables(
     ExtractIdentity(identity): ExtractIdentity,
     Json(UpdateEnvVarsRequest { changes }): Json<UpdateEnvVarsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin(&identity)?;
+    must_be_admin_with_write_access(&identity)?;
 
     let mut env_var_changes = vec![];
     for change in changes {

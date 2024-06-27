@@ -12,6 +12,7 @@ message AdminKey {
     uint64 member_id = 3;
     google.protobuf.Empty system = 4;
   }
+  bool is_read_only = 5;
 }
 
 message StorageToken {

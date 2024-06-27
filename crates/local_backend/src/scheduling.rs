@@ -27,7 +27,7 @@ use serde::{
 use value::TableNamespace;
 
 use crate::{
-    admin::bad_admin_key_error,
+    admin::must_be_admin_member_with_write_access,
     authentication::ExtractIdentity,
     parse::parse_document_id,
     LocalAppState,
@@ -45,9 +45,7 @@ pub async fn cancel_all_jobs(
     ExtractIdentity(identity): ExtractIdentity,
     Json(CancelAllJobsRequest { udf_path }): Json<CancelAllJobsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    identity
-        .member_id()
-        .context(bad_admin_key_error(identity.instance_name()))?;
+    must_be_admin_member_with_write_access(&identity)?;
 
     let udf_path = udf_path
         .map(|p| p.parse())
@@ -77,9 +75,7 @@ pub async fn cancel_job(
     ExtractIdentity(identity): ExtractIdentity,
     Json(cancel_job_request): Json<CancelJobRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    identity
-        .member_id()
-        .context(bad_admin_key_error(identity.instance_name()))?;
+    must_be_admin_member_with_write_access(&identity)?;
     st.application
         .execute_with_audit_log_events_and_occ_retries(identity.clone(), "cancel_job", |tx| {
             async {
