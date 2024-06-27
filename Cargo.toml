@@ -8,7 +8,7 @@ aes = { version = "0.8.4" }
 anyhow = "1"
 async-broadcast = "0.7.0"
 async-channel = "1.9.0"
-async-compression = { version = "0.4.8", features = [ "tokio", "zstd", "gzip" ] }
+async-compression = { version = "0.4.10", features = [ "tokio", "zstd", "gzip" ] }
 async-recursion = "1.1.1"
 async-trait = "0.1"
 async_zip = { version = "0.0.9", default-features = false, features = [ "zstd", "deflate" ] }
