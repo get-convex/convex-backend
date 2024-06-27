@@ -8,7 +8,7 @@
     "@microsoft/rush": "^5.113.4",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
-    "dprint": "0.45.0",
+    "dprint": "0.46.1",
     "eslint": "^8.29.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-jest": "^27.2.3",

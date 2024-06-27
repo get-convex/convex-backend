@@ -224,7 +224,7 @@
     "deep-equal": "2.1.0",
     "depcheck": "~1.4.7",
     "dotenv": "^16.0.3",
-    "dprint": "0.45.0",
+    "dprint": "0.46.1",
     "encoding": "^0.1.13",
     "envfile": "6.18.0",
     "esbuild": "^0.17.5",
