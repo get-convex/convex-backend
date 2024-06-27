@@ -34,8 +34,7 @@ use convex_fivetran_common::fivetran_sdk::{
     Column,
     DataType as FivetranDataType,
 };
-
-use crate::{
+use convex_fivetran_destination::{
     api_types::{
         FivetranFieldName,
         FivetranTableName,
@@ -53,6 +52,9 @@ use crate::{
         SYNCED_CONVEX_FIELD_NAME,
         SYNCED_FIVETRAN_FIELD_NAME,
     },
+};
+
+use crate::{
     error::{
         DestinationError,
         SuggestedIndex,
@@ -501,7 +503,6 @@ impl FivetranTableSchema {
 /// instance, the fields in the primary key index can be in an arbitrary order.
 /// Also, fields in Convex can either be nullable (e.g. `v.union(v.string(),
 /// v.null())`) or not (e.g. `v.string()`).
-#[allow(dead_code)]
 pub fn validate_destination_schema_table(
     fivetran_table: fivetran_sdk::Table,
     convex_table: &TableDefinition,
@@ -557,7 +558,6 @@ pub fn validate_destination_schema_table(
 /// Converts the given Convex schema table to a Fivetran table. This is used in
 /// the implementation of the `AlterTable` endpoint so that Fivetran can be
 /// aware of the current state of the Convex destination.
-#[allow(dead_code)]
 pub fn to_fivetran_table(
     convex_table: &TableDefinition,
 ) -> anyhow::Result<fivetran_sdk::Table, DestinationError> {

@@ -28,7 +28,6 @@ pub struct Config {
 
 impl Config {
     /// Layout of the fields visible in the Fivetran UI
-    #[allow(dead_code)]
     pub fn fivetran_fields() -> Vec<FormField> {
         vec![
             FormField {
@@ -58,7 +57,6 @@ impl Config {
 
     /// Validates user-supplied configuration parameters
     /// and creates a [`Config`] instance if they are valid.
-    #[allow(dead_code)]
     pub fn from_parameters(
         configuration: BTreeMap<String, String>,
         allow_all_hosts: AllowAllHosts,

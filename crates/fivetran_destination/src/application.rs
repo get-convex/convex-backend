@@ -20,6 +20,12 @@ use convex_fivetran_common::fivetran_sdk::{
     CsvFileParams,
     Encryption,
 };
+use convex_fivetran_destination::api_types::{
+    BatchWriteOperation,
+    BatchWriteRow,
+    DeleteType,
+    FivetranTableName,
+};
 use futures::{
     stream::{
         self,
@@ -29,12 +35,6 @@ use futures::{
 use futures_async_stream::try_stream;
 
 use crate::{
-    api_types::{
-        BatchWriteOperation,
-        BatchWriteRow,
-        DeleteType,
-        FivetranTableName,
-    },
     convex_api::Destination,
     error::{
         DestinationError,

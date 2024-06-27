@@ -15,27 +15,24 @@ use common::value::{
     FieldName,
     Namespace,
 };
-use convex_fivetran_common::fivetran_sdk::{
-    value_type::Inner as FivetranValue,
-    DataType as FivetranDataType,
+use convex_fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
+#[cfg(test)]
+use convex_fivetran_common::fivetran_sdk::DataType as FivetranDataType;
+use convex_fivetran_destination::constants::{
+    ID_CONVEX_FIELD_NAME,
+    ID_FIVETRAN_FIELD_NAME,
+    METADATA_CONVEX_FIELD_NAME,
+    SOFT_DELETE_CONVEX_FIELD_NAME,
+    SOFT_DELETE_FIVETRAN_FIELD_NAME,
+    SYNCED_CONVEX_FIELD_NAME,
+    SYNCED_FIVETRAN_FIELD_NAME,
 };
 use prost_types::Timestamp;
 use serde_json::Value as JsonValue;
 
-use crate::{
-    constants::{
-        ID_CONVEX_FIELD_NAME,
-        ID_FIVETRAN_FIELD_NAME,
-        METADATA_CONVEX_FIELD_NAME,
-        SOFT_DELETE_CONVEX_FIELD_NAME,
-        SOFT_DELETE_FIVETRAN_FIELD_NAME,
-        SYNCED_CONVEX_FIELD_NAME,
-        SYNCED_FIVETRAN_FIELD_NAME,
-    },
-    file_reader::{
-        FileRow,
-        FivetranFileValue,
-    },
+use crate::file_reader::{
+    FileRow,
+    FivetranFileValue,
 };
 
 fn fivetran_to_convex_value(value: FivetranValue) -> anyhow::Result<ConvexValue> {
@@ -228,7 +225,7 @@ impl TryInto<ConvexObject> for FileRow {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn fivetran_data_type(value: &FivetranValue) -> Option<FivetranDataType> {
     match value {
         FivetranValue::Null(_) => None,
@@ -341,13 +338,13 @@ mod tests {
         },
     };
     use convex_fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
+    use convex_fivetran_destination::api_types::FivetranFieldName;
     use maplit::btreemap;
     use proptest::prelude::*;
     use prost_types::Timestamp;
 
     use super::fivetran_to_convex_value;
     use crate::{
-        api_types::FivetranFieldName,
         convert::{
             fivetran_data_type,
             roundtrip_converted_value,

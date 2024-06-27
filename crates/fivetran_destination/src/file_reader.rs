@@ -19,6 +19,7 @@ use convex_fivetran_common::fivetran_sdk::{
     CsvFileParams,
     DataType as FivetranDataType,
 };
+use convex_fivetran_destination::api_types::FivetranFieldName;
 use futures::{
     stream::BoxStream,
     StreamExt,
@@ -37,7 +38,6 @@ use crate::{
         Aes256Key,
         AesDecryptor,
     },
-    api_types::FivetranFieldName,
     schema::FivetranTableSchema,
 };
 
@@ -65,13 +65,11 @@ impl From<CsvFileParams> for FivetranReaderParams {
 }
 
 /// See https://github.com/fivetran/fivetran_sdk/blob/main/development-guide.md#encryption
-#[allow(dead_code)]
 pub enum FivetranFileEncryption {
     None,
     Aes { key: Aes256Key },
 }
 
-#[allow(dead_code)]
 pub async fn create_csv_deserializer(
     file_path: &str,
     compression: FivetranFileCompression,
@@ -100,7 +98,6 @@ pub async fn create_csv_deserializer(
     Ok(deserializer)
 }
 
-#[allow(dead_code)]
 pub fn read_rows<'a, R>(
     deserializer: &'a mut csv_async::AsyncDeserializer<R>,
     params: &'a FivetranReaderParams,
@@ -255,6 +252,10 @@ mod tests {
         Compression as FivetranFileCompression,
         DataType as FivetranDataType,
     };
+    use convex_fivetran_destination::api_types::{
+        FivetranFieldName,
+        FivetranTableName,
+    };
     use futures::StreamExt;
     use maplit::btreemap;
     use proptest::prelude::*;
@@ -266,10 +267,6 @@ mod tests {
 
     use crate::{
         aes::Aes256Key,
-        api_types::{
-            FivetranFieldName,
-            FivetranTableName,
-        },
         convert::fivetran_data_type,
         file_reader::{
             create_csv_deserializer,

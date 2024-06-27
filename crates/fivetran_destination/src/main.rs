@@ -23,10 +23,8 @@ use tonic::{
 };
 
 mod aes;
-mod api_types;
 mod application;
 pub mod connector;
-mod constants;
 mod convert;
 mod convex_api;
 mod error;

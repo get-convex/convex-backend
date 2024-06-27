@@ -20,12 +20,11 @@ use common::{
     },
 };
 use convex_fivetran_common::fivetran_sdk::DataType as FivetranDataType;
-use thiserror::Error;
-
-use crate::api_types::{
+use convex_fivetran_destination::api_types::{
     FivetranFieldName,
     FivetranTableName,
 };
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DestinationError {

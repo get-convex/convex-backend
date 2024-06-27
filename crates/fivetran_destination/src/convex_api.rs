@@ -15,6 +15,11 @@ use common::{
     value::TableName,
 };
 use convex_fivetran_common::config::Config;
+use convex_fivetran_destination::api_types::{
+    BatchWriteRow,
+    DeleteType,
+    TruncateTableArgs,
+};
 use serde::{
     de::DeserializeOwned,
     Serialize,
@@ -23,12 +28,6 @@ use serde_json::Value as JsonValue;
 use tonic::codegen::http::{
     HeaderName,
     HeaderValue,
-};
-
-use crate::api_types::{
-    BatchWriteRow,
-    DeleteType,
-    TruncateTableArgs,
 };
 
 #[allow(clippy::declare_interior_mutable_const)]
@@ -44,21 +43,16 @@ static CONVEX_CLIENT_HEADER_VALUE: LazyLock<HeaderValue> = LazyLock::new(|| {
 pub trait Destination: Display + Send {
     /// An endpoint that confirms the Convex backend is accessible with
     /// streaming import enabled
-    #[allow(dead_code)]
     async fn test_streaming_import_connection(&self) -> anyhow::Result<()>;
 
-    #[allow(dead_code)]
     async fn get_schema(&self) -> anyhow::Result<Option<DatabaseSchema>>;
 
-    #[allow(dead_code)]
     async fn truncate_table(
         &self,
         table_name: TableName,
         delete_type: DeleteType,
         delete_before: Option<DateTime<Utc>>,
     ) -> anyhow::Result<()>;
-
-    #[allow(dead_code)]
     async fn batch_write(&self, rows: Vec<BatchWriteRow>) -> anyhow::Result<()>;
 }
 
