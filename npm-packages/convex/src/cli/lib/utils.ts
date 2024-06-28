@@ -508,6 +508,7 @@ export async function validateOrSelectProject(
  */
 export async function loadPackageJson(
   ctx: Context,
+  includePeerDeps = false,
 ): Promise<Record<string, string>> {
   let packageJson;
   try {
@@ -533,6 +534,7 @@ export async function loadPackageJson(
     return await ctx.crash(1, "invalid filesystem data");
   }
   const packages = {
+    ...(includePeerDeps ? obj.peerDependencies ?? {} : {}),
     ...(obj.dependencies ?? {}),
     ...(obj.devDependencies ?? {}),
   };
@@ -540,7 +542,7 @@ export async function loadPackageJson(
 }
 
 export async function ensureHasConvexDependency(ctx: Context, cmd: string) {
-  const packages = await loadPackageJson(ctx);
+  const packages = await loadPackageJson(ctx, true);
   const hasConvexDependency = "convex" in packages;
   if (!hasConvexDependency) {
     logFailure(
