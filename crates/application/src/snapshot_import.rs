@@ -16,19 +16,16 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use async_zip::{
-    error::ZipError,
-    read::{
+    base::read::{
         seek::ZipFileReader,
-        ZipEntryReader,
+        WithEntry,
     },
+    error::ZipError,
+    tokio::read::ZipEntryReader,
 };
 use bytes::Bytes;
 use common::{
-    async_compat::{
-        FuturesAsyncReadCompatExt,
-        TokioAsyncRead,
-        TokioAsyncReadCompatExt,
-    },
+    async_compat::FuturesAsyncReadCompatExt,
     bootstrap_model::{
         schema::SchemaState,
         tables::TABLES_TABLE,
@@ -48,6 +45,10 @@ use common::{
     pause::PauseClient,
     runtime::Runtime,
     schemas::DatabaseSchema,
+    tokio::io::{
+        AsyncBufRead,
+        AsyncReadExt as _,
+    },
     types::{
         FieldName,
         MemberId,
@@ -888,14 +889,15 @@ where
         },
         ImportFormat::Zip => {
             let mut reader = stream_body().await?.compat();
-            let mut zip_reader = ZipFileReader::new(&mut reader)
+            let mut zip_reader = ZipFileReader::with_tokio(&mut reader)
                 .await
                 .map_err(map_zip_error)?;
             let filenames: Vec<_> = zip_reader
+                .file()
                 .entries()
-                .into_iter()
-                .map(|entry| entry.filename().to_string())
-                .collect();
+                .iter()
+                .map(|entry| Ok(entry.filename().as_str()?.to_string()))
+                .collect::<anyhow::Result<Vec<_>>>()?;
             {
                 // First pass, all the things we can store in memory:
                 // a. _tables/documents.jsonl
@@ -914,21 +916,27 @@ where
                     if let Some(table_name) = &documents_table_name
                         && table_name == &*TABLES_TABLE
                     {
-                        let entry_reader =
-                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                        let entry_reader = zip_reader
+                            .reader_with_entry(i)
+                            .await
+                            .map_err(map_zip_error)?;
                         table_metadata = parse_documents_jsonl(entry_reader).try_collect().await?;
                     } else if let Some(table_name) = &documents_table_name
                         && table_name == &*FILE_STORAGE_VIRTUAL_TABLE
                     {
-                        let entry_reader =
-                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                        let entry_reader = zip_reader
+                            .reader_with_entry(i)
+                            .await
+                            .map_err(map_zip_error)?;
                         storage_metadata =
                             parse_documents_jsonl(entry_reader).try_collect().await?;
                     } else if let Some(generated_schema_captures) =
                         GENERATED_SCHEMA_PATTERN.captures(filename)
                     {
-                        let entry_reader =
-                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                        let entry_reader = zip_reader
+                            .reader_with_entry(i)
+                            .await
+                            .map_err(map_zip_error)?;
                         let table_name_str = generated_schema_captures
                             .get(1)
                             .expect("regex has one capture group")
@@ -942,7 +950,7 @@ where
                         tracing::info!(
                             "importing zip file containing generated_schema {table_name}"
                         );
-                        let entry_reader = BufReader::new(entry_reader.compat());
+                        let entry_reader = BufReader::new(entry_reader);
                         let generated_schema =
                             parse_generated_schema(filename, entry_reader).await?;
                         generated_schemas
@@ -966,8 +974,10 @@ where
                             if storage_id_str == "documents" {
                                 continue;
                             }
-                            let entry_reader =
-                                zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                            let entry_reader = zip_reader
+                                .reader_with_entry(i)
+                                .await
+                                .map_err(map_zip_error)?;
                             let storage_id =
                                 DeveloperDocumentId::decode(storage_id_str).map_err(|e| {
                                     ErrorMetadata::bad_request(
@@ -1005,7 +1015,10 @@ where
                 if let Some(table_name) = parse_documents_jsonl_table_name(filename)?
                     && !table_name.is_system()
                 {
-                    let entry_reader = zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                    let entry_reader = zip_reader
+                        .reader_with_entry(i)
+                        .await
+                        .map_err(map_zip_error)?;
                     let stream = parse_documents_jsonl(entry_reader);
                     pin_mut!(stream);
                     while let Some(unit) = stream.try_next().await? {
@@ -1037,12 +1050,14 @@ fn parse_documents_jsonl_table_name(filename: &str) -> anyhow::Result<Option<Tab
 }
 
 #[try_stream(ok = ImportUnit, error = anyhow::Error)]
-async fn parse_documents_jsonl<R: TokioAsyncRead + Unpin>(entry_reader: ZipEntryReader<'_, R>) {
-    let table_name = parse_documents_jsonl_table_name(entry_reader.entry().filename())?
+async fn parse_documents_jsonl<'a, R: AsyncBufRead + Unpin>(
+    entry_reader: ZipEntryReader<'a, R, WithEntry<'a>>,
+) {
+    let table_name = parse_documents_jsonl_table_name(entry_reader.entry().filename().as_str()?)?
         .context("expected documents.jsonl file")?;
     tracing::info!("importing zip file containing table {table_name}");
     yield ImportUnit::NewTable(table_name);
-    let mut reader = BufReader::new(entry_reader.compat());
+    let mut reader = BufReader::new(entry_reader);
     let mut line = String::new();
     let mut lineno = 1;
     while reader.read_line(&mut line).await? > 0 {

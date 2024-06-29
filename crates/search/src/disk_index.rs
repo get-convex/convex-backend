@@ -4,23 +4,23 @@ use std::{
         Arc,
         LazyLock,
     },
-    time::SystemTime,
 };
 
 use anyhow::Context;
 use async_zip::{
-    read::stream::ZipFileReader,
-    write::ZipFileWriter,
+    base::read::stream::ZipFileReader,
+    tokio::write::ZipFileWriter,
     Compression,
+    ZipDateTime,
     ZipEntryBuilder,
-    ZipEntryBuilderExt,
 };
 use bytes::Bytes;
 use cmd_util::env::env_config;
+#[cfg(any(test, feature = "testing"))]
+use common::async_compat::FuturesAsyncWriteCompatExt;
 use common::{
     async_compat::{
         FuturesAsyncReadCompatExt,
-        FuturesAsyncWriteCompatExt,
         TokioAsyncWriteCompatExt,
     },
     bootstrap_model::index::{
@@ -137,33 +137,32 @@ pub async fn download_single_file_zip<P: AsRef<Path>>(
 
     // Open the target file
     let std_file = std::fs::File::create(path)?;
-    let mut file = AllowStdIo::new(std_file).compat_write();
+    let mut file = AllowStdIo::new(std_file);
 
     // Require the stream to be a zip containing a single file, extract the data for
     // that single file and write it to our target path.
-    let mut reader = ZipFileReader::new(stream);
+    let mut zip = ZipFileReader::with_tokio(stream);
     let mut is_written = false;
-    while !reader.finished() {
-        // Some entries may just be blank, so we skip them.
-        if let Some(entry) = reader.entry_reader().await? {
-            // Some entries may be directories, which we don't care about.
-            if entry.entry().filename().ends_with('/') {
-                continue;
-            }
-            // If it is a file, make sure we haven't already read one (we're expecting
-            // exactly one!)
-            if is_written {
-                anyhow::bail!(
-                    "ZIP contained multiple files! latest: {:?}",
-                    entry.entry().filename()
-                );
-            }
-            is_written = true;
-            entry.copy_to_end_crc(&mut file, 2 << 15).await?;
-
-            // Keep reading to make sure we don't get something unexpected (like
-            // multiple files)
+    while let Some(mut entry) = zip.next_with_entry().await? {
+        // Some entries may be directories, which we don't care about.
+        if entry.reader().entry().filename().as_str()?.ends_with('/') {
+            zip = entry.skip().await?;
+            continue;
         }
+        // If it is a file, make sure we haven't already read one (we're expecting
+        // exactly one!)
+        if is_written {
+            anyhow::bail!(
+                "ZIP contained multiple files! latest: {:?}",
+                entry.reader().entry().filename()
+            );
+        }
+        is_written = true;
+        futures::io::copy(entry.reader_mut(), &mut file).await?;
+
+        // Keep reading to make sure we don't get something unexpected (like
+        // multiple files)
+        zip = entry.done().await?;
     }
     Ok(())
 }
@@ -313,7 +312,7 @@ async fn write_single_file(
     format: SingleFileFormat,
 ) -> anyhow::Result<()> {
     if format == SingleFileFormat::ZIP {
-        let mut writer = ZipFileWriter::new(&mut out);
+        let mut writer = ZipFileWriter::with_tokio(&mut out);
         zip_single_file(reader, filename, &mut writer).await?;
         writer.close().await?;
     } else {
@@ -345,7 +344,7 @@ async fn write_index_archive<P: AsRef<Path>>(
     directory: P,
     mut out: impl AsyncWrite + Sync + Send + Unpin,
 ) -> anyhow::Result<()> {
-    let mut writer = ZipFileWriter::new(&mut out);
+    let mut writer = ZipFileWriter::with_tokio(&mut out);
     for entry in WalkDir::new(&directory).sort_by_file_name() {
         let entry = entry?;
         if !entry.file_type().is_file() {
@@ -382,15 +381,14 @@ async fn zip_single_file(
     filename: String,
     writer: &mut ZipFileWriter<&mut (impl AsyncWrite + Sync + Send + Unpin)>,
 ) -> anyhow::Result<()> {
-    let entry = ZipEntryBuilder::new(filename, Compression::Zstd)
+    let entry = ZipEntryBuilder::new(filename.into(), Compression::Zstd)
         .unix_permissions(0o644)
         // Pin the mtime to prevent flakes in CI, where we've observed the mtime incrementing by
         // one when traversing the test directory multiple times.
-        .last_modification_date(SystemTime::UNIX_EPOCH.into())
+        .last_modification_date(ZipDateTime::default())
         .build();
-    let mut stream = writer.write_entry_stream(entry).await?.compat_write();
+    let mut stream = writer.write_entry_stream(entry).await?;
     futures::io::copy(reader, &mut stream).await?;
-    let stream = stream.into_inner();
     stream.close().await?;
     Ok(())
 }
@@ -403,9 +401,10 @@ mod tests {
         Context,
         Ok,
     };
-    use async_zip::read::mem::ZipFileReader;
+    use async_zip::base::read::mem::ZipFileReader;
     use common::{
         async_compat::TokioAsyncReadCompatExt,
+        async_zip_ext::ZipEntryReaderExt,
         runtime::testing::TestDriver,
     };
     use futures::TryStreamExt;
@@ -507,9 +506,11 @@ mod tests {
         )
         .await?;
 
-        let mut reader = ZipFileReader::new(&buffer).await?;
-        let reader = reader.entry_reader(0).await?;
-        let value = reader.read_to_string_crc().await?;
+        let reader = ZipFileReader::new(buffer).await?;
+        let mut reader = reader.reader_with_entry(0).await?;
+        let value = reader
+            .read_to_string_checked_bypass_async_zip_crc_bug()
+            .await?;
 
         assert_eq!(value, "file content");
         Ok(())
@@ -535,17 +536,17 @@ mod tests {
         let mut buffer: Vec<u8> = Vec::new();
         write_index_archive(dir.path(), &mut buffer).await?;
         // Now read it back and verify it's what we expect.
-        let mut reader = ZipFileReader::new(&buffer).await?;
-        assert_eq!(reader.entries().len(), 2);
+        let reader = ZipFileReader::new(buffer).await?;
+        assert_eq!(reader.file().entries().len(), 2);
 
         // Entry order is alphabetical
         let mut entries = vec![];
-        for i in 0..reader.entries().len() {
-            let entry_reader = reader.entry_reader(i).await?;
-            entries.push((
-                entry_reader.entry().filename().to_owned(),
-                entry_reader.read_to_string_crc().await?,
-            ));
+        for i in 0..reader.file().entries().len() {
+            let mut entry_reader = reader.reader_with_entry(i).await?;
+            let value = entry_reader
+                .read_to_string_checked_bypass_async_zip_crc_bug()
+                .await?;
+            entries.push((entry_reader.entry().filename().as_str()?.to_owned(), value));
         }
         entries.sort_by_key(|(filename, _)| filename.clone());
         assert_eq!(

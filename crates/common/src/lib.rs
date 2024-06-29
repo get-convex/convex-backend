@@ -25,6 +25,7 @@
 #![feature(str_split_remainder)]
 
 pub mod async_compat;
+pub mod async_zip_ext;
 pub mod auth;
 pub mod backoff;
 pub mod bootstrap_model;

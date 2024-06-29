@@ -15,6 +15,7 @@ development = ["proptest", "proptest-derive"]
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+async_zip = { workspace = true }
 axum = { workspace = true }
 bitvec = { workspace = true }
 byteorder = { workspace = true }

@@ -9,13 +9,12 @@ use std::{
 
 use anyhow::Context;
 use async_zip::{
-    write::{
+    tokio::write::{
         EntryStreamWriter,
         ZipFileWriter,
     },
     Compression,
     ZipEntryBuilder,
-    ZipEntryBuilderExt,
 };
 use bytes::Bytes;
 use common::{
@@ -723,7 +722,7 @@ impl<'a, 'b> ZipSnapshotTableUpload<'a, 'b> {
         table_name: TableName,
     ) -> anyhow::Result<Self> {
         let source_path = format!("{table_name}/documents.jsonl");
-        let builder = ZipEntryBuilder::new(source_path.clone(), Compression::Deflate)
+        let builder = ZipEntryBuilder::new(source_path.into(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
         let entry_writer = zip_writer.write_entry_stream(builder.build()).await?;
         Ok(Self { entry_writer })
@@ -736,11 +735,8 @@ impl<'a, 'b> ZipSnapshotTableUpload<'a, 'b> {
 
     async fn write_json_line(&mut self, json: JsonValue) -> anyhow::Result<()> {
         let buf = serde_json::to_vec(&json)?;
-        self.entry_writer.compat_mut_write().write_all(&buf).await?;
-        self.entry_writer
-            .compat_mut_write()
-            .write_all(&AFTER_DOCUMENTS_CLEAN)
-            .await?;
+        self.entry_writer.write_all(&buf).await?;
+        self.entry_writer.write_all(&AFTER_DOCUMENTS_CLEAN).await?;
         Ok(())
     }
 
@@ -756,7 +752,7 @@ struct ZipSnapshotUpload<'a> {
 
 impl<'a> ZipSnapshotUpload<'a> {
     async fn new(out: &'a mut ChannelWriter) -> anyhow::Result<Self> {
-        let writer = ZipFileWriter::new(out);
+        let writer = ZipFileWriter::with_tokio(out);
         let mut zip_snapshot_upload = Self { writer };
         zip_snapshot_upload
             .write_full_file(format!("README.md"), README_MD_CONTENTS)
@@ -765,13 +761,10 @@ impl<'a> ZipSnapshotUpload<'a> {
     }
 
     async fn write_full_file(&mut self, path: String, contents: &str) -> anyhow::Result<()> {
-        let builder = ZipEntryBuilder::new(path, Compression::Deflate)
+        let builder = ZipEntryBuilder::new(path.into(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
         let mut entry_writer = self.writer.write_entry_stream(builder.build()).await?;
-        entry_writer
-            .compat_mut_write()
-            .write_all(contents.as_bytes())
-            .await?;
+        entry_writer.write_all(contents.as_bytes()).await?;
         entry_writer.close().await?;
         Ok(())
     }
@@ -781,11 +774,11 @@ impl<'a> ZipSnapshotUpload<'a> {
         path: String,
         mut contents: BoxStream<'_, std::io::Result<Bytes>>,
     ) -> anyhow::Result<()> {
-        let builder = ZipEntryBuilder::new(path, Compression::Deflate)
+        let builder = ZipEntryBuilder::new(path.into(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
         let mut entry_writer = self.writer.write_entry_stream(builder.build()).await?;
         while let Some(chunk) = contents.try_next().await? {
-            entry_writer.compat_mut_write().write_all(&chunk).await?;
+            entry_writer.write_all(&chunk).await?;
         }
         entry_writer.close().await?;
         Ok(())
@@ -817,23 +810,21 @@ impl<'a> ZipSnapshotUpload<'a> {
         generated_schema: GeneratedSchema<T>,
     ) -> anyhow::Result<()> {
         let generated_schema_path = format!("{table_name}/generated_schema.jsonl");
-        let builder = ZipEntryBuilder::new(generated_schema_path.clone(), Compression::Deflate)
+        let builder = ZipEntryBuilder::new(generated_schema_path.into(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
         let mut entry_writer = self.writer.write_entry_stream(builder.build()).await?;
         let generated_schema_str = generated_schema.inferred_shape.to_string();
         entry_writer
-            .compat_mut_write()
             .write_all(serde_json::to_string(&generated_schema_str)?.as_bytes())
             .await?;
-        entry_writer.compat_mut_write().write_all(b"\n").await?;
+        entry_writer.write_all(b"\n").await?;
         for (override_id, override_export_context) in generated_schema.overrides.into_iter() {
             let override_json =
                 json!({override_id.encode(): JsonValue::from(override_export_context)});
             entry_writer
-                .compat_mut_write()
                 .write_all(serde_json::to_string(&override_json)?.as_bytes())
                 .await?;
-            entry_writer.compat_mut_write().write_all(b"\n").await?;
+            entry_writer.write_all(b"\n").await?;
         }
         entry_writer.close().await?;
         Ok(())
@@ -857,6 +848,7 @@ mod tests {
     use anyhow::Context;
     use bytes::Bytes;
     use common::{
+        async_zip_ext::ZipEntryReaderExt,
         document::{
             ParsedDocument,
             ResolvedDocument,
@@ -1048,16 +1040,20 @@ mod tests {
             .await?
             .context("object missing from storage")?;
         let stored_bytes = storage_stream.collect_as_bytes().await?;
-        let mut zip_reader = async_zip::read::mem::ZipFileReader::new(&stored_bytes).await?;
+        let zip_reader =
+            async_zip::base::read::mem::ZipFileReader::new(stored_bytes.into()).await?;
         let mut zip_entries = BTreeMap::new();
         let filenames: Vec<_> = zip_reader
+            .file()
             .entries()
-            .into_iter()
-            .map(|entry| entry.filename().to_string())
+            .iter()
+            .map(|entry| entry.filename().as_str().unwrap().to_string())
             .collect();
         for (i, filename) in filenames.into_iter().enumerate() {
-            let entry_reader = zip_reader.entry_reader(i).await?;
-            let entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
+            let mut entry_reader = zip_reader.reader_with_entry(i).await?;
+            let entry_contents = entry_reader
+                .read_to_string_checked_bypass_async_zip_crc_bug()
+                .await?;
             zip_entries.insert(filename, entry_contents);
         }
         assert_eq!(zip_entries, expected_export_entries);
@@ -1141,16 +1137,20 @@ mod tests {
             .await?
             .context("object missing from storage")?;
         let stored_bytes = storage_stream.collect_as_bytes().await?;
-        let mut zip_reader = async_zip::read::mem::ZipFileReader::new(&stored_bytes).await?;
+        let zip_reader =
+            async_zip::base::read::mem::ZipFileReader::new(stored_bytes.into()).await?;
         let mut zip_entries = BTreeMap::new();
         let filenames: Vec<_> = zip_reader
+            .file()
             .entries()
-            .into_iter()
-            .map(|entry| entry.filename().to_string())
+            .iter()
+            .map(|entry| entry.filename().as_str().unwrap().to_string())
             .collect();
         for (i, filename) in filenames.into_iter().enumerate() {
-            let entry_reader = zip_reader.entry_reader(i).await?;
-            let entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
+            let mut entry_reader = zip_reader.reader_with_entry(i).await?;
+            let entry_contents = entry_reader
+                .read_to_string_checked_bypass_async_zip_crc_bug()
+                .await?;
             zip_entries.insert(filename, entry_contents);
         }
         assert_eq!(zip_entries, expected_export_entries);
