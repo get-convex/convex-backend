@@ -10,7 +10,6 @@ use common::{
         ComponentPath,
         Reference,
         Resource,
-        COMPONENTS_ENABLED,
     },
     runtime::{
         Runtime,
@@ -162,16 +161,12 @@ impl<RT: Runtime> ActionPhase<RT> {
             let source_package = SourcePackageModel::new(&mut tx, component_id.into())
                 .get_latest()
                 .await?;
-            if !*COMPONENTS_ENABLED {
-                anyhow::ensure!(self.component.is_root());
-            } else {
-                let loaded_resources = ComponentsModel::new(&mut tx)
-                    .preload_resources(component_id)
-                    .await?;
-                {
-                    let mut resources = resources.lock();
-                    *resources = loaded_resources;
-                }
+            let loaded_resources = ComponentsModel::new(&mut tx)
+                .preload_resources(component_id)
+                .await?;
+            {
+                let mut resources = resources.lock();
+                *resources = loaded_resources;
             }
             Ok((module_metadata, source_package))
         })

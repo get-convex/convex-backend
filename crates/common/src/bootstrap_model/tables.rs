@@ -10,12 +10,9 @@ use value::{
     TableNumber,
 };
 
-use crate::{
-    components::COMPONENTS_ENABLED,
-    types::{
-        FieldName,
-        TableName,
-    },
+use crate::types::{
+    FieldName,
+    TableName,
 };
 
 pub static TABLES_TABLE: LazyLock<TableName> =
@@ -158,10 +155,6 @@ fn table_namespace_from_serialized(
 fn table_namespace_to_serialized(
     m: TableNamespace,
 ) -> anyhow::Result<Option<SerializedTableNamespace>> {
-    anyhow::ensure!(
-        *COMPONENTS_ENABLED || matches!(m, TableNamespace::Global),
-        "non-global namespaces should only be serialized when components are enabled"
-    );
     match m {
         TableNamespace::Global => Ok(None),
         TableNamespace::ByComponent(id) => Ok(Some(SerializedTableNamespace::ByComponent {

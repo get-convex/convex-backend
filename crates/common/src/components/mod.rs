@@ -35,13 +35,6 @@ pub use self::{
 pub static COMPONENTS_ENABLED: LazyLock<bool> =
     LazyLock::new(|| env_config("COMPONENTS_ENABLED", false));
 
-pub fn require_components_enabled() -> anyhow::Result<()> {
-    if !*COMPONENTS_ENABLED {
-        anyhow::bail!("Components are not enabled, set COMPONENTS_ENABLED=true to enable them.");
-    }
-    Ok(())
-}
-
 // Globally unique system-assigned ID for a component.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum ComponentId {
@@ -72,16 +65,9 @@ impl ComponentId {
 
 impl From<ComponentId> for TableNamespace {
     fn from(value: ComponentId) -> Self {
-        if *COMPONENTS_ENABLED {
-            match value {
-                ComponentId::Root => TableNamespace::root_component(),
-                ComponentId::Child(id) => TableNamespace::ByComponent(id),
-            }
-        } else {
-            match value {
-                ComponentId::Root => TableNamespace::Global,
-                ComponentId::Child(_id) => TableNamespace::Global,
-            }
+        match value {
+            ComponentId::Root => TableNamespace::root_component(),
+            ComponentId::Child(id) => TableNamespace::ByComponent(id),
         }
     }
 }

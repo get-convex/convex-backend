@@ -56,17 +56,10 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                     [attribute] => attribute,
                     _ => anyhow::bail!("Nested component argument references unsupported"),
                 };
-                let component = BootstrapComponentsModel::new(self.tx)
-                    .load_component(component_id)
-                    .await?
-                    .ok_or_else(|| {
-                        ErrorMetadata::bad_request(
-                            "InvalidReference",
-                            format!("Component {:?} not found", component_id),
-                        )
-                    })?;
-                let ComponentType::ChildComponent { ref args, .. } = component.component_type
-                else {
+                let component_type = BootstrapComponentsModel::new(self.tx)
+                    .load_component_type(component_id)
+                    .await?;
+                let ComponentType::ChildComponent { ref args, .. } = component_type else {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "InvalidReference",
                         "Can't use an argument reference in the app"
@@ -160,7 +153,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     ) -> anyhow::Result<Resource> {
         let mut m = BootstrapComponentsModel::new(self.tx);
         let definition_id = m.component_definition(component_id).await?;
-        let definition = m.load_definition(definition_id).await?;
+        let definition = m.load_definition_metadata(definition_id).await?;
 
         let mut current = &definition.exports;
         let mut attribute_iter = attributes.iter();
@@ -193,19 +186,15 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         component_id: ComponentId,
     ) -> anyhow::Result<BTreeMap<Reference, Resource>> {
         let mut m = BootstrapComponentsModel::new(self.tx);
-        let component = m.load_component(component_id).await?.ok_or_else(|| {
-            ErrorMetadata::bad_request(
-                "InvalidReference",
-                format!("Component {:?} not found", component_id),
-            )
-        })?;
+        let component = m.load_component(component_id).await?;
+        let component_type = m.load_component_type(component_id).await?;
         let definition_id = m.component_definition(component_id).await?;
-        let definition = m.load_definition(definition_id).await?;
+        let definition = m.load_definition_metadata(definition_id).await?;
         let component_path = m.get_component_path(component_id).await?;
 
         let mut result = BTreeMap::new();
 
-        if let ComponentType::ChildComponent { ref args, .. } = component.component_type {
+        if let ComponentType::ChildComponent { ref args, .. } = component_type {
             for (name, resource) in args {
                 let reference = Reference::ComponentArgument {
                     attributes: vec![name.clone()],
@@ -236,21 +225,23 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             }
         }
 
-        for instantiation in &definition.child_components {
-            let parent = (component.id().internal_id(), instantiation.name.clone());
-            let child_component = BootstrapComponentsModel::new(self.tx)
-                .component_in_parent(Some(parent))
-                .await?
-                .context("Missing child component")?;
-            let child_component_id = ComponentId::Child(child_component.id().internal_id());
-            for (attributes, resource) in
-                self.preload_exported_resources(child_component_id).await?
-            {
-                let reference = Reference::ChildComponent {
-                    component: instantiation.name.clone(),
-                    attributes,
-                };
-                result.insert(reference, resource);
+        if let Some(component) = component {
+            for instantiation in &definition.child_components {
+                let parent = (component.id().internal_id(), instantiation.name.clone());
+                let child_component = BootstrapComponentsModel::new(self.tx)
+                    .component_in_parent(Some(parent))
+                    .await?
+                    .context("Missing child component")?;
+                let child_component_id = ComponentId::Child(child_component.id().internal_id());
+                for (attributes, resource) in
+                    self.preload_exported_resources(child_component_id).await?
+                {
+                    let reference = Reference::ChildComponent {
+                        component: instantiation.name.clone(),
+                        attributes,
+                    };
+                    result.insert(reference, resource);
+                }
             }
         }
 
@@ -263,7 +254,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     ) -> anyhow::Result<BTreeMap<Vec<Identifier>, Resource>> {
         let mut m = BootstrapComponentsModel::new(self.tx);
         let definition_id = m.component_definition(component_id).await?;
-        let definition = m.load_definition(definition_id).await?;
+        let definition = m.load_definition_metadata(definition_id).await?;
 
         let mut stack = vec![(vec![], &definition.exports)];
         let mut result = BTreeMap::new();

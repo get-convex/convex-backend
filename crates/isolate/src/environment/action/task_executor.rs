@@ -7,10 +7,8 @@ use std::{
 use common::{
     components::{
         ComponentFunctionPath,
-        ComponentPath,
         Reference,
         Resource,
-        COMPONENTS_ENABLED,
     },
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
@@ -67,7 +65,6 @@ use crate::{
 pub struct TaskExecutor<RT: Runtime> {
     pub rt: RT,
     pub identity: Identity,
-    pub component: ComponentPath,
     pub file_storage: TransactionalFileStorage<RT>,
     pub syscall_trace: Arc<Mutex<SyscallTrace>>,
     pub action_callbacks: Arc<dyn ActionCallbacks>,
@@ -196,17 +193,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     }
 
     pub fn resolve(&self, reference: &Reference) -> anyhow::Result<Resource> {
-        let resource = if !*COMPONENTS_ENABLED {
-            match reference {
-                Reference::Function(p) if self.component.is_root() => {
-                    Resource::Function(ComponentFunctionPath {
-                        component: ComponentPath::root(),
-                        udf_path: p.clone(),
-                    })
-                },
-                r => anyhow::bail!("Invalid reference {r:?} with components disabled"),
-            }
-        } else {
+        let resource = {
             let resources = self.resources.lock();
             resources
                 .get(reference)

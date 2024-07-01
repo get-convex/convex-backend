@@ -250,7 +250,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let (task_retval_sender, task_responses) = mpsc::unbounded();
         let resources = Arc::new(Mutex::new(BTreeMap::new()));
         let task_executor = TaskExecutor {
-            component: component.clone(),
             rt: rt.clone(),
             identity: identity.clone(),
             file_storage,

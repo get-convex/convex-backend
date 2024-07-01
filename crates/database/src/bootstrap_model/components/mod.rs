@@ -8,7 +8,10 @@ use std::{
 use anyhow::Context;
 use common::{
     bootstrap_model::components::{
-        definition::ComponentDefinitionMetadata,
+        definition::{
+            ComponentDefinitionMetadata,
+            ComponentDefinitionType,
+        },
         ComponentMetadata,
         ComponentType,
     },
@@ -35,6 +38,7 @@ use common::{
     runtime::Runtime,
     types::IndexName,
 };
+use errors::ErrorMetadata;
 use value::{
     DeveloperDocumentId,
     FieldPath,
@@ -261,28 +265,67 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         Ok(result)
     }
 
+    pub async fn load_component_type(&mut self, id: ComponentId) -> anyhow::Result<ComponentType> {
+        match self.load_component(id).await? {
+            None => {
+                if id.is_root() {
+                    // The root component's metadata document may be missing if the app hasn't been
+                    // updated to use components.
+                    Ok(ComponentType::App)
+                } else {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        format!("Component {:?} not found", id),
+                    ))
+                }
+            },
+            Some(component) => Ok(component.into_value().component_type),
+        }
+    }
+
     pub async fn load_definition(
         &mut self,
         id: ComponentDefinitionId,
-    ) -> anyhow::Result<ParsedDocument<ComponentDefinitionMetadata>> {
+    ) -> anyhow::Result<Option<ParsedDocument<ComponentDefinitionMetadata>>> {
         let internal_id = match id {
-            ComponentDefinitionId::Root => {
-                let root_component = self
-                    .root_component()
-                    .await?
-                    .context("Missing root component")?;
-                root_component.definition_id
+            ComponentDefinitionId::Root => match self.root_component().await? {
+                Some(root_component) => root_component.definition_id,
+                None => return Ok(None),
             },
             ComponentDefinitionId::Child(id) => id,
         };
         let component_definition_doc_id = self.resolve_component_definition_id(internal_id)?;
-        let doc: ParsedDocument<ComponentDefinitionMetadata> = self
-            .tx
+        self.tx
             .get(component_definition_doc_id)
             .await?
-            .context("Missing component definition")?
-            .try_into()?;
-        Ok(doc)
+            .map(TryInto::try_into)
+            .transpose()
+    }
+
+    pub async fn load_definition_metadata(
+        &mut self,
+        id: ComponentDefinitionId,
+    ) -> anyhow::Result<ComponentDefinitionMetadata> {
+        match self.load_definition(id).await? {
+            Some(doc) => Ok(doc.into_value()),
+            None => {
+                if id.is_root() {
+                    // The root component's metadata document may be missing if the app hasn't been
+                    // updated to use components.
+                    Ok(ComponentDefinitionMetadata {
+                        path: ComponentDefinitionPath::root(),
+                        definition_type: ComponentDefinitionType::App,
+                        child_components: Vec::new(),
+                        exports: BTreeMap::new(),
+                    })
+                } else {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        format!("Component definition {:?} not found", id),
+                    ))
+                }
+            },
+        }
     }
 
     pub async fn load_all_definitions(
