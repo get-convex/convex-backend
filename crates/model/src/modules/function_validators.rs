@@ -87,7 +87,7 @@ impl TryFrom<JsonValue> for ArgsValidator {
         let args = match Validator::try_from(json).map_err(|e| {
             e.wrap_error_message(|msg| {
                 format!("Error in args validator: {msg}\n\
-                    See https://docs.convex.dev/functions/args-validation for \
+                    See https://docs.convex.dev/functions/validation for \
                     docs on how to do argument validation.")
             })
         })? {
@@ -160,7 +160,7 @@ impl TryFrom<JsonValue> for ReturnsValidator {
             json => ReturnsValidator::Validated(Validator::try_from(json).map_err(|e| {
                 e.wrap_error_message(|msg| {
                     format!("Error in returns validator: {msg}\n\
-                            See https://docs.convex.dev/functions/args-validation for \
+                            See https://docs.convex.dev/functions/validation for \
                             docs on how to do return value validation.")
                 })
             })?),

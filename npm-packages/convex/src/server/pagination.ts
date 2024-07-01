@@ -58,7 +58,7 @@ export interface PaginationResult<T> {
 /**
  * The options passed to {@link OrderedQuery.paginate}.
  *
- * To use this type in [argument validation](https://docs.convex.dev/functions/args-validation),
+ * To use this type in [argument validation](https://docs.convex.dev/functions/validation),
  * use the {@link paginationOptsValidator}.
  *
  * @public
