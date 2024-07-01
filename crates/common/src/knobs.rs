@@ -496,10 +496,11 @@ pub static SYSTEM_TABLE_CLEANUP_CHUNK_SIZE: LazyLock<usize> =
 /// Maximum number of rows deleted per second.
 /// This should not exceed the maximum rate that retention can process
 /// tombstones, which is about 300.
+/// TODO(lee) increase this back to 128
 pub static SYSTEM_TABLE_ROWS_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
     env_config(
         "SYSTEM_TABLE_CLEANUP_ROWS_PER_SECOND",
-        NonZeroU32::new(128).unwrap(),
+        NonZeroU32::new(1).unwrap(),
     )
 });
 

@@ -21,13 +21,9 @@ use sync_types::{
     CanonicalizedModulePath,
     FunctionName,
 };
-use value::{
-    codegen_convex_serialization,
-    heap_size::{
-        HeapSize,
-        WithHeapSize,
-    },
-    DeveloperDocumentId,
+use value::heap_size::{
+    HeapSize,
+    WithHeapSize,
 };
 
 use super::function_validators::{
@@ -58,41 +54,6 @@ pub struct FullModuleSource {
 impl SizedValue for FullModuleSource {
     fn size(&self) -> u64 {
         (self.source.heap_size() + self.source_map.heap_size()) as u64
-    }
-}
-
-/// In-memory representation of a specific version of a module.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct ModuleVersionMetadata {
-    /// Metadata document for the module we're versioning.
-    pub module_id: DeveloperDocumentId,
-
-    /// Immutable source code for a module version.
-    pub source: ModuleSource,
-
-    // Source map for `source` field above.
-    pub source_map: Option<SourceMap>,
-    // Version number for this module version.
-    pub version: Option<ModuleVersion>,
-}
-
-// A cache size implementation for module cache.
-// Implementing this trait here is a hack to get around not being able to
-// implement traits for external structs, specifically in the module cache. A
-// wrapper struct is an alternative, but it requires changing all callers
-// because callers require an Arc value. We could also internalize this
-// implementation into the cache but it adds more onerous generics to the
-// cache's already long list of types.
-impl SizedValue for ModuleVersionMetadata {
-    fn size(&self) -> u64 {
-        self.heap_size() as u64
-    }
-}
-
-impl HeapSize for ModuleVersionMetadata {
-    fn heap_size(&self) -> usize {
-        self.module_id.heap_size() + self.source.heap_size() + self.source_map.heap_size()
     }
 }
 
@@ -532,44 +493,6 @@ impl TryFrom<SerializedMappedModule> for MappedModule {
         })
     }
 }
-
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SerializedModuleVersionMetadata {
-    #[serde(rename = "module_id")]
-    module_id: String,
-    source: String,
-    source_map: Option<String>,
-    version: Option<ModuleVersion>,
-}
-
-impl TryFrom<ModuleVersionMetadata> for SerializedModuleVersionMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(m: ModuleVersionMetadata) -> anyhow::Result<Self> {
-        Ok(Self {
-            module_id: m.module_id.encode(),
-            source: m.source,
-            source_map: m.source_map,
-            version: m.version,
-        })
-    }
-}
-
-impl TryFrom<SerializedModuleVersionMetadata> for ModuleVersionMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(m: SerializedModuleVersionMetadata) -> anyhow::Result<Self> {
-        Ok(Self {
-            module_id: DeveloperDocumentId::decode(&m.module_id)?,
-            source: m.source,
-            source_map: m.source_map,
-            version: m.version,
-        })
-    }
-}
-
-codegen_convex_serialization!(ModuleVersionMetadata, SerializedModuleVersionMetadata);
 
 #[cfg(test)]
 mod tests {

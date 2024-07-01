@@ -58,7 +58,6 @@ use self::{
         AnalyzedFunction,
         AnalyzedModule,
         ModuleSource,
-        ModuleVersionMetadata,
         SourceMap,
     },
     types::ModuleMetadata,
@@ -90,21 +89,6 @@ pub mod user_error;
 pub static MODULES_TABLE: LazyLock<TableName> =
     LazyLock::new(|| "_modules".parse().expect("Invalid built-in module table"));
 
-/// Table name for the versions of a module.
-pub static MODULE_VERSIONS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
-    "_module_versions"
-        .parse()
-        .expect("Invalid built-in module table")
-});
-
-/// Field pointing to the `ModuleMetadata` document from
-/// `ModuleVersionMetadata`.
-static MODULE_ID_FIELD: LazyLock<FieldPath> =
-    LazyLock::new(|| "module_id".parse().expect("Invalid built-in field"));
-/// Field for a module's version in `ModuleVersionMetadata`.
-static VERSION_FIELD: LazyLock<FieldPath> =
-    LazyLock::new(|| "version".parse().expect("Invalid built-in field"));
-
 /// Field for a module's path in `ModuleMetadata`.
 static PATH_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "path".parse().expect("Invalid built-in field"));
@@ -116,8 +100,6 @@ pub static MODULE_INDEX_BY_PATH: LazyLock<IndexName> =
     LazyLock::new(|| system_index(&MODULES_TABLE, "by_path"));
 pub static MODULE_INDEX_BY_DELETED: LazyLock<IndexName> =
     LazyLock::new(|| system_index(&MODULES_TABLE, "by_deleted"));
-pub static MODULE_VERSION_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&MODULE_VERSIONS_TABLE, "by_module_and_version"));
 
 pub struct ModulesTable;
 impl SystemTable for ModulesTable {
@@ -142,25 +124,6 @@ impl SystemTable for ModulesTable {
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
         ParsedDocument::<ModuleMetadata>::try_from(document).map(|_| ())
-    }
-}
-pub struct ModuleVersionsTable;
-impl SystemTable for ModuleVersionsTable {
-    fn table_name(&self) -> &'static TableName {
-        &MODULE_VERSIONS_TABLE
-    }
-
-    fn indexes(&self) -> Vec<SystemIndex> {
-        vec![SystemIndex {
-            name: MODULE_VERSION_INDEX.clone(),
-            fields: vec![MODULE_ID_FIELD.clone(), VERSION_FIELD.clone()]
-                .try_into()
-                .unwrap(),
-        }]
-    }
-
-    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<ModuleVersionMetadata>::try_from(document).map(|_| ())
     }
 }
 
