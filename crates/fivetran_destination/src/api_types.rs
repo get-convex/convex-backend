@@ -20,10 +20,12 @@ use serde::{
 use crate::constants::{
     ID_FIELD_PATH,
     ID_FIVETRAN_FIELD_NAME,
+    METADATA_CONVEX_FIELD_NAME,
     SOFT_DELETE_FIELD_PATH,
     SOFT_DELETE_FIVETRAN_FIELD_NAME,
     SYNCED_FIELD_PATH,
     SYNCED_FIVETRAN_FIELD_NAME,
+    UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME,
 };
 
 #[derive(
@@ -54,6 +56,21 @@ impl Deref for FivetranTableName {
 #[serde(transparent)]
 pub struct FivetranFieldName(String);
 
+impl FivetranFieldName {
+    pub fn is_fivetran_system_field(&self) -> bool {
+        self == SYNCED_FIVETRAN_FIELD_NAME.deref()
+            || self == SOFT_DELETE_FIVETRAN_FIELD_NAME.deref()
+            || self == ID_FIVETRAN_FIELD_NAME.deref()
+    }
+
+    /// Returns whether the field is a field starting by `_` which is not
+    /// a Fivetran system field. These fields will be stored in
+    /// `fivetran.columns` in Convex.
+    pub fn is_underscored_field(&self) -> bool {
+        self.starts_with('_') && !self.is_fivetran_system_field()
+    }
+}
+
 impl FromStr for FivetranFieldName {
     type Err = anyhow::Error;
 
@@ -80,6 +97,13 @@ impl TryInto<FieldPath> for FivetranFieldName {
             SOFT_DELETE_FIELD_PATH.clone()
         } else if &self == ID_FIVETRAN_FIELD_NAME.deref() {
             ID_FIELD_PATH.clone()
+        } else if let Some(field_name) = self.strip_prefix('_') {
+            let field = IdentifierFieldName::from_str(field_name)?;
+            FieldPath::new(vec![
+                METADATA_CONVEX_FIELD_NAME.clone(),
+                UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone(),
+                field,
+            ])?
         } else {
             let field = IdentifierFieldName::from_str(&self)?;
             FieldPath::for_root_field(field)
@@ -151,5 +175,17 @@ mod tests {
             .try_into()
             .unwrap();
         assert_eq!(expected, FieldPath::from_str("fivetran.deleted").unwrap());
+    }
+
+    #[test]
+    fn convert_fivetran_fields_starting_with_underscore() {
+        let expected: FieldPath = FivetranFieldName::from_str("_file")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            expected,
+            FieldPath::from_str("fivetran.columns.file").unwrap()
+        );
     }
 }

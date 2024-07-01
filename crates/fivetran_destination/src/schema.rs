@@ -51,12 +51,14 @@ use convex_fivetran_destination::{
         SOFT_DELETE_FIVETRAN_FIELD_NAME,
         SYNCED_CONVEX_FIELD_NAME,
         SYNCED_FIVETRAN_FIELD_NAME,
+        UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME,
     },
 };
 
 use crate::{
     error::{
         DestinationError,
+        MetadataFieldError,
         SuggestedIndex,
         SuggestedTable,
         TableSchemaError,
@@ -166,7 +168,9 @@ impl FivetranTableSchema {
         let mut field_validators: BTreeMap<IdentifierFieldName, FieldValidator> = self
             .columns
             .iter()
-            .filter(|(field_name, _)| !field_name.starts_with('_'))
+            .filter(|(field_name, _)| {
+                !field_name.is_fivetran_system_field() && !field_name.is_underscored_field()
+            })
             .map(|(field_name, column)| -> anyhow::Result<_, _> {
                 let field_name = IdentifierFieldName::from_str(field_name).map_err(|err| {
                     DestinationError::UnsupportedColumnName(
@@ -185,10 +189,12 @@ impl FivetranTableSchema {
                 ))
             })
             .try_collect()?;
+
         field_validators.insert(
             METADATA_CONVEX_FIELD_NAME.clone(),
-            self.metadata_validator(),
+            self.suggested_metadata_validator(),
         );
+
         let document_type = Some(DocumentSchema::Union(vec![ObjectValidator(
             field_validators,
         )]));
@@ -262,7 +268,7 @@ impl FivetranTableSchema {
         }
     }
 
-    /// Generates the only possible validator for the `fivetran` column of this
+    /// Generates the recommended validator for the `fivetran` column of this
     /// table.
     ///
     /// The validator looks like:
@@ -272,11 +278,14 @@ impl FivetranTableSchema {
     ///   synced: v.number(),
     ///   id: v.string(), // only if the table has no natural primary key
     ///   deleted: v.boolean(), // only if the table is using soft deletes
+    ///   columns: v.object({ // only if the (for instance `_field`)
+    ///     field: v.union(v.string(), v.null()), // (for instance)
+    ///   }),
     /// }),
     /// ```
     ///
     /// See: https://github.com/fivetran/fivetran_sdk/blob/main/development-guide.md#system-columns
-    fn metadata_validator(&self) -> FieldValidator {
+    fn suggested_metadata_validator(&self) -> FieldValidator {
         let mut fields = BTreeMap::new();
 
         fields.insert(
@@ -301,7 +310,121 @@ impl FivetranTableSchema {
             );
         }
 
+        let underscored_fields: BTreeMap<_, _> = self
+            .columns
+            .iter()
+            .filter(|(name, _)| name.is_underscored_field())
+            .flat_map(|(name, column)| {
+                IdentifierFieldName::from_str(&name[1..]).ok().map(|name| {
+                    (
+                        name,
+                        FieldValidator::required_field_type(suggested_validator(
+                            column.data_type,
+                            Nullability::Nullable,
+                        )),
+                    )
+                })
+            })
+            .collect();
+        if !underscored_fields.is_empty() {
+            fields.insert(
+                UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone(),
+                FieldValidator::required_field_type(Validator::Object(ObjectValidator(
+                    underscored_fields,
+                ))),
+            );
+        }
+
         FieldValidator::required_field_type(Validator::Object(ObjectValidator(fields)))
+    }
+
+    fn validate_metadata_validator(
+        &self,
+        metadata_validator: &FieldValidator,
+    ) -> Result<(), MetadataFieldError> {
+        let Validator::Object(metadata_validator) = metadata_validator.validator() else {
+            return Err(MetadataFieldError::InvalidMetadataFieldType);
+        };
+
+        // Synced
+        let expected_synced_validator =
+            Some(FieldValidator::required_field_type(Validator::Float64));
+        if metadata_validator.0.get(SYNCED_CONVEX_FIELD_NAME.deref())
+            != expected_synced_validator.as_ref()
+        {
+            return Err(MetadataFieldError::InvalidSyncedField);
+        }
+
+        // Fivetran ID
+        let expected_id_validator = self.columns.get(&ID_FIVETRAN_FIELD_NAME).map(|column| {
+            FieldValidator::required_field_type(suggested_validator(
+                column.data_type,
+                Nullability::NonNullable,
+            ))
+        });
+        if metadata_validator.0.get(ID_CONVEX_FIELD_NAME.deref()) != expected_id_validator.as_ref()
+        {
+            return Err(MetadataFieldError::InvalidIdField);
+        }
+
+        // Soft delete
+        let expected_soft_delete_validator = self
+            .columns
+            .contains_key(&SOFT_DELETE_FIVETRAN_FIELD_NAME)
+            .then_some(FieldValidator::required_field_type(Validator::Boolean));
+        if metadata_validator
+            .0
+            .get(SOFT_DELETE_CONVEX_FIELD_NAME.deref())
+            != expected_soft_delete_validator.as_ref()
+        {
+            return Err(MetadataFieldError::InvalidDeletedField);
+        }
+
+        // `fivetran.columns` in the Convex schema only contains existing columns
+        for metadata_column_name in column_names_in_metadata(metadata_validator)? {
+            if !self.columns.contains_key(&metadata_column_name) {
+                return Err(MetadataFieldError::ColumnInMetadataNotInDataSource(
+                    metadata_column_name,
+                ));
+            }
+        }
+
+        // All non-system columns starting by _ in the Fivetran table exist in the
+        // Convex schema with a type matching their original type
+        let underscored_columns = self
+            .columns
+            .iter()
+            .filter(|(field_name, _)| field_name.is_underscored_field());
+        for (field_name, column) in underscored_columns {
+            let Some(columns_validator) = metadata_validator
+                .0
+                .get(UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.deref())
+            else {
+                return Err(MetadataFieldError::MissingColumnsField(field_name.clone()));
+            };
+
+            let Validator::Object(columns_validator) = columns_validator.validator() else {
+                return Err(MetadataFieldError::InvalidColumnsFieldType);
+            };
+
+            let actual_validator = columns_validator
+                .0
+                .get(&field_name[1..])
+                .ok_or_else(|| MetadataFieldError::MissingFieldInColumns(field_name.clone()))?
+                .validator();
+            if !is_field_validator_valid(actual_validator, column.data_type) {
+                return Err(MetadataFieldError::IncorrectColumnSpecification {
+                    field_name: field_name.clone(),
+                    actual_validator: actual_validator.clone(),
+                    expected_validator: suggested_validator(
+                        column.data_type,
+                        Nullability::NonNullable,
+                    ),
+                });
+            }
+        }
+
+        Ok(())
     }
 
     /// Validates that the columns in the Convex destination match the Fivetran
@@ -316,17 +439,6 @@ impl FivetranTableSchema {
                 .expect("Expecting the name of the metadata field to also be valid in Fivetran"),
         ) {
             return Err(TableSchemaError::SourceTableHasFivetranField);
-        }
-
-        if let Some(forbidden_field_name) = self.columns.keys().find(|key| {
-            (key.starts_with('_')).to_owned()
-                && **key != *SOFT_DELETE_FIVETRAN_FIELD_NAME
-                && **key != *ID_FIVETRAN_FIELD_NAME
-                && **key != *SYNCED_FIVETRAN_FIELD_NAME
-        }) {
-            return Err(TableSchemaError::SourceContainsSystemFields(
-                forbidden_field_name.to_owned(),
-            ));
         }
 
         // Ensure that every destination column is in the source
@@ -350,10 +462,10 @@ impl FivetranTableSchema {
         }
 
         // Validate user columns
-        for (fivetran_field_name, fivetran_column) in self
-            .columns
-            .iter()
-            .filter(|(field_name, _)| !&field_name.starts_with('_'))
+        for (fivetran_field_name, fivetran_column) in
+            self.columns.iter().filter(|(field_name, _)| {
+                !field_name.is_fivetran_system_field() && !field_name.is_underscored_field()
+            })
         {
             let convex_field_name: IdentifierFieldName =
                 IdentifierFieldName::from_str(fivetran_field_name).map_err(|err| {
@@ -371,39 +483,33 @@ impl FivetranTableSchema {
                 })?
                 .validator();
 
-            let expected_validator =
-                suggested_validator(fivetran_column.data_type, Nullability::NonNullable);
-            let is_validator_valid = actual_validator == &expected_validator
-                || actual_validator
-                    == &Validator::Union(vec![Validator::Null, expected_validator.clone()])
-                || actual_validator
-                    == &Validator::Union(vec![expected_validator.clone(), Validator::Null]);
-            if !is_validator_valid {
+            if !is_field_validator_valid(actual_validator, fivetran_column.data_type) {
                 return Err(TableSchemaError::NonmatchingFieldValidator {
                     field_name: fivetran_field_name.clone(),
                     actual_validator: actual_validator.clone(),
-                    expected_validator,
+                    expected_validator: suggested_validator(
+                        fivetran_column.data_type,
+                        Nullability::Nullable,
+                    ),
                     fivetran_type: fivetran_column.data_type,
                 });
             }
         }
 
         // Validate the metadata column
-        let Some(actual_metadata_validator) =
-            object_validator.0.get(&METADATA_CONVEX_FIELD_NAME.clone())
+        let Some(metadata_validator) = object_validator.0.get(&METADATA_CONVEX_FIELD_NAME.clone())
         else {
             return Err(TableSchemaError::MissingMetadataColumn {
-                expected: self.metadata_validator(),
+                suggested: self.suggested_metadata_validator(),
             });
         };
 
-        let expected_metadata_validator = self.metadata_validator();
-        if actual_metadata_validator != &expected_metadata_validator {
-            return Err(TableSchemaError::IncorrectMetadataColumn {
-                actual: actual_metadata_validator.clone(),
-                expected: expected_metadata_validator,
-            });
-        }
+        self.validate_metadata_validator(metadata_validator)
+            .map_err(|error| TableSchemaError::IncorrectMetadataColumn {
+                error,
+                actual: metadata_validator.clone(),
+                suggested: self.suggested_metadata_validator(),
+            })?;
 
         Ok(())
     }
@@ -496,6 +602,33 @@ impl FivetranTableSchema {
     }
 }
 
+fn column_names_in_metadata(
+    metadata_validator: &ObjectValidator,
+) -> Result<Vec<FivetranFieldName>, MetadataFieldError> {
+    let Some(columns_validator) = metadata_validator
+        .0
+        .get(UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.deref())
+    else {
+        return Ok(Vec::new());
+    };
+
+    let Validator::Object(columns_validator) = columns_validator.validator() else {
+        return Err(MetadataFieldError::InvalidColumnsFieldType);
+    };
+
+    let column_names: Vec<_> = columns_validator
+        .0
+        .keys()
+        .map(|convex_field_name| {
+            format!("_{}", convex_field_name).parse().map_err(|err| {
+                MetadataFieldError::UnsupportedColumnName(convex_field_name.clone(), err)
+            })
+        })
+        .try_collect()?;
+
+    Ok(column_names)
+}
+
 /// Validates that the table in the Convex schema is compatible with the source
 /// Fivetran table.
 ///
@@ -553,6 +686,14 @@ pub fn validate_destination_schema_table(
         })?;
 
     Ok(())
+}
+
+pub fn is_field_validator_valid(actual_validator: &Validator, data_type: FivetranDataType) -> bool {
+    let expected_validator = suggested_validator(data_type, Nullability::NonNullable);
+
+    actual_validator == &expected_validator
+        || actual_validator == &Validator::Union(vec![Validator::Null, expected_validator.clone()])
+        || actual_validator == &Validator::Union(vec![expected_validator.clone(), Validator::Null])
 }
 
 /// Converts the given Convex schema table to a Fivetran table. This is used in
@@ -680,6 +821,37 @@ fn to_fivetran_columns(
             primary_key: false,
             decimal: None,
         });
+
+        // Columns having a Fivetran name starting by _
+        if let Some(columns_validator) = metadata_validator
+            .0
+            .get(&UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone())
+        {
+            if let Validator::Object(columns_validator) = columns_validator.validator() {
+                let primary_key_index = table_def.indexes.get(&PRIMARY_KEY_INDEX_DESCRIPTOR);
+
+                for (column_name, column_validator) in columns_validator.0.iter() {
+                    let field_path = FieldPath::new(vec![
+                        METADATA_CONVEX_FIELD_NAME.clone(),
+                        UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone(),
+                        column_name.clone(),
+                    ])
+                    .expect("A three-column field path is always valid");
+
+                    columns.push(fivetran_sdk::Column {
+                        name: format!("_{column_name}"),
+                        r#type: recognize_fivetran_type(column_validator.validator())
+                            .unwrap_or(FivetranDataType::Unspecified)
+                            as i32,
+                        primary_key: primary_key_index.is_some_and(|primary_key_index| {
+                            primary_key_index.fields.contains(&field_path)
+                        }),
+                        decimal: None,
+                    });
+                }
+            };
+            // @TODO Code structure
+        }
     }
 
     // User columns
@@ -1035,6 +1207,142 @@ mod tests {
             ),
         )
         .unwrap();
+        Ok(())
+    }
+
+    #[test]
+    fn it_allows_tables_with_fivetran_columns_starting_by_underscore() -> anyhow::Result<()> {
+        validate_destination_schema_table(
+            fivetran_table(
+                btreemap! {
+                    "_key" => FivetranDataType::String,
+                    "_nullable_field" => FivetranDataType::String,
+                    "_non_nullable_field" => FivetranDataType::String,
+                    "_fivetran_synced" => FivetranDataType::UtcDatetime,
+                },
+                hashset! {"_key"},
+            ),
+            &convex_table(
+                btreemap! {
+                    "fivetran" => FieldValidator::required_field_type(Validator::Object(
+                        object_validator!(
+                            "synced" => FieldValidator::required_field_type(Validator::Float64),
+                            "columns" => FieldValidator::required_field_type(Validator::Object(object_validator!(
+                                "key" => FieldValidator::required_field_type(Validator::String),
+                                "nullable_field" => FieldValidator::required_field_type(Validator::String),
+                                "non_nullable_field" => FieldValidator::required_field_type(Validator::Union(vec![
+                                    Validator::String,
+                                    Validator::Null,
+                                ])),
+                            ))),
+                        ),
+                    )),
+                },
+                btreemap! {
+                    "by_primary_key" => vec![
+                        FieldPath::new(vec![
+                            IdentifierFieldName::from_str("fivetran")?,
+                            IdentifierFieldName::from_str("columns")?,
+                            IdentifierFieldName::from_str("key")?,
+                        ])?,
+                        CREATION_TIME_FIELD_PATH.clone(),
+                    ],
+                    "sync_index" => vec![
+                        FieldPath::new(vec![
+                            IdentifierFieldName::from_str("fivetran")?,
+                            IdentifierFieldName::from_str("synced")?,
+                        ])?,
+                        CREATION_TIME_FIELD_PATH.clone(),
+                    ],
+                },
+            ),
+        )
+        .unwrap();
+        Ok(())
+    }
+
+    #[test]
+    fn it_refuses_tables_where_a_fivetran_field_with_underscore_is_missing_in_convex(
+    ) -> anyhow::Result<()> {
+        validate_destination_schema_table(
+            fivetran_table(
+                btreemap! {
+                    "_field" => FivetranDataType::String,
+                    "_fivetran_synced" => FivetranDataType::UtcDatetime,
+                },
+                hashset! {"_field"},
+            ),
+            &convex_table(
+                btreemap! {
+                    "fivetran" => FieldValidator::required_field_type(Validator::Object(
+                        object_validator!(
+                            "synced" => FieldValidator::required_field_type(Validator::Float64),
+                        ),
+                    )),
+                },
+                btreemap! {
+                    "by_primary_key" => vec![
+                        FieldPath::new(vec![
+                            IdentifierFieldName::from_str("fivetran")?,
+                            IdentifierFieldName::from_str("columns")?,
+                            IdentifierFieldName::from_str("field")?,
+                        ])?,
+                        CREATION_TIME_FIELD_PATH.clone(),
+                    ],
+                    "sync_index" => vec![
+                        FieldPath::new(vec![
+                            IdentifierFieldName::from_str("fivetran")?,
+                            IdentifierFieldName::from_str("synced")?,
+                        ])?,
+                        CREATION_TIME_FIELD_PATH.clone(),
+                    ],
+                },
+            ),
+        )
+        .unwrap_err();
+        Ok(())
+    }
+
+    #[test]
+    fn it_refuses_tables_with_extraneous_columns_in_the_metadata_field() -> anyhow::Result<()> {
+        validate_destination_schema_table(
+            fivetran_table(
+                btreemap! {
+                    "name" => FivetranDataType::String,
+                    "_fivetran_synced" => FivetranDataType::UtcDatetime,
+                },
+                hashset! {"name"},
+            ),
+            &convex_table(
+                btreemap! {
+                    "name" => FieldValidator::required_field_type(Validator::String),
+                    "fivetran" => FieldValidator::required_field_type(Validator::Object(
+                        object_validator!(
+                            "synced" => FieldValidator::required_field_type(Validator::Float64),
+                            "columns" => FieldValidator::required_field_type(Validator::Object(object_validator!(
+                                "extraneous" => FieldValidator::required_field_type(Validator::String),
+                            ))),
+                        ),
+                    )),
+                },
+                btreemap! {
+                    "by_primary_key" => vec![
+                        FieldPath::new(vec![
+                            IdentifierFieldName::from_str("name")?,
+                        ])?,
+                        CREATION_TIME_FIELD_PATH.clone(),
+                    ],
+                    "sync_index" => vec![
+                        FieldPath::new(vec![
+                            IdentifierFieldName::from_str("fivetran")?,
+                            IdentifierFieldName::from_str("synced")?,
+                        ])?,
+                        CREATION_TIME_FIELD_PATH.clone(),
+                    ],
+                },
+            ),
+        )
+        .unwrap_err();
         Ok(())
     }
 
@@ -1441,15 +1749,91 @@ mod tests {
     }
 
     #[test]
+    fn it_converts_convex_tables_to_fivetran_tables_containing_columns_with_underscore(
+    ) -> anyhow::Result<()> {
+        assert_eq!(
+            to_fivetran_table(&convex_table(
+                btreemap! {
+                    "fivetran" => FieldValidator::required_field_type(Validator::Object(
+                        object_validator!(
+                            "synced" => FieldValidator::required_field_type(Validator::Float64),
+                            "columns" => FieldValidator::required_field_type(Validator::Object(
+                                object_validator!(
+                                    "key" => FieldValidator::required_field_type(Validator::String),
+                                    "nullable_field" => FieldValidator::required_field_type(Validator::String),
+                                    "non_nullable_field" => FieldValidator::required_field_type(Validator::Union(vec![
+                                        Validator::String,
+                                        Validator::Null,
+                                    ])),
+                                )
+                            )),
+                        ),
+                    )),
+                },
+                btreemap! {
+                    "by_primary_key" => vec![
+                        FieldPath::new(vec![
+                            IdentifierFieldName::from_str("fivetran")?,
+                            IdentifierFieldName::from_str("columns")?,
+                            IdentifierFieldName::from_str("key")?,
+                        ])?,
+                        CREATION_TIME_FIELD_PATH.clone(),
+                    ],
+                    "sync_index" => vec![
+                        FieldPath::new(vec![
+                            IdentifierFieldName::from_str("fivetran")?,
+                            IdentifierFieldName::from_str("synced")?,
+                        ])?,
+                        CREATION_TIME_FIELD_PATH.clone(),
+                    ],
+                },
+            ))?,
+            Table {
+                name: "table_name".into(),
+                columns: vec![
+                    Column {
+                        name: "_fivetran_synced".to_string(),
+                        r#type: FivetranDataType::UtcDatetime as i32,
+                        primary_key: false,
+                        decimal: None,
+                    },
+                    Column {
+                        name: "_key".to_string(),
+                        r#type: FivetranDataType::String as i32,
+                        primary_key: true,
+                        decimal: None,
+                    },
+                    Column {
+                        name: "_non_nullable_field".to_string(),
+                        r#type: FivetranDataType::String as i32,
+                        primary_key: false,
+                        decimal: None,
+                    },
+                    Column {
+                        name: "_nullable_field".to_string(),
+                        r#type: FivetranDataType::String as i32,
+                        primary_key: false,
+                        decimal: None,
+                    },
+                ],
+            }
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn it_suggests_convex_tables() -> anyhow::Result<()> {
         let fivetran_table = fivetran_table_schema(
             btreemap! {
                 "name" => FivetranDataType::String,
                 "slug" => FivetranDataType::String,
+                "_key" => FivetranDataType::String,
                 "_fivetran_synced" => FivetranDataType::UtcDatetime,
                 "_fivetran_deleted" => FivetranDataType::Boolean,
+                "_fivetran_id" => FivetranDataType::String,
             },
-            btreeset! {"slug"},
+            btreeset! {"slug", "_fivetran_id", "_key"},
         );
 
         assert_eq!(
@@ -1469,6 +1853,8 @@ mod tests {
                         index_descriptor: "by_primary_key".parse()?,
                         fields: vec![
                             "fivetran.deleted".parse()?,
+                            "fivetran.id".parse()?,
+                            "fivetran.columns.key".parse()?,
                             "slug".parse()?,
                             "_creationTime".parse()?,
                         ].try_into()?
@@ -1486,6 +1872,15 @@ mod tests {
                     "fivetran" => FieldValidator::required_field_type(Validator::Object(object_validator!(
                         "synced" => FieldValidator::required_field_type(Validator::Float64),
                         "deleted" => FieldValidator::required_field_type(Validator::Boolean),
+                        "id" => FieldValidator::required_field_type(Validator::String),
+                        "columns" => FieldValidator::required_field_type(Validator::Object(object_validator!(
+                            "key" => FieldValidator::required_field_type(
+                                Validator::Union(vec![
+                                    Validator::String,
+                                    Validator::Null
+                                ])
+                            )
+                        ))),
                     ))),
                 )])),
                 search_indexes: Default::default(),

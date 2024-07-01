@@ -113,18 +113,19 @@ pub enum DestinationError {
 pub enum TableSchemaError {
     #[error(
         "The `fivetran` column is missing from the table in Convex. Please edit the schema of the \
-         table in `schema.ts` and add the following attribute: `fivetran: {expected}`."
+         table in `schema.ts` and add the following attribute: `fivetran: {suggested}`."
     )]
-    MissingMetadataColumn { expected: FieldValidator },
+    MissingMetadataColumn { suggested: FieldValidator },
 
     #[error(
-        "The `fivetran` column in your Convex schema is incorrectly specified (it is currently \
-         defined as `fivetran: {actual}`. Please edit the schema of the table in `schema.ts` and \
-         define the `fivetran` field as such: `fivetran: {expected}`."
+        "{error}. Please fix the `fivetran` column in your Convex schema (currently defined as \
+         `fivetran: {actual}`. You can fix this by editing the schema of the table in `schema.ts` \
+         and defining the `fivetran` field as such: `fivetran: {suggested}`."
     )]
     IncorrectMetadataColumn {
+        error: MetadataFieldError,
         actual: FieldValidator,
-        expected: FieldValidator,
+        suggested: FieldValidator,
     },
 
     #[error(
@@ -152,12 +153,6 @@ pub enum TableSchemaError {
          support@convex.dev if you need help."
     )]
     UnsupportedPrimaryKey(anyhow::Error),
-
-    #[error(
-        "The name of field `{0}` isn’t supported by Convex: field names in Convex cannot start by \
-         `_`. Please modify the name of the field in your data source."
-    )]
-    SourceContainsSystemFields(FivetranFieldName),
 
     #[error(
         "The field `{field_name}` is missing from your Convex schema. Please add `{field_name}: \
@@ -218,6 +213,49 @@ pub enum TableSchemaError {
          (`{0}`)."
     )]
     WrongPrimaryKeyIndex(SuggestedIndex),
+}
+
+#[derive(Debug, Error)]
+pub enum MetadataFieldError {
+    #[error("The type of the `fivetran` field must be v.object()")]
+    InvalidMetadataFieldType,
+
+    #[error("Invalid validator for _fivetran_synced")]
+    InvalidSyncedField,
+
+    #[error("Invalid validator for _fivetran_id")]
+    InvalidIdField,
+
+    #[error("Invalid validator for _fivetran_deleted")]
+    InvalidDeletedField,
+
+    #[error("Invalid type for `fivetran.columns`, which must be an object validator")]
+    InvalidColumnsFieldType,
+
+    #[error("The name of column `{0}` is not supported by Fivetran: {1}")]
+    UnsupportedColumnName(IdentifierFieldName, anyhow::Error),
+
+    #[error("The data source does not contain a column named `{0}`")]
+    MissingColumnsField(FivetranFieldName),
+
+    #[error("Missing field {0} in `fivetran.columns`")]
+    MissingFieldInColumns(FivetranFieldName),
+
+    #[error(
+        "The column `{field_name}` is incorrectly specified in `fivetran.columns` \
+         (`{actual_validator}` instead of `{expected_validator}`)"
+    )]
+    IncorrectColumnSpecification {
+        field_name: FivetranFieldName,
+        actual_validator: Validator,
+        expected_validator: Validator,
+    },
+
+    #[error(
+        "Missing a `fivetran.columns` field, which is expected since your data source contains a \
+         field name starting with `_` (`{0}`)"
+    )]
+    ColumnInMetadataNotInDataSource(FivetranFieldName),
 }
 
 /// Wrapper around `TableDefinition` that formats it in the same format as

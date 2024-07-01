@@ -29,6 +29,8 @@ pub static SOFT_DELETE_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
     LazyLock::new(|| "deleted".parse().unwrap());
 pub static ID_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
     LazyLock::new(|| "id".parse().unwrap());
+pub static UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
+    LazyLock::new(|| "columns".parse().unwrap());
 
 pub static PRIMARY_KEY_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
     LazyLock::new(|| "by_primary_key".parse().unwrap());

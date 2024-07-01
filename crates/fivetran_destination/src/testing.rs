@@ -24,7 +24,7 @@ pub fn fivetran_field_name_strategy() -> impl Strategy<Value = FivetranFieldName
         Just(SYNCED_FIVETRAN_FIELD_NAME.clone()),
         Just(SOFT_DELETE_FIVETRAN_FIELD_NAME.clone()),
         Just(ID_FIVETRAN_FIELD_NAME.clone()),
-        proptest::string::string_regex("[a-zA-Z][a-zA-Z0-9]*")
+        proptest::string::string_regex("_?[a-zA-Z][a-zA-Z0-9]*")
             .unwrap()
             .prop_map(|name| name.parse().unwrap()),
     ]

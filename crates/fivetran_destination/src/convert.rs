@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::{
     bail,
-    ensure,
     Context,
 };
 use chrono::DateTime;
@@ -13,7 +12,6 @@ use common::value::{
     ConvexObject,
     ConvexValue,
     FieldName,
-    Namespace,
 };
 use convex_fivetran_common::fivetran_sdk::value_type::Inner as FivetranValue;
 #[cfg(test)]
@@ -26,6 +24,7 @@ use convex_fivetran_destination::constants::{
     SOFT_DELETE_FIVETRAN_FIELD_NAME,
     SYNCED_CONVEX_FIELD_NAME,
     SYNCED_FIVETRAN_FIELD_NAME,
+    UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME,
 };
 use prost_types::Timestamp;
 use serde_json::Value as JsonValue;
@@ -154,23 +153,30 @@ fn timestamp_to_ms(ts: Timestamp) -> f64 {
 /// `_fivetran_deleted`) become nested attributes of the `fivetran` attribute in
 /// Convex.
 ///
+/// Other columns starting by an underscore become nested fields in
+/// `fivetran.columns`. This is done because their names are reserved in Convex,
+/// while such names are frequently used by Fivetran data sources.
+///
 /// For instance, the following Convex row…
 /// ```no_run
-/// ┌──────────────┬─────┬──────────────┬────────────────────────────────┬───────────────────┐
-/// │     name     │ age │ _fivetran_id │        _fivetran_synced        │ _fivetran_deleted │
-/// ├──────────────┼─────┼──────────────┼────────────────────────────────┼───────────────────┤
-/// │ [Unmodified] │  21 │           42 │ 2024-01-09T04:10:19.156057706Z │ false             │
-/// └──────────────┴─────┴──────────────┴────────────────────────────────┴───────────────────┘
+/// ┌──────────────┬─────┬─────────┬──────────────┬────────────────────────────────┬───────────────────┐
+/// │     name     │ age │ _secret │ _fivetran_id │        _fivetran_synced        │ _fivetran_deleted │
+/// ├──────────────┼─────┼─────────┼──────────────┼────────────────────────────────┼───────────────────┤
+/// │ [Unmodified] │  21 │ true    │           42 │ 2024-01-09T04:10:19.156057706Z │ false             │
+/// └──────────────┴─────┴─────────┴──────────────┴────────────────────────────────┴───────────────────┘
 /// ```
 ///
 /// …is converted to the following Convex object:
 /// ```no_run
 /// {
-///   "age": 21,
-///   "fivetran": {
-///     "id": 42,
-///     "synced": 1704773419156,
-///     "deleted": false
+///   age: 21,
+///   fivetran: {
+///     id: 42,
+///     synced: 1704773419156,
+///     deleted: false,
+///     columns: {
+///       secret: true
+///     }
 ///   }
 /// }
 /// ```
@@ -180,6 +186,7 @@ impl TryInto<ConvexObject> for FileRow {
     fn try_into(self) -> Result<ConvexObject, Self::Error> {
         let mut row: BTreeMap<FieldName, ConvexValue> = BTreeMap::new();
         let mut metadata: BTreeMap<FieldName, ConvexValue> = BTreeMap::new();
+        let mut underscore_columns: BTreeMap<FieldName, ConvexValue> = BTreeMap::new();
 
         for (field_name, value) in self.0 {
             // Ignore unmodified values
@@ -206,15 +213,23 @@ impl TryInto<ConvexObject> for FileRow {
                     ID_CONVEX_FIELD_NAME.clone().into(),
                     fivetran_to_convex_value(value)?,
                 );
+            } else if let Some(field_name) = field_name.strip_prefix('_') {
+                let field_name = FieldName::from_str(field_name)
+                    .context("Invalid field name in the source data")?;
+
+                underscore_columns.insert(field_name, fivetran_to_convex_value(value)?);
             } else {
                 let field_name = FieldName::from_str(&field_name)
                     .context("Invalid field name in the source data")?;
-                ensure!(
-                    !field_name.is_system(),
-                    "System field name in the source data"
-                );
                 row.insert(field_name, fivetran_to_convex_value(value)?);
             }
+        }
+
+        if !underscore_columns.is_empty() {
+            metadata.insert(
+                UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone().into(),
+                ConvexValue::Object(ConvexObject::try_from(underscore_columns)?),
+            );
         }
 
         row.insert(
@@ -381,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_file_row_wiht_all_metadata_fields() -> anyhow::Result<()> {
+    fn convert_file_row_with_all_metadata_fields() -> anyhow::Result<()> {
         let actual: ConvexObject = FileRow(btreemap! {
             FivetranFieldName::from_str("name")? => FivetranFileValue::Value(FivetranValue::String("Nicolas".to_string())),
             FivetranFieldName::from_str("_fivetran_id")? => FivetranFileValue::Value(FivetranValue::Int(42)),
@@ -397,6 +412,29 @@ mod tests {
                 "id" => 42.0,
                 "deleted" => false,
                 "synced" => 1715700652563.0,
+            ),
+        );
+
+        assert_eq!(actual, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn convert_file_row_with_column_names_starting_with_underscore() -> anyhow::Result<()> {
+        let actual: ConvexObject = FileRow(btreemap! {
+            FivetranFieldName::from_str("_name")? => FivetranFileValue::Value(FivetranValue::String("Nicolas".to_string())),
+            FivetranFieldName::from_str("_fivetran_synced")? => FivetranFileValue::Value(FivetranValue::UtcDatetime(Timestamp {
+                seconds: 1715700652,
+                nanos: 563000000,
+            })),
+        }).try_into()?;
+        let expected = assert_obj!(
+            // unmodified values are not included in the result
+            "fivetran" => assert_obj!(
+                "synced" => 1715700652563.0,
+                "columns" => assert_obj!(
+                    "name" => "Nicolas",
+                ),
             ),
         );
 
