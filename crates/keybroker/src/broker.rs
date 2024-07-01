@@ -561,12 +561,13 @@ impl AdminIdentity {
         instance_name: String,
         principal: AdminIdentityPrincipal,
         access_token: String,
+        is_read_only: bool,
     ) -> Self {
         Self {
             instance_name,
             principal,
             key: access_token,
-            is_read_only: false,
+            is_read_only,
         }
     }
 
