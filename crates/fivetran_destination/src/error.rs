@@ -41,45 +41,35 @@ pub enum DestinationError {
     UnsupportedColumnName(FivetranFieldName, FivetranTableName, anyhow::Error),
 
     #[error(
-        "Your Convex destination is not using a schema.
-
-Please add a `schema.ts` file to add the `{0}` table. You can use the following table definition:
-{0}"
+        "Your Convex destination is not using a schema. Please add a `schema.ts` file to add the \
+         `{0}` table. You can use the following table definition: {0}"
     )]
     DestinationHasNoSchema(SuggestedTable),
 
     #[error(
-        "Your Convex destination is not using a schema.
-
-We are not able to suggest a schema because the following error happened:
-{0}"
+        "Your Convex destination is not using a schema. We are not able to suggest a schema \
+         because the following error happened: {0}"
     )]
     DestinationHasNoSchemaWithoutSuggestion(Box<DestinationError>),
 
     #[error(
         "The table `{0}` from your data source is missing in the schema of your Convex \
-         destination.
-
-Please edit your `schema.ts` file to add the table. You can use the following table definition:
-{1}"
+         destination. Please edit your `schema.ts` file to add the table. You can use the \
+         following table definition: {1}"
     )]
     MissingTable(TableName, SuggestedTable),
 
     #[error(
         "The table `{0}` from your data source is missing in the schema of your Convex \
-         destination.
-
-We are not able to suggest a schema because the following error happened:
-{1}"
+         destination. We are not able to suggest a schema because the following error happened: \
+         {1}"
     )]
     MissingTableWithoutSuggestion(TableName, Box<DestinationError>),
 
     #[error(
         "The table `{0}` from your data source is incorrect in the schema of your Convex \
-         destination. {1}
-
-Hint: you can use the following table definition in your `schema.ts` file:
-{2}"
+         destination. {1} HINT: you can use the following table definition in your `schema.ts` \
+         file: {2}"
     )]
     IncorrectSchemaForTable(TableName, TableSchemaError, SuggestedTable),
 
@@ -239,32 +229,17 @@ impl Display for SuggestedTable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let table_name = &self.0.table_name;
 
-        let fields =
-            display_fields(&self.0.document_type).unwrap_or_else(|| "    // …".to_string());
+        let fields = display_fields(&self.0.document_type).unwrap_or_else(|| "/* … */".to_string());
 
         let indexes: Vec<String> = self
             .0
             .indexes
             .values()
-            .map(|index| format!("\n    {}", SuggestedIndex(index.clone())))
+            .map(|index| SuggestedIndex(index.clone()).to_string())
             .collect();
         let indexes = indexes.join("");
 
-        write!(
-            f,
-            "```
-import {{ defineSchema, defineTable }} from \"convex/server\";
-import {{ v }} from \"convex/values\";
-
-export default defineSchema({{
-  // …
-
-  {table_name}: defineTable({{
-{fields}
-  }}){indexes},
-}});
-```",
-        )
+        write!(f, "`{table_name}: defineTable({{ {fields} }}){indexes}`",)
     }
 }
 
@@ -284,9 +259,9 @@ fn display_fields(schema: &Option<DocumentSchema>) -> Option<String> {
     let fields: Vec<_> = validator
         .0
         .iter()
-        .map(|(field_name, validator)| format!("    {field_name}: {validator},"))
+        .map(|(field_name, validator)| format!("{field_name}: {validator}"))
         .collect();
-    Some(fields.join("\n"))
+    Some(fields.join(", "))
 }
 
 /// Wrapper around `IndexSchema` that formats it in the same format as
@@ -378,22 +353,9 @@ mod tests {
 
         assert_eq!(
             SuggestedTable(table).to_string(),
-            "```
-import { defineSchema, defineTable } from \"convex/server\";
-import { v } from \"convex/values\";
-
-export default defineSchema({
-  // …
-
-  my_table: defineTable({
-    email: v.string(),
-    name: v.string(),
-  })
-    .index(\"by_email\", [\"email\"])
-    .index(\"by_name\", [\"name\"]),
-});
-```"
-            .to_string(),
+            "`my_table: defineTable({ email: v.string(), name: v.string() }).index(\"by_email\", \
+             [\"email\"]).index(\"by_name\", [\"name\"])`"
+                .to_string(),
         );
 
         Ok(())
