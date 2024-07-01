@@ -96,7 +96,7 @@ export function showSpinner(ctx: Context, message: string) {
     // hideCursor: true doesn't work with `tsx`.
     // see https://github.com/tapjs/signal-exit/issues/49#issuecomment-1459408082
     // See CX-6822 for an issue to bring back cursor hiding, probably by upgrading libraries.
-    hideCursor: false,
+    hideCursor: process.env.CONVEX_RUNNING_LIVE_IN_MONOREPO ? false : true,
   }).start();
 }
 
