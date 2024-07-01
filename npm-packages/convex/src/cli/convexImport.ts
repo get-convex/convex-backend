@@ -28,6 +28,9 @@ import path from "path";
 import { subscribe } from "./lib/run.js";
 import { Command, Option } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
+import { ConvexHttpClient } from "../browser/http_client.js";
+import { makeFunctionReference } from "../server/index.js";
+import { deploymentDashboardUrlPage } from "./dashboard.js";
 
 // Backend has minimum chunk size of 5MiB except for the last chunk,
 // so we use 5MiB as highWaterMark which makes fs.ReadStream[asyncIterator]
@@ -90,8 +93,11 @@ export const convexImport = new Command("import")
 
     const deploymentSelection = deploymentSelectionFromOptions(options);
 
-    const { adminKey, url: deploymentUrl } =
-      await fetchDeploymentCredentialsProvisionProd(ctx, deploymentSelection);
+    const {
+      adminKey,
+      url: deploymentUrl,
+      deploymentName,
+    } = await fetchDeploymentCredentialsProvisionProd(ctx, deploymentSelection);
 
     if (!ctx.fs.exists(filePath)) {
       logFailure(ctx, `Error: Path ${chalk.bold(filePath)} does not exist.`);
@@ -119,6 +125,25 @@ export const convexImport = new Command("import")
     }
 
     await ensureHasConvexDependency(ctx, "import");
+    const convexClient = new ConvexHttpClient(deploymentUrl);
+    convexClient.setAdminAuth(adminKey);
+    const existingImports = await convexClient.query(
+      makeFunctionReference<"query", Record<string, never>, Array<unknown>>(
+        "_system/cli/queryImport:list",
+      ),
+      {},
+    );
+    const ongoingImports = existingImports.filter(
+      (i) => (i as any).state.state === "in_progress",
+    );
+    if (ongoingImports.length > 0) {
+      await askToConfirmImportWithExistingImports(
+        ctx,
+        deploymentName,
+        options.yes,
+      );
+    }
+    const client = deploymentClient(deploymentUrl);
 
     const data = ctx.fs.createReadStream(filePath, {
       highWaterMark: CHUNK_SIZE,
@@ -127,7 +152,6 @@ export const convexImport = new Command("import")
 
     showSpinner(ctx, `Importing ${filePath} (${formatSize(fileStats.size)})`);
 
-    const client = deploymentClient(deploymentUrl);
     let mode = "requireEmpty";
     if (options.append) {
       mode = "append";
@@ -246,7 +270,10 @@ export const convexImport = new Command("import")
           return await ctx.crash(1);
         }
         case "in_progress": {
-          logFailure(ctx, `WARNING: Import is continuing to run on the server`);
+          logFailure(
+            ctx,
+            `WARNING: Import is continuing to run on the server. Visit ${snapshotImportDashboardLink(deploymentName)} to monitor its progress.`,
+          );
           return await ctx.crash(1);
         }
         default: {
@@ -283,6 +310,37 @@ async function askToConfirmImport(
     if (!confirmed) {
       return await ctx.crash(1);
     }
+  }
+}
+
+function snapshotImportDashboardLink(deploymentName: string | undefined) {
+  return deploymentName === undefined
+    ? "https://dashboard.convex.dev/d/settings/snapshot-export"
+    : deploymentDashboardUrlPage(deploymentName, "/settings/snapshot-export");
+}
+
+async function askToConfirmImportWithExistingImports(
+  ctx: Context,
+  deploymentName: string | undefined,
+  yes: boolean | undefined,
+) {
+  logMessage(
+    ctx,
+    `There is already a snapshot import in progress. You can view its progress at ${snapshotImportDashboardLink(deploymentName)}.`,
+  );
+  if (yes) {
+    return;
+  }
+  const { confirmed } = await inquirer.prompt([
+    {
+      type: "confirm",
+      name: "confirmed",
+      message: `Start another import?`,
+      default: true,
+    },
+  ]);
+  if (!confirmed) {
+    return await ctx.crash(1);
   }
 }
 

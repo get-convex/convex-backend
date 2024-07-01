@@ -1,5 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { snapshotImportFormat, snapshotImportMode } from "./snapshotImport";
 
 const createEnvironmentVariable = v.object({
   action: v.literal("create_environment_variable"),
@@ -126,26 +127,6 @@ export const clearTables = v.object({
   member_id: v.union(v.int64(), v.null()),
   metadata: v.object({}),
 });
-
-export const snapshotImportFormat = v.union(
-  v.object({
-    format: v.union(
-      v.literal("csv"),
-      v.literal("jsonl"),
-      v.literal("json_array"),
-    ),
-    table: v.string(),
-  }),
-  v.object({
-    format: v.literal("zip"),
-  }),
-);
-
-export const snapshotImportMode = v.union(
-  v.literal("RequireEmpty"),
-  v.literal("Append"),
-  v.literal("Replace"),
-);
 
 export const snapshotImport = v.object({
   action: v.literal("snapshot_import"),

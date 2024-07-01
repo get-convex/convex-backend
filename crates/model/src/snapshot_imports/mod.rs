@@ -113,12 +113,8 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         Ok(id)
     }
 
-    async fn update_state(
-        &mut self,
-        id: ResolvedDocumentId,
-        new_state: impl FnOnce(ImportState) -> ImportState,
-    ) -> anyhow::Result<()> {
-        let current_state = self
+    pub async fn must_get_state(&mut self, id: ResolvedDocumentId) -> anyhow::Result<ImportState> {
+        let state = self
             .get(id)
             .await?
             .context(ErrorMetadata::not_found(
@@ -127,11 +123,21 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             ))?
             .state
             .clone();
+        Ok(state)
+    }
+
+    async fn update_state(
+        &mut self,
+        id: ResolvedDocumentId,
+        new_state: impl FnOnce(ImportState) -> ImportState,
+    ) -> anyhow::Result<()> {
+        let current_state = self.must_get_state(id).await?;
         let new_state = new_state(current_state.clone());
         match (&current_state, &new_state) {
             (ImportState::Uploaded, ImportState::WaitingForConfirmation { .. })
             | (ImportState::Uploaded, ImportState::Failed(..))
             | (ImportState::WaitingForConfirmation { .. }, ImportState::InProgress { .. })
+            | (ImportState::WaitingForConfirmation { .. }, ImportState::Failed { .. })
             | (ImportState::InProgress { .. }, ImportState::InProgress { .. })
             | (ImportState::InProgress { .. }, ImportState::Completed { .. })
             | (ImportState::InProgress { .. }, ImportState::Failed(..)) => {},
@@ -185,11 +191,37 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
     }
 
     pub async fn confirm_import(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
-        self.update_state(id, move |_| ImportState::InProgress {
-            progress_message: "Importing".to_string(),
-            checkpoint_messages: vec![],
-        })
-        .await
+        let current_state = self.must_get_state(id).await?;
+        // No-op if the import is already in progress or finished since the CLI may
+        // show a confirmation prompt when the import was confirmed in the dashboard.
+        if matches!(current_state, ImportState::WaitingForConfirmation { .. }) {
+            self.update_state(id, move |_| ImportState::InProgress {
+                progress_message: "Importing".to_string(),
+                checkpoint_messages: vec![],
+            })
+            .await?;
+        };
+        Ok(())
+    }
+
+    pub async fn cancel_import(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
+        let current_state = self.must_get_state(id).await?;
+        match current_state {
+            ImportState::Uploaded | ImportState::WaitingForConfirmation { .. } => {
+                self.fail_import(id, "Import canceled".to_string()).await?
+            },
+            // TODO: support cancelling imports in progress
+            ImportState::InProgress { .. } => anyhow::bail!("Cannot cancel an import in progress"),
+            ImportState::Completed { .. } => anyhow::bail!(ErrorMetadata::bad_request(
+                "CannotCancelImport",
+                "Cannot cancel an import that has completed"
+            )),
+            ImportState::Failed(_) => anyhow::bail!(ErrorMetadata::bad_request(
+                "CannotCancelImport",
+                "Cannot cancel an import that has failed"
+            )),
+        }
+        Ok(())
     }
 
     pub async fn complete_import(

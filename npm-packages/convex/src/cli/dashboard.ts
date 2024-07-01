@@ -52,10 +52,10 @@ export const dashboard = new Command("dashboard")
     }
   });
 
-export async function deploymentDashboardUrlPage(
+export function deploymentDashboardUrlPage(
   configuredDeployment: string | null,
   page: string,
-): Promise<string> {
+): string {
   return `${DASHBOARD_HOST}/d/${configuredDeployment}${page}`;
 }
 

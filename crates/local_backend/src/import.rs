@@ -272,3 +272,22 @@ pub async fn perform_import(
     snapshot_import::perform_import(&st.application, identity, import_id).await?;
     Ok(())
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelImportArgs {
+    pub import_id: String,
+}
+
+pub async fn cancel_import(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Json(CancelImportArgs { import_id }): Json<CancelImportArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let import_id = DeveloperDocumentId::decode(&import_id).context(ErrorMetadata::bad_request(
+        "InvalidImport",
+        format!("invalid import id {import_id}"),
+    ))?;
+    snapshot_import::cancel_import(&st.application, identity, import_id).await?;
+    Ok(())
+}

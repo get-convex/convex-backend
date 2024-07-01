@@ -60,6 +60,7 @@ use crate::{
     environment_variables::update_environment_variables,
     http_actions::http_action_handler,
     import::{
+        cancel_import,
         import,
         import_finish_upload,
         import_start_upload,
@@ -246,6 +247,7 @@ pub fn import_routes() -> Router<LocalAppState> {
         .route("/import/finish_upload", post(import_finish_upload))
         .route("/prepare_import", post(prepare_import))
         .route("/perform_import", post(perform_import))
+        .route("/cancel_import", post(cancel_import))
 }
 
 pub fn http_action_routes() -> Router<RouterState> {

@@ -548,6 +548,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             ));
             if i == 0 {
                 message_lines.push(format!(
+                    //
                     "{:-<1$}",
                     "",
                     part_lengths.0 + 3 + part_lengths.1 + 3 + part_lengths.2 + 2
@@ -1229,6 +1230,39 @@ pub async fn perform_import<RT: Runtime>(
                     )?;
                     let mut import_model = SnapshotImportModel::new(tx);
                     import_model.confirm_import(import_id).await?;
+                    Ok(())
+                }
+                .into()
+            },
+        )
+        .await?;
+    Ok(())
+}
+
+pub async fn cancel_import<RT: Runtime>(
+    application: &Application<RT>,
+    identity: Identity,
+    import_id: DeveloperDocumentId,
+) -> anyhow::Result<()> {
+    if !identity.is_admin() {
+        anyhow::bail!(ImportError::Unauthorized);
+    }
+    application
+        .database
+        .execute_with_overloaded_retries(
+            identity,
+            FunctionUsageTracker::new(),
+            PauseClient::new(),
+            "snapshot_import_cancel",
+            |tx| {
+                async {
+                    let import_id = import_id.to_resolved(
+                        tx.table_mapping()
+                            .namespace(TableNamespace::Global)
+                            .number_to_tablet(),
+                    )?;
+                    let mut import_model = SnapshotImportModel::new(tx);
+                    import_model.cancel_import(import_id).await?;
                     Ok(())
                 }
                 .into()
