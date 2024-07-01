@@ -312,7 +312,7 @@ pub struct ImportTableCheckpoint {
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SerializedImportTableCheckpoint {
-    pub table_name: String,
+    pub display_table_name: String,
     pub tablet_id: Option<String>,
     pub total_num_rows_to_write: i64,
     pub num_rows_written: i64,
@@ -326,7 +326,7 @@ impl TryFrom<ImportTableCheckpoint> for SerializedImportTableCheckpoint {
 
     fn try_from(checkpoint: ImportTableCheckpoint) -> anyhow::Result<Self> {
         Ok(SerializedImportTableCheckpoint {
-            table_name: checkpoint.display_table_name.to_string(),
+            display_table_name: checkpoint.display_table_name.to_string(),
             tablet_id: checkpoint.tablet_id.map(|table| table.to_string()),
             total_num_rows_to_write: checkpoint.total_num_rows_to_write,
             num_rows_written: checkpoint.num_rows_written,
@@ -342,7 +342,7 @@ impl TryFrom<SerializedImportTableCheckpoint> for ImportTableCheckpoint {
 
     fn try_from(checkpoint: SerializedImportTableCheckpoint) -> anyhow::Result<Self> {
         Ok(ImportTableCheckpoint {
-            display_table_name: checkpoint.table_name.parse()?,
+            display_table_name: checkpoint.display_table_name.parse()?,
             tablet_id: checkpoint
                 .tablet_id
                 .map(|tablet_id| tablet_id.parse())
