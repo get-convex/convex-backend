@@ -1,4 +1,10 @@
+use std::{
+    ops::Bound,
+    time::Duration,
+};
+
 use async_trait::async_trait;
+use bytes::Bytes;
 use common::{
     components::{
         ComponentFunctionPath,
@@ -19,22 +25,38 @@ use database::{
     Subscription,
     Token,
 };
+use file_storage::{
+    FileRangeStream,
+    FileStream,
+};
 use futures::{
     future::BoxFuture,
+    stream::BoxStream,
     FutureExt,
+};
+use headers::{
+    ContentLength,
+    ContentType,
 };
 use isolate::{
     HttpActionRequest,
     HttpActionResponseStreamer,
 };
 use keybroker::Identity;
-use model::session_requests::types::SessionRequestIdentifier;
+use model::{
+    file_storage::FileStorageId,
+    session_requests::types::SessionRequestIdentifier,
+};
 use serde_json::Value as JsonValue;
 use sync_types::{
     AuthenticationToken,
     SerializedQueryJournal,
     Timestamp,
     UdfPath,
+};
+use value::{
+    sha256::Sha256Digest,
+    DeveloperDocumentId,
 };
 
 use crate::{
@@ -134,6 +156,39 @@ pub trait ApplicationApi: Send + Sync {
         caller: FunctionCaller,
         response_streamer: HttpActionResponseStreamer,
     ) -> anyhow::Result<()>;
+
+    async fn check_store_file_authorization(
+        &self,
+        host: &str,
+        request_id: RequestId,
+        token: &str,
+        validity: Duration,
+    ) -> anyhow::Result<()>;
+
+    async fn store_file(
+        &self,
+        host: &str,
+        request_id: RequestId,
+        content_length: Option<ContentLength>,
+        content_type: Option<ContentType>,
+        expected_sha256: Option<Sha256Digest>,
+        body: BoxStream<'_, anyhow::Result<Bytes>>,
+    ) -> anyhow::Result<DeveloperDocumentId>;
+
+    async fn get_file_range(
+        &self,
+        host: &str,
+        request_id: RequestId,
+        file_storage_id: FileStorageId,
+        range: (Bound<u64>, Bound<u64>),
+    ) -> anyhow::Result<FileRangeStream>;
+
+    async fn get_file(
+        &self,
+        host: &str,
+        request_id: RequestId,
+        file_storage_id: FileStorageId,
+    ) -> anyhow::Result<FileStream>;
 }
 
 // Implements ApplicationApi via Application.
@@ -289,6 +344,49 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             response_streamer,
         )
         .await
+    }
+
+    async fn check_store_file_authorization(
+        &self,
+        _host: &str,
+        _request_id: RequestId,
+        token: &str,
+        validity: Duration,
+    ) -> anyhow::Result<()> {
+        self.key_broker()
+            .check_store_file_authorization(&self.runtime, token, validity)
+    }
+
+    async fn store_file(
+        &self,
+        _host: &str,
+        _request_id: RequestId,
+        content_length: Option<ContentLength>,
+        content_type: Option<ContentType>,
+        expected_sha256: Option<Sha256Digest>,
+        body: BoxStream<'_, anyhow::Result<Bytes>>,
+    ) -> anyhow::Result<DeveloperDocumentId> {
+        self.store_file(content_length, content_type, expected_sha256, body)
+            .await
+    }
+
+    async fn get_file_range(
+        &self,
+        _host: &str,
+        _request_id: RequestId,
+        file_storage_id: FileStorageId,
+        range: (Bound<u64>, Bound<u64>),
+    ) -> anyhow::Result<FileRangeStream> {
+        self.get_file_range(file_storage_id, range).await
+    }
+
+    async fn get_file(
+        &self,
+        _host: &str,
+        _request_id: RequestId,
+        file_storage_id: FileStorageId,
+    ) -> anyhow::Result<FileStream> {
+        self.get_file(file_storage_id).await
     }
 }
 

@@ -13,6 +13,7 @@ use axum::{
             TypedHeaderRejectionReason,
         },
         BodyStream,
+        Host,
         State,
     },
     headers::{
@@ -36,6 +37,7 @@ use common::{
             Path,
             Query,
         },
+        ExtractRequestId,
         HttpResponseError,
     },
     sha256::DigestHeader,
@@ -53,7 +55,7 @@ use serde::{
     Serialize,
 };
 
-use crate::LocalAppState;
+use crate::RouterState;
 
 // Storage GETs are immutable. Browser can cache for a long time.
 const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 30);
@@ -80,26 +82,37 @@ pub struct QueryParams {
 
 #[debug_handler]
 pub async fn storage_upload(
-    State(st): State<LocalAppState>,
+    State(st): State<RouterState>,
     Query(QueryParams { token }): Query<QueryParams>,
     content_type: Result<TypedHeader<ContentType>, TypedHeaderRejection>,
     content_length: Result<TypedHeader<ContentLength>, TypedHeaderRejection>,
     sha256: Result<TypedHeader<DigestHeader>, TypedHeaderRejection>,
+    Host(host): Host,
+    ExtractRequestId(request_id): ExtractRequestId,
     body: BodyStream,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    st.application.key_broker().check_store_file_authorization(
-        &st.application.runtime(),
-        &token,
-        STORE_FILE_AUTHORIZATION_VALIDITY,
-    )?;
-
+    st.api
+        .check_store_file_authorization(
+            &host,
+            request_id.clone(),
+            &token,
+            STORE_FILE_AUTHORIZATION_VALIDITY,
+        )
+        .await?;
     let content_length = map_header_err(content_length)?;
     let content_type = map_header_err(content_type)?;
     let sha256 = map_header_err(sha256)?.map(|dh| dh.0);
-    let body = body.map(|r| r.context("Error parsing body"));
+    let body = body.map(|r| r.context("Error parsing body")).boxed();
     let storage_id = st
-        .application
-        .store_file(content_length, content_type, sha256, body)
+        .api
+        .store_file(
+            &host,
+            request_id,
+            content_length,
+            content_type,
+            sha256,
+            body,
+        )
         .await?;
 
     #[derive(Serialize)]
@@ -114,10 +127,12 @@ pub async fn storage_upload(
 
 #[debug_handler]
 pub async fn storage_get(
-    State(st): State<LocalAppState>,
+    State(st): State<RouterState>,
     Path(uuid): Path<String>,
     // Query(QueryParams { token }): Query<QueryParams>,
     range: Result<TypedHeader<Range>, TypedHeaderRejection>,
+    Host(host): Host,
+    ExtractRequestId(request_id): ExtractRequestId,
 ) -> Result<Response, HttpResponseError> {
     let storage_uuid = uuid.parse().context(ErrorMetadata::bad_request(
         "InvalidStoragePath",
@@ -144,8 +159,8 @@ pub async fn storage_get(
             content_type,
             stream,
         } = st
-            .application
-            .get_file_range(file_storage_id, range)
+            .api
+            .get_file_range(&host, request_id, file_storage_id, range)
             .await?;
 
         return Ok((
@@ -169,7 +184,7 @@ pub async fn storage_get(
         content_type,
         content_length,
         stream,
-    } = st.application.get_file(file_storage_id).await?;
+    } = st.api.get_file(&host, request_id, file_storage_id).await?;
     Ok((
         TypedHeader(DigestHeader(sha256)),
         content_type.map(TypedHeader),

@@ -132,7 +132,6 @@ use function_runner::FunctionRunner;
 use futures::{
     channel::oneshot,
     stream::BoxStream,
-    Stream,
 };
 use headers::{
     ContentLength,
@@ -2179,7 +2178,7 @@ impl<RT: Runtime> Application<RT> {
         content_length: Option<ContentLength>,
         content_type: Option<ContentType>,
         expected_sha256: Option<Sha256Digest>,
-        body: impl Stream<Item = anyhow::Result<Bytes>> + Send,
+        body: BoxStream<'_, anyhow::Result<Bytes>>,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let storage_id = self
             .file_storage

@@ -176,13 +176,13 @@ pub async fn router(st: LocalAppState) -> Router {
         .merge(cli_routes)
         .merge(dashboard_routes)
         .nest("/actions", action_callback_routes(st.clone()))
-        .nest("/export", snapshot_export_routes)
-        .nest("/storage", storage_api_routes());
+        .nest("/export", snapshot_export_routes);
 
     // Endpoints migrated to use the RouterState trait instead of application.
     let migrated_api_routes = Router::new()
         .merge(browser_routes)
-        .merge(public_api_routes());
+        .merge(public_api_routes())
+        .nest("/storage", storage_api_routes());
     let migrated = Router::new()
         .nest("/api", migrated_api_routes)
         .layer(cors().await)
@@ -215,7 +215,7 @@ pub fn public_api_routes() -> Router<RouterState> {
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
 }
 
-pub fn storage_api_routes() -> Router<LocalAppState> {
+pub fn storage_api_routes() -> Router<RouterState> {
     Router::new()
         .route("/upload", post(storage_upload))
         .route("/:storage_id", get(storage_get))
