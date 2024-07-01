@@ -115,6 +115,7 @@ use model::{
             ImportFormat,
             ImportMode,
             ImportState,
+            ImportTableCheckpoint,
             SnapshotImport,
         },
         SnapshotImportModel,
@@ -278,7 +279,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             },
         }
         match self.info_message_for_import(snapshot_import).await {
-            Ok((info_message, require_manual_confirmation)) => {
+            Ok((info_message, require_manual_confirmation, new_checkpoints)) => {
                 self.database
                     .execute_with_overloaded_retries(
                         Identity::system(),
@@ -293,6 +294,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                                         import_id,
                                         info_message.clone(),
                                         require_manual_confirmation,
+                                        new_checkpoints.clone(),
                                     )
                                     .await?;
                                 Ok(())
@@ -336,9 +338,9 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
     async fn info_message_for_import(
         &self,
         snapshot_import: ParsedDocument<SnapshotImport>,
-    ) -> anyhow::Result<(String, bool)> {
+    ) -> anyhow::Result<(String, bool, Vec<ImportTableCheckpoint>)> {
         let mut message_lines = Vec::new();
-        let (content_confirmation_messages, require_manual_confirmation) =
+        let (content_confirmation_messages, require_manual_confirmation, new_checkpoints) =
             self.messages_to_confirm_replace(snapshot_import).await?;
         message_lines.extend(content_confirmation_messages);
         // Consider adding confirmation messages about bandwidth usage.
@@ -349,17 +351,22 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             "Once the import has started, it will run in the background.\nInterrupting `npx \
              convex import` will not cancel it."
         ));
-        Ok((message_lines.join("\n"), require_manual_confirmation))
+        Ok((
+            message_lines.join("\n"),
+            require_manual_confirmation,
+            new_checkpoints,
+        ))
     }
 
     async fn messages_to_confirm_replace(
         &self,
         snapshot_import: ParsedDocument<SnapshotImport>,
-    ) -> anyhow::Result<(Vec<String>, bool)> {
+    ) -> anyhow::Result<(Vec<String>, bool, Vec<ImportTableCheckpoint>)> {
         let mode = snapshot_import.mode;
         let (_, mut objects) = self.parse_import(snapshot_import.id()).await?;
         // Find all tables being written to.
         let mut count_by_table: BTreeMap<TableName, u64> = BTreeMap::new();
+        let mut tables_missing_id_field: BTreeSet<TableName> = BTreeSet::new();
         let mut current_table = None;
         let mut lineno = 0;
         while let Some(object) = objects.try_next().await? {
@@ -395,6 +402,11 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                     if let Some(count) = count_by_table.get_mut(current_table) {
                         *count += 1;
                     }
+                    if !tables_missing_id_field.contains(current_table)
+                        && exported_value.get(&**ID_FIELD).is_none()
+                    {
+                        tables_missing_id_field.insert(current_table.clone());
+                    }
                 },
                 // Ignore storage file chunks and generated schemas.
                 ImportUnit::StorageFileChunk(..) | ImportUnit::GeneratedSchema(..) => {},
@@ -406,6 +418,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             deleted: usize,
             existing: usize,
             unit: &'static str,
+            is_missing_id_field: bool,
         }
         let mut table_changes = BTreeMap::new();
         let db_snapshot = self.database.latest_snapshot()?;
@@ -430,6 +443,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                         deleted: to_delete,
                         existing: table_summary.num_values(),
                         unit: "",
+                        is_missing_id_field: tables_missing_id_field.contains(table_name),
                     },
                 );
             }
@@ -453,11 +467,13 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                         deleted: to_delete,
                         existing: table_summary.num_values(),
                         unit: " files",
+                        is_missing_id_field: tables_missing_id_field.contains(table_name),
                     },
                 );
             }
         }
         let mut require_manual_confirmation = false;
+        let mut new_checkpoints = Vec::new();
 
         // Looks like:
         /*
@@ -479,6 +495,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 deleted,
                 existing,
                 unit,
+                is_missing_id_field,
             },
         ) in table_changes
         {
@@ -496,6 +513,15 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                     unit
                 ),
             ));
+            new_checkpoints.push(ImportTableCheckpoint {
+                display_table_name: table_name.clone(),
+                tablet_id: None,
+                num_rows_written: 0,
+                total_num_rows_to_write: added as i64,
+                existing_rows_to_delete: deleted as i64,
+                existing_rows_in_table: existing as i64,
+                is_missing_id_field,
+            });
         }
         let part_lengths = (
             parts
@@ -528,7 +554,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 ));
             }
         }
-        Ok((message_lines, require_manual_confirmation))
+        Ok((message_lines, require_manual_confirmation, new_checkpoints))
     }
 
     async fn attempt_perform_import_and_mark_done(
@@ -600,7 +626,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
     async fn attempt_perform_import(
         &mut self,
         snapshot_import: ParsedDocument<SnapshotImport>,
-    ) -> anyhow::Result<(Timestamp, usize)> {
+    ) -> anyhow::Result<(Timestamp, u64)> {
         if let Some(creation_time) = snapshot_import.creation_time() {
             let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
             let age = Duration::from_millis((f64::from(now) - f64::from(creation_time)) as u64);
@@ -1264,7 +1290,7 @@ pub async fn do_import<RT: Runtime>(
     format: ImportFormat,
     mode: ImportMode,
     body_stream: BoxStream<'_, anyhow::Result<Bytes>>,
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<u64> {
     let import_id =
         upload_import_file(application, identity.clone(), format, mode, body_stream).await?;
 
@@ -1291,7 +1317,7 @@ pub async fn do_import<RT: Runtime>(
         ImportState::Completed {
             ts: _,
             num_rows_written,
-        } => Ok(*num_rows_written),
+        } => Ok(*num_rows_written as u64),
         ImportState::Failed(e) => {
             anyhow::bail!(ErrorMetadata::bad_request("ImportFailed", e.to_string()))
         },
@@ -1352,6 +1378,8 @@ async fn best_effort_update_progress_message<RT: Runtime>(
     identity: &Identity,
     import_id: ResolvedDocumentId,
     progress_message: String,
+    display_table_name: &TableName,
+    num_rows_written: i64,
 ) {
     // Ignore errors because it's not worth blocking or retrying if we can't
     // send a nice progress message on the first try.
@@ -1359,7 +1387,12 @@ async fn best_effort_update_progress_message<RT: Runtime>(
         let mut tx = database.begin(identity.clone()).await?;
         let mut import_model = SnapshotImportModel::new(&mut tx);
         import_model
-            .update_progress_message(import_id, progress_message)
+            .update_progress_message(
+                import_id,
+                progress_message,
+                display_table_name,
+                num_rows_written,
+            )
             .await?;
         database
             .commit_with_write_source(tx, "snapshot_update_progress_msg")
@@ -1372,6 +1405,8 @@ async fn add_checkpoint_message<RT: Runtime>(
     identity: &Identity,
     import_id: ResolvedDocumentId,
     checkpoint_message: String,
+    display_table_name: &TableName,
+    num_rows_written: i64,
 ) -> anyhow::Result<()> {
     database
         .execute_with_overloaded_retries(
@@ -1382,7 +1417,12 @@ async fn add_checkpoint_message<RT: Runtime>(
             |tx| {
                 async {
                     SnapshotImportModel::new(tx)
-                        .add_checkpoint_message(import_id, checkpoint_message.clone())
+                        .add_checkpoint_message(
+                            import_id,
+                            checkpoint_message.clone(),
+                            display_table_name,
+                            num_rows_written,
+                        )
                         .await
                 }
                 .into()
@@ -1400,7 +1440,7 @@ async fn import_objects<RT: Runtime>(
     objects: Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>,
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
-) -> anyhow::Result<(TableMapping, usize)> {
+) -> anyhow::Result<(TableMapping, u64)> {
     pin_mut!(objects);
     let mut generated_schemas = BTreeMap::new();
 
@@ -1636,6 +1676,7 @@ async fn import_tables_table<RT: Runtime>(
     identity: &Identity,
     mode: ImportMode,
     mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
+    import_id: Option<ResolvedDocumentId>,
 ) -> anyhow::Result<TableMapping> {
     let mut table_mapping_for_import = TableMapping::new();
     let mut import_tables: Vec<(TableName, TableNumber)> = vec![];
@@ -1678,13 +1719,14 @@ async fn import_tables_table<RT: Runtime>(
         .map(|(table_name, _)| table_name.clone())
         .collect();
     for (table_name, table_number) in import_tables.iter() {
-        let table_id = prepare_table_for_import(
+        let (table_id, _) = prepare_table_for_import(
             database,
             identity,
             mode,
             table_name,
             Some(*table_number),
             &tables_in_import,
+            import_id,
         )
         .await?;
         table_mapping_for_import.insert(
@@ -1705,6 +1747,7 @@ async fn import_storage_table<RT: Runtime>(
     mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
     usage: &dyn StorageUsageTracker,
     import_id: Option<ResolvedDocumentId>,
+    num_to_skip: u64,
 ) -> anyhow::Result<()> {
     let virtual_table_number = database
         .latest_snapshot()?
@@ -1796,6 +1839,10 @@ async fn import_storage_table<RT: Runtime>(
         if let Some(storage_id) = storage_id {
             entry.storage_id = storage_id;
         }
+        if num_files < num_to_skip {
+            num_files += 1;
+            continue;
+        }
         let file_size = entry.size as u64;
         database
             .execute_with_overloaded_retries(
@@ -1848,6 +1895,8 @@ async fn import_storage_table<RT: Runtime>(
                     num_files.separate_with_commas(),
                     total_num_files.separate_with_commas()
                 ),
+                &FILE_STORAGE_VIRTUAL_TABLE,
+                num_files as i64,
             )
             .await;
         }
@@ -1861,6 +1910,8 @@ async fn import_storage_table<RT: Runtime>(
                 "Imported \"_storage\" ({} files)",
                 num_files.separate_with_commas()
             ),
+            &FILE_STORAGE_VIRTUAL_TABLE,
+            num_files as i64,
         )
         .await?;
     }
@@ -1930,7 +1981,7 @@ async fn import_single_table<RT: Runtime>(
     table_mapping_for_import: &mut TableMapping,
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
-) -> anyhow::Result<Option<usize>> {
+) -> anyhow::Result<Option<u64>> {
     while let Some(ImportUnit::GeneratedSchema(table_name, generated_schema)) = objects
         .as_mut()
         .try_next_if(|line| matches!(line, ImportUnit::GeneratedSchema(_, _)))
@@ -1951,6 +2002,8 @@ async fn import_single_table<RT: Runtime>(
             identity,
             import_id,
             format!("Importing \"{table_name}\""),
+            &table_name,
+            0,
         )
         .await;
     }
@@ -1962,8 +2015,9 @@ async fn import_single_table<RT: Runtime>(
     }
 
     if table_name == *TABLES_TABLE {
-        table_mapping_for_import
-            .update(import_tables_table(database, identity, mode, objects.as_mut()).await?);
+        table_mapping_for_import.update(
+            import_tables_table(database, identity, mode, objects.as_mut(), import_id).await?,
+        );
         return Ok(Some(0));
     }
 
@@ -1972,19 +2026,30 @@ async fn import_single_table<RT: Runtime>(
         .iter()
         .map(|(_, _, _, table_name)| table_name.clone())
         .collect();
-    let table_id = match table_mapping_for_import
+    let (table_id, num_to_skip) = match table_mapping_for_import
         .namespace(TableNamespace::by_component_TODO())
         .id_and_number_if_exists(&table_name)
     {
-        Some(table_id) => table_id,
+        Some(table_id) => {
+            let mut tx = database.begin(identity.clone()).await?;
+            let num_to_skip = if tx.table_mapping().is_active(table_id.tablet_id) {
+                0
+            } else {
+                TableModel::new(&mut tx)
+                    .count_tablet(table_id.tablet_id)
+                    .await?
+            };
+            (table_id, num_to_skip)
+        },
         None => {
-            let table_id = prepare_table_for_import(
+            let (table_id, num_to_skip) = prepare_table_for_import(
                 database,
                 identity,
                 mode,
                 &table_name,
                 table_number_from_docs,
                 &tables_in_import,
+                import_id,
             )
             .await?;
             table_mapping_for_import.insert(
@@ -1993,7 +2058,7 @@ async fn import_single_table<RT: Runtime>(
                 table_id.table_number,
                 table_name.clone(),
             );
-            table_id
+            (table_id, num_to_skip)
         },
     };
 
@@ -2006,6 +2071,7 @@ async fn import_single_table<RT: Runtime>(
             objects.as_mut(),
             &usage,
             import_id,
+            num_to_skip,
         )
         .await?;
         return Ok(Some(0));
@@ -2024,7 +2090,11 @@ async fn import_single_table<RT: Runtime>(
         .try_next_if(|line| matches!(line, ImportUnit::Object(_)))
         .await?
     {
-        let row_number = num_objects + 1;
+        if num_objects < num_to_skip {
+            num_objects += 1;
+            continue;
+        }
+        let row_number = (num_objects + 1) as usize;
         let convex_value = GeneratedSchema::<ProdConfigWithOptionalFields>::apply(
             &mut generated_schema,
             exported_value,
@@ -2060,6 +2130,8 @@ async fn import_single_table<RT: Runtime>(
                         "Importing \"{table_name}\" ({} documents)",
                         num_objects.separate_with_commas()
                     ),
+                    &table_name,
+                    num_objects as i64,
                 )
                 .await;
             }
@@ -2087,6 +2159,8 @@ async fn import_single_table<RT: Runtime>(
                 "Imported \"{table_name}\" ({} documents)",
                 num_objects.separate_with_commas()
             ),
+            &table_name,
+            num_objects as i64,
         )
         .await?;
     }
@@ -2103,6 +2177,9 @@ async fn insert_import_objects<RT: Runtime>(
     table_mapping_for_schema: &TableMapping,
     usage: FunctionUsageTracker,
 ) -> anyhow::Result<()> {
+    if objects_to_insert.is_empty() {
+        return Ok(());
+    }
     let object_ids: Vec<_> = objects_to_insert
         .iter()
         .filter_map(|object| object.get(&**ID_FIELD))
@@ -2127,7 +2204,7 @@ async fn insert_import_objects<RT: Runtime>(
                             .insert(
                                 table_id,
                                 table_name,
-                                object_to_insert.clone(),
+                                object_to_insert,
                                 table_mapping_for_schema,
                             )
                             .await?;
@@ -2148,7 +2225,8 @@ async fn prepare_table_for_import<RT: Runtime>(
     table_name: &TableName,
     table_number: Option<TableNumber>,
     tables_in_import: &BTreeSet<TableName>,
-) -> anyhow::Result<TabletIdAndTableNumber> {
+    import_id: Option<ResolvedDocumentId>,
+) -> anyhow::Result<(TabletIdAndTableNumber, u64)> {
     anyhow::ensure!(
         table_name == &*FILE_STORAGE_TABLE || !table_name.is_system(),
         ErrorMetadata::bad_request(
@@ -2156,29 +2234,61 @@ async fn prepare_table_for_import<RT: Runtime>(
             format!("Invalid table name {table_name} starts with metadata prefix '_'")
         )
     );
+    let display_table_name = if table_name == &*FILE_STORAGE_TABLE {
+        &*FILE_STORAGE_VIRTUAL_TABLE
+    } else {
+        table_name
+    };
     let mut tx = database.begin(identity.clone()).await?;
-    let existing_table_id = tx
+    let existing_active_table_id = tx
         .table_mapping()
         .namespace(TableNamespace::by_component_TODO())
         .id_and_number_if_exists(table_name);
-    let insert_into_existing_table_id = match mode {
-        ImportMode::Append => existing_table_id,
-        ImportMode::RequireEmpty => {
-            if !TableModel::new(&mut tx)
-                .table_is_empty(TableNamespace::by_component_TODO(), table_name)
+    let existing_checkpoint = match import_id {
+        Some(import_id) => {
+            SnapshotImportModel::new(&mut tx)
+                .get_table_checkpoint(import_id, display_table_name)
                 .await?
-            {
-                anyhow::bail!(ImportError::TableExists(table_name.clone()));
-            }
-            None
         },
-        ImportMode::Replace => None,
+        None => None,
+    };
+    let existing_checkpoint_tablet = existing_checkpoint
+        .as_ref()
+        .and_then(|checkpoint| checkpoint.tablet_id);
+    let (insert_into_existing_table_id, num_to_skip) = match existing_checkpoint_tablet {
+        Some(tablet_id) => {
+            let table_number = tx.table_mapping().tablet_number(tablet_id)?;
+            let num_to_skip = TableModel::new(&mut tx).count_tablet(tablet_id).await?;
+            (
+                Some(TabletIdAndTableNumber {
+                    tablet_id,
+                    table_number,
+                }),
+                num_to_skip,
+            )
+        },
+        None => {
+            let tablet_id = match mode {
+                ImportMode::Append => existing_active_table_id,
+                ImportMode::RequireEmpty => {
+                    if !TableModel::new(&mut tx)
+                        .table_is_empty(TableNamespace::by_component_TODO(), table_name)
+                        .await?
+                    {
+                        anyhow::bail!(ImportError::TableExists(table_name.clone()));
+                    }
+                    None
+                },
+                ImportMode::Replace => None,
+            };
+            (tablet_id, 0)
+        },
     };
     drop(tx);
     let table_id = if let Some(insert_into_existing_table_id) = insert_into_existing_table_id {
         insert_into_existing_table_id
     } else {
-        let table_number = table_number.or(existing_table_id.map(|id| id.table_number));
+        let table_number = table_number.or(existing_active_table_id.map(|id| id.table_number));
         let (_, table_id, _) = database
             .execute_with_overloaded_retries(
                 identity.clone(),
@@ -2203,6 +2313,15 @@ async fn prepare_table_for_import<RT: Runtime>(
                                 table_id.tablet_id,
                             )
                             .await?;
+                        if let Some(import_id) = import_id {
+                            SnapshotImportModel::new(tx)
+                                .checkpoint_tablet_created(
+                                    import_id,
+                                    display_table_name,
+                                    table_id.tablet_id,
+                                )
+                                .await?;
+                        }
                         Ok(table_id)
                     }
                     .into()
@@ -2214,7 +2333,7 @@ async fn prepare_table_for_import<RT: Runtime>(
 
         table_id
     };
-    Ok(table_id)
+    Ok((table_id, num_to_skip))
 }
 
 /// Waits for all indexes on a table to be backfilled, which may take a while

@@ -85,7 +85,7 @@ enum ImportFormatArg {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ImportResponse {
-    num_written: usize,
+    num_written: u64,
 }
 
 fn parse_format_arg(

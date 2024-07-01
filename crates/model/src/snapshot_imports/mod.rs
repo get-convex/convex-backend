@@ -28,12 +28,14 @@ use value::{
     ResolvedDocumentId,
     TableName,
     TableNamespace,
+    TabletId,
 };
 
 use self::types::{
     ImportFormat,
     ImportMode,
     ImportState,
+    ImportTableCheckpoint,
     SnapshotImport,
 };
 use crate::{
@@ -100,6 +102,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             mode,
             object_key,
             member_id: self.tx.identity().member_id(),
+            checkpoints: None,
         };
         let id = SystemMetadataModel::new_global(self.tx)
             .insert(
@@ -145,15 +148,38 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         Ok(())
     }
 
+    async fn update_checkpoints(
+        &mut self,
+        id: ResolvedDocumentId,
+        update_checkpoints: impl FnOnce(&mut Vec<ImportTableCheckpoint>),
+    ) -> anyhow::Result<()> {
+        let mut import = self.get(id).await?.context(ErrorMetadata::not_found(
+            "ImportNotFound",
+            format!("import {id} not found"),
+        ))?;
+        let mut checkpoints = import.checkpoints.clone().unwrap_or_default();
+        update_checkpoints(&mut checkpoints);
+        import.checkpoints = Some(checkpoints);
+        SystemMetadataModel::new_global(self.tx)
+            .replace(id, import.into_value().try_into()?)
+            .await?;
+        Ok(())
+    }
+
     pub async fn mark_waiting_for_confirmation(
         &mut self,
         id: ResolvedDocumentId,
         info_message: String,
         require_manual_confirmation: bool,
+        new_checkpoints: Vec<ImportTableCheckpoint>,
     ) -> anyhow::Result<()> {
         self.update_state(id, move |_| ImportState::WaitingForConfirmation {
             info_message,
             require_manual_confirmation,
+        })
+        .await?;
+        self.update_checkpoints(id, move |checkpoints| {
+            *checkpoints = new_checkpoints;
         })
         .await
     }
@@ -170,11 +196,11 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         &mut self,
         id: ResolvedDocumentId,
         ts: Timestamp,
-        num_rows_written: usize,
+        num_rows_written: u64,
     ) -> anyhow::Result<()> {
         self.update_state(id, move |_| ImportState::Completed {
             ts,
-            num_rows_written,
+            num_rows_written: num_rows_written as i64,
         })
         .await
     }
@@ -188,26 +214,82 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             .await
     }
 
+    pub async fn checkpoint_tablet_created(
+        &mut self,
+        id: ResolvedDocumentId,
+        table_name: &TableName,
+        tablet_id: TabletId,
+    ) -> anyhow::Result<()> {
+        self.update_checkpoints(id, move |checkpoints| {
+            if let Some(checkpoint) = checkpoints
+                .iter_mut()
+                .find(|c| c.display_table_name == *table_name)
+            {
+                checkpoint.tablet_id = Some(tablet_id);
+            }
+        })
+        .await
+    }
+
+    pub async fn get_table_checkpoint(
+        &mut self,
+        id: ResolvedDocumentId,
+        display_table_name: &TableName,
+    ) -> anyhow::Result<Option<ImportTableCheckpoint>> {
+        let Some(import) = self.get(id).await? else {
+            return Ok(None);
+        };
+        let Some(checkpoints) = &import.checkpoints else {
+            return Ok(None);
+        };
+        Ok(checkpoints
+            .iter()
+            .find(|c| c.display_table_name == *display_table_name)
+            .cloned())
+    }
+
     pub async fn add_checkpoint_message(
         &mut self,
         id: ResolvedDocumentId,
         checkpoint_message: String,
+        display_table_name: &TableName,
+        num_rows_written: i64,
     ) -> anyhow::Result<()> {
-        self.update_state(id, move |state| match state {
-            ImportState::InProgress {
-                progress_message,
-                mut checkpoint_messages,
-            } => {
-                checkpoint_messages.push(checkpoint_message);
+        let mut noop = false;
+        let noop_ = &mut noop;
+        self.update_checkpoints(id, move |checkpoints| {
+            if let Some(checkpoint) = checkpoints
+                .iter_mut()
+                .find(|c| c.display_table_name == *display_table_name)
+            {
+                if num_rows_written <= checkpoint.num_rows_written {
+                    *noop_ = true;
+                    return;
+                }
+                checkpoint.num_rows_written = num_rows_written;
+            }
+        })
+        .await?;
+        self.update_state(id, move |state| {
+            let (progress_message, mut checkpoint_messages) = match state {
                 ImportState::InProgress {
                     progress_message,
                     checkpoint_messages,
-                }
-            },
-            _ => ImportState::InProgress {
-                progress_message: "Importing".to_string(),
-                checkpoint_messages: vec![checkpoint_message],
-            },
+                } => (progress_message, checkpoint_messages),
+                _ => ("Importing".to_string(), vec![]),
+            };
+            if !checkpoint_messages.contains(&checkpoint_message) {
+                checkpoint_messages.push(checkpoint_message.clone());
+            }
+            let progress_message = if noop {
+                progress_message
+            } else {
+                checkpoint_message
+            };
+            ImportState::InProgress {
+                progress_message,
+                checkpoint_messages,
+            }
         })
         .await
     }
@@ -216,19 +298,41 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         &mut self,
         id: ResolvedDocumentId,
         progress_message: String,
+        display_table_name: &TableName,
+        num_rows_written: i64,
     ) -> anyhow::Result<()> {
-        self.update_state(id, move |state| match state {
+        let mut noop = false;
+        let noop_ = &mut noop;
+        self.update_checkpoints(id, move |checkpoints| {
+            if let Some(checkpoint) = checkpoints
+                .iter_mut()
+                .find(|c| c.display_table_name == *display_table_name)
+            {
+                if checkpoint.num_rows_written > 0
+                    && num_rows_written <= checkpoint.num_rows_written
+                {
+                    *noop_ = true;
+                    return;
+                }
+                checkpoint.num_rows_written = num_rows_written;
+            }
+        })
+        .await?;
+        if noop {
+            return Ok(());
+        }
+        self.update_state(id, move |state| {
+            let checkpoint_messages = match state {
+                ImportState::InProgress {
+                    progress_message: _,
+                    checkpoint_messages,
+                } => checkpoint_messages,
+                _ => vec![],
+            };
             ImportState::InProgress {
-                progress_message: _,
-                checkpoint_messages,
-            } => ImportState::InProgress {
                 progress_message,
                 checkpoint_messages,
-            },
-            _ => ImportState::InProgress {
-                progress_message,
-                checkpoint_messages: vec![],
-            },
+            }
         })
         .await
     }

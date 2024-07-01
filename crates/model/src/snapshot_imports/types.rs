@@ -8,7 +8,10 @@ use serde::{
     Serialize,
 };
 use sync_types::Timestamp;
-use value::codegen_convex_serialization;
+use value::{
+    codegen_convex_serialization,
+    TabletId,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -18,6 +21,7 @@ pub struct SnapshotImport {
     pub mode: ImportMode,
     pub object_key: ObjectKey,
     pub member_id: Option<MemberId>,
+    pub checkpoints: Option<Vec<ImportTableCheckpoint>>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -27,6 +31,7 @@ struct SerializedSnapshotImport {
     mode: String,
     object_key: String,
     member_id: Option<i64>,
+    checkpoints: Option<Vec<SerializedImportTableCheckpoint>>,
 }
 
 impl TryFrom<SnapshotImport> for SerializedSnapshotImport {
@@ -39,6 +44,10 @@ impl TryFrom<SnapshotImport> for SerializedSnapshotImport {
             mode: import.mode.to_string(),
             object_key: import.object_key.to_string(),
             member_id: import.member_id.map(|member_id| member_id.0 as i64),
+            checkpoints: import
+                .checkpoints
+                .map(|checkpoints| checkpoints.into_iter().map(TryInto::try_into).try_collect())
+                .transpose()?,
         })
     }
 }
@@ -53,6 +62,10 @@ impl TryFrom<SerializedSnapshotImport> for SnapshotImport {
             mode: import.mode.parse()?,
             object_key: import.object_key.try_into()?,
             member_id: import.member_id.map(|member_id| MemberId(member_id as u64)),
+            checkpoints: import
+                .checkpoints
+                .map(|checkpoints| checkpoints.into_iter().map(TryInto::try_into).try_collect())
+                .transpose()?,
         })
     }
 }
@@ -170,7 +183,7 @@ pub enum ImportState {
     },
     Completed {
         ts: Timestamp,
-        num_rows_written: usize,
+        num_rows_written: i64,
     },
     Failed(String),
 }
@@ -221,7 +234,7 @@ impl TryFrom<ImportState> for SerializedImportState {
                 num_rows_written,
             } => Ok(SerializedImportState::Completed {
                 timestamp: i64::from(ts),
-                num_rows_written: num_rows_written as i64,
+                num_rows_written,
             }),
             ImportState::Failed(message) => Ok(SerializedImportState::Failed {
                 error_message: message,
@@ -255,7 +268,7 @@ impl TryFrom<SerializedImportState> for ImportState {
                 num_rows_written,
             } => Ok(ImportState::Completed {
                 ts: timestamp.try_into()?,
-                num_rows_written: num_rows_written as usize,
+                num_rows_written,
             }),
             SerializedImportState::Failed { error_message } => {
                 Ok(ImportState::Failed(error_message))
@@ -273,6 +286,74 @@ mod import_state_serde {
     };
 
     codegen_convex_serialization!(ImportState, SerializedImportState);
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct ImportTableCheckpoint {
+    pub display_table_name: TableName,
+    pub tablet_id: Option<TabletId>,
+    pub total_num_rows_to_write: i64,
+    // For progress message, so we can say "wrote 40 of 100 documents"
+    // Also for checkpointing, this is the number of rows we know we have written,
+    // so we can skip trying to insert them.
+    pub num_rows_written: i64,
+    // For warning message, so we can say "this will delete 100 of 100 documents"
+    // or "this will delete 0 of 100 documents"
+    pub existing_rows_in_table: i64,
+    pub existing_rows_to_delete: i64,
+
+    // Whether some objects to be imported are missing "_id" fields.
+    // This matters because it means we cannot tell if an object has already
+    // been imported by a previous attempt, which means we have to start over
+    // on any transient errors.
+    pub is_missing_id_field: bool,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SerializedImportTableCheckpoint {
+    pub table_name: String,
+    pub tablet_id: Option<String>,
+    pub total_num_rows_to_write: i64,
+    pub num_rows_written: i64,
+    pub existing_rows_in_table: i64,
+    pub existing_rows_to_delete: i64,
+    pub is_missing_id_field: bool,
+}
+
+impl TryFrom<ImportTableCheckpoint> for SerializedImportTableCheckpoint {
+    type Error = anyhow::Error;
+
+    fn try_from(checkpoint: ImportTableCheckpoint) -> anyhow::Result<Self> {
+        Ok(SerializedImportTableCheckpoint {
+            table_name: checkpoint.display_table_name.to_string(),
+            tablet_id: checkpoint.tablet_id.map(|table| table.to_string()),
+            total_num_rows_to_write: checkpoint.total_num_rows_to_write,
+            num_rows_written: checkpoint.num_rows_written,
+            existing_rows_in_table: checkpoint.existing_rows_in_table,
+            existing_rows_to_delete: checkpoint.existing_rows_to_delete,
+            is_missing_id_field: checkpoint.is_missing_id_field,
+        })
+    }
+}
+
+impl TryFrom<SerializedImportTableCheckpoint> for ImportTableCheckpoint {
+    type Error = anyhow::Error;
+
+    fn try_from(checkpoint: SerializedImportTableCheckpoint) -> anyhow::Result<Self> {
+        Ok(ImportTableCheckpoint {
+            display_table_name: checkpoint.table_name.parse()?,
+            tablet_id: checkpoint
+                .tablet_id
+                .map(|tablet_id| tablet_id.parse())
+                .transpose()?,
+            total_num_rows_to_write: checkpoint.total_num_rows_to_write,
+            num_rows_written: checkpoint.num_rows_written,
+            existing_rows_in_table: checkpoint.existing_rows_in_table,
+            existing_rows_to_delete: checkpoint.existing_rows_to_delete,
+            is_missing_id_field: checkpoint.is_missing_id_field,
+        })
+    }
 }
 
 #[derive(

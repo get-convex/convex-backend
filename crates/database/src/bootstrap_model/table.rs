@@ -123,35 +123,36 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .namespace(namespace)
             .id_if_exists(table)
         {
-            // Get table count at the beginning of the transaction, then add the delta from
-            // the transaction so far.
-            let snapshot_count = self.tx.count_snapshot.count(tablet_id).await?;
-            let transaction_delta = self.tx.table_count_deltas.get(&tablet_id).unwrap_or(&0);
-            if *transaction_delta < 0 {
-                snapshot_count
-                    .checked_sub(transaction_delta.unsigned_abs())
-                    .context("Count underflow")?
-            } else {
-                snapshot_count
-                    .checked_add(*transaction_delta as u64)
-                    .context("Count overflow")?
-            }
+            self.count_tablet(tablet_id).await?
         } else {
             0
         };
 
+        Ok(count)
+    }
+
+    pub async fn count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<u64> {
         // Add read dependency on the entire table.
         // But we haven't explicitly read the documents, so don't record_read_documents.
-        if self.table_exists(namespace, table) {
-            let table_id = self.tx.table_mapping().namespace(namespace).id(table)?;
-            self.tx.reads.record_indexed_directly(
-                TabletIndexName::by_id(table_id.tablet_id),
-                IndexedFields::by_id(),
-                Interval::all(),
-            )?;
-        }
+        self.tx.reads.record_indexed_directly(
+            TabletIndexName::by_id(tablet_id),
+            IndexedFields::by_id(),
+            Interval::all(),
+        )?;
 
-        Ok(count)
+        // Get table count at the beginning of the transaction, then add the delta from
+        // the transaction so far.
+        let snapshot_count = self.tx.count_snapshot.count(tablet_id).await?;
+        let transaction_delta = self.tx.table_count_deltas.get(&tablet_id).unwrap_or(&0);
+        if *transaction_delta < 0 {
+            snapshot_count
+                .checked_sub(transaction_delta.unsigned_abs())
+                .context("Count underflow")
+        } else {
+            snapshot_count
+                .checked_add(*transaction_delta as u64)
+                .context("Count overflow")
+        }
     }
 
     pub(crate) fn doc_table_id_to_name(
