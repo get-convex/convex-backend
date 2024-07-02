@@ -70,14 +70,6 @@ impl Searcher for SearcherStub {
         Ok(SearchQueryResult::empty())
     }
 
-    async fn number_of_segments(
-        &self,
-        _search_storage: Arc<dyn Storage>,
-        _storage_key: ObjectKey,
-    ) -> anyhow::Result<usize> {
-        Ok(1)
-    }
-
     async fn query_tokens(
         &self,
         _search_storage: Arc<dyn Storage>,
@@ -205,16 +197,6 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
                 memory_shortlisted_terms,
                 limit,
             )
-            .await
-    }
-
-    async fn number_of_segments(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        storage_key: ObjectKey,
-    ) -> anyhow::Result<usize> {
-        self.searcher
-            .number_of_segments(search_storage, storage_key)
             .await
     }
 

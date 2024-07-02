@@ -573,16 +573,6 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
             .await
     }
 
-    async fn number_of_segments(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        storage_key: ObjectKey,
-    ) -> anyhow::Result<usize> {
-        self.searcher
-            .number_of_segments(search_storage, storage_key)
-            .await
-    }
-
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,

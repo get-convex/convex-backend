@@ -1097,14 +1097,6 @@ impl Searcher for BrokenSearcher {
         anyhow::bail!("要");
     }
 
-    async fn number_of_segments(
-        &self,
-        _search_storage: Arc<dyn Storage>,
-        _storage_key: ObjectKey,
-    ) -> anyhow::Result<usize> {
-        anyhow::bail!("wut")
-    }
-
     async fn query_tokens(
         &self,
         _: Arc<dyn Storage>,

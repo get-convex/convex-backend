@@ -11,7 +11,6 @@ service Searchlight {
   rpc ExecuteVectorCompaction(VectorCompactionRequest) returns (VectorCompactionResponse);
   rpc QueueVectorPrefetch(VectorPrefetchRequest) returns (VectorPrefetchResponse);
 
-  rpc NumberOfSegments(SegmentRequest) returns (SegmentResponse);
   rpc FetchTermOrdinals(FetchTermOrdinalsRequest) returns (FetchTermOrdinalsResponse);
 
   // Query a set of tokens against the term dictionary, optionally allowing
@@ -245,16 +244,6 @@ message StorageType {
     S3Storage s3 = 1;
     LocalStorage local = 2;
   }
-}
-
-message SegmentRequest {
-  StorageKey segment = 1;
-  StorageType storage_type = 2;
-  optional string encoded_parent_trace = 3;
-}
-
-message SegmentResponse {
-    uint32 number_of_segments = 1;
 }
 
 message FetchTermOrdinalsRequest {

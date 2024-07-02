@@ -119,7 +119,6 @@ use crate::{
     searcher::{
         metrics::{
             text_compaction_searcher_latency_seconds,
-            text_number_of_segments_searcher_latency_seconds,
             text_query_bm25_searcher_latency_seconds,
             text_query_posting_lists_searcher_latency_seconds,
             text_query_term_ordinals_searcher_timer,
@@ -156,16 +155,6 @@ pub trait Searcher: VectorSearcher + Send + Sync + 'static {
         shortlisted_terms: TermShortlist,
         limit: usize,
     ) -> anyhow::Result<SearchQueryResult>;
-
-    /// Get the number of segments a Tantivy index has. It is only necessary to
-    /// call this when using the single segment index format,
-    /// counterintuitively, because we store multisegment indexes in separate
-    /// indexes with a single segment in each one.
-    async fn number_of_segments(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        storage_key: ObjectKey,
-    ) -> anyhow::Result<usize>;
 
     async fn query_tokens(
         &self,
@@ -504,23 +493,6 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         let results = self.text_search_pool.execute(query).await??;
         timer.finish();
         Ok(results)
-    }
-
-    #[minitrace::trace]
-    async fn number_of_segments(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        storage_key: ObjectKey,
-    ) -> anyhow::Result<usize> {
-        let timer = text_number_of_segments_searcher_latency_seconds();
-        let segment_path = self
-            .archive_cache
-            .get(search_storage.clone(), &storage_key, SearchFileType::Text)
-            .await?;
-        let reader = index_reader_for_directory(segment_path)?;
-        let searcher = reader.searcher();
-        timer.finish();
-        Ok(searcher.segment_readers().len())
     }
 
     #[minitrace::trace]

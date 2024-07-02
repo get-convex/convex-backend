@@ -20,16 +20,6 @@ pub fn query_timer() -> StatusTimer {
 }
 
 register_convex_histogram!(
-    TEXT_NUMBER_OF_SEGMENTS_SEARCHER_LATENCY_SECONDS,
-    "The amount of time it took to query the number of segments in a text index in searcher \
-     (searchlight)",
-    &STATUS_LABEL,
-);
-pub(crate) fn text_number_of_segments_searcher_latency_seconds() -> StatusTimer {
-    StatusTimer::new(&TEXT_NUMBER_OF_SEGMENTS_SEARCHER_LATENCY_SECONDS)
-}
-
-register_convex_histogram!(
     TEXT_QUERY_TOKENS_SEARCHER_LATENCY_SECONDS,
     "The amount of time it took to query for text token matches on searchlight (in Searcher)",
     &STATUS_LABEL,
