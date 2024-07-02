@@ -6,7 +6,6 @@ use std::{
 use async_trait::async_trait;
 use common::{
     knobs::{
-        BUILD_MULTI_SEGMENT_TEXT_INDEXES,
         DATABASE_WORKERS_POLL_INTERVAL,
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
     },
@@ -44,9 +43,9 @@ use crate::{
             new_text_compactor,
             TextIndexCompactor,
         },
-        flusher2::{
+        flusher::{
             new_text_flusher,
-            TextIndexFlusher2,
+            TextIndexFlusher,
         },
         BuildTextIndexArgs,
         TextIndexMetadataWriter,
@@ -60,7 +59,6 @@ use crate::{
         BuildVectorIndexArgs,
     },
     Database,
-    TextIndexFlusher,
     VectorIndexFlusher,
 };
 
@@ -73,7 +71,6 @@ enum SearchIndexWorker<RT: Runtime> {
     VectorFlusher(VectorIndexFlusher<RT>),
     VectorCompactor(VectorIndexCompactor<RT>),
     TextFlusher(TextIndexFlusher<RT>),
-    TextFlusher2(TextIndexFlusher2<RT>),
     TextCompactor(TextIndexCompactor<RT>),
 }
 
@@ -145,22 +142,14 @@ impl<RT: Runtime> SearchIndexWorkers<RT> {
                 vector_index_metadata_writer.clone(),
             )),
         );
-        let text_flusher = if *BUILD_MULTI_SEGMENT_TEXT_INDEXES {
-            SearchIndexWorker::TextFlusher2(new_text_flusher(
-                runtime.clone(),
-                database.clone(),
-                reader,
-                search_storage.clone(),
-                segment_term_metadata_fetcher,
-                text_index_metadata_writer.clone(),
-            ))
-        } else {
-            SearchIndexWorker::TextFlusher(TextIndexFlusher::new(
-                runtime.clone(),
-                database.clone(),
-                search_storage.clone(),
-            ))
-        };
+        let text_flusher = SearchIndexWorker::TextFlusher(new_text_flusher(
+            runtime.clone(),
+            database.clone(),
+            reader,
+            search_storage.clone(),
+            segment_term_metadata_fetcher,
+            text_index_metadata_writer.clone(),
+        ));
         let text_flush = retry_loop_expect_occs_and_overloaded(
             "SearchFlusher",
             runtime.clone(),
@@ -216,7 +205,6 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
                 Self::VectorFlusher(flusher) => flusher.step().await?,
                 Self::VectorCompactor(compactor) => compactor.step().await?,
                 Self::TextFlusher(flusher) => flusher.step().await?,
-                Self::TextFlusher2(flusher) => flusher.step().await?,
                 Self::TextCompactor(compactor) => compactor.step().await?,
             };
             drop(status);

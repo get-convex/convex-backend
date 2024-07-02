@@ -72,10 +72,6 @@ async fn test_search_disk_index_backfill_error(rt: TestRuntime) -> anyhow::Resul
     .await
 }
 
-fn is_multi_segment() -> bool {
-    std::env::var("BUILD_MULTI_SEGMENT_TEXT_INDEXES").is_ok()
-}
-
 fn assert_search_result_order(results: ConvexArray) -> anyhow::Result<()> {
     let results = results
         .iter()
@@ -102,9 +98,7 @@ async fn test_search_disk_index(rt: TestRuntime) -> anyhow::Result<()> {
 
         must_let!(let ConvexValue::Array(results) = t.query("search:querySearch",assert_obj!("query" => "a")  ).await?);
         assert_eq!(results.len(), 6);
-        if is_multi_segment() {
-            assert_search_result_order(results)?;
-        }
+        assert_search_result_order(results)?;
         Ok(())
     }).await
 }
@@ -122,9 +116,7 @@ async fn test_search_in_memory_index(rt: TestRuntime) -> anyhow::Result<()> {
 
         must_let!(let ConvexValue::Array(results) = t.query("search:querySearch", assert_obj!("query" => "a")  ).await?);
         assert_eq!(results.len(), 6);
-        if is_multi_segment() {
-            assert_search_result_order(results)?;
-        }
+        assert_search_result_order(results)?;
         Ok(())
     }).await
 }

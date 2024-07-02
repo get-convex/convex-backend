@@ -6,7 +6,6 @@ use crate::{
 pub mod compactor;
 pub mod fast_forward;
 pub mod flusher;
-pub mod flusher2;
 mod text_meta;
 
 pub type TextIndexMetadataWriter<RT> = SearchIndexMetadataWriter<RT, TextSearchIndex>;

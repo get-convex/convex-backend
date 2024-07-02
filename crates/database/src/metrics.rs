@@ -977,28 +977,10 @@ pub fn log_document_skipped() {
 pub mod search {
 
     use metrics::{
-        log_distribution,
         register_convex_histogram,
         StatusTimer,
         STATUS_LABEL,
     };
-
-    register_convex_histogram!(
-        DATABASE_SEARCH_BUILD_ONE_SECONDS,
-        "Time to build one search index",
-        &STATUS_LABEL
-    );
-    pub fn build_one_timer() -> StatusTimer {
-        StatusTimer::new(&DATABASE_SEARCH_BUILD_ONE_SECONDS)
-    }
-
-    register_convex_histogram!(
-        DATABASE_SEARCH_DOCUMENTS_PER_INDEX_TOTAL,
-        "Number of documents per search index",
-    );
-    pub fn log_documents_per_index(count: usize) {
-        log_distribution(&DATABASE_SEARCH_DOCUMENTS_PER_INDEX_TOTAL, count as f64);
-    }
 
     register_convex_histogram!(
         DATABASE_SEARCH_ITERATOR_NEXT_SECONDS,

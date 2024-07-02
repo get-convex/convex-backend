@@ -21,7 +21,6 @@ use common::{
         IndexMetadata,
     },
     floating_point::assert_approx_equal,
-    knobs::BUILD_MULTI_SEGMENT_TEXT_INDEXES,
     pause::PauseController,
     persistence::Persistence,
     query::{
@@ -37,7 +36,6 @@ use common::{
     types::{
         IndexName,
         ObjectKey,
-        TabletIndexName,
         Timestamp,
     },
     value::{
@@ -115,7 +113,7 @@ use crate::{
     },
     text_index_worker::{
         compactor::new_text_compactor,
-        flusher2::new_text_flusher,
+        flusher::new_text_flusher,
         BuildTextIndexArgs,
     },
     Database,
@@ -123,7 +121,6 @@ use crate::{
     ResolvedQuery,
     TableModel,
     TestFacingModel,
-    TextIndexFlusher,
     UserFacingModel,
 };
 
@@ -248,44 +245,22 @@ impl Scenario {
     }
 
     async fn backfill(&mut self) -> anyhow::Result<()> {
-        let snapshot = self.database.latest_snapshot()?;
-
-        let table_name: TableName = "test".parse()?;
-        let index_descriptor = "by_text".parse()?;
-
-        if *BUILD_MULTI_SEGMENT_TEXT_INDEXES {
-            let writer = SearchIndexMetadataWriter::new(
-                self.rt.clone(),
-                self.database.clone(),
-                self.tp.reader(),
-                self.search_storage.clone(),
-                self.build_index_args.clone(),
-            );
-            let mut flusher = new_text_flusher(
-                self.rt.clone(),
-                self.database.clone(),
-                self.tp.reader(),
-                self.search_storage.clone(),
-                self.build_index_args.segment_term_metadata_fetcher.clone(),
-                writer,
-            );
-            flusher.step().await?;
-        } else {
-            let table_id = snapshot
-                .table_mapping()
-                .namespace(TableNamespace::test_user())
-                .id(&table_name)?
-                .tablet_id;
-            let index_name = TabletIndexName::new(table_id, index_descriptor)?;
-            TextIndexFlusher::build_index_in_test(
-                index_name,
-                table_name,
-                self.rt.clone(),
-                self.database.clone(),
-                self.search_storage.clone(),
-            )
-            .await?;
-        }
+        let writer = SearchIndexMetadataWriter::new(
+            self.rt.clone(),
+            self.database.clone(),
+            self.tp.reader(),
+            self.search_storage.clone(),
+            self.build_index_args.clone(),
+        );
+        let mut flusher = new_text_flusher(
+            self.rt.clone(),
+            self.database.clone(),
+            self.tp.reader(),
+            self.search_storage.clone(),
+            self.build_index_args.segment_term_metadata_fetcher.clone(),
+            writer,
+        );
+        flusher.step().await?;
 
         Ok(())
     }

@@ -56,7 +56,7 @@ use database::{
         DbFixtures,
         DbFixturesArgs,
     },
-    text_index_worker::flusher2::backfill_text_indexes,
+    text_index_worker::flusher::backfill_text_indexes,
     vector_index_worker::flusher::backfill_vector_indexes,
     BootstrapComponentsModel,
     Database,

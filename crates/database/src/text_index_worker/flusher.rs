@@ -1,387 +1,233 @@
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
+use std::sync::Arc;
 
+#[cfg(any(test, feature = "testing"))]
+use common::pause::PauseClient;
 use common::{
-    bootstrap_model::index::{
-        text_index::{
-            DeveloperTextIndexConfig,
-            TextIndexSnapshot,
-            TextIndexSnapshotData,
-            TextIndexState,
-            TextSnapshotVersion,
-        },
-        IndexConfig,
-        IndexMetadata,
-    },
-    knobs::{
-        DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
-        DEFAULT_DOCUMENTS_PAGE_SIZE,
-        TEXT_SEARCH_V1_INDEX_SIZE_SOFT_LIMIT,
-    },
+    knobs::SEARCH_INDEX_SIZE_SOFT_LIMIT,
+    persistence::PersistenceReader,
     runtime::Runtime,
-    types::{
-        IndexId,
-        TabletIndexName,
-        Timestamp,
-    },
-    value::ResolvedDocumentId,
 };
-use futures::{
-    channel::oneshot,
-    pin_mut,
-    TryStreamExt,
-};
-use keybroker::Identity;
-use search::{
-    disk_index::{
-        index_writer_for_directory,
-        upload_index_archive_from_path,
-    },
-    metrics::log_text_document_indexed,
-    SearchFileType,
-    TantivySearchIndexSchema,
-};
+use search::searcher::SegmentTermMetadataFetcher;
 use storage::Storage;
-use tempfile::TempDir;
 
 use crate::{
-    bootstrap_model::index_workers::IndexWorkerMetadataModel,
-    index_workers::BuildReason,
-    metrics,
+    index_workers::{
+        search_flusher::{
+            SearchFlusher,
+            SearchIndexLimits,
+        },
+        writer::SearchIndexMetadataWriter,
+    },
+    text_index_worker::text_meta::{
+        BuildTextIndexArgs,
+        TextSearchIndex,
+    },
     Database,
-    IndexModel,
-    SystemMetadataModel,
-    Token,
 };
 
-/// A worker to build search indexes.
-///
-/// This is used both during the initial backfill as well as to recompute
-/// the index when documents are edited.
-pub struct TextIndexFlusher<RT: Runtime> {
+#[cfg(any(test, feature = "testing"))]
+pub async fn backfill_text_indexes<RT: Runtime>(
     runtime: RT,
     database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
     storage: Arc<dyn Storage>,
-    index_size_soft_limit: usize,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+) -> anyhow::Result<()> {
+    let writer = SearchIndexMetadataWriter::new(
+        runtime.clone(),
+        database.clone(),
+        reader.clone(),
+        storage.clone(),
+        BuildTextIndexArgs {
+            search_storage: storage.clone(),
+            segment_term_metadata_fetcher: segment_term_metadata_fetcher.clone(),
+        },
+    );
+    let mut flusher = FlusherBuilder::new(
+        runtime,
+        database,
+        reader,
+        storage,
+        segment_term_metadata_fetcher,
+        writer,
+    )
+    .set_soft_limit(0)
+    .build();
+    flusher.step().await?;
+    Ok(())
 }
 
-impl<RT: Runtime> TextIndexFlusher<RT> {
-    pub(crate) fn new(runtime: RT, database: Database<RT>, storage: Arc<dyn Storage>) -> Self {
-        TextIndexFlusher {
-            runtime,
-            database,
-            storage,
-            index_size_soft_limit: *TEXT_SEARCH_V1_INDEX_SIZE_SOFT_LIMIT,
-        }
-    }
-
-    /// Run one step of the SearchIndexWorker's main loop.
-    ///
-    /// Returns a map of IndexName to number of documents indexed for each
-    /// index that was built.
-    pub(crate) async fn step(&mut self) -> anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)> {
-        let mut metrics = BTreeMap::new();
-
-        let (to_build, token) = self.needs_backfill().await?;
-        let num_to_build = to_build.len();
-        if num_to_build > 0 {
-            tracing::info!("{num_to_build} search indexes to build");
-        }
-
-        for job in to_build {
-            let index_name = job.index_name.clone();
-            let num_documents_indexed = self.build_one(job).await?;
-            metrics.insert(index_name, num_documents_indexed as u64);
-        }
-
-        Ok((metrics, token))
-    }
-
-    /// Compute the set of indexes that need to be backfilled.
-    async fn needs_backfill(&mut self) -> anyhow::Result<(Vec<IndexBuild>, Token)> {
-        let mut to_build = vec![];
-
-        let mut tx = self.database.begin(Identity::system()).await?;
-        let step_ts = tx.begin_timestamp();
-
-        let expected_version = TextSnapshotVersion::new(tx.persistence_version());
-        let search_index = self.database.snapshot(tx.begin_timestamp())?.search_indexes;
-        let ready_index_sizes = search_index
-            .backfilled_and_enabled_index_sizes()?
-            .collect::<BTreeMap<_, _>>();
-
-        for index_doc in IndexModel::new(&mut tx).get_all_indexes().await? {
-            let (index_id, index_metadata) = index_doc.into_id_and_value();
-            let IndexMetadata {
-                name,
-                config:
-                    IndexConfig::Search {
-                        on_disk_state,
-                        developer_config,
-                    },
-            } = index_metadata
-            else {
-                continue;
-            };
-            // If the index is in the `Backfilling` state, or is already `SnapshottedAt` but
-            // has grown too large or has the wrong format, it needs to be backfilled.
-            let needs_backfill = match &on_disk_state {
-                TextIndexState::Backfilling(_) => Some(BuildReason::Backfilling),
-                TextIndexState::SnapshottedAt(TextIndexSnapshot { version, data, .. })
-                | TextIndexState::Backfilled(TextIndexSnapshot { version, data, .. })
-                    if *version != expected_version
-                        || !matches!(data, TextIndexSnapshotData::SingleSegment(_)) =>
-                {
-                    Some(BuildReason::VersionMismatch)
-                },
-                TextIndexState::SnapshottedAt(TextIndexSnapshot { ts, .. })
-                | TextIndexState::Backfilled(TextIndexSnapshot { ts, .. }) => {
-                    let ts = IndexWorkerMetadataModel::new(&mut tx)
-                        .get_fast_forward_ts(*ts, index_id.internal_id())
-                        .await?;
-
-                    let index_size = ready_index_sizes
-                        .get(&index_id.internal_id())
-                        .cloned()
-                        .unwrap_or(0);
-
-                    anyhow::ensure!(ts <= *step_ts);
-                    let index_age = *step_ts - ts;
-                    let too_old = (index_age >= *DATABASE_WORKERS_MAX_CHECKPOINT_AGE
-                        && index_size > 0)
-                        .then_some(BuildReason::TooOld);
-                    if too_old.is_some() {
-                        tracing::info!(
-                            "Non-empty index is too old, age: {:?}, size: {index_size}",
-                            index_age,
-                        );
-                    }
-                    let too_large =
-                        (index_size > self.index_size_soft_limit).then_some(BuildReason::TooLarge);
-
-                    // Order matters! Too large is more urgent than too old.
-                    too_large.or(too_old)
-                },
-            };
-            if let Some(build_reason) = needs_backfill {
-                tracing::info!("Queueing search index for rebuild: {name:?} ({build_reason:?})");
-                let table_id = name.table();
-                let by_id_metadata = IndexModel::new(&mut tx)
-                    .by_id_index_metadata(*table_id)
-                    .await?;
-                let job = IndexBuild {
-                    index_name: name.clone(),
-                    by_id: by_id_metadata.id().internal_id(),
-                    developer_config: developer_config.clone(),
-                    metadata_id: index_id,
-                    on_disk_state,
-                    _build_reason: build_reason,
-                };
-                to_build.push(job);
-            }
-        }
-
-        Ok((to_build, tx.into_token()?))
-    }
-
-    /// Build a single search index.
-    ///
-    /// Returns the number of documents indexed.
-    async fn build_one(&mut self, job: IndexBuild) -> anyhow::Result<usize> {
-        let timer = metrics::search::build_one_timer();
-
-        // 1. Build the index in a temporary directory.
-        let index_path = TempDir::new()?;
-        let (snapshot_ts, num_indexed_documents) = self.build_one_in_dir(&job, &index_path).await?;
-
-        // 2. Zip and upload the directory.
-        let archive_name =
-            upload_index_archive_from_path(index_path, self.storage.clone(), SearchFileType::Text)
-                .await?;
-
-        // 3. Update the search index metadata.
-        let mut tx = self.database.begin(Identity::system()).await?;
-        let snapshot_data = TextIndexSnapshot {
-            data: TextIndexSnapshotData::SingleSegment(archive_name.clone()),
-            ts: snapshot_ts,
-            version: TextSnapshotVersion::new(tx.persistence_version()),
-        };
-        let new_on_disk_state = match job.on_disk_state {
-            TextIndexState::Backfilling(_) | TextIndexState::Backfilled(_) => {
-                TextIndexState::Backfilled(snapshot_data)
-            },
-            TextIndexState::SnapshottedAt(_) => TextIndexState::SnapshottedAt(snapshot_data),
-        };
-        let index_name = job.index_name.clone();
-        SystemMetadataModel::new_global(&mut tx)
-            .replace(
-                job.metadata_id,
-                IndexMetadata::new_search_index(
-                    job.index_name,
-                    job.developer_config,
-                    new_on_disk_state,
-                )
-                .try_into()?,
-            )
-            .await?;
-        self.database
-            .commit_with_write_source(tx, "search_index_worker_build_index")
-            .await?;
-        tracing::info!("Built search index {} at {}", index_name, snapshot_ts);
-
-        timer.finish();
-        metrics::search::log_documents_per_index(num_indexed_documents);
-        Ok(num_indexed_documents)
-    }
-
-    /// Build a search index in a given temporary directory.
-    ///
-    /// Returns the snapshot timestamp and the number of documents indexed.
-    async fn build_one_in_dir(
-        &mut self,
-        job: &IndexBuild,
-        index_path: &TempDir,
-    ) -> anyhow::Result<(Timestamp, usize)> {
-        let tantivy_schema = TantivySearchIndexSchema::new(&job.developer_config);
-
-        let snapshot_ts = self.database.now_ts_for_reads();
-        let table_iterator =
-            self.database
-                .table_iterator(snapshot_ts, *DEFAULT_DOCUMENTS_PAGE_SIZE as usize, None);
-
-        let index_name = &job.index_name;
-        let job = job.clone();
-        let (tx, rx) = oneshot::channel();
-        let index_path = index_path.path().to_path_buf();
-        self.runtime.spawn_thread(move || async move {
-            let result: anyhow::Result<usize> = try {
-                let mut index_writer = index_writer_for_directory(&index_path, &tantivy_schema)?;
-
-                let revision_stream = table_iterator.stream_documents_in_table(
-                    *job.index_name.table(),
-                    job.by_id,
-                    None,
-                );
-                pin_mut!(revision_stream);
-
-                let mut num_indexed_documents = 0;
-                while let Some((revision, revision_ts)) = revision_stream.try_next().await? {
-                    let tantivy_document =
-                        tantivy_schema.index_into_tantivy_document(&revision, revision_ts);
-                    log_text_document_indexed(&tantivy_schema, &tantivy_document);
-                    index_writer.add_document(tantivy_document)?;
-                    num_indexed_documents += 1;
-                }
-
-                index_writer.commit()?;
-                index_writer.wait_merging_threads()?;
-                num_indexed_documents
-            };
-            _ = tx.send(result);
-        });
-        let num_indexed_documents = rx.await??;
-
-        tracing::info!(
-            "SearchIndexWorker built index {} with {} documents",
-            index_name,
-            num_indexed_documents
-        );
-        Ok((*snapshot_ts, num_indexed_documents))
-    }
-
-    /// Builds a single index.
-    ///
-    /// If this index is already backfilled it still produces a new snapshot.
+pub(crate) struct FlusherBuilder<RT: Runtime> {
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+    segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+    limits: SearchIndexLimits,
+    writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
     #[cfg(any(test, feature = "testing"))]
-    pub async fn build_index_in_test(
-        index_name: TabletIndexName,
-        table_name: value::TableName,
+    pause_client: Option<PauseClient>,
+}
+
+impl<RT: Runtime> FlusherBuilder<RT> {
+    pub(crate) fn new(
         runtime: RT,
         database: Database<RT>,
+        reader: Arc<dyn PersistenceReader>,
         storage: Arc<dyn Storage>,
-    ) -> anyhow::Result<()> {
-        use common::types::IndexName;
+        segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+        writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
+    ) -> Self {
+        Self {
+            runtime,
+            database,
+            reader,
+            storage,
+            segment_term_metadata_fetcher,
+            writer,
+            limits: SearchIndexLimits {
+                index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+                incremental_multipart_threshold_bytes: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
+            },
+            #[cfg(any(test, feature = "testing"))]
+            pause_client: None,
+        }
+    }
 
-        let mut tx = database.begin(Identity::system()).await?;
-        let namespace = tx.table_mapping().tablet_namespace(*index_name.table())?;
-        let index_name_ = IndexName::new(table_name.clone(), index_name.descriptor().clone())?;
-        let mut model = IndexModel::new(&mut tx);
-        let metadata = model
-            .pending_index_metadata(namespace, &index_name_)?
-            .unwrap_or_else(|| {
-                model
-                    .enabled_index_metadata(namespace, &index_name_)
-                    .unwrap()
-                    .unwrap_or_else(|| panic!("Missing pending or enabled index: {:?}", index_name))
-            });
-        let IndexConfig::Search {
-            developer_config,
-            on_disk_state,
-        } = &metadata.config
-        else {
-            anyhow::bail!("Index was not a search index: {index_name:?}");
-        };
-        let by_id_metadata = IndexModel::new(&mut tx)
-            .by_id_index_metadata(*index_name.table())
-            .await?;
+    #[cfg(any(test, feature = "testing"))]
+    pub fn set_soft_limit(self, limit: usize) -> Self {
+        Self {
+            limits: SearchIndexLimits {
+                index_size_soft_limit: limit,
+                ..self.limits
+            },
+            ..self
+        }
+    }
 
-        let mut worker = TextIndexFlusher::new(runtime, database, storage);
-        let job = IndexBuild {
-            index_name,
-            by_id: by_id_metadata.id().internal_id(),
-            developer_config: developer_config.clone(),
-            metadata_id: metadata.clone().id(),
-            on_disk_state: on_disk_state.clone(),
-            _build_reason: BuildReason::TooOld,
-        };
-        worker.build_one(job).await?;
-        Ok(())
+    #[cfg(any(test, feature = "testing"))]
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn set_incremental_multipart_threshold_bytes(self, limit: usize) -> Self {
+        Self {
+            limits: SearchIndexLimits {
+                incremental_multipart_threshold_bytes: limit,
+                ..self.limits
+            },
+            ..self
+        }
+    }
+
+    pub(crate) fn build(self) -> TextIndexFlusher<RT> {
+        SearchFlusher::new(
+            self.runtime,
+            self.database,
+            self.reader,
+            self.storage.clone(),
+            self.limits,
+            self.writer,
+            BuildTextIndexArgs {
+                search_storage: self.storage.clone(),
+                segment_term_metadata_fetcher: self.segment_term_metadata_fetcher.clone(),
+            },
+            #[cfg(any(test, feature = "testing"))]
+            self.pause_client,
+        )
     }
 }
 
-#[derive(Clone)]
-struct IndexBuild {
-    index_name: TabletIndexName,
-    by_id: IndexId,
-    developer_config: DeveloperTextIndexConfig,
-    metadata_id: ResolvedDocumentId,
-    on_disk_state: TextIndexState,
-    _build_reason: BuildReason,
+pub type TextIndexFlusher<RT> = SearchFlusher<RT, TextSearchIndex>;
+
+#[allow(unused)]
+#[cfg(any(test, feature = "testing"))]
+pub fn new_text_flusher_for_tests<RT: Runtime>(
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+    segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+) -> TextIndexFlusher<RT> {
+    let writer = SearchIndexMetadataWriter::new(
+        runtime.clone(),
+        database.clone(),
+        reader.clone(),
+        storage.clone(),
+        BuildTextIndexArgs {
+            search_storage: storage.clone(),
+            segment_term_metadata_fetcher: segment_metadata_fetcher.clone(),
+        },
+    );
+    FlusherBuilder::new(
+        runtime,
+        database,
+        reader,
+        storage,
+        segment_metadata_fetcher,
+        writer,
+    )
+    .build()
+}
+
+pub(crate) fn new_text_flusher<RT: Runtime>(
+    runtime: RT,
+    database: Database<RT>,
+    reader: Arc<dyn PersistenceReader>,
+    storage: Arc<dyn Storage>,
+    segment_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
+    writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
+) -> TextIndexFlusher<RT> {
+    FlusherBuilder::new(
+        runtime,
+        database,
+        reader,
+        storage,
+        segment_metadata_fetcher,
+        writer,
+    )
+    .build()
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use std::time::Duration;
 
     use anyhow::Context;
     use common::{
-        assert_obj,
         bootstrap_model::index::{
             text_index::{
+                TextIndexBackfillState,
                 TextIndexSnapshot,
+                TextIndexSnapshotData,
                 TextIndexState,
+                TextSnapshotVersion,
             },
             IndexConfig,
             IndexMetadata,
         },
-        types::IndexName,
+        runtime::testing::TestRuntime,
+        types::{
+            IndexName,
+            ObjectKey,
+            TabletIndexName,
+        },
     };
     use maplit::btreemap;
     use must_let::must_let;
-    use runtime::testing::TestRuntime;
     use sync_types::Timestamp;
-    use value::TableNamespace;
+    use value::{
+        assert_obj,
+        TableNamespace,
+    };
 
     use crate::{
         tests::text_test_utils::{
             add_document,
+            backfilling_text_index,
             IndexData,
             TextFixtures,
         },
         Database,
         IndexModel,
+        SystemMetadataModel,
         TestFacingModel,
     };
 
@@ -433,7 +279,7 @@ pub(crate) mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let mut worker = fixtures.new_search_flusher2();
+        let mut worker = fixtures.new_search_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -459,7 +305,7 @@ pub(crate) mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let mut worker = fixtures.new_search_flusher2_with_soft_limit();
+        let mut worker = fixtures.new_search_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -508,7 +354,7 @@ pub(crate) mod tests {
         } = fixtures
             .insert_backfilling_text_index_with_document()
             .await?;
-        let mut worker = fixtures.new_search_flusher2_with_soft_limit();
+        let mut worker = fixtures.new_search_flusher();
 
         // Run one interation of the search index worker.
         let (metrics, _) = worker.step().await?;
@@ -549,7 +395,7 @@ pub(crate) mod tests {
     async fn test_advance_old_snapshot(rt: TestRuntime) -> anyhow::Result<()> {
         common::testing::init_test_logging();
         let fixtures = TextFixtures::new(rt.clone()).await?;
-        let mut worker = fixtures.new_search_flusher2_with_soft_limit();
+        let mut worker = fixtures.new_search_flusher_with_soft_limit();
         let database = &fixtures.db;
 
         let IndexData {
@@ -592,5 +438,668 @@ pub(crate) mod tests {
         assert!(initial_snapshot_ts < fixtures.assert_backfilled(&index_name).await?);
 
         Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_no_documents_sets_state_to_backfilled(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let index_data = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+        fixtures.assert_backfilled(&index_data.index_name).await?;
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_no_documents_returns_index_in_metrics(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let index_data = fixtures.insert_backfilling_text_index().await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        let table_id = tx
+            .table_mapping()
+            .namespace(TableNamespace::test_user())
+            .id(index_data.index_name.table())?
+            .tablet_id;
+        let resolved_index_name =
+            TabletIndexName::new(table_id, index_data.index_name.descriptor().clone())?;
+        let mut flusher = fixtures.new_search_flusher();
+        let (metrics, _) = flusher.step().await?;
+        assert_eq!(metrics, btreemap! { resolved_index_name => 0 });
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_one_document_sets_state_to_backfilled(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let index_data = fixtures
+            .insert_backfilling_text_index_with_document()
+            .await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+        fixtures.assert_backfilled(&index_data.index_name).await?;
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_one_document_returns_metrics(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData {
+            resolved_index_name,
+            ..
+        } = fixtures
+            .insert_backfilling_text_index_with_document()
+            .await?;
+        let mut flusher = fixtures.new_search_flusher();
+        let (metrics, _) = flusher.step().await?;
+        assert_eq!(metrics, btreemap! { resolved_index_name => 1 });
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_one_document_writes_document(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let index_data = fixtures.insert_backfilling_text_index().await?;
+        let doc_id = fixtures.add_document("cat").await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+        fixtures.enable_index(&index_data.index_name).await?;
+
+        let results = fixtures.search(index_data.index_name, "cat").await?;
+        assert_eq!(results.first().unwrap().id(), doc_id);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_two_documents_0_max_segment_size_creates_two_segments(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+
+        fixtures.add_document("some text").await?;
+        fixtures.add_document("some other text").await?;
+
+        let mut flusher = fixtures
+            .new_search_flusher_builder()
+            .set_incremental_multipart_threshold_bytes(0)
+            .build();
+        // Build the first segment, which stops because the document size is > 0
+        flusher.step().await?;
+        // Build the second segment and finalize the index metadata.
+        flusher.step().await?;
+
+        let segments = fixtures.get_segments_metadata(index_name).await?;
+        assert_eq!(segments.len(), 2);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_two_documents_leaves_document_backfilling_after_first_flush(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let index_data = fixtures.insert_backfilling_text_index().await?;
+
+        fixtures.add_document("cat").await?;
+        fixtures.add_document("dog").await?;
+
+        let mut flusher = fixtures
+            .new_search_flusher_builder()
+            .set_incremental_multipart_threshold_bytes(0)
+            .build();
+        // Build the first segment, which stops because the document size is > 0
+        flusher.step().await?;
+        let metadata = fixtures.get_index_metadata(index_data.index_name).await?;
+        must_let!(let IndexConfig::Search { on_disk_state, .. }= &metadata.config);
+        must_let!(let TextIndexState::Backfilling(backfilling_meta) = on_disk_state);
+        assert_eq!(backfilling_meta.segments.len(), 1);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_two_documents_0_max_segment_size_includes_both_documents(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+
+        let cat_doc_id = fixtures.add_document("cat").await?;
+        let dog_doc_id = fixtures.add_document("dog").await?;
+
+        let mut flusher = fixtures
+            .new_search_flusher_builder()
+            .set_incremental_multipart_threshold_bytes(0)
+            .build();
+        // Build the first segment, which stops because the document size is > 0
+        flusher.step().await?;
+        // Build the second segment and finalize the index metadata.
+        flusher.step().await?;
+
+        fixtures.enable_index(&index_name).await?;
+
+        let cat_results = fixtures.search(index_name.clone(), "cat").await?;
+        assert_eq!(cat_results.first().unwrap().id(), cat_doc_id);
+
+        let dog_results = fixtures.search(index_name, "dog").await?;
+        assert_eq!(dog_results.first().unwrap().id(), dog_doc_id);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_empty_index_adds_no_segments(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+
+        let segments = fixtures.get_segments_metadata(index_name).await?;
+        assert_eq!(0, segments.len());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_empty_backfilled_index_new_document_adds_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        fixtures.enable_index(&index_name).await?;
+        let results = fixtures.search(index_name, "cat").await?;
+        assert_eq!(doc_id, results.first().unwrap().id());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_non_empty_backfilled_index_new_document_adds_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        fixtures.add_document("dog").await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        fixtures.enable_index(&index_name).await?;
+        let results = fixtures.search(index_name, "cat").await?;
+        assert_eq!(doc_id, results.first().unwrap().id());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_empty_enabled_index_new_document_adds_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        let results = fixtures.search(index_name, "cat").await?;
+        assert_eq!(doc_id, results.first().unwrap().id());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_non_empty_enabled_index_new_document_adds_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        fixtures.add_document("dog").await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        let results = fixtures.search(index_name, "cat").await?;
+        assert_eq!(doc_id, results.first().unwrap().id());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_non_empty_enabled_index_new_document_adds_new_segment(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        fixtures.add_document("dog").await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        let segments = fixtures.get_segments_metadata(index_name).await?;
+        assert_eq!(segments.len(), 2);
+
+        Ok(())
+    }
+    #[convex_macro::test_runtime]
+    async fn backfill_with_non_empty_backfilled_index_new_document_adds_new_segment(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        fixtures.add_document("dog").await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+
+        fixtures.add_document("cat").await?;
+
+        flusher.step().await?;
+
+        fixtures.enable_index(&index_name).await?;
+        let segments = fixtures.get_segments_metadata(index_name).await?;
+        assert_eq!(segments.len(), 2);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_one_doc_added_then_deleted_single_build_does_not_include_deleted_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+
+        let doc_id = fixtures.add_document("cat").await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name, "cat").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_one_doc_added_then_deleted_separate_builds_does_not_include_deleted_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name, "cat").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_one_doc_added_then_replaced_separate_builds_does_not_include_first_document(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.replace_inner(doc_id, assert_obj!()).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name, "cat").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_one_segment(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        fixtures.replace_document(doc_id, "new_text").await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(!results.is_empty());
+
+        Ok(())
+    }
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_delete_one_segment(rt: TestRuntime) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        fixtures.replace_document(doc_id, "new_text").await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_then_replace_delete_separate_segment(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+        fixtures.replace_document(doc_id, "new_text").await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_then_replace_delete_separate_segment_many_replaces(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        fixtures.replace_document(doc_id, "dog").await?;
+        flusher.step().await?;
+        fixtures.replace_document(doc_id, "newer_text").await?;
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name.clone(), "dog").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "newer_text").await?;
+        assert!(!results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_then_replace_delete_second_segment(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        fixtures.replace_document(doc_id, "new_text").await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_then_replace_delete_separate_segments(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        fixtures.replace_document(doc_id, "new_text").await?;
+        flusher.step().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert!(results.is_empty());
+        let results = fixtures.search(index_name, "new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_replace_delete_single_segment(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        fixtures.replace_document(doc_id, "new_text").await?;
+        fixtures.replace_document(doc_id, "really_new_text").await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name, "really_new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_insert_replace_replace_delete_different_segments(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let IndexData { index_name, .. } = fixtures.insert_backfilling_text_index().await?;
+        let mut flusher = fixtures.new_search_flusher();
+
+        let doc_id = fixtures.add_document("cat").await?;
+        flusher.step().await?;
+
+        fixtures.replace_document(doc_id, "new_text").await?;
+        flusher.step().await?;
+        fixtures.replace_document(doc_id, "really_new_text").await?;
+        flusher.step().await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        tx.delete_inner(doc_id).await?;
+        fixtures.db.commit(tx).await?;
+
+        flusher.step().await?;
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name, "really_new_text").await?;
+        assert!(results.is_empty());
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_backfilled_single_segment_format_backfills_with_multi_segment_format(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+        let index_name = create_backfilled_single_segment_text_index(&fixtures).await?;
+
+        fixtures.add_document("cat").await?;
+
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+
+        fixtures.enable_index(&index_name).await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert_eq!(results.len(), 1);
+        let segments = fixtures.get_segments_metadata(index_name).await?;
+        assert_eq!(segments.len(), 1);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn backfill_with_snapshotted_at_single_segment_format_backfills_with_multi_segment_format(
+        rt: TestRuntime,
+    ) -> anyhow::Result<()> {
+        let fixtures = TextFixtures::new(rt).await?;
+
+        let index_name = create_backfilled_single_segment_text_index(&fixtures).await?;
+
+        let mut tx = fixtures.db.begin_system().await?;
+        IndexModel::new(&mut tx)
+            .enable_index_for_testing(TableNamespace::Global, &index_name)
+            .await?;
+        fixtures.db.commit(tx).await?;
+
+        fixtures.add_document("cat").await?;
+
+        let mut flusher = fixtures.new_search_flusher();
+        flusher.step().await?;
+
+        let results = fixtures.search(index_name.clone(), "cat").await?;
+        assert_eq!(results.len(), 1);
+        let segments = fixtures.get_segments_metadata(index_name).await?;
+        assert_eq!(segments.len(), 1);
+        Ok(())
+    }
+
+    async fn create_backfilled_single_segment_text_index(
+        fixtures: &TextFixtures,
+    ) -> anyhow::Result<IndexName> {
+        let mut tx = fixtures.db.begin_system().await?;
+        let metadata = backfilling_text_index()?;
+        let on_disk_state = TextIndexState::Backfilling(TextIndexBackfillState::new());
+        must_let!(let IndexConfig::Search {
+            developer_config,
+            ..
+        } = metadata.config);
+        let doc_id = IndexModel::new(&mut tx)
+            .add_application_index(
+                TableNamespace::Global,
+                IndexMetadata::new_search_index(
+                    metadata.name.clone(),
+                    developer_config,
+                    on_disk_state,
+                ),
+            )
+            .await?;
+
+        fixtures.db.commit(tx).await?;
+        let mut tx = fixtures.db.begin_system().await?;
+        let indexes = IndexModel::new(&mut tx).get_all_indexes().await?;
+        let index = indexes
+            .into_iter()
+            .find(|index| index.id() == doc_id)
+            .unwrap();
+        let (id, value) = index.into_id_and_value();
+        must_let!(let IndexConfig::Search {
+            developer_config,
+            ..
+        } = value.config);
+        let on_disk_state = TextIndexState::Backfilled(TextIndexSnapshot {
+            data: TextIndexSnapshotData::SingleSegment(ObjectKey::try_from("Fake".to_string())?),
+            ts: *tx.begin_timestamp(),
+            version: TextSnapshotVersion::V2UseStringIds,
+        });
+
+        SystemMetadataModel::new_global(&mut tx)
+            .replace(
+                id,
+                IndexMetadata::new_search_index(value.name, developer_config, on_disk_state)
+                    .try_into()?,
+            )
+            .await?;
+        fixtures.db.commit(tx).await?;
+        Ok(metadata.name)
     }
 }

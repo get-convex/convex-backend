@@ -63,10 +63,10 @@ use crate::{
             new_text_compactor_for_tests,
             TextIndexCompactor,
         },
-        flusher2::{
+        flusher::{
             backfill_text_indexes,
             FlusherBuilder,
-            TextIndexFlusher2,
+            TextIndexFlusher,
         },
         BuildTextIndexArgs,
         TextIndexMetadataWriter,
@@ -150,11 +150,11 @@ impl TextFixtures {
         )
     }
 
-    pub fn new_search_flusher2(&self) -> TextIndexFlusher2<TestRuntime> {
+    pub fn new_search_flusher(&self) -> TextIndexFlusher<TestRuntime> {
         self.new_search_flusher_builder().set_soft_limit(0).build()
     }
 
-    pub fn new_search_flusher2_with_soft_limit(&self) -> TextIndexFlusher2<TestRuntime> {
+    pub fn new_search_flusher_with_soft_limit(&self) -> TextIndexFlusher<TestRuntime> {
         self.new_search_flusher_builder()
             .set_soft_limit(2048)
             .build()

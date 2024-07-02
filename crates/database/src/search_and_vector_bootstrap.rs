@@ -613,7 +613,7 @@ mod tests {
             DbFixtures,
             DbFixturesArgs,
         },
-        text_index_worker::flusher2::new_text_flusher_for_tests,
+        text_index_worker::flusher::new_text_flusher_for_tests,
         vector_index_worker::flusher::backfill_vector_indexes,
         Database,
         IndexModel,

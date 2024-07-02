@@ -68,7 +68,6 @@ pub use reads::{
     OVER_LIMIT_HELP,
 };
 pub use table_registry::TableRegistry;
-pub use text_index_worker::flusher::TextIndexFlusher;
 pub use token::{
     SerializedToken,
     Token,
