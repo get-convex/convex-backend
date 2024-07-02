@@ -71,6 +71,7 @@ use value::{
     ConvexObject,
     ConvexValue,
     NamespacedTableMapping,
+    NamespacedVirtualTableMapping,
     TableMapping,
     TableMappingValue,
     TableName,
@@ -459,7 +460,7 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
 
     fn get_all_table_mappings(
         &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
+    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
         self.check_executing()?;
         Ok(self.shared.get_all_table_mappings())
     }
@@ -733,7 +734,10 @@ impl<RT: Runtime> UdfShared<RT> {
 
     fn lookup_virtual_table(&self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
         let inner = self.inner.lock();
-        Ok(inner.virtual_table_mapping.number_if_exists(name))
+        Ok(inner
+            .virtual_table_mapping
+            .namespace(TableNamespace::by_component_TODO())
+            .number_if_exists(name))
     }
 
     fn start_query(&self, query: Query, version: Option<Version>) -> QueryId {
@@ -761,13 +765,15 @@ impl<RT: Runtime> UdfShared<RT> {
         inner.queries.remove(&query_id).is_some()
     }
 
-    fn get_all_table_mappings(&self) -> (NamespacedTableMapping, VirtualTableMapping) {
+    fn get_all_table_mappings(&self) -> (NamespacedTableMapping, NamespacedVirtualTableMapping) {
         let inner = self.inner.lock();
         (
             inner
                 .table_mapping
                 .namespace(TableNamespace::by_component_TODO()),
-            inner.virtual_table_mapping.clone(),
+            inner
+                .virtual_table_mapping
+                .namespace(TableNamespace::by_component_TODO()),
         )
     }
 

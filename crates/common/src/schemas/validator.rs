@@ -39,9 +39,9 @@ use value::{
     IdentifierFieldName,
     Namespace,
     NamespacedTableMapping,
+    NamespacedVirtualTableMapping,
     TableName,
     TableNumber,
-    VirtualTableMapping,
 };
 
 use super::DocumentSchema;
@@ -155,7 +155,7 @@ impl Validator {
         &self,
         value: &ConvexValue,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Result<(), ValidationError> {
         let all_tables_number_to_name =
             all_tables_number_to_name(table_mapping, virtual_table_mapping);
@@ -330,7 +330,7 @@ impl Validator {
     pub fn from_shape<C: ShapeConfig, S: ShapeCounter>(
         t: &Shape<C, S>,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Self {
         match t.variant() {
             ShapeEnum::Never => Self::Union(vec![]),
@@ -1127,6 +1127,7 @@ mod tests {
         FieldType,
         InternalId,
         NamespacedTableMapping,
+        NamespacedVirtualTableMapping,
         TableMapping,
         TableName,
         TableNamespace,
@@ -1152,6 +1153,10 @@ mod tests {
         TableMapping::new().namespace(TableNamespace::test_user())
     }
 
+    fn empty_virtual_table_mapping() -> NamespacedVirtualTableMapping {
+        VirtualTableMapping::new().namespace(TableNamespace::test_user())
+    }
+
     // Arbitrary `TryFrom` implementation for testing `check_value`.
     fn value_from_validator(
         validator: Validator,
@@ -1161,8 +1166,11 @@ mod tests {
             Validator::Id(table_name) => {
                 let id = InternalId::MIN;
                 let namespaced_table_mapping = id_generator.namespace(TableNamespace::test_user());
+                let namespaced_virtual_table_mapping = id_generator
+                    .virtual_table_mapping
+                    .namespace(TableNamespace::test_user());
                 let table_number = match namespaced_table_mapping.name_to_id()(table_name.clone()) {
-                    Err(_) => id_generator.virtual_table_mapping.number(&table_name)?,
+                    Err(_) => namespaced_virtual_table_mapping.number(&table_name)?,
                     Ok(id) => id.table_number,
                 };
                 let doc_idv6 = DeveloperDocumentId::new(table_number, id);
@@ -1246,7 +1254,7 @@ mod tests {
             v.check_value(
                 &object,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping
+                &id_generator.virtual_table_mapping.namespace(TableNamespace::test_user())
             ).unwrap();
         }
 
@@ -1368,7 +1376,7 @@ mod tests {
             .check_value(
                 &value_wrong_type,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &VirtualTableMapping::new(),
+                &empty_virtual_table_mapping(),
             )
             .unwrap_err();
         assert_eq!(
@@ -1393,7 +1401,7 @@ mod tests {
             .check_value(
                 &value_wrong_key,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &VirtualTableMapping::new(),
+                &empty_virtual_table_mapping(),
             )
             .unwrap_err();
         assert_eq!(
@@ -1414,7 +1422,7 @@ mod tests {
             .check_value(
                 &value_wrong_value,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &VirtualTableMapping::new(),
+                &empty_virtual_table_mapping(),
             )
             .unwrap_err();
         assert_eq!(
@@ -1445,7 +1453,9 @@ mod tests {
             .check_value(
                 &value_wrong_type,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping,
+                &id_generator
+                    .virtual_table_mapping
+                    .namespace(TableNamespace::test_user()),
             )
             .unwrap_err();
         assert_eq!(
@@ -1470,7 +1480,9 @@ mod tests {
             .check_value(
                 &value_wrong_key,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping,
+                &id_generator
+                    .virtual_table_mapping
+                    .namespace(TableNamespace::test_user()),
             )
             .unwrap_err();
         assert_eq!(
@@ -1491,7 +1503,9 @@ mod tests {
             .check_value(
                 &value_wrong_value,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping,
+                &id_generator
+                    .virtual_table_mapping
+                    .namespace(TableNamespace::test_user()),
             )
             .unwrap_err();
         assert_eq!(
@@ -1570,7 +1584,9 @@ mod tests {
             .check_value(
                 &value,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping,
+                &id_generator
+                    .virtual_table_mapping
+                    .namespace(TableNamespace::test_user()),
             )
             .unwrap_err();
         assert_eq!(
@@ -1601,7 +1617,9 @@ mod tests {
             .check_value(
                 &value,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping,
+                &id_generator
+                    .virtual_table_mapping
+                    .namespace(TableNamespace::test_user()),
             )
             .unwrap_err();
         assert_eq!(
@@ -1624,13 +1642,17 @@ mod tests {
             .check_value(
                 &ConvexValue::String("hello".try_into()?),
                 &empty_table_mapping(),
-                &VirtualTableMapping::new(),
+                &empty_virtual_table_mapping(),
             )
             .unwrap();
 
         let value = ConvexValue::Int64(0);
         let err = string_literal
-            .check_value(&value, &empty_table_mapping(), &VirtualTableMapping::new())
+            .check_value(
+                &value,
+                &empty_table_mapping(),
+                &empty_virtual_table_mapping(),
+            )
             .unwrap_err();
         assert_eq!(
             err,
@@ -1657,7 +1679,11 @@ mod tests {
 
         // Check that the error message includes the path to the
         assert!(validator
-            .check_value(&object, &empty_table_mapping(), &VirtualTableMapping::new())
+            .check_value(
+                &object,
+                &empty_table_mapping(),
+                &empty_virtual_table_mapping()
+            )
             .unwrap_err()
             .to_string()
             .contains(".property[0]"));
@@ -1747,7 +1773,7 @@ mod tests {
             )
         ) {
             let table_mapping = empty_table_mapping();
-            let virtual_table_mapping = VirtualTableMapping::new();
+            let virtual_table_mapping = empty_virtual_table_mapping();
             let shape = CountedShape::<TestConfig>::empty().insert_value(&resolved_value);
             let validator = Validator::from_shape(&shape, &table_mapping, &virtual_table_mapping);
             prop_assert!(validator.check_value(

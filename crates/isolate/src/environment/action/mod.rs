@@ -84,9 +84,9 @@ use value::{
     heap_size::HeapSize,
     ConvexArray,
     NamespacedTableMapping,
+    NamespacedVirtualTableMapping,
     Size,
     TableMappingValue,
-    VirtualTableMapping,
 };
 
 pub use self::task::{
@@ -1295,7 +1295,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
 
     fn get_all_table_mappings(
         &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
+    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
         anyhow::bail!("get_all_table_mappings unsupported in actions")
     }
 

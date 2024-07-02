@@ -188,11 +188,16 @@ impl TableRegistry {
                 // Virtual table creation
                 (None, Some(new_value)) => {
                     let metadata = VirtualTableMetadata::try_from(new_value.clone())?;
-                    if self.virtual_table_mapping.name_exists(&metadata.name) {
+                    if self
+                        .virtual_table_mapping
+                        .namespace(metadata.namespace)
+                        .name_exists(&metadata.name)
+                    {
                         anyhow::bail!("Tried to create duplicate virtual table {new_value}");
                     }
                     self.validate_table_number(metadata.number)?;
-                    virtual_table_creation = Some((metadata.number, metadata.name));
+                    virtual_table_creation =
+                        Some((metadata.namespace, metadata.number, metadata.name));
                 },
                 _ => anyhow::bail!("Only inserts are supported on Virtual Tables"),
             }
@@ -216,7 +221,10 @@ impl TableRegistry {
              table mapping"
         );
         anyhow::ensure!(
-            !self.virtual_table_mapping.number_exists(table_number),
+            !self
+                .virtual_table_mapping
+                .namespace(TableNamespace::TODO())
+                .number_exists(table_number),
             "Cannot add a table with table number {table_number} since it already exists in the \
              virtual table mapping"
         );
@@ -268,16 +276,15 @@ impl TableRegistry {
 
     pub fn all_tables_number_to_name(
         &mut self,
+        namespace: TableNamespace,
     ) -> impl Fn(TableNumber) -> anyhow::Result<TableName> + '_ {
-        let table_mapping = self.table_mapping().clone();
-        let virtual_table_mapping = self.virtual_table_mapping().clone();
+        let table_mapping = self.table_mapping().namespace(namespace);
+        let virtual_table_mapping = self.virtual_table_mapping().namespace(namespace);
         move |number| {
             if let Some(table_number) = virtual_table_mapping.name_if_exists(number) {
                 return Ok(table_number);
             }
-            table_mapping
-                .namespace(TableNamespace::by_component_TODO())
-                .number_to_name()(number)
+            table_mapping.number_to_name()(number)
         }
     }
 
@@ -311,7 +318,7 @@ pub(crate) enum TableUpdateMode {
 pub(crate) struct Update<'a> {
     metadata: &'a mut TableRegistry,
     table_update: Option<TableUpdate>,
-    virtual_table_creation: Option<(TableNumber, TableName)>,
+    virtual_table_creation: Option<(TableNamespace, TableNumber, TableName)>,
 }
 
 impl<'a> Update<'a> {
@@ -352,10 +359,10 @@ impl<'a> Update<'a> {
                 .tablet_states
                 .insert(table_id_and_number.tablet_id, *state);
         }
-        if let Some((table_number, table_name)) = self.virtual_table_creation.take() {
+        if let Some((namespace, table_number, table_name)) = self.virtual_table_creation.take() {
             self.metadata
                 .virtual_table_mapping
-                .insert(table_number, table_name);
+                .insert(namespace, table_number, table_name);
         }
         self.table_update
     }

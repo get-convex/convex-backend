@@ -144,7 +144,11 @@ impl TestIdGenerator {
 
     // For adding to virtual table mapping
     pub fn generate_virtual_table(&mut self, table_name: &TableName) -> TableNumber {
-        if let Ok(table_number) = self.virtual_table_mapping.number(table_name) {
+        if let Ok(table_number) = self
+            .virtual_table_mapping
+            .namespace(TableNamespace::test_user())
+            .number(table_name)
+        {
             return table_number;
         }
         let num = self.curr_table_number;
@@ -152,7 +156,8 @@ impl TestIdGenerator {
             .curr_table_number
             .increment()
             .expect("Could not increment table number");
-        self.virtual_table_mapping.insert(num, table_name.clone());
+        self.virtual_table_mapping
+            .insert(TableNamespace::test_user(), num, table_name.clone());
         self.system_table_id(&TABLES_TABLE);
         self.system_table_id(&INDEX_TABLE);
         num

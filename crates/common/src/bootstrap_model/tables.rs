@@ -137,11 +137,11 @@ codegen_convex_serialization!(TableMetadata, SerializedTableMetadata);
 #[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[serde(rename_all = "camelCase", tag = "kind")]
-enum SerializedTableNamespace {
+pub enum SerializedTableNamespace {
     ByComponent { id: String },
 }
 
-fn table_namespace_from_serialized(
+pub fn table_namespace_from_serialized(
     m: Option<SerializedTableNamespace>,
 ) -> anyhow::Result<TableNamespace> {
     Ok(match m {
@@ -152,7 +152,7 @@ fn table_namespace_from_serialized(
     })
 }
 
-fn table_namespace_to_serialized(
+pub fn table_namespace_to_serialized(
     m: TableNamespace,
 ) -> anyhow::Result<Option<SerializedTableNamespace>> {
     match m {

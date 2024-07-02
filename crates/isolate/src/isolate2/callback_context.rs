@@ -450,8 +450,8 @@ mod op_provider {
     use value::{
         heap_size::WithHeapSize,
         NamespacedTableMapping,
+        NamespacedVirtualTableMapping,
         TableMappingValue,
-        VirtualTableMapping,
     };
 
     use super::CallbackContext;
@@ -566,7 +566,7 @@ mod op_provider {
 
         fn get_all_table_mappings(
             &mut self,
-        ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
+        ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
             self.context_state()?.environment.get_all_table_mappings()
         }
 

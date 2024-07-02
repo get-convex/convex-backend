@@ -440,7 +440,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let tx = self.phase.tx()?;
 
         let table_mapping = tx.table_mapping().namespace(component_id.into());
-        let virtual_table_mapping = tx.virtual_table_mapping().clone();
+        let virtual_table_mapping = tx.virtual_table_mapping().namespace(component_id.into());
 
         let resource = ComponentsModel::new(tx)
             .resolve(component_id, &reference)

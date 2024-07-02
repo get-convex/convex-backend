@@ -456,7 +456,11 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
     ) -> VirtualTableMapping {
         let mut virtual_table_mapping = VirtualTableMapping::new();
         for virtual_table in virtual_tables {
-            virtual_table_mapping.insert(virtual_table.number, virtual_table.name.clone());
+            virtual_table_mapping.insert(
+                virtual_table.namespace,
+                virtual_table.number,
+                virtual_table.name.clone(),
+            );
         }
         virtual_table_mapping
     }

@@ -304,7 +304,12 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         let Some(table_number) = table_number else {
             return Ok(());
         };
-        if self.tx.virtual_table_mapping().table_number_exists()(table_number) {
+        if self
+            .tx
+            .virtual_table_mapping()
+            .namespace(namespace)
+            .table_number_exists()(table_number)
+        {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "TableConflict",
                 format!("New table {table} has IDs that conflict with existing system table")

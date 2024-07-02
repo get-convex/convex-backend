@@ -1,10 +1,16 @@
-use std::collections::BTreeMap;
-
+use common::bootstrap_model::tables::{
+    table_namespace_from_serialized,
+    table_namespace_to_serialized,
+    SerializedTableNamespace,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use value::{
-    obj,
-    ConvexObject,
-    ConvexValue,
+    codegen_convex_serialization,
     TableName,
+    TableNamespace,
     TableNumber,
 };
 
@@ -13,67 +19,54 @@ use value::{
 pub struct VirtualTableMetadata {
     pub name: TableName,
     pub number: TableNumber,
+    // TODO(lee) allow any TableNamespace once they are supported in tests.
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(value = "TableNamespace::Global")
+    )]
+    pub namespace: TableNamespace,
 }
 
 impl VirtualTableMetadata {
-    pub fn new(name: TableName, number: TableNumber) -> Self {
-        Self { name, number }
+    pub fn new(namespace: TableNamespace, name: TableName, number: TableNumber) -> Self {
+        Self {
+            name,
+            number,
+            namespace,
+        }
     }
 }
 
-impl TryFrom<VirtualTableMetadata> for ConvexObject {
+#[derive(Debug, Serialize, Deserialize)]
+struct SerializedVirtualTableMetadata {
+    name: String,
+    number: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    namespace: Option<SerializedTableNamespace>,
+}
+
+impl TryFrom<VirtualTableMetadata> for SerializedVirtualTableMetadata {
     type Error = anyhow::Error;
 
     fn try_from(value: VirtualTableMetadata) -> Result<Self, Self::Error> {
-        obj!("name" => String::from(value.name), "number" => (u32::from(value.number) as i64))
+        Ok(Self {
+            name: value.name.to_string(),
+            number: u32::from(value.number) as i64,
+            namespace: table_namespace_to_serialized(value.namespace)?,
+        })
     }
 }
 
-impl TryFrom<ConvexObject> for VirtualTableMetadata {
+impl TryFrom<SerializedVirtualTableMetadata> for VirtualTableMetadata {
     type Error = anyhow::Error;
 
-    fn try_from(object: ConvexObject) -> Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = object.into();
-        let name = match fields.remove("name") {
-            Some(ConvexValue::String(s)) => s.parse()?,
-            v => anyhow::bail!("Invalid name field for VirtualTableMetadata: {:?}", v),
-        };
-
-        let number = match fields.remove("number") {
-            Some(ConvexValue::Int64(v)) => u32::try_from(v)?.try_into()?,
-            v => anyhow::bail!("Invalid number field for VirtualTableMetadata: {:?}", v),
-        };
-
-        Ok(Self { name, number })
+    fn try_from(value: SerializedVirtualTableMetadata) -> Result<Self, Self::Error> {
+        Ok(Self {
+            name: value.name.parse()?,
+            number: u32::try_from(value.number)?.try_into()?,
+            namespace: table_namespace_from_serialized(value.namespace)?,
+        })
     }
 }
 
-impl TryFrom<ConvexValue> for VirtualTableMetadata {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        match value {
-            ConvexValue::Object(o) => o.try_into(),
-            _ => anyhow::bail!("Invalid table metadata value"),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use common::testing::assert_roundtrips;
-    use proptest::prelude::*;
-    use value::ConvexObject;
-
-    use super::VirtualTableMetadata;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_table_roundtrips(v in any::<VirtualTableMetadata>()) {
-            assert_roundtrips::<VirtualTableMetadata, ConvexObject>(v);
-        }
-    }
-}
+codegen_convex_serialization!(VirtualTableMetadata, SerializedVirtualTableMetadata);

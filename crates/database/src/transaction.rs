@@ -242,13 +242,13 @@ impl<RT: Runtime> Transaction<RT> {
         namespace: TableNamespace,
         table_filter: TableFilter,
     ) -> impl Fn(TableNumber) -> anyhow::Result<TableName> + '_ {
-        let table_mapping = self.table_mapping().clone();
-        let virtual_table_mapping = self.virtual_table_mapping().clone();
+        let table_mapping = self.table_mapping().namespace(namespace);
+        let virtual_table_mapping = self.virtual_table_mapping().namespace(namespace);
         move |number| {
             if let Some(name) = virtual_table_mapping.name_if_exists(number) {
                 Ok(name)
             } else {
-                let name = table_mapping.namespace(namespace).number_to_name()(number)?;
+                let name = table_mapping.number_to_name()(number)?;
                 match table_filter {
                     TableFilter::IncludePrivateSystemTables => {},
                     TableFilter::ExcludePrivateSystemTables => {
@@ -509,17 +509,17 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(new_document)
     }
 
-    pub fn is_system(&mut self, table_number: TableNumber) -> bool {
-        let tablet_id = match self
-            .table_mapping()
-            .namespace(TableNamespace::TODO())
-            .number_to_tablet()(table_number)
-        {
-            Err(_) => None,
-            Ok(id) => Some(id),
-        };
+    pub fn is_system(&mut self, namespace: TableNamespace, table_number: TableNumber) -> bool {
+        let tablet_id =
+            match self.table_mapping().namespace(namespace).number_to_tablet()(table_number) {
+                Err(_) => None,
+                Ok(id) => Some(id),
+            };
         tablet_id.is_some_and(|id| self.table_mapping().is_system_tablet(id))
-            || self.virtual_table_mapping().number_exists(table_number)
+            || self
+                .virtual_table_mapping()
+                .namespace(namespace)
+                .number_exists(table_number)
     }
 
     #[convex_macro::instrument_future]
@@ -733,6 +733,7 @@ impl<RT: Runtime> Transaction<RT> {
     /// Creates a new virtual table, returns false if table already existed
     pub async fn create_virtual_table(
         &mut self,
+        namespace: TableNamespace,
         table_name: &TableName,
         default_table_number: Option<TableNumber>,
     ) -> anyhow::Result<bool> {
@@ -743,12 +744,15 @@ impl<RT: Runtime> Transaction<RT> {
             "{table_name:?} is not a valid virtual table name!"
         );
 
-        let is_new = !self.virtual_table_mapping().name_exists(table_name);
+        let is_new = !self
+            .virtual_table_mapping()
+            .namespace(namespace)
+            .name_exists(table_name);
         if is_new {
             let table_number = self
                 .table_number_for_system_table(table_name, default_table_number)
                 .await?;
-            let metadata = VirtualTableMetadata::new(table_name.clone(), table_number);
+            let metadata = VirtualTableMetadata::new(namespace, table_name.clone(), table_number);
             let table_doc_id = SystemMetadataModel::new_global(self)
                 .insert(&VIRTUAL_TABLES_TABLE, metadata.try_into()?)
                 .await?;
@@ -801,7 +805,11 @@ impl<RT: Runtime> Transaction<RT> {
         }
         let result = match range_results.into_iter().next() {
             Some((_, doc, timestamp)) => {
-                let is_virtual_table = self.virtual_table_mapping().name_exists(&table_name);
+                let namespace = self.table_mapping().tablet_namespace(id.tablet_id)?;
+                let is_virtual_table = self
+                    .virtual_table_mapping()
+                    .namespace(namespace)
+                    .name_exists(&table_name);
                 self.reads.record_read_document(
                     table_name,
                     doc.size(),

@@ -1986,13 +1986,21 @@ async fn test_virtual_table_transaction(rt: TestRuntime) -> anyhow::Result<()> {
     let db = new_test_database(rt).await;
     let mut tx = db.begin_system().await?;
     let table_name: TableName = "_test_virtual_table".parse()?;
-    tx.create_virtual_table(&table_name, None).await?;
+    let namespace = TableNamespace::test_user();
+    tx.create_virtual_table(namespace, &table_name, None)
+        .await?;
     // Check that virtual table is available in the transaction before commit
-    assert!(tx.virtual_table_mapping().name_exists(&table_name));
+    assert!(tx
+        .virtual_table_mapping()
+        .namespace(namespace)
+        .name_exists(&table_name));
     db.commit(tx).await?;
     // Check that virtual table is available in a new transaction after commit
     let tx2 = db.begin_system().await?;
-    assert!(tx2.virtual_table_mapping().name_exists(&table_name));
+    assert!(tx2
+        .virtual_table_mapping()
+        .namespace(namespace)
+        .name_exists(&table_name));
     Ok(())
 }
 

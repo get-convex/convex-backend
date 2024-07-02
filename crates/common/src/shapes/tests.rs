@@ -105,6 +105,9 @@ fn test_id_strings() -> anyhow::Result<()> {
     let deleted2_table_id = table_mapping.id(&deleted2_table)?;
     id_generator.remove(deleted2_table_id.tablet_id);
     let table_mapping = id_generator.namespace(TableNamespace::test_user());
+    let virtual_table_mapping = id_generator
+        .virtual_table_mapping
+        .namespace(TableNamespace::test_user());
 
     // Insert all of these into a type
     let inferred_type = CountedShape::<TestConfig>::empty()
@@ -115,12 +118,12 @@ fn test_id_strings() -> anyhow::Result<()> {
     let reduced_shape = ReducedShape::from_type(
         &inferred_type,
         &table_mapping.table_number_exists(),
-        &id_generator.virtual_table_mapping.table_number_exists(),
+        &virtual_table_mapping.table_number_exists(),
     );
     let shape_json = dashboard_shape_json(
         &reduced_shape,
         &id_generator.namespace(TableNamespace::test_user()),
-        &id_generator.virtual_table_mapping,
+        &virtual_table_mapping,
     )?;
     assert_eq!(
         shape_json,
@@ -145,12 +148,14 @@ fn test_float_merge_shape_inference() -> anyhow::Result<()> {
     let reduced_shape = ReducedShape::from_type(
         &inferred_type,
         &table_mapping.table_number_exists(),
-        &&VirtualTableMapping::new().table_number_exists(),
+        &&VirtualTableMapping::new()
+            .namespace(TableNamespace::test_user())
+            .table_number_exists(),
     );
     let shape_json = dashboard_shape_json(
         &reduced_shape,
         &id_generator.namespace(TableNamespace::test_user()),
-        &VirtualTableMapping::new(),
+        &VirtualTableMapping::new().namespace(TableNamespace::test_user()),
     )?;
     assert_eq!(
         shape_json,

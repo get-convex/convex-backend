@@ -5,6 +5,7 @@ use std::{
 
 use crate::{
     table_mapping::TableNamespace,
+    virtual_table_mapping::NamespacedVirtualTableMapping,
     NamespacedTableMapping,
     TableMapping,
     TableName,
@@ -57,7 +58,7 @@ pub fn display_map<K: Display, V: Display>(
 // Checks both virtual tables and tables to get the table number to name mapping
 pub fn all_tables_number_to_name(
     table_mapping: &NamespacedTableMapping,
-    virtual_table_mapping: &VirtualTableMapping,
+    virtual_table_mapping: &NamespacedVirtualTableMapping,
 ) -> impl Fn(TableNumber) -> anyhow::Result<TableName> {
     let table_mapping = table_mapping.clone();
     let virtual_table_mapping = virtual_table_mapping.clone();
@@ -78,7 +79,10 @@ pub fn all_tables_name_to_number(
     let table_mapping = table_mapping.clone();
     let virtual_table_mapping = virtual_table_mapping.clone();
     move |name| {
-        if let Ok(number) = virtual_table_mapping.name_to_number_user_input()(name.clone()) {
+        if let Ok(number) = virtual_table_mapping
+            .namespace(namespace)
+            .name_to_number_user_input()(name.clone())
+        {
             return Ok(number);
         }
         table_mapping

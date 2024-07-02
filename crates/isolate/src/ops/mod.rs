@@ -46,8 +46,8 @@ use uuid::Uuid;
 use value::{
     heap_size::WithHeapSize,
     NamespacedTableMapping,
+    NamespacedVirtualTableMapping,
     TableMappingValue,
-    VirtualTableMapping,
 };
 
 use self::{
@@ -192,7 +192,7 @@ pub trait OpProvider<'b> {
 
     fn get_all_table_mappings(
         &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)>;
+    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)>;
     fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
 }
 
@@ -329,7 +329,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
 
     fn get_all_table_mappings(
         &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
+    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
         let state = self.state_mut()?;
         state.environment.get_all_table_mappings()
     }

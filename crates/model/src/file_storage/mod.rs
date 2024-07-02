@@ -298,6 +298,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
                     .tx
                     .virtual_system_mapping()
                     .virtual_id_v6_to_system_resolved_doc_id(
+                        TableNamespace::by_component_TODO(),
                         &document_id,
                         &table_mapping,
                         &self.tx.virtual_table_mapping().clone(),

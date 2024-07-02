@@ -162,7 +162,8 @@ impl<'a> CheckedComponentBuilder<'a> {
                             // TODO(CX-6540): Remove hack where we pass in empty mappings.
                             let table_mapping =
                                 TableMapping::new().namespace(TableNamespace::by_component_TODO());
-                            let virtual_table_mapping = VirtualTableMapping::new();
+                            let virtual_table_mapping = VirtualTableMapping::new()
+                                .namespace(TableNamespace::by_component_TODO());
                             validator
                                 .check_value(value, &table_mapping, &virtual_table_mapping)
                                 .map_err(|validator_error| {

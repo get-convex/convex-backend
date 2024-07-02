@@ -467,6 +467,7 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
             .tx
             .virtual_system_mapping()
             .virtual_id_v6_to_system_resolved_doc_id(
+                self.namespace,
                 &virtual_id,
                 &table_mapping,
                 &self.tx.virtual_table_mapping().clone(),

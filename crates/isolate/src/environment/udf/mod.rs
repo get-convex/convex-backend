@@ -92,10 +92,9 @@ use value::{
         WithHeapSize,
     },
     NamespacedTableMapping,
+    NamespacedVirtualTableMapping,
     Size,
     TableMappingValue,
-    TableNamespace,
-    VirtualTableMapping,
     MAX_DOCUMENT_NESTING,
     MAX_USER_SIZE,
     VALUE_TOO_LARGE_SHORT_MSG,
@@ -243,12 +242,12 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
 
     fn get_all_table_mappings(
         &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)> {
+    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
+        let namespace = self.phase.component()?.into();
         let tx = self.phase.tx()?;
         Ok((
-            tx.table_mapping()
-                .namespace(TableNamespace::by_component_TODO()),
-            tx.virtual_table_mapping().clone(),
+            tx.table_mapping().namespace(namespace),
+            tx.virtual_table_mapping().namespace(namespace),
         ))
     }
 

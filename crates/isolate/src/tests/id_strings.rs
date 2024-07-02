@@ -71,7 +71,7 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
             .namespace(TableNamespace::test_user())
             .id(&user_table_name)?.table_number;
 
-        let storage_virtual_table_number = tx.virtual_table_mapping().number(&"_storage".parse()?)?;
+        let storage_virtual_table_number = tx.virtual_table_mapping().namespace(TableNamespace::test_user()).number(&"_storage".parse()?)?;
         let storage_table_number = tx
             .table_mapping()
             .namespace(TableNamespace::test_user())

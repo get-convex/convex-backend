@@ -657,6 +657,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         if self
             .tx
             .virtual_table_mapping()
+            .namespace(namespace)
             .name_exists(index_name.table())
         {
             let physical_index_name = self

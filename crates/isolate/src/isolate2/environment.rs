@@ -13,8 +13,8 @@ use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use value::{
     NamespacedTableMapping,
+    NamespacedVirtualTableMapping,
     TableMappingValue,
-    VirtualTableMapping,
 };
 
 #[derive(Debug)]
@@ -49,6 +49,6 @@ pub trait Environment {
 
     fn get_all_table_mappings(
         &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, VirtualTableMapping)>;
+    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)>;
     fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
 }

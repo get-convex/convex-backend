@@ -100,13 +100,21 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         id: DeveloperDocumentId,
         version: Option<Version>,
     ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
-        if self.tx.virtual_table_mapping().number_exists(id.table()) {
+        if self
+            .tx
+            .virtual_table_mapping()
+            .namespace(self.namespace)
+            .number_exists(id.table())
+        {
             log_virtual_table_get();
-            let result = VirtualTable::new(self.tx).get(id, version).await;
+            let result = VirtualTable::new(self.tx)
+                .get(self.namespace, id, version)
+                .await;
             if let Ok(Some((document, _))) = &result {
                 let table_name = self
                     .tx
                     .virtual_table_mapping()
+                    .namespace(self.namespace)
                     .name(document.id().table())?;
                 self.tx.reads.record_read_document(
                     table_name,
@@ -207,7 +215,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         id: DeveloperDocumentId,
         value: PatchValue,
     ) -> anyhow::Result<DeveloperDocument> {
-        if self.tx.is_system(id.table())
+        if self.tx.is_system(self.namespace, id.table())
             && !(self.tx.identity.is_admin() || self.tx.identity.is_system())
         {
             anyhow::bail!(unauthorized_error("patch"))
@@ -225,7 +233,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         let new_document = self.tx.patch_inner(id_, value).await?;
 
         // Check the size of the patched document.
-        if !self.tx.is_system(id.table()) {
+        if !self.tx.is_system(self.namespace, id.table()) {
             check_user_size(new_document.size())?;
         }
 
@@ -241,12 +249,12 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         id: DeveloperDocumentId,
         value: ConvexObject,
     ) -> anyhow::Result<DeveloperDocument> {
-        if self.tx.is_system(id.table())
+        if self.tx.is_system(self.namespace, id.table())
             && !(self.tx.identity.is_admin() || self.tx.identity.is_system())
         {
             anyhow::bail!(unauthorized_error("replace"))
         }
-        if !self.tx.is_system(id.table()) {
+        if !self.tx.is_system(self.namespace, id.table()) {
             check_user_size(value.size())?;
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
@@ -268,7 +276,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn delete(&mut self, id: DeveloperDocumentId) -> anyhow::Result<DeveloperDocument> {
-        if self.tx.is_system(id.table())
+        if self.tx.is_system(self.namespace, id.table())
             && !(self.tx.identity.is_admin() || self.tx.identity.is_system())
         {
             anyhow::bail!(unauthorized_error("delete"))

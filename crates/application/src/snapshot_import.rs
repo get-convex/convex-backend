@@ -1768,10 +1768,14 @@ async fn import_storage_table<RT: Runtime>(
     import_id: Option<ResolvedDocumentId>,
     num_to_skip: u64,
 ) -> anyhow::Result<()> {
-    let virtual_table_number = database
-        .latest_snapshot()?
+    let snapshot = database.latest_snapshot()?;
+    let namespace = snapshot
+        .table_mapping()
+        .tablet_namespace(table_id.tablet_id)?;
+    let virtual_table_number = snapshot
         .table_registry
         .virtual_table_mapping()
+        .namespace(namespace)
         .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
     let mut lineno = 0;
     let mut storage_metadata = BTreeMap::new();
@@ -1877,6 +1881,7 @@ async fn import_storage_table<RT: Runtime>(
                         let physical_id = tx
                             .virtual_system_mapping()
                             .virtual_id_v6_to_system_resolved_doc_id(
+                                namespace,
                                 &id,
                                 &table_mapping,
                                 tx.virtual_table_mapping(),

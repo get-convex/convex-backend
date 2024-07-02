@@ -13,7 +13,7 @@ use value::{
     ConvexArray,
     ConvexValue,
     NamespacedTableMapping,
-    VirtualTableMapping,
+    NamespacedVirtualTableMapping,
 };
 
 /**
@@ -37,7 +37,7 @@ impl ArgsValidator {
         &self,
         args: &ConvexArray,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> anyhow::Result<Option<JsError>> {
         let result = match self {
             ArgsValidator::Unvalidated => None,
@@ -133,7 +133,7 @@ impl ReturnsValidator {
         &self,
         output: &ConvexValue,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Option<JsError> {
         match self {
             ReturnsValidator::Unvalidated => None,

@@ -40,10 +40,15 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
     #[minitrace::trace]
     pub async fn get(
         &mut self,
+        namespace: TableNamespace,
         id: DeveloperDocumentId,
         version: Option<Version>,
     ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
-        let virtual_table_name = self.tx.virtual_table_mapping().name(id.table())?;
+        let virtual_table_name = self
+            .tx
+            .virtual_table_mapping()
+            .namespace(namespace)
+            .name(id.table())?;
         let system_table_name = self
             .tx
             .virtual_system_mapping()
@@ -52,7 +57,7 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         let table_id = self
             .tx
             .table_mapping()
-            .namespace(TableNamespace::by_component_TODO())
+            .namespace(namespace)
             .id(&system_table_name)?;
         let id_ = ResolvedDocumentId::new(
             table_id.tablet_id,
@@ -165,15 +170,15 @@ impl VirtualSystemMapping {
     // Converts a virtual table DeveloperDocumentId to the system table ResolvedId.
     pub fn virtual_id_v6_to_system_resolved_doc_id(
         &self,
+        namespace: TableNamespace,
         virtual_id_v6: &DeveloperDocumentId,
         table_mapping: &TableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        let virtual_table_name = virtual_table_mapping.number_to_name()(virtual_id_v6.table())?;
+        let virtual_table_name =
+            virtual_table_mapping.namespace(namespace).number_to_name()(virtual_id_v6.table())?;
         let system_table_name = self.virtual_to_system_table(&virtual_table_name)?;
-        let system_table_id = table_mapping
-            .namespace(TableNamespace::by_component_TODO())
-            .id(system_table_name)?;
+        let system_table_id = table_mapping.namespace(namespace).id(system_table_name)?;
         Ok(ResolvedDocumentId::new(
             system_table_id.tablet_id,
             DeveloperDocumentId::new(system_table_id.table_number, virtual_id_v6.internal_id()),
@@ -188,6 +193,7 @@ impl VirtualSystemMapping {
         table_mapping: &TableMapping,
         virtual_table_mapping: &VirtualTableMapping,
     ) -> anyhow::Result<DeveloperDocumentId> {
+        let namespace = table_mapping.tablet_namespace(system_doc_id.tablet_id)?;
         let system_table_name = table_mapping.tablet_name(system_doc_id.tablet_id)?;
         let virtual_table_name = match self.system_to_virtual.get(&system_table_name) {
             Some(virtual_table) => virtual_table.clone(),
@@ -196,8 +202,9 @@ impl VirtualSystemMapping {
             },
         };
         let internal_id = system_doc_id.internal_id();
-        let virtual_table_number =
-            virtual_table_mapping.name_to_number_user_input()(virtual_table_name)?;
+        let virtual_table_number = virtual_table_mapping
+            .namespace(namespace)
+            .name_to_number_user_input()(virtual_table_name)?;
         Ok(DeveloperDocumentId::new(virtual_table_number, internal_id))
     }
 

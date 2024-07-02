@@ -475,7 +475,8 @@ impl<RT: Runtime> CacheManager<RT> {
                                 .component_path_to_ids(path.component.clone())
                                 .await?;
                             let table_mapping = tx.table_mapping().namespace(component.into());
-                            let virtual_table_mapping = tx.virtual_table_mapping().clone();
+                            let virtual_table_mapping =
+                                tx.virtual_table_mapping().namespace(component.into());
                             let returns_validation_error = returns_validator.check_output(
                                 &output,
                                 &table_mapping,

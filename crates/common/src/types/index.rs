@@ -162,8 +162,11 @@ impl StableIndexName {
                 }))
             },
             StableIndexName::Virtual(index_name, tablet_index_name) => {
+                let namespace = table_mapping.tablet_namespace(*tablet_index_name.table())?;
                 Ok(Some(VirtualTableNumberMap {
-                    virtual_table_number: virtual_table_mapping.number(index_name.table())?,
+                    virtual_table_number: virtual_table_mapping
+                        .namespace(namespace)
+                        .number(index_name.table())?,
                     physical_table_number: table_mapping
                         .tablet_number(*tablet_index_name.table())?,
                 }))

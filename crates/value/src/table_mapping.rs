@@ -263,6 +263,10 @@ impl TableMapping {
 }
 
 impl NamespacedTableMapping {
+    pub fn namespace(&self) -> TableNamespace {
+        self.namespace
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (TabletId, TableNumber, &TableName)> {
         self.tablet_to_table
             .iter()

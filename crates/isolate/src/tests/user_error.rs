@@ -189,6 +189,7 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
 
         let virtual_table_number = tx
             .virtual_table_mapping()
+            .namespace(TableNamespace::test_user())
             .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
         let nonexistent_virtual_table_id = DeveloperDocumentId::new(
             virtual_table_number, InternalId::MIN);

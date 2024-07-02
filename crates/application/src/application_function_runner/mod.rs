@@ -1024,7 +1024,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .await?;
 
         let table_mapping = tx.table_mapping().namespace(component.into());
-        let virtual_table_mapping = tx.virtual_table_mapping().clone();
+        let virtual_table_mapping = tx.virtual_table_mapping().namespace(component.into());
 
         let outcome = ValidatedUdfOutcome::new(
             mutation_outcome,
@@ -1194,7 +1194,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // We should use table mappings from the same transaction as the output
         // validator was retrieved.
         let table_mapping = tx.table_mapping().namespace(component.into());
-        let virtual_table_mapping = tx.virtual_table_mapping().clone();
+        let virtual_table_mapping = tx.virtual_table_mapping().namespace(component.into());
         let udf_server_version = path_and_args.npm_version().clone();
         // We should not be missing the module given we validated the path above
         // which requires the module to exist.

@@ -30,7 +30,7 @@ use value::{
     IdentifierFieldName,
     Namespace,
     NamespacedTableMapping,
-    VirtualTableMapping,
+    NamespacedVirtualTableMapping,
 };
 
 use self::validator::{
@@ -274,7 +274,7 @@ impl DatabaseSchema {
         new_schema: &'a DatabaseSchema,
         active_schema: Option<DatabaseSchema>,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
         shape_provider: &F,
     ) -> anyhow::Result<BTreeSet<&'a TableName>>
     where
@@ -307,7 +307,7 @@ impl DatabaseSchema {
         table_definition: &TableDefinition,
         active_schema: &Option<DatabaseSchema>,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
         table_shape: &Shape<C, S>,
     ) -> anyhow::Result<bool> {
         let next_schema = table_definition.document_type.clone();
@@ -348,7 +348,7 @@ impl DatabaseSchema {
         &self,
         doc: &ResolvedDocument,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Result<(), ValidationError> {
         if self.schema_validation
             && let Ok(table_name) = table_mapping.tablet_name(doc.id().tablet_id)
@@ -368,7 +368,7 @@ impl DatabaseSchema {
         doc: &ResolvedDocument,
         table_name: TableName,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Result<(), SchemaValidationError> {
         self.check_value(doc, table_mapping, virtual_table_mapping)
             .map_err(|validation_error| SchemaValidationError::ExistingDocument {
@@ -383,7 +383,7 @@ impl DatabaseSchema {
         doc: &ResolvedDocument,
         table_name: TableName,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Result<(), SchemaEnforcementError> {
         self.check_value(doc, table_mapping, virtual_table_mapping)
             .map_err(|validation_error| SchemaEnforcementError::Document {
@@ -750,7 +750,7 @@ impl DocumentSchema {
         &self,
         value: &ConvexObject,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Result<(), ValidationError> {
         match self {
             DocumentSchema::Any => {},

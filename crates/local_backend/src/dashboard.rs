@@ -56,7 +56,10 @@ pub async fn shapes2(
     let mapping = snapshot
         .table_mapping()
         .namespace(TableNamespace::by_component_TODO());
-    let virtual_mapping = snapshot.table_registry.virtual_table_mapping();
+    let virtual_mapping = snapshot
+        .table_registry
+        .virtual_table_mapping()
+        .namespace(TableNamespace::by_component_TODO());
 
     for table_name in snapshot.table_registry.user_table_names() {
         let table_summary = snapshot.table_summary(table_name);
@@ -65,7 +68,7 @@ pub async fn shapes2(
             &mapping.table_number_exists(),
             &virtual_mapping.table_number_exists(),
         );
-        let json = dashboard_shape_json(&shape, &mapping, virtual_mapping)?;
+        let json = dashboard_shape_json(&shape, &mapping, &virtual_mapping)?;
         out.insert(String::from(table_name.clone()), json);
     }
     Ok(Json(out))

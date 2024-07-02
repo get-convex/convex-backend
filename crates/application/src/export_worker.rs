@@ -500,7 +500,9 @@ impl<RT: Runtime> ExportWorker<RT> {
             let by_id = by_id_indexes
                 .get(tablet_id)
                 .context("_file_storage.by_id does not exist")?;
-            let virtual_table_number = virtual_tables.number(&FILE_STORAGE_VIRTUAL_TABLE)?;
+            let virtual_table_number = virtual_tables
+                .namespace(TableNamespace::by_component_TODO())
+                .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
 
             // First write metadata to _storage/documents.jsonl
             let mut table_upload = zip_snapshot_upload

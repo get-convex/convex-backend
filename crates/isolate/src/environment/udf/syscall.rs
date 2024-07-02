@@ -24,7 +24,6 @@ use value::{
     id_v6::DeveloperDocumentId,
     InternalId,
     TableName,
-    TableNamespace,
     TableNumber,
     TabletIdAndTableNumber,
 };
@@ -59,17 +58,17 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>> {
-        let table_mapping = self
-            .phase
-            .tx()?
-            .table_mapping()
-            .namespace(TableNamespace::by_component_TODO());
+        let namespace = self.phase.component()?.into();
+        let table_mapping = self.phase.tx()?.table_mapping().namespace(namespace);
         Ok(table_mapping.id_and_number_if_exists(name))
     }
 
     fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
+        let namespace = self.phase.component()?.into();
         let virtual_table_mapping = self.phase.tx()?.virtual_table_mapping();
-        Ok(virtual_table_mapping.number_if_exists(name))
+        Ok(virtual_table_mapping
+            .namespace(namespace)
+            .number_if_exists(name))
     }
 
     fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<u32> {

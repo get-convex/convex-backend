@@ -88,7 +88,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 tracing::debug!("SchemaWorker found a pending schema and is validating it...");
                 let timer = schema_validation_timer();
                 let table_mapping = tx.table_mapping().namespace(namespace);
-                let virtual_table_mapping = tx.virtual_table_mapping().clone();
+                let virtual_table_mapping = tx.virtual_table_mapping().namespace(namespace);
 
                 let active_schema = SchemaModel::new(&mut tx, namespace)
                     .get_by_state(SchemaState::Active)

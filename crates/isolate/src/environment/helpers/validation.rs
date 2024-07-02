@@ -58,7 +58,7 @@ use value::{
     ConvexArray,
     ConvexValue,
     NamespacedTableMapping,
-    VirtualTableMapping,
+    NamespacedVirtualTableMapping,
 };
 
 use crate::{
@@ -437,7 +437,7 @@ impl ValidatedPathAndArgs {
         }
 
         let table_mapping = &tx.table_mapping().namespace(component.into());
-        let virtual_table_mapping = &tx.virtual_table_mapping().clone();
+        let virtual_table_mapping = &tx.virtual_table_mapping().namespace(component.into());
 
         // If the UDF has an args validator, check that these args match.
         let args_validation_error =
@@ -689,7 +689,7 @@ impl ValidatedUdfOutcome {
         outcome: UdfOutcome,
         returns_validator: ReturnsValidator,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Self {
         let mut validated = ValidatedUdfOutcome {
             path: outcome.path,
@@ -741,7 +741,7 @@ impl ValidatedActionOutcome {
         outcome: ActionOutcome,
         returns_validator: ReturnsValidator,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
+        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Self {
         let mut validated = ValidatedActionOutcome {
             path: outcome.path,

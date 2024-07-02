@@ -5,7 +5,7 @@ use serde_json::{
 use value::{
     utils::all_tables_number_to_name,
     NamespacedTableMapping,
-    VirtualTableMapping,
+    NamespacedVirtualTableMapping,
 };
 
 use super::reduced::ReducedShape;
@@ -13,7 +13,7 @@ use super::reduced::ReducedShape;
 pub fn dashboard_shape_json(
     shape: &ReducedShape,
     mapping: &NamespacedTableMapping,
-    virtual_mapping: &VirtualTableMapping,
+    virtual_mapping: &NamespacedVirtualTableMapping,
 ) -> anyhow::Result<JsonValue> {
     let result = match shape {
         ReducedShape::Unknown => json!({"type": "Unknown"}),
@@ -261,7 +261,9 @@ mod tests {
             let json_value = dashboard_shape_json(
                 &shape,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping,
+                &id_generator
+                    .virtual_table_mapping
+                    .namespace(TableNamespace::test_user()),
             )?;
             assert_eq!(
                 parse_json(
@@ -305,7 +307,9 @@ mod tests {
             let json_value = dashboard_shape_json(
                 &shape,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping,
+                &id_generator
+                    .virtual_table_mapping
+                    .namespace(TableNamespace::test_user()),
             )?;
             assert_eq!(
                 parse_json(
