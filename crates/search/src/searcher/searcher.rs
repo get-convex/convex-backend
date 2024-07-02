@@ -958,22 +958,14 @@ impl<RT: Runtime> SearcherImpl<RT> {
                         .collect(),
                 };
 
-                let (alive_documents, num_tantivy_results) = match id_tracker {
-                    Some(id_tracker) => {
-                        let memory_deleted = query
-                            .deleted_internal_ids
-                            .iter()
-                            .filter_map(|internal_id| id_tracker.lookup(internal_id.0))
-                            .collect();
-                        let alive_documents = AliveDocuments {
-                            memory_deleted,
-                            segment_alive_bitset: deletion_tracker.alive_bitset().clone(),
-                        };
-                        (Some(alive_documents), query.max_results)
-                    },
-                    // If we don't have an ID tracker, overfetch by the number of matching
-                    // tombstones and do post-filtering instead.
-                    None => (None, query.max_results + query.deleted_internal_ids.len()),
+                let memory_deleted = query
+                    .deleted_internal_ids
+                    .iter()
+                    .filter_map(|internal_id| id_tracker.lookup(internal_id.0))
+                    .collect();
+                let alive_documents = AliveDocuments {
+                    memory_deleted,
+                    segment_alive_bitset: deletion_tracker.alive_bitset().clone(),
                 };
 
                 let search_query =
@@ -982,7 +974,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                     EnableScoring::enabled_from_statistics_provider(&stats_provider, searcher);
                 let search_weight = search_query.weight(enable_scoring)?;
 
-                let collector = TopDocs::with_limit(num_tantivy_results);
+                let collector = TopDocs::with_limit(query.max_results);
                 let segment = searcher.segment_reader(*segment_ord);
                 let segment_results = collector.collect_segment(&*search_weight, 0, segment)?;
 
@@ -994,12 +986,6 @@ impl<RT: Runtime> SearcherImpl<RT> {
                 let mut results = Vec::with_capacity(segment_results.len());
                 for (bm25_score, doc_address) in segment_results {
                     let internal_id = internal_ids.get_bytes(doc_address.doc_id).try_into()?;
-
-                    // Skip deleted results if we didn't have an ID tracker to push the
-                    // memory deletions down into the Tantivy query.
-                    if id_tracker.is_none() && query.deleted_internal_ids.contains(&internal_id) {
-                        continue;
-                    }
 
                     let ts = Timestamp::try_from(timestamps.get_val(doc_address.doc_id))?;
                     let creation_time =
@@ -1013,11 +999,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
                     results.push(posting_list_match);
                 }
 
-                if id_tracker.is_none() {
-                    results.truncate(query.max_results);
-                } else {
-                    anyhow::ensure!(results.len() <= query.max_results);
-                }
+                anyhow::ensure!(results.len() <= query.max_results);
 
                 // TODO: The collector sorts only on score, unlike PostingListMatchAggregator,
                 // so we have to resort the results here, sweeping this nondeterminism
@@ -1687,7 +1669,7 @@ mod tests {
         let deleted_terms_path = test_dir.path().join(DELETED_TERMS_PATH);
         let deletion_tracker = StaticDeletionTracker::load(alive_bitset, &deleted_terms_path)?;
         let id_tracker_path = test_dir.path().join(ID_TRACKER_PATH);
-        let id_tracker = Some(StaticIdTracker::load_from_path(id_tracker_path)?);
+        let id_tracker = StaticIdTracker::load_from_path(id_tracker_path)?;
         let start = std::time::Instant::now();
         let text_segment = Arc::new(TextSegment::Segment {
             searcher: searcher.clone(),
@@ -1936,9 +1918,7 @@ mod tests {
         let alive_bitset = load_alive_bitset(&segment_paths.alive_bit_set_path)?;
         let deletion_tracker =
             StaticDeletionTracker::load(alive_bitset, &segment_paths.deleted_terms_path)?;
-        let id_tracker = Some(StaticIdTracker::load_from_path(
-            segment_paths.id_tracker_path,
-        )?);
+        let id_tracker = StaticIdTracker::load_from_path(segment_paths.id_tracker_path)?;
         let start = std::time::Instant::now();
         let text_segment = Arc::new(TextSegment::Segment {
             searcher: searcher.clone(),

@@ -105,9 +105,7 @@ pub enum TextSegment {
     Segment {
         searcher: Searcher,
         deletion_tracker: StaticDeletionTracker,
-        // TODO: Remove the `None` codepath once we've fully migrated to the new
-        // segment format with an ID tracker.
-        id_tracker: Option<StaticIdTracker>,
+        id_tracker: StaticIdTracker,
         segment_ord: u32,
     },
 }
@@ -143,7 +141,7 @@ impl<RT: Runtime> TextSegmentGenerator<RT> {
             let alive_bitset = load_alive_bitset(&alive_bitset_path)?;
             let deletion_tracker =
                 StaticDeletionTracker::load(alive_bitset, &deleted_terms_table_path)?;
-            let id_tracker = Some(StaticIdTracker::load_from_path(id_tracker_path)?);
+            let id_tracker = StaticIdTracker::load_from_path(id_tracker_path)?;
             let text_segment_reader = TextSegment::Segment {
                 searcher,
                 deletion_tracker,
