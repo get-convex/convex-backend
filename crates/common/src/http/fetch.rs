@@ -184,7 +184,6 @@ impl FetchClient for StaticFetchClient {
 }
 
 pub enum InternalFetchPurpose {
-    UsageTracking,
     AccessTokenAuth,
 }
 
