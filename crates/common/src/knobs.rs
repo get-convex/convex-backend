@@ -393,7 +393,7 @@ pub static RETENTION_DELETES_ENABLED: LazyLock<bool> =
 
 /// Whether retention document deletes are enabled.
 pub static RETENTION_DOCUMENT_DELETES_ENABLED: LazyLock<bool> =
-    LazyLock::new(|| env_config("RETENTION_DOCUMENT_DELETES_ENABLED", false));
+    LazyLock::new(|| env_config("RETENTION_DOCUMENT_DELETES_ENABLED", true));
 
 /// Enable or disable failing insert/update/deletes when retention is behind.
 pub static RETENTION_FAIL_ENABLED: LazyLock<bool> =
@@ -423,7 +423,7 @@ pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyL
 /// there are a bunch of writes at single timestamp. Then, we go until there are
 /// no more writes at that timestamp.
 pub static DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS: LazyLock<usize> =
-    LazyLock::new(|| env_config("DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS", 400));
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS", 600));
 
 /// Size at which a search index will be queued for snapshotting.
 pub static SEARCH_INDEX_SIZE_SOFT_LIMIT: LazyLock<usize> =
