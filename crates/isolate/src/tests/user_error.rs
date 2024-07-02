@@ -149,7 +149,9 @@ async fn test_nonexistent_table(rt: TestRuntime) -> anyhow::Result<()> {
         t.create_index("boatVotes.by_boat", "boat").await?;
         t.backfill_indexes().await?;
         let mut tx = t.database.begin(Identity::system()).await?;
-        let table_number = TableModel::new(&mut tx).next_user_table_number().await?;
+        let table_number = TableModel::new(&mut tx)
+            .next_user_table_number(TableNamespace::test_user())
+            .await?;
         let nonexistent_id = DeveloperDocumentId::new(table_number, InternalId::MIN);
         t.mutation(
             "userError:nonexistentTable",

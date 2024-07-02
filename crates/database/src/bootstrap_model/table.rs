@@ -247,15 +247,25 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
 
     // Checks both _tables and _virtual_tables to find a non-conflicting table
     // number
-    pub async fn next_user_table_number(&mut self) -> anyhow::Result<TableNumber> {
-        self.next_table_number(false).await
+    pub async fn next_user_table_number(
+        &mut self,
+        namespace: TableNamespace,
+    ) -> anyhow::Result<TableNumber> {
+        self.next_table_number(false, namespace).await
     }
 
-    pub async fn next_system_table_number(&mut self) -> anyhow::Result<TableNumber> {
-        self.next_table_number(true).await
+    pub async fn next_system_table_number(
+        &mut self,
+        namespace: TableNamespace,
+    ) -> anyhow::Result<TableNumber> {
+        self.next_table_number(true, namespace).await
     }
 
-    async fn next_table_number(&mut self, is_system: bool) -> anyhow::Result<TableNumber> {
+    async fn next_table_number(
+        &mut self,
+        is_system: bool,
+        namespace: TableNamespace,
+    ) -> anyhow::Result<TableNumber> {
         let occupied_table_numbers = {
             let mut occupied_table_numbers = BTreeSet::new();
             let tables_query = Query::full_table_scan(TABLES_TABLE.clone(), Order::Asc);
@@ -263,7 +273,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 ResolvedQuery::new(self.tx, TableNamespace::Global, tables_query)?;
             while let Some(table_metadata) = query_stream.next(self.tx, None).await? {
                 let parsed_metadata: ParsedDocument<TableMetadata> = table_metadata.try_into()?;
-                occupied_table_numbers.insert(parsed_metadata.number);
+                if parsed_metadata.namespace == namespace {
+                    occupied_table_numbers.insert(parsed_metadata.number);
+                }
             }
             let virtual_tables_query =
                 Query::full_table_scan(VIRTUAL_TABLES_TABLE.clone(), Order::Asc);
@@ -481,7 +493,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 );
                 table_number
             } else {
-                self.next_user_table_number().await?
+                self.next_user_table_number(namespace).await?
             };
             let table_metadata =
                 TableMetadata::new_with_state(namespace, table.clone(), table_number, state);
@@ -733,18 +745,17 @@ mod tests {
     async fn test_next_table_number(rt: TestRuntime) -> anyhow::Result<()> {
         let mut tx = new_tx(rt).await?;
         let mut model = TableModel::new(&mut tx);
+        let namespace = TableNamespace::test_user();
 
-        let next_table_number: u32 = model.next_user_table_number().await?.into();
+        let next_table_number: u32 = model.next_user_table_number(namespace).await?.into();
         assert_eq!(
             (NUM_RESERVED_SYSTEM_TABLE_NUMBERS + 1) as usize,
             next_table_number as usize
         );
 
         let table_name = TableName::from_str("my_table")?;
-        model
-            .insert_table_metadata(TableNamespace::test_user(), &table_name)
-            .await?;
-        let new_next_table_number: u32 = model.next_user_table_number().await?.into();
+        model.insert_table_metadata(namespace, &table_name).await?;
+        let new_next_table_number: u32 = model.next_user_table_number(namespace).await?.into();
         assert_eq!(next_table_number + 1, new_next_table_number);
         Ok(())
     }

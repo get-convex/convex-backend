@@ -24,7 +24,6 @@ use common::{
             TABLES_TABLE,
         },
     },
-    components::COMPONENTS_ENABLED,
     document::{
         CreationTime,
         DocumentUpdate,
@@ -642,21 +641,19 @@ impl<RT: Runtime> Transaction<RT> {
 
     async fn table_number_for_system_table(
         &mut self,
+        namespace: TableNamespace,
         table_name: &TableName,
         default_table_number: Option<TableNumber>,
     ) -> anyhow::Result<TableNumber> {
         Ok(if let Some(default_table_number) = default_table_number {
-            let existing_name = self
-                .table_mapping()
-                .iter()
-                .find(|(_, _, table_number, _)| *table_number == default_table_number);
-            let table_number = if let Some((_, _, _, existing_name)) = existing_name {
+            let existing_name =
+                self.table_mapping().namespace(namespace).number_to_name()(default_table_number)
+                    .ok();
+            let table_number = if let Some(existing_name) = existing_name {
                 // In tests, have a hard failure on conflicting default table numbers. In
                 // real system, have a looser fallback where we pick
                 // another table number.
-                // Also allow this when components are enabled, because system tables in
-                // different namespaces have different table numbers.
-                if !*COMPONENTS_ENABLED && cfg!(any(test, feature = "testing")) {
+                if cfg!(any(test, feature = "testing")) {
                     anyhow::bail!(
                         "{default_table_number} is used by both {table_name} and {existing_name}"
                     );
@@ -665,7 +662,9 @@ impl<RT: Runtime> Transaction<RT> {
                 // If the table_number requested is taken, just pick a higher table number.
                 // This might be true for older backends that have lower-numbered system
                 // tables.
-                TableModel::new(self).next_system_table_number().await?
+                TableModel::new(self)
+                    .next_system_table_number(namespace)
+                    .await?
             } else {
                 default_table_number
             };
@@ -680,7 +679,9 @@ impl<RT: Runtime> Transaction<RT> {
             );
             table_number
         } else {
-            TableModel::new(self).next_system_table_number().await?
+            TableModel::new(self)
+                .next_system_table_number(namespace)
+                .await?
         })
     }
 
@@ -701,7 +702,7 @@ impl<RT: Runtime> Transaction<RT> {
         let is_new = !TableModel::new(self).table_exists(namespace, table_name);
         if is_new {
             let table_number = self
-                .table_number_for_system_table(table_name, default_table_number)
+                .table_number_for_system_table(namespace, table_name, default_table_number)
                 .await?;
             let metadata = TableMetadata::new(namespace, table_name.clone(), table_number);
             let table_doc_id = SystemMetadataModel::new_global(self)
@@ -750,7 +751,7 @@ impl<RT: Runtime> Transaction<RT> {
             .name_exists(table_name);
         if is_new {
             let table_number = self
-                .table_number_for_system_table(table_name, default_table_number)
+                .table_number_for_system_table(namespace, table_name, default_table_number)
                 .await?;
             let metadata = VirtualTableMetadata::new(namespace, table_name.clone(), table_number);
             let table_doc_id = SystemMetadataModel::new_global(self)

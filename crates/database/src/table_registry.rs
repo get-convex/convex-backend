@@ -107,7 +107,7 @@ impl TableRegistry {
                         if self.table_exists(metadata.namespace, &metadata.name) {
                             anyhow::bail!("Tried to create duplicate table {new_value}");
                         }
-                        self.validate_table_number(metadata.number)?;
+                        self.validate_table_number(metadata.namespace, metadata.number)?;
                     }
                     Some(TableUpdate {
                         namespace: metadata.namespace,
@@ -195,7 +195,7 @@ impl TableRegistry {
                     {
                         anyhow::bail!("Tried to create duplicate virtual table {new_value}");
                     }
-                    self.validate_table_number(metadata.number)?;
+                    self.validate_table_number(metadata.namespace, metadata.number)?;
                     virtual_table_creation =
                         Some((metadata.namespace, metadata.number, metadata.name));
                 },
@@ -211,19 +211,23 @@ impl TableRegistry {
         Ok(update)
     }
 
-    fn validate_table_number(&self, table_number: TableNumber) -> anyhow::Result<()> {
+    fn validate_table_number(
+        &self,
+        namespace: TableNamespace,
+        table_number: TableNumber,
+    ) -> anyhow::Result<()> {
         anyhow::ensure!(
             !self
                 .table_mapping
-                .iter()
-                .any(|(_, _, number, _)| number == table_number),
+                .namespace(namespace)
+                .table_number_exists()(table_number),
             "Cannot add a table with table number {table_number} since it already exists in the \
              table mapping"
         );
         anyhow::ensure!(
             !self
                 .virtual_table_mapping
-                .namespace(TableNamespace::TODO())
+                .namespace(namespace)
                 .number_exists(table_number),
             "Cannot add a table with table number {table_number} since it already exists in the \
              virtual table mapping"
