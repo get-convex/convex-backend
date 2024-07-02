@@ -50,10 +50,7 @@ use crate::{
         CompiledQuery,
         RevisionWithKeys,
     },
-    searcher::{
-        FragmentedTextStorageKeys,
-        TextStorageKeys,
-    },
+    searcher::FragmentedTextStorageKeys,
     QueryResults,
     Searcher,
     TantivySearchIndexSchema,
@@ -288,9 +285,7 @@ impl<RT: Runtime> SearchIndexManager<RT> {
                     .0
                     .iter()
                     .cloned()
-                    .map(|segment| {
-                        TextStorageKeys::MultiSegment(FragmentedTextStorageKeys::from(segment))
-                    })
+                    .map(FragmentedTextStorageKeys::from)
                     .collect(),
                 *disk_index_ts,
                 searcher,

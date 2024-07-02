@@ -93,26 +93,11 @@ impl<RT: Runtime> VectorSegmentCache<RT> {
 }
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
-pub enum TextDiskSegmentPaths {
-    SingleSegment {
-        index_path: PathBuf,
-        segment_ord: u32,
-    },
-    MultiSegment {
-        index_path: PathBuf,
-        alive_bitset_path: PathBuf,
-        deleted_terms_table_path: PathBuf,
-        id_tracker_path: PathBuf,
-    },
-}
-
-impl TextDiskSegmentPaths {
-    pub fn index_path(&self) -> &PathBuf {
-        match self {
-            TextDiskSegmentPaths::SingleSegment { index_path, .. } => index_path,
-            TextDiskSegmentPaths::MultiSegment { index_path, .. } => index_path,
-        }
-    }
+pub struct TextDiskSegmentPaths {
+    pub index_path: PathBuf,
+    pub alive_bitset_path: PathBuf,
+    pub deleted_terms_table_path: PathBuf,
+    pub id_tracker_path: PathBuf,
 }
 
 pub enum TextSegment {
@@ -139,42 +124,31 @@ pub struct TextSegmentGenerator<RT: Runtime> {
 }
 
 impl<RT: Runtime> TextSegmentGenerator<RT> {
-    async fn generate_value(self, paths: TextDiskSegmentPaths) -> anyhow::Result<TextSegment> {
+    async fn generate_value(
+        self,
+        TextDiskSegmentPaths {
+            index_path,
+            alive_bitset_path,
+            deleted_terms_table_path,
+            id_tracker_path,
+        }: TextDiskSegmentPaths,
+    ) -> anyhow::Result<TextSegment> {
         let load_text_segment = move || -> anyhow::Result<TextSegment> {
-            let reader = index_reader_for_directory(paths.index_path())?;
+            let reader = index_reader_for_directory(index_path)?;
             let searcher = reader.searcher();
             if searcher.segment_readers().is_empty() {
                 return Ok(TextSegment::Empty);
             }
-            let text_segment_reader = match paths {
-                TextDiskSegmentPaths::SingleSegment { segment_ord, .. } => {
-                    let segment = searcher.segment_reader(segment_ord);
-                    let deletion_tracker = StaticDeletionTracker::empty(segment.num_docs());
-                    TextSegment::Segment {
-                        searcher,
-                        deletion_tracker,
-                        id_tracker: None,
-                        segment_ord,
-                    }
-                },
-                TextDiskSegmentPaths::MultiSegment {
-                    alive_bitset_path,
-                    deleted_terms_table_path,
-                    id_tracker_path,
-                    ..
-                } => {
-                    anyhow::ensure!(searcher.segment_readers().len() == 1);
-                    let alive_bitset = load_alive_bitset(&alive_bitset_path)?;
-                    let deletion_tracker =
-                        StaticDeletionTracker::load(alive_bitset, &deleted_terms_table_path)?;
-                    let id_tracker = Some(StaticIdTracker::load_from_path(id_tracker_path)?);
-                    TextSegment::Segment {
-                        searcher,
-                        deletion_tracker,
-                        id_tracker,
-                        segment_ord: 0,
-                    }
-                },
+            anyhow::ensure!(searcher.segment_readers().len() == 1);
+            let alive_bitset = load_alive_bitset(&alive_bitset_path)?;
+            let deletion_tracker =
+                StaticDeletionTracker::load(alive_bitset, &deleted_terms_table_path)?;
+            let id_tracker = Some(StaticIdTracker::load_from_path(id_tracker_path)?);
+            let text_segment_reader = TextSegment::Segment {
+                searcher,
+                deletion_tracker,
+                id_tracker,
+                segment_ord: 0,
             };
             Ok(text_segment_reader)
         };

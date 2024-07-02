@@ -300,14 +300,10 @@ message QueryTokensRequest {
 
 message FragmentedTextSegmentPaths {
   StorageKey segment = 1;
+  reserved 2;
   oneof segment_metadata {
-    SingleSegmentMetadata single_segment = 2;
     MultiSegmentMetadata multi_segment = 3;
   }
-}
-
-message SingleSegmentMetadata {
-   optional uint32 segment_ord = 1;
 }
 
 message MultiSegmentMetadata {

@@ -79,7 +79,6 @@ use search::{
         PostingListMatch,
         PostingListQuery,
         Term,
-        TextStorageKeys,
         TokenMatch,
         TokenQuery,
     },
@@ -1109,7 +1108,7 @@ impl Searcher for BrokenSearcher {
     async fn query_tokens(
         &self,
         _: Arc<dyn Storage>,
-        _: TextStorageKeys,
+        _: FragmentedTextStorageKeys,
         _: Vec<TokenQuery>,
         _: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
@@ -1119,7 +1118,7 @@ impl Searcher for BrokenSearcher {
     async fn query_bm25_stats(
         &self,
         _: Arc<dyn Storage>,
-        _: TextStorageKeys,
+        _: FragmentedTextStorageKeys,
         _: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
         anyhow::bail!("plein")
@@ -1128,7 +1127,7 @@ impl Searcher for BrokenSearcher {
     async fn query_posting_lists(
         &self,
         _: Arc<dyn Storage>,
-        _: TextStorageKeys,
+        _: FragmentedTextStorageKeys,
         _: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         anyhow::bail!("texte");

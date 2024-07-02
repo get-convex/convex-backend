@@ -58,7 +58,6 @@ use search::{
         PostingListQuery,
         Searcher,
         Term,
-        TextStorageKeys,
         TokenMatch,
         TokenQuery,
     },
@@ -587,7 +586,7 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: TextStorageKeys,
+        storage_keys: FragmentedTextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
@@ -599,7 +598,7 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
     async fn query_bm25_stats(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: TextStorageKeys,
+        storage_keys: FragmentedTextStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
         self.searcher
@@ -610,7 +609,7 @@ impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
     async fn query_posting_lists(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: TextStorageKeys,
+        storage_keys: FragmentedTextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         self.searcher

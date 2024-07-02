@@ -21,7 +21,6 @@ pub use searcher::{
     Term,
     TermDeletionsByField,
     TermValue,
-    TextStorageKeys,
     TokenMatch,
     TokenQuery,
 };

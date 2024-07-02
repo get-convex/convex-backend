@@ -86,7 +86,7 @@ use query::{
     RevisionWithKeys,
     TextQueryTerm,
 };
-use searcher::TextStorageKeys;
+use searcher::FragmentedTextStorageKeys;
 use storage::Storage;
 pub use tantivy::Document as TantivyDocument;
 use tantivy::{
@@ -438,7 +438,7 @@ impl TantivySearchIndexSchema {
         compiled_query: CompiledQuery,
         memory_index: &MemorySearchIndex,
         search_storage: Arc<dyn Storage>,
-        segments: Vec<TextStorageKeys>,
+        segments: Vec<FragmentedTextStorageKeys>,
         disk_index_ts: Timestamp,
         searcher: Arc<dyn Searcher>,
     ) -> anyhow::Result<RevisionWithKeys> {

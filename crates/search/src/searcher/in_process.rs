@@ -33,7 +33,6 @@ use super::{
         Bm25Stats,
         PostingListMatch,
         PostingListQuery,
-        TextStorageKeys,
         TokenMatch,
         TokenQuery,
     },
@@ -82,7 +81,7 @@ impl Searcher for SearcherStub {
     async fn query_tokens(
         &self,
         _search_storage: Arc<dyn Storage>,
-        _storage_keys: TextStorageKeys,
+        _storage_keys: FragmentedTextStorageKeys,
         _queries: Vec<TokenQuery>,
         _max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
@@ -92,7 +91,7 @@ impl Searcher for SearcherStub {
     async fn query_bm25_stats(
         &self,
         _search_storage: Arc<dyn Storage>,
-        _storage_keys: TextStorageKeys,
+        _storage_keys: FragmentedTextStorageKeys,
         _terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
         Ok(Bm25Stats::empty())
@@ -101,7 +100,7 @@ impl Searcher for SearcherStub {
     async fn query_posting_lists(
         &self,
         _search_storage: Arc<dyn Storage>,
-        _storage_keys: TextStorageKeys,
+        _storage_keys: FragmentedTextStorageKeys,
         _query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         Ok(vec![])
@@ -222,7 +221,7 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: TextStorageKeys,
+        storage_keys: FragmentedTextStorageKeys,
         queries: Vec<TokenQuery>,
         max_results: usize,
     ) -> anyhow::Result<Vec<TokenMatch>> {
@@ -234,7 +233,7 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
     async fn query_bm25_stats(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: TextStorageKeys,
+        storage_keys: FragmentedTextStorageKeys,
         terms: Vec<Term>,
     ) -> anyhow::Result<Bm25Stats> {
         self.searcher
@@ -245,7 +244,7 @@ impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
     async fn query_posting_lists(
         &self,
         search_storage: Arc<dyn Storage>,
-        storage_keys: TextStorageKeys,
+        storage_keys: FragmentedTextStorageKeys,
         query: PostingListQuery,
     ) -> anyhow::Result<Vec<PostingListMatch>> {
         self.searcher
