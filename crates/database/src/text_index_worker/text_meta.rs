@@ -230,22 +230,20 @@ impl SearchIndex for TextSearchIndex {
             MultipartBuildType::Partial(_) => Box::pin(stream_revision_pairs(documents, &reader)),
             // Create a fake revision stream for complete builds because we are building from
             // scratch so we don't need to look up previous revisions. We know there are no deletes.
-            MultipartBuildType::Complete | MultipartBuildType::IncrementalComplete { .. } => {
-                documents
-                    .map(|result| {
-                        let (ts, id, maybe_doc) = result?;
-                        anyhow::ensure!(maybe_doc.is_some(), "Document must exist");
-                        Ok(RevisionPair {
-                            id,
-                            rev: DocumentRevision {
-                                ts,
-                                document: maybe_doc,
-                            },
-                            prev_rev: None,
-                        })
+            MultipartBuildType::IncrementalComplete { .. } => documents
+                .map(|result| {
+                    let (ts, id, maybe_doc) = result?;
+                    anyhow::ensure!(maybe_doc.is_some(), "Document must exist");
+                    Ok(RevisionPair {
+                        id,
+                        rev: DocumentRevision {
+                            ts,
+                            document: maybe_doc,
+                        },
+                        prev_rev: None,
                     })
-                    .boxed()
-            },
+                })
+                .boxed(),
         };
 
         build_new_segment(

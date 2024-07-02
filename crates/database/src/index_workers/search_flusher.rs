@@ -363,11 +363,11 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             SearchOnDiskState::Backfilled(ref snapshot)
             | SearchOnDiskState::SnapshottedAt(ref snapshot) => {
                 match snapshot.data {
-                    // If we're on an old or unrecognized version, rebuild everything. The formats
-                    // are not compatible.
-                    // TODO(CX-6743): Make this a failure so that we do not inadvertently rebuild
-                    // indexes once we migrate to the multi segment text search index format.
-                    SnapshotData::Unknown(_) => (vec![], MultipartBuildType::Complete),
+                    // We skip rebuilding the index if it is an unknown format because it's very
+                    // expensive to compute the whole index in a single segment.
+                    SnapshotData::Unknown(_) => {
+                        anyhow::bail!("Unknown index format, not rebuilding")
+                    },
                     SnapshotData::MultiSegment(ref parts) => {
                         let ts = IndexWorkerMetadataModel::new(&mut tx)
                             .get_fast_forward_ts(snapshot.ts, job.index_id)
@@ -555,22 +555,6 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     .boxed();
                 (documents, previous_segments)
             },
-            // TODO(CX-6743): Remove this logic, it's expensive to run and we don't want to do so
-            // inadvertently.
-            MultipartBuildType::Complete => {
-                let table_iterator = params.database.table_iterator(
-                    snapshot_ts,
-                    *VECTOR_INDEX_WORKER_PAGE_SIZE,
-                    None,
-                );
-                (
-                    table_iterator
-                        .stream_documents_in_table(*index_name.table(), by_id, None)
-                        .map_ok(|(doc, ts)| (ts, doc.id().into(), Some(doc)))
-                        .boxed(),
-                    vec![],
-                )
-            },
         };
 
         let mut mutable_previous_segments = T::download_previous_segments(
@@ -654,10 +638,6 @@ pub struct MultiSegmentBuildResult<T: SearchIndex> {
 pub enum MultipartBuildType {
     // Build a part
     Partial(RepeatableTimestamp),
-    // TODO(CX-6743): Remove this build type, it's expensive to run and we don't want to do so
-    // inadvertently.
-    // Build the whole index in one part
-    Complete,
     // Build the whole index in parts
     IncrementalComplete {
         cursor: Option<ResolvedDocumentId>,
