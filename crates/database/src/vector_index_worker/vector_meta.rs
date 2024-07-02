@@ -385,9 +385,6 @@ impl TryFrom<SnapshotData<FragmentedVectorSegment>> for VectorIndexSnapshotData 
     fn try_from(value: SnapshotData<FragmentedVectorSegment>) -> anyhow::Result<Self> {
         Ok(match value {
             SnapshotData::Unknown(obj) => Self::Unknown(obj),
-            SnapshotData::SingleSegment(_) => {
-                anyhow::bail!("Vector search can't have single segment indexes!")
-            },
             SnapshotData::MultiSegment(data) => Self::MultiSegment(data),
         })
     }

@@ -58,7 +58,6 @@ use common::{
     },
     types::{
         IndexName,
-        ObjectKey,
         Timestamp,
     },
 };
@@ -433,7 +432,7 @@ impl TantivySearchIndexSchema {
     }
 
     #[minitrace::trace]
-    pub async fn search2<RT: Runtime>(
+    pub async fn search<RT: Runtime>(
         &self,
         runtime: &RT,
         compiled_query: CompiledQuery,
@@ -667,37 +666,6 @@ impl TantivySearchIndexSchema {
             result.push((candidate, index_key_bytes));
         }
         Ok(result)
-    }
-
-    pub async fn search<RT: Runtime>(
-        &self,
-        runtime: &RT,
-        compiled_query: CompiledQuery,
-        memory_index: &MemorySearchIndex,
-        search_storage: Arc<dyn Storage>,
-        disk_index: &ObjectKey,
-        disk_index_ts: Timestamp,
-        searcher: Arc<dyn Searcher>,
-    ) -> anyhow::Result<RevisionWithKeys> {
-        let number_of_segments = searcher
-            .number_of_segments(search_storage.clone(), disk_index.clone())
-            .await?;
-        let segments = (0..number_of_segments)
-            .map(|i| TextStorageKeys::SingleSegment {
-                storage_key: disk_index.clone(),
-                segment_ord: i as u32,
-            })
-            .collect();
-        self.search2(
-            runtime,
-            compiled_query,
-            memory_index,
-            search_storage,
-            segments,
-            disk_index_ts,
-            searcher,
-        )
-        .await
     }
 
     fn compile_tokens_with_typo_tolerance(

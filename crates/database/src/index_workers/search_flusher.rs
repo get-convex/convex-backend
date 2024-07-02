@@ -367,9 +367,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                     // are not compatible.
                     // TODO(CX-6743): Make this a failure so that we do not inadvertently rebuild
                     // indexes once we migrate to the multi segment text search index format.
-                    SnapshotData::SingleSegment(_) | SnapshotData::Unknown(_) => {
-                        (vec![], MultipartBuildType::Complete)
-                    },
+                    SnapshotData::Unknown(_) => (vec![], MultipartBuildType::Complete),
                     SnapshotData::MultiSegment(ref parts) => {
                         let ts = IndexWorkerMetadataModel::new(&mut tx)
                             .get_fast_forward_ts(snapshot.ts, job.index_id)

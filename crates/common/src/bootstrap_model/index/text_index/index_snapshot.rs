@@ -24,9 +24,6 @@ pub struct TextIndexSnapshot {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TextIndexSnapshotData {
-    /// The "legacy" (aka current) single segment format that must be built by
-    /// reading the entire table for each set of incremental updates.
-    SingleSegment(ObjectKey),
     /// The new (currently unused) multi segment format that can be built
     /// incrementally.
     MultiSegment(Vec<FragmentedTextSegment>),
@@ -110,7 +107,6 @@ mod proptest {
         FragmentedTextSegment,
         TextIndexSnapshotData,
     };
-    use crate::types::ObjectKey;
 
     impl Arbitrary for TextIndexSnapshotData {
         type Parameters = ();
@@ -118,7 +114,6 @@ mod proptest {
 
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
             prop_oneof![
-                any::<ObjectKey>().prop_map(TextIndexSnapshotData::SingleSegment),
                 any::<Vec<FragmentedTextSegment>>().prop_map(TextIndexSnapshotData::MultiSegment),
                 any_with::<ConvexObject>((
                     size_range(0..=4),
@@ -135,9 +130,6 @@ mod proptest {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "data_type", rename_all = "PascalCase")]
 enum SerializedTextIndexSnapshotData {
-    SingleSegment {
-        segment: String,
-    },
     MultiSegment {
         segments: Vec<SerializedFragmentedTextSegment>,
     },
@@ -148,9 +140,6 @@ impl TryFrom<WithUnknown<SerializedTextIndexSnapshotData>> for TextIndexSnapshot
 
     fn try_from(value: WithUnknown<SerializedTextIndexSnapshotData>) -> Result<Self, Self::Error> {
         match value {
-            WithUnknown::Known(SerializedTextIndexSnapshotData::SingleSegment { segment }) => Ok(
-                TextIndexSnapshotData::SingleSegment(ObjectKey::try_from(segment)?),
-            ),
             WithUnknown::Known(SerializedTextIndexSnapshotData::MultiSegment {
                 segments: serialized_segments,
             }) => {
@@ -170,11 +159,6 @@ impl TryFrom<TextIndexSnapshotData> for WithUnknown<SerializedTextIndexSnapshotD
 
     fn try_from(value: TextIndexSnapshotData) -> Result<Self, Self::Error> {
         match value {
-            TextIndexSnapshotData::SingleSegment(segment) => Ok(WithUnknown::Known(
-                SerializedTextIndexSnapshotData::SingleSegment {
-                    segment: segment.into(),
-                },
-            )),
             TextIndexSnapshotData::MultiSegment(segments) => {
                 let serialized_segments: Vec<SerializedFragmentedTextSegment> = segments
                     .into_iter()
@@ -317,10 +301,7 @@ impl TextSnapshotVersion {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedTextIndexSnapshot {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    index: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<WithUnknown<SerializedTextIndexSnapshotData>>,
+    data: WithUnknown<SerializedTextIndexSnapshotData>,
     ts: i64,
     version: i64,
 }
@@ -329,13 +310,8 @@ impl TryFrom<TextIndexSnapshot> for SerializedTextIndexSnapshot {
     type Error = anyhow::Error;
 
     fn try_from(snapshot: TextIndexSnapshot) -> Result<Self, Self::Error> {
-        let (index, data) = if let TextIndexSnapshotData::SingleSegment(index) = snapshot.data {
-            (Some(index.to_string()), None)
-        } else {
-            (None, Some(snapshot.data.try_into()?))
-        };
+        let data = snapshot.data.try_into()?;
         Ok(Self {
-            index,
             data,
             ts: snapshot.ts.into(),
             version: snapshot.version.to_code(),
@@ -347,13 +323,7 @@ impl TryFrom<SerializedTextIndexSnapshot> for TextIndexSnapshot {
     type Error = anyhow::Error;
 
     fn try_from(serialized: SerializedTextIndexSnapshot) -> Result<Self, Self::Error> {
-        let data: TextIndexSnapshotData = if let Some(index) = serialized.index {
-            TextIndexSnapshotData::SingleSegment(index.try_into()?)
-        } else if let Some(serialized_data) = serialized.data {
-            TextIndexSnapshotData::try_from(serialized_data)?
-        } else {
-            anyhow::bail!("Both data and index are missing!");
-        };
+        let data = TextIndexSnapshotData::try_from(serialized.data)?;
         Ok(Self {
             data,
             ts: serialized.ts.try_into()?,
@@ -364,94 +334,22 @@ impl TryFrom<SerializedTextIndexSnapshot> for TextIndexSnapshot {
 
 #[cfg(test)]
 pub mod test {
-    use must_let::must_let;
     use proptest::{
-        prelude::{
-            any,
-            Arbitrary,
-        },
-        prop_compose,
+        prelude::any,
         proptest,
-        strategy::Strategy,
     };
-    use serde::{
-        Deserialize,
-        Serialize,
+    use value::testing::assert_roundtrips;
+
+    use crate::bootstrap_model::index::text_index::{
+        index_snapshot::SerializedTextIndexSnapshot,
+        TextIndexSnapshot,
     };
-    use sync_types::Timestamp;
-
-    use crate::{
-        bootstrap_model::index::text_index::{
-            index_snapshot::SerializedTextIndexSnapshot,
-            TextIndexSnapshot,
-            TextIndexSnapshotData,
-            TextSnapshotVersion,
-        },
-        types::ObjectKey,
-    };
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct OldSerializedSearchIndexSnapshot {
-        index: String,
-        ts: i64,
-        version: i64,
-    }
-
-    impl Arbitrary for OldSerializedSearchIndexSnapshot {
-        type Parameters = ();
-
-        type Strategy = impl Strategy<Value = OldSerializedSearchIndexSnapshot>;
-
-        fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            prop_compose! {
-            fn inner()(
-                    key in any::<ObjectKey>(),
-                    ts in any::<Timestamp>(),
-                    version in any::<TextSnapshotVersion>()
-                ) -> OldSerializedSearchIndexSnapshot {
-                    OldSerializedSearchIndexSnapshot {
-                        index: key.to_string(),
-                        ts: ts.into(),
-                        version: version.to_code(),
-                    }
-                }
-            }
-            inner()
-        }
-    }
 
     proptest! {
-        // Make sure new backends can parse the old serialization format. This can't be removed
-        // until we're sure we've migrated every search index (which may never happen).
-        #[test]
-        fn test_parse_from_old_snapshot(snapshot in any::<OldSerializedSearchIndexSnapshot>()) {
-            let serialized = serde_json::to_string(&snapshot).unwrap();
-            let deserialize: SerializedTextIndexSnapshot =
-                serde_json::from_str(&serialized).unwrap();
-            let deserialized_snapshot =
-                TextIndexSnapshot::try_from(deserialize).unwrap();
-            must_let!(let TextIndexSnapshotData::SingleSegment(key) = deserialized_snapshot.data);
-            assert_eq!(key, ObjectKey::try_from(snapshot.index).unwrap())
-        }
 
-        // Make sure that an old backend can parse our new index format. This can be removed once
-        // we know we won't roll back to a version that doesn't recognize the new format.
         #[test]
-        fn test_parse_old_snapshot_from_new(snapshot in any::<TextIndexSnapshot>()
-            .prop_filter(
-                "only single segment is backwards compatible",
-                |snapshot| matches!(snapshot.data, TextIndexSnapshotData::SingleSegment(_))
-            )
-        ) {
-            must_let!(let TextIndexSnapshotData::SingleSegment(ref index) = &snapshot.data);
-            let index = index.clone();
-
-            let serialized_data = SerializedTextIndexSnapshot::try_from(snapshot).unwrap();
-            let serialized = serde_json::to_string(&serialized_data).unwrap();
-            let deserialized: OldSerializedSearchIndexSnapshot =
-                serde_json::from_str(&serialized).unwrap();
-            assert_eq!(index.to_string(), deserialized.index);
+        fn test_parse_index_snapshot(left in any::<TextIndexSnapshot>()) {
+            assert_roundtrips::<TextIndexSnapshot, SerializedTextIndexSnapshot>(left);
         }
     }
 }

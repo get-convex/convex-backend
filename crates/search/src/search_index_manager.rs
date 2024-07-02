@@ -26,7 +26,6 @@ use common::{
     types::{
         IndexId,
         IndexName,
-        ObjectKey,
         PersistenceVersion,
         Timestamp,
         WriteTimestamp,
@@ -69,18 +68,14 @@ pub struct SnapshotInfo {
 }
 
 #[derive(Clone)]
-pub enum DiskIndex {
-    SingleSegment(ObjectKey),
-    MultiSegment(Vec<FragmentedTextSegment>),
-}
+pub struct DiskIndex(Vec<FragmentedTextSegment>);
 
 impl TryFrom<TextIndexSnapshotData> for DiskIndex {
     type Error = anyhow::Error;
 
     fn try_from(value: TextIndexSnapshotData) -> Result<Self, Self::Error> {
         Ok(match value {
-            TextIndexSnapshotData::SingleSegment(disk_index) => Self::SingleSegment(disk_index),
-            TextIndexSnapshotData::MultiSegment(segments) => Self::MultiSegment(segments),
+            TextIndexSnapshotData::MultiSegment(segments) => Self(segments),
             TextIndexSnapshotData::Unknown(_) => anyhow::bail!("Unrecognized state: {:?}", value),
         })
     }
@@ -283,43 +278,24 @@ impl<RT: Runtime> SearchIndexManager<RT> {
             memory_index,
             ..
         } = self.get_snapshot_info(index, printable_index_name)?;
-
-        Ok(match disk_index {
-            DiskIndex::SingleSegment(disk_index) => {
-                tantivy_schema
-                    .search(
-                        runtime,
-                        compiled_query,
-                        memory_index,
-                        search_storage,
-                        disk_index,
-                        *disk_index_ts,
-                        searcher,
-                    )
-                    .await?
-            },
-            DiskIndex::MultiSegment(segments) => {
-                tantivy_schema
-                    .search2(
-                        runtime,
-                        compiled_query,
-                        memory_index,
-                        search_storage,
-                        segments
-                            .iter()
-                            .cloned()
-                            .map(|segment| {
-                                TextStorageKeys::MultiSegment(FragmentedTextStorageKeys::from(
-                                    segment,
-                                ))
-                            })
-                            .collect(),
-                        *disk_index_ts,
-                        searcher,
-                    )
-                    .await?
-            },
-        })
+        tantivy_schema
+            .search(
+                runtime,
+                compiled_query,
+                memory_index,
+                search_storage,
+                disk_index
+                    .0
+                    .iter()
+                    .cloned()
+                    .map(|segment| {
+                        TextStorageKeys::MultiSegment(FragmentedTextStorageKeys::from(segment))
+                    })
+                    .collect(),
+                *disk_index_ts,
+                searcher,
+            )
+            .await
     }
 
     pub fn backfilled_and_enabled_index_sizes(

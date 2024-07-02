@@ -21,10 +21,7 @@ use common::{
     },
     query::Order,
     runtime::Runtime,
-    types::{
-        IndexId,
-        ObjectKey,
-    },
+    types::IndexId,
 };
 use search::{
     metrics::SearchType,
@@ -240,14 +237,13 @@ pub enum SnapshotData<T> {
     /// An unrecognized snapshot, probably from a newer version of backend than
     /// this one that we subsequently rolled back.
     Unknown(ConvexObject),
-    SingleSegment(ObjectKey),
     MultiSegment(Vec<T>),
 }
 
 impl<T> SnapshotData<T> {
     pub fn segments(self) -> Vec<T> {
         match self {
-            Self::Unknown(_) | Self::SingleSegment(_) => vec![],
+            Self::Unknown(_) => vec![],
             Self::MultiSegment(segments) => segments,
         }
     }

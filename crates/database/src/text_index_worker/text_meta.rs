@@ -505,7 +505,6 @@ impl From<SnapshotData<FragmentedTextSegment>> for TextIndexSnapshotData {
     fn from(value: SnapshotData<FragmentedTextSegment>) -> Self {
         match value {
             SnapshotData::Unknown(obj) => TextIndexSnapshotData::Unknown(obj),
-            SnapshotData::SingleSegment(key) => TextIndexSnapshotData::SingleSegment(key),
             SnapshotData::MultiSegment(segments) => TextIndexSnapshotData::MultiSegment(segments),
         }
     }
@@ -514,7 +513,6 @@ impl From<SnapshotData<FragmentedTextSegment>> for TextIndexSnapshotData {
 impl From<TextIndexSnapshotData> for SnapshotData<FragmentedTextSegment> {
     fn from(value: TextIndexSnapshotData) -> Self {
         match value {
-            TextIndexSnapshotData::SingleSegment(key) => SnapshotData::SingleSegment(key),
             TextIndexSnapshotData::Unknown(obj) => SnapshotData::Unknown(obj),
             TextIndexSnapshotData::MultiSegment(segments) => SnapshotData::MultiSegment(segments),
         }

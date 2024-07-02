@@ -258,7 +258,6 @@ pub fn qdrant_segment_disk_build_timer(disk_index_type: QdrantVectorIndexType) -
 
 #[derive(Clone, Copy, Debug)]
 pub enum VectorIndexType {
-    SingleSegment,
     MultiSegment,
     Unknown,
 }
@@ -266,7 +265,6 @@ pub enum VectorIndexType {
 pub const VECTOR_INDEX_TYPE_LABEL: &str = "vector_index_type";
 pub fn vector_index_type_label(vector_index_type: VectorIndexType) -> StaticMetricLabel {
     let type_str = match vector_index_type {
-        VectorIndexType::SingleSegment => "single_segment",
         VectorIndexType::MultiSegment => "multi_segment",
         VectorIndexType::Unknown => "unknown",
     };

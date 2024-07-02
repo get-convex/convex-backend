@@ -194,11 +194,8 @@ mod tests {
     use common::{
         bootstrap_model::index::{
             text_index::{
-                TextIndexBackfillState,
                 TextIndexSnapshot,
-                TextIndexSnapshotData,
                 TextIndexState,
-                TextSnapshotVersion,
             },
             IndexConfig,
             IndexMetadata,
@@ -206,7 +203,6 @@ mod tests {
         runtime::testing::TestRuntime,
         types::{
             IndexName,
-            ObjectKey,
             TabletIndexName,
         },
     };
@@ -221,13 +217,11 @@ mod tests {
     use crate::{
         tests::text_test_utils::{
             add_document,
-            backfilling_text_index,
             IndexData,
             TextFixtures,
         },
         Database,
         IndexModel,
-        SystemMetadataModel,
         TestFacingModel,
     };
 
@@ -1004,102 +998,5 @@ mod tests {
         assert!(results.is_empty());
 
         Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn backfill_with_backfilled_single_segment_format_backfills_with_multi_segment_format(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        let fixtures = TextFixtures::new(rt).await?;
-        let index_name = create_backfilled_single_segment_text_index(&fixtures).await?;
-
-        fixtures.add_document("cat").await?;
-
-        let mut flusher = fixtures.new_search_flusher();
-        flusher.step().await?;
-
-        fixtures.enable_index(&index_name).await?;
-
-        let results = fixtures.search(index_name.clone(), "cat").await?;
-        assert_eq!(results.len(), 1);
-        let segments = fixtures.get_segments_metadata(index_name).await?;
-        assert_eq!(segments.len(), 1);
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn backfill_with_snapshotted_at_single_segment_format_backfills_with_multi_segment_format(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        let fixtures = TextFixtures::new(rt).await?;
-
-        let index_name = create_backfilled_single_segment_text_index(&fixtures).await?;
-
-        let mut tx = fixtures.db.begin_system().await?;
-        IndexModel::new(&mut tx)
-            .enable_index_for_testing(TableNamespace::Global, &index_name)
-            .await?;
-        fixtures.db.commit(tx).await?;
-
-        fixtures.add_document("cat").await?;
-
-        let mut flusher = fixtures.new_search_flusher();
-        flusher.step().await?;
-
-        let results = fixtures.search(index_name.clone(), "cat").await?;
-        assert_eq!(results.len(), 1);
-        let segments = fixtures.get_segments_metadata(index_name).await?;
-        assert_eq!(segments.len(), 1);
-        Ok(())
-    }
-
-    async fn create_backfilled_single_segment_text_index(
-        fixtures: &TextFixtures,
-    ) -> anyhow::Result<IndexName> {
-        let mut tx = fixtures.db.begin_system().await?;
-        let metadata = backfilling_text_index()?;
-        let on_disk_state = TextIndexState::Backfilling(TextIndexBackfillState::new());
-        must_let!(let IndexConfig::Search {
-            developer_config,
-            ..
-        } = metadata.config);
-        let doc_id = IndexModel::new(&mut tx)
-            .add_application_index(
-                TableNamespace::Global,
-                IndexMetadata::new_search_index(
-                    metadata.name.clone(),
-                    developer_config,
-                    on_disk_state,
-                ),
-            )
-            .await?;
-
-        fixtures.db.commit(tx).await?;
-        let mut tx = fixtures.db.begin_system().await?;
-        let indexes = IndexModel::new(&mut tx).get_all_indexes().await?;
-        let index = indexes
-            .into_iter()
-            .find(|index| index.id() == doc_id)
-            .unwrap();
-        let (id, value) = index.into_id_and_value();
-        must_let!(let IndexConfig::Search {
-            developer_config,
-            ..
-        } = value.config);
-        let on_disk_state = TextIndexState::Backfilled(TextIndexSnapshot {
-            data: TextIndexSnapshotData::SingleSegment(ObjectKey::try_from("Fake".to_string())?),
-            ts: *tx.begin_timestamp(),
-            version: TextSnapshotVersion::V2UseStringIds,
-        });
-
-        SystemMetadataModel::new_global(&mut tx)
-            .replace(
-                id,
-                IndexMetadata::new_search_index(value.name, developer_config, on_disk_state)
-                    .try_into()?,
-            )
-            .await?;
-        fixtures.db.commit(tx).await?;
-        Ok(metadata.name)
     }
 }
