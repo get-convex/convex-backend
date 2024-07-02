@@ -715,17 +715,6 @@ impl futures::io::AsyncRead for StorageObjectReader {
     }
 }
 
-impl futures::io::AsyncBufRead for StorageObjectReader {
-    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<&[u8]>> {
-        self.project().inner.poll_fill_buf(cx)
-    }
-
-    fn consume(mut self: Pin<&mut Self>, amt: usize) {
-        self.cursor += amt as u64;
-        self.as_mut().project().inner.consume(amt)
-    }
-}
-
 impl futures::io::AsyncSeek for StorageObjectReader {
     fn poll_seek(
         mut self: Pin<&mut Self>,

@@ -5,15 +5,15 @@ use std::{
 
 use anyhow::Context as AnyhowContext;
 use async_zip::{
-    base::read::stream::ZipFileReader,
-    tokio::write::ZipFileWriter,
+    read::stream::ZipFileReader,
+    write::ZipFileWriter,
     Compression,
     ZipEntryBuilder,
+    ZipEntryBuilderExt,
 };
 use bytes::Bytes;
 use common::{
     async_compat::FuturesAsyncReadCompatExt,
-    async_zip_ext::ZipEntryReaderExt,
     sha256::{
         Sha256,
         Sha256Digest,
@@ -74,7 +74,7 @@ async fn write_package(
     mut out: impl AsyncWrite + Sync + Send + Unpin,
     external_deps_storage_key: Option<ObjectKey>,
 ) -> anyhow::Result<(usize, BTreeMap<CanonicalizedModulePath, PackagedFile>)> {
-    let mut writer = ZipFileWriter::with_tokio(&mut out);
+    let mut writer = ZipFileWriter::new(&mut out);
     let mut files = BTreeMap::new();
     let mut module_paths = vec![];
     let mut module_environments = Vec::new();
@@ -87,7 +87,7 @@ async fn write_package(
         let source_path = format!("modules/{}", String::from(path.clone()));
         // 0o644 => read-write for owner, read for everyone else.
         let builder =
-            ZipEntryBuilder::new(source_path.into(), Compression::Deflate).unix_permissions(0o644);
+            ZipEntryBuilder::new(source_path.clone(), Compression::Deflate).unix_permissions(0o644);
         module_paths.push(String::from(path.clone()));
         module_environments.push((String::from(path.clone()), module.environment));
         unzipped_size_bytes += source.len();
@@ -100,7 +100,7 @@ async fn write_package(
             // NB: All modules' canonicalized paths have a ".js" extension, so it's safe to
             // suffix this with ".map".
             let source_map_path = format!("modules/{}.map", String::from(path.clone()));
-            let builder = ZipEntryBuilder::new(source_map_path.into(), Compression::Deflate)
+            let builder = ZipEntryBuilder::new(source_map_path.clone(), Compression::Deflate)
                 .unix_permissions(0o644);
             module_paths.push(String::from(path.clone()) + ".map");
             unzipped_size_bytes += source_map.len();
@@ -116,7 +116,7 @@ async fn write_package(
         anyhow::ensure!(files.insert(path, packaged_file).is_none());
     }
 
-    let metadata_entry = ZipEntryBuilder::new("metadata.json".into(), Compression::Deflate);
+    let metadata_entry = ZipEntryBuilder::new("metadata.json".to_string(), Compression::Deflate);
     let metadata_contents = MetadataJson {
         module_paths,
         module_environments: Some(module_environments),
@@ -169,19 +169,16 @@ pub async fn download_package(
         .await?
         .context(format!("Src Pkg storage key not found?? {key:?}"))?
         .stream;
-    let mut zip = ZipFileReader::with_tokio(stream.into_async_read().compat());
+    let mut reader = ZipFileReader::new(stream.into_async_read().compat());
 
     let mut source = BTreeMap::new();
     let mut source_maps = BTreeMap::new();
 
     let mut metadata_json: Option<MetadataJson> = None;
-    while let Some(mut entry) = zip.next_with_entry().await? {
-        let path = entry.reader().entry().filename().as_str()?.to_owned();
-        let contents = entry
-            .reader_mut()
-            .read_to_string_checked_bypass_async_zip_crc_bug()
-            .await?;
-        zip = entry.done().await?;
+    while let Some(entry_reader) = reader.entry_reader().await? {
+        let entry = entry_reader.entry();
+        let path = entry.filename().to_string();
+        let contents = entry_reader.read_to_string_crc().await?;
 
         if path == "metadata.json" {
             metadata_json = Some(serde_json::from_str(&contents)?);
@@ -203,6 +200,11 @@ pub async fn download_package(
         } else {
             source.insert(module_path, contents);
         }
+    }
+    // Drain the rest of the reader until it reaches the central directory entry,
+    // even if we've already hit the last entry.
+    while !reader.finished() {
+        anyhow::ensure!(reader.entry_reader().await?.is_none());
     }
 
     // Make sure metadata.json looks right

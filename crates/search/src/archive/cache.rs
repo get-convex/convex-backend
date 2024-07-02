@@ -182,7 +182,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         &self,
         search_file_type: SearchFileType,
         output_directory: PathBuf,
-        archive: impl tokio::io::AsyncBufRead + Send + 'static + Unpin,
+        archive: impl tokio::io::AsyncRead + Send + 'static + Unpin,
     ) -> anyhow::Result<(u64, PathBuf)> {
         if search_file_type == SearchFileType::FragmentedVectorSegment {
             self.extract_segment(&output_directory, archive).await
@@ -504,7 +504,7 @@ mod tests {
     // of all contained files.
     async fn random_archive() -> (Vec<u8>, u64) {
         let mut buf = vec![];
-        let mut writer = async_zip::base::write::ZipFileWriter::new(&mut buf);
+        let mut writer = async_zip::write::ZipFileWriter::new(&mut buf);
         let mut size = 0u64;
         for _ in 0..thread_rng().gen_range(1..10) {
             let filename = thread_rng()
@@ -516,7 +516,7 @@ mod tests {
             let mut content = vec![0; len];
             size += len as u64;
             thread_rng().fill_bytes(&mut content);
-            let entry = ZipEntryBuilder::new(filename.into(), Compression::Stored).build();
+            let entry = ZipEntryBuilder::new(filename, Compression::Stored).build();
             writer.write_entry_whole(entry, &content).await.unwrap();
         }
         writer.close().await.unwrap();
