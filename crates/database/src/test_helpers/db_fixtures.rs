@@ -9,7 +9,7 @@ use common::{
     },
     testing::TestPersistence,
 };
-use events::usage::NoOpUsageEventLogger;
+use events::testing::TestUsageEventLogger;
 use search::{
     searcher::{
         InProcessSearcher,
@@ -36,6 +36,7 @@ pub struct DbFixtures<RT: Runtime> {
     pub searcher: Arc<dyn Searcher>,
     pub search_storage: Arc<dyn Storage>,
     pub build_index_args: BuildTextIndexArgs,
+    pub test_usage_logger: TestUsageEventLogger,
 }
 
 pub struct DbFixturesArgs {
@@ -79,13 +80,14 @@ impl<RT: Runtime> DbFixtures<RT> {
             Some(ss) => ss,
             None => Arc::new(LocalDirStorage::new(rt.clone())?),
         };
+        let test_usage_logger = TestUsageEventLogger::new();
         let db = Database::load(
             tp.clone(),
             rt.clone(),
             searcher.clone(),
             ShutdownSignal::panic(),
             virtual_system_mapping,
-            Arc::new(NoOpUsageEventLogger),
+            Arc::new(test_usage_logger.clone()),
         )
         .await?;
         db.set_search_storage(search_storage.clone());
@@ -104,6 +106,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             searcher,
             search_storage,
             build_index_args,
+            test_usage_logger,
         })
     }
 }

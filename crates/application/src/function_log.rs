@@ -521,7 +521,7 @@ pub struct FunctionExecutionLog<RT: Runtime> {
 
 impl<RT: Runtime> HeapSize for FunctionExecutionLog<RT> {
     fn heap_size(&self) -> usize {
-        self.inner.lock().heap_size() + self.usage_tracking.heap_size()
+        self.inner.lock().heap_size()
     }
 }
 

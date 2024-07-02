@@ -1,11 +1,8 @@
 pub mod storage {
 
-    use common::types::ModuleEnvironment;
     use metrics::{
         log_counter,
-        log_counter_with_labels,
         register_convex_counter,
-        StaticMetricLabel,
     };
 
     register_convex_counter!(STORAGE_INGRESS_BYTES, "Number of storage ingress bytes ");
@@ -22,18 +19,5 @@ pub mod storage {
     register_convex_counter!(STORAGE_CALLS_TOTAL, "Total calls to storage");
     pub fn log_storage_call() {
         log_counter(&STORAGE_CALLS_TOTAL, 1)
-    }
-
-    register_convex_counter!(
-        USAGE_ACTION_COMPUTE_TOTAL,
-        "The total number of times we try to track an action execution",
-        &["environment"],
-    );
-    pub fn log_action_compute(env: &ModuleEnvironment) {
-        log_counter_with_labels(
-            &USAGE_ACTION_COMPUTE_TOTAL,
-            1,
-            vec![StaticMetricLabel::new("environment", env.to_string())],
-        )
     }
 }

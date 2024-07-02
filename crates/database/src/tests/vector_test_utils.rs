@@ -31,6 +31,7 @@ use common::{
         TabletIndexName,
     },
 };
+use events::testing::TestUsageEventLogger;
 use futures::try_join;
 use maplit::btreeset;
 use must_let::must_let;
@@ -119,6 +120,7 @@ pub struct VectorFixtures {
     searcher: Arc<dyn Searcher>,
     config: CompactionConfig,
     namespace: TableNamespace,
+    pub test_usage_logger: TestUsageEventLogger,
 }
 
 /// The size of the vectors these fixtures use [f32; 2]. We actually require f64
@@ -139,6 +141,7 @@ impl VectorFixtures {
             db,
             searcher,
             search_storage,
+            test_usage_logger,
             ..
         } = DbFixtures::new_with_args(
             &rt,
@@ -157,6 +160,7 @@ impl VectorFixtures {
             searcher,
             config,
             namespace: TableNamespace::test_user(),
+            test_usage_logger,
         })
     }
 

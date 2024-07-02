@@ -154,6 +154,7 @@ impl Scenario {
             searcher,
             tp,
             build_index_args,
+            ..
         } = DbFixtures::new_with_args(
             &rt,
             DbFixturesArgs {
@@ -203,6 +204,7 @@ impl Scenario {
             search_storage,
             tp,
             build_index_args,
+            ..
         } = DbFixtures::new_with_args(
             &self.rt,
             DbFixturesArgs {

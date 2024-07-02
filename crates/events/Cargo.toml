@@ -8,16 +8,23 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+common = { path = "../common", optional = true }
+parking_lot = { workspace = true, optional = true }
 proptest = { workspace = true, optional = true }
 proptest-derive = { workspace = true, optional = true }
 serde = { workspace = true }
 
 [dev-dependencies]
+common = { path = "../common", features = ["testing"] }
+parking_lot = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 
 [features]
 testing = [
+    "common",
+    "common/testing",
+    "parking_lot",
     "proptest",
     "proptest-derive",
 ]

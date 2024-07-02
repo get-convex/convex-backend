@@ -20,134 +20,25 @@ use events::usage::{
     UsageEvent,
     UsageEventLogger,
 };
-use metrics::storage::log_action_compute;
 use parking_lot::Mutex;
 use pb::usage::{
     CounterWithTag as CounterWithTagProto,
     FunctionUsageStats as FunctionUsageStatsProto,
 };
-use value::heap_size::{
-    HeapSize,
-    WithHeapSize,
-};
+use value::heap_size::WithHeapSize;
 
 mod metrics;
-
-type TableName = String;
-type FunctionName = String;
-type StorageAPI = String;
-type FunctionTag = String;
-
-/// The state maintained by backend usage counters
-#[derive(Default, Debug)]
-pub struct UsageCounterState {
-    pub recent_calls: WithHeapSize<BTreeMap<FunctionName, u64>>,
-    pub recent_calls_by_tag: WithHeapSize<BTreeMap<FunctionTag, u64>>,
-    pub recent_node_action_compute_time: WithHeapSize<BTreeMap<FunctionName, u64>>,
-    pub recent_v8_action_compute_time: WithHeapSize<BTreeMap<FunctionName, u64>>,
-
-    // Storage - note that we don't break storage by function since it can also
-    // be called outside of function.
-    pub recent_storage_calls: WithHeapSize<BTreeMap<StorageAPI, u64>>,
-    pub recent_storage_ingress_size: u64,
-    pub recent_storage_egress_size: u64,
-
-    // Bandwidth by table
-    pub recent_database_ingress_size: WithHeapSize<BTreeMap<TableName, u64>>,
-    pub recent_database_egress_size: WithHeapSize<BTreeMap<TableName, u64>>,
-    pub recent_vector_ingress_size: WithHeapSize<BTreeMap<TableName, u64>>,
-    pub recent_vector_egress_size: WithHeapSize<BTreeMap<TableName, u64>>,
-
-    // Bandwidth by function
-    pub recent_database_ingress_size_by_function: WithHeapSize<BTreeMap<FunctionName, u64>>,
-    pub recent_database_egress_size_by_function: WithHeapSize<BTreeMap<FunctionName, u64>>,
-    pub recent_vector_ingress_size_by_function: WithHeapSize<BTreeMap<FunctionName, u64>>,
-    pub recent_vector_egress_size_by_function: WithHeapSize<BTreeMap<FunctionName, u64>>,
-}
-
-impl HeapSize for UsageCounterState {
-    fn heap_size(&self) -> usize {
-        self.recent_calls.heap_size()
-            + self.recent_calls_by_tag.heap_size()
-            + self.recent_storage_calls.heap_size()
-            + self.recent_node_action_compute_time.heap_size()
-            + self.recent_v8_action_compute_time.heap_size()
-            + self.recent_database_ingress_size.heap_size()
-            + self.recent_database_egress_size.heap_size()
-            + self.recent_vector_ingress_size.heap_size()
-            + self.recent_vector_egress_size.heap_size()
-            + self.recent_database_ingress_size_by_function.heap_size()
-            + self.recent_database_egress_size_by_function.heap_size()
-            + self.recent_vector_ingress_size_by_function.heap_size()
-            + self.recent_vector_egress_size_by_function.heap_size()
-    }
-}
 
 /// The core usage stats aggregator that is cheaply cloneable
 #[derive(Clone, Debug)]
 pub struct UsageCounter {
-    state: Arc<Mutex<UsageCounterState>>,
     usage_logger: Arc<dyn UsageEventLogger>,
-}
-
-impl HeapSize for UsageCounter {
-    fn heap_size(&self) -> usize {
-        self.state.lock().heap_size()
-    }
 }
 
 impl UsageCounter {
     pub fn new(usage_logger: Arc<dyn UsageEventLogger>) -> Self {
-        let state = Arc::new(Mutex::new(UsageCounterState::default()));
-        Self {
-            state,
-            usage_logger,
-        }
+        Self { usage_logger }
     }
-
-    pub fn collect(&self) -> UsageCounterState {
-        let mut state = self.state.lock();
-        UsageCounterState {
-            recent_calls: std::mem::take(&mut state.recent_calls),
-            recent_calls_by_tag: std::mem::take(&mut state.recent_calls_by_tag),
-            recent_storage_ingress_size: std::mem::take(&mut state.recent_storage_ingress_size),
-            recent_storage_egress_size: std::mem::take(&mut state.recent_storage_egress_size),
-            recent_storage_calls: std::mem::take(&mut state.recent_storage_calls),
-            recent_v8_action_compute_time: std::mem::take(&mut state.recent_v8_action_compute_time),
-            recent_node_action_compute_time: std::mem::take(
-                &mut state.recent_node_action_compute_time,
-            ),
-            recent_database_ingress_size: std::mem::take(&mut state.recent_database_ingress_size),
-            recent_database_egress_size: std::mem::take(&mut state.recent_database_egress_size),
-            recent_vector_ingress_size: std::mem::take(&mut state.recent_vector_ingress_size),
-            recent_vector_egress_size: std::mem::take(&mut state.recent_vector_egress_size),
-            recent_database_ingress_size_by_function: std::mem::take(
-                &mut state.recent_database_ingress_size_by_function,
-            ),
-            recent_database_egress_size_by_function: std::mem::take(
-                &mut state.recent_database_egress_size_by_function,
-            ),
-            recent_vector_ingress_size_by_function: std::mem::take(
-                &mut state.recent_vector_ingress_size_by_function,
-            ),
-            recent_vector_egress_size_by_function: std::mem::take(
-                &mut state.recent_vector_egress_size_by_function,
-            ),
-        }
-    }
-
-    // Convert into MB-milliseconds of compute time
-    fn calculate_action_compute_time(&self, duration: Duration, memory_in_mb: u64) -> u64 {
-        u64::try_from(duration.as_millis())
-            .expect("Action was running for over 584 billion years??")
-            * memory_in_mb
-    }
-}
-
-struct ActionStats {
-    env: ModuleEnvironment,
-    duration: Duration,
-    memory_in_mb: u64,
 }
 
 pub enum CallType {
@@ -168,30 +59,6 @@ pub enum CallType {
 }
 
 impl CallType {
-    fn action_stats(self) -> Option<ActionStats> {
-        match self {
-            Self::Action {
-                env,
-                duration,
-                memory_in_mb,
-            } => Some(ActionStats {
-                env,
-                duration,
-                memory_in_mb,
-            }),
-            Self::HttpAction {
-                duration,
-                memory_in_mb,
-            } => Some(ActionStats {
-                // Http Actions cannot be run in Node, so they must be in isolate.
-                env: ModuleEnvironment::Isolate,
-                duration,
-                memory_in_mb,
-            }),
-            _ => None,
-        }
-    }
-
     fn tag(&self) -> &'static str {
         match self {
             Self::Action { .. } => "action",
@@ -215,8 +82,10 @@ impl CallType {
 
     fn duration_millis(&self) -> u64 {
         match self {
-            CallType::Action { duration, .. } => u64::try_from(duration.as_millis())
-                .expect("Action was running for over 584 billion years??"),
+            CallType::Action { duration, .. } | CallType::HttpAction { duration, .. } => {
+                u64::try_from(duration.as_millis())
+                    .expect("Action was running for over 584 billion years??")
+            },
             _ => 0,
         }
     }
@@ -260,38 +129,6 @@ impl UsageCounter {
             is_tracked: should_track_calls,
         });
 
-        if should_track_calls {
-            let mut state = self.state.lock();
-            state
-                .recent_calls
-                .mutate_entry_or_default(udf_path.to_string(), |count| *count += 1);
-            state
-                .recent_calls_by_tag
-                .mutate_entry_or_default(call_type.tag().to_string(), |count| *count += 1);
-
-            if let Some(ActionStats {
-                env,
-                memory_in_mb,
-                duration,
-            }) = call_type.action_stats()
-            {
-                let value = self.calculate_action_compute_time(duration, memory_in_mb);
-                log_action_compute(&env);
-                match env {
-                    ModuleEnvironment::Isolate => state
-                        .recent_v8_action_compute_time
-                        .mutate_entry_or_default(udf_path.to_string(), |count| *count += value),
-                    ModuleEnvironment::Node => state
-                        .recent_node_action_compute_time
-                        .mutate_entry_or_default(udf_path.to_string(), |count| *count += value),
-                    // If the UDF can't be called because it was either deleted or not visible to
-                    // the caller, it errors before we know what environment it would have executed
-                    // in. We can bill a call for these, but there was no actual execution to bill
-                    // here.
-                    ModuleEnvironment::Invalid => {},
-                }
-            }
-        }
         // We always track bandwidth, even for system udfs.
         self._track_function_usage(udf_path, stats, execution_id, &mut usage_metrics);
         self.usage_logger.record(usage_metrics);
@@ -320,15 +157,8 @@ impl UsageCounter {
         execution_id: ExecutionId,
         usage_metrics: &mut Vec<UsageEvent>,
     ) {
-        let mut state = self.state.lock();
-
-        let aggregated_stats = stats.aggregate();
-
         // Merge the storage stats.
         for (storage_api, function_count) in stats.storage_calls {
-            state
-                .recent_storage_calls
-                .mutate_entry_or_default(storage_api.clone(), |count| *count += function_count);
             usage_metrics.push(UsageEvent::FunctionStorageCalls {
                 id: execution_id.to_string(),
                 udf_id: udf_path.to_string(),
@@ -336,8 +166,6 @@ impl UsageCounter {
                 count: function_count,
             });
         }
-        state.recent_storage_ingress_size += stats.storage_ingress_size;
-        state.recent_storage_egress_size += stats.storage_egress_size;
         usage_metrics.push(UsageEvent::FunctionStorageBandwidth {
             id: execution_id.to_string(),
             udf_id: udf_path.to_string(),
@@ -346,9 +174,6 @@ impl UsageCounter {
         });
         // Merge "by table" bandwidth stats.
         for (table_name, ingress_size) in stats.database_ingress_size {
-            state
-                .recent_database_ingress_size
-                .mutate_entry_or_default(table_name.clone(), |count| *count += ingress_size);
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
                 udf_id: udf_path.to_string(),
@@ -358,9 +183,6 @@ impl UsageCounter {
             });
         }
         for (table_name, egress_size) in stats.database_egress_size {
-            state
-                .recent_database_egress_size
-                .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
                 udf_id: udf_path.to_string(),
@@ -370,9 +192,6 @@ impl UsageCounter {
             });
         }
         for (table_name, ingress_size) in stats.vector_ingress_size {
-            state
-                .recent_vector_ingress_size
-                .mutate_entry_or_default(table_name.clone(), |count| *count += ingress_size);
             usage_metrics.push(UsageEvent::VectorBandwidth {
                 id: execution_id.to_string(),
                 udf_id: udf_path.to_string(),
@@ -382,9 +201,6 @@ impl UsageCounter {
             });
         }
         for (table_name, egress_size) in stats.vector_egress_size {
-            state
-                .recent_vector_egress_size
-                .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
             usage_metrics.push(UsageEvent::VectorBandwidth {
                 id: execution_id.to_string(),
                 udf_id: udf_path.to_string(),
@@ -393,28 +209,6 @@ impl UsageCounter {
                 egress: egress_size,
             });
         }
-
-        // Update the "by function" stats using the aggregated stats.
-        state
-            .recent_database_ingress_size_by_function
-            .mutate_entry_or_default(udf_path.to_string(), |size| {
-                *size += aggregated_stats.database_write_bytes
-            });
-        state
-            .recent_database_egress_size_by_function
-            .mutate_entry_or_default(udf_path.to_string(), |size| {
-                *size += aggregated_stats.database_read_bytes
-            });
-        state
-            .recent_vector_ingress_size_by_function
-            .mutate_entry_or_default(udf_path.to_string(), |size| {
-                *size += aggregated_stats.vector_index_write_bytes
-            });
-        state
-            .recent_vector_egress_size_by_function
-            .mutate_entry_or_default(udf_path.to_string(), |size| {
-                *size += aggregated_stats.vector_index_read_bytes
-            });
     }
 }
 
@@ -432,19 +226,13 @@ pub trait StorageCallTracker: Send + Sync {
 
 struct IndependentStorageCallTracker {
     execution_id: ExecutionId,
-    state: Arc<Mutex<UsageCounterState>>,
     usage_logger: Arc<dyn UsageEventLogger>,
 }
 
 impl IndependentStorageCallTracker {
-    fn new(
-        execution_id: ExecutionId,
-        state: Arc<Mutex<UsageCounterState>>,
-        usage_logger: Arc<dyn UsageEventLogger>,
-    ) -> Self {
+    fn new(execution_id: ExecutionId, usage_logger: Arc<dyn UsageEventLogger>) -> Self {
         Self {
             execution_id,
-            state,
             usage_logger,
         }
     }
@@ -452,10 +240,7 @@ impl IndependentStorageCallTracker {
 
 impl StorageCallTracker for IndependentStorageCallTracker {
     fn track_storage_ingress_size(&self, ingress_size: u64) {
-        let mut state = self.state.lock();
         metrics::storage::log_storage_ingress_size(ingress_size);
-        state.recent_storage_ingress_size += ingress_size;
-
         self.usage_logger.record(vec![UsageEvent::StorageBandwidth {
             id: self.execution_id.to_string(),
             ingress: ingress_size,
@@ -464,9 +249,7 @@ impl StorageCallTracker for IndependentStorageCallTracker {
     }
 
     fn track_storage_egress_size(&self, egress_size: u64) {
-        let mut state = self.state.lock();
         metrics::storage::log_storage_egress_size(egress_size);
-        state.recent_storage_egress_size += egress_size;
         self.usage_logger.record(vec![UsageEvent::StorageBandwidth {
             id: self.execution_id.to_string(),
             ingress: 0,
@@ -477,13 +260,8 @@ impl StorageCallTracker for IndependentStorageCallTracker {
 
 impl StorageUsageTracker for UsageCounter {
     fn track_storage_call(&self, storage_api: &'static str) -> Box<dyn StorageCallTracker> {
-        let mut state = self.state.lock();
         let execution_id = ExecutionId::new();
         metrics::storage::log_storage_call();
-        state
-            .recent_storage_calls
-            .mutate_entry_or_default(storage_api.to_string(), |count| *count += 1);
-
         self.usage_logger.record(vec![UsageEvent::StorageCall {
             id: execution_id.to_string(),
             call: storage_api.to_string(),
@@ -491,7 +269,6 @@ impl StorageUsageTracker for UsageCounter {
 
         Box::new(IndependentStorageCallTracker::new(
             execution_id,
-            self.state.clone(),
             self.usage_logger.clone(),
         ))
     }
@@ -669,6 +446,9 @@ impl StorageUsageTracker for FunctionUsageTracker {
         Box::new(self.clone())
     }
 }
+
+type TableName = String;
+type StorageAPI = String;
 
 /// User-facing UDF stats, built
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

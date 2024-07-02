@@ -30,7 +30,7 @@ use value::TableNamespace;
 use vector::VectorSearch;
 
 use crate::{
-    test_helpers::new_test_database,
+    test_helpers::DbFixtures,
     tests::vector_test_utils::{
         add_document_vec_array,
         IndexData,
@@ -65,7 +65,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
         tx_usage.gather_user_stats(),
     );
 
-    let stats = fixtures.db.usage_counter().collect();
+    let stats = fixtures.test_usage_logger.collect();
     assert!(stats.recent_vector_ingress_size.is_empty());
     Ok(())
 }
@@ -93,7 +93,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
     fixtures
         .add_document_vec_array(index_name.table(), [3f64, 4f64])
         .await?;
-    let stats = fixtures.db.usage_counter().collect();
+    let stats = fixtures.test_usage_logger.collect();
     let value = stats
         .recent_vector_ingress_size
         .get(&(*index_name.table()).to_string())
@@ -127,7 +127,7 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
         tx_usage.gather_user_stats(),
     );
 
-    let stats = fixtures.db.usage_counter().collect();
+    let stats = fixtures.test_usage_logger.collect();
     let value = stats
         .recent_vector_ingress_size
         .get(&(*index_name.table()).to_string())
@@ -209,7 +209,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         tx_usage.gather_user_stats(),
     );
 
-    let stats = fixtures.db.usage_counter().collect();
+    let stats = fixtures.test_usage_logger.collect();
     let vector_egress = stats.recent_vector_egress_size;
     let bandwidth_egress = stats.recent_database_egress_size;
     assert!(*vector_egress.get(&index_name.table().to_string()).unwrap() > 0);
@@ -224,7 +224,11 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Result<()> {
-    let db = new_test_database(rt.clone()).await;
+    let DbFixtures {
+        db,
+        test_usage_logger,
+        ..
+    } = DbFixtures::new(&rt).await?;
 
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
@@ -243,14 +247,14 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         tx_usage.gather_user_stats(),
     );
 
-    let stats = db.usage_counter().collect();
+    let stats = test_usage_logger.collect();
     // Database ingress counted for write to user table, rounded up
     let database_ingress = stats.recent_database_ingress_size;
     assert_eq!(database_ingress.len(), 1);
     assert!(database_ingress.contains_key("my_table"));
     assert!(*database_ingress.get("my_table").unwrap() > 0);
     let database_egress = stats.recent_database_egress_size;
-    assert!(database_egress.is_empty());
+    assert_eq!(database_egress.values().sum::<u64>(), 0);
 
     // Database egress counted for read to user table, rounded up
     let tx_usage = FunctionUsageTracker::new();
@@ -268,9 +272,9 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         tx_usage.gather_user_stats(),
     );
 
-    let stats = db.usage_counter().collect();
+    let stats = test_usage_logger.collect();
     let database_ingress = stats.recent_database_ingress_size;
-    assert!(database_ingress.is_empty());
+    assert_eq!(database_ingress.values().sum::<u64>(), 0);
     let database_egress = stats.recent_database_egress_size;
     assert_eq!(database_egress.len(), 1);
     assert!(database_egress.contains_key("my_table"));
@@ -281,7 +285,11 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
 
 #[convex_macro::test_runtime]
 async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Result<()> {
-    let db = new_test_database(rt.clone()).await;
+    let DbFixtures {
+        db,
+        test_usage_logger,
+        ..
+    } = DbFixtures::new(&rt).await?;
 
     // Add a user index
     let table_name: TableName = "my_table".parse()?;
@@ -330,13 +338,13 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         tx_usage.gather_user_stats(),
     );
 
-    let stats = db.usage_counter().collect();
+    let stats = test_usage_logger.collect();
     let database_ingress = stats.recent_database_ingress_size;
     assert_eq!(database_ingress.len(), 1);
     assert!(database_ingress.contains_key("my_table"));
     assert!(*database_ingress.get("my_table").unwrap() > 0);
     let database_egress = stats.recent_database_egress_size;
-    assert!(database_egress.is_empty());
+    assert_eq!(database_egress.values().sum::<u64>(), 0);
 
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
@@ -357,9 +365,9 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         tx_usage.gather_user_stats(),
     );
 
-    let stats = db.usage_counter().collect();
+    let stats = test_usage_logger.collect();
     let database_ingress = stats.recent_database_ingress_size;
-    assert!(database_ingress.is_empty());
+    assert_eq!(database_ingress.values().sum::<u64>(), 0);
     let database_egress = stats.recent_database_egress_size;
     assert_eq!(database_egress.len(), 1);
     assert!(database_egress.contains_key("my_table"));
@@ -370,7 +378,11 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
 
 #[convex_macro::test_runtime]
 async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
-    let db = new_test_database(rt.clone()).await;
+    let DbFixtures {
+        db,
+        test_usage_logger,
+        ..
+    } = DbFixtures::new(&rt).await?;
 
     let tx_usage = FunctionUsageTracker::new();
     db.usage_counter().track_call(
@@ -382,7 +394,7 @@ async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
         },
         tx_usage.gather_user_stats(),
     );
-    let stats = db.usage_counter().collect();
+    let stats = test_usage_logger.collect();
     assert_eq!(
         stats.recent_node_action_compute_time.values().sum::<u64>(),
         0
