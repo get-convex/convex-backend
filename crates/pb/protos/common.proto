@@ -8,6 +8,11 @@ message ValidatedPathAndArgs {
   optional string path = 1;
   optional bytes args = 2;
   optional string npm_version = 3;
+  optional ComponentPath component_path = 4;
+}
+
+message ComponentPath {
+  repeated string path = 1;
 }
 
 message ResolvedDocument {
