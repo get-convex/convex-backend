@@ -54,7 +54,10 @@ use usage_tracking::{
     StorageCallTracker,
     StorageUsageTracker,
 };
-use value::id_v6::DeveloperDocumentId;
+use value::{
+    id_v6::DeveloperDocumentId,
+    TableNamespace,
+};
 
 use crate::{
     metrics::{
@@ -93,9 +96,10 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn get_url(
         &self,
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<String>> {
-        self.get_url_batch(tx, btreemap! { 0 => storage_id })
+        self.get_url_batch(tx, namespace, btreemap! { 0 => storage_id })
             .await
             .remove(&0)
             .context("batch_key missing")?
@@ -104,10 +108,11 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn get_url_batch(
         &self,
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         storage_ids: BTreeMap<BatchKey, FileStorageId>,
     ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>> {
         let origin = &self.convex_origin;
-        let files = self.get_file_entry_batch(tx, storage_ids).await;
+        let files = self.get_file_entry_batch(tx, namespace, storage_ids).await;
         files
             .into_iter()
             .map(|(batch_key, result)| {
@@ -124,9 +129,10 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn delete(
         &self,
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         storage_id: FileStorageId,
     ) -> anyhow::Result<()> {
-        let success = self._delete(tx, storage_id.clone()).await?;
+        let success = self._delete(tx, namespace, storage_id.clone()).await?;
         if !success {
             anyhow::bail!(ErrorMetadata::not_found(
                 "StorageIdNotFound",
@@ -139,9 +145,10 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn get_file_entry(
         &self,
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<FileStorageEntry>> {
-        self.get_file_entry_batch(tx, btreemap! { 0 => storage_id })
+        self.get_file_entry_batch(tx, namespace, btreemap! { 0 => storage_id })
             .await
             .remove(&0)
             .context("batch_key missing")?
@@ -150,9 +157,10 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn get_file_entry_batch(
         &self,
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         storage_ids: BTreeMap<BatchKey, FileStorageId>,
     ) -> BTreeMap<BatchKey, anyhow::Result<Option<FileStorageEntry>>> {
-        FileStorageModel::new(tx)
+        FileStorageModel::new(tx, namespace)
             .get_file_batch(storage_ids)
             .await
             .into_iter()
@@ -275,9 +283,10 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     async fn _delete(
         &self,
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         storage_id: FileStorageId,
     ) -> anyhow::Result<bool> {
-        let did_delete = FileStorageModel::new(tx)
+        let did_delete = FileStorageModel::new(tx, namespace)
             .delete_file(storage_id, Identity::system())
             .await?
             .is_some();
@@ -341,10 +350,13 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn store_file_entry(
         &self,
         tx: &mut Transaction<RT>,
+        namespace: TableNamespace,
         entry: FileStorageEntry,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let table_mapping = tx.table_mapping().clone();
-        let system_doc_id = FileStorageModel::new(tx).store_file(entry).await?;
+        let system_doc_id = FileStorageModel::new(tx, namespace)
+            .store_file(entry)
+            .await?;
         let virtual_id = tx
             .virtual_system_mapping()
             .system_resolved_id_to_virtual_developer_id(
@@ -360,6 +372,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
 impl<RT: Runtime> FileStorage<RT> {
     pub async fn store_file(
         &self,
+        namespace: TableNamespace,
         content_length: Option<ContentLength>,
         content_type: Option<ContentType>,
         file: impl Stream<Item = anyhow::Result<impl Into<Bytes>>> + Send,
@@ -370,13 +383,14 @@ impl<RT: Runtime> FileStorage<RT> {
             .transactional_file_storage
             .upload_file(content_length, content_type, file, expected_sha256)
             .await?;
-        self.store_entry(entry, usage_tracker).await
+        self.store_entry(namespace, entry, usage_tracker).await
     }
 
     /// Record the existence of a file that has already been uploaded to the
     /// underlying storage implementation.
     pub async fn store_entry(
         &self,
+        namespace: TableNamespace,
         entry: FileStorageEntry,
         usage_tracker: &dyn StorageUsageTracker,
     ) -> anyhow::Result<DeveloperDocumentId> {
@@ -386,7 +400,7 @@ impl<RT: Runtime> FileStorage<RT> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let virtual_id = self
             .transactional_file_storage
-            .store_file_entry(&mut tx, entry)
+            .store_file_entry(&mut tx, namespace, entry)
             .await?;
         self.database
             .commit_with_write_source(tx, "file_storage_store_file")

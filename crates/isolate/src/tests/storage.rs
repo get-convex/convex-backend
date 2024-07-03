@@ -1,4 +1,7 @@
-use common::testing::TestPersistence;
+use common::{
+    components::ComponentId,
+    testing::TestPersistence,
+};
 use keybroker::Identity;
 use model::file_storage::FileStorageId;
 use must_let::must_let;
@@ -38,7 +41,7 @@ async fn check_storage_url(
     must_let!(let Some(internal_id) = url_str.strip_prefix("http://127.0.0.1:8000/api/storage/"));
     must_let!(
         let Some(storage_entry) = t.storage_get_file_entry(
-            Identity::system(), FileStorageId::DocumentId(id_str.parse()?)
+            Identity::system(), ComponentId::test_user(), FileStorageId::DocumentId(id_str.parse()?)
         ).await?
     );
     assert_eq!(storage_entry.storage_id, internal_id.parse()?);

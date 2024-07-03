@@ -18,6 +18,7 @@ use axum::{
 use common::{
     components::{
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     execution_context::{
@@ -359,7 +360,7 @@ pub async fn storage_get_url(
     let url = st
         .application
         .runner()
-        .storage_get_url(identity, storage_id)
+        .storage_get_url(identity, ComponentId::TODO(), storage_id)
         .await?;
     Ok(Json(json!({ "url": url })))
 }
@@ -371,6 +372,7 @@ pub async fn storage_get_metadata(
     Json(req): Json<GetParams>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let storage_id = req.storage_id.parse()?;
+    let component = ComponentId::TODO();
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct FileMetadataJson {
@@ -383,7 +385,7 @@ pub async fn storage_get_metadata(
     let file_metadata = st
         .application
         .runner()
-        .storage_get_file_entry(identity, storage_id)
+        .storage_get_file_entry(identity, component, storage_id)
         .await?
         .map(
             |FileStorageEntry {
@@ -412,9 +414,10 @@ pub async fn storage_delete(
     Json(req): Json<GetParams>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let storage_id = req.storage_id.parse()?;
+    let component = ComponentId::TODO();
     st.application
         .runner()
-        .storage_delete(identity, storage_id)
+        .storage_delete(identity, component, storage_id)
         .await?;
     Ok(Json(json!(null)))
 }

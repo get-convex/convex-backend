@@ -1274,28 +1274,38 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn storage_get_url(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<String>> {
         let mut tx = self.database.begin(identity).await?;
-        self.file_storage.get_url(&mut tx, storage_id).await
+        self.file_storage
+            .get_url(&mut tx, component.into(), storage_id)
+            .await
     }
 
     async fn storage_get_file_entry(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<FileStorageEntry>> {
         let mut tx = self.database.begin(identity).await?;
-        self.file_storage.get_file_entry(&mut tx, storage_id).await
+        self.file_storage
+            .get_file_entry(&mut tx, component.into(), storage_id)
+            .await
     }
 
     async fn storage_store_file_entry(
         &self,
         identity: Identity,
+        component: ComponentId,
         entry: FileStorageEntry,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let mut tx = self.database.begin(identity).await?;
-        let id = self.file_storage.store_file_entry(&mut tx, entry).await?;
+        let id = self
+            .file_storage
+            .store_file_entry(&mut tx, component.into(), entry)
+            .await?;
         self.database.commit(tx).await?;
         Ok(id)
     }
@@ -1303,11 +1313,12 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn storage_delete(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<()> {
         let mut tx = self.database.begin(identity).await?;
         self.file_storage
-            .delete(&mut tx, storage_id.clone())
+            .delete(&mut tx, component.into(), storage_id.clone())
             .await?;
         self.database.commit(tx).await?;
         Ok(())

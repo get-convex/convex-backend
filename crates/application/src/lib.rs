@@ -2178,6 +2178,7 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn store_file(
         &self,
+        component: ComponentId,
         content_length: Option<ContentLength>,
         content_type: Option<ContentType>,
         expected_sha256: Option<Sha256Digest>,
@@ -2186,6 +2187,7 @@ impl<RT: Runtime> Application<RT> {
         let storage_id = self
             .file_storage
             .store_file(
+                component.into(),
                 content_length,
                 content_type,
                 body,
@@ -2198,23 +2200,28 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn store_file_entry(
         &self,
+        component: ComponentId,
         entry: FileStorageEntry,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let storage_id = self
             .file_storage
-            .store_entry(entry, &self.usage_tracking)
+            .store_entry(component.into(), entry, &self.usage_tracking)
             .await?;
         Ok(storage_id)
     }
 
-    pub async fn get_file(&self, storage_id: FileStorageId) -> anyhow::Result<FileStream> {
+    pub async fn get_file(
+        &self,
+        component: ComponentId,
+        storage_id: FileStorageId,
+    ) -> anyhow::Result<FileStream> {
         let mut file_storage_tx = self.begin(Identity::system()).await?;
 
         let Some(file_entry) = self
             .file_storage
             .transactional_file_storage
             // The transaction is not part of UDF so use the global usage counters.
-            .get_file_entry(&mut file_storage_tx, storage_id.clone())
+            .get_file_entry(&mut file_storage_tx, component.into(), storage_id.clone())
             .await?
         else {
             return Err(ErrorMetadata::not_found(
@@ -2234,6 +2241,7 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn get_file_range(
         &self,
+        component: ComponentId,
         storage_id: FileStorageId,
         bytes_range: (Bound<u64>, Bound<u64>),
     ) -> anyhow::Result<FileRangeStream> {
@@ -2243,7 +2251,7 @@ impl<RT: Runtime> Application<RT> {
             .file_storage
             .transactional_file_storage
             // The transaction is not part of UDF so use the global usage counters.
-            .get_file_entry(&mut file_storage_tx, storage_id.clone())
+            .get_file_entry(&mut file_storage_tx, component.into(), storage_id.clone())
             .await?
         else {
             return Err(ErrorMetadata::not_found(

@@ -1100,6 +1100,7 @@ mod tests {
         let usage_tracker = FunctionUsageTracker::new();
         let file1_id = file_storage_wrapper
             .store_file(
+                TableNamespace::test_user(),
                 None,
                 Some(ContentType::jpeg()),
                 futures::stream::iter(vec![Ok(Bytes::from_static(b"abc"))]),

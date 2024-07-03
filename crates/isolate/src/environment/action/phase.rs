@@ -7,6 +7,7 @@ use std::{
 use anyhow::Context;
 use common::{
     components::{
+        ComponentId,
         ComponentPath,
         Reference,
         Resource,
@@ -83,6 +84,7 @@ enum ActionPreloaded<RT: Runtime> {
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
+        component_id: Arc<Mutex<Option<ComponentId>>>,
     },
     Preloading,
     Ready {
@@ -101,6 +103,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
+        component_id: Arc<Mutex<Option<ComponentId>>>,
     ) -> Self {
         Self {
             component,
@@ -111,6 +114,7 @@ impl<RT: Runtime> ActionPhase<RT> {
                 module_loader,
                 system_env_vars,
                 resources,
+                component_id,
             },
         }
     }
@@ -129,6 +133,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             module_loader,
             system_env_vars,
             resources,
+            component_id,
         } = preloaded
         else {
             anyhow::bail!("ActionPhase initialized twice");
@@ -138,6 +143,8 @@ impl<RT: Runtime> ActionPhase<RT> {
             let (_, component) = BootstrapComponentsModel::new(&mut tx)
                 .component_path_to_ids(self.component.clone())
                 .await?;
+            let mut component_id = component_id.lock();
+            *component_id = Some(component);
             anyhow::Ok(component)
         })
         .await?;

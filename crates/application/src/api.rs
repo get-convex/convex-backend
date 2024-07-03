@@ -6,7 +6,10 @@ use std::{
 use async_trait::async_trait;
 use bytes::Bytes;
 use common::{
-    components::ComponentFunctionPath,
+    components::{
+        ComponentFunctionPath,
+        ComponentId,
+    },
     pause::PauseClient,
     runtime::Runtime,
     types::{
@@ -165,6 +168,7 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &str,
         request_id: RequestId,
+        component: ComponentId,
         content_length: Option<ContentLength>,
         content_type: Option<ContentType>,
         expected_sha256: Option<Sha256Digest>,
@@ -175,6 +179,7 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &str,
         request_id: RequestId,
+        component: ComponentId,
         file_storage_id: FileStorageId,
         range: (Bound<u64>, Bound<u64>),
     ) -> anyhow::Result<FileRangeStream>;
@@ -183,6 +188,7 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &str,
         request_id: RequestId,
+        component: ComponentId,
         file_storage_id: FileStorageId,
     ) -> anyhow::Result<FileStream>;
 }
@@ -337,32 +343,41 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         &self,
         _host: &str,
         _request_id: RequestId,
+        component: ComponentId,
         content_length: Option<ContentLength>,
         content_type: Option<ContentType>,
         expected_sha256: Option<Sha256Digest>,
         body: BoxStream<'_, anyhow::Result<Bytes>>,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        self.store_file(content_length, content_type, expected_sha256, body)
-            .await
+        self.store_file(
+            component,
+            content_length,
+            content_type,
+            expected_sha256,
+            body,
+        )
+        .await
     }
 
     async fn get_file_range(
         &self,
         _host: &str,
         _request_id: RequestId,
+        component: ComponentId,
         file_storage_id: FileStorageId,
         range: (Bound<u64>, Bound<u64>),
     ) -> anyhow::Result<FileRangeStream> {
-        self.get_file_range(file_storage_id, range).await
+        self.get_file_range(component, file_storage_id, range).await
     }
 
     async fn get_file(
         &self,
         _host: &str,
         _request_id: RequestId,
+        component: ComponentId,
         file_storage_id: FileStorageId,
     ) -> anyhow::Result<FileStream> {
-        self.get_file(file_storage_id).await
+        self.get_file(component, file_storage_id).await
     }
 }
 

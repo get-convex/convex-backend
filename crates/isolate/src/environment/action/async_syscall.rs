@@ -2,7 +2,10 @@
 
 use anyhow::Context;
 use common::{
-    components::Reference,
+    components::{
+        ComponentId,
+        Reference,
+    },
     runtime::{
         Runtime,
         RuntimeInstant,
@@ -39,6 +42,12 @@ use crate::{
 };
 
 impl<RT: Runtime> TaskExecutor<RT> {
+    pub fn component_id(&self) -> anyhow::Result<ComponentId> {
+        self.component_id
+            .lock()
+            .context("component_id was not initialized")
+    }
+
     #[minitrace::trace]
     pub async fn run_async_syscall(&self, name: String, args: JsonValue) -> anyhow::Result<String> {
         let start = self.rt.monotonic_now();
@@ -273,7 +282,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         })?;
         let url = self
             .action_callbacks
-            .storage_get_url(self.identity.clone(), storage_id)
+            .storage_get_url(self.identity.clone(), self.component_id()?, storage_id)
             .await?;
         Ok(url.into())
     }
@@ -291,7 +300,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         })?;
 
         self.action_callbacks
-            .storage_delete(self.identity.clone(), storage_id)
+            .storage_delete(self.identity.clone(), self.component_id()?, storage_id)
             .await?;
 
         Ok(JsonValue::Null)
@@ -319,7 +328,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         }
         let file_metadata = self
             .action_callbacks
-            .storage_get_file_entry(self.identity.clone(), storage_id)
+            .storage_get_file_entry(self.identity.clone(), self.component_id()?, storage_id)
             .await?
             .map(
                 |FileStorageEntry {

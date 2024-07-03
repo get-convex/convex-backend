@@ -389,6 +389,15 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         &mut self,
         storage_ids: BTreeMap<BatchKey, FileStorageId>,
     ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>> {
+        let component = match self.component() {
+            Ok(c) => c,
+            Err(e) => {
+                return storage_ids
+                    .into_keys()
+                    .map(|batch_key| (batch_key, Err(clone_error_for_batch(&e))))
+                    .collect();
+            },
+        };
         let tx = match self.phase.tx() {
             Ok(tx) => tx,
             Err(e) => {
@@ -398,19 +407,25 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                     .collect();
             },
         };
-        self.file_storage.get_url_batch(tx, storage_ids).await
+        self.file_storage
+            .get_url_batch(tx, component.into(), storage_ids)
+            .await
     }
 
     async fn file_storage_delete(&mut self, storage_id: FileStorageId) -> anyhow::Result<()> {
-        self.file_storage.delete(self.phase.tx()?, storage_id).await
+        let component = self.component()?;
+        self.file_storage
+            .delete(self.phase.tx()?, component.into(), storage_id)
+            .await
     }
 
     async fn file_storage_get_entry(
         &mut self,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<FileStorageEntry>> {
+        let component = self.component()?;
         self.file_storage
-            .get_file_entry(self.phase.tx()?, storage_id)
+            .get_file_entry(self.phase.tx()?, component.into(), storage_id)
             .await
     }
 

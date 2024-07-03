@@ -25,6 +25,7 @@ use common::{
     components::{
         ComponentDefinitionPath,
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     errors::{
@@ -306,12 +307,14 @@ pub trait ActionCallbacks: Send + Sync {
     async fn storage_get_url(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<String>>;
 
     async fn storage_delete(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<()>;
 
@@ -319,6 +322,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn storage_get_file_entry(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<FileStorageEntry>>;
 
@@ -326,6 +330,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn storage_store_file_entry(
         &self,
         identity: Identity,
+        component: ComponentId,
         entry: FileStorageEntry,
     ) -> anyhow::Result<DeveloperDocumentId>;
 

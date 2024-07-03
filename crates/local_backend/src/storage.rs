@@ -31,6 +31,7 @@ use axum::{
     TypedHeader,
 };
 use common::{
+    components::ComponentId,
     http::{
         extract::{
             Json,
@@ -99,6 +100,7 @@ pub async fn storage_upload(
             STORE_FILE_AUTHORIZATION_VALIDITY,
         )
         .await?;
+    let component = ComponentId::TODO();
     let content_length = map_header_err(content_length)?;
     let content_type = map_header_err(content_type)?;
     let sha256 = map_header_err(sha256)?.map(|dh| dh.0);
@@ -108,6 +110,7 @@ pub async fn storage_upload(
         .store_file(
             &host,
             request_id,
+            component,
             content_length,
             content_type,
             sha256,
@@ -139,6 +142,7 @@ pub async fn storage_get(
         format!("Invalid storage path: \"{uuid}\". Please use `storage.getUrl()` to generate a valid URL to retrieve files. See https://docs.convex.dev/file-storage/serve-files for more details"),
     ))?;
     let file_storage_id = FileStorageId::LegacyStorageId(storage_uuid);
+    let component = ComponentId::TODO();
 
     // TODO(CX-3065) figure out deterministic repeatable tokens
 
@@ -160,7 +164,7 @@ pub async fn storage_get(
             stream,
         } = st
             .api
-            .get_file_range(&host, request_id, file_storage_id, range)
+            .get_file_range(&host, request_id, component, file_storage_id, range)
             .await?;
 
         return Ok((
@@ -184,7 +188,10 @@ pub async fn storage_get(
         content_type,
         content_length,
         stream,
-    } = st.api.get_file(&host, request_id, file_storage_id).await?;
+    } = st
+        .api
+        .get_file(&host, request_id, component, file_storage_id)
+        .await?;
     Ok((
         TypedHeader(DigestHeader(sha256)),
         content_type.map(TypedHeader),

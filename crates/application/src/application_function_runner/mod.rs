@@ -21,6 +21,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
         ComponentFunctionPath,
+        ComponentId,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -2067,24 +2068,31 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn storage_get_url(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<String>> {
         let mut tx = self.database.begin(identity).await?;
-        self.file_storage.get_url(&mut tx, storage_id).await
+        self.file_storage
+            .get_url(&mut tx, component.into(), storage_id)
+            .await
     }
 
     async fn storage_get_file_entry(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<FileStorageEntry>> {
         let mut tx = self.database.begin(identity).await?;
-        self.file_storage.get_file_entry(&mut tx, storage_id).await
+        self.file_storage
+            .get_file_entry(&mut tx, component.into(), storage_id)
+            .await
     }
 
     async fn storage_store_file_entry(
         &self,
         identity: Identity,
+        component: ComponentId,
         entry: FileStorageEntry,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let (_ts, id, _stats) = self
@@ -2098,7 +2106,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                     async {
                         let id = self
                             .file_storage
-                            .store_file_entry(tx, entry.clone())
+                            .store_file_entry(tx, component.into(), entry.clone())
                             .await?;
                         Ok(id)
                     }
@@ -2112,6 +2120,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn storage_delete(
         &self,
         identity: Identity,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<()> {
         self.database
@@ -2122,7 +2131,9 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 "app_funrun_storage_delete",
                 |tx| {
                     async {
-                        self.file_storage.delete(tx, storage_id.clone()).await?;
+                        self.file_storage
+                            .delete(tx, component.into(), storage_id.clone())
+                            .await?;
                         Ok(())
                     }
                     .into()

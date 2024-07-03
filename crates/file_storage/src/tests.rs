@@ -25,6 +25,7 @@ use model::{
 use runtime::testing::TestRuntime;
 use storage::LocalDirStorage;
 use usage_tracking::UsageCounter;
+use value::TableNamespace;
 
 use super::FileStorage;
 use crate::TransactionalFileStorage;
@@ -50,7 +51,7 @@ async fn test_get_file_404(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = database.begin(Identity::system()).await?;
     assert!(file_storage
         .transactional_file_storage
-        .get_file_entry(&mut tx, bogus_storage_id)
+        .get_file_entry(&mut tx, TableNamespace::test_user(), bogus_storage_id)
         .await?
         .is_none());
 
@@ -68,6 +69,7 @@ async fn test_store_file_sha_mismatch(rt: TestRuntime) -> anyhow::Result<()> {
     let wrong = Sha256::hash(b"Wrong thing");
     let err: ErrorMetadata = file_storage
         .store_file(
+            TableNamespace::test_user(),
             None,
             None,
             stream::iter([Ok(big_file)]),

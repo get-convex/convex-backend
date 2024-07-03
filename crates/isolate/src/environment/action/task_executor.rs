@@ -7,6 +7,7 @@ use std::{
 use common::{
     components::{
         ComponentFunctionPath,
+        ComponentId,
         Reference,
         Resource,
     },
@@ -76,6 +77,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub usage_tracker: FunctionUsageTracker,
     pub context: ExecutionContext,
     pub resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
+    pub component_id: Arc<Mutex<Option<ComponentId>>>,
 }
 
 impl<RT: Runtime> TaskExecutor<RT> {
