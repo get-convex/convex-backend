@@ -195,7 +195,7 @@ async fn stream_http_response(
             .execute_http_action(
                 &host,
                 request_id,
-                path,
+                path.into(),
                 http_request_metadata,
                 identity,
                 FunctionCaller::HttpEndpoint,

@@ -4,7 +4,6 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentFunctionPath,
         ComponentId,
-        ComponentName,
         ComponentPath,
     },
     errors::JsError,
@@ -502,21 +501,14 @@ impl ValidatedPathAndArgs {
             serde_json::from_slice(&args.ok_or_else(|| anyhow::anyhow!("Missing args"))?)?;
         let args_value = ConvexValue::try_from(args_json)?;
         let args = ConvexArray::try_from(args_value)?;
+        // TODO(CX-6865) Make required
         let component = component_path
-            .map(|c| {
-                c.path
-                    .into_iter()
-                    .map(|name| name.parse::<ComponentName>())
-                    .try_collect::<Vec<_>>()
-                    .map(ComponentPath::from)
-            })
+            .map(|c| c.try_into())
             .unwrap_or(Ok(ComponentPath::root()))?;
         Ok(Self {
             path: CanonicalizedComponentFunctionPath {
                 component,
-                udf_path: path
-                    .ok_or_else(|| anyhow::anyhow!("Missing udf_path"))?
-                    .parse()?,
+                udf_path: path.context("Missing udf_path")?.parse()?,
             },
             args,
             npm_version: npm_version.map(|v| Version::parse(&v)).transpose()?,
@@ -536,9 +528,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
     ) -> anyhow::Result<Self> {
         let args_json = JsonValue::from(args);
         let args = serde_json::to_vec(&args_json)?;
-        let component_path = Some(pb::common::ComponentPath {
-            path: path.component.iter().map(|name| name.to_string()).collect(),
-        });
+        let component_path = Some(path.component.into());
         Ok(Self {
             path: Some(path.udf_path.to_string()),
             args: Some(args),

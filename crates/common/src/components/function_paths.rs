@@ -51,6 +51,15 @@ impl ComponentFunctionPath {
     }
 }
 
+impl From<UdfPath> for ComponentFunctionPath {
+    fn from(udf_path: UdfPath) -> Self {
+        Self {
+            component: ComponentPath::root(),
+            udf_path,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedComponentFunctionPath {

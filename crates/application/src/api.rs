@@ -6,10 +6,7 @@ use std::{
 use async_trait::async_trait;
 use bytes::Bytes;
 use common::{
-    components::{
-        ComponentFunctionPath,
-        ComponentPath,
-    },
+    components::ComponentFunctionPath,
     pause::PauseClient,
     runtime::Runtime,
     types::{
@@ -52,7 +49,6 @@ use sync_types::{
     AuthenticationToken,
     SerializedQueryJournal,
     Timestamp,
-    UdfPath,
 };
 use value::{
     sha256::Sha256Digest,
@@ -99,7 +95,7 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
@@ -111,7 +107,7 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
@@ -123,7 +119,7 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
@@ -133,7 +129,7 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
         identity: Identity,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>>;
@@ -150,7 +146,7 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &str,
         request_id: RequestId,
-        path: UdfPath,
+        path: ComponentFunctionPath,
         http_request_metadata: HttpActionRequest,
         identity: Identity,
         caller: FunctionCaller,
@@ -209,7 +205,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &str,
         request_id: RequestId,
         identity: Identity,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
@@ -224,10 +220,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             ExecuteQueryTimestamp::Latest => *self.now_ts_for_reads(),
             ExecuteQueryTimestamp::At(ts) => ts,
         };
-        let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path,
-        };
         self.read_only_udf_at_ts(request_id, path, args, identity, ts, journal, caller)
             .await
     }
@@ -237,7 +229,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &str,
         request_id: RequestId,
         identity: Identity,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
@@ -248,10 +240,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             "This method should not be used by internal callers."
         );
 
-        let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path,
-        };
         self.mutation_udf(
             request_id,
             path,
@@ -269,7 +257,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &str,
         request_id: RequestId,
         identity: Identity,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
@@ -278,10 +266,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             "This method should not be used by internal callers."
         );
 
-        let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path,
-        };
         self.action_udf(request_id, path, args, identity, caller)
             .await
     }
@@ -291,14 +275,10 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &str,
         request_id: RequestId,
         identity: Identity,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
-        let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path,
-        };
         self.any_udf(request_id, path, args, identity, caller).await
     }
 
@@ -325,16 +305,12 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         &self,
         _host: &str,
         request_id: RequestId,
-        path: UdfPath,
+        path: ComponentFunctionPath,
         http_request_metadata: HttpActionRequest,
         identity: Identity,
         caller: FunctionCaller,
         response_streamer: HttpActionResponseStreamer,
     ) -> anyhow::Result<()> {
-        let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path: path,
-        };
         self.http_action_udf(
             request_id,
             path,

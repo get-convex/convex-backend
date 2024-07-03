@@ -168,3 +168,24 @@ impl From<ComponentDefinitionPath> for String {
         value.0
     }
 }
+
+impl From<ComponentPath> for pb::common::ComponentPath {
+    fn from(path: ComponentPath) -> Self {
+        Self {
+            path: path.iter().map(|name| name.to_string()).collect(),
+        }
+    }
+}
+
+impl TryFrom<pb::common::ComponentPath> for ComponentPath {
+    type Error = anyhow::Error;
+
+    fn try_from(value: pb::common::ComponentPath) -> Result<Self, Self::Error> {
+        let component_names: Vec<ComponentName> = value
+            .path
+            .into_iter()
+            .map(|name| name.parse::<ComponentName>())
+            .try_collect()?;
+        Ok(component_names.into())
+    }
+}

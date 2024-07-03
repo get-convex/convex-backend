@@ -14,6 +14,10 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentPath,
+    },
     http::{
         extract::{
             Json,
@@ -159,13 +163,17 @@ pub async fn public_function_post(
     }
 
     let udf_path = parse_udf_path(&req.path)?;
+    let component_function_path = ComponentFunctionPath {
+        component: ComponentPath::root(),
+        udf_path,
+    };
     let udf_result = st
         .api
         .execute_any_function(
             host.as_str(),
             request_id,
             identity,
-            udf_path,
+            component_function_path,
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
         )
@@ -235,7 +243,7 @@ pub async fn public_query_get(
             host.as_str(),
             request_id,
             identity,
-            udf_path,
+            udf_path.into(),
             args,
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
@@ -279,7 +287,7 @@ pub async fn public_query_post(
             host.as_str(),
             request_id,
             identity,
-            udf_path,
+            udf_path.into(),
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
@@ -336,7 +344,7 @@ pub async fn public_query_batch_post(
                 host.as_str(),
                 request_id.clone(),
                 identity.clone(),
-                udf_path,
+                udf_path.into(),
                 req.args.into_arg_vec(),
                 FunctionCaller::HttpApi(client_version.clone()),
                 ExecuteQueryTimestamp::At(*ts),
@@ -384,7 +392,7 @@ pub async fn public_mutation_post(
             host.as_str(),
             request_id,
             identity,
-            udf_path,
+            udf_path.into(),
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             None,
@@ -431,7 +439,7 @@ pub async fn public_action_post(
             host.as_str(),
             request_id,
             identity,
-            udf_path,
+            udf_path.into(),
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
         )
