@@ -68,10 +68,7 @@ use futures_async_stream::try_stream;
 use keybroker::Identity;
 use minitrace::future::FutureExt as _;
 use model::{
-    backend_state::{
-        types::BackendState,
-        BackendStateModel,
-    },
+    backend_state::BackendStateModel,
     components::ComponentsModel,
     modules::ModuleModel,
     scheduled_jobs::{
@@ -252,10 +249,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
             let mut tx = self.database.begin(Identity::Unknown).await?;
             let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
-            let is_backend_stopped = match backend_state {
-                BackendState::Running => false,
-                BackendState::Paused | BackendState::Disabled => true,
-            };
+            let is_backend_stopped = backend_state.is_stopped();
 
             next_job_ready_time = if is_backend_stopped {
                 // If the backend is stopped we shouldn't poll. Our subscription will notify us

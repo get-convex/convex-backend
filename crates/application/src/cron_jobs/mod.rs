@@ -36,6 +36,7 @@ use common::{
         Runtime,
         RuntimeInstant,
     },
+    sync::mpsc,
     types::{
         FunctionCaller,
         UdfType,
@@ -51,19 +52,14 @@ use errors::ErrorMetadataAnyhowExt;
 use futures::{
     future::Either,
     select_biased,
-    stream::FuturesUnordered,
     Future,
     FutureExt,
-    StreamExt,
 };
 use isolate::JsonPackedValue;
 use keybroker::Identity;
 use minitrace::future::FutureExt as _;
 use model::{
-    backend_state::{
-        types::BackendState,
-        BackendStateModel,
-    },
+    backend_state::BackendStateModel,
     cron_jobs::{
         next_ts::compute_next_ts,
         types::{
@@ -78,6 +74,7 @@ use model::{
     },
     modules::ModuleModel,
 };
+use sync_types::Timestamp;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     ResolvedDocumentId,
@@ -101,6 +98,7 @@ const CRON_LOG_MAX_LOG_LINE_LENGTH: usize = 1000;
 
 // This code is very similar to ScheduledJobExecutor and could potentially be
 // refactored later.
+#[derive(Clone)]
 pub struct CronJobExecutor<RT: Runtime> {
     rt: RT,
     database: Database<RT>,
@@ -152,73 +150,50 @@ impl<RT: Runtime> CronJobExecutor<RT> {
 
     async fn run(&self, backoff: &mut Backoff) -> anyhow::Result<()> {
         tracing::info!("Starting cron job executor");
-        let mut futures = FuturesUnordered::new();
+        let (job_finished_tx, mut job_finished_rx) =
+            mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
         let mut running_job_ids = HashSet::new();
+        let mut next_job_ready_time = None;
         loop {
             let mut tx = self.database.begin(Identity::Unknown).await?;
-            // _backend_state appears unused but is needed to make sure the backend_state
-            // is part of the readset for the query we subscribe to.
-            let _backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
+            let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
+            let is_backend_stopped = backend_state.is_stopped();
 
-            let now = self.rt.generate_timestamp()?;
-            let index_query = Query::index_range(IndexRange {
-                index_name: CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
-                range: vec![],
-                order: Order::Asc,
-            });
-            let mut query_stream =
-                ResolvedQuery::new(&mut tx, TableNamespace::by_component_TODO(), index_query)?;
-
-            let mut next_job_wait = None;
-            while let Some(doc) = query_stream.next(&mut tx, None).await? {
-                // Get the backend state again in case of a race where jobs are scheduled and
-                // after the first tx begins the backend is paused.
-                let mut new_tx = self.database.begin(Identity::Unknown).await?;
-                let backend_state = BackendStateModel::new(&mut new_tx)
-                    .get_backend_state()
-                    .await?;
-                drop(new_tx);
-                match backend_state {
-                    BackendState::Running => {},
-                    BackendState::Paused | BackendState::Disabled => break,
-                }
-                let job: ParsedDocument<CronJob> = doc.try_into()?;
-                let (job_id, job) = job.clone().into_id_and_value();
-                if running_job_ids.contains(&job_id) {
-                    continue;
-                }
-                if job.next_ts > now {
-                    next_job_wait = Some(job.next_ts - now);
-                    break;
-                }
-                metrics::log_cron_job_execution_lag(now - job.next_ts);
-                if running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
-                    // We are due to execute the next job, but we can't because of
-                    // parallelism limits. We should break after logging the lag
-                    // here, and then wake up in few seconds to log the lag again
-                    // unless something else changes in between.
-                    next_job_wait = Some(Duration::from_secs(5));
-                    break;
-                }
-                let root = self
-                    .rt
-                    .with_rng(|rng| get_sampled_span("crons/execute_job", rng, BTreeMap::new()));
-                futures.push(self.execute_job(job, job_id).in_span(root));
-                running_job_ids.insert(job_id);
-            }
-
-            let next_job_future = if let Some(next_job_wait) = next_job_wait {
-                Either::Left(self.rt.wait(next_job_wait))
+            next_job_ready_time = if is_backend_stopped {
+                None
+            } else if running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+                next_job_ready_time
             } else {
+                self.query_and_start_jobs(&mut tx, &mut running_job_ids, &job_finished_tx)
+                    .await?
+            };
+
+            let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
+                let now = self.rt.generate_timestamp()?;
+                Either::Left(if next_job_ts < now {
+                    metrics::log_cron_job_execution_lag(now - next_job_ts);
+                    // If we're behind, re-run this loop every 5 seconds to log the gauge above and
+                    // track how far we're behind in our metrics.
+                    self.rt.wait(Duration::from_secs(5))
+                } else {
+                    metrics::log_cron_job_execution_lag(Duration::from_secs(0));
+                    self.rt.wait(next_job_ts - now)
+                })
+            } else {
+                metrics::log_cron_job_execution_lag(Duration::from_secs(0));
                 Either::Right(std::future::pending())
             };
 
             let token = tx.into_token()?;
             let subscription = self.database.subscribe(token).await?;
             select_biased! {
-                job_id = futures.select_next_some() => {
-                    running_job_ids.remove(&job_id);
-                }
+                job_id = job_finished_rx.recv().fuse() => {
+                    if let Some(job_id) = job_id {
+                        running_job_ids.remove(&job_id);
+                    } else {
+                        anyhow::bail!("Job results channel closed, this is unexpected!");
+                    }
+                },
                 _ = next_job_future.fuse() => {
                 }
                 _ = subscription.wait_for_invalidation().fuse() => {
@@ -226,6 +201,53 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             };
             backoff.reset();
         }
+    }
+
+    async fn query_and_start_jobs(
+        &self,
+        tx: &mut Transaction<RT>,
+        running_job_ids: &mut HashSet<ResolvedDocumentId>,
+        job_finished_tx: &mpsc::Sender<ResolvedDocumentId>,
+    ) -> anyhow::Result<Option<Timestamp>> {
+        let now = self.rt.generate_timestamp()?;
+        let index_query = Query::index_range(IndexRange {
+            index_name: CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
+            range: vec![],
+            order: Order::Asc,
+        });
+        let mut query_stream =
+            ResolvedQuery::new(tx, TableNamespace::by_component_TODO(), index_query)?;
+
+        while let Some(doc) = query_stream.next(tx, None).await? {
+            let job: ParsedDocument<CronJob> = doc.try_into()?;
+            let (job_id, job) = job.clone().into_id_and_value();
+            if running_job_ids.contains(&job_id) {
+                continue;
+            }
+            let next_ts = job.next_ts;
+            // If we can't execute the job return the job's target timestamp. If we're
+            // caught up, we can sleep until the timestamp. If we're behind and
+            // at our concurrency limit, we can use the timestamp to log how far
+            // behind we get.
+            if next_ts > now || running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+                return Ok(Some(next_ts));
+            }
+            let root = self
+                .rt
+                .with_rng(|rng| get_sampled_span("crons/execute_job", rng, BTreeMap::new()));
+            let context = self.clone();
+            let tx = job_finished_tx.clone();
+            self.rt.spawn(
+                "spawn_cron_job",
+                async move {
+                    let result = context.execute_job(job, job_id).await;
+                    let _ = tx.send(result).await;
+                }
+                .in_span(root),
+            );
+            running_job_ids.insert(job_id);
+        }
+        Ok(None)
     }
 
     // This handles re-running the cron job on transient errors. It

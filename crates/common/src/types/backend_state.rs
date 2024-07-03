@@ -6,3 +6,9 @@ pub enum BackendState {
     Paused,
     Running,
 }
+
+impl BackendState {
+    pub fn is_stopped(&self) -> bool {
+        matches!(self, BackendState::Disabled | BackendState::Paused)
+    }
+}
