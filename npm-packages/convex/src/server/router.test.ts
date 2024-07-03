@@ -93,29 +93,45 @@ test("HttpRouter pathPrefix", () => {
     http.route({ pathPrefix: "/path1/", method: "GET", handler: action1 });
   }).toThrow();
 
-  // prefix is shadowed by prefix
-  expect(() => {
-    http.route({
-      pathPrefix: "/path1/foo/",
-      method: "GET",
-      handler: action1,
-    });
-  }).toThrow();
+  // more specific pathPrefix
+  http.route({
+    pathPrefix: "/path1/foo/",
+    method: "GET",
+    handler: action1,
+  });
 
-  // path is shadowed by prefix
-  expect(() => {
-    http.route({ path: "/path1/foo", method: "GET", handler: action1 });
-  }).toThrow();
+  // less specific pathPrefix
+  http.route({
+    pathPrefix: "/",
+    method: "GET",
+    handler: action1,
+  });
+
+  // Longest matching prefix is used.
+  expect(http.lookup("/path1/foo/bar", "GET")).toEqual([
+    action1,
+    "GET",
+    "/path1/foo/*",
+  ]);
+  expect(http.lookup("/path1/foo", "GET")).toEqual([
+    action1,
+    "GET",
+    "/path1/*",
+  ]);
+  expect(http.lookup("/path1", "GET")).toEqual([action1, "GET", "/*"]);
+
+  // Exact path is more specific than prefix
+  http.route({ path: "/path1/foo", method: "GET", handler: action1 });
+  expect(http.lookup("/path1/foo", "GET")).toEqual([
+    action1,
+    "GET",
+    "/path1/foo",
+  ]);
+  // Duplicate exact match
+  expect(() =>
+    http.route({ path: "/path1/foo", method: "GET", handler: action1 }),
+  ).toThrow();
 
   // Not shadowed: last path segment is different
   http.route({ pathPrefix: "/path11/", method: "GET", handler: action1 });
-
-  // path is shadowed by prefix
-  expect(() => {
-    http.route({
-      pathPrefix: "/path1/foo/",
-      method: "GET",
-      handler: action1,
-    });
-  }).toThrow();
 });

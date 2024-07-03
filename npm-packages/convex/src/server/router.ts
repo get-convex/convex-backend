@@ -169,17 +169,13 @@ export class HttpRouter {
     }
 
     if ("path" in spec) {
+      if ("pathPrefix" in spec) {
+        throw new Error(
+          `Invalid httpRouter route: cannot contain both 'path' and 'pathPrefix'`,
+        );
+      }
       if (!spec.path.startsWith("/")) {
         throw new Error(`path '${spec.path}' does not start with a /`);
-      }
-      const prefixes =
-        this.prefixRoutes.get(method) || new Map<string, PublicHttpAction>();
-      for (const [prefix, _] of prefixes.entries()) {
-        if (spec.path.startsWith(prefix)) {
-          throw new Error(
-            `${spec.method} path ${spec.path} is shadowed by pathPrefix ${prefix}`,
-          );
-        }
       }
       const methods: Map<RoutableMethod, PublicHttpAction> =
         this.exactRoutes.has(spec.path)
@@ -203,12 +199,10 @@ export class HttpRouter {
       }
       const prefixes =
         this.prefixRoutes.get(method) || new Map<string, PublicHttpAction>();
-      for (const [prefix, _] of prefixes.entries()) {
-        if (spec.pathPrefix.startsWith(prefix)) {
-          throw new Error(
-            `${spec.method} pathPrefix ${spec.pathPrefix} is shadowed by pathPrefix ${prefix}`,
-          );
-        }
+      if (prefixes.has(spec.pathPrefix)) {
+        throw new Error(
+          `${spec.method} pathPrefix ${spec.pathPrefix} is already defined`,
+        );
       }
       prefixes.set(spec.pathPrefix, handler);
       this.prefixRoutes.set(method, prefixes);
@@ -281,7 +275,10 @@ export class HttpRouter {
     if (exactMatch) return [exactMatch, method, path];
 
     const prefixes = this.prefixRoutes.get(method) || new Map();
-    for (const [pathPrefix, endpoint] of prefixes.entries()) {
+    const prefixesSorted = [...prefixes.entries()].sort(
+      ([prefixA, _a], [prefixB, _b]) => prefixB.length - prefixA.length,
+    );
+    for (const [pathPrefix, endpoint] of prefixesSorted) {
       if (path.startsWith(pathPrefix)) {
         return [endpoint, method, `${pathPrefix}*`];
       }
