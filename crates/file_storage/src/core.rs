@@ -370,10 +370,19 @@ impl<RT: Runtime> FileStorage<RT> {
             .transactional_file_storage
             .upload_file(content_length, content_type, file, expected_sha256)
             .await?;
-        let size = entry.size;
+        self.store_entry(entry, usage_tracker).await
+    }
 
+    /// Record the existence of a file that has already been uploaded to the
+    /// underlying storage implementation.
+    pub async fn store_entry(
+        &self,
+        entry: FileStorageEntry,
+        usage_tracker: &dyn StorageUsageTracker,
+    ) -> anyhow::Result<DeveloperDocumentId> {
         // Start/Complete transaction after the slow upload process
         // to avoid OCC risk.
+        let size = entry.size;
         let mut tx = self.database.begin(Identity::system()).await?;
         let virtual_id = self
             .transactional_file_storage

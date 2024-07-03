@@ -200,7 +200,10 @@ use model::{
         },
         ExternalPackagesModel,
     },
-    file_storage::FileStorageId,
+    file_storage::{
+        types::FileStorageEntry,
+        FileStorageId,
+    },
     modules::{
         module_versions::{
             AnalyzedModule,
@@ -2193,6 +2196,17 @@ impl<RT: Runtime> Application<RT> {
         Ok(storage_id)
     }
 
+    pub async fn store_file_entry(
+        &self,
+        entry: FileStorageEntry,
+    ) -> anyhow::Result<DeveloperDocumentId> {
+        let storage_id = self
+            .file_storage
+            .store_entry(entry, &self.usage_tracking)
+            .await?;
+        Ok(storage_id)
+    }
+
     pub async fn get_file(&self, storage_id: FileStorageId) -> anyhow::Result<FileStream> {
         let mut file_storage_tx = self.begin(Identity::system()).await?;
 
@@ -2574,6 +2588,10 @@ impl<RT: Runtime> Application<RT> {
             .execute_with_occ_retries(identity, usage, pause_client, write_source, f)
             .await
             .map(|(ts, t, _)| (ts, t))
+    }
+
+    pub fn files_storage(&self) -> Arc<dyn Storage> {
+        self.files_storage.clone()
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
