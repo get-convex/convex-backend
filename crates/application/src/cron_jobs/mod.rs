@@ -44,6 +44,7 @@ use common::{
     RequestId,
 };
 use database::{
+    BootstrapComponentsModel,
     Database,
     ResolvedQuery,
     Transaction,
@@ -54,7 +55,9 @@ use futures::{
     select_biased,
     Future,
     FutureExt,
+    TryStreamExt,
 };
+use futures_async_stream::try_stream;
 use isolate::JsonPackedValue;
 use keybroker::Identity;
 use minitrace::future::FutureExt as _;
@@ -71,6 +74,7 @@ use model::{
         },
         CronModel,
         CRON_JOBS_INDEX_BY_NEXT_TS,
+        CRON_JOBS_TABLE,
     },
     modules::ModuleModel,
 };
@@ -210,16 +214,8 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         job_finished_tx: &mpsc::Sender<ResolvedDocumentId>,
     ) -> anyhow::Result<Option<Timestamp>> {
         let now = self.rt.generate_timestamp()?;
-        let index_query = Query::index_range(IndexRange {
-            index_name: CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
-            range: vec![],
-            order: Order::Asc,
-        });
-        let mut query_stream =
-            ResolvedQuery::new(tx, TableNamespace::by_component_TODO(), index_query)?;
-
-        while let Some(doc) = query_stream.next(tx, None).await? {
-            let job: ParsedDocument<CronJob> = doc.try_into()?;
+        let mut job_stream = self.stream_jobs_to_run(tx);
+        while let Some(job) = job_stream.try_next().await? {
             let (job_id, job) = job.clone().into_id_and_value();
             if running_job_ids.contains(&job_id) {
                 continue;
@@ -248,6 +244,42 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             running_job_ids.insert(job_id);
         }
         Ok(None)
+    }
+
+    #[try_stream(boxed, ok = ParsedDocument<CronJob>, error = anyhow::Error)]
+    async fn stream_jobs_to_run<'a>(&'a self, tx: &'a mut Transaction<RT>) {
+        let namespaces: Vec<_> = tx
+            .table_mapping()
+            .iter()
+            .filter(|(_, _, _, name)| **name == *CRON_JOBS_TABLE)
+            .map(|(_, namespace, ..)| namespace)
+            .collect();
+        let index_query = Query::index_range(IndexRange {
+            index_name: CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
+            range: vec![],
+            order: Order::Asc,
+        });
+        // Key is (next_ts, namespace), where next_ts is for sorting and namespace
+        // is for deduping.
+        // Value is (job, query) where job is the job to run and query will get
+        // the next job to run in that namespace.
+        let mut queries = BTreeMap::new();
+        for namespace in namespaces {
+            let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
+            if let Some(doc) = query.next(tx, None).await? {
+                let job: ParsedDocument<CronJob> = doc.try_into()?;
+                let next_ts = job.next_ts;
+                queries.insert((next_ts, namespace), (job, query));
+            }
+        }
+        while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
+            yield min_job;
+            if let Some(doc) = query.next(tx, None).await? {
+                let job: ParsedDocument<CronJob> = doc.try_into()?;
+                let next_ts = job.next_ts;
+                queries.insert((next_ts, namespace), (job, query));
+            }
+        }
     }
 
     // This handles re-running the cron job on transient errors. It
@@ -292,12 +324,13 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             // Continue without running function since the job state has changed
             return Ok(job_id);
         };
+        let (_, component_path) = self.get_job_component(&mut tx, job_id).await?;
         tracing::info!("Executing {:?}!", job.cron_spec.udf_path);
 
         // Since we don't specify the function type in the cron, we have to use
         // the analyzed result.
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: component_path,
             udf_path: job.cron_spec.udf_path.clone(),
         };
         let udf_type = ModuleModel::new(&mut tx)
@@ -366,10 +399,26 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         }
     }
 
+    async fn get_job_component(
+        &self,
+        tx: &mut Transaction<RT>,
+        job_id: ResolvedDocumentId,
+    ) -> anyhow::Result<(ComponentId, ComponentPath)> {
+        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+        let component = match namespace {
+            TableNamespace::Global => ComponentId::Root,
+            TableNamespace::ByComponent(id) => ComponentId::Child(id),
+        };
+        let component_path = BootstrapComponentsModel::new(tx)
+            .get_component_path(component)
+            .await?;
+        Ok((component, component_path))
+    }
+
     async fn handle_mutation(
         &self,
         request_id: RequestId,
-        tx: Transaction<RT>,
+        mut tx: Transaction<RT>,
         job: CronJob,
         job_id: ResolvedDocumentId,
         usage_tracker: FunctionUsageTracker,
@@ -377,9 +426,10 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let start = self.rt.monotonic_now();
         let identity = tx.inert_identity();
         let caller = FunctionCaller::Cron;
+        let (component, component_path) = self.get_job_component(&mut tx, job_id).await?;
         let context = ExecutionContext::new(request_id, &caller);
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: component_path,
             udf_path: job.cron_spec.udf_path.clone(),
         };
         let mutation_result = self
@@ -412,7 +462,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let execution_time_f64 = execution_time.as_secs_f64();
         let truncated_log_lines = self.truncate_log_lines(outcome.log_lines.clone());
 
-        let mut model = CronModel::new(&mut tx, ComponentId::TODO());
+        let mut model = CronModel::new(&mut tx, component);
 
         if let Ok(ref result) = outcome.result {
             let truncated_result = self.truncate_result(result.clone());
@@ -427,7 +477,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 .await?;
             self.complete_job_run(
                 identity.clone(),
-                &mut model,
+                &mut tx,
                 job_id,
                 &job,
                 UdfType::Mutation,
@@ -457,14 +507,14 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 // Continue without updating since the job state has changed
                 return Ok(());
             };
-            let mut model = CronModel::new(&mut tx, ComponentId::TODO());
+            let mut model = CronModel::new(&mut tx, component);
             let status = CronJobStatus::Err(e.to_string());
             model
                 .insert_cron_job_log(&job, status, truncated_log_lines, execution_time_f64)
                 .await?;
             self.complete_job_run(
                 identity,
-                &mut model,
+                &mut tx,
                 job_id,
                 &job,
                 UdfType::Mutation,
@@ -497,14 +547,20 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         job_id: ResolvedDocumentId,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
+        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+        let component = match namespace {
+            TableNamespace::Global => ComponentId::Root,
+            TableNamespace::ByComponent(id) => ComponentId::Child(id),
+        };
         let identity = tx.identity().clone();
+        let (_, component_path) = self.get_job_component(&mut tx, job_id).await?;
         let caller = FunctionCaller::Cron;
         match job.state {
             CronJobState::Pending => {
                 // Set state to in progress
                 let mut updated_job = job.clone();
                 updated_job.state = CronJobState::InProgress;
-                CronModel::new(&mut tx, ComponentId::TODO())
+                CronModel::new(&mut tx, component)
                     .update_job_state(job_id, updated_job.clone())
                     .await?;
                 self.database
@@ -514,7 +570,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 // Execute the action
                 let context = ExecutionContext::new(request_id, &caller);
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
+                    component: component_path,
                     udf_path: job.cron_spec.udf_path.clone(),
                 };
                 let completion = self
@@ -582,14 +638,14 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 // guess the correct behavior here is to store the executionId in the state so
                 // we can log correctly here.
                 let context = ExecutionContext::new(request_id, &caller);
-                let mut model = CronModel::new(&mut tx, ComponentId::TODO());
+                let mut model = CronModel::new(&mut tx, component);
                 model
                     .insert_cron_job_log(&job, status, log_lines, 0.0)
                     .await?;
                 let identity: InertIdentity = identity.into();
                 self.complete_job_run(
                     identity.clone(),
-                    &mut model,
+                    &mut tx,
                     job_id,
                     &job,
                     UdfType::Action,
@@ -601,7 +657,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     .await?;
 
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
+                    component: component_path,
                     udf_path: job.cron_spec.udf_path,
                 };
                 self.function_log.log_action_system_error(
@@ -660,13 +716,18 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             // Continue without updating since the job state has changed
             return Ok(());
         };
-        let mut model = CronModel::new(&mut tx, ComponentId::TODO());
+        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+        let component = match namespace {
+            TableNamespace::Global => ComponentId::Root,
+            TableNamespace::ByComponent(id) => ComponentId::Child(id),
+        };
+        let mut model = CronModel::new(&mut tx, component);
         model
             .insert_cron_job_log(expected_state, status, log_lines, execution_time)
             .await?;
         self.complete_job_run(
             identity,
-            &mut model,
+            &mut tx,
             job_id,
             expected_state,
             UdfType::Action,
@@ -682,7 +743,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
     async fn complete_job_run(
         &self,
         identity: InertIdentity,
-        model: &mut CronModel<'_, RT>,
+        tx: &mut Transaction<RT>,
         job_id: ResolvedDocumentId,
         job: &CronJob,
         udf_type: UdfType,
@@ -693,6 +754,8 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let mut next_ts = compute_next_ts(&job.cron_spec, Some(prev_ts), now)?;
         let mut num_skipped = 0;
         let first_skipped_ts = next_ts;
+        let (component, component_path) = self.get_job_component(tx, job_id).await?;
+        let mut model = CronModel::new(tx, component);
         while next_ts < now {
             num_skipped += 1;
             next_ts = compute_next_ts(&job.cron_spec, Some(next_ts), now)?;
@@ -715,7 +778,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                              runs are in the past"
                         ),
                         CanonicalizedComponentFunctionPath {
-                            component: ComponentPath::root(),
+                            component: component_path,
                             udf_path: job.cron_spec.udf_path.clone(),
                         },
                         job.cron_spec.udf_args.clone(),
@@ -732,7 +795,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                              runs are in the past"
                         ),
                         CanonicalizedComponentFunctionPath {
-                            component: ComponentPath::root(),
+                            component: component_path,
                             udf_path: job.cron_spec.udf_path.clone(),
                         },
                         job.cron_spec.udf_args.clone(),

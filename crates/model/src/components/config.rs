@@ -50,10 +50,12 @@ use super::{
 use crate::{
     component_system_tables,
     config::types::{
+        CronDiff,
         ModuleConfig,
         ModuleDiff,
         UdfServerVersionDiff,
     },
+    cron_jobs::CronModel,
     initialize_application_system_table,
     modules::{
         module_versions::AnalyzedModule,
@@ -514,8 +516,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 modules.analyze_results.clone(),
             )
             .await?;
-
-        // TODO: Diff crons.
+        let cron_diff = CronModel::new(self.tx, component_id)
+            .apply(&modules.analyze_results)
+            .await?;
 
         Ok((
             id,
@@ -523,6 +526,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 diff_type: ComponentDiffType::Create,
                 module_diff,
                 udf_config_diff,
+                cron_diff,
             },
         ))
     }
@@ -559,14 +563,17 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 modules.analyze_results.clone(),
             )
             .await?;
+        let cron_diff = CronModel::new(self.tx, component_id)
+            .apply(&modules.analyze_results)
+            .await?;
 
-        // TODO: Diff crons.
         Ok((
             existing.id().internal_id(),
             ComponentDiff {
                 diff_type: ComponentDiffType::Modify,
                 module_diff,
                 udf_config_diff,
+                cron_diff,
             },
         ))
     }
@@ -580,7 +587,6 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         } else {
             ComponentId::Child(existing.id().internal_id())
         };
-        // TODO: Diff crons.
         // TODO: Delete the component's system tables.
         SystemMetadataModel::new_global(self.tx)
             .delete(existing.id())
@@ -588,12 +594,16 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let module_diff = ModuleModel::new(self.tx)
             .apply(component_id, vec![], None, BTreeMap::new())
             .await?;
+        let cron_diff = CronModel::new(self.tx, component_id)
+            .apply(&BTreeMap::new())
+            .await?;
         Ok((
             existing.id().internal_id(),
             ComponentDiff {
                 diff_type: ComponentDiffType::Delete,
                 module_diff,
                 udf_config_diff: None,
+                cron_diff,
             },
         ))
     }
@@ -662,6 +672,7 @@ pub struct ComponentDiff {
     diff_type: ComponentDiffType,
     module_diff: ModuleDiff,
     udf_config_diff: Option<UdfServerVersionDiff>,
+    cron_diff: CronDiff,
 }
 
 #[derive(Serialize)]
@@ -678,6 +689,7 @@ pub struct SerializedComponentDiff {
     diff_type: SerializedComponentDiffType,
     module_diff: ModuleDiff,
     udf_config_diff: Option<UdfServerVersionDiff>,
+    cron_diff: CronDiff,
 }
 
 impl TryFrom<ComponentDiffType> for SerializedComponentDiffType {
@@ -700,6 +712,7 @@ impl TryFrom<ComponentDiff> for SerializedComponentDiff {
             diff_type: value.diff_type.try_into()?,
             module_diff: value.module_diff,
             udf_config_diff: value.udf_config_diff,
+            cron_diff: value.cron_diff,
         })
     }
 }
