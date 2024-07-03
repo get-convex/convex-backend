@@ -13,7 +13,7 @@ import {
   poll,
   logAndHandleFetchError,
   deploymentFetch,
-  fetchDeprecationCheckWarning,
+  deprecationCheckWarning,
 } from "./utils.js";
 
 type IndexMetadata = {
@@ -77,7 +77,7 @@ export async function pushSchema(
         dryRun,
       }),
     });
-    fetchDeprecationCheckWarning(ctx, res);
+    deprecationCheckWarning(ctx, res);
     data = await res.json();
   } catch (err: unknown) {
     logFailure(ctx, `Error: Unable to run schema validation on ${origin}`);

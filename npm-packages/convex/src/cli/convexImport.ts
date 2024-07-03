@@ -2,10 +2,10 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import {
   ensureHasConvexDependency,
-  logAndHandleAxiosError,
   formatSize,
-  deploymentClient,
   waitUntilCalled,
+  deploymentFetch,
+  logAndHandleFetchError,
 } from "./lib/utils.js";
 import { version } from "./version.js";
 import {
@@ -143,7 +143,7 @@ export const convexImport = new Command("import")
         options.yes,
       );
     }
-    const client = deploymentClient(deploymentUrl);
+    const fetch = deploymentFetch(deploymentUrl);
 
     const data = ctx.fs.createReadStream(filePath, {
       highWaterMark: CHUNK_SIZE,
@@ -173,10 +173,11 @@ export const convexImport = new Command("import")
     const tableNotice = tableName ? ` to table "${chalk.bold(tableName)}"` : "";
     let importId: string;
     try {
-      const startResp = await client.post("/api/import/start_upload", null, {
+      const startResp = await fetch("/api/import/start_upload", {
+        method: "POST",
         headers,
       });
-      const { uploadToken } = startResp.data;
+      const { uploadToken } = await startResp.json();
 
       const partTokens = [];
       let partNumber = 1;
@@ -185,8 +186,12 @@ export const convexImport = new Command("import")
         const partUrl = `/api/import/upload_part?uploadToken=${encodeURIComponent(
           uploadToken,
         )}&partNumber=${partNumber}`;
-        const partResp = await client.post(partUrl, chunk, { headers });
-        partTokens.push(partResp.data);
+        const partResp = await fetch(partUrl, {
+          headers,
+          body: chunk,
+          method: "POST",
+        });
+        partTokens.push(await partResp.text());
         partNumber += 1;
         changeSpinner(
           ctx,
@@ -196,16 +201,20 @@ export const convexImport = new Command("import")
         );
       }
 
-      const finishResp = await client.post(
-        "/api/import/finish_upload",
-        {
+      const finishResp = await fetch("/api/import/finish_upload", {
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           import: importArgs,
           uploadToken,
           partTokens,
-        },
-        { headers },
-      );
-      importId = finishResp.data.importId;
+        }),
+        method: "POST",
+      });
+      const body = await finishResp.json();
+      importId = body.importId;
     } catch (e) {
       logFailure(
         ctx,
@@ -213,7 +222,7 @@ export const convexImport = new Command("import")
           filePath,
         )}"${tableNotice}${deploymentNotice} failed`,
       );
-      return await logAndHandleAxiosError(ctx, e);
+      return await logAndHandleFetchError(ctx, e);
     }
     changeSpinner(ctx, "Parsing uploaded data");
     // eslint-disable-next-line no-constant-condition
@@ -252,7 +261,11 @@ export const convexImport = new Command("import")
           showSpinner(ctx, `Importing`);
           const performUrl = `/api/perform_import`;
           try {
-            await client.post(performUrl, { importId }, { headers });
+            await fetch(performUrl, {
+              headers: { ...headers, "content-type": "application/json" },
+              method: "POST",
+              body: JSON.stringify({ importId }),
+            });
           } catch (e) {
             logFailure(
               ctx,
@@ -260,7 +273,7 @@ export const convexImport = new Command("import")
                 filePath,
               )}"${tableNotice}${deploymentNotice} failed`,
             );
-            return await logAndHandleAxiosError(ctx, e);
+            return await logAndHandleFetchError(ctx, e);
           }
           // Now we have kicked off the rest of the import, go around the loop again.
           break;

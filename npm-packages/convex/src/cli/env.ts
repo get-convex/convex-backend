@@ -16,9 +16,9 @@ import {
 import { actionDescription } from "./lib/command.js";
 import { runQuery } from "./lib/run.js";
 import {
-  deploymentClient,
+  deploymentFetch,
   ensureHasConvexDependency,
-  logAndHandleAxiosError,
+  logAndHandleFetchError,
 } from "./lib/utils.js";
 import { version } from "./version.js";
 
@@ -175,19 +175,20 @@ async function callUpdateEnvironmentVariables(
       ctx,
       deploymentSelection,
     );
-  const client = deploymentClient(url);
+  const fetch = deploymentFetch(url);
   const headers = {
     Authorization: `Convex ${adminKey}`,
     "Convex-Client": `npm-cli-${version}`,
   };
   try {
-    await client.post(
-      "/api/update_environment_variables",
-      { changes },
-      {
-        headers,
+    await fetch("/api/update_environment_variables", {
+      headers: {
+        ...headers,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ changes }),
+      method: "POST",
+    });
     return deploymentType !== undefined || deploymentName !== undefined
       ? ` (on${
           deploymentType !== undefined ? " " + chalk.bold(deploymentType) : ""
@@ -196,7 +197,7 @@ async function callUpdateEnvironmentVariables(
         })`
       : "";
   } catch (e) {
-    return await logAndHandleAxiosError(ctx, e);
+    return await logAndHandleFetchError(ctx, e);
   }
 }
 

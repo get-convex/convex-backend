@@ -26,7 +26,7 @@ import {
   ErrorData,
   loadPackageJson,
   deploymentFetch,
-  fetchDeprecationCheckWarning,
+  deprecationCheckWarning,
   logAndHandleFetchError,
   ThrowingFetchError,
 } from "./utils.js";
@@ -579,7 +579,7 @@ export async function pullConfig(
         "Convex-Client": `npm-cli-${version}`,
       },
     });
-    fetchDeprecationCheckWarning(ctx, res);
+    deprecationCheckWarning(ctx, res);
     const data = await res.json();
     const backendConfig = parseBackendConfig(data.config);
     const projectConfig = {

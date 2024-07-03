@@ -15,7 +15,7 @@ import {
 import * as net from "net";
 import * as dns from "dns";
 import * as crypto from "crypto";
-import { deploymentClient, formatDuration, formatSize } from "./lib/utils.js";
+import { deploymentFetch, formatDuration, formatSize } from "./lib/utils.js";
 import chalk from "chalk";
 
 const ipFamilyNumbers = { ipv4: 4, ipv6: 6, auto: 0 } as const;
@@ -230,16 +230,13 @@ async function checkHttpOnce(
 ) {
   try {
     const start = performance.now();
-    // Be sure to use the same axios client we use elsewhere so we're actually
+    // Be sure to use the same `deploymentFetch` we use elsewhere so we're actually
     // getting coverage of our network stack.
-    const client = deploymentClient(url);
+    const fetch = deploymentFetch(url);
     const instanceNameUrl = new URL("/instance_name", url);
     // Set `maxRedirects` to 0 so our HTTP test doesn't try HTTPS.
-    const resp = await client.get(instanceNameUrl.toString(), {
-      maxRedirects: allowRedirects ? undefined : 0,
-      validateStatus: (status) => {
-        return status === expectedStatus;
-      },
+    const resp = await fetch(instanceNameUrl.toString(), {
+      redirect: allowRedirects ? "follow" : "manual",
     });
     if (resp.status !== expectedStatus) {
       // eslint-disable-next-line no-restricted-syntax
@@ -259,7 +256,7 @@ async function checkHttpOnce(
 async function checkEcho(ctx: Context, url: string, size: number) {
   try {
     const start = performance.now();
-    const client = deploymentClient(url, (err) => {
+    const fetch = deploymentFetch(url, (err) => {
       logFailure(
         ctx,
         chalk.red(`FAIL: echo ${formatSize(size)} (${err}), retrying...`),
@@ -267,16 +264,16 @@ async function checkEcho(ctx: Context, url: string, size: number) {
     });
     const echoUrl = new URL(`/echo`, url);
     const data = crypto.randomBytes(size);
-    const resp = await client.post(echoUrl.toString(), data, {
-      responseType: "arraybuffer",
+    const resp = await fetch(echoUrl.toString(), {
+      body: data,
+      method: "POST",
     });
     if (resp.status !== 200) {
       // eslint-disable-next-line no-restricted-syntax
       throw new Error(`Unexpected status code: ${resp.status}`);
     }
-    // Check that the returned data is equal.
-    const respData = Buffer.from(resp.data);
-    if (!data.equals(respData)) {
+    const respData = await resp.arrayBuffer();
+    if (!data.equals(Buffer.from(respData))) {
       // eslint-disable-next-line no-restricted-syntax
       throw new Error(`Response data mismatch`);
     }

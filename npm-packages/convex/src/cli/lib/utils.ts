@@ -1,4 +1,3 @@
-import axios, { AxiosError, AxiosInstance, AxiosResponse, Method } from "axios";
 import chalk from "chalk";
 import inquirer from "inquirer";
 import os from "os";
@@ -8,7 +7,6 @@ import { z } from "zod";
 
 import { ProjectConfig } from "./config.js";
 
-import axiosRetry from "axios-retry";
 import { spawn } from "child_process";
 import { InvalidArgumentError } from "commander";
 import fetchRetryFactory, { RequestInitRetryParams } from "fetch-retry";
@@ -194,48 +192,6 @@ export async function logAndHandleFetchError(
   }
 }
 
-/**
- * Handle an error from an axios request.
- *
- * TODO: Ideally this only takes in err: AxiosError, but currently
- * it's called more broadly.
- */
-export async function logAndHandleAxiosError(
-  ctx: Context,
-  err: any,
-): Promise<never> {
-  if (ctx.spinner) {
-    // Fail the spinner so the stderr lines appear
-    ctx.spinner.fail();
-  }
-
-  let error_type: ErrorType = "transient";
-  if (err.response) {
-    const res = (err as AxiosError<ErrorData>).response!;
-    await checkErrorForDeprecation(ctx, res);
-
-    let msg = `${res.status} ${res.statusText}`;
-    if (res.data.code && res.data.message) {
-      msg = `${msg}: ${res.data.code}: ${res.data.message}`;
-    }
-
-    if (res.status === 400) {
-      error_type = "invalid filesystem or env vars";
-    } else if (res.status === 401) {
-      error_type = "fatal";
-      msg = `${msg}\nAuthenticate with \`npx convex dev\``;
-    } else if (res.status === 404) {
-      error_type = "fatal";
-      msg = `${msg}: ${res.config.url}`;
-    }
-
-    logError(ctx, chalk.red(msg.trim()));
-  } else {
-    logError(ctx, chalk.red(err));
-  }
-  return await ctx.crash(1, error_type, err);
-}
-
 function logDeprecationWarning(ctx: Context, deprecationMessage: string) {
   if (ctx.deprecationMessagePrinted) {
     return;
@@ -272,37 +228,9 @@ async function checkFetchErrorForDeprecation(ctx: Context, resp: Response) {
   }
 }
 
-async function checkErrorForDeprecation(
-  ctx: Context,
-  resp: AxiosResponse<ErrorData, any>,
-) {
-  const headers = resp.headers;
-  if (headers) {
-    const deprecationState = headers["x-convex-deprecation-state"];
-    const deprecationMessage = headers["x-convex-deprecation-message"];
-    switch (deprecationState) {
-      case undefined:
-        break;
-      case "Deprecated":
-        // This version is deprecated. Print a warning and crash.
-
-        // Gotcha:
-        // 1. Don't use `logDeprecationWarning` because we should always print
-        // why this we crashed (even if we printed a warning earlier).
-        logError(ctx, chalk.red(deprecationMessage));
-        return await ctx.crash(1, "fatal");
-      default:
-        // The error included a deprecation warning. Print, but handle the
-        // error normally (it was for another reason).
-        logDeprecationWarning(ctx, deprecationMessage);
-        break;
-    }
-  }
-}
-
 /// Call this method after a successful API response to conditionally print the
 /// "please upgrade" message.
-export function fetchDeprecationCheckWarning(ctx: Context, resp: Response) {
+export function deprecationCheckWarning(ctx: Context, resp: Response) {
   const headers = resp.headers;
   if (headers) {
     const deprecationState = headers.get("x-convex-deprecation-state");
@@ -321,32 +249,6 @@ export function fetchDeprecationCheckWarning(ctx: Context, resp: Response) {
           ctx,
           deprecationMessage || "(no deprecation message included)",
         );
-        break;
-    }
-  }
-}
-
-/// Call this method after a successful API response to conditionally print the
-/// "please upgrade" message.
-export function deprecationCheckWarning(
-  ctx: Context,
-  resp: AxiosResponse<any, any>,
-) {
-  const headers = resp.headers;
-  if (headers) {
-    const deprecationState = headers["x-convex-deprecation-state"];
-    const deprecationMessage = headers["x-convex-deprecation-message"];
-    switch (deprecationState) {
-      case undefined:
-        break;
-      case "Deprecated":
-        // This should never happen because such states are errors, not warnings.
-        // eslint-disable-next-line no-restricted-syntax
-        throw new Error(
-          "Called deprecationCheckWarning on a fatal error. This is a bug.",
-        );
-      default:
-        logDeprecationWarning(ctx, deprecationMessage);
         break;
     }
   }
@@ -672,22 +574,6 @@ export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
   };
 }
 
-export async function bigBrainClient(ctx: Context): Promise<AxiosInstance> {
-  const authHeader = await getAuthHeaderForBigBrain(ctx);
-  const headers: Record<string, string> = authHeader
-    ? {
-        Authorization: authHeader,
-        "Convex-Client": `npm-cli-${version}`,
-      }
-    : {
-        "Convex-Client": `npm-cli-${version}`,
-      };
-  return axios.create({
-    headers,
-    baseURL: BIG_BRAIN_URL,
-  });
-}
-
 export async function bigBrainAPI({
   ctx,
   method,
@@ -695,7 +581,7 @@ export async function bigBrainAPI({
   data,
 }: {
   ctx: Context;
-  method: Method;
+  method: string;
   url: string;
   data?: any;
 }): Promise<any> {
@@ -724,7 +610,7 @@ export async function bigBrainAPIMaybeThrows({
   data,
 }: {
   ctx: Context;
-  method: Method;
+  method: string;
   url: string;
   data?: any;
 }): Promise<any> {
@@ -747,7 +633,7 @@ export async function bigBrainAPIMaybeThrows({
           }
         : {},
   });
-  fetchDeprecationCheckWarning(ctx, res);
+  deprecationCheckWarning(ctx, res);
   if (res.status === 200) {
     return await res.json();
   }
@@ -1049,7 +935,7 @@ export function deploymentFetch(
         error: Error | null,
         response: Response | null,
       ) {
-        if (onError) {
+        if (onError && error !== null) {
           onError(error);
         }
 
@@ -1100,29 +986,4 @@ export function deploymentFetch(
     });
     return func;
   };
-}
-
-export function deploymentClient(
-  deploymentURL: string,
-  onError?: (err: any) => void,
-) {
-  const client = axios.create({
-    baseURL: deploymentURL,
-  });
-  axiosRetry(client, {
-    retries: 6,
-    retryDelay: axiosRetry.exponentialDelay,
-    retryCondition: (error) => {
-      if (onError) {
-        onError(error);
-      }
-      // Retry on 404s since these can sometimes happen with newly created deployments.
-      // Also retry on the default conditions.
-      return (
-        error.response?.status === 404 ||
-        axiosRetry.isNetworkOrIdempotentRequestError(error)
-      );
-    },
-  });
-  return client;
 }

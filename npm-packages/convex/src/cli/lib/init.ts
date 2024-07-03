@@ -22,7 +22,7 @@ import { writeDeploymentEnvVar } from "./deployment.js";
 import { writeConvexUrlToEnvFile } from "./envvars.js";
 import {
   functionsDir,
-  logAndHandleAxiosError,
+  logAndHandleFetchError,
   validateOrSelectTeam,
 } from "./utils.js";
 
@@ -73,7 +73,7 @@ export async function init(
     ));
   } catch (err) {
     logFailure(ctx, "Unable to create project.");
-    return await logAndHandleAxiosError(ctx, err);
+    return await logAndHandleFetchError(ctx, err);
   }
 
   const teamMessage = didChooseBetweenTeams

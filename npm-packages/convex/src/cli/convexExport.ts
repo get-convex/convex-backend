@@ -2,9 +2,9 @@ import { Command, Option } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import {
   ensureHasConvexDependency,
-  logAndHandleAxiosError,
-  deploymentClient,
   waitUntilCalled,
+  deploymentFetch,
+  logAndHandleFetchError,
 } from "./lib/utils.js";
 import { version } from "./version.js";
 import {
@@ -22,11 +22,11 @@ import {
   deploymentSelectionFromOptions,
 } from "./lib/api.js";
 import { subscribe } from "./lib/run.js";
-import { AxiosResponse } from "axios";
 import { nodeFs } from "../bundler/fs.js";
 import path from "path";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { actionDescription } from "./lib/command.js";
+import { Readable } from "stream";
 
 export const convexExport = new Command("export")
   .summary("Export data from your deployment to a ZIP file")
@@ -67,19 +67,18 @@ export const convexExport = new Command("export")
       : "";
     showSpinner(ctx, `Creating snapshot export${deploymentNotice}`);
 
-    const client = deploymentClient(deploymentUrl);
+    const fetch = deploymentFetch(deploymentUrl);
     const headers = {
       Authorization: `Convex ${adminKey}`,
       "Convex-Client": `npm-cli-${version}`,
     };
     try {
-      await client.post(
-        `/api/export/request/zip?includeStorage=${includeStorage}`,
-        null,
-        { headers },
-      );
+      await fetch(`/api/export/request/zip?includeStorage=${includeStorage}`, {
+        method: "POST",
+        headers,
+      });
     } catch (e) {
-      return await logAndHandleAxiosError(ctx, e);
+      return await logAndHandleFetchError(ctx, e);
     }
 
     const snapshotExportState = await waitForStableExportState(
@@ -121,14 +120,14 @@ export const convexExport = new Command("export")
     const exportUrl = `/api/export/zip/${snapshotExportState.start_ts.toString()}?adminKey=${encodeURIComponent(
       adminKey,
     )}`;
-    let response: AxiosResponse;
+    let response: Response;
     try {
-      response = await client.get(exportUrl, {
+      response = await fetch(exportUrl, {
+        method: "GET",
         headers,
-        responseType: "stream",
       });
     } catch (e) {
-      return await logAndHandleAxiosError(ctx, e);
+      return await logAndHandleFetchError(ctx, e);
     }
 
     let filePath;
@@ -136,7 +135,7 @@ export const convexExport = new Command("export")
       const st = ctx.fs.stat(inputPath);
       if (st.isDirectory()) {
         const contentDisposition =
-          response.headers["content-disposition"] ?? "";
+          response.headers.get("content-disposition") ?? "";
         let filename = `snapshot_${snapshotExportState.start_ts.toString()}.zip`;
         if (contentDisposition.startsWith("attachment; filename=")) {
           filename = contentDisposition.slice("attachment; filename=".length);
@@ -155,7 +154,10 @@ export const convexExport = new Command("export")
     );
 
     try {
-      await nodeFs.writeFileStream(filePath, response.data);
+      await nodeFs.writeFileStream(
+        filePath,
+        Readable.fromWeb(response.body! as any),
+      );
     } catch (e) {
       logFailure(ctx, `Exporting data failed`);
       logError(ctx, chalk.red(e));

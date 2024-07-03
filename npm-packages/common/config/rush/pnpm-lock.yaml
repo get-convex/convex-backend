@@ -29,8 +29,6 @@ importers:
       '@types/ws': ^8.5.3
       '@typescript-eslint/eslint-plugin': ^6.7.4
       '@typescript-eslint/parser': ^6.7.4
-      axios: 1.6.2
-      axios-retry: ^3.2.4
       bufferutil: ^4.0.7
       chalk: '4'
       chokidar: 3.5.3
@@ -104,8 +102,6 @@ importers:
       '@types/ws': 8.5.7
       '@typescript-eslint/eslint-plugin': 6.7.5_k3xrnfkxz3v7wehk7vhgddeyfa
       '@typescript-eslint/parser': 6.7.5_fl5f74muubgpcrrwb7cnwvznou
-      axios: 1.6.2
-      axios-retry: 3.8.0
       bufferutil: 4.0.7
       chalk: 4.1.2
       chokidar: 3.5.3
@@ -4141,13 +4137,6 @@ packages:
     engines: {node: '>= 0.4'}
     dev: true
 
-  /axios-retry/3.8.0:
-    resolution: {integrity: sha512-CfIsQyWNc5/AE7x/UEReRUadiBmQeoBpSEC+4QyGLJMswTsP1tz0GW2YYPnE7w9+ESMef5zOgLDFpHynNyEZ1w==}
-    dependencies:
-      '@babel/runtime': 7.23.2
-      is-retry-allowed: 2.2.0
-    dev: true
-
   /axios/0.26.1:
     resolution: {integrity: sha512-fPwcX4EvnSHuInCMItEhAGnaSEXRBjtzh9fOtsE6E1G6p7vl7edEeZe11QHf18+6+9gR5PbKV/sGKNaD8YaMeA==}
     dependencies:
@@ -6255,11 +6244,6 @@ packages:
     dependencies:
       call-bind: 1.0.2
       has-tostringtag: 1.0.0
-    dev: true
-
-  /is-retry-allowed/2.2.0:
-    resolution: {integrity: sha512-XVm7LOeLpTW4jV19QSH38vkswxoLud8sQ57YwJVTPWdiaI9I8keEhGFpBlslyVsgdQy4Opg8QOLb8YRgsyZiQg==}
-    engines: {node: '>=10'}
     dev: true
 
   /is-set/2.0.2:

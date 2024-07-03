@@ -7,6 +7,7 @@ import * as fsPromises from "fs/promises";
 import os from "os";
 import path from "path";
 import crypto from "crypto";
+import { Readable } from "stream";
 
 export type NormalizedPath = string;
 
@@ -139,7 +140,7 @@ class NodeFs implements Filesystem {
   // To avoid issues with filesystem events triggering for our own streamed file
   // writes, writeFileStream is intentionally not on the Filesystem interface
   // and not implemented by RecordingFs.
-  async writeFileStream(path: string, stream: ReadStream): Promise<void> {
+  async writeFileStream(path: string, stream: Readable): Promise<void> {
     // 'wx' means O_CREAT | O_EXCL | O_WRONLY
     // 0o644 means owner has readwrite access, everyone else has read access.
     const fileHandle = await fsPromises.open(path, "wx", 0o644);

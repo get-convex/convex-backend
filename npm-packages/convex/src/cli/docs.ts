@@ -3,7 +3,7 @@ import chalk from "chalk";
 import open from "open";
 import { oneoffContext } from "../bundler/context.js";
 import { getTargetDeploymentName } from "./lib/deployment.js";
-import { bigBrainClient, deprecationCheckWarning } from "./lib/utils.js";
+import { bigBrainFetch, deprecationCheckWarning } from "./lib/utils.js";
 
 export const docs = new Command("docs")
   .description("Open the docs in the browser")
@@ -14,11 +14,12 @@ export const docs = new Command("docs")
     // command we don't care at all if the user is in the right directory
     const configuredDeployment = getTargetDeploymentName();
     const getCookieUrl = `get_cookie/${configuredDeployment}`;
-    const client = await bigBrainClient(ctx);
+    const fetch = await bigBrainFetch(ctx);
     try {
-      const res = await client.get(getCookieUrl);
+      const res = await fetch(getCookieUrl);
       deprecationCheckWarning(ctx, res);
-      await openDocs(options.open, res.data.cookie);
+      const { cookie } = await res.json();
+      await openDocs(options.open, cookie);
     } catch {
       await openDocs(options.open);
     }
