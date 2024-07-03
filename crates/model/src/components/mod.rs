@@ -208,7 +208,6 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             .await?;
         for module in module_metadata {
             let Some(ref analyze_result) = module.analyze_result else {
-                tracing::warn!("Module {:?} missing analyze result", module.path);
                 continue;
             };
             for function in &analyze_result.functions {
