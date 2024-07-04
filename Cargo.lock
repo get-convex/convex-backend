@@ -224,7 +224,7 @@ dependencies = [
  "serde_json",
  "shape_inference",
  "slugify",
- "sourcemap 7.0.1",
+ "sourcemap",
  "storage",
  "strum 0.26.2",
  "tempfile",
@@ -1194,7 +1194,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "shape_inference",
- "sourcemap 7.0.1",
+ "sourcemap",
  "strum 0.26.2",
  "thiserror",
  "tokio",
@@ -1859,7 +1859,7 @@ dependencies = [
  "serde_json",
  "serde_v8",
  "smallvec",
- "sourcemap 8.0.1",
+ "sourcemap",
  "static_assertions",
  "tokio",
  "url",
@@ -3557,7 +3557,7 @@ dependencies = [
  "sha1",
  "sha2",
  "shape_inference",
- "sourcemap 7.0.1",
+ "sourcemap",
  "spki 0.7.3",
  "storage",
  "thiserror",
@@ -4414,7 +4414,7 @@ dependencies = [
  "runtime",
  "serde",
  "serde_json",
- "sourcemap 7.0.1",
+ "sourcemap",
  "storage",
  "tempfile",
  "tokio",
@@ -6845,22 +6845,6 @@ dependencies = [
 
 [[package]]
 name = "sourcemap"
-version = "7.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10da010a590ed2fa9ca8467b00ce7e9c5a8017742c0c09c45450efc172208c4b"
-dependencies = [
- "data-encoding",
- "debugid",
- "if_chain",
- "rustc_version 0.2.3",
- "serde",
- "serde_json",
- "unicode-id",
- "url",
-]
-
-[[package]]
-name = "sourcemap"
 version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "208d40b9e8cad9f93613778ea295ed8f3c2b1824217c6cfc7219d3f6f45b96d4"
@@ -8001,12 +7985,6 @@ name = "unicode-bidi"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92888ba5573ff080736b3648696b70cafad7d250551175acbaa4e0385b3e1460"
-
-[[package]]
-name = "unicode-id"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d70b6494226b36008c8366c288d77190b3fad2eb4c10533139c1c1f461127f1a"
 
 [[package]]
 name = "unicode-id-start"
