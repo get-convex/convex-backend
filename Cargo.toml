@@ -41,7 +41,7 @@ dotenvy = "0.15.7"
 elliptic-curve = { version = "0.12.1", features = [ "std", "pem" ] }
 encoding_rs = "0.8.32"
 p256 = { version = "0.11.1", features = [ "ecdh" ] }
-event-listener = "2.5.3"
+event-listener = "5.0.0"
 flexbuffers = "2"
 float_next_after = "1.0.0"
 spki = "0.7.3"

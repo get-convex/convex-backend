@@ -1158,7 +1158,7 @@ dependencies = [
  "derive_more",
  "enum-iterator",
  "errors",
- "event-listener 2.5.3",
+ "event-listener 5.2.0",
  "float_next_after",
  "futures",
  "futures-async-stream",
