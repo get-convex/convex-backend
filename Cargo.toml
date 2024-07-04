@@ -59,7 +59,7 @@ http-cache-reqwest = { version = "0.13.0", features = [ "manager-moka" ] }
 humansize = { version = "2.1.3", features = [ "impl_style" ] }
 hyper = "0.14.16"
 proc-macro2 = { version = "1.0" }
-imbl = "2.0.0"
+imbl = "3.0.0"
 itertools = "0.13"
 jsonschema = "0.18"
 levenshtein_automata = "0.2.1"

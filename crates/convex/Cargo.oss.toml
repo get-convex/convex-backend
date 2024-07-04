@@ -17,7 +17,7 @@ base64 = { version = "0.13" }
 bytes = { version = "1.1.0" }
 convex_sync_types = { path = "./sync_types", version = "=0.6.0" }
 futures = { version = "0.3" }
-imbl = { version = "2.0.0" }
+imbl = { version = "3.0.0" }
 parking_lot = { optional = true, version = "0.12" }
 proptest = { optional = true, version = "1" }
 proptest-derive = { optional = true, version = "0.4.0" }
