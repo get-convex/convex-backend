@@ -3197,6 +3197,7 @@ dependencies = [
  "http 1.0.0",
  "http-body 1.0.0",
  "httparse",
+ "httpdate",
  "itoa",
  "pin-project-lite",
  "smallvec",
@@ -5296,11 +5297,14 @@ dependencies = [
 
 [[package]]
 name = "prometheus-hyper"
-version = "0.1.5"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18fc98d5705a20b11f8b240c0857167b79852ba469f9faec6df0027e576e676e"
+checksum = "4599cd06b4c85ba573bf2edf4e5ca5c3f32505ead7fb1f0c7d9a4b90195e1ab1"
 dependencies = [
- "hyper 0.14.27",
+ "bytes",
+ "http-body-util",
+ "hyper 1.3.1",
+ "hyper-util",
  "prometheus",
  "tokio",
  "tracing",

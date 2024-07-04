@@ -82,7 +82,7 @@ portpicker = "0.1"
 const-oid = "0.9.2"
 pretty_assertions = "1"
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "061619b6e44ca7f3b94d97346152cab319895929" }
-prometheus-hyper = "0.1.5"
+prometheus-hyper = "0.2.0"
 proptest = "1"
 proptest-derive = "0.4.0"
 proptest-http = { git = "https://github.com/sujayakar/proptest-http", rev = "12ef4c4ac2002b050ab0944a9587d83d7ea9fce2" }
