@@ -77,7 +77,7 @@ async fn create_cron_job(
         udf_path: "basic:insertObject".parse()?,
     };
     let cron_spec = CronSpec {
-        udf_path: path.as_root_udf_path()?.clone().canonicalize(),
+        udf_path: path.udf_path.clone().canonicalize(),
         udf_args: parse_udf_args(&path, vec![JsonValue::Object(map)])?,
         cron_schedule: CronSchedule::Interval { seconds: 60 },
     };

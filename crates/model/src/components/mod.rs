@@ -88,7 +88,11 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                     .ok_or_else(|| {
                         ErrorMetadata::bad_request(
                             "InvalidReference",
-                            format!("Module {:?} not found", udf_path.module()),
+                            format!(
+                                "Module {:?}{} not found",
+                                udf_path.module(),
+                                component_path.in_component_str()
+                            ),
                         )
                     })?;
                 let analyze_result = module_metadata

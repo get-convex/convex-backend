@@ -569,7 +569,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             };
 
             self.database
-                .commit_with_write_source(tx, Some(canonicalized_path.into_root_udf_path()?.into()))
+                .commit_with_write_source(tx, Some(canonicalized_path.udf_path.into()))
                 .await?;
             Ok(outcome)
         }

@@ -125,10 +125,9 @@ pub struct CacheKey {
 impl fmt::Debug for CacheKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut builder = f.debug_struct("CacheKey");
-        if let Ok(p) = self.path.as_root_udf_path() {
-            builder.field("path", p);
-        }
         builder
+            .field("path", &self.path.udf_path)
+            .field("component", &self.path.component)
             .field("args", &self.args)
             .field("identity", &self.identity)
             .field("journal", &self.journal)

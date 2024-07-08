@@ -131,9 +131,10 @@ pub async fn validate_schedule_args<RT: Runtime>(
                 "InvalidScheduledFunction",
                 format!(
                     "Attempted to schedule function, but no exported function {} found in the \
-                     file: {}. Did you forget to export it?",
+                     file: {}{}. Did you forget to export it?",
                     function_name,
-                    String::from(path.as_root_udf_path()?.module().clone()),
+                    String::from(path.udf_path.module().clone()),
+                    path.component.in_component_str(),
                 ),
             ));
         }
@@ -144,9 +145,10 @@ pub async fn validate_schedule_args<RT: Runtime>(
 
 fn missing_or_internal_error(path: &CanonicalizedComponentFunctionPath) -> anyhow::Result<String> {
     Ok(format!(
-        "Could not find public function for '{}'. Did you forget to run `npx convex dev` or `npx \
-         convex deploy`?",
-        String::from(path.as_root_udf_path()?.clone().strip())
+        "Could not find public function for '{}'{}. Did you forget to run `npx convex dev` or \
+         `npx convex deploy`?",
+        String::from(path.udf_path.clone().strip()),
+        path.component.in_component_str()
     ))
 }
 
@@ -414,8 +416,9 @@ impl ValidatedPathAndArgs {
                     },
                     None => {
                         anyhow::bail!(
-                            "No visibility found for analyzed function {}",
-                            path.as_root_udf_path()?
+                            "No visibility found for analyzed function {}{}",
+                            path.udf_path,
+                            path.component.in_component_str(),
                         );
                     },
                 },
@@ -424,8 +427,9 @@ impl ValidatedPathAndArgs {
         if expected_udf_type != analyzed_function.udf_type {
             anyhow::ensure!(path.component.is_root());
             return Ok(Err(JsError::from_message(format!(
-                "Trying to execute {} as {}, but it is defined as {}.",
-                path.as_root_udf_path()?,
+                "Trying to execute {}{} as {}, but it is defined as {}.",
+                path.udf_path,
+                path.component.in_component_str(),
                 expected_udf_type,
                 analyzed_function.udf_type
             ))));

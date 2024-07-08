@@ -26,11 +26,6 @@ pub struct ComponentFunctionPath {
 }
 
 impl ComponentFunctionPath {
-    pub fn as_root_udf_path(&self) -> anyhow::Result<&UdfPath> {
-        anyhow::ensure!(self.component.is_root());
-        Ok(&self.udf_path)
-    }
-
     pub fn into_root_udf_path(self) -> anyhow::Result<UdfPath> {
         anyhow::ensure!(self.component.is_root());
         Ok(self.udf_path)
@@ -97,11 +92,6 @@ pub struct CanonicalizedComponentFunctionPath {
 }
 
 impl CanonicalizedComponentFunctionPath {
-    pub fn as_root_udf_path(&self) -> anyhow::Result<&CanonicalizedUdfPath> {
-        anyhow::ensure!(self.component.is_root());
-        Ok(&self.udf_path)
-    }
-
     pub fn into_root_udf_path(self) -> anyhow::Result<CanonicalizedUdfPath> {
         anyhow::ensure!(self.component.is_root());
         Ok(self.udf_path)

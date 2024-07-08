@@ -1157,9 +1157,10 @@ impl<RT: Runtime> Application<RT> {
             })
         else {
             let missing_or_internal = format!(
-                "Could not find function for '{}'. Did you forget to run `npx convex dev` or `npx \
-                 convex deploy`?",
-                String::from(canonicalized_path.into_root_udf_path()?.strip())
+                "Could not find function for '{}'{}. Did you forget to run `npx convex dev` or \
+                 `npx convex deploy`?",
+                String::from(canonicalized_path.udf_path.strip()),
+                canonicalized_path.component.in_component_str(),
             );
             return Ok(Err(FunctionError {
                 error: RedactedJsError::from_js_error(

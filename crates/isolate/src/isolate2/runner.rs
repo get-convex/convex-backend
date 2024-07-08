@@ -486,7 +486,11 @@ async fn run_request<RT: Runtime>(
     query_journal: QueryJournal,
 ) -> anyhow::Result<UdfOutcome> {
     let (path, arguments, udf_server_version) = path_and_args.consume();
-    let udf_path = path.as_root_udf_path()?;
+    anyhow::ensure!(
+        path.component.is_root(),
+        "TODO: non-root components not supported yet"
+    );
+    let udf_path = &path.udf_path;
 
     // Spawn a separate Tokio thread to receive log lines.
     let (log_line_tx, log_line_rx) = oneshot::channel();

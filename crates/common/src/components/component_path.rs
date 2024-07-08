@@ -87,6 +87,17 @@ impl ComponentPath {
         path.push(name);
         Self { path }
     }
+
+    /// Returns a debug or error string to put immediately after something which
+    /// should be scoped to this component,
+    /// like `format!("'{udf_path}'{}", component_path.in_component_str())`.
+    pub fn in_component_str(&self) -> String {
+        if self.is_root() {
+            "".to_string()
+        } else {
+            format!(" in '{}'", String::from(self.clone()))
+        }
+    }
 }
 
 impl Deref for ComponentPath {
