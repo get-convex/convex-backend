@@ -7,14 +7,17 @@ import {
 } from "./common";
 import { queryPrivateSystem } from "../secretSystemTables";
 
+/**
+ * Return all user defined modules + their functions.
+ *
+ * Note that this does not include system modules because they are not stored
+ * in the `_modules` table.
+ */
 export const list = queryPrivateSystem({
   args: {},
   handler: async ({ db }): Promise<[string, Module][]> => {
     const result: [string, Module][] = [];
     for await (const module of db.query("_modules")) {
-      if (module.path.startsWith("_")) {
-        continue;
-      }
       const analyzeResult = module.analyzeResult;
       if (!analyzeResult) {
         // `Skipping ${module.path}`
