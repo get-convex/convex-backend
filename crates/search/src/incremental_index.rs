@@ -4,7 +4,6 @@ use std::{
         BTreeSet,
     },
     iter::zip,
-    os::unix::fs::MetadataExt,
     path::{
         Path,
         PathBuf,
@@ -470,7 +469,7 @@ pub async fn build_new_segment<RT: Runtime>(
 
 fn get_size(path: &PathBuf) -> anyhow::Result<u64> {
     if path.is_file() {
-        return Ok(path.metadata()?.size());
+        return Ok(path.metadata()?.len());
     }
     std::fs::read_dir(path)?.try_fold(0, |acc, curr| Ok(acc + get_size(&curr?.path())?))
 }
