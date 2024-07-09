@@ -674,12 +674,19 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         let as_string = self.to_string();
         // Just doing this as a quick hack because sqlx::query has 100 throw sites.
         // Ideally, we would wrap sqlx and do handling there, but punting to save time.
-        let occs = [
+        let postgres_occs = [
             "could not serialize access due to read/write dependencies among transactions",
             "could not serialize access due to concurrent update",
         ];
-        if occs.into_iter().any(|occ| as_string.contains(occ)) {
-            return self.context(ErrorMetadata::system_occ()).context(as_string);
+        if let Some(occ) = postgres_occs
+            .into_iter()
+            .find(|occ| as_string.contains(occ))
+        {
+            // Classify postgres occ as overloaded. ErrorMetadata::OCC is specific to the
+            // application level inside convex backend.
+            return self
+                .context(ErrorMetadata::overloaded("PostgresOcc", occ))
+                .context(as_string);
         }
 
         self
