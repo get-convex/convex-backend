@@ -2215,11 +2215,11 @@ impl<RT: Runtime> Application<RT> {
         Ok(storage_id)
     }
 
-    pub async fn get_file(
+    pub async fn get_file_entry(
         &self,
         component: ComponentId,
         storage_id: FileStorageId,
-    ) -> anyhow::Result<FileStream> {
+    ) -> anyhow::Result<FileStorageEntry> {
         let mut file_storage_tx = self.begin(Identity::system()).await?;
 
         let Some(file_entry) = self
@@ -2235,7 +2235,15 @@ impl<RT: Runtime> Application<RT> {
             )
             .into());
         };
+        Ok(file_entry)
+    }
 
+    pub async fn get_file(
+        &self,
+        component: ComponentId,
+        storage_id: FileStorageId,
+    ) -> anyhow::Result<FileStream> {
+        let file_entry = self.get_file_entry(component, storage_id).await?;
         self
             .file_storage
             .transactional_file_storage
