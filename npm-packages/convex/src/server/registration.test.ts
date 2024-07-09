@@ -2,9 +2,13 @@ import { test, describe, expect } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";
 import { v } from "../values/validator.js";
 import {
+  ActionBuilder,
   ApiFromModules,
   DefaultFunctionArgs,
+  QueryBuilder,
+  actionGeneric,
   mutationGeneric,
+  queryGeneric,
 } from "./index.js";
 import { EmptyObject, MutationBuilder } from "./registration.js";
 
@@ -276,8 +280,10 @@ describe("argument inference", () => {
 });
 
 describe("argument and return value validators can be objects or validators", () => {
-  // Test with mutation, but all the wrappers work the same way.
+  // Test with mutation, we aim for all the wrappers work the same way.
   const mutation: MutationBuilder<any, "public"> = mutationGeneric;
+  const query: QueryBuilder<any, "public"> = queryGeneric;
+  const action: ActionBuilder<any, "public"> = actionGeneric;
 
   const module = {
     configArgsObject: mutation({
@@ -312,6 +318,27 @@ describe("argument and return value validators can be objects or validators", ()
       }),
       handler: () => {
         return { arg: "result" };
+      },
+    }),
+
+    // test queries and actions just a bit too
+    q1: query({
+      args: v.object({
+        arg: v.string(),
+      }),
+      returns: { arg: v.string() },
+      handler: (_, { arg }) => {
+        return { arg: arg };
+      },
+    }),
+
+    a1: action({
+      args: v.object({
+        arg: v.string(),
+      }),
+      returns: { arg: v.string() },
+      handler: (_, { arg }) => {
+        return { arg: arg };
       },
     }),
   };
@@ -366,6 +393,22 @@ describe("argument and return value validators can be objects or validators", ()
   });
 
   test("config with output object", () => {
+    type ReturnType = API["module"]["configOutputValidator"]["_returnType"];
+    type Expected = { arg: string };
+    assert<Equals<ReturnType, Expected>>;
+    const returnString = module.configOutputValidator.exportReturns();
+    expect(JSON.parse(returnString)).toEqual(expectedReturnsExport);
+  });
+
+  test("queries", () => {
+    type ReturnType = API["module"]["q1"]["_returnType"];
+    type Expected = { arg: string };
+    assert<Equals<ReturnType, Expected>>;
+    const returnString = module.configOutputValidator.exportReturns();
+    expect(JSON.parse(returnString)).toEqual(expectedReturnsExport);
+  });
+
+  test("actions", () => {
     type ReturnType = API["module"]["configOutputValidator"]["_returnType"];
     type Expected = { arg: string };
     assert<Equals<ReturnType, Expected>>;

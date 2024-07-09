@@ -643,8 +643,11 @@ export type QueryBuilder<
   Visibility extends FunctionVisibility,
 > = {
   <
-    ArgsValidator extends PropertyValidators | void,
-    ReturnsValidator extends Validator<any, any, any> | void,
+    ArgsValidator extends PropertyValidators | Validator<any, any, any> | void,
+    ReturnsValidator extends
+      | PropertyValidators
+      | Validator<any, any, any>
+      | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
     OneOrZeroArgs extends
       ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
@@ -726,8 +729,11 @@ export type ActionBuilder<
   Visibility extends FunctionVisibility,
 > = {
   <
-    ArgsValidator extends PropertyValidators | void,
-    ReturnsValidator extends Validator<any, any, any> | void,
+    ArgsValidator extends PropertyValidators | Validator<any, any, any> | void,
+    ReturnsValidator extends
+      | PropertyValidators
+      | Validator<any, any, any>
+      | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
     OneOrZeroArgs extends
       ArgsArrayForOptionalValidator<ArgsValidator> = DefaultArgsForOptionalValidator<ArgsValidator>,
