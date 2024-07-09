@@ -1770,7 +1770,7 @@ impl<RT: Runtime> Database<RT> {
             .latest_snapshot()
             .table_registry
             .user_table_names()
-            .cloned()
+            .map(|(_, name)| name.clone())
             .collect())
     }
 

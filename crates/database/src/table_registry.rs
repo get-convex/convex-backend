@@ -239,10 +239,10 @@ impl TableRegistry {
         self.tablet_states.get(&tablet_id).cloned()
     }
 
-    pub fn user_table_names(&self) -> impl Iterator<Item = &TableName> {
+    pub fn user_table_names(&self) -> impl Iterator<Item = (TableNamespace, &TableName)> {
         self.table_mapping
             .iter_active_user_tables()
-            .map(|(_, _, _, name)| name)
+            .map(|(_, namespace, _, name)| (namespace, name))
     }
 
     pub fn table_exists(&self, namespace: TableNamespace, table: &TableName) -> bool {

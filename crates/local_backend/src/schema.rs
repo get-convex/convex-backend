@@ -362,8 +362,8 @@ pub async fn schema_state(
     let indexes = IndexModel::new(&mut tx)
         .get_application_indexes(TableNamespace::TODO())
         .await?;
-    let schema_id =
-        parse_schema_id(&schema_id, tx.table_mapping()).context(invalid_schema_id(&schema_id))?;
+    let schema_id = parse_schema_id(&schema_id, tx.table_mapping(), TableNamespace::TODO())
+        .context(invalid_schema_id(&schema_id))?;
 
     let doc = tx.get(schema_id).await?.ok_or_else(|| {
         anyhow::anyhow!(ErrorMetadata::not_found(

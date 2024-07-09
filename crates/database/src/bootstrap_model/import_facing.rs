@@ -19,7 +19,6 @@ use value::{
     Size,
     TableMapping,
     TableName,
-    TableNamespace,
     TabletIdAndTableNumber,
 };
 
@@ -103,6 +102,10 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
             table_id.tablet_id,
             DeveloperDocumentId::new(table_id.table_number, internal_id),
         );
+        let namespace = self
+            .tx
+            .table_mapping()
+            .tablet_namespace(table_id.tablet_id)?;
 
         let creation_time_field = FieldName::from(CREATION_TIME_FIELD.clone());
         let creation_time = if let Some(ConvexValue::Float64(f)) = value.get(&creation_time_field) {
@@ -112,11 +115,8 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         };
 
         let document = ResolvedDocument::new(id, creation_time, value)?;
-        SchemaModel::new(self.tx, TableNamespace::by_component_TODO())
-            .enforce_with_table_mapping(
-                &document,
-                &table_mapping_for_schema.namespace(TableNamespace::by_component_TODO()),
-            )
+        SchemaModel::new(self.tx, namespace)
+            .enforce_with_table_mapping(&document, &table_mapping_for_schema.namespace(namespace))
             .await?;
         self.tx.apply_validated_write(id, None, Some(document))?;
 

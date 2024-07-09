@@ -61,8 +61,8 @@ pub async fn shapes2(
         .virtual_table_mapping()
         .namespace(TableNamespace::by_component_TODO());
 
-    for table_name in snapshot.table_registry.user_table_names() {
-        let table_summary = snapshot.table_summary(table_name);
+    for (namespace, table_name) in snapshot.table_registry.user_table_names() {
+        let table_summary = snapshot.table_summary(namespace, table_name);
         let shape = ReducedShape::from_type(
             table_summary.inferred_type(),
             &mapping.table_number_exists(),

@@ -273,12 +273,8 @@ impl<RT: Runtime> Snapshot<RT> {
         self.table_registry.table_mapping()
     }
 
-    pub fn table_summary(&self, table: &TableName) -> TableSummary {
-        let table_id = match self
-            .table_mapping()
-            .namespace(TableNamespace::TODO())
-            .id(table)
-        {
+    pub fn table_summary(&self, namespace: TableNamespace, table: &TableName) -> TableSummary {
+        let table_id = match self.table_mapping().namespace(namespace).id(table) {
             Ok(table_id) => table_id,
             Err(_) => return TableSummary::empty(),
         };

@@ -169,6 +169,7 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
         db.clone(),
         Arc::new(NoopRetentionValidator),
     );
+    let namespace = TableNamespace::test_user();
 
     // Populate shapes by writing objects.
     let mut tx = db.begin(Identity::system()).await?;
@@ -183,7 +184,7 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     db.commit(tx).await?;
 
     let snapshot = db.latest_snapshot()?;
-    assert_eq!(snapshot.table_summary(&table1), summary1);
+    assert_eq!(snapshot.table_summary(namespace, &table1), summary1);
 
     let snapshot = writer.compute_from_last_checkpoint().await?;
     write_snapshot(tp.as_ref(), &snapshot).await?;
@@ -225,8 +226,8 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     )
     .await?;
     let snapshot = db.latest_snapshot()?;
-    assert_eq!(snapshot.table_summary(&table1), summary1);
-    assert_eq!(snapshot.table_summary(&table2), summary2);
+    assert_eq!(snapshot.table_summary(namespace, &table1), summary1);
+    assert_eq!(snapshot.table_summary(namespace, &table2), summary2);
     Ok(())
 }
 

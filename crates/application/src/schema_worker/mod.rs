@@ -128,7 +128,12 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 active_schema,
                 &table_mapping,
                 &virtual_table_mapping,
-                &|table_name| snapshot.table_summary(table_name).inferred_type().clone(),
+                &|table_name| {
+                    snapshot
+                        .table_summary(namespace, table_name)
+                        .inferred_type()
+                        .clone()
+                },
             )?;
 
             for table_name in tables_to_check {

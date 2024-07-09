@@ -1743,8 +1743,12 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<(ConfigMetadataAndSchema, Vec<DeploymentAuditLogEvent>)> {
         let schema_id = schema_id
             .map(|schema_id| {
-                parse_schema_id(&schema_id, tx.table_mapping())
-                    .context(invalid_schema_id(&schema_id))
+                parse_schema_id(
+                    &schema_id,
+                    tx.table_mapping(),
+                    TableNamespace::by_component_TODO(),
+                )
+                .context(invalid_schema_id(&schema_id))
             })
             .transpose()?;
 

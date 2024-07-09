@@ -423,7 +423,8 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         let db_snapshot = self.database.latest_snapshot()?;
         for (table_name, count_importing) in count_by_table.iter() {
             if !table_name.is_system() {
-                let table_summary = db_snapshot.table_summary(table_name);
+                let table_summary =
+                    db_snapshot.table_summary(TableNamespace::by_component_TODO(), table_name);
                 let to_delete = match mode {
                     ImportMode::Replace => {
                         // Overwriting nonempty user table.
@@ -447,7 +448,8 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 );
             }
             if table_name == &*FILE_STORAGE_VIRTUAL_TABLE {
-                let table_summary = db_snapshot.table_summary(&FILE_STORAGE_TABLE);
+                let table_summary = db_snapshot
+                    .table_summary(TableNamespace::by_component_TODO(), &FILE_STORAGE_TABLE);
                 let to_delete = match mode {
                     ImportMode::Replace => {
                         // Overwriting nonempty file storage.

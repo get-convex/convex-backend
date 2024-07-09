@@ -18,6 +18,7 @@ pub use super::{
 pub fn parse_schema_id(
     schema_id: &str,
     table_mapping: &TableMapping,
+    namespace: TableNamespace,
 ) -> anyhow::Result<ResolvedDocumentId> {
     // Try parsing as a document ID with TableId first
     match GenericDocumentId::<TabletId>::from_str(schema_id) {
@@ -25,11 +26,7 @@ pub fn parse_schema_id(
         Err(_) => {
             // Try parsing as an IDv6 ID
             let id = DeveloperDocumentId::decode(schema_id)?;
-            id.to_resolved(
-                &table_mapping
-                    .namespace(TableNamespace::by_component_TODO())
-                    .number_to_tablet(),
-            )
+            id.to_resolved(&table_mapping.namespace(namespace).number_to_tablet())
         },
     }
 }
