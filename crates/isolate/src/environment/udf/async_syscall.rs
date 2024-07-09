@@ -450,15 +450,12 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 ));
             },
         }
-        let component_id = self.component()?;
+        let current_component_id = self.component()?;
 
         let tx = self.phase.tx()?;
 
-        let table_mapping = tx.table_mapping().namespace(component_id.into());
-        let virtual_table_mapping = tx.virtual_table_mapping().namespace(component_id.into());
-
         let resource = ComponentsModel::new(tx)
-            .resolve(component_id, &reference)
+            .resolve(current_component_id, &reference)
             .await?;
         let function_path = match resource {
             Resource::Value(_) => {
@@ -469,6 +466,14 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             },
             Resource::Function(p) => p.canonicalize(),
         };
+        let (_, called_component_id) = BootstrapComponentsModel::new(tx)
+            .component_path_to_ids(function_path.component.clone())
+            .await?;
+        let table_mapping = tx.table_mapping().namespace(called_component_id.into());
+        let virtual_table_mapping = tx
+            .virtual_table_mapping()
+            .namespace(called_component_id.into());
+
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::PublicOnly,
             tx,
