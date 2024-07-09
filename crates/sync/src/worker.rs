@@ -16,6 +16,7 @@ use application::{
     api::{
         ApplicationApi,
         ExecuteQueryTimestamp,
+        SubscriptionClient,
         SubscriptionTrait,
     },
     redaction::{
@@ -270,6 +271,11 @@ impl<RT: Runtime> SyncWorker<RT> {
         let mut ping_timeout = self.rt.wait(HEARTBEAT_INTERVAL);
         let mut pending = future::pending().boxed().fuse();
 
+        // Create a new subscription client for every sync socket. Thus we don't require
+        // the subscription client to auto-recover on connection failures.
+        let subscription_client: Arc<dyn SubscriptionClient> =
+            self.api.subscription_client(&self.host).await?.into();
+
         // Starts off as a future that is never ready, as there's no identity that may
         // expire.
         'top: loop {
@@ -352,7 +358,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                     .api
                     .latest_timestamp(self.host.as_str(), RequestId::new())
                     .await?;
-                let new_transition_future = self.begin_update_queries(target_ts)?;
+                let new_transition_future =
+                    self.begin_update_queries(target_ts, subscription_client.clone())?;
                 self.transition_future = Some(
                     async move {
                         rt.with_timeout(
@@ -585,6 +592,7 @@ impl<RT: Runtime> SyncWorker<RT> {
     fn begin_update_queries(
         &mut self,
         new_ts: Timestamp,
+        subscriptions_client: Arc<dyn SubscriptionClient>,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>>> {
         let timer = metrics::update_queries_timer();
         let current_version = self.state.current_version();
@@ -654,6 +662,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     },
                 )
             });
+            let subscriptions_client = subscriptions_client.clone();
             let future = async move {
                 let new_subscription = match current_subscription {
                     Some(mut subscription) => {
@@ -686,7 +695,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 query.journal,
                             )
                             .await?;
-                        let subscription = api.subscribe(udf_return.token).await?;
+                        let subscription = subscriptions_client.subscribe(udf_return.token).await?;
                         (
                             QueryResult::Rerun {
                                 result: udf_return.result,

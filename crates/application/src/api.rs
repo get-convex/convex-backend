@@ -20,6 +20,7 @@ use common::{
     RequestId,
 };
 use database::{
+    Database,
     LogReader,
     ReadSet,
     Subscription,
@@ -143,8 +144,6 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
     ) -> anyhow::Result<RepeatableTimestamp>;
 
-    async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>>;
-
     async fn execute_http_action(
         &self,
         host: &str,
@@ -191,6 +190,15 @@ pub trait ApplicationApi: Send + Sync {
         component: ComponentId,
         file_storage_id: FileStorageId,
     ) -> anyhow::Result<FileStream>;
+
+    // Returns a fallible subscription client. The implementation is not required to
+    // recover from transient errors with the underlying connection or stream. The
+    // client is responsible to Drop the client and create a new one on any system
+    // errors. The intended use is to create a single client for every new web
+    // socket connection. NOTE: We might eventually strengthen the requirement for
+    // the implementation and require it to reconnect internally but easier to
+    // start this way.
+    async fn subscription_client(&self, host: &str) -> anyhow::Result<Box<dyn SubscriptionClient>>;
 }
 
 // Implements ApplicationApi via Application.
@@ -296,17 +304,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         Ok(self.now_ts_for_reads())
     }
 
-    async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>> {
-        let inner = self.subscribe(token.clone()).await?;
-        Ok(Box::new(ApplicationSubscription {
-            initial_ts: token.ts(),
-            end_ts: token.ts(),
-            reads: token.into_reads(),
-            inner,
-            log: self.database.log().clone(),
-        }))
-    }
-
     async fn execute_http_action(
         &self,
         _host: &str,
@@ -378,6 +375,38 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         file_storage_id: FileStorageId,
     ) -> anyhow::Result<FileStream> {
         self.get_file(component, file_storage_id).await
+    }
+
+    async fn subscription_client(
+        &self,
+        _host: &str,
+    ) -> anyhow::Result<Box<dyn SubscriptionClient>> {
+        Ok(Box::new(ApplicationSubscriptionClient {
+            database: self.database.clone(),
+        }))
+    }
+}
+
+#[async_trait]
+pub trait SubscriptionClient: Send + Sync {
+    async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>>;
+}
+
+struct ApplicationSubscriptionClient<RT: Runtime> {
+    database: Database<RT>,
+}
+
+#[async_trait]
+impl<RT: Runtime> SubscriptionClient for ApplicationSubscriptionClient<RT> {
+    async fn subscribe(&self, token: Token) -> anyhow::Result<Box<dyn SubscriptionTrait>> {
+        let inner = self.database.subscribe(token.clone()).await?;
+        Ok(Box::new(ApplicationSubscription {
+            initial_ts: token.ts(),
+            end_ts: token.ts(),
+            reads: token.into_reads(),
+            inner,
+            log: self.database.log().clone(),
+        }))
     }
 }
 
