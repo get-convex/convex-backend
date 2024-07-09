@@ -469,10 +469,6 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let (_, called_component_id) = BootstrapComponentsModel::new(tx)
             .component_path_to_ids(function_path.component.clone())
             .await?;
-        let table_mapping = tx.table_mapping().namespace(called_component_id.into());
-        let virtual_table_mapping = tx
-            .virtual_table_mapping()
-            .namespace(called_component_id.into());
 
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::PublicOnly,
@@ -533,6 +529,11 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 anyhow::bail!(ErrorMetadata::bad_request("UdfFailed", e.message));
             },
         };
+        let tx = self.phase.tx()?;
+        let table_mapping = tx.table_mapping().namespace(called_component_id.into());
+        let virtual_table_mapping = tx
+            .virtual_table_mapping()
+            .namespace(called_component_id.into());
         if let Some(e) =
             returns_validator.check_output(&result, &table_mapping, &virtual_table_mapping)
         {
