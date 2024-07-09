@@ -12,6 +12,7 @@ import {
   logError,
   logMessage,
   logWarning,
+  showSpinner,
 } from "../../../../bundler/context.js";
 import esbuild, { BuildOptions, Metafile, OutputFile, Plugin } from "esbuild";
 import chalk from "chalk";
@@ -26,6 +27,7 @@ import {
   bundleSchema,
   entryPointsByEnvironment,
 } from "../../../../bundler/index.js";
+import { NodeDependency } from "../../deployApi/modules.js";
 
 /**
  * An esbuild plugin to mark component definitions external or return a list of
@@ -438,11 +440,13 @@ export async function bundleImplementations(
   ctx: Context,
   rootComponentDirectory: ComponentDirectory,
   componentDirectories: ComponentDirectory[],
+  nodeExternalPackages: string[],
   verbose: boolean = false,
 ): Promise<{
   appImplementation: {
     schema: Bundle;
     functions: Bundle[];
+    externalNodeDependencies: NodeDependency[];
   };
   componentImplementations: {
     schema: Bundle;
@@ -476,12 +480,39 @@ export async function bundleImplementations(
       logError(ctx, "external dependencies not supported");
       return await ctx.crash(1, "fatal");
     }
-
     const functions = convexResult.modules;
     if (isRoot) {
+      if (verbose) {
+        showSpinner(ctx, "Bundling modules for Node.js runtime...");
+      }
+      const nodeResult: {
+        modules: Bundle[];
+        externalDependencies: Map<string, string>;
+        bundledModuleNames: Set<string>;
+      } = await bundle(
+        ctx,
+        resolvedPath,
+        entryPoints.node,
+        true,
+        "node",
+        path.join("_deps", "node"),
+        nodeExternalPackages,
+      );
+
+      const externalNodeDependencies: NodeDependency[] = [];
+      for (const [
+        moduleName,
+        moduleVersion,
+      ] of nodeResult.externalDependencies) {
+        externalNodeDependencies.push({
+          name: moduleName,
+          version: moduleVersion,
+        });
+      }
       appImplementation = {
         schema,
-        functions,
+        functions: functions.concat(nodeResult.modules),
+        externalNodeDependencies,
       };
     } else {
       componentImplementations.push({

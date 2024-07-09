@@ -111,6 +111,7 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
       ctx,
       rootComponent,
       [...components.values()],
+      projectConfig.node.externalPackages,
       verbose,
     );
 
@@ -155,7 +156,7 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
       udfServerVersion,
       appDefinition,
       componentDefinitions,
-      nodeDependencies: [],
+      nodeDependencies: appImplementation.externalNodeDependencies,
     },
     verbose,
   );

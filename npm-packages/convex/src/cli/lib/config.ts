@@ -35,6 +35,7 @@ import { createHash } from "crypto";
 import { promisify } from "util";
 import zlib from "zlib";
 import { recursivelyDelete } from "./fsUtils.js";
+import { NodeDependency } from "./deployApi/modules.js";
 export { productionProvisionHost, provisionHost } from "./utils.js";
 
 const brotli = promisify(zlib.brotliCompress);
@@ -62,11 +63,6 @@ export interface ProjectConfig {
   prodUrl?: string;
   // deprecated
   authInfo?: AuthInfo[];
-}
-
-interface NodeDependency {
-  name: string;
-  version: string;
 }
 
 export interface Config {

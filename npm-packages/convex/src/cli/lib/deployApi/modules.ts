@@ -16,7 +16,7 @@ export type ModuleConfig = z.infer<typeof moduleConfig>;
 
 export const nodeDependency = z.object({
   name: z.string(),
-  platform: z.string(),
+  version: z.string(),
 });
 export type NodeDependency = z.infer<typeof nodeDependency>;
 
