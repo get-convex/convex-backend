@@ -1,17 +1,16 @@
-use std::collections::BTreeMap;
-
-use anyhow::Context;
 use common::types::Timestamp;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use serde_bytes::ByteBuf;
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
 use value::{
-    obj,
+    codegen_convex_serialization,
     ConvexArray,
-    ConvexObject,
-    ConvexValue,
-    FieldName,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -38,7 +37,18 @@ pub struct ScheduledJob {
     pub original_scheduled_ts: Timestamp,
 }
 
-impl TryFrom<ScheduledJob> for ConvexObject {
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedScheduledJob {
+    udf_path: String,
+    udf_args: ByteBuf,
+    state: SerializedScheduledJobState,
+    next_ts: Option<i64>,
+    completed_ts: Option<i64>,
+    original_scheduled_ts: Option<i64>,
+}
+
+impl TryFrom<ScheduledJob> for SerializedScheduledJob {
     type Error = anyhow::Error;
 
     fn try_from(job: ScheduledJob) -> anyhow::Result<Self> {
@@ -46,75 +56,29 @@ impl TryFrom<ScheduledJob> for ConvexObject {
         // field names can be used in a `Document`'s top-level object.
         let udf_args_json = JsonValue::from(job.udf_args);
         let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
-        let mut obj: BTreeMap<FieldName, ConvexValue> = BTreeMap::new();
-        obj.insert(
-            "udfPath".parse()?,
-            ConvexValue::try_from(String::from(job.udf_path))?,
-        );
-        obj.insert("udfArgs".parse()?, ConvexValue::try_from(udf_args_bytes)?);
-        obj.insert("state".parse()?, ConvexValue::Object(job.state.try_into()?));
-        if let Some(next_ts) = job.next_ts {
-            obj.insert("nextTs".parse()?, ConvexValue::Int64(next_ts.into()));
-        }
-        if let Some(completed_ts) = job.completed_ts {
-            obj.insert(
-                "completedTs".parse()?,
-                ConvexValue::Int64(completed_ts.into()),
-            );
-        }
-        obj.insert(
-            "originalScheduledTs".parse()?,
-            ConvexValue::Int64(job.original_scheduled_ts.into()),
-        );
-
-        ConvexObject::try_from(obj)
+        Ok(SerializedScheduledJob {
+            udf_path: String::from(job.udf_path),
+            udf_args: ByteBuf::from(udf_args_bytes),
+            state: job.state.try_into()?,
+            next_ts: job.next_ts.map(|ts| ts.into()),
+            completed_ts: job.completed_ts.map(|ts| ts.into()),
+            original_scheduled_ts: Some(job.original_scheduled_ts.into()),
+        })
     }
 }
 
-impl TryFrom<ConvexObject> for ScheduledJob {
+impl TryFrom<SerializedScheduledJob> for ScheduledJob {
     type Error = anyhow::Error;
 
-    fn try_from(object: ConvexObject) -> anyhow::Result<Self> {
-        let mut fields: BTreeMap<_, _> = object.into();
-
-        let udf_path = match fields.remove("udfPath") {
-            Some(ConvexValue::String(s)) => s,
-            _ => anyhow::bail!(
-                "Missing or invalid `udfPath` field for ScheduledJob: {:?}",
-                fields
-            ),
-        };
-        let udf_path: CanonicalizedUdfPath = udf_path
-            .parse()
-            .context(format!("Failed to deserialize udf_path {}", udf_path))?;
-        let udf_args = match fields.remove("udfArgs") {
-            Some(ConvexValue::Bytes(b)) => {
-                let udf_args_json: JsonValue = serde_json::from_slice(&b)?;
-                udf_args_json.try_into()?
-            },
-            _ => anyhow::bail!(
-                "Missing or invalid `udfArgs` field for ScheduledJob: {:?}",
-                fields
-            ),
-        };
-        let state = match fields.remove("state") {
-            Some(ConvexValue::Object(o)) => o.try_into()?,
-            _ => anyhow::bail!(
-                "Missing or invalid `state` field for ScheduledJob: {:?}",
-                fields
-            ),
-        };
-        let next_ts = match fields.remove("nextTs") {
-            Some(ConvexValue::Int64(ts)) => Some(ts.try_into()?),
-            _ => None,
-        };
-        let completed_ts = match fields.remove("completedTs") {
-            Some(ConvexValue::Int64(ts)) => Some(ts.try_into()?),
-            _ => None,
-        };
-
-        let original_scheduled_ts = match fields.remove("originalScheduledTs") {
-            Some(ConvexValue::Int64(ts)) => ts.try_into()?,
+    fn try_from(value: SerializedScheduledJob) -> anyhow::Result<Self> {
+        let udf_path = value.udf_path.parse()?;
+        let udf_args_json: JsonValue = serde_json::from_slice(&value.udf_args)?;
+        let udf_args = udf_args_json.try_into()?;
+        let state = value.state.try_into()?;
+        let next_ts = value.next_ts.map(|ts| ts.try_into()).transpose()?;
+        let completed_ts = value.completed_ts.map(|ts| ts.try_into()).transpose()?;
+        let original_scheduled_ts = match value.original_scheduled_ts {
+            Some(ts) => ts.try_into()?,
             // We added original_scheduled_ts later, and thus there are some historical pending jobs
             // that don't have it set. In that case, fallback to next_ts, which is the original
             // schedule time.
@@ -124,10 +88,6 @@ impl TryFrom<ConvexObject> for ScheduledJob {
                     anyhow::bail!("Could not use next_ts as a fallback for original_scheduled_ts")
                 },
             },
-            _ => anyhow::bail!(
-                "Missing or invalid `original_scheduled_ts` field for ScheduledJob: {:?}",
-                fields
-            ),
         };
 
         Ok(ScheduledJob {
@@ -165,86 +125,53 @@ pub enum ScheduledJobState {
     Canceled,
 }
 
-impl TryFrom<ScheduledJobState> for ConvexObject {
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+enum SerializedScheduledJobState {
+    Pending,
+    InProgress,
+    Success,
+    Failed { error: String },
+    Canceled,
+}
+
+impl TryFrom<ScheduledJobState> for SerializedScheduledJobState {
     type Error = anyhow::Error;
 
-    fn try_from(state: ScheduledJobState) -> anyhow::Result<Self, Self::Error> {
+    fn try_from(state: ScheduledJobState) -> anyhow::Result<Self> {
         match state {
-            ScheduledJobState::Pending => obj!("type" => "pending"),
-            ScheduledJobState::InProgress => obj!("type" => "inProgress"),
-            ScheduledJobState::Success => obj!("type" => "success"),
-            ScheduledJobState::Failed(e) => obj!(
-                "type" => "failed",
-                "error" => e,
-            ),
-            ScheduledJobState::Canceled => obj!("type" => "canceled"),
+            ScheduledJobState::Pending => Ok(SerializedScheduledJobState::Pending),
+            ScheduledJobState::InProgress => Ok(SerializedScheduledJobState::InProgress),
+            ScheduledJobState::Success => Ok(SerializedScheduledJobState::Success),
+            ScheduledJobState::Failed(e) => Ok(SerializedScheduledJobState::Failed { error: e }),
+            ScheduledJobState::Canceled => Ok(SerializedScheduledJobState::Canceled),
         }
     }
 }
 
-impl TryFrom<ConvexObject> for ScheduledJobState {
+impl TryFrom<SerializedScheduledJobState> for ScheduledJobState {
     type Error = anyhow::Error;
 
-    fn try_from(value: ConvexObject) -> anyhow::Result<Self, Self::Error> {
-        let mut fields: BTreeMap<_, _> = value.into();
-        let state_t = match fields.remove("type") {
-            Some(ConvexValue::String(s)) => s,
-            _ => anyhow::bail!(
-                "Missing or invalid `type` field for ScheduledJobState: {:?}",
-                fields
-            ),
-        };
-
-        match state_t.as_ref() {
-            "pending" => Ok(ScheduledJobState::Pending),
-            "inProgress" => Ok(ScheduledJobState::InProgress),
-            "success" => Ok(ScheduledJobState::Success),
-            "failed" => {
-                let error = match fields.remove("error") {
-                    Some(ConvexValue::String(s)) => s,
-                    _ => anyhow::bail!(
-                        "Missing or invalid `error` field for ScheduledJobState: {:?}",
-                        fields
-                    ),
-                };
-                Ok(ScheduledJobState::Failed(error.to_string()))
-            },
-            "canceled" => Ok(ScheduledJobState::Canceled),
-            _ => anyhow::bail!("Invalid `type` field for ScheduledJobState: {:?}", state_t),
+    fn try_from(value: SerializedScheduledJobState) -> anyhow::Result<Self> {
+        match value {
+            SerializedScheduledJobState::Pending => Ok(ScheduledJobState::Pending),
+            SerializedScheduledJobState::InProgress => Ok(ScheduledJobState::InProgress),
+            SerializedScheduledJobState::Success => Ok(ScheduledJobState::Success),
+            SerializedScheduledJobState::Failed { error } => Ok(ScheduledJobState::Failed(error)),
+            SerializedScheduledJobState::Canceled => Ok(ScheduledJobState::Canceled),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use proptest::prelude::*;
-    use value::{
-        testing::assert_roundtrips,
-        ConvexObject,
-    };
+codegen_convex_serialization!(ScheduledJob, SerializedScheduledJob);
+
+mod state {
+    use value::codegen_convex_serialization;
 
     use super::{
-        ScheduledJob,
         ScheduledJobState,
+        SerializedScheduledJobState,
     };
 
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_scheduled_job_roundtrips(v in any::<ScheduledJob>()) {
-            assert_roundtrips::<ScheduledJob, ConvexObject>(v);
-        }
-    }
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-        #[test]
-        fn test_scheduled_job_state_roundtrips(v in any::<ScheduledJobState>()) {
-            assert_roundtrips::<ScheduledJobState, ConvexObject>(v);
-        }
-    }
+    codegen_convex_serialization!(ScheduledJobState, SerializedScheduledJobState);
 }
