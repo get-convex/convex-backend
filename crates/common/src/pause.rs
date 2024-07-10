@@ -1,16 +1,23 @@
 #[cfg(any(test, feature = "testing"))]
 mod test_pause {
-    use std::collections::BTreeMap;
+    use std::{
+        collections::BTreeMap,
+        mem,
+        sync::Arc,
+    };
 
     use futures::{
         channel::mpsc,
         SinkExt,
         StreamExt,
     };
+    use parking_lot::Mutex;
 
-    #[derive(Default)]
+    use super::Fault;
+
+    #[derive(Default, Clone)]
     pub struct PauseClient {
-        channels: BTreeMap<&'static str, mpsc::Receiver<()>>,
+        channels: Arc<Mutex<BTreeMap<&'static str, mpsc::Receiver<Fault>>>>,
     }
 
     impl PauseClient {
@@ -18,54 +25,60 @@ mod test_pause {
         /// breakpoints, use `PauseController`'s constructor.
         pub fn new() -> Self {
             Self {
-                channels: BTreeMap::new(),
+                channels: Arc::new(Mutex::new(BTreeMap::new())),
             }
         }
 
         /// Wait for the named breakpoint, blocking until the controller
         /// `unpause`s it.
-        pub async fn wait(&mut self, label: &'static str) {
-            let rendezvous = match self.channels.get_mut(&label) {
+        pub async fn wait(&self, label: &'static str) -> Fault {
+            let mut rendezvous = match self.channels.lock().remove(&label) {
                 Some(r) => r,
                 None => {
                     tracing::debug!("Waiting on unregistered label: {label:?}");
-                    return;
+                    return Fault::Noop;
                 },
             };
             tracing::info!("Waiting on {label}");
             // Start waiting on the channel to signal to the controller that we're paused.
             if rendezvous.next().await.is_none() {
                 tracing::info!("Rendezvous disconnected for {label:?}, continuing...");
-                self.channels.remove(&label);
-                return;
+                return Fault::Noop;
             }
             tracing::info!("PauseController successfully paused {label}");
             // Wait for the controller to give us another value.
-            if rendezvous.next().await.is_none() {
-                self.channels.remove(&label);
+            let Some(fault) = rendezvous.next().await else {
                 tracing::info!("Rendezvous disconnected after pause for {label:?}, continuing...");
-            }
+                return Fault::Noop;
+            };
             tracing::info!("PauseController successfully unpaused {label}");
+            self.channels.lock().insert(label, rendezvous);
+            fault
         }
 
-        pub fn close(&mut self, label: &'static str) {
-            if let Some(mut rendezvous) = self.channels.remove(&label) {
+        pub fn close(&self, label: &'static str) {
+            if let Some(mut rendezvous) = self.channels.lock().remove(&label) {
                 rendezvous.close();
             }
         }
     }
 
     pub struct PauseController {
-        channels: BTreeMap<&'static str, mpsc::Sender<()>>,
+        channels: BTreeMap<&'static str, mpsc::Sender<Fault>>,
     }
 
     pub struct PauseGuard<'a> {
         controller: &'a mut PauseController,
         label: &'static str,
         unpaused: bool,
+        fault: Fault,
     }
 
     impl<'a> PauseGuard<'a> {
+        pub fn inject_error(&mut self, error: anyhow::Error) {
+            self.fault = Fault::Error(error);
+        }
+
         /// Allow the tested code to resume.
         pub fn unpause(&mut self) {
             if self.unpaused {
@@ -80,7 +93,8 @@ mod test_pause {
                     return;
                 },
             };
-            if let Err(e) = rendezvous.try_send(()) {
+            let fault = mem::take(&mut self.fault);
+            if let Err(e) = rendezvous.try_send(fault) {
                 tracing::info!("Failed to unpause waiter: {e:?}");
                 self.controller.channels.remove(&self.label);
             }
@@ -103,8 +117,8 @@ mod test_pause {
             let mut controller = Self {
                 channels: BTreeMap::new(),
             };
-            let mut client = PauseClient {
-                channels: BTreeMap::new(),
+            let client = PauseClient {
+                channels: Default::default(),
             };
             for label in labels {
                 // Use a "rendezvous" channel of zero capacity to hand off control between the
@@ -114,7 +128,7 @@ mod test_pause {
                 // it hands it back to the test by unpausing it.
                 let (tx, rx) = mpsc::channel(0);
                 controller.channels.insert(label, tx);
-                client.channels.insert(label, rx);
+                client.channels.lock().insert(label, rx);
             }
             (controller, client)
         }
@@ -130,7 +144,7 @@ mod test_pause {
                     return None;
                 },
             };
-            if rendezvous.send(()).await.is_err() {
+            if rendezvous.send(Fault::Noop).await.is_err() {
                 tracing::info!("Waiter closed for {label:?}");
                 self.channels.remove(&label);
                 return None;
@@ -139,6 +153,7 @@ mod test_pause {
                 controller: self,
                 label,
                 unpaused: false,
+                fault: Fault::Noop,
             })
         }
     }
@@ -149,9 +164,18 @@ pub use self::test_pause::{
     PauseController,
 };
 
+#[derive(Default)]
+pub enum Fault {
+    #[default]
+    Noop,
+    Error(anyhow::Error),
+}
+
 #[cfg(not(any(test, feature = "testing")))]
 mod prod_pause {
-    #[derive(Default)]
+    use super::Fault;
+
+    #[derive(Default, Clone)]
     pub struct PauseClient;
 
     impl PauseClient {
@@ -159,9 +183,11 @@ mod prod_pause {
             Self
         }
 
-        pub async fn wait(&mut self, _label: &'static str) {}
+        pub async fn wait(&self, _label: &'static str) -> Fault {
+            Fault::Noop
+        }
 
-        pub fn close(&mut self, _label: &'static str) {}
+        pub fn close(&self, _label: &'static str) {}
     }
 }
 #[cfg(not(any(test, feature = "testing")))]

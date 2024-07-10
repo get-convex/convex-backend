@@ -35,6 +35,8 @@ pub struct ScheduledJob {
     pub next_ts: Option<Timestamp>,
     pub completed_ts: Option<Timestamp>,
     pub original_scheduled_ts: Timestamp,
+
+    pub attempts: ScheduledJobAttempts,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -46,6 +48,7 @@ struct SerializedScheduledJob {
     next_ts: Option<i64>,
     completed_ts: Option<i64>,
     original_scheduled_ts: Option<i64>,
+    attempts: Option<ScheduledJobAttempts>,
 }
 
 impl TryFrom<ScheduledJob> for SerializedScheduledJob {
@@ -63,6 +66,7 @@ impl TryFrom<ScheduledJob> for SerializedScheduledJob {
             next_ts: job.next_ts.map(|ts| ts.into()),
             completed_ts: job.completed_ts.map(|ts| ts.into()),
             original_scheduled_ts: Some(job.original_scheduled_ts.into()),
+            attempts: Some(job.attempts),
         })
     }
 }
@@ -97,7 +101,22 @@ impl TryFrom<SerializedScheduledJob> for ScheduledJob {
             next_ts,
             completed_ts,
             original_scheduled_ts,
+            attempts: value.attempts.unwrap_or_default(),
         })
+    }
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduledJobAttempts {
+    pub system_errors: u32,
+    pub occ_errors: u32,
+}
+
+impl ScheduledJobAttempts {
+    pub fn count_failures(&self) -> u32 {
+        self.system_errors + self.occ_errors
     }
 }
 

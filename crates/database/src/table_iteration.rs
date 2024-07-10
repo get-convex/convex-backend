@@ -154,7 +154,7 @@ impl<RT: Runtime> TableIterator<RT> {
     /// it, or it has not, in which case (1) will find it.
     #[try_stream(ok = (IndexKeyBytes, Timestamp, ResolvedDocument), error = anyhow::Error)]
     pub async fn stream_documents_in_table_by_index(
-        mut self,
+        self,
         tablet_id: TabletId,
         index_id: IndexId,
         indexed_fields: IndexedFields,

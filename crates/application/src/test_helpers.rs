@@ -83,6 +83,7 @@ use crate::{
     log_visibility::AllowLogging,
     scheduled_jobs::{
         ScheduledJobExecutor,
+        SCHEDULED_JOB_COMMITTING,
         SCHEDULED_JOB_EXECUTED,
     },
     Application,
@@ -101,6 +102,16 @@ pub struct ApplicationFixtureArgs {
 impl ApplicationFixtureArgs {
     pub fn with_scheduled_jobs_pause_client() -> (Self, PauseController) {
         let (pause_controller, pause_client) = PauseController::new(vec![SCHEDULED_JOB_EXECUTED]);
+        let args = ApplicationFixtureArgs {
+            scheduled_jobs_pause_client: pause_client,
+            ..Default::default()
+        };
+        (args, pause_controller)
+    }
+
+    pub fn with_scheduled_jobs_fault_client() -> (Self, PauseController) {
+        let (pause_controller, pause_client) =
+            PauseController::new(vec![SCHEDULED_JOB_COMMITTING, SCHEDULED_JOB_EXECUTED]);
         let args = ApplicationFixtureArgs {
             scheduled_jobs_pause_client: pause_client,
             ..Default::default()

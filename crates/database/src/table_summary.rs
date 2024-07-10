@@ -316,7 +316,7 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
 
         let snapshot_ts = self.database.now_ts_for_reads();
 
-        let mut pause_client = pause_client.unwrap_or_default();
+        let pause_client = pause_client.unwrap_or_default();
         pause_client.wait("table_summary_snapshot_picked").await;
         let database = self.database.clone();
         Self::collect_snapshot(

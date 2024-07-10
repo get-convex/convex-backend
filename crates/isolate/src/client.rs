@@ -1538,7 +1538,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                     }) != &req.client_id {
                         #[cfg(any(test, feature = "testing"))]
                         if let Some(pause_client) = &mut self.pause_client() {
-                            let mut pause_client = pause_client.lock().await;
+                            let pause_client = pause_client.lock().await;
                             pause_client.wait(PAUSE_RECREATE_CLIENT).await;
                             drop(pause_client);
                         }

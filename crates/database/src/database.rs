@@ -1276,7 +1276,7 @@ impl<RT: Runtime> Database<RT> {
         mut backoff: Backoff,
         usage: FunctionUsageTracker,
         is_retriable: R,
-        mut pause_client: PauseClient,
+        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>

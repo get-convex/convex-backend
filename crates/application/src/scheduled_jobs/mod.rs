@@ -28,7 +28,10 @@ use common::{
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
     minitrace_helpers::get_sampled_span,
-    pause::PauseClient,
+    pause::{
+        Fault,
+        PauseClient,
+    },
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -100,6 +103,7 @@ use crate::{
 mod metrics;
 
 pub(crate) const SCHEDULED_JOB_EXECUTED: &str = "scheduled_job_executed";
+pub(crate) const SCHEDULED_JOB_COMMITTING: &str = "scheduled_job_committing";
 
 pub struct ScheduledJobRunner<RT: Runtime> {
     executor: Arc<Mutex<RT::Handle>>,
@@ -167,6 +171,7 @@ pub struct ScheduledJobContext<RT: Runtime> {
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
+    pause_client: PauseClient,
 }
 
 /// This roughly matches tokio's permits that it uses as part of cooperative
@@ -189,6 +194,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 database,
                 runner,
                 function_log,
+                pause_client: pause_client.clone(),
             },
             pause_client,
         };
@@ -217,6 +223,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 database,
                 runner,
                 function_log,
+                pause_client: PauseClient::new(),
             },
             pause_client: PauseClient::new(),
         }
@@ -289,7 +296,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             select_biased! {
                 job_id = job_finished_rx.recv().fuse() => {
                     if let Some(job_id) = job_id {
-                    self.pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
+                        self.pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
                         running_job_ids.remove(&job_id);
                     } else {
                         anyhow::bail!("Job results channel closed, this is unexpected!");
@@ -344,8 +351,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             self.rt.spawn(
                 "spawn_scheduled_job",
                 async move {
-                    let result = context.execute_job(job, job_id).await;
-                    let _ = tx.send(result).await;
+                    context.execute_job(job, job_id).await;
+                    let _ = tx.send(job_id).await;
                 }
                 .in_span(root),
             );
@@ -408,33 +415,67 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 impl<RT: Runtime> ScheduledJobContext<RT> {
     // This handles re-running the scheduled function on transient errors. It
     // guarantees that the job was successfully run or the job state changed.
-    pub async fn execute_job(
-        &self,
-        job: ScheduledJob,
-        job_id: ResolvedDocumentId,
-    ) -> ResolvedDocumentId {
-        let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
-        loop {
-            // Generate a new request_id for every schedule job execution attempt.
-            let request_id = RequestId::new();
-            match self.run_function(request_id, job.clone(), job_id).await {
-                Ok(result) => {
-                    metrics::log_scheduled_job_success(backoff.failures());
-                    return result;
-                },
-                Err(mut e) => {
-                    // Only report OCCs that happen repeatedly
-                    if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
-                    {
-                        report_error(&mut e);
-                    }
-                    let delay = self.rt.with_rng(|rng| backoff.fail(rng));
-                    tracing::error!("System error executing job, sleeping {delay:?}");
-                    metrics::log_scheduled_job_failure(&e);
-                    self.rt.wait(delay).await;
-                },
-            }
+    pub async fn execute_job(&self, job: ScheduledJob, job_id: ResolvedDocumentId) {
+        // Generate a new request_id for every schedule job execution attempt.
+        let request_id = RequestId::new();
+        match self.run_function(request_id, job.clone(), job_id).await {
+            Ok(()) => {
+                metrics::log_scheduled_job_success(job.attempts.count_failures());
+            },
+            Err(e) => {
+                metrics::log_scheduled_job_failure(&e, job.attempts.count_failures());
+                match self.schedule_retry(job, job_id, e).await {
+                    Ok(()) => {},
+                    Err(mut retry_err) => {
+                        // If scheduling a retry hits an error, nothing has
+                        // changed so the job will remain at the head of the queue and
+                        // will be picked up by the scheduler in the next cycle.
+                        report_error(&mut retry_err);
+                    },
+                }
+            },
         }
+    }
+
+    async fn schedule_retry(
+        &self,
+        mut job: ScheduledJob,
+        job_id: ResolvedDocumentId,
+        mut system_error: anyhow::Error,
+    ) -> anyhow::Result<()> {
+        let (success, mut tx) = self
+            .new_transaction_for_job_state(job_id, &job, FunctionUsageTracker::new())
+            .await?;
+        if !success {
+            // Continue without scheduling retry since the job state has changed
+            return Ok(());
+        }
+        let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+
+        let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
+        let attempts = &mut job.attempts;
+        backoff.set_failures(attempts.count_failures());
+        // Only report OCCs that happen repeatedly
+        if !system_error.is_occ() || (attempts.occ_errors as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
+        {
+            report_error(&mut system_error);
+        }
+        if system_error.is_occ() {
+            attempts.occ_errors += 1;
+        } else {
+            attempts.system_errors += 1;
+        }
+        let delay = self.rt.with_rng(|rng| backoff.fail(rng));
+        tracing::error!("System error executing job, sleeping {delay:?}");
+        job.next_ts = Some(self.rt.generate_timestamp()?.add(delay)?);
+
+        SchedulerModel::new(&mut tx, namespace)
+            .replace(job_id, job)
+            .await?;
+        self.database
+            .commit_with_write_source(tx, "scheduled_job_system_error")
+            .await?;
+        Ok(())
     }
 
     async fn run_function(
@@ -442,14 +483,14 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         request_id: RequestId,
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
-    ) -> anyhow::Result<ResolvedDocumentId> {
+    ) -> anyhow::Result<()> {
         let usage_tracker = FunctionUsageTracker::new();
         let (success, mut tx) = self
             .new_transaction_for_job_state(job_id, &job, usage_tracker.clone())
             .await?;
         if !success {
             // Continue without running function since the job state has changed
-            return Ok(job_id);
+            return Ok(());
         }
 
         tracing::info!("Executing {:?}!", job.udf_path);
@@ -497,7 +538,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     caller,
                     context,
                 )?;
-                return Ok(job_id);
+                return Ok(());
             },
         };
 
@@ -572,7 +613,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             },
         };
 
-        Ok(job_id)
+        Ok(())
     }
 
     async fn handle_mutation(
@@ -628,6 +669,10 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             SchedulerModel::new(&mut tx, namespace)
                 .complete(job_id, ScheduledJobState::Success)
                 .await?;
+            if let Fault::Error(e) = self.pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
+                tracing::info!("Injected error before committing mutation");
+                return Err(e);
+            };
             if let Err(err) = self
                 .database
                 .commit_with_write_source(tx, "scheduled_job_mutation_success")

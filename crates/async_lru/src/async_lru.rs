@@ -388,7 +388,7 @@ impl<
             Status::Kickoff(rx, timer) => {
                 #[cfg(any(test, feature = "testing"))]
                 if let Some(pause_client) = &mut self.pause_client.clone() {
-                    let mut pause_client = pause_client.lock().await;
+                    let pause_client = pause_client.lock().await;
                     pause_client.wait(PAUSE_DURING_GENERATE_VALUE_LABEL).await;
                     drop(pause_client);
                 }

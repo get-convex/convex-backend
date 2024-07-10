@@ -60,6 +60,7 @@ use value::{
 use self::{
     types::{
         ScheduledJob,
+        ScheduledJobAttempts,
         ScheduledJobState,
     },
     virtual_table::ScheduledJobsDocMapper,
@@ -227,6 +228,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             next_ts: Some(original_scheduled_ts.max(now)),
             completed_ts: None,
             original_scheduled_ts,
+            attempts: ScheduledJobAttempts::default(),
         };
         let job = if let Some(parent_scheduled_job) = context.parent_scheduled_job {
             let table_mapping = self.tx.table_mapping();
@@ -249,6 +251,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                             next_ts: None,
                             completed_ts: Some(*scheduled_ts),
                             original_scheduled_ts: *scheduled_ts,
+                            attempts: ScheduledJobAttempts::default(),
                         }
                     },
                 }

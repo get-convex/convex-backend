@@ -767,7 +767,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
-        mut pause_client: PauseClient,
+        pause_client: PauseClient,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));

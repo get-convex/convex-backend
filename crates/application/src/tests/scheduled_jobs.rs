@@ -22,6 +22,7 @@ use database::{
     TableModel,
     Transaction,
 };
+use errors::ErrorMetadata;
 use isolate::parse_udf_args;
 use keybroker::Identity;
 use model::{
@@ -43,7 +44,10 @@ use value::{
 };
 
 use crate::{
-    scheduled_jobs::SCHEDULED_JOB_EXECUTED,
+    scheduled_jobs::{
+        SCHEDULED_JOB_COMMITTING,
+        SCHEDULED_JOB_EXECUTED,
+    },
     test_helpers::{
         ApplicationFixtureArgs,
         ApplicationTestExt,
@@ -88,7 +92,7 @@ async fn create_scheduled_job<'a>(
 }
 
 /// Waits for scheduled job to execute and unpauses the scheduled job executor.
-async fn wait_for_scheduled_job_execution(mut pause_controller: PauseController) {
+async fn wait_for_scheduled_job_execution(pause_controller: &mut PauseController) {
     if let Some(mut pause_guard) = pause_controller
         .wait_for_blocked(SCHEDULED_JOB_EXECUTED)
         .await
@@ -99,7 +103,7 @@ async fn wait_for_scheduled_job_execution(mut pause_controller: PauseController)
 
 #[convex_macro::test_runtime]
 async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
-    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
+    let (args, mut pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
     let application = Application::new_for_tests_with_args(&rt, args).await?;
     application.load_udf_tests_modules().await?;
 
@@ -113,7 +117,7 @@ async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
 
     application.commit_test(tx).await?;
 
-    wait_for_scheduled_job_execution(pause_controller).await;
+    wait_for_scheduled_job_execution(&mut pause_controller).await;
     tx = application.begin(Identity::system()).await?;
     let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let state = model.check_status(job_id).await?.unwrap();
@@ -180,7 +184,7 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
 #[convex_macro::test_runtime]
 async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Result<()> {
     std::env::set_var("SCHEDULED_JOB_RETENTION", "30");
-    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
+    let (args, mut pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
     let application = Application::new_for_tests_with_args(&rt, args).await?;
     application.load_udf_tests_modules().await?;
 
@@ -195,7 +199,7 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
 
     application.commit_test(tx).await?;
 
-    wait_for_scheduled_job_execution(pause_controller).await;
+    wait_for_scheduled_job_execution(&mut pause_controller).await;
     tx = application.begin(Identity::system()).await?;
     let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let state = model.check_status(job_id).await?.unwrap();
@@ -236,7 +240,7 @@ async fn test_scheduled_jobs_helper(
     rt: TestRuntime,
     backend_state: BackendState,
 ) -> anyhow::Result<()> {
-    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
+    let (args, mut pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
     let application = Application::new_for_tests_with_args(&rt, args).await?;
     application.load_udf_tests_modules().await?;
 
@@ -268,7 +272,7 @@ async fn test_scheduled_jobs_helper(
     let mut model = BackendStateModel::new(&mut tx);
     model.toggle_backend_state(BackendState::Running).await?;
     application.commit_test(tx).await?;
-    wait_for_scheduled_job_execution(pause_controller).await;
+    wait_for_scheduled_job_execution(&mut pause_controller).await;
     tx = application.begin(Identity::system()).await?;
     let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
     let state = model.check_status(job_id).await?.unwrap();
@@ -335,5 +339,45 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
     assert!(list
         .iter()
         .all(|job| job.state == ScheduledJobState::Canceled));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_scheduled_job_retry(rt: TestRuntime) -> anyhow::Result<()> {
+    let (args, mut pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_fault_client();
+    let application = Application::new_for_tests_with_args(&rt, args).await?;
+    application.load_udf_tests_modules().await?;
+
+    let mut tx = application.begin(Identity::system()).await?;
+    let (job_id, _model) = create_scheduled_job(&rt, &mut tx).await?;
+    application.commit_test(tx).await?;
+
+    // Simulate a failure in the scheduled job
+    if let Some(mut pause_guard) = pause_controller
+        .wait_for_blocked(SCHEDULED_JOB_COMMITTING)
+        .await
+    {
+        pause_guard.inject_error(anyhow::anyhow!(ErrorMetadata::user_occ(None, None)));
+        pause_guard.unpause();
+    }
+
+    // Wait for the first attempt, which will fail.
+    // Hitting this label means the scheduler thread is freed up temporarily,
+    // so more jobs can execute while this one is backing off.
+    wait_for_scheduled_job_execution(&mut pause_controller).await;
+    // The second attempt throws no error.
+    if let Some(mut pause_guard) = pause_controller
+        .wait_for_blocked(SCHEDULED_JOB_COMMITTING)
+        .await
+    {
+        pause_guard.unpause();
+    }
+    // Wait for the second attempt, which will succeed.
+    wait_for_scheduled_job_execution(&mut pause_controller).await;
+
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Success);
     Ok(())
 }

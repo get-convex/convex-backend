@@ -74,7 +74,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         Request {
             client_id,
             inner,
-            mut pause_client,
+            pause_client,
             parent_trace: _,
         }: Request<RT>,
         heap_stats: SharedIsolateHeapStats,

@@ -1,6 +1,5 @@
 use std::{
     cmp,
-    ops::Div,
     time::Duration,
 };
 
@@ -26,10 +25,9 @@ impl Backoff {
         self.num_failures = 0;
     }
 
-    /// Ensures that fail will return the max_backoff value the next time it is
-    /// called.
-    pub fn max_backoff(&mut self) {
-        self.num_failures = u32::MAX.div(2);
+    /// For stateful backoff, set the number of failures to a specific value.
+    pub fn set_failures(&mut self, num_failures: u32) {
+        self.num_failures = num_failures;
     }
 
     pub fn fail(&mut self, rng: &mut impl Rng) -> Duration {

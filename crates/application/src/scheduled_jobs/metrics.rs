@@ -3,7 +3,7 @@ use std::time::Duration;
 use errors::ErrorMetadataAnyhowExt;
 use metrics::{
     log_counter_with_labels,
-    log_distribution,
+    log_distribution_with_labels,
     log_gauge,
     register_convex_counter,
     register_convex_gauge,
@@ -19,7 +19,8 @@ register_convex_counter!(
 );
 register_convex_histogram!(
     SCHEDULED_JOB_PREV_FAILURES_TOTAL,
-    "Num previous failures retried before success",
+    "Num previous failures retried before success or failed attempt",
+    &STATUS_LABEL
 );
 pub fn log_scheduled_job_success(prev_failures: u32) {
     log_counter_with_labels(
@@ -27,15 +28,24 @@ pub fn log_scheduled_job_success(prev_failures: u32) {
         1,
         vec![StaticMetricLabel::STATUS_SUCCESS],
     );
-    log_distribution(&SCHEDULED_JOB_PREV_FAILURES_TOTAL, prev_failures as f64);
+    log_distribution_with_labels(
+        &SCHEDULED_JOB_PREV_FAILURES_TOTAL,
+        prev_failures as f64,
+        vec![StaticMetricLabel::STATUS_SUCCESS],
+    );
 }
-pub fn log_scheduled_job_failure(e: &anyhow::Error) {
+pub fn log_scheduled_job_failure(e: &anyhow::Error, prev_failures: u32) {
     let label_value = e.metric_status_label_value();
     log_counter_with_labels(
         &SCHEDULED_JOB_RESULT_TOTAL,
         1,
         vec![StaticMetricLabel::new("status", label_value)],
-    )
+    );
+    log_distribution_with_labels(
+        &SCHEDULED_JOB_PREV_FAILURES_TOTAL,
+        prev_failures as f64,
+        vec![StaticMetricLabel::new("status", label_value)],
+    );
 }
 
 register_convex_gauge!(
