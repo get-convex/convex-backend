@@ -356,7 +356,7 @@ async function askToReconfigureNew(
 export async function promptToInitWithProjects(): Promise<"new" | "existing"> {
   const { choice } = await inquirer.prompt([
     {
-      type: "list",
+      type: "search-list",
       name: "choice",
       message: `What would you like to configure?`,
       default: "new",
@@ -372,7 +372,7 @@ export async function promptToInitWithProjects(): Promise<"new" | "existing"> {
 export async function promptToReconfigure(): Promise<"new" | "existing"> {
   const { choice } = await inquirer.prompt([
     {
-      type: "list",
+      type: "search-list",
       name: "choice",
       message: `Configure a different project?`,
       default: "new",

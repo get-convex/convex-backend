@@ -287,7 +287,7 @@ export async function validateOrSelectTeam(
               {
                 name: "teamSlug",
                 message: promptMessage,
-                type: "list",
+                type: "search-list",
                 choices: teams.map((team: Team) => ({
                   name: `${team.name} (${team.slug})`,
                   value: team.slug,
