@@ -22,7 +22,10 @@ use common::{
         WriteTimestamp,
     },
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use futures::{
     future::BoxFuture,
     FutureExt,
@@ -400,46 +403,59 @@ impl VectorIndexManager {
         search_storage: Arc<dyn Storage>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         let timer = metrics::search_timer(&SEARCHLIGHT_CLUSTER_NAME);
-        let IndexConfig::Vector {
-            ref developer_config,
-            ..
-        } = index.metadata.config
-        else {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "IndexNotAVectorIndexError",
-                format!(
-                    "Index {} is not a vector index",
-                    query.printable_index_name()?
-                )
-            ));
+        let result: anyhow::Result<_> = {
+            let IndexConfig::Vector {
+                ref developer_config,
+                ..
+            } = index.metadata.config
+            else {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "IndexNotAVectorIndexError",
+                    format!(
+                        "Index {} is not a vector index",
+                        query.printable_index_name()?
+                    )
+                ));
+            };
+            let Some((vector_index, memory_index)) = self.require_ready_index(&index.id())? else {
+                anyhow::bail!("Vector index {:?} not available", index.id());
+            };
+            let qdrant_schema = QdrantSchema::new(developer_config);
+            let VectorIndexState::SnapshottedAt(ref snapshot) = vector_index else {
+                anyhow::bail!(index_backfilling_error(&query.printable_index_name()?));
+            };
+            let (disk_revisions, vector_index_type) = match snapshot.data {
+                VectorIndexSnapshotData::Unknown(_) => {
+                    anyhow::bail!(index_backfilling_error(&query.printable_index_name()?))
+                },
+                VectorIndexSnapshotData::MultiSegment(ref segments) => (
+                    self.multi_segment_search(
+                        query,
+                        searcher,
+                        segments,
+                        search_storage,
+                        qdrant_schema,
+                        memory_index,
+                        snapshot.ts,
+                    )
+                    .await?,
+                    VectorIndexType::MultiSegment,
+                ),
+            };
+            Ok((disk_revisions, vector_index_type))
         };
-        let Some((vector_index, memory_index)) = self.require_ready_index(&index.id())? else {
-            anyhow::bail!("Vector index {:?} not available", index.id());
-        };
-        let qdrant_schema = QdrantSchema::new(developer_config);
-        let VectorIndexState::SnapshottedAt(ref snapshot) = vector_index else {
-            anyhow::bail!(index_backfilling_error(&query.printable_index_name()?));
-        };
-        let (disk_revisions, vector_index_type) = match snapshot.data {
-            VectorIndexSnapshotData::Unknown(_) => {
-                anyhow::bail!(index_backfilling_error(&query.printable_index_name()?))
+        match result {
+            Ok((disk_revisions, vector_index_type)) => {
+                metrics::finish_search(timer, &disk_revisions, vector_index_type);
+                Ok(disk_revisions)
             },
-            VectorIndexSnapshotData::MultiSegment(ref segments) => (
-                self.multi_segment_search(
-                    query,
-                    searcher,
-                    segments,
-                    search_storage,
-                    qdrant_schema,
-                    memory_index,
-                    snapshot.ts,
-                )
-                .await?,
-                VectorIndexType::MultiSegment,
-            ),
-        };
-        metrics::finish_search(timer, &disk_revisions, vector_index_type);
-        Ok(disk_revisions)
+            Err(e) => {
+                if e.is_bad_request() {
+                    timer.finish_developer_error();
+                }
+                Err(e)
+            },
+        }
     }
 
     async fn multi_segment_search(
