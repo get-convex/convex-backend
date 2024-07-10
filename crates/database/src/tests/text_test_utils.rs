@@ -207,7 +207,7 @@ impl TextFixtures {
             .context("Index missing or in an unexpected state")?
             .into_value();
         must_let!(let IndexMetadata {
-            config: IndexConfig::Search {
+            config: IndexConfig::Text {
                 on_disk_state: TextIndexState::Backfilled(TextIndexSnapshot { ts, .. }),
                 ..
             },
@@ -266,7 +266,7 @@ impl TextFixtures {
         index_name: GenericIndexName<TableName>,
     ) -> anyhow::Result<Vec<FragmentedTextSegment>> {
         let metadata = self.get_index_metadata(index_name).await?;
-        must_let!(let IndexConfig::Search { on_disk_state, .. } = &metadata.config);
+        must_let!(let IndexConfig::Text { on_disk_state, .. } = &metadata.config);
         let snapshot = match on_disk_state {
             TextIndexState::Backfilling(_) => anyhow::bail!("Still backfilling!"),
             TextIndexState::Backfilled(snapshot) | TextIndexState::SnapshottedAt(snapshot) => {
@@ -361,7 +361,7 @@ pub fn backfilling_text_index() -> anyhow::Result<IndexMetadata<TableName>> {
     let index_name = IndexName::new(table_name, "search_index".parse()?)?;
     let search_field: FieldPath = SEARCH_FIELD.parse()?;
     let filter_field: FieldPath = "channel".parse()?;
-    let metadata = IndexMetadata::new_backfilling_search_index(
+    let metadata = IndexMetadata::new_backfilling_text_index(
         index_name,
         search_field,
         btreeset![filter_field],

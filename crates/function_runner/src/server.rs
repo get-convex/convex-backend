@@ -46,10 +46,10 @@ use database::{
     BootstrapMetadata,
     Database,
     FollowerRetentionManager,
-    SearchIndexManagerSnapshot,
     TableCountSnapshot,
+    TextIndexManagerSnapshot,
     Transaction,
-    TransactionSearchSnapshot,
+    TransactionTextSnapshot,
 };
 use file_storage::TransactionalFileStorage;
 use futures::channel::{
@@ -305,7 +305,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         in_memory_index_versions: BTreeMap<IndexId, Timestamp>,
         bootstrap_metadata: BootstrapMetadata,
         table_count_snapshot: Arc<dyn TableCountSnapshot>,
-        search_index_snapshot: Arc<dyn TransactionSearchSnapshot>,
+        text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<Transaction<RT>> {
         let usage_tracker = FunctionUsageTracker::new();
@@ -320,7 +320,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 in_memory_index_versions,
                 bootstrap_metadata,
                 table_count_snapshot,
-                search_index_snapshot,
+                text_index_snapshot,
                 usage_tracker.clone(),
                 retention_validator,
             )
@@ -343,7 +343,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         convex_origin: ConvexOrigin,
         bootstrap_metadata: BootstrapMetadata,
         table_count_snapshot: Arc<dyn TableCountSnapshot>,
-        search_index_snapshot: Arc<dyn TransactionSearchSnapshot>,
+        text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
@@ -382,7 +382,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 in_memory_index_last_modified,
                 bootstrap_metadata,
                 table_count_snapshot,
-                search_index_snapshot,
+                text_index_snapshot,
                 usage_tracker.clone(),
                 retention_validator,
             )
@@ -574,9 +574,9 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
     )> {
         let snapshot = self.database.snapshot(ts)?;
         let table_count_snapshot = Arc::new(snapshot.table_summaries);
-        let search_index_snapshot = Arc::new(SearchIndexManagerSnapshot::new(
+        let text_index_snapshot = Arc::new(TextIndexManagerSnapshot::new(
             snapshot.index_registry,
-            snapshot.search_indexes,
+            snapshot.text_indexes,
             self.database.searcher.clone(),
             self.database.search_storage.clone(),
         ));
@@ -600,7 +600,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 self.convex_origin.clone(),
                 self.database.bootstrap_metadata.clone(),
                 table_count_snapshot,
-                search_index_snapshot,
+                text_index_snapshot,
                 action_callbacks,
                 self.fetch_client.clone(),
                 log_line_sender,

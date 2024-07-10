@@ -31,7 +31,7 @@ mod preloaded;
 pub mod query;
 pub mod reads;
 mod retention;
-mod search_and_vector_bootstrap;
+mod search_index_bootstrap;
 mod snapshot_manager;
 mod stack_traces;
 pub mod subscription;
@@ -77,8 +77,8 @@ pub use transaction::{
     Transaction,
 };
 pub use transaction_index::{
-    SearchIndexManagerSnapshot,
-    TransactionSearchSnapshot,
+    TextIndexManagerSnapshot,
+    TransactionTextSnapshot,
 };
 pub use vector_index_worker::flusher::VectorIndexFlusher;
 pub use write_limits::BiggestDocumentWrites;

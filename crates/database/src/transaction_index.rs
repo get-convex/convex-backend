@@ -61,8 +61,8 @@ use search::{
     query::RevisionWithKeys,
     CandidateRevision,
     QueryResults,
-    SearchIndexManager,
     Searcher,
+    TextIndexManager,
 };
 use storage::Storage;
 use value::{
@@ -97,23 +97,23 @@ pub struct TransactionIndex {
 
     // Similar to database indexes, text search indexes are implemented by applying pending updates
     // on top of the transaction base snapshot.
-    search_index_snapshot: Arc<dyn TransactionSearchSnapshot>,
-    search_index_updates: BTreeMap<IndexId, Vec<DocumentUpdate>>,
+    text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
+    text_index_updates: BTreeMap<IndexId, Vec<DocumentUpdate>>,
 }
 
 impl TransactionIndex {
     pub fn new(
         index_registry: IndexRegistry,
         database_index_snapshot: DatabaseIndexSnapshot,
-        search_index_snapshot: Arc<dyn TransactionSearchSnapshot>,
+        text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
     ) -> Self {
         Self {
             index_registry,
             index_registry_updated: false,
             database_index_snapshot,
             database_index_updates: BTreeMap::new(),
-            search_index_snapshot,
-            search_index_updates: BTreeMap::new(),
+            text_index_snapshot,
+            text_index_updates: BTreeMap::new(),
         }
     }
 
@@ -268,9 +268,9 @@ impl TransactionIndex {
         );
         let index = self.require_enabled(reads, &index_name, &query.printable_index_name()?)?;
         let empty = vec![];
-        let pending_updates = self.search_index_updates.get(&index.id).unwrap_or(&empty);
+        let pending_updates = self.text_index_updates.get(&index.id).unwrap_or(&empty);
         let results = self
-            .search_index_snapshot
+            .text_index_snapshot
             .search(&index, query, version, pending_updates)
             .await?;
 
@@ -525,8 +525,8 @@ impl TransactionIndex {
             .or(old_document.as_ref().map(|d| d.id()));
         if let Some(id) = document_id {
             // Add the update to all affected text search indexes.
-            for index in self.index_registry.search_indexes_by_table(id.tablet_id) {
-                self.search_index_updates
+            for index in self.index_registry.text_indexes_by_table(id.tablet_id) {
+                self.text_index_updates
                     .entry(index.id)
                     .or_default()
                     .push(DocumentUpdate {
@@ -665,7 +665,7 @@ impl<'a> Update<'a> {
 }
 
 #[async_trait]
-pub trait TransactionSearchSnapshot: Send + Sync + 'static {
+pub trait TransactionTextSnapshot: Send + Sync + 'static {
     // Search at the given snapshot after applying the given writes.
     async fn search(
         &self,
@@ -692,24 +692,24 @@ pub trait TransactionSearchSnapshot: Send + Sync + 'static {
 }
 
 #[derive(Clone)]
-pub struct SearchIndexManagerSnapshot<RT: Runtime> {
+pub struct TextIndexManagerSnapshot<RT: Runtime> {
     index_registry: IndexRegistry,
-    search_indexes: SearchIndexManager<RT>,
+    text_indexes: TextIndexManager<RT>,
 
     searcher: Arc<dyn Searcher>,
     search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
 }
 
-impl<RT: Runtime> SearchIndexManagerSnapshot<RT> {
+impl<RT: Runtime> TextIndexManagerSnapshot<RT> {
     pub fn new(
         index_registry: IndexRegistry,
-        search_indexes: SearchIndexManager<RT>,
+        text_indexes: TextIndexManager<RT>,
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
     ) -> Self {
         Self {
             index_registry,
-            search_indexes,
+            text_indexes,
             searcher,
             search_storage,
         }
@@ -719,22 +719,22 @@ impl<RT: Runtime> SearchIndexManagerSnapshot<RT> {
     fn snapshot_with_updates(
         &self,
         pending_updates: &Vec<DocumentUpdate>,
-    ) -> anyhow::Result<SearchIndexManager<RT>> {
-        let mut search_indexes = self.search_indexes.clone();
+    ) -> anyhow::Result<TextIndexManager<RT>> {
+        let mut text_indexes = self.text_indexes.clone();
         for DocumentUpdate {
             id: _,
             old_document,
             new_document,
         } in pending_updates
         {
-            search_indexes.update(
+            text_indexes.update(
                 &self.index_registry,
                 old_document.as_ref(),
                 new_document.as_ref(),
                 WriteTimestamp::Pending,
             )?;
         }
-        Ok(search_indexes)
+        Ok(text_indexes)
     }
 
     fn search_storage(&self) -> Arc<dyn Storage> {
@@ -752,8 +752,8 @@ impl<RT: Runtime> SearchIndexManagerSnapshot<RT> {
         query: pb::searchlight::TextQuery,
         pending_updates: &Vec<DocumentUpdate>,
     ) -> anyhow::Result<RevisionWithKeys> {
-        let search_indexes_snapshot = self.snapshot_with_updates(pending_updates)?;
-        search_indexes_snapshot
+        let text_indexes_snapshot = self.snapshot_with_updates(pending_updates)?;
+        text_indexes_snapshot
             .search_with_compiled_query(
                 index,
                 printable_index_name,
@@ -766,7 +766,7 @@ impl<RT: Runtime> SearchIndexManagerSnapshot<RT> {
 }
 
 #[async_trait]
-impl<RT: Runtime> TransactionSearchSnapshot for SearchIndexManagerSnapshot<RT> {
+impl<RT: Runtime> TransactionTextSnapshot for TextIndexManagerSnapshot<RT> {
     async fn search(
         &self,
         index: &Index,
@@ -774,8 +774,8 @@ impl<RT: Runtime> TransactionSearchSnapshot for SearchIndexManagerSnapshot<RT> {
         version: SearchVersion,
         pending_updates: &Vec<DocumentUpdate>,
     ) -> anyhow::Result<QueryResults> {
-        let search_indexes_snapshot = self.snapshot_with_updates(pending_updates)?;
-        search_indexes_snapshot
+        let text_indexes_snapshot = self.snapshot_with_updates(pending_updates)?;
+        text_indexes_snapshot
             .search(
                 index,
                 search,
@@ -848,8 +848,8 @@ mod tests {
     use runtime::prod::ProdRuntime;
     use search::{
         searcher::InProcessSearcher,
-        SearchIndexManager,
-        SearchIndexManagerState,
+        TextIndexManager,
+        TextIndexManagerState,
     };
     use storage::{
         LocalDirStorage,
@@ -857,7 +857,7 @@ mod tests {
     };
     use value::assert_obj;
 
-    use super::SearchIndexManagerSnapshot;
+    use super::TextIndexManagerSnapshot;
     use crate::{
         query::IndexRangeResponse,
         reads::TransactionReadSet,
@@ -888,7 +888,7 @@ mod tests {
     ) -> anyhow::Result<(
         IndexRegistry,
         BackendInMemoryIndexes,
-        SearchIndexManager<RT>,
+        TextIndexManager<RT>,
         BTreeMap<TabletIndexName, ResolvedDocumentId>,
     )> {
         let mut index_id_by_name = BTreeMap::new();
@@ -914,9 +914,9 @@ mod tests {
         )?;
         let index = BackendInMemoryIndexes::bootstrap(&index_registry, index_documents, ts)?;
 
-        let search = SearchIndexManager::new(
+        let search = TextIndexManager::new(
             runtime,
-            SearchIndexManagerState::Bootstrapping,
+            TextIndexManagerState::Bootstrapping,
             persistence.version(),
         );
 
@@ -965,7 +965,7 @@ mod tests {
                 id_generator.clone(),
                 ps,
             ),
-            Arc::new(SearchIndexManagerSnapshot::new(
+            Arc::new(TextIndexManagerSnapshot::new(
                 index_registry.clone(),
                 search,
                 searcher.clone(),
@@ -1071,7 +1071,7 @@ mod tests {
                 id_generator.clone(),
                 ps,
             ),
-            Arc::new(SearchIndexManagerSnapshot::new(
+            Arc::new(TextIndexManagerSnapshot::new(
                 index_registry.clone(),
                 search,
                 searcher.clone(),
@@ -1281,7 +1281,7 @@ mod tests {
                 id_generator.clone(),
                 ps,
             ),
-            Arc::new(SearchIndexManagerSnapshot::new(
+            Arc::new(TextIndexManagerSnapshot::new(
                 index_registry.clone(),
                 search,
                 searcher.clone(),

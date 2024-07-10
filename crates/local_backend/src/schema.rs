@@ -144,7 +144,7 @@ impl TryFrom<IndexMetadata<TableName>> for IndexMetadataResponse {
                     },
                 }
             },
-            IndexConfig::Search {
+            IndexConfig::Text {
                 on_disk_state,
                 developer_config:
                     DeveloperTextIndexConfig {

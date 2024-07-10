@@ -41,7 +41,7 @@ impl From<IndexConfig> for DeveloperIndexConfig {
             IndexConfig::Database {
                 developer_config, ..
             } => DeveloperIndexConfig::Database(developer_config),
-            IndexConfig::Search {
+            IndexConfig::Text {
                 developer_config, ..
             } => DeveloperIndexConfig::Search(developer_config),
             IndexConfig::Vector {

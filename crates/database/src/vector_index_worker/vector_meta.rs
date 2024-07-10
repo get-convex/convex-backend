@@ -243,7 +243,7 @@ impl SearchIndex for VectorSearchIndex {
         metadata: ParsedDocument<TabletIndexMetadata>,
     ) -> anyhow::Result<(Self::DeveloperConfig, SearchOnDiskState<Self>)> {
         let (on_disk_state, developer_config) = match metadata.into_value().config {
-            IndexConfig::Database { .. } | IndexConfig::Search { .. } => {
+            IndexConfig::Database { .. } | IndexConfig::Text { .. } => {
                 anyhow::bail!("Index type changed!");
             },
             IndexConfig::Vector {

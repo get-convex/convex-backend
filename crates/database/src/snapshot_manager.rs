@@ -29,7 +29,7 @@ use indexing::{
     backend_in_memory_indexes::BackendInMemoryIndexes,
     index_registry::IndexRegistry,
 };
-use search::SearchIndexManager;
+use search::TextIndexManager;
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -185,7 +185,7 @@ pub struct Snapshot<RT: Runtime> {
     pub table_summaries: TableSummaries,
     pub index_registry: IndexRegistry,
     pub in_memory_indexes: BackendInMemoryIndexes,
-    pub search_indexes: SearchIndexManager<RT>,
+    pub text_indexes: TextIndexManager<RT>,
     pub vector_indexes: VectorIndexManager,
 }
 
@@ -226,7 +226,7 @@ impl<RT: Runtime> Snapshot<RT> {
             removal.cloned(),
             insertion.cloned(),
         );
-        self.search_indexes
+        self.text_indexes
             .update(
                 &self.index_registry,
                 removal,
@@ -404,13 +404,13 @@ impl<RT: Runtime> SnapshotManager<RT> {
     /// This pattern works as long as transactions that depend on the data that
     /// we're amending treat the failures while that data is loading as
     /// transient system errors (timeouts, database issues etc) and retry.
-    pub fn overwrite_last_snapshot_search_and_vector_indexes(
+    pub fn overwrite_last_snapshot_text_and_vector_indexes(
         &mut self,
-        search_indexes: SearchIndexManager<RT>,
+        text_indexes: TextIndexManager<RT>,
         vector_indexes: VectorIndexManager,
     ) {
         let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
-        snapshot.search_indexes = search_indexes;
+        snapshot.text_indexes = text_indexes;
         snapshot.vector_indexes = vector_indexes;
     }
 

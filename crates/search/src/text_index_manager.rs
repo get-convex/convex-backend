@@ -44,7 +44,7 @@ use indexing::index_registry::{
 use storage::Storage;
 
 use crate::{
-    memory_index::MemorySearchIndex,
+    memory_index::MemoryTextIndex,
     metrics,
     query::{
         CompiledQuery,
@@ -61,7 +61,7 @@ pub struct SnapshotInfo {
     pub disk_index: DiskIndex,
     pub disk_index_ts: Timestamp,
     pub disk_index_version: TextSnapshotVersion,
-    pub memory_index: MemorySearchIndex,
+    pub memory_index: MemoryTextIndex,
 }
 
 #[derive(Clone)]
@@ -79,35 +79,35 @@ impl TryFrom<TextIndexSnapshotData> for DiskIndex {
 }
 
 #[derive(Clone)]
-pub enum SearchIndex {
-    Backfilling { memory_index: MemorySearchIndex },
+pub enum TextIndex {
+    Backfilling { memory_index: MemoryTextIndex },
     Backfilled(SnapshotInfo),
     Ready(SnapshotInfo),
 }
 
-impl SearchIndex {
-    fn memory_index(&self) -> &MemorySearchIndex {
+impl TextIndex {
+    fn memory_index(&self) -> &MemoryTextIndex {
         match self {
-            SearchIndex::Backfilling { ref memory_index } => memory_index,
-            SearchIndex::Backfilled(SnapshotInfo {
+            TextIndex::Backfilling { ref memory_index } => memory_index,
+            TextIndex::Backfilled(SnapshotInfo {
                 ref memory_index, ..
             }) => memory_index,
-            SearchIndex::Ready(SnapshotInfo {
+            TextIndex::Ready(SnapshotInfo {
                 ref memory_index, ..
             }) => memory_index,
         }
     }
 
-    pub fn memory_index_mut(&mut self) -> &mut MemorySearchIndex {
+    pub fn memory_index_mut(&mut self) -> &mut MemoryTextIndex {
         match self {
-            SearchIndex::Backfilling {
+            TextIndex::Backfilling {
                 ref mut memory_index,
             } => memory_index,
-            SearchIndex::Backfilled(SnapshotInfo {
+            TextIndex::Backfilled(SnapshotInfo {
                 ref mut memory_index,
                 ..
             }) => memory_index,
-            SearchIndex::Ready(SnapshotInfo {
+            TextIndex::Ready(SnapshotInfo {
                 ref mut memory_index,
                 ..
             }) => memory_index,
@@ -116,26 +116,26 @@ impl SearchIndex {
 }
 
 #[derive(Clone)]
-pub struct SearchIndexManager<RT: Runtime> {
+pub struct TextIndexManager<RT: Runtime> {
     runtime: RT,
-    indexes: SearchIndexManagerState,
+    indexes: TextIndexManagerState,
     persistence_version: PersistenceVersion,
 }
 
 #[derive(Clone)]
-pub enum SearchIndexManagerState {
+pub enum TextIndexManagerState {
     Bootstrapping,
-    Ready(OrdMap<IndexId, SearchIndex>),
+    Ready(OrdMap<IndexId, TextIndex>),
 }
 
-impl<RT: Runtime> SearchIndexManager<RT> {
+impl<RT: Runtime> TextIndexManager<RT> {
     pub fn is_bootstrapping(&self) -> bool {
-        matches!(self.indexes, SearchIndexManagerState::Bootstrapping)
+        matches!(self.indexes, TextIndexManagerState::Bootstrapping)
     }
 
     pub fn new(
         runtime: RT,
-        indexes: SearchIndexManagerState,
+        indexes: TextIndexManagerState,
         persistence_version: PersistenceVersion,
     ) -> Self {
         Self {
@@ -145,15 +145,15 @@ impl<RT: Runtime> SearchIndexManager<RT> {
         }
     }
 
-    fn require_ready_indexes(&self) -> anyhow::Result<&OrdMap<IndexId, SearchIndex>> {
+    fn require_ready_indexes(&self) -> anyhow::Result<&OrdMap<IndexId, TextIndex>> {
         match self.indexes {
-            SearchIndexManagerState::Bootstrapping => {
+            TextIndexManagerState::Bootstrapping => {
                 anyhow::bail!(ErrorMetadata::overloaded(
                     "SearchIndexesUnavailable",
                     "Search indexes bootstrapping and not yet available for use"
                 ));
             },
-            SearchIndexManagerState::Ready(ref indexes) => Ok(indexes),
+            TextIndexManagerState::Ready(ref indexes) => Ok(indexes),
         }
     }
 
@@ -170,10 +170,10 @@ impl<RT: Runtime> SearchIndexManager<RT> {
         };
 
         match index {
-            SearchIndex::Backfilling { .. } | SearchIndex::Backfilled(_) => {
+            TextIndex::Backfilling { .. } | TextIndex::Backfilled(_) => {
                 anyhow::bail!(index_backfilling_error(printable_index_name));
             },
-            SearchIndex::Ready(snapshot_info) => {
+            TextIndex::Ready(snapshot_info) => {
                 anyhow::ensure!(
                     // If the search index was written to disk with a different format from
                     // how the current backend constructs search queries, assume the new
@@ -301,9 +301,9 @@ impl<RT: Runtime> SearchIndexManager<RT> {
             .iter()
             .filter_map(|(id, idx)| {
                 let SnapshotInfo { memory_index, .. } = match idx {
-                    SearchIndex::Backfilled(snapshot) => snapshot,
-                    SearchIndex::Ready(snapshot) => snapshot,
-                    SearchIndex::Backfilling { .. } => return None,
+                    TextIndex::Backfilled(snapshot) => snapshot,
+                    TextIndex::Ready(snapshot) => snapshot,
+                    TextIndex::Backfilling { .. } => return None,
                 };
                 Some((*id, memory_index.size()))
             }))
@@ -314,9 +314,9 @@ impl<RT: Runtime> SearchIndexManager<RT> {
             return Ok(None);
         };
         let SnapshotInfo { memory_index, .. } = match index {
-            SearchIndex::Ready(snapshot) => snapshot,
-            SearchIndex::Backfilled(snapshot) => snapshot,
-            SearchIndex::Backfilling { .. } => return Ok(None),
+            TextIndex::Ready(snapshot) => snapshot,
+            TextIndex::Backfilled(snapshot) => snapshot,
+            TextIndex::Backfilling { .. } => return Ok(None),
         };
 
         Ok(Some(memory_index.num_transactions()))
@@ -329,7 +329,7 @@ impl<RT: Runtime> SearchIndexManager<RT> {
         insertion: Option<&ResolvedDocument>,
         ts: WriteTimestamp,
     ) -> anyhow::Result<()> {
-        let SearchIndexManagerState::Ready(ref mut indexes) = self.indexes else {
+        let TextIndexManagerState::Ready(ref mut indexes) = self.indexes else {
             return Ok(());
         };
         let Some(id) = deletion.as_ref().or(insertion.as_ref()).map(|d| d.id()) else {
@@ -344,7 +344,7 @@ impl<RT: Runtime> SearchIndexManager<RT> {
             match (deletion, insertion) {
                 (None, Some(insertion)) => {
                     let metadata = IndexMetadata::try_from(insertion.value().clone().0)?;
-                    if let IndexConfig::Search {
+                    if let IndexConfig::Text {
                         ref on_disk_state, ..
                     } = metadata.config
                     {
@@ -353,8 +353,8 @@ impl<RT: Runtime> SearchIndexManager<RT> {
                                 "Inserted new search index that wasn't backfilling: {metadata:?}"
                             );
                         };
-                        let memory_index = MemorySearchIndex::new(ts);
-                        let index = SearchIndex::Backfilling { memory_index };
+                        let memory_index = MemoryTextIndex::new(ts);
+                        let index = TextIndex::Backfilling { memory_index };
                         indexes.insert(insertion.id().internal_id(), index);
 
                         metrics::log_index_created();
@@ -368,56 +368,56 @@ impl<RT: Runtime> SearchIndexManager<RT> {
                     let (old_snapshot, new_snapshot) =
                         match (&prev_metadata.config, &next_metadata.config) {
                             (
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::Backfilling { .. },
                                     ..
                                 },
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::Backfilling { .. },
                                     ..
                                 },
                             ) => (None, None),
                             (
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::Backfilling { .. },
                                     ..
                                 },
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::Backfilled(snapshot),
                                     ..
                                 },
                             ) => (None, Some(snapshot)),
                             (
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::Backfilled(old_snapshot),
                                     ..
                                 },
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::SnapshottedAt(new_snapshot),
                                     ..
                                 },
                             ) => (Some(old_snapshot), Some(new_snapshot)),
                             (
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::Backfilled(old_snapshot),
                                     ..
                                 },
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::Backfilled(new_snapshot),
                                     ..
                                 },
                             ) => (Some(old_snapshot), Some(new_snapshot)),
                             (
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::SnapshottedAt(old_snapshot),
                                     ..
                                 },
-                                IndexConfig::Search {
+                                IndexConfig::Text {
                                     on_disk_state: TextIndexState::SnapshottedAt(new_snapshot),
                                     ..
                                 },
                             ) => (Some(old_snapshot), Some(new_snapshot)),
-                            (IndexConfig::Search { .. }, _) | (_, IndexConfig::Search { .. }) => {
+                            (IndexConfig::Text { .. }, _) | (_, IndexConfig::Text { .. }) => {
                                 anyhow::bail!(
                                     "Invalid index type transition: {prev_metadata:?} to \
                                      {next_metadata:?}"
@@ -445,13 +445,11 @@ impl<RT: Runtime> SearchIndexManager<RT> {
                                 Entry::Vacant(..) => anyhow::bail!("Missing index for {id}"),
                             };
                             let memory_index = match entry.get() {
-                                SearchIndex::Backfilling { memory_index } => memory_index,
-                                SearchIndex::Backfilled(SnapshotInfo { memory_index, .. }) => {
+                                TextIndex::Backfilling { memory_index } => memory_index,
+                                TextIndex::Backfilled(SnapshotInfo { memory_index, .. }) => {
                                     memory_index
                                 },
-                                SearchIndex::Ready(SnapshotInfo { memory_index, .. }) => {
-                                    memory_index
-                                },
+                                TextIndex::Ready(SnapshotInfo { memory_index, .. }) => memory_index,
                             };
 
                             if let Some(old_snapshot) = old_snapshot {
@@ -476,9 +474,9 @@ impl<RT: Runtime> SearchIndexManager<RT> {
                             let is_next_index_enabled =
                                 next_metadata.into_value().config.is_enabled();
                             *entry.get_mut() = if is_next_index_enabled {
-                                SearchIndex::Ready(snapshot)
+                                TextIndex::Ready(snapshot)
                             } else {
-                                SearchIndex::Backfilled(snapshot)
+                                TextIndex::Backfilled(snapshot)
                             };
 
                             if !prev_metadata.into_value().config.is_enabled()
@@ -493,7 +491,7 @@ impl<RT: Runtime> SearchIndexManager<RT> {
                 },
                 (Some(deletion), None) => {
                     let metadata: ParsedDocument<IndexMetadata<_>> = deletion.clone().try_into()?;
-                    if metadata.is_search_index() {
+                    if metadata.is_text_index() {
                         indexes.remove(&deletion.id().internal_id());
                         metrics::log_index_deleted();
                     }
@@ -503,8 +501,8 @@ impl<RT: Runtime> SearchIndexManager<RT> {
         }
 
         // Handle index updates for our existing search indexes.
-        for index in index_registry.search_indexes_by_table(id.tablet_id) {
-            let IndexConfig::Search {
+        for index in index_registry.text_indexes_by_table(id.tablet_id) {
+            let IndexConfig::Text {
                 ref developer_config,
                 ..
             } = index.metadata.config
@@ -550,8 +548,8 @@ impl<RT: Runtime> SearchIndexManager<RT> {
 
     pub fn in_memory_sizes(&self) -> Vec<(IndexId, usize)> {
         match self.indexes {
-            SearchIndexManagerState::Bootstrapping => vec![],
-            SearchIndexManagerState::Ready(ref indexes) => indexes
+            TextIndexManagerState::Bootstrapping => vec![],
+            TextIndexManagerState::Ready(ref indexes) => indexes
                 .iter()
                 .map(|(id, s)| (*id, s.memory_index().size()))
                 .collect(),
@@ -567,10 +565,10 @@ impl<RT: Runtime> SearchIndexManager<RT> {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    pub fn ready_indexes(&self) -> &OrdMap<IndexId, SearchIndex> {
+    pub fn ready_indexes(&self) -> &OrdMap<IndexId, TextIndex> {
         match self.indexes {
-            SearchIndexManagerState::Bootstrapping => panic!("Search indexes not ready"),
-            SearchIndexManagerState::Ready(ref indexes) => indexes,
+            TextIndexManagerState::Bootstrapping => panic!("Search indexes not ready"),
+            TextIndexManagerState::Ready(ref indexes) => indexes,
         }
     }
 }

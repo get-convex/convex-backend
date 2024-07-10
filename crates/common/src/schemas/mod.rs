@@ -43,7 +43,7 @@ use crate::{
         database_index::IndexedFields,
         index_validation_error,
         vector_index::VectorDimensions,
-        MAX_SEARCH_INDEX_FILTER_FIELDS_SIZE,
+        MAX_TEXT_INDEX_FILTER_FIELDS_SIZE,
         MAX_VECTOR_INDEX_FILTER_FIELDS_SIZE,
     },
     document::ResolvedDocument,
@@ -672,9 +672,9 @@ impl SearchIndexSchema {
         search_field: FieldPath,
         filter_fields: BTreeSet<FieldPath>,
     ) -> anyhow::Result<Self> {
-        if filter_fields.len() > MAX_SEARCH_INDEX_FILTER_FIELDS_SIZE {
+        if filter_fields.len() > MAX_TEXT_INDEX_FILTER_FIELDS_SIZE {
             anyhow::bail!(index_validation_error::too_many_filter_fields(
-                MAX_SEARCH_INDEX_FILTER_FIELDS_SIZE
+                MAX_TEXT_INDEX_FILTER_FIELDS_SIZE
             ));
         }
         Ok(Self {

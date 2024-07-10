@@ -33,7 +33,7 @@ impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward 
     }
 
     fn snapshot_info(config: &IndexConfig) -> Option<(Timestamp, TextSnapshotVersion)> {
-        let IndexConfig::Search {
+        let IndexConfig::Text {
             ref on_disk_state, ..
         } = config
         else {
@@ -59,7 +59,7 @@ impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward 
         snapshot: Snapshot<RT>,
         index_id: IndexId,
     ) -> anyhow::Result<Option<usize>> {
-        snapshot.search_indexes.num_transactions(index_id)
+        snapshot.text_indexes.num_transactions(index_id)
     }
 }
 

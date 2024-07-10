@@ -123,9 +123,9 @@ use keybroker::Identity;
 use parking_lot::Mutex;
 use search::{
     query::RevisionWithKeys,
-    SearchIndexManager,
-    SearchIndexManagerState,
     Searcher,
+    TextIndexManager,
+    TextIndexManagerState,
 };
 use storage::Storage;
 use sync_types::backoff::Backoff;
@@ -175,7 +175,7 @@ use crate::{
         verify_invariants_timer,
     },
     retention::LeaderRetentionManager,
-    search_and_vector_bootstrap::SearchAndVectorIndexBootstrapWorker,
+    search_index_bootstrap::SearchIndexBootstrapWorker,
     snapshot_manager::{
         Snapshot,
         SnapshotManager,
@@ -195,7 +195,7 @@ use crate::{
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
     transaction_index::{
-        SearchIndexManagerSnapshot,
+        TextIndexManagerSnapshot,
         TransactionIndex,
     },
     write_log::{
@@ -595,9 +595,9 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         };
         drop(load_indexes_into_memory_timer);
 
-        let search = SearchIndexManager::new(
+        let search = TextIndexManager::new(
             rt.clone(),
-            SearchIndexManagerState::Bootstrapping,
+            TextIndexManagerState::Bootstrapping,
             persistence.version(),
         );
         let vector = VectorIndexManager::bootstrap_index_metadata(&index_registry)?;
@@ -635,7 +635,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 table_summaries,
                 index_registry,
                 in_memory_indexes,
-                search_indexes: search,
+                text_indexes: search,
                 vector_indexes: vector,
             },
             persistence_snapshot,
@@ -894,19 +894,19 @@ impl<RT: Runtime> Database<RT> {
     #[cfg(test)]
     pub fn new_search_and_vector_bootstrap_worker_for_testing(
         &self,
-    ) -> SearchAndVectorIndexBootstrapWorker<RT> {
+    ) -> SearchIndexBootstrapWorker<RT> {
         self.new_search_and_vector_bootstrap_worker(PauseClient::new())
     }
 
     fn new_search_and_vector_bootstrap_worker(
         &self,
         pause_client: PauseClient,
-    ) -> SearchAndVectorIndexBootstrapWorker<RT> {
+    ) -> SearchIndexBootstrapWorker<RT> {
         let (ts, snapshot) = self.snapshot_manager.lock().latest();
         let vector_persistence =
             RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator());
         let table_mapping = snapshot.table_mapping().namespace(TableNamespace::Global);
-        SearchAndVectorIndexBootstrapWorker::new(
+        SearchIndexBootstrapWorker::new(
             self.runtime.clone(),
             snapshot.index_registry,
             vector_persistence,
@@ -1458,9 +1458,9 @@ impl<RT: Runtime> Database<RT> {
                 )
                 .read_snapshot(repeatable_ts)?,
             ),
-            Arc::new(SearchIndexManagerSnapshot::new(
+            Arc::new(TextIndexManagerSnapshot::new(
                 snapshot.index_registry,
-                snapshot.search_indexes,
+                snapshot.text_indexes,
                 self.searcher.clone(),
                 self.search_storage.clone(),
             )),
@@ -1792,7 +1792,7 @@ impl<RT: Runtime> Database<RT> {
 
     pub fn memory_consistency_check(&self) -> anyhow::Result<()> {
         let snapshot = self.snapshot_manager.lock().latest_snapshot();
-        snapshot.search_indexes.consistency_check()?;
+        snapshot.text_indexes.consistency_check()?;
         Ok(())
     }
 
@@ -1953,9 +1953,9 @@ impl<RT: Runtime> Database<RT> {
             .ok_or_else(|| anyhow::anyhow!("Missing index_id {:?}", index_id))?
             .clone();
 
-        let search_snapshot = SearchIndexManagerSnapshot::new(
+        let search_snapshot = TextIndexManagerSnapshot::new(
             snapshot.index_registry,
-            snapshot.search_indexes,
+            snapshot.text_indexes,
             self.searcher.clone(),
             self.search_storage.clone(),
         );

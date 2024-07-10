@@ -69,7 +69,7 @@ pub fn assert_backfilling(
         IndexConfig::Database { on_disk_state, .. } => {
             assert_matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
         },
-        IndexConfig::Search { on_disk_state, .. } => {
+        IndexConfig::Text { on_disk_state, .. } => {
             assert_matches!(on_disk_state, TextIndexState::Backfilling(_))
         },
         IndexConfig::Vector { on_disk_state, .. } => {
@@ -91,7 +91,7 @@ pub async fn assert_backfilled(
         IndexConfig::Database { on_disk_state, .. } => {
             assert_matches!(on_disk_state, DatabaseIndexState::Backfilled { .. })
         },
-        IndexConfig::Search { on_disk_state, .. } => {
+        IndexConfig::Text { on_disk_state, .. } => {
             assert_matches!(on_disk_state, TextIndexState::Backfilled(_))
         },
         IndexConfig::Vector { on_disk_state, .. } => {
@@ -113,7 +113,7 @@ pub async fn assert_enabled(
         IndexConfig::Database { on_disk_state, .. } => {
             assert_eq!(on_disk_state, DatabaseIndexState::Enabled)
         },
-        IndexConfig::Search { on_disk_state, .. } => {
+        IndexConfig::Text { on_disk_state, .. } => {
             assert_matches!(on_disk_state, TextIndexState::SnapshottedAt(_))
         },
         IndexConfig::Vector { on_disk_state, .. } => {
@@ -179,7 +179,7 @@ pub fn get_index_fields<T: IndexTableIdentifier>(index_metadata: IndexMetadata<T
             .iter()
             .flat_map(|field_path| field_path.fields().iter().map(|field| field.to_string()))
             .collect(),
-        IndexConfig::Search {
+        IndexConfig::Text {
             developer_config, ..
         } => developer_config
             .search_field

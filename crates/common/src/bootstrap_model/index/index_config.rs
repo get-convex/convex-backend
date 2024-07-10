@@ -41,7 +41,7 @@ pub enum IndexConfig {
     },
 
     /// Full text search index.
-    Search {
+    Text {
         developer_config: DeveloperTextIndexConfig,
 
         /// Whether the index is fully backfilled or not on disk.
@@ -60,7 +60,7 @@ impl IndexConfig {
             IndexConfig::Database { on_disk_state, .. } => {
                 matches!(on_disk_state, DatabaseIndexState::Enabled)
             },
-            IndexConfig::Search { on_disk_state, .. } => {
+            IndexConfig::Text { on_disk_state, .. } => {
                 matches!(on_disk_state, TextIndexState::SnapshottedAt(_))
             },
             IndexConfig::Vector { on_disk_state, .. } => {
@@ -74,7 +74,7 @@ impl IndexConfig {
             IndexConfig::Database { on_disk_state, .. } => {
                 matches!(on_disk_state, DatabaseIndexState::Backfilling(_))
             },
-            IndexConfig::Search { on_disk_state, .. } => {
+            IndexConfig::Text { on_disk_state, .. } => {
                 matches!(on_disk_state, TextIndexState::Backfilling(_))
             },
             IndexConfig::Vector { on_disk_state, .. } => {
@@ -95,10 +95,10 @@ impl IndexConfig {
                 },
             ) => developer_config == config_to_compare,
             (
-                IndexConfig::Search {
+                IndexConfig::Text {
                     developer_config, ..
                 },
-                IndexConfig::Search {
+                IndexConfig::Text {
                     developer_config: config_to_compare,
                     ..
                 },
@@ -129,7 +129,7 @@ impl IndexConfig {
     /// on other index types will panic.
     pub fn estimate_pricing_size_bytes(&self) -> anyhow::Result<u64> {
         match self {
-            IndexConfig::Database { .. } | IndexConfig::Search { .. } => {
+            IndexConfig::Database { .. } | IndexConfig::Text { .. } => {
                 // TODO(sam): We should support this for all index types in the future. Right
                 // now search indexes are free and we estimate the size of
                 // database indexes. Both of those could instead track usage in their metadata,
@@ -188,7 +188,7 @@ impl TryFrom<IndexConfig> for SerializedIndexConfig {
                 developer_config: developer_config.try_into()?,
                 on_disk_state: on_disk_state.try_into()?,
             },
-            IndexConfig::Search {
+            IndexConfig::Text {
                 developer_config,
                 on_disk_state,
             } => SerializedIndexConfig::Search {
@@ -221,7 +221,7 @@ impl TryFrom<SerializedIndexConfig> for IndexConfig {
             SerializedIndexConfig::Search {
                 developer_config,
                 on_disk_state,
-            } => IndexConfig::Search {
+            } => IndexConfig::Text {
                 developer_config: developer_config.try_into()?,
                 on_disk_state: on_disk_state.try_into()?,
             },

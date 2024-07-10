@@ -10,7 +10,7 @@ use serde_json::{
 use crate::{
     bootstrap_model::index::{
         MAX_INDEX_FIELDS_SIZE,
-        MAX_SEARCH_INDEX_FILTER_FIELDS_SIZE,
+        MAX_TEXT_INDEX_FILTER_FIELDS_SIZE,
         MAX_VECTOR_INDEX_FILTER_FIELDS_SIZE,
     },
     schemas::{
@@ -790,7 +790,7 @@ fn test_too_many_fields() {
 
 #[test]
 fn test_too_many_search_filter_fields() {
-    let fields: Vec<_> = (0..MAX_SEARCH_INDEX_FILTER_FIELDS_SIZE + 1)
+    let fields: Vec<_> = (0..MAX_TEXT_INDEX_FILTER_FIELDS_SIZE + 1)
         .map(|i| format!("field_{}", i))
         .collect();
     let value = json!({

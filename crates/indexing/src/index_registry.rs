@@ -385,9 +385,9 @@ impl IndexRegistry {
             .collect()
     }
 
-    pub fn all_search_indexes(&self) -> Vec<ParsedDocument<TabletIndexMetadata>> {
+    pub fn all_text_indexes(&self) -> Vec<ParsedDocument<TabletIndexMetadata>> {
         self.all_indexes()
-            .filter(|index| index.is_search_index())
+            .filter(|index| index.is_text_index())
             .cloned()
             .collect()
     }
@@ -401,7 +401,7 @@ impl IndexRegistry {
 
     pub fn all_search_and_vector_indexes(&self) -> Vec<ParsedDocument<TabletIndexMetadata>> {
         self.all_indexes()
-            .filter(|index| index.is_search_index() || index.is_vector_index())
+            .filter(|index| index.is_text_index() || index.is_vector_index())
             .cloned()
             .collect()
     }
@@ -430,7 +430,7 @@ impl IndexRegistry {
                     IndexConfig::Database {
                         developer_config, ..
                     } => Some((index_id, (index_name, developer_config.fields.clone()))),
-                    IndexConfig::Search { .. } | IndexConfig::Vector { .. } => None,
+                    IndexConfig::Text { .. } | IndexConfig::Vector { .. } => None,
                 }
             })
             .collect()
@@ -459,14 +459,14 @@ impl IndexRegistry {
         table_indexes.is_empty()
     }
 
-    pub fn search_indexes_by_table(
+    pub fn text_indexes_by_table(
         &self,
         tablet_id: TabletId,
     ) -> impl Iterator<Item = &'_ Index> + '_ {
         // We only support storing one search index with a given name at at time, so
         // unlike database indexes, we're not overly concerned with the state.
         self.indexes_by_table(tablet_id)
-            .filter(|index| index.metadata.is_search_index())
+            .filter(|index| index.metadata.is_text_index())
     }
 
     pub fn vector_indexes_by_table(

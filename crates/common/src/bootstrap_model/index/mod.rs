@@ -35,5 +35,5 @@ pub static TABLE_ID_FIELD_PATH: LazyLock<FieldPath> =
     LazyLock::new(|| FieldPath::new(vec![TABLE_ID_FIELD_NAME.clone()]).unwrap());
 
 pub const MAX_INDEX_FIELDS_SIZE: usize = 16;
-pub const MAX_SEARCH_INDEX_FILTER_FIELDS_SIZE: usize = 16;
+pub const MAX_TEXT_INDEX_FILTER_FIELDS_SIZE: usize = 16;
 pub const MAX_VECTOR_INDEX_FILTER_FIELDS_SIZE: usize = 16;

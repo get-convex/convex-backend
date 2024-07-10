@@ -24,9 +24,9 @@ mod memory_index;
 pub mod metrics;
 pub mod query;
 pub mod scoring;
-mod search_index_manager;
 pub mod searcher;
 mod tantivy_query;
+mod text_index_manager;
 
 use std::{
     cmp,
@@ -129,18 +129,18 @@ pub use self::{
     },
     memory_index::{
         build_term_weights,
-        MemorySearchIndex,
-    },
-    search_index_manager::{
-        DiskIndex,
-        SearchIndex,
-        SearchIndexManager,
-        SearchIndexManagerState,
-        SnapshotInfo,
+        MemoryTextIndex,
     },
     searcher::{
         Searcher,
         SegmentTermMetadataFetcher,
+    },
+    text_index_manager::{
+        DiskIndex,
+        SnapshotInfo,
+        TextIndex,
+        TextIndexManager,
+        TextIndexManagerState,
     },
 };
 use crate::{
@@ -309,7 +309,7 @@ impl TantivySearchIndexSchema {
         index: &Index,
         printable_index_name: &IndexName,
     ) -> anyhow::Result<TantivySearchIndexSchema> {
-        let IndexConfig::Search {
+        let IndexConfig::Text {
             ref developer_config,
             ..
         } = index.metadata().config
@@ -436,7 +436,7 @@ impl TantivySearchIndexSchema {
         &self,
         runtime: &RT,
         compiled_query: CompiledQuery,
-        memory_index: &MemorySearchIndex,
+        memory_index: &MemoryTextIndex,
         search_storage: Arc<dyn Storage>,
         segments: Vec<FragmentedTextStorageKeys>,
         disk_index_ts: Timestamp,

@@ -109,7 +109,7 @@ pub struct TimestampStatistics {
 }
 
 #[derive(Clone, Debug)]
-pub struct MemorySearchIndex {
+pub struct MemoryTextIndex {
     min_ts: WriteTimestamp,
     max_ts: WriteTimestamp,
 
@@ -128,7 +128,7 @@ pub struct MemorySearchIndex {
     term_freqs_size: usize,
 }
 
-impl MemorySearchIndex {
+impl MemoryTextIndex {
     pub fn new(base_ts: WriteTimestamp) -> Self {
         Self {
             min_ts: base_ts,
@@ -969,7 +969,7 @@ mod tests {
     };
     use value::InternalId;
 
-    use super::MemorySearchIndex;
+    use super::MemoryTextIndex;
     use crate::{
         memory_index::WriteTimestamp,
         DocumentTerm,
@@ -979,7 +979,7 @@ mod tests {
     #[test]
     fn test_truncation() -> anyhow::Result<()> {
         let ts0 = Timestamp::MIN;
-        let mut index = MemorySearchIndex::new(WriteTimestamp::Committed(ts0));
+        let mut index = MemoryTextIndex::new(WriteTimestamp::Committed(ts0));
 
         // Insert 1 document at t=1
         let ts1 = ts0.succ()?;

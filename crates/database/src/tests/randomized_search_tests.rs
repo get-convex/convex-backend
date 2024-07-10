@@ -105,7 +105,7 @@ use crate::{
         search_compactor::CompactionConfig,
         writer::SearchIndexMetadataWriter,
     },
-    search_and_vector_bootstrap::FINISHED_BOOTSTRAP_UPDATES,
+    search_index_bootstrap::FINISHED_BOOTSTRAP_UPDATES,
     test_helpers::{
         DbFixtures,
         DbFixturesArgs,
@@ -170,7 +170,7 @@ impl Scenario {
         TableModel::new(&mut tx)
             .insert_table_metadata_for_test(TableNamespace::test_user(), &table_name)
             .await?;
-        let index = IndexMetadata::new_backfilling_search_index(
+        let index = IndexMetadata::new_backfilling_text_index(
             "test.by_text".parse()?,
             "searchField".parse()?,
             btreeset! {"filterField".parse()?},

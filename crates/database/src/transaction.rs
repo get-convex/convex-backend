@@ -36,7 +36,7 @@ use common::{
     },
     interval::Interval,
     knobs::{
-        SEARCH_INDEX_SIZE_HARD_LIMIT,
+        TEXT_INDEX_SIZE_HARD_LIMIT,
         VECTOR_INDEX_SIZE_HARD_LIMIT,
     },
     persistence::RetentionValidator,
@@ -1044,7 +1044,7 @@ impl FinalTransaction {
         }
 
         #[allow(unused_mut)]
-        let mut search_size_limit = *SEARCH_INDEX_SIZE_HARD_LIMIT;
+        let mut search_size_limit = *TEXT_INDEX_SIZE_HARD_LIMIT;
         #[cfg(any(test, feature = "testing"))]
         if let Some(size) = transaction.index_size_override {
             search_size_limit = size;
@@ -1059,7 +1059,7 @@ impl FinalTransaction {
             table_mapping,
             base_snapshot,
             &modified_tables,
-            base_snapshot.search_indexes.in_memory_sizes().into_iter(),
+            base_snapshot.text_indexes.in_memory_sizes().into_iter(),
             search_size_limit,
             "Search",
         )?;

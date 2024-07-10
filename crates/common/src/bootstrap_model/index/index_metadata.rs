@@ -78,12 +78,12 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         }
     }
 
-    pub fn new_backfilling_search_index(
+    pub fn new_backfilling_text_index(
         name: GenericIndexName<T>,
         search_field: FieldPath,
         filter_fields: BTreeSet<FieldPath>,
     ) -> Self {
-        Self::new_search_index(
+        Self::new_text_index(
             name,
             DeveloperTextIndexConfig {
                 search_field,
@@ -116,14 +116,14 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         }
     }
 
-    pub fn new_search_index(
+    pub fn new_text_index(
         name: GenericIndexName<T>,
         developer_config: DeveloperTextIndexConfig,
         on_disk_state: TextIndexState,
     ) -> Self {
         Self {
             name,
-            config: IndexConfig::Search {
+            config: IndexConfig::Text {
                 developer_config,
                 on_disk_state,
             },
@@ -144,8 +144,8 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
         matches!(self.config, IndexConfig::Database { .. })
     }
 
-    pub fn is_search_index(&self) -> bool {
-        matches!(self.config, IndexConfig::Search { .. })
+    pub fn is_text_index(&self) -> bool {
+        matches!(self.config, IndexConfig::Text { .. })
     }
 
     pub fn is_vector_index(&self) -> bool {

@@ -364,7 +364,7 @@ pub static BACKEND_STARTUP_DELAY: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("BACKEND_STARTUP_DELAY_SECS", 0)));
 
 /// When to start rejecting new additions to the search memory index.
-pub static SEARCH_INDEX_SIZE_HARD_LIMIT: LazyLock<usize> =
+pub static TEXT_INDEX_SIZE_HARD_LIMIT: LazyLock<usize> =
     LazyLock::new(|| env_config("SEARCH_INDEX_SIZE_HARD_LIMIT", 100 * (1 << 20))); // 100 MiB
 
 /// When to start rejecting new additions to the vector memory index.

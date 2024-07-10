@@ -47,7 +47,7 @@ use database::{
     Transaction,
     TransactionIdGenerator,
     TransactionIndex,
-    TransactionSearchSnapshot,
+    TransactionTextSnapshot,
     VirtualSystemMapping,
     VIRTUAL_TABLES_TABLE,
 };
@@ -98,7 +98,7 @@ pub struct TransactionIngredients<RT: Runtime> {
     pub index_registry: IndexRegistry,
     pub table_count_snapshot: Arc<dyn TableCountSnapshot>,
     pub database_index_snapshot: DatabaseIndexSnapshot,
-    pub search_index_snapshot: Arc<dyn TransactionSearchSnapshot>,
+    pub text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
     pub retention_validator: Arc<dyn RetentionValidator>,
     pub virtual_system_mapping: VirtualSystemMapping,
     pub usage_tracker: FunctionUsageTracker,
@@ -117,7 +117,7 @@ impl<RT: Runtime> TryFrom<TransactionIngredients<RT>> for Transaction<RT> {
             index_registry,
             table_count_snapshot,
             database_index_snapshot,
-            search_index_snapshot,
+            text_index_snapshot,
             retention_validator,
             virtual_system_mapping,
             usage_tracker,
@@ -128,11 +128,8 @@ impl<RT: Runtime> TryFrom<TransactionIngredients<RT>> for Transaction<RT> {
         // has been idle. Make sure creation time is always recent. Existing writes to
         // the transaction will advance next_creation_time in `merge_writes` below.
         let creation_time = CreationTime::try_from(cmp::max(*ts, rt.generate_timestamp()?))?;
-        let transaction_index = TransactionIndex::new(
-            index_registry,
-            database_index_snapshot,
-            search_index_snapshot,
-        );
+        let transaction_index =
+            TransactionIndex::new(index_registry, database_index_snapshot, text_index_snapshot);
         let mut tx = Transaction::new(
             identity,
             id_generator,
@@ -366,7 +363,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
         bootstrap_metadata: BootstrapMetadata,
         table_count_snapshot: Arc<dyn TableCountSnapshot>,
-        search_index_snapshot: Arc<dyn TransactionSearchSnapshot>,
+        text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
         usage_tracker: FunctionUsageTracker,
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<TransactionIngredients<RT>> {
@@ -401,7 +398,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             index_registry,
             table_count_snapshot,
             database_index_snapshot,
-            search_index_snapshot,
+            text_index_snapshot,
             retention_validator,
             virtual_system_mapping: virtual_system_mapping(),
             usage_tracker,

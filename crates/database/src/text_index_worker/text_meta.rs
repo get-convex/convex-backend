@@ -123,7 +123,7 @@ impl SearchIndex for TextSearchIndex {
     type Statistics = TextStatistics;
 
     fn get_config(config: IndexConfig) -> Option<SearchIndexConfig<Self>> {
-        let IndexConfig::Search {
+        let IndexConfig::Text {
             on_disk_state,
             developer_config,
         } = config
@@ -157,7 +157,7 @@ impl SearchIndex for TextSearchIndex {
         snapshot: Snapshot<RT>,
     ) -> anyhow::Result<BTreeMap<IndexId, usize>> {
         Ok(snapshot
-            .search_indexes
+            .text_indexes
             .backfilled_and_enabled_index_sizes()?
             .collect())
     }
@@ -274,7 +274,7 @@ impl SearchIndex for TextSearchIndex {
             IndexConfig::Database { .. } | IndexConfig::Vector { .. } => {
                 anyhow::bail!("Index type changed!")
             },
-            IndexConfig::Search {
+            IndexConfig::Text {
                 developer_config,
                 on_disk_state,
             } => (on_disk_state, developer_config),
@@ -287,7 +287,7 @@ impl SearchIndex for TextSearchIndex {
         new_state: SearchOnDiskState<Self>,
     ) -> anyhow::Result<IndexConfig> {
         let on_disk_state = TextIndexState::from(new_state);
-        Ok(IndexConfig::Search {
+        Ok(IndexConfig::Text {
             on_disk_state,
             developer_config,
         })

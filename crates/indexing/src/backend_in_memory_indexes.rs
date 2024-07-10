@@ -145,7 +145,7 @@ impl BackendInMemoryIndexes {
                             index_metadata.name
                         )
                     },
-                    IndexConfig::Search { .. } | IndexConfig::Vector { .. } => {
+                    IndexConfig::Text { .. } | IndexConfig::Vector { .. } => {
                         // We do not load search or vector indexes into memory.
                         continue;
                     },

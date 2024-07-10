@@ -36,7 +36,7 @@ mod tests {
         #![proptest_config(ProptestConfig { cases: 64 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
 
         #[test]
-        fn test_developer_search_index_config_roundtrips(v in any::<DeveloperTextIndexConfig>()) {
+        fn test_developer_text_index_config_roundtrips(v in any::<DeveloperTextIndexConfig>()) {
                 assert_roundtrips::<
                 DeveloperTextIndexConfig,
                 pb::searchlight::SearchIndexConfig

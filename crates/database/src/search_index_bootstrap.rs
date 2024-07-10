@@ -54,12 +54,12 @@ use futures::{
 use indexing::index_registry::IndexRegistry;
 use search::{
     DiskIndex,
-    MemorySearchIndex,
-    SearchIndex,
-    SearchIndexManager,
-    SearchIndexManagerState,
+    MemoryTextIndex,
     SnapshotInfo,
     TantivySearchIndexSchema,
+    TextIndex,
+    TextIndexManager,
+    TextIndexManagerState,
 };
 use sync_types::{
     backoff::Backoff,
@@ -87,7 +87,7 @@ use crate::{
 
 pub const FINISHED_BOOTSTRAP_UPDATES: &str = "finished_bootstrap_updates";
 
-pub struct SearchAndVectorIndexBootstrapWorker<RT: Runtime> {
+pub struct SearchIndexBootstrapWorker<RT: Runtime> {
     runtime: RT,
     index_registry: IndexRegistry,
     persistence: RepeatablePersistence,
@@ -101,15 +101,15 @@ const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
 const MAX_BACKOFF: Duration = Duration::from_secs(5);
 
 struct IndexesToBootstrap {
-    table_to_search_indexes: BTreeMap<TabletId, Vec<SearchIndexBootstrapData>>,
+    table_to_text_indexes: BTreeMap<TabletId, Vec<TextIndexBootstrapData>>,
     table_to_vector_indexes: BTreeMap<TabletId, Vec<VectorIndexBootstrapData>>,
     /// Timestamp to walk the document log from to get all of the revisions
     /// since the last write to disk.
     oldest_index_ts: Timestamp,
 }
 
-pub struct BootstrappedSearchAndVectorIndexes<RT: Runtime> {
-    pub search_index_manager: SearchIndexManager<RT>,
+pub struct BootstrappedSearchIndexes<RT: Runtime> {
+    pub text_index_manager: TextIndexManager<RT>,
     pub vector_index_manager: VectorIndexManager,
     pub tables_with_indexes: BTreeSet<TabletId>,
 }
@@ -120,7 +120,7 @@ impl IndexesToBootstrap {
         indexes_with_fast_forward_ts: Vec<(ParsedDocument<TabletIndexMetadata>, Option<Timestamp>)>,
     ) -> anyhow::Result<Self> {
         let mut table_to_vector_indexes: BTreeMap<_, Vec<_>> = BTreeMap::new();
-        let mut table_to_search_indexes: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        let mut table_to_text_indexes: BTreeMap<_, Vec<_>> = BTreeMap::new();
         // We keep track of latest ts we can bootstrap from for each vector index.
         let mut oldest_index_ts = *upper_bound;
 
@@ -162,11 +162,11 @@ impl IndexesToBootstrap {
                         );
                     }
                 },
-                IndexConfig::Search {
+                IndexConfig::Text {
                     ref developer_config,
                     on_disk_state,
                 } => {
-                    let search_index = match on_disk_state {
+                    let text_index = match on_disk_state {
                         TextIndexState::Backfilling(_) => {
                             // We'll start a new memory search index starting at the next commit
                             // after our persistence upper bound. After
@@ -174,10 +174,10 @@ impl IndexesToBootstrap {
                             // `persistence.upper_bound()` will flow through `Self::update`, so our
                             // memory index contains all revisions `>=
                             // persistence.upper_bound().succ()?`.
-                            let memory_index = MemorySearchIndex::new(WriteTimestamp::Committed(
+                            let memory_index = MemoryTextIndex::new(WriteTimestamp::Committed(
                                 upper_bound.succ()?,
                             ));
-                            SearchIndex::Backfilling { memory_index }
+                            TextIndex::Backfilling { memory_index }
                         },
                         TextIndexState::Backfilled(TextIndexSnapshot {
                             data,
@@ -193,7 +193,7 @@ impl IndexesToBootstrap {
                                 max(disk_ts, fast_forward_ts.unwrap_or_default());
                             oldest_index_ts = min(oldest_index_ts, current_index_ts);
                             let memory_index =
-                                MemorySearchIndex::new(WriteTimestamp::Committed(disk_ts.succ()?));
+                                MemoryTextIndex::new(WriteTimestamp::Committed(disk_ts.succ()?));
                             let snapshot = SnapshotInfo {
                                 disk_index: DiskIndex::try_from(data)?,
                                 disk_index_ts: current_index_ts,
@@ -201,26 +201,26 @@ impl IndexesToBootstrap {
                                 memory_index,
                             };
                             if is_enabled {
-                                SearchIndex::Ready(snapshot)
+                                TextIndex::Ready(snapshot)
                             } else {
-                                SearchIndex::Backfilled(snapshot)
+                                TextIndex::Backfilled(snapshot)
                             }
                         },
                     };
                     let tantivy_schema = TantivySearchIndexSchema::new(developer_config);
-                    let search_index_bootstrap_data = SearchIndexBootstrapData {
+                    let text_index_bootstrap_data = TextIndexBootstrapData {
                         index_id: index_id.internal_id(),
-                        search_index,
+                        text_index,
                         tantivy_schema,
                     };
-                    if let Some(search_indexes) =
-                        table_to_search_indexes.get_mut(index_metadata.name.table())
+                    if let Some(text_indexes) =
+                        table_to_text_indexes.get_mut(index_metadata.name.table())
                     {
-                        search_indexes.push(search_index_bootstrap_data);
+                        text_indexes.push(text_index_bootstrap_data);
                     } else {
-                        table_to_search_indexes.insert(
+                        table_to_text_indexes.insert(
                             *index_metadata.name.table(),
-                            vec![search_index_bootstrap_data],
+                            vec![text_index_bootstrap_data],
                         );
                     }
                 },
@@ -228,14 +228,14 @@ impl IndexesToBootstrap {
             };
         }
         Ok(Self {
-            table_to_search_indexes,
+            table_to_text_indexes,
             table_to_vector_indexes,
             oldest_index_ts,
         })
     }
 
     fn tables_with_indexes(&self) -> BTreeSet<TabletId> {
-        self.table_to_search_indexes
+        self.table_to_text_indexes
             .keys()
             .chain(self.table_to_vector_indexes.keys())
             .copied()
@@ -246,7 +246,7 @@ impl IndexesToBootstrap {
         mut self,
         runtime: RT,
         persistence: &RepeatablePersistence,
-    ) -> anyhow::Result<BootstrappedSearchAndVectorIndexes<RT>> {
+    ) -> anyhow::Result<BootstrappedSearchIndexes<RT>> {
         let _status = log_worker_starting("SearchAndVectorBootstrap");
         let timer = crate::metrics::bootstrap_timer();
         let upper_bound = persistence.upper_bound();
@@ -273,12 +273,12 @@ impl IndexesToBootstrap {
                     vector_index.update(&revision_pair)?;
                 }
             }
-            if let Some(search_indexes_to_update) = self
-                .table_to_search_indexes
+            if let Some(text_indexes_to_update) = self
+                .table_to_text_indexes
                 .get_mut(&revision_pair.id.table())
             {
-                for search_index in search_indexes_to_update {
-                    search_index.update(&revision_pair)?;
+                for text_index in text_indexes_to_update {
+                    text_index.update(&revision_pair)?;
                 }
             }
         }
@@ -296,20 +296,20 @@ impl IndexesToBootstrap {
         self,
         runtime: RT,
         persistence_version: PersistenceVersion,
-    ) -> BootstrappedSearchAndVectorIndexes<RT> {
+    ) -> BootstrappedSearchIndexes<RT> {
         let tables_with_indexes = self.tables_with_indexes();
-        let search_index_manager = SearchIndexManager::new(
+        let text_index_manager = TextIndexManager::new(
             runtime,
-            SearchIndexManagerState::Ready(
-                self.table_to_search_indexes
+            TextIndexManagerState::Ready(
+                self.table_to_text_indexes
                     .into_iter()
-                    .flat_map(|(_id, search_indexes)| {
-                        search_indexes
+                    .flat_map(|(_id, text_indexes)| {
+                        text_indexes
                             .into_iter()
                             .map(
-                                |SearchIndexBootstrapData {
+                                |TextIndexBootstrapData {
                                      index_id,
-                                     search_index,
+                                     text_index: search_index,
                                      tantivy_schema: _,
                                  }| (index_id, search_index),
                             )
@@ -340,8 +340,8 @@ impl IndexesToBootstrap {
                 .collect(),
         );
         let vector_index_manager = VectorIndexManager { indexes };
-        BootstrappedSearchAndVectorIndexes {
-            search_index_manager,
+        BootstrappedSearchIndexes {
+            text_index_manager,
             vector_index_manager,
             tables_with_indexes,
         }
@@ -349,15 +349,15 @@ impl IndexesToBootstrap {
 }
 
 #[derive(Clone)]
-struct SearchIndexBootstrapData {
+struct TextIndexBootstrapData {
     index_id: IndexId,
-    search_index: SearchIndex,
+    text_index: TextIndex,
     tantivy_schema: TantivySearchIndexSchema,
 }
 
-impl SearchIndexBootstrapData {
+impl TextIndexBootstrapData {
     fn update(&mut self, revision_pair: &RevisionPair) -> anyhow::Result<()> {
-        let memory_index = self.search_index.memory_index_mut();
+        let memory_index = self.text_index.memory_index_mut();
         match memory_index.min_ts() {
             WriteTimestamp::Pending => {
                 anyhow::bail!(
@@ -454,7 +454,7 @@ pub fn stream_revision_pairs_for_indexes<'a>(
     stream_revision_pairs(document_stream, persistence)
 }
 
-impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
+impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
     pub(crate) fn new(
         runtime: RT,
         index_registry: IndexRegistry,
@@ -484,22 +484,21 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
                 {
                     report_error(&mut e.context("SearchAndVectorBootstrapWorker died"));
                     tracing::error!(
-                        "SearchAndVectorBootstrapWorker died, num_failures: {}. Backing off for \
-                         {}ms",
+                        "SearchIndexBoostrapWorker died, num_failures: {}. Backing off for {}ms",
                         self.backoff.failures(),
                         delay.as_millis()
                     );
                 } else {
                     tracing::trace!(
-                        "SearchAndVectorBootstrapWorker occed, retrying. num_failures: {}, \
-                         backoff: {}ms",
+                        "SearchIndexBoostrapWorker occed, retrying. num_failures: {}, backoff: \
+                         {}ms",
                         self.backoff.failures(),
                         delay.as_millis(),
                     )
                 }
                 self.runtime.wait(delay).await;
             } else {
-                tracing::info!("Search and vector index bootstrap worker finished!");
+                tracing::info!("SearchIndexBoostrapWorker finished!");
                 break;
             }
         }
@@ -517,7 +516,7 @@ impl<RT: Runtime> SearchAndVectorIndexBootstrapWorker<RT> {
             .await
     }
 
-    async fn bootstrap(&self) -> anyhow::Result<BootstrappedSearchAndVectorIndexes<RT>> {
+    async fn bootstrap(&self) -> anyhow::Result<BootstrappedSearchIndexes<RT>> {
         // Load all of the fast forward timestamps first to ensure that we stay within
         // the comparatively short valid time for the persistence snapshot
         let snapshot = self
@@ -587,7 +586,7 @@ mod tests {
     use maplit::btreeset;
     use must_let::must_let;
     use runtime::testing::TestRuntime;
-    use search::SearchIndex;
+    use search::TextIndex;
     use storage::Storage;
     use sync_types::Timestamp;
     use value::{
@@ -960,7 +959,7 @@ mod tests {
     async fn test_load_snapshot_without_fast_forward(rt: TestRuntime) -> anyhow::Result<()> {
         let db_fixtures = DbFixtures::new(&rt).await?;
         let db = &db_fixtures.db;
-        let (index_id, _) = create_new_search_index(&rt, &db_fixtures).await?;
+        let (index_id, _) = create_new_text_index(&rt, &db_fixtures).await?;
 
         let mut tx = db.begin_system().await.unwrap();
         add_document(
@@ -973,10 +972,10 @@ mod tests {
 
         let db = reopen_db(&rt, &db_fixtures).await?;
         let snapshot = db.latest_snapshot()?;
-        let indexes = snapshot.search_indexes.ready_indexes();
+        let indexes = snapshot.text_indexes.ready_indexes();
 
         let index = indexes.get(&index_id).unwrap();
-        let SearchIndex::Backfilled(snapshot) = index else {
+        let TextIndex::Backfilled(snapshot) = index else {
             // Not using must_let because we don't implement Debug for this or nested
             // structs.
             panic!("Not backfilling?")
@@ -989,7 +988,7 @@ mod tests {
     async fn test_load_snapshot_with_fast_forward(rt: TestRuntime) -> anyhow::Result<()> {
         let db_fixtures = DbFixtures::new(&rt).await?;
         let db = &db_fixtures.db;
-        let (index_id, _) = create_new_search_index(&rt, &db_fixtures).await?;
+        let (index_id, _) = create_new_text_index(&rt, &db_fixtures).await?;
 
         rt.advance_time(Duration::from_secs(10)).await;
 
@@ -1021,10 +1020,10 @@ mod tests {
 
         let db = reopen_db(&rt, &db_fixtures).await?;
         let snapshot = db.latest_snapshot()?;
-        let indexes = snapshot.search_indexes.ready_indexes();
+        let indexes = snapshot.text_indexes.ready_indexes();
 
         let index = indexes.get(&index_id).unwrap();
-        let SearchIndex::Backfilled(snapshot) = index else {
+        let TextIndex::Backfilled(snapshot) = index else {
             panic!("Not backfilling?")
         };
         assert_eq!(snapshot.memory_index.num_transactions(), 0);
@@ -1038,7 +1037,7 @@ mod tests {
     ) -> anyhow::Result<()> {
         let db_fixtures = DbFixtures::new(&rt).await?;
         let db = &db_fixtures.db;
-        let (index_id, index_doc) = create_new_search_index(&rt, &db_fixtures).await?;
+        let (index_id, index_doc) = create_new_text_index(&rt, &db_fixtures).await?;
 
         // We shouldn't ever fast forward across an update in real life, but doing so
         // and verifying we don't read the document is a simple way to verify we
@@ -1057,14 +1056,14 @@ mod tests {
 
         let db = reopen_db(&rt, &db_fixtures).await?;
         let snapshot = db.latest_snapshot()?;
-        let indexes = snapshot.search_indexes.ready_indexes();
+        let indexes = snapshot.text_indexes.ready_indexes();
 
         // No must-let because SearchIndex doesn't implement Debug.
-        let SearchIndex::Backfilled(memory_snapshot) = indexes.get(&index_id).unwrap() else {
+        let TextIndex::Backfilled(memory_snapshot) = indexes.get(&index_id).unwrap() else {
             anyhow::bail!("Unexpected index type");
         };
         must_let!(
-            let IndexConfig::Search {
+            let IndexConfig::Text {
                 on_disk_state: TextIndexState::Backfilled(disk_snapshot), ..
             } = index_doc.into_value().config
         );
@@ -1080,7 +1079,7 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn test_load_fast_forward_ts(rt: TestRuntime) -> anyhow::Result<()> {
         let db_fixtures = DbFixtures::new(&rt).await?;
-        let (index_id, index_doc) = create_new_search_index(&rt, &db_fixtures).await?;
+        let (index_id, index_doc) = create_new_text_index(&rt, &db_fixtures).await?;
         let db = db_fixtures.db;
         let tp = db_fixtures.tp;
         let mut tx = db.begin_system().await?;
@@ -1120,7 +1119,7 @@ mod tests {
         let db = &db_fixtures.db;
         let search_storage = db_fixtures.search_storage.clone();
         // Add a search index at t0 to make bootstrapping start at t0
-        create_new_search_index(&rt, &db_fixtures).await?;
+        create_new_text_index(&rt, &db_fixtures).await?;
         // Add a vector index to a table with a vector already in it
         add_vector_by_table(db, table(), [1f32, 2f32]).await?;
         add_and_enable_vector_index(&rt, db, db_fixtures.tp.reader(), search_storage).await?;
@@ -1146,7 +1145,7 @@ mod tests {
         )
         .await?;
         db.commit(tx).await?;
-        create_new_search_index(&rt, &db_fixtures).await?;
+        create_new_text_index(&rt, &db_fixtures).await?;
         // Bootstrap
         reopen_db(&rt, &db_fixtures).await?;
         Ok(())
@@ -1163,7 +1162,7 @@ mod tests {
         TestFacingModel::new(tx).insert(table_name, document).await
     }
 
-    async fn create_new_search_index<RT: Runtime>(
+    async fn create_new_text_index<RT: Runtime>(
         rt: &RT,
         db_fixtures: &DbFixtures<RT>,
     ) -> anyhow::Result<(IndexId, ParsedDocument<TabletIndexMetadata>)> {
@@ -1179,7 +1178,7 @@ mod tests {
         TableModel::new(&mut tx)
             .insert_table_metadata_for_test(TableNamespace::test_user(), &table_name)
             .await?;
-        let index = IndexMetadata::new_backfilling_search_index(
+        let index = IndexMetadata::new_backfilling_text_index(
             "test.by_text".parse()?,
             "searchField".parse()?,
             btreeset! {"filterField".parse()?},

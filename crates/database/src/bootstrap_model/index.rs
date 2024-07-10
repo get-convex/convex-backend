@@ -224,7 +224,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                     *on_disk_state = DatabaseIndexState::Enabled;
                 },
             },
-            IndexConfig::Search {
+            IndexConfig::Text {
                 ref mut on_disk_state,
                 ..
             } => match on_disk_state {
@@ -385,7 +385,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
             // Collect the search indexes.
             for (index_descriptor, index_schema) in &table_schema.search_indexes {
                 let index_name = IndexName::new(table_name.clone(), index_descriptor.clone())?;
-                indexes_in_schema.push(IndexMetadata::new_backfilling_search_index(
+                indexes_in_schema.push(IndexMetadata::new_backfilling_text_index(
                     index_name.clone(),
                     index_schema.search_field.clone(),
                     index_schema.filter_fields.clone(),
@@ -912,14 +912,14 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                     developer_config: DeveloperDatabaseIndexConfig { fields },
                     ..
                 } => IndexMetadata::new_backfilling(*self.tx.begin_timestamp(), index_name, fields),
-                IndexConfig::Search {
+                IndexConfig::Text {
                     developer_config:
                         DeveloperTextIndexConfig {
                             search_field,
                             filter_fields,
                         },
                     ..
-                } => IndexMetadata::new_backfilling_search_index(
+                } => IndexMetadata::new_backfilling_text_index(
                     index_name,
                     search_field,
                     filter_fields,

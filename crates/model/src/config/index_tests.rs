@@ -1110,7 +1110,7 @@ fn assert_index_data(actual: Vec<IndexConfig>, expected: Vec<TestIndexConfig>) {
                 let field_name = &developer_config.fields[0];
                 TestIndexConfig(field_name.to_string(), db_state)
             },
-            IndexConfig::Search {
+            IndexConfig::Text {
                 developer_config,
                 on_disk_state,
             } => {

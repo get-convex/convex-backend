@@ -37,7 +37,7 @@ use divan::counter::BytesCount;
 use search::{
     build_term_weights,
     query::CompiledQuery,
-    MemorySearchIndex,
+    MemoryTextIndex,
     TantivySearchIndexSchema,
 };
 use serde::Deserialize;
@@ -72,7 +72,7 @@ struct Dataset {
     schema: TantivySearchIndexSchema,
     loaded: BTreeMap<String, Vec<(InternalId, CreationTime, ResolvedDocument, usize)>>,
 
-    indexes: BTreeMap<String, MemorySearchIndex>,
+    indexes: BTreeMap<String, MemoryTextIndex>,
     queries: BTreeMap<String, CompiledQuery>,
 }
 
@@ -145,7 +145,7 @@ impl Dataset {
 
         let mut indexes = BTreeMap::new();
         for (name, documents) in &loaded {
-            let mut index = MemorySearchIndex::new(WriteTimestamp::Committed(Timestamp::MIN));
+            let mut index = MemoryTextIndex::new(WriteTimestamp::Committed(Timestamp::MIN));
             for (internal_id, creation_time, document, _) in documents {
                 let terms = schema.index_into_terms(document).unwrap();
                 index
@@ -198,7 +198,7 @@ fn load(bencher: divan::Bencher, dataset_name: &str) {
         to_load.push((*internal_id, *creation_time, terms));
     }
     bencher.counter(BytesCount::new(total_size)).bench(|| {
-        let mut index = MemorySearchIndex::new(WriteTimestamp::Committed(Timestamp::MIN));
+        let mut index = MemoryTextIndex::new(WriteTimestamp::Committed(Timestamp::MIN));
         for (internal_id, creation_time, terms) in &to_load {
             index
                 .update(

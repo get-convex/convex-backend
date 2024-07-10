@@ -236,7 +236,7 @@ mod tests {
             .context("Index missing or in an unexpected state")?
             .into_value();
         must_let!(let IndexMetadata {
-            config: IndexConfig::Search {
+            config: IndexConfig::Text {
                 on_disk_state: TextIndexState::SnapshottedAt(TextIndexSnapshot { ts, .. }),
                 ..
             },
@@ -551,7 +551,7 @@ mod tests {
         // Build the first segment, which stops because the document size is > 0
         flusher.step().await?;
         let metadata = fixtures.get_index_metadata(index_data.index_name).await?;
-        must_let!(let IndexConfig::Search { on_disk_state, .. }= &metadata.config);
+        must_let!(let IndexConfig::Text { on_disk_state, .. }= &metadata.config);
         must_let!(let TextIndexState::Backfilling(backfilling_meta) = on_disk_state);
         assert_eq!(backfilling_meta.segments.len(), 1);
 
