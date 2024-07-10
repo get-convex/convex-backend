@@ -402,7 +402,6 @@ impl<RT: Runtime> SubscriptionClient for ApplicationSubscriptionClient<RT> {
         let inner = self.database.subscribe(token.clone()).await?;
         Ok(Box::new(ApplicationSubscription {
             initial_ts: token.ts(),
-            end_ts: token.ts(),
             reads: token.into_reads(),
             inner,
             log: self.database.log().clone(),
@@ -417,7 +416,7 @@ pub trait SubscriptionTrait: Send + Sync {
     // Returns true if the subscription validity can be extended to new_ts. Note
     // that extend_validity might return false even if the subscription can be
     // extended, but will never return true if it can't.
-    async fn extend_validity(&mut self, new_ts: Timestamp) -> anyhow::Result<bool>;
+    async fn extend_validity(&self, new_ts: Timestamp) -> anyhow::Result<bool>;
 }
 
 struct ApplicationSubscription {
@@ -428,10 +427,6 @@ struct ApplicationSubscription {
     // The initial timestamp the subscription was created at. This is known
     // to be valid.
     initial_ts: Timestamp,
-    // The last timestamp the subscription is known to be valid for.
-    // NOTE that the inner subscription might be valid to a higher timestamp,
-    // but end_ts is not automatically updated.
-    end_ts: Timestamp,
 }
 
 #[async_trait]
@@ -440,15 +435,10 @@ impl SubscriptionTrait for ApplicationSubscription {
         self.inner.wait_for_invalidation().map(Ok).boxed()
     }
 
-    async fn extend_validity(&mut self, new_ts: Timestamp) -> anyhow::Result<bool> {
+    async fn extend_validity(&self, new_ts: Timestamp) -> anyhow::Result<bool> {
         if new_ts < self.initial_ts {
             // new_ts is before the initial subscription timestamp.
             return Ok(false);
-        }
-
-        if new_ts <= self.end_ts {
-            // We have already validated the subscription past new_ts.
-            return Ok(true);
         }
 
         // The inner subscription is periodically updated by the subscription
@@ -459,16 +449,13 @@ impl SubscriptionTrait for ApplicationSubscription {
             // work, so we return false here. This is valid per the function contract.
             return Ok(false);
         };
-        self.end_ts = self.end_ts.max(current_ts);
 
-        let current_token = Token::new(self.reads.clone(), self.end_ts);
+        let current_token = Token::new(self.reads.clone(), current_ts);
         let Some(_new_token) = self.log.refresh_token(current_token, new_ts)? else {
             // Subscription validity can't be extended. Note that returning false
             // here also doesn't mean there is a conflict.
             return Ok(false);
         };
-        self.end_ts = self.end_ts.max(new_ts);
-
         return Ok(true);
     }
 }

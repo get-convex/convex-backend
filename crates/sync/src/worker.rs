@@ -665,7 +665,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             let subscriptions_client = subscriptions_client.clone();
             let future = async move {
                 let new_subscription = match current_subscription {
-                    Some(mut subscription) => {
+                    Some(subscription) => {
                         if subscription.extend_validity(new_ts).await? {
                             Some(subscription)
                         } else {
