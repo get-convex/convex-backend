@@ -340,7 +340,11 @@ pub async fn vector_search(
 pub async fn storage_generate_upload_url(
     State(st): State<LocalAppState>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let url = st.application.storage_generate_upload_url().await?;
+    let component = ComponentId::TODO();
+    let url = st
+        .application
+        .storage_generate_upload_url(component)
+        .await?;
     Ok(Json(json!({ "url": url })))
 }
 

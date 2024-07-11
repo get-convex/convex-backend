@@ -1,6 +1,5 @@
 use std::{
     ops::Bound,
-    str::FromStr,
     time::Duration,
 };
 
@@ -56,7 +55,6 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use value::InternalId;
 
 use crate::RouterState;
 
@@ -94,7 +92,8 @@ pub async fn storage_upload(
     ExtractRequestId(request_id): ExtractRequestId,
     body: BodyStream,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    st.api
+    let component = st
+        .api
         .check_store_file_authorization(
             &host,
             request_id.clone(),
@@ -102,7 +101,6 @@ pub async fn storage_upload(
             STORE_FILE_AUTHORIZATION_VALIDITY,
         )
         .await?;
-    let component = ComponentId::TODO();
     let content_length = map_header_err(content_length)?;
     let content_type = map_header_err(content_type)?;
     let sha256 = map_header_err(sha256)?.map(|dh| dh.0);
@@ -149,12 +147,7 @@ pub async fn storage_get(
         format!("Invalid storage path: \"{uuid}\". Please use `storage.getUrl()` to generate a valid URL to retrieve files. See https://docs.convex.dev/file-storage/serve-files for more details"),
     ))?;
     let file_storage_id = FileStorageId::LegacyStorageId(storage_uuid);
-    let component = match component {
-        Some(component_str) if !component_str.is_empty() => {
-            ComponentId::Child(InternalId::from_str(&component_str)?)
-        },
-        _ => ComponentId::Root,
-    };
+    let component = ComponentId::deserialize_from_string(component.as_deref())?;
 
     // TODO(CX-3065) figure out deterministic repeatable tokens
 

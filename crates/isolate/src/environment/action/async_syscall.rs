@@ -263,9 +263,10 @@ impl<RT: Runtime> TaskExecutor<RT> {
         _args: JsonValue,
     ) -> anyhow::Result<JsonValue> {
         let issued_ts = self.rt.unix_timestamp();
-        let postUrl = self
-            .file_storage
-            .generate_upload_url(&self.key_broker, issued_ts)?;
+        let component = self.component_id()?;
+        let postUrl =
+            self.file_storage
+                .generate_upload_url(&self.key_broker, issued_ts, component)?;
         Ok(serde_json::to_value(postUrl)?)
     }
 

@@ -379,9 +379,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     fn file_storage_generate_upload_url(&self) -> anyhow::Result<String> {
         let issued_ts = self.phase.unix_timestamp()?;
-        let post_url = self
-            .file_storage
-            .generate_upload_url(&self.key_broker, issued_ts)?;
+        let component = self.component()?;
+        let post_url =
+            self.file_storage
+                .generate_upload_url(&self.key_broker, issued_ts, component)?;
         Ok(post_url)
     }
 

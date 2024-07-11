@@ -23,4 +23,5 @@ message StorageToken {
   oneof authorization_type {
     StoreFile store_file = 3;
   }
+  optional string component_id = 4;
 }

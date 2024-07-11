@@ -832,12 +832,15 @@ impl<RT: Runtime> Application<RT> {
         Ok(Some(source_map_content.to_owned()))
     }
 
-    pub async fn storage_generate_upload_url(&self) -> anyhow::Result<String> {
+    pub async fn storage_generate_upload_url(
+        &self,
+        component: ComponentId,
+    ) -> anyhow::Result<String> {
         let issued_ts = self.runtime().unix_timestamp();
         let url = self
             .file_storage
             .transactional_file_storage
-            .generate_upload_url(self.key_broker(), issued_ts)?;
+            .generate_upload_url(self.key_broker(), issued_ts, component)?;
 
         Ok(url)
     }

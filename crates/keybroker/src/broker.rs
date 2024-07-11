@@ -10,6 +10,7 @@ use std::{
 use anyhow::Context;
 pub use common::types::SystemKey;
 use common::{
+    components::ComponentId,
     identity::{
         IdentityCacheKey,
         InertIdentity,
@@ -679,17 +680,20 @@ impl KeyBroker {
         &self,
         rt: &RT,
         issued: UnixTimestamp,
+        component: ComponentId,
     ) -> anyhow::Result<StoreFileAuthorization> {
         let now = rt.unix_timestamp();
         if (now - issued) > MAX_TS_DELAY {
             anyhow::bail!("Could not issue authorization. Issued TS too far in past.");
         }
+        let component_str = component.serialize_to_string();
         Ok(StoreFileAuthorization(self.encryptor.encode_proto(
             STORE_FILE_AUTHZ_VERSION,
             StorageTokenProto {
                 instance_name: self.instance_name.clone(),
                 issued_s: issued.as_secs(),
                 authorization_type: Some(AuthorizationTypeProto::StoreFile(StoreFileProto {})),
+                component_id: component_str,
             },
         )))
     }
@@ -770,11 +774,12 @@ impl KeyBroker {
         rt: &RT,
         store_file_authorization: &str,
         validity: Duration,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ComponentId> {
         let StorageTokenProto {
             instance_name,
             issued_s,
             authorization_type,
+            component_id,
         } = self
             .encryptor
             .decode_proto(STORE_FILE_AUTHZ_VERSION, store_file_authorization)
@@ -807,7 +812,11 @@ impl KeyBroker {
             ));
         };
 
-        Ok(())
+        let component = ComponentId::deserialize_from_string(component_id.as_deref()).context(
+            ErrorMetadata::unauthenticated("InvalidStorageToken", "Invalid component ID"),
+        )?;
+
+        Ok(component)
     }
 
     fn cursor_to_proto(&self, cursor: &Cursor) -> InstanceCursorProto {
@@ -965,6 +974,7 @@ mod tests {
     use cmd_util::env::env_config;
     use common::{
         bootstrap_model::index::database_index::IndexedFields,
+        components::ComponentId,
         index::IndexKey,
         query::{
             Cursor,
@@ -1062,8 +1072,10 @@ mod tests {
         let kb = KeyBroker::dev();
         let td = TestDriver::new();
         let now = td.rt().unix_timestamp();
-        let key = kb.issue_store_file_authorization(&td.rt(), now)?;
-        kb.check_store_file_authorization(&td.rt(), &key.to_string(), Duration::from_secs(60))?;
+        let key = kb.issue_store_file_authorization(&td.rt(), now, ComponentId::test_user())?;
+        let component =
+            kb.check_store_file_authorization(&td.rt(), &key.to_string(), Duration::from_secs(60))?;
+        assert_eq!(component, ComponentId::test_user());
         Ok(())
     }
 
@@ -1072,7 +1084,7 @@ mod tests {
         let kb = KeyBroker::dev();
         let td = TestDriver::new();
         let hour_ago = td.rt().unix_timestamp() - Duration::from_secs(3600);
-        kb.issue_store_file_authorization(&td.rt(), hour_ago)
+        kb.issue_store_file_authorization(&td.rt(), hour_ago, ComponentId::test_user())
             .unwrap_err();
         Ok(())
     }

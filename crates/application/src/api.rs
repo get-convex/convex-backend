@@ -160,7 +160,7 @@ pub trait ApplicationApi: Send + Sync {
         request_id: RequestId,
         token: &str,
         validity: Duration,
-    ) -> anyhow::Result<()>;
+    ) -> anyhow::Result<ComponentId>;
 
     async fn store_file(
         &self,
@@ -328,7 +328,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _request_id: RequestId,
         token: &str,
         validity: Duration,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ComponentId> {
         self.key_broker()
             .check_store_file_authorization(&self.runtime, token, validity)
     }

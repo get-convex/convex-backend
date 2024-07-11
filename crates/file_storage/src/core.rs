@@ -87,8 +87,9 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         &self,
         key_broker: &KeyBroker,
         issued_ts: UnixTimestamp,
+        component: ComponentId,
     ) -> anyhow::Result<String> {
-        let token = key_broker.issue_store_file_authorization(&self.rt, issued_ts)?;
+        let token = key_broker.issue_store_file_authorization(&self.rt, issued_ts, component)?;
         let origin = &self.convex_origin;
 
         Ok(format!("{origin}/api/storage/upload?token={token}"))
@@ -116,10 +117,10 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let files = self
             .get_file_entry_batch(tx, component.into(), storage_ids)
             .await;
-        let component_query = match component {
-            ComponentId::Root => "".to_string(),
-            ComponentId::Child(id) => format!("?component={}", id),
-        };
+        let component_query = component
+            .serialize_to_string()
+            .map(|s| format!("?component={}", s))
+            .unwrap_or_default();
         files
             .into_iter()
             .map(|(batch_key, result)| {

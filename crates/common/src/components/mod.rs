@@ -1,4 +1,7 @@
-use std::sync::LazyLock;
+use std::{
+    str::FromStr,
+    sync::LazyLock,
+};
 
 use cmd_util::env::env_config;
 use value::{
@@ -60,6 +63,20 @@ impl ComponentId {
     #[cfg(any(test, feature = "testing"))]
     pub const fn test_user() -> Self {
         ComponentId::Root
+    }
+
+    pub fn serialize_to_string(&self) -> Option<String> {
+        match self {
+            ComponentId::Root => None,
+            ComponentId::Child(id) => Some(id.to_string()),
+        }
+    }
+
+    pub fn deserialize_from_string(s: Option<&str>) -> anyhow::Result<Self> {
+        match s {
+            None => Ok(ComponentId::Root),
+            Some(s) => Ok(ComponentId::Child(InternalId::from_str(s)?)),
+        }
     }
 }
 
