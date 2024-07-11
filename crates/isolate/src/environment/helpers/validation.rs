@@ -1,10 +1,11 @@
 use anyhow::Context;
+#[cfg(any(test, feature = "testing"))]
+use common::components::ComponentPath;
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentFunctionPath,
         ComponentId,
-        ComponentPath,
     },
     errors::JsError,
     identity::InertIdentity,
@@ -505,10 +506,9 @@ impl ValidatedPathAndArgs {
             serde_json::from_slice(&args.ok_or_else(|| anyhow::anyhow!("Missing args"))?)?;
         let args_value = ConvexValue::try_from(args_json)?;
         let args = ConvexArray::try_from(args_value)?;
-        // TODO(CX-6865) Make required
         let component = component_path
-            .map(|c| c.try_into())
-            .unwrap_or(Ok(ComponentPath::root()))?;
+            .context("Missing component path")?
+            .try_into()?;
         Ok(Self {
             path: CanonicalizedComponentFunctionPath {
                 component,
