@@ -42,9 +42,9 @@ pub enum DestinationError {
 
     #[error(
         "Your Convex destination is not using a schema. Please add a `schema.ts` file to add the \
-         `{0}` table. You can use the following table definition: {0}"
+         `{0}` table. You can use the following table definition: {1}"
     )]
-    DestinationHasNoSchema(SuggestedTable),
+    DestinationHasNoSchema(TableName, SuggestedTable),
 
     #[error(
         "Your Convex destination is not using a schema. We are not able to suggest a schema \

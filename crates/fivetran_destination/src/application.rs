@@ -97,9 +97,10 @@ pub async fn create_table(
         .await
         .map_err(DestinationError::DeploymentError)?
         .ok_or_else(|| match suggested_convex_table(table.clone()) {
-            Ok(suggested_table) => {
-                DestinationError::DestinationHasNoSchema(SuggestedTable(suggested_table))
-            },
+            Ok(suggested_table) => DestinationError::DestinationHasNoSchema(
+                suggested_table.table_name.clone(),
+                SuggestedTable(suggested_table),
+            ),
             Err(err) => DestinationError::DestinationHasNoSchemaWithoutSuggestion(Box::new(err)),
         })?;
 
