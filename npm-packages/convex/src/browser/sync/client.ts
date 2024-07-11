@@ -308,7 +308,7 @@ export class BaseConvexClient {
             }
             const completedMutationId =
               this.requestManager.onResponse(serverMessage);
-            if (completedMutationId) {
+            if (completedMutationId !== null) {
               this.notifyOnQueryResultChanges(new Set([completedMutationId]));
             }
             break;
