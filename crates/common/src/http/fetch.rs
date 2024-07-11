@@ -1,6 +1,12 @@
-use std::collections::{
-    BTreeMap,
-    HashMap,
+use std::{
+    collections::{
+        BTreeMap,
+        HashMap,
+    },
+    sync::atomic::{
+        AtomicU64,
+        Ordering,
+    },
 };
 
 use async_trait::async_trait;
@@ -135,12 +141,14 @@ type HandlerFn = Box<
 
 pub struct StaticFetchClient {
     router: BTreeMap<url::Url, HashMap<http::Method, HandlerFn>>,
+    num_calls: AtomicU64,
 }
 
 impl StaticFetchClient {
     pub fn new() -> Self {
         Self {
             router: BTreeMap::new(),
+            num_calls: AtomicU64::new(0),
         }
     }
 
@@ -156,11 +164,17 @@ impl StaticFetchClient {
             .or_default()
             .insert(method, Box::new(handler));
     }
+
+    /// Returns how many times a fetch client has been called
+    pub fn num_calls(&self) -> u64 {
+        self.num_calls.load(Ordering::Relaxed)
+    }
 }
 
 #[async_trait]
 impl FetchClient for StaticFetchClient {
     async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream> {
+        self.num_calls.fetch_add(1, Ordering::Relaxed);
         let handler = self
             .router
             .get(&request.url)

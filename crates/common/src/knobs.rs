@@ -1058,3 +1058,10 @@ pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> =
 /// the "backend_startup" domain keyed by db cluster name.
 pub static STARTUP_RATE_LIMIT_ENABLED: LazyLock<bool> =
     LazyLock::new(|| env_config("STARTUP_RATE_LIMIT_ENABLED", false));
+
+/// Size of the cache for access token authentication
+pub static AUTH_CACHE_SIZE: LazyLock<usize> = LazyLock::new(|| env_config("AUTH_CACHE_SIZE", 1000));
+
+/// Length of time an entry to the access authentication cache is valid
+pub static AUTH_CACHE_TTL_SECONDS: LazyLock<u64> =
+    LazyLock::new(|| env_config("AUTH_CACHE_TTL_SECONDS", 60));
