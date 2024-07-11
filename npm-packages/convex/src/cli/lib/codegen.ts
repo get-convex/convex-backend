@@ -34,19 +34,18 @@ export async function doInitCodegen(
   skipIfExists: boolean,
   opts?: { dryRun?: boolean; debug?: boolean },
 ): Promise<void> {
+  await prepareForCodegen(ctx, functionsDir, opts);
   await withTmpDir(async (tmpDir) => {
     await doReadmeCodegen(ctx, tmpDir, functionsDir, skipIfExists, opts);
     await doTsconfigCodegen(ctx, tmpDir, functionsDir, skipIfExists, opts);
   });
 }
 
-export async function doCodegen(
+async function prepareForCodegen(
   ctx: Context,
   functionsDir: string,
-  typeCheckMode: TypeCheckMode,
-  opts?: { dryRun?: boolean; generateCommonJSApi?: boolean; debug?: boolean },
+  opts?: { dryRun?: boolean },
 ) {
-  const { projectConfig } = await readProjectConfig(ctx);
   // Delete the old _generated.ts because v0.1.2 used to put the react generated
   // code there
   const legacyCodegenPath = path.join(functionsDir, "_generated.ts");
@@ -65,6 +64,17 @@ export async function doCodegen(
   // Create the codegen dir if it doesn't already exist.
   const codegenDir = path.join(functionsDir, "_generated");
   ctx.fs.mkdir(codegenDir, { allowExisting: true, recursive: true });
+  return codegenDir;
+}
+
+export async function doCodegen(
+  ctx: Context,
+  functionsDir: string,
+  typeCheckMode: TypeCheckMode,
+  opts?: { dryRun?: boolean; generateCommonJSApi?: boolean; debug?: boolean },
+) {
+  const { projectConfig } = await readProjectConfig(ctx);
+  const codegenDir = await prepareForCodegen(ctx, functionsDir, opts);
 
   await withTmpDir(async (tmpDir) => {
     // Write files in dependency order so a watching dev server doesn't
@@ -119,10 +129,11 @@ export async function doInitialComponentCodegen(
   opts?: { dryRun?: boolean; generateCommonJSApi?: boolean; debug?: boolean },
 ) {
   const { projectConfig } = await readProjectConfig(ctx);
-
-  // Create the codegen dir if it doesn't already exist.
-  const codegenDir = path.join(componentDirectory.path, "_generated");
-  ctx.fs.mkdir(codegenDir, { allowExisting: true, recursive: true });
+  const codegenDir = await prepareForCodegen(
+    ctx,
+    componentDirectory.path,
+    opts,
+  );
 
   // Write files in dependency order so a watching dev server doesn't
   // see inconsistent results where a file we write imports from a
