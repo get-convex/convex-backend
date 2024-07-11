@@ -28,6 +28,10 @@ use application::{
 };
 use cmd_util::env::env_config;
 use common::{
+    components::{
+        ComponentFunctionPath,
+        ComponentPath,
+    },
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     minitrace_helpers::get_sampled_span,
     runtime::{
@@ -457,6 +461,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let timer = mutation_queue_timer();
                 let api = self.api.clone();
                 let host = self.host.clone();
+                let path = ComponentFunctionPath {
+                    component: ComponentPath::root(),
+                    udf_path: udf_path.clone(),
+                };
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
                         timer.finish();
@@ -465,7 +473,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 host.as_ref(),
                                 server_request_id,
                                 identity,
-                                udf_path.into(),
+                                path,
                                 args,
                                 FunctionCaller::SyncWorker(client_version),
                                 mutation_identifier,
@@ -512,6 +520,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
+                let path = ComponentFunctionPath {
+                    component: ComponentPath::root(),
+                    udf_path: udf_path.clone(),
+                };
                 let root = self.rt.with_rng(|rng| {
                     get_sampled_span(
                         "sync-worker/action",
@@ -528,7 +540,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                             host.as_ref(),
                             server_request_id,
                             identity,
-                            udf_path.into(),
+                            path,
                             args,
                             FunctionCaller::SyncWorker(client_version),
                         )
@@ -688,7 +700,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 host.as_ref(),
                                 RequestId::new(),
                                 identity_,
-                                query.udf_path.into(),
+                                ComponentFunctionPath {
+                                    component: ComponentPath::root(),
+                                    udf_path: query.udf_path,
+                                },
                                 query.args,
                                 FunctionCaller::SyncWorker(client_version),
                                 ExecuteQueryTimestamp::At(new_ts),
