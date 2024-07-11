@@ -11,6 +11,9 @@ export default defineSchema({
   boatVotes: defineTable({
     boat: v.id("boats"),
   }).index("by_boat", ["boat"]),
+  completedScheduledJobs: defineTable({
+    jobId: v.id("_scheduled_functions"),
+  }),
   users: defineTable({
     identity: v.number(),
   }).index("by_identity", ["identity"]),

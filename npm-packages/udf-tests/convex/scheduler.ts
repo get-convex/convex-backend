@@ -1,6 +1,6 @@
 import { makeFunctionReference, queryGeneric } from "convex/server";
 import { api } from "./_generated/api";
-import { mutation } from "./_generated/server";
+import { DatabaseReader, mutation } from "./_generated/server";
 
 export const getScheduledJobs = queryGeneric(async ({ db }) => {
   return await db.system.query("_scheduled_functions").collect();
@@ -54,3 +54,26 @@ export const scheduleMany = mutation(
     }
   },
 );
+
+// Get the job id for the current mutation.
+const getScheduledJobId = async (db: DatabaseReader) => {
+  let jobId = null;
+  for await (const job of db.system.query("_scheduled_functions")) {
+    if (job.state.kind === "inProgress") {
+      if (jobId !== null) {
+        throw new Error("Multiple `inProgress` job ids");
+      }
+      jobId = job._id;
+    }
+  }
+  return jobId;
+};
+
+// Find the current job_id and insert it to completed_job_ids.
+export const insertMyJobId = mutation(async ({ db }) => {
+  const jobId = await getScheduledJobId(db);
+  if (jobId === null) {
+    throw new Error("Failed to find jobId");
+  }
+  await db.insert("completedScheduledJobs", { jobId: jobId });
+});

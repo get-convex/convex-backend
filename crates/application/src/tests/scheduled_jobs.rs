@@ -40,6 +40,7 @@ use serde_json::Value as JsonValue;
 use sync_types::UdfPath;
 use value::{
     ResolvedDocumentId,
+    TableName,
     TableNamespace,
 };
 
@@ -57,7 +58,7 @@ use crate::{
     Application,
 };
 
-fn function_path() -> ComponentFunctionPath {
+fn insert_object_path() -> ComponentFunctionPath {
     ComponentFunctionPath {
         component: ComponentPath::test_user(),
         udf_path: UdfPath::from_str("basic:insertObject").unwrap(),
@@ -67,13 +68,13 @@ fn function_path() -> ComponentFunctionPath {
 async fn create_scheduled_job<'a>(
     rt: &'a TestRuntime,
     tx: &'a mut Transaction<TestRuntime>,
+    path: ComponentFunctionPath,
 ) -> anyhow::Result<(ResolvedDocumentId, SchedulerModel<'a, TestRuntime>)> {
     let mut map = serde_json::Map::new();
     map.insert(
         "key".to_string(),
         serde_json::Value::String("value".to_string()),
     );
-    let path = function_path();
     let (_, component) = BootstrapComponentsModel::new(tx)
         .component_path_to_ids(path.component.clone())
         .await?;
@@ -108,7 +109,7 @@ async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     application.load_udf_tests_modules().await?;
 
     let mut tx = application.begin(Identity::system()).await?;
-    let (job_id, _model) = create_scheduled_job(&rt, &mut tx).await?;
+    let (job_id, _model) = create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
     assert!(
         TableModel::new(&mut tx)
             .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
@@ -130,6 +131,47 @@ async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
+// Tests that a scheduled job can observe itself as in progress.
+#[convex_macro::test_runtime]
+async fn test_scheduled_jobs_in_progress(rt: TestRuntime) -> anyhow::Result<()> {
+    let (args, mut pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
+    let application = Application::new_for_tests_with_args(&rt, args).await?;
+    application.load_udf_tests_modules().await?;
+
+    let mut tx = application.begin(Identity::system()).await?;
+    let (job_id, _model) = create_scheduled_job(
+        &rt,
+        &mut tx,
+        ComponentFunctionPath {
+            component: ComponentPath::root(),
+            udf_path: UdfPath::from_str("scheduler:insertMyJobId").unwrap(),
+        },
+    )
+    .await?;
+    let completed_scheduled_jobs: TableName = "completedScheduledJobs".parse()?;
+    assert!(
+        TableModel::new(&mut tx)
+            .table_is_empty(TableNamespace::Global, &completed_scheduled_jobs)
+            .await?
+    );
+
+    application.commit_test(tx).await?;
+
+    wait_for_scheduled_job_execution(&mut pause_controller).await;
+    tx = application.begin(Identity::system()).await?;
+    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
+    let state = model.check_status(job_id).await?.unwrap();
+    assert_eq!(state, ScheduledJobState::Success);
+    // We could make this test better by checking the job_id matches... But it is
+    // messy to query directly from transaction so lets declare this good enough.
+    assert!(
+        !TableModel::new(&mut tx)
+            .table_is_empty(TableNamespace::Global, &completed_scheduled_jobs)
+            .await?
+    );
+    Ok(())
+}
+
 #[convex_macro::test_runtime]
 async fn test_scheduled_jobs_canceled(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
@@ -137,7 +179,8 @@ async fn test_scheduled_jobs_canceled(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut tx = application.begin(Identity::system()).await?;
 
-    let (_job_id, mut model) = create_scheduled_job(&rt, &mut tx).await?;
+    let path = insert_object_path();
+    let (_job_id, mut model) = create_scheduled_job(&rt, &mut tx, path.clone()).await?;
     let jobs = model.list().await?;
     assert_eq!(jobs.len(), 1);
     let (job_id, job) = jobs[0].clone().into_id_and_value();
@@ -145,7 +188,6 @@ async fn test_scheduled_jobs_canceled(rt: TestRuntime) -> anyhow::Result<()> {
     assert!(job.next_ts.is_some());
 
     // Cancel the scheduled job
-    let path = function_path();
     model.cancel_all(Some(path.canonicalize()), 1).await?;
     let state = model.check_status(job_id).await?.unwrap();
     assert_eq!(state, ScheduledJobState::Canceled);
@@ -161,13 +203,13 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
 
     let mut tx = application.begin(Identity::system()).await?;
 
-    let (_job_id, mut model) = create_scheduled_job(&rt, &mut tx).await?;
+    let path = insert_object_path();
+    let (_job_id, mut model) = create_scheduled_job(&rt, &mut tx, path.clone()).await?;
     let jobs = model.list().await?;
     assert_eq!(jobs.len(), 1);
     let (job_id, job) = jobs[0].clone().into_id_and_value();
 
     // Cancel the scheduled job
-    let path = function_path();
     model.cancel_all(Some(path.canonicalize()), 1).await?;
 
     application.commit_test(tx).await?;
@@ -190,7 +232,7 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
 
     let mut tx = application.begin(Identity::system()).await?;
 
-    let (job_id, _model) = create_scheduled_job(&rt, &mut tx).await?;
+    let (job_id, _model) = create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
     assert!(
         TableModel::new(&mut tx)
             .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
@@ -249,7 +291,7 @@ async fn test_scheduled_jobs_helper(
     backend_state_model
         .toggle_backend_state(backend_state)
         .await?;
-    let (job_id, _model) = create_scheduled_job(&rt, &mut tx).await?;
+    let (job_id, _model) = create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
     assert!(
         TableModel::new(&mut tx)
             .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
@@ -293,7 +335,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
 
     // Schedule and cancel a job
     let mut tx = application.begin(Identity::system()).await?;
-    let (job_id, mut model) = create_scheduled_job(&rt, &mut tx).await?;
+    let (job_id, mut model) = create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
     model.complete(job_id, ScheduledJobState::Canceled).await?;
     application.commit_test(tx).await?;
 
@@ -349,7 +391,7 @@ async fn test_scheduled_job_retry(rt: TestRuntime) -> anyhow::Result<()> {
     application.load_udf_tests_modules().await?;
 
     let mut tx = application.begin(Identity::system()).await?;
-    let (job_id, _model) = create_scheduled_job(&rt, &mut tx).await?;
+    let (job_id, _model) = create_scheduled_job(&rt, &mut tx, insert_object_path()).await?;
     application.commit_test(tx).await?;
 
     // Simulate a failure in the scheduled job
