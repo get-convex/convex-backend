@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { componentDefinitionPath } from "./paths.js";
-import { nodeDependency, sourcePackage, udfConfig } from "./modules.js";
+import { nodeDependency, sourcePackage } from "./modules.js";
 import { checkedComponent } from "./checkedComponent.js";
 import { evaluatedComponentDefinition } from "./componentDefinition.js";
 import {
@@ -14,7 +14,6 @@ export const startPushRequest = z.object({
   dryRun: z.boolean(),
 
   functions: z.string(),
-  udfServerVersion: z.string(),
 
   appDefinition: appDefinitionConfig,
   componentDefinitions: z.array(componentDefinitionConfig),
@@ -30,8 +29,6 @@ export const schemaChange = z.object({
 export type SchemaChange = z.infer<typeof schemaChange>;
 
 export const startPushResponse = z.object({
-  udfConfig,
-
   externalDepsId: z.nullable(z.string()),
   componentDefinitionPackages: z.record(componentDefinitionPath, sourcePackage),
 

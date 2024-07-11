@@ -115,10 +115,18 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
       verbose,
     );
 
+  // We're just using the version this CLI is running with for now.
+  // This could be different than the version of `convex` the app runs with
+  // if the CLI is installed globally.
+  // TODO: This should be the version of the `convex` package used by each
+  // component, and may be different for each component.
+  const udfServerVersion = version;
+
   const appDefinition: AppDefinitionConfig = {
     ...appDefinitionSpecWithoutImpls,
     auth: localConfig.authConfig || null,
     ...appImplementation,
+    udfServerVersion,
   };
 
   const componentDefinitions: ComponentDefinitionConfig[] = [];
@@ -138,13 +146,9 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
     componentDefinitions.push({
       ...componentDefinition,
       ...impl,
+      udfServerVersion,
     });
   }
-
-  // We're just using the version this CLI is running with for now.
-  // This could be different than the version of `convex` the app runs with
-  // if the CLI is installed globally.
-  const udfServerVersion = version;
 
   const startPushResponse = await startPush(
     ctx,
@@ -153,7 +157,6 @@ export async function runComponentsPush(ctx: Context, options: PushOptions) {
       adminKey: options.adminKey,
       dryRun: false,
       functions: projectConfig.functions,
-      udfServerVersion,
       appDefinition,
       componentDefinitions,
       nodeDependencies: appImplementation.externalNodeDependencies,

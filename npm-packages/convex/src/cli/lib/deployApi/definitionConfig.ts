@@ -8,6 +8,7 @@ export const appDefinitionConfig = z.object({
   auth: z.nullable(moduleConfig),
   schema: z.nullable(moduleConfig),
   functions: z.array(moduleConfig),
+  udfServerVersion: z.string(),
 });
 export type AppDefinitionConfig = z.infer<typeof appDefinitionConfig>;
 
@@ -17,6 +18,7 @@ export const componentDefinitionConfig = z.object({
   dependencies: z.array(componentDefinitionPath),
   schema: z.nullable(moduleConfig),
   functions: z.array(moduleConfig),
+  udfServerVersion: z.string(),
 });
 export type ComponentDefinitionConfig = z.infer<
   typeof componentDefinitionConfig

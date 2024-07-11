@@ -12,12 +12,14 @@ use common::{
     schemas::DatabaseSchema,
     types::NodeDependency,
 };
+use semver::Version;
 use serde::{
     Deserialize,
     Serialize,
 };
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedModulePath;
+use value::ConvexObject;
 
 use crate::{
     config::types::{
@@ -34,7 +36,6 @@ use crate::{
 #[derive(Debug)]
 pub struct ProjectConfig {
     pub config: ConfigMetadata,
-    pub udf_config: UdfConfig,
 
     pub app_definition: AppDefinitionConfig,
     pub component_definitions: Vec<ComponentDefinitionConfig>,
@@ -63,6 +64,8 @@ pub struct AppDefinitionConfig {
     // - crons.js
     // - Bundler dependency chunks within _deps.
     pub functions: Vec<ModuleConfig>,
+
+    pub udf_server_version: Version,
 }
 
 impl AppDefinitionConfig {
@@ -95,6 +98,8 @@ pub struct ComponentDefinitionConfig {
     // - crons.js
     // - Bundler dependency chunks within _deps.
     pub functions: Vec<ModuleConfig>,
+
+    pub udf_server_version: Version,
 }
 
 impl ComponentDefinitionConfig {
@@ -110,13 +115,16 @@ pub struct EvaluatedComponentDefinition {
     pub definition: ComponentDefinitionMetadata,
     pub schema: Option<DatabaseSchema>,
     pub functions: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+    pub udf_config: UdfConfig,
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SerializedEvaluatedComponentDefinition {
     definition: SerializedComponentDefinitionMetadata,
     schema: Option<JsonValue>,
     functions: BTreeMap<String, SerializedAnalyzedModule>,
+    udf_config: JsonValue,
 }
 
 impl TryFrom<EvaluatedComponentDefinition> for SerializedEvaluatedComponentDefinition {
@@ -131,6 +139,7 @@ impl TryFrom<EvaluatedComponentDefinition> for SerializedEvaluatedComponentDefin
                 .into_iter()
                 .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
                 .collect::<anyhow::Result<_>>()?,
+            udf_config: ConvexObject::try_from(value.udf_config)?.into(),
         })
     }
 }
@@ -147,6 +156,7 @@ impl TryFrom<SerializedEvaluatedComponentDefinition> for EvaluatedComponentDefin
                 .into_iter()
                 .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
                 .collect::<anyhow::Result<_>>()?,
+            udf_config: UdfConfig::try_from(ConvexObject::try_from(value.udf_config)?)?,
         })
     }
 }

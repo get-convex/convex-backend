@@ -31,10 +31,7 @@ use common::{
         extract::Json,
         HttpResponseError,
     },
-    runtime::{
-        Runtime,
-        UnixTimestamp,
-    },
+    runtime::Runtime,
     types::NodeDependency,
 };
 use database::{
@@ -128,7 +125,6 @@ pub struct StartPushRequest {
     pub dry_run: bool,
 
     pub functions: String,
-    pub udf_server_version: String,
 
     pub app_definition: AppDefinitionConfigJson,
     pub component_definitions: Vec<ComponentDefinitionConfigJson>,
@@ -137,20 +133,11 @@ pub struct StartPushRequest {
 }
 
 impl StartPushRequest {
-    pub fn into_project_config(
-        self,
-        import_phase_rng_seed: [u8; 32],
-        import_phase_unix_timestamp: UnixTimestamp,
-    ) -> anyhow::Result<ProjectConfig> {
+    pub fn into_project_config(self) -> anyhow::Result<ProjectConfig> {
         Ok(ProjectConfig {
             config: ConfigMetadata {
                 functions: self.functions,
                 auth_info: vec![],
-            },
-            udf_config: UdfConfig {
-                server_version: self.udf_server_version.parse()?,
-                import_phase_rng_seed,
-                import_phase_unix_timestamp,
             },
             app_definition: self.app_definition.try_into()?,
             component_definitions: self
@@ -175,6 +162,7 @@ pub struct AppDefinitionConfigJson {
     pub auth: Option<ModuleJson>,
     pub schema: Option<ModuleJson>,
     pub functions: Vec<ModuleJson>,
+    pub udf_server_version: String,
 }
 
 impl TryFrom<AppDefinitionConfigJson> for AppDefinitionConfig {
@@ -195,6 +183,7 @@ impl TryFrom<AppDefinitionConfigJson> for AppDefinitionConfig {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<anyhow::Result<_>>()?,
+            udf_server_version: value.udf_server_version.parse()?,
         })
     }
 }
@@ -207,6 +196,7 @@ pub struct ComponentDefinitionConfigJson {
     pub dependencies: Vec<String>,
     pub schema: Option<ModuleJson>,
     pub functions: Vec<ModuleJson>,
+    pub udf_server_version: String,
 }
 
 impl TryFrom<ComponentDefinitionConfigJson> for ComponentDefinitionConfig {
@@ -227,13 +217,12 @@ impl TryFrom<ComponentDefinitionConfigJson> for ComponentDefinitionConfig {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<anyhow::Result<_>>()?,
+            udf_server_version: value.udf_server_version.parse()?,
         })
     }
 }
 
 struct StartPushResponse {
-    udf_config: UdfConfig,
-
     external_deps_id: Option<ExternalDepsPackageId>,
     component_definition_packages: BTreeMap<ComponentDefinitionPath, SourcePackage>,
 
@@ -250,7 +239,6 @@ impl TryFrom<StartPushResponse> for SerializedStartPushResponse {
 
     fn try_from(value: StartPushResponse) -> Result<Self, Self::Error> {
         Ok(Self {
-            udf_config: ConvexObject::try_from(value.udf_config)?.into(),
             external_deps_id: value
                 .external_deps_id
                 .map(|id| String::from(DeveloperDocumentId::from(id))),
@@ -276,7 +264,6 @@ impl TryFrom<SerializedStartPushResponse> for StartPushResponse {
 
     fn try_from(value: SerializedStartPushResponse) -> Result<Self, Self::Error> {
         Ok(Self {
-            udf_config: UdfConfig::try_from(ConvexObject::try_from(value.udf_config)?)?,
             external_deps_id: value
                 .external_deps_id
                 .map(|id| {
@@ -310,9 +297,6 @@ impl TryFrom<SerializedStartPushResponse> for StartPushResponse {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SerializedStartPushResponse {
-    // Global evaluation
-    udf_config: JsonValue,
-
     // Pointers to uploaded code.
     external_deps_id: Option<String>,
     component_definition_packages: BTreeMap<String, JsonValue>,
@@ -368,11 +352,10 @@ pub async fn start_push_handler(
     let identity = Identity::system();
 
     let rt = st.application.runtime();
-    let rng_seed = rt.with_rng(|rng| rng.gen());
     let unix_timestamp = rt.unix_timestamp();
     let dry_run = request.dry_run;
     let config = request
-        .into_project_config(rng_seed, unix_timestamp)
+        .into_project_config()
         .map_err(|e| ErrorMetadata::bad_request("InvalidConfig", e.to_string()))?;
 
     let external_deps_id_and_pkg = if !config.node_dependencies.is_empty() {
@@ -414,12 +397,17 @@ pub async fn start_push_handler(
 
     total_size.verify_size()?;
 
+    let app_udf_config = UdfConfig {
+        server_version: config.app_definition.udf_server_version,
+        import_phase_rng_seed: rt.with_rng(|rng| rng.gen()),
+        import_phase_unix_timestamp: unix_timestamp,
+    };
     let app_pkg = component_definition_packages
         .get(&ComponentDefinitionPath::root())
         .context("No package for app?")?;
     let mut app_analysis = analyze_modules(
         &st.application,
-        config.udf_config.clone(),
+        app_udf_config.clone(),
         config.app_definition.functions.clone(),
         app_pkg.clone(),
     )
@@ -464,14 +452,23 @@ pub async fn start_push_handler(
 
     let mut component_analysis_by_def_path = BTreeMap::new();
     let mut component_schema_by_def_path = BTreeMap::new();
+    let mut component_udf_config_by_def_path = BTreeMap::new();
 
     for component_def in &config.component_definitions {
+        let udf_config = UdfConfig {
+            server_version: component_def.udf_server_version.clone(),
+            import_phase_rng_seed: rt.with_rng(|rng| rng.gen()),
+            import_phase_unix_timestamp: unix_timestamp,
+        };
+        component_udf_config_by_def_path
+            .insert(component_def.definition_path.clone(), udf_config.clone());
+
         let component_pkg = component_definition_packages
             .get(&component_def.definition_path)
             .context("No package for component?")?;
         let component_analysis = analyze_modules(
             &st.application,
-            config.udf_config.clone(),
+            udf_config.clone(),
             component_def.functions.clone(),
             component_pkg.clone(),
         )
@@ -534,6 +531,7 @@ pub async fn start_push_handler(
             definition: evaluated_definitions[&ComponentDefinitionPath::root()].clone(),
             schema: app_schema.clone(),
             functions: app_analysis.clone(),
+            udf_config: app_udf_config.clone(),
         },
     );
     for (path, definition) in &evaluated_definitions {
@@ -548,6 +546,10 @@ pub async fn start_push_handler(
                 functions: component_analysis_by_def_path
                     .get(path)
                     .context("Missing analysis for component?")?
+                    .clone(),
+                udf_config: component_udf_config_by_def_path
+                    .get(path)
+                    .context("Missing UDF config for component?")?
                     .clone(),
             },
         );
@@ -580,7 +582,6 @@ pub async fn start_push_handler(
     };
 
     let resp = StartPushResponse {
-        udf_config: config.udf_config,
         external_deps_id: external_deps_id_and_pkg.map(|(id, _)| id),
         component_definition_packages,
         app_auth: auth_info,
@@ -748,19 +749,20 @@ async fn finish_push_handler(
     let auth_diff = AuthInfoModel::new(&mut tx).put(start_push.app_auth).await?;
 
     // Diff the component definitions.
-    let (definition_diffs, modules_by_definition) = ComponentDefinitionConfigModel::new(&mut tx)
-        .apply_component_definitions_diff(
-            &start_push.analysis,
-            &start_push.component_definition_packages,
-            &downloaded_source_packages,
-        )
-        .await?;
+    let (definition_diffs, modules_by_definition, udf_config_by_definition) =
+        ComponentDefinitionConfigModel::new(&mut tx)
+            .apply_component_definitions_diff(
+                &start_push.analysis,
+                &start_push.component_definition_packages,
+                &downloaded_source_packages,
+            )
+            .await?;
 
     // Diff component tree.
     let component_diffs = ComponentConfigModel::new(&mut tx)
         .apply_component_tree_diff(
             &start_push.app,
-            &start_push.udf_config,
+            udf_config_by_definition,
             &start_push.schema_change,
             modules_by_definition,
         )

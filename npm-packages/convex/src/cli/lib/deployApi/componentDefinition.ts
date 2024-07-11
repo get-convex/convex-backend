@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { canonicalizedModulePath, componentDefinitionPath } from "./paths.js";
 import { Identifier, Reference, identifier, reference } from "./types.js";
-import { analyzedModule } from "./modules.js";
+import { analyzedModule, udfConfig } from "./modules.js";
 
 export const componentArgumentValidator = z.object({
   type: z.literal("value"),
@@ -61,6 +61,7 @@ export const evaluatedComponentDefinition = z.object({
   definition: componentDefinitionMetadata,
   schema: z.any(),
   functions: z.record(canonicalizedModulePath, analyzedModule),
+  udfConfig,
 });
 export type EvaluatedComponentDefinition = z.infer<
   typeof evaluatedComponentDefinition

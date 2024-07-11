@@ -92,6 +92,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
     ) -> anyhow::Result<(
         BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,
         BTreeMap<InternalId, NewModules>,
+        BTreeMap<InternalId, UdfConfig>,
     )> {
         let mut definition_diffs = BTreeMap::new();
 
@@ -110,6 +111,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
             definition_diffs.insert(definition_path.clone(), diff);
         }
         let mut modules_by_definition = BTreeMap::new();
+        let mut udf_config_by_definition = BTreeMap::new();
 
         for (definition_path, new_definition) in new_definitions {
             let source_package = source_packages.get(definition_path).ok_or_else(|| {
@@ -162,9 +164,14 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
                     analyze_results: functions,
                 },
             );
+            udf_config_by_definition.insert(id, new_definition.udf_config.clone());
         }
 
-        Ok((definition_diffs, modules_by_definition))
+        Ok((
+            definition_diffs,
+            modules_by_definition,
+            udf_config_by_definition,
+        ))
     }
 
     pub async fn create_component_definition(
@@ -357,7 +364,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
     pub async fn apply_component_tree_diff(
         &mut self,
         app: &CheckedComponent,
-        udf_config: &UdfConfig,
+        udf_config_by_definition: BTreeMap<InternalId, UdfConfig>,
         schema_change: &SchemaChange,
         modules_by_definition: BTreeMap<InternalId, NewModules>,
     ) -> anyhow::Result<BTreeMap<ComponentPath, ComponentDiff>> {
@@ -415,7 +422,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                         internal_id,
                         new_metadata,
                         &modules_by_definition,
-                        udf_config.clone(),
+                        &udf_config_by_definition,
                     )
                     .await?
                 },
@@ -425,7 +432,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                         existing_node,
                         new_metadata,
                         &modules_by_definition,
-                        udf_config.clone(),
+                        &udf_config_by_definition,
                     )
                     .await?
                 },
@@ -486,11 +493,14 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         id: InternalId,
         metadata: ComponentMetadata,
         modules_by_definition: &BTreeMap<InternalId, NewModules>,
-        udf_config: UdfConfig,
+        udf_config_by_definition: &BTreeMap<InternalId, UdfConfig>,
     ) -> anyhow::Result<(InternalId, ComponentDiff)> {
         let modules = modules_by_definition
             .get(&metadata.definition_id)
             .context("Missing modules for component definition")?;
+        let udf_config = udf_config_by_definition
+            .get(&metadata.definition_id)
+            .context("Missing UDF config for component definition")?;
         let is_root = metadata.component_type.is_root();
         let document_id = SystemMetadataModel::new_global(self.tx)
             .insert_with_internal_id(&COMPONENTS_TABLE, id, metadata.try_into()?)
@@ -502,7 +512,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             ComponentId::Child(id)
         };
         let udf_config_diff = UdfConfigModel::new(self.tx, component_id.into())
-            .set(udf_config)
+            .set(udf_config.clone())
             .await?;
         let source_package_id = SourcePackageModel::new(self.tx, component_id.into())
             .put(modules.source_package.clone())
@@ -536,7 +546,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         existing: &ParsedDocument<ComponentMetadata>,
         new_metadata: ComponentMetadata,
         modules_by_definition: &BTreeMap<InternalId, NewModules>,
-        udf_config: UdfConfig,
+        udf_config_by_definition: &BTreeMap<InternalId, UdfConfig>,
     ) -> anyhow::Result<(InternalId, ComponentDiff)> {
         let component_id = if existing.parent_and_name().is_none() {
             ComponentId::Root
@@ -546,6 +556,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let modules = modules_by_definition
             .get(&new_metadata.definition_id)
             .context("Missing modules for component definition")?;
+        let udf_config = udf_config_by_definition
+            .get(&new_metadata.definition_id)
+            .context("Missing UDF config for component definition")?;
         SystemMetadataModel::new_global(self.tx)
             .replace(existing.id(), new_metadata.try_into()?)
             .await?;
@@ -553,7 +566,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .put(modules.source_package.clone())
             .await?;
         let udf_config_diff = UdfConfigModel::new(self.tx, component_id.into())
-            .set(udf_config)
+            .set(udf_config.clone())
             .await?;
         let module_diff = ModuleModel::new(self.tx)
             .apply(
