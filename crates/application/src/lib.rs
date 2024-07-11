@@ -1063,7 +1063,6 @@ impl<RT: Runtime> Application<RT> {
     pub async fn http_action_udf(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
         http_request: HttpActionRequest,
         identity: Identity,
         caller: FunctionCaller,
@@ -1091,7 +1090,6 @@ impl<RT: Runtime> Application<RT> {
             let result = runner
                 .run_http_action(
                     request_id,
-                    path,
                     http_request,
                     response_streamer_,
                     identity,
@@ -2021,7 +2019,7 @@ impl<RT: Runtime> Application<RT> {
         // 4. run the function within the transaction
         let function_name = FunctionName::default_export();
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: ComponentPath::TODO(),
             udf_path: CanonicalizedUdfPath::new(module_path, function_name),
         };
         let arguments = parse_udf_args(&path.clone().into(), args)?;

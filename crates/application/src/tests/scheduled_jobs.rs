@@ -59,7 +59,7 @@ use crate::{
 
 fn function_path() -> ComponentFunctionPath {
     ComponentFunctionPath {
-        component: ComponentPath::root(),
+        component: ComponentPath::test_user(),
         udf_path: UdfPath::from_str("basic:insertObject").unwrap(),
     }
 }
@@ -303,7 +303,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
         .mutation_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: UdfPath::from_str("scheduler:scheduleWithArbitraryJson")?,
             },
             vec![],
@@ -321,7 +321,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
         .action_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: UdfPath::from_str("action:schedule")?,
             },
             vec![],

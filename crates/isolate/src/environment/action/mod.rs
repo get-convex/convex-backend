@@ -311,7 +311,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
         let (handle, state) = isolate
-            .start_request(ComponentPath::root(), client_id.clone(), self)
+            .start_request(ComponentPath::TODO(), client_id.clone(), self)
             .await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);

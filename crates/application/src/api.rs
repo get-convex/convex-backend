@@ -148,7 +148,6 @@ pub trait ApplicationApi: Send + Sync {
         &self,
         host: &str,
         request_id: RequestId,
-        path: ComponentFunctionPath,
         http_request_metadata: HttpActionRequest,
         identity: Identity,
         caller: FunctionCaller,
@@ -308,7 +307,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         &self,
         _host: &str,
         request_id: RequestId,
-        path: ComponentFunctionPath,
         http_request_metadata: HttpActionRequest,
         identity: Identity,
         caller: FunctionCaller,
@@ -316,7 +314,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
     ) -> anyhow::Result<()> {
         self.http_action_udf(
             request_id,
-            path,
             http_request_metadata,
             identity,
             caller,

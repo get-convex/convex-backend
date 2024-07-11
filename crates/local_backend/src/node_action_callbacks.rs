@@ -104,7 +104,7 @@ pub async fn internal_query_post(
         .read_only_udf(
             context.request_id,
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::TODO(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -149,7 +149,7 @@ pub async fn internal_mutation_post(
         .mutation_udf(
             context.request_id,
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::TODO(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -199,7 +199,7 @@ pub async fn internal_action_post(
         .action_udf(
             context.request_id,
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::TODO(),
                 udf_path,
             },
             req.args.into_arg_vec(),
@@ -261,7 +261,7 @@ pub async fn schedule_job(
         .schedule_job(
             identity,
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::TODO(),
                 udf_path,
             },
             udf_args,

@@ -54,7 +54,6 @@ use isolate::{
     HttpActionResponseStreamer,
 };
 use keybroker::Identity;
-use sync_types::UdfPath;
 use url::Url;
 
 use crate::{
@@ -146,11 +145,8 @@ pub async fn http_any_method(
     Host(host): Host,
     ExtractHttpRequestMetadata(http_request_metadata): ExtractHttpRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    // All HTTP actions run the default export of the http.js path.
-    let path = "http.js".parse()?;
     let mut http_response_stream = stream_http_response(
         host,
-        path,
         request_id,
         http_request_metadata,
         identity_result,
@@ -178,7 +174,6 @@ pub async fn http_any_method(
 #[try_stream(ok=HttpActionResponsePart, error=anyhow::Error, boxed)]
 async fn stream_http_response(
     host: String,
-    path: UdfPath,
     request_id: RequestId,
     http_request_metadata: HttpActionRequest,
     identity_result: anyhow::Result<Identity>,
@@ -195,7 +190,6 @@ async fn stream_http_response(
             .execute_http_action(
                 &host,
                 request_id,
-                path.into(),
                 http_request_metadata,
                 identity,
                 FunctionCaller::HttpEndpoint,

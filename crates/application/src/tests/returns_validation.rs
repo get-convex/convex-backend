@@ -34,7 +34,7 @@ async fn run_zero_arg_mutation(
         .mutation_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
             },
             vec![obj],
@@ -55,7 +55,7 @@ async fn run_zero_arg_query(
         .read_only_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
             },
             vec![obj],
@@ -74,7 +74,7 @@ async fn run_zero_arg_action(
         .action_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
             },
             vec![obj],

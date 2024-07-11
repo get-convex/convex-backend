@@ -101,6 +101,9 @@ pub static MODULE_INDEX_BY_PATH: LazyLock<IndexName> =
 pub static MODULE_INDEX_BY_DELETED: LazyLock<IndexName> =
     LazyLock::new(|| system_index(&MODULES_TABLE, "by_deleted"));
 
+pub static HTTP_MODULE_PATH: LazyLock<CanonicalizedModulePath> =
+    LazyLock::new(|| "http.js".parse().unwrap());
+
 pub struct ModulesTable;
 impl SystemTable for ModulesTable {
     fn table_name(&self) -> &'static TableName {
@@ -442,7 +445,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     pub async fn has_http(&mut self) -> anyhow::Result<bool> {
         let path = CanonicalizedComponentModulePath {
             component: ComponentId::Root,
-            module_path: "http.js".parse()?,
+            module_path: HTTP_MODULE_PATH.clone(),
         };
         Ok(self.get_metadata(path).await?.is_some())
     }

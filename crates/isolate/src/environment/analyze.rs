@@ -274,7 +274,7 @@ impl AnalyzeEnvironment {
         };
         let client_id = Arc::new(client_id);
         let (handle, state) = isolate
-            .start_request(ComponentPath::root(), client_id, environment)
+            .start_request(ComponentPath::TODO(), client_id, environment)
             .await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);

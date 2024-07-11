@@ -344,7 +344,7 @@ mod tests {
         let args = create_args(assert_obj!("numbers" => ConvexValue::Array(numbers)))?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:addNumbers".parse()?,
             },
             args,
@@ -374,7 +374,7 @@ mod tests {
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:logHelloWorldAndReturn7".parse()?,
             },
             array![],
@@ -415,7 +415,7 @@ mod tests {
             ExecuteRequest {
                 path_and_args: ValidatedPathAndArgs::new_for_tests(
                     CanonicalizedComponentFunctionPath {
-                        component: ComponentPath::root(),
+                        component: ComponentPath::test_user(),
                         udf_path: "node_actions.js:getUserIdentity".parse()?,
                     },
                     array![],
@@ -461,7 +461,7 @@ mod tests {
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
                     CanonicalizedComponentFunctionPath {
-                        component: ComponentPath::root(),
+                        component: ComponentPath::test_user(),
                         udf_path: "node_actions.js:runQuery".parse()?,
                     },
                     args,
@@ -499,7 +499,7 @@ mod tests {
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
                     CanonicalizedComponentFunctionPath {
-                        component: ComponentPath::root(),
+                        component: ComponentPath::test_user(),
                         udf_path: "node_actions.js:scheduleJob".parse()?,
                     },
                     args,
@@ -540,7 +540,7 @@ mod tests {
             .collect();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:logAndThrowError".parse()?,
             },
             array![],
@@ -592,7 +592,7 @@ mod tests {
             .collect();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:forgotAwait".parse()?,
             },
             array![],
@@ -634,7 +634,7 @@ mod tests {
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:hello".parse()?,
             },
             array![],
@@ -673,7 +673,7 @@ mod tests {
             ExecuteRequest {
                 path_and_args: ValidatedPathAndArgs::new_for_tests(
                     CanonicalizedComponentFunctionPath {
-                        component: ComponentPath::root(),
+                        component: ComponentPath::test_user(),
                         udf_path: "node_actions.js:getTestEnvVar".parse()?,
                     },
                     array![],
@@ -708,7 +708,7 @@ mod tests {
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:sleepAnHour".parse()?,
             },
             array![],
@@ -750,7 +750,7 @@ mod tests {
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:partialEscapeSequence".parse()?,
             },
             array![],
@@ -779,7 +779,7 @@ mod tests {
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:workHardForAnHour".parse()?,
             },
             array![],
@@ -820,7 +820,7 @@ mod tests {
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "node_actions.js:deadlock".parse()?,
             },
             array![],
@@ -1036,7 +1036,7 @@ export { hello };
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
                     CanonicalizedComponentFunctionPath {
-                        component: ComponentPath::root(),
+                        component: ComponentPath::test_user(),
                         udf_path: "node_actions.js:runQuery".parse()?,
                     },
                     args,
@@ -1062,7 +1062,7 @@ export { hello };
             execute_request(
                 ValidatedPathAndArgs::new_for_tests(
                     CanonicalizedComponentFunctionPath {
-                        component: ComponentPath::root(),
+                        component: ComponentPath::test_user(),
                         udf_path: "node_actions.js:getUserIdentity".parse()?,
                     },
                     array![],

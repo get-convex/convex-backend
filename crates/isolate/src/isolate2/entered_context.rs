@@ -322,7 +322,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: ComponentPath::TODO(),
             udf_path: udf_path.clone(),
         };
         let evaluate_result = self.check_promise_result(&path, &promise)?;
@@ -429,7 +429,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
 
         let promise = v8::Local::new(self.scope, &pending_function.promise);
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: ComponentPath::TODO(),
             udf_path: pending_function.udf_path.clone(),
         };
         self.check_promise_result(&path, &promise)

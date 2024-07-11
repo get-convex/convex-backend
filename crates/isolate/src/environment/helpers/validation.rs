@@ -221,7 +221,7 @@ impl Arbitrary for ValidatedPathAndArgs {
         any::<(sync_types::CanonicalizedUdfPath, ConvexArray)>().prop_map(|(udf_path, args)| {
             ValidatedPathAndArgs {
                 path: CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
+                    component: ComponentPath::test_user(),
                     udf_path,
                 },
                 args,
@@ -565,7 +565,7 @@ impl ValidatedHttpPath {
         }
         Ok(Self {
             path: CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path,
             },
             npm_version,

@@ -73,7 +73,7 @@ async fn create_cron_job(
         serde_json::Value::String("value".to_string()),
     );
     let path = ComponentFunctionPath {
-        component: ComponentPath::root(),
+        component: ComponentPath::test_user(),
         udf_path: "basic:insertObject".parse()?,
     };
     let cron_spec = CronSpec {

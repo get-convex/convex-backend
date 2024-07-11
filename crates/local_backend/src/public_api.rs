@@ -164,7 +164,7 @@ pub async fn public_function_post(
 
     let udf_path = parse_udf_path(&req.path)?;
     let component_function_path = ComponentFunctionPath {
-        component: ComponentPath::root(),
+        component: ComponentPath::TODO(),
         udf_path,
     };
     let udf_result = st

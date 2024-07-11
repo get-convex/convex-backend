@@ -22,7 +22,7 @@ async fn test_get_analyzed_function(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = t.database.begin(Identity::system()).await?;
 
     let root_component_path = |s: &str| CanonicalizedComponentFunctionPath {
-        component: ComponentPath::root(),
+        component: ComponentPath::test_user(),
         udf_path: UdfPath::from_str(s).unwrap().canonicalize(),
     };
 

@@ -22,6 +22,7 @@ use common::{
         ComponentDefinitionPath,
         ComponentFunctionPath,
         ComponentId,
+        ComponentPath,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -156,6 +157,7 @@ use model::{
             SourceMap,
         },
         ModuleModel,
+        HTTP_MODULE_PATH,
     },
     scheduled_jobs::VirtualSchedulerModel,
     session_requests::{
@@ -180,7 +182,11 @@ use node_executor::{
 };
 use serde_json::Value as JsonValue;
 use storage::Storage;
-use sync_types::CanonicalizedModulePath;
+use sync_types::{
+    CanonicalizedModulePath,
+    CanonicalizedUdfPath,
+    FunctionName,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -1436,7 +1442,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_http_action(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
         http_request: HttpActionRequest,
         mut response_streamer: HttpActionResponseStreamer,
         identity: Identity,
@@ -1465,11 +1470,18 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             }
             return Ok(isolate::HttpActionResult::Streamed);
         }
-        let validated_path =
-            match ValidatedHttpPath::new(&mut tx, path.canonicalize().clone()).await? {
-                Ok(validated_path) => validated_path,
-                Err(e) => return Ok(isolate::HttpActionResult::Error(e)),
-            };
+        // All HTTP actions run the default export of the http.js path.
+        let path = CanonicalizedComponentFunctionPath {
+            component: ComponentPath::TODO(),
+            udf_path: CanonicalizedUdfPath::new(
+                HTTP_MODULE_PATH.clone(),
+                FunctionName::default_export(),
+            ),
+        };
+        let validated_path = match ValidatedHttpPath::new(&mut tx, path).await? {
+            Ok(validated_path) => validated_path,
+            Err(e) => return Ok(isolate::HttpActionResult::Error(e)),
+        };
         let unix_timestamp = self.runtime.unix_timestamp();
         let context = ExecutionContext::new(request_id, &caller);
 

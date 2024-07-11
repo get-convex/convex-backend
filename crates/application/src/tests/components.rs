@@ -209,7 +209,7 @@ bar.invokeAction = async (requestId, argsStr) => {
         .action_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "foo:bar".parse()?,
             },
             vec![json!({})],

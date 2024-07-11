@@ -55,7 +55,7 @@ pub async fn cancel_all_jobs(
             "CancelAllJobs requires an optional canonicalized UdfPath",
         ))?;
     let path = udf_path.map(|udf_path| CanonicalizedComponentFunctionPath {
-        component: ComponentPath::root(),
+        component: ComponentPath::TODO(),
         udf_path,
     });
     st.application.cancel_all_jobs(path, identity).await?;

@@ -34,7 +34,7 @@ async fn insert_object(
         .mutation_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "basic:insertObject".parse()?,
             },
             vec![obj],
@@ -58,7 +58,7 @@ async fn insert_and_count(
         .mutation_udf(
             RequestId::new(),
             ComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "basic:insertAndCount".parse()?,
             },
             vec![obj],

@@ -501,7 +501,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
 
         let mut tx = self.database.begin(identity.clone()).await?;
         let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: ComponentPath::test_user(),
             udf_path: udf_path.parse()?,
         };
         let canonicalized_path = path.canonicalize();
@@ -650,7 +650,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
     ) -> anyhow::Result<UdfOutcome> {
         let mut tx = self.database.begin(identity.clone()).await?;
         let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: ComponentPath::test_user(),
             udf_path: udf_path.parse()?,
         };
         let canonicalized_path = path.canonicalize();
@@ -738,7 +738,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let path: UdfPath = udf_path.parse()?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: path.canonicalize(),
             },
             ConvexArray::try_from(vec![ConvexValue::Object(args)])?,
@@ -1043,7 +1043,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
     ) -> anyhow::Result<(ActionOutcome, LogLines)> {
         let mut tx = self.database.begin(identity.clone()).await?;
         let path = ComponentFunctionPath {
-            component: ComponentPath::root(),
+            component: ComponentPath::test_user(),
             udf_path: udf_path.parse()?,
         };
         let canonicalized_path = path.canonicalize();
@@ -1391,7 +1391,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
     let request = UdfRequest {
         path_and_args: ValidatedPathAndArgs::new_for_tests(
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component: ComponentPath::test_user(),
                 udf_path: "path.js:default".parse()?,
             },
             ConvexArray::empty(),

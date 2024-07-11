@@ -1690,7 +1690,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 let udf_path: CanonicalizedUdfPath = request.router_path.path().udf_path.clone();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
-                    ComponentPath::root(),
+                    ComponentPath::TODO(),
                     environment_data,
                     request.identity,
                     request.transaction,

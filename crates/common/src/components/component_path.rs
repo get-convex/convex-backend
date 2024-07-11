@@ -66,12 +66,27 @@ pub struct ComponentPath {
 }
 
 impl ComponentPath {
-    pub fn root() -> Self {
+    pub const fn root() -> Self {
         Self { path: Vec::new() }
     }
 
     pub fn is_root(&self) -> bool {
         self.path.is_empty()
+    }
+
+    /// Use ComponentPath::TODO() when the path should be passed down from a
+    /// higher layer.
+    #[allow(non_snake_case)]
+    pub const fn TODO() -> Self {
+        Self::root()
+    }
+
+    /// Component path to use in tests, representing a user-space component.
+    /// Ideally this could be changed to an arbitrary path and the tests would
+    /// still pass.
+    #[cfg(any(test, feature = "testing"))]
+    pub const fn test_user() -> Self {
+        Self::root()
     }
 
     pub fn parent(&self) -> Option<(Self, ComponentName)> {

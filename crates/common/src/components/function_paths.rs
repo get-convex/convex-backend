@@ -49,7 +49,7 @@ impl ComponentFunctionPath {
 impl From<UdfPath> for ComponentFunctionPath {
     fn from(udf_path: UdfPath) -> Self {
         Self {
-            component: ComponentPath::root(),
+            component: ComponentPath::TODO(),
             udf_path,
         }
     }

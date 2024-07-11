@@ -42,15 +42,15 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
 
     let internal_function = CanonicalizedComponentFunctionPath {
-        component: ComponentPath::root(),
+        component: ComponentPath::test_user(),
         udf_path: CanonicalizedUdfPath::from_str("internal.js:myInternalMutation")?,
     };
     let public_function = CanonicalizedComponentFunctionPath {
-        component: ComponentPath::root(),
+        component: ComponentPath::test_user(),
         udf_path: CanonicalizedUdfPath::from_str("internal.js:publicMutation")?,
     };
     let non_existent_function = CanonicalizedComponentFunctionPath {
-        component: ComponentPath::root(),
+        component: ComponentPath::test_user(),
         udf_path: CanonicalizedUdfPath::from_str("internal.js:doesNotExist")?,
     };
 
