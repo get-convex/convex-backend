@@ -13,7 +13,6 @@ use anyhow::{
     Context,
 };
 use common::{
-    components::ComponentPath,
     errors::JsError,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
@@ -273,9 +272,7 @@ impl AnalyzeEnvironment {
             environment_variables,
         };
         let client_id = Arc::new(client_id);
-        let (handle, state) = isolate
-            .start_request(ComponentPath::TODO(), client_id, environment)
-            .await?;
+        let (handle, state) = isolate.start_request(client_id, environment).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);

@@ -7,7 +7,6 @@ use std::{
 };
 
 use common::{
-    components::ComponentPath,
     knobs::{
         ISOLATE_MAX_HEAP_EXTRA_SIZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
@@ -273,7 +272,6 @@ impl<RT: Runtime> Isolate<RT> {
 
     pub async fn start_request<E: IsolateEnvironment<RT>>(
         &mut self,
-        component: ComponentPath,
         client_id: Arc<String>,
         environment: E,
     ) -> anyhow::Result<(IsolateHandle, RequestState<RT, E>)> {
@@ -295,7 +293,6 @@ impl<RT: Runtime> Isolate<RT> {
             .with_timeout(self.limiter.acquire(client_id))
             .await?;
         let state = RequestState {
-            component,
             rt: self.rt.clone(),
             environment,
             timeout,

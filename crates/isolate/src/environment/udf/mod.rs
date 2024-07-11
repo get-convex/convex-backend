@@ -1,8 +1,5 @@
 use common::{
-    components::{
-        CanonicalizedComponentFunctionPath,
-        ComponentPath,
-    },
+    components::CanonicalizedComponentFunctionPath,
     execution_context::ExecutionContext,
 };
 use futures::{
@@ -389,9 +386,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
         let client_id = Arc::new(client_id);
-        let (handle, state) = isolate
-            .start_request(ComponentPath::TODO(), client_id, self)
-            .await?;
+        let (handle, state) = isolate.start_request(client_id, self).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);

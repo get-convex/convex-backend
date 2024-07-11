@@ -12,10 +12,7 @@ use common::{
         ComponentDefinitionMetadata,
         SerializedComponentDefinitionMetadata,
     },
-    components::{
-        ComponentDefinitionPath,
-        ComponentPath,
-    },
+    components::ComponentDefinitionPath,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
@@ -178,9 +175,7 @@ impl AppDefinitionEvaluator {
             evaluated_definitions: evaluated_components.clone(),
         };
 
-        let (handle, state) = isolate
-            .start_request(ComponentPath::TODO(), client_id.into(), env)
-            .await?;
+        let (handle, state) = isolate.start_request(client_id.into(), env).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
