@@ -408,7 +408,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             },
         };
         self.file_storage
-            .get_url_batch(tx, component.into(), storage_ids)
+            .get_url_batch(tx, component, storage_ids)
             .await
     }
 

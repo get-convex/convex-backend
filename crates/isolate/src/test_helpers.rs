@@ -1279,7 +1279,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     ) -> anyhow::Result<Option<String>> {
         let mut tx = self.database.begin(identity).await?;
         self.file_storage
-            .get_url(&mut tx, component.into(), storage_id)
+            .get_url(&mut tx, component, storage_id)
             .await
     }
 

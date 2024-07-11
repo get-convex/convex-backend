@@ -1,5 +1,6 @@
 use std::{
     ops::Bound,
+    str::FromStr,
     time::Duration,
 };
 
@@ -55,6 +56,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use value::InternalId;
 
 use crate::RouterState;
 
@@ -128,11 +130,16 @@ pub async fn storage_upload(
     }))
 }
 
+#[derive(Deserialize)]
+pub struct GetQueryParams {
+    component: Option<String>,
+}
+
 #[debug_handler]
 pub async fn storage_get(
     State(st): State<RouterState>,
     Path(uuid): Path<String>,
-    // Query(QueryParams { token }): Query<QueryParams>,
+    Query(GetQueryParams { component }): Query<GetQueryParams>,
     range: Result<TypedHeader<Range>, TypedHeaderRejection>,
     Host(host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
@@ -142,7 +149,12 @@ pub async fn storage_get(
         format!("Invalid storage path: \"{uuid}\". Please use `storage.getUrl()` to generate a valid URL to retrieve files. See https://docs.convex.dev/file-storage/serve-files for more details"),
     ))?;
     let file_storage_id = FileStorageId::LegacyStorageId(storage_uuid);
-    let component = ComponentId::TODO();
+    let component = match component {
+        Some(component_str) if !component_str.is_empty() => {
+            ComponentId::Child(InternalId::from_str(&component_str)?)
+        },
+        _ => ComponentId::Root,
+    };
 
     // TODO(CX-3065) figure out deterministic repeatable tokens
 

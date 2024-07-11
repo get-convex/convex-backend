@@ -7,6 +7,7 @@ use std::{
 use anyhow::Context;
 use bytes::Bytes;
 use common::{
+    components::ComponentId,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -96,10 +97,10 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn get_url(
         &self,
         tx: &mut Transaction<RT>,
-        namespace: TableNamespace,
+        component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<String>> {
-        self.get_url_batch(tx, namespace, btreemap! { 0 => storage_id })
+        self.get_url_batch(tx, component, btreemap! { 0 => storage_id })
             .await
             .remove(&0)
             .context("batch_key missing")?
@@ -108,18 +109,29 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     pub async fn get_url_batch(
         &self,
         tx: &mut Transaction<RT>,
-        namespace: TableNamespace,
+        component: ComponentId,
         storage_ids: BTreeMap<BatchKey, FileStorageId>,
     ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>> {
         let origin = &self.convex_origin;
-        let files = self.get_file_entry_batch(tx, namespace, storage_ids).await;
+        let files = self
+            .get_file_entry_batch(tx, component.into(), storage_ids)
+            .await;
+        let component_query = match component {
+            ComponentId::Root => "".to_string(),
+            ComponentId::Child(id) => format!("?component={}", id),
+        };
         files
             .into_iter()
             .map(|(batch_key, result)| {
                 (
                     batch_key,
                     result.map(|file| {
-                        file.map(|entry| format!("{origin}/api/storage/{}", entry.storage_id))
+                        file.map(|entry| {
+                            format!(
+                                "{origin}/api/storage/{}{}",
+                                entry.storage_id, component_query
+                            )
+                        })
                     }),
                 )
             })
