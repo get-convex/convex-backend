@@ -15,6 +15,7 @@ use common::{
     },
     components::{
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
         Reference,
         Resource,
@@ -125,7 +126,7 @@ bar.invokeAction = async (requestId, argsStr) => {
             source_mapped: None,
         },
     );
-    ConfigModel::new(&mut tx)
+    ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             ConfigMetadata::new(),
             vec![module],

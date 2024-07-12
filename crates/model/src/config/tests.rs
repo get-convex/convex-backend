@@ -4,6 +4,7 @@ use std::{
 };
 
 use common::{
+    components::ComponentId,
     db_schema,
     object_validator,
     schemas::{
@@ -75,7 +76,7 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
         None,
     )
     .await?;
-    ConfigModel::new(&mut tx)
+    ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata.clone(),
             vec![module1.clone(), module2.clone()],
@@ -107,10 +108,11 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Fetch it back and it make sure it's there.
     let mut tx = database.begin(Identity::system()).await?;
-    let (config_metadata_read, modules_read, ..) = ConfigModel::new(&mut tx)
-        .get_with_module_source(&UncachedModuleLoader { modules_storage })
-        .await
-        .expect("getting config should succeed");
+    let (config_metadata_read, modules_read, ..) =
+        ConfigModel::new(&mut tx, ComponentId::test_user())
+            .get_with_module_source(&UncachedModuleLoader { modules_storage })
+            .await
+            .expect("getting config should succeed");
     assert_eq!(config_metadata, config_metadata_read);
     assert_eq!(modules_read, vec![module1, module2]);
     database.commit(tx).await?;
@@ -160,7 +162,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
         None,
     )
     .await?;
-    ConfigModel::new(&mut tx)
+    ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata.clone(),
             modules.clone(),
@@ -178,10 +180,11 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
     database.commit(tx).await?;
 
     let mut tx = database.begin(Identity::system()).await?;
-    let (config_metadata_read, modules_read, ..) = ConfigModel::new(&mut tx)
-        .get_with_module_source(&UncachedModuleLoader { modules_storage })
-        .await
-        .expect("getting config should succeed");
+    let (config_metadata_read, modules_read, ..) =
+        ConfigModel::new(&mut tx, ComponentId::test_user())
+            .get_with_module_source(&UncachedModuleLoader { modules_storage })
+            .await
+            .expect("getting config should succeed");
     assert_eq!(config_metadata, config_metadata_read);
     assert_eq!(modules, modules_read);
 
@@ -195,7 +198,7 @@ async fn test_config_delete_auth_info(rt: TestRuntime) -> anyhow::Result<()> {
     // Initialize config
     let mut tx = database.begin(Identity::system()).await?;
     let config_metadata = ConfigMetadata::test_example();
-    ConfigModel::new(&mut tx)
+    ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata,
             vec![],
@@ -209,7 +212,7 @@ async fn test_config_delete_auth_info(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Delete auth info.
     let mut tx = database.begin(Identity::system()).await?;
-    ConfigModel::new(&mut tx)
+    ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             ConfigMetadata {
                 functions: "convex/".to_string(),
@@ -243,7 +246,7 @@ async fn test_schema_in_deployment_audit_log(rt: TestRuntime) -> anyhow::Result<
     // Set a config without a schema
     let mut tx = database.begin(Identity::system()).await?;
     let config_metadata = ConfigMetadata::test_example();
-    ConfigModel::new(&mut tx)
+    ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata.clone(),
             vec![],
@@ -261,7 +264,7 @@ async fn test_schema_in_deployment_audit_log(rt: TestRuntime) -> anyhow::Result<
     let mut model = SchemaModel::new_root_for_test(&mut tx);
     let (first_schema_id, _) = model.submit_pending(first_schema.clone()).await?;
     model.mark_validated(first_schema_id).await?;
-    let (config_diff, schema) = ConfigModel::new(&mut tx)
+    let (config_diff, schema) = ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata.clone(),
             vec![],
@@ -289,7 +292,7 @@ async fn test_schema_in_deployment_audit_log(rt: TestRuntime) -> anyhow::Result<
     );
     let (second_schema_id, _) = model.submit_pending(second_schema.clone()).await?;
     model.mark_validated(second_schema_id).await?;
-    let (config_diff, schema) = ConfigModel::new(&mut tx)
+    let (config_diff, schema) = ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata.clone(),
             vec![],
@@ -308,7 +311,7 @@ async fn test_schema_in_deployment_audit_log(rt: TestRuntime) -> anyhow::Result<
 
     // Remove the schema
     let mut tx = database.begin(Identity::system()).await?;
-    let (config_diff, schema) = ConfigModel::new(&mut tx)
+    let (config_diff, schema) = ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata.clone(),
             vec![],

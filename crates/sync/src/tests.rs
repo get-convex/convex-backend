@@ -8,6 +8,7 @@ use common::{
     assert_obj,
     components::{
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     runtime::{
@@ -93,7 +94,7 @@ impl SyncTest {
                 .await??;
 
             let mut tx = application_.begin(Identity::system()).await?;
-            ConfigModel::new(&mut tx)
+            ConfigModel::new(&mut tx, ComponentId::test_user())
                 .apply(
                     ConfigMetadata::new(),
                     modules,

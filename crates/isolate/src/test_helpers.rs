@@ -343,7 +343,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         )
         .await?;
         let mut tx = database.begin(Identity::system()).await?;
-        ConfigModel::new(&mut tx)
+        ConfigModel::new(&mut tx, ComponentId::test_user())
             .apply(
                 ConfigMetadata::new(),
                 modules,

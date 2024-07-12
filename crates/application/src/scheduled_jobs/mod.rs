@@ -1,4 +1,5 @@
 use std::{
+    cmp,
     collections::{
         BTreeMap,
         HashSet,
@@ -88,10 +89,7 @@ use model::{
 use parking_lot::Mutex;
 use sync_types::Timestamp;
 use usage_tracking::FunctionUsageTracker;
-use value::{
-    ResolvedDocumentId,
-    TableNamespace,
-};
+use value::ResolvedDocumentId;
 
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
@@ -897,51 +895,65 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
     async fn run(&self, backoff: &mut Backoff) -> anyhow::Result<()> {
         loop {
             let mut tx = self.database.begin(Identity::system()).await?;
-            let namespace = TableNamespace::by_component_TODO();
-            let now = self.rt.generate_timestamp()?;
-            let index_query = Query::index_range(IndexRange {
-                index_name: SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
-                range: vec![IndexRangeExpression::Gt(
-                    COMPLETED_TS_FIELD.clone(),
-                    value::ConvexValue::Null,
-                )],
-                order: Order::Asc,
-            })
-            .limit(*SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE);
-            let mut query_stream = ResolvedQuery::new(&mut tx, namespace, index_query)?;
-
+            let namespaces = tx
+                .table_mapping()
+                .namespaces_for_name(&SCHEDULED_JOBS_TABLE);
+            let mut deleted_jobs = false;
             let mut next_job_wait = None;
-            let mut jobs_to_delete = vec![];
-            while let Some(doc) = query_stream.next(&mut tx, None).await? {
-                let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
-                match job.state {
-                    ScheduledJobState::Success => (),
-                    ScheduledJobState::Failed(_) => (),
-                    ScheduledJobState::Canceled => (),
-                    _ => anyhow::bail!("Scheduled job to be garbage collected has the wrong state"),
-                }
+            for namespace in namespaces {
+                let now = self.rt.generate_timestamp()?;
+                let index_query = Query::index_range(IndexRange {
+                    index_name: SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
+                    range: vec![IndexRangeExpression::Gt(
+                        COMPLETED_TS_FIELD.clone(),
+                        value::ConvexValue::Null,
+                    )],
+                    order: Order::Asc,
+                })
+                .limit(*SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE);
+                let mut query_stream = ResolvedQuery::new(&mut tx, namespace, index_query)?;
 
-                let completed_ts = match job.completed_ts {
-                    Some(completed_ts) => completed_ts,
-                    None => {
-                        anyhow::bail!("Could not get completed_ts of finished scheduled job");
-                    },
-                };
-                if completed_ts.add(*SCHEDULED_JOB_RETENTION)? > now {
-                    next_job_wait = Some(completed_ts.add(*SCHEDULED_JOB_RETENTION)? - now);
-                    break;
+                let mut jobs_to_delete = vec![];
+                while let Some(doc) = query_stream.next(&mut tx, None).await? {
+                    let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
+                    match job.state {
+                        ScheduledJobState::Success => (),
+                        ScheduledJobState::Failed(_) => (),
+                        ScheduledJobState::Canceled => (),
+                        _ => anyhow::bail!(
+                            "Scheduled job to be garbage collected has the wrong state"
+                        ),
+                    }
+
+                    let completed_ts = match job.completed_ts {
+                        Some(completed_ts) => completed_ts,
+                        None => {
+                            anyhow::bail!("Could not get completed_ts of finished scheduled job");
+                        },
+                    };
+                    if completed_ts.add(*SCHEDULED_JOB_RETENTION)? > now {
+                        let next_job_wait_ns = completed_ts.add(*SCHEDULED_JOB_RETENTION)? - now;
+                        next_job_wait = match next_job_wait {
+                            Some(next_job_wait) => Some(cmp::min(next_job_wait, next_job_wait_ns)),
+                            None => Some(next_job_wait_ns),
+                        };
+                        break;
+                    }
+                    jobs_to_delete.push(job.id());
                 }
-                jobs_to_delete.push(job.id());
+                if !jobs_to_delete.is_empty() {
+                    tracing::debug!(
+                        "Garbage collecting {} finished scheduled jobs",
+                        jobs_to_delete.len()
+                    );
+                    let mut model = SchedulerModel::new(&mut tx, namespace);
+                    for job_id in jobs_to_delete {
+                        model.delete(job_id).await?;
+                    }
+                    deleted_jobs = true;
+                }
             }
-            if !jobs_to_delete.is_empty() {
-                tracing::debug!(
-                    "Garbage collecting {} finished scheduled jobs",
-                    jobs_to_delete.len()
-                );
-                let mut model = SchedulerModel::new(&mut tx, namespace);
-                for job_id in jobs_to_delete {
-                    model.delete(job_id).await?;
-                }
+            if deleted_jobs {
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_gc")
                     .await?;

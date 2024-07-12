@@ -338,7 +338,7 @@ impl<RT: Runtime> Application<RT> {
             .await??;
         let schema_id = insert_validated_schema(&mut tx).await?;
 
-        ConfigModel::new(&mut tx)
+        ConfigModel::new(&mut tx, ComponentId::test_user())
             .apply(
                 ConfigMetadata::new(),
                 test_source.clone(),

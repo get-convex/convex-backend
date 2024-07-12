@@ -6,6 +6,7 @@ use std::{
 
 use common::{
     bootstrap_model::schema::SchemaState,
+    components::ComponentId,
     persistence::{
         NoopRetentionValidator,
         Persistence,
@@ -173,7 +174,7 @@ pub async fn apply_config(
     };
 
     let mut tx = db.begin_system().await?;
-    ConfigModel::new(&mut tx)
+    ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata,
             vec![],

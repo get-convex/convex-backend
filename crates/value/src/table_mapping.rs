@@ -114,6 +114,13 @@ impl TableMapping {
             })
     }
 
+    pub fn namespaces_for_name(&self, name: &TableName) -> Vec<TableNamespace> {
+        self.iter()
+            .filter(|(_, _, _, table_name)| *table_name == name)
+            .map(|(_, namespace, ..)| namespace)
+            .collect()
+    }
+
     pub fn insert(
         &mut self,
         tablet_id: TabletId,

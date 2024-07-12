@@ -1758,7 +1758,7 @@ impl<RT: Runtime> Application<RT> {
 
         let config_metadata = ConfigMetadata::from_file(config_file, auth_providers);
 
-        let (config_diff, schema) = ConfigModel::new(tx)
+        let (config_diff, schema) = ConfigModel::new(tx, ComponentId::TODO())
             .apply(
                 config_metadata.clone(),
                 modules,

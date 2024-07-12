@@ -28,10 +28,7 @@ use database::{
     Transaction,
 };
 use sync_types::CanonicalizedModulePath;
-use value::{
-    ResolvedDocumentId,
-    TableNamespace,
-};
+use value::ResolvedDocumentId;
 
 use self::module_loader::ModuleLoader;
 use crate::{
@@ -60,11 +57,12 @@ use crate::{
 
 pub struct ConfigModel<'a, RT: Runtime> {
     pub tx: &'a mut Transaction<RT>,
+    component: ComponentId,
 }
 
 impl<'a, RT: Runtime> ConfigModel<'a, RT> {
-    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
-        Self { tx }
+    pub fn new(tx: &'a mut Transaction<RT>, component: ComponentId) -> Self {
+        Self { tx, component }
     }
 
     #[minitrace::trace]
@@ -84,41 +82,34 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
 
         let source_package_id = match source_package {
             Some(source_package) => Some(
-                SourcePackageModel::new(self.tx, TableNamespace::by_component_TODO())
+                SourcePackageModel::new(self.tx, self.component.into())
                     .put(source_package)
                     .await?,
             ),
             None => None,
         };
 
-        let cron_diff = CronModel::new(self.tx, ComponentId::TODO())
+        let cron_diff = CronModel::new(self.tx, self.component)
             .apply(&analyze_results)
             .await?;
 
-        let (schema_diff, next_schema) =
-            SchemaModel::new(self.tx, TableNamespace::by_component_TODO())
-                .apply(schema_id)
-                .await?;
+        let (schema_diff, next_schema) = SchemaModel::new(self.tx, self.component.into())
+            .apply(schema_id)
+            .await?;
 
         let index_diff = IndexModel::new(self.tx)
-            .apply(TableNamespace::by_component_TODO(), &next_schema)
+            .apply(self.component.into(), &next_schema)
             .await?;
 
         let module_diff = ModuleModel::new(self.tx)
-            .apply(
-                ComponentId::TODO(),
-                modules,
-                source_package_id,
-                analyze_results,
-            )
+            .apply(self.component, modules, source_package_id, analyze_results)
             .await?;
 
         // Update auth info.
         let auth_diff = AuthInfoModel::new(self.tx).put(config.auth_info).await?;
-        let udf_server_version_diff =
-            UdfConfigModel::new(self.tx, TableNamespace::by_component_TODO())
-                .set(new_config)
-                .await?;
+        let udf_server_version_diff = UdfConfigModel::new(self.tx, self.component.into())
+            .set(new_config)
+            .await?;
         let config_diff = ConfigDiff {
             module_diff,
             auth_diff,
@@ -148,7 +139,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules: Vec<_> = ModuleModel::new(self.tx)
-            .get_application_modules(ComponentId::TODO(), module_loader)
+            .get_application_modules(self.component, module_loader)
             .await?
             .into_values()
             .collect();
@@ -162,7 +153,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             config.auth_info = auth_info.into_iter().map(|doc| doc.into_value()).collect();
         }
 
-        let udf_config = UdfConfigModel::new(self.tx, TableNamespace::by_component_TODO())
+        let udf_config = UdfConfigModel::new(self.tx, self.component.into())
             .get()
             .await?
             .map(|u| u.into_value());
@@ -186,7 +177,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         }
         let mut config = ConfigMetadata::new();
         let modules = ModuleModel::new(self.tx)
-            .get_application_metadata(ComponentId::TODO())
+            .get_application_metadata(self.component)
             .await?;
 
         // If we have an auth config module do not include auth_info in the config
@@ -198,7 +189,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
             config.auth_info = auth_info.into_iter().map(|doc| doc.into_value()).collect();
         }
 
-        let udf_config = UdfConfigModel::new(self.tx, TableNamespace::by_component_TODO())
+        let udf_config = UdfConfigModel::new(self.tx, self.component.into())
             .get()
             .await?
             .map(|u| u.into_value());

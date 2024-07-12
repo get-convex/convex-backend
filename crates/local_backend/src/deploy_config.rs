@@ -21,6 +21,7 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
+    components::ComponentId,
     http::{
         extract::Json,
         HttpResponseError,
@@ -304,7 +305,7 @@ pub async fn get_config(
     .await?;
 
     let mut tx = st.application.begin(identity).await?;
-    let (config, modules, udf_config) = ConfigModel::new(&mut tx)
+    let (config, modules, udf_config) = ConfigModel::new(&mut tx, ComponentId::TODO())
         .get_with_module_source(st.application.modules_cache())
         .await?;
     let config = ConvexObject::try_from(config)?;
@@ -334,8 +335,9 @@ pub async fn get_config_hashes(
     .await?;
 
     let mut tx = st.application.begin(identity).await?;
-    let (config, modules, udf_config) =
-        ConfigModel::new(&mut tx).get_with_module_metadata().await?;
+    let (config, modules, udf_config) = ConfigModel::new(&mut tx, ComponentId::TODO())
+        .get_with_module_metadata()
+        .await?;
     let module_hashes: Vec<_> = modules
         .into_iter()
         .map(|m| ModuleHashJson {

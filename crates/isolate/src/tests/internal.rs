@@ -6,6 +6,7 @@ use std::{
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     types::{
@@ -57,9 +58,10 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let post_internal_npm_version = Version::parse("1.0.0").unwrap();
 
     let mut tx = t.database.begin(Identity::system()).await?;
-    let (config_metadata, module_configs, _udf_config) = ConfigModel::new(&mut tx)
-        .get_with_module_source(t.module_loader.as_ref())
-        .await?;
+    let (config_metadata, module_configs, _udf_config) =
+        ConfigModel::new(&mut tx, ComponentId::test_user())
+            .get_with_module_source(t.module_loader.as_ref())
+            .await?;
     let modules_by_path = module_configs
         .iter()
         .map(|c| (c.path.clone().canonicalize(), c.clone()))
@@ -78,7 +80,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
 
     // Newer version + analyze results
     tx = t.database.begin(Identity::system()).await?;
-    ConfigModel::new(&mut tx)
+    ConfigModel::new(&mut tx, ComponentId::test_user())
         .apply(
             config_metadata.clone(),
             module_configs.clone(),
