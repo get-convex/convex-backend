@@ -115,8 +115,12 @@ impl FivetranDestination for ConvexFivetranDestination {
         request: Request<DescribeTableRequest>,
     ) -> DestinationResult<DescribeTableResponse> {
         log(&format!("describe table request"));
-        let inner = request.into_inner();
-        let config = match Config::from_parameters(inner.configuration, self.allow_all_hosts) {
+        let DescribeTableRequest {
+            configuration,
+            schema_name,
+            table_name,
+        } = request.into_inner();
+        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(DescribeTableResponse {
@@ -126,11 +130,12 @@ impl FivetranDestination for ConvexFivetranDestination {
                 }));
             },
         };
+        let table_name = fivetran_req_to_table_name(schema_name, table_name);
         log(&format!("describe table request for {}", config.deploy_url));
         let destination = ConvexApi { config };
 
         Ok(Response::new(DescribeTableResponse {
-            response: Some(match describe_table(destination, inner.table_name).await {
+            response: Some(match describe_table(destination, table_name).await {
                 Ok(_DescribeTableResponse::NotFound) => {
                     log("Successful describe table request (table not found)");
                     describe_table_response::Response::NotFound(true)
@@ -152,8 +157,12 @@ impl FivetranDestination for ConvexFivetranDestination {
         request: Request<CreateTableRequest>,
     ) -> DestinationResult<CreateTableResponse> {
         log(&format!("create table request"));
-        let inner = request.into_inner();
-        let config = match Config::from_parameters(inner.configuration, self.allow_all_hosts) {
+        let CreateTableRequest {
+            configuration,
+            schema_name,
+            table,
+        } = request.into_inner();
+        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(CreateTableResponse {
@@ -164,13 +173,14 @@ impl FivetranDestination for ConvexFivetranDestination {
         log(&format!("create table request for {}", config.deploy_url));
         let destination = ConvexApi { config };
 
-        let Some(table) = inner.table else {
+        let Some(mut table) = table else {
             return Ok(Response::new(CreateTableResponse {
                 response: Some(create_table_response::Response::Failure(
                     "Missing table argument".to_string(),
                 )),
             }));
         };
+        table.name = fivetran_req_to_table_name(schema_name, table.name);
 
         Ok(Response::new(CreateTableResponse {
             response: Some(match create_table(destination, table).await {
@@ -191,8 +201,12 @@ impl FivetranDestination for ConvexFivetranDestination {
         request: Request<AlterTableRequest>,
     ) -> DestinationResult<AlterTableResponse> {
         log(&format!("alter table request"));
-        let inner = request.into_inner();
-        let config = match Config::from_parameters(inner.configuration, self.allow_all_hosts) {
+        let AlterTableRequest {
+            configuration,
+            schema_name,
+            table,
+        } = request.into_inner();
+        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(AlterTableResponse {
@@ -203,13 +217,14 @@ impl FivetranDestination for ConvexFivetranDestination {
         log(&format!("alter table request for {}", config.deploy_url));
         let destination = ConvexApi { config };
 
-        let Some(table) = inner.table else {
+        let Some(mut table) = table else {
             return Ok(Response::new(AlterTableResponse {
                 response: Some(alter_table_response::Response::Failure(
                     "Missing table argument".to_string(),
                 )),
             }));
         };
+        table.name = fivetran_req_to_table_name(schema_name, table.name);
 
         Ok(Response::new(AlterTableResponse {
             response: Some(match alter_table(destination, table).await {
@@ -230,8 +245,15 @@ impl FivetranDestination for ConvexFivetranDestination {
         request: Request<TruncateRequest>,
     ) -> DestinationResult<TruncateResponse> {
         log(&format!("truncate request"));
-        let inner = request.into_inner();
-        let config = match Config::from_parameters(inner.configuration, self.allow_all_hosts) {
+        let TruncateRequest {
+            configuration,
+            schema_name,
+            table_name,
+            synced_column: _,
+            utc_delete_before,
+            soft,
+        } = request.into_inner();
+        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(TruncateResponse {
@@ -239,6 +261,7 @@ impl FivetranDestination for ConvexFivetranDestination {
                 }));
             },
         };
+        let table_name = fivetran_req_to_table_name(schema_name, table_name);
         log(&format!("truncate request for {}", config.deploy_url));
         let destination = ConvexApi { config };
 
@@ -246,11 +269,11 @@ impl FivetranDestination for ConvexFivetranDestination {
             response: Some(
                 match truncate(
                     destination,
-                    inner.table_name,
-                    inner.utc_delete_before.map(|Timestamp { seconds, nanos }| {
+                    table_name,
+                    utc_delete_before.map(|Timestamp { seconds, nanos }| {
                         DateTime::from_timestamp(seconds, nanos as u32).expect("Invalid timestamp")
                     }),
-                    match inner.soft {
+                    match soft {
                         Some(_) => DeleteType::SoftDelete,
                         None => DeleteType::HardDelete,
                     },
@@ -275,8 +298,17 @@ impl FivetranDestination for ConvexFivetranDestination {
         request: Request<WriteBatchRequest>,
     ) -> DestinationResult<WriteBatchResponse> {
         log(&format!("write batch request"));
-        let inner = request.into_inner();
-        let config = match Config::from_parameters(inner.configuration, self.allow_all_hosts) {
+        let WriteBatchRequest {
+            configuration,
+            schema_name,
+            table,
+            keys,
+            replace_files,
+            update_files,
+            delete_files,
+            file_params,
+        } = request.into_inner();
+        let config = match Config::from_parameters(configuration, self.allow_all_hosts) {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(WriteBatchResponse {
@@ -287,15 +319,16 @@ impl FivetranDestination for ConvexFivetranDestination {
         log(&format!("write batch request for {}", config.deploy_url));
         let destination = ConvexApi { config };
 
-        let Some(table) = inner.table else {
+        let Some(mut table) = table else {
             return Ok(Response::new(WriteBatchResponse {
                 response: Some(write_batch_response::Response::Failure(
                     "Missing table argument".to_string(),
                 )),
             }));
         };
+        table.name = fivetran_req_to_table_name(schema_name, table.name);
 
-        let Some(FileParams::Csv(csv_file_params)) = inner.file_params else {
+        let Some(FileParams::Csv(csv_file_params)) = file_params else {
             return Ok(Response::new(WriteBatchResponse {
                 response: Some(write_batch_response::Response::Failure(
                     "Missing file_params argument".to_string(),
@@ -308,10 +341,10 @@ impl FivetranDestination for ConvexFivetranDestination {
                 match write_batch(
                     destination,
                     table,
-                    inner.keys,
-                    inner.replace_files,
-                    inner.update_files,
-                    inner.delete_files,
+                    keys,
+                    replace_files,
+                    update_files,
+                    delete_files,
                     csv_file_params,
                 )
                 .await
@@ -328,4 +361,8 @@ impl FivetranDestination for ConvexFivetranDestination {
             ),
         }))
     }
+}
+
+fn fivetran_req_to_table_name(fivetran_schema_name: String, fivetran_table_name: String) -> String {
+    format!("{fivetran_schema_name}_{fivetran_table_name}")
 }
