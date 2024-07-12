@@ -89,9 +89,12 @@ use value::{
     TableMappingValue,
 };
 
-pub use self::task::{
-    TaskResponse,
-    TaskResponseEnum,
+pub use self::{
+    async_syscall::parse_name_or_reference,
+    task::{
+        TaskResponse,
+        TaskResponseEnum,
+    },
 };
 use self::{
     outcome::{

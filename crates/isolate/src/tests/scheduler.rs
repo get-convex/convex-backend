@@ -185,7 +185,7 @@ async fn test_schedule_missing_function(rt: TestRuntime) -> anyhow::Result<()> {
         assert_contains(
             &err,
             "Attempted to schedule function, but no exported function missing_export found in the \
-             file: basic. Did you forget to export it?",
+             file: basic.js. Did you forget to export it?",
         );
 
         Ok(())

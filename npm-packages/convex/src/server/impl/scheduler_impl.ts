@@ -3,9 +3,9 @@ import { version } from "../../index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
 import { SchedulableFunctionReference, Scheduler } from "../scheduler.js";
-import { getFunctionName } from "../../server/api.js";
 import { Id } from "../../values/value.js";
 import { validateArg } from "./validate.js";
+import { getFunctionAddress } from "./actions_impl.js";
 
 export function setupMutationScheduler(): Scheduler {
   return {
@@ -84,11 +84,11 @@ function runAfterSyscallArgs(
     throw new Error("`delayMs` must be non-negative");
   }
   const functionArgs = parseArgs(args);
-  const name = getFunctionName(functionReference);
+  const address = getFunctionAddress(functionReference);
   // Note the syscall expects a unix timestamp, measured in seconds.
   const ts = (Date.now() + delayMs) / 1000.0;
   return {
-    name,
+    ...address,
     ts,
     args: convexToJson(functionArgs),
     version,
@@ -110,10 +110,10 @@ function runAtSyscallArgs(
   } else {
     throw new Error("The invoke time must a Date or a timestamp");
   }
-  const name = getFunctionName(functionReference);
+  const address = getFunctionAddress(functionReference);
   const functionArgs = parseArgs(args);
   return {
-    name,
+    ...address,
     ts,
     args: convexToJson(functionArgs),
     version,

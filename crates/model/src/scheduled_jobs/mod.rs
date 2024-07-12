@@ -7,7 +7,10 @@ use std::{
 };
 
 use common::{
-    components::CanonicalizedComponentFunctionPath,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentFunctionPath,
+    },
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -42,10 +45,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use maplit::btreemap;
-use sync_types::{
-    Timestamp,
-    UdfPath,
-};
+use sync_types::Timestamp;
 use value::{
     id_v6::DeveloperDocumentId,
     ConvexArray,
@@ -203,12 +203,12 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
     pub async fn schedule(
         &mut self,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        if udf_path.is_system()
+        if path.udf_path.is_system()
             && !(self.tx.identity().is_admin() || self.tx.identity().is_system())
         {
             anyhow::bail!(unauthorized_error("schedule"))
@@ -219,7 +219,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         let now: Timestamp = self.tx.runtime().generate_timestamp()?;
         let original_scheduled_ts: Timestamp = ts.as_system_time().try_into()?;
         let scheduled_job = ScheduledJob {
-            udf_path: udf_path.clone().canonicalize(),
+            path: path.clone().canonicalize(),
             udf_args: args.clone(),
             state: ScheduledJobState::Pending,
             // Don't set next_ts in the past to avoid scheduler incorrectly logging
@@ -245,7 +245,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                     ScheduledJobState::Canceled => {
                         let scheduled_ts = self.tx.begin_timestamp();
                         ScheduledJob {
-                            udf_path: udf_path.canonicalize(),
+                            path: path.canonicalize(),
                             udf_args: args,
                             state: ScheduledJobState::Canceled,
                             next_ts: None,
@@ -465,13 +465,13 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
 
     pub async fn schedule(
         &mut self,
-        udf_path: UdfPath,
+        path: ComponentFunctionPath,
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let system_id = SchedulerModel::new(self.tx, self.namespace)
-            .schedule(udf_path, args, ts, context)
+            .schedule(path, args, ts, context)
             .await?;
         let table_mapping = self.tx.table_mapping().clone();
         let virtual_table_mapping = self.tx.virtual_table_mapping().clone();

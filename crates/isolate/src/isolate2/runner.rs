@@ -11,7 +11,9 @@ use common::{
         CanonicalizedComponentModulePath,
         ComponentFunctionPath,
         ComponentId,
+        ComponentPath,
         Reference,
+        Resource,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -942,6 +944,18 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
         _args: ConvexObject,
     ) -> anyhow::Result<ConvexValue> {
         todo!();
+    }
+
+    async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource> {
+        let resource = match reference {
+            Reference::ComponentArgument { .. } => todo!(),
+            Reference::Function(udf_path) => Resource::Function(ComponentFunctionPath {
+                component: ComponentPath::TODO(),
+                udf_path,
+            }),
+            Reference::ChildComponent { .. } => todo!(),
+        };
+        Ok(resource)
     }
 }
 

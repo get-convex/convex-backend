@@ -82,12 +82,15 @@ use value::{
 use super::DatabaseUdfEnvironment;
 use crate::{
     client::EnvironmentData,
-    environment::helpers::{
-        parse_version,
-        syscall_error::clone_error_for_batch,
-        validation::validate_schedule_args,
-        with_argument_error,
-        ArgName,
+    environment::{
+        action::parse_name_or_reference,
+        helpers::{
+            parse_version,
+            syscall_error::clone_error_for_batch,
+            validation::validate_schedule_args,
+            with_argument_error,
+            ArgName,
+        },
     },
     helpers::UdfArgsJson,
     isolate2::client::QueryId,
@@ -295,6 +298,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
         reference: Reference,
         args: ConvexObject,
     ) -> anyhow::Result<ConvexValue>;
+    async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource>;
 }
 
 impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
@@ -451,13 +455,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 ));
             },
         }
-        let current_component_id = self.component()?;
+        let resource = self.resolve(reference).await?;
 
         let tx = self.phase.tx()?;
 
-        let resource = ComponentsModel::new(tx)
-            .resolve(current_component_id, &reference)
-            .await?;
         let function_path = match resource {
             Resource::Value(_) => {
                 anyhow::bail!(ErrorMetadata::bad_request(
@@ -541,6 +542,16 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
         }
         Ok(result)
+    }
+
+    async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource> {
+        let current_component_id = self.component()?;
+
+        let tx = self.phase.tx()?;
+
+        ComponentsModel::new(tx)
+            .resolve(current_component_id, &reference)
+            .await
     }
 }
 
@@ -774,37 +785,46 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct ScheduleArgs {
-            name: String,
+            name: Option<String>,
+            reference: Option<String>,
             ts: f64,
             args: UdfArgsJson,
         }
 
-        let ScheduleArgs { name, ts, args }: ScheduleArgs =
-            with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
-        let udf_path = with_argument_error("scheduler", || name.parse().context(ArgName("name")))?;
+        let ScheduleArgs {
+            name,
+            reference,
+            ts,
+            args,
+        }: ScheduleArgs = with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
+        let reference = with_argument_error("scheduler", || {
+            parse_name_or_reference(name, reference).context(ArgName("name"))
+        })?;
 
-        // TODO(lee) allow scheduling functions in other components.
-        let component_id = provider.component()?;
-        let component_path = BootstrapComponentsModel::new(provider.tx()?)
-            .get_component_path(component_id)
-            .await?;
-        let path = ComponentFunctionPath {
-            component: component_path,
-            udf_path,
+        let path = match provider.resolve(reference).await? {
+            Resource::Value(v) => {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "InvalidResource",
+                    format!(
+                        "Only functions can be scheduled. {} is not a function",
+                        JsonValue::from(v)
+                    ),
+                ));
+            },
+            Resource::Function(p) => p.canonicalize(),
         };
+
+        let scheduling_component = provider.component()?;
 
         let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
         let (path, udf_args) = provider
-            .validate_schedule_args(path, args.into_arg_vec(), scheduled_ts)
+            .validate_schedule_args(path.into(), args.into_arg_vec(), scheduled_ts)
             .await?;
 
         let context = provider.context().clone();
         let tx = provider.tx()?;
-        let (_, component_id) = BootstrapComponentsModel::new(tx)
-            .component_path_to_ids(path.component)
-            .await?;
-        let virtual_id = VirtualSchedulerModel::new(tx, component_id.into())
-            .schedule(path.udf_path, udf_args, scheduled_ts, context)
+        let virtual_id = VirtualSchedulerModel::new(tx, scheduling_component.into())
+            .schedule(path, udf_args, scheduled_ts, context)
             .await?;
 
         Ok(JsonValue::from(virtual_id))

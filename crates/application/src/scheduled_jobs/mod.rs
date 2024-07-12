@@ -10,7 +10,6 @@ use std::{
 
 use common::{
     backoff::Backoff,
-    components::CanonicalizedComponentFunctionPath,
     document::ParsedDocument,
     errors::{
         report_error,
@@ -72,7 +71,6 @@ use keybroker::Identity;
 use minitrace::future::FutureExt as _;
 use model::{
     backend_state::BackendStateModel,
-    components::ComponentsModel,
     modules::ModuleModel,
     scheduled_jobs::{
         types::{
@@ -493,22 +491,20 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             return Ok(());
         }
 
-        tracing::info!("Executing {:?}!", job.udf_path);
+        tracing::info!(
+            "Executing '{}'{}!",
+            job.path.udf_path,
+            job.path.component.in_component_str()
+        );
         let identity = tx.inert_identity();
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
-        let component_path = ComponentsModel::new(&mut tx)
-            .get_component_path_for_namespace(namespace)
-            .await?;
 
         // Since we don't specify the function type when we schedule, we have to
         // use the analyzed result.
         let caller = FunctionCaller::Scheduler {
             job_id: job_id.into(),
         };
-        let path = CanonicalizedComponentFunctionPath {
-            component: component_path,
-            udf_path: job.udf_path.clone(),
-        };
+        let path = job.path.clone();
         let udf_type = match ModuleModel::new(&mut tx)
             .get_analyzed_function(&path)
             .await?
@@ -555,10 +551,11 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             },
             udf_type => {
                 let message = format!(
-                    r#"Unsupported function type. {:?} in module "{:?} is defined as a {udf_type}. "
+                    r#"Unsupported function type. {:?} in module "{:?}"{} is defined as a {udf_type}. "
                             "Only {} and {} can be scheduled."#,
-                    job.udf_path.function_name(),
-                    job.udf_path.module(),
+                    path.udf_path.function_name(),
+                    path.udf_path.module(),
+                    path.component.in_component_str(),
                     UdfType::Mutation,
                     UdfType::Action,
                 );
@@ -629,13 +626,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let context = ExecutionContext::new(request_id, &caller);
         let identity = tx.inert_identity();
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
-        let component_path = ComponentsModel::new(&mut tx)
-            .get_component_path_for_namespace(namespace)
-            .await?;
-        let path = CanonicalizedComponentFunctionPath {
-            component: component_path,
-            udf_path: job.udf_path.clone(),
-        };
+        let path = job.path.clone();
 
         // Mark the scheduled job as `InProgress`` in the current transaction.
         // Note that since we mark the job as complete on success before committing
@@ -741,9 +732,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let identity = tx.identity().clone();
         let mut tx = self.database.begin(identity.clone()).await?;
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
-        let component_path = ComponentsModel::new(&mut tx)
-            .get_component_path_for_namespace(namespace)
-            .await?;
         match job.state {
             ScheduledJobState::Pending => {
                 // Set state to in progress
@@ -758,10 +746,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
 
                 // Execute the action
                 let context = ExecutionContext::new(request_id, &caller);
-                let path = CanonicalizedComponentFunctionPath {
-                    component: component_path,
-                    udf_path: job.udf_path.clone(),
-                };
+                let path = job.path.clone();
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
@@ -811,10 +796,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 // guess the correct behavior here is to store the executionId in the state so
                 // we can log correctly here.
                 let context = ExecutionContext::new(request_id, &caller);
-                let path = CanonicalizedComponentFunctionPath {
-                    component: component_path,
-                    udf_path: job.udf_path.clone(),
-                };
+                let path = job.path.clone();
                 self.function_log.log_action_system_error(
                     &JsError::from_message(message).into(),
                     path,

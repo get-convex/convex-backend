@@ -10,6 +10,16 @@ function syscallArgs(
   functionReference: any,
   args?: Record<string, Value>,
 ) {
+  const address = getFunctionAddress(functionReference);
+  return {
+    ...address,
+    args: convexToJson(parseArgs(args)),
+    version,
+    requestId,
+  };
+}
+
+export function getFunctionAddress(functionReference: any) {
   // The `run*` syscalls expect either a UDF path at "name" or a serialized
   // reference at "reference". Dispatch on `functionReference` to coerce
   // it to one ore the other.
@@ -32,12 +42,7 @@ function syscallArgs(
     }
     functionAddress = { reference: referencePath };
   }
-  return {
-    ...functionAddress,
-    args: convexToJson(parseArgs(args)),
-    version,
-    requestId,
-  };
+  return functionAddress;
 }
 
 export function setupActionCalls(requestId: string) {

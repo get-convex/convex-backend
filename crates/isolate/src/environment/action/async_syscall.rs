@@ -212,6 +212,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .action_callbacks
             .schedule_job(
                 self.identity.clone(),
+                self.component_id()?,
                 path,
                 args.into_arg_vec(),
                 scheduled_ts,
@@ -352,7 +353,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     }
 }
 
-fn parse_name_or_reference(
+pub fn parse_name_or_reference(
     name: Option<String>,
     reference: Option<String>,
 ) -> anyhow::Result<Reference> {

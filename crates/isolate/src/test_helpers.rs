@@ -58,7 +58,6 @@ use database::{
     },
     text_index_worker::flusher::backfill_text_indexes,
     vector_index_worker::flusher::backfill_vector_indexes,
-    BootstrapComponentsModel,
     Database,
     FollowerRetentionManager,
     IndexModel,
@@ -1327,14 +1326,15 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn schedule_job(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        scheduling_component: ComponentId,
+        scheduled_path: ComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
     ) -> anyhow::Result<DeveloperDocumentId> {
         let mut tx: database::Transaction<RT> = self.database.begin(identity).await?;
-        let (path, udf_args) = validate_schedule_args(
-            path,
+        let (scheduled_path, udf_args) = validate_schedule_args(
+            scheduled_path,
             udf_args,
             scheduled_ts,
             // Scheduling from actions is not transaction and happens at latest
@@ -1343,12 +1343,9 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
             &mut tx,
         )
         .await?;
-        let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids(path.component.clone())
-            .await?;
 
-        let virtual_id = VirtualSchedulerModel::new(&mut tx, component_id.into())
-            .schedule(path.udf_path, udf_args, scheduled_ts, context)
+        let virtual_id = VirtualSchedulerModel::new(&mut tx, scheduling_component.into())
+            .schedule(scheduled_path, udf_args, scheduled_ts, context)
             .await?;
         self.database.commit(tx).await?;
 

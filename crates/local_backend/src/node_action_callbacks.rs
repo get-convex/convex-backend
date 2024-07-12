@@ -260,6 +260,7 @@ pub async fn schedule_job(
         .runner()
         .schedule_job(
             identity,
+            ComponentId::TODO(),
             ComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,

@@ -81,7 +81,7 @@ async fn create_scheduled_job<'a>(
     let mut model = SchedulerModel::new(tx, component.into());
     let job_id = model
         .schedule(
-            path.udf_path.clone(),
+            path.clone(),
             parse_udf_args(&path, vec![JsonValue::Object(map)])?,
             rt.unix_timestamp(),
             ExecutionContext::new_for_test(),

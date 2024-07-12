@@ -338,7 +338,8 @@ pub trait ActionCallbacks: Send + Sync {
     async fn schedule_job(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        scheduling_component: ComponentId,
+        scheduled_path: ComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,

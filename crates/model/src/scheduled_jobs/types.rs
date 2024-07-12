@@ -1,4 +1,10 @@
-use common::types::Timestamp;
+use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentPath,
+    },
+    types::Timestamp,
+};
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde::{
@@ -7,7 +13,6 @@ use serde::{
 };
 use serde_bytes::ByteBuf;
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedUdfPath;
 use value::{
     codegen_convex_serialization,
     ConvexArray,
@@ -16,7 +21,10 @@ use value::{
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ScheduledJob {
-    pub udf_path: CanonicalizedUdfPath,
+    /// This ScheduledJob lives the queue / _scheduled_jobs table of the
+    /// component that scheduled it. But it can run jobs in a different
+    /// component.
+    pub path: CanonicalizedComponentFunctionPath,
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(strategy = "proptest::arbitrary::any_with::<ConvexArray>((0..4).into())")
@@ -42,6 +50,7 @@ pub struct ScheduledJob {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SerializedScheduledJob {
+    component: Option<String>,
     udf_path: String,
     udf_args: ByteBuf,
     state: SerializedScheduledJobState,
@@ -60,7 +69,8 @@ impl TryFrom<ScheduledJob> for SerializedScheduledJob {
         let udf_args_json = JsonValue::from(job.udf_args);
         let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
         Ok(SerializedScheduledJob {
-            udf_path: String::from(job.udf_path),
+            component: Some(String::from(job.path.component)),
+            udf_path: String::from(job.path.udf_path),
             udf_args: ByteBuf::from(udf_args_bytes),
             state: job.state.try_into()?,
             next_ts: job.next_ts.map(|ts| ts.into()),
@@ -75,6 +85,11 @@ impl TryFrom<SerializedScheduledJob> for ScheduledJob {
     type Error = anyhow::Error;
 
     fn try_from(value: SerializedScheduledJob) -> anyhow::Result<Self> {
+        let component = value
+            .component
+            .map(|p| p.parse())
+            .transpose()?
+            .unwrap_or_else(ComponentPath::root);
         let udf_path = value.udf_path.parse()?;
         let udf_args_json: JsonValue = serde_json::from_slice(&value.udf_args)?;
         let udf_args = udf_args_json.try_into()?;
@@ -95,7 +110,10 @@ impl TryFrom<SerializedScheduledJob> for ScheduledJob {
         };
 
         Ok(ScheduledJob {
-            udf_path,
+            path: CanonicalizedComponentFunctionPath {
+                component,
+                udf_path,
+            },
             udf_args,
             state,
             next_ts,

@@ -2159,7 +2159,8 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn schedule_job(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        scheduling_component: ComponentId,
+        scheduled_path: ComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,
@@ -2172,7 +2173,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 PauseClient::new(),
                 "app_funrun_schedule_job",
                 |tx| {
-                    let path = path.clone();
+                    let path = scheduled_path.clone();
                     let args = udf_args.clone();
                     let context = context.clone();
                     async move {
@@ -2186,12 +2187,10 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                             tx,
                         )
                         .await?;
-                        let (_, component) = BootstrapComponentsModel::new(tx)
-                            .component_path_to_ids(path.component.clone())
-                            .await?;
-                        let virtual_id = VirtualSchedulerModel::new(tx, component.into())
-                            .schedule(path.udf_path, udf_args, scheduled_ts, context)
-                            .await?;
+                        let virtual_id =
+                            VirtualSchedulerModel::new(tx, scheduling_component.into())
+                                .schedule(path, udf_args, scheduled_ts, context)
+                                .await?;
                         Ok(virtual_id)
                     }
                     .into()

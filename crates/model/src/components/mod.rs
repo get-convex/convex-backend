@@ -13,7 +13,6 @@ use common::{
         ComponentType,
     },
     components::{
-        CanonicalizedComponentModulePath,
         ComponentFunctionPath,
         ComponentId,
         ComponentPath,
@@ -77,42 +76,6 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                 let mut m = BootstrapComponentsModel::new(self.tx);
                 let component_path = m.get_component_path(component_id).await?;
 
-                let canonicalized = udf_path.clone().canonicalize();
-                let module_path = CanonicalizedComponentModulePath {
-                    component: component_id,
-                    module_path: canonicalized.module().clone(),
-                };
-                let module_metadata = ModuleModel::new(self.tx)
-                    .get_metadata(module_path)
-                    .await?
-                    .ok_or_else(|| {
-                        ErrorMetadata::bad_request(
-                            "InvalidReference",
-                            format!(
-                                "Module {:?}{} not found",
-                                udf_path.module(),
-                                component_path.in_component_str()
-                            ),
-                        )
-                    })?;
-                let analyze_result = module_metadata
-                    .analyze_result
-                    .as_ref()
-                    .context("Module missing analyze result?")?;
-                let function_found = analyze_result
-                    .functions
-                    .iter()
-                    .any(|f| &f.name == canonicalized.function_name());
-                if !function_found {
-                    anyhow::bail!(ErrorMetadata::bad_request(
-                        "InvalidReference",
-                        format!(
-                            "Function {:?} not found in {:?}",
-                            udf_path.function_name(),
-                            udf_path.module()
-                        ),
-                    ));
-                }
                 let path = ComponentFunctionPath {
                     component: component_path,
                     udf_path: udf_path.clone(),
