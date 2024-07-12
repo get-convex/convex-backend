@@ -5,6 +5,7 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
+    components::ComponentId,
     http::{
         extract::{
             Json,
@@ -44,24 +45,33 @@ pub struct DeleteTableArgs {
     table_names: Vec<String>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShapesArgs {
+    component: Option<String>,
+}
+
 #[debug_handler]
 pub async fn shapes2(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    Query(ShapesArgs { component }): Query<ShapesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut out = serde_json::Map::new();
 
     must_be_admin_member(&identity)?;
+    let component = ComponentId::deserialize_from_string(component.as_deref())?;
     let snapshot = st.application.latest_snapshot()?;
-    let mapping = snapshot
-        .table_mapping()
-        .namespace(TableNamespace::by_component_TODO());
+    let mapping = snapshot.table_mapping().namespace(component.into());
     let virtual_mapping = snapshot
         .table_registry
         .virtual_table_mapping()
-        .namespace(TableNamespace::by_component_TODO());
+        .namespace(component.into());
 
     for (namespace, table_name) in snapshot.table_registry.user_table_names() {
+        if TableNamespace::from(component) != namespace {
+            continue;
+        }
         let table_summary = snapshot.table_summary(namespace, table_name);
         let shape = ReducedShape::from_type(
             table_summary.inferred_type(),
