@@ -666,7 +666,7 @@ async fn wait_for_schema_handler(
                 let allocated = schema_change.allocated_component_ids.get(component_path);
                 let internal_id = match (existing, allocated) {
                     (None, Some(id)) => *id,
-                    (Some(doc), None) => doc.id().internal_id(),
+                    (Some(doc), None) => doc.id().into(),
                     r => anyhow::bail!("Invalid existing component state: {r:?}"),
                 };
                 ComponentId::Child(internal_id)

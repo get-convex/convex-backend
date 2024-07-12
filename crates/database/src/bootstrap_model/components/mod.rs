@@ -42,7 +42,6 @@ use errors::ErrorMetadata;
 use value::{
     DeveloperDocumentId,
     FieldPath,
-    InternalId,
     ResolvedDocumentId,
     TableName,
     TableNamespace,
@@ -103,7 +102,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
 
     pub async fn component_in_parent(
         &mut self,
-        parent_and_name: Option<(InternalId, ComponentName)>,
+        parent_and_name: Option<(DeveloperDocumentId, ComponentName)>,
     ) -> anyhow::Result<Option<ParsedDocument<ComponentMetadata>>> {
         let range = match parent_and_name {
             Some((parent, name)) => vec![
@@ -144,7 +143,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         };
         for name in path.iter() {
             component_doc = match self
-                .component_in_parent(Some((component_doc.id().internal_id(), name.clone())))
+                .component_in_parent(Some((component_doc.id().into(), name.clone())))
                 .await?
             {
                 Some(doc) => doc,
@@ -171,7 +170,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
 
     pub fn resolve_component_id(
         &mut self,
-        component_internal_id: InternalId,
+        component_id: DeveloperDocumentId,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let component_table = self
             .tx
@@ -180,13 +179,13 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             .id(&COMPONENTS_TABLE)?;
         Ok(ResolvedDocumentId::new(
             component_table.tablet_id,
-            DeveloperDocumentId::new(component_table.table_number, component_internal_id),
+            component_id,
         ))
     }
 
     pub fn resolve_component_definition_id(
         &mut self,
-        component_definition_internal_id: InternalId,
+        component_definition_id: DeveloperDocumentId,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let component_definitions_table = self
             .tx
@@ -195,10 +194,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             .id(&COMPONENT_DEFINITIONS_TABLE)?;
         Ok(ResolvedDocumentId::new(
             component_definitions_table.tablet_id,
-            DeveloperDocumentId::new(
-                component_definitions_table.table_number,
-                component_definition_internal_id,
-            ),
+            component_definition_id,
         ))
     }
 
@@ -361,7 +357,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                 .context("Component not found")?;
             Ok((
                 ComponentDefinitionId::Child(component_metadata.definition_id),
-                ComponentId::Child(component_metadata.id().internal_id()),
+                ComponentId::Child(component_metadata.id().into()),
             ))
         }
     }
@@ -451,7 +447,7 @@ mod tests {
             .insert(
                 &COMPONENTS_TABLE,
                 ComponentMetadata {
-                    definition_id: root_definition_id.internal_id(),
+                    definition_id: root_definition_id.into(),
                     component_type: ComponentType::App,
                 }
                 .try_into()?,
@@ -461,9 +457,9 @@ mod tests {
             .insert(
                 &COMPONENTS_TABLE,
                 ComponentMetadata {
-                    definition_id: child_definition_id.internal_id(),
+                    definition_id: child_definition_id.into(),
                     component_type: ComponentType::ChildComponent {
-                        parent: root_id.internal_id(),
+                        parent: root_id.into(),
                         name: "subcomponent_child".parse()?,
                         args: Default::default(),
                     },
@@ -476,7 +472,7 @@ mod tests {
             .await?;
         assert_eq!(resolved_path.unwrap().id(), child_id);
         let path = BootstrapComponentsModel::new(&mut tx)
-            .get_component_path(ComponentId::Child(child_id.internal_id()))
+            .get_component_path(ComponentId::Child(child_id.into()))
             .await?;
         assert_eq!(
             path,

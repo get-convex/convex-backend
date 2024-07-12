@@ -5,7 +5,7 @@ use imbl::OrdMap;
 use serde::Serialize;
 
 use crate::{
-    InternalId,
+    DeveloperDocumentId,
     TableName,
     TableNumber,
     TabletId,
@@ -22,7 +22,7 @@ pub enum TableNamespace {
 
     /// Some tables are namespaced by component, like user tables,
     /// _file_storage, etc.
-    ByComponent(InternalId),
+    ByComponent(DeveloperDocumentId),
 }
 
 impl TableNamespace {

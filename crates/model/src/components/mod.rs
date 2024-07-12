@@ -130,7 +130,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                             .root_component()
                             .await?
                             .context("Missing root component")?;
-                        root_component.id().internal_id()
+                        root_component.id().into()
                     },
                     ComponentId::Child(id) => id,
                 };
@@ -142,7 +142,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                             format!("Child component {:?} not found", child_component),
                         )
                     })?;
-                let child_id = ComponentId::Child(child_component.id().internal_id());
+                let child_id = ComponentId::Child(child_component.id().into());
                 self.resolve_export(child_id, attributes).await?
             },
         };
@@ -230,12 +230,12 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
 
         if let Some(component) = component {
             for instantiation in &definition.child_components {
-                let parent = (component.id().internal_id(), instantiation.name.clone());
+                let parent = (component.id().into(), instantiation.name.clone());
                 let child_component = BootstrapComponentsModel::new(self.tx)
                     .component_in_parent(Some(parent))
                     .await?
                     .context("Missing child component")?;
-                let child_component_id = ComponentId::Child(child_component.id().internal_id());
+                let child_component_id = ComponentId::Child(child_component.id().into());
                 for (attributes, resource) in
                     self.preload_exported_resources(child_component_id).await?
                 {
@@ -332,7 +332,7 @@ mod tests {
         let id = SystemMetadataModel::new_global(&mut tx)
             .insert(&COMPONENTS_TABLE, obj!()?)
             .await?;
-        let component_id = ComponentId::Child(id.internal_id());
+        let component_id = ComponentId::Child(id.into());
 
         let namespace = component_id.into();
         let table = ModulesTable;

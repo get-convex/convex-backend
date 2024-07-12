@@ -159,13 +159,13 @@ bar.invokeAction = async (requestId, argsStr) => {
             .await?;
 
         let component = ComponentMetadata {
-            definition_id: definition_id.internal_id(),
+            definition_id: definition_id.into(),
             component_type: ComponentType::App,
         };
         let component_id = SystemMetadataModel::new_global(&mut tx)
             .insert(&COMPONENTS_TABLE, component.try_into()?)
             .await?;
-        component_id.internal_id()
+        component_id.into()
     };
     // Insert metadata for the child.
     {
@@ -189,7 +189,7 @@ bar.invokeAction = async (requestId, argsStr) => {
             .await?;
 
         let component = ComponentMetadata {
-            definition_id: definition_id.internal_id(),
+            definition_id: definition_id.into(),
             component_type: ComponentType::ChildComponent {
                 parent: root_component_id,
                 name: "chatWaitlist".parse()?,

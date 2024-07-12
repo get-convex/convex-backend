@@ -38,7 +38,6 @@ use sync_types::CanonicalizedModulePath;
 use value::{
     DeveloperDocumentId,
     InternalDocumentId,
-    InternalId,
     ResolvedDocumentId,
     TableNamespace,
 };
@@ -91,8 +90,8 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         >,
     ) -> anyhow::Result<(
         BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,
-        BTreeMap<InternalId, NewModules>,
-        BTreeMap<InternalId, UdfConfig>,
+        BTreeMap<DeveloperDocumentId, NewModules>,
+        BTreeMap<DeveloperDocumentId, UdfConfig>,
     )> {
         let mut definition_diffs = BTreeMap::new();
 
@@ -142,7 +141,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
 
             let (id, diff) = match existing_definitions.get(definition_path) {
                 Some(existing_definition) => (
-                    existing_definition.id().internal_id(),
+                    existing_definition.id().into(),
                     self.modify_component_definition(
                         existing_definition,
                         new_definition.definition.clone(),
@@ -177,13 +176,13 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
     pub async fn create_component_definition(
         &mut self,
         definition: ComponentDefinitionMetadata,
-    ) -> anyhow::Result<(InternalId, ComponentDefinitionDiff)> {
+    ) -> anyhow::Result<(DeveloperDocumentId, ComponentDefinitionDiff)> {
         let id = SystemMetadataModel::new_global(self.tx)
             .insert(&COMPONENT_DEFINITIONS_TABLE, definition.clone().try_into()?)
             .await?;
 
         let diff = ComponentDefinitionDiff {};
-        Ok((id.internal_id(), diff))
+        Ok((id.into(), diff))
     }
 
     pub async fn modify_component_definition(
@@ -262,7 +261,14 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 // Creating a new component. We need to allocate a component ID
                 // here for the table namespace.
                 (None, Some(..)) => {
-                    let id = SystemMetadataModel::new_global(self.tx).allocate_internal_id()?;
+                    let internal_id =
+                        SystemMetadataModel::new_global(self.tx).allocate_internal_id()?;
+                    let table_id = self
+                        .tx
+                        .table_mapping()
+                        .namespace(TableNamespace::Global)
+                        .name_to_id()(COMPONENTS_TABLE.clone())?;
+                    let id = DeveloperDocumentId::new(table_id.table_number, internal_id);
                     let component_id = if path.is_root() {
                         ComponentId::Root
                     } else {
@@ -273,10 +279,10 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                     id
                 },
                 // Updating an existing component.
-                (Some(node), Some(..)) => node.id().internal_id(),
+                (Some(node), Some(..)) => node.id().into(),
 
                 // Deleting an existing component.
-                (Some(node), None) => node.id().internal_id(),
+                (Some(node), None) => node.id().into(),
 
                 (None, None) => anyhow::bail!("Unexpected None/None in stack"),
             };
@@ -364,15 +370,15 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
     pub async fn apply_component_tree_diff(
         &mut self,
         app: &CheckedComponent,
-        udf_config_by_definition: BTreeMap<InternalId, UdfConfig>,
+        udf_config_by_definition: BTreeMap<DeveloperDocumentId, UdfConfig>,
         schema_change: &SchemaChange,
-        modules_by_definition: BTreeMap<InternalId, NewModules>,
+        modules_by_definition: BTreeMap<DeveloperDocumentId, NewModules>,
     ) -> anyhow::Result<BTreeMap<ComponentPath, ComponentDiff>> {
         let definition_id_by_path = BootstrapComponentsModel::new(self.tx)
             .load_all_definitions()
             .await?
             .into_iter()
-            .map(|(path, d)| (path, d.id().internal_id()))
+            .map(|(path, d)| (path, d.id().into()))
             .collect::<BTreeMap<_, _>>();
 
         let existing_components_by_parent = BootstrapComponentsModel::new(self.tx)
@@ -490,11 +496,11 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
 
     async fn create_component(
         &mut self,
-        id: InternalId,
+        id: DeveloperDocumentId,
         metadata: ComponentMetadata,
-        modules_by_definition: &BTreeMap<InternalId, NewModules>,
-        udf_config_by_definition: &BTreeMap<InternalId, UdfConfig>,
-    ) -> anyhow::Result<(InternalId, ComponentDiff)> {
+        modules_by_definition: &BTreeMap<DeveloperDocumentId, NewModules>,
+        udf_config_by_definition: &BTreeMap<DeveloperDocumentId, UdfConfig>,
+    ) -> anyhow::Result<(DeveloperDocumentId, ComponentDiff)> {
         let modules = modules_by_definition
             .get(&metadata.definition_id)
             .context("Missing modules for component definition")?;
@@ -503,9 +509,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .context("Missing UDF config for component definition")?;
         let is_root = metadata.component_type.is_root();
         let document_id = SystemMetadataModel::new_global(self.tx)
-            .insert_with_internal_id(&COMPONENTS_TABLE, id, metadata.try_into()?)
+            .insert_with_internal_id(&COMPONENTS_TABLE, id.internal_id(), metadata.try_into()?)
             .await?;
-        anyhow::ensure!(document_id.internal_id() == id);
+        anyhow::ensure!(DeveloperDocumentId::from(document_id) == id);
         let component_id = if is_root {
             ComponentId::Root
         } else {
@@ -545,13 +551,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
         new_metadata: ComponentMetadata,
-        modules_by_definition: &BTreeMap<InternalId, NewModules>,
-        udf_config_by_definition: &BTreeMap<InternalId, UdfConfig>,
-    ) -> anyhow::Result<(InternalId, ComponentDiff)> {
+        modules_by_definition: &BTreeMap<DeveloperDocumentId, NewModules>,
+        udf_config_by_definition: &BTreeMap<DeveloperDocumentId, UdfConfig>,
+    ) -> anyhow::Result<(DeveloperDocumentId, ComponentDiff)> {
         let component_id = if existing.parent_and_name().is_none() {
             ComponentId::Root
         } else {
-            ComponentId::Child(existing.id().internal_id())
+            ComponentId::Child(existing.id().into())
         };
         let modules = modules_by_definition
             .get(&new_metadata.definition_id)
@@ -581,7 +587,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .await?;
 
         Ok((
-            existing.id().internal_id(),
+            existing.id().into(),
             ComponentDiff {
                 diff_type: ComponentDiffType::Modify,
                 module_diff,
@@ -594,11 +600,11 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
     async fn delete_component(
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
-    ) -> anyhow::Result<(InternalId, ComponentDiff)> {
+    ) -> anyhow::Result<(DeveloperDocumentId, ComponentDiff)> {
         let component_id = if existing.parent_and_name().is_none() {
             ComponentId::Root
         } else {
-            ComponentId::Child(existing.id().internal_id())
+            ComponentId::Child(existing.id().into())
         };
         // TODO: Delete the component's system tables.
         SystemMetadataModel::new_global(self.tx)
@@ -611,7 +617,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .apply(&BTreeMap::new())
             .await?;
         Ok((
-            existing.id().internal_id(),
+            existing.id().into(),
             ComponentDiff {
                 diff_type: ComponentDiffType::Delete,
                 module_diff,
@@ -624,11 +630,11 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
 
 fn tree_diff_children<'a>(
     existing_components_by_parent: &'a BTreeMap<
-        Option<(InternalId, ComponentName)>,
+        Option<(DeveloperDocumentId, ComponentName)>,
         ParsedDocument<ComponentMetadata>,
     >,
     new_node: Option<&'a CheckedComponent>,
-    internal_id: InternalId,
+    internal_id: DeveloperDocumentId,
 ) -> impl Iterator<Item = TreeDiffChild<'a>> {
     std::iter::from_coroutine(
         #[coroutine]
@@ -731,7 +737,7 @@ impl TryFrom<ComponentDiff> for SerializedComponentDiff {
 }
 
 pub struct SchemaChange {
-    pub allocated_component_ids: BTreeMap<ComponentPath, InternalId>,
+    pub allocated_component_ids: BTreeMap<ComponentPath, DeveloperDocumentId>,
     pub schema_ids: BTreeMap<ComponentPath, Option<InternalDocumentId>>,
 }
 
