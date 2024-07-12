@@ -403,7 +403,7 @@ impl VectorIndexManager {
         search_storage: Arc<dyn Storage>,
     ) -> anyhow::Result<Vec<VectorSearchQueryResult>> {
         let timer = metrics::search_timer(&SEARCHLIGHT_CLUSTER_NAME);
-        let result: anyhow::Result<_> = {
+        let result: anyhow::Result<_> = try {
             let IndexConfig::Vector {
                 ref developer_config,
                 ..
@@ -442,7 +442,7 @@ impl VectorIndexManager {
                     VectorIndexType::MultiSegment,
                 ),
             };
-            Ok((disk_revisions, vector_index_type))
+            (disk_revisions, vector_index_type)
         };
         match result {
             Ok((disk_revisions, vector_index_type)) => {
