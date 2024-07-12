@@ -8,11 +8,11 @@ import {
 import { doCodegen } from "./codegen.js";
 import {
   Config,
+  ProjectConfig,
   configFromProjectConfig,
   diffConfig,
   pullConfig,
   pushConfig,
-  readProjectConfig,
 } from "./config.js";
 import { pushSchema } from "./indexes.js";
 import { typeCheckFunctionsInMode } from "./typecheck.js";
@@ -28,12 +28,15 @@ export type PushOptions = {
   debugBundlePath?: string;
   codegen: boolean;
   url: string;
-  enableComponents: boolean;
 };
 
-export async function runPush(ctx: Context, options: PushOptions) {
+export async function runNonComponentsPush(
+  ctx: Context,
+  options: PushOptions,
+  configPath: string,
+  projectConfig: ProjectConfig,
+) {
   const timeRunPushStarts = performance.now();
-  const { configPath, projectConfig } = await readProjectConfig(ctx);
   const origin = options.url;
   const verbose = options.verbose || options.dryRun;
   await ensureHasConvexDependency(ctx, "push");

@@ -15,7 +15,7 @@ import {
 } from "../bundler/context.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
 import { checkAuthorization, performLogin } from "./lib/login.js";
-import { PushOptions, runPush } from "./lib/push.js";
+import { PushOptions } from "./lib/push.js";
 import {
   formatDuration,
   getCurrentTimeString,
@@ -27,7 +27,7 @@ import { watchLogs } from "./lib/logs.js";
 import { runFunctionAndLog, subscribe } from "./lib/run.js";
 import { Value } from "../values/index.js";
 import { usageStateWarning } from "./lib/usage.js";
-import { runComponentsPush } from "./lib/components.js";
+import { runPush } from "./lib/components.js";
 
 export const dev = new Command("dev")
   .summary("Develop against a dev deployment, watching for changes")
@@ -96,7 +96,6 @@ export const dev = new Command("dev")
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
   .addOption(new Option("--debug-bundle-path <path>").hideHelp())
-  .addOption(new Option("--experimental-components").hideHelp())
   // Options for testing
   .addOption(new Option("--override-auth-url <url>").hideHelp())
   .addOption(new Option("--override-auth-client <id>").hideHelp())
@@ -144,7 +143,6 @@ export const dev = new Command("dev")
           debug: false,
           debugBundlePath: cmdOptions.debugBundlePath,
           codegen: cmdOptions.codegen === "enable",
-          enableComponents: !!cmdOptions.experimentalComponents,
         },
         cmdOptions,
       ),
@@ -177,11 +175,7 @@ export async function watchAndPush(
     const ctx = new WatchContext(cmdOptions.traceEvents);
     showSpinner(ctx, "Preparing Convex functions...");
     try {
-      if (options.enableComponents) {
-        await runComponentsPush(ctx, options);
-      } else {
-        await runPush(ctx, options);
-      }
+      await runPush(ctx, options);
       const end = performance.now();
       numFailures = 0;
       logFinishedStep(

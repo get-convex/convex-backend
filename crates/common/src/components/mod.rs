@@ -1,9 +1,5 @@
-use std::{
-    str::FromStr,
-    sync::LazyLock,
-};
+use std::str::FromStr;
 
-use cmd_util::env::env_config;
 use value::{
     InternalId,
     TableNamespace,
@@ -34,9 +30,6 @@ pub use self::{
         SerializedResource,
     },
 };
-
-pub static COMPONENTS_ENABLED: LazyLock<bool> =
-    LazyLock::new(|| env_config("COMPONENTS_ENABLED", false));
 
 // Globally unique system-assigned ID for a component.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]

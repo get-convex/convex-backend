@@ -233,8 +233,9 @@ export function defineComponent<Args extends PropertyValidators = {}>(
 }
 
 /**
- * @internal
+ * Experimental - DO NOT USE.
  */
+// TODO Make this not experimental.
 export function defineApp(): AppDefinition {
   const ret: RuntimeAppDefinition = {
     _isRoot: true,

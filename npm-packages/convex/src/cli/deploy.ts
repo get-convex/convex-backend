@@ -21,7 +21,7 @@ import {
   isNonProdBuildEnvironment,
   suggestedEnvVarName,
 } from "./lib/envvars.js";
-import { PushOptions, runPush } from "./lib/push.js";
+import { PushOptions } from "./lib/push.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   bigBrainAPI,
@@ -36,6 +36,7 @@ import {
   getConfiguredDeploymentFromEnvVar,
   isPreviewDeployKey,
 } from "./lib/deployment.js";
+import { runPush } from "./lib/components.js";
 
 export const deploy = new Command("deploy")
   .summary("Deploy to your prod deployment")
@@ -229,7 +230,6 @@ async function deployToNewPreviewDeployment(
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",
     url: previewUrl,
-    enableComponents: false,
   };
   showSpinner(ctx, `Deploying to ${previewUrl}...`);
   await runPush(oneoffContext, pushOptions);
@@ -317,7 +317,6 @@ async function deployToExistingDeployment(
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",
     url,
-    enableComponents: false,
   };
   showSpinner(
     ctx,

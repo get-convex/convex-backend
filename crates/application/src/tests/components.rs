@@ -66,7 +66,7 @@ use crate::{
     Application,
 };
 
-// $ COMPONENTS_ENABLED=true cargo test -p application --lib -- --ignored
+// $ cargo test -p application --lib -- --ignored
 // component_v8 --nocapture
 #[ignore]
 #[convex_macro::test_runtime]

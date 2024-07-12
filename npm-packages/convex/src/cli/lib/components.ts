@@ -1,9 +1,13 @@
 import path from "path";
 import { Context, changeSpinner, logError } from "../../bundler/context.js";
-import { configFromProjectConfig, readProjectConfig } from "./config.js";
+import {
+  ProjectConfig,
+  configFromProjectConfig,
+  readProjectConfig,
+} from "./config.js";
 import { finishPush, startPush, waitForSchema } from "./deploy2.js";
 import { version } from "../version.js";
-import { PushOptions } from "./push.js";
+import { PushOptions, runNonComponentsPush } from "./push.js";
 import { ensureHasConvexDependency, functionsDir } from "./utils.js";
 import {
   bundleDefinitions,
@@ -21,26 +25,36 @@ import {
 } from "./deployApi/definitionConfig.js";
 import { typeCheckFunctionsInMode } from "./typecheck.js";
 import { withTmpDir } from "../../bundler/fs.js";
+import { ROOT_DEFINITION_FILENAME } from "./components/constants.js";
 
-export async function runComponentsPush(ctx: Context, options: PushOptions) {
+export async function runPush(ctx: Context, options: PushOptions) {
   const { configPath, projectConfig } = await readProjectConfig(ctx);
+  const convexDir = functionsDir(configPath, projectConfig);
+  const componentRootPath = path.resolve(
+    path.join(convexDir, ROOT_DEFINITION_FILENAME),
+  );
+  if (ctx.fs.exists(componentRootPath)) {
+    await runComponentsPush(ctx, options, configPath, projectConfig);
+  } else {
+    await runNonComponentsPush(ctx, options, configPath, projectConfig);
+  }
+}
+
+export async function runComponentsPush(
+  ctx: Context,
+  options: PushOptions,
+  configPath: string,
+  projectConfig: ProjectConfig,
+) {
   const verbose = options.verbose || options.dryRun;
   await ensureHasConvexDependency(ctx, "push");
 
-  if (!options.codegen) {
-    logError(ctx, "disabling codegen not allowed");
-    await ctx.crash(1, "fatal");
-  }
   if (options.dryRun) {
     logError(ctx, "dryRun not allowed yet");
     await ctx.crash(1, "fatal");
   }
   if (options.debugBundlePath) {
     logError(ctx, "debugBundlePath not allowed yet");
-    await ctx.crash(1, "fatal");
-  }
-  if (!options.enableComponents) {
-    logError(ctx, "enableComponents must be true");
     await ctx.crash(1, "fatal");
   }
 
