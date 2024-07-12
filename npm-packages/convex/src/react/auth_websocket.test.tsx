@@ -57,14 +57,6 @@ test("Authenticate via valid static token", async () => {
   });
 });
 
-// This happens when a user opens a page after their cached token expired
-test("Reauthenticate after token expiration without versioning", async () => {
-  await testRauthenticationOnInvalidTokenSucceeds(undefined);
-});
-test("Reauthenticate after token expiration with versioning", async () => {
-  await testRauthenticationOnInvalidTokenSucceeds(0);
-});
-
 async function testRauthenticationOnInvalidTokenSucceeds(
   authErrorBaseVersion: number | undefined,
 ) {
@@ -173,10 +165,14 @@ test("Reauthenticate after token cache failure", async () => {
 });
 
 // This is usually a misconfigured server rejecting any token
-test("Fail when tokens are always rejected with and without versioning", async () => {
+test("Reauthenticate and fail when tokens are always rejected with and without versioning", async () => {
   await testRauthenticationFails(undefined);
   await testRauthenticationFails(0);
-});
+
+  // This happens when a user opens a page after their cached token expired
+  await testRauthenticationOnInvalidTokenSucceeds(undefined);
+  await testRauthenticationOnInvalidTokenSucceeds(0);
+}, 15000);
 
 async function testRauthenticationFails(
   authErrorBaseVersion: number | undefined,

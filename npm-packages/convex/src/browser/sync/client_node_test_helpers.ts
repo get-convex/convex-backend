@@ -44,6 +44,13 @@ export async function withInMemoryWebSocket(
         );
       });
     });
+    wss.on("error", (err) => {
+      if ((err as any).errno === "EADDRINUSE") {
+        wss.close();
+        console.log("EADDRINUSE, retrying...");
+        setupSocket();
+      }
+    });
   };
   setupSocket();
   async function receive(): Promise<ClientMessage> {
