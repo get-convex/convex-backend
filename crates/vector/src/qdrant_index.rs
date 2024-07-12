@@ -491,8 +491,22 @@ impl QdrantDocument {
     pub fn encode_payload(&self, ts: Timestamp) -> anyhow::Result<JsonValue> {
         let mut map = serde_json::Map::new();
         for (field_path, field_value) in &self.filter_fields {
-            map.insert(
-                encode_user_field_path(field_path)?.to_string(),
+            let mut current = &mut map;
+            // The path should consist of nested json objects.
+            for i in 0..field_path.fields().len() - 1 {
+                let field: String = field_path.fields()[i].clone().into();
+                let JsonValue::Object(inner) = current
+                    .entry(field)
+                    .or_insert_with(|| JsonValue::Object(serde_json::Map::new()))
+                else {
+                    // This means one filter field path is a prefix of another. We should
+                    // prevent the developer from defining such index. Throw a system error here.
+                    anyhow::bail!("Conflicting field path: {:?} {:?}", field_path, map);
+                };
+                current = inner;
+            }
+            current.insert(
+                field_path.last().clone().into(),
                 JsonValue::String(base64::encode_urlsafe(&field_value[..])),
             );
         }
