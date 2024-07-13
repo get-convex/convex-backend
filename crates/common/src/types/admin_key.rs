@@ -19,6 +19,41 @@ impl AdminKey {
             &self.0,
         )?))
     }
+
+    // For a key like
+    // "prod:some-depl-name123|sa67asd6a5da6d5:sd6f5sdf76dsf4ds6f4s68fd"
+    // strips the initial "prod:" prefix.
+    //
+    // For a key like
+    // "preview:team-slug:project-slug|sa67asd6a5da6d5:sd6f5sdf76dsf4ds6f4s68fd"
+    // strips the entire prefix, returning just the key part
+    // "sa67asd6a5da6d5:sd6f5sdf76dsf4ds6f4s68fd"
+    pub fn remove_type_prefix(admin_key: &str) -> String {
+        // check if key has an instance prefix
+        let does_have_prefix = admin_key.contains('|');
+        if !does_have_prefix {
+            return admin_key.to_string();
+        }
+
+        let (instance_prefix, key_part) = admin_key.split_once('|').unwrap();
+
+        // check if instance prefix has a type prefix
+        let does_have_type_prefix = instance_prefix.contains(':');
+        if !does_have_type_prefix {
+            return admin_key.to_string();
+        }
+
+        // get the instance type prefix
+        let (instance_type, instance_info) = instance_prefix.split_once(':').unwrap();
+
+        // if instance type is "preview" - return just the key part
+        if instance_type.eq_ignore_ascii_case("preview") {
+            return key_part.to_string();
+        }
+
+        // return instance info and key part
+        format!("{}|{}", instance_info, key_part)
+    }
 }
 
 impl SystemKey {
@@ -89,18 +124,8 @@ pub fn format_admin_key(instance_name: &str, encrypted_part: &str) -> String {
     format!("{}|{}", instance_name, encrypted_part)
 }
 
-// For a key like
-// "prod:some-depl-name123|sa67asd6a5da6d5:sd6f5sdf76dsf4ds6f4s68fd"
-// strips the initial "prod:" prefix.
 pub fn remove_type_prefix_from_admin_key(admin_key: &str) -> String {
-    split_admin_key(admin_key)
-        .map(|(instance_name, encrypted_key)| {
-            format_admin_key(
-                remove_type_prefix_from_instance_name(instance_name),
-                encrypted_key,
-            )
-        })
-        .unwrap_or(admin_key.to_string())
+    AdminKey::remove_type_prefix(admin_key)
 }
 
 // Dashboard adds a superficial prod: or dev: prefix
