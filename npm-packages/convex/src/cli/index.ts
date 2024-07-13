@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /* eslint-disable no-restricted-syntax */
 import { Command } from "@commander-js/extra-typings";
 import { init } from "./init.js";
@@ -29,9 +28,15 @@ import { env } from "./env.js";
 import { data } from "./data.js";
 import inquirer from "inquirer";
 import inquirerSearchList from "inquirer-search-list";
+import { format } from "util";
 
 const MINIMUM_MAJOR_VERSION = 16;
 const MINIMUM_MINOR_VERSION = 15;
+
+// console.error before it started being red by default in Node.js v20
+function logToStderr(...args: unknown[]) {
+  process.stderr.write(`${format(...args)}\n`);
+}
 
 async function main() {
   // If you want to use `@sentry/tracing` in your project directly, use a named import instead:
@@ -63,25 +68,25 @@ async function main() {
     (majorVersion === MINIMUM_MAJOR_VERSION &&
       minorVersion < MINIMUM_MINOR_VERSION)
   ) {
-    console.error(
+    logToStderr(
       chalk.red(
         `Your Node version ${nodeVersion} is too old. Convex requires at least Node v${MINIMUM_MAJOR_VERSION}.${MINIMUM_MINOR_VERSION}`,
       ),
     );
-    console.error(
+    logToStderr(
       chalk.gray(
         `You can use ${chalk.bold(
           "nvm",
         )} (https://github.com/nvm-sh/nvm#installing-and-updating) to manage different versions of Node.`,
       ),
     );
-    console.error(
+    logToStderr(
       chalk.gray(
         "After installing `nvm`, install the latest version of Node with " +
           chalk.bold("`nvm install node`."),
       ),
     );
-    console.error(
+    logToStderr(
       chalk.gray(
         "Then, activate the installed version in your terminal with " +
           chalk.bold("`nvm use`."),

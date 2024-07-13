@@ -11,17 +11,16 @@ test("parseProjectConfig", async () => {
       throw new Error();
     },
   };
-  const consoleSpy = vi
-    .spyOn(global.console, "error")
-    .mockImplementation(() => {
-      // Do nothing
-    });
+  const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => {
+    // Do nothing
+    return true;
+  });
   const assertParses = async (inp: any) => {
     expect(await parseProjectConfig(ctx, inp)).toEqual(inp);
   };
   const assertParseError = async (inp: any, err: string) => {
     await expect(parseProjectConfig(ctx, inp)).rejects.toThrow();
-    expect(consoleSpy).toHaveBeenCalledWith(err);
+    expect(stderrSpy).toHaveBeenCalledWith(err);
   };
 
   await assertParses({
@@ -60,6 +59,6 @@ test("parseProjectConfig", async () => {
       functions: "functions/",
       authInfo: [{}],
     },
-    "Expected `authInfo` in `convex.json` to be of type AuthInfo[]",
+    "Expected `authInfo` in `convex.json` to be of type AuthInfo[]\n",
   );
 });

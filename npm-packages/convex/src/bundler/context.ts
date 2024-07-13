@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/node";
 import chalk from "chalk";
 import ora, { Ora } from "ora";
 import { Filesystem, nodeFs } from "./fs.js";
+import { format } from "util";
 
 // How the error should be handled when running `npx convex dev`.
 export type ErrorType =
@@ -56,22 +57,27 @@ async function flushAndExit(exitCode: number, err?: any) {
   return process.exit(exitCode);
 }
 
+// console.error before it started being red by default in Node v20
+function logToStderr(...args: unknown[]) {
+  process.stderr.write(`${format(...args)}\n`);
+}
+
 // Handles clearing spinner so that it doesn't get messed up
 export function logError(ctx: Context, message: string) {
   ctx.spinner?.clear();
-  console.error(message);
+  logToStderr(message);
 }
 
 // Handles clearing spinner so that it doesn't get messed up
 export function logWarning(ctx: Context, message: string) {
   ctx.spinner?.clear();
-  console.error(message);
+  logToStderr(message);
 }
 
 // Handles clearing spinner so that it doesn't get messed up
 export function logMessage(ctx: Context, ...logged: any) {
   ctx.spinner?.clear();
-  console.error(...logged);
+  logToStderr(...logged);
 }
 
 // For the rare case writing output to stdout. Status and error messages
@@ -105,7 +111,7 @@ export function changeSpinner(ctx: Context, message: string) {
     // Add newline to prevent clobbering
     ctx.spinner.text = message + "\n";
   } else {
-    console.error(message);
+    logToStderr(message);
   }
 }
 
@@ -114,7 +120,7 @@ export function logFailure(ctx: Context, message: string) {
     ctx.spinner.fail(message);
     ctx.spinner = undefined;
   } else {
-    console.error(`${chalk.red(`✖`)} ${message}`);
+    logToStderr(`${chalk.red(`✖`)} ${message}`);
   }
 }
 
@@ -124,7 +130,7 @@ export function logFinishedStep(ctx: Context, message: string) {
     ctx.spinner.succeed(message);
     ctx.spinner = undefined;
   } else {
-    console.error(`${chalk.green(`✔`)} ${message}`);
+    logToStderr(`${chalk.green(`✔`)} ${message}`);
   }
 }
 

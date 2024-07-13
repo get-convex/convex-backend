@@ -115,7 +115,7 @@ test("returns true when multiple imports and httpRouter is imported", async () =
 
 test("bundle warns about https.js|ts at top level", async () => {
   const fixtureDir = dirname + "/test_fixtures/js/project_with_https";
-  const logSpy = vi.spyOn(console, "error");
+  const logSpy = vi.spyOn(process.stderr, "write");
   await entryPoints(oneoffContext, fixtureDir, false);
   expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("https"));
 });
@@ -123,7 +123,7 @@ test("bundle warns about https.js|ts at top level", async () => {
 test("bundle does not warn about https.js|ts which is not at top level", async () => {
   const fixtureDir =
     dirname + "/test_fixtures/js/project_with_https_not_at_top_level";
-  const logSpy = vi.spyOn(console, "error");
+  const logSpy = vi.spyOn(process.stderr, "write");
   await entryPoints(oneoffContext, fixtureDir, false);
   expect(logSpy).toHaveBeenCalledTimes(0);
 });
@@ -131,7 +131,7 @@ test("bundle does not warn about https.js|ts which is not at top level", async (
 test("bundle does not warn about https.js|ts which does not import httpRouter", async () => {
   const fixtureDir =
     dirname + "/test_fixtures/js/project_with_https_without_router";
-  const logSpy = vi.spyOn(console, "error");
+  const logSpy = vi.spyOn(process.stderr, "write");
   await entryPoints(oneoffContext, fixtureDir, false);
   expect(logSpy).toHaveBeenCalledTimes(0);
 });
