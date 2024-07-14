@@ -19,7 +19,17 @@ mod metrics;
 
 /// These module prefixes are default-hidden from stacktraces
 /// See https://docs.sentry.io/platforms/rust/configuration/options/#in-app-exclude
-pub static SENTRY_IN_APP_EXCLUDE: LazyLock<Vec<&'static str>> = LazyLock::new(|| vec!["tokio::"]);
+pub static SENTRY_IN_APP_EXCLUDE: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+    vec![
+        "axum::",
+        "futures_core::",
+        "futures_util::",
+        "hyper::",
+        "minitrace::",
+        "tokio::",
+        "tower::",
+    ]
+});
 
 /// ErrorMetadata object can be attached to an anyhow error chain via
 /// `.context(e /*ErrorMetadata*/)`. It is a generic object to be used
