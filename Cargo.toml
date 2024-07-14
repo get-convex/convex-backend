@@ -7,7 +7,7 @@ exclude = [ "crates/py_client", "crates/python_client_tests" ]
 aes = { version = "0.8.4" }
 anyhow = "1"
 async-broadcast = "0.7.0"
-async-channel = "1.9.0"
+async-channel = "2.3.1"
 async-compression = { version = "0.4.11", features = [ "tokio", "zstd", "gzip" ] }
 async-recursion = "1.1.1"
 async-trait = "0.1"
