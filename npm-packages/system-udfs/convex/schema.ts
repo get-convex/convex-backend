@@ -245,6 +245,12 @@ export default defineSchema({
       v.literal("hidden"),
     ),
   }),
+  _components: defineTable({
+    definitionId: v.id("_component_definitions"),
+    parent: v.union(v.id("_components"), v.null()),
+    name: v.union(v.string(), v.null()),
+    args: v.union(v.array(v.any()), v.null()),
+  }),
   _modules: defineTable({
     path: v.string(),
     latestVersion: v.int64(),

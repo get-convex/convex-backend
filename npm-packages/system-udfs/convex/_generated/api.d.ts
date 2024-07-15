@@ -23,6 +23,7 @@ import type * as _system_cli_tables from "../_system/cli/tables.js";
 import type * as _system_frontend_addDocument from "../_system/frontend/addDocument.js";
 import type * as _system_frontend_clearTablePage from "../_system/frontend/clearTablePage.js";
 import type * as _system_frontend_common from "../_system/frontend/common.js";
+import type * as _system_frontend_components from "../_system/frontend/components.js";
 import type * as _system_frontend_convexSiteUrl from "../_system/frontend/convexSiteUrl.js";
 import type * as _system_frontend_createTable from "../_system/frontend/createTable.js";
 import type * as _system_frontend_deleteDocuments from "../_system/frontend/deleteDocuments.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/addDocument": typeof _system_frontend_addDocument;
   "_system/frontend/clearTablePage": typeof _system_frontend_clearTablePage;
   "_system/frontend/common": typeof _system_frontend_common;
+  "_system/frontend/components": typeof _system_frontend_components;
   "_system/frontend/convexSiteUrl": typeof _system_frontend_convexSiteUrl;
   "_system/frontend/createTable": typeof _system_frontend_createTable;
   "_system/frontend/deleteDocuments": typeof _system_frontend_deleteDocuments;
