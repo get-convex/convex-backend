@@ -8218,6 +8218,7 @@ dependencies = [
  "futures",
  "imbl",
  "indexing",
+ "maplit",
  "metrics",
  "must-let",
  "parking_lot",

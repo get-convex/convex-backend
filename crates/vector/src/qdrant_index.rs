@@ -674,3 +674,66 @@ fn json_path_from_str(s: &str) -> anyhow::Result<JsonPath> {
         },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use common::types::Timestamp;
+    use maplit::btreemap;
+    use rand::Rng;
+    use serde_json::json;
+    use value::InternalId;
+
+    use crate::QdrantDocument;
+
+    #[test]
+    fn test_encode_payload() -> anyhow::Result<()> {
+        let mut rng = rand::thread_rng();
+        let d = 1536;
+
+        let document = QdrantDocument {
+            internal_id: InternalId(1u128.to_le_bytes()),
+            vector: (0..d)
+                .map(|_| rng.gen())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+            filter_fields: btreemap!(),
+        };
+        let payload = document.encode_payload(Timestamp::MIN)?;
+        assert_eq!(payload, json!({ "_ts": "AAAAAAAAAAA"}));
+
+        let document = QdrantDocument {
+            internal_id: InternalId(1u128.to_le_bytes()),
+            vector: (0..d)
+                .map(|_| rng.gen())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+            filter_fields: btreemap!(
+                "abc".parse()? => vec![97],
+                "def.ghi".parse()? => vec![98],
+                "def.xyz".parse()? => vec![99],
+            ),
+        };
+        let payload = document.encode_payload(Timestamp::MIN)?;
+        assert_eq!(
+            payload,
+            json!({ "abc": "YQ", "def": { "ghi": "Yg", "xyz": "Yw"}, "_ts": "AAAAAAAAAAA"})
+        );
+
+        let document = QdrantDocument {
+            internal_id: InternalId(1u128.to_le_bytes()),
+            vector: (0..d)
+                .map(|_| rng.gen())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
+            filter_fields: btreemap!(
+                "zzz".parse()? => vec![97],
+            ),
+        };
+        let payload = document.encode_payload(Timestamp::MIN)?;
+        assert_eq!(payload, json!({ "zzz": "YQ", "_ts": "AAAAAAAAAAA"}));
+        Ok(())
+    }
+}

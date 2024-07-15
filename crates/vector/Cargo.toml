@@ -18,6 +18,7 @@ errors = { path = "../errors" }
 futures = { workspace = true }
 imbl = { workspace = true }
 indexing = { path = "../indexing" }
+maplit = { workspace = true }
 metrics = { path = "../metrics" }
 parking_lot = { workspace = true }
 pb = { path = "../pb" }
