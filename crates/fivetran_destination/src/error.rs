@@ -28,16 +28,16 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DestinationError {
-    #[error("The name of table `{0}` is invalid: {1}")]
+    #[error("The name of table `{0}` is invalid: {1:#}")]
     InvalidTableName(String, anyhow::Error),
 
-    #[error("The name of table `{0}` isn’t supported by Convex: {1}")]
+    #[error("The name of table `{0}` isn’t supported by Convex: {1:#}")]
     UnsupportedTableName(String, anyhow::Error),
 
-    #[error("The name of column `{0}` in table `{1}` is invalid: {1}")]
+    #[error("The name of column `{0}` in table `{1}` is invalid: {1:#}")]
     InvalidColumnName(String, FivetranTableName, anyhow::Error),
 
-    #[error("The name of column `{0}` in table `{1}` isn’t supported by Convex: {2}")]
+    #[error("The name of column `{0}` in table `{1}` isn’t supported by Convex: {2:#}")]
     UnsupportedColumnName(FivetranFieldName, FivetranTableName, anyhow::Error),
 
     #[error(
@@ -99,13 +99,13 @@ pub enum DestinationError {
     )]
     DestinationHasMultipleSchemas(TableName),
 
-    #[error("An error occurred on the Convex deployment: {0}")]
+    #[error("An error occurred on the Convex deployment: {0:#}")]
     DeploymentError(anyhow::Error),
 
-    #[error("A row from your data source is invalid: {0}")]
+    #[error("A row from your data source is invalid: {0:#}")]
     InvalidRow(anyhow::Error),
 
-    #[error("Can’t read the file {0}: {1}. Please contact support.")]
+    #[error("Can’t read the file {0}: {1:#}. Please contact support.")]
     FileReadError(String, anyhow::Error),
 }
 
@@ -143,13 +143,13 @@ pub enum TableSchemaError {
     DestinationHasMultipleSchemas,
 
     #[error(
-        "The name of field `{0}` isn’t supported by Convex: {1}. Please modify the name of the \
+        "The name of field `{0}` isn’t supported by Convex: {1:#}. Please modify the name of the \
          field in your data source."
     )]
     UnsupportedFieldName(FivetranFieldName, anyhow::Error),
 
     #[error(
-        "The primary key of the table isn’t supported by Convex: {0}. Please contact \
+        "The primary key of the table isn’t supported by Convex: {0:#}. Please contact \
          support@convex.dev if you need help."
     )]
     UnsupportedPrimaryKey(anyhow::Error),
@@ -232,7 +232,7 @@ pub enum MetadataFieldError {
     #[error("Invalid type for `fivetran.columns`, which must be an object validator")]
     InvalidColumnsFieldType,
 
-    #[error("The name of column `{0}` is not supported by Fivetran: {1}")]
+    #[error("The name of column `{0}` is not supported by Fivetran: {1:#}")]
     UnsupportedColumnName(IdentifierFieldName, anyhow::Error),
 
     #[error("The data source does not contain a column named `{0}`")]

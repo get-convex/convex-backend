@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use anyhow::anyhow;
+use anyhow::{
+    anyhow,
+    Context,
+};
 use async_compression::tokio::bufread::{
     GzipDecoder,
     ZstdDecoder,
@@ -75,7 +78,7 @@ pub async fn create_csv_deserializer(
     compression: FivetranFileCompression,
     encryption: FivetranFileEncryption,
 ) -> anyhow::Result<csv_async::AsyncDeserializer<impl futures::AsyncRead + Unpin + Send>> {
-    let reader = BufReader::new(File::open(file_path).await?);
+    let reader = BufReader::new(File::open(file_path).await.context("Couldn't open file")?);
 
     // Decryption
     let reader: Box<dyn io::AsyncRead + Unpin + Send> = match encryption {
@@ -113,7 +116,8 @@ where
                 field_map
                     .into_iter()
                     .map(|(field, value)| -> anyhow::Result<_> {
-                        let field: FivetranFieldName = field.parse()?;
+                        let field: FivetranFieldName =
+                            field.parse().context("Couldn't parse field")?;
 
                         let file_value = if value == params.unmodified_string {
                             FivetranFileValue::Unmodified
@@ -123,12 +127,16 @@ where
                             let column = schema
                                 .columns
                                 .get(&field)
-                                .ok_or(anyhow!("Column not in schema"))?
+                                .context("Column not in schema")?
                                 .to_owned();
-                            FivetranFileValue::Value(try_parse_fivetran_value(
-                                value,
-                                column.data_type,
-                            )?)
+                            FivetranFileValue::Value(
+                                try_parse_fivetran_value(value.clone(), column.data_type).context(
+                                    format!(
+                                        "Couldn't parse field {} value {} as {:?} from file",
+                                        field, value, column.data_type,
+                                    ),
+                                )?,
+                            )
                         };
 
                         Ok((field, file_value))

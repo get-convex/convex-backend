@@ -196,7 +196,7 @@ impl TryInto<ConvexObject> for FileRow {
 
             if field_name == *SYNCED_FIVETRAN_FIELD_NAME {
                 let FivetranValue::UtcDatetime(timestamp) = value else {
-                    bail!("Unexpected value for _fivetran_synced");
+                    bail!("Unexpected value for _fivetran_synced: {:?}", value);
                 };
 
                 metadata.insert(
