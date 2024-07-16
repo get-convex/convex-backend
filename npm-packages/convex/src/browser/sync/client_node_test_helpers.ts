@@ -2,7 +2,7 @@ import { Base64 } from "../../values/index.js";
 import { Long } from "../long.js";
 
 // --experimental-vm-modules which we use for jest doesn't support named exports
-import WebSocket, { AddressInfo, WebSocketServer } from "ws";
+import WebSocket, { WebSocketServer } from "ws";
 
 // Let's pretend this ws WebSocket is a browser WebSocket (it's very close)
 export const nodeWebSocket = WebSocket as unknown as typeof window.WebSocket;
@@ -17,22 +17,28 @@ export type InMemoryWebSocketTest = (args: {
   close: () => void;
 }) => Promise<void>;
 
+function listeningSocketServer(): Promise<WebSocketServer> {
+  return new Promise((resolve) => {
+    const wss = new WebSocketServer({ port: 0 });
+    wss.on("listening", () => resolve(wss));
+  });
+}
+
 // Run a test with a real node WebSocket instance connected
 export async function withInMemoryWebSocket(
   cb: InMemoryWebSocketTest,
   debug = false,
 ) {
-  let wss = new WebSocketServer({ port: 0 });
-
+  // These state variables are consistent over multiple sockets.
   let received: (msg: string) => void;
-  const messages: Promise<string>[] = [
-    new Promise((r) => {
-      received = r;
-    }),
-  ];
+  // prettier-ignore
+  const messages: Promise<string>[] = [ new Promise((r) => { received = r; }) ];
   let socket: WebSocket | null = null;
-  const setupSocket = () => {
-    wss.on("connection", function connection(ws: WebSocket) {
+
+  const wss = await listeningSocketServer();
+
+  const setUpSocket = () => {
+    wss.once("connection", function connection(ws: WebSocket) {
       socket = ws;
       ws.on("message", function message(data: string) {
         received(data);
@@ -44,15 +50,10 @@ export async function withInMemoryWebSocket(
         );
       });
     });
-    wss.on("error", (err) => {
-      if ((err as any).errno === "EADDRINUSE") {
-        wss.close();
-        console.log("EADDRINUSE, retrying...");
-        setupSocket();
-      }
-    });
   };
-  setupSocket();
+  setUpSocket();
+
+  // receive and send are stable across multiple socket connections
   async function receive(): Promise<ClientMessage> {
     const msgP = messages.shift();
     if (!msgP) {
@@ -75,12 +76,9 @@ export async function withInMemoryWebSocket(
       receive,
       send,
       close: () => {
+        if (debug) console.debug(`           -->8-CLOSE- server`);
         socket!.close();
-        wss.close();
-        // TODO there's a rare race here:
-        // Error: listen EADDRINUSE: address already in use :::62257
-        wss = new WebSocketServer({ port: (s as AddressInfo).port });
-        setupSocket();
+        setUpSocket();
       },
     });
   } finally {
