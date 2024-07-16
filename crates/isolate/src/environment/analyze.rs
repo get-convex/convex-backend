@@ -58,6 +58,7 @@ use model::{
             invalid_function_name_error,
             AnalyzedFunction,
             AnalyzedHttpRoute,
+            AnalyzedHttpRoutes,
             AnalyzedModule,
             AnalyzedSourcePosition,
             FullModuleSource,
@@ -379,7 +380,7 @@ impl AnalyzeEnvironment {
                     },
                     Ok(value) => value,
                 };
-                http_routes = Some(WithHeapSize::from(routes));
+                http_routes = Some(routes);
             }
 
             let mut cron_specs = None;
@@ -679,7 +680,7 @@ fn http_analyze<RT: Runtime>(
     scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
     module: &v8::Local<v8::Module>,
     module_path: &CanonicalizedModulePath,
-) -> anyhow::Result<Result<Vec<AnalyzedHttpRoute>, JsError>> {
+) -> anyhow::Result<Result<AnalyzedHttpRoutes, JsError>> {
     let mut http_routes: Vec<AnalyzedHttpRoute> = vec![];
 
     let namespace = module
@@ -872,6 +873,19 @@ fn http_analyze<RT: Runtime>(
 
     // Sort by line number where source position of None compares least
     http_routes.sort_by(|a, b| a.pos.cmp(&b.pos));
+
+    // Check that the HTTP routes are non-overlapping.
+    let http_routes = match AnalyzedHttpRoutes::new(http_routes) {
+        Ok(http_routes) => http_routes,
+        Err(e) => {
+            if let Some(e) = e.downcast_ref::<ErrorMetadata>() {
+                if e.is_bad_request() {
+                    return Ok(Err(JsError::from_message(e.msg.to_string())));
+                }
+            }
+            return Err(e);
+        },
+    };
 
     Ok(Ok(http_routes))
 }

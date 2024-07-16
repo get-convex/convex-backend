@@ -113,10 +113,22 @@ impl fmt::Display for RoutableMethod {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct HttpActionRoute {
     pub path: String,
     pub method: RoutableMethod,
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl proptest::arbitrary::Arbitrary for HttpActionRoute {
+    type Parameters = ();
+
+    type Strategy = impl proptest::strategy::Strategy<Value = Self>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        (r"/([a-z0-9_]/)+(\*)?", any::<RoutableMethod>())
+            .prop_map(|(path, method)| Self { path, method })
+    }
 }
 
 impl HeapSize for HttpActionRoute {
