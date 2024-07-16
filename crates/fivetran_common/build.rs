@@ -14,7 +14,9 @@ use tokio::fs::{
     create_dir_all,
 };
 
-const REV: &str = "08da2f841be6042a410b0de6354025c44d5cf59a";
+// Make sure to select a rev off the `production` branch of the sdk
+// https://github.com/fivetran/fivetran_sdk/tree/production
+const REV: &str = "1fabb7626b6ec81a4f56d49a16a654210cb1d0be";
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {

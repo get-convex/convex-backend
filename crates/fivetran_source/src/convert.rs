@@ -56,7 +56,7 @@ fn roundtrip_fivetran_value(
         | FivetranValue::Short(_)
         | FivetranValue::Int(_)
         | FivetranValue::UtcDatetime(_)
-        | FivetranValue::NaiveTime(_)
+        // | FivetranValue::NaiveTime(_)
         | FivetranValue::NaiveDate(_)
         | FivetranValue::NaiveDatetime(_)
         | FivetranValue::Decimal(_)

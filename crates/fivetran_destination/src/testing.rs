@@ -40,7 +40,7 @@ fn concrete_fivetran_data_type_strategy() -> impl Strategy<Value = FivetranDataT
         Just(FivetranDataType::Decimal),
         Just(FivetranDataType::Float),
         Just(FivetranDataType::Double),
-        Just(FivetranDataType::NaiveTime),
+        // Just(FivetranDataType::NaiveTime),
         Just(FivetranDataType::NaiveDate),
         Just(FivetranDataType::NaiveDatetime),
         Just(FivetranDataType::UtcDatetime),

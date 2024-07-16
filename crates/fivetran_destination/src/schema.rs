@@ -137,7 +137,7 @@ fn suggested_validator(data_type: FivetranDataType, nullability: Nullability) ->
         FivetranDataType::Float => Validator::Float64,
         FivetranDataType::Double => Validator::Float64,
         FivetranDataType::NaiveDate => Validator::String,
-        FivetranDataType::NaiveTime => Validator::String,
+        //FivetranDataType::NaiveTime => Validator::String,
         FivetranDataType::NaiveDatetime => Validator::String,
         FivetranDataType::UtcDatetime => Validator::Float64,
         FivetranDataType::Binary => Validator::Bytes,
