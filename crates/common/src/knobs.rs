@@ -1065,3 +1065,11 @@ pub static AUTH_CACHE_SIZE: LazyLock<usize> = LazyLock::new(|| env_config("AUTH_
 /// Length of time an entry to the access authentication cache is valid
 pub static AUTH_CACHE_TTL_SECONDS: LazyLock<u64> =
     LazyLock::new(|| env_config("AUTH_CACHE_TTL_SECONDS", 60));
+
+/// Request body limit for airbyte streaming import requests
+pub static AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT",
+        10 * (2 << 20),
+    )
+});
