@@ -44,6 +44,7 @@
  */
 
 import { ConvexHttpClient } from "../browser/index.js";
+import { validateDeploymentUrl } from "../common/index.js";
 import { Preloaded } from "../react/index.js";
 import {
   ArgsAndOptions,
@@ -198,51 +199,16 @@ function getConvexUrl(
   skipConvexDeploymentUrlCheck: boolean,
 ) {
   const url = deploymentUrl ?? process.env.NEXT_PUBLIC_CONVEX_URL;
+  const isFromEnv = deploymentUrl === undefined;
   if (!skipConvexDeploymentUrlCheck) {
-    validateDeploymentUrl(url, deploymentUrl === undefined);
+    if (typeof url === "undefined") {
+      throw new Error(
+        isFromEnv
+          ? `Environment variable NEXT_PUBLIC_CONVEX_URL is not set.`
+          : `Convex function called with undefined deployment address.`,
+      );
+    }
+    validateDeploymentUrl(url);
   }
   return url!;
-}
-
-function validateDeploymentUrl(
-  deploymentUrl: string | undefined,
-  isFromEnv: boolean,
-) {
-  if (typeof deploymentUrl === "undefined") {
-    throw new Error(
-      isFromEnv
-        ? `Environment variable NEXT_PUBLIC_CONVEX_URL is not set.`
-        : `Convex function called with undefined deployment address.`,
-    );
-  }
-  if (typeof deploymentUrl !== "string") {
-    throw new Error(
-      `Invalid deployment address: found ${deploymentUrl as any}".`,
-    );
-  }
-  if (
-    !(deploymentUrl.startsWith("http:") || deploymentUrl.startsWith("https:"))
-  ) {
-    throw new Error(
-      `Invalid ${
-        isFromEnv ? "NEXT_PUBLIC_CONVEX_URL" : "deployment address"
-      }: Must start with "https://" or "http://". Found "${deploymentUrl}".`,
-    );
-  }
-
-  // Skip validation on localhost because it's for internal Convex development.
-  if (
-    deploymentUrl.indexOf("127.0.0.1") !== -1 ||
-    deploymentUrl.indexOf("localhost") !== -1
-  ) {
-    return;
-  }
-
-  if (!deploymentUrl.endsWith(".convex.cloud")) {
-    throw new Error(
-      `Invalid ${
-        isFromEnv ? "NEXT_PUBLIC_CONVEX_URL" : "deployment address"
-      }: Must end with ".convex.cloud". Found "${deploymentUrl}".`,
-    );
-  }
 }

@@ -41,20 +41,21 @@ export function validateDeploymentUrl(deploymentUrl: string) {
     );
   }
 
-  // Skip validation on localhost because it's for internal Convex development.
-  if (
-    deploymentUrl.indexOf("127.0.0.1") !== -1 ||
-    deploymentUrl.indexOf("localhost") !== -1
-  ) {
-    return;
+  // Most clients should connect to ".convex.cloud". But we also support localhost and
+  // custom custom. We validate the deployment url is a valid url, which is the most
+  // common failure pattern.
+  try {
+    new URL(deploymentUrl);
+  } catch (err) {
+    throw new Error(
+      `Invalid deployment address: "${deploymentUrl}" is not a valid URL. If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
+    );
   }
 
-  if (
-    !deploymentUrl.endsWith(".convex.cloud") &&
-    !deploymentUrl.includes("0.0.0.0")
-  ) {
+  // If a user uses .convex.site, this is very likely incorrect.
+  if (deploymentUrl.endsWith(".convex.site")) {
     throw new Error(
-      `Invalid deployment address: Must end with ".convex.cloud". Found "${deploymentUrl}". If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
+      `Invalid deployment address: "${deploymentUrl}" ends with .convex.site, which is used for HTTP Actions. Convex deployment URLs typically end with .convex.cloud? If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
     );
   }
 }
