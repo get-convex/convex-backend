@@ -91,6 +91,7 @@ impl UsageCounterState {
     fn record_event(&mut self, event: UsageEvent) {
         match event {
             UsageEvent::FunctionCall {
+                component_path,
                 udf_id,
                 tag,
                 memory_megabytes,
@@ -100,7 +101,14 @@ impl UsageCounterState {
                 ..
             } => {
                 if is_tracked {
-                    *self.recent_calls.entry(udf_id.to_string()).or_default() += 1;
+                    let fn_name = if let Some(mut component) = component_path {
+                        component.push('/');
+                        component.push_str(&udf_id);
+                        component
+                    } else {
+                        udf_id.clone()
+                    };
+                    *self.recent_calls.entry(fn_name).or_default() += 1;
                     *self.recent_calls_by_tag.entry(tag).or_default() += 1;
 
                     // Convert into MB-milliseconds of compute time

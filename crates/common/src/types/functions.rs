@@ -111,6 +111,18 @@ pub enum UdfIdentifier {
     Cli(String),
 }
 
+impl UdfIdentifier {
+    pub fn into_component_and_udf_path(self) -> (Option<String>, String) {
+        match self {
+            UdfIdentifier::Function(path) => {
+                let (component_path, udf_path) = path.clone().into_component_and_udf_path();
+                (component_path.serialize(), udf_path.to_string())
+            },
+            UdfIdentifier::Http(_) | UdfIdentifier::Cli(_) => (None, self.to_string()),
+        }
+    }
+}
+
 impl fmt::Display for UdfIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {

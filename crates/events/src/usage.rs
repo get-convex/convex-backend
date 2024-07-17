@@ -20,6 +20,9 @@ pub enum UsageEvent {
     FunctionCall {
         // The ExecutionId of a particular UDF
         id: String,
+        /// The path of a component. Uniquely identifies a component in a
+        /// project.
+        component_path: Option<String>,
         // The path / name of the UDF
         udf_id: String,
         // The type of the udf identifier (http, function, cli)
@@ -43,6 +46,7 @@ pub enum UsageEvent {
     /// invocation.
     FunctionStorageCalls {
         id: String,
+        component_path: Option<String>,
         udf_id: String,
         call: String,
         count: u64,
@@ -51,6 +55,7 @@ pub enum UsageEvent {
     /// function invocation.
     FunctionStorageBandwidth {
         id: String,
+        component_path: Option<String>,
         udf_id: String,
         ingress: u64,
         egress: u64,
@@ -70,6 +75,7 @@ pub enum UsageEvent {
     },
     DatabaseBandwidth {
         id: String,
+        component_path: Option<String>,
         udf_id: String,
         table_name: String,
         ingress: u64,
@@ -77,6 +83,7 @@ pub enum UsageEvent {
     },
     VectorBandwidth {
         id: String,
+        component_path: Option<String>,
         udf_id: String,
         table_name: String,
         ingress: u64,

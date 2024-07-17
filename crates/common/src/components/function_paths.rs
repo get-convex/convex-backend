@@ -98,6 +98,10 @@ impl CanonicalizedComponentFunctionPath {
     pub fn is_system(&self) -> bool {
         self.udf_path.is_system()
     }
+
+    pub fn into_component_and_udf_path(self) -> (ComponentPath, CanonicalizedUdfPath) {
+        (self.component, self.udf_path)
+    }
 }
 
 impl From<CanonicalizedComponentFunctionPath> for ComponentFunctionPath {

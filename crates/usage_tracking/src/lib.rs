@@ -118,9 +118,11 @@ impl UsageCounter {
             UdfIdentifier::Http(_) => (true, "http"),
             UdfIdentifier::Cli(_) => (false, "cli"),
         };
+        let (component_path, udf_id) = udf_path.clone().into_component_and_udf_path();
         usage_metrics.push(UsageEvent::FunctionCall {
             id: execution_id.to_string(),
-            udf_id: udf_path.to_string(),
+            component_path,
+            udf_id,
             udf_id_type: udf_id_type.to_string(),
             tag: call_type.tag().to_string(),
             memory_megabytes: call_type.memory_megabytes(),
@@ -158,17 +160,20 @@ impl UsageCounter {
         usage_metrics: &mut Vec<UsageEvent>,
     ) {
         // Merge the storage stats.
+        let (component_path, udf_id) = udf_path.clone().into_component_and_udf_path();
         for (storage_api, function_count) in stats.storage_calls {
             usage_metrics.push(UsageEvent::FunctionStorageCalls {
                 id: execution_id.to_string(),
-                udf_id: udf_path.to_string(),
+                component_path: component_path.clone(),
+                udf_id: udf_id.clone(),
                 call: storage_api,
                 count: function_count,
             });
         }
         usage_metrics.push(UsageEvent::FunctionStorageBandwidth {
             id: execution_id.to_string(),
-            udf_id: udf_path.to_string(),
+            component_path: component_path.clone(),
+            udf_id: udf_id.clone(),
             ingress: stats.storage_ingress_size,
             egress: stats.storage_egress_size,
         });
@@ -176,7 +181,8 @@ impl UsageCounter {
         for (table_name, ingress_size) in stats.database_ingress_size {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
-                udf_id: udf_path.to_string(),
+                component_path: component_path.clone(),
+                udf_id: udf_id.clone(),
                 table_name,
                 ingress: ingress_size,
                 egress: 0,
@@ -185,7 +191,8 @@ impl UsageCounter {
         for (table_name, egress_size) in stats.database_egress_size {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
-                udf_id: udf_path.to_string(),
+                component_path: component_path.clone(),
+                udf_id: udf_id.clone(),
                 table_name,
                 ingress: 0,
                 egress: egress_size,
@@ -194,7 +201,8 @@ impl UsageCounter {
         for (table_name, ingress_size) in stats.vector_ingress_size {
             usage_metrics.push(UsageEvent::VectorBandwidth {
                 id: execution_id.to_string(),
-                udf_id: udf_path.to_string(),
+                component_path: component_path.clone(),
+                udf_id: udf_id.clone(),
                 table_name,
                 ingress: ingress_size,
                 egress: 0,
@@ -203,7 +211,8 @@ impl UsageCounter {
         for (table_name, egress_size) in stats.vector_egress_size {
             usage_metrics.push(UsageEvent::VectorBandwidth {
                 id: execution_id.to_string(),
-                udf_id: udf_path.to_string(),
+                component_path: component_path.clone(),
+                udf_id: udf_id.clone(),
                 table_name,
                 ingress: 0,
                 egress: egress_size,
