@@ -53,7 +53,7 @@ export default action(async () => {
     fetchInitFormDataBody,
     fetchInitFormDataBlobFilenameBody,
     fetchInitFormDataTextFileBody,
-    // fetchUserAgent,
+    fetchUserAgent,
     // fetchRequest,
     // fetchRequestAcceptHeaders,
     // fetchPostBodyString,
@@ -642,15 +642,15 @@ async function fetchInitFormDataTextFileBody() {
   assert.strictEqual(await file.text(), await resultFile.text());
 }
 
-// async function fetchUserAgent() {
-//   const data = "Hello World";
-//   const response = await fetch("http://localhost:4545/echo_server", {
-//     method: "POST",
-//     body: new TextEncoder().encode(data),
-//   });
-//   assertEquals(response.headers.get("user-agent"), `Deno/${Deno.version.deno}`);
-//   await response.text();
-// }
+async function fetchUserAgent() {
+  const data = "Hello World";
+  const response = await fetch("http://localhost:4545/echo_server", {
+    method: "POST",
+    body: new TextEncoder().encode(data),
+  });
+  assert.equal(response.headers.get("user-agent"), `Convex/1.0`);
+  await response.text();
+}
 
 // function bufferServer(addr: string): Promise<Buffer> {
 //   const [hostname, port] = addr.split(":");

@@ -68,6 +68,7 @@ impl ProxiedFetchClient {
                 );
             builder = builder.proxy(proxy);
         }
+        builder = builder.user_agent("Convex/1.0");
         Self {
             http_client: builder.build().expect("Failed to build reqwest client"),
             internal_http_client: reqwest::Client::new(),
