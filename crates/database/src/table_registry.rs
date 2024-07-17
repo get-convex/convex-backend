@@ -30,6 +30,7 @@ use value::{
 use crate::{
     defaults::bootstrap_system_tables,
     metrics::bootstrap_table_registry_timer,
+    VirtualSystemMapping,
     VirtualTableMetadata,
     VIRTUAL_TABLES_TABLE,
 };
@@ -45,7 +46,10 @@ pub struct TableRegistry {
     table_mapping: TableMapping,
     persistence_version: PersistenceVersion,
 
+    /// Mapping from virtual table number to name.
     virtual_table_mapping: VirtualTableMapping,
+    /// Mapping from virtual table name to corresponding system table name.
+    virtual_system_mapping: VirtualSystemMapping,
 }
 
 impl TableRegistry {
@@ -57,6 +61,7 @@ impl TableRegistry {
         table_states: OrdMap<TabletId, TableState>,
         persistence_version: PersistenceVersion,
         virtual_table_mapping: VirtualTableMapping,
+        virtual_system_mapping: VirtualSystemMapping,
     ) -> anyhow::Result<Self> {
         let _timer = bootstrap_table_registry_timer();
         Ok(Self {
@@ -64,6 +69,7 @@ impl TableRegistry {
             tablet_states: table_states,
             persistence_version,
             virtual_table_mapping,
+            virtual_system_mapping,
         })
     }
 
@@ -107,7 +113,11 @@ impl TableRegistry {
                         if self.table_exists(metadata.namespace, &metadata.name) {
                             anyhow::bail!("Tried to create duplicate table {new_value}");
                         }
-                        self.validate_table_number(metadata.namespace, metadata.number)?;
+                        self.validate_table_number(
+                            metadata.namespace,
+                            metadata.number,
+                            &metadata.name,
+                        )?;
                     }
                     Some(TableUpdate {
                         namespace: metadata.namespace,
@@ -195,7 +205,11 @@ impl TableRegistry {
                     {
                         anyhow::bail!("Tried to create duplicate virtual table {new_value}");
                     }
-                    self.validate_table_number(metadata.namespace, metadata.number)?;
+                    self.validate_table_number(
+                        metadata.namespace,
+                        metadata.number,
+                        &metadata.name,
+                    )?;
                     virtual_table_creation =
                         Some((metadata.namespace, metadata.number, metadata.name));
                 },
@@ -215,6 +229,7 @@ impl TableRegistry {
         &self,
         namespace: TableNamespace,
         table_number: TableNumber,
+        table_name: &TableName,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
             !self
@@ -224,14 +239,25 @@ impl TableRegistry {
             "Cannot add a table with table number {table_number} since it already exists in the \
              table mapping"
         );
-        anyhow::ensure!(
-            !self
-                .virtual_table_mapping
-                .namespace(namespace)
-                .number_exists(table_number),
-            "Cannot add a table with table number {table_number} since it already exists in the \
-             virtual table mapping"
-        );
+        if let Ok(existing_virtual_table) = self
+            .virtual_table_mapping
+            .namespace(namespace)
+            .name(table_number)
+        {
+            if self
+                .virtual_system_mapping
+                .virtual_to_system_table(&existing_virtual_table)?
+                == table_name
+            {
+                // A virtual table can share a table number with its physical
+                // table.
+            } else {
+                anyhow::bail!(
+                    "Cannot add a table with table number {table_number} since it already exists \
+                     in the virtual table mapping"
+                );
+            }
+        }
         Ok(())
     }
 

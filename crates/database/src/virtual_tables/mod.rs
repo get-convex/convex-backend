@@ -120,6 +120,22 @@ pub struct VirtualSystemMapping {
     system_to_virtual_doc_mapper: OrdMap<TableName, Arc<dyn VirtualSystemDocMapper>>,
 }
 
+impl std::fmt::Debug for VirtualSystemMapping {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VirtualSystemMapping")
+            .field("virtual_to_system", &self.virtual_to_system)
+            .field("virtual_to_system_indexes", &self.virtual_to_system_indexes)
+            .finish()
+    }
+}
+
+impl PartialEq for VirtualSystemMapping {
+    fn eq(&self, other: &Self) -> bool {
+        self.virtual_to_system == other.virtual_to_system
+            && self.virtual_to_system_indexes == other.virtual_to_system_indexes
+    }
+}
+
 impl VirtualSystemMapping {
     pub fn add_table(
         &mut self,
