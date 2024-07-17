@@ -94,6 +94,10 @@ impl CanonicalizedComponentFunctionPath {
         }
         format!("{:?}", self.udf_path)
     }
+
+    pub fn is_system(&self) -> bool {
+        self.udf_path.is_system()
+    }
 }
 
 impl From<CanonicalizedComponentFunctionPath> for ComponentFunctionPath {
@@ -107,6 +111,6 @@ impl From<CanonicalizedComponentFunctionPath> for ComponentFunctionPath {
 
 impl HeapSize for CanonicalizedComponentFunctionPath {
     fn heap_size(&self) -> usize {
-        self.udf_path.heap_size()
+        self.component.heap_size() + self.udf_path.heap_size()
     }
 }

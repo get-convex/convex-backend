@@ -13,6 +13,7 @@ use serde_json::{
 use value::heap_size::HeapSize;
 
 use crate::{
+    components::ComponentPath,
     errors::JsError,
     execution_context::ExecutionContext,
     log_lines::LogLine,
@@ -150,7 +151,8 @@ impl LogEvent {
 
         let source = FunctionEventSource {
             context: ExecutionContext::new_for_test(),
-            path: "test".to_string(),
+            component_path: ComponentPath::test_user(),
+            udf_path: "test".to_string(),
             udf_type: UdfType::Action,
             module_environment: ModuleEnvironment::Isolate,
             cached: None,
@@ -187,7 +189,7 @@ impl LogEvent {
                     json!({
                         "_timestamp": ms,
                         "_topic":  "_console",
-                        "_functionPath": source.path,
+                        "_functionPath": source.udf_path,
                         "_functionType": source.udf_type,
                         "_functionCached": source.cached,
                         "message": log_line.to_pretty_string()
@@ -207,7 +209,7 @@ impl LogEvent {
                     json!({
                         "_timestamp": ms,
                         "_topic":  "_execution_record",
-                        "_functionPath": source.path,
+                        "_functionPath": source.udf_path,
                         "_functionType": source.udf_type,
                         "_functionCached": source.cached,
                         "status": status,
@@ -233,7 +235,7 @@ impl LogEvent {
                     json!({
                         "_timestamp": ms,
                         "_topic":  "_exception",
-                        "_functionPath": source.path,
+                        "_functionPath": source.udf_path,
                         "_functionType": source.udf_type,
                         "_functionCached": source.cached,
                         "message": message,
@@ -312,6 +314,8 @@ impl LogEvent {
                         }
                     })
                 },
+                // This codepath is unused because we filter out logs in default_log_filter and
+                // construct exception logs in the Sentry sink
                 StructuredLogEvent::Exception {
                     error,
                     user_identifier,
@@ -326,7 +330,7 @@ impl LogEvent {
                     json!({
                         "_timestamp": ms,
                         "_topic":  "_exception",
-                        "_functionPath": source.path,
+                        "_functionPath": source.udf_path,
                         "_functionType": source.udf_type,
                         "_functionCached": source.cached,
                         "message": message,
@@ -403,7 +407,8 @@ pub enum EventSource {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionEventSource {
     pub context: ExecutionContext,
-    pub path: String,
+    pub component_path: ComponentPath,
+    pub udf_path: String,
     pub udf_type: UdfType,
     pub module_environment: ModuleEnvironment,
     // Only queries can be cached, so this is only Some for queries. This is important
@@ -417,35 +422,45 @@ impl FunctionEventSource {
     pub fn new_for_test() -> Self {
         Self {
             context: ExecutionContext::new_for_test(),
-            path: "path/to/file:myFunction".to_string(),
+            component_path: ComponentPath::test_user(),
+            udf_path: "path/to/file:myFunction".to_string(),
             udf_type: UdfType::Mutation,
             module_environment: ModuleEnvironment::Isolate,
             cached: None,
         }
     }
 
-    pub fn to_json_map(&self) -> serde_json::Map<String, JsonValue> {
+    pub fn to_json_map(self) -> serde_json::Map<String, JsonValue> {
         let udf_type = match self.udf_type {
             UdfType::Query => "query",
             UdfType::Mutation => "mutation",
             UdfType::Action => "action",
             UdfType::HttpAction => "http_action",
         };
-        let JsonValue::Object(fields) = json!({
-            "path": self.path,
+        let JsonValue::Object(mut fields) = json!({
+            "path": self.udf_path,
             "type": udf_type,
             "cached": self.cached,
             "request_id": self.context.request_id.to_string(),
         }) else {
             unreachable!()
         };
+        if let Some(component_path_str) = self.component_path.serialize() {
+            fields.insert(
+                "component_path".to_string(),
+                JsonValue::String(component_path_str),
+            );
+        }
         fields
     }
 }
 
 impl HeapSize for FunctionEventSource {
     fn heap_size(&self) -> usize {
-        self.path.heap_size() + self.udf_type.heap_size() + self.cached.heap_size()
+        self.component_path.heap_size()
+            + self.udf_path.heap_size()
+            + self.udf_type.heap_size()
+            + self.cached.heap_size()
     }
 }
 
@@ -457,6 +472,7 @@ mod tests {
     };
 
     use crate::{
+        components::ComponentPath,
         execution_context::ExecutionContext,
         log_lines::{
             LogLevel,
@@ -485,7 +501,8 @@ mod tests {
             event: StructuredLogEvent::Console {
                 source: FunctionEventSource {
                     context,
-                    path: "test:test".to_string(),
+                    component_path: ComponentPath::test_user(),
+                    udf_path: "test:test".to_string(),
                     udf_type: UdfType::Query,
                     module_environment: ModuleEnvironment::Isolate,
                     cached: Some(true),

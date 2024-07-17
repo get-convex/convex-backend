@@ -6,7 +6,13 @@ use std::{
 
 use itertools::Itertools;
 use sync_types::path::check_valid_path_component;
-use value::identifier::Identifier;
+use value::{
+    heap_size::{
+        HeapSize,
+        WithHeapSize,
+    },
+    identifier::Identifier,
+};
 
 // All components under a component have a unique `ComponentName`. For example,
 // the root app component may have a waitlist component identified by
@@ -55,6 +61,12 @@ impl Deref for ComponentName {
     }
 }
 
+impl HeapSize for ComponentName {
+    fn heap_size(&self) -> usize {
+        self.0.capacity()
+    }
+}
+
 // Path within the component tree for a particular component. Note that this
 // path can potentially change when the component tree changes during a push, so
 // we should resolve this path to a `ComponentId` within a transaction
@@ -62,12 +74,14 @@ impl Deref for ComponentName {
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentPath {
-    path: Vec<ComponentName>,
+    path: WithHeapSize<Vec<ComponentName>>,
 }
 
 impl ComponentPath {
-    pub const fn root() -> Self {
-        Self { path: Vec::new() }
+    pub fn root() -> Self {
+        Self {
+            path: WithHeapSize::default(),
+        }
     }
 
     pub fn is_root(&self) -> bool {
@@ -77,7 +91,7 @@ impl ComponentPath {
     /// Use ComponentPath::TODO() when the path should be passed down from a
     /// higher layer.
     #[allow(non_snake_case)]
-    pub const fn TODO() -> Self {
+    pub fn TODO() -> Self {
         Self::root()
     }
 
@@ -85,7 +99,7 @@ impl ComponentPath {
     /// Ideally this could be changed to an arbitrary path and the tests would
     /// still pass.
     #[cfg(any(test, feature = "testing"))]
-    pub const fn test_user() -> Self {
+    pub fn test_user() -> Self {
         Self::root()
     }
 
@@ -120,6 +134,14 @@ impl ComponentPath {
             None => Ok(ComponentPath::root()),
         }
     }
+
+    pub fn serialize(self) -> Option<String> {
+        if self.is_root() {
+            None
+        } else {
+            Some(String::from(self))
+        }
+    }
 }
 
 impl Deref for ComponentPath {
@@ -132,7 +154,9 @@ impl Deref for ComponentPath {
 
 impl From<Vec<ComponentName>> for ComponentPath {
     fn from(path: Vec<ComponentName>) -> Self {
-        Self { path }
+        Self {
+            path: path.into_iter().collect(),
+        }
     }
 }
 
@@ -156,11 +180,17 @@ impl FromStr for ComponentPath {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(Self {
             path: if s.is_empty() {
-                vec![]
+                WithHeapSize::default()
             } else {
                 s.split('/').map(str::parse).try_collect()?
             },
         })
+    }
+}
+
+impl HeapSize for ComponentPath {
+    fn heap_size(&self) -> usize {
+        self.path.heap_size()
     }
 }
 

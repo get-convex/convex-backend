@@ -15,7 +15,6 @@ use std::{
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentFunctionPath,
         ComponentPath,
     },
     errors::{
@@ -74,7 +73,6 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use sync_types::CanonicalizedUdfPath;
 use url::Url;
 use usage_tracking::{
     AggregatedFunctionUsageStats,
@@ -155,54 +153,9 @@ impl HeapSize for FunctionExecution {
 }
 
 impl FunctionExecution {
-    /// Helper method to construct UDF execution for errors that occurred before
-    /// execution and thus have no associated runtime information.
-    pub fn for_error(
-        udf_path: CanonicalizedUdfPath,
-        udf_type: UdfType,
-        unix_timestamp: UnixTimestamp,
-        error: String,
-        caller: FunctionCaller,
-        udf_server_version: Option<semver::Version>,
-        identity: InertIdentity,
-        context: ExecutionContext,
-    ) -> Self {
-        FunctionExecution {
-            params: UdfParams::Function {
-                error: Some(JsError::from_message(error)),
-                identifier: udf_path,
-            },
-            unix_timestamp,
-            execution_timestamp: unix_timestamp,
-            udf_type,
-            log_lines: vec![].into(),
-            tables_touched: WithHeapSize::default(),
-            cached_result: false,
-            execution_time: 0.0,
-            caller,
-            environment: ModuleEnvironment::Invalid,
-            syscall_trace: SyscallTrace::new(),
-            usage_stats: AggregatedFunctionUsageStats::default(),
-            action_memory_used_mb: match udf_type {
-                UdfType::Query | UdfType::Mutation => None,
-                UdfType::Action | UdfType::HttpAction => Some(0),
-            },
-            udf_server_version,
-            identity,
-            context,
-        }
-    }
-
     fn identifier(&self) -> UdfIdentifier {
         match &self.params {
-            UdfParams::Function { identifier, .. } => {
-                let component = ComponentPath::TODO();
-                let path = ComponentFunctionPath {
-                    component,
-                    udf_path: identifier.clone().strip(),
-                };
-                UdfIdentifier::Function(path.canonicalize())
-            },
+            UdfParams::Function { identifier, .. } => UdfIdentifier::Function(identifier.clone()),
             UdfParams::Http { identifier, .. } => UdfIdentifier::Http(identifier.clone()),
         }
     }
@@ -214,9 +167,14 @@ impl FunctionExecution {
         } else {
             None
         };
+        let component_path = match &self.params {
+            UdfParams::Function { identifier, .. } => identifier.component.clone(),
+            UdfParams::Http { .. } => ComponentPath::TODO(),
+        };
 
         FunctionEventSource {
-            path: udf_id,
+            component_path,
+            udf_path: udf_id,
             udf_type: self.udf_type,
             module_environment: self.environment,
             cached,
@@ -355,8 +313,8 @@ pub enum UdfParams {
         // Instead only store the error if there was one. If error is None, the
         // function succeeded.
         error: Option<JsError>,
-        /// Path of the UDF that was executed.
-        identifier: CanonicalizedUdfPath,
+        /// Path of the component and UDF that was executed.
+        identifier: CanonicalizedComponentFunctionPath,
     },
     Http {
         result: Result<HttpActionStatusCode, JsError>,
@@ -391,7 +349,7 @@ impl UdfParams {
 
     pub fn identifier_str(&self) -> String {
         match self {
-            Self::Function { identifier, .. } => identifier.clone().strip().to_string(),
+            Self::Function { identifier, .. } => identifier.udf_path.clone().strip().to_string(),
             Self::Http { identifier, .. } => identifier.to_string(),
         }
     }
@@ -618,28 +576,12 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         usage: TrackUsage,
         context: ExecutionContext,
     ) {
-        let udf_path = match outcome.path.clone().into_root_udf_path() {
-            Ok(udf_path) => udf_path,
-            Err(_) => {
-                tracing::warn!(
-                    "Skipping logging non-root query: {:?}:{:?}",
-                    outcome.path.component,
-                    outcome.path.udf_path
-                );
-                return;
-            },
-        };
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
-                let component = ComponentPath::TODO();
-                let path = ComponentFunctionPath {
-                    component,
-                    udf_path: udf_path.clone().strip(),
-                };
                 self.usage_tracking.track_call(
-                    UdfIdentifier::Function(path.canonicalize()),
+                    UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
                     if was_cached {
                         CallType::CachedQuery
@@ -652,7 +594,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
         };
-        if udf_path.is_system() {
+        if outcome.path.is_system() {
             return;
         }
         let execution = FunctionExecution {
@@ -661,7 +603,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     Ok(_) => None,
                     Err(e) => Some(e),
                 },
-                identifier: udf_path.clone(),
+                identifier: outcome.path,
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,
@@ -760,28 +702,12 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         usage: TrackUsage,
         context: ExecutionContext,
     ) {
-        let udf_path = match outcome.path.clone().into_root_udf_path() {
-            Ok(udf_path) => udf_path,
-            Err(_) => {
-                tracing::warn!(
-                    "Skipping logging non-root mutation: {:?}:{:?}",
-                    outcome.path.component,
-                    outcome.path.udf_path
-                );
-                return;
-            },
-        };
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
-                let component = ComponentPath::TODO();
-                let path = ComponentFunctionPath {
-                    component,
-                    udf_path: udf_path.clone().strip(),
-                };
                 self.usage_tracking.track_call(
-                    UdfIdentifier::Function(path.canonicalize()),
+                    UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
                     CallType::Mutation,
                     usage_stats,
@@ -790,7 +716,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
         };
-        if udf_path.is_system() {
+        if outcome.path.is_system() {
             return;
         }
         let execution = FunctionExecution {
@@ -799,7 +725,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     Ok(_) => None,
                     Err(e) => Some(e),
                 },
-                identifier: udf_path.clone(),
+                identifier: outcome.path,
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,
@@ -860,28 +786,12 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     fn _log_action(&self, completion: ActionCompletion, usage: TrackUsage) {
         let outcome = completion.outcome;
         let log_lines = completion.log_lines;
-        let udf_path = match outcome.path.clone().into_root_udf_path() {
-            Ok(udf_path) => udf_path,
-            Err(_) => {
-                tracing::warn!(
-                    "Skipping logging non-root action: {:?}:{:?}",
-                    outcome.path.component,
-                    outcome.path.udf_path
-                );
-                return;
-            },
-        };
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
-                let component = ComponentPath::TODO();
-                let path = ComponentFunctionPath {
-                    component,
-                    udf_path: udf_path.clone().strip(),
-                };
                 self.usage_tracking.track_call(
-                    UdfIdentifier::Function(path.canonicalize()),
+                    UdfIdentifier::Function(outcome.path.clone()),
                     completion.context.execution_id.clone(),
                     CallType::Action {
                         env: completion.environment,
@@ -894,7 +804,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
         };
-        if udf_path.is_system() {
+        if outcome.path.is_system() {
             return;
         }
         let execution = FunctionExecution {
@@ -903,7 +813,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     Ok(_) => None,
                     Err(e) => Some(e),
                 },
-                identifier: udf_path,
+                identifier: outcome.path,
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,
@@ -932,14 +842,12 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         log_lines: LogLines,
         module_environment: ModuleEnvironment,
     ) {
-        let Ok(udf_path) = path.into_root_udf_path() else {
-            return;
-        };
-        if udf_path.is_system() {
+        if path.is_system() {
             return;
         }
         let event_source = FunctionEventSource {
-            path: udf_path.strip().to_string(),
+            component_path: path.component,
+            udf_path: path.udf_path.strip().to_string(),
             udf_type: UdfType::Action,
             module_environment,
             cached: Some(false),
@@ -1061,7 +969,8 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         module_environment: ModuleEnvironment,
     ) {
         let event_source = FunctionEventSource {
-            path: identifier.to_string(),
+            component_path: ComponentPath::TODO(),
+            udf_path: identifier.to_string(),
             udf_type: UdfType::HttpAction,
             module_environment,
             cached: Some(false),

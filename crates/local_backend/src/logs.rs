@@ -46,6 +46,7 @@ pub enum FunctionExecutionJson {
     #[serde(rename_all = "camelCase")]
     Completion {
         udf_type: String,
+        component_path: Option<String>,
         identifier: String,
         log_lines: Vec<JsonValue>,
         timestamp: f64,
@@ -59,6 +60,7 @@ pub enum FunctionExecutionJson {
     #[serde(rename_all = "camelCase")]
     Progress {
         udf_type: String,
+        component_path: Option<String>,
         identifier: String,
         timestamp: f64,
         log_lines: Vec<JsonValue>,
@@ -190,7 +192,8 @@ pub async fn stream_function_logs(
                         FunctionExecutionPart::Progress(c) => {
                             FunctionExecutionJson::Progress {
                                 udf_type: c.event_source.udf_type.to_string(),
-                                identifier: c.event_source.path,
+                                component_path: c.event_source.component_path.serialize(),
+                                identifier: c.event_source.udf_path,
                                 timestamp: c.function_start_timestamp.as_secs_f64(),
                                 log_lines: c.log_lines
                                     .into_iter()
@@ -231,9 +234,11 @@ fn execution_to_json(
 ) -> anyhow::Result<FunctionExecutionJson> {
     let json = match execution.params {
         UdfParams::Function { error, identifier } => {
-            let identifier: String = identifier.strip().into();
+            let component_path = identifier.component.serialize();
+            let identifier: String = identifier.udf_path.strip().into();
             FunctionExecutionJson::Completion {
                 udf_type: execution.udf_type.to_string(),
+                component_path,
                 identifier,
                 log_lines: execution
                     .log_lines
@@ -257,6 +262,7 @@ fn execution_to_json(
             };
             FunctionExecutionJson::Completion {
                 udf_type: execution.udf_type.to_string(),
+                component_path: None,
                 identifier,
                 log_lines: execution
                     .log_lines

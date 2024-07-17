@@ -29,6 +29,7 @@ export type LogLine = string | StructuredLogLine;
 
 export type FunctionExecutionCompletion = {
   kind: "Completion";
+  componentPath?: string;
   identifier: string;
   udfType: UdfType;
   arguments: string[];
@@ -53,6 +54,7 @@ export type FunctionExecutionCompletion = {
 
 export type FunctionExecutionProgess = {
   kind: "Progress";
+  componentPath?: string;
   identifier: string;
   udfType: UdfType;
   // Unix timestamp (in seconds)

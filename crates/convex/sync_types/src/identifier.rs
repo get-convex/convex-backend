@@ -42,6 +42,10 @@ impl Identifier {
     pub fn min() -> Self {
         Identifier(MIN_IDENTIFIER.to_string())
     }
+
+    pub fn capacity(&self) -> usize {
+        self.0.capacity()
+    }
 }
 
 impl FromStr for Identifier {
