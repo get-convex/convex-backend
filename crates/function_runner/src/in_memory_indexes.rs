@@ -87,65 +87,42 @@ use crate::{
     FunctionWrites,
 };
 
-/// Struct from which you can create a [Transaction].
-/// TODO: delete this in favor of using Transaction directly.
-pub struct TransactionIngredients<RT: Runtime> {
-    pub ts: RepeatableTimestamp,
-    pub identity: Identity,
-    pub existing_writes: FunctionWrites,
-    pub rt: RT,
-    pub table_registry: TableRegistry,
-    pub index_registry: IndexRegistry,
-    pub table_count_snapshot: Arc<dyn TableCountSnapshot>,
-    pub database_index_snapshot: DatabaseIndexSnapshot,
-    pub text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
-    pub retention_validator: Arc<dyn RetentionValidator>,
-    pub virtual_system_mapping: VirtualSystemMapping,
-    pub usage_tracker: FunctionUsageTracker,
-}
-
-impl<RT: Runtime> TryFrom<TransactionIngredients<RT>> for Transaction<RT> {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        TransactionIngredients {
-            ts,
-            identity,
-            existing_writes,
-            rt,
-            table_registry,
-            index_registry,
-            table_count_snapshot,
-            database_index_snapshot,
-            text_index_snapshot,
-            retention_validator,
-            virtual_system_mapping,
-            usage_tracker,
-        }: TransactionIngredients<RT>,
-    ) -> Result<Self, Self::Error> {
-        let id_generator = TransactionIdGenerator::new(&rt)?;
-        // The transaction timestamp might be few minutes behind if the backend
-        // has been idle. Make sure creation time is always recent. Existing writes to
-        // the transaction will advance next_creation_time in `merge_writes` below.
-        let creation_time = CreationTime::try_from(cmp::max(*ts, rt.generate_timestamp()?))?;
-        let transaction_index =
-            TransactionIndex::new(index_registry, database_index_snapshot, text_index_snapshot);
-        let mut tx = Transaction::new(
-            identity,
-            id_generator,
-            creation_time,
-            transaction_index,
-            table_registry,
-            table_count_snapshot,
-            rt.clone(),
-            usage_tracker,
-            retention_validator,
-            virtual_system_mapping,
-        );
-        let updates = existing_writes.updates;
-        tx.merge_writes(updates, existing_writes.generated_ids)?;
-        Ok(tx)
-    }
+fn make_transaction<RT: Runtime>(
+    ts: RepeatableTimestamp,
+    identity: Identity,
+    existing_writes: FunctionWrites,
+    rt: RT,
+    table_registry: TableRegistry,
+    index_registry: IndexRegistry,
+    table_count_snapshot: Arc<dyn TableCountSnapshot>,
+    database_index_snapshot: DatabaseIndexSnapshot,
+    text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
+    retention_validator: Arc<dyn RetentionValidator>,
+    virtual_system_mapping: VirtualSystemMapping,
+    usage_tracker: FunctionUsageTracker,
+) -> anyhow::Result<Transaction<RT>> {
+    let id_generator = TransactionIdGenerator::new(&rt)?;
+    // The transaction timestamp might be few minutes behind if the backend
+    // has been idle. Make sure creation time is always recent. Existing writes to
+    // the transaction will advance next_creation_time in `merge_writes` below.
+    let creation_time = CreationTime::try_from(cmp::max(*ts, rt.generate_timestamp()?))?;
+    let transaction_index =
+        TransactionIndex::new(index_registry, database_index_snapshot, text_index_snapshot);
+    let mut tx = Transaction::new(
+        identity,
+        id_generator,
+        creation_time,
+        transaction_index,
+        table_registry,
+        table_count_snapshot,
+        rt.clone(),
+        usage_tracker,
+        retention_validator,
+        virtual_system_mapping,
+    );
+    let updates = existing_writes.updates;
+    tx.merge_writes(updates, existing_writes.generated_ids)?;
+    Ok(tx)
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
@@ -367,7 +344,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
         usage_tracker: FunctionUsageTracker,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<TransactionIngredients<RT>> {
+    ) -> anyhow::Result<Transaction<RT>> {
         let _timer = begin_tx_timer();
         for (index_id, last_modified) in &in_memory_index_last_modified {
             anyhow::ensure!(
@@ -390,21 +367,20 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                 bootstrap_metadata,
             )
             .await?;
-        let transaction_ingredients = TransactionIngredients {
+        make_transaction(
             ts,
             identity,
             existing_writes,
-            rt: self.rt.clone(),
+            self.rt.clone(),
             table_registry,
             index_registry,
             table_count_snapshot,
             database_index_snapshot,
             text_index_snapshot,
             retention_validator,
-            virtual_system_mapping: virtual_system_mapping(),
+            virtual_system_mapping(),
             usage_tracker,
-        };
-        Ok(transaction_ingredients)
+        )
     }
 }
 

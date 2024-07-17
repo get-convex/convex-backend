@@ -309,7 +309,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<Transaction<RT>> {
         let usage_tracker = FunctionUsageTracker::new();
-        let transaction_ingredients = self
+        let transaction = self
             .index_cache
             .begin_tx(
                 identity.clone(),
@@ -325,7 +325,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 retention_validator,
             )
             .await?;
-        let transaction = transaction_ingredients.try_into()?;
         Ok(transaction)
     }
 
@@ -371,7 +370,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 Arc::new(FollowerRetentionManager::new(self.rt.clone(), reader.clone()).await?)
             },
         };
-        let transaction_ingredients = self
+        let mut transaction = self
             .index_cache
             .begin_tx(
                 identity.clone(),
@@ -387,7 +386,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 retention_validator,
             )
             .await?;
-        let mut transaction = transaction_ingredients.try_into()?;
         let storage = self
             .storage
             .storage_for_instance(&mut transaction, StorageUseCase::Files)
