@@ -13,7 +13,11 @@ use std::{
 };
 
 use common::{
-    components::CanonicalizedComponentFunctionPath,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentFunctionPath,
+        ComponentPath,
+    },
     errors::{
         report_error,
         JsError,
@@ -191,7 +195,14 @@ impl FunctionExecution {
 
     fn identifier(&self) -> UdfIdentifier {
         match &self.params {
-            UdfParams::Function { identifier, .. } => UdfIdentifier::Function(identifier.clone()),
+            UdfParams::Function { identifier, .. } => {
+                let component = ComponentPath::TODO();
+                let path = ComponentFunctionPath {
+                    component,
+                    udf_path: identifier.clone().strip(),
+                };
+                UdfIdentifier::Function(path.canonicalize())
+            },
             UdfParams::Http { identifier, .. } => UdfIdentifier::Http(identifier.clone()),
         }
     }
@@ -622,8 +633,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
+                let component = ComponentPath::TODO();
+                let path = ComponentFunctionPath {
+                    component,
+                    udf_path: udf_path.clone().strip(),
+                };
                 self.usage_tracking.track_call(
-                    UdfIdentifier::Function(udf_path.clone()),
+                    UdfIdentifier::Function(path.canonicalize()),
                     context.execution_id.clone(),
                     if was_cached {
                         CallType::CachedQuery
@@ -759,8 +775,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
+                let component = ComponentPath::TODO();
+                let path = ComponentFunctionPath {
+                    component,
+                    udf_path: udf_path.clone().strip(),
+                };
                 self.usage_tracking.track_call(
-                    UdfIdentifier::Function(udf_path.clone()),
+                    UdfIdentifier::Function(path.canonicalize()),
                     context.execution_id.clone(),
                     CallType::Mutation,
                     usage_stats,
@@ -854,8 +875,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage_tracker) => {
                 let usage_stats = usage_tracker.gather_user_stats();
                 let aggregated = usage_stats.aggregate();
+                let component = ComponentPath::TODO();
+                let path = ComponentFunctionPath {
+                    component,
+                    udf_path: udf_path.clone().strip(),
+                };
                 self.usage_tracking.track_call(
-                    UdfIdentifier::Function(udf_path.clone()),
+                    UdfIdentifier::Function(path.canonicalize()),
                     completion.context.execution_id.clone(),
                     CallType::Action {
                         env: completion.environment,

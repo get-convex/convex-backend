@@ -114,7 +114,7 @@ impl UsageCounter {
         // Because system udfs might cause usage before any data is added by the user,
         // we do not count their calls. We do count their bandwidth.
         let (should_track_calls, udf_id_type) = match &udf_path {
-            UdfIdentifier::Function(path) => (!path.is_system(), "function"),
+            UdfIdentifier::Function(path) => (!path.udf_path.is_system(), "function"),
             UdfIdentifier::Http(_) => (true, "http"),
             UdfIdentifier::Cli(_) => (false, "cli"),
         };

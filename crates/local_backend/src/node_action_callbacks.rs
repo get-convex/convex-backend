@@ -62,6 +62,7 @@ use serde_json::{
 };
 use sync_types::{
     AuthenticationToken,
+    CanonicalizedUdfPath,
     UdfPath,
 };
 use usage_tracking::FunctionUsageTracker;
@@ -321,12 +322,16 @@ pub async fn vector_search(
     if let Some(action_name) = action_name {
         let usage = FunctionUsageTracker::new();
         usage.add(usage_stats);
+        let component = ComponentPath::TODO();
+        let udf_path: CanonicalizedUdfPath = action_name
+            .parse()
+            .context(format!("Unexpected udf path format, got {action_name}"))?;
+        let path = ComponentFunctionPath {
+            component,
+            udf_path: udf_path.clone().strip(),
+        };
         st.application.usage_counter().track_function_usage(
-            UdfIdentifier::Function(
-                action_name
-                    .parse()
-                    .context(format!("Unexpected udf path format, got {action_name}"))?,
-            ),
+            UdfIdentifier::Function(path.canonicalize()),
             // TODO(CX-6045) - have the action send the ExecutionId as a request header
             context.execution_id,
             usage.gather_user_stats(),

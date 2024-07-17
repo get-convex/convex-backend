@@ -3,6 +3,10 @@ use std::time::Duration;
 use common::{
     assert_obj,
     bootstrap_model::index::IndexMetadata,
+    components::{
+        ComponentFunctionPath,
+        ComponentPath,
+    },
     execution_context::ExecutionId,
     maybe_val,
     query::{
@@ -22,6 +26,7 @@ use keybroker::Identity;
 use maplit::btreeset;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
+use sync_types::CanonicalizedUdfPath;
 use usage_tracking::{
     CallType,
     FunctionUsageTracker,
@@ -41,6 +46,16 @@ use crate::{
     UserFacingModel,
 };
 
+fn test_udf_identifier() -> UdfIdentifier {
+    let udf_path: CanonicalizedUdfPath = "test.js:default".parse().unwrap();
+    let component = ComponentPath::root();
+    let path = ComponentFunctionPath {
+        component,
+        udf_path: udf_path.strip(),
+    };
+    UdfIdentifier::Function(path.canonicalize())
+}
+
 #[convex_macro::test_runtime]
 async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> anyhow::Result<()> {
     let fixtures = VectorFixtures::new(rt).await?;
@@ -55,7 +70,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
     add_document_vec_array(&mut tx, &table_name, [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
     fixtures.db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Action {
             env: ModuleEnvironment::Isolate,
@@ -84,7 +99,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
     fixtures.db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
@@ -117,7 +132,7 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
     fixtures.db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Action {
             env: ModuleEnvironment::Isolate,
@@ -150,7 +165,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
     fixtures.db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Action {
             env: ModuleEnvironment::Isolate,
@@ -199,7 +214,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     tx_usage.add(usage_stats);
 
     fixtures.db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Action {
             env: ModuleEnvironment::Isolate,
@@ -241,7 +256,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .await?;
     db.commit(tx).await?;
     db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
@@ -266,7 +281,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         .await?;
     db.commit(tx).await?;
     db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
@@ -308,7 +323,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         .unwrap_or_else(|e| panic!("Failed to add index for {} {:?}", "by_key", e));
     db.commit(tx).await?;
     db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
@@ -332,7 +347,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         .await?;
     db.commit(tx).await?;
     db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
@@ -359,7 +374,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     while query_stream.next(&mut tx, None).await?.is_some() {}
     db.commit(tx).await?;
     db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::Mutation,
         tx_usage.gather_user_stats(),
@@ -386,7 +401,7 @@ async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
 
     let tx_usage = FunctionUsageTracker::new();
     db.usage_counter().track_call(
-        UdfIdentifier::Function("test.js:default".parse()?),
+        test_udf_identifier(),
         ExecutionId::new(),
         CallType::HttpAction {
             duration: Duration::from_secs(5),

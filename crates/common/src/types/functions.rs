@@ -13,14 +13,16 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
 };
 
 use super::HttpActionRoute;
-use crate::version::ClientVersion;
+use crate::{
+    components::CanonicalizedComponentFunctionPath,
+    version::ClientVersion,
+};
 
 #[derive(Serialize, Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[serde(rename_all = "camelCase")]
@@ -104,7 +106,7 @@ impl From<UdfTypeProto> for UdfType {
 /// A unique identifier for a UDF
 #[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub enum UdfIdentifier {
-    Function(CanonicalizedUdfPath),
+    Function(CanonicalizedComponentFunctionPath),
     Http(HttpActionRoute),
     Cli(String),
 }
@@ -112,7 +114,7 @@ pub enum UdfIdentifier {
 impl fmt::Display for UdfIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            UdfIdentifier::Function(path) => write!(f, "{}", path),
+            UdfIdentifier::Function(path) => write!(f, "{}", path.debug_str()),
             UdfIdentifier::Http(route) => write!(f, "{}", route.path),
             UdfIdentifier::Cli(command) => write!(f, "_cli/{command}"),
         }

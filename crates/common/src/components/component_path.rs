@@ -113,6 +113,13 @@ impl ComponentPath {
             format!(" in '{}'", String::from(self.clone()))
         }
     }
+
+    pub fn deserialize(path: Option<&str>) -> anyhow::Result<Self> {
+        match path {
+            Some(p) => p.parse(),
+            None => Ok(ComponentPath::root()),
+        }
+    }
 }
 
 impl Deref for ComponentPath {
