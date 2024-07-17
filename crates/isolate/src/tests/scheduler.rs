@@ -17,9 +17,12 @@ use rand::RngCore;
 use runtime::testing::TestRuntime;
 
 use super::assert_contains;
-use crate::test_helpers::{
-    UdfTest,
-    UdfTestType,
+use crate::{
+    test_helpers::{
+        UdfTest,
+        UdfTestType,
+    },
+    tests::action::action_udf_test,
 };
 
 #[convex_macro::test_runtime]
@@ -306,4 +309,15 @@ async fn test_schedule_arguments_large(rt: TestRuntime) -> anyhow::Result<()> {
         Ok(())
     })
     .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_schedule_by_string(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = action_udf_test(rt).await?;
+    let job_path = t
+        .action("scheduler:scheduleByString", assert_obj!())
+        .await?;
+    must_let!(let ConvexValue::String(job_path) = job_path);
+    assert_eq!(job_path.to_string(), "basic.js:insertObject".to_string());
+    Ok(())
 }

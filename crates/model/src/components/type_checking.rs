@@ -8,8 +8,8 @@ use common::{
         ComponentExport,
     },
     components::{
+        CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
-        ComponentFunctionPath,
         ComponentName,
         ComponentPath,
         Reference,
@@ -256,7 +256,7 @@ impl<'a> CheckedComponentBuilder<'a> {
                     .clone()
             },
             Reference::Function(path) => {
-                let canonicalized = path.clone().canonicalize();
+                let canonicalized = path.clone();
                 let module = self
                     .evaluated
                     .functions
@@ -267,7 +267,7 @@ impl<'a> CheckedComponentBuilder<'a> {
                     .iter()
                     .find(|f| &f.name == canonicalized.function_name())
                     .ok_or_else(unresolved_err)?;
-                Resource::Function(ComponentFunctionPath {
+                Resource::Function(CanonicalizedComponentFunctionPath {
                     component: self.component_path.clone(),
                     udf_path: path.clone(),
                 })

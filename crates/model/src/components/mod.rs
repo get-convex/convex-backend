@@ -13,7 +13,7 @@ use common::{
         ComponentType,
     },
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentId,
         ComponentPath,
         Reference,
@@ -76,7 +76,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                 let mut m = BootstrapComponentsModel::new(self.tx);
                 let component_path = m.get_component_path(component_id).await?;
 
-                let path = ComponentFunctionPath {
+                let path = CanonicalizedComponentFunctionPath {
                     component: component_path,
                     udf_path: udf_path.clone(),
                 };
@@ -179,8 +179,8 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             };
             for function in &analyze_result.functions {
                 let udf_path =
-                    CanonicalizedUdfPath::new(module.path.clone(), function.name.clone()).strip();
-                let function_path = ComponentFunctionPath {
+                    CanonicalizedUdfPath::new(module.path.clone(), function.name.clone());
+                let function_path = CanonicalizedComponentFunctionPath {
                     component: component_path.clone(),
                     udf_path: udf_path.clone(),
                 };

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use bytes::Bytes;
 use common::{
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentId,
     },
     pause::PauseClient,
@@ -99,7 +99,7 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
@@ -111,7 +111,7 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
@@ -123,7 +123,7 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
@@ -133,7 +133,7 @@ pub trait ApplicationApi: Send + Sync {
         host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>>;
@@ -218,7 +218,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
@@ -242,7 +242,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
@@ -270,7 +270,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
@@ -288,7 +288,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &str,
         request_id: RequestId,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {

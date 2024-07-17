@@ -4,7 +4,6 @@ use common::components::ComponentPath;
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentFunctionPath,
         ComponentId,
     },
     errors::JsError,
@@ -71,12 +70,12 @@ use crate::{
     UdfOutcome,
 };
 pub async fn validate_schedule_args<RT: Runtime>(
-    path: ComponentFunctionPath,
+    path: CanonicalizedComponentFunctionPath,
     udf_args: Vec<JsonValue>,
     scheduled_ts: UnixTimestamp,
     udf_ts: UnixTimestamp,
     tx: &mut Transaction<RT>,
-) -> anyhow::Result<(ComponentFunctionPath, ConvexArray)> {
+) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)> {
     // We validate the following mostly so the developer don't get the timestamp
     // wrong with more than order of magnitude.
     let delta = scheduled_ts.as_secs_f64() - udf_ts.as_secs_f64();
@@ -100,7 +99,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
     // we do validate that the scheduled function exists at time of scheduling.
     // We do it here instead of within transaction in order to leverage the module
     // cache.
-    let canonicalized = path.clone().canonicalize();
+    let canonicalized = path.clone();
     let module = ModuleModel::new(tx)
         .get_metadata_for_function(canonicalized.clone())
         .await?

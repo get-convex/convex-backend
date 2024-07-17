@@ -1213,7 +1213,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_query(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -1233,7 +1233,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_mutation(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -1253,7 +1253,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_action(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -1327,7 +1327,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         &self,
         identity: Identity,
         scheduling_component: ComponentId,
-        scheduled_path: ComponentFunctionPath,
+        scheduled_path: CanonicalizedComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,

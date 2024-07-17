@@ -23,8 +23,8 @@ use common::{
         ExpiredInQueue,
     },
     components::{
+        CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
-        ComponentFunctionPath,
         ComponentId,
         ComponentPath,
     },
@@ -282,7 +282,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn execute_query(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
@@ -290,7 +290,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn execute_mutation(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
@@ -298,7 +298,7 @@ pub trait ActionCallbacks: Send + Sync {
     async fn execute_action(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult>;
@@ -339,7 +339,7 @@ pub trait ActionCallbacks: Send + Sync {
         &self,
         identity: Identity,
         scheduling_component: ComponentId,
-        scheduled_path: ComponentFunctionPath,
+        scheduled_path: CanonicalizedComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,

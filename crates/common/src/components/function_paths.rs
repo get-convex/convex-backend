@@ -53,7 +53,7 @@ pub struct SerializedComponentFunctionPath {
     pub udf_path: String,
 }
 
-impl TryFrom<SerializedComponentFunctionPath> for ComponentFunctionPath {
+impl TryFrom<SerializedComponentFunctionPath> for CanonicalizedComponentFunctionPath {
     type Error = anyhow::Error;
 
     fn try_from(p: SerializedComponentFunctionPath) -> anyhow::Result<Self> {
@@ -64,10 +64,10 @@ impl TryFrom<SerializedComponentFunctionPath> for ComponentFunctionPath {
     }
 }
 
-impl TryFrom<ComponentFunctionPath> for SerializedComponentFunctionPath {
+impl TryFrom<CanonicalizedComponentFunctionPath> for SerializedComponentFunctionPath {
     type Error = anyhow::Error;
 
-    fn try_from(p: ComponentFunctionPath) -> anyhow::Result<Self> {
+    fn try_from(p: CanonicalizedComponentFunctionPath) -> anyhow::Result<Self> {
         Ok(Self {
             component: String::from(p.component),
             udf_path: p.udf_path.to_string(),

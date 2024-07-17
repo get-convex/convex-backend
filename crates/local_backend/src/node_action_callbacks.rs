@@ -17,6 +17,7 @@ use axum::{
 };
 use common::{
     components::{
+        CanonicalizedComponentFunctionPath,
         ComponentFunctionPath,
         ComponentId,
         ComponentPath,
@@ -63,7 +64,6 @@ use serde_json::{
 use sync_types::{
     AuthenticationToken,
     CanonicalizedUdfPath,
-    UdfPath,
 };
 use usage_tracking::FunctionUsageTracker;
 use value::{
@@ -104,7 +104,7 @@ pub async fn internal_query_post(
         .application
         .read_only_udf(
             context.request_id,
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
             },
@@ -149,7 +149,7 @@ pub async fn internal_mutation_post(
         .application
         .mutation_udf(
             context.request_id,
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
             },
@@ -199,7 +199,7 @@ pub async fn internal_action_post(
         .application
         .action_udf(
             context.request_id,
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
             },
@@ -252,7 +252,7 @@ pub async fn schedule_job(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let scheduled_ts = UnixTimestamp::from_secs_f64(req.scheduled_ts);
     // User might have entered an invalid path, so this is a developer error.
-    let udf_path = req.udf_path.parse::<UdfPath>().map_err(|e| {
+    let udf_path = req.udf_path.parse::<CanonicalizedUdfPath>().map_err(|e| {
         anyhow::anyhow!(ErrorMetadata::bad_request("InvalidUdfPath", e.to_string()))
     })?;
     let udf_args = req.udf_args.into_arg_vec();
@@ -262,7 +262,7 @@ pub async fn schedule_job(
         .schedule_job(
             identity,
             ComponentId::TODO(),
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
             },

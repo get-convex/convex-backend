@@ -43,7 +43,6 @@ use common::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
         ComponentDefinitionPath,
-        ComponentFunctionPath,
         ComponentId,
         ComponentPath,
     },
@@ -848,7 +847,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn read_only_udf(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
@@ -862,7 +861,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn read_only_udf_at_ts(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
@@ -934,7 +933,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn mutation_udf(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         // Identifier used to make this mutation idempotent.
@@ -1000,7 +999,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn action_udf(
         &self,
         request_id: RequestId,
-        name: ComponentFunctionPath,
+        name: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
@@ -1126,7 +1125,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn any_udf(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
@@ -1147,7 +1146,7 @@ impl<RT: Runtime> Application<RT> {
         // rare enough to disregard it.
         let mut tx_type = self.begin(identity.clone()).await?;
 
-        let canonicalized_path = path.clone().canonicalize();
+        let canonicalized_path = path.clone();
         let Some(analyzed_function) = ModuleModel::new(&mut tx_type)
             .get_analyzed_function(&canonicalized_path)
             .await?
@@ -2025,7 +2024,7 @@ impl<RT: Runtime> Application<RT> {
             component: ComponentPath::TODO(),
             udf_path: CanonicalizedUdfPath::new(module_path, function_name),
         };
-        let arguments = parse_udf_args(&path.clone().into(), args)?;
+        let arguments = parse_udf_args(&path, args)?;
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => self
                 .runner

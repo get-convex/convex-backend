@@ -7,10 +7,7 @@ use std::{
 };
 
 use common::{
-    components::{
-        CanonicalizedComponentFunctionPath,
-        ComponentFunctionPath,
-    },
+    components::CanonicalizedComponentFunctionPath,
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -203,7 +200,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
     pub async fn schedule(
         &mut self,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,
@@ -219,7 +216,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         let now: Timestamp = self.tx.runtime().generate_timestamp()?;
         let original_scheduled_ts: Timestamp = ts.as_system_time().try_into()?;
         let scheduled_job = ScheduledJob {
-            path: path.clone().canonicalize(),
+            path: path.clone(),
             udf_args: args.clone(),
             state: ScheduledJobState::Pending,
             // Don't set next_ts in the past to avoid scheduler incorrectly logging
@@ -245,7 +242,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                     ScheduledJobState::Canceled => {
                         let scheduled_ts = self.tx.begin_timestamp();
                         ScheduledJob {
-                            path: path.canonicalize(),
+                            path,
                             udf_args: args,
                             state: ScheduledJobState::Canceled,
                             next_ts: None,
@@ -465,7 +462,7 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
 
     pub async fn schedule(
         &mut self,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         ts: UnixTimestamp,
         context: ExecutionContext,

@@ -6,7 +6,7 @@ use std::{
 
 use common::{
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentId,
         ComponentPath,
     },
@@ -72,12 +72,12 @@ async fn create_cron_job(
         "key".to_string(),
         serde_json::Value::String("value".to_string()),
     );
-    let path = ComponentFunctionPath {
+    let path = CanonicalizedComponentFunctionPath {
         component: ComponentPath::test_user(),
         udf_path: "basic:insertObject".parse()?,
     };
     let cron_spec = CronSpec {
-        udf_path: path.udf_path.clone().canonicalize(),
+        udf_path: path.udf_path.clone(),
         udf_args: parse_udf_args(&path, vec![JsonValue::Object(map)])?,
         cron_schedule: CronSchedule::Interval { seconds: 60 },
     };

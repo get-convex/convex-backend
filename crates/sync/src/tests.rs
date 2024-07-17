@@ -7,7 +7,7 @@ use application::{
 use common::{
     assert_obj,
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentId,
         ComponentPath,
     },
@@ -820,7 +820,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
 
     let ts2 = *test.application.now_ts_for_reads();
 
-    let path = ComponentFunctionPath {
+    let path = CanonicalizedComponentFunctionPath {
         component: ComponentPath::test_user(),
         udf_path: "sync:accountBalance".parse()?,
     };

@@ -180,7 +180,7 @@ impl FromStr for CanonicalizedUdfPath {
 
     fn from_str(p: &str) -> Result<Self, Self::Err> {
         let path: UdfPath = p.parse()?;
-        path.assume_canonicalized()
+        Ok(path.canonicalize())
     }
 }
 

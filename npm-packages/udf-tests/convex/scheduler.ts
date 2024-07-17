@@ -1,6 +1,7 @@
 import { makeFunctionReference, queryGeneric } from "convex/server";
+import { v } from "convex/values";
 import { api } from "./_generated/api";
-import { DatabaseReader, mutation } from "./_generated/server";
+import { action, DatabaseReader, mutation, query } from "./_generated/server";
 
 export const getScheduledJobs = queryGeneric(async ({ db }) => {
   return await db.system.query("_scheduled_functions").collect();
@@ -76,4 +77,23 @@ export const insertMyJobId = mutation(async ({ db }) => {
     throw new Error("Failed to find jobId");
   }
   await db.insert("completedScheduledJobs", { jobId: jobId });
+});
+
+export const getJobById = query({
+  args: { jobId: v.id("_scheduled_functions") },
+  handler: async ({ db }, { jobId }) => {
+    return await db.system.get(jobId);
+  },
+});
+
+export const scheduleByString = action({
+  args: {},
+  handler: async (ctx): Promise<string> => {
+    const jobId = await ctx.scheduler.runAfter(0, api.basic.insertObject, {});
+    const job = (await ctx.runQuery(api.scheduler.getJobById, { jobId }))!;
+    const jobPath = job.name;
+    const jobFunction = makeFunctionReference<"mutation", any, any>(jobPath);
+    await ctx.scheduler.runAfter(0, jobFunction, {});
+    return jobPath;
+  },
 });

@@ -1,7 +1,7 @@
 use errors::ErrorMetadata;
 use sync_types::{
+    CanonicalizedUdfPath,
     ModulePath,
-    UdfPath,
 };
 use value::{
     id_v6::DeveloperDocumentId,
@@ -10,7 +10,7 @@ use value::{
     TableName,
 };
 
-pub fn parse_udf_path(path: &str) -> anyhow::Result<UdfPath> {
+pub fn parse_udf_path(path: &str) -> anyhow::Result<CanonicalizedUdfPath> {
     path.parse().map_err(|e: anyhow::Error| {
         let msg = format!("{path} is not a valid path to a Convex function. {e}");
         e.context(ErrorMetadata::bad_request(

@@ -6,7 +6,7 @@ use std::{
 
 use common::{
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentId,
         Reference,
         Resource,
@@ -210,7 +210,10 @@ impl<RT: Runtime> TaskExecutor<RT> {
         Ok(resource)
     }
 
-    pub fn resolve_function(&self, reference: &Reference) -> anyhow::Result<ComponentFunctionPath> {
+    pub fn resolve_function(
+        &self,
+        reference: &Reference,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
         let resource = self.resolve(reference)?;
         match resource {
             Resource::Function(p) => Ok(p),

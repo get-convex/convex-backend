@@ -7,7 +7,7 @@ use value::ConvexValue;
 
 use super::{
     function_paths::SerializedComponentFunctionPath,
-    ComponentFunctionPath,
+    CanonicalizedComponentFunctionPath,
 };
 
 /// `Resource`s are resolved `Reference`s to objects within the components
@@ -17,7 +17,7 @@ use super::{
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum Resource {
     Value(ConvexValue),
-    Function(ComponentFunctionPath),
+    Function(CanonicalizedComponentFunctionPath),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -15,7 +15,7 @@ use axum::{
 };
 use common::{
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentPath,
     },
     http::{
@@ -163,7 +163,7 @@ pub async fn public_function_post(
     }
 
     let udf_path = parse_udf_path(&req.path)?;
-    let component_function_path = ComponentFunctionPath {
+    let component_function_path = CanonicalizedComponentFunctionPath {
         component: ComponentPath::TODO(),
         udf_path,
     };
@@ -243,7 +243,7 @@ pub async fn public_query_get(
             host.as_str(),
             request_id,
             identity,
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
             },
@@ -290,7 +290,7 @@ pub async fn public_query_post(
             host.as_str(),
             request_id,
             identity,
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
             },
@@ -350,7 +350,7 @@ pub async fn public_query_batch_post(
                 host.as_str(),
                 request_id.clone(),
                 identity.clone(),
-                ComponentFunctionPath {
+                CanonicalizedComponentFunctionPath {
                     component: ComponentPath::TODO(),
                     udf_path,
                 },
@@ -401,7 +401,7 @@ pub async fn public_mutation_post(
             host.as_str(),
             request_id,
             identity,
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
             },
@@ -451,7 +451,7 @@ pub async fn public_action_post(
             host.as_str(),
             request_id,
             identity,
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
             },

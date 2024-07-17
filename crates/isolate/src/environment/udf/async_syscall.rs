@@ -8,7 +8,7 @@ use std::{
 use anyhow::Context;
 use common::{
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentId,
         Reference,
         Resource,
@@ -276,10 +276,10 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
 
     async fn validate_schedule_args(
         &mut self,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(ComponentFunctionPath, ConvexArray)>;
+    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)>;
 
     fn file_storage_generate_upload_url(&self) -> anyhow::Result<String>;
     async fn file_storage_get_url_batch(
@@ -367,10 +367,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     async fn validate_schedule_args(
         &mut self,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(ComponentFunctionPath, ConvexArray)> {
+    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)> {
         validate_schedule_args(
             path,
             args,
@@ -466,7 +466,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                     "Cannot execute a value resource"
                 ));
             },
-            Resource::Function(p) => p.canonicalize(),
+            Resource::Function(p) => p,
         };
         let (_, called_component_id) = BootstrapComponentsModel::new(tx)
             .component_path_to_ids(function_path.component.clone())
@@ -811,14 +811,14 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     ),
                 ));
             },
-            Resource::Function(p) => p.canonicalize(),
+            Resource::Function(p) => p,
         };
 
         let scheduling_component = provider.component()?;
 
         let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
         let (path, udf_args) = provider
-            .validate_schedule_args(path.into(), args.into_arg_vec(), scheduled_ts)
+            .validate_schedule_args(path, args.into_arg_vec(), scheduled_ts)
             .await?;
 
         let context = provider.context().clone();

@@ -8,8 +8,8 @@ use std::{
 use anyhow::Context as AnyhowContext;
 use common::{
     components::{
+        CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
-        ComponentFunctionPath,
         ComponentId,
         ComponentPath,
         Reference,
@@ -896,10 +896,10 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
 
     async fn validate_schedule_args(
         &mut self,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
-    ) -> anyhow::Result<(ComponentFunctionPath, ConvexArray)> {
+    ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)> {
         validate_schedule_args(path, args, scheduled_ts, self.unix_timestamp, self.tx).await
     }
 
@@ -949,10 +949,12 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource> {
         let resource = match reference {
             Reference::ComponentArgument { .. } => todo!(),
-            Reference::Function(udf_path) => Resource::Function(ComponentFunctionPath {
-                component: ComponentPath::TODO(),
-                udf_path,
-            }),
+            Reference::Function(udf_path) => {
+                Resource::Function(CanonicalizedComponentFunctionPath {
+                    component: ComponentPath::TODO(),
+                    udf_path,
+                })
+            },
             Reference::ChildComponent { .. } => todo!(),
         };
         Ok(resource)

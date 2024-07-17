@@ -322,7 +322,7 @@ impl FromStr for CanonicalizedModulePath {
 
     fn from_str(p: &str) -> Result<Self, Self::Err> {
         let path = ModulePath::from_str(p)?;
-        path.assume_canonicalized()
+        Ok(path.canonicalize())
     }
 }
 

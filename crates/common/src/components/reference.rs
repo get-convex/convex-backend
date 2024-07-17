@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use sync_types::UdfPath;
+use sync_types::CanonicalizedUdfPath;
 use value::identifier::Identifier;
 
 use super::ComponentName;
@@ -49,7 +49,7 @@ pub enum Reference {
     ///   await ctx.runAfter(0, api.foo.bar);
     /// });
     /// ```
-    Function(UdfPath),
+    Function(CanonicalizedUdfPath),
 
     /// Reference originating from `component.childComponents` at definition
     /// time or the generated component string builders in
@@ -83,14 +83,12 @@ impl Reference {
             },
             Reference::Function(p) => {
                 let mut s = "api".to_string();
-                for component in p.module().as_path().components() {
+                for component in p.module().clone().strip().as_path().components() {
                     s.push('.');
                     s.push_str(&component.as_os_str().to_string_lossy());
                 }
-                if let Some(name) = p.function_name() {
-                    s.push('.');
-                    s.push_str(name);
-                }
+                s.push('.');
+                s.push_str(p.function_name());
                 s
             },
             Reference::ChildComponent {
@@ -201,5 +199,12 @@ mod tests {
             let s = String::from(reference.clone());
             assert_eq!(s.parse::<Reference>().unwrap(), reference);
         }
+    }
+
+    #[test]
+    fn test_reference_function_string() -> anyhow::Result<()> {
+        let reference = Reference::Function("foo/bar:baz".parse()?);
+        assert_eq!(reference.evaluation_time_debug_str(), "api.foo.bar.baz");
+        Ok(())
     }
 }

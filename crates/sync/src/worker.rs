@@ -29,7 +29,7 @@ use application::{
 use cmd_util::env::env_config;
 use common::{
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentPath,
     },
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
@@ -461,9 +461,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let timer = mutation_queue_timer();
                 let api = self.api.clone();
                 let host = self.host.clone();
-                let path = ComponentFunctionPath {
+                let path = CanonicalizedComponentFunctionPath {
                     component: ComponentPath::root(),
-                    udf_path: udf_path.clone(),
+                    udf_path: udf_path.clone().canonicalize(),
                 };
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
@@ -520,9 +520,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
-                let path = ComponentFunctionPath {
+                let path = CanonicalizedComponentFunctionPath {
                     component: ComponentPath::root(),
-                    udf_path: udf_path.clone(),
+                    udf_path: udf_path.clone().canonicalize(),
                 };
                 let root = self.rt.with_rng(|rng| {
                     get_sampled_span(
@@ -700,9 +700,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 host.as_ref(),
                                 RequestId::new(),
                                 identity_,
-                                ComponentFunctionPath {
+                                CanonicalizedComponentFunctionPath {
                                     component: ComponentPath::root(),
-                                    udf_path: query.udf_path,
+                                    udf_path: query.udf_path.canonicalize(),
                                 },
                                 query.args,
                                 FunctionCaller::SyncWorker(client_version),

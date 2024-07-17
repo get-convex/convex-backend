@@ -1,9 +1,6 @@
 use anyhow::Context;
 use common::{
-    components::{
-        CanonicalizedComponentFunctionPath,
-        ComponentFunctionPath,
-    },
+    components::CanonicalizedComponentFunctionPath,
     errors::JsError,
     knobs::{
         FUNCTION_MAX_ARGS_SIZE,
@@ -107,7 +104,7 @@ pub fn serialize_udf_args(args: ConvexArray) -> anyhow::Result<String> {
 }
 
 pub fn parse_udf_args(
-    path: &ComponentFunctionPath,
+    path: &CanonicalizedComponentFunctionPath,
     args: Vec<JsonValue>,
 ) -> Result<ConvexArray, JsError> {
     args.into_iter()

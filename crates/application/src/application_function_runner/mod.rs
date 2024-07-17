@@ -20,7 +20,6 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
-        ComponentFunctionPath,
         ComponentId,
         ComponentPath,
     },
@@ -737,7 +736,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn retry_mutation(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
@@ -768,7 +767,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn _retry_mutation(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
@@ -787,7 +786,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 }))
             },
         };
-        let path = path.canonicalize();
         let udf_path_string = (!path.udf_path.is_system()).then_some(path.udf_path.to_string());
 
         let mut backoff = Backoff::new(
@@ -1047,7 +1045,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_action(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
@@ -1065,12 +1063,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             },
         };
         let context = ExecutionContext::new(request_id.clone(), &caller);
-        let canonicalized_path = path.canonicalize();
         let usage_tracking = FunctionUsageTracker::new();
         let start = self.runtime.monotonic_now();
         let completion_result = self
             .run_action_no_udf_log(
-                canonicalized_path.clone(),
+                path.clone(),
                 arguments.clone(),
                 identity.clone(),
                 caller.clone(),
@@ -1083,7 +1080,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) => {
                 self.function_log.log_action_system_error(
                     &e,
-                    canonicalized_path,
+                    path,
                     arguments,
                     identity.into(),
                     start,
@@ -1866,7 +1863,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_query_at_ts(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
@@ -1899,7 +1896,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn run_query_at_ts_inner(
         &self,
         request_id: RequestId,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
@@ -1920,13 +1917,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 });
             },
         };
-        let canonicalized = path.canonicalize();
         let usage_tracker = FunctionUsageTracker::new();
         let result = self
             .cache_manager
             .get(
                 request_id,
-                canonicalized,
+                path,
                 args,
                 identity.clone(),
                 ts,
@@ -2000,7 +1996,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn execute_query(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -2026,7 +2022,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn execute_mutation(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -2054,7 +2050,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
     async fn execute_action(
         &self,
         identity: Identity,
-        path: ComponentFunctionPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
@@ -2160,7 +2156,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         &self,
         identity: Identity,
         scheduling_component: ComponentId,
-        scheduled_path: ComponentFunctionPath,
+        scheduled_path: CanonicalizedComponentFunctionPath,
         udf_args: Vec<JsonValue>,
         scheduled_ts: UnixTimestamp,
         context: ExecutionContext,

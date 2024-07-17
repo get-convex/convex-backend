@@ -56,7 +56,7 @@ pub fn add_file_based_routing(evaluated: &mut EvaluatedComponentDefinition) -> a
                 Entry::Vacant(e) => {
                     let path =
                         CanonicalizedUdfPath::new(module_path.clone(), function.name.clone());
-                    let reference = Reference::Function(path.strip());
+                    let reference = Reference::Function(path);
                     e.insert(ComponentExport::Leaf(reference));
                 },
                 Entry::Occupied(_) => anyhow::bail!(ErrorMetadata::bad_request(

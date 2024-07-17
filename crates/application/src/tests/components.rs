@@ -14,7 +14,7 @@ use common::{
         ComponentType,
     },
     components::{
-        ComponentFunctionPath,
+        CanonicalizedComponentFunctionPath,
         ComponentId,
         ComponentPath,
         Reference,
@@ -209,7 +209,7 @@ bar.invokeAction = async (requestId, argsStr) => {
     let action_return = application
         .action_udf(
             RequestId::new(),
-            ComponentFunctionPath {
+            CanonicalizedComponentFunctionPath {
                 component: ComponentPath::test_user(),
                 udf_path: "foo:bar".parse()?,
             },
