@@ -483,7 +483,7 @@ export class SyscallsImpl {
       scheduleSchema,
       operationName,
     );
-    return this.actionCallback({
+    const { jobId } = await this.actionCallback({
       version: scheduleArgs.version,
       body: {
         udfPath: scheduleArgs.name,
@@ -494,6 +494,7 @@ export class SyscallsImpl {
       operationName,
       responseValidator: scheduleReturn,
     });
+    return jobId;
   }
 
   async syscallCancelJob(rawArgs: string): Promise<JSONValue> {
