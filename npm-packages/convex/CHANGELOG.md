@@ -1,6 +1,25 @@
 # Changelog
 
-## 1.13.0-alpha.1
+## 1.13.1
+
+- Relax client URL validation to prepare for Convex backends accessible on
+  arbitrary domain. This makes `skipConvexDeploymentUrlCheck` client option also
+  no longer required for accessing deployments not hosted on the Convex BaaS.
+
+- Fix bug where the first mutation request send over the WebSocket failing would
+  not roll back the corresponding optimistic update (completedMutationId could
+  be 0 which is falsey!)
+
+- Fix bug where `codegen --init` would fail if no Convex directory existed yet.
+
+- Action and query function wrappers now also allow validators for args
+  (previously only objects were accepted) and objects for returns (previously
+  only validators were accepted).
+
+- Change `httpRouter` behavior for overlapping paths: exact matches first, then
+  the longest prefix patch that matches.
+
+## 1.13.0
 
 - Convex queries, mutations, and actions now accept `returns:` property to
   specify a return value validator.
@@ -25,6 +44,9 @@
   type of all validators where the `.kind` as the discriminator. The `Validator`
   type still has three type parameters with only the first (the TypeScript type
   enforced by the validator) required.
+
+  The second type parameter IsOptional is no longer a boolean, is it "optional"
+  or "required" now.
 
   These are breaking changes if you're using the two optional type parameters of
   `Validator` or doing `instanceof` checks with `Validator`! We apologize for
