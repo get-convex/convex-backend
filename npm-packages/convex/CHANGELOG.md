@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.2
+
+- Fix `npx convex import` regression in 1.13.1
+
 ## 1.13.1
 
 - Relax client URL validation to prepare for Convex backends accessible on
