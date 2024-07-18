@@ -500,15 +500,20 @@ async fn test_id_reuse_within_a_transactions(rt: TestRuntime) -> anyhow::Result<
     let document_id = TestFacingModel::new(&mut tx)
         .insert(&"table".parse()?, ConvexObject::empty())
         .await?;
+    let table_mapping = tx.table_mapping().clone();
+    let table_id = table_mapping
+        .namespace(TableNamespace::test_user())
+        .name_to_id()("table".parse()?)?;
 
-    // Pretend this transaction does another insert using the same DocumentId. We
-    // can't do this through the normal Transaction interface so reach into
-    // the Writes.
-    let err = tx
-        .writes
-        .register_new_id(&mut tx.reads, document_id)
+    // Do another insert using the same DocumentId.
+    let value = assert_obj!(
+        "_id" => DeveloperDocumentId::from(document_id).encode(),
+    );
+    let err = ImportFacingModel::new(&mut tx)
+        .insert(table_id, &"table".parse()?, value, &table_mapping)
+        .await
         .unwrap_err();
-    assert!(format!("{err}").contains("Transaction allocated the same DocumentId twice"));
+    assert!(format!("{err}").contains("Duplicate insert"), "{err}");
     Ok(())
 }
 

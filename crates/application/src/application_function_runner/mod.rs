@@ -381,10 +381,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 user_tx_size,
                 system_tx_size,
             } = function_tx.reads;
-            let FunctionWrites {
-                updates,
-                generated_ids,
-            } = function_tx.writes;
+            let FunctionWrites { updates } = function_tx.writes;
             tx.apply_function_runner_tx(
                 function_tx.begin_timestamp,
                 reads,
@@ -392,7 +389,6 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 user_tx_size,
                 system_tx_size,
                 updates,
-                generated_ids,
                 function_tx.rows_read_by_tablet,
             )?;
             Some(tx)

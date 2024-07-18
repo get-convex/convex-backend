@@ -120,8 +120,7 @@ fn make_transaction<RT: Runtime>(
         retention_validator,
         virtual_system_mapping,
     );
-    let updates = existing_writes.updates;
-    tx.merge_writes(updates, existing_writes.generated_ids)?;
+    tx.merge_writes(existing_writes.updates)?;
     Ok(tx)
 }
 

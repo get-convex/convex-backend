@@ -80,10 +80,7 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let (updates, generated_ids) = function_runner_tx
-        .writes
-        .clone()
-        .into_updates_and_generated_ids();
+    let updates = function_runner_tx.writes.clone().into_updates();
     backend_tx.apply_function_runner_tx(
         *begin_timestamp,
         reads,
@@ -91,7 +88,6 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
         user_tx_size,
         system_tx_size,
         updates,
-        generated_ids,
         rows_read_by_tablet,
     )?;
     assert_eq!(
@@ -137,10 +133,7 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let (updates, generated_ids) = function_runner_tx
-        .writes
-        .clone()
-        .into_updates_and_generated_ids();
+    let updates = function_runner_tx.writes.clone().into_updates();
     backend_tx.apply_function_runner_tx(
         *begin_timestamp,
         reads,
@@ -148,7 +141,6 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
         user_tx_size,
         system_tx_size,
         updates,
-        generated_ids,
         rows_read_by_tablet,
     )?;
 
@@ -191,10 +183,7 @@ async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Resul
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let (updates, generated_ids) = function_runner_tx
-        .writes
-        .clone()
-        .into_updates_and_generated_ids();
+    let updates = function_runner_tx.writes.clone().into_updates();
     backend_tx.apply_function_runner_tx(
         *begin_timestamp,
         reads,
@@ -202,7 +191,6 @@ async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Resul
         user_tx_size,
         system_tx_size,
         updates,
-        generated_ids,
         rows_read_by_tablet,
     )?;
 
@@ -230,8 +218,8 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
             FunctionUsageTracker::new(),
         )
         .await?;
-    let (updates, generated_ids) = backend_tx.writes().clone().into_updates_and_generated_ids();
-    function_runner_tx.merge_writes(updates, generated_ids)?;
+    let updates = backend_tx.writes().clone().into_updates();
+    function_runner_tx.merge_writes(updates)?;
 
     // Perform writes as if in funrun
     UserFacingModel::new_root_for_test(&mut function_runner_tx)
@@ -248,10 +236,7 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let (updates, generated_ids) = function_runner_tx
-        .writes
-        .clone()
-        .into_updates_and_generated_ids();
+    let updates = function_runner_tx.writes.clone().into_updates();
     backend_tx.apply_function_runner_tx(
         *begin_timestamp,
         reads,
@@ -259,7 +244,6 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
         user_tx_size,
         system_tx_size,
         updates,
-        generated_ids,
         rows_read_by_tablet,
     )?;
 
@@ -304,10 +288,7 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let (updates, generated_ids) = function_runner_tx
-        .writes
-        .clone()
-        .into_updates_and_generated_ids();
+    let updates = function_runner_tx.writes.clone().into_updates();
     assert!(backend_tx
         .apply_function_runner_tx(
             *begin_timestamp,
@@ -316,7 +297,6 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
             user_tx_size,
             system_tx_size,
             updates,
-            generated_ids,
             rows_read_by_tablet,
         )
         .is_err());

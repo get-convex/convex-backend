@@ -4,10 +4,7 @@
 #![feature(try_blocks)]
 #![feature(lint_reasons)]
 use std::{
-    collections::{
-        BTreeMap,
-        BTreeSet,
-    },
+    collections::BTreeMap,
     sync::Arc,
 };
 
@@ -145,9 +142,6 @@ impl From<TransactionReadSet> for FunctionReads {
 #[derive(Clone, Default)]
 pub struct FunctionWrites {
     pub updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
-
-    // All of the new DocumentIds that were generated in this transaction.
-    pub generated_ids: BTreeSet<ResolvedDocumentId>,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -157,13 +151,9 @@ impl proptest::arbitrary::Arbitrary for FunctionWrites {
     type Strategy = impl Strategy<Value = FunctionWrites>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        (
-            proptest::collection::vec(proptest::prelude::any::<DocumentUpdate>(), 0..4),
-            proptest::collection::btree_set(proptest::prelude::any::<ResolvedDocumentId>(), 0..4),
-        )
-            .prop_map(|(updates, generated_ids)| Self {
+        proptest::collection::vec(proptest::prelude::any::<DocumentUpdate>(), 0..4)
+            .prop_map(|updates| Self {
                 updates: updates.into_iter().map(|u| (u.id, u)).collect(),
-                generated_ids,
             })
             .boxed()
     }
@@ -171,10 +161,8 @@ impl proptest::arbitrary::Arbitrary for FunctionWrites {
 
 impl From<Writes> for FunctionWrites {
     fn from(writes: Writes) -> Self {
-        let (updates, generated_ids) = writes.into_updates_and_generated_ids();
         Self {
-            updates,
-            generated_ids,
+            updates: writes.into_updates(),
         }
     }
 }

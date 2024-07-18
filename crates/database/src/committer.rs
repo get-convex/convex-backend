@@ -950,26 +950,23 @@ impl<RT: Runtime> CommitterClient<RT> {
         // checked for conflict against all writes after begin_timestamp.
         let ts = transaction.begin_timestamp().succ()?;
         let timer = metrics::commit_id_reuse_timer();
-        if !transaction.writes.generated_ids.is_empty() {
+        let generated_ids = transaction.writes.generated_ids();
+        if !generated_ids.is_empty() {
             let repeatable_persistence = RepeatablePersistence::new(
                 self.persistence_reader.clone(),
                 transaction.begin_timestamp(),
                 self.retention_validator.clone(),
             );
-            let generated_ids: BTreeSet<_> = transaction
-                .writes
-                .generated_ids
+            let generated_ids_with_ts: BTreeSet<_> = generated_ids
                 .iter()
                 .map(|id| (GenericDocumentId::<TabletId>::from(*id), ts))
                 .collect();
             let mut previous_revisions_of_ids = repeatable_persistence
-                .previous_revisions(generated_ids)
+                .previous_revisions(generated_ids_with_ts)
                 .await?;
             if let Some(((document_id, _), (_, maybe_doc))) = previous_revisions_of_ids.pop_first()
             {
-                let display_id = transaction
-                    .writes
-                    .generated_ids
+                let display_id = generated_ids
                     .iter()
                     .find(|id| GenericDocumentId::<TabletId>::from(**id) == document_id)
                     .map(|id| DeveloperDocumentId::from(*id).encode())

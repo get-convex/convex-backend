@@ -365,7 +365,6 @@ impl<RT: Runtime> Transaction<RT> {
         user_tx_size: crate::reads::TransactionReadSize,
         system_tx_size: crate::reads::TransactionReadSize,
         updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
-        generated_ids: BTreeSet<ResolvedDocumentId>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
@@ -376,7 +375,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.reads
             .merge(reads, num_intervals, user_tx_size, system_tx_size);
 
-        self.merge_writes(updates, generated_ids)?;
+        self.merge_writes(updates)?;
 
         for (tablet_id, rows_read) in rows_read_by_tablet {
             self.stats.entry(tablet_id).or_default().rows_read += rows_read;
@@ -393,21 +392,8 @@ impl<RT: Runtime> Transaction<RT> {
     pub fn merge_writes(
         &mut self,
         updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
-        // TODO: Delete generated_ids, they are included as (None, None)
-        // update in updates.
-        generated_ids: BTreeSet<ResolvedDocumentId>,
     ) -> anyhow::Result<()> {
-        let (existing_updates, existing_generated_ids) =
-            self.writes().clone().into_updates_and_generated_ids();
-
-        // TODO: Delete generated_ids, they are included as (None, None)
-        // update in updates. This check is redundant.
-        for id in generated_ids.iter() {
-            anyhow::ensure!(
-                existing_updates.contains_key(id) || !existing_generated_ids.contains(id),
-                "Conflicting generated ID {id}"
-            );
-        }
+        let existing_updates = self.writes().clone().into_updates();
 
         let mut updates = updates.into_iter().collect::<Vec<_>>();
         updates.sort_by_key(|(id, update)| {

@@ -56,10 +56,6 @@ pub struct DocumentWrite {
 pub struct Writes {
     updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
 
-    // All of the new DocumentIds that were generated in this transaction.
-    // TODO: Remove, `generated_ids` are included in `updates` as (None, None)
-    pub generated_ids: BTreeSet<ResolvedDocumentId>,
-
     // Fields below can be recomputed from `updates`.
 
     // Size of writes to user tables
@@ -82,7 +78,6 @@ impl Writes {
     pub fn new() -> Self {
         Self {
             updates: BTreeMap::new(),
-            generated_ids: BTreeSet::new(),
             user_tx_size: TransactionWriteSize::default(),
             system_tx_size: TransactionWriteSize::default(),
         }
@@ -245,12 +240,6 @@ impl Writes {
         reads: &mut TransactionReadSet,
         document_id: ResolvedDocumentId,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            !self.generated_ids.contains(&document_id),
-            "Transaction allocated the same DocumentId twice: {document_id}"
-        );
-        self.generated_ids.insert(document_id);
-
         // New ID creation requires the ID to have never existed before.
         // We check in CommitterClient that it never existed before the transaction's
         // begin timestamp, and here we take a dependency on the ID to make sure
@@ -285,13 +274,16 @@ impl Writes {
         self.updates.into_iter()
     }
 
-    pub fn into_updates_and_generated_ids(
-        self,
-    ) -> (
-        BTreeMap<ResolvedDocumentId, DocumentUpdate>,
-        BTreeSet<ResolvedDocumentId>,
-    ) {
-        (self.updates, self.generated_ids)
+    pub fn into_updates(self) -> BTreeMap<ResolvedDocumentId, DocumentUpdate> {
+        self.updates
+    }
+
+    pub fn generated_ids(&self) -> BTreeSet<ResolvedDocumentId> {
+        self.updates
+            .iter()
+            .filter(|(_, update)| update.old_document.is_none())
+            .map(|(id, _)| *id)
+            .collect()
     }
 }
 
@@ -477,7 +469,7 @@ mod tests {
                 new_document: Some(document),
             },
         )?;
-        assert_eq!(writes.generated_ids, btreeset! {id});
+        assert_eq!(writes.generated_ids(), btreeset! {id});
         Ok(())
     }
 
@@ -534,7 +526,7 @@ mod tests {
                 }
             )
         );
-        assert_eq!(writes.generated_ids, btreeset! {});
+        assert_eq!(writes.generated_ids(), btreeset! {});
         Ok(())
     }
 }
