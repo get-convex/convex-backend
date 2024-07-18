@@ -788,7 +788,9 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
 pub struct InstanceNameExt(pub String);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, sqlx::Type, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[sqlx(type_name = "domain_target_type", rename_all = "snake_case")]
 pub enum RequestDestination {
     ConvexCloud,
     ConvexSite,

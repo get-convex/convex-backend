@@ -61,6 +61,7 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 shape_inference = { path = "../shape_inference" }
 sourcemap = { workspace = true }
+sqlx = { workspace = true }
 strum = { workspace = true }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 thiserror = { workspace = true }
