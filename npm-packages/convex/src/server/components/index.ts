@@ -10,7 +10,9 @@ import {
   AppDefinitionAnalysis,
   ComponentDefinitionAnalysis,
   ComponentDefinitionType,
+  HttpMount,
 } from "./definition.js";
+import { extractReferencePath, toReferencePath } from "./reference.js";
 
 /**
  * An object of this type should be the default export of a
@@ -36,6 +38,11 @@ export type ComponentDefinition<Args extends PropertyValidators = EmptyObject> =
         args?: ObjectType<ExtractArgs<Definition>>;
       },
     ): InstalledComponent<Definition>;
+
+    /**
+     * Mount a component's HTTP router at a given path prefix.
+     */
+    mountHttp(pathPrefix: string, component: InstalledComponent<any>): void;
 
     // TODO this will be needed once components are responsible for building interfaces for themselves
     /**
@@ -66,6 +73,11 @@ export type AppDefinition = {
       args?: ObjectType<ExtractArgs<Definition>>;
     },
   ): InstalledComponent<Definition>;
+
+  /**
+   * Mount a component's HTTP router at a given path prefix.
+   */
+  mountHttp(pathPrefix: string, component: InstalledComponent<any>): void;
 };
 
 type CommonDefinitionData = {
@@ -75,7 +87,9 @@ type CommonDefinitionData = {
     ImportedComponentDefinition,
     Record<string, any>,
   ][];
+  _httpMounts: Record<string, HttpMount>;
 };
+
 type ComponentDefinitionData = CommonDefinitionData & {
   _args: PropertyValidators;
   _name: string;
@@ -87,14 +101,22 @@ type ExtractArgs<T> = T extends ComponentDefinition<infer P> ? P : never;
 /**
  * Used to refer to an already-installed component.
  */
-type InstalledComponent<Definition extends ComponentDefinition<any>> =
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  {
-    /**
-     * @internal
-     */
-    _definition: Definition;
-  };
+class InstalledComponent<Definition extends ComponentDefinition<any>> {
+  /**
+   * @internal
+   */
+  _definition: Definition;
+
+  /**
+   * @internal
+   */
+  [toReferencePath]: string;
+
+  constructor(definition: Definition, name: string) {
+    this._definition = definition;
+    this[toReferencePath] = `_reference/childComponent/${name}`;
+  }
+}
 
 function install<Definition extends ComponentDefinition<any>>(
   this: CommonDefinitionData,
@@ -112,14 +134,37 @@ function install<Definition extends ComponentDefinition<any>>(
       "Component definition does not have the required componentDefinitionPath property. This code only works in Convex runtime.",
     );
   }
-  this._childComponents.push([
+  const name =
     options.name ||
-      importedComponentDefinition.componentDefinitionPath.split("/").pop()!,
+    importedComponentDefinition.componentDefinitionPath.split("/").pop()!;
+  this._childComponents.push([
+    name,
     importedComponentDefinition,
     options.args || {},
   ]);
 
-  return {} as InstalledComponent<Definition>;
+  return new InstalledComponent(definition, name);
+}
+
+function mountHttp(
+  this: CommonDefinitionData,
+  pathPrefix: string,
+  component: InstalledComponent<any>,
+) {
+  if (!pathPrefix.startsWith("/")) {
+    throw new Error(`Path prefix '${pathPrefix}' does not start with a /`);
+  }
+  if (!pathPrefix.endsWith("/")) {
+    throw new Error(`Path prefix '${pathPrefix}' must end with a /`);
+  }
+  if (this._httpMounts[pathPrefix]) {
+    throw new Error(`Path '${pathPrefix}' is already mounted.`);
+  }
+  const path = extractReferencePath(component);
+  if (!path) {
+    throw new Error("`mountHttp` must be called with an `InstalledComponent`.");
+  }
+  this._httpMounts[pathPrefix] = path;
 }
 
 // At runtime when you import a ComponentDefinition, this is all it is
@@ -135,10 +180,10 @@ function exportAppForAnalysis(
 ): AppDefinitionAnalysis {
   const definitionType = { type: "app" as const };
   const childComponents = serializeChildComponents(this._childComponents);
-
   return {
     definitionType,
     childComponents: childComponents as any,
+    httpMounts: this._httpMounts,
     exports: { type: "branch", branch: [] },
   };
 }
@@ -197,6 +242,7 @@ function exportComponentForAnalysis(
     name: this._name,
     definitionType,
     childComponents: childComponents as any,
+    httpMounts: this._httpMounts,
     exports: { type: "branch", branch: [] },
   };
 }
@@ -224,8 +270,12 @@ export function defineComponent<Args extends PropertyValidators = {}>(
     _name: name,
     _args: options.args || {},
     _childComponents: [],
+    _httpMounts: {},
+
     export: exportComponentForAnalysis,
     install,
+    mountHttp,
+
     // pretend to conform to ComponentDefinition, which temporarily expects __args
     ...({} as { __args: any }),
   };
@@ -240,8 +290,11 @@ export function defineApp(): AppDefinition {
   const ret: RuntimeAppDefinition = {
     _isRoot: true,
     _childComponents: [],
+    _httpMounts: {},
+
     export: exportAppForAnalysis,
-    install: install,
+    install,
+    mountHttp,
   };
   return ret as AppDefinition;
 }
@@ -252,12 +305,6 @@ type AnyInterfaceType = {
 export type AnyComponentReference = Record<string, AnyInterfaceType>;
 
 type AnyChildComponents = Record<string, AnyComponentReference>;
-
-const toReferencePath = Symbol.for("toReferencePath");
-
-export function extractReferencePath(reference: any): string | null {
-  return reference[toReferencePath] ?? null;
-}
 
 /**
  * @internal

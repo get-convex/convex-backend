@@ -26,14 +26,16 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
         ComponentId,
-        ComponentPath,
     },
     errors::{
         recapture_stacktrace,
         JsError,
     },
     execution_context::ExecutionContext,
-    http::fetch::FetchClient,
+    http::{
+        fetch::FetchClient,
+        RoutedHttpPath,
+    },
     identity::InertIdentity,
     knobs::{
         HEAP_WORKER_REPORT_INTERVAL_SECONDS,
@@ -369,7 +371,8 @@ pub struct UdfRequest<RT: Runtime> {
 }
 
 pub struct HttpActionRequest<RT: Runtime> {
-    router_path: ValidatedHttpPath,
+    http_module_path: ValidatedHttpPath,
+    routed_path: RoutedHttpPath,
     http_request: http_action::HttpActionRequest,
     transaction: Transaction<RT>,
     identity: Identity,
@@ -741,7 +744,8 @@ impl<RT: Runtime> IsolateClient<RT> {
     #[minitrace::trace]
     pub async fn execute_http_action(
         &self,
-        router_path: ValidatedHttpPath,
+        http_module_path: ValidatedHttpPath,
+        routed_path: RoutedHttpPath,
         http_request: http_action::HttpActionRequest,
         identity: Identity,
         action_callbacks: Arc<dyn ActionCallbacks>,
@@ -757,12 +761,13 @@ impl<RT: Runtime> IsolateClient<RT> {
         if !self.allow_actions {
             anyhow::bail!("Requested an action from an Isolate client that does not allow actions")
         }
-        let timer = metrics::execute_timer(&UdfType::HttpAction, router_path.npm_version());
+        let timer = metrics::execute_timer(&UdfType::HttpAction, http_module_path.npm_version());
         let (tx, rx) = oneshot::channel();
         let key_broker = KeyBroker::new(&self.instance_name, self.instance_secret)?;
         let request = RequestType::HttpAction {
             request: HttpActionRequest {
-                router_path,
+                http_module_path,
+                routed_path,
                 http_request,
                 identity,
                 transaction,
@@ -1688,10 +1693,11 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&UdfType::HttpAction);
-                let udf_path: CanonicalizedUdfPath = request.router_path.path().udf_path.clone();
+                let udf_path: CanonicalizedUdfPath =
+                    request.http_module_path.path().udf_path.clone();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
-                    ComponentPath::TODO(),
+                    request.http_module_path.path().component.clone(),
                     environment_data,
                     request.identity,
                     request.transaction,
@@ -1707,7 +1713,8 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                         client_id,
                         isolate,
                         isolate_clean,
-                        request.router_path,
+                        request.http_module_path,
+                        request.routed_path,
                         request.http_request,
                         response.cancellation().boxed(),
                     )
@@ -1735,10 +1742,10 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&UdfType::Action);
-                let component = request.params.path_and_args.path().component.clone();
+                let component_path = request.params.path_and_args.path().component.clone();
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
-                    component,
+                    component_path,
                     environment_data,
                     request.identity,
                     request.transaction,

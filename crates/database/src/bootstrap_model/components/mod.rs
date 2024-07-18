@@ -313,6 +313,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                         definition_type: ComponentDefinitionType::App,
                         child_components: Vec::new(),
                         exports: BTreeMap::new(),
+                        http_mounts: BTreeMap::new(),
                     })
                 } else {
                     anyhow::bail!(ErrorMetadata::bad_request(
@@ -422,6 +423,7 @@ mod tests {
                         args: BTreeMap::new(),
                     },
                     child_components: Vec::new(),
+                    http_mounts: BTreeMap::new(),
                     exports: BTreeMap::new(),
                 }
                 .try_into()?,
@@ -438,6 +440,7 @@ mod tests {
                         path: child_definition_path,
                         args: BTreeMap::new(),
                     }],
+                    http_mounts: BTreeMap::new(),
                     exports: BTreeMap::new(),
                 }
                 .try_into()?,

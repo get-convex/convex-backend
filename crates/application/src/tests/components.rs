@@ -149,6 +149,7 @@ bar.invokeAction = async (requestId, argsStr) => {
                     "maxLength".parse()? => ComponentArgument::Value(ConvexValue::Float64(10.)),
                 },
             }],
+            http_mounts: BTreeMap::new(),
             exports: btreemap! {
                 "foo".parse()? => ComponentExport::Branch(btreemap! {
                     "bar".parse()? => ComponentExport::Leaf(Reference::Function("foo:bar".parse()?)),
@@ -179,6 +180,7 @@ bar.invokeAction = async (requestId, argsStr) => {
                 },
             },
             child_components: vec![],
+            http_mounts: BTreeMap::new(),
             exports: btreemap! {
                 "foo".parse()? => ComponentExport::Branch(btreemap! {
                     "bar".parse()? => ComponentExport::Leaf(Reference::Function("foo:bar".parse()?)),

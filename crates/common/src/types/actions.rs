@@ -112,6 +112,23 @@ impl fmt::Display for RoutableMethod {
     }
 }
 
+impl TryFrom<http::Method> for RoutableMethod {
+    type Error = anyhow::Error;
+
+    fn try_from(method: http::Method) -> anyhow::Result<Self> {
+        match method {
+            http::Method::DELETE => Ok(Self::Delete),
+            http::Method::GET => Ok(Self::Get),
+            http::Method::OPTIONS => Ok(Self::Options),
+            http::Method::PATCH => Ok(Self::Patch),
+            http::Method::POST => Ok(Self::Post),
+            http::Method::PUT => Ok(Self::Put),
+            http::Method::HEAD => Ok(Self::Get),
+            _ => anyhow::bail!("Expected routable HTTP method, got {:?}", method),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct HttpActionRoute {
     pub path: String,

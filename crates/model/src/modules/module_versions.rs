@@ -11,6 +11,7 @@ use std::{
 use async_lru::async_lru::SizedValue;
 use common::types::{
     HttpActionRoute,
+    RoutableMethod,
     UdfType,
 };
 use errors::ErrorMetadata;
@@ -452,6 +453,36 @@ impl AnalyzedHttpRoutes {
         Ok(Self {
             routes: routes.into(),
         })
+    }
+
+    pub fn route_exact(&self, path: &str, method: RoutableMethod) -> bool {
+        self.routes.iter().any(|AnalyzedHttpRoute { route, .. }| {
+            !route.path.ends_with('*') && route.method == method && route.path == path
+        })
+    }
+
+    pub fn route_prefix<'a>(&self, path: &'a str, method: RoutableMethod) -> Option<&'a str> {
+        let mut longest_match: Option<&str> = None;
+        for AnalyzedHttpRoute { route, .. } in &self.routes {
+            let Some(prefix_path) = route.path.strip_suffix("/*") else {
+                continue;
+            };
+            if route.method != method {
+                continue;
+            }
+            let Some(match_suffix) = path.strip_prefix(prefix_path) else {
+                continue;
+            };
+            if let Some(existing_suffix) = longest_match {
+                // If the existing longest match has a shorter suffix, then it
+                // matches a longer prefix.
+                if existing_suffix.len() < match_suffix.len() {
+                    continue;
+                }
+            }
+            longest_match = Some(match_suffix);
+        }
+        longest_match
     }
 }
 

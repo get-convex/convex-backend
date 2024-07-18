@@ -3,7 +3,7 @@ import { version } from "../../index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
 import { functionName, FunctionReference } from "../../server/api.js";
-import { extractReferencePath } from "../components/index.js";
+import { extractReferencePath } from "../components/reference.js";
 
 function syscallArgs(
   requestId: string,
