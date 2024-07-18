@@ -546,11 +546,12 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource> {
         let current_component_id = self.component()?;
+        let current_udf_path = self.path.udf_path.clone().into();
 
         let tx = self.phase.tx()?;
 
         ComponentsModel::new(tx)
-            .resolve(current_component_id, &reference)
+            .resolve(current_component_id, Some(current_udf_path), &reference)
             .await
     }
 }

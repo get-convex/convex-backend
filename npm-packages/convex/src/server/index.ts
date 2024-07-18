@@ -168,6 +168,7 @@ export {
   defineComponent,
   appGeneric,
   componentGeneric,
+  currentSystemUdfInComponent,
 } from "./components/index.js";
 /**
  * @internal

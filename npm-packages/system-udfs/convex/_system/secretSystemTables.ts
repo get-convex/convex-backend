@@ -4,6 +4,7 @@ import {
   SystemDataModel,
   DefaultFunctionArgs,
   TableNamesInDataModel,
+  currentSystemUdfInComponent,
 } from "convex/server";
 import { GenericValidator } from "convex/values";
 import { query as baseQuery, queryGeneric as baseQueryGeneric } from "./server";
@@ -96,6 +97,23 @@ type FunctionDefinition = {
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
 };
 
+const queryWithComponent = ((functionDefinition: FunctionDefinition) => {
+  return baseQuery({
+    args: functionDefinition.args,
+    handler: async (ctx: any, args: any) => {
+      if (
+        "componentId" in args &&
+        args.componentId !== null &&
+        args.componentId !== undefined
+      ) {
+        const ref = currentSystemUdfInComponent(args.componentId);
+        return await ctx.runQuery(ref, { ...args, componentId: null });
+      }
+      return functionDefinition.handler(ctx, args);
+    },
+  });
+}) as typeof baseQuery;
+
 /// `queryPrivateSystem` is for querying private system tables.
 /// Access private system tables with `db.get/db.query`, not `db.system`,
 /// although db.system is used under the hood.
@@ -105,7 +123,7 @@ export const queryPrivateSystem = ((functionDefinition: FunctionDefinition) => {
   if (!("args" in functionDefinition)) {
     throw new Error("args validator required for system udf");
   }
-  return baseQuery({
+  return queryWithComponent({
     args: functionDefinition.args,
     handler: (ctx: any, args: any) => {
       return functionDefinition.handler(
@@ -116,6 +134,23 @@ export const queryPrivateSystem = ((functionDefinition: FunctionDefinition) => {
   });
 }) as typeof baseQuery;
 
+const queryGenericWithComponent = ((functionDefinition: FunctionDefinition) => {
+  return baseQueryGeneric({
+    args: functionDefinition.args,
+    handler: async (ctx: any, args: any) => {
+      if (
+        "componentId" in args &&
+        args.componentId !== null &&
+        args.componentId !== undefined
+      ) {
+        const ref = currentSystemUdfInComponent(args.componentId);
+        return await ctx.runQuery(ref, { ...args, componentId: null });
+      }
+      return functionDefinition.handler(ctx, args);
+    },
+  });
+}) as typeof baseQueryGeneric;
+
 /// `queryGeneric` is a query that the developer could write themselves.
 /// It does not access private system tables, so `db.get` and `db.system.get`
 /// only operate on user tables and public system tables.
@@ -123,7 +158,7 @@ export const queryGeneric = ((functionDefinition: FunctionDefinition) => {
   if (!("args" in functionDefinition)) {
     throw new Error("args validator required for system udf");
   }
-  return baseQueryGeneric({
+  return queryGenericWithComponent({
     args: functionDefinition.args,
     handler: (ctx: any, args: any) => {
       return functionDefinition.handler(

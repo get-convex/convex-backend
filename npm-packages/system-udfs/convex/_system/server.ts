@@ -30,6 +30,7 @@ import {
   internalMutationGeneric as baseInternalMutationGeneric,
   // eslint-disable-next-line no-restricted-imports
   internalActionGeneric as baseInternalActionGeneric,
+  currentSystemUdfInComponent,
 } from "convex/server";
 
 import { DefaultFunctionArgs } from "convex/server";
@@ -77,7 +78,7 @@ function withArgsValidated<T>(wrapper: T): T {
 }
 
 export const queryGeneric = withArgsValidated(baseQueryGeneric);
-export const mutationGeneric = withArgsValidated(baseMutationGeneric);
+const mutationGenericWithoutComponent = withArgsValidated(baseMutationGeneric);
 export const actionGeneric = withArgsValidated(baseActionGeneric);
 export const internalQueryGeneric = withArgsValidated(baseInternalQueryGeneric);
 export const internalMutationGeneric = withArgsValidated(
@@ -86,6 +87,23 @@ export const internalMutationGeneric = withArgsValidated(
 export const internalActionGeneric = withArgsValidated(
   baseInternalActionGeneric,
 );
+
+export const mutationGeneric = ((functionDefinition: FunctionDefinition) => {
+  return mutationGenericWithoutComponent({
+    args: functionDefinition.args,
+    handler: async (ctx: any, args: any) => {
+      if (
+        "componentId" in args &&
+        args.componentId !== null &&
+        args.componentId !== undefined
+      ) {
+        const ref = currentSystemUdfInComponent(args.componentId);
+        return await ctx.runMutation(ref, { ...args, componentId: null });
+      }
+      return functionDefinition.handler(ctx, args);
+    },
+  });
+}) as typeof baseMutationGeneric;
 
 // Specific to this schema.
 export const query = withArgsValidated(baseQuery);

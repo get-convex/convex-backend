@@ -1,7 +1,10 @@
 use std::str::FromStr;
 
 use sync_types::CanonicalizedUdfPath;
-use value::identifier::Identifier;
+use value::{
+    identifier::Identifier,
+    DeveloperDocumentId,
+};
 
 use super::ComponentName;
 
@@ -28,7 +31,9 @@ pub enum Reference {
     ///   console.log(ctx.component.args.maxLength);
     /// })
     /// ```
-    ComponentArgument { attributes: Vec<Identifier> },
+    ComponentArgument {
+        attributes: Vec<Identifier>,
+    },
 
     /// Reference originating from the `api` object, either at definition time
     /// or runtime.
@@ -68,6 +73,10 @@ pub enum Reference {
         component: ComponentName,
         attributes: Vec<Identifier>,
     },
+
+    CurrentSystemUdfInComponent {
+        component_id: DeveloperDocumentId,
+    },
 }
 
 impl Reference {
@@ -101,6 +110,9 @@ impl Reference {
                     s.push_str(&attr[..]);
                 }
                 s
+            },
+            Reference::CurrentSystemUdfInComponent { component_id } => {
+                format!("_system.{component_id}")
             },
         }
     }
@@ -142,6 +154,13 @@ impl FromStr for Reference {
                     attributes,
                 }
             },
+            Some("currentSystemUdfInComponent") => {
+                let component_id = path_components
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("Invalid reference {s}"))?
+                    .parse()?;
+                Reference::CurrentSystemUdfInComponent { component_id }
+            },
             Some(_) | None => anyhow::bail!("Invalid reference {s}"),
         };
         Ok(result)
@@ -177,6 +196,12 @@ impl From<Reference> for String {
                     s.push('/');
                     s.push_str(&attribute);
                 }
+            },
+            Reference::CurrentSystemUdfInComponent { component_id } => {
+                s.push_str("/currentSystemUdfInComponent");
+
+                s.push('/');
+                s.push_str(&component_id.to_string());
             },
         }
         s

@@ -259,6 +259,17 @@ export function extractReferencePath(reference: any): string | null {
   return reference[toReferencePath] ?? null;
 }
 
+/**
+ * @internal
+ */
+export function currentSystemUdfInComponent(
+  componentId: string,
+): AnyComponentReference {
+  return {
+    [toReferencePath]: `_reference/currentSystemUdfInComponent/${componentId}`,
+  };
+}
+
 function createChildComponents(
   root: string,
   pathParts: string[],

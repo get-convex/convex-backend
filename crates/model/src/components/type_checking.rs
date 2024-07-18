@@ -284,6 +284,11 @@ impl<'a> CheckedComponentBuilder<'a> {
                     .resolve_export(attributes)?
                     .ok_or_else(unresolved_err)?
             },
+            Reference::CurrentSystemUdfInComponent { .. } => {
+                return Err(TypecheckError::Unsupported(
+                    "CurrentSystemUdfInComponent reference",
+                ));
+            },
         };
         Ok(result)
     }

@@ -956,6 +956,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
                 })
             },
             Reference::ChildComponent { .. } => todo!(),
+            Reference::CurrentSystemUdfInComponent { .. } => todo!(),
         };
         Ok(resource)
     }

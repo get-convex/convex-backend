@@ -26,7 +26,10 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    CanonicalizedUdfPath,
+    UdfPath,
+};
 use value::{
     identifier::Identifier,
     TableNamespace,
@@ -47,6 +50,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     pub async fn resolve(
         &mut self,
         component_id: ComponentId,
+        current_udf_path: Option<UdfPath>,
         reference: &Reference,
     ) -> anyhow::Result<Resource> {
         let result = match reference {
@@ -108,6 +112,37 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                 let child_id = ComponentId::Child(child_component.id().into());
                 self.resolve_export(child_id, attributes).await?
             },
+            Reference::CurrentSystemUdfInComponent {
+                component_id: component_by_id,
+            } => {
+                if !component_id.is_root() {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        "CurrentSystemUdfInComponent only available in root component"
+                    ));
+                }
+                let Some(current_udf_path) = current_udf_path else {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        "CurrentSystemUdfInComponent must be called from a UDF",
+                    ));
+                };
+                if !current_udf_path.is_system() {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        "CurrentSystemUdfInComponent must be called from a system UDF",
+                    ));
+                }
+                let mut m = BootstrapComponentsModel::new(self.tx);
+                // TODO(lee) this should work for disconnected components too.
+                let component_path = m
+                    .get_component_path(ComponentId::Child(*component_by_id))
+                    .await?;
+                Resource::Function(CanonicalizedComponentFunctionPath {
+                    component: component_path,
+                    udf_path: current_udf_path.canonicalize(),
+                })
+            },
         };
         Ok(result)
     }
@@ -137,7 +172,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                     continue;
                 },
                 ComponentExport::Leaf(ref reference) => {
-                    let exported_resource = self.resolve(component_id, reference).await?;
+                    let exported_resource = self.resolve(component_id, None, reference).await?;
                     if !attribute_iter.as_slice().is_empty() {
                         anyhow::bail!("Component references currently unsupported");
                     }
@@ -235,7 +270,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                     ComponentExport::Leaf(ref reference) => {
                         let mut new_path = path.clone();
                         new_path.push(name.clone());
-                        let resource = self.resolve(component_id, reference).await?;
+                        let resource = self.resolve(component_id, None, reference).await?;
                         result.insert(new_path, resource);
                     },
                 }
