@@ -221,6 +221,9 @@ pub fn storage_api_routes() -> Router<RouterState> {
         .route("/:storage_id", get(storage_get))
 }
 
+// IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
+// such as adding or removing a route, or changing limits, also need to be
+// applied to `crates_private/usher/src/proxy.rs`.
 pub fn action_callback_routes(st: LocalAppState) -> Router<LocalAppState> {
     Router::new()
         .route("/query", post(internal_query_post))
