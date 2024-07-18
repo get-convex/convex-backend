@@ -191,7 +191,7 @@ export const convexImport = new Command("import")
           body: chunk,
           method: "POST",
         });
-        partTokens.push(await partResp.text());
+        partTokens.push(await partResp.json());
         partNumber += 1;
         changeSpinner(
           ctx,
