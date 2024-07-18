@@ -7,10 +7,7 @@ use application::{
     },
 };
 use axum::{
-    extract::{
-        Host,
-        State,
-    },
+    extract::State,
     response::IntoResponse,
 };
 use common::{
@@ -25,6 +22,7 @@ use common::{
         },
         ExtractClientVersion,
         ExtractRequestId,
+        ExtractResolvedHost,
         HttpResponseError,
     },
     types::FunctionCaller,
@@ -141,7 +139,7 @@ impl UdfResponse {
 /// Executes an arbitrary query/mutation/action from its name.
 pub async fn public_function_post(
     State(st): State<RouterState>,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -153,7 +151,7 @@ pub async fn public_function_post(
     // client and Usher.
     let identity = st
         .api
-        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .authenticate(&host, request_id.clone(), auth_token)
         .await?;
 
     // We ensure for now that the user is logged in
@@ -170,7 +168,7 @@ pub async fn public_function_post(
     let udf_result = st
         .api
         .execute_any_function(
-            host.as_str(),
+            &host,
             request_id,
             identity,
             component_function_path,
@@ -221,7 +219,7 @@ pub fn export_value(
 pub async fn public_query_get(
     State(st): State<RouterState>,
     Query(req): Query<UdfArgsQuery>,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -235,12 +233,12 @@ pub async fn public_query_get(
     // client and Usher.
     let identity = st
         .api
-        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .authenticate(&host, request_id.clone(), auth_token)
         .await?;
     let query_result = st
         .api
         .execute_public_query(
-            host.as_str(),
+            &host,
             request_id,
             identity,
             CanonicalizedComponentFunctionPath {
@@ -268,7 +266,7 @@ pub async fn public_query_get(
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
     State(st): State<RouterState>,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -282,12 +280,12 @@ pub async fn public_query_post(
     // client and Usher.
     let identity = st
         .api
-        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .authenticate(&host, request_id.clone(), auth_token)
         .await?;
     let query_return = st
         .api
         .execute_public_query(
-            host.as_str(),
+            &host,
             request_id,
             identity,
             CanonicalizedComponentFunctionPath {
@@ -325,7 +323,7 @@ pub struct QueryBatchResponse {
 
 pub async fn public_query_batch_post(
     State(st): State<RouterState>,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -333,13 +331,10 @@ pub async fn public_query_batch_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut results = vec![];
     // All queries execute at the same timestamp.
-    let ts = st
-        .api
-        .latest_timestamp(host.as_str(), request_id.clone())
-        .await?;
+    let ts = st.api.latest_timestamp(&host, request_id.clone()).await?;
     let identity = st
         .api
-        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .authenticate(&host, request_id.clone(), auth_token)
         .await?;
     for req in req_batch.queries {
         let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
@@ -347,7 +342,7 @@ pub async fn public_query_batch_post(
         let udf_return = st
             .api
             .execute_public_query(
-                host.as_str(),
+                &host,
                 request_id.clone(),
                 identity.clone(),
                 CanonicalizedComponentFunctionPath {
@@ -380,7 +375,7 @@ pub async fn public_query_batch_post(
 #[minitrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
     State(st): State<RouterState>,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -393,12 +388,12 @@ pub async fn public_mutation_post(
     // client and Usher.
     let identity = st
         .api
-        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .authenticate(&host, request_id.clone(), auth_token)
         .await?;
     let udf_result = st
         .api
         .execute_public_mutation(
-            host.as_str(),
+            &host,
             request_id,
             identity,
             CanonicalizedComponentFunctionPath {
@@ -429,7 +424,7 @@ pub async fn public_mutation_post(
 #[minitrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
     State(st): State<RouterState>,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -443,12 +438,12 @@ pub async fn public_action_post(
     // client and Usher.
     let identity = st
         .api
-        .authenticate(host.as_str(), request_id.clone(), auth_token)
+        .authenticate(&host, request_id.clone(), auth_token)
         .await?;
     let action_result = st
         .api
         .execute_public_action(
-            host.as_str(),
+            &host,
             request_id,
             identity,
             CanonicalizedComponentFunctionPath {

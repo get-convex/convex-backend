@@ -39,6 +39,7 @@ use common::{
             Query,
         },
         ExtractRequestId,
+        ExtractResolvedHost,
         HttpResponseError,
     },
     sha256::DigestHeader,
@@ -88,7 +89,8 @@ pub async fn storage_upload(
     content_type: Result<TypedHeader<ContentType>, TypedHeaderRejection>,
     content_length: Result<TypedHeader<ContentLength>, TypedHeaderRejection>,
     sha256: Result<TypedHeader<DigestHeader>, TypedHeaderRejection>,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
+    Host(original_host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
     body: BodyStream,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -105,11 +107,13 @@ pub async fn storage_upload(
     let content_type = map_header_err(content_type)?;
     let sha256 = map_header_err(sha256)?.map(|dh| dh.0);
     let body = body.map(|r| r.context("Error parsing body")).boxed();
+    let origin = original_host.into();
     let storage_id = st
         .api
         .store_file(
             &host,
             request_id,
+            origin,
             component,
             content_length,
             content_type,
@@ -139,7 +143,8 @@ pub async fn storage_get(
     Path(uuid): Path<String>,
     Query(GetQueryParams { component }): Query<GetQueryParams>,
     range: Result<TypedHeader<Range>, TypedHeaderRejection>,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
+    Host(original_host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
 ) -> Result<Response, HttpResponseError> {
     let storage_uuid = uuid.parse().context(ErrorMetadata::bad_request(
@@ -148,6 +153,7 @@ pub async fn storage_get(
     ))?;
     let file_storage_id = FileStorageId::LegacyStorageId(storage_uuid);
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
+    let origin = original_host.into();
 
     // TODO(CX-3065) figure out deterministic repeatable tokens
 
@@ -169,7 +175,7 @@ pub async fn storage_get(
             stream,
         } = st
             .api
-            .get_file_range(&host, request_id, component, file_storage_id, range)
+            .get_file_range(&host, request_id, origin, component, file_storage_id, range)
             .await?;
 
         return Ok((
@@ -195,7 +201,7 @@ pub async fn storage_get(
         stream,
     } = st
         .api
-        .get_file(&host, request_id, component, file_storage_id)
+        .get_file(&host, request_id, origin, component, file_storage_id)
         .await?;
     Ok((
         TypedHeader(DigestHeader(sha256)),

@@ -20,8 +20,6 @@ use ::metrics::{
 };
 use anyhow::Context;
 use async_trait::async_trait;
-#[cfg(any(test, feature = "testing"))]
-use axum::body::HttpBody;
 use axum::{
     body::{
         Body,
@@ -31,6 +29,7 @@ use axum::{
     extract::{
         connect_info::IntoMakeServiceWithConnectInfo,
         FromRequestParts,
+        Host,
         State,
     },
     http::{
@@ -42,6 +41,7 @@ use axum::{
     BoxError,
     RequestPartsExt,
     Router,
+    ServiceExt,
 };
 use errors::{
     ErrorCode,
@@ -66,12 +66,14 @@ use http::{
     request::Parts,
     HeaderMap,
     Method,
+    Uri,
 };
 use hyper::server::conn::AddrIncoming;
 use itertools::Itertools;
 use maplit::btreemap;
 use minitrace::future::FutureExt;
 use prometheus::TextEncoder;
+use regex::Regex;
 use sentry::integrations::tower as sentry_tower;
 use serde::{
     Deserialize,
@@ -80,6 +82,8 @@ use serde::{
 use tokio::net::TcpSocket;
 use tower::{
     timeout::TimeoutLayer,
+    Layer,
+    Service,
     ServiceBuilder,
 };
 use tower_http::cors::{
@@ -462,7 +466,7 @@ impl HttpError {
     #[cfg(any(test, feature = "testing"))]
     pub async fn from_response<B>(response: Response<B>) -> Self
     where
-        B: HttpBody,
+        B: axum::body::HttpBody,
         B::Error: fmt::Debug,
     {
         let (parts, body) = response.into_parts();
@@ -597,6 +601,27 @@ impl ConvexHttpService {
         serve_http(make_svc, addr, shutdown).await
     }
 
+    /// Apply `middleware_fn` to incoming requests *before* passing them to
+    /// the router.
+    /// Because the middleware is applied first, it is allowed to change the
+    /// request URI and affect which route will be matched.
+    pub async fn serve_with_middleware<F: Future<Output = ()>, Fut, Rejection>(
+        self,
+        addr: SocketAddr,
+        shutdown: F,
+        middleware_fn: impl FnMut(http::Request<Body>) -> Fut + Clone + Send + 'static,
+    ) -> anyhow::Result<()>
+    where
+        Fut: Future<Output = Result<http::Request<Body>, Rejection>> + Send + 'static,
+        Rejection: IntoResponse + Send + 'static,
+    {
+        let middleware = axum::middleware::map_request(middleware_fn);
+        let make_svc = middleware
+            .layer(self.router)
+            .into_make_service_with_connect_info::<SocketAddr>();
+        serve_http(make_svc, addr, shutdown).await
+    }
+
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_test(router: Router<(), Body>) -> Self {
         Self { router }
@@ -609,13 +634,19 @@ impl ConvexHttpService {
 }
 
 /// Serves an HTTP server using the given service.
-pub async fn serve_http<F>(
-    service: IntoMakeServiceWithConnectInfo<Router, SocketAddr>,
+pub async fn serve_http<F, R, B>(
+    service: IntoMakeServiceWithConnectInfo<R, SocketAddr>,
     addr: SocketAddr,
     shutdown: F,
 ) -> anyhow::Result<()>
 where
+    R: Service<http::Request<Body>, Response = Response<B>> + Send + Clone + 'static,
+    <R as Service<http::Request<Body>>>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    <R as Service<http::Request<Body>>>::Future: Send,
     F: Future<Output = ()>,
+    B: axum::body::HttpBody + Send + 'static,
+    <B as axum::body::HttpBody>::Data: Send + 'static,
+    <B as axum::body::HttpBody>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     // Set SO_REUSEADDR and a bounded TCP accept backlog for our server's listening
     // socket.
@@ -735,6 +766,84 @@ pub async fn stats_middleware<RM: RouteMapper>(
     );
 
     Ok::<_, _>(resp)
+}
+
+pub struct InstanceNameExt(pub String);
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum RequestDestination {
+    ConvexCloud,
+    ConvexSite,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct ResolvedHost {
+    pub instance_name: String,
+    pub destination: RequestDestination,
+}
+
+pub const CONVEX_DOMAIN_REGEX_INSTANCE_CAPTURE: &str = "instance";
+pub const CONVEX_DOMAIN_REGEX_TLD_CAPTURE: &str = "tld";
+pub static CONVEX_DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?<instance>[A-Za-z0-9-]+)(\.[A-Za-z0-9-]+)?\.convex\.(?<tld>cloud|site)$")
+        .unwrap()
+});
+
+pub fn resolve_convex_domain(uri: &Uri) -> anyhow::Result<Option<ResolvedHost>> {
+    let host = uri.host().context("URI does not have valid host")?;
+    if let Some(captures) = CONVEX_DOMAIN_REGEX.captures(host) {
+        let instance_name = captures[CONVEX_DOMAIN_REGEX_INSTANCE_CAPTURE].to_string();
+        let destination = match &captures[CONVEX_DOMAIN_REGEX_TLD_CAPTURE] {
+            "cloud" => RequestDestination::ConvexCloud,
+            "site" => RequestDestination::ConvexSite,
+            _ => unreachable!("Regex capture only matches cloud or site"),
+        };
+        return Ok(Some(ResolvedHost {
+            instance_name,
+            destination,
+        }));
+    }
+    Ok(None)
+}
+
+pub struct ExtractResolvedHost(pub ResolvedHost);
+
+#[derive(Clone, Debug)]
+pub struct OriginalHttpUri(pub Uri);
+
+#[async_trait]
+impl<S> FromRequestParts<S> for ExtractResolvedHost {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        // Check if we've already resolved this earlier in the stack.
+        // We allow `Extension` here instead of `State` as we specifically want this
+        // extraction to be fallible and optional.
+        #[allow(clippy::disallowed_types)]
+        if let Ok(axum::Extension(resolved)) =
+            parts.extract::<axum::Extension<ResolvedHost>>().await
+        {
+            return Ok(ExtractResolvedHost(resolved));
+        }
+        // Try to parse the Host header as a URI and then resolve it as a Convex domain
+        let host = parts.extract::<Host>().await.map_err(anyhow::Error::from);
+        if let Ok(Some(resolved)) = host
+            .and_then(|Host(host)| Uri::try_from(host).map_err(anyhow::Error::from))
+            .and_then(|uri| resolve_convex_domain(&uri))
+        {
+            return Ok(ExtractResolvedHost(resolved));
+        }
+
+        // No luck -- fall back to `CONVEX_SITE` and assume `convex.cloud` as this is
+        // likely a request to localhost.
+        Ok(ExtractResolvedHost(ResolvedHost {
+            instance_name: ::std::env::var("CONVEX_SITE").unwrap_or_default(),
+            destination: RequestDestination::ConvexCloud,
+        }))
+    }
 }
 
 #[allow(clippy::declare_interior_mutable_const)]

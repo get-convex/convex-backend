@@ -28,7 +28,10 @@ use axum::{
 use common::{
     http::{
         ExtractRequestId,
+        ExtractResolvedHost,
         HttpResponseError,
+        OriginalHttpUri,
+        ResolvedHost,
     },
     types::FunctionCaller,
     RequestId,
@@ -105,7 +108,16 @@ impl FromRequest<RouterState, axum::body::Body> for ExtractHttpRequestMetadata {
             .await
             .context("Host header not present")?
             .0;
-        let uri = req.uri();
+        // If the URI has been rewritten to `/http`, present the original URI to the
+        // action. Note that this may not be the same as `OriginalUri`,
+        // depending on where the rewrite takes place.
+        // We allow Extension here as we want this extraction to be fallible and
+        // optional.
+        #[allow(clippy::disallowed_types)]
+        let axum::Extension(OriginalHttpUri(uri)) = req
+            .extract_parts::<Option<axum::Extension<OriginalHttpUri>>>()
+            .await?
+            .unwrap_or_else(|| axum::Extension(OriginalHttpUri(req.uri().clone())));
         let headers = req.headers().clone();
         let method = req.method().clone();
 
@@ -142,7 +154,7 @@ pub async fn http_any_method(
     State(st): State<RouterState>,
     TryExtractIdentity(identity_result): TryExtractIdentity,
     ExtractRequestId(request_id): ExtractRequestId,
-    Host(host): Host,
+    ExtractResolvedHost(host): ExtractResolvedHost,
     ExtractHttpRequestMetadata(http_request_metadata): ExtractHttpRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut http_response_stream = stream_http_response(
@@ -173,7 +185,7 @@ pub async fn http_any_method(
 
 #[try_stream(ok=HttpActionResponsePart, error=anyhow::Error, boxed)]
 async fn stream_http_response(
-    host: String,
+    host: ResolvedHost,
     request_id: RequestId,
     http_request_metadata: HttpActionRequest,
     identity_result: anyhow::Result<Identity>,

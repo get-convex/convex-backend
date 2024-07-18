@@ -8,16 +8,14 @@ use anyhow::{
 use async_trait::async_trait;
 use authentication::extract_bearer_token;
 use axum::{
-    extract::{
-        FromRequestParts,
-        Host,
-    },
+    extract::FromRequestParts,
     RequestPartsExt,
 };
 use common::{
     http::{
         extract::Query,
         ExtractRequestId,
+        ExtractResolvedHost,
         HttpResponseError,
     },
     runtime::Runtime,
@@ -143,17 +141,14 @@ impl FromRequestParts<RouterState> for TryExtractIdentity {
             Ok(t) => t.into(),
             Err(e) => return Ok(Self(Err(e.into()))),
         };
-        let host = match parts.extract::<Host>().await {
-            Ok(h) => h,
-            Err(e) => return Ok(Self(Err(e.into()))),
-        };
+
+        let Ok(ExtractResolvedHost(host)) = parts.extract::<ExtractResolvedHost>().await;
+
         let request_id = match parts.extract::<ExtractRequestId>().await {
             Ok(id) => id,
             Err(e) => return Ok(Self(Err(e.into()))),
         };
-        Ok(Self(
-            st.api.authenticate(&host.0, request_id.0, token).await,
-        ))
+        Ok(Self(st.api.authenticate(&host, request_id.0, token).await))
     }
 }
 

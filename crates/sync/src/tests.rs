@@ -11,6 +11,10 @@ use common::{
         ComponentId,
         ComponentPath,
     },
+    http::{
+        RequestDestination,
+        ResolvedHost,
+    },
     runtime::{
         shutdown_and_join,
         Runtime,
@@ -134,9 +138,19 @@ impl SyncTest {
         let future = async move {
             // TODO(CX-597): The panic in this future currently gets swallowed by
             // `futures::RemoteHandle`.
-            if let Err(e) = SyncWorker::new(api, rt, "".to_owned(), config, client_rx, server_tx)
-                .go()
-                .await
+            if let Err(e) = SyncWorker::new(
+                api,
+                rt,
+                ResolvedHost {
+                    instance_name: String::new(),
+                    destination: RequestDestination::ConvexCloud,
+                },
+                config,
+                client_rx,
+                server_tx,
+            )
+            .go()
+            .await
             {
                 worker_failed_.lock().replace(e);
             }

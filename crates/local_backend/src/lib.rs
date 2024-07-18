@@ -5,6 +5,7 @@
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
 #![feature(lint_reasons)]
+#![feature(exhaustive_patterns)]
 
 use std::{
     sync::{
