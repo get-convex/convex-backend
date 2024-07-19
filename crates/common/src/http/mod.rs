@@ -42,7 +42,6 @@ use axum::{
     BoxError,
     RequestPartsExt,
     Router,
-    ServiceExt,
 };
 use errors::{
     ErrorCode,
@@ -569,6 +568,7 @@ impl RouteMapper for NoopRouteMapper {
 /// Router + Middleware for a Convex service
 pub struct ConvexHttpService {
     router: Router<(), Body>,
+    version: String,
 }
 
 impl ConvexHttpService {
@@ -579,13 +579,8 @@ impl ConvexHttpService {
         request_timeout: Duration,
         route_metric_mapper: RM,
     ) -> Self {
-        let sentry_layer = ServiceBuilder::new()
-            .layer(sentry_tower::NewSentryLayer::<_>::new_from_top())
-            .layer(sentry_tower::SentryHttpLayer::new());
-
-        let router = router
-            .layer(
-                ServiceBuilder::new()
+        let router = router.layer(
+            ServiceBuilder::new()
                     // Order important. Log/stats first because they are infallible.
                     .layer(axum::middleware::from_fn(log_middleware))
                     .layer(axum::middleware::from_fn_with_state(
@@ -599,13 +594,17 @@ impl ConvexHttpService {
                         StatusCode::REQUEST_TIMEOUT
                     }))
                     .layer(TimeoutLayer::new(request_timeout)),
-            )
-            // Middleware needn't apply to these routes
+        );
+
+        Self { router, version }
+    }
+
+    /// Routes not handled by the passed-in router.
+    fn extra_routes(&self) -> Router<(), Body> {
+        let version = self.version.clone();
+        Router::new()
             .route("/version", get(move || async move { version }))
             .route("/metrics", get(metrics))
-            .layer(sentry_layer);
-
-        Self { router }
     }
 
     pub async fn serve<F: Future<Output = ()>>(
@@ -613,16 +612,24 @@ impl ConvexHttpService {
         addr: SocketAddr,
         shutdown: F,
     ) -> anyhow::Result<()> {
+        let extra = self.extra_routes();
+        let sentry_layer = ServiceBuilder::new()
+            .layer(sentry_tower::NewSentryLayer::<_>::new_from_top())
+            .layer(sentry_tower::SentryHttpLayer::new());
+
         let make_svc = self
             .router
+            .merge(extra)
+            .layer(sentry_layer)
             .into_make_service_with_connect_info::<SocketAddr>();
         serve_http(make_svc, addr, shutdown).await
     }
 
     /// Apply `middleware_fn` to incoming requests *before* passing them to
-    /// the router.
-    /// Because the middleware is applied first, it is allowed to change the
-    /// request URI and affect which route will be matched.
+    /// the router. Middleware will not apply to internal routes like `/version`
+    /// and `/metrics`. Because the middleware is applied before routing, it is
+    /// allowed to change the request URI and affect which route will be
+    /// matched.
     pub async fn serve_with_middleware<F: Future<Output = ()>, Fut, Rejection>(
         self,
         addr: SocketAddr,
@@ -633,16 +640,28 @@ impl ConvexHttpService {
         Fut: Future<Output = Result<http::Request<Body>, Rejection>> + Send + 'static,
         Rejection: IntoResponse + Send + 'static,
     {
+        let sentry_layer = ServiceBuilder::new()
+            .layer(sentry_tower::NewSentryLayer::<_>::new_from_top())
+            .layer(sentry_tower::SentryHttpLayer::new());
+
+        let outer_router = self.extra_routes();
         let middleware = axum::middleware::map_request(middleware_fn);
-        let make_svc = middleware
-            .layer(self.router)
-            .into_make_service_with_connect_info::<SocketAddr>();
+        let wrapped_svc = middleware.layer(self.router);
+        // Fall back to the middleware-wrapped service if the request doesn't match the
+        // outer router.
+        let router = outer_router
+            .fallback_service(wrapped_svc)
+            .layer(sentry_layer);
+        let make_svc = router.into_make_service_with_connect_info::<SocketAddr>();
         serve_http(make_svc, addr, shutdown).await
     }
 
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_test(router: Router<(), Body>) -> Self {
-        Self { router }
+        Self {
+            router,
+            version: String::new(),
+        }
     }
 
     #[cfg(any(test, feature = "testing"))]
