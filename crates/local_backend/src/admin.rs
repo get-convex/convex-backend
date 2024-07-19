@@ -5,19 +5,7 @@ use errors::ErrorMetadata;
 use keybroker::{
     AdminIdentityPrincipal,
     Identity,
-    KeyBroker,
 };
-
-pub fn must_be_admin_from_keybroker(
-    kb: &KeyBroker,
-    instance_name: Option<String>,
-    admin_key: String,
-) -> anyhow::Result<Identity> {
-    let identity = kb
-        .check_admin_key(&admin_key)
-        .context(bad_admin_key_error(instance_name))?;
-    Ok(identity)
-}
 
 pub async fn must_be_admin_from_key_with_write_access(
     app_auth: &ApplicationAuth,
