@@ -1077,3 +1077,8 @@ pub static AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT: LazyLock<usize> = LazyLo
 /// The maximum number of backends to keep open connections to.
 pub static USHER_BACKEND_CLIENTS_CACHE_SIZE: LazyLock<u64> =
     LazyLock::new(|| env_config("USHER_BACKEND_CLIENTS_CACHE_SIZE", 5000));
+
+/// The maximum number of concurrent streams over a single tonic channel.
+/// Providing a limit helps us not run into any implementation limits.
+pub static USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL: LazyLock<usize> =
+    LazyLock::new(|| env_config("USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL", 500));
