@@ -640,7 +640,7 @@ mod tests {
         },
         test_helpers::bogus_udf_request,
     };
-    use model::initialize_application_system_tables;
+    use model::test_helpers::DbFixturesWithModel;
     use runtime::testing::TestRuntime;
     use storage::LocalDirStorage;
 
@@ -687,8 +687,7 @@ mod tests {
         };
         let function_runner_core = FunctionRunnerCore::_new(rt.clone(), storage, 50, 2).await?;
         let (mut pause1, pause_client1) = PauseController::new([PAUSE_REQUEST]);
-        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
-        initialize_application_system_tables(&db).await?;
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
         let client1 = "client1";
         let (sender, _rx1) = oneshot::channel();
         let request = bogus_udf_request(&db, client1, Some(pause_client1), sender).await?;
@@ -713,8 +712,7 @@ mod tests {
         };
         let function_runner_core = FunctionRunnerCore::_new(rt.clone(), storage, 50, 2).await?;
         let (mut pause1, pause_client1) = PauseController::new([PAUSE_REQUEST]);
-        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
-        initialize_application_system_tables(&db).await?;
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
         let client = "client";
         let (sender, _rx1) = oneshot::channel();
         let request = bogus_udf_request(&db, client, Some(pause_client1), sender).await?;

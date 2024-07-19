@@ -47,7 +47,7 @@ use crate::{
 
 #[convex_macro::test_runtime]
 async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
-    let database = DbFixtures::new(&rt.clone()).await?.with_model().await?.db;
+    let database = DbFixtures::new_with_model(&rt).await?.db;
     let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
 
     // Initialize config
@@ -121,7 +121,7 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
-    let database = DbFixtures::new(&rt.clone()).await?.with_model().await?.db;
+    let database = DbFixtures::new_with_model(&rt).await?.db;
     let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
 
     // Initialize config
@@ -193,7 +193,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_config_delete_auth_info(rt: TestRuntime) -> anyhow::Result<()> {
-    let database = DbFixtures::new(&rt.clone()).await?.with_model().await?.db;
+    let database = DbFixtures::new_with_model(&rt).await?.db;
 
     // Initialize config
     let mut tx = database.begin(Identity::system()).await?;
@@ -241,7 +241,7 @@ async fn test_config_delete_auth_info(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_schema_in_deployment_audit_log(rt: TestRuntime) -> anyhow::Result<()> {
-    let database = DbFixtures::new(&rt.clone()).await?.with_model().await?.db;
+    let database = DbFixtures::new_with_model(&rt).await?.db;
 
     // Set a config without a schema
     let mut tx = database.begin(Identity::system()).await?;

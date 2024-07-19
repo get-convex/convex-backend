@@ -269,7 +269,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             db: database,
             search_storage,
             ..
-        } = DbFixtures::new_with_args(
+        } = DbFixtures::new_with_model_and_args(
             &rt,
             DbFixturesArgs {
                 tp: Some(persistence.clone()),
@@ -278,8 +278,6 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 ..Default::default()
             },
         )
-        .await?
-        .with_model()
         .await?;
         database
             .start_search_and_vector_bootstrap(PauseClient::new())

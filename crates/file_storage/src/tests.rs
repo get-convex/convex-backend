@@ -44,7 +44,7 @@ fn setup_file_storage(
 
 #[convex_macro::test_runtime]
 async fn test_get_file_404(rt: TestRuntime) -> anyhow::Result<()> {
-    let database = DbFixtures::new(&rt).await?.with_model().await?.db;
+    let database = DbFixtures::new_with_model(&rt).await?.db;
     let file_storage = setup_file_storage(rt.clone(), &database)?;
 
     let bogus_storage_id = FileStorageId::LegacyStorageId(rt.new_uuid_v4().into());

@@ -155,7 +155,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_toggle_backend_state(rt: TestRuntime) -> anyhow::Result<()> {
-        let db = DbFixtures::new(&rt).await?.with_model().await?.db;
+        let db = DbFixtures::new_with_model(&rt).await?.db;
         let mut tx = db.begin_system().await?;
         let mut model = BackendStateModel::new(&mut tx);
         let starting_state = model.get_backend_state().await?;

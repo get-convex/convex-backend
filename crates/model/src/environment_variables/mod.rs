@@ -307,7 +307,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_create_get(rt: TestRuntime) -> anyhow::Result<()> {
-        let database = DbFixtures::new(&rt.clone()).await?.with_model().await?.db;
+        let database = DbFixtures::new_with_model(&rt).await?.db;
         let mut tx = database.begin_system().await?;
         let mut env_model = EnvironmentVariablesModel::new(&mut tx);
         let name: EnvVarName = "hello".parse()?;
@@ -320,7 +320,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_preload(rt: TestRuntime) -> anyhow::Result<()> {
-        let database = DbFixtures::new(&rt.clone()).await?.with_model().await?.db;
+        let database = DbFixtures::new_with_model(&rt).await?.db;
 
         let env_vars: BTreeMap<EnvVarName, EnvVarValue> = btreemap! {
             "hello".parse()? => "world".parse()?,

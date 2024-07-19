@@ -107,7 +107,7 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
                 if cfg!(any(test, feature = "testing")) {
                     format!(
                         "Failed to find system table {table} in a test. Try initializing system \
-                         tables with:\nDbFixtures::new(&rt).await?.with_model().await?"
+                         tables with:\nDbFixtures::new_with_model(&rt).await?"
                     )
                 } else {
                     format!("Failed to find system table {table}")

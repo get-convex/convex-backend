@@ -191,7 +191,7 @@ async fn get_index_diff_with_new_indexes_from_two_tables_returns_added_indexes_f
 async fn get_index_diff_with_existing_unmodified_enabled_indexes_ignores_them(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
 
     let table_name1 = "table1";
     let index_name1 = "index1";
@@ -217,7 +217,7 @@ async fn get_index_diff_with_existing_unmodified_enabled_indexes_ignores_them(
 // backfilled index as identical.
 #[convex_macro::test_runtime]
 async fn test_clean_index_diff_after_backfill(rt: TestRuntime) -> anyhow::Result<()> {
-    let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
 
     let table_name = "table1";
     let index_name = "index1";
@@ -243,7 +243,7 @@ async fn test_clean_index_diff_after_backfill(rt: TestRuntime) -> anyhow::Result
 async fn get_index_diff_with_existing_unmodified_backfilled_indexes_prepare_behavior_ignores_it(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    let DbFixtures { tp, db, .. } = DbFixtures::new(&rt).await?.with_model().await?;
+    let DbFixtures { tp, db, .. } = DbFixtures::new_with_model(&rt).await?;
 
     let table_name = "table1";
     let index_name = "index1";

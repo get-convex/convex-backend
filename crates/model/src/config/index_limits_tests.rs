@@ -62,7 +62,7 @@ async fn commit_schema(
 
 #[convex_macro::test_runtime]
 async fn insert_vector_doc_under_vector_limit_succeeds(rt: TestRuntime) -> anyhow::Result<()> {
-    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?.with_model().await?;
+    let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
     commit_schema(&rt, tp, &db).await?;
 
     let vector = rt.with_rng(random_vector_value);
@@ -77,7 +77,7 @@ async fn insert_vector_doc_under_vector_limit_succeeds(rt: TestRuntime) -> anyho
 
 #[convex_macro::test_runtime]
 async fn insert_vector_doc_over_vector_limit_fails(rt: TestRuntime) -> anyhow::Result<()> {
-    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?.with_model().await?;
+    let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
     commit_schema(&rt, tp, &db).await?;
 
     let vector = rt.with_rng(random_vector_value);
@@ -106,7 +106,7 @@ fn assert_vector_index_too_large_error(result: anyhow::Result<Timestamp>) -> any
 async fn insert_doc_in_other_table_over_vector_limit_succeeds(
     rt: TestRuntime,
 ) -> anyhow::Result<()> {
-    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?.with_model().await?;
+    let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
     commit_schema(&rt, tp, &db).await?;
 
     let vector = random_1536_vector_value(&rt);
@@ -121,7 +121,7 @@ async fn insert_doc_in_other_table_over_vector_limit_succeeds(
 
 #[convex_macro::test_runtime]
 async fn insert_doc_in_same_table_without_vector_succeeds(rt: TestRuntime) -> anyhow::Result<()> {
-    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?.with_model().await?;
+    let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
     commit_schema(&rt, tp, &db).await?;
 
     let mut tx = db.begin(Identity::system()).await?;
@@ -149,7 +149,7 @@ fn random_1536_vector_value(rt: &TestRuntime) -> ConvexValue {
 // for a tombstone, which decreases the total size.
 #[convex_macro::test_runtime]
 async fn insert_and_delete_vector_doc_over_hard_limit_fails(rt: TestRuntime) -> anyhow::Result<()> {
-    let DbFixtures { db, tp, .. } = DbFixtures::new(&rt).await?.with_model().await?;
+    let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
 
     commit_schema(&rt, tp, &db).await?;
 
