@@ -6,6 +6,7 @@ import {
   Visibility,
 } from "./common";
 import { queryPrivateSystem } from "../secretSystemTables";
+import { v } from "convex/values";
 
 /**
  * Return all user defined modules + their functions.
@@ -14,7 +15,9 @@ import { queryPrivateSystem } from "../secretSystemTables";
  * in the `_modules` table.
  */
 export const list = queryPrivateSystem({
-  args: {},
+  args: {
+    componentId: v.optional(v.union(v.string(), v.null())),
+  },
   handler: async ({ db }): Promise<[string, Module][]> => {
     const result: [string, Module][] = [];
     for await (const module of db.query("_modules")) {

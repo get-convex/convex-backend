@@ -127,18 +127,20 @@ pub async fn get_indexes(
 #[serde(rename_all = "camelCase")]
 pub struct GetSourceCodeArgs {
     path: String,
+    component: Option<String>,
 }
 
 #[debug_handler]
 pub async fn get_source_code(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
-    Query(GetSourceCodeArgs { path }): Query<GetSourceCodeArgs>,
+    Query(GetSourceCodeArgs { path, component }): Query<GetSourceCodeArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_member(&identity)?;
+    let component = ComponentId::deserialize_from_string(component.as_deref())?;
     let source_code = st
         .application
-        .get_source_code(identity, path.parse()?)
+        .get_source_code(identity, path.parse()?, component)
         .await?;
     Ok(Json(source_code))
 }
