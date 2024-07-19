@@ -110,6 +110,7 @@ use crate::{
         DbFixtures,
         DbFixturesArgs,
     },
+    virtual_tables::NoopDocMapper,
     write_log::WriteSource,
     Database,
     DatabaseSnapshot,
@@ -1986,6 +1987,57 @@ async fn create_system_table_with_non_system_table_fails(rt: TestRuntime) -> any
         err.to_string(),
         format!("\"{table_name}\" is not a valid system table name!")
     );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_create_system_table_then_virtual_table(rt: TestRuntime) -> anyhow::Result<()> {
+    let mut virtual_system_mapping = VirtualSystemMapping::default();
+    virtual_system_mapping.add_table(
+        &"_storage".parse()?,
+        &"_file_storage".parse()?,
+        BTreeMap::new(),
+        Arc::new(NoopDocMapper),
+    );
+    let db = DbFixtures::new_with_args(
+        &rt,
+        DbFixturesArgs {
+            virtual_system_mapping,
+            ..Default::default()
+        },
+    )
+    .await?
+    .db;
+
+    let table_number = 530.try_into()?;
+    let mut tx = db.begin_system().await?;
+    tx.create_system_table(
+        TableNamespace::test_user(),
+        &"_file_storage".parse()?,
+        Some(table_number),
+    )
+    .await?;
+    tx.create_virtual_table(
+        TableNamespace::test_user(),
+        &"_storage".parse()?,
+        Some(table_number),
+    )
+    .await?;
+    db.commit(tx).await?;
+
+    let mut tx = db.begin_system().await?;
+    let physical_table_number = tx
+        .table_mapping()
+        .namespace(TableNamespace::test_user())
+        .id(&"_file_storage".parse()?)?
+        .table_number;
+    let virtual_table_number = tx
+        .virtual_table_mapping()
+        .namespace(TableNamespace::test_user())
+        .number(&"_storage".parse()?)?;
+    assert_eq!(physical_table_number, table_number);
+    assert_eq!(virtual_table_number, table_number);
+
     Ok(())
 }
 

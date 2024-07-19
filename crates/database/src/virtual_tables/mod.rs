@@ -111,6 +111,43 @@ pub trait VirtualSystemDocMapper: Send + Sync {
     ) -> anyhow::Result<DeveloperDocument>;
 }
 
+#[cfg(any(test, feature = "testing"))]
+pub struct NoopDocMapper;
+
+#[cfg(any(test, feature = "testing"))]
+pub mod test_virtual_system_mapping {
+    use common::{
+        document::{
+            DeveloperDocument,
+            ResolvedDocument,
+        },
+        version::Version,
+    };
+    use value::{
+        TableMapping,
+        VirtualTableMapping,
+    };
+
+    use super::NoopDocMapper;
+    use crate::{
+        VirtualSystemDocMapper,
+        VirtualSystemMapping,
+    };
+
+    impl VirtualSystemDocMapper for NoopDocMapper {
+        fn system_to_virtual_doc(
+            &self,
+            _virtual_system_mapping: &VirtualSystemMapping,
+            doc: ResolvedDocument,
+            _table_mapping: &TableMapping,
+            _virtual_table_mapping: &VirtualTableMapping,
+            _version: Version,
+        ) -> anyhow::Result<DeveloperDocument> {
+            Ok(doc.to_developer())
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub struct VirtualSystemMapping {
     virtual_to_system: OrdMap<TableName, TableName>,

@@ -231,14 +231,27 @@ impl TableRegistry {
         table_number: TableNumber,
         table_name: &TableName,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(
-            !self
-                .table_mapping
-                .namespace(namespace)
-                .table_number_exists()(table_number),
-            "Cannot add a table with table number {table_number} since it already exists in the \
-             table mapping"
-        );
+        if let Some(existing_table) = self
+            .table_mapping
+            .namespace(namespace)
+            .name_by_number_if_exists(table_number)
+        {
+            if self.virtual_system_mapping.is_virtual_table(table_name)
+                && self
+                    .virtual_system_mapping
+                    .virtual_to_system_table(table_name)?
+                    == existing_table
+            {
+                // A virtual table can share a table number with its physical
+                // table.
+            } else {
+                anyhow::ensure!(
+                    existing_table == table_name,
+                    "Cannot add a table {table_name} with table number {table_number} since it \
+                     already exists in the table mapping as {existing_table}"
+                );
+            }
+        }
         if let Ok(existing_virtual_table) = self
             .virtual_table_mapping
             .namespace(namespace)
@@ -253,8 +266,8 @@ impl TableRegistry {
                 // table.
             } else {
                 anyhow::bail!(
-                    "Cannot add a table with table number {table_number} since it already exists \
-                     in the virtual table mapping"
+                    "Cannot add a table {table_name} with table number {table_number} since it \
+                     already exists in the virtual table mapping as {existing_virtual_table}"
                 );
             }
         }
@@ -395,5 +408,153 @@ impl<'a> Update<'a> {
                 .insert(namespace, table_number, table_name);
         }
         self.table_update
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        collections::BTreeMap,
+        sync::Arc,
+    };
+
+    use common::{
+        bootstrap_model::{
+            index::{
+                database_index::IndexedFields,
+                TabletIndexMetadata,
+                INDEX_TABLE,
+            },
+            tables::{
+                TableMetadata,
+                TABLES_TABLE,
+            },
+        },
+        document::{
+            CreationTime,
+            ResolvedDocument,
+        },
+        testing::TestIdGenerator,
+        types::{
+            PersistenceVersion,
+            TabletIndexName,
+        },
+    };
+    use imbl::OrdMap;
+    use indexing::index_registry::IndexRegistry;
+    use value::{
+        TableNamespace,
+        VirtualTableMapping,
+    };
+
+    use crate::{
+        virtual_tables::NoopDocMapper,
+        TableRegistry,
+        VirtualSystemMapping,
+        VirtualTableMetadata,
+        VIRTUAL_TABLES_TABLE,
+    };
+
+    fn make_registries() -> anyhow::Result<(TableRegistry, IndexRegistry, TestIdGenerator)> {
+        let mut id_generator = TestIdGenerator::new();
+        let index_tablet = id_generator.system_table_id(&INDEX_TABLE).tablet_id;
+        let index_by_id = id_generator.system_generate(&INDEX_TABLE);
+        id_generator.system_table_id(&TABLES_TABLE);
+        id_generator.system_table_id(&VIRTUAL_TABLES_TABLE);
+        let by_id_index_metadata = TabletIndexMetadata::new_enabled(
+            TabletIndexName::by_id(index_tablet),
+            IndexedFields::by_id(),
+        );
+        let mut virtual_system_mapping = VirtualSystemMapping::default();
+        virtual_system_mapping.add_table(
+            &"_storage".parse()?,
+            &"_file_storage".parse()?,
+            BTreeMap::new(),
+            Arc::new(NoopDocMapper),
+        );
+        let table_registry = TableRegistry::bootstrap(
+            id_generator.clone(),
+            OrdMap::new(),
+            PersistenceVersion::V5,
+            VirtualTableMapping::new(),
+            virtual_system_mapping,
+        )?;
+        let index_documents = vec![ResolvedDocument::new(
+            index_by_id,
+            CreationTime::ONE,
+            by_id_index_metadata.try_into()?,
+        )?];
+        let index_registry = IndexRegistry::bootstrap(
+            &id_generator,
+            index_documents.iter(),
+            PersistenceVersion::V5,
+        )?;
+        Ok((table_registry, index_registry, id_generator))
+    }
+
+    #[test]
+    fn test_create_system_then_virtual_table_same_number() -> anyhow::Result<()> {
+        let (mut table_registry, index_registry, mut id_generator) = make_registries()?;
+
+        let table_number = 530.try_into()?;
+        let system_table_id = id_generator.system_generate(&TABLES_TABLE);
+        let virtual_table_id = id_generator.system_generate(&VIRTUAL_TABLES_TABLE);
+
+        let table_metadata = TableMetadata::new(
+            TableNamespace::test_user(),
+            "_file_storage".parse()?,
+            table_number,
+        );
+        table_registry.update(
+            &index_registry,
+            system_table_id,
+            None,
+            Some(&table_metadata.try_into()?),
+        )?;
+        let virtual_table_metadata = VirtualTableMetadata::new(
+            TableNamespace::test_user(),
+            "_storage".parse()?,
+            table_number,
+        );
+        table_registry.update(
+            &index_registry,
+            virtual_table_id,
+            None,
+            Some(&virtual_table_metadata.try_into()?),
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_create_virtual_then_system_table_same_number() -> anyhow::Result<()> {
+        let (mut table_registry, index_registry, mut id_generator) = make_registries()?;
+
+        let table_number = 530.try_into()?;
+        let system_table_id = id_generator.system_generate(&TABLES_TABLE);
+        let virtual_table_id = id_generator.system_generate(&VIRTUAL_TABLES_TABLE);
+
+        let virtual_table_metadata = VirtualTableMetadata::new(
+            TableNamespace::test_user(),
+            "_storage".parse()?,
+            table_number,
+        );
+        table_registry.update(
+            &index_registry,
+            virtual_table_id,
+            None,
+            Some(&virtual_table_metadata.try_into()?),
+        )?;
+        let table_metadata = TableMetadata::new(
+            TableNamespace::test_user(),
+            "_file_storage".parse()?,
+            table_number,
+        );
+        table_registry.update(
+            &index_registry,
+            system_table_id,
+            None,
+            Some(&table_metadata.try_into()?),
+        )?;
+        Ok(())
     }
 }

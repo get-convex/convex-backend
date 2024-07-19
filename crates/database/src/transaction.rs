@@ -636,21 +636,30 @@ impl<RT: Runtime> Transaction<RT> {
                 self.table_mapping().namespace(namespace).number_to_name()(default_table_number)
                     .ok();
             let table_number = if let Some(existing_name) = existing_name {
-                // In tests, have a hard failure on conflicting default table numbers. In
-                // real system, have a looser fallback where we pick
-                // another table number.
-                if cfg!(any(test, feature = "testing")) {
+                if self.virtual_system_mapping.is_virtual_table(table_name)
+                    && *self
+                        .virtual_system_mapping
+                        .virtual_to_system_table(table_name)?
+                        == existing_name
+                {
+                    // Table number is occupied by the system table for the virtual table we're
+                    // creating. Allow it.
+                    default_table_number
+                } else if cfg!(any(test, feature = "testing")) {
+                    // In tests, have a hard failure on conflicting default table numbers. In
+                    // real system, have a looser fallback where we pick
+                    // another table number.
                     anyhow::bail!(
                         "{default_table_number} is used by both {table_name} and {existing_name}"
                     );
+                } else {
+                    // If the table_number requested is taken, just pick a higher table number.
+                    // This might be true for older backends that have lower-numbered system
+                    // tables.
+                    TableModel::new(self)
+                        .next_system_table_number(namespace)
+                        .await?
                 }
-
-                // If the table_number requested is taken, just pick a higher table number.
-                // This might be true for older backends that have lower-numbered system
-                // tables.
-                TableModel::new(self)
-                    .next_system_table_number(namespace)
-                    .await?
             } else {
                 default_table_number
             };
