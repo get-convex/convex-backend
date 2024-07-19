@@ -28,8 +28,6 @@ type ComponentInstantiation = {
   args: [string, { type: "value"; value: string }][];
 };
 
-export type HttpMount = string;
-
 type ComponentExport =
   | { type: "branch"; branch: ComponentExport[] }
   | { type: "leaf"; leaf: string };
@@ -40,12 +38,10 @@ export type ComponentDefinitionAnalysis = {
   name: string;
   definitionType: ComponentDefinitionType;
   childComponents: ComponentInstantiation[];
-  httpMounts: Record<string, HttpMount>;
   exports: ComponentExport;
 };
 export type AppDefinitionAnalysis = {
   definitionType: AppDefinitionType;
   childComponents: ComponentInstantiation[];
-  httpMounts: Record<string, HttpMount>;
   exports: ComponentExport;
 };

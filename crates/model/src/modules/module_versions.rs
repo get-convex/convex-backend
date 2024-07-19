@@ -1,17 +1,12 @@
 use std::{
-    collections::{
-        BTreeMap,
-        BTreeSet,
-    },
+    collections::BTreeMap,
     mem,
-    ops::Deref,
     str::FromStr,
 };
 
 use async_lru::async_lru::SizedValue;
 use common::types::{
     HttpActionRoute,
-    RoutableMethod,
     UdfType,
 };
 use errors::ErrorMetadata;
@@ -73,7 +68,13 @@ pub struct AnalyzedModule {
         )
     )]
     pub functions: WithHeapSize<Vec<AnalyzedFunction>>,
-    pub http_routes: Option<AnalyzedHttpRoutes>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "prop::option::of(value::heap_size::of(prop::collection::vec(any::<AnalyzedHttpRoute>(), 0..4)))"
+        )
+    )]
+    pub http_routes: Option<WithHeapSize<Vec<AnalyzedHttpRoute>>>,
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(
@@ -138,10 +139,7 @@ impl TryFrom<SerializedAnalyzedModule> for AnalyzedModule {
                 .try_collect()?,
             http_routes: m
                 .http_routes
-                .map(|routes| {
-                    let routes = routes.into_iter().map(TryFrom::try_from).try_collect()?;
-                    AnalyzedHttpRoutes::new(routes)
-                })
+                .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
                 .transpose()?,
             cron_specs: m
                 .cron_specs
@@ -398,117 +396,6 @@ impl TryFrom<SerializedAnalyzedHttpRoute> for AnalyzedHttpRoute {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct AnalyzedHttpRoutes {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "value::heap_size::of(prop::collection::vec(any::<AnalyzedHttpRoute>(), \
-                        0..4))"
-        )
-    )]
-    routes: WithHeapSize<Vec<AnalyzedHttpRoute>>,
-}
-
-impl AnalyzedHttpRoutes {
-    pub fn new(routes: Vec<AnalyzedHttpRoute>) -> anyhow::Result<Self> {
-        // Parse routes into `(method, path)`.
-        let mut prefix_routes = BTreeSet::new();
-        let mut exact_routes = BTreeSet::new();
-        for AnalyzedHttpRoute { route, .. } in &routes {
-            let (set, path) = match route.path.strip_suffix('*') {
-                Some(prefix_path) => {
-                    if !prefix_path.starts_with('/') {
-                        anyhow::bail!(ErrorMetadata::bad_request(
-                            "BadHTTPRoute",
-                            format!("Path {prefix_path:?} must start with a /")
-                        ));
-                    }
-                    if !prefix_path.ends_with('/') {
-                        anyhow::bail!(ErrorMetadata::bad_request(
-                            "BadHTTPRoute",
-                            format!("Path {prefix_path:?} must end with a /")
-                        ));
-                    }
-                    (&mut prefix_routes, prefix_path)
-                },
-                None => {
-                    if !route.path.starts_with('/') {
-                        anyhow::bail!(ErrorMetadata::bad_request(
-                            "BadHTTPRoute",
-                            format!("Path {:?} must start with a /", route.path)
-                        ));
-                    }
-                    (&mut exact_routes, &route.path[..])
-                },
-            };
-            if !set.insert((&route.method, path)) {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "BadHTTPRoute",
-                    format!("Duplicate HTTP route {path} for {}", route.method)
-                ));
-            }
-        }
-        Ok(Self {
-            routes: routes.into(),
-        })
-    }
-
-    pub fn route_exact(&self, path: &str, method: RoutableMethod) -> bool {
-        self.routes.iter().any(|AnalyzedHttpRoute { route, .. }| {
-            !route.path.ends_with('*') && route.method == method && route.path == path
-        })
-    }
-
-    pub fn route_prefix<'a>(&self, path: &'a str, method: RoutableMethod) -> Option<&'a str> {
-        let mut longest_match: Option<&str> = None;
-        for AnalyzedHttpRoute { route, .. } in &self.routes {
-            let Some(prefix_path) = route.path.strip_suffix("/*") else {
-                continue;
-            };
-            if route.method != method {
-                continue;
-            }
-            let Some(match_suffix) = path.strip_prefix(prefix_path) else {
-                continue;
-            };
-            if let Some(existing_suffix) = longest_match {
-                // If the existing longest match has a shorter suffix, then it
-                // matches a longer prefix.
-                if existing_suffix.len() < match_suffix.len() {
-                    continue;
-                }
-            }
-            longest_match = Some(match_suffix);
-        }
-        longest_match
-    }
-}
-
-impl HeapSize for AnalyzedHttpRoutes {
-    fn heap_size(&self) -> usize {
-        self.routes.heap_size()
-    }
-}
-
-impl IntoIterator for AnalyzedHttpRoutes {
-    type IntoIter = Box<dyn Iterator<Item = AnalyzedHttpRoute>>;
-    type Item = AnalyzedHttpRoute;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Box::new(self.routes.into_iter())
-    }
-}
-
-impl Deref for AnalyzedHttpRoutes {
-    type Target = [AnalyzedHttpRoute];
-
-    fn deref(&self) -> &Self::Target {
-        &self.routes
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct MappedModule {
@@ -526,7 +413,13 @@ pub struct MappedModule {
         )
     )]
     pub functions: WithHeapSize<Vec<AnalyzedFunction>>,
-    pub http_routes: Option<AnalyzedHttpRoutes>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "prop::option::of(value::heap_size::of(prop::collection::vec(any::<AnalyzedHttpRoute>(), 0..4)))"
+        )
+    )]
+    pub http_routes: Option<WithHeapSize<Vec<AnalyzedHttpRoute>>>,
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(
@@ -591,10 +484,7 @@ impl TryFrom<SerializedMappedModule> for MappedModule {
                 .try_collect()?,
             http_routes: m
                 .http_routes
-                .map(|routes| {
-                    let routes = routes.into_iter().map(TryFrom::try_from).try_collect()?;
-                    AnalyzedHttpRoutes::new(routes)
-                })
+                .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
                 .transpose()?,
             cron_specs: m
                 .cron_specs
@@ -606,23 +496,13 @@ impl TryFrom<SerializedMappedModule> for MappedModule {
 
 #[cfg(test)]
 mod tests {
-    use common::types::{
-        HttpActionRoute,
-        RoutableMethod,
-    };
     use value::{
         obj,
         ConvexObject,
     };
 
     use super::AnalyzedFunction;
-    use crate::modules::{
-        function_validators::ArgsValidator,
-        module_versions::{
-            AnalyzedHttpRoute,
-            AnalyzedHttpRoutes,
-        },
-    };
+    use crate::modules::function_validators::ArgsValidator;
 
     #[test]
     fn test_analyzed_function_backwards_compatibility() -> anyhow::Result<()> {
@@ -638,49 +518,5 @@ mod tests {
         assert_eq!(function.visibility, None);
         assert_eq!(function.args, ArgsValidator::Unvalidated);
         Ok(())
-    }
-
-    #[test]
-    fn test_http_routes() {
-        let foo_prefix = AnalyzedHttpRoute {
-            route: HttpActionRoute {
-                path: "/foo/*".to_string(),
-                method: RoutableMethod::Get,
-            },
-            pos: None,
-        };
-        let foo_bar_prefix = AnalyzedHttpRoute {
-            route: HttpActionRoute {
-                path: "/foo/bar/*".to_string(),
-                method: RoutableMethod::Get,
-            },
-            pos: None,
-        };
-        let foo_exact = AnalyzedHttpRoute {
-            route: HttpActionRoute {
-                path: "/foo/".to_string(),
-                method: RoutableMethod::Get,
-            },
-            pos: None,
-        };
-        let foo_exact_put = AnalyzedHttpRoute {
-            route: HttpActionRoute {
-                path: "/foo/".to_string(),
-                method: RoutableMethod::Put,
-            },
-            pos: None,
-        };
-
-        // Fail when we have duplicate prefix routes.
-        assert!(AnalyzedHttpRoutes::new(vec![foo_prefix.clone(), foo_prefix.clone()]).is_err());
-
-        // Fail when we have duplicate exact routes.
-        assert!(AnalyzedHttpRoutes::new(vec![foo_exact.clone(), foo_exact.clone()]).is_err());
-
-        // Suceeed when we have an exact route that's a prefix of a prefix route.
-        assert!(AnalyzedHttpRoutes::new(vec![foo_exact.clone(), foo_bar_prefix.clone()]).is_ok());
-
-        // Succeed when we have exact routes with different methods.
-        assert!(AnalyzedHttpRoutes::new(vec![foo_exact.clone(), foo_exact_put.clone()]).is_ok());
     }
 }

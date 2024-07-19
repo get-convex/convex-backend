@@ -51,7 +51,6 @@ export const componentDefinitionMetadata = z.object({
   path: componentDefinitionPath,
   definitionType: componentDefinitionType,
   childComponents: z.array(componentInstantiation),
-  httpMounts: z.record(z.string(), reference),
   exports: z.object({
     type: z.literal("branch"),
     branch: z.array(z.tuple([identifier, componentExports])),

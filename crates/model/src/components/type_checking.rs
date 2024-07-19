@@ -1,7 +1,4 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
-};
+use std::collections::BTreeMap;
 
 use common::{
     bootstrap_model::components::definition::{
@@ -19,7 +16,6 @@ use common::{
         Resource,
     },
     schemas::validator::ValidationError,
-    types::RoutableMethod,
 };
 use thiserror::Error;
 use value::{
@@ -30,10 +26,6 @@ use value::{
 };
 
 use super::types::EvaluatedComponentDefinition;
-use crate::modules::{
-    module_versions::AnalyzedHttpRoute,
-    HTTP_MODULE_PATH,
-};
 
 #[derive(Debug)]
 pub struct CheckedComponent {
@@ -42,7 +34,6 @@ pub struct CheckedComponent {
 
     pub args: BTreeMap<Identifier, Resource>,
     pub child_components: BTreeMap<ComponentName, CheckedComponent>,
-    pub http_routes: CheckedHttpRoutes,
     pub exports: BTreeMap<Identifier, CheckedExport>,
 }
 
@@ -112,11 +103,6 @@ impl<'a> TypecheckContext<'a> {
             builder.insert_child_component(instantiation.name.clone(), child_component)?;
         }
 
-        // Check that our HTTP mounts are valid and nonoverlapping.
-        for (mount_path, reference) in &evaluated.definition.http_mounts {
-            builder.insert_http_mount(self.evaluated_definitions, mount_path, reference)?;
-        }
-
         // Finally, resolve our exports and build the component.
         let component = builder.check_exports(&evaluated.definition.exports)?;
 
@@ -135,11 +121,8 @@ struct CheckedComponentBuilder<'a> {
     // Phase 2: The layer above adds in child components one at a time, and instantiating a child
     // component may depend on arguments or previous child components.
     child_components: BTreeMap<ComponentName, CheckedComponent>,
-
-    // Phase 3: The layer above mounts child component HTTP routes.
-    http_routes: CheckedHttpRoutes,
     //
-    // Phase 4: The layer above finalizes via `build`, passing in exports, which may depend on args
+    // Phase 3: The layer above finalizes via `build`, passing in exports, which may depend on args
     // or any child component.
 }
 
@@ -205,7 +188,6 @@ impl<'a> CheckedComponentBuilder<'a> {
 
             args,
             child_components: BTreeMap::new(),
-            http_routes: CheckedHttpRoutes::new(evaluated),
         })
     }
 
@@ -224,48 +206,6 @@ impl<'a> CheckedComponentBuilder<'a> {
         Ok(())
     }
 
-    fn insert_http_mount(
-        &mut self,
-        evaluated_definitions: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
-        mount_path: &str,
-        reference: &Reference,
-    ) -> Result<(), TypecheckError> {
-        let Reference::ChildComponent {
-            component,
-            attributes,
-        } = reference
-        else {
-            return Err(TypecheckError::Unsupported(
-                "Non-root child component references for HTTP mounts",
-            ));
-        };
-        if !attributes.is_empty() {
-            return Err(TypecheckError::Unsupported(
-                "Child component references with attributes",
-            ));
-        }
-
-        let Some(child_component) = self.child_components.get(component) else {
-            return Err(TypecheckError::InvalidHttpMount {
-                mount_path: mount_path.to_string(),
-                reason: format!("Child component {:?} not found.", component),
-            });
-        };
-        if !evaluated_definitions.contains_key(&child_component.definition_path) {
-            return Err(TypecheckError::MissingComponentDefinition {
-                definition_path: child_component.definition_path.clone(),
-            });
-        };
-        if child_component.http_routes.is_empty() {
-            return Err(TypecheckError::InvalidHttpMount {
-                mount_path: mount_path.to_string(),
-                reason: "Child component doesn't have any HTTP routes.".to_string(),
-            });
-        }
-        self.http_routes.mount(mount_path)?;
-        Ok(())
-    }
-
     fn check_exports(
         self,
         exports: &BTreeMap<Identifier, ComponentExport>,
@@ -275,7 +215,6 @@ impl<'a> CheckedComponentBuilder<'a> {
             definition_path: self.definition_path.clone(),
             component_path: self.component_path.clone(),
             args: self.args,
-            http_routes: self.http_routes,
             child_components: self.child_components,
             exports,
         })
@@ -385,71 +324,6 @@ impl CheckedComponent {
     }
 }
 
-#[derive(Debug)]
-pub struct CheckedHttpRoutes {
-    router_prefix: BTreeSet<(RoutableMethod, String)>,
-    router_exact: BTreeSet<(RoutableMethod, String)>,
-    mounted_prefix: BTreeSet<String>,
-}
-
-impl CheckedHttpRoutes {
-    pub fn new(evaluated: &EvaluatedComponentDefinition) -> Self {
-        let mut router_prefix = BTreeSet::new();
-        let mut router_exact = BTreeSet::new();
-
-        // Initialize our HTTP routes with the ones defined locally in our `http.js`.
-        if let Some(module) = evaluated.functions.get(&HTTP_MODULE_PATH) {
-            if let Some(analyzed_routes) = &module.http_routes {
-                for AnalyzedHttpRoute { route, .. } in &analyzed_routes[..] {
-                    match route.path.strip_suffix('*') {
-                        Some(prefix_path) => {
-                            router_prefix.insert((route.method, prefix_path.to_string()));
-                        },
-                        None => {
-                            router_exact.insert((route.method, route.path.clone()));
-                        },
-                    }
-                }
-            }
-        }
-
-        Self {
-            router_prefix,
-            router_exact,
-            mounted_prefix: BTreeSet::new(),
-        }
-    }
-
-    pub fn mount(&mut self, mount_path: &str) -> Result<(), TypecheckError> {
-        // Check that the mount path does not overlap with any prefix route from our
-        // `http.js` or previously mounted route.
-        if self
-            .router_prefix
-            .iter()
-            .any(|(_, path)| path == mount_path)
-        {
-            return Err(TypecheckError::InvalidHttpMount {
-                mount_path: mount_path.to_string(),
-                reason: "Overlap with existing prefix route".to_string(),
-            });
-        }
-        if self.mounted_prefix.contains(mount_path) {
-            return Err(TypecheckError::InvalidHttpMount {
-                mount_path: mount_path.to_string(),
-                reason: "Overlap with previously mounted route".to_string(),
-            });
-        }
-        self.mounted_prefix.insert(mount_path.to_string());
-        Ok(())
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.router_prefix.is_empty()
-            && self.router_exact.is_empty()
-            && self.mounted_prefix.is_empty()
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum TypecheckError {
     #[error("Component definition not found: {definition_path:?}")]
@@ -485,10 +359,6 @@ pub enum TypecheckError {
         definition_path: ComponentDefinitionPath,
         name: Identifier,
     },
-
-    #[error("HTTP mount {mount_path} is invalid: {reason}")]
-    InvalidHttpMount { mount_path: String, reason: String },
-
     #[error("Component {definition_path:?} has an unresolved export {reference:?}")]
     UnresolvedExport {
         definition_path: ComponentDefinitionPath,
@@ -510,7 +380,6 @@ mod json {
     use super::{
         CheckedComponent,
         CheckedExport,
-        CheckedHttpRoutes,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -521,7 +390,6 @@ mod json {
 
         args: BTreeMap<String, SerializedResource>,
         child_components: BTreeMap<String, SerializedCheckedComponent>,
-        http_routes: SerializedCheckedHttpRoutes,
         exports: BTreeMap<String, SerializedCheckedExport>,
     }
 
@@ -542,7 +410,6 @@ mod json {
                     .into_iter()
                     .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
                     .collect::<anyhow::Result<_>>()?,
-                http_routes: value.http_routes.try_into()?,
                 exports: value
                     .exports
                     .into_iter()
@@ -569,60 +436,11 @@ mod json {
                     .into_iter()
                     .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
                     .collect::<anyhow::Result<_>>()?,
-                http_routes: value.http_routes.try_into()?,
                 exports: value
                     .exports
                     .into_iter()
                     .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
                     .collect::<anyhow::Result<_>>()?,
-            })
-        }
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    pub struct SerializedCheckedHttpRoutes {
-        router_prefix: Vec<(String, String)>,
-        router_exact: Vec<(String, String)>,
-        mounted_prefix: Vec<String>,
-    }
-
-    impl TryFrom<CheckedHttpRoutes> for SerializedCheckedHttpRoutes {
-        type Error = anyhow::Error;
-
-        fn try_from(value: CheckedHttpRoutes) -> Result<Self, Self::Error> {
-            Ok(Self {
-                router_prefix: value
-                    .router_prefix
-                    .into_iter()
-                    .map(|(m, p)| (m.to_string(), p))
-                    .collect(),
-                router_exact: value
-                    .router_exact
-                    .into_iter()
-                    .map(|(m, p)| (m.to_string(), p))
-                    .collect(),
-                mounted_prefix: value.mounted_prefix.into_iter().collect(),
-            })
-        }
-    }
-
-    impl TryFrom<SerializedCheckedHttpRoutes> for CheckedHttpRoutes {
-        type Error = anyhow::Error;
-
-        fn try_from(value: SerializedCheckedHttpRoutes) -> Result<Self, Self::Error> {
-            Ok(Self {
-                router_prefix: value
-                    .router_prefix
-                    .into_iter()
-                    .map(|(m, p)| Ok((m.parse()?, p)))
-                    .collect::<anyhow::Result<_>>()?,
-                router_exact: value
-                    .router_exact
-                    .into_iter()
-                    .map(|(m, p)| Ok((m.parse()?, p)))
-                    .collect::<anyhow::Result<_>>()?,
-                mounted_prefix: value.mounted_prefix.into_iter().collect(),
             })
         }
     }

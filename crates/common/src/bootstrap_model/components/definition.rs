@@ -36,13 +36,6 @@ pub struct ComponentDefinitionMetadata {
 
     #[cfg_attr(
         any(test, feature = "testing"),
-        proptest(strategy = "proptest::collection::btree_map(r\"/([a-z0-9_]/)+\", \
-                             proptest::prelude::any::<Reference>(), 0..2)")
-    )]
-    pub http_mounts: BTreeMap<MountedHttpPath, Reference>,
-
-    #[cfg_attr(
-        any(test, feature = "testing"),
         proptest(
             strategy = "proptest::collection::btree_map(proptest::prelude::any::<Identifier>(), \
                         proptest::prelude::any::<ComponentExport>(), 0..4)"
@@ -57,7 +50,6 @@ impl ComponentDefinitionMetadata {
             path: ComponentDefinitionPath::root(),
             definition_type: ComponentDefinitionType::App,
             child_components: Vec::new(),
-            http_mounts: BTreeMap::new(),
             exports: BTreeMap::new(),
         }
     }
@@ -79,8 +71,6 @@ pub struct ComponentInstantiation {
     pub path: ComponentDefinitionPath,
     pub args: BTreeMap<Identifier, ComponentArgument>,
 }
-
-pub type MountedHttpPath = String;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ComponentExport {
@@ -106,7 +96,6 @@ pub struct SerializedComponentDefinitionMetadata {
     path: String,
     definition_type: SerializedComponentDefinitionType,
     child_components: Vec<SerializedComponentInstantiation>,
-    http_mounts: Option<BTreeMap<String, String>>,
     exports: SerializedComponentExport,
 }
 
@@ -163,12 +152,6 @@ impl TryFrom<ComponentDefinitionMetadata> for SerializedComponentDefinitionMetad
                 .into_iter()
                 .map(TryFrom::try_from)
                 .try_collect()?,
-            http_mounts: Some(
-                m.http_mounts
-                    .into_iter()
-                    .map(|(k, v)| (k, String::from(v)))
-                    .collect(),
-            ),
             exports: ComponentExport::Branch(m.exports).try_into()?,
         })
     }
@@ -188,12 +171,6 @@ impl TryFrom<SerializedComponentDefinitionMetadata> for ComponentDefinitionMetad
                 .child_components
                 .into_iter()
                 .map(TryFrom::try_from)
-                .try_collect()?,
-            http_mounts: m
-                .http_mounts
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(k, v)| anyhow::Ok((k, v.parse()?)))
                 .try_collect()?,
             exports,
         })

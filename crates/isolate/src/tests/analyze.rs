@@ -56,9 +56,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
 
     let has_http = {
         let mut tx = t.database.begin(Identity::system()).await?;
-        ModuleModel::new(&mut tx)
-            .has_http(ComponentId::TODO())
-            .await?
+        ModuleModel::new(&mut tx).has_http().await?
     };
     assert!(has_http);
 

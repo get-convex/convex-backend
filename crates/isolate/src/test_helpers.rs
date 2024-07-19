@@ -24,10 +24,7 @@ use common::{
     },
     errors::JsError,
     execution_context::ExecutionContext,
-    http::{
-        fetch::ProxiedFetchClient,
-        RoutedHttpPath,
-    },
+    http::fetch::ProxiedFetchClient,
     log_lines::{
         LogLine,
         LogLines,
@@ -947,7 +944,6 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             .isolate
             .execute_http_action(
                 ValidatedHttpPath::new_for_tests(&mut tx, path.canonicalize(), None).await?,
-                RoutedHttpPath(http_request.head.url.path().to_string()),
                 http_request,
                 identity,
                 app.clone(),

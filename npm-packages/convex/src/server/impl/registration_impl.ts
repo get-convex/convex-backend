@@ -36,7 +36,7 @@ import {
   setupStorageWriter,
 } from "./storage_impl.js";
 import { functionName } from "../api.js";
-import { extractReferencePath } from "../components/reference.js";
+import { extractReferencePath } from "../components/index.js";
 import { parseArgs } from "../../common/index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { asObjectValidator } from "../../values/validator.js";

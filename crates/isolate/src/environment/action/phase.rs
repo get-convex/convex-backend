@@ -217,10 +217,6 @@ impl<RT: Runtime> ActionPhase<RT> {
         Ok(())
     }
 
-    pub fn component_path(&self) -> &ComponentPath {
-        &self.component
-    }
-
     pub fn get_module(
         &mut self,
         module_path: &ModulePath,

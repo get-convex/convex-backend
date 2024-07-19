@@ -295,18 +295,12 @@ export class HttpRouter {
    *
    * @returns - a Response object.
    */
-  runRequest = async (
-    argsStr: string,
-    requestRoute: string,
-  ): Promise<string> => {
+  runRequest = async (argsStr: string): Promise<string> => {
     const request = performJsSyscall("requestFromConvexJson", {
       convexJson: JSON.parse(argsStr),
     });
 
-    let pathname = requestRoute;
-    if (!pathname || typeof pathname !== "string") {
-      pathname = new URL(request.url).pathname;
-    }
+    const pathname = new URL(request.url).pathname;
 
     const method = request.method;
     const match = this.lookup(pathname, method as RoutableMethod);

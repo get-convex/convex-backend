@@ -112,40 +112,11 @@ impl fmt::Display for RoutableMethod {
     }
 }
 
-impl TryFrom<http::Method> for RoutableMethod {
-    type Error = anyhow::Error;
-
-    fn try_from(method: http::Method) -> anyhow::Result<Self> {
-        match method {
-            http::Method::DELETE => Ok(Self::Delete),
-            http::Method::GET => Ok(Self::Get),
-            http::Method::OPTIONS => Ok(Self::Options),
-            http::Method::PATCH => Ok(Self::Patch),
-            http::Method::POST => Ok(Self::Post),
-            http::Method::PUT => Ok(Self::Put),
-            http::Method::HEAD => Ok(Self::Get),
-            _ => anyhow::bail!("Expected routable HTTP method, got {:?}", method),
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct HttpActionRoute {
     pub path: String,
     pub method: RoutableMethod,
-}
-
-#[cfg(any(test, feature = "testing"))]
-impl proptest::arbitrary::Arbitrary for HttpActionRoute {
-    type Parameters = ();
-
-    type Strategy = impl proptest::strategy::Strategy<Value = Self>;
-
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        (r"/([a-z0-9_]/)+(\*)?", any::<RoutableMethod>())
-            .prop_map(|(path, method)| Self { path, method })
-    }
 }
 
 impl HeapSize for HttpActionRoute {
