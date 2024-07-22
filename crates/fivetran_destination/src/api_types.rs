@@ -8,6 +8,7 @@ use chrono::{
     Utc,
 };
 use common::value::{
+    convex_object_json_serializer,
     ConvexObject,
     FieldPath,
     IdentifierFieldName,
@@ -111,17 +112,20 @@ impl TryInto<FieldPath> for FivetranFieldName {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum BatchWriteOperation {
     Upsert,
     Update,
     HardDelete,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub struct BatchWriteRow {
     pub table: String,
     pub operation: BatchWriteOperation,
+    #[serde(with = "convex_object_json_serializer")]
     pub row: ConvexObject,
 }
 
@@ -143,9 +147,14 @@ pub struct TruncateTableArgs {
 mod tests {
     use std::str::FromStr;
 
+    use cmd_util::env::env_config;
     use common::value::FieldPath;
+    use proptest::prelude::*;
 
-    use crate::api_types::FivetranFieldName;
+    use crate::api_types::{
+        BatchWriteRow,
+        FivetranFieldName,
+    };
 
     #[test]
     fn convert_fivetran_user_fields_to_field_path() {
@@ -187,5 +196,16 @@ mod tests {
             expected,
             FieldPath::from_str("fivetran.columns.file").unwrap()
         );
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
+
+        #[test]
+        fn test_object_roundtrips(v in any::<BatchWriteRow>()) {
+            let serialized = serde_json::to_string(&v).unwrap();
+            let deserialized: BatchWriteRow = serde_json::from_str(&serialized).unwrap();
+            assert_eq!(v, deserialized);
+        }
     }
 }

@@ -85,6 +85,7 @@ pub use crate::{
         integer::JsonInteger,
         json_deserialize,
         json_serialize,
+        object::convex_object_json_serializer,
     },
     map::ConvexMap,
     object::{
