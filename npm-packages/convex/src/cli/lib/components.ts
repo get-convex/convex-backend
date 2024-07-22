@@ -1,5 +1,10 @@
 import path from "path";
-import { Context, changeSpinner, logError } from "../../bundler/context.js";
+import {
+  Context,
+  changeSpinner,
+  logError,
+  logMessage,
+} from "../../bundler/context.js";
 import {
   ProjectConfig,
   configFromProjectConfig,
@@ -26,6 +31,7 @@ import {
 import { typeCheckFunctionsInMode } from "./typecheck.js";
 import { withTmpDir } from "../../bundler/fs.js";
 import { ROOT_DEFINITION_FILENAME } from "./components/constants.js";
+import { handleDebugBundlePath } from "./debugBundlePath.js";
 
 export async function runPush(ctx: Context, options: PushOptions) {
   const { configPath, projectConfig } = await readProjectConfig(ctx);
@@ -51,10 +57,6 @@ export async function runComponentsPush(
 
   if (options.dryRun) {
     logError(ctx, "dryRun not allowed yet");
-    await ctx.crash(1, "fatal");
-  }
-  if (options.debugBundlePath) {
-    logError(ctx, "debugBundlePath not allowed yet");
     await ctx.crash(1, "fatal");
   }
 
@@ -113,12 +115,6 @@ export async function runComponentsPush(
     [...components.values()],
   );
 
-  const { config: localConfig } = await configFromProjectConfig(
-    ctx,
-    projectConfig,
-    configPath,
-    verbose,
-  );
   changeSpinner(ctx, "Bundling component schemas and implementations...");
   const { appImplementation, componentImplementations } =
     await bundleImplementations(
@@ -128,6 +124,21 @@ export async function runComponentsPush(
       projectConfig.node.externalPackages,
       verbose,
     );
+  const { config: localConfig } = await configFromProjectConfig(
+    ctx,
+    projectConfig,
+    configPath,
+    verbose,
+  );
+  if (options.debugBundlePath) {
+    // TODO(ENG-6972): Actually write the bundles for components.
+    await handleDebugBundlePath(ctx, options.debugBundlePath, localConfig);
+    logMessage(
+      ctx,
+      `Wrote bundle and metadata for modules in the root to ${options.debugBundlePath}. Skipping rest of push.`,
+    );
+    return;
+  }
 
   // We're just using the version this CLI is running with for now.
   // This could be different than the version of `convex` the app runs with
