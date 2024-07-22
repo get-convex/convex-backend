@@ -359,7 +359,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 udf_type,
                 tx.identity().clone(),
                 tx.begin_timestamp(),
-                tx.writes().clone().into(),
+                tx.writes().as_flat()?.clone().into(),
                 journal,
                 log_line_sender,
                 self.system_env_vars.clone(),

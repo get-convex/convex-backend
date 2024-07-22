@@ -1,9 +1,13 @@
 //! Write set tracking for an active transaction
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
+use std::{
+    collections::BTreeSet,
+    ops::{
+        Deref,
+        DerefMut,
+    },
 };
 
+use anyhow::Context;
 use common::{
     bootstrap_model::index::{
         database_index::IndexedFields,
@@ -32,6 +36,7 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
+use imbl::OrdMap;
 use value::{
     values_to_bytes,
     DeveloperDocumentId,
@@ -41,6 +46,7 @@ use value::{
 use crate::{
     bootstrap_model::defaults::BootstrapTableIds,
     reads::TransactionReadSet,
+    TableRegistry,
 };
 
 #[derive(Clone, PartialEq)]
@@ -50,11 +56,111 @@ pub struct DocumentWrite {
     pub document: Option<ResolvedDocument>,
 }
 
+pub trait PendingWrites: Clone {}
+
+impl PendingWrites for Writes {}
+impl PendingWrites for TableRegistry {}
+
+pub type NestedWriteToken = u32;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NestedWrites<W: PendingWrites> {
+    parent: Option<Box<NestedWrites<W>>>,
+    pending: W,
+    nested_token: NestedWriteToken,
+}
+
+impl<W: PendingWrites> Deref for NestedWrites<W> {
+    type Target = W;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pending
+    }
+}
+
+impl<W: PendingWrites> DerefMut for NestedWrites<W> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.pending
+    }
+}
+
+impl<W: PendingWrites> NestedWrites<W> {
+    pub fn new(writes: W) -> Self {
+        Self {
+            parent: None,
+            pending: writes,
+            nested_token: 0,
+        }
+    }
+
+    pub fn begin_nested(&mut self) -> NestedWriteToken {
+        let new_pending = self.pending.clone();
+        let nested_token = self.nested_token + 1;
+        let new_writes = NestedWrites {
+            parent: None,
+            pending: new_pending,
+            nested_token,
+        };
+        let parent = std::mem::replace(self, new_writes);
+        self.parent = Some(Box::new(parent));
+        nested_token
+    }
+
+    pub fn commit_nested(&mut self, token: NestedWriteToken) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.nested_token == token,
+            "Mismatched nested transaction token {} != {}",
+            self.nested_token,
+            token
+        );
+        let parent = self
+            .parent
+            .take()
+            .context("No nested transaction to commit")?;
+        let pending = std::mem::replace(self, *parent).pending;
+        self.pending = pending;
+        Ok(())
+    }
+
+    pub fn rollback_nested(&mut self, token: NestedWriteToken) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.nested_token == token,
+            "Mismatched nested transaction token {} != {}",
+            self.nested_token,
+            token
+        );
+        let parent = self
+            .parent
+            .take()
+            .context("No nested transaction to rollback")?;
+        *self = *parent;
+        Ok(())
+    }
+
+    pub fn require_not_nested(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(self.parent.is_none(), "Nested transaction in progress");
+        Ok(())
+    }
+
+    pub fn as_flat(&self) -> anyhow::Result<&W> {
+        self.require_not_nested()?;
+        Ok(&self.pending)
+    }
+
+    pub fn into_flat(self) -> anyhow::Result<W> {
+        self.require_not_nested()?;
+        Ok(self.pending)
+    }
+
+    pub fn pending(&mut self) -> &mut W {
+        &mut self.pending
+    }
+}
+
 /// The write set for a transaction, maintained by `TransactionState`
-#[derive(Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Writes {
-    updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
+    updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
 
     // Fields below can be recomputed from `updates`.
 
@@ -77,7 +183,7 @@ impl Writes {
     /// Create an empty write set.
     pub fn new() -> Self {
         Self {
-            updates: BTreeMap::new(),
+            updates: OrdMap::new(),
             user_tx_size: TransactionWriteSize::default(),
             system_tx_size: TransactionWriteSize::default(),
         }
@@ -274,7 +380,7 @@ impl Writes {
         self.updates.into_iter()
     }
 
-    pub fn into_updates(self) -> BTreeMap<ResolvedDocumentId, DocumentUpdate> {
+    pub fn into_updates(self) -> OrdMap<ResolvedDocumentId, DocumentUpdate> {
         self.updates
     }
 
@@ -516,8 +622,8 @@ mod tests {
 
         assert_eq!(writes.updates.len(), 1);
         assert_eq!(
-            writes.updates.pop_first().unwrap(),
-            (
+            writes.updates.get_min().unwrap(),
+            &(
                 id,
                 DocumentUpdate {
                     id,

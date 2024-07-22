@@ -29,6 +29,7 @@ use database::{
     Writes,
 };
 use futures::channel::mpsc;
+use imbl::OrdMap;
 use isolate::{
     ActionCallbacks,
     FunctionOutcome,
@@ -92,8 +93,11 @@ pub struct FunctionFinalTransaction {
     pub rows_read_by_tablet: BTreeMap<TabletId, u64>,
 }
 
-impl<RT: Runtime> From<Transaction<RT>> for FunctionFinalTransaction {
-    fn from(tx: Transaction<RT>) -> Self {
+impl<RT: Runtime> TryFrom<Transaction<RT>> for FunctionFinalTransaction {
+    type Error = anyhow::Error;
+
+    fn try_from(tx: Transaction<RT>) -> anyhow::Result<Self> {
+        tx.require_not_nested()?;
         let begin_timestamp = *tx.begin_timestamp();
         let rows_read_by_tablet = tx
             .stats_by_tablet()
@@ -101,12 +105,12 @@ impl<RT: Runtime> From<Transaction<RT>> for FunctionFinalTransaction {
             .map(|(table, stats)| (*table, stats.rows_read))
             .collect();
         let (reads, writes) = tx.into_reads_and_writes();
-        Self {
+        Ok(Self {
             begin_timestamp,
             reads: reads.into(),
-            writes: writes.into(),
+            writes: writes.into_flat()?.into(),
             rows_read_by_tablet,
-        }
+        })
     }
 }
 
@@ -141,7 +145,7 @@ impl From<TransactionReadSet> for FunctionReads {
 #[cfg_attr(any(test, feature = "testing"), derive(Debug, PartialEq))]
 #[derive(Clone, Default)]
 pub struct FunctionWrites {
-    pub updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
+    pub updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
 }
 
 #[cfg(any(test, feature = "testing"))]

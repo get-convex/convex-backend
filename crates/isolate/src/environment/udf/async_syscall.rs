@@ -96,6 +96,7 @@ use crate::{
     isolate2::client::QueryId,
     metrics::async_syscall_timer,
     FunctionOutcome,
+    UdfOutcome,
     ValidatedPathAndArgs,
 };
 
@@ -488,8 +489,9 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 anyhow::bail!(ErrorMetadata::bad_request("InvalidArgs", e.message));
             },
         };
-        let tx = self.phase.take_tx()?;
-        let (tx, outcome) = self
+        let mut tx = self.phase.take_tx()?;
+        let tokens = tx.begin_subtransaction();
+        let (mut tx, outcome) = self
             .udf_callback
             .execute_udf(
                 // TODO: Remove this `client_id` once we do isolate2.
@@ -508,6 +510,12 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 self.context.clone(),
             )
             .await?;
+        match (udf_type, &outcome) {
+            (UdfType::Mutation, FunctionOutcome::Mutation(UdfOutcome { result: Err(_), .. })) => {
+                tx.rollback_subtransaction(tokens)?
+            },
+            _ => tx.commit_subtransaction(tokens)?,
+        }
         self.phase.put_tx(tx)?;
 
         let outcome = match (udf_type, outcome) {

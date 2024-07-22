@@ -71,6 +71,7 @@ use common::{
     version::Version,
 };
 use errors::ErrorMetadata;
+use imbl::OrdMap;
 use indexing::backend_in_memory_indexes::RangeRequest;
 use keybroker::{
     Identity,
@@ -117,6 +118,8 @@ use crate::{
     virtual_tables::VirtualSystemMapping,
     write_limits::BiggestDocumentWrites,
     writes::{
+        NestedWriteToken,
+        NestedWrites,
         TransactionWriteSize,
         Writes,
     },
@@ -145,10 +148,10 @@ pub struct Transaction<RT: Runtime> {
     pub scheduled_size: TransactionWriteSize,
 
     pub(crate) reads: TransactionReadSet,
-    pub(crate) writes: Writes,
+    pub(crate) writes: NestedWrites<Writes>,
 
-    pub(crate) index: TransactionIndex,
-    pub(crate) metadata: TableRegistry,
+    pub(crate) index: NestedWrites<TransactionIndex>,
+    pub(crate) metadata: NestedWrites<TableRegistry>,
     pub(crate) count_snapshot: Arc<dyn TableCountSnapshot>,
     /// The change in the number of documents in table that have had writes in
     /// this transaction. If there is no entry for a table, assume deltas
@@ -182,6 +185,8 @@ pub trait TableCountSnapshot: Send + Sync + 'static {
     async fn count(&self, table: TabletId) -> anyhow::Result<u64>;
 }
 
+pub type SubtransactionToken = [NestedWriteToken; 3];
+
 impl<RT: Runtime> Transaction<RT> {
     pub fn new(
         identity: Identity,
@@ -198,12 +203,12 @@ impl<RT: Runtime> Transaction<RT> {
         Self {
             identity,
             reads: TransactionReadSet::new(),
-            writes: Writes::new(),
+            writes: NestedWrites::new(Writes::new()),
             id_generator,
             next_creation_time: creation_time,
             scheduled_size: TransactionWriteSize::default(),
-            index,
-            metadata,
+            index: NestedWrites::new(index),
+            metadata: NestedWrites::new(metadata),
             count_snapshot: count,
             table_count_deltas: BTreeMap::new(),
             stats: BTreeMap::new(),
@@ -307,11 +312,40 @@ impl<RT: Runtime> Transaction<RT> {
         self.writes.is_empty()
     }
 
-    pub fn writes(&self) -> &Writes {
+    pub fn begin_subtransaction(&mut self) -> SubtransactionToken {
+        [
+            self.writes.begin_nested(),
+            self.index.begin_nested(),
+            self.metadata.begin_nested(),
+        ]
+    }
+
+    pub fn commit_subtransaction(&mut self, tokens: SubtransactionToken) -> anyhow::Result<()> {
+        self.writes.commit_nested(tokens[0])?;
+        self.index.commit_nested(tokens[1])?;
+        self.metadata.commit_nested(tokens[2])?;
+        Ok(())
+    }
+
+    pub fn rollback_subtransaction(&mut self, tokens: SubtransactionToken) -> anyhow::Result<()> {
+        self.writes.rollback_nested(tokens[0])?;
+        self.index.rollback_nested(tokens[1])?;
+        self.metadata.rollback_nested(tokens[2])?;
+        Ok(())
+    }
+
+    pub fn require_not_nested(&self) -> anyhow::Result<()> {
+        self.writes.require_not_nested()?;
+        self.index.require_not_nested()?;
+        self.metadata.require_not_nested()?;
+        Ok(())
+    }
+
+    pub fn writes(&self) -> &NestedWrites<Writes> {
         &self.writes
     }
 
-    pub fn into_reads_and_writes(self) -> (TransactionReadSet, Writes) {
+    pub fn into_reads_and_writes(self) -> (TransactionReadSet, NestedWrites<Writes>) {
         (self.reads, self.writes)
     }
 
@@ -364,7 +398,7 @@ impl<RT: Runtime> Transaction<RT> {
         num_intervals: usize,
         user_tx_size: crate::reads::TransactionReadSize,
         system_tx_size: crate::reads::TransactionReadSize,
-        updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
+        updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
@@ -391,9 +425,9 @@ impl<RT: Runtime> Transaction<RT> {
     // In most scenarios this transaction will have no writes.
     pub fn merge_writes(
         &mut self,
-        updates: BTreeMap<ResolvedDocumentId, DocumentUpdate>,
+        updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
     ) -> anyhow::Result<()> {
-        let existing_updates = self.writes().clone().into_updates();
+        let existing_updates = self.writes().as_flat()?.clone().into_updates();
 
         let mut updates = updates.into_iter().collect::<Vec<_>>();
         updates.sort_by_key(|(id, update)| {
@@ -1010,6 +1044,9 @@ impl FinalTransaction {
         mut transaction: Transaction<RT>,
         snapshot_reader: Reader<SnapshotManager<RT>>,
     ) -> anyhow::Result<Self> {
+        // All subtransactions must have committed or rolled back.
+        transaction.require_not_nested()?;
+
         let begin_timestamp = transaction.begin_timestamp();
         let table_mapping = transaction.table_mapping().clone();
         // Note that we do a best effort validation for memory index sizes. We
@@ -1021,7 +1058,7 @@ impl FinalTransaction {
             begin_timestamp,
             table_mapping,
             reads: transaction.reads,
-            writes: transaction.writes,
+            writes: transaction.writes.into_flat()?,
             usage_tracker: transaction.usage_tracker.clone(),
         })
     }
@@ -1047,6 +1084,7 @@ impl FinalTransaction {
 
         let modified_tables: BTreeSet<_> = transaction
             .writes
+            .as_flat()?
             .coalesced_writes()
             .map(|(id, _)| id.tablet_id)
             .collect();

@@ -44,6 +44,7 @@ use common::{
         WriteTimestamp,
     },
 };
+use imbl::OrdMap;
 use indexing::{
     backend_in_memory_indexes::{
         index_not_a_database_index_error,
@@ -74,6 +75,7 @@ use crate::{
     preloaded::PreloadedIndexRange,
     query::IndexRangeResponse,
     reads::TransactionReadSet,
+    writes::PendingWrites,
     DEFAULT_PAGE_SIZE,
 };
 
@@ -82,6 +84,7 @@ use crate::{
 /// a timestamp snapshot. It buffers the transaction pending index updates and
 /// merges and overlays them on top of the snapshot to allow the transaction to
 /// read its own writes.
+#[derive(Clone)]
 pub struct TransactionIndex {
     // Metadata about existing indexes with any changes to the index tables applied. Note that
     // those changes are stored separately in `database_index_updates` and `search_index_updates`
@@ -93,13 +96,15 @@ pub struct TransactionIndex {
     // Database indexes combine a base index snapshot in persistence with pending updates applied
     // in-memory.
     database_index_snapshot: DatabaseIndexSnapshot,
-    database_index_updates: BTreeMap<IndexId, TransactionIndexMap>,
+    database_index_updates: OrdMap<IndexId, TransactionIndexMap>,
 
     // Similar to database indexes, text search indexes are implemented by applying pending updates
     // on top of the transaction base snapshot.
     text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
-    text_index_updates: BTreeMap<IndexId, Vec<DocumentUpdate>>,
+    text_index_updates: OrdMap<IndexId, Vec<DocumentUpdate>>,
 }
+
+impl PendingWrites for TransactionIndex {}
 
 impl TransactionIndex {
     pub fn new(
@@ -111,9 +116,9 @@ impl TransactionIndex {
             index_registry,
             index_registry_updated: false,
             database_index_snapshot,
-            database_index_updates: BTreeMap::new(),
+            database_index_updates: OrdMap::new(),
             text_index_snapshot,
-            text_index_updates: BTreeMap::new(),
+            text_index_updates: OrdMap::new(),
         }
     }
 
@@ -615,7 +620,7 @@ impl TransactionIndex {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TransactionIndexMap {
     /// Unlike IndexMap we can simply use BTreeMap since the TransactionIndexMap
     /// does not get clones. The value needs to be Option<Document> since we

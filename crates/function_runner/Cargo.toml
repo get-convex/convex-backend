@@ -18,6 +18,7 @@ database = { path = "../database" }
 errors = { path = "../errors" }
 file_storage = { path = "../file_storage" }
 futures = { workspace = true }
+imbl = { workspace = true }
 indexing = { path = "../indexing" }
 isolate = { path = "../isolate" }
 keybroker = { path = "../keybroker" }

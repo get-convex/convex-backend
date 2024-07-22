@@ -431,7 +431,11 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 );
                 self.send_request(request)?;
                 let (tx, outcome) = Self::receive_response(rx).await??;
-                Ok((Some(tx.into()), outcome, usage_tracker.gather_user_stats()))
+                Ok((
+                    Some(tx.try_into()?),
+                    outcome,
+                    usage_tracker.gather_user_stats(),
+                ))
             },
             UdfType::Action => {
                 let (tx, rx) = oneshot::channel();

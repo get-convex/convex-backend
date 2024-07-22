@@ -62,6 +62,7 @@ use common::{
         PersistenceVersion,
         RepeatableTimestamp,
         TableName,
+        WriteTimestamp,
     },
     value::{
         ConvexObject,
@@ -2363,5 +2364,97 @@ async fn test_query_readset_empty_query(rt: TestRuntime) -> anyhow::Result<()> {
             PersistenceVersion::default()
         )
         .is_some());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_subtransaction_success_commits_writes(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = DbFixtures::new(&rt).await?.db;
+    let mut tx = db.begin(Identity::system()).await?;
+    let table_name: TableName = "table".parse()?;
+    let doc_id0 = TestFacingModel::new(&mut tx)
+        .insert(&table_name, assert_obj!("value" => 1))
+        .await?;
+    let doc_id1 = {
+        let tokens = tx.begin_subtransaction();
+        let (doc0, ts) = tx.get_inner(doc_id0, table_name.clone()).await?.unwrap();
+        assert_eq!(ts, WriteTimestamp::Pending);
+        assert_eq!(doc0.value().0.get("value"), Some(&val!(1)));
+        let doc_id1 = TestFacingModel::new(&mut tx)
+            .insert(&table_name, assert_obj!("value" => 2))
+            .await?;
+        let (doc1, ts) = tx.get_inner(doc_id1, table_name.clone()).await?.unwrap();
+        assert_eq!(ts, WriteTimestamp::Pending);
+        assert_eq!(doc1.value().0.get("value"), Some(&val!(2)));
+        tx.commit_subtransaction(tokens)?;
+        doc_id1
+    };
+    let (doc1, ts) = tx.get_inner(doc_id1, table_name.clone()).await?.unwrap();
+    assert_eq!(ts, WriteTimestamp::Pending);
+    assert_eq!(doc1.value().0.get("value"), Some(&val!(2)));
+    let commit_ts = db.commit(tx).await?;
+    let mut tx = db.begin(Identity::system()).await?;
+    let (doc0, ts) = tx.get_inner(doc_id0, table_name.clone()).await?.unwrap();
+    assert_eq!(ts, WriteTimestamp::Committed(commit_ts));
+    assert_eq!(doc0.value().0.get("value"), Some(&val!(1)));
+    let (doc1, ts) = tx.get_inner(doc_id1, table_name.clone()).await?.unwrap();
+    assert_eq!(ts, WriteTimestamp::Committed(commit_ts));
+    assert_eq!(doc1.value().0.get("value"), Some(&val!(2)));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_subtransaction_failure_rolls_back_writes(rt: TestRuntime) -> anyhow::Result<()> {
+    let db = DbFixtures::new(&rt).await?.db;
+    let mut tx = db.begin(Identity::system()).await?;
+    let table_name: TableName = "table".parse()?;
+    let doc_id0 = TestFacingModel::new(&mut tx)
+        .insert(&table_name, assert_obj!("value" => 1))
+        .await?;
+    let doc_id1 = {
+        let tokens = tx.begin_subtransaction();
+        let (doc0, ts) = tx.get_inner(doc_id0, table_name.clone()).await?.unwrap();
+        assert_eq!(ts, WriteTimestamp::Pending);
+        assert_eq!(doc0.value().0.get("value"), Some(&val!(1)));
+        let doc_id1 = TestFacingModel::new(&mut tx)
+            .insert(&table_name, assert_obj!("value" => 2))
+            .await?;
+        let (doc1, ts) = tx.get_inner(doc_id1, table_name.clone()).await?.unwrap();
+        assert_eq!(ts, WriteTimestamp::Pending);
+        assert_eq!(doc1.value().0.get("value"), Some(&val!(2)));
+        tx.rollback_subtransaction(tokens)?;
+        doc_id1
+    };
+    let doc1 = tx.get_inner(doc_id1, table_name.clone()).await?;
+    assert_eq!(doc1, None);
+    let commit_ts = db.commit(tx).await?;
+    let mut tx = db.begin(Identity::system()).await?;
+    let (doc0, ts) = tx.get_inner(doc_id0, table_name.clone()).await?.unwrap();
+    assert_eq!(ts, WriteTimestamp::Committed(commit_ts));
+    assert_eq!(doc0.value().0.get("value"), Some(&val!(1)));
+    let doc1 = tx.get_inner(doc_id1, table_name.clone()).await?;
+    assert_eq!(doc1, None);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_subtransaction_failure_rolls_back_table_creation(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let db = DbFixtures::new(&rt).await?.db;
+    let mut tx = db.begin(Identity::system()).await?;
+    let table_name: TableName = "table".parse()?;
+    {
+        let tokens = tx.begin_subtransaction();
+        TestFacingModel::new(&mut tx)
+            .insert(&table_name, assert_obj!("value" => 2))
+            .await?;
+        assert!(TableModel::new(&mut tx).table_exists(TableNamespace::test_user(), &table_name));
+        tx.rollback_subtransaction(tokens)?;
+    };
+    assert!(!TableModel::new(&mut tx).table_exists(TableNamespace::test_user(), &table_name));
+    db.commit(tx).await?;
+    let mut tx = db.begin(Identity::system()).await?;
+    assert!(!TableModel::new(&mut tx).table_exists(TableNamespace::test_user(), &table_name));
     Ok(())
 }

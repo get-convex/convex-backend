@@ -80,7 +80,7 @@ async fn test_apply_function_runner_tx_new_table(rt: TestRuntime) -> anyhow::Res
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let updates = function_runner_tx.writes.clone().into_updates();
+    let updates = function_runner_tx.writes.as_flat()?.clone().into_updates();
     backend_tx.apply_function_runner_tx(
         *begin_timestamp,
         reads,
@@ -133,7 +133,7 @@ async fn test_apply_function_runner_tx_read_only(rt: TestRuntime) -> anyhow::Res
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let updates = function_runner_tx.writes.clone().into_updates();
+    let updates = function_runner_tx.writes.as_flat()?.clone().into_updates();
     backend_tx.apply_function_runner_tx(
         *begin_timestamp,
         reads,
@@ -183,7 +183,7 @@ async fn test_apply_function_runner_tx_replace(rt: TestRuntime) -> anyhow::Resul
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let updates = function_runner_tx.writes.clone().into_updates();
+    let updates = function_runner_tx.writes.as_flat()?.clone().into_updates();
     backend_tx.apply_function_runner_tx(
         *begin_timestamp,
         reads,
@@ -218,7 +218,7 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
             FunctionUsageTracker::new(),
         )
         .await?;
-    let updates = backend_tx.writes().clone().into_updates();
+    let updates = backend_tx.writes().as_flat()?.clone().into_updates();
     function_runner_tx.merge_writes(updates)?;
 
     // Perform writes as if in funrun
@@ -236,7 +236,7 @@ async fn test_apply_function_runner_tx_merge_existing_writes(
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let updates = function_runner_tx.writes.clone().into_updates();
+    let updates = function_runner_tx.writes.as_flat()?.clone().into_updates();
     backend_tx.apply_function_runner_tx(
         *begin_timestamp,
         reads,
@@ -288,7 +288,7 @@ async fn test_apply_function_runner_tx_merge_existing_writes_bad(
         .iter()
         .map(|(table, stats)| (*table, stats.rows_read))
         .collect();
-    let updates = function_runner_tx.writes.clone().into_updates();
+    let updates = function_runner_tx.writes.as_flat()?.clone().into_updates();
     assert!(backend_tx
         .apply_function_runner_tx(
             *begin_timestamp,

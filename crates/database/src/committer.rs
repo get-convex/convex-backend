@@ -950,7 +950,7 @@ impl<RT: Runtime> CommitterClient<RT> {
         // checked for conflict against all writes after begin_timestamp.
         let ts = transaction.begin_timestamp().succ()?;
         let timer = metrics::commit_id_reuse_timer();
-        let generated_ids = transaction.writes.generated_ids();
+        let generated_ids = transaction.writes.as_flat()?.generated_ids();
         if !generated_ids.is_empty() {
             let repeatable_persistence = RepeatablePersistence::new(
                 self.persistence_reader.clone(),
