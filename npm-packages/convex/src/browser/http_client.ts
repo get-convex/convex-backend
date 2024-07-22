@@ -323,6 +323,7 @@ export class ConvexHttpClient {
     AnyFunction extends FunctionReference<"query" | "mutation" | "action">,
   >(
     anyFunction: AnyFunction | string,
+    componentPath?: string,
     ...args: OptionalRestArgs<AnyFunction>
   ): Promise<FunctionReturnType<AnyFunction>> {
     const functionArgs = parseArgs(args[0]);
@@ -331,6 +332,7 @@ export class ConvexHttpClient {
         ? anyFunction
         : getFunctionName(anyFunction);
     const body = JSON.stringify({
+      componentPath: componentPath,
       path: name,
       format: "convex_encoded_json",
       args: convexToJson(functionArgs),

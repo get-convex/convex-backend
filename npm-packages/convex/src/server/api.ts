@@ -52,11 +52,13 @@ export type FunctionReference<
   Visibility extends FunctionVisibility = "public",
   Args extends DefaultFunctionArgs = any,
   ReturnType = any,
+  ComponentPath = string | undefined,
 > = {
   _type: Type;
   _visibility: Visibility;
   _args: Args;
   _returnType: ReturnType;
+  _componentPath: ComponentPath;
 };
 
 /**

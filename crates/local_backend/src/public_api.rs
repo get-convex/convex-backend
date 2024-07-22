@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use application::{
     api::ExecuteQueryTimestamp,
     redaction::{
@@ -41,13 +40,14 @@ use value::{
 };
 
 use crate::{
-    admin::bad_admin_key_error,
+    args_structs::UdfPostRequestWithComponent,
     authentication::ExtractAuthenticationToken,
     parse::parse_udf_path,
     RouterState,
 };
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UdfPostRequest {
     pub path: String,
     pub args: UdfArgsJson,
@@ -143,7 +143,7 @@ pub async fn public_function_post(
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
-    Json(req): Json<UdfPostRequest>,
+    Json(req): Json<UdfPostRequestWithComponent>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
@@ -154,15 +154,10 @@ pub async fn public_function_post(
         .authenticate(&host, request_id.clone(), auth_token)
         .await?;
 
-    // We ensure for now that the user is logged in
-    // (this can be removed if this endpoint is used publicly one day)
-    if !identity.is_admin() {
-        return Result::Err(anyhow!(bad_admin_key_error(None)).into());
-    }
-
+    let component = req.component_path(&identity)?;
     let udf_path = parse_udf_path(&req.path)?;
     let component_function_path = CanonicalizedComponentFunctionPath {
-        component: ComponentPath::TODO(),
+        component,
         udf_path,
     };
     let udf_result = st

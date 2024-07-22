@@ -21,6 +21,7 @@ export async function runFunctionAndLog(
   adminKey: string,
   functionName: string,
   args: Value,
+  componentPath?: string,
   callbacks?: {
     onSuccess?: () => void;
   },
@@ -30,7 +31,11 @@ export async function runFunctionAndLog(
 
   let result: Value;
   try {
-    result = await client.function(makeFunctionReference(functionName), args);
+    result = await client.function(
+      makeFunctionReference(functionName),
+      componentPath,
+      args,
+    );
   } catch (err) {
     logFailure(ctx, `Failed to run function "${functionName}":`);
     logError(ctx, chalk.red((err as Error).toString().trim()));

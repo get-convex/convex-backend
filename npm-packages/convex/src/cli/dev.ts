@@ -24,7 +24,7 @@ import {
 } from "./lib/utils.js";
 import { Crash, WatchContext, Watcher } from "./lib/watch.js";
 import { watchLogs } from "./lib/logs.js";
-import { runFunctionAndLog, subscribe } from "./lib/run.js";
+import { subscribe } from "./lib/run.js";
 import { Value } from "../values/index.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { runPush } from "./lib/components.js";
@@ -154,7 +154,6 @@ export async function watchAndPush(
   outerCtx: Context,
   options: PushOptions,
   cmdOptions: {
-    run?: string;
     once: boolean;
     untilSuccess: boolean;
     traceEvents: boolean;
@@ -162,7 +161,6 @@ export async function watchAndPush(
 ) {
   const watch: { watcher: Watcher | undefined } = { watcher: undefined };
   let numFailures = 0;
-  let ran = false;
   let pushed = false;
   let tableNameTriggeringRetry;
   let shouldRetryOnDeploymentEnvVarChange;
@@ -184,10 +182,6 @@ export async function watchAndPush(
           end - start,
         )})`,
       );
-      if (cmdOptions.run !== undefined && !ran) {
-        await runFunctionInDev(ctx, options, cmdOptions.run);
-        ran = true;
-      }
       pushed = true;
     } catch (e: any) {
       // Crash the app on unexpected errors.
@@ -258,28 +252,6 @@ export async function watchAndPush(
     void tableWatch.stop();
     void envVarWatch.stop();
   }
-}
-
-async function runFunctionInDev(
-  ctx: WatchContext,
-  credentials: {
-    url: string;
-    adminKey: string;
-  },
-  functionName: string,
-) {
-  await runFunctionAndLog(
-    ctx,
-    credentials.url,
-    credentials.adminKey,
-    functionName,
-    {},
-    {
-      onSuccess: () => {
-        logFinishedStep(ctx, `Finished running function "${functionName}"`);
-      },
-    },
-  );
 }
 
 function getTableWatch(

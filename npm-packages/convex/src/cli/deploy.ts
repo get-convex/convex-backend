@@ -242,6 +242,7 @@ async function deployToNewPreviewDeployment(
       previewAdminKey,
       options.previewRun,
       {},
+      undefined,
       {
         onSuccess: () => {
           logFinishedStep(

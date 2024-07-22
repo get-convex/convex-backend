@@ -41,6 +41,13 @@ export const run = new Command("run")
       .choices(["enable", "disable"] as const)
       .default("enable" as const),
   )
+  .addOption(
+    new Option(
+      "--component-path <path>",
+      "Path to the component in the component tree defined in app.config.ts",
+      // TODO(ENG-6967): Remove hideHelp before launching components
+    ).hideHelp(),
+  )
 
   .showHelpAfterError()
   .action(async (functionName, argsString, options) => {
@@ -102,5 +109,6 @@ export const run = new Command("run")
       adminKey,
       functionName,
       args,
+      options.componentPath,
     );
   });
