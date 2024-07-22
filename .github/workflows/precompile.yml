@@ -22,7 +22,7 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: "'windows-latest'"
           - target: aarch64-unknown-linux-gnu
-            os: "'ubuntu-latest'"
+            os: "['self-hosted', 'aws', 'arm64', 'xlarge']"
     name: Build Convex Backend
     runs-on: ${{ fromJSON(matrix.os) }}
     steps:
