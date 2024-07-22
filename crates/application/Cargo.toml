@@ -32,6 +32,7 @@ http = { workspace = true }
 http_client = { path = "../../crates/http_client" }
 humansize = { workspace = true }
 isolate = { path = "../isolate" }
+itertools = { workspace = true }
 keybroker = { path = "../keybroker" }
 lru = { workspace = true }
 maplit = { workspace = true }

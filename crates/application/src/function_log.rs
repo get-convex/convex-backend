@@ -4,6 +4,7 @@ use std::{
         BTreeMap,
         VecDeque,
     },
+    iter,
     str::FromStr,
     sync::Arc,
     time::{
@@ -67,6 +68,7 @@ use isolate::{
     SyscallTrace,
     UdfOutcome,
 };
+use itertools::Either;
 use parking_lot::Mutex;
 use serde::Deserialize;
 use serde_json::{
@@ -1487,9 +1489,15 @@ impl<V> Series<V> {
     }
 
     fn range(&self, start: SystemTime, end: SystemTime) -> impl Iterator<Item = (SystemTime, &V)> {
-        self.data
-            .range(start..end)
-            .flat_map(|(&k, vs)| vs.iter().map(move |v| (k, v)))
+        if start >= end {
+            Either::Left(iter::empty())
+        } else {
+            Either::Right(
+                self.data
+                    .range(start..end)
+                    .flat_map(|(&k, vs)| vs.iter().map(move |v| (k, v))),
+            )
+        }
     }
 
     fn append_value(&mut self, ts: SystemTime, value: V) -> anyhow::Result<()> {

@@ -200,6 +200,7 @@ dependencies = [
  "http_client",
  "humansize",
  "isolate",
+ "itertools 0.13.0",
  "keybroker",
  "lru 0.12.0",
  "maplit",
