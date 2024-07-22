@@ -218,6 +218,7 @@ impl TestSyncWorker {
             request_id,
             udf_path: path.parse()?,
             args: vec![args.into()],
+            component_path: None,
         })?;
 
         must_let!(let ServerMessage::MutationResponse {
@@ -279,6 +280,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
         udf_path: "sync:accountBalance".parse()?,
         args: vec![assert_obj!("name" => name1.clone()).into()],
         journal: None,
+        component_path: None,
     };
     let msg = ClientMessage::ModifyQuerySet {
         base_version: 0,
@@ -331,6 +333,7 @@ async fn test_basic_account(rt: TestRuntime) -> anyhow::Result<()> {
         udf_path: "sync:accountBalance".parse()?,
         args: vec![assert_obj!("name" => name2.clone()).into()],
         journal: None,
+        component_path: None,
     };
     let msg = ClientMessage::ModifyQuerySet {
         base_version: 1,
@@ -421,6 +424,7 @@ async fn test_remove_in_progress_query(rt: TestRuntime) -> anyhow::Result<()> {
         udf_path: "sync:accountBalance".parse()?,
         args: vec![assert_obj!("name" => name1.clone()).into()],
         journal: None,
+        component_path: None,
     };
     let msg = ClientMessage::ModifyQuerySet {
         base_version: 0,
@@ -458,12 +462,14 @@ async fn test_query_failure(rt: TestRuntime) -> anyhow::Result<()> {
         udf_path: "sync:fail".parse()?,
         args: vec![assert_obj!("i" => ConvexValue::from(0.0)).into()],
         journal: None,
+        component_path: None,
     };
     let query2 = Query {
         query_id: QueryId::new(1),
         udf_path: "sync:fail".parse()?,
         args: vec![assert_obj!("i" => ConvexValue::from(3.0)).into()],
         journal: None,
+        component_path: None,
     };
     let msg = ClientMessage::ModifyQuerySet {
         base_version: 0,
@@ -497,6 +503,7 @@ async fn test_query_failure(rt: TestRuntime) -> anyhow::Result<()> {
         udf_path: "sync:succeed".parse()?,
         args: vec![],
         journal: None,
+        component_path: None,
     };
     let msg = ClientMessage::ModifyQuerySet {
         base_version: end_version.query_set,
@@ -713,6 +720,7 @@ async fn test_value_deduplication_success(rt: TestRuntime) -> anyhow::Result<()>
         udf_path: "sync:discardQueryResults".parse()?,
         args: vec![assert_obj!("throwError" => ConvexValue::from(false)).into()],
         journal: None,
+        component_path: None,
     };
     let msg = ClientMessage::ModifyQuerySet {
         base_version: 0,
@@ -769,6 +777,7 @@ async fn test_value_deduplication_failure(rt: TestRuntime) -> anyhow::Result<()>
         udf_path: "sync:discardQueryResults".parse()?,
         args: vec![assert_obj!("throwError" => ConvexValue::from(true)).into()],
         journal: None,
+        component_path: None,
     };
     let msg = ClientMessage::ModifyQuerySet {
         base_version: 0,

@@ -134,6 +134,7 @@ impl LocalSyncState {
             udf_path,
             args: vec![Value::Object(args.clone()).into()],
             journal: None,
+            component_path: None,
         });
         let message = ClientMessage::ModifyQuerySet {
             base_version,
@@ -232,6 +233,7 @@ impl LocalSyncState {
                 udf_path: local_query.canonicalized_udf_path.clone().into(),
                 args: vec![Value::Object(local_query.args.clone()).into()],
                 journal: None,
+                component_path: None,
             });
             modifications.push(add)
         }
@@ -512,6 +514,7 @@ impl BaseConvexClient {
             request_id,
             udf_path,
             args: vec![Value::Object(args).into()],
+            component_path: None,
         };
 
         let result_receiver = self.request_manager.track_request(
@@ -540,6 +543,7 @@ impl BaseConvexClient {
             request_id,
             udf_path,
             args: vec![Value::Object(args).into()],
+            component_path: None,
         };
 
         let result_receiver = self.request_manager.track_request(

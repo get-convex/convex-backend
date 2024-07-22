@@ -74,6 +74,10 @@ pub struct Query {
     /// Query journals are only specified on reconnect. Also old clients
     /// (<=0.2.1) don't send them.
     pub journal: Option<SerializedQueryJournal>,
+
+    /// For internal use by Convex dashboard. Only works with admin auth.
+    /// Allows calling a query within a component directly.
+    pub component_path: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -109,6 +113,9 @@ pub enum ClientMessage {
             proptest(strategy = "string_json_args_strategy()")
         )]
         args: Vec<JsonValue>,
+        /// For internal use by Convex dashboard. Only works with admin auth.
+        /// Allows calling a mutation within a component directly.
+        component_path: Option<String>,
     },
     Action {
         request_id: SessionRequestSeqNumber,
@@ -118,6 +125,9 @@ pub enum ClientMessage {
             proptest(strategy = "string_json_args_strategy()")
         )]
         args: Vec<JsonValue>,
+        /// For internal use by Convex dashboard. Only works with admin auth.
+        /// Allows calling an action within a component directly.
+        component_path: Option<String>,
     },
     Authenticate {
         base_version: IdentityVersion,

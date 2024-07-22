@@ -186,6 +186,11 @@ export interface WatchQueryOptions {
    * name and arguments, this journal will have no effect.
    */
   journal?: QueryJournal;
+
+  /**
+   * @internal
+   */
+  componentPath?: string;
 }
 
 /**

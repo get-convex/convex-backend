@@ -110,6 +110,11 @@ export interface SubscribeOptions {
    * name and arguments, this journal will have no effect.
    */
   journal?: QueryJournal;
+
+  /**
+   * @internal
+   */
+  componentPath?: string;
 }
 
 /**
@@ -458,6 +463,7 @@ export class BaseConvexClient {
       name,
       argsObject,
       options?.journal,
+      options?.componentPath,
     );
     if (modification !== null) {
       this.webSocketManager.sendMessage(modification);
@@ -593,6 +599,7 @@ export class BaseConvexClient {
     udfPath: string,
     args?: Record<string, Value>,
     options?: MutationOptions,
+    componentPath?: string,
   ): Promise<FunctionResult> {
     const mutationArgs = parseArgs(args);
     this.tryReportLongDisconnect();
@@ -619,6 +626,7 @@ export class BaseConvexClient {
       type: "Mutation",
       requestId,
       udfPath,
+      componentPath,
       args: [convexToJson(mutationArgs)],
     };
     const mightBeSent = this.webSocketManager.sendMessage(message);
@@ -653,6 +661,7 @@ export class BaseConvexClient {
   async actionInternal(
     udfPath: string,
     args?: Record<string, Value>,
+    componentPath?: string,
   ): Promise<FunctionResult> {
     const actionArgs = parseArgs(args);
     const requestId = this.nextRequestId;
@@ -663,6 +672,7 @@ export class BaseConvexClient {
       type: "Action",
       requestId,
       udfPath,
+      componentPath,
       args: [convexToJson(actionArgs)],
     };
 

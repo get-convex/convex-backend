@@ -527,6 +527,7 @@ pub mod tests {
                 request_id: 0,
                 udf_path: UdfPath::from_str("incrementCounter")?,
                 args: vec![json!({})],
+                component_path: None,
             }]
         );
 
@@ -580,6 +581,7 @@ pub mod tests {
                 request_id: 0,
                 udf_path: UdfPath::from_str("runAction:hello")?,
                 args: vec![json!({})],
+                component_path: None,
             }]
         );
 
@@ -667,7 +669,8 @@ pub mod tests {
                         query_id,
                         udf_path: "getValue1".parse()?,
                         args: vec![json!({})],
-                        journal: None
+                        journal: None,
+                        component_path: None,
                     })]
                 },
             ]
@@ -799,7 +802,8 @@ pub mod tests {
                         query_id: subscription1.query_id(),
                         udf_path: "getValue1".parse()?,
                         args: vec![json!({})],
-                        journal: None
+                        journal: None,
+                        component_path: None,
                     })]
                 },
                 ClientMessage::ModifyQuerySet {
@@ -809,7 +813,8 @@ pub mod tests {
                         query_id: subscription2.query_id(),
                         udf_path: "getValue2".parse()?,
                         args: vec![json!({})],
-                        journal: None
+                        journal: None,
+                        component_path: None,
                     })]
                 },
                 ClientMessage::ModifyQuerySet {
@@ -819,7 +824,8 @@ pub mod tests {
                         query_id: subscription3.query_id(),
                         udf_path: "getValue2".parse()?,
                         args: vec![json!({"hello": "world"})],
-                        journal: None
+                        journal: None,
+                        component_path: None,
                     })]
                 },
             ]
@@ -856,7 +862,8 @@ pub mod tests {
                         query_id,
                         udf_path: "getValue".parse()?,
                         args: vec![json!({})],
-                        journal: None
+                        journal: None,
+                        component_path: None,
                     })]
                 },
             ]

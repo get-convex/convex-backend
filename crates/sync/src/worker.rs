@@ -69,6 +69,7 @@ use futures::{
     FutureExt,
     StreamExt,
 };
+use keybroker::Identity;
 use maplit::btreemap;
 use minitrace::prelude::*;
 use model::session_requests::types::SessionRequestIdentifier;
@@ -387,6 +388,18 @@ impl<RT: Runtime> SyncWorker<RT> {
         self.state.current_version().identity
     }
 
+    pub fn parse_component_path(
+        component_path: Option<&str>,
+        identity: &Identity,
+    ) -> anyhow::Result<ComponentPath> {
+        let path = ComponentPath::deserialize(component_path)?;
+        anyhow::ensure!(
+            path.is_root() || identity.is_admin() || identity.is_system(),
+            "Only admin or system users can call functions on non-root components directly"
+        );
+        Ok(path)
+    }
+
     async fn handle_message(&mut self, message: ClientMessage) -> anyhow::Result<()> {
         let timer = metrics::handle_message_timer(&message);
         match message {
@@ -436,6 +449,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 request_id,
                 udf_path,
                 args,
+                component_path,
             } => {
                 let identity = self.state.identity(self.rt.system_time())?;
                 let mutation_identifier =
@@ -462,8 +476,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let timer = mutation_queue_timer();
                 let api = self.api.clone();
                 let host = self.host.clone();
+                let component = Self::parse_component_path(component_path.as_deref(), &identity)?;
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
+                    component,
                     udf_path: udf_path.clone().canonicalize(),
                 };
                 let future = async move {
@@ -511,6 +526,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 request_id,
                 udf_path,
                 args,
+                component_path,
             } => {
                 let identity = self.state.identity(self.rt.system_time())?;
 
@@ -521,8 +537,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
+                let component = Self::parse_component_path(component_path.as_deref(), &identity)?;
                 let path = CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
+                    component,
                     udf_path: udf_path.clone().canonicalize(),
                 };
                 let root = self.rt.with_rng(|rng| {
@@ -692,6 +709,10 @@ impl<RT: Runtime> SyncWorker<RT> {
                     None => {
                         // We failed to refresh the subscription or it was invalid to start
                         // with. Rerun the query.
+                        let component = Self::parse_component_path(
+                            query.component_path.as_deref(),
+                            &identity_,
+                        )?;
                         let udf_return = api
                             .execute_public_query(
                                 // This query run might have been triggered due to invalidation
@@ -702,7 +723,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                 RequestId::new(),
                                 identity_,
                                 CanonicalizedComponentFunctionPath {
-                                    component: ComponentPath::root(),
+                                    component,
                                     udf_path: query.udf_path.canonicalize(),
                                 },
                                 query.args,

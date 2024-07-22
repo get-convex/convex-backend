@@ -65,6 +65,7 @@ export class LocalSyncState {
     udfPath: string,
     args: Record<string, Value>,
     journal?: QueryJournal,
+    componentPath?: string,
   ): {
     queryToken: QueryToken;
     modification: QuerySetModification | null;
@@ -103,6 +104,7 @@ export class LocalSyncState {
         udfPath: canonicalizedUdfPath,
         args: [convexToJson(args)],
         journal,
+        componentPath,
       };
       const modification: QuerySetModification = {
         type: "ModifyQuerySet",

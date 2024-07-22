@@ -74,6 +74,9 @@ struct QueryJson {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "double_option")]
     journal: Option<SerializedQueryJournal>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    component_path: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -97,6 +100,7 @@ impl TryFrom<QuerySetModification> for JsonValue {
                     udf_path: String::from(q.udf_path),
                     args: JsonValue::from(q.args),
                     journal: q.journal,
+                    component_path: q.component_path,
                 };
                 QuerySetModificationJson::Add(query_json)
             },
@@ -122,6 +126,7 @@ impl TryFrom<JsonValue> for QuerySetModification {
                     udf_path: q.udf_path.parse()?,
                     args,
                     journal: q.journal,
+                    component_path: q.component_path,
                 };
                 QuerySetModification::Add(query)
             },
@@ -175,12 +180,16 @@ enum ClientMessageJson {
         request_id: u32,
         udf_path: String,
         args: JsonValue,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        component_path: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
     Action {
         request_id: u32,
         udf_path: String,
         args: JsonValue,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        component_path: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
     Authenticate {
@@ -227,19 +236,23 @@ impl TryFrom<ClientMessage> for JsonValue {
                 request_id,
                 udf_path,
                 args,
+                component_path,
             } => ClientMessageJson::Mutation {
                 request_id,
                 udf_path: String::from(udf_path),
                 args: JsonValue::Array(args.into_iter().map(JsonValue::from).collect::<Vec<_>>()),
+                component_path,
             },
             ClientMessage::Action {
                 request_id,
                 udf_path,
                 args,
+                component_path,
             } => ClientMessageJson::Action {
                 request_id,
                 udf_path: String::from(udf_path),
                 args: JsonValue::Array(args.into_iter().map(JsonValue::from).collect::<Vec<_>>()),
+                component_path,
             },
             ClientMessage::Authenticate {
                 base_version,
@@ -311,24 +324,28 @@ impl TryFrom<JsonValue> for ClientMessage {
                 request_id,
                 udf_path,
                 args,
+                component_path,
             } => {
                 let json_args: Vec<JsonValue> = serde_json::from_value(args)?;
                 ClientMessage::Mutation {
                     request_id,
                     udf_path: udf_path.parse()?,
                     args: json_args,
+                    component_path,
                 }
             },
             ClientMessageJson::Action {
                 request_id,
                 udf_path,
                 args,
+                component_path,
             } => {
                 let json_args: Vec<JsonValue> = serde_json::from_value(args)?;
                 ClientMessage::Action {
                     request_id,
                     udf_path: udf_path.parse()?,
                     args: json_args,
+                    component_path,
                 }
             },
             ClientMessageJson::Authenticate {

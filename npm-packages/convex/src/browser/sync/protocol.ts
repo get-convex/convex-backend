@@ -129,6 +129,10 @@ export type AddQuery = {
   udfPath: string;
   args: JSONValue[];
   journal?: QueryJournal;
+  /**
+   * @internal
+   */
+  componentPath?: string;
 };
 
 export type RemoveQuery = {
@@ -148,6 +152,9 @@ export type MutationRequest = {
   requestId: RequestId;
   udfPath: string;
   args: JSONValue[];
+  // Execute the mutation on a specific component.
+  // Only admin auth is allowed to run mutations on non-root components.
+  componentPath?: string;
 };
 
 export type ActionRequest = {
@@ -155,6 +162,9 @@ export type ActionRequest = {
   requestId: RequestId;
   udfPath: string;
   args: JSONValue[];
+  // Execute the action on a specific component.
+  // Only admin auth is allowed to run actions on non-root components.
+  componentPath?: string;
 };
 
 export type AdminAuthentication = {
