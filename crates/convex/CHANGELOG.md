@@ -1,5 +1,9 @@
 # Upcoming
 
+# 0.7.0
+
+- Several dependency upgrades
+
 # 0.6.0
 
 - Remove support for Set and Map Convex types. These types are deprecated.
