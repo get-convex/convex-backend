@@ -51,6 +51,10 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
+use value::{
+    identifier::Identifier,
+    ConvexValue,
+};
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
@@ -90,6 +94,7 @@ enum ActionPreloaded<RT: Runtime> {
     Ready {
         modules: BTreeMap<CanonicalizedModulePath, (ModuleMetadata, Arc<FullModuleSource>)>,
         env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
         rng: Option<ChaCha12Rng>,
         import_time_unix_timestamp: Option<UnixTimestamp>,
     },
@@ -207,9 +212,23 @@ impl<RT: Runtime> ActionPhase<RT> {
         .await?;
         env_vars.extend(user_env_vars);
 
+        let component_arguments = if self.component.is_root() {
+            None
+        } else {
+            Some(
+                with_release_permit(
+                    timeout,
+                    permit_slot,
+                    BootstrapComponentsModel::new(&mut tx).load_component_args(component_id),
+                )
+                .await?,
+            )
+        };
+
         self.preloaded = ActionPreloaded::Ready {
             modules,
             env_vars,
+            component_arguments,
             rng,
             import_time_unix_timestamp,
         };
@@ -263,6 +282,29 @@ impl<RT: Runtime> ActionPhase<RT> {
             anyhow::bail!("Phase not initialized");
         };
         Ok(env_vars.get(&name).cloned())
+    }
+
+    pub fn component_arguments(&self) -> anyhow::Result<&BTreeMap<Identifier, ConvexValue>> {
+        let ActionPreloaded::Ready {
+            ref component_arguments,
+            ..
+        } = self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+        let Some(component_arguments) = component_arguments else {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "NoComponentArgs",
+                "Component arguments are not available within the app",
+            ));
+        };
+        if self.phase != Phase::Executing {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "NoComponentArgsDuringImport",
+                "Can't use `componentArgs` at import time",
+            ));
+        }
+        Ok(component_arguments)
     }
 
     pub fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {

@@ -33,6 +33,7 @@ export function componentServerJS(isRoot: boolean): string {
     internalQueryGeneric,
     appGeneric,
     componentGeneric,
+    createComponentArgs,
   } from "convex/server";
 
   /**
@@ -112,6 +113,7 @@ export function componentServerJS(isRoot: boolean): string {
   } else {
     result += `
     export const component = componentGeneric();
+    export const componentArgs = createComponentArgs();
     `;
   }
   return result;
@@ -267,6 +269,7 @@ export function componentServerStubDTS(isRoot: boolean): string {
   } else {
     result += `
     export declare const component: AnyComponent;
+    export declare const componentArgs: Record<string, any>;
     `;
   }
   return result;
@@ -313,6 +316,17 @@ export async function componentServerDTS(
   }
 
   result.push("};");
+
+  const definitionType = analysis.definition.definitionType;
+  if (definitionType.type === "childComponent") {
+    result.push(`export declare const componentArgs: {`);
+    for (const [name, { value: serializedValidator }] of definitionType.args) {
+      const validatorType = validatorToType(JSON.parse(serializedValidator));
+      result.push(`${name}: ${validatorType},`);
+    }
+    result.push("};");
+  }
+
   return result.join("\n");
 }
 

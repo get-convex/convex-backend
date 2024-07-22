@@ -1,5 +1,7 @@
 #![allow(non_snake_case)]
 
+use std::str::FromStr;
+
 use anyhow::Context;
 use common::{
     query::Query,
@@ -22,6 +24,8 @@ use serde_json::{
 };
 use value::{
     id_v6::DeveloperDocumentId,
+    identifier::Identifier,
+    ConvexValue,
     InternalId,
     TableName,
     TableNumber,
@@ -43,6 +47,7 @@ pub trait SyscallProvider<RT: Runtime> {
 
     fn lookup_table(&mut self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>>;
     fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>>;
+    fn component_argument(&self, name: &str) -> anyhow::Result<Option<ConvexValue>>;
 
     fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<u32>;
     fn cleanup_query(&mut self, query_id: u32) -> bool;
@@ -69,6 +74,15 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         Ok(virtual_table_mapping
             .namespace(namespace)
             .number_if_exists(name))
+    }
+
+    fn component_argument(&self, name: &str) -> anyhow::Result<Option<ConvexValue>> {
+        let component_arguments = self.phase.component_arguments()?;
+        let result = match Identifier::from_str(name) {
+            Ok(identifier) => component_arguments.get(&identifier).cloned(),
+            Err(_) => None,
+        };
+        Ok(result)
     }
 
     fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<u32> {
@@ -98,6 +112,7 @@ pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
         "1.0/queryCleanup" => syscall_query_cleanup(provider, args),
         "1.0/queryStream" => syscall_query_stream(provider, args),
         "1.0/db/normalizeId" => syscall_normalize_id(provider, args),
+        "1.0/componentArgument" => syscall_component_argument(provider, args),
 
         #[cfg(test)]
         "throwSystemError" => anyhow::bail!("I can't go for that."),
@@ -171,6 +186,25 @@ fn syscall_normalize_id<RT: Runtime, P: SyscallProvider<RT>>(
         Some(id_v6) => Ok(json!({ "id": id_v6.encode() })),
         None => Ok(json!({ "id": JsonValue::Null })),
     }
+}
+
+fn syscall_component_argument<RT: Runtime, P: SyscallProvider<RT>>(
+    provider: &mut P,
+    args: JsonValue,
+) -> anyhow::Result<JsonValue> {
+    #[derive(Deserialize)]
+    struct ComponentArgumentArgs {
+        name: String,
+    }
+    let arg_name = with_argument_error("componentArgument", || {
+        let ComponentArgumentArgs { name } = serde_json::from_value(args)?;
+        Ok(name)
+    })?;
+    let result = match provider.component_argument(&arg_name)? {
+        Some(value) => json!({ "value": value }),
+        None => json!({}),
+    };
+    Ok(result)
 }
 
 fn syscall_query_stream<RT: Runtime, P: SyscallProvider<RT>>(

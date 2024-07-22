@@ -320,6 +320,10 @@ impl<RT: Runtime> SyscallProvider<RT> for UdfEnvironment<RT> {
         self.shared.lookup_virtual_table(name)
     }
 
+    fn component_argument(&self, _name: &str) -> anyhow::Result<Option<ConvexValue>> {
+        todo!();
+    }
+
     fn start_query(&mut self, query: Query, version: Option<Version>) -> anyhow::Result<QueryId> {
         self.check_executing()?;
         let query_id = self.shared.start_query(query, version);

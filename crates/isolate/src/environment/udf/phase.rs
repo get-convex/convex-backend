@@ -48,6 +48,10 @@ use model::{
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use sync_types::ModulePath;
+use value::{
+    identifier::Identifier,
+    ConvexValue,
+};
 
 use crate::{
     concurrency_limiter::ConcurrencyPermit,
@@ -91,6 +95,7 @@ enum UdfPreloaded {
         observed_time_during_execution: AtomicBool,
         env_vars: PreloadedEnvironmentVariables,
         component: ComponentId,
+        component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
     },
 }
 
@@ -127,9 +132,23 @@ impl<RT: Runtime> UdfPhase<RT> {
         let (_, component) = with_release_permit(
             timeout,
             permit_slot,
-            BootstrapComponentsModel::new(self.tx_mut()?).component_path_to_ids(component_path),
+            BootstrapComponentsModel::new(self.tx_mut()?)
+                .component_path_to_ids(component_path.clone()),
         )
         .await?;
+
+        let component_args = if !component_path.is_root() {
+            Some(
+                with_release_permit(
+                    timeout,
+                    permit_slot,
+                    BootstrapComponentsModel::new(self.tx_mut()?).load_component_args(component),
+                )
+                .await?,
+            )
+        } else {
+            None
+        };
 
         // UdfConfig might not be defined for super old modules or system modules.
         let udf_config = with_release_permit(
@@ -157,6 +176,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             observed_time_during_execution: AtomicBool::new(false),
             env_vars,
             component,
+            component_arguments: component_args,
         };
         Ok(())
     }
@@ -166,6 +186,29 @@ impl<RT: Runtime> UdfPhase<RT> {
             anyhow::bail!("Phase not initialized");
         };
         Ok(*component)
+    }
+
+    pub fn component_arguments(&self) -> anyhow::Result<&BTreeMap<Identifier, ConvexValue>> {
+        let UdfPreloaded::Ready {
+            component_arguments: component_args,
+            ..
+        } = &self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+        let Some(component_args) = component_args else {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "NoComponentArgs",
+                "Component arguments are not available within the app",
+            ));
+        };
+        if self.phase != Phase::Executing {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "NoComponentArgsDuringImport",
+                "Can't use `componentArgs` at import time",
+            ));
+        }
+        Ok(component_args)
     }
 
     pub async fn get_module(

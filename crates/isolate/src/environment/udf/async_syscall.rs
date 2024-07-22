@@ -298,6 +298,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
         reference: Reference,
         args: ConvexObject,
     ) -> anyhow::Result<ConvexValue>;
+
     async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource>;
 }
 

@@ -3,8 +3,10 @@ import {
   ObjectType,
   PropertyValidators,
   convexToJson,
+  jsonToConvex,
 } from "../../values/index.js";
 import { AnyFunctionReference } from "../api.js";
+import { performSyscall } from "../impl/syscall.js";
 import { EmptyObject } from "../registration.js";
 import {
   AppDefinitionAnalysis,
@@ -289,6 +291,32 @@ function createChildComponents(
         return `_reference/childComponent/` + pathParts.join("/");
       } else {
         return undefined;
+      }
+    },
+  };
+  return new Proxy({}, handler);
+}
+
+/**
+ *
+ * @internal
+ */
+export function createComponentArgs(): Record<string, any> {
+  const handler = {
+    get(target: any, prop: any, receiver: any) {
+      if (typeof prop === "string") {
+        const result = performSyscall("1.0/componentArgument", {
+          name: prop,
+        });
+        if (result.value === undefined) {
+          if (prop === "inspect") {
+            return () => "[componentArgs]";
+          }
+          return undefined;
+        }
+        return jsonToConvex(result.value) as any;
+      } else {
+        return Reflect.get(target, prop, receiver);
       }
     },
   };
