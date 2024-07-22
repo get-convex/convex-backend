@@ -461,6 +461,15 @@ impl HttpError {
             .into_response()
     }
 
+    pub async fn error_message_from_bytes(
+        bytes: hyper::body::Bytes,
+    ) -> (Cow<'static, str>, Cow<'static, str>) {
+        let ResponseErrorMessage { code, message } =
+            serde_json::from_slice(&bytes).expect("Couldn't deserialize as json");
+
+        (code, message)
+    }
+
     // Tests might parse a response back into a message
     #[cfg(any(test, feature = "testing"))]
     pub async fn from_response<B>(response: Response<B>) -> Self
@@ -469,12 +478,12 @@ impl HttpError {
         B::Error: fmt::Debug,
     {
         let (parts, body) = response.into_parts();
-        let ResponseErrorMessage { code, message } = serde_json::from_slice(
-            &hyper::body::to_bytes(body)
+        let (code, message) = Self::error_message_from_bytes(
+            hyper::body::to_bytes(body)
                 .await
                 .expect("Couldn't convert to bytes"),
         )
-        .expect("Couldn't deserialize as json");
+        .await;
 
         Self {
             status_code: parts.status,
