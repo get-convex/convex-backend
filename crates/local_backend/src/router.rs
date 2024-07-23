@@ -196,8 +196,12 @@ pub async fn router(st: LocalAppState) -> Router {
             live_ws_count: st.live_ws_count.clone(),
         });
 
+    let instance_name = st.instance_name.clone();
+
     Router::new()
         .nest("/api", api_routes)
+        // /instance_name is used by the CLI and dashboard to check connectivity!
+        .route("/instance_name", get(|| async move { instance_name }))
         .layer(cors().await)
         .with_state(st)
         .merge(migrated)
