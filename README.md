@@ -42,7 +42,8 @@ should ensure you have strong competency with regards to:
 
 No official support is provided for the open source version of Convex but
 community support is available in the `#open-source` channel in the
-[Convex Discord](https://discord.gg/convex).
+[Convex Discord](https://discord.gg/convex). There is a
+[self-hosting guide](./SELFHOSTING.md) available with some guidance.
 
 Development of the Convex backend is led by the Convex team and we are not
 actively soliciting any major contributions from the community. We of course

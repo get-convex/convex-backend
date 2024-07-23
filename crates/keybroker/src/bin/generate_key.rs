@@ -20,8 +20,8 @@ fn main() -> anyhow::Result<()> {
 
     let broker = KeyBroker::new(&instance_name[..], instance_secret)?;
     let admin_key = broker.issue_admin_key(MemberId(member_id));
-    println!("{}", admin_key);
+    println!("Admin Key:\n{}", admin_key);
     let system_key = broker.issue_system_key();
-    println!("{}", system_key);
+    println!("System key:\n{}", system_key);
     Ok(())
 }
