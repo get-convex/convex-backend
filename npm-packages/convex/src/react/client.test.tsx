@@ -1,7 +1,8 @@
 /**
- * @vitest-environment jsdom
+ * @vitest-environment happy-dom
  */
 import { test, expect, describe } from "vitest";
+import ws from "ws";
 
 import { ConvexReactClient, createMutation, useQuery } from "./client.js";
 import { ConvexProvider } from "./index.js";
@@ -9,17 +10,24 @@ import React from "react";
 import { renderHook } from "@testing-library/react";
 import { anyApi, makeFunctionReference } from "../server/api.js";
 
+console.log("!!!!!!!!!!!", ws.WebSocket);
+
 const address = "https://127.0.0.1:3001";
+
+const testConvexReactClient = () =>
+  new ConvexReactClient(address, {
+    webSocketConstructor: ws as unknown as typeof WebSocket,
+  });
 
 describe("ConvexReactClient", () => {
   test("can be constructed", () => {
-    const client = new ConvexReactClient(address);
+    const client = testConvexReactClient();
     expect(typeof client).not.toEqual("undefined");
   });
 });
 describe("createMutation", () => {
   test("Optimistic updates can be created", () => {
-    const client = new ConvexReactClient(address);
+    const client = testConvexReactClient();
     createMutation(anyApi.myMutation.default, client).withOptimisticUpdate(
       () => {
         // no update
@@ -28,7 +36,7 @@ describe("createMutation", () => {
   });
 
   test("Specifying an optimistic update twice produces an error", () => {
-    const client = new ConvexReactClient(address);
+    const client = testConvexReactClient();
     const mutation = createMutation(
       anyApi.myMutation.default,
       client,
@@ -43,7 +51,7 @@ describe("createMutation", () => {
   });
 
   test("Using a mutation as an event handler directly throws a useful error", () => {
-    const client = new ConvexReactClient(address);
+    const client = testConvexReactClient();
 
     const fakeSyntheticEvent: any = {
       bubbles: false,
@@ -68,7 +76,7 @@ describe("createMutation", () => {
 
 describe("useQuery", () => {
   function createClientWithQuery() {
-    const client = new ConvexReactClient(address);
+    const client = testConvexReactClient();
     // Use an optimistic update to set up a query to have a result.
     void client.mutation(
       anyApi.myMutation.default,
@@ -143,7 +151,7 @@ describe.skip("useQuery typing", () => {
 });
 
 describe("async query fetch", () => {
-  const client = new ConvexReactClient(address);
+  const client = testConvexReactClient();
 
   function optimisticUpdate() {
     // Use an optimistic update to set up a query to have a result.
