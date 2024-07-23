@@ -40,7 +40,6 @@ use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
 use value::{
     ResolvedDocumentId,
-    TableName,
     TableNamespace,
 };
 
@@ -126,47 +125,6 @@ async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     assert!(
         !TableModel::new(&mut tx)
             .table_is_empty(OBJECTS_TABLE_COMPONENT.into(), &OBJECTS_TABLE)
-            .await?
-    );
-    Ok(())
-}
-
-// Tests that a scheduled job can observe itself as in progress.
-#[convex_macro::test_runtime]
-async fn test_scheduled_jobs_in_progress(rt: TestRuntime) -> anyhow::Result<()> {
-    let (args, mut pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
-    let application = Application::new_for_tests_with_args(&rt, args).await?;
-    application.load_udf_tests_modules().await?;
-
-    let mut tx = application.begin(Identity::system()).await?;
-    let (job_id, _model) = create_scheduled_job(
-        &rt,
-        &mut tx,
-        CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path: CanonicalizedUdfPath::from_str("scheduler:insertMyJobId").unwrap(),
-        },
-    )
-    .await?;
-    let completed_scheduled_jobs: TableName = "completedScheduledJobs".parse()?;
-    assert!(
-        TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &completed_scheduled_jobs)
-            .await?
-    );
-
-    application.commit_test(tx).await?;
-
-    wait_for_scheduled_job_execution(&mut pause_controller).await;
-    tx = application.begin(Identity::system()).await?;
-    let mut model = SchedulerModel::new(&mut tx, TableNamespace::test_user());
-    let state = model.check_status(job_id).await?.unwrap();
-    assert_eq!(state, ScheduledJobState::Success);
-    // We could make this test better by checking the job_id matches... But it is
-    // messy to query directly from transaction so lets declare this good enough.
-    assert!(
-        !TableModel::new(&mut tx)
-            .table_is_empty(TableNamespace::Global, &completed_scheduled_jobs)
             .await?
     );
     Ok(())

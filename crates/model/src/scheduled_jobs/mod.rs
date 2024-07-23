@@ -281,26 +281,6 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn mark_in_progress(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
-        let Some(job) = self.tx.get(id).await? else {
-            anyhow::bail!("scheduled job not found")
-        };
-        let job: ParsedDocument<ScheduledJob> = job.try_into()?;
-        anyhow::ensure!(
-            job.state == ScheduledJobState::Pending,
-            "Unexpected job state {:?}",
-            job.state
-        );
-
-        let mut job: ScheduledJob = job.into_value();
-        job.state = ScheduledJobState::InProgress;
-        SystemMetadataModel::new(self.tx, self.namespace)
-            .replace(id, job.try_into()?)
-            .await?;
-
-        Ok(())
-    }
-
     pub async fn complete(
         &mut self,
         id: ResolvedDocumentId,

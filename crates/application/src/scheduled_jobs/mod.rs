@@ -626,14 +626,6 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
         let path = job.path.clone();
 
-        // Mark the scheduled job as `InProgress`` in the current transaction.
-        // Note that since we mark the job as complete on success before committing
-        // the transaction, no one except the schedule job itself can observe
-        // the `InProgress`` state.
-        SchedulerModel::new(&mut tx, namespace)
-            .mark_in_progress(job_id)
-            .await?;
-
         let result = self
             .runner
             .run_mutation_no_udf_log(
