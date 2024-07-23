@@ -47,6 +47,7 @@ use common::{
     version::ClientVersion,
     RequestId,
 };
+use errors::ErrorMetadata;
 use futures::{
     channel::mpsc::{
         self,
@@ -518,9 +519,16 @@ impl<RT: Runtime> SyncWorker<RT> {
                     .await
                 }
                 .boxed();
-                self.mutation_sender
-                    .try_send(future)
-                    .map_err(|err| anyhow::anyhow!("Failed to send to mutation channel: {err}"))?;
+                self.mutation_sender.try_send(future).map_err(|err| {
+                    if err.is_full() {
+                        anyhow::anyhow!(ErrorMetadata::overloaded(
+                            "TooManyConcurrentMutations",
+                            "Too many concurrent mutations, backoff and try again.",
+                        ))
+                    } else {
+                        anyhow::anyhow!("Failed to send to mutation channel: {err}")
+                    }
+                })?;
             },
             ClientMessage::Action {
                 request_id,
