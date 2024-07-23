@@ -1013,7 +1013,7 @@ mod tests {
     fn test_admin_keys() -> anyhow::Result<()> {
         let kb = KeyBroker::dev();
         let key = kb.issue_admin_key(MemberId(0));
-        let admin = kb.check_admin_key(&key.to_string()).unwrap();
+        let admin = kb.check_admin_key(key.as_str()).unwrap();
         assert!(admin.is_admin());
         assert!(!admin.is_system());
         Ok(())
@@ -1023,7 +1023,7 @@ mod tests {
     fn test_system_keys() -> anyhow::Result<()> {
         let kb = KeyBroker::dev();
         let key = kb.issue_system_key();
-        let system = kb.check_admin_key(&key.to_string())?;
+        let system = kb.check_admin_key(key.as_str())?;
         assert!(!system.is_admin());
         assert!(system.is_system());
         Ok(())
@@ -1033,7 +1033,7 @@ mod tests {
     fn test_admin_keys_with_prefix() -> anyhow::Result<()> {
         let kb = KeyBroker::dev();
         let key = kb.issue_admin_key(MemberId(0));
-        let prefixed_key = format!("prod:{}", key);
+        let prefixed_key = format!("prod:{}", key.as_str());
         let admin = kb.check_admin_key(&prefixed_key).unwrap();
         assert!(admin.is_admin());
         assert!(!admin.is_system());
@@ -1063,7 +1063,7 @@ mod tests {
     fn test_old_admin_keys() -> anyhow::Result<()> {
         let kb = KeyBroker::dev();
         let key = AdminKey::new(old_issue_key(&kb, Some(MemberId(0))));
-        kb.check_admin_key(&key.to_string()).unwrap();
+        kb.check_admin_key(key.as_str()).unwrap();
         Ok(())
     }
 

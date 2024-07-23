@@ -565,7 +565,7 @@ async fn test_admin_auth(rt: TestRuntime) -> anyhow::Result<()> {
     let mut sync_worker = test.new_worker()?;
     let admin_key = test.kb.issue_admin_key(MemberId(1));
     sync_worker.send(ClientMessage::Authenticate {
-        token: AuthenticationToken::Admin(admin_key.to_string(), None),
+        token: AuthenticationToken::Admin(admin_key.as_string(), None),
         base_version: 0,
     })?;
     must_let!(let ServerMessage::Transition {
@@ -626,7 +626,7 @@ async fn test_acting_auth(rt: TestRuntime) -> anyhow::Result<()> {
     let admin_key = test.kb.issue_admin_key(MemberId(1));
     sync_worker.send(ClientMessage::Authenticate {
         token: AuthenticationToken::Admin(
-            admin_key.to_string(),
+            admin_key.as_string(),
             Some(UserIdentityAttributes::test()),
         ),
         base_version: 0,

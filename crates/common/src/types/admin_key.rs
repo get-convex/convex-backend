@@ -1,13 +1,27 @@
+use std::fmt::Formatter;
+
 use headers::Authorization;
 use serde::Serialize;
 use sync_types::headers::ConvexAdminAuthorization;
 
 /// Encrypted system key
-#[derive(derive_more::Display)]
 pub struct SystemKey(String);
+
+impl SystemKey {
+    // We're not using `Display` to avoid accidentally printing the key.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 /// Encrypted admin key
-#[derive(Serialize, Clone, derive_more::Display)]
+#[derive(Serialize, Clone)]
 pub struct AdminKey(String);
+
+impl std::fmt::Debug for AdminKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str("AdminKey(*****)")
+    }
+}
 
 impl AdminKey {
     pub fn new(key: String) -> Self {
@@ -46,6 +60,15 @@ impl AdminKey {
 
         // return instance info and key part
         format!("{}|{}", instance_info, key_part)
+    }
+
+    // We're not using `Display` to avoid accidentally printing the key.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn as_string(&self) -> String {
+        self.0.to_string()
     }
 }
 
