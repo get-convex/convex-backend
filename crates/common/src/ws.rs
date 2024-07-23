@@ -31,7 +31,7 @@ pub fn is_connection_closed_error(e: &(dyn StdError + 'static)) -> bool {
             )
         ) || matches!(
             e.downcast_ref::<IoError>(),
-            Some(e) if e.kind() == IoErrorKind::BrokenPipe
+            Some(e) if matches!(e.kind(), IoErrorKind::BrokenPipe | IoErrorKind::ConnectionReset)
         )
     })
 }
