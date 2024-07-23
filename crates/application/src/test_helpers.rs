@@ -1,4 +1,6 @@
 use std::{
+    fs::File,
+    io::Read,
     sync::{
         Arc,
         LazyLock,
@@ -43,9 +45,12 @@ use function_runner::server::{
     InProcessFunctionRunner,
     InstanceStorage,
 };
-use isolate::test_helpers::{
-    TEST_SOURCE,
-    TEST_SOURCE_ISOLATE_ONLY,
+use isolate::{
+    bundled_js::START_PUSH_REQUEST_PATH,
+    test_helpers::{
+        TEST_SOURCE,
+        TEST_SOURCE_ISOLATE_ONLY,
+    },
 };
 use keybroker::{
     Identity,
@@ -80,6 +85,7 @@ use value::{
 
 use crate::{
     cron_jobs::CronJobExecutor,
+    deploy_config::StartPushRequest,
     log_visibility::AllowLogging,
     scheduled_jobs::{
         ScheduledJobExecutor,
@@ -135,6 +141,7 @@ pub trait ApplicationTestExt<RT: Runtime> {
     /// Load the modules from npm-packages/udf-tests
     async fn load_udf_tests_modules(&self) -> anyhow::Result<()>;
     async fn load_udf_tests_modules_with_node(&self) -> anyhow::Result<()>;
+    async fn load_udf_tests_modules_with_components(&self) -> anyhow::Result<()>;
     async fn test_one_off_cron_job_executor_run(
         &self,
         job: CronJob,
@@ -306,6 +313,13 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         self.load_udf_tests_modules_inner(true).await
     }
 
+    /// WIP(emma): This isn't fully implemented yet.
+    async fn load_udf_tests_modules_with_components(&self) -> anyhow::Result<()> {
+        let _start_push_request = Self::load_start_push_request()?;
+        // TODO: Upload modules, set up components, rest of push logic
+        Ok(())
+    }
+
     fn validate_user_defined_index_fields(
         &self,
         fields: IndexedFields,
@@ -319,6 +333,14 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 }
 
 impl<RT: Runtime> Application<RT> {
+    fn load_start_push_request() -> anyhow::Result<StartPushRequest> {
+        let mut file = File::open(START_PUSH_REQUEST_PATH)?;
+        let mut contents = vec![];
+        file.read_to_end(&mut contents)?;
+        let output: StartPushRequest = serde_json::from_slice(&contents)?;
+        Ok(output)
+    }
+
     async fn load_udf_tests_modules_inner(&self, include_node: bool) -> anyhow::Result<()> {
         let test_source = if include_node {
             TEST_SOURCE.clone()

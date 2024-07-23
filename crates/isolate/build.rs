@@ -203,6 +203,9 @@ fn main() -> anyhow::Result<()> {
     // Step 5: Build and bundle the udf test project.
     write_udf_test_bundle(out_dir)?;
 
+    // Step 6: Build and bundle the udf test project with components.
+    write_start_push_request(&out_dir.join("start_push_request"))?;
+
     Ok(())
 }
 
@@ -231,6 +234,33 @@ fn write_udf_test_bundle(out_dir: &Path) -> anyhow::Result<()> {
     anyhow::ensure!(
         output.status.success(),
         "Failed to run convex deploy:\n{}\n{}",
+        String::from_utf8(output.stdout)?,
+        String::from_utf8(output.stderr)?
+    );
+    Ok(())
+}
+
+fn write_start_push_request(out_file: &Path) -> anyhow::Result<()> {
+    if Path::exists(out_file) {
+        fs::remove_file(out_file)?;
+    }
+    let output = Command::new("node")
+        .current_dir(UDF_TESTS_DIR)
+        .args([
+            CONVEX,
+            "deploy",
+            "--write-push-request",
+            out_file.to_str().unwrap(),
+            "--url",
+            "http://127.0.0.1:8000",
+            "--admin-key",
+            ADMIN_KEY,
+        ])
+        .output()
+        .context("Unable to run `npx convex deploy --write-push-request`")?;
+    anyhow::ensure!(
+        output.status.success(),
+        "Failed to run convex deploy --write-push-request:\n{}\n{}",
         String::from_utf8(output.stdout)?,
         String::from_utf8(output.stderr)?
     );

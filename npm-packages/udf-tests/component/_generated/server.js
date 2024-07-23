@@ -92,4 +92,5 @@ export const internalAction = internalActionGeneric;
  */
 export const httpAction = httpActionGeneric;
 
-export const app = appGeneric();
+export const component = componentGeneric();
+export const componentArgs = createComponentArgs();

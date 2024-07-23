@@ -308,6 +308,7 @@ pub mod api;
 pub mod application_function_runner;
 mod cache;
 pub mod cron_jobs;
+pub mod deploy_config;
 mod export_worker;
 pub mod function_log;
 pub mod log_visibility;

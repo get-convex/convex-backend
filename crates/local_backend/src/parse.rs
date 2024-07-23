@@ -1,8 +1,5 @@
 use errors::ErrorMetadata;
-use sync_types::{
-    CanonicalizedUdfPath,
-    ModulePath,
-};
+use sync_types::CanonicalizedUdfPath;
 use value::{
     id_v6::DeveloperDocumentId,
     NamespacedTableMapping,
@@ -17,13 +14,6 @@ pub fn parse_udf_path(path: &str) -> anyhow::Result<CanonicalizedUdfPath> {
             "BadConvexFunctionIdentifier",
             msg,
         ))
-    })
-}
-
-pub fn parse_module_path(path: &str) -> anyhow::Result<ModulePath> {
-    path.parse().map_err(|e: anyhow::Error| {
-        let msg = format!("{path} is not a valid path to a Convex module. {e}");
-        e.context(ErrorMetadata::bad_request("BadConvexModuleIdentifier", msg))
     })
 }
 

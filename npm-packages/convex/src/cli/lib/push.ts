@@ -22,6 +22,7 @@ export type PushOptions = {
   debugBundlePath?: string;
   codegen: boolean;
   url: string;
+  writePushRequest?: string;
 };
 
 export async function runNonComponentsPush(
@@ -30,6 +31,13 @@ export async function runNonComponentsPush(
   configPath: string,
   projectConfig: ProjectConfig,
 ) {
+  if (options.writePushRequest) {
+    logMessage(
+      ctx,
+      "Skipping push because --write-push-request is set, but we are on the non-components path so there is nothing to write.",
+    );
+    return;
+  }
   const timeRunPushStarts = performance.now();
   const origin = options.url;
   const verbose = options.verbose || options.dryRun;

@@ -104,6 +104,7 @@ export const deploy = new Command("deploy")
   // Hidden options to pass in admin key and url for tests and local development
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
+  .addOption(new Option("--write-push-request <writePushRequest>").hideHelp()) // Option used for tests in backend
   .addOption(
     new Option(
       "--preview-name <name>",
@@ -270,6 +271,7 @@ async function deployToExistingDeployment(
     debug?: boolean | undefined;
     adminKey?: string | undefined;
     url?: string | undefined;
+    writePushRequest?: string | undefined;
   },
 ) {
   const deploymentSelection = deploymentSelectionFromOptions({
@@ -318,6 +320,7 @@ async function deployToExistingDeployment(
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",
     url,
+    writePushRequest: options.writePushRequest,
   };
   showSpinner(
     ctx,

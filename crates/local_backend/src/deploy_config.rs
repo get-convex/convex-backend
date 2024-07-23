@@ -11,6 +11,10 @@ use anyhow::{
     Context,
 };
 use application::{
+    deploy_config::{
+        ModuleJson,
+        NodeDependencyJson,
+    },
     Application,
     ApplyConfigArgs,
     ConfigMetadataAndSchema,
@@ -40,7 +44,6 @@ use keybroker::Identity;
 use model::{
     config::{
         types::{
-            deprecated_extract_environment_from_path,
             ConfigFile,
             ConfigMetadata,
             ModuleConfig,
@@ -48,11 +51,7 @@ use model::{
         },
         ConfigModel,
     },
-    modules::module_versions::{
-        AnalyzedModule,
-        ModuleSource,
-        SourceMap,
-    },
+    modules::module_versions::AnalyzedModule,
     source_packages::types::{
         PackageSize,
         SourcePackage,
@@ -74,7 +73,6 @@ use crate::{
         must_be_admin_from_key,
         must_be_admin_with_write_access,
     },
-    parse::parse_module_path,
     EmptyResponse,
     LocalAppState,
 };
@@ -129,28 +127,12 @@ pub struct ModuleDiffStat {
     size: usize,
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NodeDependencyJson {
-    name: String,
-    version: String,
-}
-
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 #[expect(dead_code)]
 pub struct BundledModuleInfoJson {
     name: String,
     platform: String,
-}
-
-impl From<NodeDependencyJson> for NodeDependency {
-    fn from(value: NodeDependencyJson) -> Self {
-        Self {
-            package: value.name,
-            version: value.version,
-        }
-    }
 }
 
 #[derive(Deserialize)]
@@ -216,65 +198,12 @@ impl ConfigJson {
     }
 }
 
-/// API level structure for representing modules as Json
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ModuleJson {
-    pub path: String,
-    pub source: ModuleSource,
-    pub source_map: Option<SourceMap>,
-    pub environment: Option<String>,
-}
-
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModuleHashJson {
     path: String,
     hash: String,
     environment: Option<String>,
-}
-
-impl From<ModuleConfig> for ModuleJson {
-    fn from(
-        ModuleConfig {
-            path,
-            source,
-            source_map,
-            environment,
-        }: ModuleConfig,
-    ) -> ModuleJson {
-        ModuleJson {
-            path: path.into(),
-            source,
-            source_map,
-            environment: Some(environment.to_string()),
-        }
-    }
-}
-
-impl TryFrom<ModuleJson> for ModuleConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(
-        ModuleJson {
-            path,
-            source,
-            source_map,
-            environment,
-        }: ModuleJson,
-    ) -> anyhow::Result<ModuleConfig> {
-        let environment = match environment {
-            Some(s) => s.parse()?,
-            // Default to using the path for backwards compatibility
-            None => deprecated_extract_environment_from_path(path.clone())?,
-        };
-        Ok(ModuleConfig {
-            path: parse_module_path(&path)?,
-            source,
-            source_map,
-            environment,
-        })
-    }
 }
 
 pub struct PushAnalytics {

@@ -1,4 +1,5 @@
 use anyhow::Context;
+use application::deploy_config::ModuleJson;
 use axum::{
     debug_handler,
     extract::State,
@@ -64,7 +65,6 @@ use crate::{
         must_be_admin_from_key_with_write_access,
     },
     authentication::ExtractIdentity,
-    deploy_config::ModuleJson,
     LocalAppState,
 };
 

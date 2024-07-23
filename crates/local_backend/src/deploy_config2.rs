@@ -4,7 +4,10 @@ use std::collections::{
 };
 
 use anyhow::Context;
-use application::Application;
+use application::{
+    deploy_config::StartPushRequest,
+    Application,
+};
 use axum::{
     debug_handler,
     extract::State,
@@ -32,7 +35,6 @@ use common::{
         HttpResponseError,
     },
     runtime::Runtime,
-    types::NodeDependency,
 };
 use database::{
     BootstrapComponentsModel,
@@ -67,17 +69,11 @@ use model::{
             TypecheckContext,
         },
         types::{
-            AppDefinitionConfig,
-            ComponentDefinitionConfig,
             EvaluatedComponentDefinition,
-            ProjectConfig,
             SerializedEvaluatedComponentDefinition,
         },
     },
-    config::types::{
-        ConfigFile,
-        ConfigMetadata,
-    },
+    config::types::ConfigFile,
     external_packages::types::ExternalDepsPackageId,
     modules::module_versions::{
         AnalyzedModule,
@@ -110,117 +106,9 @@ use crate::{
         must_be_admin_from_key,
         must_be_admin_from_key_with_write_access,
     },
-    deploy_config::{
-        analyze_modules,
-        ModuleJson,
-        NodeDependencyJson,
-    },
+    deploy_config::analyze_modules,
     LocalAppState,
 };
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StartPushRequest {
-    pub admin_key: String,
-    pub dry_run: bool,
-
-    pub functions: String,
-
-    pub app_definition: AppDefinitionConfigJson,
-    pub component_definitions: Vec<ComponentDefinitionConfigJson>,
-
-    pub node_dependencies: Vec<NodeDependencyJson>,
-}
-
-impl StartPushRequest {
-    pub fn into_project_config(self) -> anyhow::Result<ProjectConfig> {
-        Ok(ProjectConfig {
-            config: ConfigMetadata {
-                functions: self.functions,
-                auth_info: vec![],
-            },
-            app_definition: self.app_definition.try_into()?,
-            component_definitions: self
-                .component_definitions
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<anyhow::Result<_>>()?,
-            node_dependencies: self
-                .node_dependencies
-                .into_iter()
-                .map(NodeDependency::from)
-                .collect(),
-        })
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppDefinitionConfigJson {
-    pub definition: Option<ModuleJson>,
-    pub dependencies: Vec<String>,
-    pub auth: Option<ModuleJson>,
-    pub schema: Option<ModuleJson>,
-    pub functions: Vec<ModuleJson>,
-    pub udf_server_version: String,
-}
-
-impl TryFrom<AppDefinitionConfigJson> for AppDefinitionConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: AppDefinitionConfigJson) -> Result<Self, Self::Error> {
-        Ok(Self {
-            definition: value.definition.map(TryInto::try_into).transpose()?,
-            dependencies: value
-                .dependencies
-                .into_iter()
-                .map(|s| s.parse())
-                .collect::<anyhow::Result<_>>()?,
-            auth: value.auth.map(TryInto::try_into).transpose()?,
-            schema: value.schema.map(TryInto::try_into).transpose()?,
-            functions: value
-                .functions
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<anyhow::Result<_>>()?,
-            udf_server_version: value.udf_server_version.parse()?,
-        })
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ComponentDefinitionConfigJson {
-    pub definition_path: String,
-    pub definition: ModuleJson,
-    pub dependencies: Vec<String>,
-    pub schema: Option<ModuleJson>,
-    pub functions: Vec<ModuleJson>,
-    pub udf_server_version: String,
-}
-
-impl TryFrom<ComponentDefinitionConfigJson> for ComponentDefinitionConfig {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ComponentDefinitionConfigJson) -> Result<Self, Self::Error> {
-        Ok(Self {
-            definition_path: value.definition_path.parse()?,
-            definition: value.definition.try_into()?,
-            dependencies: value
-                .dependencies
-                .into_iter()
-                .map(|s| s.parse())
-                .collect::<anyhow::Result<_>>()?,
-            schema: value.schema.map(TryInto::try_into).transpose()?,
-            functions: value
-                .functions
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<anyhow::Result<_>>()?,
-            udf_server_version: value.udf_server_version.parse()?,
-        })
-    }
-}
 
 struct StartPushResponse {
     external_deps_id: Option<ExternalDepsPackageId>,

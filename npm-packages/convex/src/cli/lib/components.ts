@@ -174,18 +174,27 @@ export async function runComponentsPush(
       udfServerVersion,
     });
   }
+  const startPushRequest = {
+    adminKey: options.adminKey,
+    dryRun: false,
+    functions: projectConfig.functions,
+    appDefinition,
+    componentDefinitions,
+    nodeDependencies: appImplementation.externalNodeDependencies,
+  };
+  if (options.writePushRequest) {
+    const pushRequestPath = path.resolve(options.writePushRequest);
+    ctx.fs.writeUtf8File(
+      `${pushRequestPath}.json`,
+      JSON.stringify(startPushRequest),
+    );
+    return;
+  }
 
   const startPushResponse = await startPush(
     ctx,
     options.url,
-    {
-      adminKey: options.adminKey,
-      dryRun: false,
-      functions: projectConfig.functions,
-      appDefinition,
-      componentDefinitions,
-      nodeDependencies: appImplementation.externalNodeDependencies,
-    },
+    startPushRequest,
     verbose,
   );
 
