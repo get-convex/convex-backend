@@ -17,13 +17,13 @@ use std::{
 
 use anyhow::anyhow;
 use common::{
-    components::{
-        CanonicalizedComponentFunctionPath,
-        ComponentPath,
-    },
+    components::ComponentPath,
     errors::JsError,
     execution_context::ExecutionContext,
-    http::fetch::FetchClient,
+    http::{
+        fetch::FetchClient,
+        RoutedHttpPath,
+    },
     knobs::{
         ACTION_USER_TIMEOUT,
         FUNCTION_MAX_ARGS_SIZE,
@@ -79,7 +79,10 @@ use model::{
 use parking_lot::Mutex;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use sync_types::ModulePath;
+use sync_types::{
+    CanonicalizedUdfPath,
+    ModulePath,
+};
 use value::{
     heap_size::HeapSize,
     ConvexArray,
@@ -303,12 +306,20 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         client_id: String,
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
-        validated_path: ValidatedHttpPath,
+        http_module_path: ValidatedHttpPath,
+        routed_path: RoutedHttpPath,
         request: HttpActionRequest,
         cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<HttpActionOutcome> {
         let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
+
+        // Double check that we correctly initialized `ActionEnvironment` with the right
+        // component path and then pass a bare `CanonicalizedUdfPath` to
+        // `run_http_action_inner`.
+        let component_function_path = http_module_path.path();
+        anyhow::ensure!(&component_function_path.component == self.phase.component_path());
+        let udf_path = &component_function_path.udf_path;
 
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
@@ -322,10 +333,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;
 
         let request_head = request.head.clone();
+
         let mut result = Self::run_http_action_inner(
             client_id,
             &mut isolate_context,
-            validated_path.path(),
+            udf_path,
+            routed_path,
             request,
             cancellation,
         )
@@ -369,7 +382,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             start_unix_timestamp,
             result,
             Some(self.syscall_trace.lock().clone()),
-            validated_path.npm_version().clone(),
+            http_module_path.npm_version().clone(),
         );
         Ok(outcome)
     }
@@ -379,7 +392,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     async fn run_http_action_inner(
         client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
-        router_path: &CanonicalizedComponentFunctionPath,
+        http_module_path: &CanonicalizedUdfPath,
+        routed_path: RoutedHttpPath,
         http_request: HttpActionRequest,
         cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<(HttpActionRoute, HttpActionResult)> {
@@ -412,7 +426,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
          * implement their own `Routers` although this is not recommended)
          * but this interface must be backward compatible.
          */
-        let router: Result<_, JsError> = Self::get_router(&mut scope, router_path.clone()).await?;
+        let router: Result<_, JsError> =
+            Self::get_router(&mut scope, http_module_path.clone()).await?;
 
         if let Err(e) = router {
             return Ok((
@@ -425,7 +440,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let route_lookup = Self::lookup_route(
             &mut scope,
             &router,
-            router_path.clone(),
+            http_module_path.clone(),
+            routed_path.clone(),
             http_request.head.clone(),
         )?;
         let route = match route_lookup {
@@ -454,7 +470,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .ok_or_else(|| {
                 anyhow!(
                     "Couldn't find runRequest method of router in {:?}",
-                    router_path.udf_path
+                    http_module_path
                 )
             })?
             .try_into()?;
@@ -470,13 +486,19 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             },
             None => None,
         };
-        let args_str =
+        let request_str =
             serde_json::to_value(HttpRequestV8::from_request(http_request.head, stream_id)?)?
                 .to_string();
-        metrics::log_argument_length(&args_str);
-        let args_v8_str = v8::String::new(&mut scope, &args_str)
+        metrics::log_argument_length(&request_str);
+        let args_v8_str = v8::String::new(&mut scope, &request_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
-        let v8_args = [args_v8_str.into()];
+
+        // Pass in `request_route` as a second argument so old clients can ignore it if
+        // they're not component aware.
+        let request_route_v8_str = v8::String::new(&mut scope, &routed_path)
+            .ok_or_else(|| anyhow!("Failed to create request route string"))?;
+
+        let v8_args = [args_v8_str.into(), request_route_v8_str.into()];
 
         let result = Self::run_inner(
             client_id,
@@ -765,11 +787,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     fn lookup_route(
         scope: &mut ExecutionScope<RT, Self>,
         router: &v8::Local<v8::Object>,
-        router_path: CanonicalizedComponentFunctionPath,
+        http_module_path: CanonicalizedUdfPath,
+        routed_path: RoutedHttpPath,
         http_request: HttpActionRequestHead,
     ) -> anyhow::Result<Option<HttpActionRoute>> {
         let lookup_str = strings::lookup.create(scope)?.into();
-        let path_str = v8::String::new(scope, http_request.url.path())
+        let routed_path_str = v8::String::new(scope, &routed_path)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
         let method_str = v8::String::new(scope, http_request.method.as_str())
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
@@ -779,14 +802,18 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .ok_or_else(|| {
                 anyhow!(
                     "Couldn't find lookup method of router in {:?}",
-                    router_path.udf_path
+                    http_module_path
                 )
             })?
             .try_into()?;
         let global = scope.get_current_context().global(scope);
         let r = scope
             .with_try_catch(|s| {
-                lookup.call(s, global.into(), &[path_str.into(), method_str.into()])
+                lookup.call(
+                    s,
+                    global.into(),
+                    &[routed_path_str.into(), method_str.into()],
+                )
             })??
             .expect("lookup.call() returned None");
         if r.is_null() {
@@ -809,27 +836,23 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .expect("Failed to get index 2 of lookup result")
             .try_into()?;
         let route_path_s = helpers::to_rust_string(scope, &route_path)?;
-        Ok(Some(HttpActionRoute {
-            method: route_method_s.parse()?,
-            path: route_path_s,
-        }))
+
+        Ok(Some(format!("{route_method_s} {route_path_s}").parse()?))
     }
 
     async fn get_router<'a, 'b: 'a>(
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
-        router_path: CanonicalizedComponentFunctionPath,
+        http_module_path: CanonicalizedUdfPath,
     ) -> anyhow::Result<Result<v8::Local<'a, v8::Object>, JsError>> {
-        let router_path = router_path.into_root_udf_path()?;
-
         // Except in tests, `http.js` will always be the udf_path.
         // We'll never hit these as long as this HTTP path only runs for
         // `convex/http.js`.
-        if router_path.module().is_deps() {
-            anyhow::bail!("Refusing to run {router_path:?} within the '_deps' directory");
+        if http_module_path.module().is_deps() {
+            anyhow::bail!("Refusing to run {http_module_path:?} within the '_deps' directory");
         }
 
         // First, load the user's module and find the specified function.
-        let module_path = router_path.module().clone();
+        let module_path = http_module_path.module().clone();
         let Ok(module_specifier) = module_specifier_from_path(&module_path) else {
             let message = format!("Invalid module path: {module_path:?}");
             return Ok(Err(JsError::from_message(message)));
@@ -854,7 +877,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         if namespace.has(scope, export_str) != Some(true) {
             let message = format!(
                 r#"Couldn't find default export in module "{:?}"."#,
-                router_path.module()
+                http_module_path.module()
             );
             return Ok(Err(JsError::from_message(message)));
         }

@@ -30,6 +30,7 @@ pub use actions::{
     HttpActionRoute,
     NodeDependency,
     RoutableMethod,
+    SerializedHttpActionRoute,
 };
 pub use admin_key::{
     format_admin_key,

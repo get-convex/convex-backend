@@ -30,6 +30,17 @@ export const checkedExport: z.ZodType<CheckedExport> = z.lazy(() =>
   ]),
 );
 
+export const httpActionRoute = z.object({
+  method: z.string(),
+  path: z.string(),
+});
+
+export const checkedHttpRoutes = z.object({
+  httpModuleRoutes: z.nullable(z.array(httpActionRoute)),
+  mounts: z.array(z.string()),
+});
+export type CheckedHttpRoutes = z.infer<typeof checkedHttpRoutes>;
+
 export type CheckedComponent = {
   definitionPath: ComponentDefinitionPath;
   componentPath: ComponentPath;
@@ -42,6 +53,7 @@ export const checkedComponent: z.ZodType<CheckedComponent> = z.lazy(() =>
     componentPath,
     args: z.record(identifier, resource),
     childComponents: z.record(identifier, checkedComponent),
+    httpRoutes: checkedHttpRoutes,
     exports: z.record(identifier, checkedExport),
   }),
 );

@@ -442,12 +442,19 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         .into()))
     }
 
-    pub async fn has_http(&mut self) -> anyhow::Result<bool> {
+    pub async fn get_http(
+        &mut self,
+        component: ComponentId,
+    ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
         let path = CanonicalizedComponentModulePath {
-            component: ComponentId::Root,
+            component,
             module_path: HTTP_MODULE_PATH.clone(),
         };
-        Ok(self.get_metadata(path).await?.is_some())
+        self.get_metadata(path).await
+    }
+
+    pub async fn has_http(&mut self, component: ComponentId) -> anyhow::Result<bool> {
+        Ok(self.get_http(component).await?.is_some())
     }
 }
 

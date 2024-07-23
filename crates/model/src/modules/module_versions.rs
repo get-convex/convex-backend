@@ -1,13 +1,18 @@
 use std::{
     collections::BTreeMap,
     mem,
+    ops::Deref,
     str::FromStr,
 };
 
 use async_lru::async_lru::SizedValue;
-use common::types::{
-    HttpActionRoute,
-    UdfType,
+use common::{
+    http::RoutedHttpPath,
+    types::{
+        HttpActionRoute,
+        RoutableMethod,
+        UdfType,
+    },
 };
 use errors::ErrorMetadata;
 #[cfg(any(test, feature = "testing"))]
@@ -68,13 +73,7 @@ pub struct AnalyzedModule {
         )
     )]
     pub functions: WithHeapSize<Vec<AnalyzedFunction>>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::option::of(value::heap_size::of(prop::collection::vec(any::<AnalyzedHttpRoute>(), 0..4)))"
-        )
-    )]
-    pub http_routes: Option<WithHeapSize<Vec<AnalyzedHttpRoute>>>,
+    pub http_routes: Option<AnalyzedHttpRoutes>,
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(
@@ -139,7 +138,10 @@ impl TryFrom<SerializedAnalyzedModule> for AnalyzedModule {
                 .try_collect()?,
             http_routes: m
                 .http_routes
-                .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
+                .map(|routes| {
+                    let routes = routes.into_iter().map(TryFrom::try_from).try_collect()?;
+                    anyhow::Ok(AnalyzedHttpRoutes::new(routes))
+                })
                 .transpose()?,
             cron_specs: m
                 .cron_specs
@@ -348,7 +350,7 @@ impl TryFrom<SerializedHttpActionRoute> for HttpActionRoute {
 
     fn try_from(r: SerializedHttpActionRoute) -> anyhow::Result<Self> {
         Ok(Self {
-            path: r.path,
+            path: r.path.parse()?,
             method: r.method.parse()?,
         })
     }
@@ -396,6 +398,91 @@ impl TryFrom<SerializedAnalyzedHttpRoute> for AnalyzedHttpRoute {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct AnalyzedHttpRoutes {
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "value::heap_size::of(prop::collection::vec(any::<AnalyzedHttpRoute>(), \
+                        0..4))"
+        )
+    )]
+    routes: WithHeapSize<Vec<AnalyzedHttpRoute>>,
+}
+
+impl AnalyzedHttpRoutes {
+    pub fn new(routes: Vec<AnalyzedHttpRoute>) -> Self {
+        Self {
+            routes: routes.into(),
+        }
+    }
+
+    pub fn route_exact(&self, path: &str, method: RoutableMethod) -> bool {
+        self.routes.iter().any(|AnalyzedHttpRoute { route, .. }| {
+            if route.path.ends_with('*') {
+                return false;
+            }
+            route.method == method && &route.path[..] == path
+        })
+    }
+
+    pub fn route_prefix(
+        &self,
+        path: &RoutedHttpPath,
+        method: RoutableMethod,
+    ) -> Option<RoutedHttpPath> {
+        let mut longest_match: Option<RoutedHttpPath> = None;
+        for AnalyzedHttpRoute { route, .. } in &self.routes {
+            if route.method != method {
+                continue;
+            }
+            let Some(mut prefix_path) = route.path.strip_suffix('*') else {
+                continue;
+            };
+            if prefix_path.is_empty() {
+                prefix_path = "/";
+            }
+            let Some(match_suffix) = path.strip_prefix(prefix_path) else {
+                continue;
+            };
+            let new_match = RoutedHttpPath(format!("/{match_suffix}"));
+            if let Some(ref existing_suffix) = longest_match {
+                // If the existing longest match has a shorter suffix, then it
+                // matches a longer prefix.
+                if existing_suffix.len() < match_suffix.len() {
+                    continue;
+                }
+            }
+            longest_match = Some(new_match);
+        }
+        longest_match
+    }
+}
+
+impl HeapSize for AnalyzedHttpRoutes {
+    fn heap_size(&self) -> usize {
+        self.routes.heap_size()
+    }
+}
+
+impl IntoIterator for AnalyzedHttpRoutes {
+    type IntoIter = Box<dyn Iterator<Item = AnalyzedHttpRoute>>;
+    type Item = AnalyzedHttpRoute;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Box::new(self.routes.into_iter())
+    }
+}
+
+impl Deref for AnalyzedHttpRoutes {
+    type Target = [AnalyzedHttpRoute];
+
+    fn deref(&self) -> &Self::Target {
+        &self.routes
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct MappedModule {
@@ -413,13 +500,7 @@ pub struct MappedModule {
         )
     )]
     pub functions: WithHeapSize<Vec<AnalyzedFunction>>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::option::of(value::heap_size::of(prop::collection::vec(any::<AnalyzedHttpRoute>(), 0..4)))"
-        )
-    )]
-    pub http_routes: Option<WithHeapSize<Vec<AnalyzedHttpRoute>>>,
+    pub http_routes: Option<AnalyzedHttpRoutes>,
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(
@@ -484,7 +565,10 @@ impl TryFrom<SerializedMappedModule> for MappedModule {
                 .try_collect()?,
             http_routes: m
                 .http_routes
-                .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
+                .map(|routes| {
+                    let routes = routes.into_iter().map(TryFrom::try_from).try_collect()?;
+                    anyhow::Ok(AnalyzedHttpRoutes::new(routes))
+                })
                 .transpose()?,
             cron_specs: m
                 .cron_specs

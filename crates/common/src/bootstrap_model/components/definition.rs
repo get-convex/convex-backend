@@ -1,4 +1,8 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    ops::Deref,
+    str::FromStr,
+};
 
 use serde::{
     Deserialize,
@@ -7,6 +11,7 @@ use serde::{
 use serde_json::Value as JsonValue;
 use value::{
     codegen_convex_serialization,
+    heap_size::HeapSize,
     identifier::Identifier,
     ConvexValue,
 };
@@ -37,6 +42,15 @@ pub struct ComponentDefinitionMetadata {
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(
+            strategy = "proptest::collection::btree_map(proptest::prelude::any::<HttpMountPath>(), \
+                             proptest::prelude::any::<Reference>(), 0..2)"
+        )
+    )]
+    pub http_mounts: BTreeMap<HttpMountPath, Reference>,
+
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
             strategy = "proptest::collection::btree_map(proptest::prelude::any::<Identifier>(), \
                         proptest::prelude::any::<ComponentExport>(), 0..4)"
         )
@@ -50,8 +64,57 @@ impl ComponentDefinitionMetadata {
             path: ComponentDefinitionPath::root(),
             definition_type: ComponentDefinitionType::App,
             child_components: Vec::new(),
+            http_mounts: BTreeMap::new(),
             exports: BTreeMap::new(),
         }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct HttpMountPath(String);
+
+impl Deref for HttpMountPath {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<HttpMountPath> for String {
+    fn from(value: HttpMountPath) -> Self {
+        value.0
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl proptest::arbitrary::Arbitrary for HttpMountPath {
+    type Parameters = ();
+
+    type Strategy = impl proptest::strategy::Strategy<Value = Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        r"/([a-zA-Z0-9_]/)+".prop_map(|s| s.parse().unwrap())
+    }
+}
+
+impl HeapSize for HttpMountPath {
+    fn heap_size(&self) -> usize {
+        self.0.heap_size()
+    }
+}
+
+impl FromStr for HttpMountPath {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        anyhow::ensure!(s.starts_with('/'));
+        anyhow::ensure!(s.ends_with('/'));
+        anyhow::ensure!(!s.contains('*'));
+        let path: http::uri::PathAndQuery = s.parse()?;
+        anyhow::ensure!(path.query().is_none());
+        Ok(Self(s.to_string()))
     }
 }
 
@@ -96,6 +159,7 @@ pub struct SerializedComponentDefinitionMetadata {
     path: String,
     definition_type: SerializedComponentDefinitionType,
     child_components: Vec<SerializedComponentInstantiation>,
+    http_mounts: Option<BTreeMap<String, String>>,
     exports: SerializedComponentExport,
 }
 
@@ -152,6 +216,12 @@ impl TryFrom<ComponentDefinitionMetadata> for SerializedComponentDefinitionMetad
                 .into_iter()
                 .map(TryFrom::try_from)
                 .try_collect()?,
+            http_mounts: Some(
+                m.http_mounts
+                    .into_iter()
+                    .map(|(k, v)| (String::from(k), String::from(v)))
+                    .collect(),
+            ),
             exports: ComponentExport::Branch(m.exports).try_into()?,
         })
     }
@@ -171,6 +241,12 @@ impl TryFrom<SerializedComponentDefinitionMetadata> for ComponentDefinitionMetad
                 .child_components
                 .into_iter()
                 .map(TryFrom::try_from)
+                .try_collect()?,
+            http_mounts: m
+                .http_mounts
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(k, v)| anyhow::Ok((k.parse()?, v.parse()?)))
                 .try_collect()?,
             exports,
         })

@@ -58,6 +58,7 @@ use model::{
             invalid_function_name_error,
             AnalyzedFunction,
             AnalyzedHttpRoute,
+            AnalyzedHttpRoutes,
             AnalyzedModule,
             AnalyzedSourcePosition,
             FullModuleSource,
@@ -379,7 +380,7 @@ impl AnalyzeEnvironment {
                     },
                     Ok(value) => value,
                 };
-                http_routes = Some(WithHeapSize::from(routes));
+                http_routes = Some(routes);
             }
 
             let mut cron_specs = None;
@@ -679,7 +680,7 @@ fn http_analyze<RT: Runtime>(
     scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
     module: &v8::Local<v8::Module>,
     module_path: &CanonicalizedModulePath,
-) -> anyhow::Result<Result<Vec<AnalyzedHttpRoute>, JsError>> {
+) -> anyhow::Result<Result<AnalyzedHttpRoutes, JsError>> {
     let mut http_routes: Vec<AnalyzedHttpRoute> = vec![];
 
     let namespace = module
@@ -802,6 +803,7 @@ fn http_analyze<RT: Runtime>(
             return routes_error(format!("arr[{}][1] is not a string", i).as_str());
         };
         let method: String = method.to_rust_string_lossy(scope);
+
         let Ok(method): Result<RoutableMethod, _> = method.parse() else {
             return routes_error(
                 format!(
@@ -872,7 +874,7 @@ fn http_analyze<RT: Runtime>(
 
     // Sort by line number where source position of None compares least
     http_routes.sort_by(|a, b| a.pos.cmp(&b.pos));
-
+    let http_routes = AnalyzedHttpRoutes::new(http_routes);
     Ok(Ok(http_routes))
 }
 

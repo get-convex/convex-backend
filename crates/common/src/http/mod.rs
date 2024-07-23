@@ -4,6 +4,7 @@ use std::{
     fmt,
     future::Future,
     net::SocketAddr,
+    ops::Deref,
     pin::Pin,
     str,
     sync::LazyLock,
@@ -269,6 +270,23 @@ impl std::fmt::Debug for HttpRequestStream {
             .field("url", &self.url)
             .field("method", &self.method)
             .finish()
+    }
+}
+
+// Components can mount other components' HTTP routers, so a child component's
+// HTTP router may receive a different path from the original HTTP request. For
+// example, let's say we mount a rate limiter's router at `/rl/` and the rate
+// limiter has a route for "/index.html". Then, an incoming request for
+// `/rl/index.html` will get passed to the rate limiter's router with the routed
+// path of `/index.html`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoutedHttpPath(pub String);
+
+impl Deref for RoutedHttpPath {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

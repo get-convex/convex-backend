@@ -254,8 +254,15 @@ impl AppDefinitionEvaluator {
             anyhow::ensure!(result_obj.set(&mut scope, key.into(), value.into()) == Some(true));
 
             let metadata: SerializedComponentDefinitionMetadata =
-                serde_v8::from_v8(&mut scope, v8_result)
-                    .map_err(|e| ErrorMetadata::bad_request("InvalidDefinition", e.to_string()))?;
+                serde_v8::from_v8(&mut scope, v8_result).map_err(|e| {
+                    let value = v8::json::stringify(&mut scope, v8_result)
+                        .map(|s| s.to_rust_string_lossy(&mut scope))
+                        .unwrap_or_else(|| "<unknown>".to_string());
+                    ErrorMetadata::bad_request(
+                        "InvalidDefinition",
+                        format!("Failed to deserialize {value}: {e}"),
+                    )
+                })?;
             ComponentDefinitionMetadata::try_from(metadata)
                 .map_err(|e| ErrorMetadata::bad_request("InvalidDefinition", e.to_string()))?
         };

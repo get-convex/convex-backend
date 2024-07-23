@@ -17,7 +17,10 @@ use serde_json::{
 };
 use value::codegen_convex_serialization;
 
-use crate::heap_size::HeapSize;
+use crate::{
+    bootstrap_model::components::definition::HttpMountPath,
+    heap_size::HeapSize,
+};
 
 /// Token that give Node executor permissions to use the actions internal API.
 pub type ActionCallbackToken = String;
@@ -112,11 +115,42 @@ impl fmt::Display for RoutableMethod {
     }
 }
 
+impl TryFrom<http::Method> for RoutableMethod {
+    type Error = anyhow::Error;
+
+    fn try_from(method: http::Method) -> anyhow::Result<Self> {
+        match method {
+            http::Method::DELETE => Ok(Self::Delete),
+            http::Method::GET => Ok(Self::Get),
+            http::Method::OPTIONS => Ok(Self::Options),
+            http::Method::PATCH => Ok(Self::Patch),
+            http::Method::POST => Ok(Self::Post),
+            http::Method::PUT => Ok(Self::Put),
+            http::Method::HEAD => Ok(Self::Get),
+            _ => anyhow::bail!("Expected routable HTTP method, got {:?}", method),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct HttpActionRoute {
-    pub path: String,
     pub method: RoutableMethod,
+    pub path: String,
+}
+
+impl HttpActionRoute {
+    pub fn overlaps_with_mount(&self, mount_path: &HttpMountPath) -> bool {
+        // Only prefix routes can overlap with mounts.
+        let Some(mut suffix) = mount_path.strip_suffix('*') else {
+            return false;
+        };
+        // For backwards compatibility, permit bare `*` paths as a synonym for `/*`.
+        if suffix.is_empty() {
+            suffix = "/";
+        }
+        suffix == &mount_path[..]
+    }
 }
 
 impl HeapSize for HttpActionRoute {
@@ -127,7 +161,9 @@ impl HeapSize for HttpActionRoute {
 
 impl Display for HttpActionRoute {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.method, self.path)
+        // NB: URI paths cannot contain raw ' ', so it's unambiguous to use a space to
+        // separate the method from the path.
+        write!(f, "{} {}", self.method, &self.path[..])
     }
 }
 
@@ -140,6 +176,34 @@ impl FromStr for HttpActionRoute {
             None => anyhow::bail!("Invalid HTTP action route"),
         };
         Ok(Self { method, path })
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SerializedHttpActionRoute {
+    pub method: String,
+    pub path: String,
+}
+
+impl TryFrom<HttpActionRoute> for SerializedHttpActionRoute {
+    type Error = anyhow::Error;
+
+    fn try_from(value: HttpActionRoute) -> Result<Self, Self::Error> {
+        Ok(Self {
+            method: value.method.to_string(),
+            path: value.path,
+        })
+    }
+}
+
+impl TryFrom<SerializedHttpActionRoute> for HttpActionRoute {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedHttpActionRoute) -> Result<Self, Self::Error> {
+        Ok(Self {
+            method: value.method.parse()?,
+            path: value.path,
+        })
     }
 }
 

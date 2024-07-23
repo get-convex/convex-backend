@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::collections::{
+    BTreeMap,
+    BTreeSet,
+};
 
 use common::{
     bootstrap_model::components::definition::{
@@ -6,6 +9,7 @@ use common::{
         ComponentArgumentValidator,
         ComponentDefinitionType,
         ComponentExport,
+        HttpMountPath,
     },
     components::{
         CanonicalizedComponentFunctionPath,
@@ -16,6 +20,7 @@ use common::{
         Resource,
     },
     schemas::validator::ValidationError,
+    types::HttpActionRoute,
 };
 use thiserror::Error;
 use value::{
@@ -26,6 +31,7 @@ use value::{
 };
 
 use super::types::EvaluatedComponentDefinition;
+use crate::modules::HTTP_MODULE_PATH;
 
 #[derive(Debug)]
 pub struct CheckedComponent {
@@ -34,6 +40,7 @@ pub struct CheckedComponent {
 
     pub args: BTreeMap<Identifier, Resource>,
     pub child_components: BTreeMap<ComponentName, CheckedComponent>,
+    pub http_routes: CheckedHttpRoutes,
     pub exports: BTreeMap<Identifier, CheckedExport>,
 }
 
@@ -103,6 +110,11 @@ impl<'a> TypecheckContext<'a> {
             builder.insert_child_component(instantiation.name.clone(), child_component)?;
         }
 
+        // Check that our HTTP mounts are valid and nonoverlapping.
+        for (mount_path, reference) in &evaluated.definition.http_mounts {
+            builder.insert_http_mount(self.evaluated_definitions, mount_path, reference)?;
+        }
+
         // Finally, resolve our exports and build the component.
         let component = builder.check_exports(&evaluated.definition.exports)?;
 
@@ -121,8 +133,11 @@ struct CheckedComponentBuilder<'a> {
     // Phase 2: The layer above adds in child components one at a time, and instantiating a child
     // component may depend on arguments or previous child components.
     child_components: BTreeMap<ComponentName, CheckedComponent>,
+
+    // Phase 3: The layer above mounts child component HTTP routes.
+    http_routes: CheckedHttpRoutes,
     //
-    // Phase 3: The layer above finalizes via `build`, passing in exports, which may depend on args
+    // Phase 4: The layer above finalizes via `build`, passing in exports, which may depend on args
     // or any child component.
 }
 
@@ -188,6 +203,7 @@ impl<'a> CheckedComponentBuilder<'a> {
 
             args,
             child_components: BTreeMap::new(),
+            http_routes: CheckedHttpRoutes::new(evaluated),
         })
     }
 
@@ -206,6 +222,48 @@ impl<'a> CheckedComponentBuilder<'a> {
         Ok(())
     }
 
+    fn insert_http_mount(
+        &mut self,
+        evaluated_definitions: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+        mount_path: &HttpMountPath,
+        reference: &Reference,
+    ) -> Result<(), TypecheckError> {
+        let Reference::ChildComponent {
+            component,
+            attributes,
+        } = reference
+        else {
+            return Err(TypecheckError::Unsupported(
+                "Non-root child component references for HTTP mounts",
+            ));
+        };
+        if !attributes.is_empty() {
+            return Err(TypecheckError::Unsupported(
+                "Child component references with attributes",
+            ));
+        }
+
+        let Some(child_component) = self.child_components.get(component) else {
+            return Err(TypecheckError::InvalidHttpMount {
+                mount_path: mount_path.to_string(),
+                reason: format!("Child component {:?} not found.", component),
+            });
+        };
+        if !evaluated_definitions.contains_key(&child_component.definition_path) {
+            return Err(TypecheckError::MissingComponentDefinition {
+                definition_path: child_component.definition_path.clone(),
+            });
+        };
+        if child_component.http_routes.is_empty() {
+            return Err(TypecheckError::InvalidHttpMount {
+                mount_path: mount_path.to_string(),
+                reason: "Child component doesn't have any HTTP routes.".to_string(),
+            });
+        }
+        self.http_routes.mount(mount_path.clone())?;
+        Ok(())
+    }
+
     fn check_exports(
         self,
         exports: &BTreeMap<Identifier, ComponentExport>,
@@ -215,6 +273,7 @@ impl<'a> CheckedComponentBuilder<'a> {
             definition_path: self.definition_path.clone(),
             component_path: self.component_path.clone(),
             args: self.args,
+            http_routes: self.http_routes,
             child_components: self.child_components,
             exports,
         })
@@ -324,6 +383,58 @@ impl CheckedComponent {
     }
 }
 
+#[derive(Debug)]
+pub struct CheckedHttpRoutes {
+    http_module_routes: Option<Vec<HttpActionRoute>>,
+    mounts: BTreeSet<HttpMountPath>,
+}
+
+impl CheckedHttpRoutes {
+    pub fn new(evaluated: &EvaluatedComponentDefinition) -> Self {
+        let http_module_routes = evaluated
+            .functions
+            .get(&HTTP_MODULE_PATH)
+            .and_then(|module| module.http_routes.clone())
+            .map(|routes| routes.into_iter().map(|r| r.route).collect());
+        Self {
+            http_module_routes,
+            mounts: BTreeSet::new(),
+        }
+    }
+
+    pub fn mount(&mut self, mount_path: HttpMountPath) -> Result<(), TypecheckError> {
+        // Check that the mount path does not overlap with any prefix route from our
+        // `http.js` or previously mounted route.
+        if let Some(http_module_routes) = &self.http_module_routes {
+            if http_module_routes
+                .iter()
+                .any(|route| route.overlaps_with_mount(&mount_path))
+            {
+                return Err(TypecheckError::InvalidHttpMount {
+                    mount_path: mount_path.to_string(),
+                    reason: "Overlap with existing prefix route".to_string(),
+                });
+            }
+        }
+        if self.mounts.contains(&mount_path) {
+            return Err(TypecheckError::InvalidHttpMount {
+                mount_path: mount_path.to_string(),
+                reason: "Overlap with previously mounted route".to_string(),
+            });
+        }
+        self.mounts.insert(mount_path);
+        Ok(())
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.http_module_routes
+            .as_ref()
+            .map(|r| r.is_empty())
+            .unwrap_or(true)
+            && self.mounts.is_empty()
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum TypecheckError {
     #[error("Component definition not found: {definition_path:?}")]
@@ -359,6 +470,10 @@ pub enum TypecheckError {
         definition_path: ComponentDefinitionPath,
         name: Identifier,
     },
+
+    #[error("HTTP mount {mount_path} is invalid: {reason}")]
+    InvalidHttpMount { mount_path: String, reason: String },
+
     #[error("Component {definition_path:?} has an unresolved export {reference:?}")]
     UnresolvedExport {
         definition_path: ComponentDefinitionPath,
@@ -371,7 +486,10 @@ pub enum TypecheckError {
 mod json {
     use std::collections::BTreeMap;
 
-    use common::components::SerializedResource;
+    use common::{
+        components::SerializedResource,
+        types::SerializedHttpActionRoute,
+    };
     use serde::{
         Deserialize,
         Serialize,
@@ -380,6 +498,7 @@ mod json {
     use super::{
         CheckedComponent,
         CheckedExport,
+        CheckedHttpRoutes,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -390,6 +509,7 @@ mod json {
 
         args: BTreeMap<String, SerializedResource>,
         child_components: BTreeMap<String, SerializedCheckedComponent>,
+        http_routes: SerializedCheckedHttpRoutes,
         exports: BTreeMap<String, SerializedCheckedExport>,
     }
 
@@ -410,6 +530,7 @@ mod json {
                     .into_iter()
                     .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
                     .collect::<anyhow::Result<_>>()?,
+                http_routes: value.http_routes.try_into()?,
                 exports: value
                     .exports
                     .into_iter()
@@ -436,10 +557,57 @@ mod json {
                     .into_iter()
                     .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
                     .collect::<anyhow::Result<_>>()?,
+                http_routes: value.http_routes.try_into()?,
                 exports: value
                     .exports
                     .into_iter()
                     .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
+                    .collect::<anyhow::Result<_>>()?,
+            })
+        }
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct SerializedCheckedHttpRoutes {
+        http_module_routes: Option<Vec<SerializedHttpActionRoute>>,
+        mounts: Vec<String>,
+    }
+
+    impl TryFrom<CheckedHttpRoutes> for SerializedCheckedHttpRoutes {
+        type Error = anyhow::Error;
+
+        fn try_from(value: CheckedHttpRoutes) -> Result<Self, Self::Error> {
+            let http_module_routes = value
+                .http_module_routes
+                .map(|routes| routes.into_iter().map(|s| s.try_into()).collect())
+                .transpose()?;
+            let mounts = value.mounts.into_iter().map(String::from).collect();
+            Ok(Self {
+                http_module_routes,
+                mounts,
+            })
+        }
+    }
+
+    impl TryFrom<SerializedCheckedHttpRoutes> for CheckedHttpRoutes {
+        type Error = anyhow::Error;
+
+        fn try_from(value: SerializedCheckedHttpRoutes) -> Result<Self, Self::Error> {
+            Ok(Self {
+                http_module_routes: value
+                    .http_module_routes
+                    .map(|routes| {
+                        routes
+                            .into_iter()
+                            .map(|s| s.try_into())
+                            .collect::<anyhow::Result<_>>()
+                    })
+                    .transpose()?,
+                mounts: value
+                    .mounts
+                    .into_iter()
+                    .map(|s| s.parse())
                     .collect::<anyhow::Result<_>>()?,
             })
         }

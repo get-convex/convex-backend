@@ -189,7 +189,8 @@ export async function runComponentsPush(
     verbose,
   );
 
-  verbose && console.log("startPush:", startPushResponse);
+  verbose && console.log("startPush:");
+  verbose && console.dir(startPushResponse, { depth: null });
 
   changeSpinner(ctx, "Finalizing code generation...");
   await withTmpDir(async (tmpDir) => {
