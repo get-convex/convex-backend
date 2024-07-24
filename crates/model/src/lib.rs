@@ -66,9 +66,7 @@ use database::{
     VirtualTablesTable,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
 };
-use file_storage::FILE_STORAGE_VIRTUAL_TABLE;
 use keybroker::Identity;
-use scheduled_jobs::SCHEDULED_JOBS_VIRTUAL_TABLE;
 use strum::IntoEnumIterator;
 pub use value::METADATA_PREFIX;
 use value::{
@@ -132,17 +130,15 @@ enum DefaultTableNumber {
     SourcePackages = 12,
     EnvironmentVariables = 13,
     DeploymentAuditLogs = 15,
-    FileStorage = 16,
     SessionRequests = 17,
-    ScheduledJobs = 18,
     CronJobs = 19,
     Schemas = 20,
     CronJobLogs = 21,
     BackendState = 24,
     ExternalPackages = 25,
     VirtualTables = 26,
-    ScheduledJobsVirtual = 27,
-    FileStorageVirtual = 28,
+    ScheduledJobs = 27,
+    FileStorage = 28,
     SnapshotImports = 29,
     IndexWorkerMetadata = 30,
     ComponentDefinitionsTable = 31,
@@ -160,35 +156,32 @@ impl From<DefaultTableNumber> for TableNumber {
     }
 }
 
-impl From<DefaultTableNumber> for TableName {
+impl From<DefaultTableNumber> for &'static dyn SystemTable {
     fn from(value: DefaultTableNumber) -> Self {
         match value {
-            DefaultTableNumber::Tables => TablesTable.table_name(),
-            DefaultTableNumber::Index => IndexTable.table_name(),
-            DefaultTableNumber::Exports => ExportsTable.table_name(),
-            DefaultTableNumber::UdfConfig => UdfConfigTable.table_name(),
-            DefaultTableNumber::Auth => AuthTable.table_name(),
-            DefaultTableNumber::Modules => ModulesTable.table_name(),
-            DefaultTableNumber::SourcePackages => SourcePackagesTable.table_name(),
-            DefaultTableNumber::EnvironmentVariables => EnvironmentVariablesTable.table_name(),
-            DefaultTableNumber::DeploymentAuditLogs => DeploymentAuditLogsTable.table_name(),
-            DefaultTableNumber::FileStorage => FileStorageTable.table_name(),
-            DefaultTableNumber::SessionRequests => SessionRequestsTable.table_name(),
-            DefaultTableNumber::ScheduledJobs => ScheduledJobsTable.table_name(),
-            DefaultTableNumber::CronJobs => CronJobsTable.table_name(),
-            DefaultTableNumber::Schemas => SchemasTable.table_name(),
-            DefaultTableNumber::CronJobLogs => CronJobLogsTable.table_name(),
-            DefaultTableNumber::BackendState => BackendStateTable.table_name(),
-            DefaultTableNumber::ExternalPackages => ExternalPackagesTable.table_name(),
-            DefaultTableNumber::VirtualTables => VirtualTablesTable.table_name(),
-            DefaultTableNumber::ScheduledJobsVirtual => &*SCHEDULED_JOBS_VIRTUAL_TABLE,
-            DefaultTableNumber::FileStorageVirtual => &*FILE_STORAGE_VIRTUAL_TABLE,
-            DefaultTableNumber::SnapshotImports => SnapshotImportsTable.table_name(),
-            DefaultTableNumber::IndexWorkerMetadata => IndexWorkerMetadataTable.table_name(),
-            DefaultTableNumber::ComponentDefinitionsTable => ComponentDefinitionsTable.table_name(),
-            DefaultTableNumber::ComponentsTable => ComponentsTable.table_name(),
+            DefaultTableNumber::Tables => &TablesTable,
+            DefaultTableNumber::Index => &IndexTable,
+            DefaultTableNumber::Exports => &ExportsTable,
+            DefaultTableNumber::UdfConfig => &UdfConfigTable,
+            DefaultTableNumber::Auth => &AuthTable,
+            DefaultTableNumber::Modules => &ModulesTable,
+            DefaultTableNumber::SourcePackages => &SourcePackagesTable,
+            DefaultTableNumber::EnvironmentVariables => &EnvironmentVariablesTable,
+            DefaultTableNumber::DeploymentAuditLogs => &DeploymentAuditLogsTable,
+            DefaultTableNumber::SessionRequests => &SessionRequestsTable,
+            DefaultTableNumber::CronJobs => &CronJobsTable,
+            DefaultTableNumber::Schemas => &SchemasTable,
+            DefaultTableNumber::CronJobLogs => &CronJobLogsTable,
+            DefaultTableNumber::BackendState => &BackendStateTable,
+            DefaultTableNumber::ExternalPackages => &ExternalPackagesTable,
+            DefaultTableNumber::VirtualTables => &VirtualTablesTable,
+            DefaultTableNumber::ScheduledJobs => &ScheduledJobsTable,
+            DefaultTableNumber::FileStorage => &FileStorageTable,
+            DefaultTableNumber::SnapshotImports => &SnapshotImportsTable,
+            DefaultTableNumber::IndexWorkerMetadata => &IndexWorkerMetadataTable,
+            DefaultTableNumber::ComponentDefinitionsTable => &ComponentDefinitionsTable,
+            DefaultTableNumber::ComponentsTable => &ComponentsTable,
         }
-        .clone()
     }
 }
 
@@ -196,7 +189,15 @@ pub static DEFAULT_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNumber>> =
     LazyLock::new(|| {
         let mut default_table_numbers = BTreeMap::new();
         for default_table_number in DefaultTableNumber::iter() {
-            default_table_numbers.insert(default_table_number.into(), default_table_number.into());
+            let system_table: &'static dyn SystemTable = default_table_number.into();
+            default_table_numbers.insert(
+                system_table.table_name().clone(),
+                default_table_number.into(),
+            );
+            if let Some((virtual_table_name, ..)) = system_table.virtual_table() {
+                default_table_numbers
+                    .insert(virtual_table_name.clone(), default_table_number.into());
+            }
         }
         default_table_numbers
     });

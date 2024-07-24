@@ -113,11 +113,14 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
             "table" => "_file_storage",
         )).await?);
 
-        // Virtual table name and physical table number doesn't work.
-        must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
+        // Virtual table name and physical table number does work,
+        // because the table numbers are the same.
+        assert_eq!(storage_table_number, storage_virtual_table_number);
+        must_let!(let ConvexValue::String(normalized_id) = t.query("idStrings:normalizeSystemId", assert_obj!(
             "id" => DeveloperDocumentId::new(storage_table_number, internal_id).encode(),
             "table" => "_storage",
         )).await?);
+        assert_eq!(normalized_id.to_string(), id_v6.encode());
 
         // Physical table name and physical table number doesn't work.
         must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(
