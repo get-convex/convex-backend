@@ -1,6 +1,6 @@
 ---
-name: Convex Setup Guide
-title: Convex Connector Setup Guide
+name: Convex Database Connector Setup Guide
+title: Convex Database Connector Setup Guide
 description: Read step-by-step instructions on how to connect your Convex deployment with your destination using Fivetran connectors.
 menuPosition: 0
 ---
@@ -10,6 +10,8 @@ menuPosition: 0
 # Convex Setup Guide {% typeBadge connector="convex" /%} {% availabilityBadge connector="convex" /%}
 
 ​ Follow our setup guide to connect Convex to Fivetran. ​
+
+Note that Convex can also be set up as a [destination](/docs/destinations/convex)
 
 ---
 
@@ -58,6 +60,7 @@ Fivetran performs the following tests to ensure that we can connect to your Conv
 ## Related articles
 
 ​
-[<i aria-hidden="true" class="material-icons">description</i> Connector Overview](/docs/databases/convex)
+[<i aria-hidden="true" class="material-icons">description</i> Source Connector Overview](/docs/databases/convex)
+[<i aria-hidden="true" class="material-icons">description</i> Destination Connector Overview](/docs/destinations/convex_destination)
 ​ <b> </b> ​
 [<i aria-hidden="true" class="material-icons">home</i> Documentation Home](/docs/getting-started)

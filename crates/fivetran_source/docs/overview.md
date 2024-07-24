@@ -1,13 +1,15 @@
 ---
 name: Convex
-title: Convex connector for Fivetran
-description: Documentation and setup guide for the Convex connector for Fivetran
+title: Convex source connector for Fivetran
+description: Documentation and setup guide for the Convex source connector for Fivetran
 ---
 
 # Convex {% typeBadge connector="convex" /%} {% availabilityBadge connector="convex" /%}
 
-[Convex](https://convex.dev) is a full-stack TypeScript development platform.
-Replace your database, server functions, and glue code.
+[Convex](https://convex.dev) is the open-source backend for application builders.
+An all-in-one platform with thoughtful, product-centric APIs.
+
+Note that Convex can also be set up as a [destination](/docs/destinations/convex_destination)
 
 ---
 
