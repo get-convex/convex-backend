@@ -43,6 +43,7 @@ use value::{
 };
 
 use super::{
+    handles::FunctionHandlesModel,
     type_checking::CheckedComponent,
     types::EvaluatedComponentDefinition,
 };
@@ -535,6 +536,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let cron_diff = CronModel::new(self.tx, component_id)
             .apply(&modules.analyze_results)
             .await?;
+        FunctionHandlesModel::new(self.tx)
+            .apply_config_diff(component_id, Some(&modules.analyze_results))
+            .await?;
 
         Ok((
             id,
@@ -585,6 +589,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let cron_diff = CronModel::new(self.tx, component_id)
             .apply(&modules.analyze_results)
             .await?;
+        FunctionHandlesModel::new(self.tx)
+            .apply_config_diff(component_id, Some(&modules.analyze_results))
+            .await?;
 
         Ok((
             existing.id().into(),
@@ -615,6 +622,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .await?;
         let cron_diff = CronModel::new(self.tx, component_id)
             .apply(&BTreeMap::new())
+            .await?;
+        FunctionHandlesModel::new(self.tx)
+            .apply_config_diff(component_id, None)
             .await?;
         Ok((
             existing.id().into(),

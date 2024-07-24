@@ -1,4 +1,7 @@
-use std::sync::LazyLock;
+use std::{
+    collections::BTreeMap,
+    sync::LazyLock,
+};
 
 use common::{
     bootstrap_model::components::handles::{
@@ -30,10 +33,14 @@ use database::{
     },
     BootstrapComponentsModel,
     ResolvedQuery,
+    SystemMetadataModel,
     Transaction,
 };
 use errors::ErrorMetadata;
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    CanonicalizedModulePath,
+    CanonicalizedUdfPath,
+};
 use value::{
     ConvexValue,
     DeveloperDocumentId,
@@ -41,6 +48,8 @@ use value::{
     TableName,
     TableNamespace,
 };
+
+use crate::modules::module_versions::AnalyzedModule;
 
 pub static FUNCTION_HANDLES_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_function_handles"
@@ -156,5 +165,75 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
             anyhow::bail!(not_found())
         }
         Ok(FunctionHandle::new(document.developer_id()))
+    }
+
+    pub async fn apply_config_diff(
+        &mut self,
+        component: ComponentId,
+        // Set to `None` if we're deleting the component.
+        new_analyze_results: Option<&BTreeMap<CanonicalizedModulePath, AnalyzedModule>>,
+    ) -> anyhow::Result<()> {
+        let serialized_component = match component.serialize_to_string() {
+            Some(s) => ConvexValue::String(s.try_into()?),
+            None => ConvexValue::Null,
+        };
+        let index_query = Query::index_range(IndexRange {
+            index_name: BY_COMPONENT_PATH_INDEX.clone(),
+            range: vec![IndexRangeExpression::Eq(
+                COMPONENT_FIELD.clone(),
+                serialized_component.into(),
+            )],
+            order: Order::Asc,
+        });
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
+
+        let mut existing_handles = BTreeMap::new();
+        while let Some(document) = query_stream.next(self.tx, None).await? {
+            let document: ParsedDocument<FunctionHandleMetadata> = document.try_into()?;
+            anyhow::ensure!(document.component == component);
+            anyhow::ensure!(existing_handles
+                .insert(document.path.clone(), document)
+                .is_none());
+        }
+
+        if let Some(new_analyze_results) = new_analyze_results {
+            for (module_path, analyzed_module) in new_analyze_results {
+                for function in &analyzed_module.functions {
+                    let udf_path =
+                        CanonicalizedUdfPath::new(module_path.clone(), function.name.clone());
+                    match existing_handles.remove(&udf_path) {
+                        Some(existing_handle) => {
+                            if existing_handle.deleted_ts.is_some() {
+                                let (id, mut metadata) = existing_handle.into_id_and_value();
+                                metadata.deleted_ts = None;
+                                SystemMetadataModel::new_global(self.tx)
+                                    .replace(id, metadata.try_into()?)
+                                    .await?;
+                            }
+                        },
+                        None => {
+                            let metadata = FunctionHandleMetadata {
+                                component,
+                                path: udf_path.clone(),
+                                deleted_ts: None,
+                            };
+                            SystemMetadataModel::new_global(self.tx)
+                                .insert(&FUNCTION_HANDLES_TABLE, metadata.try_into()?)
+                                .await?;
+                        },
+                    }
+                }
+            }
+        }
+
+        for (_, remaining_handle) in existing_handles {
+            let (id, mut metadata) = remaining_handle.into_id_and_value();
+            metadata.deleted_ts = Some(*self.tx.begin_timestamp());
+            SystemMetadataModel::new_global(self.tx)
+                .replace(id, metadata.try_into()?)
+                .await?;
+        }
+
+        Ok(())
     }
 }
