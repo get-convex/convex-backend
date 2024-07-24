@@ -736,6 +736,7 @@ impl TryFrom<ComponentDiff> for SerializedComponentDiff {
     }
 }
 
+#[derive(Clone)]
 pub struct SchemaChange {
     pub allocated_component_ids: BTreeMap<ComponentPath, DeveloperDocumentId>,
     pub schema_ids: BTreeMap<ComponentPath, Option<InternalDocumentId>>,

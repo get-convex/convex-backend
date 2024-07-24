@@ -1,20 +1,41 @@
-use common::types::NodeDependency;
+use std::collections::BTreeMap;
+
+use common::{
+    auth::AuthInfo,
+    components::{
+        ComponentDefinitionPath,
+        ComponentPath,
+    },
+    types::NodeDependency,
+};
 use errors::ErrorMetadata;
 use model::{
-    components::types::{
-        AppDefinitionConfig,
-        ComponentDefinitionConfig,
-        ProjectConfig,
+    auth::types::AuthDiff,
+    components::{
+        config::{
+            ComponentDefinitionDiff,
+            ComponentDiff,
+            SchemaChange,
+        },
+        type_checking::CheckedComponent,
+        types::{
+            AppDefinitionConfig,
+            ComponentDefinitionConfig,
+            EvaluatedComponentDefinition,
+            ProjectConfig,
+        },
     },
     config::types::{
         deprecated_extract_environment_from_path,
         ConfigMetadata,
         ModuleConfig,
     },
+    external_packages::types::ExternalDepsPackageId,
     modules::module_versions::{
         ModuleSource,
         SourceMap,
     },
+    source_packages::types::SourcePackage,
 };
 use serde::{
     Deserialize,
@@ -56,6 +77,18 @@ impl StartPushRequest {
                 .collect(),
         })
     }
+}
+
+pub struct StartPushResponse {
+    pub external_deps_id: Option<ExternalDepsPackageId>,
+    pub component_definition_packages: BTreeMap<ComponentDefinitionPath, SourcePackage>,
+
+    pub app_auth: Vec<AuthInfo>,
+    pub analysis: BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+
+    pub app: CheckedComponent,
+
+    pub schema_change: SchemaChange,
 }
 
 impl From<NodeDependencyJson> for NodeDependency {
@@ -200,4 +233,10 @@ pub fn parse_module_path(path: &str) -> anyhow::Result<ModulePath> {
 pub struct NodeDependencyJson {
     name: String,
     version: String,
+}
+
+pub struct FinishPushDiff {
+    pub auth_diff: AuthDiff,
+    pub definition_diffs: BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,
+    pub component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
 }

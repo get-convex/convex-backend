@@ -29,6 +29,7 @@ use bytes::Bytes;
 use common::{
     auth::AuthInfo,
     bootstrap_model::{
+        components::definition::ComponentDefinitionMetadata,
         index::{
             database_index::IndexedFields,
             index_validation_error,
@@ -37,6 +38,8 @@ use common::{
         schema::{
             invalid_schema_id,
             parse_schema_id,
+            SchemaMetadata,
+            SchemaState,
         },
     },
     components::{
@@ -97,6 +100,7 @@ use common::{
 use cron_jobs::CronJobExecutor;
 use database::{
     unauthorized_error,
+    BootstrapComponentsModel,
     Database,
     DocumentDeltas,
     FastForwardIndexWorker,
@@ -113,6 +117,11 @@ use database::{
     Token,
     Transaction,
     WriteSource,
+};
+use deploy_config::{
+    FinishPushDiff,
+    StartPushRequest,
+    StartPushResponse,
 };
 use errors::{
     ErrorMetadata,
@@ -165,6 +174,19 @@ use minitrace::{
 };
 use model::{
     auth::AuthInfoModel,
+    components::{
+        config::{
+            ComponentConfigModel,
+            ComponentDefinitionConfigModel,
+            SchemaChange,
+        },
+        file_based_routing::add_file_based_routing,
+        type_checking::TypecheckContext,
+        types::{
+            EvaluatedComponentDefinition,
+            ProjectConfig,
+        },
+    },
     config::{
         module_loader::ModuleLoader,
         types::{
@@ -217,8 +239,14 @@ use model::{
         ImportMode,
     },
     source_packages::{
-        types::SourcePackage,
-        upload_download::upload_package,
+        types::{
+            PackageSize,
+            SourcePackage,
+        },
+        upload_download::{
+            download_package,
+            upload_package,
+        },
         SourcePackageModel,
     },
     udf_config::{
@@ -330,6 +358,9 @@ use crate::metrics::{
     log_external_deps_package,
     log_source_package_size_bytes_total,
 };
+
+// The maximum number of user defined modules
+pub const MAX_USER_MODULES: usize = 10000;
 
 pub struct ConfigMetadataAndSchema {
     pub config_metadata: ConfigMetadata,
@@ -1777,6 +1808,446 @@ impl<RT: Runtime> Application<RT> {
             },
             vec![DeploymentAuditLogEvent::PushConfig { config_diff }],
         ))
+    }
+
+    pub async fn start_push(&self, request: StartPushRequest) -> anyhow::Result<StartPushResponse> {
+        let unix_timestamp = self.runtime.unix_timestamp();
+        let dry_run = request.dry_run;
+        let config = request
+            .into_project_config()
+            .map_err(|e| ErrorMetadata::bad_request("InvalidConfig", e.to_string()))?;
+
+        let (external_deps_id, component_definition_packages) =
+            self.upload_packages(&config).await?;
+
+        let app_udf_config = UdfConfig {
+            server_version: config.app_definition.udf_server_version.clone(),
+            import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
+            import_phase_unix_timestamp: unix_timestamp,
+        };
+        let app_pkg = component_definition_packages
+            .get(&ComponentDefinitionPath::root())
+            .context("No package for app?")?;
+        let mut app_analysis = self
+            .analyze_modules(
+                app_udf_config.clone(),
+                config.app_definition.functions.clone(),
+                app_pkg.clone(),
+            )
+            .await?;
+
+        // Evaluate auth and add in an empty `auth.config.js` to the analysis.
+        let identity = Identity::system();
+        let auth_info = {
+            let mut tx = self.begin(identity.clone()).await?;
+            let auth_info = Application::get_evaluated_auth_config(
+                self.runner(),
+                &mut tx,
+                config.app_definition.auth.clone(),
+                &ConfigFile {
+                    functions: config.config.functions.clone(),
+                    auth_info: if config.config.auth_info.is_empty() {
+                        None
+                    } else {
+                        Some(config.config.auth_info.clone())
+                    },
+                },
+            )
+            .await?;
+            // TODO: Fold in our reads here into the hash.
+            tx.into_token()?;
+            auth_info
+        };
+        if let Some(auth_module) = &config.app_definition.auth {
+            app_analysis.insert(
+                auth_module.path.clone().canonicalize(),
+                AnalyzedModule::default(),
+            );
+        }
+
+        let evaluated_components = self
+            .evaluate_components(
+                &config,
+                &component_definition_packages,
+                app_analysis,
+                app_udf_config,
+                unix_timestamp,
+            )
+            .await?;
+        // Build and typecheck the component tree. We don't strictly need to do this
+        // before `/finish_push`, but it's better to fail fast here on errors before
+        // waiting for schema backfills to complete.
+        let ctx = TypecheckContext::new(&evaluated_components);
+        let app = ctx
+            .instantiate_root()
+            .map_err(|e| ErrorMetadata::bad_request("TypecheckError", e.to_string()))?;
+
+        let schema_change = {
+            let mut tx = self.begin(identity.clone()).await?;
+            let schema_change = ComponentConfigModel::new(&mut tx)
+                .start_component_schema_changes(&app, &evaluated_components)
+                .await?;
+            if !dry_run {
+                self.commit(tx, WriteSource::new("start_push")).await?;
+            }
+            schema_change
+        };
+        let resp = StartPushResponse {
+            external_deps_id,
+            component_definition_packages,
+            app_auth: auth_info,
+            analysis: evaluated_components,
+            app,
+            schema_change,
+        };
+        Ok(resp)
+    }
+
+    async fn upload_packages(
+        &self,
+        config: &ProjectConfig,
+    ) -> anyhow::Result<(
+        Option<ExternalDepsPackageId>,
+        BTreeMap<ComponentDefinitionPath, SourcePackage>,
+    )> {
+        let external_deps_id_and_pkg = if !config.node_dependencies.is_empty() {
+            let deps = self
+                .build_external_node_deps(config.node_dependencies.clone())
+                .await?;
+            Some(deps)
+        } else {
+            None
+        };
+
+        let mut total_size = external_deps_id_and_pkg
+            .as_ref()
+            .map(|(_, pkg)| pkg.package_size)
+            .unwrap_or(PackageSize::default());
+        let mut component_definition_packages = BTreeMap::new();
+
+        let app_modules = config.app_definition.modules().cloned().collect();
+        let app_pkg = self
+            .upload_package(&app_modules, external_deps_id_and_pkg.clone())
+            .await?;
+        total_size += app_pkg.package_size;
+        component_definition_packages.insert(ComponentDefinitionPath::root(), app_pkg);
+
+        for component_def in &config.component_definitions {
+            let component_modules = component_def.modules().cloned().collect();
+            let component_pkg = self.upload_package(&component_modules, None).await?;
+            total_size += component_pkg.package_size;
+            anyhow::ensure!(component_definition_packages
+                .insert(component_def.definition_path.clone(), component_pkg)
+                .is_none());
+        }
+        total_size.verify_size()?;
+        let external_deps_id = external_deps_id_and_pkg.map(|(id, _)| id);
+        Ok((external_deps_id, component_definition_packages))
+    }
+
+    async fn evaluate_components(
+        &self,
+        config: &ProjectConfig,
+        component_definition_packages: &BTreeMap<ComponentDefinitionPath, SourcePackage>,
+        app_analysis: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+        app_udf_config: UdfConfig,
+        unix_timestamp: UnixTimestamp,
+    ) -> anyhow::Result<BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>> {
+        let mut app_schema = None;
+        if let Some(schema_module) = &config.app_definition.schema {
+            app_schema = Some(self.evaluate_schema(schema_module.clone()).await?);
+        }
+
+        let mut component_analysis_by_def_path = BTreeMap::new();
+        let mut component_schema_by_def_path = BTreeMap::new();
+        let mut component_udf_config_by_def_path = BTreeMap::new();
+
+        for component_def in &config.component_definitions {
+            let udf_config = UdfConfig {
+                server_version: component_def.udf_server_version.clone(),
+                import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
+                import_phase_unix_timestamp: unix_timestamp,
+            };
+            component_udf_config_by_def_path
+                .insert(component_def.definition_path.clone(), udf_config.clone());
+
+            let component_pkg = component_definition_packages
+                .get(&component_def.definition_path)
+                .context("No package for component?")?;
+            let component_analysis = self
+                .analyze_modules(
+                    udf_config.clone(),
+                    component_def.functions.clone(),
+                    component_pkg.clone(),
+                )
+                .await?;
+            anyhow::ensure!(component_analysis_by_def_path
+                .insert(component_def.definition_path.clone(), component_analysis)
+                .is_none());
+
+            if let Some(schema_module) = &component_def.schema {
+                let schema = self.evaluate_schema(schema_module.clone()).await?;
+                anyhow::ensure!(component_schema_by_def_path
+                    .insert(component_def.definition_path.clone(), schema)
+                    .is_none());
+            }
+        }
+
+        let mut evaluated_definitions = BTreeMap::new();
+
+        if let Some(ref app_definition) = config.app_definition.definition {
+            let mut dependency_graph = BTreeSet::new();
+            let mut component_definitions = BTreeMap::new();
+
+            for dep in &config.app_definition.dependencies {
+                dependency_graph.insert((ComponentDefinitionPath::root(), dep.clone()));
+            }
+
+            for component_def in &config.component_definitions {
+                anyhow::ensure!(!component_def.definition_path.is_root());
+                component_definitions.insert(
+                    component_def.definition_path.clone(),
+                    component_def.definition.clone(),
+                );
+                for dep in &component_def.dependencies {
+                    dependency_graph.insert((component_def.definition_path.clone(), dep.clone()));
+                }
+            }
+
+            evaluated_definitions = self
+                .evaluate_app_definitions(
+                    app_definition.clone(),
+                    component_definitions,
+                    dependency_graph,
+                )
+                .await?;
+        } else {
+            evaluated_definitions.insert(
+                ComponentDefinitionPath::root(),
+                ComponentDefinitionMetadata::default_root(),
+            );
+        }
+
+        let mut evaluated_components = BTreeMap::new();
+        evaluated_components.insert(
+            ComponentDefinitionPath::root(),
+            EvaluatedComponentDefinition {
+                definition: evaluated_definitions[&ComponentDefinitionPath::root()].clone(),
+                schema: app_schema.clone(),
+                functions: app_analysis.clone(),
+                udf_config: app_udf_config.clone(),
+            },
+        );
+        for (path, definition) in &evaluated_definitions {
+            if path.is_root() {
+                continue;
+            }
+            evaluated_components.insert(
+                path.clone(),
+                EvaluatedComponentDefinition {
+                    definition: definition.clone(),
+                    schema: component_schema_by_def_path.get(path).cloned(),
+                    functions: component_analysis_by_def_path
+                        .get(path)
+                        .context("Missing analysis for component?")?
+                        .clone(),
+                    udf_config: component_udf_config_by_def_path
+                        .get(path)
+                        .context("Missing UDF config for component?")?
+                        .clone(),
+                },
+            );
+        }
+
+        // Add in file-based routing.
+        for definition in evaluated_components.values_mut() {
+            add_file_based_routing(definition)?;
+        }
+        Ok(evaluated_components)
+    }
+
+    // Helper method to call analyze and throw appropriate HttpError.
+    pub async fn analyze_modules(
+        &self,
+        udf_config: UdfConfig,
+        modules: Vec<ModuleConfig>,
+        source_package: SourcePackage,
+    ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>> {
+        let num_dep_modules = modules.iter().filter(|m| m.path.is_deps()).count();
+        anyhow::ensure!(
+            modules.len() - num_dep_modules <= MAX_USER_MODULES,
+            ErrorMetadata::bad_request(
+                "InvalidModules",
+                format!(
+                    r#"Too many function files ({} > maximum {}) in "convex/". See our docs (https://docs.convex.dev/using/writing-convex-functions#using-libraries) for more details."#,
+                    modules.len() - num_dep_modules,
+                    MAX_USER_MODULES
+                ),
+            )
+        );
+        // We exclude dependency modules from the user limit since they don't depend on
+        // the developer. We don't expect dependencies to be more than the user defined
+        // modules though. If we ever have crazy amount of dependency modules,
+        // throw a system errors so we can debug.
+        anyhow::ensure!(
+            modules.len() <= 2 * MAX_USER_MODULES,
+            "Too many dependencies modules! Dependencies: {}, Total modules: {}",
+            num_dep_modules,
+            modules.len()
+        );
+
+        // Run analyze the modules to make sure they are valid.
+        match self.analyze(udf_config, modules, source_package).await? {
+            Ok(m) => Ok(m),
+            Err(js_error) => {
+                let e = ErrorMetadata::bad_request(
+                    "InvalidModules",
+                    format!(
+                        "Loading the pushed modules encountered the following
+    error:\n{js_error}"
+                    ),
+                );
+                Err(anyhow::anyhow!(js_error).context(e))
+            },
+        }
+    }
+
+    pub async fn wait_for_schema(
+        &self,
+        identity: Identity,
+        schema_change: SchemaChange,
+    ) -> anyhow::Result<()> {
+        loop {
+            let mut tx = self.begin(identity.clone()).await?;
+            let mut waiting = BTreeSet::new();
+
+            for (component_path, schema_id) in &schema_change.schema_ids {
+                let Some(schema_id) = schema_id else {
+                    continue;
+                };
+                let schema_table_number = tx.table_mapping().tablet_number(schema_id.table())?;
+                let schema_id = ResolvedDocumentId::new(
+                    schema_id.table(),
+                    DeveloperDocumentId::new(schema_table_number, schema_id.internal_id()),
+                );
+                let document = tx
+                    .get(schema_id)
+                    .await?
+                    .context("Missing schema document")?;
+                let SchemaMetadata { state, .. } = document.into_value().0.try_into()?;
+                let is_pending = match state {
+                    SchemaState::Pending => true,
+                    SchemaState::Active | SchemaState::Validated => false,
+                    SchemaState::Failed { error, table_name } => {
+                        let msg = match table_name {
+                            Some(t) => format!("Schema for table `{t}` failed: {error}"),
+                            None => format!("Schema failed: {error}"),
+                        };
+                        anyhow::bail!(ErrorMetadata::bad_request("SchemaFailed", msg))
+                    },
+                    SchemaState::Overwritten => anyhow::bail!(ErrorMetadata::bad_request(
+                        "RaceDetected",
+                        "Push aborted since another push has been started."
+                    )),
+                };
+                if is_pending {
+                    waiting.insert(component_path.clone());
+                }
+
+                let component_id = if component_path.is_root() {
+                    ComponentId::Root
+                } else {
+                    let existing = BootstrapComponentsModel::new(&mut tx)
+                        .resolve_path(component_path.clone())
+                        .await?;
+                    let allocated = schema_change.allocated_component_ids.get(component_path);
+                    let internal_id = match (existing, allocated) {
+                        (None, Some(id)) => *id,
+                        (Some(doc), None) => doc.id().into(),
+                        r => anyhow::bail!("Invalid existing component state: {r:?}"),
+                    };
+                    ComponentId::Child(internal_id)
+                };
+                let namespace = TableNamespace::from(component_id);
+                for index in IndexModel::new(&mut tx)
+                    .get_application_indexes(namespace)
+                    .await?
+                {
+                    if index.config.is_backfilling() {
+                        waiting.insert(component_path.clone());
+                    }
+                }
+            }
+
+            if waiting.is_empty() {
+                break;
+            }
+
+            tracing::info!("Waiting for schema changes to complete for {waiting:?}...");
+
+            let token = tx.into_token()?;
+            let subscription = self.subscribe(token).await?;
+            subscription.wait_for_invalidation().await;
+        }
+        Ok(())
+    }
+
+    pub async fn finish_push(
+        &self,
+        start_push: StartPushResponse,
+        dry_run: bool,
+    ) -> anyhow::Result<FinishPushDiff> {
+        // Download all source packages. We can remove this once we don't store source
+        // in the database.
+        let mut downloaded_source_packages = BTreeMap::new();
+        for (definition_path, source_package) in &start_push.component_definition_packages {
+            let package = download_package(
+                self.modules_storage().clone(),
+                source_package.storage_key.clone(),
+                source_package.sha256.clone(),
+            )
+            .await?;
+            downloaded_source_packages.insert(definition_path.clone(), package);
+        }
+
+        // TODO: We require system identity for creating system tables.
+        let mut tx = self.begin(Identity::system()).await?;
+
+        // Update app state: auth info and UDF server version.
+        let auth_diff = AuthInfoModel::new(&mut tx).put(start_push.app_auth).await?;
+
+        // Diff the component definitions.
+        let (definition_diffs, modules_by_definition, udf_config_by_definition) =
+            ComponentDefinitionConfigModel::new(&mut tx)
+                .apply_component_definitions_diff(
+                    &start_push.analysis,
+                    &start_push.component_definition_packages,
+                    &downloaded_source_packages,
+                )
+                .await?;
+
+        // Diff component tree.
+        let component_diffs = ComponentConfigModel::new(&mut tx)
+            .apply_component_tree_diff(
+                &start_push.app,
+                udf_config_by_definition,
+                &start_push.schema_change,
+                modules_by_definition,
+            )
+            .await?;
+
+        if !dry_run {
+            self.commit(tx, WriteSource::new("finish_push")).await?;
+        } else {
+            drop(tx);
+        }
+
+        let diff = FinishPushDiff {
+            auth_diff,
+            definition_diffs,
+            component_diffs,
+        };
+        Ok(diff)
     }
 
     pub async fn start_upload_for_snapshot_import(

@@ -57,7 +57,10 @@ use model::{
     },
     udf_config::types::UdfConfig,
 };
-use runtime::testing::TestRuntime;
+use runtime::{
+    prod::ProdRuntime,
+    testing::TestRuntime,
+};
 use semver::Version;
 use serde_json::json;
 use value::ConvexValue;
@@ -225,8 +228,8 @@ bar.invokeAction = async (requestId, argsStr) => {
     Ok(())
 }
 
-#[convex_macro::test_runtime]
-async fn test_start_push_request(rt: TestRuntime) -> anyhow::Result<()> {
+#[convex_macro::prod_rt_test]
+async fn test_load_with_components(rt: ProdRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules_with_components().await?;
     Ok(())

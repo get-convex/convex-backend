@@ -6,10 +6,7 @@ use std::{
     },
 };
 
-use anyhow::{
-    anyhow,
-    Context,
-};
+use anyhow::Context;
 use application::{
     deploy_config::{
         ModuleJson,
@@ -76,9 +73,6 @@ use crate::{
     EmptyResponse,
     LocalAppState,
 };
-
-// The maximum number of user defined modules
-pub const MAX_USER_MODULES: usize = 10000;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -417,8 +411,9 @@ pub async fn analyze_modules_with_auth_config(
         });
     let auth_module = auth_modules.first();
 
-    let mut analyze_result =
-        analyze_modules(application, udf_config, analyzed_modules, source_package).await?;
+    let mut analyze_result = application
+        .analyze_modules(udf_config, analyzed_modules, source_package)
+        .await?;
 
     // Add an empty analyzed result for the auth config module
     if let Some(auth_module) = auth_module {
@@ -428,53 +423,4 @@ pub async fn analyze_modules_with_auth_config(
         );
     }
     Ok((auth_module.cloned(), analyze_result))
-}
-
-// Helper method to call analyze and throw appropriate HttpError.
-pub async fn analyze_modules(
-    application: &Application<ProdRuntime>,
-    udf_config: UdfConfig,
-    modules: Vec<ModuleConfig>,
-    source_package: SourcePackage,
-) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>> {
-    let num_dep_modules = modules.iter().filter(|m| m.path.is_deps()).count();
-    anyhow::ensure!(
-        modules.len() - num_dep_modules <= MAX_USER_MODULES,
-        ErrorMetadata::bad_request(
-            "InvalidModules",
-            format!(
-                r#"Too many function files ({} > maximum {}) in "convex/". See our docs (https://docs.convex.dev/using/writing-convex-functions#using-libraries) for more details."#,
-                modules.len() - num_dep_modules,
-                MAX_USER_MODULES
-            ),
-        )
-    );
-    // We exclude dependency modules from the user limit since they don't depend on
-    // the developer. We don't expect dependencies to be more than the user defined
-    // modules though. If we ever have crazy amount of dependency modules,
-    // throw a system errors so we can debug.
-    anyhow::ensure!(
-        modules.len() <= 2 * MAX_USER_MODULES,
-        "Too many dependencies modules! Dependencies: {}, Total modules: {}",
-        num_dep_modules,
-        modules.len()
-    );
-
-    // Run analyze the modules to make sure they are valid.
-    match application
-        .analyze(udf_config, modules, source_package)
-        .await?
-    {
-        Ok(m) => Ok(m),
-        Err(js_error) => {
-            let e = ErrorMetadata::bad_request(
-                "InvalidModules",
-                format!(
-                    "Loading the pushed modules encountered the following
-    error:\n{js_error}"
-                ),
-            );
-            Err(anyhow!(js_error).context(e))
-        },
-    }
 }

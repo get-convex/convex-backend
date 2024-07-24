@@ -315,7 +315,11 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 
     /// WIP(emma): This isn't fully implemented yet.
     async fn load_udf_tests_modules_with_components(&self) -> anyhow::Result<()> {
-        let _start_push_request = Self::load_start_push_request()?;
+        let request = Self::load_start_push_request()?;
+        let start_push = self.start_push(request).await?;
+        self.wait_for_schema(Identity::system(), start_push.schema_change.clone())
+            .await?;
+        self.finish_push(start_push, false).await?;
         // TODO: Upload modules, set up components, rest of push logic
         Ok(())
     }

@@ -1,11 +1,19 @@
-use std::time::Duration;
+use std::{
+    collections::BTreeMap,
+    time::Duration,
+};
 
+use ::metrics::StatusTimer;
 use common::{
     backoff::Backoff,
     bootstrap_model::schema::SchemaState,
     errors::report_error,
     runtime::Runtime,
     schemas::DatabaseSchema,
+    types::{
+        IndexId,
+        RepeatableTimestamp,
+    },
 };
 use database::{
     Database,
@@ -26,6 +34,13 @@ use metrics::{
     log_document_validated,
     schema_validation_timer,
 };
+use value::{
+    NamespacedTableMapping,
+    NamespacedVirtualTableMapping,
+    ResolvedDocumentId,
+    TableNamespace,
+    TabletId,
+};
 
 use crate::metrics::log_worker_starting;
 
@@ -40,6 +55,18 @@ const MAX_COMMIT_FAILURES: u32 = 3;
 pub struct SchemaWorker<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
+}
+
+pub struct PendingSchemaWork {
+    namespace: TableNamespace,
+    id: ResolvedDocumentId,
+    timer: StatusTimer,
+    table_mapping: NamespacedTableMapping,
+    virtual_table_mapping: NamespacedVirtualTableMapping,
+    db_schema: DatabaseSchema,
+    ts: RepeatableTimestamp,
+    active_schema: Option<DatabaseSchema>,
+    by_id_indexes: BTreeMap<TabletId, IndexId>,
 }
 
 impl<RT: Runtime> SchemaWorker<RT> {
@@ -64,10 +91,9 @@ impl<RT: Runtime> SchemaWorker<RT> {
         }
     }
 
-    pub async fn run(&self) -> anyhow::Result<()> {
-        let status = log_worker_starting("SchemaWorker");
-        let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
-        let snapshot = self.database.snapshot(tx.begin_timestamp())?;
+    pub(crate) async fn pending_schema_work(
+        tx: &mut Transaction<RT>,
+    ) -> anyhow::Result<Vec<PendingSchemaWork>> {
         let mut pending_schema_work = Vec::new();
         let namespaces: Vec<_> = tx
             .table_mapping()
@@ -81,7 +107,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             })
             .collect();
         for namespace in namespaces {
-            if let Some((id, db_schema)) = SchemaModel::new(&mut tx, namespace)
+            if let Some((id, db_schema)) = SchemaModel::new(tx, namespace)
                 .get_by_state(SchemaState::Pending)
                 .await?
             {
@@ -90,13 +116,13 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 let table_mapping = tx.table_mapping().namespace(namespace);
                 let virtual_table_mapping = tx.virtual_table_mapping().namespace(namespace);
 
-                let active_schema = SchemaModel::new(&mut tx, namespace)
+                let active_schema = SchemaModel::new(tx, namespace)
                     .get_by_state(SchemaState::Active)
                     .await?
                     .map(|(_id, active_schema)| active_schema);
                 let ts = tx.begin_timestamp();
-                let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
-                pending_schema_work.push((
+                let by_id_indexes = IndexModel::new(tx).by_id_indexes().await?;
+                pending_schema_work.push(PendingSchemaWork {
                     namespace,
                     id,
                     timer,
@@ -106,12 +132,20 @@ impl<RT: Runtime> SchemaWorker<RT> {
                     ts,
                     active_schema,
                     by_id_indexes,
-                ));
+                });
             }
         }
+        Ok(pending_schema_work)
+    }
+
+    pub async fn run(&self) -> anyhow::Result<()> {
+        let status = log_worker_starting("SchemaWorker");
+        let mut tx: Transaction<RT> = self.database.begin(Identity::system()).await?;
+        let snapshot = self.database.snapshot(tx.begin_timestamp())?;
+        let pending_schema_work = SchemaWorker::pending_schema_work(&mut tx).await?;
         let token = tx.into_token()?;
 
-        for (
+        for PendingSchemaWork {
             namespace,
             id,
             timer,
@@ -121,7 +155,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             ts,
             active_schema,
             by_id_indexes,
-        ) in pending_schema_work
+        } in pending_schema_work
         {
             let tables_to_check = DatabaseSchema::tables_to_validate(
                 &db_schema,
