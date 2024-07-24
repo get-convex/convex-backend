@@ -89,7 +89,9 @@ use crate::{
     public_api::{
         public_action_post,
         public_function_post,
+        public_get_query_ts,
         public_mutation_post,
+        public_query_at_ts_post,
         public_query_batch_post,
         public_query_get,
         public_query_post,
@@ -215,6 +217,8 @@ pub fn public_api_routes() -> Router<RouterState> {
         .route("/sync", get(sync))
         .route("/query", get(public_query_get))
         .route("/query", post(public_query_post))
+        .route("/query_at_ts", post(public_query_at_ts_post))
+        .route("/query_ts", post(public_get_query_ts))
         .route("/query_batch", post(public_query_batch_post))
         .route("/mutation", post(public_mutation_post))
         .route("/action", post(public_action_post))

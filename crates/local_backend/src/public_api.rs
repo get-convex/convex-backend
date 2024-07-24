@@ -34,6 +34,7 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
+use sync_types::Timestamp;
 use value::{
     export::ValueFormat,
     ConvexValue,
@@ -53,6 +54,45 @@ pub struct UdfPostRequest {
     pub args: UdfArgsJson,
 
     pub format: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Ts {
+    pub ts: SerializedTs,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UdfPostWithTsRequest {
+    pub path: String,
+    pub args: UdfArgsJson,
+    pub ts: SerializedTs,
+
+    pub format: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SerializedTs(String);
+
+impl From<Timestamp> for SerializedTs {
+    fn from(ts: Timestamp) -> Self {
+        let n: u64 = ts.into();
+        let bytes = base64::encode(n.to_le_bytes());
+        SerializedTs(bytes)
+    }
+}
+impl TryFrom<SerializedTs> for Timestamp {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedTs) -> anyhow::Result<Self> {
+        let bytes = base64::decode(value.0)?;
+        let array: [u8; 8] = bytes
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Wrong number of bytes for SerializedTs."))?;
+        let n = u64::from_le_bytes(array);
+        Timestamp::try_from(n)
+    }
 }
 
 #[derive(Deserialize)]
@@ -290,6 +330,64 @@ pub async fn public_query_post(
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
+            journal,
+        )
+        .await?;
+    let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
+    let response = match query_return.result {
+        Ok(value) => UdfResponse::Success {
+            value: export_value(value, value_format, client_version)?,
+            log_lines: query_return.log_lines,
+        },
+        Err(error) => {
+            UdfResponse::error(error, query_return.log_lines, value_format, client_version)?
+        },
+    };
+    Ok(Json(response))
+}
+
+pub async fn public_get_query_ts(
+    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractRequestId(request_id): ExtractRequestId,
+    State(st): State<RouterState>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let ts = *(st.api.latest_timestamp(&host, request_id).await?);
+    Ok(Json(Ts { ts: ts.into() }))
+}
+
+#[minitrace::trace(properties = { "udf_type": "query"})]
+pub async fn public_query_at_ts_post(
+    State(st): State<RouterState>,
+    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractRequestId(request_id): ExtractRequestId,
+    ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
+    ExtractClientVersion(client_version): ExtractClientVersion,
+    Json(req): Json<UdfPostWithTsRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let udf_path = parse_udf_path(&req.path)?;
+    let journal = None;
+    // NOTE: We could coalesce authenticating and executing the query into one
+    // rpc but we keep things simple by reusing the same method as the sync worker.
+    // Round trip latency between Usher and Backend is much smaller than between
+    // client and Usher.
+    let identity = st
+        .api
+        .authenticate(&host, request_id.clone(), auth_token)
+        .await?;
+    let ts = Timestamp::try_from(req.ts)?;
+    let query_return = st
+        .api
+        .execute_public_query(
+            &host,
+            request_id,
+            identity,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path,
+            },
+            req.args.into_arg_vec(),
+            FunctionCaller::HttpApi(client_version.clone()),
+            ExecuteQueryTimestamp::At(ts),
             journal,
         )
         .await?;
