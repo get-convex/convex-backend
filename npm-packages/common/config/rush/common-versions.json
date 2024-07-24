@@ -61,6 +61,12 @@
      * - decorators
      * - const type parameters
      */
-    "typescript": ["5.0.4"]
+    "typescript": ["5.0.4"],
+    /**
+     * These are for private-demos/tanstack-start to closely match 
+     * https://github.com/TanStack/router
+     * specifically https://github.com/TanStack/router/blob/main/examples/react/start-basic-react-query/package.json
+     */
+    "@vitejs/plugin-react": ["^4.3.1"]
   }
 }
