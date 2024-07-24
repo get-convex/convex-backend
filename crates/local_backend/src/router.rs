@@ -35,6 +35,7 @@ use http::{
     StatusCode,
 };
 use isolate::HTTP_ACTION_BODY_LIMIT;
+use metrics::SERVER_VERSION_STR;
 use tower::ServiceBuilder;
 use tower_http::{
     cors::{
@@ -197,11 +198,13 @@ pub async fn router(st: LocalAppState) -> Router {
         });
 
     let instance_name = st.instance_name.clone();
+    let version = SERVER_VERSION_STR.to_string();
 
     Router::new()
         .nest("/api", api_routes)
         // /instance_name is used by the CLI and dashboard to check connectivity!
         .route("/instance_name", get(|| async move { instance_name }))
+        .route("/instance_version", get(|| async move { version }))
         .layer(cors().await)
         .with_state(st)
         .merge(migrated)
