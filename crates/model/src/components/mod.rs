@@ -1,5 +1,6 @@
 pub mod config;
 pub mod file_based_routing;
+pub mod handles;
 pub mod type_checking;
 pub mod types;
 

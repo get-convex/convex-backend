@@ -48,6 +48,7 @@ use common::{
     runtime::Runtime,
     types::TabletIndexName,
 };
+use components::handles::FunctionHandlesTable;
 pub use database::defaults::{
     SystemIndex,
     SystemTable,
@@ -143,9 +144,10 @@ enum DefaultTableNumber {
     IndexWorkerMetadata = 30,
     ComponentDefinitionsTable = 31,
     ComponentsTable = 32,
+    FunctionHandlesTable = 33,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 33 - lee
+    // Next Number - 34 - sujayakar
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -181,6 +183,7 @@ impl From<DefaultTableNumber> for &'static dyn SystemTable {
             DefaultTableNumber::IndexWorkerMetadata => &IndexWorkerMetadataTable,
             DefaultTableNumber::ComponentDefinitionsTable => &ComponentDefinitionsTable,
             DefaultTableNumber::ComponentsTable => &ComponentsTable,
+            DefaultTableNumber::FunctionHandlesTable => &FunctionHandlesTable,
         }
     }
 }
@@ -319,6 +322,7 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
         &BackendStateTable,
         &ExportsTable,
         &SnapshotImportsTable,
+        &FunctionHandlesTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables
