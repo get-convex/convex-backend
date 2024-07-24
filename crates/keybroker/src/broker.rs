@@ -664,6 +664,14 @@ impl KeyBroker {
         .unwrap()
     }
 
+    pub fn local_dev(instance_name: &str) -> Self {
+        Self::new(
+            instance_name,
+            InstanceSecret::try_from(crate::DEV_SECRET).unwrap(),
+        )
+        .unwrap()
+    }
+
     pub fn issue_admin_key(&self, member_id: MemberId) -> AdminKey {
         AdminKey::new(self.issue_key(Some(member_id), false))
     }
