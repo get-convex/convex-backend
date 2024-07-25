@@ -6,8 +6,7 @@ description: Documentation and setup guide for the Convex destination connector 
 
 # Convex {% typeBadge connector="convex_destination" /%} {% availabilityBadge connector="convex_destination" /%}
 
-[Convex](https://convex.dev) is the open-source backend for application builders.
-An all-in-one platform with thoughtful, product-centric APIs.
+[Convex](https://convex.dev) is an all-in-one backend platform with thoughtful, product-centric APIs for application builders.
 
 Note that Convex can also be set up as a [source](/docs/databases/convex)
 
@@ -23,7 +22,7 @@ Follow our [step-by-step Convex setup guide](/docs/destinations/convex_destinati
 
 Once Fivetran is connected to your Convex destination, the connector will attempt to sync your data.
 It may ask you to update your `convex/schema.ts` in your deployment to match the format of your source.
-Once the `convex/schema.ts` matches, data will continu to sync.
+Once the `convex/schema.ts` matches, data will continue to sync.
 
 ---
 
