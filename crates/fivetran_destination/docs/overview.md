@@ -6,8 +6,7 @@ description: Documentation and setup guide for the Convex destination connector 
 
 # Convex {% typeBadge connector="convex_destination" /%} {% availabilityBadge connector="convex_destination" /%}
 
-[Convex](https://convex.dev) is the open-source backend for application builders.
-An all-in-one platform with thoughtful, product-centric APIs.
+[Convex](https://convex.dev) is an all-in-one backend platform with thoughtful, product-centric APIs.
 
 Note that Convex can also be set up as a [source](/docs/databases/convex)
 
