@@ -767,6 +767,29 @@ impl<'c, 'a: 'c, 'b: 'c, T, F: Future<Output = T> + Send + 'c> From<F>
     }
 }
 
+pub struct StreamingExportTableFilter {
+    pub table_name: Option<TableName>,
+    pub namespace: Option<TableNamespace>,
+    pub include_hidden: bool,
+    pub include_system: bool,
+}
+
+impl Default for StreamingExportTableFilter {
+    fn default() -> Self {
+        Self {
+            table_name: None,
+            namespace: None,
+            // Allow snapshot imports to be streamed by default.
+            // Note this behavior is kind of odd for `--require-empty` imports
+            // because the rows are streamed before they are committed to Convex,
+            // and it's very strange for `--replace` imports because the imported
+            // rows are merged with existing rows.
+            include_hidden: true,
+            include_system: false,
+        }
+    }
+}
+
 impl<RT: Runtime> Database<RT> {
     pub async fn load(
         mut persistence: Arc<dyn Persistence>,
@@ -1538,15 +1561,36 @@ impl<RT: Runtime> Database<RT> {
         self.subscriptions.subscribe(token).await
     }
 
-    fn user_table_filter(table_filter: &Option<TableName>, table: &TableName) -> bool {
-        if table.is_system() {
+    fn streaming_export_table_filter(
+        table_filter: &StreamingExportTableFilter,
+        tablet_id: TabletId,
+        table_mapping: &TableMapping,
+    ) -> bool {
+        if !table_mapping.id_exists(tablet_id) {
+            // Always exclude deleted tablets.
             return false;
         }
-        if let Some(table_filter) = table_filter {
-            table_filter == table
-        } else {
-            true
+        if !table_filter.include_system && table_mapping.is_system_tablet(tablet_id) {
+            return false;
         }
+        if !table_filter.include_hidden && !table_mapping.is_active(tablet_id) {
+            return false;
+        }
+        if let Some(namespace_filter) = table_filter.namespace
+            && !table_mapping
+                .tablet_namespace(tablet_id)
+                .is_ok_and(|namespace| namespace == namespace_filter)
+        {
+            return false;
+        }
+        if let Some(table_name_filter) = &table_filter.table_name
+            && !table_mapping
+                .tablet_name(tablet_id)
+                .is_ok_and(|table_name| table_name == *table_name_filter)
+        {
+            return false;
+        }
+        true
     }
 
     #[minitrace::trace]
@@ -1554,7 +1598,7 @@ impl<RT: Runtime> Database<RT> {
         &self,
         identity: Identity,
         cursor: Option<Timestamp>,
-        table_filter: Option<TableName>,
+        filter: StreamingExportTableFilter,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<DocumentDeltas> {
@@ -1611,13 +1655,10 @@ impl<RT: Runtime> Database<RT> {
                 new_cursor = Some(ts);
             }
             // Skip deltas for system and non-selected tables.
-            let Ok(table_name) = table_mapping.tablet_name(id.table()) else {
-                // Ignore the row if it comes from a deleted table
-                continue;
-            };
-            let table_number = table_mapping.tablet_number(id.table())?;
-            let id = DeveloperDocumentId::new(table_number, id.internal_id());
-            if Self::user_table_filter(&table_filter, &table_name) {
+            if Self::streaming_export_table_filter(&filter, id.table(), &table_mapping) {
+                let table_number = table_mapping.tablet_number(id.table())?;
+                let table_name = table_mapping.tablet_name(id.table())?;
+                let id = DeveloperDocumentId::new(table_number, id.internal_id());
                 deltas.push((ts, id, table_name, maybe_doc));
                 if new_cursor.is_none() && deltas.len() >= rows_returned_limit {
                     // We want to finish, but we have to process all documents at this timestamp.
@@ -1639,7 +1680,7 @@ impl<RT: Runtime> Database<RT> {
         identity: Identity,
         snapshot: Option<Timestamp>,
         cursor: Option<DeveloperDocumentId>,
-        table_filter: Option<TableName>,
+        table_filter: StreamingExportTableFilter,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<SnapshotPage> {
@@ -1672,8 +1713,8 @@ impl<RT: Runtime> Database<RT> {
             .transpose()?;
         let table_numbers: BTreeSet<_> = table_mapping
             .iter()
-            .filter(|(_, _, table_number, name)| {
-                Self::user_table_filter(&table_filter, name)
+            .filter(|(tablet_id, _, table_number, _)| {
+                Self::streaming_export_table_filter(&table_filter, *tablet_id, &table_mapping)
                     && resolved_cursor
                         .as_ref()
                         .map(|c| *table_number >= c.developer_id.table())

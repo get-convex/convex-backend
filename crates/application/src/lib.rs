@@ -111,6 +111,7 @@ use database::{
     ShortBoxFuture,
     Snapshot,
     SnapshotPage,
+    StreamingExportTableFilter,
     Subscription,
     SystemMetadataModel,
     TableModel,
@@ -768,7 +769,10 @@ impl<RT: Runtime> Application<RT> {
             .document_deltas(
                 identity,
                 Some(cursor),
-                table_filter,
+                StreamingExportTableFilter {
+                    table_name: table_filter,
+                    ..Default::default()
+                },
                 rows_read_limit,
                 rows_returned_limit,
             )
@@ -788,7 +792,10 @@ impl<RT: Runtime> Application<RT> {
                 identity,
                 snapshot,
                 cursor,
-                table_filter,
+                StreamingExportTableFilter {
+                    table_name: table_filter,
+                    ..Default::default()
+                },
                 *SNAPSHOT_LIST_LIMIT,
                 *SNAPSHOT_LIST_LIMIT,
             )

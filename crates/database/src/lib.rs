@@ -152,6 +152,7 @@ pub use self::{
         ShortBoxFuture,
         ShutdownSignal,
         SnapshotPage,
+        StreamingExportTableFilter,
         MAX_OCC_FAILURES,
     },
     index_worker::{

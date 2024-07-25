@@ -12,6 +12,7 @@ use value::{
 };
 
 use crate::{
+    database::StreamingExportTableFilter,
     test_helpers::DbFixtures,
     DocumentDeltas,
     SnapshotPage,
@@ -44,7 +45,13 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
     let ts2 = db.commit(tx).await?;
 
     let deltas = db
-        .document_deltas(Identity::system(), None, None, 200, 3)
+        .document_deltas(
+            Identity::system(),
+            None,
+            StreamingExportTableFilter::default(),
+            200,
+            3,
+        )
         .await?;
     assert_eq!(
         deltas,
@@ -75,7 +82,13 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
     );
 
     let deltas_cursor = db
-        .document_deltas(Identity::system(), Some(ts1), None, 200, 3)
+        .document_deltas(
+            Identity::system(),
+            Some(ts1),
+            StreamingExportTableFilter::default(),
+            200,
+            3,
+        )
         .await?;
     assert_eq!(
         deltas_cursor,
@@ -92,7 +105,16 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
     );
 
     let deltas_table_filter = db
-        .document_deltas(Identity::system(), None, Some("table1".parse()?), 200, 3)
+        .document_deltas(
+            Identity::system(),
+            None,
+            StreamingExportTableFilter {
+                table_name: Some("table1".parse()?),
+                ..Default::default()
+            },
+            200,
+            3,
+        )
         .await?;
     assert_eq!(
         deltas_table_filter,
@@ -111,7 +133,13 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
     // Note we're requesting 1 result, but in order to return the full transaction
     // we receive 2 deltas.
     let deltas_limit = db
-        .document_deltas(Identity::system(), None, None, 200, 1)
+        .document_deltas(
+            Identity::system(),
+            None,
+            StreamingExportTableFilter::default(),
+            200,
+            1,
+        )
         .await?;
     assert_eq!(
         deltas_limit,
@@ -136,7 +164,13 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
     );
 
     let deltas_auth = db
-        .document_deltas(Identity::Unknown, None, None, 200, 3)
+        .document_deltas(
+            Identity::Unknown,
+            None,
+            StreamingExportTableFilter::default(),
+            200,
+            3,
+        )
         .await;
     assert!(deltas_auth.is_err());
 
@@ -166,7 +200,13 @@ async fn document_deltas_should_ignore_rows_from_deleted_tables(
 
     // …then the row should not appear in the results returned by document_deltas.
     let deltas = db
-        .document_deltas(Identity::system(), None, None, 200, 3)
+        .document_deltas(
+            Identity::system(),
+            None,
+            StreamingExportTableFilter::default(),
+            200,
+            3,
+        )
         .await?;
     assert!(deltas.deltas.is_empty());
 
@@ -200,7 +240,13 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
 
     // …then only one row should appear in the results returned by document_deltas.
     let deltas = db
-        .document_deltas(Identity::system(), None, None, 200, 3)
+        .document_deltas(
+            Identity::system(),
+            None,
+            StreamingExportTableFilter::default(),
+            200,
+            3,
+        )
         .await?;
     assert_eq!(
         deltas,
@@ -273,7 +319,10 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
                             Identity::system(),
                             snapshot,
                             cursor.map(DeveloperDocumentId::from),
-                            table_filter.clone(),
+                            StreamingExportTableFilter {
+                                table_name: table_filter.clone(),
+                                ..Default::default()
+                            },
                             100,
                             5,
                         )
@@ -315,7 +364,14 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(snapshot_old.1, ts1);
 
     let snapshot_has_more = db
-        .list_snapshot(Identity::system(), Some(ts1), None, None, 100, 1)
+        .list_snapshot(
+            Identity::system(),
+            Some(ts1),
+            None,
+            StreamingExportTableFilter::default(),
+            100,
+            1,
+        )
         .await?;
     assert_eq!(
         snapshot_has_more,
@@ -333,7 +389,14 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(snapshot_cursor.1, ts1);
 
     let snapshot_auth = db
-        .list_snapshot(Identity::Unknown, None, None, None, 100, 3)
+        .list_snapshot(
+            Identity::Unknown,
+            None,
+            None,
+            StreamingExportTableFilter::default(),
+            100,
+            3,
+        )
         .await;
     assert!(snapshot_auth.is_err());
 
