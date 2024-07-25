@@ -17,9 +17,6 @@ import {
   internalActionGeneric,
   internalMutationGeneric,
   internalQueryGeneric,
-  appGeneric,
-  componentGeneric,
-  createComponentArgs,
 } from "convex/server";
 
 /**
@@ -91,5 +88,3 @@ export const internalAction = internalActionGeneric;
  * @returns The wrapped endpoint function. Route a URL path to this function in `convex/http.js`.
  */
 export const httpAction = httpActionGeneric;
-
-export const app = appGeneric();

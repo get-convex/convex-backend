@@ -144,6 +144,7 @@ pub enum AllowedVisibility {
 pub enum FunctionCaller {
     SyncWorker(ClientVersion),
     HttpApi(ClientVersion),
+    /// Used by function tester in the dashboard
     Tester(ClientVersion),
     // This is a user defined http actions called externally. If the http action
     // calls other functions, their caller would be `Action`.
@@ -155,6 +156,9 @@ pub enum FunctionCaller {
     Action {
         parent_scheduled_job: Option<DeveloperDocumentId>,
     },
+    #[cfg(any(test, feature = "testing"))]
+    #[proptest(weight = 0)]
+    Test,
 }
 
 impl FunctionCaller {
@@ -167,6 +171,8 @@ impl FunctionCaller {
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
             | FunctionCaller::Action { .. } => None,
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => None,
         }
         .cloned()
     }
@@ -178,6 +184,8 @@ impl FunctionCaller {
             | FunctionCaller::Tester(_)
             | FunctionCaller::HttpEndpoint
             | FunctionCaller::Cron => None,
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => None,
             FunctionCaller::Scheduler { job_id } => Some(*job_id),
             FunctionCaller::Action {
                 parent_scheduled_job,
@@ -194,6 +202,8 @@ impl FunctionCaller {
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. } => true,
             FunctionCaller::Action { .. } => false,
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => true,
         }
     }
 
@@ -209,6 +219,8 @@ impl FunctionCaller {
             FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
             | FunctionCaller::Action { .. } => false,
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => true,
         }
     }
 
@@ -225,6 +237,8 @@ impl FunctionCaller {
             | FunctionCaller::Cron
             | FunctionCaller::Scheduler { .. }
             | FunctionCaller::Action { .. } => AllowedVisibility::All,
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => AllowedVisibility::PublicOnly,
         }
     }
 }
@@ -239,6 +253,8 @@ impl fmt::Display for FunctionCaller {
             FunctionCaller::Cron => "Cron",
             FunctionCaller::Scheduler { .. } => "Scheduler",
             FunctionCaller::Action { .. } => "Action",
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => "Test",
         };
         write!(f, "{s}")
     }
@@ -272,6 +288,8 @@ impl From<FunctionCaller> for pb::common::FunctionCaller {
                 };
                 pb::common::function_caller::Caller::Action(caller)
             },
+            #[cfg(any(test, feature = "testing"))]
+            FunctionCaller::Test => panic!("Can't use test function caller"),
         };
         Self {
             caller: Some(caller),

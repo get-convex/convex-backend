@@ -22,6 +22,7 @@ const NPM_DIR: &str = "../../npm-packages/convex";
 const SYSTEM_UDFS_DIR: &str = "../../npm-packages/system-udfs/convex/_system";
 const UDF_RUNTIME_DIR: &str = "../../npm-packages/udf-runtime/src";
 const UDF_TESTS_DIR: &str = "../../npm-packages/udf-tests";
+const COMPONENT_TESTS_DIR: &str = "../../npm-packages/component-tests";
 const NODE_EXECUTOR_DIST_DIR: &str = "../../npm-packages/node-executor/dist";
 
 const ADMIN_KEY: &str = include_str!("../keybroker/dev/admin_key.txt");
@@ -245,7 +246,7 @@ fn write_start_push_request(out_file: &Path) -> anyhow::Result<()> {
         fs::remove_file(out_file)?;
     }
     let output = Command::new("node")
-        .current_dir(UDF_TESTS_DIR)
+        .current_dir(COMPONENT_TESTS_DIR)
         .args([
             CONVEX,
             "deploy",

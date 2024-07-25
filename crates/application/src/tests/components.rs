@@ -1,236 +1,123 @@
-use std::collections::BTreeMap;
-
 use common::{
-    bootstrap_model::components::{
-        definition::{
-            ComponentArgument,
-            ComponentArgumentValidator,
-            ComponentDefinitionMetadata,
-            ComponentDefinitionType,
-            ComponentExport,
-            ComponentInstantiation,
-        },
-        ComponentMetadata,
-        ComponentType,
-    },
     components::{
         CanonicalizedComponentFunctionPath,
-        ComponentId,
         ComponentPath,
-        Reference,
-        Resource,
     },
-    schemas::validator::Validator,
-    types::{
-        FunctionCaller,
-        ModuleEnvironment,
-        UdfType,
-    },
+    pause::PauseClient,
+    types::FunctionCaller,
     RequestId,
 };
-use database::{
-    SystemMetadataModel,
-    WriteSource,
-    COMPONENTS_TABLE,
-    COMPONENT_DEFINITIONS_TABLE,
-};
+use itertools::Itertools;
 use keybroker::Identity;
-use maplit::btreemap;
-use model::{
-    config::{
-        types::{
-            ConfigMetadata,
-            ModuleConfig,
-        },
-        ConfigModel,
-    },
-    modules::{
-        function_validators::{
-            ArgsValidator,
-            ReturnsValidator,
-        },
-        module_versions::{
-            AnalyzedFunction,
-            AnalyzedModule,
-            Visibility,
-        },
-    },
-    udf_config::types::UdfConfig,
+use must_let::must_let;
+use runtime::testing::TestRuntime;
+use serde_json::{
+    json,
+    Value as JsonValue,
 };
-use runtime::{
-    prod::ProdRuntime,
-    testing::TestRuntime,
-};
-use semver::Version;
-use serde_json::json;
-use value::ConvexValue;
+use sync_types::CanonicalizedUdfPath;
 
 use crate::{
     test_helpers::ApplicationTestExt,
     Application,
+    RedactedActionError,
+    RedactedActionReturn,
+    RedactedMutationError,
+    RedactedMutationReturn,
+    RedactedQueryReturn,
 };
 
-// $ cargo test -p application --lib -- --ignored
-// component_v8 --nocapture
-#[ignore]
-#[convex_macro::test_runtime]
-async fn test_component_v8_action(rt: TestRuntime) -> anyhow::Result<()> {
+async fn run_query(
+    rt: TestRuntime,
+    udf_path: CanonicalizedUdfPath,
+    args: Vec<JsonValue>,
+) -> anyhow::Result<RedactedQueryReturn> {
     let application = Application::new_for_tests(&rt).await?;
-
-    let mut tx = application.begin(Identity::system()).await?;
-
-    let source = r#"
-export const bar = async (ctx, args) => {
-    if (args.stop) {
-        return "hey";
-    }
-    const argsJson = {
-        reference: "_reference/childComponent/chatWaitlist/foo/bar",
-        args: { stop: true },
-        version: "1.11.3",
-        requestId: "",
-    };
-    const resultStr = await Convex.asyncSyscall(
-        "1.0/actions/action",
-        JSON.stringify(argsJson),
-    );
-    const result = JSON.parse(resultStr);
-    return "oh " + result;
-};
-bar.isConvexFunction = true;
-bar.isAction = true;
-bar.isRegistered = true;
-bar.invokeAction = async (requestId, argsStr) => {
-  const result = await bar({}, ...JSON.parse(argsStr));
-  return JSON.stringify(result);
-};
-    "#;
-    let module = ModuleConfig {
-        path: "foo.js".parse()?,
-        source: source.to_string(),
-        source_map: None,
-        environment: ModuleEnvironment::Isolate,
-    };
-    let mut analyze_results = BTreeMap::new();
-    analyze_results.insert(
-        "foo.js".parse()?,
-        AnalyzedModule {
-            functions: vec![AnalyzedFunction {
-                name: "bar".parse()?,
-                pos: None,
-                udf_type: UdfType::Action,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            }]
-            .into(),
-            http_routes: None,
-            cron_specs: None,
-            source_mapped: None,
-        },
-    );
-    ConfigModel::new(&mut tx, ComponentId::test_user())
-        .apply(
-            ConfigMetadata::new(),
-            vec![module],
-            UdfConfig::new_for_test(&rt, Version::new(1, 10, 0)),
-            None,
-            analyze_results,
-            None,
+    application.load_udf_tests_modules_with_components().await?;
+    application
+        .read_only_udf(
+            RequestId::new(),
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path,
+            },
+            args,
+            Identity::system(),
+            FunctionCaller::Test,
         )
-        .await?;
+        .await
+}
 
-    // Insert metadata for the root.
-    let root_component_id = {
-        let definition = ComponentDefinitionMetadata {
-            path: "".parse()?,
-            definition_type: ComponentDefinitionType::App,
-            child_components: vec![ComponentInstantiation {
-                name: "chatWaitlist".parse()?,
-                path: "../node_modules/waitlist".parse()?,
-                args: btreemap! {
-                    "maxLength".parse()? => ComponentArgument::Value(ConvexValue::Float64(10.)),
-                },
-            }],
-            http_mounts: BTreeMap::new(),
-            exports: btreemap! {
-                "foo".parse()? => ComponentExport::Branch(btreemap! {
-                    "bar".parse()? => ComponentExport::Leaf(Reference::Function("foo:bar".parse()?)),
-                })
+async fn run_mutation(
+    rt: TestRuntime,
+    udf_path: CanonicalizedUdfPath,
+    args: Vec<JsonValue>,
+) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules_with_components().await?;
+    application
+        .mutation_udf(
+            RequestId::new(),
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path,
             },
-        };
-        let definition_id = SystemMetadataModel::new_global(&mut tx)
-            .insert(&COMPONENT_DEFINITIONS_TABLE, definition.try_into()?)
-            .await?;
+            args,
+            Identity::system(),
+            None,
+            FunctionCaller::Test,
+            PauseClient::new(),
+        )
+        .await
+}
 
-        let component = ComponentMetadata {
-            definition_id: definition_id.into(),
-            component_type: ComponentType::App,
-        };
-        let component_id = SystemMetadataModel::new_global(&mut tx)
-            .insert(&COMPONENTS_TABLE, component.try_into()?)
-            .await?;
-        component_id.into()
-    };
-    // Insert metadata for the child.
-    {
-        let definition = ComponentDefinitionMetadata {
-            path: "../node_modules/waitlist".parse()?,
-            definition_type: ComponentDefinitionType::ChildComponent {
-                name: "waitlist".parse()?,
-                args: btreemap! {
-                    "maxLength".parse()? => ComponentArgumentValidator::Value(Validator::Float64),
-                },
-            },
-            child_components: vec![],
-            http_mounts: BTreeMap::new(),
-            exports: btreemap! {
-                "foo".parse()? => ComponentExport::Branch(btreemap! {
-                    "bar".parse()? => ComponentExport::Leaf(Reference::Function("foo:bar".parse()?)),
-                })
-            },
-        };
-        let definition_id = SystemMetadataModel::new_global(&mut tx)
-            .insert(&COMPONENT_DEFINITIONS_TABLE, definition.try_into()?)
-            .await?;
-
-        let component = ComponentMetadata {
-            definition_id: definition_id.into(),
-            component_type: ComponentType::ChildComponent {
-                parent: root_component_id,
-                name: "chatWaitlist".parse()?,
-                args: btreemap! {
-                    "maxLength".parse()? => Resource::Value(ConvexValue::Float64(10.)),
-                },
-            },
-        };
-        SystemMetadataModel::new_global(&mut tx)
-            .insert(&COMPONENTS_TABLE, component.try_into()?)
-            .await?;
-    }
-
-    application.commit(tx, WriteSource::unknown()).await?;
-
-    let action_return = application
+async fn run_action(
+    rt: TestRuntime,
+    udf_path: CanonicalizedUdfPath,
+    args: Vec<JsonValue>,
+) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules_with_components().await?;
+    application
         .action_udf(
             RequestId::new(),
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::test_user(),
-                udf_path: "foo:bar".parse()?,
+                component: ComponentPath::root(),
+                udf_path,
             },
-            vec![json!({})],
+            args,
             Identity::system(),
-            FunctionCaller::HttpEndpoint,
+            FunctionCaller::Test,
         )
-        .await??;
-    assert_eq!(action_return.value, "oh hey".try_into()?);
+        .await
+}
 
+#[convex_macro::test_runtime]
+async fn test_run_component_query(rt: TestRuntime) -> anyhow::Result<()> {
+    let result = run_query(rt, "componentEntry:list".parse()?, vec![]).await?;
+    assert!(result.result.is_ok());
+    assert_eq!(result.log_lines.iter().collect_vec().len(), 1);
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_load_with_components(rt: ProdRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
-    application.load_udf_tests_modules_with_components().await?;
+#[convex_macro::test_runtime]
+async fn test_run_component_mutation(rt: TestRuntime) -> anyhow::Result<()> {
+    let result = run_mutation(
+        rt,
+        "componentEntry:insert".parse()?,
+        vec![json!({"channel": "random", "text": "convex is kewl"})],
+    )
+    .await?;
+    assert!(result.is_ok());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_run_component_action(rt: TestRuntime) -> anyhow::Result<()> {
+    let result = run_action(rt, "componentEntry:hello".parse()?, vec![]).await?;
+    assert!(result.is_ok());
+    must_let!(let Ok(RedactedActionReturn{value: _, log_lines}) = result);
+    // No logs returned because only the action inside the component logs.
+    assert_eq!(log_lines.iter().collect_vec().len(), 0);
     Ok(())
 }
