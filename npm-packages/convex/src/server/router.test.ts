@@ -5,8 +5,6 @@ import { expect, test } from "vitest";
 
 const httpAction = httpActionGeneric as HttpActionBuilder;
 
-// Note that `Request`/`Response` are in Node.js 18; while we still run our
-// tests with Node.js 16 these endpoints can't actually be called.
 const action1 = httpAction(() => Promise.resolve(new Response()));
 const action2 = httpAction(() => Promise.resolve(new Response()));
 const action3 = httpAction(() => Promise.resolve(new Response()));

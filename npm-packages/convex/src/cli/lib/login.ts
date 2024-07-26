@@ -21,15 +21,11 @@ import {
   logMessage,
   showSpinner,
 } from "../../bundler/context.js";
-import nodeFetch from "node-fetch";
 import { Issuer } from "openid-client";
 import inquirer from "inquirer";
 import { hostname } from "os";
 import { execSync } from "child_process";
 import os from "os";
-
-// For Node.js 16 support
-const fetch = globalThis.fetch || nodeFetch;
 
 const SCOPE = "openid email profile";
 /// This value was created long ago, and cannot be changed easily.

@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import util from "util";
 import ws from "ws";
-import { ConvexHttpClient } from "../../browser/http_client-node.js";
+import { ConvexHttpClient } from "../../browser/http_client.js";
 import { BaseConvexClient } from "../../browser/index.js";
 import { PaginationResult, makeFunctionReference } from "../../server/index.js";
 import { Value, convexToJson } from "../../values/value.js";

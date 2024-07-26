@@ -10,7 +10,6 @@ import { ProjectConfig } from "./config.js";
 import { spawn } from "child_process";
 import { InvalidArgumentError } from "commander";
 import fetchRetryFactory, { RequestInitRetryParams } from "fetch-retry";
-import nodeFetch, { Headers as NodeFetchHeaders } from "node-fetch";
 import {
   Context,
   ErrorType,
@@ -26,8 +25,6 @@ import {
   isPreviewDeployKey,
 } from "./deployment.js";
 
-// For Node.js 16 support
-const fetch = globalThis.fetch || nodeFetch;
 const retryingFetch = fetchRetryFactory(fetch);
 
 export const productionProvisionHost = "https://provision.convex.dev";
@@ -148,7 +145,7 @@ export async function throwingFetch(
   resource: RequestInfo | URL,
   options: (RequestInit & RequestInitRetryParams) | undefined,
 ): Promise<Response> {
-  const Headers = globalThis.Headers || NodeFetchHeaders;
+  const Headers = globalThis.Headers;
   const headers = new Headers((options || {})["headers"]);
   if (options?.body) {
     if (!headers.has("Content-Type")) {

@@ -164,7 +164,6 @@
   "dependencies": {
     "esbuild": "^0.17.5",
     "jwt-decode": "^3.1.2",
-    "node-fetch": "^2.6.1",
     "prettier": "3.2.5"
   },
   "peerDependencies": {
@@ -206,7 +205,6 @@
     "@types/inquirer": "^8.2.0",
     "@types/jwt-encode": "~1.0.0",
     "@types/node": "^18.17.0",
-    "@types/node-fetch": "^2.6.1",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@types/semver": "^7.3.13",
@@ -258,6 +256,6 @@
   },
   "engines": {
     "npm": ">=7.0.0",
-    "node": ">=16.15.1"
+    "node": ">=18.0.0"
   }
 }
