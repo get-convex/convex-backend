@@ -205,10 +205,12 @@ function serializeChildComponents(
   return childComponents.map(([name, definition, p]) => {
     const args: [string, { type: "value"; value: string }][] = [];
     for (const [name, value] of Object.entries(p)) {
-      args.push([
-        name,
-        { type: "value", value: JSON.stringify(convexToJson(value)) },
-      ]);
+      if (value !== undefined) {
+        args.push([
+          name,
+          { type: "value", value: JSON.stringify(convexToJson(value)) },
+        ]);
+      }
     }
     // we know that components carry this extra information
     const path = definition.componentDefinitionPath;

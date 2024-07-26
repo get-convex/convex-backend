@@ -73,6 +73,8 @@ pub struct AppDefinitionEvaluator {
     pub app_definition: ModuleConfig,
     pub component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
     pub dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+    environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
 }
 
 impl AppDefinitionEvaluator {
@@ -80,11 +82,15 @@ impl AppDefinitionEvaluator {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> Self {
         Self {
             app_definition,
             component_definitions,
             dependency_graph,
+            environment_variables,
+            system_env_vars,
         }
     }
 
@@ -169,10 +175,14 @@ impl AppDefinitionEvaluator {
         filename: &str,
         source: FullModuleSource,
     ) -> anyhow::Result<ComponentDefinitionMetadata> {
+        let environment_variables =
+            (filename == APP_CONFIG_FILE_NAME).then_some(self.environment_variables.clone());
         let env = DefinitionEnvironment {
             expected_filename: filename.to_string(),
             source,
             evaluated_definitions: evaluated_components.clone(),
+            environment_variables,
+            system_env_vars: self.system_env_vars.clone(),
         };
 
         let (handle, state) = isolate.start_request(client_id.into(), env).await?;
@@ -283,6 +293,11 @@ struct DefinitionEnvironment {
     source: FullModuleSource,
 
     evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+    /// Environment variables are allowed in app.config.ts but not in
+    /// component.config.ts
+    environment_variables: Option<BTreeMap<EnvVarName, EnvVarValue>>,
+    /// System env vars are allowed everywhere.
+    system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
@@ -310,12 +325,19 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
 
     fn get_environment_variable(
         &mut self,
-        _name: EnvVarName,
+        name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-            "EnvironmentVariablesUnsupported",
-            "Environment variables not supported"
-        ));
+        if let Some(value) = self.system_env_vars.get(&name) {
+            return Ok(Some(value.clone()));
+        }
+        self.environment_variables
+            .as_ref()
+            .map(|env_vars| env_vars.get(&name).cloned())
+            .context(ErrorMetadata::bad_request(
+                "EnvironmentVariablesUnsupported",
+                "Environment variables not supported in component.config.ts. Consider passing \
+                 them into your component via arguments in app.config.ts.",
+            ))
     }
 
     fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {

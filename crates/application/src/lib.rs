@@ -82,6 +82,7 @@ use common::{
         ConvexSite,
         CursorMs,
         EnvVarName,
+        EnvVarValue,
         FunctionCaller,
         IndexId,
         IndexName,
@@ -1643,16 +1644,22 @@ impl<RT: Runtime> Application<RT> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         self.runner
-            .evaluate_app_definitions(app_definition, component_definitions, dependency_graph)
+            .evaluate_app_definitions(
+                app_definition,
+                component_definitions,
+                dependency_graph,
+                environment_variables,
+            )
             .await
     }
 
     #[minitrace::trace]
     pub async fn get_evaluated_auth_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        tx: &mut Transaction<RT>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         auth_config_module: Option<ModuleConfig>,
         config: &ConfigFile,
     ) -> anyhow::Result<Vec<AuthInfo>> {
@@ -1671,7 +1678,7 @@ impl<RT: Runtime> Application<RT> {
             );
             let auth_config = Self::evaluate_auth_config(
                 runner,
-                tx,
+                environment_variables,
                 auth_config_module,
                 "The pushed auth config is invalid",
             )
@@ -1707,9 +1714,10 @@ impl<RT: Runtime> Application<RT> {
                 source_map: auth_config_source.source_map.clone(),
                 environment,
             };
+            let environment_variables = EnvironmentVariablesModel::new(tx).get_all().await?;
             let auth_config = Self::evaluate_auth_config(
                 runner,
-                tx,
+                environment_variables,
                 auth_config_module,
                 "This change would make the auth config invalid",
             )
@@ -1721,7 +1729,7 @@ impl<RT: Runtime> Application<RT> {
 
     async fn evaluate_auth_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        tx: &mut Transaction<RT>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         auth_config_module: ModuleConfig,
         explanation: &str,
     ) -> anyhow::Result<AuthConfig> {
@@ -1729,7 +1737,7 @@ impl<RT: Runtime> Application<RT> {
             .evaluate_auth_config(
                 auth_config_module.source,
                 auth_config_module.source_map,
-                EnvironmentVariablesModel::new(tx).get_all().await?,
+                environment_variables,
             )
             .await
             .map_err(|error| {
@@ -1792,8 +1800,14 @@ impl<RT: Runtime> Application<RT> {
             })
             .transpose()?;
 
-        let auth_providers =
-            Self::get_evaluated_auth_config(runner, tx, auth_module, &config_file).await?;
+        let environment_variables = EnvironmentVariablesModel::new(tx).get_all().await?;
+        let auth_providers = Self::get_evaluated_auth_config(
+            runner,
+            environment_variables,
+            auth_module,
+            &config_file,
+        )
+        .await?;
 
         let config_metadata = ConfigMetadata::from_file(config_file, auth_providers);
 
@@ -1845,26 +1859,24 @@ impl<RT: Runtime> Application<RT> {
 
         // Evaluate auth and add in an empty `auth.config.js` to the analysis.
         let identity = Identity::system();
-        let auth_info = {
-            let mut tx = self.begin(identity.clone()).await?;
-            let auth_info = Application::get_evaluated_auth_config(
-                self.runner(),
-                &mut tx,
-                config.app_definition.auth.clone(),
-                &ConfigFile {
-                    functions: config.config.functions.clone(),
-                    auth_info: if config.config.auth_info.is_empty() {
-                        None
-                    } else {
-                        Some(config.config.auth_info.clone())
-                    },
+        let mut tx = self.begin(identity.clone()).await?;
+        let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+        tx.into_token()?;
+        // TODO(ENG-6500): Fold in our reads here into the hash.
+        let auth_info = Application::get_evaluated_auth_config(
+            self.runner(),
+            environment_variables.clone(),
+            config.app_definition.auth.clone(),
+            &ConfigFile {
+                functions: config.config.functions.clone(),
+                auth_info: if config.config.auth_info.is_empty() {
+                    None
+                } else {
+                    Some(config.config.auth_info.clone())
                 },
-            )
-            .await?;
-            // TODO: Fold in our reads here into the hash.
-            tx.into_token()?;
-            auth_info
-        };
+            },
+        )
+        .await?;
         if let Some(auth_module) = &config.app_definition.auth {
             app_analysis.insert(
                 auth_module.path.clone().canonicalize(),
@@ -1879,6 +1891,7 @@ impl<RT: Runtime> Application<RT> {
                 app_analysis,
                 app_udf_config,
                 unix_timestamp,
+                environment_variables,
             )
             .await?;
         // Build and typecheck the component tree. We don't strictly need to do this
@@ -1959,6 +1972,7 @@ impl<RT: Runtime> Application<RT> {
         app_analysis: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
         app_udf_config: UdfConfig,
         unix_timestamp: UnixTimestamp,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>> {
         let mut app_schema = None;
         if let Some(schema_module) = &config.app_definition.schema {
@@ -2026,6 +2040,7 @@ impl<RT: Runtime> Application<RT> {
                     app_definition.clone(),
                     component_definitions,
                     dependency_graph,
+                    environment_variables,
                 )
                 .await?;
         } else {

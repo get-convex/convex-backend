@@ -1444,9 +1444,16 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         self.analyze_isolate
-            .evaluate_app_definitions(app_definition, component_definitions, dependency_graph)
+            .evaluate_app_definitions(
+                app_definition,
+                component_definitions,
+                dependency_graph,
+                environment_variables,
+                self.system_env_vars.clone(),
+            )
             .await
     }
 

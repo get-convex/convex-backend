@@ -144,4 +144,7 @@ export type DatabaseReader = GenericDatabaseReader<DataModel>;
 export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
 
 export declare const component: {};
-export declare const componentArgs: {};
+export declare const componentArgs: {
+  name: string;
+  url: string;
+};

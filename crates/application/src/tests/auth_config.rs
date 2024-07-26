@@ -1,8 +1,11 @@
 use common::types::ModuleEnvironment;
 use keybroker::Identity;
-use model::config::types::{
-    ConfigFile,
-    ModuleConfig,
+use model::{
+    config::types::{
+        ConfigFile,
+        ModuleConfig,
+    },
+    environment_variables::EnvironmentVariablesModel,
 };
 use runtime::testing::TestRuntime;
 
@@ -25,9 +28,10 @@ export default {
 "#;
     let application = Application::new_for_tests(&rt).await?;
     let mut tx = application.begin(Identity::system()).await?;
+    let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
     let error = Application::get_evaluated_auth_config(
         application.runner(),
-        &mut tx,
+        environment_variables,
         Some(ModuleConfig {
             path: "auth.config.js".parse().unwrap(),
             source: source.to_owned(),

@@ -472,6 +472,8 @@ pub enum RequestType<RT: Runtime> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<anyhow::Result<EvaluateAppDefinitionsResult>>,
     },
 }
@@ -897,6 +899,8 @@ impl<RT: Runtime> IsolateClient<RT> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         anyhow::ensure!(
             app_definition.environment == ModuleEnvironment::Isolate,
@@ -913,6 +917,8 @@ impl<RT: Runtime> IsolateClient<RT> {
             app_definition,
             component_definitions,
             dependency_graph,
+            environment_variables,
+            system_env_vars,
             response: tx,
         };
         self.send_request(Request::new(
@@ -1846,12 +1852,16 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 app_definition,
                 component_definitions,
                 dependency_graph,
+                environment_variables,
+                system_env_vars,
                 response,
             } => {
                 let env = AppDefinitionEvaluator::new(
                     app_definition,
                     component_definitions,
                     dependency_graph,
+                    environment_variables,
+                    system_env_vars,
                 );
                 let r = env.evaluate(client_id, isolate).await;
 

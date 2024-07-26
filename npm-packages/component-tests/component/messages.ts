@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, action, componentArgs } from "./_generated/server";
 
 export const listMessages = query({
   args: {},
@@ -16,5 +16,10 @@ export const insertMessage = mutation({
 });
 
 export const hello = action(async () => {
-  console.log("hi from v8 action");
+  console.log(`hi from ${componentArgs.name}`);
+  return componentArgs.name;
+});
+
+export const url = action(async () => {
+  return componentArgs.url;
 });

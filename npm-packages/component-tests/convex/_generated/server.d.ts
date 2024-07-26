@@ -154,6 +154,7 @@ export declare const app: {
         any
       >;
       listMessages: FunctionReference<"query", "internal", {}, any>;
+      url: FunctionReference<"action", "internal", any, any>;
     };
   };
   component: {};

@@ -17,5 +17,9 @@ export const insert = mutation(
 );
 
 export const hello = action(async (ctx) => {
-  await ctx.runAction(app.component.messages.hello, {});
+  return await ctx.runAction(app.component.messages.hello, {});
+});
+
+export const url = action(async (ctx) => {
+  return await ctx.runAction(app.component.messages.url, {});
 });

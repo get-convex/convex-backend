@@ -4,7 +4,10 @@ use common::{
         ComponentPath,
     },
     pause::PauseClient,
-    types::FunctionCaller,
+    types::{
+        EnvironmentVariable,
+        FunctionCaller,
+    },
     RequestId,
 };
 use itertools::Itertools;
@@ -16,6 +19,7 @@ use serde_json::{
     Value as JsonValue,
 };
 use sync_types::CanonicalizedUdfPath;
+use value::ConvexValue;
 
 use crate::{
     test_helpers::ApplicationTestExt,
@@ -72,11 +76,10 @@ async fn run_mutation(
 }
 
 async fn run_action(
-    rt: TestRuntime,
+    application: &Application<TestRuntime>,
     udf_path: CanonicalizedUdfPath,
     args: Vec<JsonValue>,
 ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
-    let application = Application::new_for_tests(&rt).await?;
     application.load_component_tests_modules().await?;
     application
         .action_udf(
@@ -114,10 +117,47 @@ async fn test_run_component_mutation(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_run_component_action(rt: TestRuntime) -> anyhow::Result<()> {
-    let result = run_action(rt, "componentEntry:hello".parse()?, vec![]).await?;
+    let application = Application::new_for_tests(&rt).await?;
+    let result = run_action(&application, "componentEntry:hello".parse()?, vec![]).await?;
     assert!(result.is_ok());
     must_let!(let Ok(RedactedActionReturn{value: _, log_lines}) = result);
     // No logs returned because only the action inside the component logs.
     assert_eq!(log_lines.iter().collect_vec().len(), 0);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_run_component_action_with_env_var_set(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let mut tx = application.begin(Identity::system()).await?;
+    application
+        .create_one_environment_variable(
+            &mut tx,
+            EnvironmentVariable {
+                name: "NAME".parse()?,
+                value: "emma".parse()?,
+            },
+        )
+        .await?;
+    application.commit_test(tx).await?;
+    let result = run_action(&application, "componentEntry:hello".parse()?, vec![]).await?;
+    assert!(result.is_ok());
+    must_let!(let Ok(RedactedActionReturn{value, log_lines}) = result);
+    must_let!(let ConvexValue::String(name) = value);
+    assert_eq!(name.to_string(), "emma".to_string());
+
+    // No logs returned because only the action inside the component logs.
+    assert_eq!(log_lines.iter().collect_vec().len(), 0);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_system_env_var_works_in_app_definition(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let result = run_action(&application, "componentEntry:url".parse()?, vec![]).await?;
+    assert!(result.is_ok());
+    must_let!(let Ok(RedactedActionReturn{value, log_lines: _}) = result);
+    must_let!(let ConvexValue::String(name) = value);
+    assert_eq!(name.to_string(), "http://127.0.0.1:8000".to_string());
     Ok(())
 }
