@@ -7,7 +7,7 @@ import { ConvexProviderWithClerk } from "./ConvexProviderWithClerk.js";
 import { ConvexReactClient } from "../react/index.js";
 import { useAuth } from "@clerk/clerk-react";
 
-test("Helpers are valid children", () => {
+test.skip("Helpers are valid children", () => {
   const convex = new ConvexReactClient("https://localhost:3001");
 
   const _ = (

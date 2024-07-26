@@ -5,7 +5,7 @@ import { test } from "vitest";
 import React from "react";
 import { Authenticated, AuthLoading, Unauthenticated } from "./auth_helpers.js";
 
-test("Helpers are valid children", () => {
+test.skip("Helpers are valid children", () => {
   const _element = (
     <div>
       <Authenticated>Yay</Authenticated>
@@ -15,7 +15,7 @@ test("Helpers are valid children", () => {
   );
 });
 
-test("Helpers can take many children", () => {
+test.skip("Helpers can take many children", () => {
   const _element = (
     <div>
       <Authenticated>

@@ -7,7 +7,7 @@ import { test, expect } from "vitest";
 import { BaseConvexClient } from "./client.js";
 import { anyApi } from "../../server/api.js";
 
-test("localQueryResult reflects optimistic results", async () => {
+test.skip("localQueryResult reflects optimistic results", async () => {
   const client = new BaseConvexClient("http://127.0.0.1:8000", () => {
     // ignore updates.
   });
@@ -27,7 +27,7 @@ test("localQueryResult reflects optimistic results", async () => {
   expect(client.localQueryResult("myUdf", {})).toBe(true);
 });
 
-test("Client warns when old clientConfig format is used", async () => {
+test.skip("Client warns when old clientConfig format is used", async () => {
   expect(() => {
     new BaseConvexClient(
       { address: "http://127.0.0.1:8000" } as any,

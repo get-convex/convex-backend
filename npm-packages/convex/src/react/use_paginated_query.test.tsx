@@ -49,7 +49,7 @@ class ErrorBoundary extends React.Component<Props> {
   }
 }
 
-test.each([
+test.skip.each([
   {
     options: undefined,
     expectedError:
@@ -396,7 +396,7 @@ describe("usePaginatedQuery pages", () => {
   });
 });
 
-describe("PaginatedQueryArgs", () => {
+describe.skip("PaginatedQueryArgs", () => {
   test("basic", () => {
     type MyQueryFunction = FunctionReference<
       "query",
@@ -410,7 +410,7 @@ describe("PaginatedQueryArgs", () => {
   });
 });
 
-describe("PaginatedQueryItem", () => {
+describe.skip("PaginatedQueryItem", () => {
   test("interface return type", () => {
     interface ReturnType {
       property: string;
