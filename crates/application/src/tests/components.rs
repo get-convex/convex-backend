@@ -33,7 +33,7 @@ async fn run_query(
     args: Vec<JsonValue>,
 ) -> anyhow::Result<RedactedQueryReturn> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_udf_tests_modules_with_components().await?;
+    application.load_component_tests_modules().await?;
     application
         .read_only_udf(
             RequestId::new(),
@@ -54,7 +54,7 @@ async fn run_mutation(
     args: Vec<JsonValue>,
 ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_udf_tests_modules_with_components().await?;
+    application.load_component_tests_modules().await?;
     application
         .mutation_udf(
             RequestId::new(),
@@ -77,7 +77,7 @@ async fn run_action(
     args: Vec<JsonValue>,
 ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_udf_tests_modules_with_components().await?;
+    application.load_component_tests_modules().await?;
     application
         .action_udf(
             RequestId::new(),

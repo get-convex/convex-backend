@@ -141,7 +141,8 @@ pub trait ApplicationTestExt<RT: Runtime> {
     /// Load the modules from npm-packages/udf-tests
     async fn load_udf_tests_modules(&self) -> anyhow::Result<()>;
     async fn load_udf_tests_modules_with_node(&self) -> anyhow::Result<()>;
-    async fn load_udf_tests_modules_with_components(&self) -> anyhow::Result<()>;
+    /// Load the modules form npm-packages/component-tests
+    async fn load_component_tests_modules(&self) -> anyhow::Result<()>;
     async fn test_one_off_cron_job_executor_run(
         &self,
         job: CronJob,
@@ -314,7 +315,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
     }
 
     /// WIP(emma): This isn't fully implemented yet.
-    async fn load_udf_tests_modules_with_components(&self) -> anyhow::Result<()> {
+    async fn load_component_tests_modules(&self) -> anyhow::Result<()> {
         let request = Self::load_start_push_request()?;
         let start_push = self.start_push(request).await?;
         self.wait_for_schema(Identity::system(), start_push.schema_change.clone())

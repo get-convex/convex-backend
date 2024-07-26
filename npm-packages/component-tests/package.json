@@ -1,0 +1,15 @@
+{
+  "name": "component-tests",
+  "version": "0.0.0",
+  "dependencies": {
+    "convex": "workspace:*",
+    "prettier": "3.2.5"
+  },
+  "devDependencies": {
+    "typescript": "~5.0.3"
+  },
+  "scripts": {
+    "build": "",
+    "test": "tsc -p convex"
+  }
+}

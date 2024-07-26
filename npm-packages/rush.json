@@ -32,6 +32,10 @@
       "projectFolder": "udf-tests"
     },
     {
+      "packageName": "component-tests",
+      "projectFolder": "component-tests"
+    },
+    {
       "packageName": "node-executor",
       "projectFolder": "node-executor"
     },

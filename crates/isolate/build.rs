@@ -107,6 +107,9 @@ fn main() -> anyhow::Result<()> {
 
     rerun_if_changed("../../npm-packages/udf-tests/convex/")?;
     rerun_if_changed("../../npm-packages/udf-tests/package.json")?;
+    rerun_if_changed("../../npm-packages/component-tests/convex/")?;
+    rerun_if_changed("../../npm-packages/component-tests/component/")?;
+    rerun_if_changed("../../npm-packages/component-tests/package.json")?;
 
     // This is a little janky because we aren't inlcuding the node_modules directory
     // which has real sources in it! I'm not including it because it appears to

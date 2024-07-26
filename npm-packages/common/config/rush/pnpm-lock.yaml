@@ -5,6 +5,17 @@ importers:
   .:
     specifiers: {}
 
+  ../../component-tests:
+    specifiers:
+      convex: workspace:*
+      prettier: 3.2.5
+      typescript: ~5.0.3
+    dependencies:
+      convex: link:../convex
+      prettier: 3.2.5
+    devDependencies:
+      typescript: 5.0.4
+
   ../../convex:
     specifiers:
       '@auth0/auth0-react': 2.0.1
