@@ -415,7 +415,7 @@ async function writeFormattedFile(
   if (options?.debug) {
     // NB: The `test_codegen_projects_are_up_to_date` smoke test depends
     // on this output format.
-    logOutput(ctx, `# ${path.basename(destination)}`);
+    logOutput(ctx, `# ${path.resolve(destination)}`);
     logOutput(ctx, formattedContents);
     return;
   }
