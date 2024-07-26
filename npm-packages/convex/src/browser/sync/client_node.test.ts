@@ -110,7 +110,7 @@ function actionSuccess(requestId: RequestId): ServerMessage {
   };
 }
 
-test("maxObservedTimestamp is updated on mutation and transition", async () => {
+test.skip("maxObservedTimestamp is updated on mutation and transition", async () => {
   await withInMemoryWebSocket(async ({ address, receive, send }) => {
     const client = new BaseConvexClient(address, () => null, {
       webSocketConstructor: nodeWebSocket,

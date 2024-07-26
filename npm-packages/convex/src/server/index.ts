@@ -179,6 +179,7 @@ export type {
   ComponentDefinition,
   AnyApp,
   AnyComponent,
+  FunctionHandle,
 } from "./components/index.js";
 
 /**

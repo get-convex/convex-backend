@@ -9,9 +9,10 @@ import {
   AnyFunctionReference,
   functionName,
   FunctionReference,
+  FunctionType,
 } from "../api.js";
 import { performAsyncSyscall, performSyscall } from "../impl/syscall.js";
-import { EmptyObject } from "../registration.js";
+import { DefaultFunctionArgs, EmptyObject } from "../registration.js";
 import {
   AppDefinitionAnalysis,
   ComponentDefinitionAnalysis,
@@ -32,9 +33,27 @@ export function isFunctionHandle(s: string): boolean {
 /**
  * @internal
  */
-export async function createFunctionHandle(
-  functionReference: FunctionReference<any, any, any, any>,
-): Promise<string> {
+export type FunctionHandle<
+  Type extends FunctionType,
+  Args extends DefaultFunctionArgs = any,
+  ReturnType = any,
+> = string & FunctionReference<Type, "internal", Args, ReturnType>;
+
+/**
+ * @internal
+ */
+export async function createFunctionHandle<
+  Type extends FunctionType,
+  Args extends DefaultFunctionArgs,
+  ReturnType,
+>(
+  functionReference: FunctionReference<
+    Type,
+    "public" | "internal",
+    Args,
+    ReturnType
+  >,
+): Promise<FunctionHandle<Type, Args, ReturnType>> {
   const udfPath = (functionReference as any)[functionName];
   if (!udfPath) {
     throw new Error(`${functionReference as any} is not a FunctionReference`);
