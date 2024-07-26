@@ -75,5 +75,12 @@ module.exports = {
     // vitest (manually enabled until we can upgrade eslint)
     "vitest/no-focused-tests": ["error", { fixable: false }],
   },
-  ignorePatterns: ["node_modules", "dist", "*.js", "tmpDist*", "tmpPackage*"],
+  ignorePatterns: [
+    "node_modules",
+    "dist",
+    "*.js",
+    "tmpDist*",
+    "tmpPackage*",
+    "custom-vitest-enviroment.ts",
+  ],
 };

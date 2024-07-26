@@ -10,8 +10,6 @@ import React from "react";
 import { renderHook } from "@testing-library/react";
 import { anyApi, makeFunctionReference } from "../server/api.js";
 
-console.log("!!!!!!!!!!!", ws.WebSocket);
-
 const address = "https://127.0.0.1:3001";
 
 const testConvexReactClient = () =>

@@ -1,5 +1,5 @@
 /**
- * @vitest-environment jsdom
+ * @vitest-environment custom-vitest-enviroment.ts
  */
 /* eslint-disable @typescript-eslint/ban-types */
 import { expect, vi, test, describe, beforeEach } from "vitest";
@@ -49,7 +49,7 @@ class ErrorBoundary extends React.Component<Props> {
   }
 }
 
-test.skip.each([
+test.each([
   {
     options: undefined,
     expectedError:
@@ -396,7 +396,7 @@ describe.skip("usePaginatedQuery pages", () => {
   });
 });
 
-describe.skip("PaginatedQueryArgs", () => {
+describe("PaginatedQueryArgs", () => {
   test("basic", () => {
     type MyQueryFunction = FunctionReference<
       "query",
@@ -410,7 +410,7 @@ describe.skip("PaginatedQueryArgs", () => {
   });
 });
 
-describe.skip("PaginatedQueryItem", () => {
+describe("PaginatedQueryItem", () => {
   test("interface return type", () => {
     interface ReturnType {
       property: string;

@@ -1,5 +1,5 @@
 /**
- * @vitest-environment jsdom
+ * @vitest-environment custom-vitest-enviroment.ts
  */
 import { vi, expect, test, describe, beforeEach, afterEach } from "vitest";
 
@@ -13,7 +13,7 @@ import { preloadQuery, preloadedQueryResult } from "./index.js";
 
 const address = "https://127.0.0.1:3001";
 
-describe.skip("env setup", () => {
+describe("env setup", () => {
   test("requires NEXT_PUBLIC_CONVEX_URL", async () => {
     await expect(preloadQuery(anyApi.myQuery.default)).rejects.toThrow(
       "Environment variable NEXT_PUBLIC_CONVEX_URL is not set.",
@@ -21,7 +21,7 @@ describe.skip("env setup", () => {
   });
 });
 
-describe.skip("preloadQuery and usePreloadedQuery", () => {
+describe("preloadQuery and usePreloadedQuery", () => {
   beforeEach(() => {
     global.process.env.NEXT_PUBLIC_CONVEX_URL = address;
     global.fetch = vi.fn().mockResolvedValue({

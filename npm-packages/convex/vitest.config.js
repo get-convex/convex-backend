@@ -7,5 +7,6 @@ export default defineConfig({
     },
     isolate: true,
     watch: false,
+    //environment: "node", // "node" is the default
   },
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unpublished
+
+- Drop support for Node.js v16, and with it drop the dependency on node-fetch.
+  This removes the 'punycode' deprecation warning printed when running the CLI
+  in more recent versions of Node.js.
+
 ## 1.13.2
 
 - Fix `npx convex import` regression in 1.13.1

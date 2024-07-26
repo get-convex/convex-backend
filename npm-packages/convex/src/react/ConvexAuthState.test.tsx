@@ -1,5 +1,5 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment custom-vitest-enviroment.ts
  */
 import { expect, vi, test } from "vitest";
 import { act, render, screen } from "@testing-library/react";

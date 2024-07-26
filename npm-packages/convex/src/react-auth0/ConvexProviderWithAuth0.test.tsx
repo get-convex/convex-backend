@@ -1,12 +1,12 @@
 /**
- * @vitest-environment jsdom
+ * @vitest-environment custom-vitest-enviroment.ts
  */
 import { test } from "vitest";
 import React from "react";
 import { ConvexProviderWithAuth0 } from "./ConvexProviderWithAuth0.js";
 import { ConvexReactClient } from "../react/index.js";
 
-test.skip("Helpers are valid children", () => {
+test("Helpers are valid children", () => {
   const convex = new ConvexReactClient("https://localhost:3001");
 
   const _ = (
