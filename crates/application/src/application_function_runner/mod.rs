@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use authentication::token_to_authorization_header;
 use common::{
     backoff::Backoff,
+    bootstrap_model::components::handles::FunctionHandle,
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
@@ -118,6 +119,7 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
+    components::handles::FunctionHandlesModel,
     config::{
         module_loader::ModuleLoader,
         types::ModuleConfig,
@@ -2008,5 +2010,14 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             e.context(ErrorMetadata::bad_request("InvalidVectorQuery", message))
         })?;
         self.database.vector_search(identity, query).await
+    }
+
+    async fn lookup_function_handle(
+        &self,
+        identity: Identity,
+        handle: FunctionHandle,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
+        let mut tx = self.database.begin(identity).await?;
+        FunctionHandlesModel::new(&mut tx).lookup(handle).await
     }
 }

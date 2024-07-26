@@ -25,11 +25,15 @@ export function extractReferencePath(reference: any): string | null {
   return reference[toReferencePath] ?? null;
 }
 
+export function isFunctionHandle(s: string): boolean {
+  return s.startsWith("function://");
+}
+
 /**
  * @internal
  */
 export async function createFunctionHandle(
-  functionReference: FunctionReference<any>,
+  functionReference: FunctionReference<any, any, any, any>,
 ): Promise<string> {
   const udfPath = (functionReference as any)[functionName];
   if (!udfPath) {

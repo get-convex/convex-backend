@@ -2,6 +2,7 @@
 
 use anyhow::Context;
 use common::{
+    bootstrap_model::components::handles::FunctionHandle,
     components::{
         ComponentId,
         Reference,
@@ -97,19 +98,28 @@ impl<RT: Runtime> TaskExecutor<RT> {
         struct RunQueryArgs {
             name: Option<String>,
             reference: Option<String>,
+            function_handle: Option<String>,
             args: UdfArgsJson,
         }
-
-        let (reference, args) = with_argument_error("runQuery", || {
-            let RunQueryArgs {
-                name,
-                reference,
-                args,
-            } = serde_json::from_value(args)?;
-            let reference = parse_name_or_reference(name, reference)?;
-            Ok((reference, args))
-        })?;
-        let function_path = self.resolve_function(&reference)?;
+        let RunQueryArgs {
+            name,
+            reference,
+            function_handle,
+            args,
+        } = with_argument_error("runQuery", || Ok(serde_json::from_value(args)?))?;
+        let function_path = match function_handle {
+            Some(function_handle) => {
+                let handle: FunctionHandle =
+                    with_argument_error("runQuery", || function_handle.parse())?;
+                self.action_callbacks
+                    .lookup_function_handle(self.identity.clone(), handle)
+                    .await?
+            },
+            None => {
+                let reference = parse_name_or_reference(name, reference)?;
+                self.resolve_function(&reference)?
+            },
+        };
         let value = self
             .action_callbacks
             .execute_query(
@@ -133,18 +143,28 @@ impl<RT: Runtime> TaskExecutor<RT> {
         struct RunMutationArgs {
             name: Option<String>,
             reference: Option<String>,
+            function_handle: Option<String>,
             args: UdfArgsJson,
         }
-        let (reference, args) = with_argument_error("runMutation", || {
-            let RunMutationArgs {
-                name,
-                reference,
-                args,
-            } = serde_json::from_value(args)?;
-            let reference = parse_name_or_reference(name, reference)?;
-            Ok((reference, args))
-        })?;
-        let function_path = self.resolve_function(&reference)?;
+        let RunMutationArgs {
+            name,
+            reference,
+            function_handle,
+            args,
+        } = with_argument_error("runMutation", || Ok(serde_json::from_value(args)?))?;
+        let function_path = match function_handle {
+            Some(function_handle) => {
+                let handle: FunctionHandle =
+                    with_argument_error("runMutation", || function_handle.parse())?;
+                self.action_callbacks
+                    .lookup_function_handle(self.identity.clone(), handle)
+                    .await?
+            },
+            None => {
+                let reference = parse_name_or_reference(name, reference)?;
+                self.resolve_function(&reference)?
+            },
+        };
         let value = self
             .action_callbacks
             .execute_mutation(
@@ -165,18 +185,28 @@ impl<RT: Runtime> TaskExecutor<RT> {
         struct RunActionArgs {
             name: Option<String>,
             reference: Option<String>,
+            function_handle: Option<String>,
             args: UdfArgsJson,
         }
-        let (reference, args) = with_argument_error("runAction", || {
-            let RunActionArgs {
-                name,
-                reference,
-                args,
-            } = serde_json::from_value(args)?;
-            let reference = parse_name_or_reference(name, reference)?;
-            Ok((reference, args))
-        })?;
-        let function_path = self.resolve_function(&reference)?;
+        let RunActionArgs {
+            name,
+            reference,
+            function_handle,
+            args,
+        } = with_argument_error("runAction", || Ok(serde_json::from_value(args)?))?;
+        let function_path = match function_handle {
+            Some(function_handle) => {
+                let handle: FunctionHandle =
+                    with_argument_error("runAction", || function_handle.parse())?;
+                self.action_callbacks
+                    .lookup_function_handle(self.identity.clone(), handle)
+                    .await?
+            },
+            None => {
+                let reference = parse_name_or_reference(name, reference)?;
+                self.resolve_function(&reference)?
+            },
+        };
         let value = self
             .action_callbacks
             .execute_action(
@@ -197,21 +227,32 @@ impl<RT: Runtime> TaskExecutor<RT> {
         struct ScheduleArgs {
             name: Option<String>,
             reference: Option<String>,
+            function_handle: Option<String>,
             ts: f64,
             args: UdfArgsJson,
         }
 
-        let (reference, ts, args) = with_argument_error("scheduler", || {
-            let ScheduleArgs {
-                name,
-                reference,
-                ts,
-                args,
-            } = serde_json::from_value(args)?;
-            let reference = parse_name_or_reference(name, reference)?;
-            Ok((reference, ts, args))
-        })?;
-        let path = self.resolve_function(&reference)?;
+        let ScheduleArgs {
+            name,
+            reference,
+            function_handle,
+            ts,
+            args,
+        }: ScheduleArgs = with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
+        let path = match function_handle {
+            Some(h) => {
+                let handle: FunctionHandle = with_argument_error("scheduler", || h.parse())?;
+                self.action_callbacks
+                    .lookup_function_handle(self.identity.clone(), handle)
+                    .await?
+            },
+            None => {
+                let reference = with_argument_error("scheduler", || {
+                    parse_name_or_reference(name, reference).context(ArgName("name"))
+                })?;
+                self.resolve_function(&reference)?
+            },
+        };
         let scheduled_ts = UnixTimestamp::from_secs_f64(ts);
         let virtual_id = self
             .action_callbacks

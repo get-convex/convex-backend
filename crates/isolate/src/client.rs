@@ -15,7 +15,10 @@ use std::{
 use ::metrics::Timer;
 use async_trait::async_trait;
 use common::{
-    bootstrap_model::components::definition::ComponentDefinitionMetadata,
+    bootstrap_model::components::{
+        definition::ComponentDefinitionMetadata,
+        handles::FunctionHandle,
+    },
     codel_queue::{
         new_codel_queue_async,
         CoDelQueueReceiver,
@@ -359,6 +362,13 @@ pub trait ActionCallbacks: Send + Sync {
         identity: Identity,
         query: JsonValue,
     ) -> anyhow::Result<(Vec<PublicVectorSearchQueryResult>, FunctionUsageStats)>;
+
+    // Components
+    async fn lookup_function_handle(
+        &self,
+        identity: Identity,
+        handle: FunctionHandle,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath>;
 }
 
 pub struct UdfRequest<RT: Runtime> {

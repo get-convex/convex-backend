@@ -21,7 +21,7 @@ import {
   RegisteredMutation,
   RegisteredQuery,
 } from "../registration.js";
-import { setupActionCalls } from "./actions_impl.js";
+import { getFunctionAddress, setupActionCalls } from "./actions_impl.js";
 import { setupActionVectorSearch } from "./vector_search_impl.js";
 import { setupAuth } from "./authentication_impl.js";
 import { setupReader, setupWriter } from "./database_impl.js";
@@ -35,8 +35,6 @@ import {
   setupStorageReader,
   setupStorageWriter,
 } from "./storage_impl.js";
-import { functionName } from "../api.js";
-import { extractReferencePath } from "../components/index.js";
 import { parseArgs } from "../../common/index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { asObjectValidator } from "../../values/validator.js";
@@ -451,33 +449,16 @@ export const httpActionGeneric = (
   return q;
 };
 
-function componentGetFunctionName(reference: any) {
-  // Legacy path for passing UDF paths directly to `runQuery`.
-  if (typeof reference === "string") {
-    return `_reference/function/${reference}`;
-  }
-  const functionPath = reference[functionName];
-  if (functionPath) {
-    return `_reference/function/${functionPath}`;
-  }
-  const referencePath = extractReferencePath(reference);
-  if (referencePath) {
-    return referencePath;
-  }
-  throw new Error(`${reference} is not a valid function reference`);
-}
-
 async function runUdf(
   udfType: "query" | "mutation",
-  reference: any,
+  f: any,
   args?: Record<string, Value>,
 ): Promise<any> {
-  const name = componentGetFunctionName(reference);
   const queryArgs = parseArgs(args);
   const syscallArgs = {
     udfType,
-    reference: name,
     args: convexToJson(queryArgs),
+    ...getFunctionAddress(f),
   };
   const result = await performAsyncSyscall("1.0/runUdf", syscallArgs);
   return jsonToConvex(result);

@@ -12,9 +12,12 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use common::{
-    bootstrap_model::index::{
-        database_index::IndexedFields,
-        IndexMetadata,
+    bootstrap_model::{
+        components::handles::FunctionHandle,
+        index::{
+            database_index::IndexedFields,
+            IndexMetadata,
+        },
     },
     components::{
         CanonicalizedComponentFunctionPath,
@@ -87,6 +90,7 @@ use keybroker::{
 };
 use maplit::btreemap;
 use model::{
+    components::handles::FunctionHandlesModel,
     config::{
         module_loader::{
             test_module_loader::UncachedModuleLoader,
@@ -1339,7 +1343,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
             scheduled_path,
             udf_args,
             scheduled_ts,
-            // Scheduling from actions is not transaction and happens at latest
+            // Scheduling from actions is not transactional and happens at latest
             // timestamp.
             self.database.runtime().unix_timestamp(),
             &mut tx,
@@ -1374,6 +1378,15 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
     ) -> anyhow::Result<(Vec<PublicVectorSearchQueryResult>, FunctionUsageStats)> {
         let query = VectorSearch::try_from(query)?;
         self.database.vector_search(identity, query).await
+    }
+
+    async fn lookup_function_handle(
+        &self,
+        identity: Identity,
+        handle: FunctionHandle,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
+        let mut tx = self.database.begin(identity).await?;
+        FunctionHandlesModel::new(&mut tx).lookup(handle).await
     }
 }
 

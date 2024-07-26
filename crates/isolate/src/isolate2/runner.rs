@@ -946,7 +946,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     async fn run_udf(
         &mut self,
         _udf_type: UdfType,
-        _reference: Reference,
+        _path: CanonicalizedComponentFunctionPath,
         _args: ConvexObject,
     ) -> anyhow::Result<ConvexValue> {
         todo!();
@@ -972,6 +972,13 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
             Reference::CurrentSystemUdfInComponent { .. } => todo!(),
         };
         Ok(resource)
+    }
+
+    async fn lookup_function_handle(
+        &mut self,
+        _handle: FunctionHandle,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
+        todo!()
     }
 }
 

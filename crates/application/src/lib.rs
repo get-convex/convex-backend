@@ -29,7 +29,10 @@ use bytes::Bytes;
 use common::{
     auth::AuthInfo,
     bootstrap_model::{
-        components::definition::ComponentDefinitionMetadata,
+        components::{
+            definition::ComponentDefinitionMetadata,
+            handles::FunctionHandle,
+        },
         index::{
             database_index::IndexedFields,
             index_validation_error,
@@ -183,6 +186,7 @@ use model::{
             SchemaChange,
         },
         file_based_routing::add_file_based_routing,
+        handles::FunctionHandlesModel,
         type_checking::TypecheckContext,
         types::{
             EvaluatedComponentDefinition,
@@ -3104,6 +3108,15 @@ impl<RT: Runtime> Application<RT> {
             .execute_with_occ_retries(identity, usage, pause_client, write_source, f)
             .await
             .map(|(ts, t, _)| (ts, t))
+    }
+
+    pub async fn lookup_function_handle(
+        &self,
+        identity: Identity,
+        handle: FunctionHandle,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
+        let mut tx = self.begin(identity).await?;
+        FunctionHandlesModel::new(&mut tx).lookup(handle).await
     }
 
     pub fn files_storage(&self) -> Arc<dyn Storage> {

@@ -3,7 +3,7 @@ import { version } from "../../index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
 import { functionName, FunctionReference } from "../../server/api.js";
-import { extractReferencePath } from "../components/index.js";
+import { extractReferencePath, isFunctionHandle } from "../components/index.js";
 
 function syscallArgs(
   requestId: string,
@@ -27,7 +27,11 @@ export function getFunctionAddress(functionReference: any) {
 
   // Legacy path for passing in UDF paths directly as function references.
   if (typeof functionReference === "string") {
-    functionAddress = { name: functionReference };
+    if (isFunctionHandle(functionReference)) {
+      functionAddress = { functionHandle: functionReference };
+    } else {
+      functionAddress = { name: functionReference };
+    }
   }
   // Path for passing in a `FunctionReference`, either from `api` or directly
   // created from a UDF path with `makeFunctionReference`.

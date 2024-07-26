@@ -304,7 +304,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
     async fn run_udf(
         &mut self,
         udf_type: UdfType,
-        reference: Reference,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexObject,
     ) -> anyhow::Result<ConvexValue>;
 
@@ -314,6 +314,10 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
     ) -> anyhow::Result<FunctionHandle>;
 
     async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource>;
+    async fn lookup_function_handle(
+        &mut self,
+        handle: FunctionHandle,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath>;
 }
 
 impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
@@ -452,7 +456,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     async fn run_udf(
         &mut self,
         udf_type: UdfType,
-        reference: Reference,
+        path: CanonicalizedComponentFunctionPath,
         args: ConvexObject,
     ) -> anyhow::Result<ConvexValue> {
         match (self.udf_type, udf_type) {
@@ -470,27 +474,15 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 ));
             },
         }
-        let resource = self.resolve(reference).await?;
-
         let tx = self.phase.tx()?;
-
-        let function_path = match resource {
-            Resource::Value(_) => {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "InvalidResource",
-                    "Cannot execute a value resource"
-                ));
-            },
-            Resource::Function(p) => p,
-        };
         let (_, called_component_id) = BootstrapComponentsModel::new(tx)
-            .component_path_to_ids(function_path.component.clone())
+            .component_path_to_ids(path.component.clone())
             .await?;
 
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
-            AllowedVisibility::PublicOnly,
+            AllowedVisibility::All,
             tx,
-            function_path,
+            path,
             ConvexArray::try_from(vec![args.into()])?,
             udf_type,
         )
@@ -583,6 +575,15 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
         ComponentsModel::new(tx)
             .resolve(current_component_id, Some(current_udf_path), &reference)
+            .await
+    }
+
+    async fn lookup_function_handle(
+        &mut self,
+        handle: FunctionHandle,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
+        FunctionHandlesModel::new(self.phase.tx()?)
+            .lookup(handle)
             .await
     }
 }
@@ -822,6 +823,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         struct ScheduleArgs {
             name: Option<String>,
             reference: Option<String>,
+            function_handle: Option<String>,
             ts: f64,
             args: UdfArgsJson,
         }
@@ -829,24 +831,33 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let ScheduleArgs {
             name,
             reference,
+            function_handle,
             ts,
             args,
         }: ScheduleArgs = with_argument_error("scheduler", || Ok(serde_json::from_value(args)?))?;
-        let reference = with_argument_error("scheduler", || {
-            parse_name_or_reference(name, reference).context(ArgName("name"))
-        })?;
 
-        let path = match provider.resolve(reference).await? {
-            Resource::Value(v) => {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "InvalidResource",
-                    format!(
-                        "Only functions can be scheduled. {} is not a function",
-                        JsonValue::from(v)
-                    ),
-                ));
+        let path = match function_handle {
+            Some(h) => {
+                let handle: FunctionHandle = with_argument_error("scheduler", || h.parse())?;
+                provider.lookup_function_handle(handle).await?
             },
-            Resource::Function(p) => p,
+            None => {
+                let reference = with_argument_error("scheduler", || {
+                    parse_name_or_reference(name, reference).context(ArgName("name"))
+                })?;
+                match provider.resolve(reference).await? {
+                    Resource::Value(v) => {
+                        anyhow::bail!(ErrorMetadata::bad_request(
+                            "InvalidResource",
+                            format!(
+                                "Only functions can be scheduled. {} is not a function",
+                                JsonValue::from(v)
+                            ),
+                        ));
+                    },
+                    Resource::Function(p) => p,
+                }
+            },
         };
 
         let scheduling_component = provider.component()?;
@@ -1190,20 +1201,45 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         #[serde(rename_all = "camelCase")]
         struct RunUdfArgs {
             udf_type: String,
-            reference: String,
+            name: Option<String>,
+            reference: Option<String>,
+            function_handle: Option<String>,
             args: JsonValue,
         }
-        let (udf_type, reference, args) = with_argument_error("runUdf", || {
-            let args: RunUdfArgs = serde_json::from_value(args)?;
-            let udf_type: UdfType = args.udf_type.parse().context(ArgName("udfType"))?;
-            let reference = args.reference.parse().context(ArgName("reference"))?;
-            let args: ConvexObject = ConvexValue::try_from(args.args)
+        let RunUdfArgs {
+            udf_type,
+            name,
+            reference,
+            function_handle,
+            args,
+        } = with_argument_error("runUdf", || Ok(serde_json::from_value(args)?))?;
+        let (udf_type, args) = with_argument_error("runUdf", || {
+            let udf_type: UdfType = udf_type.parse().context(ArgName("udfType"))?;
+            let args: ConvexObject = ConvexValue::try_from(args)
                 .context(ArgName("args"))?
                 .try_into()
                 .context(ArgName("args"))?;
-            Ok((udf_type, reference, args))
+            Ok((udf_type, args))
         })?;
-        let value = provider.run_udf(udf_type, reference, args).await?;
+        let function_path = match function_handle {
+            Some(function_handle) => {
+                let handle: FunctionHandle =
+                    with_argument_error("runUdf", || function_handle.parse())?;
+                provider.lookup_function_handle(handle).await?
+            },
+            None => {
+                let reference =
+                    parse_name_or_reference(name, reference).context(ArgName("name"))?;
+                let Resource::Function(path) = provider.resolve(reference).await? else {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidResource",
+                        "Cannot execute a value resource"
+                    ));
+                };
+                path
+            },
+        };
+        let value = provider.run_udf(udf_type, function_path, args).await?;
         Ok(value.into())
     }
 
