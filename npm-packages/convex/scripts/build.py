@@ -30,6 +30,7 @@ def run(cmd: Union[str, List[str]]) -> None:
         print("error while running", cmd)
         print(e)
         print(e.output)
+        raise e
 
 
 def log_duration(func: Callable[[], None]) -> Callable[[], None]:
