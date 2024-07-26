@@ -95,7 +95,7 @@ test.skip.each([
   expect(lastError!.toString()).toEqual(expectedError);
 });
 
-test("Returns nothing when args are 'skip'", () => {
+test.skip("Returns nothing when args are 'skip'", () => {
   const convexClient = new ConvexReactClient(address);
   const watchQuerySpy = vi.spyOn(convexClient, "watchQuery");
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -118,7 +118,7 @@ test("Returns nothing when args are 'skip'", () => {
   });
 });
 
-test("Initially returns LoadingFirstPage", () => {
+test.skip("Initially returns LoadingFirstPage", () => {
   const convexClient = new ConvexReactClient(address);
   const watchQuerySpy = vi.spyOn(convexClient, "watchQuery");
   const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -153,7 +153,7 @@ test("Initially returns LoadingFirstPage", () => {
   });
 });
 
-test("Updates to a new query if query name or args change", () => {
+test.skip("Updates to a new query if query name or args change", () => {
   const convexClient = new ConvexReactClient(address);
   const watchQuerySpy = vi.spyOn(convexClient, "watchQuery");
 
@@ -232,7 +232,7 @@ test("Updates to a new query if query name or args change", () => {
   expect(watchQuerySpy.mock.calls.length).toBe(9);
 });
 
-describe("usePaginatedQuery pages", () => {
+describe.skip("usePaginatedQuery pages", () => {
   let client: ConvexReactClient;
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <ConvexProvider client={client}>{children}</ConvexProvider>

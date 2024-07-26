@@ -16,9 +16,12 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use model::file_storage::{
-    types::FileStorageEntry,
-    FileStorageId,
+use model::{
+    components::handles::function_handle_not_found,
+    file_storage::{
+        types::FileStorageEntry,
+        FileStorageId,
+    },
 };
 use serde::{
     Deserialize,
@@ -28,6 +31,7 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use sync_types::CanonicalizedUdfPath;
 use value::id_v6::DeveloperDocumentId;
 use vector::VectorSearchRequest;
 
@@ -67,6 +71,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     self.async_syscall_storageGenerateUploadUrl(args).await?
                 },
                 "1.0/storageGetUrl" => self.async_syscall_storageGetUrl(args).await?,
+                "1.0/createFunctionHandle" => self.async_syscall_createFunctionHandle(args).await?,
                 _ => {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "UnknownAsyncOperation",
@@ -350,6 +355,29 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 },
             );
         Ok(serde_json::to_value(file_metadata)?)
+    }
+
+    async fn async_syscall_createFunctionHandle(
+        &self,
+        args: JsonValue,
+    ) -> anyhow::Result<JsonValue> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct CreateFunctionHandleArgs {
+            udf_path: String,
+        }
+        let udf_path: CanonicalizedUdfPath = with_argument_error("createFunctionHandle", || {
+            let CreateFunctionHandleArgs { udf_path } = serde_json::from_value(args)?;
+            udf_path.parse()
+        })?;
+        let handle = {
+            let function_handles = self.function_handles.lock();
+            function_handles.get(&udf_path).cloned()
+        };
+        let Some(handle) = handle else {
+            anyhow::bail!(function_handle_not_found());
+        };
+        Ok(serde_json::to_value(String::from(handle))?)
     }
 }
 

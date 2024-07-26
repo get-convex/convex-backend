@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::Context as AnyhowContext;
 use common::{
+    bootstrap_model::components::handles::FunctionHandle,
     components::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
@@ -67,6 +68,7 @@ use parking_lot::Mutex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
+use sync_types::CanonicalizedUdfPath;
 use tokio::sync::Semaphore;
 use value::{
     ConvexArray,
@@ -947,6 +949,13 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
         _reference: Reference,
         _args: ConvexObject,
     ) -> anyhow::Result<ConvexValue> {
+        todo!();
+    }
+
+    async fn create_function_handle(
+        &mut self,
+        _path: CanonicalizedUdfPath,
+    ) -> anyhow::Result<FunctionHandle> {
         todo!();
     }
 

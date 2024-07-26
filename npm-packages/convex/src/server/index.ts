@@ -170,6 +170,7 @@ export {
   componentGeneric,
   currentSystemUdfInComponent,
   createComponentArgs,
+  createFunctionHandle,
 } from "./components/index.js";
 /**
  * @internal

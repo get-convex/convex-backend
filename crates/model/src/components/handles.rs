@@ -88,6 +88,10 @@ impl SystemTable for FunctionHandlesTable {
     }
 }
 
+pub fn function_handle_not_found() -> ErrorMetadata {
+    ErrorMetadata::bad_request("FunctionHandleNotFound", "Function handle not found")
+}
+
 pub struct FunctionHandlesModel<'a, RT: Runtime> {
     tx: &'a mut Transaction<RT>,
 }
@@ -108,14 +112,12 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
                 .namespace(TableNamespace::Global)
                 .number_to_tablet(),
         )?;
-        let not_found =
-            || ErrorMetadata::bad_request("FunctionHandleNotFound", "Function handle not found");
         let Some(document) = self.tx.get(resolved_id).await? else {
-            anyhow::bail!(not_found());
+            anyhow::bail!(function_handle_not_found());
         };
         let metadata = ParsedDocument::<FunctionHandleMetadata>::try_from(document)?.into_value();
         if metadata.deleted_ts.is_some() {
-            anyhow::bail!(not_found());
+            anyhow::bail!(function_handle_not_found());
         }
         let component_path = BootstrapComponentsModel::new(self.tx)
             .get_component_path(metadata.component)
@@ -124,6 +126,36 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
             component: component_path,
             udf_path: metadata.path,
         })
+    }
+
+    pub async fn preload(
+        &mut self,
+        component: ComponentId,
+    ) -> anyhow::Result<BTreeMap<CanonicalizedUdfPath, FunctionHandle>> {
+        let mut handles = BTreeMap::new();
+        let serialized_component = match component.serialize_to_string() {
+            Some(s) => ConvexValue::String(s.try_into()?),
+            None => ConvexValue::Null,
+        };
+        let index_query = Query::index_range(IndexRange {
+            index_name: BY_COMPONENT_PATH_INDEX.clone(),
+            range: vec![IndexRangeExpression::Eq(
+                COMPONENT_FIELD.clone(),
+                serialized_component.into(),
+            )],
+            order: Order::Asc,
+        });
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
+        while let Some(doc) = query_stream.next(self.tx, None).await? {
+            let handle: ParsedDocument<FunctionHandleMetadata> = doc.try_into()?;
+            if handle.deleted_ts.is_none() {
+                handles.insert(
+                    handle.path.clone(),
+                    FunctionHandle::new(handle.developer_id()),
+                );
+            }
+        }
+        Ok(handles)
     }
 
     pub async fn get(
@@ -148,21 +180,12 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         };
         let query = Query::index_range(index_range);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
-        let not_found = || {
-            ErrorMetadata::not_found(
-                "FunctionHandleNotFound",
-                format!(
-                    "Function handle not found for component {:?} and path {:?}",
-                    component, path
-                ),
-            )
-        };
         let Some(document) = query_stream.expect_at_most_one(self.tx).await? else {
-            anyhow::bail!(not_found())
+            anyhow::bail!(function_handle_not_found())
         };
         let document: ParsedDocument<FunctionHandleMetadata> = document.try_into()?;
         if document.deleted_ts.is_some() {
-            anyhow::bail!(not_found())
+            anyhow::bail!(function_handle_not_found())
         }
         Ok(FunctionHandle::new(document.developer_id()))
     }

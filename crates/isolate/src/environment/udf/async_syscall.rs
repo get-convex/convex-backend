@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    bootstrap_model::components::handles::FunctionHandle,
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
@@ -55,7 +56,10 @@ use errors::{
 use itertools::Itertools;
 use keybroker::KeyBroker;
 use model::{
-    components::ComponentsModel,
+    components::{
+        handles::FunctionHandlesModel,
+        ComponentsModel,
+    },
     file_storage::{
         types::FileStorageEntry,
         BatchKey,
@@ -70,6 +74,10 @@ use serde::{
 use serde_json::{
     json,
     Value as JsonValue,
+};
+use sync_types::{
+    CanonicalizedUdfPath,
+    UdfPath,
 };
 use value::{
     heap_size::HeapSize,
@@ -299,6 +307,11 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
         reference: Reference,
         args: ConvexObject,
     ) -> anyhow::Result<ConvexValue>;
+
+    async fn create_function_handle(
+        &mut self,
+        path: CanonicalizedUdfPath,
+    ) -> anyhow::Result<FunctionHandle>;
 
     async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource>;
 }
@@ -553,6 +566,15 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         Ok(result)
     }
 
+    async fn create_function_handle(
+        &mut self,
+        path: CanonicalizedUdfPath,
+    ) -> anyhow::Result<FunctionHandle> {
+        let component = self.component()?;
+        let tx = self.phase.tx()?;
+        FunctionHandlesModel::new(tx).get(component, path).await
+    }
+
     async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource> {
         let current_component_id = self.component()?;
         let current_udf_path = self.path.udf_path.clone().into();
@@ -620,6 +642,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
                     // Components
                     "1.0/runUdf" => Box::pin(Self::run_udf(provider, args)).await,
+                    "1.0/createFunctionHandle" => {
+                        Box::pin(Self::create_function_handle(provider, args)).await
+                    },
 
                     #[cfg(test)]
                     "slowSyscall" => {
@@ -1180,6 +1205,24 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         })?;
         let value = provider.run_udf(udf_type, reference, args).await?;
         Ok(value.into())
+    }
+
+    async fn create_function_handle(
+        provider: &mut P,
+        args: JsonValue,
+    ) -> anyhow::Result<JsonValue> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        struct CreateFunctionHandleArgs {
+            udf_path: String,
+        }
+        let udf_path = with_argument_error("createFunctionHandle", || {
+            let CreateFunctionHandleArgs { udf_path } = serde_json::from_value(args)?;
+            let p: UdfPath = udf_path.parse()?;
+            Ok(p.canonicalize())
+        })?;
+        let handle = provider.create_function_handle(udf_path).await?;
+        Ok(serde_json::to_value(String::from(handle))?)
     }
 }
 

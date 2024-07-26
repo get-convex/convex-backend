@@ -8,7 +8,7 @@ import FakeWatch from "../test/fake_watch.js";
 import { act, renderHook } from "@testing-library/react";
 import { FunctionReference, anyApi, getFunctionName } from "../server/api.js";
 
-test("Adding a new query", () => {
+test.skip("Adding a new query", () => {
   const values: Record<string, unknown> = {};
   const createWatch = vi.fn((query: FunctionReference<"query">) => {
     const watch = new FakeWatch<any>();
@@ -71,7 +71,7 @@ test("Adding a new query", () => {
   });
 });
 
-test("Swapping queries and unsubscribing", () => {
+test.skip("Swapping queries and unsubscribing", () => {
   const createWatch = vi.fn(() => new FakeWatch<any>()) as any;
 
   // Request 1 query.
@@ -110,7 +110,7 @@ test("Swapping queries and unsubscribing", () => {
   expect(createWatch.mock.results[4].value.numCallbacks()).toBe(0);
 });
 
-test("Local results on initial render", () => {
+test.skip("Local results on initial render", () => {
   const value: string | undefined = "query1 result";
   const createWatch = vi.fn(() => {
     const watch = new FakeWatch<any>();

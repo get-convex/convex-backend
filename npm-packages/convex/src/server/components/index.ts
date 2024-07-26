@@ -5,8 +5,12 @@ import {
   convexToJson,
   jsonToConvex,
 } from "../../values/index.js";
-import { AnyFunctionReference } from "../api.js";
-import { performSyscall } from "../impl/syscall.js";
+import {
+  AnyFunctionReference,
+  functionName,
+  FunctionReference,
+} from "../api.js";
+import { performAsyncSyscall, performSyscall } from "../impl/syscall.js";
 import { EmptyObject } from "../registration.js";
 import {
   AppDefinitionAnalysis,
@@ -19,6 +23,19 @@ export const toReferencePath = Symbol.for("toReferencePath");
 
 export function extractReferencePath(reference: any): string | null {
   return reference[toReferencePath] ?? null;
+}
+
+/**
+ * @internal
+ */
+export async function createFunctionHandle(
+  functionReference: FunctionReference<any>,
+): Promise<string> {
+  const udfPath = (functionReference as any)[functionName];
+  if (!udfPath) {
+    throw new Error(`${functionReference as any} is not a FunctionReference`);
+  }
+  return await performAsyncSyscall("1.0/createFunctionHandle", { udfPath });
 }
 
 /**

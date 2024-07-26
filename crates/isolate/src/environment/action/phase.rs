@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    bootstrap_model::components::handles::FunctionHandle,
     components::{
         ComponentId,
         ComponentPath,
@@ -24,7 +25,10 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
-    components::ComponentsModel,
+    components::{
+        handles::FunctionHandlesModel,
+        ComponentsModel,
+    },
     config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
@@ -49,6 +53,7 @@ use rand::{
 use rand_chacha::ChaCha12Rng;
 use sync_types::{
     CanonicalizedModulePath,
+    CanonicalizedUdfPath,
     ModulePath,
 };
 use value::{
@@ -89,6 +94,7 @@ enum ActionPreloaded<RT: Runtime> {
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
         component_id: Arc<Mutex<Option<ComponentId>>>,
+        function_handles: Arc<Mutex<BTreeMap<CanonicalizedUdfPath, FunctionHandle>>>,
     },
     Preloading,
     Ready {
@@ -109,6 +115,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
         component_id: Arc<Mutex<Option<ComponentId>>>,
+        function_handles: Arc<Mutex<BTreeMap<CanonicalizedUdfPath, FunctionHandle>>>,
     ) -> Self {
         Self {
             component,
@@ -120,6 +127,7 @@ impl<RT: Runtime> ActionPhase<RT> {
                 system_env_vars,
                 resources,
                 component_id,
+                function_handles,
             },
         }
     }
@@ -139,6 +147,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             system_env_vars,
             resources,
             component_id,
+            function_handles,
         } = preloaded
         else {
             anyhow::bail!("ActionPhase initialized twice");
@@ -224,6 +233,16 @@ impl<RT: Runtime> ActionPhase<RT> {
                 .await?,
             )
         };
+
+        {
+            let handles = with_release_permit(
+                timeout,
+                permit_slot,
+                FunctionHandlesModel::new(&mut tx).preload(component_id),
+            )
+            .await?;
+            *function_handles.lock() = handles;
+        }
 
         self.preloaded = ActionPreloaded::Ready {
             modules,

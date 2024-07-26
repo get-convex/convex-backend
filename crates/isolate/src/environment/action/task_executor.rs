@@ -5,6 +5,7 @@ use std::{
 };
 
 use common::{
+    bootstrap_model::components::handles::FunctionHandle,
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
@@ -39,6 +40,7 @@ use minitrace::future::FutureExt;
 use model::config::module_loader::ModuleLoader;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
+use sync_types::CanonicalizedUdfPath;
 use usage_tracking::FunctionUsageTracker;
 
 use crate::{
@@ -78,6 +80,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub context: ExecutionContext,
     pub resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
     pub component_id: Arc<Mutex<Option<ComponentId>>>,
+    pub function_handles: Arc<Mutex<BTreeMap<CanonicalizedUdfPath, FunctionHandle>>>,
 }
 
 impl<RT: Runtime> TaskExecutor<RT> {
