@@ -28,6 +28,16 @@ import {
 import { ComponentDirectory } from "./components/definition/directoryStructure.js";
 import { StartPushResponse } from "./deployApi/startPush.js";
 
+export type CodegenOptions = {
+  url?: string;
+  adminKey?: string;
+  dryRun: boolean;
+  debug: boolean;
+  typecheck: TypeCheckMode;
+  init: boolean;
+  commonjs: boolean;
+};
+
 export async function doInitCodegen(
   ctx: Context,
   functionsDir: string,

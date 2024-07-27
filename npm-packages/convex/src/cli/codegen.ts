@@ -1,9 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
-import chalk from "chalk";
-import { ensureHasConvexDependency } from "./lib/utils.js";
-import { doInitCodegen, doCodegen } from "./lib/codegen.js";
-import { logMessage, oneoffContext } from "../bundler/context.js";
-import { getFunctionsDirectoryPath } from "./lib/config.js";
+import { oneoffContext } from "../bundler/context.js";
+import { runCodegen } from "./lib/components.js";
 
 export const codegen = new Command("codegen")
   .summary("Generate backend type definitions")
@@ -27,6 +24,8 @@ export const codegen = new Command("codegen")
     "--init",
     "Also (over-)write the default convex/README.md and convex/tsconfig.json files, otherwise only written when creating a new Convex project.",
   )
+  .addOption(new Option("--admin-key <adminKey>").hideHelp())
+  .addOption(new Option("--url <url>").hideHelp())
   // Experimental option
   .addOption(
     new Option(
@@ -36,25 +35,14 @@ export const codegen = new Command("codegen")
   )
   .action(async (options) => {
     const ctx = oneoffContext;
-    const functionsDirectoryPath = await getFunctionsDirectoryPath(ctx);
 
-    // This also ensures the current directory is the project root.
-    await ensureHasConvexDependency(ctx, "codegen");
-
-    if (options.init) {
-      await doInitCodegen(ctx, functionsDirectoryPath, false, {
-        dryRun: options.dryRun,
-        debug: options.debug,
-      });
-    }
-
-    if (options.typecheck !== "disable") {
-      logMessage(ctx, chalk.gray("Running TypeScript typecheck…"));
-    }
-
-    await doCodegen(ctx, functionsDirectoryPath, options.typecheck, {
-      dryRun: options.dryRun,
-      debug: options.debug,
-      generateCommonJSApi: options.commonjs,
+    await runCodegen(ctx, {
+      dryRun: !!options.dryRun,
+      debug: !!options.debug,
+      typecheck: options.typecheck,
+      init: !!options.init,
+      commonjs: !!options.commonjs,
+      url: options.url,
+      adminKey: options.adminKey,
     });
   });

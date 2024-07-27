@@ -8,6 +8,7 @@ import {
 import {
   ProjectConfig,
   configFromProjectConfig,
+  getFunctionsDirectoryPath,
   readProjectConfig,
 } from "./config.js";
 import { finishPush, startPush, waitForSchema } from "./deploy2.js";
@@ -23,15 +24,61 @@ import { isComponentDirectory } from "./components/definition/directoryStructure
 import {
   doFinalComponentCodegen,
   doInitialComponentCodegen,
+  CodegenOptions,
+  doInitCodegen,
+  doCodegen,
 } from "./codegen.js";
 import {
   AppDefinitionConfig,
   ComponentDefinitionConfig,
 } from "./deployApi/definitionConfig.js";
-import { typeCheckFunctionsInMode } from "./typecheck.js";
+import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
 import { withTmpDir } from "../../bundler/fs.js";
 import { ROOT_DEFINITION_FILENAME } from "./components/constants.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
+import chalk from "chalk";
+import { StartPushResponse } from "./deployApi/startPush.js";
+import { deploymentCredentialsOrConfigure } from "../configure.js";
+
+export async function runCodegen(ctx: Context, options: CodegenOptions) {
+  // This also ensures the current directory is the project root.
+  await ensureHasConvexDependency(ctx, "codegen");
+
+  const { configPath, projectConfig } = await readProjectConfig(ctx);
+  const functionsDirectoryPath = functionsDir(configPath, projectConfig);
+  const componentRootPath = path.resolve(
+    path.join(functionsDirectoryPath, ROOT_DEFINITION_FILENAME),
+  );
+  if (ctx.fs.exists(componentRootPath)) {
+    const credentials = await deploymentCredentialsOrConfigure(ctx, null, {
+      ...options,
+      prod: false,
+    });
+    await startComponentsPushAndCodegen(ctx, projectConfig, configPath, {
+      ...options,
+      ...credentials,
+      generateCommonJSApi: options.commonjs,
+      verbose: options.dryRun,
+    });
+  } else {
+    if (options.init) {
+      await doInitCodegen(ctx, functionsDirectoryPath, false, {
+        dryRun: options.dryRun,
+        debug: options.debug,
+      });
+    }
+
+    if (options.typecheck !== "disable") {
+      logMessage(ctx, chalk.gray("Running TypeScript typecheck…"));
+    }
+
+    await doCodegen(ctx, functionsDirectoryPath, options.typecheck, {
+      dryRun: options.dryRun,
+      debug: options.debug,
+      generateCommonJSApi: options.commonjs,
+    });
+  }
+}
 
 export async function runPush(ctx: Context, options: PushOptions) {
   const { configPath, projectConfig } = await readProjectConfig(ctx);
@@ -46,21 +93,24 @@ export async function runPush(ctx: Context, options: PushOptions) {
   }
 }
 
-export async function runComponentsPush(
+async function startComponentsPushAndCodegen(
   ctx: Context,
-  options: PushOptions,
-  configPath: string,
   projectConfig: ProjectConfig,
-) {
+  configPath: string,
+  options: {
+    typecheck: TypeCheckMode;
+    adminKey: string;
+    url: string;
+    verbose: boolean;
+    debugBundlePath?: string;
+    dryRun: boolean;
+    generateCommonJSApi?: boolean;
+    debug: boolean;
+    writePushRequest?: string;
+  },
+): Promise<StartPushResponse | null> {
   const verbose = options.verbose || options.dryRun;
-  await ensureHasConvexDependency(ctx, "push");
-
-  if (options.dryRun) {
-    logError(ctx, "dryRun not allowed yet");
-    await ctx.crash(1, "fatal");
-  }
-
-  const convexDir = functionsDir(configPath, projectConfig);
+  const convexDir = await getFunctionsDirectoryPath(ctx);
 
   // '.' means use the process current working directory, it's the default behavior.
   // Spelling it out here to be explicit for a future where this code can run
@@ -137,7 +187,7 @@ export async function runComponentsPush(
       ctx,
       `Wrote bundle and metadata for modules in the root to ${options.debugBundlePath}. Skipping rest of push.`,
     );
-    return;
+    return null;
   }
 
   // We're just using the version this CLI is running with for now.
@@ -188,7 +238,7 @@ export async function runComponentsPush(
       `${pushRequestPath}.json`,
       JSON.stringify(startPushRequest),
     );
-    return;
+    return null;
   }
 
   const startPushResponse = await startPush(
@@ -209,6 +259,7 @@ export async function runComponentsPush(
       rootComponent,
       rootComponent,
       startPushResponse,
+      options,
     );
     for (const directory of components.values()) {
       await doFinalComponentCodegen(
@@ -217,6 +268,7 @@ export async function runComponentsPush(
         rootComponent,
         directory,
         startPushResponse,
+        options,
       );
     }
   });
@@ -225,6 +277,33 @@ export async function runComponentsPush(
   await typeCheckFunctionsInMode(ctx, options.typecheck, rootComponent.path);
   for (const directory of components.values()) {
     await typeCheckFunctionsInMode(ctx, options.typecheck, directory.path);
+  }
+
+  return startPushResponse;
+}
+
+export async function runComponentsPush(
+  ctx: Context,
+  options: PushOptions,
+  configPath: string,
+  projectConfig: ProjectConfig,
+) {
+  const verbose = options.verbose || options.dryRun;
+  await ensureHasConvexDependency(ctx, "push");
+
+  if (options.dryRun) {
+    logError(ctx, "dryRun not allowed yet");
+    await ctx.crash(1, "fatal");
+  }
+
+  const startPushResponse = await startComponentsPushAndCodegen(
+    ctx,
+    projectConfig,
+    configPath,
+    options,
+  );
+  if (!startPushResponse) {
+    return;
   }
 
   changeSpinner(ctx, "Waiting for schema...");
