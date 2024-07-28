@@ -422,7 +422,7 @@ impl Limiter {
             _ = request_guard.acquire_permit().fuse() => {},
             _ = rt.wait(*APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT) => {
                 log_function_wait_timeout(self.env, self.udf_type);
-                anyhow::bail!(ErrorMetadata::overloaded(
+                anyhow::bail!(ErrorMetadata::rate_limited(
                     "TooManyConcurrentRequests",
                     "Too many concurrent requests, backoff and try again.",
                 ));

@@ -8,6 +8,7 @@ enum ErrorCode {
     FORBIDDEN = 2;
     NOT_FOUND = 3;
     CLIENT_DISCONNECT = 4;
+    RATE_LIMITED = 11;
     OVERLOADED = 5;
     REJECTED_BEFORE_EXECUTION = 10;
     OCC = 6;

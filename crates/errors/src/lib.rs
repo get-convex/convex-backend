@@ -64,6 +64,7 @@ pub enum ErrorCode {
     Forbidden,
     NotFound,
     ClientDisconnect,
+    RateLimited,
 
     Overloaded,
     RejectedBeforeExecution,
@@ -144,6 +145,22 @@ impl ErrorMetadata {
             code: ErrorCode::ClientDisconnect,
             short_msg: CLIENT_DISCONNECTED.into(),
             msg: CLIENT_DISCONNECTED_MSG.into(),
+        }
+    }
+
+    /// RateLimited. Maps to 429 in HTTP.
+    ///
+    /// The short_msg should be a CapitalCamelCased describing the error (eg
+    /// TooManyTeams). The msg should be a descriptive message targeted
+    /// toward the developer.
+    pub fn rate_limited(
+        short_msg: impl Into<Cow<'static, str>>,
+        msg: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            code: ErrorCode::RateLimited,
+            short_msg: short_msg.into(),
+            msg: msg.into(),
         }
     }
 
@@ -313,6 +330,7 @@ impl ErrorMetadata {
             | ErrorCode::Forbidden => true,
             ErrorCode::OperationalInternalServerError
             | ErrorCode::ClientDisconnect
+            | ErrorCode::RateLimited
             | ErrorCode::OCC
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
@@ -323,6 +341,7 @@ impl ErrorMetadata {
     pub fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)> {
         match self.code {
             ErrorCode::ClientDisconnect => None,
+            ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.01))),
             ErrorCode::BadRequest
             | ErrorCode::NotFound
             | ErrorCode::PaginationLimit
@@ -346,7 +365,8 @@ impl ErrorMetadata {
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
             | ErrorCode::Forbidden
-            | ErrorCode::ClientDisconnect => None,
+            | ErrorCode::ClientDisconnect
+            | ErrorCode::RateLimited => None,
             ErrorCode::OCC => Some("occ"),
             ErrorCode::OutOfRetention => Some("out_of_retention"),
             ErrorCode::Overloaded => Some("overloaded"),
@@ -364,6 +384,7 @@ impl ErrorMetadata {
         match self.code {
             ErrorCode::BadRequest => Some(&crate::metrics::BAD_REQUEST_ERROR_TOTAL),
             ErrorCode::ClientDisconnect => Some(&crate::metrics::CLIENT_DISCONNECT_ERROR_TOTAL),
+            ErrorCode::RateLimited => Some(&crate::metrics::RATE_LIMITED_ERROR_TOTAL),
             ErrorCode::Unauthenticated => Some(&crate::metrics::SYNC_AUTH_ERROR_TOTAL),
             ErrorCode::Forbidden => Some(&crate::metrics::FORBIDDEN_ERROR_TOTAL),
             ErrorCode::OCC => Some(&crate::metrics::COMMIT_RACE_TOTAL),
@@ -385,6 +406,7 @@ impl ErrorMetadata {
             ErrorCode::OCC
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
+            | ErrorCode::RateLimited
             | ErrorCode::RejectedBeforeExecution => Some(CloseCode::Again),
             ErrorCode::OperationalInternalServerError => Some(CloseCode::Error),
             // These ones are client errors - so no close code - the client
@@ -414,6 +436,7 @@ impl ErrorCode {
             ErrorCode::Unauthenticated => StatusCode::UNAUTHORIZED,
             ErrorCode::Forbidden => StatusCode::FORBIDDEN,
             ErrorCode::NotFound => StatusCode::NOT_FOUND,
+            ErrorCode::RateLimited => StatusCode::TOO_MANY_REQUESTS,
             ErrorCode::OperationalInternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
             ErrorCode::OCC
             | ErrorCode::OutOfRetention
@@ -430,7 +453,7 @@ impl ErrorCode {
             ErrorCode::Forbidden => tonic::Code::FailedPrecondition,
             ErrorCode::NotFound => tonic::Code::NotFound,
             ErrorCode::ClientDisconnect => tonic::Code::Aborted,
-            ErrorCode::Overloaded | ErrorCode::RejectedBeforeExecution => {
+            ErrorCode::Overloaded | ErrorCode::RejectedBeforeExecution | ErrorCode::RateLimited => {
                 tonic::Code::ResourceExhausted
             },
             ErrorCode::OCC => tonic::Code::ResourceExhausted,
@@ -445,6 +468,7 @@ impl ErrorCode {
             StatusCode::UNAUTHORIZED => Some(ErrorCode::Unauthenticated),
             StatusCode::FORBIDDEN => Some(ErrorCode::Forbidden),
             StatusCode::NOT_FOUND => Some(ErrorCode::NotFound),
+            StatusCode::TOO_MANY_REQUESTS => Some(ErrorCode::RateLimited),
             // Tries to categorize in one of the above more specific 4xx codes first,
             // otherwise categorizes as a general 4xx via BadRequest
             v if v.is_client_error() => Some(ErrorCode::BadRequest),
@@ -738,6 +762,7 @@ mod proptest {
                 ErrorCode::OutOfRetention => ErrorMetadata::out_of_retention(),
                 ErrorCode::Unauthenticated => ErrorMetadata::unauthenticated("un", "auth"),
                 ErrorCode::Forbidden => ErrorMetadata::forbidden("for", "bidden"),
+                ErrorCode::RateLimited => ErrorMetadata::rate_limited("too", "many requests"),
                 ErrorCode::Overloaded => ErrorMetadata::overloaded("overloaded", "error"),
                 ErrorCode::RejectedBeforeExecution => {
                     ErrorMetadata::rejected_before_execution("rejected_before_execution", "error")
