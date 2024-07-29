@@ -2,6 +2,10 @@ import { LocalSyncState } from "./local_state.js";
 import { AuthError, Transition } from "./protocol.js";
 import jwtDecode from "jwt-decode";
 
+// setTimout uses 32 bit integer, so it can only
+// schedule about 24 days in the future.
+const MAXIMUM_REFRESH_DELAY = 20 * 24 * 60 * 60 * 1000; // 20 days
+
 /**
  * An async function returning the JWT-encoded OpenID Connect Identity Token
  * if available.
@@ -312,7 +316,10 @@ export class AuthenticationManager {
     // we only know that the token will expire after `exp - iat`,
     // and since we just fetched a fresh one we know when that
     // will happen.
-    const delay = (exp - iat - leewaySeconds) * 1000;
+    const delay = Math.min(
+      MAXIMUM_REFRESH_DELAY,
+      (exp - iat - leewaySeconds) * 1000,
+    );
     if (delay <= 0) {
       console.error(
         "Auth token does not live long enough, cannot refetch the token",
