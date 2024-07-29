@@ -11,16 +11,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
-            os: "['self-hosted', 'aws', 'x64', 'xlarge']"
-          - target: x86_64-apple-darwin
-            # large are on intel
-            os: "'macos-latest-large'"
-          - target: aarch64-apple-darwin
-            # xlarge are on arm
-            os: "'macos-latest-xlarge'"
-          - target: x86_64-pc-windows-msvc
-            os: "'windows-latest'"
+          #- target: x86_64-unknown-linux-gnu
+          #  os: "['self-hosted', 'aws', 'x64', 'xlarge']"
+          #- target: x86_64-apple-darwin
+          # large are on intel
+          #  os: "'macos-latest-large'"
+          #- target: aarch64-apple-darwin
+          # xlarge are on arm
+          #os: "'macos-latest-xlarge'"
+          #- target: x86_64-pc-windows-msvc
+          #os: "'windows-latest'"
           - target: aarch64-unknown-linux-gnu
             os: "['self-hosted', 'aws', 'arm64', 'xlarge']"
     name: Build Convex Backend
@@ -71,7 +71,7 @@ jobs:
         id: release_name
         shell: bash
         run: |
-          echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "RELEASE_NAME=testing-$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           ZIP_NAME=convex-local-backend-${{ matrix.target }}.zip
           BINARY_NAME=convex-local-backend${{ runner.os == 'Windows' && '.exe' || '' }}
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_OUTPUT
@@ -84,6 +84,7 @@ jobs:
           unset ROCKSDB_LIB_DIR
           unset SODIUM_USE_PKG_CONFIG
           unset SNAPPY_LIB_DIR
+          export OPENSSL_STATIC=1
           cargo build --release -p local_backend --bin convex-local-backend
           mv target/release/${{ steps.release_name.outputs.BINARY_NAME }} .
 
@@ -103,7 +104,7 @@ jobs:
             LICENSE.md
           tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
           name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
-          draft: false
-          prerelease: false
+          draft: true
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
