@@ -35,8 +35,6 @@ jobs:
         uses: runs-on/cache@v4
         env:
           AWS_REGION: ${{ vars.AWS_REGION }}
-          AWS_ACCESS_KEY_ID: ""
-          AWS_SECRET_ACCESS_KEY: ""
           RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
         with:
           path: |

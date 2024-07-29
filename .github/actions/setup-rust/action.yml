@@ -41,11 +41,6 @@ runs:
           echo "SODIUM_USE_PKG_CONFIG=1" >> $GITHUB_ENV
           echo "ROCKSDB_LIB_DIR=/usr/lib" >> $GITHUB_ENV
         fi
-        echo "SCCACHE_ENDPOINT=https://a4aa0fffebef8bc497f64875c40ee6fb.r2.cloudflarestorage.com" >> $GITHUB_ENV
-        echo "SCCACHE_BUCKET=cvx-actions-cache" >> $GITHUB_ENV
-        echo "SCCACHE_REGION=auto" >> $GITHUB_ENV
-        echo "AWS_ACCESS_KEY_ID=${{ inputs.r2-access-key }}" >> $GITHUB_ENV
-        echo "AWS_SECRET_ACCESS_KEY=${{ inputs.r2-secret-key }}" >> $GITHUB_ENV
         echo "CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse" >> $GITHUB_ENV
         echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
 
@@ -53,6 +48,18 @@ runs:
       uses: mozilla-actions/sccache-action@v0.0.4
       with:
         version: "v0.8.0"
+
+    - name: Start sccache
+      shell: bash
+      env:
+        SCCACHE_ENDPOINT: https://a4aa0fffebef8bc497f64875c40ee6fb.r2.cloudflarestorage.com
+        SCCACHE_BUCKET: cvx-actions-cache
+        SCCACHE_REGION: auto
+        AWS_ACCESS_KEY_ID: ${{ inputs.r2-access-key }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.r2-secret-key }}
+      run: |
+        # Try to start sccache up to 3 times. Sometimes it times out for unknown reasons.
+        (r=3;while ! sccache --start-server ; do ((--r))||exit;sleep 5;done)
 
     # n.b. this action inspects the environment and variables starting with
     # `CARGO_` are used as part of the cache key.
