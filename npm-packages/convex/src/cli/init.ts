@@ -1,8 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import path from "path";
-import { oneoffContext } from "../bundler/context.js";
-import { checkAuthorization, performLogin } from "./lib/login.js";
-import { initOrReinitForDeprecatedCommands } from "./configure.js";
+import { logFailure, oneoffContext } from "../bundler/context.js";
 
 const cwd = path.basename(process.cwd());
 
@@ -23,12 +21,14 @@ export const init = new Command("init")
       "Slug identifier for the team this project will belong to.",
     ),
   )
-  .action(async (options) => {
-    const ctx = oneoffContext;
-
-    if (!(await checkAuthorization(ctx, false))) {
-      await performLogin(ctx);
-    }
-
-    await initOrReinitForDeprecatedCommands(ctx, options);
+  .action(async (_options) => {
+    logFailure(
+      oneoffContext,
+      "The `init` command is deprecated. Use `npx convex dev --once --configure=new` instead.",
+    );
+    return oneoffContext.crash(
+      1,
+      "fatal",
+      "The `init` command is deprecated. Use `npx convex dev --once --configure=new` instead.",
+    );
   });

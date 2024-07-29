@@ -51,8 +51,7 @@ type DeploymentCredentials = {
 /**
  * As of writing, this is used by:
  * - `npx convex dev`
- * - `npx convex init` (deprecated)
- * - `npx convex reinit` (deprecated)
+ * - `npx convex codegen`
  *
  * But is not used by `npx convex deploy` or other commands.
  */
@@ -105,37 +104,6 @@ export async function deploymentCredentialsOrConfigure(
   });
 
   return { deploymentName, url, adminKey, cleanupHandle };
-}
-
-// This works like running `dev --once` for the first time
-// but without a push.
-// It only exists for backwards compatibility with existing
-// scripts that used `convex init` or `convex reinit`.
-export async function initOrReinitForDeprecatedCommands(
-  ctx: Context,
-  cmdOptions: {
-    team?: string | undefined;
-    project?: string | undefined;
-    url?: string | undefined;
-    adminKey?: string | undefined;
-  },
-) {
-  const { url } = await deploymentCredentialsOrConfigure(ctx, null, {
-    ...cmdOptions,
-    prod: false,
-    local: false,
-  });
-  // Try the CONVEX_URL write again in case the user had an existing
-  // convex.json but didn't have CONVEX_URL in .env.local.
-  const envVarWrite = await writeConvexUrlToEnvFile(ctx, url);
-  if (envVarWrite !== null) {
-    logMessage(
-      ctx,
-      chalk.green(
-        `Saved the dev deployment URL as ${envVarWrite.envVar} to ${envVarWrite.envFile}`,
-      ),
-    );
-  }
 }
 
 async function handleManuallySetUrlAndAdminKey(

@@ -1,5 +1,9 @@
 import { Command, Option } from "@commander-js/extra-typings";
-import { logFinishedStep, oneoffContext } from "../bundler/context.js";
+import {
+  logError,
+  logFinishedStep,
+  oneoffContext,
+} from "../bundler/context.js";
 import { checkAuthorization, performLogin } from "./lib/login.js";
 
 export const login = new Command("login")
@@ -28,6 +32,8 @@ export const login = new Command("login")
   .addOption(new Option("--accept-opt-ins").hideHelp())
   // Dump the access token from the auth provider and skip authorization with Convex
   .addOption(new Option("--dump-access-token").hideHelp())
+  // Hidden option for tests to check if the user is logged in.
+  .addOption(new Option("--check-login").hideHelp())
   .action(async (options, cmd: Command) => {
     const ctx = oneoffContext;
     if (
@@ -39,6 +45,13 @@ export const login = new Command("login")
         "This device has previously been authorized and is ready for use with Convex.",
       );
       return;
+    }
+    if (!options.force && options.checkLogin) {
+      const isLoggedIn = await checkAuthorization(ctx, !!options.acceptOptIns);
+      if (!isLoggedIn) {
+        logError(ctx, "You are not logged in.");
+        return ctx.crash(1, "fatal", "You are not logged in.");
+      }
     }
     if (!!options.overrideAuthUsername !== !!options.overrideAuthPassword) {
       cmd.error(
