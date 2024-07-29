@@ -53,6 +53,7 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
     const credentials = await deploymentCredentialsOrConfigure(ctx, null, {
       ...options,
       prod: false,
+      local: false,
     });
     await startComponentsPushAndCodegen(ctx, projectConfig, configPath, {
       ...options,

@@ -2,45 +2,110 @@ import chalk from "chalk";
 import inquirer from "inquirer";
 import {
   Context,
-  logError,
   logFailure,
+  logFinishedStep,
   logMessage,
+  logWarning,
+  showSpinner,
 } from "../bundler/context.js";
 import {
   DeploymentType,
   DeploymentName,
-  fetchDeploymentCredentialsForName,
   fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows,
+  createProject,
 } from "./lib/api.js";
 import {
-  ProjectConfig,
-  enforceDeprecatedConfigField,
+  configFilepath,
+  configName,
   readProjectConfig,
   upgradeOldAuthInfoToAuthConfig,
   writeProjectConfig,
 } from "./lib/config.js";
 import {
+  CONVEX_DEPLOYMENT_VAR_NAME,
   eraseDeploymentEnvVar,
   writeDeploymentEnvVar,
 } from "./lib/deployment.js";
-import { init } from "./lib/init.js";
-import { reinit } from "./lib/reinit.js";
+import { finalizeConfiguration } from "./lib/init.js";
 import {
-  ErrorData,
+  bigBrainAPIMaybeThrows,
   functionsDir,
   getConfiguredDeploymentName,
-  hasProject,
   hasProjects,
-  hasTeam,
   logAndHandleFetchError,
   ThrowingFetchError,
+  validateOrSelectProject,
+  validateOrSelectTeam,
 } from "./lib/utils.js";
 import { writeConvexUrlToEnvFile } from "./lib/envvars.js";
+import path from "path";
+import { projectDashboardUrl } from "./dashboard.js";
+import { doCodegen, doInitCodegen } from "./lib/codegen.js";
 
 type DeploymentCredentials = {
   url: string;
   adminKey: string;
+  cleanupHandle: (() => Promise<void>) | null;
 };
+
+/**
+ * As of writing, this is used by:
+ * - `npx convex dev`
+ * - `npx convex init` (deprecated)
+ * - `npx convex reinit` (deprecated)
+ *
+ * But is not used by `npx convex deploy` or other commands.
+ */
+export async function deploymentCredentialsOrConfigure(
+  ctx: Context,
+  chosenConfiguration: "new" | "existing" | "ask" | null,
+  cmdOptions: {
+    prod: boolean;
+    local: boolean;
+    team?: string | undefined;
+    project?: string | undefined;
+    url?: string | undefined;
+    adminKey?: string | undefined;
+  },
+): Promise<
+  DeploymentCredentials & {
+    deploymentName?: DeploymentName;
+    cleanupHandle: null | (() => Promise<void>);
+  }
+> {
+  if (cmdOptions.url !== undefined && cmdOptions.adminKey !== undefined) {
+    const credentials = await handleManuallySetUrlAndAdminKey(ctx, {
+      url: cmdOptions.url,
+      adminKey: cmdOptions.adminKey,
+    });
+    return { ...credentials, cleanupHandle: null };
+  }
+  const { projectSlug, teamSlug } = await selectProject(
+    ctx,
+    chosenConfiguration,
+    { team: cmdOptions.team, project: cmdOptions.project },
+  );
+  const deploymentType = cmdOptions.prod
+    ? "prod"
+    : cmdOptions.local
+      ? "local"
+      : "dev";
+  const { deploymentName, url, adminKey, cleanupHandle } =
+    await ensureDeploymentProvisioned(ctx, {
+      teamSlug,
+      projectSlug,
+      deploymentType,
+    });
+  await updateEnvAndConfigForDeploymentSelection(ctx, {
+    url,
+    deploymentName,
+    teamSlug,
+    projectSlug,
+    deploymentType,
+  });
+
+  return { deploymentName, url, adminKey, cleanupHandle };
+}
 
 // This works like running `dev --once` for the first time
 // but without a push.
@@ -58,6 +123,7 @@ export async function initOrReinitForDeprecatedCommands(
   const { url } = await deploymentCredentialsOrConfigure(ctx, null, {
     ...cmdOptions,
     prod: false,
+    local: false,
   });
   // Try the CONVEX_URL write again in case the user had an existing
   // convex.json but didn't have CONVEX_URL in .env.local.
@@ -72,288 +138,271 @@ export async function initOrReinitForDeprecatedCommands(
   }
 }
 
-export async function deploymentCredentialsOrConfigure(
+async function handleManuallySetUrlAndAdminKey(
+  ctx: Context,
+  cmdOptions: { url: string; adminKey: string },
+) {
+  const { url, adminKey } = cmdOptions;
+  const didErase = await eraseDeploymentEnvVar(ctx);
+  if (didErase) {
+    logMessage(
+      ctx,
+      chalk.yellowBright(
+        `Removed the CONVEX_DEPLOYMENT environment variable from .env.local`,
+      ),
+    );
+  }
+  const envVarWrite = await writeConvexUrlToEnvFile(ctx, url);
+  if (envVarWrite !== null) {
+    logMessage(
+      ctx,
+      chalk.green(
+        `Saved the given --url as ${envVarWrite.envVar} to ${envVarWrite.envFile}`,
+      ),
+    );
+  }
+  return { url, adminKey };
+}
+
+async function selectProject(
   ctx: Context,
   chosenConfiguration: "new" | "existing" | "ask" | null,
   cmdOptions: {
-    prod: boolean;
     team?: string | undefined;
     project?: string | undefined;
-    url?: string | undefined;
-    adminKey?: string | undefined;
   },
-): Promise<DeploymentCredentials & { deploymentName?: DeploymentName }> {
-  const { url, adminKey } = cmdOptions;
-  if (url !== undefined && adminKey !== undefined) {
-    const didErase = await eraseDeploymentEnvVar(ctx);
-    if (didErase) {
-      logMessage(
-        ctx,
-        chalk.yellowBright(
-          `Removed the CONVEX_DEPLOYMENT environment variable from .env.local`,
-        ),
-      );
+): Promise<{ teamSlug: string; projectSlug: string }> {
+  let result:
+    | { teamSlug: string; projectSlug: string }
+    | "AccessDenied"
+    | null = null;
+  if (chosenConfiguration === null) {
+    result = await getConfiguredProjectSlugs(ctx);
+    if (result !== null && result !== "AccessDenied") {
+      return result;
     }
-    const envVarWrite = await writeConvexUrlToEnvFile(ctx, url);
-    if (envVarWrite !== null) {
-      logMessage(
-        ctx,
-        chalk.green(
-          `Saved the given --url as ${envVarWrite.envVar} to ${envVarWrite.envFile}`,
-        ),
-      );
-    }
-    return { url, adminKey };
   }
-  const deploymentType = cmdOptions.prod ? "prod" : "dev";
-  const configuredDeployment =
-    chosenConfiguration === null
-      ? await getConfiguredDeploymentOrUpgrade(ctx, deploymentType)
-      : null;
-  // No configured deployment NOR existing config
-  if (configuredDeployment === null) {
-    const choice =
-      chosenConfiguration !== "ask" && chosenConfiguration !== null
-        ? chosenConfiguration
-        : await askToConfigure(ctx);
-    return await initOrReinit(ctx, choice, deploymentType, cmdOptions);
+  const reconfigure = result === "AccessDenied";
+  // Prompt the user to select a project.
+  const choice =
+    chosenConfiguration !== "ask" && chosenConfiguration !== null
+      ? chosenConfiguration
+      : await askToConfigure(ctx, reconfigure);
+  switch (choice) {
+    case "new":
+      return selectNewProject(ctx, cmdOptions);
+    case "existing":
+      return selectExistingProject(ctx, cmdOptions);
+    default:
+      return await ctx.crash(1, "fatal", "No project selected.");
   }
-  // Existing config but user doesn't have access to it
-  if ("error" in configuredDeployment) {
-    const projectConfig = (await readProjectConfig(ctx)).projectConfig;
-    const choice = await askToReconfigure(
-      ctx,
-      projectConfig,
-      configuredDeployment.error,
-    );
-    return initOrReinit(ctx, choice, deploymentType, cmdOptions);
-  }
-  const { deploymentName } = configuredDeployment;
-  const adminKeyAndUrlForConfiguredDeployment =
-    await fetchDeploymentCredentialsForName(
-      ctx,
-      deploymentName,
-      deploymentType,
-    );
-  // Configured deployment and user has access
-  if (!("error" in adminKeyAndUrlForConfiguredDeployment)) {
-    return adminKeyAndUrlForConfiguredDeployment;
-  }
-  await checkForDeploymentTypeError(
-    ctx,
-    adminKeyAndUrlForConfiguredDeployment.error,
-    deploymentType,
-  );
-
-  // Configured deployment and user doesn't has access to it
-  const choice = await askToReconfigureNew(ctx, deploymentName);
-  return initOrReinit(ctx, choice, deploymentType, cmdOptions);
 }
 
-async function checkForDeploymentTypeError(
-  ctx: Context,
-  error: unknown,
-  deploymentType: DeploymentType,
-) {
-  let data: ErrorData | null = null;
-  if (error instanceof ThrowingFetchError) {
-    data = error.serverErrorData || null;
-  }
-  if (data && "code" in data && data.code === "DeploymentTypeMismatch") {
-    if (deploymentType === "prod") {
-      logFailure(
-        ctx,
-        "Use `npx convex deploy` to push changes to your production deployment",
-      );
+async function getConfiguredProjectSlugs(ctx: Context): Promise<
+  | {
+      projectSlug: string;
+      teamSlug: string;
+    }
+  | "AccessDenied"
+  | null
+> {
+  // Try and infer the project from the deployment name
+  const deploymentName = await getConfiguredDeploymentName(ctx);
+  if (deploymentName !== null) {
+    const result = await getTeamAndProjectSlugForDeployment(ctx, {
+      deploymentName,
+      kind: "cloud",
+    });
+    if (result !== null) {
+      return result;
     } else {
       logFailure(
         ctx,
-        "CONVEX_DEPLOYMENT is a production deployment, but --prod flag was not specified. " +
-          "Use `npx convex dev --prod` to develop against this production deployment.",
+        `You don't have access to the project with deployment ${chalk.bold(
+          deploymentName,
+        )}, as configured in ${chalk.bold(CONVEX_DEPLOYMENT_VAR_NAME)}`,
       );
-    }
-    logError(ctx, chalk.red(data.message));
-    await ctx.crash(1, "invalid filesystem data", error);
-  }
-}
-
-async function getConfiguredDeploymentOrUpgrade(
-  ctx: Context,
-  deploymentType: DeploymentType,
-) {
-  const deploymentName = await getConfiguredDeploymentName(ctx);
-  if (deploymentName !== null) {
-    return { deploymentName };
-  }
-  return await upgradeOldConfigToDeploymentVar(ctx, deploymentType);
-}
-
-async function initOrReinit(
-  ctx: Context,
-  choice: "new" | "existing",
-  deploymentType: DeploymentType,
-  cmdOptions: { team?: string | undefined; project?: string | undefined },
-): Promise<DeploymentCredentials> {
-  switch (choice) {
-    case "new":
-      return (await init(ctx, deploymentType, cmdOptions))!;
-    case "existing": {
-      return (await reinit(ctx, deploymentType, cmdOptions))!;
-    }
-    default: {
-      return choice;
+      return "AccessDenied";
     }
   }
-}
-
-async function upgradeOldConfigToDeploymentVar(
-  ctx: Context,
-  deploymentType: DeploymentType,
-): Promise<{ deploymentName: string } | { error: unknown } | null> {
-  const { configPath, projectConfig } = await readProjectConfig(ctx);
+  // Try and infer the project from `convex.json`
+  const { projectConfig } = await readProjectConfig(ctx);
   const { team, project } = projectConfig;
-  if (typeof team !== "string" || typeof project !== "string") {
-    // The config is not a valid old config, proceed to init/reinit
-    return null;
-  }
-  let devDeploymentName;
-  try {
-    const { deploymentName } =
-      await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+  if (typeof team === "string" && typeof project === "string") {
+    const hasAccess = await hasAccessToProject(ctx, {
+      teamSlug: team,
+      projectSlug: project,
+    });
+    if (!hasAccess) {
+      logFailure(
         ctx,
-        { teamSlug: team, projectSlug: project },
-        deploymentType,
+        `You don't have access to the project ${chalk.bold(project)} in team ${chalk.bold(team)} as configured in ${chalk.bold("convex.json")}`,
       );
-    devDeploymentName = deploymentName!;
-  } catch (error) {
-    // Could not retrieve the deployment name using the old config, proceed to reconfigure
-    return { error };
+      return "AccessDenied";
+    }
+    return { teamSlug: team, projectSlug: project };
   }
-  await writeDeploymentEnvVar(ctx, deploymentType, {
-    team,
-    project,
-    deploymentName: devDeploymentName,
-  });
-  logMessage(
-    ctx,
-    chalk.green(
-      `Saved the ${deploymentType} deployment name as CONVEX_DEPLOYMENT to .env.local`,
-    ),
-  );
-  const projectConfigWithoutAuthInfo = await upgradeOldAuthInfoToAuthConfig(
-    ctx,
-    projectConfig,
-    functionsDir(configPath, projectConfig),
-  );
-  await writeProjectConfig(ctx, projectConfigWithoutAuthInfo, {
-    deleteIfAllDefault: true,
-  });
-  return { deploymentName: devDeploymentName };
+  return null;
 }
 
-async function askToConfigure(ctx: Context): Promise<"new" | "existing"> {
+async function getTeamAndProjectSlugForDeployment(
+  ctx: Context,
+  selector: { deploymentName: string; kind: "local" | "cloud" },
+): Promise<{ teamSlug: string; projectSlug: string } | null> {
+  try {
+    const body = await bigBrainAPIMaybeThrows({
+      ctx,
+      url: `/api/deployment/${selector.deploymentName}/team_and_project`,
+      method: "GET",
+    });
+    return { teamSlug: body.team, projectSlug: body.project };
+  } catch (err) {
+    if (
+      err instanceof ThrowingFetchError &&
+      (err.serverErrorData?.code === "DeploymentNotFound" ||
+        err.serverErrorData?.code === "ProjectNotFound")
+    ) {
+      return null;
+    }
+    return logAndHandleFetchError(ctx, err);
+  }
+}
+
+async function hasAccessToProject(
+  ctx: Context,
+  selector: { projectSlug: string; teamSlug: string },
+): Promise<boolean> {
+  try {
+    await bigBrainAPIMaybeThrows({
+      ctx,
+      url: `/api/teams/${selector.teamSlug}/projects/${selector.projectSlug}/deployments`,
+      method: "GET",
+    });
+    return true;
+  } catch (err) {
+    if (
+      err instanceof ThrowingFetchError &&
+      (err.serverErrorData?.code === "TeamNotFound" ||
+        err.serverErrorData?.code === "ProjectNotFound")
+    ) {
+      return false;
+    }
+    return logAndHandleFetchError(ctx, err);
+  }
+}
+
+const cwd = path.basename(process.cwd());
+async function selectNewProject(
+  ctx: Context,
+  config: {
+    team?: string | undefined;
+    project?: string | undefined;
+  },
+) {
+  const { teamSlug: selectedTeam, chosen: didChooseBetweenTeams } =
+    await validateOrSelectTeam(ctx, config.team, "Team:");
+  let projectName: string = config.project || cwd;
+  if (process.stdin.isTTY && !config.project) {
+    projectName = (
+      await inquirer.prompt([
+        {
+          type: "input",
+          name: "project",
+          message: "Project name:",
+          default: cwd,
+        },
+      ])
+    ).project;
+  }
+
+  showSpinner(ctx, "Creating new Convex project...");
+
+  let projectSlug, teamSlug, projectsRemaining;
+  try {
+    ({ projectSlug, teamSlug, projectsRemaining } = await createProject(ctx, {
+      teamSlug: selectedTeam,
+      projectName,
+    }));
+  } catch (err) {
+    logFailure(ctx, "Unable to create project.");
+    return await logAndHandleFetchError(ctx, err);
+  }
+  const teamMessage = didChooseBetweenTeams
+    ? " in team " + chalk.bold(teamSlug)
+    : "";
+  logFinishedStep(
+    ctx,
+    `Created project ${chalk.bold(
+      projectSlug,
+    )}${teamMessage}, manage it at ${chalk.bold(
+      projectDashboardUrl(teamSlug, projectSlug),
+    )}`,
+  );
+
+  if (projectsRemaining <= 2) {
+    logWarning(
+      ctx,
+      chalk.yellow.bold(
+        `Your account now has ${projectsRemaining} project${
+          projectsRemaining === 1 ? "" : "s"
+        } remaining.`,
+      ),
+    );
+  }
+
+  const { projectConfig: existingProjectConfig } = await readProjectConfig(ctx);
+  const configPath = await configFilepath(ctx);
+  const functionsPath = functionsDir(configPath, existingProjectConfig);
+  await doInitCodegen(ctx, functionsPath, true);
+  // Disable typechecking since there isn't any code yet.
+  await doCodegen(ctx, functionsPath, "disable");
+  return { teamSlug, projectSlug };
+}
+
+async function selectExistingProject(
+  ctx: Context,
+  config: {
+    team?: string | undefined;
+    project?: string | undefined;
+  },
+): Promise<{ teamSlug: string; projectSlug: string }> {
+  const { teamSlug } = await validateOrSelectTeam(ctx, config.team, "Team:");
+
+  const projectSlug = await validateOrSelectProject(
+    ctx,
+    config.project,
+    teamSlug,
+    "Configure project",
+    "Project:",
+  );
+  if (projectSlug === null) {
+    logFailure(ctx, "Run the command again to create a new project instead.");
+    return await ctx.crash(1);
+  }
+
+  showSpinner(ctx, `Reinitializing project ${projectSlug}...\n`);
+
+  const { projectConfig: existingProjectConfig } = await readProjectConfig(ctx);
+
+  const functionsPath = functionsDir(configName(), existingProjectConfig);
+
+  await doCodegen(ctx, functionsPath, "disable");
+  return { teamSlug, projectSlug };
+}
+
+async function askToConfigure(
+  ctx: Context,
+  reconfigure: boolean,
+): Promise<"new" | "existing"> {
   if (!(await hasProjects(ctx))) {
     return "new";
   }
-  return await promptToInitWithProjects();
+  return await promptToInitWithProjects(reconfigure);
 }
 
-async function askToReconfigure(
-  ctx: Context,
-  projectConfig: ProjectConfig,
-  error: unknown,
+async function promptToInitWithProjects(
+  reconfigure: boolean,
 ): Promise<"new" | "existing"> {
-  const team = await enforceDeprecatedConfigField(ctx, projectConfig, "team");
-  const project = await enforceDeprecatedConfigField(
-    ctx,
-    projectConfig,
-    "project",
-  );
-  const [isExistingTeam, existingProject, hasAnyProjects] = await Promise.all([
-    await hasTeam(ctx, team),
-    await hasProject(ctx, team, project),
-    await hasProjects(ctx),
-  ]);
-
-  // The config is good so there must be something else going on,
-  // fatal with the original error
-  if (isExistingTeam && existingProject) {
-    return await logAndHandleFetchError(ctx, error);
-  }
-
-  if (isExistingTeam) {
-    logFailure(
-      ctx,
-      `Project ${chalk.bold(project)} does not exist in your team ${chalk.bold(
-        team,
-      )}, as configured in ${chalk.bold("convex.json")}`,
-    );
-  } else {
-    logFailure(
-      ctx,
-      `You don't have access to team ${chalk.bold(
-        team,
-      )}, as configured in ${chalk.bold("convex.json")}`,
-    );
-  }
-  if (!hasAnyProjects) {
-    const { confirmed } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "confirmed",
-        message: `Create a new project?`,
-        default: true,
-      },
-    ]);
-    if (!confirmed) {
-      logFailure(
-        ctx,
-        "Run `npx convex dev` in a directory with a valid convex.json.",
-      );
-      return await ctx.crash(1, "invalid filesystem data");
-    }
-    return "new";
-  }
-
-  return await promptToReconfigure();
-}
-
-async function askToReconfigureNew(
-  ctx: Context,
-  configuredDeploymentName: DeploymentName,
-): Promise<"new" | "existing"> {
-  logFailure(
-    ctx,
-    `You don't have access to the project with deployment ${chalk.bold(
-      configuredDeploymentName,
-    )}, as configured in ${chalk.bold("CONVEX_DEPLOYMENT")}`,
-  );
-
-  const hasAnyProjects = await hasProjects(ctx);
-
-  if (!hasAnyProjects) {
-    const { confirmed } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "confirmed",
-        message: `Configure a new project?`,
-        default: true,
-      },
-    ]);
-    if (!confirmed) {
-      logFailure(
-        ctx,
-        "Run `npx convex dev` in a directory with a valid CONVEX_DEPLOYMENT set",
-      );
-      return await ctx.crash(1, "invalid filesystem data");
-    }
-    return "new";
-  }
-
-  return await promptToReconfigure();
-}
-
-export async function promptToInitWithProjects(): Promise<"new" | "existing"> {
   const { choice } = await inquirer.prompt([
     {
       // In the Convex mono-repo, `list` seems to cause the command to not
@@ -362,33 +411,110 @@ export async function promptToInitWithProjects(): Promise<"new" | "existing"> {
         ? "search-list"
         : "list",
       name: "choice",
-      message: `What would you like to configure?`,
+      message: reconfigure
+        ? "Configure a different project?"
+        : "What would you like to configure?",
       default: "new",
       choices: [
-        { name: "a new project", value: "new" },
-        { name: "an existing project", value: "existing" },
-      ],
-    },
-  ]);
-  return choice;
-}
-
-export async function promptToReconfigure(): Promise<"new" | "existing"> {
-  const { choice } = await inquirer.prompt([
-    {
-      // In the Convex mono-repo, `list` seems to cause the command to not
-      // respond to CTRL+C while `search-list` does not.
-      type: process.env.CONVEX_RUNNING_LIVE_IN_MONOREPO
-        ? "search-list"
-        : "list",
-      name: "choice",
-      message: `Configure a different project?`,
-      default: "new",
-      choices: [
-        { name: "create new project", value: "new" },
+        { name: "create a new project", value: "new" },
         { name: "choose an existing project", value: "existing" },
       ],
     },
   ]);
   return choice;
+}
+
+/**
+ * This method assumes that the member has access to the selected project.
+ */
+async function ensureDeploymentProvisioned(
+  ctx: Context,
+  options: {
+    teamSlug: string;
+    projectSlug: string;
+    deploymentType: DeploymentType;
+  },
+): Promise<{
+  deploymentName: string;
+  url: string;
+  adminKey: string;
+  cleanupHandle: null | (() => Promise<void>);
+}> {
+  switch (options.deploymentType) {
+    case "dev":
+    case "prod": {
+      const credentials =
+        await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+          ctx,
+          { teamSlug: options.teamSlug, projectSlug: options.projectSlug },
+          options.deploymentType,
+        );
+      return {
+        ...credentials,
+        cleanupHandle: null,
+      };
+    }
+    case "local": {
+      const credentials = await handleLocalDev(ctx, {
+        teamSlug: options.teamSlug,
+        projectSlug: options.projectSlug,
+      });
+      return credentials;
+    }
+    default:
+      return await ctx.crash(
+        1,
+        "fatal",
+        `Invalid deployment type: ${options.deploymentType as any}`,
+      );
+  }
+}
+
+async function handleLocalDev(
+  ctx: Context,
+  _options: {
+    teamSlug: string;
+    projectSlug: string;
+    localDevPort?: string | undefined;
+  },
+) {
+  return await ctx.crash(1, "fatal", "Local development is not supported yet.");
+}
+
+async function updateEnvAndConfigForDeploymentSelection(
+  ctx: Context,
+  options: {
+    url: string;
+    deploymentName: string;
+    teamSlug: string;
+    projectSlug: string;
+    deploymentType: DeploymentType;
+  },
+) {
+  const { configPath, projectConfig: existingProjectConfig } =
+    await readProjectConfig(ctx);
+
+  const functionsPath = functionsDir(configName(), existingProjectConfig);
+
+  const { wroteToGitIgnore, changedDeploymentEnvVar } =
+    await writeDeploymentEnvVar(ctx, options.deploymentType, {
+      team: options.teamSlug,
+      project: options.projectSlug,
+      deploymentName: options.deploymentName,
+    });
+  const projectConfig = await upgradeOldAuthInfoToAuthConfig(
+    ctx,
+    existingProjectConfig,
+    functionsPath,
+  );
+  await writeProjectConfig(ctx, projectConfig, {
+    deleteIfAllDefault: true,
+  });
+  await finalizeConfiguration(ctx, {
+    deploymentType: options.deploymentType,
+    url: options.url,
+    wroteToGitIgnore,
+    changedDeploymentEnvVar,
+    functionsPath: functionsDir(configPath, projectConfig),
+  });
 }

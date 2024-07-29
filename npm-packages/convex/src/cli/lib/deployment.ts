@@ -5,6 +5,7 @@ import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   readAdminKeyFromEnvVar,
 } from "./utils.js";
+import { DeploymentType } from "./api.js";
 
 const ENV_VAR_FILE_PATH = ".env.local";
 export const CONVEX_DEPLOYMENT_VAR_NAME = "CONVEX_DEPLOYMENT";
@@ -51,9 +52,9 @@ function getDeploymentTypeFromConfiguredDeployment(raw: string) {
 
 export async function writeDeploymentEnvVar(
   ctx: Context,
-  deploymentType: "dev" | "prod",
+  deploymentType: DeploymentType,
   deployment: { team: string; project: string; deploymentName: string },
-): Promise<{ wroteToGitIgnore: boolean }> {
+): Promise<{ wroteToGitIgnore: boolean; changedDeploymentEnvVar: boolean }> {
   const existingFile = ctx.fs.exists(ENV_VAR_FILE_PATH)
     ? ctx.fs.readUtf8File(ENV_VAR_FILE_PATH)
     : null;
@@ -64,14 +65,23 @@ export async function writeDeploymentEnvVar(
   );
   // Also update process.env directly, because `dotfile.config()` doesn't pick
   // up changes to the file.
-  process.env[CONVEX_DEPLOYMENT_VAR_NAME] =
+  const existingValue = process.env[CONVEX_DEPLOYMENT_VAR_NAME];
+  const deploymentEnvVarValue =
     deploymentType + ":" + deployment.deploymentName;
+  process.env[CONVEX_DEPLOYMENT_VAR_NAME] = deploymentEnvVarValue;
+
   if (changedFile !== null) {
     ctx.fs.writeUtf8File(ENV_VAR_FILE_PATH, changedFile);
     // Only do this if we're not reinitializing an existing setup
-    return { wroteToGitIgnore: await gitIgnoreEnvVarFile(ctx) };
+    return {
+      wroteToGitIgnore: await gitIgnoreEnvVarFile(ctx),
+      changedDeploymentEnvVar: existingValue !== deploymentEnvVarValue,
+    };
   }
-  return { wroteToGitIgnore: false };
+  return {
+    wroteToGitIgnore: false,
+    changedDeploymentEnvVar: existingValue !== deploymentEnvVarValue,
+  };
 }
 
 // Only used in the internal --url flow
@@ -111,7 +121,7 @@ async function gitIgnoreEnvVarFile(ctx: Context): Promise<boolean> {
 // exported for tests
 export function changesToEnvVarFile(
   existingFile: string | null,
-  deploymentType: "dev" | "prod",
+  deploymentType: DeploymentType,
   {
     team,
     project,

@@ -21,7 +21,7 @@ import {
 } from "./utils.js";
 
 export type DeploymentName = string;
-export type DeploymentType = "dev" | "prod";
+export type DeploymentType = "dev" | "prod" | "local";
 
 export type Project = {
   id: string;
@@ -31,6 +31,50 @@ export type Project = {
 };
 
 type AdminKey = string;
+
+// Provision a new empty project and return the slugs.
+export async function createProject(
+  ctx: Context,
+  {
+    teamSlug: selectedTeamSlug,
+    projectName,
+  }: { teamSlug: string; projectName: string },
+): Promise<{
+  projectSlug: string;
+  teamSlug: string;
+  projectsRemaining: number;
+}> {
+  const provisioningArgs = {
+    team: selectedTeamSlug,
+    projectName,
+    // TODO: Consider allowing projects with no deployments, or consider switching
+    // to provisioning prod on creation.
+    deploymentType: "dev",
+    backendVersionOverride: process.env.CONVEX_BACKEND_VERSION_OVERRIDE,
+  };
+  const data = await bigBrainAPI({
+    ctx,
+    method: "POST",
+    url: "create_project",
+    data: provisioningArgs,
+  });
+  const { projectSlug, teamSlug, projectsRemaining } = data;
+  if (
+    projectSlug === undefined ||
+    teamSlug === undefined ||
+    projectsRemaining === undefined
+  ) {
+    const error =
+      "Unexpected response during provisioning: " + JSON.stringify(data);
+    logError(ctx, chalk.red(error));
+    return await ctx.crash(1, "transient", error);
+  }
+  return {
+    projectSlug,
+    teamSlug,
+    projectsRemaining,
+  };
+}
 
 // Init
 // Provision a new empty project and return the new deployment credentials.
@@ -518,7 +562,7 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
   { teamSlug, projectSlug }: { teamSlug: string; projectSlug: string },
   deploymentType: DeploymentType,
 ): Promise<{
-  deploymentName: string | undefined;
+  deploymentName: string;
   url: string;
   adminKey: AdminKey;
 }> {

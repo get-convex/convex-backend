@@ -101,6 +101,11 @@ export const dev = new Command("dev")
   .addOption(new Option("--override-auth-client <id>").hideHelp())
   .addOption(new Option("--override-auth-username <username>").hideHelp())
   .addOption(new Option("--override-auth-password <password>").hideHelp())
+  .addOption(
+    new Option("--local", "Develop live against a locally running backend.")
+      .default(false)
+      .hideHelp(),
+  )
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = oneoffContext;
@@ -123,6 +128,11 @@ export const dev = new Command("dev")
       configure,
       cmdOptions,
     );
+    if (credentials.cleanupHandle !== null) {
+      process.on("exit", () => {
+        void credentials.cleanupHandle?.();
+      });
+    }
 
     await usageStateWarning(ctx);
 
