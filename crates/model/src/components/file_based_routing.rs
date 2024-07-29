@@ -4,6 +4,7 @@ use std::{
         BTreeMap,
     },
     str::FromStr,
+    sync::LazyLock,
 };
 
 use common::{
@@ -11,23 +12,35 @@ use common::{
     components::Reference,
 };
 use errors::ErrorMetadata;
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    CanonicalizedUdfPath,
+    ModulePath,
+};
 use value::identifier::Identifier;
 
 use super::types::EvaluatedComponentDefinition;
 use crate::modules::module_versions::Visibility;
 
+static INDEX_JS: LazyLock<ModulePath> = LazyLock::new(|| "index".parse().unwrap());
+
 pub fn add_file_based_routing(evaluated: &mut EvaluatedComponentDefinition) -> anyhow::Result<()> {
     'module: for (module_path, module) in &evaluated.functions {
         let mut identifiers = vec![];
         let stripped = module_path.clone().strip();
-        for path_component in stripped.components() {
-            let Ok(identifier) = Identifier::from_str(path_component) else {
-                tracing::warn!("Skipping invalid path component: {:?}", path_component);
-                continue 'module;
-            };
-            identifiers.push(identifier);
+
+        // Special case `index.js` in components (not the app) to flatten its exports
+        // into the root.
+        let is_component_index = !evaluated.is_app() && stripped == *INDEX_JS;
+        if !is_component_index {
+            for path_component in stripped.components() {
+                let Ok(identifier) = Identifier::from_str(path_component) else {
+                    tracing::warn!("Skipping invalid path component: {:?}", path_component);
+                    continue 'module;
+                };
+                identifiers.push(identifier);
+            }
         }
+
         for function in &module.functions {
             if function.visibility != Some(Visibility::Public) {
                 continue;

@@ -68,6 +68,10 @@ impl ComponentDefinitionMetadata {
             exports: BTreeMap::new(),
         }
     }
+
+    pub fn is_app(&self) -> bool {
+        self.definition_type == ComponentDefinitionType::App
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]

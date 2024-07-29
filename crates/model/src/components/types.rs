@@ -118,6 +118,12 @@ pub struct EvaluatedComponentDefinition {
     pub udf_config: UdfConfig,
 }
 
+impl EvaluatedComponentDefinition {
+    pub fn is_app(&self) -> bool {
+        self.definition.is_app()
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedEvaluatedComponentDefinition {
