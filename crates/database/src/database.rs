@@ -767,6 +767,7 @@ impl<'c, 'a: 'c, 'b: 'c, T, F: Future<Output = T> + Send + 'c> From<F>
     }
 }
 
+#[derive(Clone)]
 pub struct StreamingExportTableFilter {
     pub table_name: Option<TableName>,
     pub namespace: Option<TableNamespace>,
