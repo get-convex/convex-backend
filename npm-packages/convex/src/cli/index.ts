@@ -29,6 +29,7 @@ import { data } from "./data.js";
 import inquirer from "inquirer";
 import inquirerSearchList from "inquirer-search-list";
 import { format } from "util";
+import { apiSpec } from "./apiSpec.js";
 
 const MINIMUM_MAJOR_VERSION = 16;
 const MINIMUM_MINOR_VERSION = 15;
@@ -120,6 +121,7 @@ async function main() {
     .addCommand(update)
     .addCommand(logout)
     .addCommand(networkTest, { hidden: true })
+    .addCommand(apiSpec, { hidden: true })
     .addHelpCommand("help <command>", "Show help for given <command>")
     .version(version)
     // Hide version and help so they don't clutter

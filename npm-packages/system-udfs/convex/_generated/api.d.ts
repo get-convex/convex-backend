@@ -15,6 +15,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as _system_cli_exports from "../_system/cli/exports.js";
+import type * as _system_cli_modules from "../_system/cli/modules.js";
 import type * as _system_cli_queryEnvironmentVariables from "../_system/cli/queryEnvironmentVariables.js";
 import type * as _system_cli_queryImport from "../_system/cli/queryImport.js";
 import type * as _system_cli_queryTable from "../_system/cli/queryTable.js";
@@ -69,6 +70,7 @@ import type * as tableDefs_snapshotImport from "../tableDefs/snapshotImport.js";
  */
 declare const fullApi: ApiFromModules<{
   "_system/cli/exports": typeof _system_cli_exports;
+  "_system/cli/modules": typeof _system_cli_modules;
   "_system/cli/queryEnvironmentVariables": typeof _system_cli_queryEnvironmentVariables;
   "_system/cli/queryImport": typeof _system_cli_queryImport;
   "_system/cli/queryTable": typeof _system_cli_queryTable;

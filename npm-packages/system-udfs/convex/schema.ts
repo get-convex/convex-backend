@@ -46,6 +46,8 @@ const analyzedFunction = v.object({
   pos: v.optional(analyzedSourcePosition),
   udfType,
   visibility: v.optional(v.union(v.null(), udfVisibility)),
+  args: v.optional(v.string()),
+  returns: v.union(v.string(), v.null()),
 });
 
 const analyzedHttpRoute = v.object({

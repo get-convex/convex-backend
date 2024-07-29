@@ -7,6 +7,7 @@ import {
 } from "./common";
 import { queryPrivateSystem } from "../secretSystemTables";
 import { v } from "convex/values";
+import { DEFAULT_ARGS_VALIDATOR } from "../cli/modules";
 
 /**
  * Return all user defined modules + their functions.
@@ -73,7 +74,7 @@ function processHttpRoute(f: {
     lineno: lineno ? Number(lineno) : undefined,
     udfType: "HttpAction",
     visibility: { kind: "public" },
-    argsValidator: f.args || '{ "type": "any" }',
+    argsValidator: f.args || DEFAULT_ARGS_VALIDATOR,
   } as const;
 }
 
@@ -90,6 +91,6 @@ function processFunction(f: {
     ...f,
     lineno: lineno ? Number(lineno) : undefined,
     visibility: f.visibility ?? { kind: "public" },
-    argsValidator: f.args || '{ "type": "any" }',
+    argsValidator: f.args || DEFAULT_ARGS_VALIDATOR,
   };
 }
