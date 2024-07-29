@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+};
 
 use application::{
     test_helpers::ApplicationTestExt,
@@ -94,7 +97,12 @@ impl SyncTest {
             let source_package = application.upload_package(&modules, None).await?;
             let udf_config = UdfConfig::new_for_test(&rt, "1000.0.0".parse()?);
             let analyze_results = application
-                .analyze(udf_config.clone(), modules.clone(), source_package.clone())
+                .analyze(
+                    udf_config.clone(),
+                    modules.clone(),
+                    source_package.clone(),
+                    BTreeMap::new(),
+                )
                 .await??;
 
             let mut tx = application_.begin(Identity::system()).await?;

@@ -1465,11 +1465,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
         source_package: SourcePackage,
+        mut environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
-        // We use the latest environment variables at the time of the deployment
-        // this is not transactional with the rest of the deploy.
-        let mut tx = self.database.begin(Identity::system()).await?;
-        let mut environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
         // Insert special environment variables if not already provided by user
         environment_variables.extend(self.system_env_vars.clone());
 
@@ -1510,6 +1507,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             let source_uri_future = self
                 .modules_storage
                 .signed_url(source_package.storage_key.clone(), Duration::from_secs(60));
+            let mut tx = self.database.begin_system().await?;
             let (source_uri, external_deps_package) =
                 if let Some(external_deps_package_id) = source_package.external_deps_package_id {
                     let pkg = ExternalPackagesModel::new(&mut tx)

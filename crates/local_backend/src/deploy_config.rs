@@ -48,6 +48,7 @@ use model::{
         },
         ConfigModel,
     },
+    environment_variables::EnvironmentVariablesModel,
     modules::module_versions::AnalyzedModule,
     source_packages::types::{
         PackageSize,
@@ -411,8 +412,18 @@ pub async fn analyze_modules_with_auth_config(
         });
     let auth_module = auth_modules.first();
 
+    // Note: This is not transactional with the rest of the deploy to avoid keeping
+    // a transaction open for a long time.
+    let mut tx = application.begin(Identity::system()).await?;
+    let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+    drop(tx);
     let mut analyze_result = application
-        .analyze_modules(udf_config, analyzed_modules, source_package)
+        .analyze_modules(
+            udf_config,
+            analyzed_modules,
+            source_package,
+            environment_variables,
+        )
         .await?;
 
     // Add an empty analyzed result for the auth config module

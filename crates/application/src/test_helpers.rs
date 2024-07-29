@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fs::File,
     io::Read,
     sync::{
@@ -314,14 +315,12 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         self.load_udf_tests_modules_inner(true).await
     }
 
-    /// WIP(emma): This isn't fully implemented yet.
     async fn load_component_tests_modules(&self) -> anyhow::Result<()> {
         let request = Self::load_start_push_request()?;
         let start_push = self.start_push(request).await?;
         self.wait_for_schema(Identity::system(), start_push.schema_change.clone())
             .await?;
         self.finish_push(start_push, false).await?;
-        // TODO: Upload modules, set up components, rest of push logic
         Ok(())
     }
 
@@ -361,6 +360,7 @@ impl<RT: Runtime> Application<RT> {
                 udf_config.clone(),
                 test_source.clone(),
                 source_package.clone(),
+                BTreeMap::new(),
             )
             .await??;
         let schema_id = insert_validated_schema(&mut tx).await?;

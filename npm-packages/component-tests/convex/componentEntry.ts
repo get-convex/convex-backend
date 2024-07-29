@@ -23,3 +23,16 @@ export const hello = action(async (ctx) => {
 export const url = action(async (ctx) => {
   return await ctx.runAction(app.component.messages.url, {});
 });
+
+export const envVarQuery = query(async (ctx) => {
+  return await ctx.runQuery(app.component.messages.envVarQuery, {});
+});
+export const envVarAction = action(async (ctx) => {
+  return await ctx.runAction(app.component.messages.envVarAction, {});
+});
+export const systemEnvVarQuery = query(async (ctx) => {
+  return await ctx.runQuery(app.component.messages.systemEnvVarQuery, {});
+});
+export const systemEnvVarAction = action(async (ctx) => {
+  return await ctx.runAction(app.component.messages.systemEnvVarAction, {});
+});

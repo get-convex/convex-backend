@@ -212,14 +212,20 @@ impl<RT: Runtime> ActionPhase<RT> {
         })
         .await?;
 
-        let mut env_vars = system_env_vars;
-        let user_env_vars = with_release_permit(
-            timeout,
-            permit_slot,
-            EnvironmentVariablesModel::new(&mut tx).get_all(),
-        )
-        .await?;
-        env_vars.extend(user_env_vars);
+        // Environment variables are not accessible in component functions.
+        let env_vars = if self.component.is_root() {
+            let mut env_vars = system_env_vars;
+            let user_env_vars = with_release_permit(
+                timeout,
+                permit_slot,
+                EnvironmentVariablesModel::new(&mut tx).get_all(),
+            )
+            .await?;
+            env_vars.extend(user_env_vars);
+            env_vars
+        } else {
+            BTreeMap::new()
+        };
 
         let component_arguments = if self.component.is_root() {
             None

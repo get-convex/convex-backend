@@ -93,7 +93,7 @@ enum UdfPreloaded {
         observed_rng_during_execution: bool,
         unix_timestamp: Option<UnixTimestamp>,
         observed_time_during_execution: AtomicBool,
-        env_vars: PreloadedEnvironmentVariables,
+        env_vars: Option<PreloadedEnvironmentVariables>,
         component: ComponentId,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
     },
@@ -162,12 +162,18 @@ impl<RT: Runtime> UdfPhase<RT> {
             .map(|c| ChaCha12Rng::from_seed(c.import_phase_rng_seed));
         let unix_timestamp = udf_config.as_ref().map(|c| c.import_phase_unix_timestamp);
 
-        let env_vars = with_release_permit(
-            timeout,
-            permit_slot,
-            EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
-        )
-        .await?;
+        let env_vars = if component.is_root() {
+            Some(
+                with_release_permit(
+                    timeout,
+                    permit_slot,
+                    EnvironmentVariablesModel::new(self.tx_mut()?).preload(),
+                )
+                .await?,
+            )
+        } else {
+            None
+        };
 
         self.preloaded = UdfPreloaded::Ready {
             rng,
@@ -337,6 +343,9 @@ impl<RT: Runtime> UdfPhase<RT> {
             .tx
             .as_mut()
             .context("Transaction missing due to concurrent component call")?;
+        let Some(env_vars) = env_vars else {
+            return Ok(None);
+        };
         if let Some(var) = env_vars.get(tx, &name)? {
             return Ok(Some(var.clone()));
         }

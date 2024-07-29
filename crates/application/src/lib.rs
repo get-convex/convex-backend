@@ -1583,9 +1583,15 @@ impl<RT: Runtime> Application<RT> {
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
         source_package: SourcePackage,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         self.runner
-            .analyze(udf_config, new_modules, source_package)
+            .analyze(
+                udf_config,
+                new_modules,
+                source_package,
+                environment_variables,
+            )
             .await
     }
 
@@ -1853,20 +1859,22 @@ impl<RT: Runtime> Application<RT> {
         let app_pkg = component_definition_packages
             .get(&ComponentDefinitionPath::root())
             .context("No package for app?")?;
-        let mut app_analysis = self
-            .analyze_modules(
-                app_udf_config.clone(),
-                config.app_definition.functions.clone(),
-                app_pkg.clone(),
-            )
-            .await?;
 
-        // Evaluate auth and add in an empty `auth.config.js` to the analysis.
         let identity = Identity::system();
         let mut tx = self.begin(identity.clone()).await?;
         let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
         tx.into_token()?;
         // TODO(ENG-6500): Fold in our reads here into the hash.
+        let mut app_analysis = self
+            .analyze_modules(
+                app_udf_config.clone(),
+                config.app_definition.functions.clone(),
+                app_pkg.clone(),
+                environment_variables.clone(),
+            )
+            .await?;
+
+        // Evaluate auth and add in an empty `auth.config.js` to the analysis.
         let auth_info = Application::get_evaluated_auth_config(
             self.runner(),
             environment_variables.clone(),
@@ -2004,6 +2012,8 @@ impl<RT: Runtime> Application<RT> {
                     udf_config.clone(),
                     component_def.functions.clone(),
                     component_pkg.clone(),
+                    // Component functions do not have access to environment variables.
+                    BTreeMap::new(),
                 )
                 .await?;
             anyhow::ensure!(component_analysis_by_def_path
@@ -2098,6 +2108,7 @@ impl<RT: Runtime> Application<RT> {
         udf_config: UdfConfig,
         modules: Vec<ModuleConfig>,
         source_package: SourcePackage,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>> {
         let num_dep_modules = modules.iter().filter(|m| m.path.is_deps()).count();
         anyhow::ensure!(
@@ -2123,7 +2134,10 @@ impl<RT: Runtime> Application<RT> {
         );
 
         // Run analyze the modules to make sure they are valid.
-        match self.analyze(udf_config, modules, source_package).await? {
+        match self
+            .analyze(udf_config, modules, source_package, environment_variables)
+            .await?
+        {
             Ok(m) => Ok(m),
             Err(js_error) => {
                 let e = ErrorMetadata::bad_request(
@@ -2421,6 +2435,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+        // TODO(ENG-7038) Pass component through custom query tester
         let component = ComponentId::TODO();
 
         let block_logging = self
@@ -2438,6 +2453,11 @@ impl<RT: Runtime> Application<RT> {
         let source_package = self.upload_package(&vec![module.clone()], None).await?;
 
         let mut tx = self.begin(identity.clone()).await?;
+        let environment_variables = if component.is_root() {
+            EnvironmentVariablesModel::new(&mut tx).get_all().await?
+        } else {
+            BTreeMap::new()
+        };
 
         let mut udf_config_model = UdfConfigModel::new(&mut tx, component.into());
         let udf_config = match udf_config_model.get().await? {
@@ -2465,6 +2485,7 @@ impl<RT: Runtime> Application<RT> {
                 udf_config.clone(),
                 vec![module.clone()],
                 source_package.clone(),
+                environment_variables,
             )
             .await?
             .map_err(|js_error| {
