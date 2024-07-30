@@ -328,7 +328,7 @@ export class BaseConvexClient {
           }
           case "FatalError": {
             const error = logFatalError(serverMessage.error);
-            void this.webSocketManager.stop();
+            void this.webSocketManager.terminate();
             throw error;
           }
           case "Ping":
@@ -690,7 +690,7 @@ export class BaseConvexClient {
    */
   async close(): Promise<void> {
     this.authenticationManager.stop();
-    return this.webSocketManager.stop();
+    return this.webSocketManager.terminate();
   }
 
   /**

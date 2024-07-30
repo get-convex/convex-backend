@@ -22,8 +22,8 @@ const CLOSE_NOT_FOUND = 4040;
  * - "connecting": We have created the WebSocket and are waiting for the
  *   `onOpen` callback.
  * - "ready": We have an open WebSocket.
- * - "paused": The WebSocket was stopped and a new one can be created via `.resume()`.
- * - "stopped": We have stopped the WebSocket and will never create a new one.
+ * - "paused": The WebSocket was closed and a new one can be created via `.resume()`.
+ * - "terminated": We have closed the WebSocket and will never create a new one.
  *
  *
  * WebSocket State Machine
@@ -32,34 +32,32 @@ const CLOSE_NOT_FOUND = 4040;
  * validTransitions:
  *   disconnected:
  *     new WebSocket() -> connecting
- *     stop() -> stopped
+ *     terminate() -> terminated
  *   connecting:
  *     onopen -> ready
  *     close() -> disconnected
- *     stop() -> stopped
+ *     terminate() -> terminated
  *   ready:
  *     close() -> disconnected
  *     pause() -> paused
- *     stop() -> stopped
+ *     terminate() -> terminated
  *   paused:
  *     resume() -> connecting
- *     stop() -> stopped
- *   stopping:
- *     onclose -> stopped
+ *     terminate() -> terminated
  * terminalStates:
- *   stopped
+ *   terminated
  *
  *
  *
  *                                        ┌────────────────┐
- *                ┌─────────stop()────────│  disconnected  │◀─┐
+ *                ┌────terminate()────────│  disconnected  │◀─┐
  *                │                       └────────────────┘  │
  *                ▼                            │       ▲      │
  *       ┌────────────────┐           new WebSocket()  │      │
- *    ┌─▶│    stopped     │◀──────┐            │       │      │
+ *    ┌─▶│   terminated   │◀──────┐            │       │      │
  *    │  └────────────────┘       │            │       │      │
- *    │           ▲            stop()          │    close() close()
- *    │         stop()            │            │       │      │
+ *    │           ▲          terminate()       │    close() close()
+ *    │      terminate()          │            │       │      │
  *    │           │               │            ▼       │      │
  *    │  ┌────────────────┐       └───────┌────────────────┐  │
  *    │  │     paused     │───resume()───▶│   connecting   │  │
@@ -68,7 +66,7 @@ const CLOSE_NOT_FOUND = 4040;
  *    │           │                               onopen      │
  *    │           │                                │          │
  *    │           │                                ▼          │
- * stop()         │                       ┌────────────────┐  │
+ * terminate()    │                       ┌────────────────┐  │
  *    │           └────────pause()────────│     ready      │──┘
  *    │                                   └────────────────┘
  *    │                                            │
@@ -81,7 +79,7 @@ type Socket =
   | { state: "connecting"; ws: WebSocket }
   | { state: "ready"; ws: WebSocket }
   | { state: "paused" }
-  | { state: "stopped" };
+  | { state: "terminated" };
 
 export type ReconnectMetadata = {
   connectionCount: number;
@@ -154,7 +152,7 @@ export class WebSocketManager {
   }
 
   private connect() {
-    if (this.socket.state === "stopped") {
+    if (this.socket.state === "terminated") {
       return;
     }
     if (
@@ -267,8 +265,8 @@ export class WebSocketManager {
   }
 
   private resetServerInactivityTimeout() {
-    if (this.socket.state === "stopped") {
-      // Don't reset any timers if we were trying to stop.
+    if (this.socket.state === "terminated") {
+      // Don't reset any timers if we were trying to terminate.
       return;
     }
     if (this.reconnectDueToServerInactivityTimeout !== null) {
@@ -296,7 +294,7 @@ export class WebSocketManager {
     this._logVerbose(`begin closeAndReconnect with reason ${closeReason}`);
     switch (this.socket.state) {
       case "disconnected":
-      case "stopped":
+      case "terminated":
       case "paused":
         // Nothing to do if we don't have a WebSocket.
         return;
@@ -326,7 +324,7 @@ export class WebSocketManager {
   private close(): Promise<void> {
     switch (this.socket.state) {
       case "disconnected":
-      case "stopped":
+      case "terminated":
       case "paused":
         // Nothing to do if we don't have a WebSocket.
         return Promise.resolve();
@@ -367,18 +365,18 @@ export class WebSocketManager {
    * Close the WebSocket and do not reconnect.
    * @returns A Promise that resolves when the WebSocket `onClose` callback is called.
    */
-  stop(): Promise<void> {
+  terminate(): Promise<void> {
     if (this.reconnectDueToServerInactivityTimeout) {
       clearTimeout(this.reconnectDueToServerInactivityTimeout);
     }
     switch (this.socket.state) {
-      case "stopped":
+      case "terminated":
       case "paused":
       case "disconnected":
       case "connecting":
       case "ready": {
         const result = this.close();
-        this.socket = { state: "stopped" };
+        this.socket = { state: "terminated" };
         return result;
       }
       default: {
@@ -393,8 +391,8 @@ export class WebSocketManager {
 
   pause(): Promise<void> {
     switch (this.socket.state) {
-      case "stopped":
-        // If we're stopping we ignore pause
+      case "terminated":
+        // If we're terminating we ignore pause
         return Promise.resolve();
       case "connecting":
       case "paused":
@@ -413,15 +411,15 @@ export class WebSocketManager {
   }
 
   /**
-   * Create a new WebSocket after a previous `pause()`, unless `stop()` was
+   * Create a new WebSocket after a previous `pause()`, unless `terminate()` was
    * called before.
    */
   resume(): void {
     switch (this.socket.state) {
       case "paused":
         break;
-      case "stopped":
-        // If we're stopping we ignore resume
+      case "terminated":
+        // If we're terminating we ignore resume
         return;
       case "connecting":
       case "ready":
