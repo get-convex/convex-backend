@@ -1009,10 +1009,11 @@ where
 
 async fn log_middleware<B: Send>(
     remote_addr: Option<axum::extract::ConnectInfo<SocketAddr>>,
+    ExtractResolvedHost(resolved_host): ExtractResolvedHost,
     req: http::request::Request<B>,
     next: axum::middleware::Next<B>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let site_id = ::std::env::var("CONVEX_SITE").unwrap_or_default();
+    let site_id = resolved_host.instance_name;
     let start = Instant::now();
 
     let remote_addr = remote_addr.map(|connect_info| connect_info.0);
