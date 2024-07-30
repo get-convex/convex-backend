@@ -153,6 +153,11 @@ impl ErrorMetadata {
     /// The short_msg should be a CapitalCamelCased describing the error (eg
     /// TooManyTeams). The msg should be a descriptive message targeted
     /// toward the developer.
+    ///
+    /// In the user facing `msg`, be very clear about what is actionable here.
+    /// Some rate limits require paying for more resources, while others are
+    /// indicative of incorrect user behavior (eg > 1000 concurrent mutations
+    /// over a single websocket).
     pub fn rate_limited(
         short_msg: impl Into<Cow<'static, str>>,
         msg: impl Into<Cow<'static, str>>,

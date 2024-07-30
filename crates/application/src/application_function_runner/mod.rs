@@ -424,7 +424,11 @@ impl Limiter {
                 log_function_wait_timeout(self.env, self.udf_type);
                 anyhow::bail!(ErrorMetadata::rate_limited(
                     "TooManyConcurrentRequests",
-                    "Too many concurrent requests, backoff and try again.",
+                    format!(
+                        "Too many concurrent requests. Your backend is limited to {} concurrent {}s. To get more resources, upgrade to Convex Pro. If you are already on Convex Pro, please contact support.",
+                        self.total_permits,
+                        self.udf_type.to_lowercase_string(),
+                    ),
                 ));
             },
         }

@@ -521,9 +521,13 @@ impl<RT: Runtime> SyncWorker<RT> {
                 .boxed();
                 self.mutation_sender.try_send(future).map_err(|err| {
                     if err.is_full() {
-                        anyhow::anyhow!(ErrorMetadata::overloaded(
+                        anyhow::anyhow!(ErrorMetadata::rate_limited(
                             "TooManyConcurrentMutations",
-                            "Too many concurrent mutations, backoff and try again.",
+                            format!(
+                                "Too many concurrent mutations. Only up to \
+                                 {OPERATION_QUEUE_BUFFER_SIZE} pending mutations allowed on a \
+                                 single websocket."
+                            ),
                         ))
                     } else {
                         anyhow::anyhow!("Failed to send to mutation channel: {err}")
