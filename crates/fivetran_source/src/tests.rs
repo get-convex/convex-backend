@@ -5,7 +5,10 @@ use std::{
     vec,
 };
 
-use anyhow::Ok;
+use anyhow::{
+    Context,
+    Ok,
+};
 use async_trait::async_trait;
 use convex_fivetran_common::fivetran_sdk::{
     value_type,
@@ -39,6 +42,7 @@ use crate::{
     },
     sync::{
         sync,
+        Checkpoint,
         State,
         UpdateMessage,
     },
@@ -371,6 +375,28 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
             .unwrap(),
         &FivetranValue::String("Document 21 of table1".to_string())
     );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn initial_sync_empty_source_works() -> anyhow::Result<()> {
+    let source = FakeSource::default();
+    let mut destination = FakeDestination::default();
+
+    assert_eq!(source.tables.len(), 0);
+    destination
+        .receive(sync(source.clone(), destination.latest_state()))
+        .await?;
+    assert!(destination.has_log("Initial sync successful"));
+    assert_eq!(destination.checkpointed_data.tables.len(), 0);
+    let state = destination.latest_state().context("missing state")?;
+    assert!(matches!(
+        state.checkpoint,
+        Checkpoint::DeltaUpdates {
+            cursor: DocumentDeltasCursor(0)
+        }
+    ));
 
     Ok(())
 }

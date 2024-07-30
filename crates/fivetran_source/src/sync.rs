@@ -184,9 +184,7 @@ async fn initial_sync(
     log(&log_msg);
     yield UpdateMessage::Log(LogLevel::Info, log_msg);
 
-    let mut has_more = true;
-
-    while has_more {
+    let snapshot = loop {
         let snapshot = checkpoint.as_ref().map(|c| c.0);
         let cursor = checkpoint.as_ref().map(|c| c.1.clone());
         let res = source.list_snapshot(snapshot, cursor.clone(), None).await?;
@@ -213,8 +211,7 @@ async fn initial_sync(
             };
         }
 
-        has_more = res.has_more;
-        if has_more {
+        if res.has_more {
             let cursor = ListSnapshotCursor::from(
                 res.cursor.context("Missing cursor when has_more was set")?,
             );
@@ -226,10 +223,11 @@ async fn initial_sync(
                 tables_seen.clone(),
             ));
             checkpoint = Some((res.snapshot, cursor));
+        } else {
+            break res.snapshot;
         }
-    }
+    };
 
-    let (snapshot, _) = checkpoint.context("list_snapshot lacking a snapshot for checkpoint")?;
     let cursor = DocumentDeltasCursor::from(snapshot);
     yield UpdateMessage::Checkpoint(State::create(
         Checkpoint::DeltaUpdates { cursor },
