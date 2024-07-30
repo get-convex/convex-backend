@@ -83,8 +83,8 @@ export class AuthenticationManager {
   private readonly syncState: LocalSyncState;
   // Passed down by BaseClient, sends a message to the server
   private readonly authenticate: (token: string) => void;
-  private readonly pauseSocket: () => Promise<void>;
-  private readonly resumeSocket: () => void;
+  private readonly stopSocket: () => Promise<void>;
+  private readonly restartSocket: () => void;
   // Passed down by BaseClient, sends a message to the server
   private readonly clearAuth: () => void;
   private readonly verbose: boolean;
@@ -93,22 +93,22 @@ export class AuthenticationManager {
     syncState: LocalSyncState,
     {
       authenticate,
-      pauseSocket: pause,
-      resumeSocket: resume,
+      stopSocket,
+      restartSocket,
       clearAuth,
       verbose,
     }: {
       authenticate: (token: string) => void;
-      pauseSocket: () => Promise<void>;
-      resumeSocket: () => void;
+      stopSocket: () => Promise<void>;
+      restartSocket: () => void;
       clearAuth: () => void;
       verbose: boolean;
     },
   ) {
     this.syncState = syncState;
     this.authenticate = authenticate;
-    this.pauseSocket = pause;
-    this.resumeSocket = resume;
+    this.stopSocket = stopSocket;
+    this.restartSocket = restartSocket;
     this.clearAuth = clearAuth;
     this.verbose = verbose;
   }
@@ -216,7 +216,7 @@ export class AuthenticationManager {
       return;
     }
     this._logVerbose("attempting to reauthenticate");
-    await this.pauseSocket();
+    await this.stopSocket();
     const token = await this.fetchTokenAndGuardAgainstRace(
       this.authState.config.fetchToken,
       {
@@ -224,7 +224,7 @@ export class AuthenticationManager {
       },
     );
     if (token.isFromOutdatedConfig) {
-      await this.resumeSocket();
+      await this.restartSocket();
       return;
     }
 
@@ -245,7 +245,7 @@ export class AuthenticationManager {
       }
       this.setAndReportAuthFailed(this.authState.config.onAuthChange);
     }
-    await this.resumeSocket();
+    await this.restartSocket();
   }
 
   // Force refetch the token and schedule another refetch

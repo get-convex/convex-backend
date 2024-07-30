@@ -22,7 +22,7 @@ const CLOSE_NOT_FOUND = 4040;
  * - "connecting": We have created the WebSocket and are waiting for the
  *   `onOpen` callback.
  * - "ready": We have an open WebSocket.
- * - "paused": The WebSocket was closed and a new one can be created via `.resume()`.
+ * - "stopped": The WebSocket was closed and a new one can be created via `.restart()`.
  * - "terminated": We have closed the WebSocket and will never create a new one.
  *
  *
@@ -39,10 +39,10 @@ const CLOSE_NOT_FOUND = 4040;
  *     terminate() -> terminated
  *   ready:
  *     close() -> disconnected
- *     pause() -> paused
+ *     stop() -> stopped
  *     terminate() -> terminated
- *   paused:
- *     resume() -> connecting
+ *   stopped:
+ *     restart() -> connecting
  *     terminate() -> terminated
  * terminalStates:
  *   terminated
@@ -60,14 +60,14 @@ const CLOSE_NOT_FOUND = 4040;
  *    │      terminate()          │            │       │      │
  *    │           │               │            ▼       │      │
  *    │  ┌────────────────┐       └───────┌────────────────┐  │
- *    │  │     paused     │───resume()───▶│   connecting   │  │
+ *    │  │    stopped     │──restart()───▶│   connecting   │  │
  *    │  └────────────────┘               └────────────────┘  │
  *    │           ▲                                │          │
  *    │           │                               onopen      │
  *    │           │                                │          │
  *    │           │                                ▼          │
  * terminate()    │                       ┌────────────────┐  │
- *    │           └────────pause()────────│     ready      │──┘
+ *    │           └────────stop()─────────│     ready      │──┘
  *    │                                   └────────────────┘
  *    │                                            │
  *    │                                            │
@@ -78,7 +78,7 @@ type Socket =
   | { state: "disconnected" }
   | { state: "connecting"; ws: WebSocket }
   | { state: "ready"; ws: WebSocket }
-  | { state: "paused" }
+  | { state: "stopped" }
   | { state: "terminated" };
 
 export type ReconnectMetadata = {
@@ -157,7 +157,7 @@ export class WebSocketManager {
     }
     if (
       this.socket.state !== "disconnected" &&
-      this.socket.state !== "paused"
+      this.socket.state !== "stopped"
     ) {
       throw new Error(
         "Didn't start connection from disconnected state: " + this.socket.state,
@@ -295,7 +295,7 @@ export class WebSocketManager {
     switch (this.socket.state) {
       case "disconnected":
       case "terminated":
-      case "paused":
+      case "stopped":
         // Nothing to do if we don't have a WebSocket.
         return;
       case "connecting":
@@ -325,7 +325,7 @@ export class WebSocketManager {
     switch (this.socket.state) {
       case "disconnected":
       case "terminated":
-      case "paused":
+      case "stopped":
         // Nothing to do if we don't have a WebSocket.
         return Promise.resolve();
       case "connecting": {
@@ -371,7 +371,7 @@ export class WebSocketManager {
     }
     switch (this.socket.state) {
       case "terminated":
-      case "paused":
+      case "stopped":
       case "disconnected":
       case "connecting":
       case "ready": {
@@ -389,17 +389,17 @@ export class WebSocketManager {
     }
   }
 
-  pause(): Promise<void> {
+  stop(): Promise<void> {
     switch (this.socket.state) {
       case "terminated":
-        // If we're terminating we ignore pause
+        // If we're terminating we ignore stop
         return Promise.resolve();
       case "connecting":
-      case "paused":
+      case "stopped":
       case "disconnected":
       case "ready": {
         const result = this.close();
-        this.socket = { state: "paused" };
+        this.socket = { state: "stopped" };
         return result;
       }
       default: {
@@ -411,20 +411,20 @@ export class WebSocketManager {
   }
 
   /**
-   * Create a new WebSocket after a previous `pause()`, unless `terminate()` was
+   * Create a new WebSocket after a previous `stop()`, unless `terminate()` was
    * called before.
    */
-  resume(): void {
+  restart(): void {
     switch (this.socket.state) {
-      case "paused":
+      case "stopped":
         break;
       case "terminated":
-        // If we're terminating we ignore resume
+        // If we're terminating we ignore restart
         return;
       case "connecting":
       case "ready":
       case "disconnected":
-        throw new Error("`resume()` is only valid after `pause()`");
+        throw new Error("`restart()` is only valid after `stop()`");
       default: {
         // Enforce that the switch-case is exhaustive.
         const _: never = this.socket;
