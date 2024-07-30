@@ -99,7 +99,7 @@ rand = "0.8"
 rand_chacha = "0.3.1"
 ref-cast = "1.0.20"
 regex = "1"
-reqwest = { version = "0.11.24", features = [ "json", "stream", "gzip" ] }
+reqwest = { version = "0.11.24", features = [ "json", "stream", "gzip", "native-tls-vendored" ] }
 reqwest-middleware = "0.2.0"
 ring = "0.17.8"
 rsa = "0.9.6"
@@ -128,7 +128,7 @@ tokio = { version = "1", features = [ "full" ] }
 tokio-metrics-collector = { version = "0.2.1" }
 tokio-process-stream = { version = "0.4.0" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
-tokio-tungstenite = "0.20.0"
+tokio-tungstenite = { version = "0.20.0", features = [ "native-tls-vendored" ] }
 tonic = { version = "0.10.2", features = [ "gzip" ] }
 tonic-build = "0.10.0"
 tonic-health = "0.10.0"
@@ -139,7 +139,7 @@ tracing = "0.1"
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
 tracy-client = { version = "0.17.0", default-features = false, features = [ "fibers" ] }
-tungstenite = "0.20.0"
+tungstenite = { version = "0.20.0", features = [ "native-tls-vendored" ] }
 url = "2"
 uuid = { version = "1.6", features = [ "serde", "v4" ] }
 walkdir = "2"

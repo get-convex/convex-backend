@@ -18,8 +18,8 @@ anyhow = { workspace = true }
 proptest = { workspace = true, optional = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
-reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
-tonic = { workspace = true, features = ["gzip"] }
+reqwest = { workspace = true }
+tonic = { workspace = true }
 url = { workspace = true }
 
 [build-dependencies]
@@ -27,7 +27,7 @@ anyhow = { workspace = true }
 bytes = { workspace = true }
 cfg-if = { workspace = true }
 futures-util = { workspace = true }
-reqwest = { workspace = true, features = ["native-tls-vendored"] }
+reqwest = { workspace = true }
 tokio = { workspace = true }
 tonic-build = { workspace = true }
 

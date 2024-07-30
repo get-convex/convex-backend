@@ -21,7 +21,7 @@ async-trait = { workspace = true }
 base64 = { workspace = true }
 cbc = { workspace = true }
 chrono = { workspace = true }
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true }
 common = { path = "../common" }
 convex_fivetran_common = { path = "../fivetran_common" }
 csv-async = { workspace = true }
@@ -31,12 +31,12 @@ futures-async-stream = { workspace = true }
 maplit = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
-reqwest = { workspace = true, features = ["json", "native-tls-vendored"] }
-serde = { workspace = true, features = ["derive"] }
+reqwest = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
-tonic = { workspace = true, features = ["gzip"] }
+tonic = { workspace = true }
 
 [dev-dependencies]
 cmd_util = { path = "../cmd_util" }
