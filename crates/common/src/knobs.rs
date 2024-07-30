@@ -141,6 +141,11 @@ pub static LEASE_LOST_COOL_DOWN: LazyLock<Duration> = LazyLock::new(|| {
 /// lost its lease. Duration of 0 means preemption is disabled, all past serving
 /// records will be assumed shut down and deleted without attempting to preempt
 /// them. We default to 0 in dev as no preemption is necessary.
+///
+/// Try to proactively preempt past backends for up to 2 minutes. This can
+/// be much lower, but we use higher timeout to protect against transiently
+/// unreachable backends. By the time elapses, a network partitioning backend,
+/// should attempt to write, discover it has lost its lease and self-preempt.
 pub static BACKEND_PREEMPTION_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config(
         "BACKEND_PREEMPTION_TIMEOUT_SECS",
@@ -360,8 +365,15 @@ pub static RESET_DOCUMENT_RETENTION: LazyLock<bool> =
 /// The time backend should wait before it acquires the lease. This wait allows
 /// for the backend to be added to service discovery, before it renders the
 /// previous backends unusable.
-pub static BACKEND_STARTUP_DELAY: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("BACKEND_STARTUP_DELAY_SECS", 0)));
+///
+/// Wait > 5 seconds before acquiring the backend lease, so we are added to
+/// traefik before we make the old backend unusable.
+pub static BACKEND_STARTUP_DELAY: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config(
+        "BACKEND_STARTUP_DELAY_SECS",
+        prod_override(0, 6),
+    ))
+});
 
 /// When to start rejecting new additions to the search memory index.
 pub static TEXT_INDEX_SIZE_HARD_LIMIT: LazyLock<usize> =
@@ -915,8 +927,16 @@ pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
 
 /// What percentage of the physical CPU cores can be actively used by the
 /// isolate.
-pub static BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT: LazyLock<usize> =
-    LazyLock::new(|| env_config("BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT", 100));
+///
+/// Give 50% of physical cores to v8. Note that we are still oversubscribing
+/// the CPU since we run multiple backends per server. This is fine since we
+/// are moving js execution to Funrun.
+pub static BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT",
+        prod_override(100, 50),
+    )
+});
 
 /// How long to splay deploying AWS Lambdas due to changes in the backend. This
 /// know doesn't delay deploys that are required due to user backends.
@@ -937,7 +957,10 @@ pub static BACKEND_REQUEST_DRAIN_TIMEOUT: LazyLock<Duration> =
 /// The kinesis firehose name for streaming usage metrics to the data
 // large body of water.
 pub static BACKEND_USAGE_FIREHOSE_NAME: LazyLock<Option<String>> = LazyLock::new(|| {
-    let result = env_config("BACKEND_USAGE_FIREHOSE_NAME", "".to_string());
+    let result = env_config(
+        "BACKEND_USAGE_FIREHOSE_NAME",
+        prod_override("", "cvx-firehose-usage-prod").to_string(),
+    );
     if !result.is_empty() {
         Some(result.to_string())
     } else {
@@ -1046,13 +1069,23 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
 ///
 /// Note that the regexes can't contain commas.
 ///
+/// Enable sampling for 10% of /api/push_config and 0.001% of all requests
+/// Use knobs to enable to higher limits for individual instances.
+///
 /// Examples:
 ///   REQUEST_TRACE_SAMPLE_CONFIG=0.01
 ///   REQUEST_TRACE_SAMPLE_CONFIG=/route1=0.50,0.01
 ///   REQUEST_TRACE_SAMPLE_CONFIG=/route1=0.50,route2=0.50,0.01
 ///   REQUEST_TRACE_SAMPLE_CONFIG=/http/.*=0.50
-pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> =
-    LazyLock::new(|| env_config("REQUEST_TRACE_SAMPLE_CONFIG", SamplingConfig::default()));
+pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> = LazyLock::new(|| {
+    env_config(
+        "REQUEST_TRACE_SAMPLE_CONFIG",
+        prod_override(
+            SamplingConfig::default(),
+            "/api/push_config=0.1,0.00001".parse().unwrap(),
+        ),
+    )
+});
 
 /// If true, the backend will check the rate limiter service for capacity under
 /// the "backend_startup" domain keyed by db cluster name.
