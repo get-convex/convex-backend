@@ -1,7 +1,6 @@
 import chalk from "chalk";
 import path from "path";
 import { bundleSchema } from "../../bundler/index.js";
-import { version } from "../version.js";
 import {
   Context,
   changeSpinner,
@@ -63,14 +62,10 @@ export async function pushSchema(
   changeSpinner(ctx, "Checking for index or schema changes...");
 
   let data: PrepareSchemaResponse;
-  const fetch = deploymentFetch(origin);
+  const fetch = deploymentFetch(origin, adminKey);
   try {
     const res = await fetch("/api/prepare_schema", {
       method: "POST",
-      headers: {
-        "Convex-Client": `npm-cli-${version}`,
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
         bundle: bundles[0],
         adminKey,
@@ -99,16 +94,10 @@ async function waitForReadySchema(
   schemaId: string,
 ): Promise<SchemaState> {
   const path = `api/schema_state/${schemaId}`;
-  const depFetch = deploymentFetch(origin);
+  const depFetch = deploymentFetch(origin, adminKey);
   const fetch = async () => {
     try {
-      const resp = await depFetch(path, {
-        headers: {
-          Authorization: `Convex ${adminKey}`,
-          "Convex-Client": `npm-cli-${version}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const resp = await depFetch(path, { method: "GET" });
       const data: SchemaStateResponse = await resp.json();
       return data;
     } catch (err: unknown) {

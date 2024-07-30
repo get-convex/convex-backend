@@ -6,7 +6,6 @@ import {
   deploymentFetch,
   logAndHandleFetchError,
 } from "./lib/utils.js";
-import { version } from "./version.js";
 import {
   logFailure,
   oneoffContext,
@@ -67,15 +66,10 @@ export const convexExport = new Command("export")
       : "";
     showSpinner(ctx, `Creating snapshot export${deploymentNotice}`);
 
-    const fetch = deploymentFetch(deploymentUrl);
-    const headers = {
-      Authorization: `Convex ${adminKey}`,
-      "Convex-Client": `npm-cli-${version}`,
-    };
+    const fetch = deploymentFetch(deploymentUrl, adminKey);
     try {
       await fetch(`/api/export/request/zip?includeStorage=${includeStorage}`, {
         method: "POST",
-        headers,
       });
     } catch (e) {
       return await logAndHandleFetchError(ctx, e);
@@ -124,7 +118,6 @@ export const convexExport = new Command("export")
     try {
       response = await fetch(exportUrl, {
         method: "GET",
-        headers,
       });
     } catch (e) {
       return await logAndHandleFetchError(ctx, e);

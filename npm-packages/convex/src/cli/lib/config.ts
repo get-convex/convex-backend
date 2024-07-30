@@ -561,17 +561,13 @@ export async function pullConfig(
   origin: string,
   adminKey: string,
 ): Promise<ConfigWithModuleHashes> {
-  const fetch = deploymentFetch(origin);
+  const fetch = deploymentFetch(origin, adminKey);
 
   changeSpinner(ctx, "Downloading current deployment state...");
   try {
     const res = await fetch("/api/get_config_hashes", {
       method: "POST",
       body: JSON.stringify({ version, adminKey }),
-      headers: {
-        "Content-Type": "application/json",
-        "Convex-Client": `npm-cli-${version}`,
-      },
     });
     deprecationCheckWarning(ctx, res);
     const data = await res.json();
@@ -759,16 +755,12 @@ export async function pushConfig2(
       : s;
   console.log(JSON.stringify(serializedConfig, custom, 2));
   */
-  const fetch = deploymentFetch(url);
+  const fetch = deploymentFetch(url, adminKey);
   changeSpinner(ctx, "Analyzing and deploying source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
       body: JSON.stringify(serializedConfig),
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Convex-Client": `npm-cli-${version}`,
-      },
     });
     return await response.json();
   } catch (error: unknown) {
@@ -795,7 +787,7 @@ export async function pushConfig(
     pushMetrics,
     bundledModuleInfos,
   );
-  const fetch = deploymentFetch(url);
+  const fetch = deploymentFetch(url, adminKey);
   try {
     if (config.nodeDependencies.length > 0) {
       changeSpinner(
@@ -816,7 +808,6 @@ export async function pushConfig(
       headers: {
         "Content-Type": "application/json",
         "Content-Encoding": "br",
-        "Convex-Client": `npm-cli-${version}`,
       },
     });
   } catch (error: unknown) {

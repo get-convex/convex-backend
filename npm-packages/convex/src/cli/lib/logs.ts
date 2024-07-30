@@ -4,7 +4,6 @@ import {
   logOutput,
   logWarning,
 } from "../../bundler/context.js";
-import { version } from "../version.js";
 import { nextBackoff } from "../dev.js";
 import chalk from "chalk";
 import { deploymentFetch } from "./utils.js";
@@ -23,18 +22,13 @@ export async function watchLogs(
     history?: number | boolean;
   },
 ) {
-  const authHeader = createAuthHeader(adminKey);
   let numFailures = 0;
   let isFirst = true;
   let cursorMs = 0;
 
   for (;;) {
     try {
-      const { entries, newCursor } = await pollUdfLog(
-        cursorMs,
-        url,
-        authHeader,
-      );
+      const { entries, newCursor } = await pollUdfLog(cursorMs, url, adminKey);
       cursorMs = newCursor;
       numFailures = 0;
       // The first execution, we just want to fetch the current head cursor so we don't send stale
@@ -75,10 +69,6 @@ export async function watchLogs(
   }
 }
 
-function createAuthHeader(adminKey: string): string {
-  return `Convex ${adminKey}`;
-}
-
 type UdfType = "Query" | "Mutation" | "Action" | "HttpAction";
 
 type StructuredLogLine = {
@@ -104,14 +94,11 @@ type UdfExecutionResponse = {
 async function pollUdfLog(
   cursor: number,
   url: string,
-  authHeader: string,
+  adminKey: string,
 ): Promise<{ entries: UdfExecutionResponse[]; newCursor: number }> {
-  const fetch = deploymentFetch(url);
+  const fetch = deploymentFetch(url, adminKey);
   const response = await fetch(`/api/stream_function_logs?cursor=${cursor}`, {
-    headers: {
-      Authorization: authHeader,
-      "Convex-Client": `npm-cli-${version}`,
-    },
+    method: "GET",
   });
   return await response.json();
 }

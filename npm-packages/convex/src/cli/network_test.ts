@@ -15,7 +15,11 @@ import {
 import * as net from "net";
 import * as dns from "dns";
 import * as crypto from "crypto";
-import { deploymentFetch, formatDuration, formatSize } from "./lib/utils.js";
+import {
+  bareDeploymentFetch,
+  formatDuration,
+  formatSize,
+} from "./lib/utils.js";
 import chalk from "chalk";
 
 const ipFamilyNumbers = { ipv4: 4, ipv6: 6, auto: 0 } as const;
@@ -232,7 +236,7 @@ async function checkHttpOnce(
     const start = performance.now();
     // Be sure to use the same `deploymentFetch` we use elsewhere so we're actually
     // getting coverage of our network stack.
-    const fetch = deploymentFetch(url);
+    const fetch = bareDeploymentFetch(url);
     const instanceNameUrl = new URL("/instance_name", url);
     // Set `maxRedirects` to 0 so our HTTP test doesn't try HTTPS.
     const resp = await fetch(instanceNameUrl.toString(), {
@@ -256,7 +260,7 @@ async function checkHttpOnce(
 async function checkEcho(ctx: Context, url: string, size: number) {
   try {
     const start = performance.now();
-    const fetch = deploymentFetch(url, (err) => {
+    const fetch = bareDeploymentFetch(url, (err) => {
       logFailure(
         ctx,
         chalk.red(`FAIL: echo ${formatSize(size)} (${err}), retrying...`),

@@ -1,5 +1,4 @@
 import { changeSpinner, Context, logFailure } from "../../bundler/context.js";
-import { version } from "../version.js";
 import { deploymentFetch, logAndHandleFetchError } from "./utils.js";
 import {
   StartPushRequest,
@@ -23,16 +22,12 @@ export async function startPush(
       typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
     console.log(JSON.stringify(request, custom, 2));
   }
-  const fetch = deploymentFetch(url);
+  const fetch = deploymentFetch(url, request.adminKey);
   changeSpinner(ctx, "Analyzing and deploying source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
       body: JSON.stringify(request),
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Convex-Client": `npm-cli-${version}`,
-      },
     });
     return startPushResponse.parse(await response.json());
   } catch (error: unknown) {
@@ -48,7 +43,7 @@ export async function waitForSchema(
   url: string,
   startPush: StartPushResponse,
 ) {
-  const fetch = deploymentFetch(url);
+  const fetch = deploymentFetch(url, adminKey);
   try {
     const response = await fetch("/api/deploy2/wait_for_schema", {
       body: JSON.stringify({
@@ -57,10 +52,6 @@ export async function waitForSchema(
         dryRun: false,
       }),
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Convex-Client": `npm-cli-${version}`,
-      },
     });
     return await response.json();
   } catch (error: unknown) {
@@ -76,7 +67,7 @@ export async function finishPush(
   url: string,
   startPush: StartPushResponse,
 ): Promise<void> {
-  const fetch = deploymentFetch(url);
+  const fetch = deploymentFetch(url, adminKey);
   changeSpinner(ctx, "Finalizing push...");
   try {
     const response = await fetch("/api/deploy2/finish_push", {
@@ -86,10 +77,6 @@ export async function finishPush(
         dryRun: false,
       }),
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Convex-Client": `npm-cli-${version}`,
-      },
     });
     return await response.json();
   } catch (error: unknown) {

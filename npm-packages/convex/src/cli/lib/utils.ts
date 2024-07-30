@@ -913,7 +913,65 @@ function retryDelay(
   return delay + randomSum;
 }
 
-export function deploymentFetch(
+function deploymentFetchRetryOn(onError?: (err: any) => void, method?: string) {
+  return function (
+    _attempt: number,
+    error: Error | null,
+    response: Response | null,
+  ) {
+    if (onError && error !== null) {
+      onError(error);
+    }
+
+    // Retry on network errors.
+    if (error) {
+      // TODO filter out all SSL errors
+      // https://github.com/nodejs/node/blob/8a41d9b636be86350cd32847c3f89d327c4f6ff7/src/crypto/crypto_common.cc#L218-L245
+      return true;
+    }
+    // Retry on 404s since these can sometimes happen with newly created
+    // deployments for POSTs.
+    if (response?.status === 404) {
+      return true;
+    }
+
+    // Whatever the error code it doesn't hurt to retry idempotent requests.
+    if (
+      response &&
+      !response.ok &&
+      method &&
+      IDEMPOTENT_METHODS.includes(method.toUpperCase())
+    ) {
+      // ...but it's a bit annoying to wait for things we know won't succced
+      if (
+        [
+          400, // Bad Request
+          401, // Unauthorized
+          402, // PaymentRequired
+          403, // Forbidden
+          405, // Method Not Allowed
+          406, // Not Acceptable
+          412, // Precondition Failed
+          413, // Payload Too Large
+          414, // URI Too Long
+          415, // Unsupported Media Type
+          416, // Range Not Satisfiable
+        ].includes(response.status)
+      ) {
+        return false;
+      }
+      return true;
+    }
+
+    return false;
+  };
+}
+
+/**
+ * Unlike `deploymentFetch`, this does not add on any headers, so the caller
+ * must supply any headers.
+ */
+export function bareDeploymentFetch(
   deploymentUrl: string,
   onError?: (err: any) => void,
 ): typeof throwingFetch {
@@ -927,59 +985,48 @@ export function deploymentFetch(
     const func = throwingFetch(url, {
       retries: 6,
       retryDelay,
-      retryOn: function (
-        _attempt: number,
-        error: Error | null,
-        response: Response | null,
-      ) {
-        if (onError && error !== null) {
-          onError(error);
-        }
-
-        // Retry on network errors.
-        if (error) {
-          // TODO filter out all SSL errors
-          // https://github.com/nodejs/node/blob/8a41d9b636be86350cd32847c3f89d327c4f6ff7/src/crypto/crypto_common.cc#L218-L245
-          return true;
-        }
-        // Retry on 404s since these can sometimes happen with newly created
-        // deployments for POSTs.
-        if (response?.status === 404) {
-          return true;
-        }
-
-        const method = options?.method?.toUpperCase();
-        // Whatever the error code it doesn't hurt to retry idempotent requests.
-        if (
-          response &&
-          !response.ok &&
-          method &&
-          IDEMPOTENT_METHODS.includes(method)
-        ) {
-          // ...but it's a bit annoying to wait for things we know won't succced
-          if (
-            [
-              400, // Bad Request
-              401, // Unauthorized
-              402, // PaymentRequired
-              403, // Forbidden
-              405, // Method Not Allowed
-              406, // Not Acceptable
-              412, // Precondition Failed
-              413, // Payload Too Large
-              414, // URI Too Long
-              415, // Unsupported Media Type
-              416, // Range Not Satisfiable
-            ].includes(response.status)
-          ) {
-            return false;
-          }
-          return true;
-        }
-
-        return false;
-      },
+      retryOn: deploymentFetchRetryOn(onError, options?.method),
       ...options,
+    });
+    return func;
+  };
+}
+
+/**
+ * This returns a `fetch` function that will fetch against `deploymentUrl`.
+ *
+ * It will also set the `Authorization` header, `Content-Type` header, and
+ * the `Convex-Client` header if they are not set in the `fetch`.
+ */
+export function deploymentFetch(
+  deploymentUrl: string,
+  adminKey: string,
+  onError?: (err: any) => void,
+): typeof throwingFetch {
+  return (resource: RequestInfo | URL, options: RequestInit | undefined) => {
+    const url =
+      resource instanceof URL
+        ? resource.pathname
+        : typeof resource === "string"
+          ? new URL(resource, deploymentUrl)
+          : new URL(resource.url, deploymentUrl);
+
+    const headers = new Headers(options?.headers || {});
+    if (!headers.has("Authorization")) {
+      headers.set("Authorization", `Convex ${adminKey}`);
+    }
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    if (!headers.has("Convex-Client")) {
+      headers.set("Convex-Client", `npm-cli-${version}`);
+    }
+    const func = throwingFetch(url, {
+      retries: 6,
+      retryDelay,
+      retryOn: deploymentFetchRetryOn(onError, options?.method),
+      ...options,
+      headers,
     });
     return func;
   };

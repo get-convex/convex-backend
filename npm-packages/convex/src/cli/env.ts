@@ -20,7 +20,6 @@ import {
   ensureHasConvexDependency,
   logAndHandleFetchError,
 } from "./lib/utils.js";
-import { version } from "./version.js";
 
 const envSet = new Command("set")
   // Pretend value is required
@@ -175,17 +174,9 @@ async function callUpdateEnvironmentVariables(
       ctx,
       deploymentSelection,
     );
-  const fetch = deploymentFetch(url);
-  const headers = {
-    Authorization: `Convex ${adminKey}`,
-    "Convex-Client": `npm-cli-${version}`,
-  };
+  const fetch = deploymentFetch(url, adminKey);
   try {
     await fetch("/api/update_environment_variables", {
-      headers: {
-        ...headers,
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({ changes }),
       method: "POST",
     });

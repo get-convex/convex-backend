@@ -7,7 +7,6 @@ import {
   deploymentFetch,
   logAndHandleFetchError,
 } from "./lib/utils.js";
-import { version } from "./version.js";
 import {
   logFailure,
   oneoffContext,
@@ -143,7 +142,7 @@ export const convexImport = new Command("import")
         options.yes,
       );
     }
-    const fetch = deploymentFetch(deploymentUrl);
+    const fetch = deploymentFetch(deploymentUrl, adminKey);
 
     const data = ctx.fs.createReadStream(filePath, {
       highWaterMark: CHUNK_SIZE,
@@ -163,10 +162,6 @@ export const convexImport = new Command("import")
       mode,
       format,
     };
-    const headers = {
-      Authorization: `Convex ${adminKey}`,
-      "Convex-Client": `npm-cli-${version}`,
-    };
     const deploymentNotice = options.prod
       ? ` in your ${chalk.bold("prod")} deployment`
       : "";
@@ -175,7 +170,6 @@ export const convexImport = new Command("import")
     try {
       const startResp = await fetch("/api/import/start_upload", {
         method: "POST",
-        headers,
       });
       const { uploadToken } = await startResp.json();
 
@@ -187,7 +181,9 @@ export const convexImport = new Command("import")
           uploadToken,
         )}&partNumber=${partNumber}`;
         const partResp = await fetch(partUrl, {
-          headers,
+          headers: {
+            "Content-Type": "application/octet-stream",
+          },
           body: chunk,
           method: "POST",
         });
@@ -202,10 +198,6 @@ export const convexImport = new Command("import")
       }
 
       const finishResp = await fetch("/api/import/finish_upload", {
-        headers: {
-          ...headers,
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           import: importArgs,
           uploadToken,
@@ -262,7 +254,6 @@ export const convexImport = new Command("import")
           const performUrl = `/api/perform_import`;
           try {
             await fetch(performUrl, {
-              headers: { ...headers, "content-type": "application/json" },
               method: "POST",
               body: JSON.stringify({ importId }),
             });
