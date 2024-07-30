@@ -1,16 +1,14 @@
 use common::{
     assert_obj,
+    testing::assert_contains,
     value::ConvexValue,
 };
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 
-use crate::{
-    test_helpers::{
-        UdfTest,
-        UdfTestType,
-    },
-    tests::assert_contains,
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
 };
 
 #[convex_macro::test_runtime]

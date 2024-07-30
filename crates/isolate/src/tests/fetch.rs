@@ -25,6 +25,7 @@ use common::{
         NoopRouteMapper,
     },
     runtime::Runtime,
+    testing::assert_contains,
 };
 use http::{
     Request,
@@ -42,12 +43,9 @@ use value::ConvexValue;
 
 use crate::{
     test_helpers::UdfTest,
-    tests::{
-        assert_contains,
-        http_action::{
-            http_post_request,
-            http_request,
-        },
+    tests::http_action::{
+        http_post_request,
+        http_request,
     },
 };
 

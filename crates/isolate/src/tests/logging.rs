@@ -1,14 +1,14 @@
-use common::assert_obj;
+use common::{
+    assert_obj,
+    testing::assert_contains,
+};
 use itertools::Itertools;
 use regex::Regex;
 use runtime::testing::TestRuntime;
 
-use crate::{
-    test_helpers::{
-        UdfTest,
-        UdfTestType,
-    },
-    tests::assert_contains,
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
 };
 
 /// Tests to ensure that our logging is reasonable for basic JS types.

@@ -4,7 +4,10 @@ use common::{
         vector_index::VectorDimensions,
         IndexMetadata,
     },
-    testing::TestPersistence,
+    testing::{
+        assert_contains,
+        TestPersistence,
+    },
 };
 use database::IndexModel;
 use keybroker::Identity;
@@ -16,7 +19,6 @@ use value::{
     TableNamespace,
 };
 
-use super::assert_contains;
 use crate::{
     test_helpers::UdfTest,
     tests::action::action_udf_test,

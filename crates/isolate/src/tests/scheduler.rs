@@ -5,6 +5,7 @@ use std::time::Duration;
 use common::{
     assert_obj,
     runtime::Runtime,
+    testing::assert_contains,
     value::ConvexValue,
 };
 use keybroker::Identity;
@@ -16,7 +17,6 @@ use must_let::must_let;
 use rand::RngCore;
 use runtime::testing::TestRuntime;
 
-use super::assert_contains;
 use crate::{
     test_helpers::{
         UdfTest,

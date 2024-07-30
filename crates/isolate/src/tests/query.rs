@@ -9,7 +9,10 @@ use common::{
     persistence::Persistence,
     query::Cursor,
     runtime::Runtime,
-    testing::TestPersistence,
+    testing::{
+        assert_contains,
+        TestPersistence,
+    },
     types::PersistenceVersion,
     value::{
         ConvexArray,
@@ -28,7 +31,6 @@ use value::{
     ConvexObject,
 };
 
-use super::assert_contains;
 use crate::{
     test_helpers::{
         UdfTest,

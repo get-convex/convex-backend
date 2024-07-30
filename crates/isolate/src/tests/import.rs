@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use common::testing::assert_contains;
 use keybroker::Identity;
 use model::environment_variables::{
     types::EnvironmentVariable,
@@ -8,10 +9,7 @@ use model::environment_variables::{
 use runtime::testing::TestRuntime;
 use value::assert_obj;
 
-use crate::{
-    test_helpers::UdfTest,
-    tests::assert_contains,
-};
+use crate::test_helpers::UdfTest;
 
 #[convex_macro::test_runtime]
 async fn test_action_dynamic_import(rt: TestRuntime) -> anyhow::Result<()> {

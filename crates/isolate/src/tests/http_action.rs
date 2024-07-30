@@ -7,7 +7,10 @@ use common::{
     assert_obj,
     errors::JsError,
     runtime::Runtime,
-    testing::TestPersistence,
+    testing::{
+        assert_contains,
+        TestPersistence,
+    },
     version::Version,
 };
 use futures::{
@@ -45,7 +48,6 @@ use crate::{
         UdfTest,
         UdfTestConfig,
     },
-    tests::assert_contains,
     HttpActionRequestHead,
     HttpActionResponseStreamer,
     HttpActionResult,

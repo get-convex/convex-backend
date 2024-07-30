@@ -1,6 +1,9 @@
 use common::{
     errors::JsError,
-    testing::TestPersistence,
+    testing::{
+        assert_contains,
+        TestPersistence,
+    },
 };
 use keybroker::Identity;
 use must_let::must_let;
@@ -10,7 +13,6 @@ use value::{
     ConvexValue,
 };
 
-use super::assert_contains;
 use crate::test_helpers::{
     UdfTest,
     UdfTestType,

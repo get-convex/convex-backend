@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 mod action;
 mod adversarial;
 mod analyze;
@@ -34,10 +32,3 @@ mod unicode;
 mod user_error;
 mod values;
 mod vector_search;
-
-pub fn assert_contains(error: &impl Display, expected: &str) {
-    assert!(
-        format!("{}", error).contains(expected),
-        "\nExpected: {expected}\nActual: {error}"
-    );
-}

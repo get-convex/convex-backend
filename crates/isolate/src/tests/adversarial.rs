@@ -14,6 +14,7 @@ use common::{
         ComponentPath,
     },
     log_lines::TRUNCATED_LINE_SUFFIX,
+    testing::assert_contains,
     types::{
         AllowedVisibility,
         UdfType,
@@ -39,7 +40,6 @@ use value::{
     TableNamespace,
 };
 
-use super::assert_contains;
 use crate::{
     concurrency_limiter::ConcurrencyLimiter,
     environment::helpers::MAX_LOG_LINES,

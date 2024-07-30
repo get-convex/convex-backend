@@ -4,6 +4,8 @@ mod schema;
 mod test_id_generator;
 mod test_persistence;
 
+use std::fmt::Display;
+
 pub use cmd_util::env::config_test as init_test_logging;
 use proptest::{
     arbitrary::{
@@ -40,4 +42,11 @@ pub fn generate_with<T: Arbitrary>(args: T::Parameters) -> T {
         .new_tree(&mut runner)
         .expect("Failed to create value tree");
     tree.current()
+}
+
+pub fn assert_contains(error: &impl Display, expected: &str) {
+    assert!(
+        format!("{}", error).contains(expected),
+        "\nExpected: {expected}\nActual: {error}"
+    );
 }

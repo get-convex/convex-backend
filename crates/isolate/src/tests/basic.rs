@@ -3,6 +3,7 @@
 use common::{
     assert_obj,
     document::CreationTime,
+    testing::assert_contains,
     types::FieldName,
     value::{
         ConvexObject,
@@ -14,7 +15,6 @@ use must_let::must_let;
 use runtime::testing::TestRuntime;
 use value::assert_val;
 
-use super::assert_contains;
 use crate::test_helpers::{
     UdfTest,
     UdfTestType,

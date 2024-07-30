@@ -6,7 +6,10 @@ use std::{
 use common::{
     assert_obj,
     bootstrap_model::index::IndexMetadata,
-    testing::TestPersistence,
+    testing::{
+        assert_contains,
+        TestPersistence,
+    },
     value::ConvexValue,
 };
 use database::TestFacingModel;
@@ -24,7 +27,6 @@ use value::{
     TableName,
 };
 
-use super::assert_contains;
 use crate::{
     test_helpers::{
         UdfTest,

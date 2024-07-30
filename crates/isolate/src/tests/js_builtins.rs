@@ -6,18 +6,16 @@ use common::{
         Runtime,
         RuntimeInstant,
     },
+    testing::assert_contains,
 };
 use must_let::must_let;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use value::ConvexValue;
 
-use crate::{
-    test_helpers::{
-        UdfTest,
-        UdfTestType,
-    },
-    tests::assert_contains,
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
 };
 
 #[convex_macro::test_runtime]

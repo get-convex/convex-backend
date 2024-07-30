@@ -412,10 +412,16 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 result = Err(e);
             },
         }
+        // Our environment may be in an inconsistent state after a system error (e.g.
+        // the transaction may be missing if we hit a system error during a
+        // cross-component call), so be sure to error out here before using the
+        // environment.
+        let result = result?;
+
         let execution_time;
         (self, execution_time) = isolate_context.take_environment();
         let success_result_value = match result.as_ref() {
-            Ok(Ok(v)) => Some(v),
+            Ok(v) => Some(v),
             _ => None,
         };
         Self::add_warnings_to_log_lines(
@@ -447,7 +453,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 observed_time: self.phase.observed_time(),
                 log_lines: self.log_lines,
                 journal: self.next_journal,
-                result: match result? {
+                result: match result {
                     Ok(v) => Ok(JsonPackedValue::pack(v)),
                     Err(e) => Err(e),
                 },
@@ -466,7 +472,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 observed_time: self.phase.observed_time(),
                 log_lines: self.log_lines,
                 journal: self.next_journal,
-                result: match result? {
+                result: match result {
                     Ok(v) => Ok(JsonPackedValue::pack(v)),
                     Err(e) => Err(e),
                 },

@@ -1,4 +1,7 @@
-use common::runtime::Runtime;
+use common::{
+    runtime::Runtime,
+    testing::assert_contains,
+};
 use database::Database;
 use errors::ErrorMetadata;
 use futures::channel::mpsc;
@@ -14,12 +17,9 @@ use value::assert_obj;
 
 use crate::{
     test_helpers::UdfTest,
-    tests::{
-        assert_contains,
-        http_action::{
-            http_action_udf_test,
-            http_post_request,
-        },
+    tests::http_action::{
+        http_action_udf_test,
+        http_post_request,
     },
     HttpActionResponseStreamer,
 };

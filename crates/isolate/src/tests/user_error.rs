@@ -4,6 +4,7 @@ use common::{
         Order,
         Query,
     },
+    testing::assert_contains,
     value::ConvexValue,
 };
 use database::{
@@ -25,7 +26,6 @@ use value::{
     TableNamespace,
 };
 
-use super::assert_contains;
 use crate::test_helpers::{
     UdfTest,
     UdfTestType,

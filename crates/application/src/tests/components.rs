@@ -3,6 +3,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
     },
+    testing::assert_contains,
     types::{
         EnvironmentVariable,
         FunctionCaller,
@@ -158,5 +159,34 @@ async fn test_system_env_vars_not_accessible_in_components(rt: TestRuntime) -> a
     )
     .await??;
     assert_eq!(ConvexValue::Null, result.value);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_system_error_propagation(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules().await?;
+
+    // The system error from the subquery should propagate to the top-level query.
+    let error = run_function(
+        &application,
+        "errors:throwSystemErrorFromQuery".parse()?,
+        vec![],
+    )
+    .await
+    .unwrap_err();
+    assert_contains(&error, "I can't go for that");
+
+    // Actions throw a JS error into user space when a call to `ctx.runAction`
+    // throws a system error, so we don't propagate them here.
+    let result = run_function(
+        &application,
+        "errors:throwSystemErrorFromAction".parse()?,
+        vec![],
+    )
+    .await?
+    .unwrap_err();
+    assert_contains(&result.error, "Your request couldn't be completed");
+
     Ok(())
 }

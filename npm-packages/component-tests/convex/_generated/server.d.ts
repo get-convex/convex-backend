@@ -166,6 +166,10 @@ export declare const app: {
       systemEnvVarQuery: FunctionReference<"query", "internal", any, any>;
       url: FunctionReference<"action", "internal", any, any>;
     };
+    throwSystemError: {
+      fromAction: FunctionReference<"action", "internal", any, any>;
+      fromQuery: FunctionReference<"query", "internal", any, any>;
+    };
   };
   component: {};
 };

@@ -1,6 +1,9 @@
 #![allow(clippy::float_cmp)]
 
-use common::value::ConvexValue;
+use common::{
+    testing::assert_contains,
+    value::ConvexValue,
+};
 use runtime::testing::TestRuntime;
 use value::{
     array,
@@ -8,10 +11,7 @@ use value::{
     assert_val,
 };
 
-use crate::{
-    test_helpers::UdfTest,
-    tests::assert_contains,
-};
+use crate::test_helpers::UdfTest;
 
 #[convex_macro::test_runtime]
 async fn test_query_throws_nesting_error(rt: TestRuntime) -> anyhow::Result<()> {

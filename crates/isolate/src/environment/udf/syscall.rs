@@ -114,7 +114,7 @@ pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
         "1.0/db/normalizeId" => syscall_normalize_id(provider, args),
         "1.0/componentArgument" => syscall_component_argument(provider, args),
 
-        #[cfg(test)]
+        #[cfg(any(test, feature = "testing"))]
         "throwSystemError" => anyhow::bail!("I can't go for that."),
         "throwOcc" => anyhow::bail!(ErrorMetadata::user_occ(None, None)),
         "throwOverloaded" => {
