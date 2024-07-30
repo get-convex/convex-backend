@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     fmt::Display,
     ops::Deref,
 };
@@ -193,6 +194,7 @@ pub struct UserIdentityAttributes {
     pub address: Option<String>,
     /// Stored as RFC3339 string
     pub updated_at: Option<String>,
+    pub custom_claims: BTreeMap<String, String>,
 }
 
 impl Default for UserIdentityAttributes {
@@ -219,6 +221,7 @@ impl Default for UserIdentityAttributes {
             phone_number_verified: None,
             address: None,
             updated_at: None,
+            custom_claims: BTreeMap::new(),
         }
     }
 }

@@ -9,6 +9,7 @@ use common::{
     },
     RequestId,
 };
+use futures::FutureExt;
 use itertools::Itertools;
 use keybroker::Identity;
 use must_let::must_let;
@@ -126,10 +127,12 @@ async fn test_env_vars_not_accessible_in_components(rt: TestRuntime) -> anyhow::
                 value: "emma".parse()?,
             },
         )
+        .boxed()
         .await?;
     application.commit_test(tx).await?;
-    let result =
-        run_function(&application, "componentEntry:envVarQuery".parse()?, vec![]).await??;
+    let result = run_function(&application, "componentEntry:envVarQuery".parse()?, vec![])
+        .boxed()
+        .await??;
     assert_eq!(ConvexValue::Null, result.value);
     let result =
         run_function(&application, "componentEntry:envVarAction".parse()?, vec![]).await??;

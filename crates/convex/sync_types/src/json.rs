@@ -1,4 +1,9 @@
-use anyhow::bail;
+use std::collections::BTreeMap;
+
+use anyhow::{
+    bail,
+    Context,
+};
 use serde::{
     Deserialize,
     Deserializer,
@@ -784,6 +789,8 @@ struct UserIdentityAttributesJson {
     pub address: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
+    #[serde(flatten)]
+    pub custom_claims: Option<BTreeMap<String, String>>,
 }
 
 impl TryFrom<JsonValue> for UserIdentityAttributes {
@@ -798,6 +805,9 @@ impl TryFrom<JsonValue> for UserIdentityAttributes {
         } else {
             bail!("Either \"tokenIdentifier\" or \"issuer\" and \"subject\" must be set")
         };
+        let custom_claims = raw
+            .custom_claims
+            .context("expected custom claims to be set")?;
 
         Ok(UserIdentityAttributes {
             token_identifier,
@@ -821,6 +831,7 @@ impl TryFrom<JsonValue> for UserIdentityAttributes {
             phone_number_verified: raw.phone_number_verified,
             address: raw.address,
             updated_at: raw.updated_at,
+            custom_claims,
         })
     }
 }
@@ -851,6 +862,7 @@ impl TryFrom<UserIdentityAttributes> for JsonValue {
             phone_number_verified: value.phone_number_verified,
             address: value.address,
             updated_at: value.updated_at,
+            custom_claims: Some(value.custom_claims),
         };
         Ok(serde_json::to_value(raw)?)
     }

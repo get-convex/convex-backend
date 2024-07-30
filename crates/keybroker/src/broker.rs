@@ -1,5 +1,6 @@
 use core::panic;
 use std::{
+    collections::BTreeMap,
     fmt,
     time::{
         Duration,
@@ -418,6 +419,42 @@ impl UserIdentity {
         let claims = binding.claims(&verifier, nonce_verifier)?;
         let subject = claims.subject().to_string();
         let issuer = claims.issuer().to_string();
+        let mut custom_claims = BTreeMap::new();
+        for claim in claims.custom_claims() {
+            // Filter out standard claims and claims set by auth providers
+            match claim.0.as_str() {
+                // Standard claims that we support: see https://docs.convex.dev/api/interfaces/server.UserIdentity
+                "sub"
+                | "iss"
+                | "exp"
+                | "name"
+                | "given_name"
+                | "family_name"
+                | "nickname"
+                | "preferred_username"
+                | "profile"
+                | "picture"
+                | "website"
+                | "email"
+                | "email_verified"
+                | "gender"
+                | "birthdate"
+                | "zoneinfo"
+                | "locale"
+                | "phone_number"
+                | "phone_number_verified"
+                | "address"
+                | "updated_at"
+                // Clerk claims: see https://clerk.com/docs/backend-requests/resources/session-tokens
+                | "jti" | "nbf" => {
+                    continue;
+                },
+                _ => {
+                    let value = claim.1.as_str().context("Only string values for custom claims are supported")?.to_string();
+                    custom_claims.insert(claim.0.to_string(), value);
+                },
+            }
+        }
         Ok(UserIdentity {
             subject: subject.clone(),
             issuer: issuer.clone(),
@@ -448,6 +485,7 @@ impl UserIdentity {
                     .and_then(|a| a.formatted.as_ref())
                     .map(|f| f.to_string()),
                 updated_at: claims.updated_at().map(|dt| dt.to_rfc3339()),
+                custom_claims,
             },
         })
     }

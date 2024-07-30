@@ -31,6 +31,7 @@ impl TryFrom<UserIdentityAttributesProto> for UserIdentityAttributes {
             phone_number_verified,
             address,
             updated_at,
+            custom_claims,
         }: UserIdentityAttributesProto,
     ) -> anyhow::Result<UserIdentityAttributes> {
         let token_identifier =
@@ -58,6 +59,7 @@ impl TryFrom<UserIdentityAttributesProto> for UserIdentityAttributes {
             phone_number_verified,
             address,
             updated_at,
+            custom_claims: custom_claims.into_iter().collect(),
         })
     }
 }
@@ -86,6 +88,7 @@ impl From<UserIdentityAttributes> for UserIdentityAttributesProto {
             phone_number_verified,
             address,
             updated_at,
+            custom_claims,
         }: UserIdentityAttributes,
     ) -> UserIdentityAttributesProto {
         UserIdentityAttributesProto {
@@ -110,6 +113,7 @@ impl From<UserIdentityAttributes> for UserIdentityAttributesProto {
             phone_number_verified,
             address,
             updated_at,
+            custom_claims: custom_claims.into_iter().collect(),
         }
     }
 }

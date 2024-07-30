@@ -4787,7 +4787,7 @@ checksum = "0ab1bc2a289d34bd04a330323ac98a1b4bc82c9d9fcb1e66b63caa84da26b575"
 [[package]]
 name = "openidconnect"
 version = "3.4.0"
-source = "git+https://github.com/get-convex/openidconnect-rs?rev=45a84cf974d45db998af10546a4c35abd5f0a487#45a84cf974d45db998af10546a4c35abd5f0a487"
+source = "git+https://github.com/get-convex/openidconnect-rs?rev=eb55e703f0c0585e3ed796f48e3ed9e96b56d31d#eb55e703f0c0585e3ed796f48e3ed9e96b56d31d"
 dependencies = [
  "base64 0.13.1",
  "chrono",

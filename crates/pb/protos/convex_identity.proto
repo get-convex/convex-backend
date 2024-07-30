@@ -73,4 +73,5 @@ message UserIdentityAttributes {
   optional bool phone_number_verified = 19;
   optional string address = 20;
   optional string updated_at = 21;
+  map<string, string> custom_claims = 22;
 }
