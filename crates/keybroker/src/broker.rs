@@ -450,8 +450,17 @@ impl UserIdentity {
                     continue;
                 },
                 _ => {
-                    let value = claim.1.as_str().context("Only string values for custom claims are supported")?.to_string();
-                    custom_claims.insert(claim.0.to_string(), value);
+                    match claim.1.as_str() {
+                        Some(value) => {
+                            custom_claims.insert(claim.0.to_string(), value.to_string());
+                        },
+                        None => {
+                            tracing::warn!(
+                                "Only string values for custom claims are supported. Skipping claim: {}",
+                                claim.0
+                            );
+                        },
+                    }
                 },
             }
         }

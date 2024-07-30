@@ -3778,6 +3778,7 @@ dependencies = [
  "runtime",
  "serde",
  "sodiumoxide",
+ "tracing",
 ]
 
 [[package]]
