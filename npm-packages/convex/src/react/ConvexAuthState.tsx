@@ -2,7 +2,7 @@ import React, {
   createContext,
   ReactNode,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useState,
 } from "react";
 import { AuthTokenFetcher } from "../browser/sync/client.js";
@@ -89,7 +89,7 @@ export function ConvexProviderWithAuth({
     boolean | null
   >(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let isThisEffectRelevant = true;
     if (isAuthenticated) {
       client.setAuth(fetchAccessToken, (isAuthenticated) => {
