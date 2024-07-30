@@ -105,7 +105,6 @@ impl From<NodeDependencyJson> for NodeDependency {
 pub struct AppDefinitionConfigJson {
     pub definition: Option<ModuleJson>,
     pub dependencies: Vec<String>,
-    pub auth: Option<ModuleJson>,
     pub schema: Option<ModuleJson>,
     pub functions: Vec<ModuleJson>,
     pub udf_server_version: String,
@@ -122,7 +121,6 @@ impl TryFrom<AppDefinitionConfigJson> for AppDefinitionConfig {
                 .into_iter()
                 .map(|s| s.parse())
                 .collect::<anyhow::Result<_>>()?,
-            auth: value.auth.map(TryInto::try_into).transpose()?,
             schema: value.schema.map(TryInto::try_into).transpose()?,
             functions: value
                 .functions

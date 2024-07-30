@@ -1865,8 +1865,8 @@ impl<RT: Runtime> Application<RT> {
         let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
         tx.into_token()?;
         // TODO(ENG-6500): Fold in our reads here into the hash.
-        let mut app_analysis = self
-            .analyze_modules(
+        let (auth_module, app_analysis) = self
+            .analyze_modules_with_auth_config(
                 app_udf_config.clone(),
                 config.app_definition.functions.clone(),
                 app_pkg.clone(),
@@ -1874,11 +1874,10 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
 
-        // Evaluate auth and add in an empty `auth.config.js` to the analysis.
         let auth_info = Application::get_evaluated_auth_config(
             self.runner(),
             environment_variables.clone(),
-            config.app_definition.auth.clone(),
+            auth_module,
             &ConfigFile {
                 functions: config.config.functions.clone(),
                 auth_info: if config.config.auth_info.is_empty() {
@@ -1889,12 +1888,6 @@ impl<RT: Runtime> Application<RT> {
             },
         )
         .await?;
-        if let Some(auth_module) = &config.app_definition.auth {
-            app_analysis.insert(
-                auth_module.path.clone().canonicalize(),
-                AnalyzedModule::default(),
-            );
-        }
 
         let evaluated_components = self
             .evaluate_components(
@@ -1933,6 +1926,43 @@ impl<RT: Runtime> Application<RT> {
             schema_change,
         };
         Ok(resp)
+    }
+
+    #[minitrace::trace]
+    pub async fn analyze_modules_with_auth_config(
+        &self,
+        udf_config: UdfConfig,
+        modules: Vec<ModuleConfig>,
+        source_package: SourcePackage,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    ) -> anyhow::Result<(
+        Option<ModuleConfig>,
+        BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+    )> {
+        // Don't analyze the auth config module
+        let (auth_modules, analyzed_modules): (Vec<_>, Vec<_>) =
+            modules.into_iter().partition(|module| {
+                module.path.clone().canonicalize() == AUTH_CONFIG_FILE_NAME.parse().unwrap()
+            });
+        let auth_module = auth_modules.first();
+
+        let mut analyze_result = self
+            .analyze_modules(
+                udf_config,
+                analyzed_modules,
+                source_package,
+                environment_variables,
+            )
+            .await?;
+
+        // Add an empty analyzed result for the auth config module
+        if let Some(auth_module) = auth_module {
+            analyze_result.insert(
+                auth_module.path.clone().canonicalize(),
+                AnalyzedModule::default(),
+            );
+        }
+        Ok((auth_module.cloned(), analyze_result))
     }
 
     async fn upload_packages(

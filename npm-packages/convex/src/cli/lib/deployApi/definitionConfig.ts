@@ -5,7 +5,6 @@ import { moduleConfig } from "./modules.js";
 export const appDefinitionConfig = z.object({
   definition: z.nullable(moduleConfig),
   dependencies: z.array(componentDefinitionPath),
-  auth: z.nullable(moduleConfig),
   schema: z.nullable(moduleConfig),
   functions: z.array(moduleConfig),
   udfServerVersion: z.string(),

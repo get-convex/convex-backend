@@ -44,16 +44,12 @@ use model::{
             ConfigFile,
             ConfigMetadata,
             ModuleConfig,
-            AUTH_CONFIG_FILE_NAME,
         },
         ConfigModel,
     },
     environment_variables::EnvironmentVariablesModel,
     modules::module_versions::AnalyzedModule,
-    source_packages::types::{
-        PackageSize,
-        SourcePackage,
-    },
+    source_packages::types::PackageSize,
     udf_config::types::UdfConfig,
 };
 use rand::Rng;
@@ -347,14 +343,20 @@ pub async fn push_config_handler(
         import_phase_unix_timestamp: application.runtime().unix_timestamp(),
     };
     let begin_analyze = Instant::now();
+    // Note: This is not transactional with the rest of the deploy to avoid keeping
+    // a transaction open for a long time.
+    let mut tx = application.begin(Identity::system()).await?;
+    let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+    drop(tx);
     // Run analyze to make sure the new modules are valid.
-    let (auth_module, analyze_results) = analyze_modules_with_auth_config(
-        application,
-        udf_config.clone(),
-        modules.clone(),
-        source_package.clone(),
-    )
-    .await?;
+    let (auth_module, analyze_results) = application
+        .analyze_modules_with_auth_config(
+            udf_config.clone(),
+            modules.clone(),
+            source_package.clone(),
+            environment_variables,
+        )
+        .await?;
     let end_analyze = Instant::now();
     let (
         ConfigMetadataAndSchema {
@@ -393,45 +395,4 @@ pub async fn push_config_handler(
             occ_stats,
         },
     ))
-}
-
-#[minitrace::trace]
-pub async fn analyze_modules_with_auth_config(
-    application: &Application<ProdRuntime>,
-    udf_config: UdfConfig,
-    modules: Vec<ModuleConfig>,
-    source_package: SourcePackage,
-) -> anyhow::Result<(
-    Option<ModuleConfig>,
-    BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
-)> {
-    // Don't analyze the auth config module
-    let (auth_modules, analyzed_modules): (Vec<_>, Vec<_>) =
-        modules.into_iter().partition(|module| {
-            module.path.clone().canonicalize() == AUTH_CONFIG_FILE_NAME.parse().unwrap()
-        });
-    let auth_module = auth_modules.first();
-
-    // Note: This is not transactional with the rest of the deploy to avoid keeping
-    // a transaction open for a long time.
-    let mut tx = application.begin(Identity::system()).await?;
-    let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
-    drop(tx);
-    let mut analyze_result = application
-        .analyze_modules(
-            udf_config,
-            analyzed_modules,
-            source_package,
-            environment_variables,
-        )
-        .await?;
-
-    // Add an empty analyzed result for the auth config module
-    if let Some(auth_module) = auth_module {
-        analyze_result.insert(
-            auth_module.path.clone().canonicalize(),
-            AnalyzedModule::default(),
-        );
-    }
-    Ok((auth_module.cloned(), analyze_result))
 }

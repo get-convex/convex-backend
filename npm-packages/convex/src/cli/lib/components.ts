@@ -175,13 +175,13 @@ async function startComponentsPushAndCodegen(
       projectConfig.node.externalPackages,
       verbose,
     );
-  const { config: localConfig } = await configFromProjectConfig(
-    ctx,
-    projectConfig,
-    configPath,
-    verbose,
-  );
   if (options.debugBundlePath) {
+    const { config: localConfig } = await configFromProjectConfig(
+      ctx,
+      projectConfig,
+      configPath,
+      verbose,
+    );
     // TODO(ENG-6972): Actually write the bundles for components.
     await handleDebugBundlePath(ctx, options.debugBundlePath, localConfig);
     logMessage(
@@ -200,7 +200,6 @@ async function startComponentsPushAndCodegen(
 
   const appDefinition: AppDefinitionConfig = {
     ...appDefinitionSpecWithoutImpls,
-    auth: localConfig.authConfig || null,
     ...appImplementation,
     udfServerVersion,
   };

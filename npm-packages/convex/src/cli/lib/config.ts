@@ -71,7 +71,6 @@ export interface Config {
   nodeDependencies: NodeDependency[];
   schemaId?: string;
   udfServerVersion?: string;
-  authConfig?: Bundle;
 }
 
 export interface ConfigWithModuleHashes {
@@ -80,7 +79,6 @@ export interface ConfigWithModuleHashes {
   nodeDependencies: NodeDependency[];
   schemaId?: string;
   udfServerVersion?: string;
-  authConfig?: Bundle;
 }
 
 const DEFAULT_FUNCTIONS_PATH = "convex/";

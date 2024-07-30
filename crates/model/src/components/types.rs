@@ -52,9 +52,6 @@ pub struct AppDefinitionConfig {
     // Dependencies on other components discovered at bundling time.
     pub dependencies: BTreeSet<ComponentDefinitionPath>,
 
-    // Optional auth.config.js. Not available at runtime.
-    pub auth: Option<ModuleConfig>,
-
     // Optional schema.js. Not available at runtime.
     pub schema: Option<ModuleConfig>,
 
@@ -63,6 +60,7 @@ pub struct AppDefinitionConfig {
     // - http.js
     // - crons.js
     // - Bundler dependency chunks within _deps.
+    // Also includes auth.config.js which is empty at runtime.
     pub functions: Vec<ModuleConfig>,
 
     pub udf_server_version: Version,
@@ -72,7 +70,6 @@ impl AppDefinitionConfig {
     pub fn modules(&self) -> impl Iterator<Item = &ModuleConfig> {
         self.definition
             .iter()
-            .chain(self.auth.iter())
             .chain(self.schema.iter())
             .chain(&self.functions)
     }

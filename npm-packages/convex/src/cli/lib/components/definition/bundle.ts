@@ -24,6 +24,7 @@ import {
 import {
   Bundle,
   bundle,
+  bundleAuthConfig,
   bundleSchema,
   entryPointsByEnvironment,
 } from "../../../../bundler/index.js";
@@ -509,9 +510,10 @@ export async function bundleImplementations(
           version: moduleVersion,
         });
       }
+      const authBundle = await bundleAuthConfig(ctx, resolvedPath);
       appImplementation = {
         schema,
-        functions: functions.concat(nodeResult.modules),
+        functions: functions.concat(nodeResult.modules).concat(authBundle),
         externalNodeDependencies,
       };
     } else {
