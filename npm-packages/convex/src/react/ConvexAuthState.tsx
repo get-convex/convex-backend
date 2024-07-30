@@ -91,17 +91,12 @@ export function ConvexProviderWithAuth({
 
   useEffect(() => {
     let isThisEffectRelevant = true;
-
-    async function setToken() {
+    if (isAuthenticated) {
       client.setAuth(fetchAccessToken, (isAuthenticated) => {
         if (isThisEffectRelevant) {
           setIsConvexAuthenticated(isAuthenticated);
         }
       });
-    }
-
-    if (isAuthenticated) {
-      void setToken();
       return () => {
         isThisEffectRelevant = false;
 
