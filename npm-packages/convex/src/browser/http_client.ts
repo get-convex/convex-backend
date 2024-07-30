@@ -13,7 +13,7 @@ import {
   jsonToConvex,
 } from "../values/index.js";
 import { logToConsole } from "./logging.js";
-import { UserIdentityAttributes } from "../server/index.js";
+import { FunctionArgs, UserIdentityAttributes } from "../server/index.js";
 
 export const STATUS_CODE_OK = 200;
 export const STATUS_CODE_BAD_REQUEST = 400;
@@ -43,6 +43,7 @@ export class ConvexHttpClient {
   private readonly address: string;
   private auth?: string;
   private adminAuth?: string;
+  private encodedTsPromise?: Promise<string>;
   private debug: boolean;
   private fetchOptions?: FetchOptions;
 
@@ -59,16 +60,27 @@ export class ConvexHttpClient {
     if (skipConvexDeploymentUrlCheck !== true) {
       validateDeploymentUrl(address);
     }
-    this.address = `${address}/api`;
+    this.address = address;
     this.debug = true;
   }
 
   /**
    * Obtain the {@link ConvexHttpClient}'s URL to its backend.
+   * @deprecated Use url, which returns the url without /api at the end.
    *
    * @returns The URL to the Convex backend, including the client's API version.
    */
   backendUrl(): string {
+    return `${this.address}/api`;
+  }
+
+  /**
+   * Return the address for this client, useful for creating a new client.
+   *
+   * Not guaranteed to match the address with which this client was constructed:
+   * it may be canonicalized.
+   */
+  get url() {
     return this.address;
   }
 
@@ -126,6 +138,62 @@ export class ConvexHttpClient {
   }
 
   /**
+   * This API is experimental: it may change or disappear.
+   *
+   * Execute a Convex query function at the same timestamp as every other
+   * consistent query execution run by this HTTP client.
+   *
+   * This doesn't make sense for long-lived ConvexHttpClients as Convex
+   * backends can read a limited amount into the past: beyond 30 seconds
+   * in the past may not be available.
+   *
+   * Create a new client to use a consistent time.
+   *
+   * @param name - The name of the query.
+   * @param args - The arguments object for the query. If this is omitted,
+   * the arguments will be `{}`.
+   * @returns A promise of the query's result.
+   *
+   * @deprecated This API is experimental: it may change or disappear.
+   */
+  async consistentQuery<Query extends FunctionReference<"query">>(
+    query: Query,
+    ...args: OptionalRestArgs<Query>
+  ): Promise<FunctionReturnType<Query>> {
+    const queryArgs = parseArgs(args[0]);
+
+    const timestampPromise = this.getTimestamp();
+    return await this.queryInner(query, queryArgs, { timestampPromise });
+  }
+
+  private async getTimestamp() {
+    if (this.encodedTsPromise) {
+      return this.encodedTsPromise;
+    }
+    return (this.encodedTsPromise = this.getTimestampInner());
+  }
+
+  private async getTimestampInner() {
+    const localFetch = specifiedFetch || fetch;
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Convex-Client": `npm-${version}`,
+    };
+    const response = await localFetch(`${this.address}/api/query_ts`, {
+      ...this.fetchOptions,
+      method: "POST",
+      headers: headers,
+      credentials: "include",
+    });
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const { ts } = (await response.json()) as { ts: string };
+    return ts;
+  }
+
+  /**
    * Execute a Convex query function.
    *
    * @param name - The name of the query.
@@ -138,12 +206,16 @@ export class ConvexHttpClient {
     ...args: OptionalRestArgs<Query>
   ): Promise<FunctionReturnType<Query>> {
     const queryArgs = parseArgs(args[0]);
+    return await this.queryInner(query, queryArgs, {});
+  }
+
+  private async queryInner<Query extends FunctionReference<"query">>(
+    query: Query,
+    queryArgs: FunctionArgs<Query>,
+    options: { timestampPromise?: Promise<string> },
+  ): Promise<FunctionReturnType<Query>> {
     const name = getFunctionName(query);
-    const body = JSON.stringify({
-      path: name,
-      format: "convex_encoded_json",
-      args: [convexToJson(queryArgs)],
-    });
+    const args = [convexToJson(queryArgs)];
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "Convex-Client": `npm-${version}`,
@@ -154,7 +226,22 @@ export class ConvexHttpClient {
       headers["Authorization"] = `Bearer ${this.auth}`;
     }
     const localFetch = specifiedFetch || fetch;
-    const response = await localFetch(`${this.address}/query`, {
+
+    const timestamp = options.timestampPromise
+      ? await options.timestampPromise
+      : undefined;
+
+    const body = JSON.stringify({
+      path: name,
+      format: "convex_encoded_json",
+      args,
+      ...(timestamp ? { ts: timestamp } : {}),
+    });
+    const endpoint = timestamp
+      ? `${this.address}/api/query_at_ts`
+      : `${this.address}/api/query`;
+
+    const response = await localFetch(endpoint, {
       ...this.fetchOptions,
       body,
       method: "POST",
@@ -216,7 +303,7 @@ export class ConvexHttpClient {
       headers["Authorization"] = `Bearer ${this.auth}`;
     }
     const localFetch = specifiedFetch || fetch;
-    const response = await localFetch(`${this.address}/mutation`, {
+    const response = await localFetch(`${this.address}/api/mutation`, {
       ...this.fetchOptions,
       body,
       method: "POST",
@@ -277,7 +364,7 @@ export class ConvexHttpClient {
       headers["Authorization"] = `Bearer ${this.auth}`;
     }
     const localFetch = specifiedFetch || fetch;
-    const response = await localFetch(`${this.address}/action`, {
+    const response = await localFetch(`${this.address}/api/action`, {
       ...this.fetchOptions,
       body,
       method: "POST",
@@ -347,7 +434,7 @@ export class ConvexHttpClient {
       headers["Authorization"] = `Bearer ${this.auth}`;
     }
     const localFetch = specifiedFetch || fetch;
-    const response = await localFetch(`${this.address}/function`, {
+    const response = await localFetch(`${this.address}/api/function`, {
       ...this.fetchOptions,
       body,
       method: "POST",

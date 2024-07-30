@@ -1,5 +1,5 @@
 /**
- * @vitest-environment custom-vitest-enviroment.ts
+ * @vitest-environment custom-vitest-environment.ts
  */
 
 import { RequestForQueries, useQueriesHelper } from "./use_queries.js";

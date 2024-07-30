@@ -1,5 +1,5 @@
 /**
- * @vitest-environment custom-vitest-enviroment.ts
+ * @vitest-environment custom-vitest-environment.ts
  */
 import { test } from "vitest";
 import React from "react";

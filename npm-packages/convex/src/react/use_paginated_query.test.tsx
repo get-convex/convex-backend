@@ -1,5 +1,5 @@
 /**
- * @vitest-environment custom-vitest-enviroment.ts
+ * @vitest-environment custom-vitest-environment.ts
  */
 /* eslint-disable @typescript-eslint/ban-types */
 import { expect, vi, test, describe, beforeEach } from "vitest";

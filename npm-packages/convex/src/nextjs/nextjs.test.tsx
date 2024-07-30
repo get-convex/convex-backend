@@ -1,5 +1,5 @@
 /**
- * @vitest-environment custom-vitest-enviroment.ts
+ * @vitest-environment custom-vitest-environment.ts
  */
 import { vi, expect, test, describe, beforeEach, afterEach } from "vitest";
 

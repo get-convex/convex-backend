@@ -694,6 +694,16 @@ export class BaseConvexClient {
   }
 
   /**
+   * Return the address for this client, useful for creating a new client.
+   *
+   * Not guaranteed to match the address with which this client was constructed:
+   * it may be canonicalized.
+   */
+  get url() {
+    return this.address;
+  }
+
+  /**
    * @internal
    */
   get nextRequestId() {

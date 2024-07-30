@@ -1,5 +1,5 @@
 /**
- * @vitest-environment custom-vitest-enviroment.ts
+ * @vitest-environment custom-vitest-environment.ts
  */
 import { expect, vi, test, describe } from "vitest";
 import jwtEncode from "jwt-encode";

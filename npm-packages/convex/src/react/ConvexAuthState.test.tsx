@@ -1,5 +1,5 @@
 /**
- * @vitest-environment custom-vitest-enviroment.ts
+ * @vitest-environment custom-vitest-environment.ts
  */
 import { expect, vi, test } from "vitest";
 import { act, render, screen } from "@testing-library/react";

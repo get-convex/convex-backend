@@ -81,6 +81,6 @@ module.exports = {
     "*.js",
     "tmpDist*",
     "tmpPackage*",
-    "custom-vitest-enviroment.ts",
+    "custom-vitest-environment.ts",
   ],
 };
