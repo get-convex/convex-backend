@@ -18,6 +18,32 @@ importers:
       '@types/node': 18.18.4
       typescript: 5.0.4
 
+  ../../component-tests/layouts/basic:
+    specifiers:
+      '@types/node': ^18.17.0
+      convex: workspace:*
+      prettier: 3.2.5
+      typescript: ~5.0.3
+    dependencies:
+      convex: link:../../../convex
+      prettier: 3.2.5
+    devDependencies:
+      '@types/node': 18.18.4
+      typescript: 5.0.4
+
+  ../../component-tests/layouts/with-schema:
+    specifiers:
+      '@types/node': ^18.17.0
+      convex: workspace:*
+      prettier: 3.2.5
+      typescript: ~5.0.3
+    dependencies:
+      convex: link:../../../convex
+      prettier: 3.2.5
+    devDependencies:
+      '@types/node': 18.18.4
+      typescript: 5.0.4
+
   ../../convex:
     specifiers:
       '@auth0/auth0-react': 2.0.1
