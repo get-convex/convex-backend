@@ -62,14 +62,17 @@ pub fn fivetran_table_strategy() -> impl Strategy<Value = fivetran_sdk::Table> {
         .prop_map(|columns| {
             columns
                 .into_iter()
-                .map(
-                    |(field_name, (data_type, in_primary_key))| fivetran_sdk::Column {
+                .map(|(field_name, (data_type, in_primary_key))| {
+                    // _fivetran_deleted can't be in the primary key provided from source
+                    let primary_key = in_primary_key
+                        && ![&*SOFT_DELETE_FIVETRAN_FIELD_NAME].contains(&&field_name);
+                    fivetran_sdk::Column {
                         name: field_name.to_string(),
                         r#type: data_type as i32,
-                        primary_key: in_primary_key,
+                        primary_key,
                         decimal: None,
-                    },
-                )
+                    }
+                })
                 .collect()
         }),
     )

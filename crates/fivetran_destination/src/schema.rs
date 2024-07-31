@@ -1896,14 +1896,8 @@ mod tests {
         })]
         #[test]
         fn suggested_convex_schemas_are_always_valid(fivetran_table in fivetran_table_strategy()) {
-            let Ok(schema) = TryInto::<FivetranTableSchema>::try_into(fivetran_table.clone()) else {
-                return Err(TestCaseError::Fail("Invalid Fivetran schema".into()));
-            };
-
-            let Ok(suggested_convex_table) = schema.suggested_convex_table() else {
-                return Err(TestCaseError::Reject("Unsupported Fivetran schema".into()));
-            };
-
+            let schema: FivetranTableSchema = fivetran_table.clone().try_into()?;
+            let suggested_convex_table = schema.suggested_convex_table()?;
             prop_assert!(
                 validate_destination_schema_table(fivetran_table, &suggested_convex_table).is_ok()
             );
