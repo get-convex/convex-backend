@@ -445,12 +445,12 @@ export async function bundleImplementations(
   verbose: boolean = false,
 ): Promise<{
   appImplementation: {
-    schema: Bundle;
+    schema: Bundle | null;
     functions: Bundle[];
     externalNodeDependencies: NodeDependency[];
   };
   componentImplementations: {
-    schema: Bundle;
+    schema: Bundle | null;
     functions: Bundle[];
     definitionPath: ComponentDefinitionPath;
   }[];
@@ -464,7 +464,12 @@ export async function bundleImplementations(
       rootComponentDirectory.path,
       directory.path,
     );
-    const schema = (await bundleSchema(ctx, resolvedPath))[0] || null;
+    let schema;
+    if (!ctx.fs.exists(path.resolve(resolvedPath, "schema.ts"))) {
+      schema = null;
+    } else {
+      schema = (await bundleSchema(ctx, resolvedPath))[0] || null;
+    }
 
     const entryPoints = await entryPointsByEnvironment(
       ctx,

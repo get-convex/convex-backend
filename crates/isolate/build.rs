@@ -22,7 +22,7 @@ const NPM_DIR: &str = "../../npm-packages/convex";
 const SYSTEM_UDFS_DIR: &str = "../../npm-packages/system-udfs/convex/_system";
 const UDF_RUNTIME_DIR: &str = "../../npm-packages/udf-runtime/src";
 const UDF_TESTS_DIR: &str = "../../npm-packages/udf-tests";
-const COMPONENT_TESTS_DIR: &str = "../../npm-packages/component-tests";
+const COMPONENT_TESTS_DIR: &str = "../../npm-packages/component-tests/layouts";
 const NODE_EXECUTOR_DIST_DIR: &str = "../../npm-packages/node-executor/dist";
 
 const ADMIN_KEY: &str = include_str!("../keybroker/dev/admin_key.txt");
@@ -107,8 +107,9 @@ fn main() -> anyhow::Result<()> {
 
     rerun_if_changed("../../npm-packages/udf-tests/convex/")?;
     rerun_if_changed("../../npm-packages/udf-tests/package.json")?;
-    rerun_if_changed("../../npm-packages/component-tests/convex/")?;
+    rerun_if_changed("../../npm-packages/component-tests/")?;
     rerun_if_changed("../../npm-packages/component-tests/component/")?;
+    rerun_if_changed("../../npm-packages/component-tests/layouts/")?;
     rerun_if_changed("../../npm-packages/component-tests/package.json")?;
 
     // This is a little janky because we aren't inlcuding the node_modules directory
@@ -207,8 +208,21 @@ fn main() -> anyhow::Result<()> {
     // Step 5: Build and bundle the udf test project.
     write_udf_test_bundle(out_dir)?;
 
-    // Step 6: Build and bundle the udf test project with components.
-    write_start_push_request(&out_dir.join("start_push_request"))?;
+    // Step 6: Build and bundle component-test projects.
+    for entry in fs::read_dir(COMPONENT_TESTS_DIR)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            let out_path = &out_dir.join(&path);
+            if Path::exists(out_path) {
+                fs::remove_dir_all(out_path)?;
+            }
+            let suffix = path.strip_prefix(COMPONENT_TESTS_DIR)?;
+            let out_with_layout = out_dir.join(suffix);
+            fs::create_dir_all(&out_with_layout)?;
+            write_start_push_request(&path, &out_with_layout.join(format!("start_push_request")))?;
+        }
+    }
 
     Ok(())
 }
@@ -244,12 +258,12 @@ fn write_udf_test_bundle(out_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn write_start_push_request(out_file: &Path) -> anyhow::Result<()> {
+fn write_start_push_request(layout_directory: &Path, out_file: &Path) -> anyhow::Result<()> {
     if Path::exists(out_file) {
         fs::remove_file(out_file)?;
     }
     let output = Command::new("node")
-        .current_dir(COMPONENT_TESTS_DIR)
+        .current_dir(layout_directory)
         .args([
             CONVEX,
             "deploy",

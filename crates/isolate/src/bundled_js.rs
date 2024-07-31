@@ -29,6 +29,6 @@ pub fn node_executor_files_sha256() -> Sha256Digest {
 }
 
 #[cfg(any(test, feature = "testing"))]
-pub const UDF_TEST_BUNDLE_PATH: &str = concat!(env!("OUT_DIR"), "/udf_test_bundle/fullConfig.json");
+pub const OUT_DIR: &str = env!("OUT_DIR");
 #[cfg(any(test, feature = "testing"))]
-pub const START_PUSH_REQUEST_PATH: &str = concat!(env!("OUT_DIR"), "/start_push_request.json");
+pub const UDF_TEST_BUNDLE_PATH: &str = concat!(env!("OUT_DIR"), "/udf_test_bundle/fullConfig.json");

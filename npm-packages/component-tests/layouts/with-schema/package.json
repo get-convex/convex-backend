@@ -1,5 +1,5 @@
 {
-  "name": "component-tests",
+  "name": "component-tests-with-schema",
   "version": "0.0.0",
   "dependencies": {
     "convex": "workspace:*",
@@ -10,6 +10,7 @@
     "@types/node": "^18.17.0"
   },
   "scripts": {
-    "build": ""
+    "build": "",
+    "test": "tsc -p convex"
   }
 }

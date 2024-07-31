@@ -149,27 +149,8 @@ export type DatabaseReader = GenericDatabaseReaderWithTable<DataModel>;
  */
 export type DatabaseWriter = GenericDatabaseWriterWithTable<DataModel>;
 
-export declare const app: {
-  component: {
-    messages: {
-      envVarAction: FunctionReference<"action", "internal", any, any>;
-      envVarQuery: FunctionReference<"query", "internal", any, any>;
-      hello: FunctionReference<"action", "internal", any, any>;
-      insertMessage: FunctionReference<
-        "mutation",
-        "internal",
-        { channel: string; text: string },
-        any
-      >;
-      listMessages: FunctionReference<"query", "internal", {}, any>;
-      systemEnvVarAction: FunctionReference<"action", "internal", any, any>;
-      systemEnvVarQuery: FunctionReference<"query", "internal", any, any>;
-      url: FunctionReference<"action", "internal", any, any>;
-    };
-    throwSystemError: {
-      fromAction: FunctionReference<"action", "internal", any, any>;
-      fromQuery: FunctionReference<"query", "internal", any, any>;
-    };
-  };
-  component: {};
+export declare const component: {};
+export declare const componentArgs: {
+  name: string;
+  url: string;
 };

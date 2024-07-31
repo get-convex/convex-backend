@@ -43,7 +43,7 @@ use serde::{
 };
 use sync_types::ModulePath;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct StartPushRequest {
     pub admin_key: String,
@@ -79,6 +79,7 @@ impl StartPushRequest {
     }
 }
 
+#[derive(Debug)]
 pub struct StartPushResponse {
     pub external_deps_id: Option<ExternalDepsPackageId>,
     pub component_definition_packages: BTreeMap<ComponentDefinitionPath, SourcePackage>,
@@ -100,7 +101,7 @@ impl From<NodeDependencyJson> for NodeDependency {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct AppDefinitionConfigJson {
     pub definition: Option<ModuleJson>,
@@ -132,7 +133,7 @@ impl TryFrom<AppDefinitionConfigJson> for AppDefinitionConfig {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ComponentDefinitionConfigJson {
     pub definition_path: String,
@@ -167,7 +168,7 @@ impl TryFrom<ComponentDefinitionConfigJson> for ComponentDefinitionConfig {
 }
 
 /// API level structure for representing modules as Json
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ModuleJson {
     pub path: String,
@@ -226,7 +227,7 @@ pub fn parse_module_path(path: &str) -> anyhow::Result<ModulePath> {
     })
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeDependencyJson {
     name: String,

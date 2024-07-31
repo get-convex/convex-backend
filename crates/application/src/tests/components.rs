@@ -45,13 +45,16 @@ async fn run_function(
             Identity::system(),
             FunctionCaller::Test,
         )
+        .boxed()
         .await
 }
 
 #[convex_macro::test_runtime]
 async fn test_run_component_query(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_component_tests_modules().await?;
+    application
+        .load_component_tests_modules("with-schema")
+        .await?;
     let result = run_function(&application, "componentEntry:list".parse()?, vec![]).await??;
     assert_eq!(result.log_lines.iter().collect_vec().len(), 1);
     Ok(())
@@ -60,7 +63,9 @@ async fn test_run_component_query(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_run_component_mutation(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_component_tests_modules().await?;
+    application
+        .load_component_tests_modules("with-schema")
+        .await?;
     let result = run_function(
         &application,
         "componentEntry:insert".parse()?,
@@ -74,7 +79,9 @@ async fn test_run_component_mutation(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_run_component_action(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_component_tests_modules().await?;
+    application
+        .load_component_tests_modules("with-schema")
+        .await?;
     let result = run_function(&application, "componentEntry:hello".parse()?, vec![]).await??;
     // No logs returned because only the action inside the component logs.
     assert_eq!(result.log_lines.iter().collect_vec().len(), 0);
@@ -95,7 +102,7 @@ async fn test_env_var_works_in_app_definition(rt: TestRuntime) -> anyhow::Result
         )
         .await?;
     application.commit_test(tx).await?;
-    application.load_component_tests_modules().await?;
+    application.load_component_tests_modules("basic").await?;
     let result = run_function(&application, "componentEntry:hello".parse()?, vec![]).await??;
     must_let!(let ConvexValue::String(name) = result.value);
     assert_eq!(name.to_string(), "emma".to_string());
@@ -108,7 +115,7 @@ async fn test_env_var_works_in_app_definition(rt: TestRuntime) -> anyhow::Result
 #[convex_macro::test_runtime]
 async fn test_system_env_var_works_in_app_definition(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_component_tests_modules().await?;
+    application.load_component_tests_modules("basic").await?;
     let result = run_function(&application, "componentEntry:url".parse()?, vec![]).await??;
     must_let!(let ConvexValue::String(name) = result.value);
     assert_eq!(name.to_string(), "http://127.0.0.1:8000".to_string());
@@ -118,7 +125,7 @@ async fn test_system_env_var_works_in_app_definition(rt: TestRuntime) -> anyhow:
 #[convex_macro::test_runtime]
 async fn test_env_vars_not_accessible_in_components(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_component_tests_modules().await?;
+    application.load_component_tests_modules("basic").await?;
     let mut tx = application.begin(Identity::system()).await?;
     application
         .create_one_environment_variable(
@@ -128,12 +135,10 @@ async fn test_env_vars_not_accessible_in_components(rt: TestRuntime) -> anyhow::
                 value: "emma".parse()?,
             },
         )
-        .boxed()
         .await?;
     application.commit_test(tx).await?;
-    let result = run_function(&application, "componentEntry:envVarQuery".parse()?, vec![])
-        .boxed()
-        .await??;
+    let result =
+        run_function(&application, "componentEntry:envVarQuery".parse()?, vec![]).await??;
     assert_eq!(ConvexValue::Null, result.value);
     let result =
         run_function(&application, "componentEntry:envVarAction".parse()?, vec![]).await??;
@@ -144,7 +149,7 @@ async fn test_env_vars_not_accessible_in_components(rt: TestRuntime) -> anyhow::
 #[convex_macro::test_runtime]
 async fn test_system_env_vars_not_accessible_in_components(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_component_tests_modules().await?;
+    application.load_component_tests_modules("basic").await?;
     let result = run_function(
         &application,
         "componentEntry:systemEnvVarQuery".parse()?,
@@ -165,7 +170,7 @@ async fn test_system_env_vars_not_accessible_in_components(rt: TestRuntime) -> a
 #[convex_macro::test_runtime]
 async fn test_system_error_propagation(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
-    application.load_component_tests_modules().await?;
+    application.load_component_tests_modules("basic").await?;
 
     // The system error from the subquery should propagate to the top-level query.
     let error = run_function(

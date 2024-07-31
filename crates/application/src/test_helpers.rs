@@ -2,6 +2,7 @@ use std::{
     collections::BTreeMap,
     fs::File,
     io::Read,
+    path::Path,
     sync::{
         Arc,
         LazyLock,
@@ -47,7 +48,7 @@ use function_runner::server::{
     InstanceStorage,
 };
 use isolate::{
-    bundled_js::START_PUSH_REQUEST_PATH,
+    bundled_js::OUT_DIR,
     test_helpers::{
         TEST_SOURCE,
         TEST_SOURCE_ISOLATE_ONLY,
@@ -143,7 +144,7 @@ pub trait ApplicationTestExt<RT: Runtime> {
     async fn load_udf_tests_modules(&self) -> anyhow::Result<()>;
     async fn load_udf_tests_modules_with_node(&self) -> anyhow::Result<()>;
     /// Load the modules form npm-packages/component-tests
-    async fn load_component_tests_modules(&self) -> anyhow::Result<()>;
+    async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()>;
     async fn test_one_off_cron_job_executor_run(
         &self,
         job: CronJob,
@@ -315,8 +316,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         self.load_udf_tests_modules_inner(true).await
     }
 
-    async fn load_component_tests_modules(&self) -> anyhow::Result<()> {
-        let request = Self::load_start_push_request()?;
+    async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()> {
+        let request = Self::load_start_push_request(Path::new(layout))?;
         let start_push = self.start_push(request).await?;
         self.wait_for_schema(Identity::system(), start_push.schema_change.clone())
             .await?;
@@ -337,8 +338,11 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 }
 
 impl<RT: Runtime> Application<RT> {
-    fn load_start_push_request() -> anyhow::Result<StartPushRequest> {
-        let mut file = File::open(START_PUSH_REQUEST_PATH)?;
+    fn load_start_push_request(layout_path: &Path) -> anyhow::Result<StartPushRequest> {
+        let path = Path::new(OUT_DIR)
+            .join(layout_path)
+            .join("start_push_request.json");
+        let mut file = File::open(path)?;
         let mut contents = vec![];
         file.read_to_end(&mut contents)?;
         let output: StartPushRequest = serde_json::from_slice(&contents)?;

@@ -107,7 +107,7 @@ impl ComponentDefinitionConfig {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct EvaluatedComponentDefinition {
     pub definition: ComponentDefinitionMetadata,
     pub schema: Option<DatabaseSchema>,
