@@ -163,5 +163,4 @@ export declare const app: {
       url: FunctionReference<"action", "internal", any, any>;
     };
   };
-  component: {};
 };

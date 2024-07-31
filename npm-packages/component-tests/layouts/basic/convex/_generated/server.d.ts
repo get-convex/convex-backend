@@ -156,7 +156,6 @@ export declare const app: {
       fromQuery: FunctionReference<"query", "internal", any, any>;
     };
   };
-  errors: {};
   envVars: {
     messages: {
       envVarAction: FunctionReference<"action", "internal", any, any>;
@@ -167,5 +166,4 @@ export declare const app: {
       url: FunctionReference<"action", "internal", any, any>;
     };
   };
-  envVars: {};
 };

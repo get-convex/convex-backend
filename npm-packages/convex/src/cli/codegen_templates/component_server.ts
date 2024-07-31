@@ -312,7 +312,6 @@ export async function componentServerDTS(
     )) {
       result.push(line);
     }
-    result.push(`${childComponent.name}: {},`);
   }
 
   result.push("};");
