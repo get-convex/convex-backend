@@ -105,12 +105,18 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/node-executor/src")?;
     rerun_if_changed("../../npm-packages/node-executor/package.json")?;
 
+    // Note that we only include the component directory,`convex` directory, and
+    // package.json so we ignore changes to rush files.
     rerun_if_changed("../../npm-packages/udf-tests/convex/")?;
     rerun_if_changed("../../npm-packages/udf-tests/package.json")?;
-    rerun_if_changed("../../npm-packages/component-tests/")?;
-    rerun_if_changed("../../npm-packages/component-tests/component/")?;
-    rerun_if_changed("../../npm-packages/component-tests/layouts/")?;
     rerun_if_changed("../../npm-packages/component-tests/package.json")?;
+    rerun_if_changed("../../npm-packages/component-tests/component/")?;
+    rerun_if_changed("../../npm-packages/component-tests/envVars/")?;
+    rerun_if_changed("../../npm-packages/component-tests/errors/")?;
+    rerun_if_changed("../../npm-packages/component-tests/layouts/basic/convex")?;
+    rerun_if_changed("../../npm-packages/component-tests/layouts/basic/package.json")?;
+    rerun_if_changed("../../npm-packages/component-tests/layouts/with-schema/convex")?;
+    rerun_if_changed("../../npm-packages/component-tests/layouts/with-schema/package.json")?;
 
     // This is a little janky because we aren't inlcuding the node_modules directory
     // which has real sources in it! I'm not including it because it appears to
