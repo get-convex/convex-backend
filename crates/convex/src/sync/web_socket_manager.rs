@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    convert::Infallible,
+    time::Duration,
+};
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -77,7 +80,7 @@ struct WebSocketWorker {
 
 pub struct WebSocketManager {
     internal_sender: mpsc::UnboundedSender<WebSocketRequest>,
-    worker_handle: JoinHandle<anyhow::Result<()>>,
+    worker_handle: JoinHandle<Infallible>,
 }
 impl Drop for WebSocketManager {
     fn drop(&mut self) {
@@ -128,7 +131,7 @@ impl WebSocketWorker {
         ws_url: Url,
         on_response: mpsc::Sender<ProtocolResponse>,
         internal_receiver: mpsc::UnboundedReceiver<WebSocketRequest>,
-    ) -> anyhow::Result<()> {
+    ) -> Infallible {
         let ping_ticker = tokio::time::interval(Self::HEARTBEAT_INTERVAL);
         let backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
 
