@@ -5,7 +5,13 @@ use keybroker::{
     KeyBroker,
 };
 
-use crate::access_token_auth::AccessTokenAuth;
+use crate::{
+    access_token_auth::AccessTokenAuth,
+    metrics::{
+        log_deploy_key_use,
+        DeployKeyType,
+    },
+};
 
 pub struct ApplicationAuth {
     key_broker: KeyBroker,
@@ -32,10 +38,12 @@ impl ApplicationAuth {
             .is_encrypted_admin_key(&admin_key_or_access_token)
         {
             // assume this is a legacy Deploy Key
+            log_deploy_key_use(DeployKeyType::Legacy);
             self.key_broker.check_admin_key(&admin_key_or_access_token)
         } else {
             // assume this is an Access Token
             // Access Tokens are base64 encoded strings
+            log_deploy_key_use(DeployKeyType::AccessToken);
             self.access_token_auth
                 .is_authorized(&instance_name, &admin_key_or_access_token)
                 .await

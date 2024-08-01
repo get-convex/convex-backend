@@ -465,6 +465,7 @@ dependencies = [
  "futures",
  "http 0.2.9",
  "keybroker",
+ "metrics",
  "oauth2",
  "openidconnect",
  "serde",

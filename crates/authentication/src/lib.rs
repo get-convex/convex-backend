@@ -48,6 +48,7 @@ use url::Url;
 
 pub mod access_token_auth;
 pub mod application_auth;
+pub mod metrics;
 
 /// Issuer for API access tokens
 pub static CONVEX_AUTH_URL: LazyLock<Url> =
