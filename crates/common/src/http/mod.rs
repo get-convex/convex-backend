@@ -469,14 +469,18 @@ impl HttpError {
     }
 
     pub fn into_response(self) -> Response<BoxBody> {
-        (
-            self.status_code,
-            extract::Json(ResponseErrorMessage {
-                code: self.error_code,
-                message: self.msg,
-            }),
-        )
-            .into_response()
+        if self.msg.is_empty() && self.error_code.is_empty() {
+            self.status_code.into_response()
+        } else {
+            (
+                self.status_code,
+                extract::Json(ResponseErrorMessage {
+                    code: self.error_code,
+                    message: self.msg,
+                }),
+            )
+                .into_response()
+        }
     }
 
     pub async fn error_message_from_bytes(

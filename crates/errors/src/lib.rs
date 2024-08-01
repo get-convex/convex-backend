@@ -76,6 +76,18 @@ pub enum ErrorCode {
 }
 
 impl ErrorMetadata {
+    /// Returns an error containing no information other than a HTTP status
+    /// code. This should only be used in cases where there is no
+    /// information we'd like to display (perhaps for security reasons) and
+    /// returning an empty JSON object is undesirable.
+    pub fn opaque(code: ErrorCode) -> Self {
+        Self {
+            code,
+            short_msg: Cow::Borrowed(""),
+            msg: Cow::Borrowed(""),
+        }
+    }
+
     /// Bad Request. Maps to 400 in HTTP.
     ///
     /// The short_msg should be a CapitalCamelCased describing the error.
