@@ -32,12 +32,7 @@ export function qualifiedDefinitionPath(
   workingDir = ".",
 ) {
   const definitionPath = path.relative(workingDir, directory.definitionPath);
-  // A ./ or ../ prefix make a path "qualified."
-  if (definitionPath.startsWith("./") || definitionPath.startsWith("../")) {
-    return definitionPath;
-  } else {
-    return `./${definitionPath}`;
-  }
+  return `./${definitionPath}`;
 }
 
 // NB: The process cwd will be used to resolve the directory specified in the constructor.

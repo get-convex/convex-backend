@@ -19,8 +19,8 @@ use value::sha256::Sha256;
 
 const PACKAGES_DIR: &str = "../../npm-packages";
 const NPM_DIR: &str = "../../npm-packages/convex";
-const SYSTEM_UDFS_DIR: &str = "../../npm-packages/system-udfs/convex/_system";
-const UDF_RUNTIME_DIR: &str = "../../npm-packages/udf-runtime/src";
+const SYSTEM_UDFS_DIR: &str = "../system-udfs/convex/_system";
+const UDF_RUNTIME_DIR: &str = "../udf-runtime/src";
 const UDF_TESTS_DIR: &str = "../../npm-packages/udf-tests";
 const COMPONENT_TESTS_DIR: &str = "../../npm-packages/component-tests/layouts";
 const NODE_EXECUTOR_DIST_DIR: &str = "../../npm-packages/node-executor/dist";
@@ -170,8 +170,8 @@ fn main() -> anyhow::Result<()> {
         .arg("run")
         .arg("--silent")
         .arg("bundle-server")
-        .arg(Path::new(UDF_RUNTIME_DIR).canonicalize()?)
-        .arg(Path::new(SYSTEM_UDFS_DIR).canonicalize()?)
+        .arg(Path::new(UDF_RUNTIME_DIR))
+        .arg(Path::new(SYSTEM_UDFS_DIR))
         .output()
         .context("Failed on npm run bundler")?;
     anyhow::ensure!(

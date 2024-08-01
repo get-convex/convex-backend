@@ -177,8 +177,8 @@ const SHARED_ESBUILD_OPTIONS = {
 
   // place output files in memory at their source locations
   write: false,
-  outdir: "/",
-  outbase: "/",
+  outdir: path.parse(process.cwd()).root,
+  outbase: path.parse(process.cwd()).root,
 
   minify: true,
   keepNames: true,
