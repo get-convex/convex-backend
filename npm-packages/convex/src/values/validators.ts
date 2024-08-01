@@ -14,10 +14,27 @@ abstract class BaseValidator<
   IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = never,
 > {
+  /**
+   * Only for TypeScript, the TS type of the JS values validated
+   * by this validator.
+   */
   readonly type!: Type;
-  readonly isOptional: IsOptional;
+  /**
+   * Only for TypeScript, if this an Object validator, then
+   * this is the TS type of its property names.
+   */
   readonly fieldPaths!: FieldPaths;
+
+  /**
+   * Whether this is an optional Object property value validator.
+   */
+  readonly isOptional: IsOptional;
+
+  /**
+   * Always `"true"`.
+   */
   readonly isConvexValidator: true;
+
   constructor({ isOptional }: { isOptional: IsOptional }) {
     this.isOptional = isOptional;
     this.isConvexValidator = true;
@@ -32,12 +49,26 @@ abstract class BaseValidator<
   abstract asOptional(): Validator<Type | undefined, "optional", FieldPaths>;
 }
 
+/**
+ * The type of the `v.id(tableName)` validator.
+ */
 export class VId<
   Type,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The name of the table that the validated IDs must belong to.
+   */
   readonly tableName: TableNameFromType<Type>;
+
+  /**
+   * The kind of validator, `"id"`.
+   */
   readonly kind = "id" as const;
+
+  /**
+   * Usually you'd use `v.id(tableName)` instead.
+   */
   constructor({
     isOptional,
     tableName,
@@ -61,11 +92,18 @@ export class VId<
   }
 }
 
+/**
+ * The type of the `v.float64()` validator.
+ */
 export class VFloat64<
   Type = number,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The kind of validator, `"float64"`.
+   */
   readonly kind = "float64" as const;
+
   /** @internal */
   get json(): ValidatorJSON {
     // Server expects the old name `number` string instead of `float64`.
@@ -79,11 +117,18 @@ export class VFloat64<
   }
 }
 
+/**
+ * The type of the `v.int64()` validator.
+ */
 export class VInt64<
   Type = bigint,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The kind of validator, `"int64"`.
+   */
   readonly kind = "int64" as const;
+
   /** @internal */
   get json(): ValidatorJSON {
     // Server expects the old name `bigint`.
@@ -95,11 +140,18 @@ export class VInt64<
   }
 }
 
+/**
+ * The type of the `v.boolean()` validator.
+ */
 export class VBoolean<
   Type = boolean,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The kind of validator, `"boolean"`.
+   */
   readonly kind = "boolean" as const;
+
   /** @internal */
   get json(): ValidatorJSON {
     return { type: this.kind };
@@ -112,11 +164,18 @@ export class VBoolean<
   }
 }
 
+/**
+ * The type of the `v.bytes()` validator.
+ */
 export class VBytes<
   Type = ArrayBuffer,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The kind of validator, `"bytes"`.
+   */
   readonly kind = "bytes" as const;
+
   /** @internal */
   get json(): ValidatorJSON {
     return { type: this.kind };
@@ -127,11 +186,18 @@ export class VBytes<
   }
 }
 
+/**
+ * The type of the `v.string()` validator.
+ */
 export class VString<
   Type = string,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The kind of validator, `"string"`.
+   */
   readonly kind = "string" as const;
+
   /** @internal */
   get json(): ValidatorJSON {
     return { type: this.kind };
@@ -144,11 +210,18 @@ export class VString<
   }
 }
 
+/**
+ * The type of the `v.null()` validator.
+ */
 export class VNull<
   Type = null,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The kind of validator, `"null"`.
+   */
   readonly kind = "null" as const;
+
   /** @internal */
   get json(): ValidatorJSON {
     return { type: this.kind };
@@ -159,12 +232,19 @@ export class VNull<
   }
 }
 
+/**
+ * The type of the `v.any()` validator.
+ */
 export class VAny<
   Type = any,
   IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = string,
 > extends BaseValidator<Type, IsOptional, FieldPaths> {
+  /**
+   * The kind of validator, `"any"`.
+   */
   readonly kind = "any" as const;
+
   /** @internal */
   get json(): ValidatorJSON {
     return {
@@ -180,15 +260,7 @@ export class VAny<
 }
 
 /**
- * Validator for an object that produces indexed types.
- *
- * If the value validator is not optional, it produces a `Record` type, which is an alias
- * for `{[key: K]: V}`.
- *
- * If the value validator is optional, it produces a mapped object type,
- * with optional keys: `{[key in K]?: V}`.
- *
- * This is used within the validator builder, {@link v}.
+ * The type of the `v.object()` validator.
  */
 export class VObject<
   Type,
@@ -201,9 +273,19 @@ export class VObject<
   }[keyof Fields] &
     string,
 > extends BaseValidator<Type, IsOptional, FieldPaths> {
-  readonly type!: Type;
+  /**
+   * An object with the validator for each property.
+   */
   readonly fields: Fields;
+
+  /**
+   * The kind of validator, `"object"`.
+   */
   readonly kind = "object" as const;
+
+  /**
+   * Usually you'd use `v.object({ ... })` instead.
+   */
   constructor({
     isOptional,
     fields,
@@ -238,13 +320,26 @@ export class VObject<
   }
 }
 
+/**
+ * The type of the `v.literal()` validator.
+ */
 export class VLiteral<
   Type,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The value that the validated values must be equal to.
+   */
   readonly value: Type;
-  readonly type!: Type;
+
+  /**
+   * The kind of validator, `"literal"`.
+   */
   readonly kind = "literal" as const;
+
+  /**
+   * Usually you'd use `v.literal(value)` instead.
+   */
   constructor({ isOptional, value }: { isOptional: IsOptional; value: Type }) {
     super({ isOptional });
     this.value = value;
@@ -265,13 +360,27 @@ export class VLiteral<
   }
 }
 
+/**
+ * The type of the `v.array()` validator.
+ */
 export class VArray<
   Type,
   Element extends Validator<any, "required", any>,
   IsOptional extends OptionalProperty = "required",
 > extends BaseValidator<Type, IsOptional> {
+  /**
+   * The validator for the elements of the array.
+   */
   readonly element: Element;
+
+  /**
+   * The kind of validator, `"array"`.
+   */
   readonly kind = "array" as const;
+
+  /**
+   * Usually you'd use `v.array(element)` instead.
+   */
   constructor({
     isOptional,
     element,
@@ -298,6 +407,17 @@ export class VArray<
   }
 }
 
+/**
+ * Validator for an object that produces indexed types.
+ *
+ * If the value validator is not optional, it produces a `Record` type, which is an alias
+ * for `{[key: K]: V}`.
+ *
+ * If the value validator is optional, it produces a mapped object type,
+ * with optional keys: `{[key in K]?: V}`.
+ *
+ * This is used within the validator builder, {@link v}.
+ */
 export class VRecord<
   Type,
   Key extends Validator<string, "required", any>,
@@ -342,14 +462,28 @@ export class VRecord<
   }
 }
 
+/**
+ * The type of the `v.union()` validator.
+ */
 export class VUnion<
   Type,
   T extends Validator<any, "required", any>[],
   IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = T[number]["fieldPaths"],
 > extends BaseValidator<Type, IsOptional, FieldPaths> {
+  /**
+   * The array of validators, one of which must match the value.
+   */
   readonly members: T;
+
+  /**
+   * The kind of validator, `"union"`.
+   */
   readonly kind = "union" as const;
+
+  /**
+   * Usually you'd use `v.union(...members)` instead.
+   */
   constructor({ isOptional, members }: { isOptional: IsOptional; members: T }) {
     super({ isOptional });
     this.members = members;

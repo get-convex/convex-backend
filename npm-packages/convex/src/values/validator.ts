@@ -78,48 +78,95 @@ export type AsObjectValidator<
  * @public
  */
 export const v = {
+  /**
+   * Validates that the value corresponds to an ID of a document in given table.
+   * @param tableName The name of the table.
+   */
   id<TableName extends string>(tableName: TableName) {
     return new VId<GenericId<TableName>>({
       isOptional: "required",
       tableName,
     });
   },
+
+  /**
+   * Validates that the value is of type Null.
+   */
   null() {
     return new VNull({ isOptional: "required" });
   },
+
   /**
+   * Validates that the value is of Convex type Float64 (Number in JS).
+   *
    * Alias for `v.float64()`
    */
   number() {
     return new VFloat64({ isOptional: "required" });
   },
+
+  /**
+   * Validates that the value is of Convex type Float64 (Number in JS).
+   */
   float64() {
     return new VFloat64({ isOptional: "required" });
   },
+
   /**
    * @deprecated Use `v.int64()` instead
    */
   bigint() {
     return new VInt64({ isOptional: "required" });
   },
+
+  /**
+   * Validates that the value is of Convex type Int64 (BigInt in JS).
+   */
   int64() {
     return new VInt64({ isOptional: "required" });
   },
+
+  /**
+   * Validates that the value is of type Boolean.
+   */
   boolean() {
     return new VBoolean({ isOptional: "required" });
   },
+
+  /**
+   * Validates that the value is of type String.
+   */
   string() {
     return new VString({ isOptional: "required" });
   },
+
+  /**
+   * Validates that the value is of Convex type Bytes (constructed in JS via `ArrayBuffer`).
+   */
   bytes() {
     return new VBytes({ isOptional: "required" });
   },
+
+  /**
+   * Validates that the value is equal to the given literal value.
+   * @param literal The literal value to compare against.
+   */
   literal<T extends string | number | bigint | boolean>(literal: T) {
     return new VLiteral<T>({ isOptional: "required", value: literal });
   },
+
+  /**
+   * Validates that the value is an Array of the given element type.
+   * @param element The validator for the elements of the array.
+   */
   array<T extends Validator<any, "required", any>>(element: T) {
     return new VArray<T["type"][], T>({ isOptional: "required", element });
   },
+
+  /**
+   * Validates that the value is an Object with the given properties.
+   * @param fields An object specifying the validator for each property.
+   */
   object<T extends PropertyValidators>(fields: T) {
     return new VObject<ObjectType<T>, T>({ isOptional: "required", fields });
   },
@@ -143,15 +190,35 @@ export const v = {
     });
   },
 
+  /**
+   * Validates that the value matches one of the given validators.
+   * @param members The validators to match against.
+   */
   union<T extends Validator<any, "required", any>[]>(...members: T) {
     return new VUnion<T[number]["type"], T>({
       isOptional: "required",
       members,
     });
   },
+
+  /**
+   * Does not validate the value.
+   */
   any() {
     return new VAny({ isOptional: "required" });
   },
+
+  /**
+   * Allows not specifying a value for a property in an Object.
+   * @param value The property value validator to make optional.
+   *
+   * ```typescript
+   * const objectWithOptionalFields = v.object({
+   *   requiredField: v.string(),
+   *   optionalField: v.optional(v.string()),
+   * });
+   * ```
+   */
   optional<T extends GenericValidator>(value: T) {
     return value.asOptional() as VOptional<T>;
   },
