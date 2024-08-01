@@ -1115,3 +1115,7 @@ pub static USHER_BACKEND_CLIENTS_CACHE_SIZE: LazyLock<u64> =
 /// Providing a limit helps us not run into any implementation limits.
 pub static USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL: LazyLock<usize> =
     LazyLock::new(|| env_config("USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL", 500));
+
+/// Batch size for migration that rewrites virtual tables.
+pub static MIGRATION_REWRITE_BATCH_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MIGRATION_REWRITE_BATCH_SIZE", 100));
