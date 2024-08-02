@@ -18,7 +18,7 @@ importers:
       '@types/node': 18.18.4
       typescript: 5.0.4
 
-  ../../component-tests/layouts/basic:
+  ../../component-tests/projects/basic:
     specifiers:
       '@types/node': ^18.17.0
       convex: workspace:*
@@ -31,7 +31,7 @@ importers:
       '@types/node': 18.18.4
       typescript: 5.0.4
 
-  ../../component-tests/layouts/with-schema:
+  ../../component-tests/projects/with-schema:
     specifiers:
       '@types/node': ^18.17.0
       convex: workspace:*

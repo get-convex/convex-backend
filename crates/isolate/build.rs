@@ -22,8 +22,17 @@ const NPM_DIR: &str = "../../npm-packages/convex";
 const SYSTEM_UDFS_DIR: &str = "../system-udfs/convex/_system";
 const UDF_RUNTIME_DIR: &str = "../udf-runtime/src";
 const UDF_TESTS_DIR: &str = "../../npm-packages/udf-tests";
-const COMPONENT_TESTS_DIR: &str = "../../npm-packages/component-tests/layouts";
 const NODE_EXECUTOR_DIST_DIR: &str = "../../npm-packages/node-executor/dist";
+
+const COMPONENT_TESTS_DIR: &str = "../../npm-packages/component-tests";
+/// Exceptions to the rule that all directories in `component-tests` are
+/// components.
+const COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS: [&str; 3] = [".rush", "node_modules", "projects"];
+/// Directory where test projects that use components live.
+const COMPONENT_TESTS_PROJECTS_DIR: &str = "../../npm-packages/component-tests/projects";
+const COMPONENT_TESTS_PROJECTS: [&str; 2] = ["basic", "with-schema"];
+/// Components in `component-tests` directory that are used in projects.
+const COMPONENTS: [&str; 3] = ["component", "envVars", "errors"];
 
 const ADMIN_KEY: &str = include_str!("../keybroker/dev/admin_key.txt");
 
@@ -110,13 +119,44 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/udf-tests/convex/")?;
     rerun_if_changed("../../npm-packages/udf-tests/package.json")?;
     rerun_if_changed("../../npm-packages/component-tests/package.json")?;
+    for component in COMPONENTS {
+        rerun_if_changed(&format!(
+            "../../npm-packages/component-tests/{}/",
+            component
+        ))?;
+    }
+    // Make sure we are not missing any directories that could be components.
+    for dir in fs::read_dir(COMPONENT_TESTS_DIR)? {
+        let dir = dir?;
+        if dir.path().is_dir() {
+            let dir_name = dir.file_name();
+            let dir_name = dir_name
+                .to_str()
+                .context("Failed to convert dir_name to string")?;
+            if !COMPONENTS.contains(&dir_name)
+                && !COMPONENT_TESTS_CHILD_DIR_EXCEPTIONS.contains(&dir_name)
+            {
+                anyhow::bail!(
+                    "Found directory in component-tests that is not in `COMPONENTS`. Please add \
+                     it: {}",
+                    dir_name
+                );
+            }
+        }
+    }
     rerun_if_changed("../../npm-packages/component-tests/component/")?;
     rerun_if_changed("../../npm-packages/component-tests/envVars/")?;
     rerun_if_changed("../../npm-packages/component-tests/errors/")?;
-    rerun_if_changed("../../npm-packages/component-tests/layouts/basic/convex")?;
-    rerun_if_changed("../../npm-packages/component-tests/layouts/basic/package.json")?;
-    rerun_if_changed("../../npm-packages/component-tests/layouts/with-schema/convex")?;
-    rerun_if_changed("../../npm-packages/component-tests/layouts/with-schema/package.json")?;
+    for project in COMPONENT_TESTS_PROJECTS {
+        rerun_if_changed(&format!(
+            "../../npm-packages/component-tests/projects/{}/convex",
+            project
+        ))?;
+        rerun_if_changed(&format!(
+            "../../npm-packages/component-tests/projects/{}/package.json",
+            project
+        ))?;
+    }
 
     // This is a little janky because we aren't inlcuding the node_modules directory
     // which has real sources in it! I'm not including it because it appears to
@@ -215,7 +255,7 @@ fn main() -> anyhow::Result<()> {
     write_udf_test_bundle(out_dir)?;
 
     // Step 6: Build and bundle component-test projects.
-    for entry in fs::read_dir(COMPONENT_TESTS_DIR)? {
+    for entry in fs::read_dir(COMPONENT_TESTS_PROJECTS_DIR)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
@@ -223,10 +263,15 @@ fn main() -> anyhow::Result<()> {
             if Path::exists(out_path) {
                 fs::remove_dir_all(out_path)?;
             }
-            let suffix = path.strip_prefix(COMPONENT_TESTS_DIR)?;
-            let out_with_layout = out_dir.join(suffix);
-            fs::create_dir_all(&out_with_layout)?;
-            write_start_push_request(&path, &out_with_layout.join(format!("start_push_request")))?;
+            let suffix = path.strip_prefix(COMPONENT_TESTS_PROJECTS_DIR)?;
+            anyhow::ensure!(&COMPONENT_TESTS_PROJECTS.contains(
+                &suffix
+                    .to_str()
+                    .context("Failed to convert suffix to string")?
+            ));
+            let out_with_project = out_dir.join(suffix);
+            fs::create_dir_all(&out_with_project)?;
+            write_start_push_request(&path, &out_with_project.join(format!("start_push_request")))?;
         }
     }
 
@@ -264,12 +309,12 @@ fn write_udf_test_bundle(out_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn write_start_push_request(layout_directory: &Path, out_file: &Path) -> anyhow::Result<()> {
+fn write_start_push_request(project_directory: &Path, out_file: &Path) -> anyhow::Result<()> {
     if Path::exists(out_file) {
         fs::remove_file(out_file)?;
     }
     let output = Command::new("node")
-        .current_dir(layout_directory)
+        .current_dir(project_directory)
         .args([
             CONVEX,
             "deploy",

@@ -37,11 +37,11 @@
     },
     {
       "packageName": "component-tests-with-schema",
-      "projectFolder": "component-tests/layouts/with-schema"
+      "projectFolder": "component-tests/projects/with-schema"
     },
     {
       "packageName": "component-tests-basic",
-      "projectFolder": "component-tests/layouts/basic"
+      "projectFolder": "component-tests/projects/basic"
     },
     {
       "packageName": "node-executor",
