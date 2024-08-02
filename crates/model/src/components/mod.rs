@@ -138,7 +138,11 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                 // TODO(lee) this should work for disconnected components too.
                 let component_path = m
                     .get_component_path(ComponentId::Child(*component_by_id))
-                    .await?;
+                    .await
+                    .context(ErrorMetadata::bad_request(
+                        "MissingComponent",
+                        format!("No component found with id {component_by_id}"),
+                    ))?;
                 Resource::Function(CanonicalizedComponentFunctionPath {
                     component: component_path,
                     udf_path: current_udf_path.canonicalize(),
