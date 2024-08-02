@@ -111,11 +111,6 @@ use crate::{
         build_fuzzy_dfa,
         LevenshteinDfaWrapper,
     },
-    query::{
-        CompiledQuery,
-        TermShortlist,
-    },
-    scoring::Bm25StatisticsDiff,
     searcher::{
         metrics::{
             text_compaction_searcher_latency_seconds,
@@ -136,8 +131,6 @@ use crate::{
         },
     },
     SearchFileType,
-    SearchQueryResult,
-    TantivySearchIndexSchema,
     CREATION_TIME_FIELD_NAME,
     INTERNAL_ID_FIELD_NAME,
     TS_FIELD_NAME,
@@ -145,17 +138,6 @@ use crate::{
 
 #[async_trait]
 pub trait Searcher: VectorSearcher + Send + Sync + 'static {
-    async fn execute_query(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        disk_index: &ObjectKey,
-        schema: &TantivySearchIndexSchema,
-        search: CompiledQuery,
-        memory_statistics_diff: Bm25StatisticsDiff,
-        shortlisted_terms: TermShortlist,
-        limit: usize,
-    ) -> anyhow::Result<SearchQueryResult>;
-
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -459,42 +441,6 @@ impl<RT: Runtime> SearcherImpl<RT> {
 
 #[async_trait]
 impl<RT: Runtime> Searcher for SearcherImpl<RT> {
-    #[minitrace::trace]
-    async fn execute_query(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        disk_index: &ObjectKey,
-        schema: &TantivySearchIndexSchema,
-        compiled_query: CompiledQuery,
-        memory_statistics_diff: Bm25StatisticsDiff,
-        memory_shortlisted_terms: TermShortlist,
-        limit: usize,
-    ) -> anyhow::Result<SearchQueryResult> {
-        // Fetch disk index and perform query
-        let timer = metrics::query_timer();
-        let archive_path = self
-            .archive_cache
-            .get(search_storage, disk_index, SearchFileType::Text)
-            .await?;
-        let search_field = schema.search_field;
-        let query = move || {
-            let reader = index_reader_for_directory(&archive_path)?;
-            let searcher = reader.searcher();
-            let results = crate::tantivy_query::query_tantivy(
-                search_field,
-                &compiled_query,
-                &searcher,
-                memory_statistics_diff,
-                memory_shortlisted_terms,
-                limit,
-            )?;
-            Ok::<SearchQueryResult, anyhow::Error>(results)
-        };
-        let results = self.text_search_pool.execute(query).await??;
-        timer.finish();
-        Ok(results)
-    }
-
     #[minitrace::trace]
     async fn query_tokens(
         &self,

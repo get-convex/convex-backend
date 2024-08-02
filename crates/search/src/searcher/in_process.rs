@@ -37,19 +37,12 @@ use super::{
         TokenQuery,
     },
     FragmentedTextStorageKeys,
+    SearcherImpl,
     TermValue,
 };
 use crate::{
-    query::{
-        CompiledQuery,
-        TermShortlist,
-    },
-    scoring::Bm25StatisticsDiff,
-    searcher::SearcherImpl,
-    tantivy_query::SearchQueryResult,
     Searcher,
     SegmentTermMetadataFetcher,
-    TantivySearchIndexSchema,
 };
 
 /// Dummy client that will always return no results.
@@ -57,19 +50,6 @@ use crate::{
 pub struct SearcherStub;
 #[async_trait]
 impl Searcher for SearcherStub {
-    async fn execute_query(
-        &self,
-        _search_storage: Arc<dyn Storage>,
-        _disk_index: &ObjectKey,
-        _schema: &TantivySearchIndexSchema,
-        _search: CompiledQuery,
-        _memory_statistics_diff: Bm25StatisticsDiff,
-        _shortlisted_terms: TermShortlist,
-        _limit: usize,
-    ) -> anyhow::Result<SearchQueryResult> {
-        Ok(SearchQueryResult::empty())
-    }
-
     async fn query_tokens(
         &self,
         _search_storage: Arc<dyn Storage>,
@@ -177,29 +157,6 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for InProcessSearcher<RT> {
 
 #[async_trait]
 impl<RT: Runtime> Searcher for InProcessSearcher<RT> {
-    async fn execute_query(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        disk_index: &ObjectKey,
-        schema: &TantivySearchIndexSchema,
-        search: CompiledQuery,
-        memory_statistics_diff: Bm25StatisticsDiff,
-        memory_shortlisted_terms: TermShortlist,
-        limit: usize,
-    ) -> anyhow::Result<SearchQueryResult> {
-        self.searcher
-            .execute_query(
-                search_storage,
-                disk_index,
-                schema,
-                search,
-                memory_statistics_diff,
-                memory_shortlisted_terms,
-                limit,
-            )
-            .await
-    }
-
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,

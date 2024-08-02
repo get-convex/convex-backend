@@ -27,7 +27,6 @@ use common::{
     types::{
         GenericIndexName,
         IndexName,
-        ObjectKey,
         TabletIndexName,
     },
 };
@@ -46,11 +45,6 @@ use search::{
         download_single_file_original,
         download_single_file_zip,
     },
-    query::{
-        CompiledQuery,
-        TermShortlist,
-    },
-    scoring::Bm25StatisticsDiff,
     searcher::{
         Bm25Stats,
         FragmentedTextStorageKeys,
@@ -62,8 +56,6 @@ use search::{
         TokenMatch,
         TokenQuery,
     },
-    SearchQueryResult,
-    TantivySearchIndexSchema,
 };
 use storage::Storage;
 use sync_types::Timestamp;
@@ -554,29 +546,6 @@ struct DeleteOnCompactSearchlight<RT: Runtime> {
 
 #[async_trait]
 impl<RT: Runtime> Searcher for DeleteOnCompactSearchlight<RT> {
-    async fn execute_query(
-        &self,
-        search_storage: Arc<dyn Storage>,
-        disk_index: &ObjectKey,
-        schema: &TantivySearchIndexSchema,
-        search: CompiledQuery,
-        memory_statistics_diff: Bm25StatisticsDiff,
-        shortlisted_terms: TermShortlist,
-        limit: usize,
-    ) -> anyhow::Result<SearchQueryResult> {
-        self.searcher
-            .execute_query(
-                search_storage,
-                disk_index,
-                schema,
-                search,
-                memory_statistics_diff,
-                shortlisted_terms,
-                limit,
-            )
-            .await
-    }
-
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,

@@ -6,7 +6,6 @@ import "google/protobuf/empty.proto";
 package searchlight;
 
 service Searchlight {
-  rpc ExecuteQuery(QueryRequest) returns (QueryResponse);
   rpc ExecuteVectorQuery(VectorQueryRequest) returns (VectorQueryResponse);
   rpc ExecuteVectorCompaction(VectorCompactionRequest) returns (VectorCompactionResponse);
   rpc QueueVectorPrefetch(VectorPrefetchRequest) returns (VectorPrefetchResponse);

@@ -35,7 +35,6 @@ use common::{
     runtime::SpawnHandle,
     types::{
         IndexName,
-        ObjectKey,
         Timestamp,
     },
     value::{
@@ -67,11 +66,6 @@ use runtime::testing::{
     TestRuntime,
 };
 use search::{
-    query::{
-        CompiledQuery,
-        TermShortlist,
-    },
-    scoring::Bm25StatisticsDiff,
     searcher::{
         Bm25Stats,
         FragmentedTextStorageKeys,
@@ -82,9 +76,7 @@ use search::{
         TokenMatch,
         TokenQuery,
     },
-    SearchQueryResult,
     Searcher,
-    TantivySearchIndexSchema,
     MAX_CANDIDATE_REVISIONS,
 };
 use storage::Storage;
@@ -1086,19 +1078,6 @@ impl VectorSearcher for BrokenSearcher {
 
 #[async_trait]
 impl Searcher for BrokenSearcher {
-    async fn execute_query(
-        &self,
-        _: Arc<dyn Storage>,
-        _: &ObjectKey,
-        _: &TantivySearchIndexSchema,
-        _: CompiledQuery,
-        _: Bm25StatisticsDiff,
-        _: TermShortlist,
-        _: usize,
-    ) -> anyhow::Result<SearchQueryResult> {
-        anyhow::bail!("要");
-    }
-
     async fn query_tokens(
         &self,
         _: Arc<dyn Storage>,

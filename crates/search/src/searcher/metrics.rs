@@ -11,15 +11,6 @@ use vector::{
 };
 
 register_convex_histogram!(
-    SEARCHLIGHT_QUERY_SECONDS,
-    "Duration of a Searchlight query",
-    &STATUS_LABEL
-);
-pub fn query_timer() -> StatusTimer {
-    StatusTimer::new(&SEARCHLIGHT_QUERY_SECONDS)
-}
-
-register_convex_histogram!(
     TEXT_QUERY_TOKENS_SEARCHER_LATENCY_SECONDS,
     "The amount of time it took to query for text token matches on searchlight (in Searcher)",
     &STATUS_LABEL,
