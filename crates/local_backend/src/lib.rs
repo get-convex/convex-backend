@@ -8,10 +8,7 @@
 #![feature(exhaustive_patterns)]
 
 use std::{
-    sync::{
-        atomic::AtomicU64,
-        Arc,
-    },
+    sync::Arc,
     time::Duration,
 };
 
@@ -111,8 +108,6 @@ pub struct LocalAppState {
     // Name of the instance. (e.g. crazy-giraffe-123)
     pub instance_name: String,
     pub application: Application<ProdRuntime>,
-    // Number of sync protocol workers.
-    pub live_ws_count: Arc<AtomicU64>,
     pub zombify_rx: async_broadcast::Receiver<()>,
 }
 
@@ -131,7 +126,6 @@ impl Clone for LocalAppState {
             site_origin: self.site_origin.clone(),
             instance_name: self.instance_name.clone(),
             application: self.application.clone(),
-            live_ws_count: self.live_ws_count.clone(),
             zombify_rx: self.zombify_rx.clone(),
         }
     }
@@ -144,9 +138,6 @@ impl Clone for LocalAppState {
 pub struct RouterState {
     pub api: Arc<dyn ApplicationApi>,
     pub runtime: ProdRuntime,
-
-    // Number of sync protocol workers.
-    pub live_ws_count: Arc<AtomicU64>,
 }
 
 #[derive(Serialize)]
@@ -286,7 +277,6 @@ pub async fn make_app(
         site_origin: config.convex_site_url(),
         instance_name,
         application,
-        live_ws_count: Arc::new(AtomicU64::new(0)),
         zombify_rx,
     };
 

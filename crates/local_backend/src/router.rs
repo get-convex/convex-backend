@@ -196,7 +196,6 @@ pub async fn router(st: LocalAppState) -> Router {
         .with_state(RouterState {
             api: Arc::new(st.application.clone()),
             runtime: st.application.runtime().clone(),
-            live_ws_count: st.live_ws_count.clone(),
         });
 
     let instance_name = st.instance_name.clone();

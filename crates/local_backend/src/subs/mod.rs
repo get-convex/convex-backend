@@ -1,15 +1,6 @@
-use std::{
-    sync::{
-        atomic::{
-            AtomicU64,
-            Ordering,
-        },
-        Arc,
-    },
-    time::{
-        Duration,
-        Instant,
-    },
+use std::time::{
+    Duration,
+    Instant,
 };
 
 use ::errors::{
@@ -89,23 +80,19 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 /// How long before lack of client response causes a timeout.
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(120);
 
-struct SyncSocketDropToken {
-    counter_ref: Arc<AtomicU64>,
-}
+struct SyncSocketDropToken {}
 
 /// Tracker that exists for the lifetime of a run_sync_socket.
 impl SyncSocketDropToken {
-    fn new(counter_ref: Arc<AtomicU64>) -> Self {
-        let before_add = counter_ref.fetch_add(1, Ordering::Relaxed);
-        log_sync_protocol_websockets_total(before_add + 1);
-        SyncSocketDropToken { counter_ref }
+    fn new() -> Self {
+        log_sync_protocol_websockets_total(1);
+        SyncSocketDropToken {}
     }
 }
 
 impl Drop for SyncSocketDropToken {
     fn drop(&mut self) {
-        let before_subtract = self.counter_ref.fetch_sub(1, Ordering::Relaxed);
-        log_sync_protocol_websockets_total(before_subtract - 1);
+        log_sync_protocol_websockets_total(-1);
     }
 }
 
@@ -128,7 +115,7 @@ async fn run_sync_socket(
     socket: WebSocket,
     sentry_scope: sentry::Scope,
 ) {
-    let _drop_token = SyncSocketDropToken::new(st.live_ws_count.clone());
+    let _drop_token = SyncSocketDropToken::new();
 
     let (mut tx, mut rx) = socket.split();
 

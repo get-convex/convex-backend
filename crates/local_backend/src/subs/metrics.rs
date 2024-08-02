@@ -5,7 +5,6 @@ use metrics::{
     log_counter_with_labels,
     log_distribution,
     log_distribution_with_labels,
-    log_gauge,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
@@ -112,8 +111,8 @@ register_convex_gauge!(
     SYNC_PROTOCOL_WEBSOCKETS_TOTAL,
     "Number of WebSocket connected to a backend",
 );
-pub fn log_sync_protocol_websockets_total(count: u64) {
-    log_gauge(&SYNC_PROTOCOL_WEBSOCKETS_TOTAL, count as f64);
+pub fn log_sync_protocol_websockets_total(delta: i8) {
+    SYNC_PROTOCOL_WEBSOCKETS_TOTAL.add(delta as f64)
 }
 
 register_convex_counter!(pub WEBSOCKET_CONNECTION_RESET_TOTAL, "Number of websocket connection resets");
