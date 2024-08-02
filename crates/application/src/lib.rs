@@ -311,6 +311,7 @@ use value::{
     Namespace,
     ResolvedDocumentId,
     TableNamespace,
+    TabletId,
 };
 use vector::{
     PublicVectorSearchQueryResult,
@@ -789,7 +790,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         snapshot: Option<Timestamp>,
-        cursor: Option<DeveloperDocumentId>,
+        cursor: Option<(Option<TabletId>, DeveloperDocumentId)>,
         table_filter: Option<TableName>,
     ) -> anyhow::Result<SnapshotPage> {
         self.database

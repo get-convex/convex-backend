@@ -7,7 +7,7 @@ use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use sync_types::Timestamp;
 use value::{
-    id_v6::DeveloperDocumentId,
+    ResolvedDocumentId,
     TableNamespace,
 };
 
@@ -306,7 +306,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let snapshot_list_all =
         move |mut snapshot: Option<Timestamp>,
               table_filter: Option<TableName>,
-              mut cursor: Option<DeveloperDocumentId>| {
+              mut cursor: Option<ResolvedDocumentId>| {
             let db = db_.clone();
             async move {
                 let mut has_more = true;
@@ -318,7 +318,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
                         .list_snapshot(
                             Identity::system(),
                             snapshot,
-                            cursor.map(DeveloperDocumentId::from),
+                            cursor.map(|c| (Some(c.tablet_id), c.developer_id)),
                             StreamingExportTableFilter {
                                 table_name: table_filter.clone(),
                                 ..Default::default()
@@ -378,13 +378,12 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
         SnapshotPage {
             documents: vec![docs1sorted[0].clone()],
             snapshot: ts1,
-            cursor: Some(docs1sorted[0].2.developer_id()),
+            cursor: Some(docs1sorted[0].2.id()),
             has_more: true,
         },
     );
 
-    let snapshot_cursor =
-        snapshot_list_all(Some(ts1), None, Some(docs1sorted[0].2.developer_id())).await?;
+    let snapshot_cursor = snapshot_list_all(Some(ts1), None, Some(docs1sorted[0].2.id())).await?;
     assert_eq!(snapshot_cursor.0, vec![docs1sorted[1].clone()]);
     assert_eq!(snapshot_cursor.1, ts1);
 

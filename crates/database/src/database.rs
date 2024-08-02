@@ -323,7 +323,7 @@ pub struct DocumentDeltas {
 pub struct SnapshotPage {
     pub documents: Vec<(Timestamp, TableName, ResolvedDocument)>,
     pub snapshot: Timestamp,
-    pub cursor: Option<DeveloperDocumentId>,
+    pub cursor: Option<ResolvedDocumentId>,
     pub has_more: bool,
 }
 
@@ -1680,7 +1680,7 @@ impl<RT: Runtime> Database<RT> {
         &self,
         identity: Identity,
         snapshot: Option<Timestamp>,
-        cursor: Option<DeveloperDocumentId>,
+        cursor: Option<(Option<TabletId>, DeveloperDocumentId)>,
         table_filter: StreamingExportTableFilter,
         rows_read_limit: usize,
         rows_returned_limit: usize,
@@ -1704,30 +1704,29 @@ impl<RT: Runtime> Database<RT> {
         let table_mapping = self.snapshot_table_mapping(snapshot).await?;
         let by_id_indexes = self.snapshot_by_id_indexes(snapshot).await?;
         let resolved_cursor = cursor
-            .map(|c| {
-                c.to_resolved(
+            .map(|(tablet, developer_id)| match tablet {
+                Some(tablet_id) => Ok(ResolvedDocumentId::new(tablet_id, developer_id)),
+                None => developer_id.to_resolved(
                     table_mapping
                         .namespace(TableNamespace::by_component_TODO())
                         .number_to_tablet(),
-                )
+                ),
             })
             .transpose()?;
-        let table_numbers: BTreeSet<_> = table_mapping
+        let tablet_ids: BTreeSet<_> = table_mapping
             .iter()
-            .filter(|(tablet_id, _, table_number, _)| {
+            .map(|(tablet_id, ..)| tablet_id)
+            .filter(|tablet_id| {
                 Self::streaming_export_table_filter(&table_filter, *tablet_id, &table_mapping)
                     && resolved_cursor
                         .as_ref()
-                        .map(|c| *table_number >= c.developer_id.table())
+                        .map(|c| *tablet_id >= c.tablet_id)
                         .unwrap_or(true)
             })
-            .map(|(_, _, table_number, _)| table_number)
             .collect();
-        let mut table_numbers = table_numbers.into_iter();
-        let tablet_id = match table_numbers.next() {
-            Some(first_table) => table_mapping
-                .namespace(TableNamespace::by_component_TODO())
-                .number_to_tablet()(first_table)?,
+        let mut tablet_ids = tablet_ids.into_iter();
+        let tablet_id = match tablet_ids.next() {
+            Some(first_table) => first_table,
             None => {
                 return Ok(SnapshotPage {
                     documents: vec![],
@@ -1768,31 +1767,35 @@ impl<RT: Runtime> Database<RT> {
         let mut rows_read = 0;
         while let Some((doc, ts)) = document_stream.try_next().await? {
             rows_read += 1;
-            let id = doc.developer_id();
-            let table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
+            let id = doc.id();
+            let table_name = table_mapping.tablet_name(id.tablet_id)?;
             documents.push((ts, table_name, doc));
             if rows_read >= rows_read_limit || documents.len() >= rows_returned_limit {
                 new_cursor = Some(id);
                 break;
             }
         }
-        let new_cursor = new_cursor.or_else(|| match table_numbers.next() {
-            Some(next_table_number) => {
-                Some(DeveloperDocumentId::new(next_table_number, InternalId::MIN))
+        let new_cursor = match new_cursor {
+            Some(new_cursor) => Some(new_cursor),
+            None => match tablet_ids.next() {
+                Some(next_tablet_id) => {
+                    // TODO(lee) just use DeveloperDocumentId::min() once we no longer
+                    // need to be rollback-safe.
+                    let next_table_number = table_mapping.tablet_number(next_tablet_id)?;
+                    Some(ResolvedDocumentId::new(
+                        next_tablet_id,
+                        DeveloperDocumentId::new(next_table_number, InternalId::MIN),
+                    ))
+                },
+                None => None,
             },
-            None => None,
-        });
+        };
         if let Some(new_cursor) = new_cursor {
-            let resolved_new_cursor = new_cursor.to_resolved(
-                table_mapping
-                    .namespace(TableNamespace::by_component_TODO())
-                    .number_to_tablet(),
-            )?;
             let new_cache_key = ListSnapshotTableIteratorCacheEntry {
                 snapshot: *snapshot,
                 tablet_id,
                 by_id,
-                resolved_cursor: Some(resolved_new_cursor),
+                resolved_cursor: Some(new_cursor),
             };
             *self.list_snapshot_table_iterator_cache.lock() =
                 Some((new_cache_key, document_stream));
