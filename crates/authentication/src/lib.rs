@@ -38,6 +38,7 @@ use openidconnect::{
     },
     ClaimsVerificationError,
     ClientId,
+    DiscoveryError,
 };
 use serde::{
     Deserialize,
@@ -153,7 +154,25 @@ where
     // provider.
     // TODO(CX-606): Add an caching layer that respects the HTTP cache headers
     // in the response.
-    let metadata = CoreProviderMetadata::discover_async(issuer.clone(), http_client).await?;
+    let metadata = CoreProviderMetadata::discover_async(issuer.clone(), http_client)
+        .await
+        .map_err(|e| {
+            let short = "AuthProviderDiscoveryFailed";
+            let long = format!("Auth provider discovery of {} failed", issuer.as_str());
+            match e {
+                DiscoveryError::Response(code, body, _) => {
+                    let long = format!("{long}: {} {}", code, String::from_utf8_lossy(&body));
+                    if let Some(em) =
+                        ErrorMetadata::from_http_status_code(code, short, long.clone())
+                    {
+                        em
+                    } else {
+                        ErrorMetadata::bad_request(short, long)
+                    }
+                },
+                _ => ErrorMetadata::bad_request(short, long),
+            }
+        })?;
     // Create a verifier for the provider using this metadata. Set the verifier
     // to enforce that the issuer and audience match.
     // Note for posterity: this verifier will reject tokens containing multiple

@@ -44,7 +44,6 @@ use axum::{
     Router,
 };
 use errors::{
-    ErrorCode,
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
@@ -400,21 +399,19 @@ pub fn categorize_http_response_stream(
         return Ok(response);
     };
 
-    let Some(error_code) = ErrorCode::from_http_status_code(response.status) else {
+    let canonical_reason = response.status.canonical_reason().unwrap_or("Unknown");
+    let Some(em) =
+        ErrorMetadata::from_http_status_code(response.status, "RequestFailed", canonical_reason)
+    else {
         anyhow::bail!(
-            "Http request to {:?} failed with status code {}",
+            "Http request to {:?} failed with status code {} {}",
             response.url,
-            response.status
+            response.status,
+            canonical_reason,
         );
     };
-    let canonical_reason = response.status.canonical_reason().unwrap_or("Unknown");
 
-    Err(ErrorMetadata {
-        code: error_code,
-        short_msg: "RequestFailed".into(),
-        msg: canonical_reason.into(),
-    }
-    .into())
+    Err(em.into())
 }
 
 #[cfg(any(test, feature = "testing"))]

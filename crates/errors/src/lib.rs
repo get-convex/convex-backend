@@ -299,6 +299,19 @@ impl ErrorMetadata {
         }
     }
 
+    pub fn from_http_status_code(
+        code: StatusCode,
+        short_msg: impl Into<Cow<'static, str>>,
+        msg: impl Into<Cow<'static, str>>,
+    ) -> Option<Self> {
+        let code = ErrorCode::from_http_status_code(code)?;
+        Some(Self {
+            code,
+            short_msg: short_msg.into(),
+            msg: msg.into(),
+        })
+    }
+
     pub fn is_occ(&self) -> bool {
         self.code == ErrorCode::OCC
     }
