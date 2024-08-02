@@ -5,7 +5,7 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
-    "@microsoft/rush": "^5.130.2",
+    "@microsoft/rush": "^5.130.3",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
     "dprint": "0.46.1",
