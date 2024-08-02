@@ -77,10 +77,7 @@ mod tests {
 
     use common::runtime::Runtime;
     use runtime::testing::TestDriver;
-    use value::{
-        TableIdentifier,
-        TableNumber,
-    };
+    use value::TableNumber;
 
     use crate::transaction_id_generator::TransactionIdGenerator;
 
@@ -89,7 +86,7 @@ mod tests {
     #[test]
     fn generated_ids_include_day() -> anyhow::Result<()> {
         let td = TestDriver::new();
-        let table: TableNumber = <TableNumber as TableIdentifier>::min();
+        let table = TableNumber::MIN;
 
         let mut id_generator = TransactionIdGenerator::new(&td.rt())?;
         let id = id_generator.generate(table);

@@ -10,7 +10,6 @@ use std::{
 use value::{
     id_v6::DeveloperDocumentId,
     ResolvedDocumentId,
-    TableIdentifier,
     TableMapping,
     TableNamespace,
     TableNumber,
@@ -72,7 +71,7 @@ impl TestIdGenerator {
     pub fn new() -> Self {
         Self {
             curr: 0,
-            curr_table_number: <TableNumber as TableIdentifier>::min(),
+            curr_table_number: TableNumber::MIN,
             table_mapping: TableMapping::new(),
             virtual_table_mapping: VirtualTableMapping::new(),
         }

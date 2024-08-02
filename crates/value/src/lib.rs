@@ -68,7 +68,6 @@ pub use crate::{
     bytes::ConvexBytes,
     document_id::{
         DeveloperDocumentId,
-        GenericDocumentId,
         InternalDocumentId,
         InternalId,
         ResolvedDocumentId,
@@ -120,7 +119,6 @@ pub use crate::{
         TableNamespace,
     },
     table_name::{
-        TableIdentifier,
         TableName,
         TableNumber,
         TableType,

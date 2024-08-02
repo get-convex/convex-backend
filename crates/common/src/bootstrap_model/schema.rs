@@ -3,11 +3,10 @@ use std::str::FromStr;
 use errors::ErrorMetadata;
 use value::{
     id_v6::DeveloperDocumentId,
-    GenericDocumentId,
+    InternalDocumentId,
     ResolvedDocumentId,
     TableMapping,
     TableNamespace,
-    TabletId,
 };
 
 pub use super::{
@@ -21,7 +20,7 @@ pub fn parse_schema_id(
     namespace: TableNamespace,
 ) -> anyhow::Result<ResolvedDocumentId> {
     // Try parsing as a document ID with TableId first
-    match GenericDocumentId::<TabletId>::from_str(schema_id) {
+    match InternalDocumentId::from_str(schema_id) {
         Ok(s) => Ok(s.to_resolved(table_mapping.tablet_number(s.table())?)),
         Err(_) => {
             // Try parsing as an IDv6 ID

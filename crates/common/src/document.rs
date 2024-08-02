@@ -932,7 +932,6 @@ mod tests {
         ConvexValue,
         InternalId,
         ResolvedDocumentId,
-        TableIdentifier,
         TableMapping,
         TableName,
         TableNamespace,
@@ -957,8 +956,8 @@ mod tests {
     #[test]
     fn test_map_table() -> anyhow::Result<()> {
         let internal_id = InternalId::MAX;
-        let tablet_id = <TabletId as TableIdentifier>::min();
-        let table_number = <TableNumber as TableIdentifier>::min();
+        let tablet_id = TabletId::MIN;
+        let table_number = TableNumber::MIN;
         let table_name: TableName = "hewo".parse()?;
         let mut table_mapping = TableMapping::new();
         table_mapping.insert(
@@ -1002,10 +1001,10 @@ mod tests {
     #[test]
     fn test_index_key_missing_field() -> anyhow::Result<()> {
         let doc1 = ResolvedDocument::new(
-            ResolvedDocumentId::min(),
+            ResolvedDocumentId::MIN,
             CreationTime::ONE,
             assert_obj!(
-                "_id" => DeveloperDocumentId::min(),
+                "_id" => DeveloperDocumentId::MIN,
                 "foo" => {
                     "bar" => 5,
                     "baz" => false,
@@ -1013,10 +1012,10 @@ mod tests {
             ),
         )?;
         let doc2 = ResolvedDocument::new(
-            ResolvedDocumentId::min(),
+            ResolvedDocumentId::MIN,
             CreationTime::ONE,
             assert_obj!(
-                "_id" => DeveloperDocumentId::min(),
+                "_id" => DeveloperDocumentId::MIN,
                 "foo" => {"bar" => 5},
             ),
         )?;

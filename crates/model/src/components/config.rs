@@ -772,7 +772,7 @@ impl TryFrom<SchemaChange> for SerializedSchemaChange {
             schema_ids: value
                 .schema_ids
                 .into_iter()
-                .map(|(k, v)| (String::from(k), v.map(|v| String::from(&v))))
+                .map(|(k, v)| (String::from(k), v.map(String::from)))
                 .collect(),
         })
     }

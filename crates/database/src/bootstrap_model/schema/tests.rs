@@ -211,7 +211,7 @@ async fn test_mark_schema_as_validated(rt: TestRuntime) -> anyhow::Result<()> {
             context: ValidationContext::new(),
         },
         table_name: TableName::from_str("table")?,
-        id: DeveloperDocumentId::min(),
+        id: DeveloperDocumentId::MIN,
     };
     model.mark_failed(failed_id, schema_error.clone()).await?;
     let schema_error_string = schema_error.to_string();
@@ -284,7 +284,7 @@ async fn test_mark_schema_as_active(rt: TestRuntime) -> anyhow::Result<()> {
             context: ValidationContext::new(),
         },
         table_name: TableName::from_str("table")?,
-        id: DeveloperDocumentId::min(),
+        id: DeveloperDocumentId::MIN,
     };
     model.mark_failed(failed_id, schema_error.clone()).await?;
     let schema_error_string = schema_error.to_string();
@@ -311,7 +311,7 @@ async fn test_mark_schema_as_failed(rt: TestRuntime) -> anyhow::Result<()> {
             context: ValidationContext::new(),
         },
         table_name: TableName::from_str("table")?,
-        id: DeveloperDocumentId::min(),
+        id: DeveloperDocumentId::MIN,
     };
     model.mark_failed(id, schema_error.clone()).await?;
 
@@ -534,7 +534,7 @@ async fn mark_schema_as_failed(
             context: ValidationContext::new(),
         },
         table_name: TableName::from_str("table")?,
-        id: DeveloperDocumentId::min(),
+        id: DeveloperDocumentId::MIN,
     };
     model.mark_failed(*schema_id, schema_error.clone()).await?;
     Ok(())

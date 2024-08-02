@@ -83,10 +83,9 @@ use value::{
     base64,
     ConvexValue,
     FieldPath,
-    GenericDocumentId,
+    InternalDocumentId,
     InternalId,
     ResolvedDocumentId,
-    TableIdentifier,
 };
 
 use crate::{
@@ -640,10 +639,10 @@ impl TryFrom<InternalId> for QdrantExternalId {
     }
 }
 
-impl<T: TableIdentifier> TryFrom<&GenericDocumentId<T>> for QdrantExternalId {
+impl TryFrom<&InternalDocumentId> for QdrantExternalId {
     type Error = anyhow::Error;
 
-    fn try_from(value: &GenericDocumentId<T>) -> Result<Self, Self::Error> {
+    fn try_from(value: &InternalDocumentId) -> Result<Self, Self::Error> {
         let uuid = Uuid::from_bytes(value.internal_id()[..].try_into()?);
         Ok(Self(PointIdType::Uuid(uuid)))
     }

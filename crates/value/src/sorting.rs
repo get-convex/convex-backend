@@ -587,7 +587,6 @@ mod tests {
         ConvexValue,
         InternalId,
         ResolvedDocumentId,
-        TableIdentifier,
         TableNumber,
         TabletId,
     };
@@ -692,8 +691,8 @@ mod tests {
 
         #[test]
         fn test_compatible_with_internal_id(l in any::<InternalId>(), r in any::<InternalId>())  {
-            let tablet_id = <TabletId as TableIdentifier>::min();
-            let table_number = <TableNumber as TableIdentifier>::min();
+            let tablet_id = TabletId::MIN;
+            let table_number = TableNumber::MIN;
             let l = ResolvedDocumentId {
                 tablet_id,
                 developer_id: DeveloperDocumentId::new(table_number, l),

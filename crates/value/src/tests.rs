@@ -22,7 +22,7 @@ fn test_value_size() -> anyhow::Result<()> {
     // Changing the computed size of a value can make stored TableSummary
     // inconsistent, so when changing this you need to also rewrite all
     // TableSummary snapshots.
-    let value: ConvexValue = ResolvedDocumentId::min().into();
+    let value: ConvexValue = ResolvedDocumentId::MIN.into();
     assert_eq!(value.size(), 33);
     Ok(())
 }

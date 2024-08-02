@@ -2,7 +2,6 @@ use std::{
     fmt::{
         self,
         Debug,
-        Display,
     },
     ops::Deref,
     str::FromStr,
@@ -24,7 +23,7 @@ use crate::{
         check_valid_identifier,
         MIN_IDENTIFIER,
     },
-    GenericDocumentId,
+    DeveloperDocumentId,
     Namespace,
     Size,
 };
@@ -150,6 +149,14 @@ impl From<TableName> for FieldName {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TabletId(pub InternalId);
 
+impl TabletId {
+    pub const MIN: TabletId = TabletId(InternalId::MIN);
+
+    pub fn document_id_to_string(&self, internal_id: InternalId) -> String {
+        format!("{}|{}", *self, internal_id)
+    }
+}
+
 impl HeapSize for TabletId {
     fn heap_size(&self) -> usize {
         0
@@ -194,18 +201,14 @@ impl HeapSize for TableNumber {
     }
 }
 
-impl TableIdentifier for TableNumber {
-    fn min() -> Self {
-        TableNumber(1)
-    }
+impl TableNumber {
+    pub const MIN: TableNumber = TableNumber(1);
 
-    fn document_id_to_string(&self, internal_id: InternalId) -> String {
-        let id_v6 = GenericDocumentId::new(*self, internal_id);
+    pub fn document_id_to_string(&self, internal_id: InternalId) -> String {
+        let id_v6 = DeveloperDocumentId::new(*self, internal_id);
         id_v6.encode()
     }
-}
 
-impl TableNumber {
     pub fn increment(self) -> anyhow::Result<Self> {
         Ok(Self(
             self.0
@@ -221,15 +224,7 @@ pub struct TabletIdAndTableNumber {
     pub tablet_id: TabletId,
 }
 
-pub trait TableIdentifier:
-    Debug + Display + Clone + Copy + HeapSize + Size + Ord + Eq + Sync + Send + 'static
-{
-    fn min() -> Self;
-
-    fn document_id_to_string(&self, internal_id: InternalId) -> String;
-}
-
-impl<T: TableIdentifier> Size for T {
+impl Size for TableNumber {
     fn size(&self) -> usize {
         // In order to compute size consistently for both DocumentId<TableName> and
         // DocumentId<TableId> so it represents the size as stored in persistence,
@@ -242,13 +237,16 @@ impl<T: TableIdentifier> Size for T {
     }
 }
 
-impl TableIdentifier for TabletId {
-    fn min() -> Self {
-        TabletId(InternalId::MIN)
+impl Size for TabletId {
+    fn size(&self) -> usize {
+        // In order to compute size consistently for both DocumentId<TableName> and
+        // DocumentId<TableId> so it represents the size as stored in persistence,
+        // assume that the size is the maximum internal id size.
+        InternalId::MAX_SIZE
     }
 
-    fn document_id_to_string(&self, internal_id: InternalId) -> String {
-        format!("{}|{}", *self, internal_id)
+    fn nesting(&self) -> usize {
+        0
     }
 }
 

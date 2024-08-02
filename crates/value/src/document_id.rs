@@ -24,20 +24,22 @@ use crate::{
     },
     heap_size::HeapSize,
     sha256::Sha256,
-    table_name::TableIdentifier,
     Size,
     TableNumber,
     TabletId,
 };
 
-pub type InternalDocumentId = GenericDocumentId<TabletId>;
-pub type DeveloperDocumentId = GenericDocumentId<TableNumber>;
-
 /// A raw reference to a document. `DocumentId`s can appear in `Value`s as
 /// `Id`s, `StrongRef`s, or `WeakRef`s.
 #[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Copy)]
-pub struct GenericDocumentId<T: TableIdentifier> {
-    table: T,
+pub struct InternalDocumentId {
+    table: TabletId,
+    internal_id: InternalId,
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Copy)]
+pub struct DeveloperDocumentId {
+    table: TableNumber,
     internal_id: InternalId,
 }
 
@@ -48,16 +50,26 @@ pub struct ResolvedDocumentId {
 }
 
 #[cfg(any(test, feature = "testing"))]
-impl<T: TableIdentifier + proptest::arbitrary::Arbitrary> proptest::arbitrary::Arbitrary
-    for GenericDocumentId<T>
-{
+impl proptest::arbitrary::Arbitrary for InternalDocumentId {
     type Parameters = ();
 
     type Strategy = impl proptest::strategy::Strategy<Value = Self>;
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
-        (any::<T>(), any::<InternalId>()).prop_map(|(t, id)| Self::new(t, id))
+        (any::<TabletId>(), any::<InternalId>()).prop_map(|(t, id)| Self::new(t, id))
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl proptest::arbitrary::Arbitrary for DeveloperDocumentId {
+    type Parameters = ();
+
+    type Strategy = impl proptest::strategy::Strategy<Value = Self>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        (any::<TableNumber>(), any::<InternalId>()).prop_map(|(t, id)| Self::new(t, id))
     }
 }
 
@@ -78,14 +90,17 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocumentId {
     }
 }
 
-impl<T: TableIdentifier> GenericDocumentId<T> {
+impl InternalDocumentId {
+    /// Minimum valid [`DocumentId`].
+    pub const MIN: InternalDocumentId = InternalDocumentId::new(TabletId::MIN, InternalId::MIN);
+
     /// Create a new [`DocumentId`] from a [`TableName`] and an [`InternalId`].
-    pub fn new(table: T, internal_id: InternalId) -> Self {
+    pub const fn new(table: TabletId, internal_id: InternalId) -> Self {
         Self { table, internal_id }
     }
 
     /// The table that the reference points into.
-    pub fn table(&self) -> T {
+    pub fn table(&self) -> TabletId {
         self.table
     }
 
@@ -94,9 +109,34 @@ impl<T: TableIdentifier> GenericDocumentId<T> {
         self.internal_id
     }
 
+    /// How large is the given `DocumentId`?
+    pub fn size(&self) -> usize {
+        self.table.size() + self.internal_id.size()
+    }
+
+    pub fn into_table_and_id(self) -> (TabletId, InternalId) {
+        (self.table, self.internal_id)
+    }
+}
+
+impl DeveloperDocumentId {
     /// Minimum valid [`DocumentId`].
-    pub fn min() -> Self {
-        Self::new(<T as TableIdentifier>::min(), InternalId::MIN)
+    pub const MIN: DeveloperDocumentId =
+        DeveloperDocumentId::new(TableNumber::MIN, InternalId::MIN);
+
+    /// Create a new [`DocumentId`] from a [`TableName`] and an [`InternalId`].
+    pub const fn new(table: TableNumber, internal_id: InternalId) -> Self {
+        Self { table, internal_id }
+    }
+
+    /// The table that the reference points into.
+    pub fn table(&self) -> TableNumber {
+        self.table
+    }
+
+    /// The ID of the document the reference points at.
+    pub fn internal_id(&self) -> InternalId {
+        self.internal_id
     }
 
     /// How large is the given `DocumentId`?
@@ -104,43 +144,54 @@ impl<T: TableIdentifier> GenericDocumentId<T> {
         self.table.size() + self.internal_id.size()
     }
 
-    pub fn map_table<U: TableIdentifier>(
-        self,
-        f: impl Fn(T) -> anyhow::Result<U>,
-    ) -> anyhow::Result<GenericDocumentId<U>> {
-        Ok(GenericDocumentId::new(f(self.table)?, self.internal_id))
-    }
-
-    pub fn into_table_and_id(self) -> (T, InternalId) {
+    pub fn into_table_and_id(self) -> (TableNumber, InternalId) {
         (self.table, self.internal_id)
     }
 }
 
-impl<T: TableIdentifier> Debug for GenericDocumentId<T> {
+impl Debug for InternalDocumentId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
-impl<T: TableIdentifier> From<GenericDocumentId<T>> for String {
-    fn from(id: GenericDocumentId<T>) -> Self {
-        (&id).into()
+impl Debug for DeveloperDocumentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
-impl<'a, T: TableIdentifier> From<&'a GenericDocumentId<T>> for String {
-    fn from(id: &'a GenericDocumentId<T>) -> Self {
+impl From<InternalDocumentId> for String {
+    fn from(id: InternalDocumentId) -> Self {
         id.table().document_id_to_string(id.internal_id)
     }
 }
 
-impl<T: TableIdentifier> From<GenericDocumentId<T>> for JsonValue {
-    fn from(id: GenericDocumentId<T>) -> JsonValue {
+impl From<DeveloperDocumentId> for String {
+    fn from(id: DeveloperDocumentId) -> Self {
+        id.table().document_id_to_string(id.internal_id)
+    }
+}
+
+impl From<InternalDocumentId> for JsonValue {
+    fn from(id: InternalDocumentId) -> JsonValue {
         serde_json::Value::String(id.into())
     }
 }
 
-impl<T: TableIdentifier> Display for GenericDocumentId<T> {
+impl From<DeveloperDocumentId> for JsonValue {
+    fn from(id: DeveloperDocumentId) -> JsonValue {
+        serde_json::Value::String(id.into())
+    }
+}
+
+impl Display for InternalDocumentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", String::from(*self))
+    }
+}
+
+impl Display for DeveloperDocumentId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", String::from(*self))
     }
@@ -167,7 +218,13 @@ impl FromStr for InternalDocumentId {
     }
 }
 
-impl<T: TableIdentifier> HeapSize for GenericDocumentId<T> {
+impl HeapSize for InternalDocumentId {
+    fn heap_size(&self) -> usize {
+        self.table.heap_size()
+    }
+}
+
+impl HeapSize for DeveloperDocumentId {
     fn heap_size(&self) -> usize {
         self.table.heap_size()
     }
@@ -175,22 +232,18 @@ impl<T: TableIdentifier> HeapSize for GenericDocumentId<T> {
 
 impl From<ResolvedDocumentId> for InternalDocumentId {
     fn from(value: ResolvedDocumentId) -> Self {
-        GenericDocumentId::new(value.tablet_id, value.developer_id.internal_id)
+        InternalDocumentId::new(value.tablet_id, value.developer_id.internal_id)
     }
 }
 
 impl ResolvedDocumentId {
-    pub fn new(tablet_id: TabletId, developer_id: DeveloperDocumentId) -> Self {
+    pub const MIN: ResolvedDocumentId =
+        ResolvedDocumentId::new(TabletId::MIN, DeveloperDocumentId::MIN);
+
+    pub const fn new(tablet_id: TabletId, developer_id: DeveloperDocumentId) -> Self {
         Self {
             tablet_id,
             developer_id,
-        }
-    }
-
-    pub fn min() -> Self {
-        Self {
-            tablet_id: <TabletId as TableIdentifier>::min(),
-            developer_id: DeveloperDocumentId::min(),
         }
     }
 

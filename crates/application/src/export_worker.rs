@@ -1204,7 +1204,7 @@ mod tests {
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
         let table_upload = TableUpload::new(storage.clone(), ExportFormat::InternalJson).await?;
         let document = ResolvedDocument::new(
-            ResolvedDocumentId::min(),
+            ResolvedDocumentId::MIN,
             (1234.0).try_into()?,
             ConvexObject::for_value("a".parse()?, 33.into())?,
         )?;
@@ -1234,7 +1234,7 @@ mod tests {
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
         let table_upload = TableUpload::new(storage.clone(), ExportFormat::CleanJsonl).await?;
         let document = ResolvedDocument::new(
-            ResolvedDocumentId::min(),
+            ResolvedDocumentId::MIN,
             (1234.0).try_into()?,
             ConvexObject::for_value("a".parse()?, 33.into())?,
         )?;

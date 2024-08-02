@@ -87,11 +87,9 @@ use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::WithHeapSize,
     id_v6::DeveloperDocumentId,
-    GenericDocumentId,
     InternalDocumentId,
     TableMapping,
     TableName,
-    TabletId,
 };
 use vector::DocInVectorIndex;
 
@@ -517,7 +515,7 @@ impl<RT: Runtime> Committer<RT> {
         ordered_updates.sort_by_key(|(id, update)| {
             table_dependency_sort_key(
                 BootstrapTableIds::new(&transaction.table_mapping),
-                GenericDocumentId::<TabletId>::from(*id),
+                InternalDocumentId::from(*id),
                 update.new_document.as_ref(),
             )
         });
@@ -959,7 +957,7 @@ impl<RT: Runtime> CommitterClient<RT> {
             );
             let generated_ids_with_ts: BTreeSet<_> = generated_ids
                 .iter()
-                .map(|id| (GenericDocumentId::<TabletId>::from(*id), ts))
+                .map(|id| (InternalDocumentId::from(*id), ts))
                 .collect();
             let mut previous_revisions_of_ids = repeatable_persistence
                 .previous_revisions(generated_ids_with_ts)
@@ -968,7 +966,7 @@ impl<RT: Runtime> CommitterClient<RT> {
             {
                 let display_id = generated_ids
                     .iter()
-                    .find(|id| GenericDocumentId::<TabletId>::from(**id) == document_id)
+                    .find(|id| InternalDocumentId::from(**id) == document_id)
                     .map(|id| DeveloperDocumentId::from(*id).encode())
                     .unwrap_or(document_id.to_string());
                 if maybe_doc.is_none() {
