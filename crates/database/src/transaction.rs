@@ -69,6 +69,7 @@ use common::{
         VirtualTableMapping,
     },
     version::Version,
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadata;
 use imbl::OrdMap;
@@ -115,7 +116,6 @@ use crate::{
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
     transaction_index::TransactionIndex,
-    virtual_tables::VirtualSystemMapping,
     write_limits::BiggestDocumentWrites,
     writes::{
         NestedWriteToken,

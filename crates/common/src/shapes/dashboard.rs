@@ -3,12 +3,12 @@ use serde_json::{
     Value as JsonValue,
 };
 use value::{
-    utils::all_tables_number_to_name,
     NamespacedTableMapping,
     NamespacedVirtualTableMapping,
 };
 
 use super::reduced::ReducedShape;
+use crate::virtual_system_mapping::all_tables_number_to_name;
 
 pub fn dashboard_shape_json(
     shape: &ReducedShape,
@@ -104,7 +104,6 @@ mod tests {
     use serde::Deserialize;
     use serde_json::Value as JsonValue;
     use value::{
-        utils::all_tables_name_to_number,
         TableMapping,
         TableName,
         TableNamespace,
@@ -119,6 +118,7 @@ mod tests {
             ReducedShape,
         },
         testing::TestIdGenerator,
+        virtual_system_mapping::all_tables_name_to_number,
     };
 
     fn parse_json(

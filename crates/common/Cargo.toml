@@ -35,6 +35,7 @@ headers = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true }
+imbl = { workspace = true }
 itertools = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }

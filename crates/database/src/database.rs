@@ -95,6 +95,7 @@ use common::{
         TabletId,
         VirtualTableMapping,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::{
     ErrorMetadata,
@@ -206,7 +207,6 @@ use crate::{
     FollowerRetentionManager,
     TableIterator,
     Transaction,
-    VirtualSystemMapping,
 };
 
 /// Controls the number of read set backtraces to show when debugging

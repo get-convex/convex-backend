@@ -183,10 +183,6 @@ pub use self::{
     transaction::DEFAULT_PAGE_SIZE,
     transaction_id_generator::TransactionIdGenerator,
     transaction_index::TransactionIndex,
-    virtual_tables::{
-        VirtualSystemDocMapper,
-        VirtualSystemMapping,
-    },
 };
 #[cfg(any(test, feature = "testing"))]
 pub use crate::bootstrap_model::test_facing::TestFacingModel;

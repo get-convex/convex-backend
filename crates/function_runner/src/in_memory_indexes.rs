@@ -38,6 +38,7 @@ use common::{
         IndexId,
         RepeatableTimestamp,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use database::{
     BootstrapMetadata,
@@ -48,7 +49,6 @@ use database::{
     TransactionIdGenerator,
     TransactionIndex,
     TransactionTextSnapshot,
-    VirtualSystemMapping,
     VIRTUAL_TABLES_TABLE,
 };
 use futures::{

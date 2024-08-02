@@ -33,6 +33,7 @@ use common::{
         GenericIndexName,
         IndexName,
     },
+    virtual_system_mapping::VirtualSystemDocMapper,
 };
 use database::{
     defaults::system_index,
@@ -40,7 +41,6 @@ use database::{
     ResolvedQuery,
     SystemMetadataModel,
     Transaction,
-    VirtualSystemDocMapper,
 };
 use errors::ErrorMetadata;
 use maplit::btreemap;

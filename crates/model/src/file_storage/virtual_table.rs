@@ -3,16 +3,18 @@ use std::{
     sync::LazyLock,
 };
 
-use common::document::{
-    DeveloperDocument,
-    ParsedDocument,
-    ResolvedDocument,
-    CREATION_TIME_FIELD,
-    ID_FIELD,
-};
-use database::{
-    VirtualSystemDocMapper,
-    VirtualSystemMapping,
+use common::{
+    document::{
+        DeveloperDocument,
+        ParsedDocument,
+        ResolvedDocument,
+        CREATION_TIME_FIELD,
+        ID_FIELD,
+    },
+    virtual_system_mapping::{
+        VirtualSystemDocMapper,
+        VirtualSystemMapping,
+    },
 };
 use semver::Version;
 use value::{

@@ -68,6 +68,10 @@ use common::{
         ConvexObject,
         ConvexValue,
     },
+    virtual_system_mapping::{
+        NoopDocMapper,
+        VirtualSystemMapping,
+    },
 };
 use errors::{
     ErrorMetadata,
@@ -111,7 +115,6 @@ use crate::{
         DbFixtures,
         DbFixturesArgs,
     },
-    virtual_tables::NoopDocMapper,
     write_log::WriteSource,
     Database,
     DatabaseSnapshot,
@@ -124,7 +127,6 @@ use crate::{
     TestFacingModel,
     Transaction,
     UserFacingModel,
-    VirtualSystemMapping,
 };
 
 mod randomized_search_tests;

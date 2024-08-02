@@ -28,7 +28,6 @@ use value::{
     id_v6::DeveloperDocumentId,
     sorting::TotalOrdF64,
     utils::{
-        all_tables_number_to_name,
         display_map,
         display_sequence,
     },
@@ -51,6 +50,7 @@ use crate::{
         ID_FIELD,
     },
     json_schemas,
+    virtual_system_mapping::all_tables_number_to_name,
 };
 
 /// Validates that a Convex value has the given type.

@@ -27,6 +27,7 @@ use common::{
         TableMapping,
         TabletIdAndTableNumber,
     },
+    virtual_system_mapping::VirtualSystemDocMapper,
 };
 use maplit::btreemap;
 use value::{
@@ -51,7 +52,6 @@ use crate::{
     },
     ComponentDefinitionsTable,
     ComponentsTable,
-    VirtualSystemDocMapper,
     INDEX_WORKER_METADATA_TABLE,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
     SCHEMAS_TABLE,

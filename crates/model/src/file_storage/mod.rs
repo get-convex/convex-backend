@@ -24,6 +24,7 @@ use common::{
         GenericIndexName,
         IndexName,
     },
+    virtual_system_mapping::VirtualSystemDocMapper,
 };
 use database::{
     defaults::system_index,
@@ -36,7 +37,6 @@ use database::{
     SystemMetadataModel,
     TableModel,
     Transaction,
-    VirtualSystemDocMapper,
 };
 use errors::ErrorMetadata;
 use keybroker::Identity;

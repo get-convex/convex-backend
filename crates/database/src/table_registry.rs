@@ -19,6 +19,7 @@ use common::{
         TabletIdAndTableNumber,
         VirtualTableMapping,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use imbl::OrdMap;
 use indexing::index_registry::IndexRegistry;
@@ -30,7 +31,6 @@ use value::{
 use crate::{
     defaults::bootstrap_system_tables,
     metrics::bootstrap_table_registry_timer,
-    VirtualSystemMapping,
     VirtualTableMetadata,
     VIRTUAL_TABLES_TABLE,
 };
@@ -439,6 +439,10 @@ mod tests {
             PersistenceVersion,
             TabletIndexName,
         },
+        virtual_system_mapping::{
+            NoopDocMapper,
+            VirtualSystemMapping,
+        },
     };
     use imbl::OrdMap;
     use indexing::index_registry::IndexRegistry;
@@ -448,9 +452,7 @@ mod tests {
     };
 
     use crate::{
-        virtual_tables::NoopDocMapper,
         TableRegistry,
-        VirtualSystemMapping,
         VirtualTableMetadata,
         VIRTUAL_TABLES_TABLE,
     };

@@ -47,6 +47,7 @@ use common::{
     },
     runtime::Runtime,
     types::TabletIndexName,
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use components::handles::FunctionHandlesTable;
 pub use database::defaults::{
@@ -63,7 +64,6 @@ use database::{
     SchemasTable,
     TablesTable,
     Transaction,
-    VirtualSystemMapping,
     VirtualTablesTable,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
 };

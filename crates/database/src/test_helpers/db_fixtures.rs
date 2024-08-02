@@ -8,6 +8,7 @@ use common::{
         SpawnHandle,
     },
     testing::TestPersistence,
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use events::testing::TestUsageEventLogger;
 use search::{
@@ -27,7 +28,6 @@ use crate::{
     Database,
     ShutdownSignal,
     Transaction,
-    VirtualSystemMapping,
 };
 
 pub struct DbFixtures<RT: Runtime> {
