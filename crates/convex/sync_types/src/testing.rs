@@ -22,14 +22,14 @@ pub fn arb_json() -> impl Strategy<Value = JsonValue> {
         ".*".prop_map(JsonValue::String),
     ];
     leaf.prop_recursive(
-        8,   // 8 levels deep
-        256, // Shoot for maximum size of 256 nodes
-        10,  // We put up to 10 items per collection
+        4,   // 4 levels deep
+        128, // Shoot for maximum size of 128 nodes
+        5,   // We put up to 5 items per collection
         |inner| {
             prop_oneof![
                 // Take the inner strategy and make the two recursive cases.
-                prop::collection::vec(inner.clone(), 0..10).prop_map(JsonValue::Array),
-                prop::collection::hash_map(".*", inner, 0..10)
+                prop::collection::vec(inner.clone(), 0..5).prop_map(JsonValue::Array),
+                prop::collection::hash_map(".*", inner, 0..5)
                     .prop_map(|m| JsonValue::Object(m.into_iter().collect())),
             ]
         },

@@ -790,7 +790,7 @@ struct UserIdentityAttributesJson {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_at: Option<String>,
     #[serde(flatten)]
-    pub custom_claims: Option<BTreeMap<String, String>>,
+    pub custom_claims: Option<BTreeMap<String, JsonValue>>,
 }
 
 impl TryFrom<JsonValue> for UserIdentityAttributes {
@@ -808,6 +808,13 @@ impl TryFrom<JsonValue> for UserIdentityAttributes {
         let custom_claims = raw
             .custom_claims
             .context("expected custom claims to be set")?;
+        let custom_claims_string = custom_claims
+            .into_iter()
+            .map(|(key, value)| {
+                let value_string = serde_json::to_string(&value)?;
+                Ok((key, value_string))
+            })
+            .collect::<anyhow::Result<_>>()?;
 
         Ok(UserIdentityAttributes {
             token_identifier,
@@ -831,7 +838,7 @@ impl TryFrom<JsonValue> for UserIdentityAttributes {
             phone_number_verified: raw.phone_number_verified,
             address: raw.address,
             updated_at: raw.updated_at,
-            custom_claims,
+            custom_claims: custom_claims_string,
         })
     }
 }
@@ -840,6 +847,14 @@ impl TryFrom<UserIdentityAttributes> for JsonValue {
     type Error = anyhow::Error;
 
     fn try_from(value: UserIdentityAttributes) -> Result<Self, Self::Error> {
+        let custom_claims_json = value
+            .custom_claims
+            .into_iter()
+            .map(|(key, value)| {
+                let value_json = serde_json::from_str(&value)?;
+                Ok((key, value_json))
+            })
+            .collect::<anyhow::Result<_>>()?;
         let raw = UserIdentityAttributesJson {
             token_identifier: Some(value.token_identifier),
             issuer: value.issuer,
@@ -862,7 +877,7 @@ impl TryFrom<UserIdentityAttributes> for JsonValue {
             phone_number_verified: value.phone_number_verified,
             address: value.address,
             updated_at: value.updated_at,
-            custom_claims: Some(value.custom_claims),
+            custom_claims: Some(custom_claims_json),
         };
         Ok(serde_json::to_value(raw)?)
     }

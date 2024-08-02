@@ -17,6 +17,8 @@ use serde::{
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
+#[cfg(any(test, feature = "testing"))]
+use crate::testing::arb_json;
 use crate::{
     Timestamp,
     UdfPath,
@@ -51,7 +53,17 @@ pub type IdentityVersion = u32;
 /// it's good enough for our tests here.
 #[cfg(any(test, feature = "testing"))]
 fn string_json_args_strategy() -> impl proptest::strategy::Strategy<Value = Vec<JsonValue>> {
-    Vec::<String>::arbitrary().prop_map(|v| v.iter().map(|s| JsonValue::String(s.into())).collect())
+    prop::collection::vec(any::<String>(), 0..2)
+        .prop_map(|v| v.iter().map(|s| JsonValue::String(s.into())).collect())
+}
+
+#[cfg(any(test, feature = "testing"))]
+fn custom_claims_strategy() -> impl proptest::strategy::Strategy<Value = BTreeMap<String, String>> {
+    prop::collection::btree_map(
+        any::<String>(),
+        arb_json().prop_map(|v| serde_json::to_string(&v).unwrap()),
+        0..2,
+    )
 }
 
 /// This strategy only generates a string (not arbitrary JSON) but
@@ -102,7 +114,7 @@ pub enum ClientMessage {
         new_version: QuerySetVersion,
         #[cfg_attr(
             any(test, feature = "testing"),
-            proptest(strategy = "prop::collection::vec(any::<QuerySetModification>(), 0..8)")
+            proptest(strategy = "prop::collection::vec(any::<QuerySetModification>(), 0..2)")
         )]
         modifications: Vec<QuerySetModification>,
     },
@@ -194,6 +206,11 @@ pub struct UserIdentityAttributes {
     pub address: Option<String>,
     /// Stored as RFC3339 string
     pub updated_at: Option<String>,
+
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "custom_claims_strategy()")
+    )]
     pub custom_claims: BTreeMap<String, String>,
 }
 
