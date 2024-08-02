@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use serde::{
     Deserialize,
     Serialize,
@@ -111,5 +113,37 @@ impl From<CanonicalizedComponentFunctionPath> for ComponentFunctionPath {
 impl HeapSize for CanonicalizedComponentFunctionPath {
     fn heap_size(&self) -> usize {
         self.component.heap_size() + self.udf_path.heap_size()
+    }
+}
+
+pub struct ExportPath {
+    path: CanonicalizedUdfPath,
+}
+
+impl From<CanonicalizedUdfPath> for ExportPath {
+    fn from(path: CanonicalizedUdfPath) -> Self {
+        Self { path }
+    }
+}
+
+impl From<ExportPath> for CanonicalizedUdfPath {
+    fn from(p: ExportPath) -> Self {
+        p.path
+    }
+}
+
+impl FromStr for ExportPath {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self {
+            path: CanonicalizedUdfPath::from_str(s)?,
+        })
+    }
+}
+
+impl From<ExportPath> for String {
+    fn from(p: ExportPath) -> Self {
+        p.path.to_string()
     }
 }

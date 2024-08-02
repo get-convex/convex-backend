@@ -1223,7 +1223,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&path, args)?;
+        let arguments = parse_udf_args(&path.udf_path, args)?;
         let str_name = String::from(path.udf_path);
         let outcome = self
             .raw_query(&str_name, arguments.into(), identity, None)
@@ -1243,7 +1243,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&path, args)?;
+        let arguments = parse_udf_args(&path.udf_path, args)?;
         let str_name = String::from(path.udf_path);
         let outcome = self
             .raw_mutation(&str_name, arguments.into(), identity)
@@ -1263,7 +1263,7 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         args: Vec<JsonValue>,
         _context: ExecutionContext,
     ) -> anyhow::Result<FunctionResult> {
-        let arguments = parse_udf_args(&path, args)?;
+        let arguments = parse_udf_args(&path.udf_path, args)?;
         let str_name = String::from(path.udf_path);
         let (outcome, _) = self
             .raw_action(&str_name, arguments.into(), identity)

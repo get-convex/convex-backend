@@ -31,6 +31,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
+        ExportPath,
     },
     http::ResolvedHost,
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
@@ -83,6 +84,7 @@ use sync_types::{
     StateModification,
     StateVersion,
     Timestamp,
+    UdfPath,
 };
 
 use crate::{
@@ -389,15 +391,20 @@ impl<RT: Runtime> SyncWorker<RT> {
         self.state.current_version().identity
     }
 
-    pub fn parse_component_path(
-        component_path: Option<&str>,
+    pub fn parse_admin_component_path(
+        component_path: &str,
+        udf_path: &UdfPath,
         identity: &Identity,
-    ) -> anyhow::Result<ComponentPath> {
-        let path = ComponentPath::deserialize(component_path)?;
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
+        let path = ComponentPath::deserialize(Some(component_path))?;
         anyhow::ensure!(
             path.is_root() || identity.is_admin() || identity.is_system(),
             "Only admin or system users can call functions on non-root components directly"
         );
+        let path = CanonicalizedComponentFunctionPath {
+            component: path,
+            udf_path: udf_path.clone().canonicalize(),
+        };
         Ok(path)
     }
 
@@ -477,27 +484,41 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let timer = mutation_queue_timer();
                 let api = self.api.clone();
                 let host = self.host.clone();
-                let component = Self::parse_component_path(component_path.as_deref(), &identity)?;
-                let path = CanonicalizedComponentFunctionPath {
-                    component,
-                    udf_path: udf_path.clone().canonicalize(),
-                };
+                let caller = FunctionCaller::SyncWorker(client_version);
+
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
                         timer.finish();
-                        let result = api
-                            .execute_public_mutation(
-                                &host,
-                                server_request_id,
-                                identity,
-                                path,
-                                args,
-                                FunctionCaller::SyncWorker(client_version),
-                                mutation_identifier,
-                            )
-                            .in_span(root)
-                            .await?;
-
+                        let result = match component_path {
+                            None => {
+                                api.execute_public_mutation(
+                                    &host,
+                                    server_request_id,
+                                    identity,
+                                    ExportPath::from(udf_path.canonicalize()),
+                                    args,
+                                    caller,
+                                    mutation_identifier,
+                                )
+                                .in_span(root)
+                                .await?
+                            },
+                            Some(ref p) => {
+                                let path =
+                                    Self::parse_admin_component_path(p, &udf_path, &identity)?;
+                                api.execute_admin_mutation(
+                                    &host,
+                                    server_request_id,
+                                    identity,
+                                    path,
+                                    args,
+                                    caller,
+                                    mutation_identifier,
+                                )
+                                .in_span(root)
+                                .await?
+                            },
+                        };
                         let response = match result {
                             Ok(udf_return) => ServerMessage::MutationResponse {
                                 request_id,
@@ -549,11 +570,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
-                let component = Self::parse_component_path(component_path.as_deref(), &identity)?;
-                let path = CanonicalizedComponentFunctionPath {
-                    component,
-                    udf_path: udf_path.clone().canonicalize(),
-                };
                 let root = self.rt.with_rng(|rng| {
                     get_sampled_span(
                         "sync-worker/action",
@@ -565,17 +581,34 @@ impl<RT: Runtime> SyncWorker<RT> {
                     )
                 });
                 let future = async move {
-                    let result = api
-                        .execute_public_action(
-                            &host,
-                            server_request_id,
-                            identity,
-                            path,
-                            args,
-                            FunctionCaller::SyncWorker(client_version),
-                        )
-                        .in_span(root)
-                        .await?;
+                    let caller = FunctionCaller::SyncWorker(client_version);
+                    let result = match component_path {
+                        None => {
+                            api.execute_public_action(
+                                &host,
+                                server_request_id,
+                                identity,
+                                ExportPath::from(udf_path.canonicalize()),
+                                args,
+                                caller,
+                            )
+                            .in_span(root)
+                            .await?
+                        },
+                        Some(ref p) => {
+                            let path = Self::parse_admin_component_path(p, &udf_path, &identity)?;
+                            api.execute_admin_action(
+                                &host,
+                                server_request_id,
+                                identity,
+                                path,
+                                args,
+                                caller,
+                            )
+                            .in_span(root)
+                            .await?
+                        },
+                    };
                     let response = match result {
                         Ok(udf_return) => ServerMessage::ActionResponse {
                             request_id,
@@ -721,29 +754,46 @@ impl<RT: Runtime> SyncWorker<RT> {
                     None => {
                         // We failed to refresh the subscription or it was invalid to start
                         // with. Rerun the query.
-                        let component = Self::parse_component_path(
-                            query.component_path.as_deref(),
-                            &identity_,
-                        )?;
-                        let udf_return = api
-                            .execute_public_query(
-                                // This query run might have been triggered due to invalidation
-                                // of a subscription. The sync worker is effectively the owner of
-                                // the query so we do not want to re-use the original query request
-                                // id.
-                                &host,
-                                RequestId::new(),
-                                identity_,
-                                CanonicalizedComponentFunctionPath {
-                                    component,
-                                    udf_path: query.udf_path.canonicalize(),
-                                },
-                                query.args,
-                                FunctionCaller::SyncWorker(client_version),
-                                ExecuteQueryTimestamp::At(new_ts),
-                                query.journal,
-                            )
-                            .await?;
+                        let caller = FunctionCaller::SyncWorker(client_version);
+                        let ts = ExecuteQueryTimestamp::At(new_ts);
+
+                        // This query run might have been triggered due to invalidation
+                        // of a subscription. The sync worker is effectively the owner
+                        // of the query so we do not want to re-use the original query request id.
+                        let request_id = RequestId::new();
+                        let udf_return = match query.component_path {
+                            None => {
+                                api.execute_public_query(
+                                    &host,
+                                    request_id,
+                                    identity_,
+                                    ExportPath::from(query.udf_path.canonicalize()),
+                                    query.args,
+                                    caller,
+                                    ts,
+                                    query.journal,
+                                )
+                                .await?
+                            },
+                            Some(ref p) => {
+                                let path = Self::parse_admin_component_path(
+                                    p,
+                                    &query.udf_path,
+                                    &identity_,
+                                )?;
+                                api.execute_admin_query(
+                                    &host,
+                                    request_id,
+                                    identity_,
+                                    path,
+                                    query.args,
+                                    caller,
+                                    ts,
+                                    query.journal,
+                                )
+                                .await?
+                            },
+                        };
                         let subscription = subscriptions_client.subscribe(udf_return.token).await?;
                         (
                             QueryResult::Rerun {

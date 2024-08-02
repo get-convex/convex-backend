@@ -22,6 +22,7 @@ use humansize::{
 };
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
+use sync_types::CanonicalizedUdfPath;
 use value::Size;
 
 use crate::strings;
@@ -104,7 +105,7 @@ pub fn serialize_udf_args(args: ConvexArray) -> anyhow::Result<String> {
 }
 
 pub fn parse_udf_args(
-    path: &CanonicalizedComponentFunctionPath,
+    path: &CanonicalizedUdfPath,
     args: Vec<JsonValue>,
 ) -> Result<ConvexArray, JsError> {
     args.into_iter()
@@ -114,19 +115,19 @@ pub fn parse_udf_args(
         .map_err(|err| {
             JsError::from_message(format!(
                 "Invalid arguments for {}: {err}",
-                String::from(path.udf_path.clone()),
+                String::from(path.clone()),
             ))
         })
 }
 
 pub fn validate_udf_args_size(
-    path: &CanonicalizedComponentFunctionPath,
+    path: &CanonicalizedUdfPath,
     args: &ConvexArray,
 ) -> Result<(), JsError> {
     if args.size() > *FUNCTION_MAX_ARGS_SIZE {
         return Err(JsError::from_message(format!(
             "Arguments for {} are too large (actual: {}, limit: {})",
-            path.udf_path.clone(),
+            path.clone(),
             args.size().format_size(BINARY),
             (*FUNCTION_MAX_ARGS_SIZE).format_size(BINARY),
         )));
