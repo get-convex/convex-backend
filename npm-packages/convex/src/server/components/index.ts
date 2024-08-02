@@ -61,42 +61,60 @@ export async function createFunctionHandle<
   return await performAsyncSyscall("1.0/createFunctionHandle", { udfPath });
 }
 
+interface ComponentExports {
+  [key: string]: FunctionReference<any, any, any, any> | ComponentExports;
+}
+
 /**
  * An object of this type should be the default export of a
  * component.config.ts file in a component definition directory.
  *
  * @internal
  */ // eslint-disable-next-line @typescript-eslint/ban-types
-export type ComponentDefinition<Args extends PropertyValidators = EmptyObject> =
-  {
-    /**
-     * Install a component with the given definition in this component definition.
-     *
-     * Takes a component definition, an optional name, and the args it requires.
-     *
-     * For editor tooling this method expects a {@link ComponentDefinition}
-     * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
-     */
-    install<Definition extends ComponentDefinition<any>>(
-      definition: Definition,
-      options: {
-        name?: string;
-        // TODO we have to do the "arguments are optional if empty, otherwise required"
-        args?: ObjectType<ExtractArgs<Definition>>;
-      },
-    ): InstalledComponent<Definition>;
+export type ComponentDefinition<
+  Args extends PropertyValidators = EmptyObject,
+  Exports extends ComponentExports = any,
+> = {
+  /**
+   * Install a component with the given definition in this component definition.
+   *
+   * Takes a component definition, an optional name, and the args it requires.
+   *
+   * For editor tooling this method expects a {@link ComponentDefinition}
+   * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
+   */
+  install<Definition extends ComponentDefinition<any, any>>(
+    definition: Definition,
+    options: {
+      name?: string;
+      // TODO we have to do the "arguments are optional if empty, otherwise required"
+      args?: ObjectType<ComponentDefinitionArgs<Definition>>;
+    },
+  ): InstalledComponent<Definition>;
 
-    /**
-     * Mount a component's HTTP router at a given path prefix.
-     */
-    mountHttp(pathPrefix: string, component: InstalledComponent<any>): void;
+  mount(exports: ComponentExports): void;
 
-    // TODO this will be needed once components are responsible for building interfaces for themselves
-    /**
-     * @internal
-     */
-    __args: Args;
-  };
+  /**
+   * Mount a component's HTTP router at a given path prefix.
+   */
+  mountHttp(pathPrefix: string, component: InstalledComponent<any>): void;
+
+  // TODO this will be needed once components are responsible for building interfaces for themselves
+  /**
+   * @internal
+   */
+  __args: Args;
+
+  /**
+   * @internal
+   */
+  __exports: Exports;
+};
+
+type ComponentDefinitionArgs<T extends ComponentDefinition<any, any>> =
+  T["__args"];
+type ComponentDefinitionExports<T extends ComponentDefinition<any, any>> =
+  T["__exports"];
 
 /**
  * An object of this type should be the default export of a
@@ -113,19 +131,26 @@ export type AppDefinition = {
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
-  install<Definition extends ComponentDefinition<any>>(
+  install<Definition extends ComponentDefinition<any, any>>(
     definition: Definition,
     options: {
       name?: string;
-      args?: ObjectType<ExtractArgs<Definition>>;
+      args?: ObjectType<ComponentDefinitionArgs<Definition>>;
     },
   ): InstalledComponent<Definition>;
+
+  mount(exports: ComponentExports): void;
 
   /**
    * Mount a component's HTTP router at a given path prefix.
    */
   mountHttp(pathPrefix: string, component: InstalledComponent<any>): void;
 };
+
+interface ExportTree {
+  // Tree with serialized `Reference`s as leaves.
+  [key: string]: string | ExportTree;
+}
 
 type CommonDefinitionData = {
   _isRoot: boolean;
@@ -135,6 +160,7 @@ type CommonDefinitionData = {
     Record<string, any>,
   ][];
   _httpMounts: Record<string, HttpMount>;
+  _exportTree: ExportTree;
 };
 
 type ComponentDefinitionData = CommonDefinitionData & {
@@ -143,12 +169,10 @@ type ComponentDefinitionData = CommonDefinitionData & {
 };
 type AppDefinitionData = CommonDefinitionData;
 
-type ExtractArgs<T> = T extends ComponentDefinition<infer P> ? P : never;
-
 /**
  * Used to refer to an already-installed component.
  */
-class InstalledComponent<Definition extends ComponentDefinition<any>> {
+class InstalledComponent<Definition extends ComponentDefinition<any, any>> {
   /**
    * @internal
    */
@@ -159,10 +183,37 @@ class InstalledComponent<Definition extends ComponentDefinition<any>> {
    */
   [toReferencePath]: string;
 
-  constructor(definition: Definition, name: string) {
+  constructor(
+    definition: Definition,
+    private _name: string,
+  ) {
     this._definition = definition;
-    this[toReferencePath] = `_reference/childComponent/${name}`;
+    this[toReferencePath] = `_reference/childComponent/${_name}`;
   }
+
+  get exports(): ComponentDefinitionExports<Definition> {
+    return createExports(this._name, []);
+  }
+}
+
+function createExports(name: string, pathParts: string[]): any {
+  const handler: ProxyHandler<any> = {
+    get(_, prop: string | symbol) {
+      if (typeof prop === "string") {
+        const newParts = [...pathParts, prop];
+        return createExports(name, newParts);
+      } else if (prop === toReferencePath) {
+        let reference = `_reference/childComponent/${name}`;
+        for (const part of pathParts) {
+          reference += `/${part}`;
+        }
+        return reference;
+      } else {
+        return undefined;
+      }
+    },
+  };
+  return new Proxy({}, handler);
 }
 
 function install<Definition extends ComponentDefinition<any>>(
@@ -170,7 +221,7 @@ function install<Definition extends ComponentDefinition<any>>(
   definition: Definition,
   options: {
     name?: string;
-    args?: Infer<ExtractArgs<Definition>>;
+    args?: Infer<ComponentDefinitionArgs<Definition>>;
   } = {},
 ): InstalledComponent<Definition> {
   // At runtime an imported component will have this shape.
@@ -191,6 +242,46 @@ function install<Definition extends ComponentDefinition<any>>(
   ]);
 
   return new InstalledComponent(definition, name);
+}
+
+function mount(this: CommonDefinitionData, exports: any) {
+  function visit(definition: CommonDefinitionData, path: string[], value: any) {
+    const valueReference = value[toReferencePath];
+    if (valueReference) {
+      if (!path.length) {
+        throw new Error("Empty export path");
+      }
+      let current = definition._exportTree;
+      for (const part of path.slice(0, -1)) {
+        let next = current[part];
+        if (typeof next === "string") {
+          throw new Error(
+            `Mount path ${path.join(".")} collides with existing export`,
+          );
+        }
+        if (!next) {
+          next = {};
+          current[part] = next;
+        }
+        current = next;
+      }
+      const last = path[path.length - 1];
+      if (current[last]) {
+        throw new Error(
+          `Mount path ${path.join(".")} collides with existing export`,
+        );
+      }
+      current[last] = valueReference;
+    } else {
+      for (const [key, child] of Object.entries(value)) {
+        visit(definition, [...path, key], child);
+      }
+    }
+  }
+  if (exports[toReferencePath]) {
+    throw new Error(`Cannot mount another component's exports at the root`);
+  }
+  visit(this, [], exports);
 }
 
 function mountHttp(
@@ -231,8 +322,22 @@ function exportAppForAnalysis(
     definitionType,
     childComponents: childComponents as any,
     httpMounts: this._httpMounts,
-    exports: { type: "branch", branch: [] },
+    exports: serializeExportTree(this._exportTree),
   };
+}
+
+function serializeExportTree(tree: ExportTree): any {
+  const branch: any[] = [];
+  for (const [key, child] of Object.entries(tree)) {
+    let node;
+    if (typeof child === "string") {
+      node = { type: "leaf", leaf: child };
+    } else {
+      node = serializeExportTree(child);
+    }
+    branch.push([key, node]);
+  }
+  return { type: "branch", branch };
 }
 
 function serializeChildComponents(
@@ -286,18 +391,20 @@ function exportComponentForAnalysis(
     args,
   };
   const childComponents = serializeChildComponents(this._childComponents);
-
   return {
     name: this._name,
     definitionType,
     childComponents: childComponents as any,
     httpMounts: this._httpMounts,
-    exports: { type: "branch", branch: [] },
+    exports: serializeExportTree(this._exportTree),
   };
 }
 
 // This is what is actually contained in a ComponentDefinition.
-type RuntimeComponentDefinition = Exclude<ComponentDefinition<any>, "__args"> &
+type RuntimeComponentDefinition = Omit<
+  ComponentDefinition<any, any>,
+  "__args" | "__exports"
+> &
   ComponentDefinitionData & {
     export: () => ComponentDefinitionAnalysis;
   };
@@ -310,25 +417,30 @@ type RuntimeAppDefinition = AppDefinition &
  * @internal
  */
 // eslint-disable-next-line @typescript-eslint/ban-types
-export function defineComponent<Args extends PropertyValidators = {}>(
+export function defineComponent<
+  Args extends PropertyValidators = EmptyObject,
+  Exports extends ComponentExports = any,
+>(
   name: string,
   options: { args?: Args } = {},
-): ComponentDefinition<Args> {
+): ComponentDefinition<Args, Exports> {
   const ret: RuntimeComponentDefinition = {
     _isRoot: false,
     _name: name,
     _args: options.args || {},
     _childComponents: [],
     _httpMounts: {},
+    _exportTree: {},
 
     export: exportComponentForAnalysis,
     install,
+    mount,
     mountHttp,
 
     // pretend to conform to ComponentDefinition, which temporarily expects __args
-    ...({} as { __args: any }),
+    ...({} as { __args: any; __exports: any }),
   };
-  return ret as ComponentDefinition<Args>;
+  return ret as any as ComponentDefinition<Args, Exports>;
 }
 
 /**
@@ -340,9 +452,11 @@ export function defineApp(): AppDefinition {
     _isRoot: true,
     _childComponents: [],
     _httpMounts: {},
+    _exportTree: {},
 
     export: exportAppForAnalysis,
     install,
+    mount,
     mountHttp,
   };
   return ret as AppDefinition;
