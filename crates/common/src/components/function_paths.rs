@@ -26,11 +26,6 @@ pub struct ComponentFunctionPath {
 }
 
 impl ComponentFunctionPath {
-    pub fn into_root_udf_path(self) -> anyhow::Result<UdfPath> {
-        anyhow::ensure!(self.component.is_root());
-        Ok(self.udf_path)
-    }
-
     pub fn canonicalize(self) -> CanonicalizedComponentFunctionPath {
         CanonicalizedComponentFunctionPath {
             component: self.component,

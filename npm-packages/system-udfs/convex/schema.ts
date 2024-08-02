@@ -297,6 +297,7 @@ export default defineSchema({
       v.object({ type: v.literal("inProgress") }),
     ),
     udfArgs: v.bytes(),
+    component: v.optional(v.string()),
   })
     .index("by_udf_path_and_next_event_ts", ["udfPath", "nextTs"])
     .index("by_next_ts", ["nextTs"]),

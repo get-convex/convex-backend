@@ -17,7 +17,9 @@ use common::{
         TRANSACTION_MAX_NUM_SCHEDULED,
         TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES,
     },
+    maybe_val,
     query::{
+        Expression,
         IndexRange,
         IndexRangeExpression,
         Order,
@@ -104,6 +106,8 @@ pub static COMPLETED_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "completedTs".parse().expect("invalid completedTs field"));
 static UDF_PATH_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "udfPath".parse().expect("invalid udfPath field"));
+static COMPONENT_PATH_FIELD: LazyLock<FieldPath> =
+    LazyLock::new(|| "component".parse().expect("invalid component field"));
 
 pub struct ScheduledJobsTable;
 impl SystemTable for ScheduledJobsTable {
@@ -363,7 +367,21 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
     ) -> anyhow::Result<usize> {
         let index_query = match path {
             Some(path) => {
-                let udf_path = path.into_root_udf_path()?;
+                let udf_path = path.udf_path;
+                let component_path = path.component;
+                let mut component_path_filter = Expression::Eq(
+                    Expression::Field(COMPONENT_PATH_FIELD.clone()).into(),
+                    Expression::Literal(maybe_val!(String::from(component_path.clone()))).into(),
+                );
+                if component_path.is_root() {
+                    component_path_filter = Expression::Or(vec![
+                        component_path_filter,
+                        Expression::Eq(
+                            Expression::Field(COMPONENT_PATH_FIELD.clone()).into(),
+                            Expression::Literal(maybe_val!(undefined)).into(),
+                        ),
+                    ]);
+                }
                 let range = vec![
                     IndexRangeExpression::Eq(
                         UDF_PATH_FIELD.clone(),
@@ -376,6 +394,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                     range,
                     order: Order::Asc,
                 })
+                .filter(component_path_filter)
             },
             None => {
                 let range = vec![IndexRangeExpression::Gt(

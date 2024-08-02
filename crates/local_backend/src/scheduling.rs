@@ -7,6 +7,7 @@ use axum::{
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     http::{
@@ -36,6 +37,12 @@ use crate::{
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelAllJobsRequest {
+    /// component_id is the current component in which we will cancel all jobs.
+    pub component_id: Option<String>,
+    /// component_path and udf_path are an optional filter for the function that
+    /// is scheduled. component_path need not match component_id, which can
+    /// happen if a function is scheduled from a different component.
+    pub component_path: Option<String>,
     pub udf_path: Option<String>,
 }
 
@@ -43,7 +50,11 @@ pub struct CancelAllJobsRequest {
 pub async fn cancel_all_jobs(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
-    Json(CancelAllJobsRequest { udf_path }): Json<CancelAllJobsRequest>,
+    Json(CancelAllJobsRequest {
+        component_id,
+        udf_path,
+        component_path,
+    }): Json<CancelAllJobsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_member_with_write_access(&identity)?;
 
@@ -54,11 +65,17 @@ pub async fn cancel_all_jobs(
             "InvaildUdfPath",
             "CancelAllJobs requires an optional canonicalized UdfPath",
         ))?;
-    let path = udf_path.map(|udf_path| CanonicalizedComponentFunctionPath {
-        component: ComponentPath::TODO(),
-        udf_path,
-    });
-    st.application.cancel_all_jobs(path, identity).await?;
+    let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
+    let path = match udf_path {
+        None => None,
+        Some(udf_path) => Some(CanonicalizedComponentFunctionPath {
+            component: ComponentPath::deserialize(component_path.as_deref())?,
+            udf_path,
+        }),
+    };
+    st.application
+        .cancel_all_jobs(component_id, path, identity)
+        .await?;
 
     Ok(StatusCode::OK)
 }

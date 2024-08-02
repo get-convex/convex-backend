@@ -2970,6 +2970,7 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn cancel_all_jobs(
         &self,
+        component_id: ComponentId,
         path: Option<CanonicalizedComponentFunctionPath>,
         identity: Identity,
     ) -> anyhow::Result<()> {
@@ -2978,7 +2979,15 @@ impl<RT: Runtime> Application<RT> {
                 .execute_with_audit_log_events_and_occ_retries(
                     identity.clone(),
                     "application_cancel_all_jobs",
-                    |tx| Self::_cancel_all_jobs(tx, path.clone(), *MAX_JOBS_CANCEL_BATCH).into(),
+                    |tx| {
+                        Self::_cancel_all_jobs(
+                            tx,
+                            component_id,
+                            path.clone(),
+                            *MAX_JOBS_CANCEL_BATCH,
+                        )
+                        .into()
+                    },
                 )
                 .await?;
             if count < *MAX_JOBS_CANCEL_BATCH {
@@ -2990,10 +2999,11 @@ impl<RT: Runtime> Application<RT> {
 
     async fn _cancel_all_jobs(
         tx: &mut Transaction<RT>,
+        component_id: ComponentId,
         path: Option<CanonicalizedComponentFunctionPath>,
         max_jobs: usize,
     ) -> anyhow::Result<(usize, Vec<DeploymentAuditLogEvent>)> {
-        let count = SchedulerModel::new(tx, TableNamespace::by_component_TODO())
+        let count = SchedulerModel::new(tx, component_id.into())
             .cancel_all(path, max_jobs)
             .await?;
         Ok((count, vec![]))
