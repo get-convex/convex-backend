@@ -43,6 +43,10 @@ use crate::{
         TableName,
         Timestamp,
     },
+    virtual_system_mapping::{
+        NoopDocMapper,
+        VirtualSystemMapping,
+    },
 };
 
 /// A simple incrementing IdGenerator for use in tests.
@@ -51,6 +55,7 @@ pub struct TestIdGenerator {
     curr_table_number: TableNumber,
     table_mapping: TableMapping,
     pub virtual_table_mapping: VirtualTableMapping,
+    pub virtual_system_mapping: VirtualSystemMapping,
 }
 
 impl Deref for TestIdGenerator {
@@ -74,6 +79,7 @@ impl TestIdGenerator {
             curr_table_number: TableNumber::MIN,
             table_mapping: TableMapping::new(),
             virtual_table_mapping: VirtualTableMapping::new(),
+            virtual_system_mapping: VirtualSystemMapping::default(),
         }
     }
 
@@ -150,16 +156,20 @@ impl TestIdGenerator {
         {
             return table_number;
         }
-        let num = self.curr_table_number;
-        self.curr_table_number = self
-            .curr_table_number
-            .increment()
-            .expect("Could not increment table number");
-        self.virtual_table_mapping
-            .insert(TableNamespace::test_user(), num, table_name.clone());
-        self.system_table_id(&TABLES_TABLE);
-        self.system_table_id(&INDEX_TABLE);
-        num
+        let physical_table_name = format!("_physical_{table_name}").parse().unwrap();
+        let table_number = self.system_table_id(&physical_table_name).table_number;
+        self.virtual_table_mapping.insert(
+            TableNamespace::test_user(),
+            table_number,
+            table_name.clone(),
+        );
+        self.virtual_system_mapping.add_table(
+            table_name,
+            &physical_table_name,
+            Default::default(),
+            Arc::new(NoopDocMapper),
+        );
+        table_number
     }
 
     pub async fn write_tables(&mut self, p: Arc<dyn Persistence>) -> anyhow::Result<()> {
