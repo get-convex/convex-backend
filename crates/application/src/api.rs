@@ -9,8 +9,6 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
-        ComponentPath,
-        ExportPath,
     },
     http::ResolvedHost,
     pause::PauseClient,
@@ -98,25 +96,7 @@ pub trait ApplicationApi: Send + Sync {
         auth_token: AuthenticationToken,
     ) -> anyhow::Result<Identity>;
 
-    /// Execute a public query on the root app. This method is used by the sync
-    /// worker and HTTP API for the majority of traffic as the main entry point
-    /// for queries.
     async fn execute_public_query(
-        &self,
-        host: &ResolvedHost,
-        request_id: RequestId,
-        identity: Identity,
-        path: ExportPath,
-        args: Vec<JsonValue>,
-        caller: FunctionCaller,
-        ts: ExecuteQueryTimestamp,
-        journal: Option<SerializedQueryJournal>,
-    ) -> anyhow::Result<RedactedQueryReturn>;
-
-    /// Execute an admin query for a particular component. This method is used
-    /// by the sync worker for running queries for the dashboard and only works
-    /// for admin or system identity.
-    async fn execute_admin_query(
         &self,
         host: &ResolvedHost,
         request_id: RequestId,
@@ -128,67 +108,28 @@ pub trait ApplicationApi: Send + Sync {
         journal: Option<SerializedQueryJournal>,
     ) -> anyhow::Result<RedactedQueryReturn>;
 
-    /// Execute a public mutation on the root app.
     async fn execute_public_mutation(
         &self,
         host: &ResolvedHost,
         request_id: RequestId,
         identity: Identity,
-        path: ExportPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>>;
 
-    /// Execute an admin mutation for a particular component for the dashboard.
-    async fn execute_admin_mutation(
-        &self,
-        host: &ResolvedHost,
-        request_id: RequestId,
-        identity: Identity,
-        path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
-        caller: FunctionCaller,
-        mutation_identifier: Option<SessionRequestIdentifier>,
-    ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>>;
-
-    /// Execute a public action on the root app.
     async fn execute_public_action(
         &self,
         host: &ResolvedHost,
         request_id: RequestId,
         identity: Identity,
-        path: ExportPath,
-        args: Vec<JsonValue>,
-        caller: FunctionCaller,
-    ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
-
-    /// Execute an admin action for a particular component for the dashboard.
-    async fn execute_admin_action(
-        &self,
-        host: &ResolvedHost,
-        request_id: RequestId,
-        identity: Identity,
         path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>>;
 
-    /// Execute an HTTP action on the root app.
-    async fn execute_http_action(
-        &self,
-        host: &ResolvedHost,
-        request_id: RequestId,
-        http_request_metadata: HttpActionRequest,
-        identity: Identity,
-        caller: FunctionCaller,
-        response_streamer: HttpActionResponseStreamer,
-    ) -> anyhow::Result<()>;
-
-    /// For the dashboard (and the CLI), run any function in any component
-    /// without knowing its type. This function requires admin identity for
-    /// calling functions outside the root component.
     async fn execute_any_function(
         &self,
         host: &ResolvedHost,
@@ -204,6 +145,16 @@ pub trait ApplicationApi: Send + Sync {
         host: &ResolvedHost,
         request_id: RequestId,
     ) -> anyhow::Result<RepeatableTimestamp>;
+
+    async fn execute_http_action(
+        &self,
+        host: &ResolvedHost,
+        request_id: RequestId,
+        http_request_metadata: HttpActionRequest,
+        identity: Identity,
+        caller: FunctionCaller,
+        response_streamer: HttpActionResponseStreamer,
+    ) -> anyhow::Result<()>;
 
     async fn check_store_file_authorization(
         &self,
@@ -275,7 +226,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &ResolvedHost,
         request_id: RequestId,
         identity: Identity,
-        path: ExportPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         ts: ExecuteQueryTimestamp,
@@ -285,34 +236,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
         );
-        let ts = match ts {
-            ExecuteQueryTimestamp::Latest => *self.now_ts_for_reads(),
-            ExecuteQueryTimestamp::At(ts) => ts,
-        };
-        // Public queries always start with the root component.
-        let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path: path.into(),
-        };
-        self.read_only_udf_at_ts(request_id, path, args, identity, ts, journal, caller)
-            .await
-    }
 
-    async fn execute_admin_query(
-        &self,
-        _host: &ResolvedHost,
-        request_id: RequestId,
-        identity: Identity,
-        path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
-        caller: FunctionCaller,
-        ts: ExecuteQueryTimestamp,
-        journal: Option<SerializedQueryJournal>,
-    ) -> anyhow::Result<RedactedQueryReturn> {
-        anyhow::ensure!(
-            path.component.is_root() || identity.is_admin() || identity.is_system(),
-            "Only admin or system users can call functions on non-root components directly"
-        );
         let ts = match ts {
             ExecuteQueryTimestamp::Latest => *self.now_ts_for_reads(),
             ExecuteQueryTimestamp::At(ts) => ts,
@@ -326,7 +250,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &ResolvedHost,
         request_id: RequestId,
         identity: Identity,
-        path: ExportPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
@@ -336,36 +260,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
         );
-        let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path: path.into(),
-        };
-        self.mutation_udf(
-            request_id,
-            path,
-            args,
-            identity,
-            mutation_identifier,
-            caller,
-            PauseClient::new(),
-        )
-        .await
-    }
 
-    async fn execute_admin_mutation(
-        &self,
-        _host: &ResolvedHost,
-        request_id: RequestId,
-        identity: Identity,
-        path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
-        caller: FunctionCaller,
-        mutation_identifier: Option<SessionRequestIdentifier>,
-    ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
-        anyhow::ensure!(
-            path.component.is_root() || identity.is_admin() || identity.is_system(),
-            "Only admin or system users can call functions on non-root components directly"
-        );
         self.mutation_udf(
             request_id,
             path,
@@ -383,7 +278,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         _host: &ResolvedHost,
         request_id: RequestId,
         identity: Identity,
-        path: ExportPath,
+        path: CanonicalizedComponentFunctionPath,
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
@@ -391,27 +286,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
         );
-        let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path: path.into(),
-        };
-        self.action_udf(request_id, path, args, identity, caller)
-            .await
-    }
 
-    async fn execute_admin_action(
-        &self,
-        _host: &ResolvedHost,
-        request_id: RequestId,
-        identity: Identity,
-        path: CanonicalizedComponentFunctionPath,
-        args: Vec<JsonValue>,
-        caller: FunctionCaller,
-    ) -> anyhow::Result<Result<RedactedActionReturn, RedactedActionError>> {
-        anyhow::ensure!(
-            path.component.is_root() || identity.is_admin() || identity.is_system(),
-            "Only admin or system users can call functions on non-root components directly"
-        );
         self.action_udf(request_id, path, args, identity, caller)
             .await
     }
@@ -425,10 +300,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         args: Vec<JsonValue>,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
-        anyhow::ensure!(
-            path.component.is_root() || identity.is_admin() || identity.is_system(),
-            "Only admin or system users can call functions on non-root components directly"
-        );
         self.any_udf(request_id, path, args, identity, caller).await
     }
 

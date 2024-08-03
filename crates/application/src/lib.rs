@@ -2575,7 +2575,7 @@ impl<RT: Runtime> Application<RT> {
             component: ComponentPath::TODO(),
             udf_path: CanonicalizedUdfPath::new(module_path, function_name),
         };
-        let arguments = parse_udf_args(&path.udf_path, args)?;
+        let arguments = parse_udf_args(&path, args)?;
         let (result, log_lines) = match analyzed_function.udf_type {
             UdfType::Query => self
                 .runner

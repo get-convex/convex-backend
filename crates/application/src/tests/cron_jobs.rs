@@ -78,7 +78,7 @@ async fn create_cron_job(
     };
     let cron_spec = CronSpec {
         udf_path: path.udf_path.clone(),
-        udf_args: parse_udf_args(&path.udf_path, vec![JsonValue::Object(map)])?,
+        udf_args: parse_udf_args(&path, vec![JsonValue::Object(map)])?,
         cron_schedule: CronSchedule::Interval { seconds: 60 },
     };
     let original_jobs = cron_model.list().await?;

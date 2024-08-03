@@ -41,12 +41,12 @@ pub struct CheckedComponent {
     pub args: BTreeMap<Identifier, Resource>,
     pub child_components: BTreeMap<ComponentName, CheckedComponent>,
     pub http_routes: CheckedHttpRoutes,
-    pub exports: BTreeMap<Identifier, ResourceTree>,
+    pub exports: BTreeMap<Identifier, CheckedExport>,
 }
 
-#[derive(Clone, Debug)]
-pub enum ResourceTree {
-    Branch(BTreeMap<Identifier, ResourceTree>),
+#[derive(Debug)]
+pub enum CheckedExport {
+    Branch(BTreeMap<Identifier, CheckedExport>),
     Leaf(Resource),
 }
 
@@ -282,21 +282,24 @@ impl<'a> CheckedComponentBuilder<'a> {
     fn resolve_exports(
         &self,
         exports: &BTreeMap<Identifier, ComponentExport>,
-    ) -> Result<BTreeMap<Identifier, ResourceTree>, TypecheckError> {
+    ) -> Result<BTreeMap<Identifier, CheckedExport>, TypecheckError> {
         let mut result = BTreeMap::new();
         for (name, export) in exports {
             let node = match export {
                 ComponentExport::Branch(ref exports) => {
-                    ResourceTree::Branch(self.resolve_exports(exports)?)
+                    CheckedExport::Branch(self.resolve_exports(exports)?)
                 },
-                ComponentExport::Leaf(ref reference) => self.resolve(reference)?,
+                ComponentExport::Leaf(ref reference) => {
+                    let resource = self.resolve(reference)?;
+                    CheckedExport::Leaf(resource)
+                },
             };
             result.insert(name.clone(), node);
         }
         Ok(result)
     }
 
-    fn resolve(&self, reference: &Reference) -> Result<ResourceTree, TypecheckError> {
+    fn resolve(&self, reference: &Reference) -> Result<Resource, TypecheckError> {
         let unresolved_err = || TypecheckError::UnresolvedExport {
             definition_path: self.definition_path.clone(),
             reference: reference.clone(),
@@ -306,12 +309,10 @@ impl<'a> CheckedComponentBuilder<'a> {
                 if attributes.len() != 1 {
                     return Err(TypecheckError::Unsupported("Nested argument references"));
                 }
-                let resource = self
-                    .args
+                self.args
                     .get(&attributes[0])
                     .ok_or_else(unresolved_err)?
-                    .clone();
-                ResourceTree::Leaf(resource)
+                    .clone()
             },
             Reference::Function(path) => {
                 let canonicalized = path.clone();
@@ -325,11 +326,10 @@ impl<'a> CheckedComponentBuilder<'a> {
                     .iter()
                     .find(|f| &f.name == canonicalized.function_name())
                     .ok_or_else(unresolved_err)?;
-                let path = CanonicalizedComponentFunctionPath {
+                Resource::Function(CanonicalizedComponentFunctionPath {
                     component: self.component_path.clone(),
                     udf_path: path.clone(),
-                };
-                ResourceTree::Leaf(Resource::Function(path))
+                })
             },
             Reference::ChildComponent {
                 component,
@@ -357,7 +357,7 @@ impl CheckedComponent {
     pub fn resolve_export(
         &self,
         attributes: &[Identifier],
-    ) -> Result<Option<ResourceTree>, TypecheckError> {
+    ) -> Result<Option<Resource>, TypecheckError> {
         let mut current = &self.exports;
         let mut attribute_iter = attributes.iter();
         while let Some(attribute) = attribute_iter.next() {
@@ -365,20 +365,21 @@ impl CheckedComponent {
                 return Ok(None);
             };
             match export {
-                ResourceTree::Branch(ref next) => {
+                CheckedExport::Branch(ref next) => {
                     current = next;
                     continue;
                 },
-                ResourceTree::Leaf(ref resource) => {
+                CheckedExport::Leaf(ref resource) => {
                     if !attribute_iter.as_slice().is_empty() {
-                        // TODO: Should this be a system error?
                         return Err(TypecheckError::Unsupported("Component references"));
                     }
-                    return Ok(Some(ResourceTree::Leaf(resource.clone())));
+                    return Ok(Some(resource.clone()));
                 },
             }
         }
-        Ok(Some(ResourceTree::Branch(current.clone())))
+        Err(TypecheckError::Unsupported(
+            "Intermediate export references",
+        ))
     }
 }
 
@@ -496,8 +497,8 @@ mod json {
 
     use super::{
         CheckedComponent,
+        CheckedExport,
         CheckedHttpRoutes,
-        ResourceTree,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -509,7 +510,7 @@ mod json {
         args: BTreeMap<String, SerializedResource>,
         child_components: BTreeMap<String, SerializedCheckedComponent>,
         http_routes: SerializedCheckedHttpRoutes,
-        exports: BTreeMap<String, SerializedResourceTree>,
+        exports: BTreeMap<String, SerializedCheckedExport>,
     }
 
     impl TryFrom<CheckedComponent> for SerializedCheckedComponent {
@@ -614,50 +615,50 @@ mod json {
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase", tag = "type")]
-    pub enum SerializedResourceTree {
+    pub enum SerializedCheckedExport {
         Branch {
-            children: BTreeMap<String, SerializedResourceTree>,
+            children: BTreeMap<String, SerializedCheckedExport>,
         },
         Leaf {
             resource: SerializedResource,
         },
     }
 
-    impl TryFrom<ResourceTree> for SerializedResourceTree {
+    impl TryFrom<CheckedExport> for SerializedCheckedExport {
         type Error = anyhow::Error;
 
-        fn try_from(value: ResourceTree) -> Result<Self, Self::Error> {
+        fn try_from(value: CheckedExport) -> Result<Self, Self::Error> {
             Ok(match value {
-                ResourceTree::Branch(branch) => Self::Branch {
+                CheckedExport::Branch(branch) => Self::Branch {
                     children: branch
                         .into_iter()
                         .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
                         .collect::<anyhow::Result<_>>()?,
                 },
-                ResourceTree::Leaf(leaf) => Self::Leaf {
+                CheckedExport::Leaf(leaf) => Self::Leaf {
                     resource: leaf.try_into()?,
                 },
             })
         }
     }
 
-    impl TryFrom<SerializedResourceTree> for ResourceTree {
+    impl TryFrom<SerializedCheckedExport> for CheckedExport {
         type Error = anyhow::Error;
 
-        fn try_from(value: SerializedResourceTree) -> Result<Self, Self::Error> {
+        fn try_from(value: SerializedCheckedExport) -> Result<Self, Self::Error> {
             Ok(match value {
-                SerializedResourceTree::Branch { children } => Self::Branch(
+                SerializedCheckedExport::Branch { children } => Self::Branch(
                     children
                         .into_iter()
                         .map(|(k, v)| Ok((k.parse()?, v.try_into()?)))
                         .collect::<anyhow::Result<_>>()?,
                 ),
-                SerializedResourceTree::Leaf { resource } => Self::Leaf(resource.try_into()?),
+                SerializedCheckedExport::Leaf { resource } => Self::Leaf(resource.try_into()?),
             })
         }
     }
 }
 pub use self::json::{
     SerializedCheckedComponent,
-    SerializedResourceTree,
+    SerializedCheckedExport,
 };

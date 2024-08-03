@@ -31,7 +31,7 @@ type ComponentInstantiation = {
 export type HttpMount = string;
 
 type ComponentExport =
-  | { type: "branch"; branch: [string, ComponentExport][] }
+  | { type: "branch"; branch: ComponentExport[] }
   | { type: "leaf"; leaf: string };
 
 // The type expected from the internal .export()

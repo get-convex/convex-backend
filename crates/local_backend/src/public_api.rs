@@ -10,7 +10,10 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
-    components::CanonicalizedComponentFunctionPath,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentPath,
+    },
     http::{
         extract::{
             Json,
@@ -40,10 +43,7 @@ use value::{
 use crate::{
     args_structs::UdfPostRequestWithComponent,
     authentication::ExtractAuthenticationToken,
-    parse::{
-        parse_export_path,
-        parse_udf_path,
-    },
+    parse::parse_udf_path,
     RouterState,
 };
 
@@ -259,7 +259,7 @@ pub async fn public_query_get(
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let export_path = parse_export_path(&req.path)?;
+    let udf_path = parse_udf_path(&req.path)?;
     let args = req.args.into_arg_vec();
     let journal = None;
     // NOTE: We could coalesce authenticating and executing the query into one
@@ -276,7 +276,10 @@ pub async fn public_query_get(
             &host,
             request_id,
             identity,
-            export_path,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::TODO(),
+                udf_path,
+            },
             args,
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
@@ -304,7 +307,7 @@ pub async fn public_query_post(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let udf_path = parse_export_path(&req.path)?;
+    let udf_path = parse_udf_path(&req.path)?;
     let journal = None;
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
@@ -320,7 +323,10 @@ pub async fn public_query_post(
             &host,
             request_id,
             identity,
-            udf_path,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::TODO(),
+                udf_path,
+            },
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::Latest,
@@ -358,7 +364,7 @@ pub async fn public_query_at_ts_post(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostWithTsRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let export_path = parse_export_path(&req.path)?;
+    let udf_path = parse_udf_path(&req.path)?;
     let journal = None;
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
@@ -375,7 +381,10 @@ pub async fn public_query_at_ts_post(
             &host,
             request_id,
             identity,
-            export_path,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path,
+            },
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             ExecuteQueryTimestamp::At(ts),
@@ -422,14 +431,17 @@ pub async fn public_query_batch_post(
         .await?;
     for req in req_batch.queries {
         let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
-        let export_path = parse_export_path(&req.path)?;
+        let udf_path = parse_udf_path(&req.path)?;
         let udf_return = st
             .api
             .execute_public_query(
                 &host,
                 request_id.clone(),
                 identity.clone(),
-                export_path,
+                CanonicalizedComponentFunctionPath {
+                    component: ComponentPath::TODO(),
+                    udf_path,
+                },
                 req.args.into_arg_vec(),
                 FunctionCaller::HttpApi(client_version.clone()),
                 ExecuteQueryTimestamp::At(*ts),
@@ -462,7 +474,7 @@ pub async fn public_mutation_post(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let export_path = parse_export_path(&req.path)?;
+    let udf_path = parse_udf_path(&req.path)?;
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
     // Round trip latency between Usher and Backend is much smaller than between
@@ -477,7 +489,10 @@ pub async fn public_mutation_post(
             &host,
             request_id,
             identity,
-            export_path,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::TODO(),
+                udf_path,
+            },
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             None,
@@ -508,7 +523,7 @@ pub async fn public_action_post(
     ExtractClientVersion(client_version): ExtractClientVersion,
     Json(req): Json<UdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let export_path = parse_export_path(&req.path)?;
+    let udf_path = parse_udf_path(&req.path)?;
 
     // NOTE: We could coalesce authenticating and executing the query into one
     // rpc but we keep things simple by reusing the same method as the sync worker.
@@ -524,7 +539,10 @@ pub async fn public_action_post(
             &host,
             request_id,
             identity,
-            export_path,
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::TODO(),
+                udf_path,
+            },
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
         )
