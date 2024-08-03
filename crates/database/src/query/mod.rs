@@ -366,11 +366,7 @@ impl<RT: Runtime> DeveloperQuery<RT> {
             )),
             QuerySource::IndexRange(index_range) => {
                 let order = index_range.order;
-                let virtual_table_mapping = tx.virtual_table_mapping().clone();
-                let virtual_table_number_map = stable_index_name
-                    .virtual_table_number_map(tx.table_mapping(), &virtual_table_mapping)?;
-                let interval =
-                    index_range.compile(indexed_fields.clone(), virtual_table_number_map)?;
+                let interval = index_range.compile(indexed_fields.clone())?;
                 QueryNode::IndexRange(IndexRange::new(
                     namespace,
                     stable_index_name,

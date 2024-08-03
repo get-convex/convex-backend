@@ -8,10 +8,7 @@
 //! ```text
 //! footer = fletcher16( [ VInt(table_number) ] [ internal ID ] ) ^ version
 //! ```
-use std::{
-    cmp,
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use thiserror::Error;
 
@@ -19,11 +16,9 @@ pub use crate::document_id::DeveloperDocumentId;
 use crate::{
     base32::{
         self,
-        clamp_to_alphabet,
         InvalidBase32Error,
     },
     table_name::TableNumber,
-    InternalId,
     ResolvedDocumentId,
     TabletId,
 };
@@ -156,93 +151,6 @@ impl DeveloperDocumentId {
             developer_id: *self,
         })
     }
-
-    /// Decode a string to the closest valid ID with the given table number.
-    /// i.e. if s = id.encoded(), then decode_lossy(s) = id.
-    /// and if s > id.encoded(), then decode_lossy(s) >= id.
-    /// and if s < id.encoded(), then decode_lossy(s) <= id.
-    fn decode_lossy(s: &str, table_number: TableNumber) -> Self {
-        let in_base32_alphabet: String = clamp_to_alphabet(s, MAX_BASE32_LEN);
-        let buf = base32::decode(&in_base32_alphabet)
-            .expect("all characters should be in the base32 alphabet");
-
-        let encoded_table_number = {
-            let mut table_number_buf = [0; MAX_BINARY_LEN];
-            let pos = vint_encode(table_number.into(), &mut table_number_buf[..]);
-            table_number_buf[..pos].to_vec()
-        };
-        let Some(internal_id_buf) = buf.strip_prefix(&*encoded_table_number) else {
-            // It doesn't start with the table number, so it's either before or after the ID
-            // space.
-            if buf < encoded_table_number {
-                return Self::new(table_number, InternalId::MIN);
-            } else {
-                return Self::new(table_number, InternalId::MAX);
-            }
-        };
-        // Pad with 0s if the internal ID is too short, and truncate if too long.
-        let internal_id = {
-            let mut internal_id = [0; 16];
-            let truncated = &internal_id_buf[..cmp::min(16, internal_id_buf.len())];
-            internal_id[..truncated.len()].copy_from_slice(truncated);
-            internal_id.to_vec()
-        };
-        // Note we can ignore the footer because it's deterministic based on internal
-        // id.
-        Self::new(
-            table_number,
-            internal_id.try_into().expect("internal ID is 16 bytes"),
-        )
-    }
-
-    /// `s` is a string in the ID space with virtual table number.
-    /// Map it to a string in the ID space with physical table number,
-    /// where ordering of the string relative to the ID space is preserved.
-    ///
-    /// i.e. if `id_virtual` is any ID in the virtual ID space, and
-    /// `id_physical` is the corresponding physical ID, then
-    /// s.cmp(id_virtual) ==
-    /// map_string_between_table_numbers(s).cmp(id_physical).
-    pub fn map_string_between_table_numbers(
-        s: &str,
-        virtual_table_number_map: VirtualTableNumberMap,
-    ) -> String {
-        let decoded_lossy = Self::decode_lossy(s, virtual_table_number_map.virtual_table_number);
-        let reencoded = decoded_lossy.encode();
-        let encoded_dest = Self::new(
-            virtual_table_number_map.physical_table_number,
-            decoded_lossy.internal_id(),
-        )
-        .encode();
-        match s.cmp(&reencoded) {
-            cmp::Ordering::Equal => {
-                // If s == reencoded, the decode was lossless.
-                encoded_dest
-            },
-            cmp::Ordering::Less => {
-                // If s < reencoded, adjust the string to be barely before encoded_dest.
-                // Decrement the last character and append '~' which is after the base32
-                // alphabet.
-                let all_but_last = &encoded_dest[..encoded_dest.len() - 1];
-                // encoded ID is nonempty and characters are in the base32 alphabet.
-                let last_decremented =
-                    ((encoded_dest.chars().last().expect("encoded ID is nonempty") as u8) - 1)
-                        as char;
-                format!("{all_but_last}{last_decremented}~")
-            },
-            cmp::Ordering::Greater => {
-                // If s > reencoded, adjust the string to be barely after encoded_dest.
-                // Append '+' which is before the base32 alphabet.
-                format!("{encoded_dest}+")
-            },
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct VirtualTableNumberMap {
-    pub virtual_table_number: TableNumber,
-    pub physical_table_number: TableNumber,
 }
 
 impl From<ResolvedDocumentId> for DeveloperDocumentId {
@@ -348,8 +256,6 @@ fn fletcher16(buf: &[u8]) -> u16 {
 
 #[cfg(test)]
 mod tests {
-    use std::cmp;
-
     use proptest::prelude::*;
 
     use crate::{
@@ -357,12 +263,9 @@ mod tests {
             vint_decode,
             vint_encode,
             vint_len,
-            VirtualTableNumberMap,
-            MAX_BASE32_LEN,
         },
         DeveloperDocumentId,
         InternalId,
-        TableNumber,
     };
 
     #[test]
@@ -386,89 +289,6 @@ mod tests {
         // fail downstream. This is a regression test where we used to panic in
         // this condition.
         let _ = DeveloperDocumentId::decode("sssswsgggggggggsgcsssfafffsffks");
-    }
-
-    #[test]
-    fn test_decode_lossy() {
-        let real_id = "kg27rxfv99gzp01wmph0gvt92d6hnvy6";
-        let decoded = DeveloperDocumentId::decode(real_id).unwrap();
-        assert_eq!(decoded.encode(), real_id);
-        let decoded_lossy = DeveloperDocumentId::decode_lossy(real_id, decoded.table());
-        assert_eq!(decoded_lossy, decoded);
-
-        // Dropping the last character just affects the footer, so doesn't change the
-        // decode_lossy result.
-        let decoded_lossy =
-            DeveloperDocumentId::decode_lossy(&real_id[..real_id.len() - 1], decoded.table());
-        assert_eq!(decoded_lossy, decoded);
-
-        // Dropping several characters affects the internal id but not the table number.
-        let decoded_lossy = DeveloperDocumentId::decode_lossy(&real_id[..10], decoded.table());
-        assert_eq!(decoded_lossy.table(), decoded.table());
-        assert!(decoded_lossy < decoded);
-        assert!(decoded_lossy.internal_id() > InternalId::MIN);
-
-        // Dropping most characters makes it out of the ID range.
-        let decoded_lossy = DeveloperDocumentId::decode_lossy("k", decoded.table());
-        assert_eq!(
-            decoded_lossy,
-            DeveloperDocumentId::new(decoded.table(), InternalId::MIN)
-        );
-
-        // Increasing the first character makes it out of the ID range in the
-        // other direction.
-        let decoded_lossy = DeveloperDocumentId::decode_lossy("z", decoded.table());
-        assert_eq!(
-            decoded_lossy,
-            DeveloperDocumentId::new(decoded.table(), InternalId::MAX)
-        );
-    }
-
-    fn test_decode_lossy_ordering(s: &str, id: DeveloperDocumentId) {
-        let encoded = id.encode();
-        let decoded_lossy = DeveloperDocumentId::decode_lossy(s, id.table());
-        match s.cmp(&encoded) {
-            cmp::Ordering::Less => {
-                assert!(decoded_lossy <= id);
-            },
-            cmp::Ordering::Equal => {
-                assert_eq!(decoded_lossy, id);
-            },
-            cmp::Ordering::Greater => {
-                assert!(decoded_lossy >= id);
-            },
-        }
-    }
-
-    fn test_map_between_table_numbers(
-        s: &str,
-        src_id: DeveloperDocumentId,
-        dest_table_number: TableNumber,
-    ) {
-        let dest_id = DeveloperDocumentId::new(dest_table_number, src_id.internal_id());
-        let mapped = DeveloperDocumentId::map_string_between_table_numbers(
-            s,
-            VirtualTableNumberMap {
-                virtual_table_number: src_id.table(),
-                physical_table_number: dest_table_number,
-            },
-        );
-        assert_eq!(s.cmp(&src_id.encode()), mapped.cmp(&dest_id.encode()));
-    }
-
-    #[test]
-    fn test_decode_lossy_trophies() {
-        // First character is > base32 alphabet, second character is < base32 alphabet.
-        // Regression test for the string getting clamped to "z0000", when it should be
-        // clamped to "zzzzz".
-        test_decode_lossy_ordering(
-            "豈 ",
-            "z2bbqng100000000000000000000000004ggy".parse().unwrap(),
-        );
-        test_decode_lossy_ordering(
-            "~",
-            "zzzzz40c00000000000000000000000006db2".parse().unwrap(),
-        );
     }
 
     proptest! {
@@ -514,48 +334,6 @@ mod tests {
             // Generate bytestrings that pass the first few checks in decode to get more code
             // coverage for later panics.
             let _ = DeveloperDocumentId::decode(&crate::base32::encode(&bytes));
-        }
-
-        #[test]
-        fn proptest_decode_lossy_lossless(id in any::<DeveloperDocumentId>()) {
-            test_decode_lossy_ordering(id.encode().as_str(), id);
-        }
-
-        #[test]
-        fn proptest_decode_lossy_any_str(s in any::<String>(), id in any::<DeveloperDocumentId>()) {
-            test_decode_lossy_ordering(&s, id);
-        }
-
-        #[test]
-        fn proptest_decode_lossy_truncated(
-            s in any::<String>(),
-            len in 0usize..=MAX_BASE32_LEN,
-            id in any::<DeveloperDocumentId>(),
-        ) {
-            let truncated = s.chars().take(len).collect::<String>();
-            test_decode_lossy_ordering(&truncated, id);
-        }
-
-        #[test]
-        fn proptest_decode_lossy_alphanumeric(s in "[0-9a-z]*", id in any::<DeveloperDocumentId>()) {
-            test_decode_lossy_ordering(&s, id);
-        }
-
-        #[test]
-        fn proptest_map_between_table_numbers_lossless(
-            src_id in any::<DeveloperDocumentId>(),
-            dest_table_number in any::<TableNumber>(),
-        ) {
-            test_map_between_table_numbers(&src_id.encode(), src_id, dest_table_number);
-        }
-
-        #[test]
-        fn proptest_map_between_table_numbers(
-            s in "[0-9a-z]*",
-            src_id in any::<DeveloperDocumentId>(),
-            dest_table_number in any::<TableNumber>(),
-        ) {
-            test_map_between_table_numbers(&s, src_id, dest_table_number);
         }
 
         #[test]

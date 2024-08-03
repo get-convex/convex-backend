@@ -15,14 +15,11 @@ use sync_types::identifier::{
 };
 use value::{
     heap_size::HeapSize,
-    id_v6::VirtualTableNumberMap,
     FieldName,
     InternalId,
     ResolvedDocumentId,
-    TableMapping,
     TableName,
     TabletId,
-    VirtualTableMapping,
 };
 
 use crate::{
@@ -145,33 +142,6 @@ impl StableIndexName {
             StableIndexName::Physical(tablet_index_name) => Ok(tablet_index_name),
             StableIndexName::Virtual(_, tablet_index_name) => Ok(tablet_index_name),
             StableIndexName::Missing(index_name) => Err(index_name),
-        }
-    }
-
-    pub fn virtual_table_number_map(
-        &self,
-        table_mapping: &TableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
-    ) -> anyhow::Result<Option<VirtualTableNumberMap>> {
-        match self {
-            StableIndexName::Physical(index_name) => {
-                let table_number = table_mapping.tablet_number(*index_name.table())?;
-                Ok(Some(VirtualTableNumberMap {
-                    virtual_table_number: table_number,
-                    physical_table_number: table_number,
-                }))
-            },
-            StableIndexName::Virtual(index_name, tablet_index_name) => {
-                let namespace = table_mapping.tablet_namespace(*tablet_index_name.table())?;
-                Ok(Some(VirtualTableNumberMap {
-                    virtual_table_number: virtual_table_mapping
-                        .namespace(namespace)
-                        .number(index_name.table())?,
-                    physical_table_number: table_mapping
-                        .tablet_number(*tablet_index_name.table())?,
-                }))
-            },
-            StableIndexName::Missing(_) => Ok(None),
         }
     }
 }
