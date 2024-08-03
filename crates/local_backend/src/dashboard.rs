@@ -76,7 +76,6 @@ pub async fn shapes2(
         let shape = ReducedShape::from_type(
             table_summary.inferred_type(),
             &mapping.table_number_exists(),
-            &virtual_mapping.table_number_exists(),
         );
         let json = dashboard_shape_json(&shape, &mapping, &virtual_mapping)?;
         out.insert(String::from(table_name.clone()), json);

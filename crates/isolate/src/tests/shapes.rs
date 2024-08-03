@@ -71,7 +71,6 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
         let shape = ReducedShape::from_type(
             &CountedShape::<TestConfig>::empty().insert_value(&value),
             &table_mapping.table_number_exists(),
-            &virtual_table_mapping.table_number_exists(),
         );
         let shape_json = dashboard_shape_json(&shape, &table_mapping, &virtual_table_mapping)?;
         must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);
@@ -84,7 +83,6 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
             .insert_value(&ConvexValue::Null)
             .insert_value(&ConvexValue::from(0)),
         &table_mapping.table_number_exists(),
-        &virtual_table_mapping.table_number_exists(),
     );
     let shape_json = dashboard_shape_json(&shape, &table_mapping, &virtual_table_mapping)?;
     must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);
@@ -94,7 +92,6 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
     let shape = ReducedShape::from_type(
         &CountedShape::<TestConfig>::empty(),
         &table_mapping.table_number_exists(),
-        &virtual_table_mapping.table_number_exists(),
     );
     let shape_json = dashboard_shape_json(&shape, &table_mapping, &virtual_table_mapping)?;
     must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);

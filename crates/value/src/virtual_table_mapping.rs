@@ -62,10 +62,6 @@ impl NamespacedVirtualTableMapping {
         self.table_number_to_table_name.contains_key(&number)
     }
 
-    pub fn table_number_exists(&self) -> impl Fn(TableNumber) -> bool + '_ {
-        |n| self.number_exists(n)
-    }
-
     pub fn name(&self, number: TableNumber) -> anyhow::Result<TableName> {
         self.name_if_exists(number)
             .ok_or_else(|| anyhow::anyhow!("cannot find table name for table number {number:?}"))

@@ -40,7 +40,7 @@ fn test_map_reduce_type() -> anyhow::Result<()> {
     s = s.insert(&empty_obj);
     s = s.insert(&nonempty_obj);
 
-    let reduced = ReducedShape::from_type(&s, &|_| false, &|_| false);
+    let reduced = ReducedShape::from_type(&s, &|_| false);
 
     must_let!(let ReducedShape::Object(fields) = reduced);
     let field = fields.get("fields").unwrap();
@@ -73,7 +73,7 @@ fn test_cx_1550() -> anyhow::Result<()> {
         let value = parse_json_string(value)?;
         shape = shape.insert_value(&value);
     }
-    let reduced = ReducedShape::from_type(&shape, &|_| false, &|_| false);
+    let reduced = ReducedShape::from_type(&shape, &|_| false);
     must_let!(let ReducedShape::Array(items) = reduced);
     must_let!(let ReducedShape::Object(fields) = *items);
     let field = fields.get("field").unwrap();
@@ -115,11 +115,8 @@ fn test_id_strings() -> anyhow::Result<()> {
         .insert_value(&deleted1_id.into())
         .insert_value(&deleted2_id.into());
 
-    let reduced_shape = ReducedShape::from_type(
-        &inferred_type,
-        &table_mapping.table_number_exists(),
-        &virtual_table_mapping.table_number_exists(),
-    );
+    let reduced_shape =
+        ReducedShape::from_type(&inferred_type, &table_mapping.table_number_exists());
     let shape_json = dashboard_shape_json(
         &reduced_shape,
         &id_generator.namespace(TableNamespace::test_user()),
@@ -145,13 +142,8 @@ fn test_float_merge_shape_inference() -> anyhow::Result<()> {
         .insert_value(&ConvexValue::Null);
     let table_mapping = id_generator.namespace(TableNamespace::test_user());
 
-    let reduced_shape = ReducedShape::from_type(
-        &inferred_type,
-        &table_mapping.table_number_exists(),
-        &&VirtualTableMapping::new()
-            .namespace(TableNamespace::test_user())
-            .table_number_exists(),
-    );
+    let reduced_shape =
+        ReducedShape::from_type(&inferred_type, &table_mapping.table_number_exists());
     let shape_json = dashboard_shape_json(
         &reduced_shape,
         &id_generator.namespace(TableNamespace::test_user()),
@@ -191,7 +183,7 @@ mod reduce {
         let shape = CountedShape::<TestConfig>::empty()
             .insert_value(&first)
             .insert_value(&second);
-        ReducedShape::from_type(&shape, &|_| false, &|_| false);
+        ReducedShape::from_type(&shape, &|_| false);
     }
 
     proptest! {

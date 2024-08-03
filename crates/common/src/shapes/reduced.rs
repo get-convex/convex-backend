@@ -64,7 +64,6 @@ impl ReducedShape {
     pub fn from_type<C: ShapeConfig>(
         value: &CountedShape<C>,
         table_exists: &impl Fn(TableNumber) -> bool,
-        virtual_table_exists: &impl Fn(TableNumber) -> bool,
     ) -> Self {
         match value.variant() {
             ShapeEnum::Never => ReducedShape::Never,
@@ -91,7 +90,7 @@ impl ReducedShape {
             ShapeEnum::Boolean => ReducedShape::Boolean,
             ShapeEnum::StringLiteral(ref s) => {
                 if let Ok(id) = DeveloperDocumentId::decode(s)
-                    && (table_exists(id.table()) || virtual_table_exists(id.table()))
+                    && table_exists(id.table())
                 {
                     ReducedShape::Id(id.table())
                 } else {
@@ -99,7 +98,7 @@ impl ReducedShape {
                 }
             },
             ShapeEnum::Id(table_number) => {
-                if table_exists(*table_number) || virtual_table_exists(*table_number) {
+                if table_exists(*table_number) {
                     ReducedShape::Id(*table_number)
                 } else {
                     ReducedShape::String
@@ -111,24 +110,14 @@ impl ReducedShape {
             ShapeEnum::Array(array_type) => ReducedShape::Array(Box::new(ReducedShape::from_type(
                 array_type.element(),
                 table_exists,
-                virtual_table_exists,
             ))),
             ShapeEnum::Set(set_type) => ReducedShape::Set(Box::new(ReducedShape::from_type(
                 set_type.element(),
                 table_exists,
-                virtual_table_exists,
             ))),
             ShapeEnum::Map(map_type) => ReducedShape::Map {
-                key_shape: Box::new(ReducedShape::from_type(
-                    map_type.key(),
-                    table_exists,
-                    virtual_table_exists,
-                )),
-                value_shape: Box::new(ReducedShape::from_type(
-                    map_type.value(),
-                    table_exists,
-                    virtual_table_exists,
-                )),
+                key_shape: Box::new(ReducedShape::from_type(map_type.key(), table_exists)),
+                value_shape: Box::new(ReducedShape::from_type(map_type.value(), table_exists)),
             },
             ShapeEnum::Object(object_type) => {
                 let reduced_fields = object_type
@@ -139,11 +128,7 @@ impl ReducedShape {
                             FieldName::from(field_name.clone()),
                             ReducedField {
                                 optional: shape.optional,
-                                shape: ReducedShape::from_type(
-                                    &shape.value_shape,
-                                    table_exists,
-                                    virtual_table_exists,
-                                ),
+                                shape: ReducedShape::from_type(&shape.value_shape, table_exists),
                             },
                         )
                     })
@@ -151,16 +136,8 @@ impl ReducedShape {
                 ReducedShape::Object(reduced_fields)
             },
             ShapeEnum::Record(record_type) => {
-                let key_shape = ReducedShape::from_type(
-                    record_type.field(),
-                    table_exists,
-                    virtual_table_exists,
-                );
-                let value_shape = ReducedShape::from_type(
-                    record_type.value(),
-                    table_exists,
-                    virtual_table_exists,
-                );
+                let key_shape = ReducedShape::from_type(record_type.field(), table_exists);
+                let value_shape = ReducedShape::from_type(record_type.value(), table_exists);
                 let value_optional = record_type
                     .field()
                     .variant()
@@ -174,9 +151,7 @@ impl ReducedShape {
                     }),
                 }
             },
-            ShapeEnum::Union(union_type) => {
-                Self::reduce_union_type(union_type, table_exists, virtual_table_exists)
-            },
+            ShapeEnum::Union(union_type) => Self::reduce_union_type(union_type, table_exists),
             ShapeEnum::Unknown => ReducedShape::Unknown,
         }
     }
@@ -184,7 +159,6 @@ impl ReducedShape {
     fn reduce_union_type<C: ShapeConfig>(
         union_type: &UnionShape<C, u64>,
         table_exists: &impl Fn(TableNumber) -> bool,
-        virtual_table_exists: &impl Fn(TableNumber) -> bool,
     ) -> Self {
         let mut object_fields: BTreeMap<IdentifierFieldName, UnionBuilder<C>> = BTreeMap::new();
         let mut object_optional_fields = BTreeSet::new();
@@ -223,7 +197,7 @@ impl ReducedShape {
                 }
                 object_count += t.num_values();
             } else {
-                let reduced_shape = Self::from_type(t, table_exists, virtual_table_exists);
+                let reduced_shape = Self::from_type(t, table_exists);
                 if let ReducedShape::Float64(f) = reduced_shape {
                     float_range = match float_range {
                         Some(range) => Some(ReducedFloatRange {
@@ -232,7 +206,7 @@ impl ReducedShape {
                         None => Some(f),
                     }
                 } else {
-                    reduced.insert(Self::from_type(t, table_exists, virtual_table_exists));
+                    reduced.insert(Self::from_type(t, table_exists));
                 }
             }
         }
@@ -246,7 +220,7 @@ impl ReducedShape {
                         k.into(),
                         ReducedField {
                             optional,
-                            shape: Self::from_type(&v.build(), table_exists, virtual_table_exists),
+                            shape: Self::from_type(&v.build(), table_exists),
                         },
                     )
                 })
@@ -319,7 +293,6 @@ impl proptest::arbitrary::Arbitrary for ReducedShape {
         use proptest::prelude::*;
         use shape_inference::testing::TestConfig;
 
-        any::<CountedShape<TestConfig>>()
-            .prop_map(|t| ReducedShape::from_type(&t, &|_| true, &|_| true))
+        any::<CountedShape<TestConfig>>().prop_map(|t| ReducedShape::from_type(&t, &|_| true))
     }
 }
