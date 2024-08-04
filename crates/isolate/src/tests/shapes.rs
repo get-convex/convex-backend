@@ -35,9 +35,6 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
     let table_id = id_generator.user_table_id(&"test".parse()?);
     let table_number = id_generator.generate_virtual_table(&"test2".parse()?);
     let table_mapping = id_generator.namespace(TableNamespace::test_user());
-    let virtual_table_mapping = id_generator
-        .virtual_table_mapping
-        .namespace(TableNamespace::test_user());
     let values: Vec<(ConvexValue, &'static str)> = vec![
         (
             ConvexValue::from(ResolvedDocumentId::new(
@@ -72,7 +69,8 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
             &CountedShape::<TestConfig>::empty().insert_value(&value),
             &table_mapping.table_number_exists(),
         );
-        let shape_json = dashboard_shape_json(&shape, &table_mapping, &virtual_table_mapping)?;
+        let shape_json =
+            dashboard_shape_json(&shape, &table_mapping, &id_generator.virtual_system_mapping)?;
         must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);
         assert_eq!(&s[..], expected);
     }
@@ -84,7 +82,8 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
             .insert_value(&ConvexValue::from(0)),
         &table_mapping.table_number_exists(),
     );
-    let shape_json = dashboard_shape_json(&shape, &table_mapping, &virtual_table_mapping)?;
+    let shape_json =
+        dashboard_shape_json(&shape, &table_mapping, &id_generator.virtual_system_mapping)?;
     must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);
     assert_eq!(&s[..], "null|bigint");
 
@@ -93,7 +92,8 @@ async fn test_shape_inference_js(rt: TestRuntime) -> anyhow::Result<()> {
         &CountedShape::<TestConfig>::empty(),
         &table_mapping.table_number_exists(),
     );
-    let shape_json = dashboard_shape_json(&shape, &table_mapping, &virtual_table_mapping)?;
+    let shape_json =
+        dashboard_shape_json(&shape, &table_mapping, &id_generator.virtual_system_mapping)?;
     must_let!(let ConvexValue::String(s) = t.query("shapes", assert_obj!("shapeJson" => serde_json::to_string(&shape_json)?)).await?);
     assert_eq!(&s[..], "never");
     Ok(())

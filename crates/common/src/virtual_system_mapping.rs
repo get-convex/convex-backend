@@ -9,7 +9,6 @@ use semver::Version;
 use value::{
     DeveloperDocumentId,
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
     ResolvedDocumentId,
     TableMapping,
     TableName,
@@ -213,15 +212,17 @@ impl VirtualSystemMapping {
 // Checks both virtual tables and tables to get the table number to name mapping
 pub fn all_tables_number_to_name(
     table_mapping: &NamespacedTableMapping,
-    virtual_table_mapping: &NamespacedVirtualTableMapping,
+    virtual_system_mapping: &VirtualSystemMapping,
 ) -> impl Fn(TableNumber) -> anyhow::Result<TableName> {
     let table_mapping = table_mapping.clone();
-    let virtual_table_mapping = virtual_table_mapping.clone();
+    let virtual_system_mapping = virtual_system_mapping.clone();
     move |number| {
-        if let Ok(table_number) = virtual_table_mapping.name(number) {
-            return Ok(table_number);
+        let physical_name = table_mapping.number_to_name()(number)?;
+        if let Some(virtual_name) = virtual_system_mapping.system_to_virtual.get(&physical_name) {
+            Ok(virtual_name.clone())
+        } else {
+            Ok(physical_name)
         }
-        table_mapping.number_to_name()(number)
     }
 }
 
@@ -229,17 +230,17 @@ pub fn all_tables_number_to_name(
 pub fn all_tables_name_to_number(
     namespace: TableNamespace,
     table_mapping: &TableMapping,
-    virtual_table_mapping: &VirtualTableMapping,
+    virtual_system_mapping: &VirtualSystemMapping,
 ) -> impl Fn(TableName) -> anyhow::Result<TableNumber> {
     let table_mapping = table_mapping.clone();
-    let virtual_table_mapping = virtual_table_mapping.clone();
+    let virtual_system_mapping = virtual_system_mapping.clone();
     move |name| {
-        if let Ok(number) = virtual_table_mapping
-            .namespace(namespace)
-            .name_to_number_user_input()(name.clone())
+        let name = if let Some(physical_table) = virtual_system_mapping.virtual_to_system.get(&name)
         {
-            return Ok(number);
-        }
+            physical_table.clone()
+        } else {
+            name
+        };
         table_mapping
             .namespace(namespace)
             .name_to_number_user_input()(name)

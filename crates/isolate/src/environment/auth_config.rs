@@ -39,7 +39,6 @@ use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use value::{
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
     TableMappingValue,
 };
 
@@ -126,9 +125,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         ))
     }
 
-    fn get_all_table_mappings(
-        &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoTableMappingFetchDuringAuthConfig",
             "Getting the table mapping unsupported when evaluating auth config file"

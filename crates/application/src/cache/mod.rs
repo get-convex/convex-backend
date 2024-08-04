@@ -474,12 +474,11 @@ impl<RT: Runtime> CacheManager<RT> {
                                 .component_path_to_ids(path.component.clone())
                                 .await?;
                             let table_mapping = tx.table_mapping().namespace(component.into());
-                            let virtual_table_mapping =
-                                tx.virtual_table_mapping().namespace(component.into());
+                            let virtual_system_mapping = tx.virtual_system_mapping();
                             let returns_validation_error = returns_validator.check_output(
                                 &output,
                                 &table_mapping,
-                                &virtual_table_mapping,
+                                virtual_system_mapping,
                             );
                             if let Some(js_err) = returns_validation_error {
                                 query_outcome.result = Err(js_err);

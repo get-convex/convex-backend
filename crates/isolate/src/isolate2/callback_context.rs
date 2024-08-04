@@ -450,7 +450,6 @@ mod op_provider {
     use value::{
         heap_size::WithHeapSize,
         NamespacedTableMapping,
-        NamespacedVirtualTableMapping,
         TableMappingValue,
     };
 
@@ -564,9 +563,7 @@ mod op_provider {
             todo!()
         }
 
-        fn get_all_table_mappings(
-            &mut self,
-        ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
+        fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
             self.context_state()?.environment.get_all_table_mappings()
         }
 

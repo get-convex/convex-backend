@@ -1,5 +1,8 @@
 use anyhow::Context;
-use model::modules::function_validators::ArgsValidator;
+use model::{
+    modules::function_validators::ArgsValidator,
+    virtual_system_mapping,
+};
 use serde_json::{
     json,
     Value as JsonValue,
@@ -38,8 +41,8 @@ pub fn op_validate_args<'b, P: OpProvider<'b>>(
         .and_then(ConvexArray::try_from)
         .map_err(|err| anyhow::anyhow!(format!("{}", err)))?;
 
-    let (table_mapping, virtual_table_mapping) = provider.get_all_table_mappings()?;
-    match args_validator.check_args(&args_array, &table_mapping, &virtual_table_mapping)? {
+    let table_mapping = provider.get_all_table_mappings()?;
+    match args_validator.check_args(&args_array, &table_mapping, &virtual_system_mapping())? {
         Some(js_error) => Ok(json!({
             "valid": false,
             "message": format!("{}", js_error)

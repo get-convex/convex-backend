@@ -30,7 +30,6 @@ use value::{
     IdentifierFieldName,
     Namespace,
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
 };
 
 use self::validator::{
@@ -52,6 +51,7 @@ use crate::{
         IndexDescriptor,
         TableName,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 
 pub mod json;
@@ -274,7 +274,7 @@ impl DatabaseSchema {
         new_schema: &'a DatabaseSchema,
         active_schema: Option<DatabaseSchema>,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
         shape_provider: &F,
     ) -> anyhow::Result<BTreeSet<&'a TableName>>
     where
@@ -293,7 +293,7 @@ impl DatabaseSchema {
                     table_definition,
                     &active_schema,
                     table_mapping,
-                    virtual_table_mapping,
+                    virtual_system_mapping,
                     &shape_provider(table_name),
                 )
                 .map(|must_revalidate| must_revalidate.then_some(table_name))
@@ -307,7 +307,7 @@ impl DatabaseSchema {
         table_definition: &TableDefinition,
         active_schema: &Option<DatabaseSchema>,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
         table_shape: &Shape<C, S>,
     ) -> anyhow::Result<bool> {
         let next_schema = table_definition.document_type.clone();
@@ -327,7 +327,7 @@ impl DatabaseSchema {
 
         // Can skip validation thanks to the saved shape?
         let validator_from_shape =
-            Validator::from_shape(table_shape, table_mapping, virtual_table_mapping);
+            Validator::from_shape(table_shape, table_mapping, virtual_system_mapping);
         if validator_from_shape
             .filter_top_level_system_fields()
             .is_subset(&next_schema_validator)
@@ -348,7 +348,7 @@ impl DatabaseSchema {
         &self,
         doc: &ResolvedDocument,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> Result<(), ValidationError> {
         if self.schema_validation
             && let Ok(table_name) = table_mapping.tablet_name(doc.id().tablet_id)
@@ -357,7 +357,7 @@ impl DatabaseSchema {
             return document_schema.check_value(
                 &doc.value().0,
                 table_mapping,
-                virtual_table_mapping,
+                virtual_system_mapping,
             );
         }
         Ok(())
@@ -368,9 +368,9 @@ impl DatabaseSchema {
         doc: &ResolvedDocument,
         table_name: TableName,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> Result<(), SchemaValidationError> {
-        self.check_value(doc, table_mapping, virtual_table_mapping)
+        self.check_value(doc, table_mapping, virtual_system_mapping)
             .map_err(|validation_error| SchemaValidationError::ExistingDocument {
                 validation_error,
                 table_name,
@@ -383,9 +383,9 @@ impl DatabaseSchema {
         doc: &ResolvedDocument,
         table_name: TableName,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> Result<(), SchemaEnforcementError> {
-        self.check_value(doc, table_mapping, virtual_table_mapping)
+        self.check_value(doc, table_mapping, virtual_system_mapping)
             .map_err(|validation_error| SchemaEnforcementError::Document {
                 validation_error,
                 table_name,
@@ -750,7 +750,7 @@ impl DocumentSchema {
         &self,
         value: &ConvexObject,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> Result<(), ValidationError> {
         match self {
             DocumentSchema::Any => {},
@@ -763,7 +763,7 @@ impl DocumentSchema {
                 Validator::Union(schema_type).check_value(
                     &ConvexValue::Object(value),
                     table_mapping,
-                    virtual_table_mapping,
+                    virtual_system_mapping,
                 )?;
             },
         }

@@ -4,6 +4,7 @@ use common::{
         ObjectValidator,
         Validator,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use errors::ErrorMetadataAnyhowExt;
 #[cfg(any(test, feature = "testing"))]
@@ -13,7 +14,6 @@ use value::{
     ConvexArray,
     ConvexValue,
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
 };
 
 /**
@@ -37,7 +37,7 @@ impl ArgsValidator {
         &self,
         args: &ConvexArray,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> anyhow::Result<Option<JsError>> {
         let result = match self {
             ArgsValidator::Unvalidated => None,
@@ -67,7 +67,7 @@ impl ArgsValidator {
                 let validation_error = Validator::Object(object_validator.clone()).check_value(
                     &ConvexValue::Object(object_arg.clone()),
                     table_mapping,
-                    virtual_table_mapping,
+                    virtual_system_mapping,
                 );
                 if let Err(error) = validation_error {
                     Some(JsError::from_message(error.to_string()))
@@ -133,13 +133,13 @@ impl ReturnsValidator {
         &self,
         output: &ConvexValue,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> Option<JsError> {
         match self {
             ReturnsValidator::Unvalidated => None,
             ReturnsValidator::Validated(validator) => {
                 let validation_error =
-                    validator.check_value(output, table_mapping, virtual_table_mapping);
+                    validator.check_value(output, table_mapping, virtual_system_mapping);
                 match validation_error {
                     Err(error) => Some(JsError::from_message(format!(
                         "ReturnsValidationError: {error}"

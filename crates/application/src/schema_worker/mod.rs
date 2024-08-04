@@ -14,6 +14,7 @@ use common::{
         IndexId,
         RepeatableTimestamp,
     },
+    virtual_system_mapping::VirtualSystemMapping,
 };
 use database::{
     Database,
@@ -36,7 +37,6 @@ use metrics::{
 };
 use value::{
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
     ResolvedDocumentId,
     TableNamespace,
     TabletId,
@@ -62,7 +62,7 @@ pub struct PendingSchemaWork {
     id: ResolvedDocumentId,
     timer: StatusTimer,
     table_mapping: NamespacedTableMapping,
-    virtual_table_mapping: NamespacedVirtualTableMapping,
+    virtual_system_mapping: VirtualSystemMapping,
     db_schema: DatabaseSchema,
     ts: RepeatableTimestamp,
     active_schema: Option<DatabaseSchema>,
@@ -95,17 +95,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<Vec<PendingSchemaWork>> {
         let mut pending_schema_work = Vec::new();
-        let namespaces: Vec<_> = tx
-            .table_mapping()
-            .iter()
-            .filter_map(|(_, namespace, _, table_name)| {
-                if *table_name == *SCHEMAS_TABLE {
-                    Some(namespace)
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let namespaces: Vec<_> = tx.table_mapping().namespaces_for_name(&SCHEMAS_TABLE);
         for namespace in namespaces {
             if let Some((id, db_schema)) = SchemaModel::new(tx, namespace)
                 .get_by_state(SchemaState::Pending)
@@ -114,7 +104,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 tracing::debug!("SchemaWorker found a pending schema and is validating it...");
                 let timer = schema_validation_timer();
                 let table_mapping = tx.table_mapping().namespace(namespace);
-                let virtual_table_mapping = tx.virtual_table_mapping().namespace(namespace);
+                let virtual_system_mapping = tx.virtual_system_mapping().clone();
 
                 let active_schema = SchemaModel::new(tx, namespace)
                     .get_by_state(SchemaState::Active)
@@ -127,7 +117,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                     id,
                     timer,
                     table_mapping,
-                    virtual_table_mapping,
+                    virtual_system_mapping,
                     db_schema,
                     ts,
                     active_schema,
@@ -150,7 +140,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             id,
             timer,
             table_mapping,
-            virtual_table_mapping,
+            virtual_system_mapping,
             db_schema,
             ts,
             active_schema,
@@ -161,7 +151,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 &db_schema,
                 active_schema,
                 &table_mapping,
-                &virtual_table_mapping,
+                &virtual_system_mapping,
                 &|table_name| {
                     snapshot
                         .table_summary(namespace, table_name)
@@ -190,7 +180,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                         &doc,
                         table_name,
                         &table_mapping,
-                        &virtual_table_mapping,
+                        &virtual_system_mapping,
                     ) {
                         let mut backoff = Backoff::new(INITIAL_COMMIT_BACKOFF, MAX_COMMIT_BACKOFF);
                         while backoff.failures() < MAX_COMMIT_FAILURES {

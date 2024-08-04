@@ -80,7 +80,6 @@ use sync_types::{
 use value::{
     heap_size::WithHeapSize,
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
     TableMappingValue,
 };
 
@@ -161,9 +160,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         ))
     }
 
-    fn get_all_table_mappings(
-        &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoTableMappingFetchDuringImport",
             "Getting the table mapping unsupported at import time"

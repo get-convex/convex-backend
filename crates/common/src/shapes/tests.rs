@@ -16,7 +16,6 @@ use value::{
     ConvexValue,
     TableName,
     TableNamespace,
-    VirtualTableMapping,
 };
 
 use crate::{
@@ -25,6 +24,7 @@ use crate::{
         reduced::ReducedShape,
     },
     testing::TestIdGenerator,
+    virtual_system_mapping::VirtualSystemMapping,
 };
 
 #[test]
@@ -105,9 +105,6 @@ fn test_id_strings() -> anyhow::Result<()> {
     let deleted2_table_id = table_mapping.id(&deleted2_table)?;
     id_generator.remove(deleted2_table_id.tablet_id);
     let table_mapping = id_generator.namespace(TableNamespace::test_user());
-    let virtual_table_mapping = id_generator
-        .virtual_table_mapping
-        .namespace(TableNamespace::test_user());
 
     // Insert all of these into a type
     let inferred_type = CountedShape::<TestConfig>::empty()
@@ -120,7 +117,7 @@ fn test_id_strings() -> anyhow::Result<()> {
     let shape_json = dashboard_shape_json(
         &reduced_shape,
         &id_generator.namespace(TableNamespace::test_user()),
-        &virtual_table_mapping,
+        &id_generator.virtual_system_mapping,
     )?;
     assert_eq!(
         shape_json,
@@ -147,7 +144,7 @@ fn test_float_merge_shape_inference() -> anyhow::Result<()> {
     let shape_json = dashboard_shape_json(
         &reduced_shape,
         &id_generator.namespace(TableNamespace::test_user()),
-        &VirtualTableMapping::new().namespace(TableNamespace::test_user()),
+        &VirtualSystemMapping::default(),
     )?;
     assert_eq!(
         shape_json,

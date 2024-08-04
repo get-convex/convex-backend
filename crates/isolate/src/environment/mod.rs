@@ -30,7 +30,6 @@ use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use value::{
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
     TableMappingValue,
 };
 
@@ -84,9 +83,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
 
     /// The table mapping omitting system tables, intended for the dashboard.
     fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue>;
-    fn get_all_table_mappings(
-        &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)>;
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping>;
 
     fn start_async_op(
         &mut self,

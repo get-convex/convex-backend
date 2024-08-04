@@ -2,18 +2,18 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use value::{
-    NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
-};
+use value::NamespacedTableMapping;
 
 use super::reduced::ReducedShape;
-use crate::virtual_system_mapping::all_tables_number_to_name;
+use crate::virtual_system_mapping::{
+    all_tables_number_to_name,
+    VirtualSystemMapping,
+};
 
 pub fn dashboard_shape_json(
     shape: &ReducedShape,
     mapping: &NamespacedTableMapping,
-    virtual_mapping: &NamespacedVirtualTableMapping,
+    virtual_mapping: &VirtualSystemMapping,
 ) -> anyhow::Result<JsonValue> {
     let result = match shape {
         ReducedShape::Unknown => json!({"type": "Unknown"}),
@@ -107,7 +107,6 @@ mod tests {
         TableMapping,
         TableName,
         TableNamespace,
-        VirtualTableMapping,
     };
 
     use super::dashboard_shape_json;
@@ -118,13 +117,16 @@ mod tests {
             ReducedShape,
         },
         testing::TestIdGenerator,
-        virtual_system_mapping::all_tables_name_to_number,
+        virtual_system_mapping::{
+            all_tables_name_to_number,
+            VirtualSystemMapping,
+        },
     };
 
     fn parse_json(
         json_value: JsonValue,
         mapping: &TableMapping,
-        virtual_mapping: &VirtualTableMapping,
+        virtual_mapping: &VirtualSystemMapping,
     ) -> anyhow::Result<ReducedShape> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
@@ -261,15 +263,13 @@ mod tests {
             let json_value = dashboard_shape_json(
                 &shape,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator
-                    .virtual_table_mapping
-                    .namespace(TableNamespace::test_user()),
+                &id_generator.virtual_system_mapping,
             )?;
             assert_eq!(
                 parse_json(
                     json_value,
                     &id_generator,
-                    &id_generator.virtual_table_mapping
+                    &id_generator.virtual_system_mapping
                 )?,
                 shape
             );
@@ -307,15 +307,13 @@ mod tests {
             let json_value = dashboard_shape_json(
                 &shape,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator
-                    .virtual_table_mapping
-                    .namespace(TableNamespace::test_user()),
+                &id_generator.virtual_system_mapping,
             )?;
             assert_eq!(
                 parse_json(
                     json_value,
                     &id_generator,
-                    &id_generator.virtual_table_mapping
+                    &id_generator.virtual_system_mapping,
                 )?,
                 shape
             );

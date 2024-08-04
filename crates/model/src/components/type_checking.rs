@@ -27,11 +27,13 @@ use value::{
     identifier::Identifier,
     TableMapping,
     TableNamespace,
-    VirtualTableMapping,
 };
 
 use super::types::EvaluatedComponentDefinition;
-use crate::modules::HTTP_MODULE_PATH;
+use crate::{
+    modules::HTTP_MODULE_PATH,
+    virtual_system_mapping,
+};
 
 #[derive(Debug)]
 pub struct CheckedComponent {
@@ -177,10 +179,9 @@ impl<'a> CheckedComponentBuilder<'a> {
                             // TODO(CX-6540): Remove hack where we pass in empty mappings.
                             let table_mapping =
                                 TableMapping::new().namespace(TableNamespace::by_component_TODO());
-                            let virtual_table_mapping = VirtualTableMapping::new()
-                                .namespace(TableNamespace::by_component_TODO());
+                            let virtual_system_mapping = virtual_system_mapping();
                             validator
-                                .check_value(value, &table_mapping, &virtual_table_mapping)
+                                .check_value(value, &table_mapping, &virtual_system_mapping)
                                 .map_err(|validator_error| {
                                     TypecheckError::InvalidComponentArgument {
                                         component_path: component_path.clone(),

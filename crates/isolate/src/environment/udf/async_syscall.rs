@@ -66,6 +66,7 @@ use model::{
         FileStorageId,
     },
     scheduled_jobs::VirtualSchedulerModel,
+    virtual_system_mapping,
 };
 use serde::{
     Deserialize,
@@ -547,11 +548,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         };
         let tx = self.phase.tx()?;
         let table_mapping = tx.table_mapping().namespace(called_component_id.into());
-        let virtual_table_mapping = tx
-            .virtual_table_mapping()
-            .namespace(called_component_id.into());
         if let Some(e) =
-            returns_validator.check_output(&result, &table_mapping, &virtual_table_mapping)
+            returns_validator.check_output(&result, &table_mapping, &virtual_system_mapping())
         {
             anyhow::bail!(ErrorMetadata::bad_request("InvalidReturnValue", e.message));
         }

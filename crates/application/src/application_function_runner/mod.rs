@@ -1014,14 +1014,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .await?;
 
         let table_mapping = tx.table_mapping().namespace(component.into());
-        let virtual_table_mapping = tx.virtual_table_mapping().namespace(component.into());
 
-        let outcome = ValidatedUdfOutcome::new(
-            mutation_outcome,
-            returns_validator,
-            &table_mapping,
-            &virtual_table_mapping,
-        );
+        let outcome = ValidatedUdfOutcome::new(mutation_outcome, returns_validator, &table_mapping);
 
         Ok((tx, outcome))
     }
@@ -1183,7 +1177,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // We should use table mappings from the same transaction as the output
         // validator was retrieved.
         let table_mapping = tx.table_mapping().namespace(component.into());
-        let virtual_table_mapping = tx.virtual_table_mapping().namespace(component.into());
+        let virtual_system_mapping = tx.virtual_system_mapping().clone();
         let udf_server_version = path_and_args.npm_version().clone();
         // We should not be missing the module given we validated the path above
         // which requires the module to exist.
@@ -1223,12 +1217,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     .unwrap();
 
                 let validated_outcome_result = outcome_result.map(|outcome| {
-                    ValidatedActionOutcome::new(
-                        outcome,
-                        returns_validator,
-                        &table_mapping,
-                        &virtual_table_mapping,
-                    )
+                    ValidatedActionOutcome::new(outcome, returns_validator, &table_mapping)
                 });
 
                 timer.finish();
@@ -1348,7 +1337,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         if let Some(js_err) = returns_validator.check_output(
                             output,
                             &table_mapping,
-                            &virtual_table_mapping,
+                            &virtual_system_mapping,
                         ) {
                             node_outcome.result = Err(js_err);
                         }
@@ -1365,12 +1354,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         syscall_trace: node_outcome.syscall_trace,
                         udf_server_version,
                     };
-                    let outcome = ValidatedActionOutcome::new(
-                        outcome,
-                        returns_validator,
-                        &table_mapping,
-                        &virtual_table_mapping,
-                    );
+                    let outcome =
+                        ValidatedActionOutcome::new(outcome, returns_validator, &table_mapping);
                     ActionCompletion {
                         outcome,
                         execution_time: start.elapsed(),

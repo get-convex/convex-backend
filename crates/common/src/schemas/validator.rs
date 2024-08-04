@@ -38,7 +38,6 @@ use value::{
     IdentifierFieldName,
     Namespace,
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
     TableName,
     TableNumber,
 };
@@ -50,7 +49,10 @@ use crate::{
         ID_FIELD,
     },
     json_schemas,
-    virtual_system_mapping::all_tables_number_to_name,
+    virtual_system_mapping::{
+        all_tables_number_to_name,
+        VirtualSystemMapping,
+    },
 };
 
 /// Validates that a Convex value has the given type.
@@ -155,10 +157,10 @@ impl Validator {
         &self,
         value: &ConvexValue,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> Result<(), ValidationError> {
         let all_tables_number_to_name =
-            all_tables_number_to_name(table_mapping, virtual_table_mapping);
+            all_tables_number_to_name(table_mapping, virtual_system_mapping);
         self.check_value_internal(value, &all_tables_number_to_name, ValidationContext::new())
     }
 
@@ -330,7 +332,7 @@ impl Validator {
     pub fn from_shape<C: ShapeConfig, S: ShapeCounter>(
         t: &Shape<C, S>,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
+        virtual_system_mapping: &VirtualSystemMapping,
     ) -> Self {
         match t.variant() {
             ShapeEnum::Never => Self::Union(vec![]),
@@ -347,8 +349,9 @@ impl Validator {
                 Self::Literal(LiteralValidator::String(s.literal.clone()))
             },
             ShapeEnum::Id(table_number) => {
-                match all_tables_number_to_name(table_mapping, virtual_table_mapping)(*table_number)
-                {
+                match all_tables_number_to_name(table_mapping, virtual_system_mapping)(
+                    *table_number,
+                ) {
                     Ok(table_name) => Self::Id(table_name),
                     Err(_) => Self::String,
                 }
@@ -359,23 +362,23 @@ impl Validator {
             ShapeEnum::Array(array_type) => Self::Array(Box::new(Self::from_shape(
                 array_type.element(),
                 table_mapping,
-                virtual_table_mapping,
+                virtual_system_mapping,
             ))),
             ShapeEnum::Set(set_type) => Self::Set(Box::new(Self::from_shape(
                 set_type.element(),
                 table_mapping,
-                virtual_table_mapping,
+                virtual_system_mapping,
             ))),
             ShapeEnum::Map(map_type) => Self::Map(
                 Box::new(Self::from_shape(
                     map_type.key(),
                     table_mapping,
-                    virtual_table_mapping,
+                    virtual_system_mapping,
                 )),
                 Box::new(Self::from_shape(
                     map_type.value(),
                     table_mapping,
-                    virtual_table_mapping,
+                    virtual_system_mapping,
                 )),
             ),
             ShapeEnum::Object(object_type) => {
@@ -388,7 +391,7 @@ impl Validator {
                                 validator: Self::from_shape(
                                     &v.value_shape,
                                     table_mapping,
-                                    virtual_table_mapping,
+                                    virtual_system_mapping,
                                 ),
                                 optional: v.optional,
                             },
@@ -401,18 +404,18 @@ impl Validator {
                 Box::new(Self::from_shape(
                     record_type.field(),
                     table_mapping,
-                    virtual_table_mapping,
+                    virtual_system_mapping,
                 )),
                 Box::new(Self::from_shape(
                     record_type.value(),
                     table_mapping,
-                    virtual_table_mapping,
+                    virtual_system_mapping,
                 )),
             ),
             ShapeEnum::Union(union_type) => Self::Union(
                 union_type
                     .iter()
-                    .map(|t| Self::from_shape(t, table_mapping, virtual_table_mapping))
+                    .map(|t| Self::from_shape(t, table_mapping, virtual_system_mapping))
                     .collect(),
             ),
             ShapeEnum::Unknown => Self::Any,
@@ -1127,11 +1130,9 @@ mod tests {
         FieldType,
         InternalId,
         NamespacedTableMapping,
-        NamespacedVirtualTableMapping,
         TableMapping,
         TableName,
         TableNamespace,
-        VirtualTableMapping,
     };
 
     use super::Validator;
@@ -1147,14 +1148,11 @@ mod tests {
             DocumentSchema,
         },
         testing::TestIdGenerator,
+        virtual_system_mapping::VirtualSystemMapping,
     };
 
     fn empty_table_mapping() -> NamespacedTableMapping {
         TableMapping::new().namespace(TableNamespace::test_user())
-    }
-
-    fn empty_virtual_table_mapping() -> NamespacedVirtualTableMapping {
-        VirtualTableMapping::new().namespace(TableNamespace::test_user())
     }
 
     // Arbitrary `TryFrom` implementation for testing `check_value`.
@@ -1254,7 +1252,7 @@ mod tests {
             v.check_value(
                 &object,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator.virtual_table_mapping.namespace(TableNamespace::test_user())
+                &id_generator.virtual_system_mapping,
             ).unwrap();
         }
 
@@ -1376,7 +1374,7 @@ mod tests {
             .check_value(
                 &value_wrong_type,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &empty_virtual_table_mapping(),
+                &VirtualSystemMapping::default(),
             )
             .unwrap_err();
         assert_eq!(
@@ -1401,7 +1399,7 @@ mod tests {
             .check_value(
                 &value_wrong_key,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &empty_virtual_table_mapping(),
+                &VirtualSystemMapping::default(),
             )
             .unwrap_err();
         assert_eq!(
@@ -1422,7 +1420,7 @@ mod tests {
             .check_value(
                 &value_wrong_value,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &empty_virtual_table_mapping(),
+                &VirtualSystemMapping::default(),
             )
             .unwrap_err();
         assert_eq!(
@@ -1453,9 +1451,7 @@ mod tests {
             .check_value(
                 &value_wrong_type,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator
-                    .virtual_table_mapping
-                    .namespace(TableNamespace::test_user()),
+                &id_generator.virtual_system_mapping,
             )
             .unwrap_err();
         assert_eq!(
@@ -1480,9 +1476,7 @@ mod tests {
             .check_value(
                 &value_wrong_key,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator
-                    .virtual_table_mapping
-                    .namespace(TableNamespace::test_user()),
+                &id_generator.virtual_system_mapping,
             )
             .unwrap_err();
         assert_eq!(
@@ -1503,9 +1497,7 @@ mod tests {
             .check_value(
                 &value_wrong_value,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator
-                    .virtual_table_mapping
-                    .namespace(TableNamespace::test_user()),
+                &id_generator.virtual_system_mapping,
             )
             .unwrap_err();
         assert_eq!(
@@ -1584,9 +1576,7 @@ mod tests {
             .check_value(
                 &value,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator
-                    .virtual_table_mapping
-                    .namespace(TableNamespace::test_user()),
+                &id_generator.virtual_system_mapping,
             )
             .unwrap_err();
         assert_eq!(
@@ -1617,9 +1607,7 @@ mod tests {
             .check_value(
                 &value,
                 &id_generator.namespace(TableNamespace::test_user()),
-                &id_generator
-                    .virtual_table_mapping
-                    .namespace(TableNamespace::test_user()),
+                &id_generator.virtual_system_mapping,
             )
             .unwrap_err();
         assert_eq!(
@@ -1642,7 +1630,7 @@ mod tests {
             .check_value(
                 &ConvexValue::String("hello".try_into()?),
                 &empty_table_mapping(),
-                &empty_virtual_table_mapping(),
+                &VirtualSystemMapping::default(),
             )
             .unwrap();
 
@@ -1651,7 +1639,7 @@ mod tests {
             .check_value(
                 &value,
                 &empty_table_mapping(),
-                &empty_virtual_table_mapping(),
+                &VirtualSystemMapping::default(),
             )
             .unwrap_err();
         assert_eq!(
@@ -1682,7 +1670,7 @@ mod tests {
             .check_value(
                 &object,
                 &empty_table_mapping(),
-                &empty_virtual_table_mapping()
+                &VirtualSystemMapping::default(),
             )
             .unwrap_err()
             .to_string()
@@ -1773,7 +1761,7 @@ mod tests {
             )
         ) {
             let table_mapping = empty_table_mapping();
-            let virtual_table_mapping = empty_virtual_table_mapping();
+            let virtual_table_mapping = VirtualSystemMapping::default();
             let shape = CountedShape::<TestConfig>::empty().insert_value(&resolved_value);
             let validator = Validator::from_shape(&shape, &table_mapping, &virtual_table_mapping);
             prop_assert!(validator.check_value(

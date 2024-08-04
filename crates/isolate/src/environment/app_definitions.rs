@@ -45,7 +45,6 @@ use serde_json::Value as JsonValue;
 use value::{
     base64,
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
     TableMappingValue,
 };
 
@@ -347,9 +346,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         ))
     }
 
-    fn get_all_table_mappings(
-        &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoTableMappingFetchDuringDefinitionEvaluation",
             "Getting the table mapping unsupported when evaluating app definition"

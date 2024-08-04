@@ -75,7 +75,6 @@ use value::{
     ConvexObject,
     ConvexValue,
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
     TableMapping,
     TableMappingValue,
     TableName,
@@ -466,9 +465,7 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         })
     }
 
-    fn get_all_table_mappings(
-        &mut self,
-    ) -> anyhow::Result<(NamespacedTableMapping, NamespacedVirtualTableMapping)> {
+    fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {
         self.check_executing()?;
         Ok(self.shared.get_all_table_mappings())
     }
@@ -777,16 +774,11 @@ impl<RT: Runtime> UdfShared<RT> {
         inner.queries.remove(&query_id).is_some()
     }
 
-    fn get_all_table_mappings(&self) -> (NamespacedTableMapping, NamespacedVirtualTableMapping) {
+    fn get_all_table_mappings(&self) -> NamespacedTableMapping {
         let inner = self.inner.lock();
-        (
-            inner
-                .table_mapping
-                .namespace(TableNamespace::by_component_TODO()),
-            inner
-                .virtual_table_mapping
-                .namespace(TableNamespace::by_component_TODO()),
-        )
+        inner
+            .table_mapping
+            .namespace(TableNamespace::by_component_TODO())
     }
 
     fn get_table_mapping_without_system_tables(&self) -> TableMappingValue {

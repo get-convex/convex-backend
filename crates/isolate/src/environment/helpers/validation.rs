@@ -46,6 +46,7 @@ use model::{
         ModuleModel,
     },
     udf_config::UdfConfigModel,
+    virtual_system_mapping,
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::arbitrary::Arbitrary;
@@ -58,7 +59,6 @@ use value::{
     ConvexArray,
     ConvexValue,
     NamespacedTableMapping,
-    NamespacedVirtualTableMapping,
 };
 
 use crate::{
@@ -441,13 +441,12 @@ impl ValidatedPathAndArgs {
         }
 
         let table_mapping = &tx.table_mapping().namespace(component.into());
-        let virtual_table_mapping = &tx.virtual_table_mapping().namespace(component.into());
 
         // If the UDF has an args validator, check that these args match.
         let args_validation_error =
             analyzed_function
                 .args
-                .check_args(&args, table_mapping, virtual_table_mapping)?;
+                .check_args(&args, table_mapping, &virtual_system_mapping())?;
 
         if let Some(error) = args_validation_error {
             return Ok(Err(JsError::from_message(format!(
@@ -696,7 +695,6 @@ impl ValidatedUdfOutcome {
         outcome: UdfOutcome,
         returns_validator: ReturnsValidator,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Self {
         let mut validated = ValidatedUdfOutcome {
             path: outcome.path,
@@ -720,7 +718,7 @@ impl ValidatedUdfOutcome {
         };
 
         if let Some(js_err) =
-            returns_validator.check_output(&returns, table_mapping, virtual_table_mapping)
+            returns_validator.check_output(&returns, table_mapping, &virtual_system_mapping())
         {
             validated.result = Err(js_err);
         };
@@ -748,7 +746,6 @@ impl ValidatedActionOutcome {
         outcome: ActionOutcome,
         returns_validator: ReturnsValidator,
         table_mapping: &NamespacedTableMapping,
-        virtual_table_mapping: &NamespacedVirtualTableMapping,
     ) -> Self {
         let mut validated = ValidatedActionOutcome {
             path: outcome.path,
@@ -763,7 +760,7 @@ impl ValidatedActionOutcome {
         if let Ok(ref json_packed_value) = &validated.result {
             let output = json_packed_value.unpack();
             if let Some(js_err) =
-                returns_validator.check_output(&output, table_mapping, virtual_table_mapping)
+                returns_validator.check_output(&output, table_mapping, &virtual_system_mapping())
             {
                 validated.result = Err(js_err);
             }

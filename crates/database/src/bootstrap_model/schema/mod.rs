@@ -178,10 +178,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                 document,
                 table_name.clone(),
                 table_mapping_for_schema,
-                &self
-                    .tx
-                    .virtual_table_mapping()
-                    .namespace(table_mapping_for_schema.namespace()),
+                self.tx.virtual_system_mapping(),
             ) {
                 anyhow::bail!(schema_error.to_error_metadata());
             }
@@ -195,10 +192,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                     document,
                     table_name,
                     table_mapping_for_schema,
-                    &self
-                        .tx
-                        .virtual_table_mapping()
-                        .namespace(table_mapping_for_schema.namespace()),
+                    self.tx.virtual_system_mapping(),
                 ) {
                     self.mark_failed(id, enforcement_error.into()).await?;
                 }

@@ -20,6 +20,7 @@ use common::{
 };
 use database::IndexModel;
 use http::StatusCode;
+use model::virtual_system_mapping;
 use serde::{
     Deserialize,
     Serialize,
@@ -63,10 +64,6 @@ pub async fn shapes2(
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
     let snapshot = st.application.latest_snapshot()?;
     let mapping = snapshot.table_mapping().namespace(component.into());
-    let virtual_mapping = snapshot
-        .table_registry
-        .virtual_table_mapping()
-        .namespace(component.into());
 
     for (namespace, table_name) in snapshot.table_registry.user_table_names() {
         if TableNamespace::from(component) != namespace {
@@ -77,7 +74,7 @@ pub async fn shapes2(
             table_summary.inferred_type(),
             &mapping.table_number_exists(),
         );
-        let json = dashboard_shape_json(&shape, &mapping, &virtual_mapping)?;
+        let json = dashboard_shape_json(&shape, &mapping, &virtual_system_mapping())?;
         out.insert(String::from(table_name.clone()), json);
     }
     Ok(Json(out))
