@@ -93,7 +93,7 @@ pub async fn validate_schedule_args<RT: Runtime>(
     }
 
     // We do serialize the arguments, so this is likely our fault.
-    let udf_args = parse_udf_args(&path, udf_args)?;
+    let udf_args = parse_udf_args(&path.udf_path, udf_args)?;
 
     // Even though we might use different version of modules when executing,
     // we do validate that the scheduled function exists at time of scheduling.
@@ -435,7 +435,7 @@ impl ValidatedPathAndArgs {
             ))));
         }
 
-        match validate_udf_args_size(&path, &args) {
+        match validate_udf_args_size(&path.udf_path, &args) {
             Ok(()) => (),
             Err(err) => return Ok(Err(err)),
         }

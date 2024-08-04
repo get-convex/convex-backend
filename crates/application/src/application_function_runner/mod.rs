@@ -762,7 +762,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
-        let arguments = match parse_udf_args(&path, arguments) {
+        let arguments = match parse_udf_args(&path.udf_path, arguments) {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(MutationError {
@@ -1032,7 +1032,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
         }
-        let arguments = match parse_udf_args(&path, arguments) {
+        let arguments = match parse_udf_args(&path.udf_path, arguments) {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(ActionError {
@@ -1673,7 +1673,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
         }
-        let args = match parse_udf_args(&path, args) {
+        let args = match parse_udf_args(&path.udf_path, args) {
             Ok(arguments) => arguments,
             Err(js_error) => {
                 return Ok(QueryReturn {

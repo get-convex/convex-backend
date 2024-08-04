@@ -81,7 +81,7 @@ async fn create_scheduled_job<'a>(
     let job_id = model
         .schedule(
             path.clone(),
-            parse_udf_args(&path, vec![JsonValue::Object(map)])?,
+            parse_udf_args(&path.udf_path, vec![JsonValue::Object(map)])?,
             rt.unix_timestamp(),
             ExecutionContext::new_for_test(),
         )

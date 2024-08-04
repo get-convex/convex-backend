@@ -1,3 +1,4 @@
+use common::components::ExportPath;
 use errors::ErrorMetadata;
 use sync_types::CanonicalizedUdfPath;
 use value::{
@@ -6,6 +7,16 @@ use value::{
     ResolvedDocumentId,
     TableName,
 };
+
+pub fn parse_export_path(path: &str) -> anyhow::Result<ExportPath> {
+    path.parse().map_err(|e: anyhow::Error| {
+        let msg = format!("{path} is not a valid path to a Convex function. {e}");
+        e.context(ErrorMetadata::bad_request(
+            "BadConvexFunctionIdentifier",
+            msg,
+        ))
+    })
+}
 
 pub fn parse_udf_path(path: &str) -> anyhow::Result<CanonicalizedUdfPath> {
     path.parse().map_err(|e: anyhow::Error| {
