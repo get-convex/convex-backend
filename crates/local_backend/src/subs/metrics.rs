@@ -119,3 +119,14 @@ register_convex_counter!(pub WEBSOCKET_CONNECTION_RESET_TOTAL, "Number of websoc
 pub fn log_websocket_connection_reset() {
     log_counter(&WEBSOCKET_CONNECTION_RESET_TOTAL, 1)
 }
+
+register_convex_gauge!(
+    DEBUG_SYNC_PROTOCOL_WEBSOCKETS_TOTAL,
+    "Number of WebSocket connected to a backend at a given state",
+    &["tag"]
+);
+pub fn log_debug_sync_protocol_websockets_total(tag: &'static str, delta: i8) {
+    DEBUG_SYNC_PROTOCOL_WEBSOCKETS_TOTAL
+        .with_label_values(&[tag])
+        .add(delta as f64)
+}
