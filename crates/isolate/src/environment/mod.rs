@@ -9,9 +9,9 @@ use model::{
 };
 pub mod action;
 pub mod analyze;
-pub mod app_definitions;
 pub mod async_op;
 pub mod auth_config;
+pub mod component_definitions;
 pub mod helpers;
 pub mod schema;
 pub mod udf;

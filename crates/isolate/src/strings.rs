@@ -55,6 +55,7 @@ macro_rules! declare_strings {
 // identifier as a string, or explicitly name the string with the `$name =>
 // $string` syntax.
 declare_strings!(
+    _onInitCallbacks,
     Convex,
     asyncOp,
     asyncSyscall,

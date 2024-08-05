@@ -66,6 +66,11 @@ interface ComponentExports {
 }
 
 /**
+ * @internal
+ */
+export interface InitCtx {}
+
+/**
  * An object of this type should be the default export of a
  * component.config.ts file in a component definition directory.
  *
@@ -89,6 +94,17 @@ export type ComponentDefinition<
       name?: string;
       // TODO we have to do the "arguments are optional if empty, otherwise required"
       args?: ObjectType<ComponentDefinitionArgs<Definition>>;
+    },
+  ): InstalledComponent<Definition>;
+
+  installWithInit<Definition extends ComponentDefinition<any, any>>(
+    definition: Definition,
+    options: {
+      name?: string;
+      onInit: (
+        ctx: InitCtx,
+        args: ObjectType<Args>,
+      ) => ObjectType<ComponentDefinitionArgs<Definition>>;
     },
   ): InstalledComponent<Definition>;
 
@@ -157,7 +173,7 @@ type CommonDefinitionData = {
   _childComponents: [
     string,
     ImportedComponentDefinition,
-    Record<string, any>,
+    Record<string, any> | null,
   ][];
   _httpMounts: Record<string, HttpMount>;
   _exportTree: ExportTree;
@@ -166,6 +182,7 @@ type CommonDefinitionData = {
 type ComponentDefinitionData = CommonDefinitionData & {
   _args: PropertyValidators;
   _name: string;
+  _onInitCallbacks: Record<string, (argsStr: string) => string>;
 };
 type AppDefinitionData = CommonDefinitionData;
 
@@ -181,14 +198,17 @@ class InstalledComponent<Definition extends ComponentDefinition<any, any>> {
   /**
    * @internal
    */
+  _name: string;
+
+  /**
+   * @internal
+   */
   [toReferencePath]: string;
 
-  constructor(
-    definition: Definition,
-    private _name: string,
-  ) {
+  constructor(definition: Definition, name: string) {
     this._definition = definition;
-    this[toReferencePath] = `_reference/childComponent/${_name}`;
+    this._name = name;
+    this[toReferencePath] = `_reference/childComponent/${name}`;
   }
 
   get exports(): ComponentDefinitionExports<Definition> {
@@ -238,10 +258,43 @@ function install<Definition extends ComponentDefinition<any>>(
   this._childComponents.push([
     name,
     importedComponentDefinition,
-    options.args || {},
+    options.args ?? {},
   ]);
-
   return new InstalledComponent(definition, name);
+}
+
+function installWithInit<Definition extends ComponentDefinition<any>>(
+  this: ComponentDefinitionData,
+  definition: Definition,
+  options: {
+    name?: string;
+    onInit: (ctx: InitCtx, args: any) => any;
+  },
+): InstalledComponent<Definition> {
+  // At runtime an imported component will have this shape.
+  const importedComponentDefinition =
+    definition as unknown as ImportedComponentDefinition;
+  if (typeof importedComponentDefinition.componentDefinitionPath !== "string") {
+    throw new Error(
+      "Component definition does not have the required componentDefinitionPath property. This code only works in Convex runtime.",
+    );
+  }
+  const name =
+    options.name ||
+    importedComponentDefinition.componentDefinitionPath.split("/").pop()!;
+  this._childComponents.push([name, importedComponentDefinition, null]);
+  this._onInitCallbacks[name] = (s) => invokeOnInit(s, options.onInit);
+  return new InstalledComponent(definition, name);
+}
+
+function invokeOnInit(
+  argsStr: string,
+  onInit: (ctx: InitCtx, args: any) => any,
+): string {
+  const argsJson = JSON.parse(argsStr);
+  const args = jsonToConvex(argsJson);
+  const result = onInit({}, args);
+  return JSON.stringify(convexToJson(result));
 }
 
 function mount(this: CommonDefinitionData, exports: any) {
@@ -341,20 +394,27 @@ function serializeExportTree(tree: ExportTree): any {
 }
 
 function serializeChildComponents(
-  childComponents: [string, ImportedComponentDefinition, Record<string, any>][],
+  childComponents: [
+    string,
+    ImportedComponentDefinition,
+    Record<string, any> | null,
+  ][],
 ): {
   name: string;
   path: string;
-  args: [string, { type: "value"; value: string }][];
+  args: [string, { type: "value"; value: string }][] | null;
 }[] {
   return childComponents.map(([name, definition, p]) => {
-    const args: [string, { type: "value"; value: string }][] = [];
-    for (const [name, value] of Object.entries(p)) {
-      if (value !== undefined) {
-        args.push([
-          name,
-          { type: "value", value: JSON.stringify(convexToJson(value)) },
-        ]);
+    let args: [string, { type: "value"; value: string }][] | null = null;
+    if (p !== null) {
+      args = [];
+      for (const [name, value] of Object.entries(p)) {
+        if (value !== undefined) {
+          args.push([
+            name,
+            { type: "value", value: JSON.stringify(convexToJson(value)) },
+          ]);
+        }
       }
     }
     // we know that components carry this extra information
@@ -431,9 +491,11 @@ export function defineComponent<
     _childComponents: [],
     _httpMounts: {},
     _exportTree: {},
+    _onInitCallbacks: {},
 
     export: exportComponentForAnalysis,
     install,
+    installWithInit,
     mount,
     mountHttp,
 

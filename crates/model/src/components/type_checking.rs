@@ -3,9 +3,11 @@ use std::collections::{
     BTreeSet,
 };
 
+use async_recursion::async_recursion;
+use async_trait::async_trait;
 use common::{
     bootstrap_model::components::definition::{
-        ComponentArgument::Value,
+        ComponentArgument,
         ComponentArgumentValidator,
         ComponentDefinitionType,
         ComponentExport,
@@ -19,11 +21,10 @@ use common::{
         Reference,
         Resource,
     },
-    schemas::validator::ValidationError,
     types::HttpActionRoute,
 };
+use errors::ErrorMetadata;
 use sync_types::path::PathComponent;
-use thiserror::Error;
 use value::{
     identifier::Identifier,
     TableMapping,
@@ -53,37 +54,55 @@ pub enum ResourceTree {
     Leaf(Resource),
 }
 
+#[async_trait]
+pub trait InitializerEvaluator: Send + Sync {
+    async fn evaluate(
+        &self,
+        path: ComponentDefinitionPath,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+    ) -> anyhow::Result<BTreeMap<Identifier, Resource>>;
+}
+
 pub struct TypecheckContext<'a> {
     evaluated_definitions: &'a BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+    initializer_evaluator: &'a dyn InitializerEvaluator,
 }
 
 impl<'a> TypecheckContext<'a> {
     pub fn new(
         definitions: &'a BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+        initializer_evaluator: &'a dyn InitializerEvaluator,
     ) -> Self {
         Self {
             evaluated_definitions: definitions,
+            initializer_evaluator,
         }
     }
 
-    pub fn instantiate_root(&self) -> Result<CheckedComponent, TypecheckError> {
+    pub async fn instantiate_root(&self) -> anyhow::Result<CheckedComponent> {
         let definition_path = ComponentDefinitionPath::root();
         let component_path = ComponentPath::root();
         let args = BTreeMap::new();
         self.instantiate(definition_path, component_path, args)
+            .await
     }
 
-    pub fn instantiate(
+    #[async_recursion]
+    pub async fn instantiate(
         &self,
         definition_path: ComponentDefinitionPath,
         component_path: ComponentPath,
         args: BTreeMap<Identifier, Resource>,
-    ) -> Result<CheckedComponent, TypecheckError> {
+    ) -> anyhow::Result<CheckedComponent> {
         let evaluated = self
             .evaluated_definitions
             .get(&definition_path)
-            .ok_or_else(|| TypecheckError::MissingComponentDefinition {
-                definition_path: definition_path.clone(),
+            .ok_or_else(|| {
+                ErrorMetadata::bad_request(
+                    "TypecheckError",
+                    "Component definition not found: {definition_path:?}",
+                )
             })?;
 
         let mut builder = CheckedComponentBuilder::check_args(
@@ -97,19 +116,31 @@ impl<'a> TypecheckContext<'a> {
         // instantiation depending on another (e.g. passing a function reference
         // from one component as an argument to another).
         for instantiation in &evaluated.definition.child_components {
-            let mut resolved_args = BTreeMap::new();
-            for (name, parameter) in &instantiation.args {
-                let resource = match parameter {
-                    Value(value) => Resource::Value(value.clone()),
-                };
-                resolved_args.insert(name.clone(), resource);
-            }
+            let resolved_args = match instantiation.args {
+                Some(ref args) => args
+                    .iter()
+                    .map(|(name, ComponentArgument::Value(value))| {
+                        (name.clone(), Resource::Value(value.clone()))
+                    })
+                    .collect(),
+                None => {
+                    self.initializer_evaluator
+                        .evaluate(
+                            definition_path.clone(),
+                            builder.args.clone(),
+                            instantiation.name.clone(),
+                        )
+                        .await?
+                },
+            };
             let child_component_path = component_path.push(instantiation.name.clone());
-            let child_component = self.instantiate(
-                instantiation.path.clone(),
-                child_component_path,
-                resolved_args,
-            )?;
+            let child_component = self
+                .instantiate(
+                    instantiation.path.clone(),
+                    child_component_path,
+                    resolved_args,
+                )
+                .await?;
             builder.insert_child_component(instantiation.name.clone(), child_component)?;
         }
 
@@ -150,15 +181,14 @@ impl<'a> CheckedComponentBuilder<'a> {
         component_path: &'a ComponentPath,
         evaluated: &'a EvaluatedComponentDefinition,
         args: BTreeMap<Identifier, Resource>,
-    ) -> Result<Self, TypecheckError> {
+    ) -> anyhow::Result<Self> {
         match &evaluated.definition.definition_type {
             ComponentDefinitionType::App => {
                 if !args.is_empty() {
-                    return Err(TypecheckError::InvalidComponentArgumentCount {
-                        component_path: component_path.clone(),
-                        expected: 0,
-                        actual: args.len(),
-                    });
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "TypecheckError",
+                        "Can't have arguments for the root app"
+                    ));
                 }
             },
             ComponentDefinitionType::ChildComponent {
@@ -167,10 +197,12 @@ impl<'a> CheckedComponentBuilder<'a> {
             } => {
                 for (arg_name, arg_value) in &args {
                     let validator = arg_validators.get(arg_name).ok_or_else(|| {
-                        TypecheckError::InvalidComponentArgumentName {
-                            component_path: component_path.clone(),
-                            arg_name: arg_name.clone(),
-                        }
+                        ErrorMetadata::bad_request(
+                            "TypecheckError",
+                            format!(
+                                "Component {component_path:?} has no argument named {arg_name:?}"
+                            ),
+                        )
                     })?;
                     match (arg_value, validator) {
                         (
@@ -184,15 +216,20 @@ impl<'a> CheckedComponentBuilder<'a> {
                             validator
                                 .check_value(value, &table_mapping, &virtual_system_mapping)
                                 .map_err(|validator_error| {
-                                    TypecheckError::InvalidComponentArgument {
-                                        component_path: component_path.clone(),
-                                        arg_name: arg_name.clone(),
-                                        validator_error,
-                                    }
+                                    ErrorMetadata::bad_request(
+                                        "TypecheckError",
+                                        format!(
+                                            "Component {component_path:?} has an invalid value \
+                                             for argument {arg_name:?}: {validator_error:?}"
+                                        ),
+                                    )
                                 })?;
                         },
                         (Resource::Function { .. }, _) => {
-                            return Err(TypecheckError::Unsupported("function references"))
+                            anyhow::bail!(ErrorMetadata::bad_request(
+                                "TypecheckError",
+                                "Function references are not supported"
+                            ));
                         },
                     }
                 }
@@ -213,12 +250,15 @@ impl<'a> CheckedComponentBuilder<'a> {
         &mut self,
         name: ComponentName,
         component: CheckedComponent,
-    ) -> Result<(), TypecheckError> {
+    ) -> anyhow::Result<()> {
         if self.child_components.contains_key(&name) {
-            return Err(TypecheckError::DuplicateChildComponent {
-                definition_path: self.definition_path.clone(),
-                name: name.into(),
-            });
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TypecheckError",
+                format!(
+                    "Component {:?} has multiple child components with the same name: {name:?}",
+                    self.definition_path
+                ),
+            ));
         }
         self.child_components.insert(name, component);
         Ok(())
@@ -229,38 +269,50 @@ impl<'a> CheckedComponentBuilder<'a> {
         evaluated_definitions: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
         mount_path: &HttpMountPath,
         reference: &Reference,
-    ) -> Result<(), TypecheckError> {
+    ) -> anyhow::Result<()> {
         let Reference::ChildComponent {
             component,
             attributes,
         } = reference
         else {
-            return Err(TypecheckError::Unsupported(
-                "Non-root child component references for HTTP mounts",
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TypecheckError",
+                "Non-root child component references for HTTP mounts currently unsupported",
             ));
         };
         if !attributes.is_empty() {
-            return Err(TypecheckError::Unsupported(
-                "Child component references with attributes",
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TypecheckError",
+                "Child component references with attributes currently unsupported",
             ));
         }
 
         let Some(child_component) = self.child_components.get(component) else {
-            return Err(TypecheckError::InvalidHttpMount {
-                mount_path: mount_path.to_string(),
-                reason: format!("Child component {:?} not found.", component),
-            });
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TypecheckError",
+                format!(
+                    "HTTP mount {mount_path:?} is invalid: Child component {component:?} not \
+                     found."
+                ),
+            ));
         };
         if !evaluated_definitions.contains_key(&child_component.definition_path) {
-            return Err(TypecheckError::MissingComponentDefinition {
-                definition_path: child_component.definition_path.clone(),
-            });
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TypecheckError",
+                format!(
+                    "Component definition not found: {:?}",
+                    child_component.definition_path
+                ),
+            ));
         };
         if child_component.http_routes.is_empty() {
-            return Err(TypecheckError::InvalidHttpMount {
-                mount_path: mount_path.to_string(),
-                reason: "Child component doesn't have any HTTP routes.".to_string(),
-            });
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TypecheckError",
+                format!(
+                    "HTTP mount {mount_path:?} is invalid: Child component {component:?} doesn't \
+                     have any HTTP routes."
+                ),
+            ));
         }
         self.http_routes.mount(mount_path.clone())?;
         Ok(())
@@ -269,7 +321,7 @@ impl<'a> CheckedComponentBuilder<'a> {
     fn check_exports(
         self,
         exports: &BTreeMap<PathComponent, ComponentExport>,
-    ) -> Result<CheckedComponent, TypecheckError> {
+    ) -> anyhow::Result<CheckedComponent> {
         let exports = self.resolve_exports(exports)?;
         Ok(CheckedComponent {
             definition_path: self.definition_path.clone(),
@@ -284,7 +336,7 @@ impl<'a> CheckedComponentBuilder<'a> {
     fn resolve_exports(
         &self,
         exports: &BTreeMap<PathComponent, ComponentExport>,
-    ) -> Result<BTreeMap<PathComponent, ResourceTree>, TypecheckError> {
+    ) -> anyhow::Result<BTreeMap<PathComponent, ResourceTree>> {
         let mut result = BTreeMap::new();
         for (name, export) in exports {
             let node = match export {
@@ -298,15 +350,23 @@ impl<'a> CheckedComponentBuilder<'a> {
         Ok(result)
     }
 
-    fn resolve(&self, reference: &Reference) -> Result<ResourceTree, TypecheckError> {
-        let unresolved_err = || TypecheckError::UnresolvedExport {
-            definition_path: self.definition_path.clone(),
-            reference: reference.clone(),
+    fn resolve(&self, reference: &Reference) -> anyhow::Result<ResourceTree> {
+        let unresolved_err = || {
+            ErrorMetadata::bad_request(
+                "TypecheckError",
+                format!(
+                    "Component {:?} has an unresolved export: {reference:?}",
+                    self.definition_path
+                ),
+            )
         };
         let result = match reference {
             Reference::ComponentArgument { attributes } => {
                 if attributes.len() != 1 {
-                    return Err(TypecheckError::Unsupported("Nested argument references"));
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "TypecheckError",
+                        "Nested argument references currently unsupported",
+                    ));
                 }
                 let resource = self
                     .args
@@ -346,8 +406,9 @@ impl<'a> CheckedComponentBuilder<'a> {
                     .ok_or_else(unresolved_err)?
             },
             Reference::CurrentSystemUdfInComponent { .. } => {
-                return Err(TypecheckError::Unsupported(
-                    "CurrentSystemUdfInComponent reference",
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "TypecheckError",
+                    "CurrentSystemUdfInComponent reference currently unsupported",
                 ));
             },
         };
@@ -359,7 +420,7 @@ impl CheckedComponent {
     pub fn resolve_export(
         &self,
         attributes: &[PathComponent],
-    ) -> Result<Option<ResourceTree>, TypecheckError> {
+    ) -> anyhow::Result<Option<ResourceTree>> {
         let mut current = &self.exports;
         let mut attribute_iter = attributes.iter();
         while let Some(attribute) = attribute_iter.next() {
@@ -373,8 +434,7 @@ impl CheckedComponent {
                 },
                 ResourceTree::Leaf(ref resource) => {
                     if !attribute_iter.as_slice().is_empty() {
-                        // TODO: Should this be a system error?
-                        return Err(TypecheckError::Unsupported("Component references"));
+                        anyhow::bail!("Unexpected component reference");
                     }
                     return Ok(Some(ResourceTree::Leaf(resource.clone())));
                 },
@@ -403,7 +463,7 @@ impl CheckedHttpRoutes {
         }
     }
 
-    pub fn mount(&mut self, mount_path: HttpMountPath) -> Result<(), TypecheckError> {
+    pub fn mount(&mut self, mount_path: HttpMountPath) -> anyhow::Result<()> {
         // Check that the mount path does not overlap with any prefix route from our
         // `http.js` or previously mounted route.
         if let Some(http_module_routes) = &self.http_module_routes {
@@ -411,17 +471,21 @@ impl CheckedHttpRoutes {
                 .iter()
                 .any(|route| route.overlaps_with_mount(&mount_path))
             {
-                return Err(TypecheckError::InvalidHttpMount {
-                    mount_path: mount_path.to_string(),
-                    reason: "Overlap with existing prefix route".to_string(),
-                });
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "TypecheckError",
+                    format!(
+                        "HTTP mount {mount_path:?} is invalid: Overlap with existing prefix route"
+                    ),
+                ));
             }
         }
         if self.mounts.contains(&mount_path) {
-            return Err(TypecheckError::InvalidHttpMount {
-                mount_path: mount_path.to_string(),
-                reason: "Overlap with previously mounted route".to_string(),
-            });
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "TypecheckError",
+                format!(
+                    "HTTP mount {mount_path:?} is invalid: Overlap with previously mounted route"
+                ),
+            ));
         }
         self.mounts.insert(mount_path);
         Ok(())
@@ -434,54 +498,6 @@ impl CheckedHttpRoutes {
             .unwrap_or(true)
             && self.mounts.is_empty()
     }
-}
-
-#[derive(Error, Debug)]
-pub enum TypecheckError {
-    #[error("Component definition not found: {definition_path:?}")]
-    MissingComponentDefinition {
-        definition_path: ComponentDefinitionPath,
-    },
-    #[error(
-        "Component {component_path:?} has {expected} parameters, but instantiation has {actual}"
-    )]
-    InvalidComponentArgumentCount {
-        component_path: ComponentPath,
-        expected: usize,
-        actual: usize,
-    },
-    #[error("Component {component_path:?} has no parameter named {arg_name:?}")]
-    InvalidComponentArgumentName {
-        component_path: ComponentPath,
-        arg_name: Identifier,
-    },
-    #[error(
-        "Component {component_path:?} has an invalid value for argument {arg_name:?}: \
-         {validator_error:?}"
-    )]
-    InvalidComponentArgument {
-        component_path: ComponentPath,
-        arg_name: Identifier,
-        validator_error: ValidationError,
-    },
-    #[error(
-        "Component {definition_path:?} has multiple child components with the same name {name:?}"
-    )]
-    DuplicateChildComponent {
-        definition_path: ComponentDefinitionPath,
-        name: Identifier,
-    },
-
-    #[error("HTTP mount {mount_path} is invalid: {reason}")]
-    InvalidHttpMount { mount_path: String, reason: String },
-
-    #[error("Component {definition_path:?} has an unresolved export {reference:?}")]
-    UnresolvedExport {
-        definition_path: ComponentDefinitionPath,
-        reference: Reference,
-    },
-    #[error("{0} currently unsupported")]
-    Unsupported(&'static str),
 }
 
 mod json {

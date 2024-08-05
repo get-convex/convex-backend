@@ -467,7 +467,7 @@ mod tests {
                     child_components: vec![ComponentInstantiation {
                         name: "child_subcomponent".parse().unwrap(),
                         path: child_definition_path,
-                        args: BTreeMap::new(),
+                        args: Some(BTreeMap::new()),
                     }],
                     http_mounts: BTreeMap::new(),
                     exports: BTreeMap::new(),

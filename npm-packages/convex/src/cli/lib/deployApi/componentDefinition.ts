@@ -27,7 +27,7 @@ export const componentArgument = z.object({
 export const componentInstantiation = z.object({
   name: identifier,
   path: componentDefinitionPath,
-  args: z.array(z.tuple([identifier, componentArgument])),
+  args: z.nullable(z.array(z.tuple([identifier, componentArgument]))),
 });
 
 export type ComponentExports =

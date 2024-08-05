@@ -12,7 +12,11 @@ use common::{
         ComponentDefinitionMetadata,
         SerializedComponentDefinitionMetadata,
     },
-    components::ComponentDefinitionPath,
+    components::{
+        ComponentDefinitionPath,
+        ComponentName,
+        Resource,
+    },
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
@@ -44,6 +48,9 @@ use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use value::{
     base64,
+    identifier::Identifier,
+    ConvexObject,
+    FieldName,
     NamespacedTableMapping,
     TableMappingValue,
 };
@@ -59,6 +66,7 @@ use crate::{
         syscall_description_for_error,
         syscall_name_for_error,
     },
+    helpers,
     isolate::{
         Isolate,
         CONVEX_SCHEME,
@@ -98,7 +106,7 @@ impl AppDefinitionEvaluator {
         client_id: String,
         isolate: &mut Isolate<RT>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
-        let mut visited = BTreeSet::new();
+        let mut in_progress = BTreeSet::new();
         enum TraversalState {
             FirstVisit(ComponentDefinitionPath),
             SecondVisit(ComponentDefinitionPath),
@@ -111,7 +119,7 @@ impl AppDefinitionEvaluator {
         while let Some(node) = stack.pop() {
             match node {
                 TraversalState::FirstVisit(path) => {
-                    if !visited.insert(path.clone()) {
+                    if !in_progress.insert(path.clone()) {
                         anyhow::bail!(ErrorMetadata::bad_request(
                             "CyclicImport",
                             "Found cyclic definition dependency"
@@ -158,6 +166,7 @@ impl AppDefinitionEvaluator {
                             source,
                         )
                         .await?;
+                    in_progress.remove(&path);
                     definitions.insert(path, result);
                 },
             }
@@ -274,6 +283,150 @@ impl AppDefinitionEvaluator {
                 })?;
             ComponentDefinitionMetadata::try_from(metadata)
                 .map_err(|e| ErrorMetadata::bad_request("InvalidDefinition", e.to_string()))?
+        };
+
+        isolate_context.scope.perform_microtask_checkpoint();
+        drop(isolate_context);
+        handle.take_termination_error()??;
+
+        Ok(result)
+    }
+}
+
+pub struct ComponentInitializerEvaluator {
+    pub evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+    pub path: ComponentDefinitionPath,
+    pub definition: ModuleConfig,
+    pub args: BTreeMap<Identifier, Resource>,
+    pub name: ComponentName,
+}
+
+impl ComponentInitializerEvaluator {
+    pub fn new(
+        evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+        path: ComponentDefinitionPath,
+        definition: ModuleConfig,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+    ) -> Self {
+        Self {
+            evaluated_definitions,
+            path,
+            definition,
+            args,
+            name,
+        }
+    }
+
+    pub async fn evaluate<RT: Runtime>(
+        self,
+        client_id: String,
+        isolate: &mut Isolate<RT>,
+    ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
+        let filename = COMPONENT_CONFIG_FILE_NAME.to_string();
+        let env = DefinitionEnvironment {
+            expected_filename: filename.clone(),
+            source: FullModuleSource {
+                source: self.definition.source,
+                source_map: self.definition.source_map,
+            },
+            evaluated_definitions: self.evaluated_definitions,
+            environment_variables: None,
+            system_env_vars: BTreeMap::new(),
+        };
+        let (handle, state) = isolate.start_request(client_id.into(), env).await?;
+        let mut handle_scope = isolate.handle_scope();
+        let v8_context = v8::Context::new(&mut handle_scope);
+        let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
+        let mut isolate_context =
+            RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;
+        let handle = isolate_context.handle();
+
+        let result = {
+            let mut v8_scope = isolate_context.scope();
+            let mut scope = RequestScope::<RT, DefinitionEnvironment>::enter(&mut v8_scope);
+            let url = ModuleSpecifier::parse(&format!("{CONVEX_SCHEME}:/{filename}"))?;
+            let module = scope.eval_module(&url).await?;
+            let namespace = module
+                .get_module_namespace()
+                .to_object(&mut scope)
+                .context("Module namespace wasn't an object?")?;
+            let default_str = strings::default.create(&mut scope)?;
+
+            if namespace.has(&mut scope, default_str.into()) != Some(true) {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "InvalidDefinition",
+                    "Definition file is missing a default export"
+                ));
+            }
+            let default_export: v8::Local<v8::Object> = namespace
+                .get(&mut scope, default_str.into())
+                .context("Failed to get default export")?
+                .try_into()
+                .map_err(|_| {
+                    ErrorMetadata::bad_request(
+                        "InvalidDefinition",
+                        "Default export is not an object",
+                    )
+                })?;
+
+            let callback_str = strings::_onInitCallbacks.create(&mut scope)?;
+            let callbacks: v8::Local<v8::Object> = default_export
+                .get(&mut scope, callback_str.into())
+                .context("Failed to get _onInitCallbacks")?
+                .try_into()
+                .map_err(|_| {
+                    ErrorMetadata::bad_request(
+                        "InvalidDefinition",
+                        "_onInitCallbacks is not an object",
+                    )
+                })?;
+
+            let name_str = v8::String::new(&mut scope, &String::from(self.name))
+                .context("Failed to create string for name")?;
+            let callback: v8::Local<v8::Function> = callbacks
+                .get(&mut scope, name_str.into())
+                .context("Failed to get callback")?
+                .try_into()
+                .map_err(|_| {
+                    ErrorMetadata::bad_request("InvalidDefinition", "Callback is not a function")
+                })?;
+
+            let mut args_obj = BTreeMap::new();
+            for (arg_name, value) in self.args {
+                let Resource::Value(value) = value else {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidDefinition",
+                        format!("Argument {arg_name} is not a value"),
+                    ))
+                };
+                args_obj.insert(FieldName::from_str(&arg_name)?, value);
+            }
+            let args_obj = ConvexObject::try_from(args_obj)?;
+            let args_json = JsonValue::from(args_obj);
+            let args_str = serde_json::to_string(&args_json)?;
+            let args_v8_str = v8::String::new(&mut scope, &args_str)
+                .context("Failed to create string for args")?;
+
+            let v8_result: v8::Local<v8::String> = callback
+                .call(&mut scope, default_export.into(), &[args_v8_str.into()])
+                .context("Failed to call callback")?
+                .try_into()
+                .map_err(|_| {
+                    ErrorMetadata::bad_request(
+                        "InvalidDefinition",
+                        "Callback returned non-string value",
+                    )
+                })?;
+            let result_str = helpers::to_rust_string(&mut scope, &v8_result)?;
+            let result_json: JsonValue = serde_json::from_str(&result_str)?;
+            let result_obj = ConvexObject::try_from(result_json)?;
+
+            let mut result = BTreeMap::new();
+            for (arg_name, value) in BTreeMap::from(result_obj) {
+                result.insert(arg_name.parse()?, Resource::Value(value));
+            }
+            result
         };
 
         isolate_context.scope.perform_microtask_checkpoint();

@@ -17,12 +17,17 @@ use async_trait::async_trait;
 use authentication::token_to_authorization_header;
 use common::{
     backoff::Backoff,
-    bootstrap_model::components::handles::FunctionHandle,
+    bootstrap_model::components::{
+        definition::ComponentDefinitionMetadata,
+        handles::FunctionHandle,
+    },
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
         ComponentId,
+        ComponentName,
         PublicFunctionPath,
+        Resource,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -179,6 +184,7 @@ use usage_tracking::{
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
+    identifier::Identifier,
     TableNamespace,
 };
 use vector::{
@@ -1455,6 +1461,20 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 environment_variables,
                 self.system_env_vars.clone(),
             )
+            .await
+    }
+
+    #[minitrace::trace]
+    pub async fn evaluate_component_initializer(
+        &self,
+        evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+        path: ComponentDefinitionPath,
+        definition: ModuleConfig,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+    ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
+        self.analyze_isolate
+            .evaluate_component_initializer(evaluated_definitions, path, definition, args, name)
             .await
     }
 

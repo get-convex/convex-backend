@@ -154,7 +154,21 @@ export type DatabaseReader = GenericDatabaseReaderWithTable<DataModel>;
  */
 export type DatabaseWriter = GenericDatabaseWriterWithTable<DataModel>;
 
-export declare const component: {};
+export declare const component: {
+  component: {
+    messages: {
+      hello: FunctionReference<"action", "internal", any, any>;
+      insertMessage: FunctionReference<
+        "mutation",
+        "internal",
+        { channel: string; text: string },
+        any
+      >;
+      listMessages: FunctionReference<"query", "internal", {}, any>;
+      url: FunctionReference<"action", "internal", any, any>;
+    };
+  };
+};
 type ComponentArgs = {
   name: string;
   url: string;

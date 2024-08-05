@@ -29,6 +29,8 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
         ComponentId,
+        ComponentName,
+        Resource,
     },
     errors::{
         recapture_stacktrace,
@@ -140,6 +142,7 @@ use sync_types::{
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
+    identifier::Identifier,
     ConvexValue,
 };
 use vector::PublicVectorSearchQueryResult;
@@ -152,10 +155,13 @@ use crate::{
             HttpActionResult,
         },
         analyze::AnalyzeEnvironment,
-        app_definitions::AppDefinitionEvaluator,
         auth_config::{
             AuthConfig,
             AuthConfigEnvironment,
+        },
+        component_definitions::{
+            AppDefinitionEvaluator,
+            ComponentInitializerEvaluator,
         },
         helpers::validation::{
             ValidatedHttpPath,
@@ -486,6 +492,14 @@ pub enum RequestType<RT: Runtime> {
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<anyhow::Result<EvaluateAppDefinitionsResult>>,
     },
+    EvaluateComponentInitializer {
+        evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+        path: ComponentDefinitionPath,
+        definition: ModuleConfig,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+        response: oneshot::Sender<anyhow::Result<BTreeMap<Identifier, Resource>>>,
+    },
 }
 
 #[async_trait]
@@ -531,6 +545,9 @@ impl<RT: Runtime> Request<RT> {
             RequestType::EvaluateAppDefinitions { response, .. } => {
                 let _ = response.send(Err(error));
             },
+            RequestType::EvaluateComponentInitializer { response, .. } => {
+                let _ = response.send(Err(error));
+            },
         }
     }
 
@@ -558,6 +575,9 @@ impl<RT: Runtime> Request<RT> {
                 let _ = response.send(Err(error));
             },
             RequestType::EvaluateAppDefinitions { response, .. } => {
+                let _ = response.send(Err(error));
+            },
+            RequestType::EvaluateComponentInitializer { response, .. } => {
                 let _ = response.send(Err(error));
             },
         }
@@ -929,6 +949,38 @@ impl<RT: Runtime> IsolateClient<RT> {
             dependency_graph,
             environment_variables,
             system_env_vars,
+            response: tx,
+        };
+        self.send_request(Request::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::from_parent(),
+        ))?;
+        Self::receive_response(rx).await?.map_err(|e| {
+            if e.is_overloaded() {
+                recapture_stacktrace(e)
+            } else {
+                e
+            }
+        })
+    }
+
+    #[minitrace::trace]
+    pub async fn evaluate_component_initializer(
+        &self,
+        evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+        path: ComponentDefinitionPath,
+        definition: ModuleConfig,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+    ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
+        let (tx, rx) = oneshot::channel();
+        let request = RequestType::EvaluateComponentInitializer {
+            evaluated_definitions,
+            path,
+            definition,
+            args,
+            name,
             response: tx,
         };
         self.send_request(Request::new(
@@ -1879,6 +1931,28 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 *isolate_clean = false;
                 let _ = response.send(r);
                 "EvaluateAppDefinitions".to_string()
+            },
+            RequestType::EvaluateComponentInitializer {
+                evaluated_definitions,
+                path,
+                definition,
+                args,
+                name,
+                response,
+            } => {
+                let env = ComponentInitializerEvaluator::new(
+                    evaluated_definitions,
+                    path,
+                    definition,
+                    args,
+                    name,
+                );
+                let r = env.evaluate(client_id, isolate).await;
+
+                // Don't bother reusing isolates when used for component initializer evaluation.
+                *isolate_clean = false;
+                let _ = response.send(r);
+                "EvaluateComponentInitializer".to_string()
             },
         }
     }

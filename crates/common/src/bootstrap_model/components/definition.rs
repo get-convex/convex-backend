@@ -137,7 +137,7 @@ pub enum ComponentDefinitionType {
 pub struct ComponentInstantiation {
     pub name: ComponentName,
     pub path: ComponentDefinitionPath,
-    pub args: BTreeMap<Identifier, ComponentArgument>,
+    pub args: Option<BTreeMap<Identifier, ComponentArgument>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -195,7 +195,7 @@ enum SerializedComponentArgument {
 struct SerializedComponentInstantiation {
     name: String,
     path: String,
-    args: Vec<(String, SerializedComponentArgument)>,
+    args: Option<Vec<(String, SerializedComponentArgument)>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -303,9 +303,12 @@ impl TryFrom<ComponentInstantiation> for SerializedComponentInstantiation {
             path: String::from(i.path),
             args: i
                 .args
-                .into_iter()
-                .map(|(k, v)| anyhow::Ok((String::from(k), v.try_into()?)))
-                .try_collect()?,
+                .map(|args| {
+                    args.into_iter()
+                        .map(|(k, v)| anyhow::Ok((String::from(k), v.try_into()?)))
+                        .try_collect()
+                })
+                .transpose()?,
         })
     }
 }
@@ -319,9 +322,12 @@ impl TryFrom<SerializedComponentInstantiation> for ComponentInstantiation {
             path: i.path.parse()?,
             args: i
                 .args
-                .into_iter()
-                .map(|(k, v)| anyhow::Ok((k.parse()?, v.try_into()?)))
-                .try_collect()?,
+                .map(|args| {
+                    args.into_iter()
+                        .map(|(k, v)| anyhow::Ok((k.parse()?, v.try_into()?)))
+                        .try_collect()
+                })
+                .transpose()?,
         })
     }
 }
@@ -442,7 +448,11 @@ impl proptest::arbitrary::Arbitrary for ComponentInstantiation {
         (
             any::<ComponentName>(),
             any::<ComponentDefinitionPath>(),
-            prop::collection::btree_map(any::<Identifier>(), any::<ComponentArgument>(), 0..4),
+            prop::option::of(prop::collection::btree_map(
+                any::<Identifier>(),
+                any::<ComponentArgument>(),
+                0..4,
+            )),
         )
             .prop_map(|(name, path, args)| ComponentInstantiation { name, path, args })
     }
