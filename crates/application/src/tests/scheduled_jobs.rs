@@ -7,6 +7,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
+        PublicFunctionPath,
     },
     execution_context::ExecutionContext,
     pause::{
@@ -302,10 +303,10 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
     application
         .mutation_udf(
             RequestId::new(),
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::test_user(),
                 udf_path: CanonicalizedUdfPath::from_str("scheduler:scheduleWithArbitraryJson")?,
-            },
+            }),
             vec![],
             Identity::system(),
             None,
@@ -320,10 +321,10 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
     application
         .action_udf(
             RequestId::new(),
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::test_user(),
                 udf_path: CanonicalizedUdfPath::from_str("action:schedule")?,
-            },
+            }),
             vec![],
             Identity::system(),
             FunctionCaller::Action {

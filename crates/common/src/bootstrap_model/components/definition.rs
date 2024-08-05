@@ -9,6 +9,7 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
+use sync_types::path::PathComponent;
 use value::{
     codegen_convex_serialization,
     heap_size::HeapSize,
@@ -51,11 +52,11 @@ pub struct ComponentDefinitionMetadata {
     #[cfg_attr(
         any(test, feature = "testing"),
         proptest(
-            strategy = "proptest::collection::btree_map(proptest::prelude::any::<Identifier>(), \
+            strategy = "proptest::collection::btree_map(proptest::prelude::any::<PathComponent>(), \
                         proptest::prelude::any::<ComponentExport>(), 0..4)"
         )
     )]
-    pub exports: BTreeMap<Identifier, ComponentExport>,
+    pub exports: BTreeMap<PathComponent, ComponentExport>,
 }
 
 impl ComponentDefinitionMetadata {
@@ -141,7 +142,7 @@ pub struct ComponentInstantiation {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ComponentExport {
-    Branch(BTreeMap<Identifier, ComponentExport>),
+    Branch(BTreeMap<PathComponent, ComponentExport>),
     Leaf(Reference),
 }
 
@@ -423,7 +424,7 @@ impl proptest::arbitrary::Arbitrary for ComponentExport {
         use proptest::prelude::*;
         let leaf = any::<Reference>().prop_map(ComponentExport::Leaf);
         leaf.prop_recursive(2, 4, 2, |inner| {
-            prop::collection::btree_map(any::<Identifier>(), inner, 1..4)
+            prop::collection::btree_map(any::<PathComponent>(), inner, 1..4)
                 .prop_map(ComponentExport::Branch)
         })
     }

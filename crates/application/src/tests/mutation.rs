@@ -3,6 +3,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
+        PublicFunctionPath,
     },
     knobs::UDF_EXECUTOR_OCC_MAX_RETRIES,
     pause::{
@@ -33,10 +34,10 @@ async fn insert_object(
     let result = application
         .mutation_udf(
             RequestId::new(),
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::test_user(),
                 udf_path: "basic:insertObject".parse()?,
-            },
+            }),
             vec![obj],
             Identity::system(),
             None,
@@ -57,10 +58,10 @@ async fn insert_and_count(
     let result = application
         .mutation_udf(
             RequestId::new(),
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::test_user(),
                 udf_path: "basic:insertAndCount".parse()?,
-            },
+            }),
             vec![obj],
             Identity::system(),
             None,

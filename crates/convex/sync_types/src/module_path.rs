@@ -8,7 +8,10 @@ use std::{
     str::FromStr,
 };
 
-use crate::path::check_valid_path_component;
+use crate::path::{
+    check_valid_path_component,
+    PathComponent,
+};
 
 pub const SYSTEM_UDF_DIR: &str = "_system";
 pub const DEPS_DIR: &str = "_deps";
@@ -38,14 +41,15 @@ impl ModulePath {
         &self.path
     }
 
-    pub fn components(&self) -> impl Iterator<Item = &str> {
-        self.path
-            .components()
-            .map(|component| match component {
-                Component::Normal(c) => c,
-                c => panic!("Unexpected component {c:?}"),
-            })
-            .map(|c| c.to_str().expect("Non-unicode data in module path?"))
+    pub fn components(&self) -> impl Iterator<Item = PathComponent> + '_ {
+        self.path.components().map(|component| match component {
+            Component::Normal(c) => c
+                .to_str()
+                .expect("Non-unicode data in module path?")
+                .parse()
+                .expect("Invalid path component"),
+            c => panic!("Unexpected component {c:?}"),
+        })
     }
 
     /// Does a module live within the `_system/` directory?

@@ -1,4 +1,12 @@
-use crate::identifier::MAX_IDENTIFIER_LEN;
+use std::{
+    ops::Deref,
+    str::FromStr,
+};
+
+use crate::{
+    identifier::MAX_IDENTIFIER_LEN,
+    FunctionName,
+};
 
 pub fn check_valid_path_component(s: &str) -> anyhow::Result<()> {
     if s.len() > MAX_IDENTIFIER_LEN {
@@ -20,4 +28,51 @@ pub fn check_valid_path_component(s: &str) -> anyhow::Result<()> {
         anyhow::bail!("Path component {s} must have at least one alphanumeric character.");
     }
     Ok(())
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct PathComponent(String);
+
+impl FromStr for PathComponent {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        check_valid_path_component(s)?;
+        Ok(Self(s.to_owned()))
+    }
+}
+
+impl Deref for PathComponent {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<PathComponent> for String {
+    fn from(p: PathComponent) -> Self {
+        p.0
+    }
+}
+
+impl From<FunctionName> for PathComponent {
+    fn from(function_name: FunctionName) -> Self {
+        function_name
+            .parse()
+            .expect("FunctionName isn't a valid PathComponent")
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl proptest::arbitrary::Arbitrary for PathComponent {
+    type Parameters = ();
+    type Strategy = proptest::strategy::BoxedStrategy<Self>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        "_?[a-zA-Z0-9_]{1,60}(\\.js)?"
+            .prop_filter_map("Invalid path component", |s| s.parse().ok())
+            .boxed()
+    }
 }

@@ -13,6 +13,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
         ComponentPath,
+        PublicFunctionPath,
     },
     http::{
         RequestDestination,
@@ -859,7 +860,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
         .application
         .read_only_udf_at_ts(
             RequestId::new(),
-            path.clone(),
+            PublicFunctionPath::Component(path.clone()),
             vec![assert_obj!("name" => name.clone()).into()],
             Identity::Unknown,
             ts2,
@@ -873,7 +874,7 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
         .application
         .read_only_udf_at_ts(
             RequestId::new(),
-            path,
+            PublicFunctionPath::Component(path),
             vec![assert_obj!("name" => name).into()],
             Identity::Unknown,
             ts1,

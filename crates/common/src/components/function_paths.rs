@@ -5,6 +5,7 @@ use serde::{
     Serialize,
 };
 use sync_types::{
+    path::PathComponent,
     CanonicalizedUdfPath,
     UdfPath,
 };
@@ -116,8 +117,32 @@ impl HeapSize for CanonicalizedComponentFunctionPath {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ExportPath {
     path: CanonicalizedUdfPath,
+}
+
+impl ExportPath {
+    pub fn components(&self) -> Vec<PathComponent> {
+        let mut components = vec![];
+        let stripped = self.path.clone().strip();
+        components.extend(stripped.module().components());
+        if let Some(name) = stripped.function_name() {
+            components.push(name.clone().into())
+        } else {
+            components.push("default".parse().unwrap());
+        }
+        components
+    }
+
+    pub fn is_system(&self) -> bool {
+        self.path.is_system()
+    }
+
+    pub fn udf_path(&self) -> &CanonicalizedUdfPath {
+        &self.path
+    }
 }
 
 impl From<CanonicalizedUdfPath> for ExportPath {
@@ -145,5 +170,53 @@ impl FromStr for ExportPath {
 impl From<ExportPath> for String {
     fn from(p: ExportPath) -> Self {
         p.path.to_string()
+    }
+}
+
+impl HeapSize for ExportPath {
+    fn heap_size(&self) -> usize {
+        self.path.heap_size()
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum PublicFunctionPath {
+    RootExport(ExportPath),
+    Component(CanonicalizedComponentFunctionPath),
+}
+
+impl PublicFunctionPath {
+    pub fn is_system(&self) -> bool {
+        match self {
+            PublicFunctionPath::RootExport(path) => path.is_system(),
+            PublicFunctionPath::Component(path) => path.udf_path.is_system(),
+        }
+    }
+
+    pub fn udf_path(&self) -> &CanonicalizedUdfPath {
+        match self {
+            PublicFunctionPath::RootExport(path) => path.udf_path(),
+            PublicFunctionPath::Component(path) => &path.udf_path,
+        }
+    }
+
+    pub fn debug_into_component_path(self) -> CanonicalizedComponentFunctionPath {
+        match self {
+            PublicFunctionPath::RootExport(path) => CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path: path.into(),
+            },
+            PublicFunctionPath::Component(path) => path,
+        }
+    }
+}
+
+impl HeapSize for PublicFunctionPath {
+    fn heap_size(&self) -> usize {
+        match self {
+            PublicFunctionPath::RootExport(path) => path.heap_size(),
+            PublicFunctionPath::Component(path) => path.heap_size(),
+        }
     }
 }

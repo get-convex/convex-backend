@@ -22,6 +22,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionPath,
         ComponentId,
+        PublicFunctionPath,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -667,7 +668,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let validate_result = ValidatedPathAndArgs::new(
             caller.allowed_visibility(),
             &mut tx,
-            path.clone(),
+            PublicFunctionPath::Component(path.clone()),
             arguments.clone(),
             UdfType::Query,
         )
@@ -721,7 +722,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn retry_mutation(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
@@ -752,17 +753,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn _retry_mutation(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
         pause_client: PauseClient,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
-        if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
+        if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
-        let arguments = match parse_udf_args(&path.udf_path, arguments) {
+        let arguments = match parse_udf_args(path.udf_path(), arguments) {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(MutationError {
@@ -771,7 +772,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 }))
             },
         };
-        let udf_path_string = (!path.udf_path.is_system()).then_some(path.udf_path.to_string());
+        let udf_path_string = (!path.is_system()).then_some(path.udf_path().to_string());
 
         let mut backoff = Backoff::new(
             *UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
@@ -814,7 +815,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 Err(e) => {
                     self.function_log.log_mutation_system_error(
                         &e,
-                        path,
+                        path.debug_into_component_path(),
                         arguments,
                         identity,
                         start,
@@ -901,7 +902,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             );
                         } else {
                             self.function_log.log_mutation_system_error(
-                                &e, path, arguments, identity, start, caller, context,
+                                &e,
+                                path.debug_into_component_path(),
+                                arguments,
+                                identity,
+                                start,
+                                caller,
+                                context,
                             )?;
                         }
                         log_occ_retries(backoff.failures() as usize);
@@ -930,7 +937,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_mutation_no_udf_log(
         &self,
         tx: Transaction<RT>,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
@@ -962,12 +969,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn run_mutation_inner(
         &self,
         mut tx: Transaction<RT>,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
     ) -> anyhow::Result<(Transaction<RT>, ValidatedUdfOutcome)> {
-        if path.udf_path.is_system() && !(tx.identity().is_admin() || tx.identity().is_system()) {
+        if path.is_system() && !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
         }
         let identity = tx.inert_identity();
@@ -985,7 +992,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(js_err) => {
                 let mutation_outcome = ValidatedUdfOutcome::from_error(
                     js_err,
-                    path.clone(),
+                    path.debug_into_component_path(),
                     arguments.clone(),
                     identity.clone(),
                     self.runtime.clone(),
@@ -995,6 +1002,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             },
         };
 
+        let path = path_and_args.path().clone();
         let (mut tx, outcome) = self
             .isolate_functions
             .execute_query_or_mutation(
@@ -1024,15 +1032,15 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_action(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         arguments: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
     ) -> anyhow::Result<Result<ActionReturn, ActionError>> {
-        if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
+        if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
         }
-        let arguments = match parse_udf_args(&path.udf_path, arguments) {
+        let arguments = match parse_udf_args(path.udf_path(), arguments) {
             Ok(arguments) => arguments,
             Err(error) => {
                 return Ok(Err(ActionError {
@@ -1059,7 +1067,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) => {
                 self.function_log.log_action_system_error(
                     &e,
-                    path,
+                    path.debug_into_component_path(),
                     arguments,
                     identity.into(),
                     start,
@@ -1089,7 +1097,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[minitrace::trace]
     pub async fn run_action_no_udf_log(
         &self,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         arguments: ConvexArray,
         identity: Identity,
         caller: FunctionCaller,
@@ -1122,14 +1130,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     #[minitrace::trace]
     async fn run_action_inner(
         &self,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         arguments: ConvexArray,
         identity: Identity,
         caller: FunctionCaller,
         usage_tracking: FunctionUsageTracker,
         context: ExecutionContext,
     ) -> anyhow::Result<ActionCompletion> {
-        if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
+        if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("action"));
         }
         let unix_timestamp = self.runtime.unix_timestamp();
@@ -1146,9 +1154,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             UdfType::Action,
         )
         .await?;
-        let (_, component) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids(path.component.clone())
-            .await?;
 
         // Fetch the returns_validator now to be used at a later ts.
         let (path_and_args, returns_validator) = match validate_result {
@@ -1157,7 +1162,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 return Ok(ActionCompletion {
                     outcome: ValidatedActionOutcome::from_error(
                         js_error,
-                        path,
+                        path.debug_into_component_path(),
                         arguments,
                         identity.into(),
                         self.runtime.clone(),
@@ -1174,6 +1179,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             },
         };
 
+        let (_, component) = BootstrapComponentsModel::new(&mut tx)
+            .component_path_to_ids(path_and_args.path().component.clone())
+            .await?;
+
         // We should use table mappings from the same transaction as the output
         // validator was retrieved.
         let table_mapping = tx.table_mapping().namespace(component.into());
@@ -1181,6 +1190,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let udf_server_version = path_and_args.npm_version().clone();
         // We should not be missing the module given we validated the path above
         // which requires the module to exist.
+        let path = path_and_args.path().clone();
         let module = ModuleModel::new(&mut tx)
             .get_metadata_for_function(path.clone())
             .await?
@@ -1630,7 +1640,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub async fn run_query_at_ts(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
@@ -1663,17 +1673,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     async fn run_query_at_ts_inner(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
         journal: Option<QueryJournal>,
         caller: FunctionCaller,
     ) -> anyhow::Result<QueryReturn> {
-        if path.udf_path.is_system() && !(identity.is_admin() || identity.is_system()) {
+        if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("query"));
         }
-        let args = match parse_udf_args(&path.udf_path, args) {
+        let args = match parse_udf_args(path.udf_path(), args) {
             Ok(arguments) => arguments,
             Err(js_error) => {
                 return Ok(QueryReturn {
@@ -1771,7 +1781,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let result = self
             .run_query_at_ts(
                 context.request_id,
-                path,
+                PublicFunctionPath::Component(path),
                 args,
                 identity,
                 *ts,
@@ -1796,7 +1806,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let result = self
             .retry_mutation(
                 context.request_id,
-                path,
+                PublicFunctionPath::Component(path),
                 args,
                 identity,
                 None,
@@ -1825,7 +1835,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         let result = self
             .run_action(
                 context.request_id,
-                path,
+                PublicFunctionPath::Component(path),
                 args,
                 identity,
                 FunctionCaller::Action {

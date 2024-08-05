@@ -8,6 +8,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
         ComponentPath,
+        PublicFunctionPath,
     },
     types::{
         AllowedVisibility,
@@ -97,7 +98,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
-        internal_function.clone(),
+        PublicFunctionPath::Component(internal_function.clone()),
         ConvexArray::empty(),
         UdfType::Mutation,
     )
@@ -110,7 +111,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
-        public_function.clone(),
+        PublicFunctionPath::Component(public_function.clone()),
         ConvexArray::empty(),
         UdfType::Mutation,
     )
@@ -122,7 +123,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
-        non_existent_function.clone(),
+        PublicFunctionPath::Component(non_existent_function.clone()),
         ConvexArray::empty(),
         UdfType::Mutation,
     )
@@ -136,7 +137,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
-        public_function.clone(),
+        PublicFunctionPath::Component(public_function.clone()),
         ConvexArray::empty(),
         UdfType::Query,
     )
@@ -159,7 +160,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
-        internal_function.clone(),
+        PublicFunctionPath::Component(internal_function.clone()),
         ConvexArray::empty(),
         UdfType::Mutation,
     )
@@ -170,7 +171,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
-        non_existent_function.clone(),
+        PublicFunctionPath::Component(non_existent_function.clone()),
         ConvexArray::empty(),
         UdfType::Mutation,
     )
@@ -184,7 +185,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
-        public_function.clone(),
+        PublicFunctionPath::Component(public_function.clone()),
         ConvexArray::empty(),
         UdfType::Query,
     )

@@ -12,6 +12,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
+        PublicFunctionPath,
     },
     log_lines::TRUNCATED_LINE_SUFFIX,
     testing::assert_contains,
@@ -828,7 +829,7 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,
         &mut tx,
-        path,
+        PublicFunctionPath::Component(path),
         ConvexArray::empty(),
         UdfType::Mutation,
     )

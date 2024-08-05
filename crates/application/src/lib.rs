@@ -51,6 +51,7 @@ use common::{
         ComponentDefinitionPath,
         ComponentId,
         ComponentPath,
+        PublicFunctionPath,
     },
     document::{
         DocumentUpdate,
@@ -893,7 +894,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn read_only_udf(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
@@ -907,7 +908,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn read_only_udf_at_ts(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         ts: Timestamp,
@@ -979,7 +980,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn mutation_udf(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         // Identifier used to make this mutation idempotent.
@@ -1045,7 +1046,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn action_udf(
         &self,
         request_id: RequestId,
-        name: CanonicalizedComponentFunctionPath,
+        name: PublicFunctionPath,
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
@@ -1222,7 +1223,13 @@ impl<RT: Runtime> Application<RT> {
 
         match analyzed_function.udf_type {
             UdfType::Query => self
-                .read_only_udf(request_id, path, args, identity, caller)
+                .read_only_udf(
+                    request_id,
+                    PublicFunctionPath::Component(path),
+                    args,
+                    identity,
+                    caller,
+                )
                 .await
                 .map(
                     |RedactedQueryReturn {
@@ -1237,7 +1244,7 @@ impl<RT: Runtime> Application<RT> {
             UdfType::Mutation => self
                 .mutation_udf(
                     request_id,
-                    path,
+                    PublicFunctionPath::Component(path),
                     args,
                     identity,
                     None,
@@ -1258,7 +1265,13 @@ impl<RT: Runtime> Application<RT> {
                     )
                 }),
             UdfType::Action => self
-                .action_udf(request_id, path, args, identity, caller)
+                .action_udf(
+                    request_id,
+                    PublicFunctionPath::Component(path),
+                    args,
+                    identity,
+                    caller,
+                )
                 .await
                 .map(|res| {
                     res.map(

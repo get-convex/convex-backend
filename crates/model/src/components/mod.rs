@@ -15,8 +15,10 @@ use common::{
     },
     components::{
         CanonicalizedComponentFunctionPath,
+        ComponentDefinitionId,
         ComponentId,
         ComponentPath,
+        ExportPath,
         Reference,
         Resource,
     },
@@ -28,13 +30,11 @@ use database::{
 };
 use errors::ErrorMetadata;
 use sync_types::{
+    path::PathComponent,
     CanonicalizedUdfPath,
     UdfPath,
 };
-use value::{
-    identifier::Identifier,
-    TableNamespace,
-};
+use value::TableNamespace;
 
 use crate::modules::ModuleModel;
 
@@ -111,7 +111,15 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                         )
                     })?;
                 let child_id = ComponentId::Child(child_component.id().into());
-                self.resolve_export(child_id, attributes).await?
+                let Some(resource) = self.resolve_export(child_id, attributes).await? else {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        format!(
+                            "Child component {child_component:?} does not export {attributes:?}"
+                        ),
+                    ));
+                };
+                return Ok(resource);
             },
             Reference::CurrentSystemUdfInComponent {
                 component_id: component_by_id,
@@ -156,8 +164,8 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     pub async fn resolve_export(
         &mut self,
         component_id: ComponentId,
-        attributes: &[Identifier],
-    ) -> anyhow::Result<Resource> {
+        attributes: &[PathComponent],
+    ) -> anyhow::Result<Option<Resource>> {
         let mut m = BootstrapComponentsModel::new(self.tx);
         let definition_id = m.component_definition(component_id).await?;
         let definition = m.load_definition_metadata(definition_id).await?;
@@ -165,27 +173,83 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         let mut current = &definition.exports;
         let mut attribute_iter = attributes.iter();
         while let Some(attribute) = attribute_iter.next() {
-            let export = current.get(attribute).ok_or_else(|| {
-                ErrorMetadata::bad_request(
-                    "InvalidReference",
-                    format!("Export '{attribute}' not found"),
-                )
-            })?;
+            let Some(export) = current.get(attribute) else {
+                return Ok(None);
+            };
             match export {
                 ComponentExport::Branch(ref next) => {
                     current = next;
                     continue;
                 },
                 ComponentExport::Leaf(ref reference) => {
-                    let exported_resource = self.resolve(component_id, None, reference).await?;
-                    if !attribute_iter.as_slice().is_empty() {
-                        anyhow::bail!("Component references currently unsupported");
+                    if let Reference::ChildComponent {
+                        component: child_name,
+                        attributes: export_attributes,
+                    } = reference
+                    {
+                        let mut all_attributes = export_attributes.clone();
+                        all_attributes.extend(attribute_iter.cloned());
+
+                        let mut m = BootstrapComponentsModel::new(self.tx);
+                        let internal_id = match component_id {
+                            ComponentId::Root => {
+                                let root_component = m
+                                    .root_component()
+                                    .await?
+                                    .context("Missing root component")?;
+                                root_component.id().into()
+                            },
+                            ComponentId::Child(id) => id,
+                        };
+                        let parent = (internal_id, child_name.clone());
+                        let child_component =
+                            m.component_in_parent(Some(parent)).await?.ok_or_else(|| {
+                                ErrorMetadata::bad_request(
+                                    "InvalidReference",
+                                    format!("Child component {child_name:?} not found"),
+                                )
+                            })?;
+                        let child_id = ComponentId::Child(child_component.id().into());
+                        return self.resolve_export(child_id, &all_attributes).await;
+                    } else {
+                        if !attribute_iter.as_slice().is_empty() {
+                            return Ok(None);
+                        }
+                        let resource = self.resolve(component_id, None, reference).await?;
+                        return Ok(Some(resource));
                     }
-                    return Ok(exported_resource);
                 },
             }
         }
         anyhow::bail!("Intermediate export references unsupported");
+    }
+
+    pub async fn resolve_public_export_path(
+        &mut self,
+        path: ExportPath,
+    ) -> anyhow::Result<Option<CanonicalizedComponentFunctionPath>> {
+        let root_definition = BootstrapComponentsModel::new(self.tx)
+            .load_definition(ComponentDefinitionId::Root)
+            .await?;
+        // Legacy path: If components aren't enabled, just resolve export paths directly
+        // to UDF paths.
+        if root_definition.is_none() {
+            return Ok(Some(CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path: path.into(),
+            }));
+        }
+        let path_components = path.components();
+        let resource = self
+            .resolve_export(ComponentId::Root, &path_components)
+            .await?;
+        let Some(resource) = resource else {
+            return Ok(None);
+        };
+        let Resource::Function(path) = resource else {
+            anyhow::bail!("Expected a function");
+        };
+        Ok(Some(path))
     }
 
     pub async fn preload_resources(
@@ -257,7 +321,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     pub async fn preload_exported_resources(
         &mut self,
         component_id: ComponentId,
-    ) -> anyhow::Result<BTreeMap<Vec<Identifier>, Resource>> {
+    ) -> anyhow::Result<BTreeMap<Vec<PathComponent>, Resource>> {
         let mut m = BootstrapComponentsModel::new(self.tx);
         let definition_id = m.component_definition(component_id).await?;
         let definition = m.load_definition_metadata(definition_id).await?;

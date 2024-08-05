@@ -24,6 +24,7 @@ use common::{
         ComponentFunctionPath,
         ComponentId,
         ComponentPath,
+        PublicFunctionPath,
     },
     errors::JsError,
     execution_context::ExecutionContext,
@@ -515,7 +516,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
-            canonicalized_path.clone(),
+            PublicFunctionPath::Component(canonicalized_path.clone()),
             args_array.clone(),
             UdfType::Mutation,
         )
@@ -662,7 +663,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
-            canonicalized_path.clone(),
+            PublicFunctionPath::Component(canonicalized_path.clone()),
             args_array.clone(),
             UdfType::Query,
         )
@@ -1056,7 +1057,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let validated_path_or_err = ValidatedPathAndArgs::new(
             AllowedVisibility::PublicOnly,
             &mut tx,
-            canonicalized_path.clone(),
+            PublicFunctionPath::Component(canonicalized_path.clone()),
             args_array.clone(),
             UdfType::Action,
         )

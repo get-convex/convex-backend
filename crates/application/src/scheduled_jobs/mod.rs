@@ -11,6 +11,7 @@ use std::{
 
 use common::{
     backoff::Backoff,
+    components::PublicFunctionPath,
     document::ParsedDocument,
     errors::{
         report_error,
@@ -630,7 +631,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             .runner
             .run_mutation_no_udf_log(
                 tx,
-                path.clone(),
+                PublicFunctionPath::Component(path.clone()),
                 job.udf_args.clone(),
                 caller.allowed_visibility(),
                 context.clone(),
@@ -740,7 +741,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
-                        path,
+                        PublicFunctionPath::Component(path),
                         job.udf_args,
                         identity,
                         caller,

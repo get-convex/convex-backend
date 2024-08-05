@@ -16,7 +16,7 @@ use async_broadcast::{
     Sender,
 };
 use common::{
-    components::CanonicalizedComponentFunctionPath,
+    components::PublicFunctionPath,
     execution_context::ExecutionContext,
     identity::IdentityCacheKey,
     knobs::{
@@ -115,7 +115,7 @@ impl<RT: Runtime> HeapSize for CacheManager<RT> {
 
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct CacheKey {
-    path: CanonicalizedComponentFunctionPath,
+    path: PublicFunctionPath,
     args: ConvexArray,
     identity: IdentityCacheKey,
     journal: QueryJournal,
@@ -126,8 +126,7 @@ impl fmt::Debug for CacheKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut builder = f.debug_struct("CacheKey");
         builder
-            .field("path", &self.path.udf_path)
-            .field("component", &self.path.component)
+            .field("path", &self.path)
             .field("args", &self.args)
             .field("identity", &self.identity)
             .field("journal", &self.journal)
@@ -211,7 +210,7 @@ impl<RT: Runtime> CacheManager<RT> {
     pub async fn get(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: ConvexArray,
         identity: Identity,
         ts: Timestamp,
@@ -247,7 +246,7 @@ impl<RT: Runtime> CacheManager<RT> {
     async fn _get(
         &self,
         request_id: RequestId,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: ConvexArray,
         identity: Identity,
         ts: Timestamp,
@@ -446,7 +445,7 @@ impl<RT: Runtime> CacheManager<RT> {
                     Err(js_err) => {
                         let query_outcome = UdfOutcome::from_error(
                             js_err,
-                            path.clone(),
+                            path.clone().debug_into_component_path(),
                             args,
                             identity.into(),
                             self.rt.clone(),
@@ -471,7 +470,7 @@ impl<RT: Runtime> CacheManager<RT> {
                         if let Ok(ref json_packed_value) = &query_outcome.result {
                             let output: ConvexValue = json_packed_value.unpack();
                             let (_, component) = BootstrapComponentsModel::new(&mut tx)
-                                .component_path_to_ids(path.component.clone())
+                                .component_path_to_ids(path_and_args.path().component.clone())
                                 .await?;
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
@@ -853,7 +852,7 @@ enum CacheOp {
     Go {
         waiting_entry_id: Option<u64>,
         sender: Sender<CacheResult>,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: ConvexArray,
         identity: Identity,
         ts: Timestamp,

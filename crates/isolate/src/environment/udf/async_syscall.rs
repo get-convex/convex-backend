@@ -11,6 +11,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
+        PublicFunctionPath,
         Reference,
         Resource,
     },
@@ -483,7 +484,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::All,
             tx,
-            path,
+            PublicFunctionPath::Component(path),
             ConvexArray::try_from(vec![args.into()])?,
             udf_type,
         )

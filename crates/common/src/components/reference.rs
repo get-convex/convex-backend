@@ -1,6 +1,9 @@
 use std::str::FromStr;
 
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    path::PathComponent,
+    CanonicalizedUdfPath,
+};
 use value::{
     identifier::Identifier,
     DeveloperDocumentId,
@@ -71,7 +74,7 @@ pub enum Reference {
     /// ```
     ChildComponent {
         component: ComponentName,
-        attributes: Vec<Identifier>,
+        attributes: Vec<PathComponent>,
     },
 
     CurrentSystemUdfInComponent {

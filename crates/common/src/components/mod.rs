@@ -23,6 +23,7 @@ pub use self::{
         ComponentDefinitionFunctionPath,
         ComponentFunctionPath,
         ExportPath,
+        PublicFunctionPath,
     },
     module_paths::CanonicalizedComponentModulePath,
     reference::Reference,

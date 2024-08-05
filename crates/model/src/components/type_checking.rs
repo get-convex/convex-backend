@@ -22,6 +22,7 @@ use common::{
     schemas::validator::ValidationError,
     types::HttpActionRoute,
 };
+use sync_types::path::PathComponent;
 use thiserror::Error;
 use value::{
     identifier::Identifier,
@@ -43,12 +44,12 @@ pub struct CheckedComponent {
     pub args: BTreeMap<Identifier, Resource>,
     pub child_components: BTreeMap<ComponentName, CheckedComponent>,
     pub http_routes: CheckedHttpRoutes,
-    pub exports: BTreeMap<Identifier, ResourceTree>,
+    pub exports: BTreeMap<PathComponent, ResourceTree>,
 }
 
 #[derive(Clone, Debug)]
 pub enum ResourceTree {
-    Branch(BTreeMap<Identifier, ResourceTree>),
+    Branch(BTreeMap<PathComponent, ResourceTree>),
     Leaf(Resource),
 }
 
@@ -267,7 +268,7 @@ impl<'a> CheckedComponentBuilder<'a> {
 
     fn check_exports(
         self,
-        exports: &BTreeMap<Identifier, ComponentExport>,
+        exports: &BTreeMap<PathComponent, ComponentExport>,
     ) -> Result<CheckedComponent, TypecheckError> {
         let exports = self.resolve_exports(exports)?;
         Ok(CheckedComponent {
@@ -282,8 +283,8 @@ impl<'a> CheckedComponentBuilder<'a> {
 
     fn resolve_exports(
         &self,
-        exports: &BTreeMap<Identifier, ComponentExport>,
-    ) -> Result<BTreeMap<Identifier, ResourceTree>, TypecheckError> {
+        exports: &BTreeMap<PathComponent, ComponentExport>,
+    ) -> Result<BTreeMap<PathComponent, ResourceTree>, TypecheckError> {
         let mut result = BTreeMap::new();
         for (name, export) in exports {
             let node = match export {
@@ -357,7 +358,7 @@ impl<'a> CheckedComponentBuilder<'a> {
 impl CheckedComponent {
     pub fn resolve_export(
         &self,
-        attributes: &[Identifier],
+        attributes: &[PathComponent],
     ) -> Result<Option<ResourceTree>, TypecheckError> {
         let mut current = &self.exports;
         let mut attribute_iter = attributes.iter();

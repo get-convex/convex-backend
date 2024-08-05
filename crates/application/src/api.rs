@@ -9,8 +9,8 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
-        ComponentPath,
         ExportPath,
+        PublicFunctionPath,
     },
     http::ResolvedHost,
     pause::PauseClient,
@@ -289,13 +289,16 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             ExecuteQueryTimestamp::Latest => *self.now_ts_for_reads(),
             ExecuteQueryTimestamp::At(ts) => ts,
         };
-        // Public queries always start with the root component.
-        let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path: path.into(),
-        };
-        self.read_only_udf_at_ts(request_id, path, args, identity, ts, journal, caller)
-            .await
+        self.read_only_udf_at_ts(
+            request_id,
+            PublicFunctionPath::RootExport(path),
+            args,
+            identity,
+            ts,
+            journal,
+            caller,
+        )
+        .await
     }
 
     async fn execute_admin_query(
@@ -317,8 +320,16 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             ExecuteQueryTimestamp::Latest => *self.now_ts_for_reads(),
             ExecuteQueryTimestamp::At(ts) => ts,
         };
-        self.read_only_udf_at_ts(request_id, path, args, identity, ts, journal, caller)
-            .await
+        self.read_only_udf_at_ts(
+            request_id,
+            PublicFunctionPath::Component(path),
+            args,
+            identity,
+            ts,
+            journal,
+            caller,
+        )
+        .await
     }
 
     async fn execute_public_mutation(
@@ -336,13 +347,9 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
         );
-        let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path: path.into(),
-        };
         self.mutation_udf(
             request_id,
-            path,
+            PublicFunctionPath::RootExport(path),
             args,
             identity,
             mutation_identifier,
@@ -368,7 +375,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         );
         self.mutation_udf(
             request_id,
-            path,
+            PublicFunctionPath::Component(path),
             args,
             identity,
             mutation_identifier,
@@ -391,12 +398,14 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
             "This method should not be used by internal callers."
         );
-        let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::root(),
-            udf_path: path.into(),
-        };
-        self.action_udf(request_id, path, args, identity, caller)
-            .await
+        self.action_udf(
+            request_id,
+            PublicFunctionPath::RootExport(path),
+            args,
+            identity,
+            caller,
+        )
+        .await
     }
 
     async fn execute_admin_action(
@@ -412,8 +421,14 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             path.component.is_root() || identity.is_admin() || identity.is_system(),
             "Only admin or system users can call functions on non-root components directly"
         );
-        self.action_udf(request_id, path, args, identity, caller)
-            .await
+        self.action_udf(
+            request_id,
+            PublicFunctionPath::Component(path),
+            args,
+            identity,
+            caller,
+        )
+        .await
     }
 
     async fn execute_any_function(

@@ -2,6 +2,7 @@ use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentPath,
+        PublicFunctionPath,
     },
     pause::PauseClient,
     types::FunctionCaller,
@@ -33,10 +34,10 @@ async fn run_zero_arg_mutation(
     application
         .mutation_udf(
             RequestId::new(),
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
-            },
+            }),
             vec![obj],
             Identity::user(UserIdentity::test()),
             None,
@@ -54,10 +55,10 @@ async fn run_zero_arg_query(
     application
         .read_only_udf(
             RequestId::new(),
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
-            },
+            }),
             vec![obj],
             Identity::user(UserIdentity::test()),
             FunctionCaller::HttpEndpoint,
@@ -73,10 +74,10 @@ async fn run_zero_arg_action(
     application
         .action_udf(
             RequestId::new(),
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::test_user(),
                 udf_path: name.parse()?,
-            },
+            }),
             vec![obj],
             Identity::user(UserIdentity::test()),
             FunctionCaller::HttpEndpoint,

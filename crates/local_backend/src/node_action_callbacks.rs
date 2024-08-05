@@ -21,6 +21,7 @@ use common::{
         ComponentFunctionPath,
         ComponentId,
         ComponentPath,
+        PublicFunctionPath,
     },
     execution_context::{
         ExecutionContext,
@@ -104,10 +105,10 @@ pub async fn internal_query_post(
         .application
         .read_only_udf(
             context.request_id,
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
-            },
+            }),
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::Action {
@@ -149,10 +150,10 @@ pub async fn internal_mutation_post(
         .application
         .mutation_udf(
             context.request_id,
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
-            },
+            }),
             req.args.into_arg_vec(),
             identity,
             None,
@@ -199,10 +200,10 @@ pub async fn internal_action_post(
         .application
         .action_udf(
             context.request_id,
-            CanonicalizedComponentFunctionPath {
+            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
-            },
+            }),
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::Action {

@@ -1,10 +1,10 @@
 use anyhow::Context;
-#[cfg(any(test, feature = "testing"))]
-use common::components::ComponentPath;
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
+        ComponentPath,
+        PublicFunctionPath,
     },
     errors::JsError,
     identity::InertIdentity,
@@ -37,6 +37,7 @@ use model::{
         DISABLED_ERROR_MESSAGE,
         PAUSED_ERROR_MESSAGE,
     },
+    components::ComponentsModel,
     modules::{
         function_validators::ReturnsValidator,
         module_versions::{
@@ -143,7 +144,8 @@ pub async fn validate_schedule_args<RT: Runtime>(
     Ok((path, udf_args))
 }
 
-fn missing_or_internal_error(path: &CanonicalizedComponentFunctionPath) -> anyhow::Result<String> {
+fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String> {
+    let path = path.debug_into_component_path();
     Ok(format!(
         "Could not find public function for '{}'{}. Did you forget to run `npx convex dev` or \
          `npx convex deploy`?",
@@ -173,7 +175,9 @@ async fn udf_version<RT: Runtime>(
                 // We don't have a UDF config and we can't find the analyzed function.
                 // Likely this developer has never pushed before, so give them
                 // the missing error message.
-                return Ok(Err(JsError::from_message(missing_or_internal_error(path)?)));
+                return Ok(Err(JsError::from_message(missing_or_internal_error(
+                    PublicFunctionPath::Component(path.clone()),
+                )?)));
             }
 
             let unsupported = format!(
@@ -240,72 +244,13 @@ impl ValidatedPathAndArgs {
     pub async fn new<RT: Runtime>(
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,
-        path: CanonicalizedComponentFunctionPath,
+        path: PublicFunctionPath,
         args: ConvexArray,
         expected_udf_type: UdfType,
     ) -> anyhow::Result<Result<ValidatedPathAndArgs, JsError>> {
-        if path.udf_path.is_system() {
-            anyhow::ensure!(
-                path.component.is_root(),
-                "System module inside non-root component?"
-            );
-
-            // We don't analyze system modules, so we don't validate anything
-            // except the identity for them.
-            let result = if tx.identity().is_admin() || tx.identity().is_system() {
-                Ok(ValidatedPathAndArgs {
-                    path,
-                    args,
-                    npm_version: None,
-                })
-            } else {
-                Err(JsError::from_message(
-                    unauthorized_error("Executing function").to_string(),
-                ))
-            };
-            return Ok(result);
-        }
-
-        let (_, component) = BootstrapComponentsModel::new(tx)
-            .component_path_to_ids(path.component.clone())
-            .await?;
-
-        let mut backend_state_model = BackendStateModel::new(tx);
-        let backend_state = backend_state_model.get_backend_state().await?;
-        match backend_state {
-            BackendState::Running => {},
-            BackendState::Paused => {
-                return Ok(Err(JsError::from_message(PAUSED_ERROR_MESSAGE.to_string())));
-            },
-            BackendState::Disabled => {
-                return Ok(Err(JsError::from_message(
-                    DISABLED_ERROR_MESSAGE.to_string(),
-                )));
-            },
-        }
-
-        let udf_version = match udf_version(&path, component, tx).await? {
-            Ok(udf_version) => udf_version,
-            Err(e) => return Ok(Err(e)),
-        };
-
-        // AnalyzeResult result should be populated for all supported versions.
-        let Ok(analyzed_function) = ModuleModel::new(tx).get_analyzed_function(&path).await? else {
-            return Ok(Err(JsError::from_message(missing_or_internal_error(
-                &path,
-            )?)));
-        };
-
-        ValidatedPathAndArgs::new_inner(
-            allowed_visibility,
-            tx,
-            path,
-            component,
-            args,
-            expected_udf_type,
-            analyzed_function,
-            udf_version,
-        )
+        Self::new_with_returns_validator(allowed_visibility, tx, path, args, expected_udf_type)
+            .await
+            .map(|r| r.map(|(path_and_args, _)| path_and_args))
     }
 
     /// Do argument validation and get returns validator without retrieving
@@ -313,11 +258,18 @@ impl ValidatedPathAndArgs {
     pub async fn new_with_returns_validator<RT: Runtime>(
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,
-        path: CanonicalizedComponentFunctionPath,
+        public_path: PublicFunctionPath,
         args: ConvexArray,
         expected_udf_type: UdfType,
     ) -> anyhow::Result<Result<(ValidatedPathAndArgs, ReturnsValidator), JsError>> {
-        if path.udf_path.is_system() {
+        if public_path.is_system() {
+            let path = match public_path {
+                PublicFunctionPath::RootExport(path) => CanonicalizedComponentFunctionPath {
+                    component: ComponentPath::root(),
+                    udf_path: path.into(),
+                },
+                PublicFunctionPath::Component(path) => path,
+            };
             // We don't analyze system modules, so we don't validate anything
             // except the identity for them.
             let result = if tx.identity().is_admin() || tx.identity().is_system() {
@@ -350,6 +302,20 @@ impl ValidatedPathAndArgs {
             },
         }
 
+        let maybe_path = match public_path.clone() {
+            PublicFunctionPath::RootExport(path) => {
+                ComponentsModel::new(tx)
+                    .resolve_public_export_path(path)
+                    .await?
+            },
+            PublicFunctionPath::Component(path) => Some(path),
+        };
+        let Some(path) = maybe_path else {
+            return Ok(Err(JsError::from_message(missing_or_internal_error(
+                public_path.clone(),
+            )?)));
+        };
+
         let (_, component) = BootstrapComponentsModel::new(tx)
             .component_path_to_ids(path.component.clone())
             .await?;
@@ -364,7 +330,7 @@ impl ValidatedPathAndArgs {
         //
         let Ok(analyzed_function) = ModuleModel::new(tx).get_analyzed_function(&path).await? else {
             return Ok(Err(JsError::from_message(missing_or_internal_error(
-                &path,
+                public_path,
             )?)));
         };
 
@@ -411,7 +377,7 @@ impl ValidatedPathAndArgs {
                     Some(Visibility::Public) => (),
                     Some(Visibility::Internal) => {
                         return Ok(Err(JsError::from_message(missing_or_internal_error(
-                            &path,
+                            PublicFunctionPath::Component(path),
                         )?)));
                     },
                     None => {

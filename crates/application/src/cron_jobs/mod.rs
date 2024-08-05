@@ -13,6 +13,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
         ComponentPath,
+        PublicFunctionPath,
     },
     document::ParsedDocument,
     errors::{
@@ -436,7 +437,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             .runner
             .run_mutation_no_udf_log(
                 tx,
-                path.clone(),
+                PublicFunctionPath::Component(path.clone()),
                 job.cron_spec.udf_args.clone(),
                 caller.allowed_visibility(),
                 context.clone(),
@@ -576,7 +577,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 let completion = self
                     .runner
                     .run_action_no_udf_log(
-                        path,
+                        PublicFunctionPath::Component(path),
                         job.cron_spec.udf_args,
                         identity.clone(),
                         caller,
