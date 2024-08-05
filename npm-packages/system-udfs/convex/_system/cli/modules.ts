@@ -5,14 +5,14 @@ import { v } from "convex/values";
 
 type FunctionSpec = {
   identifier: string;
-  function_type: UdfType;
+  functionType: UdfType;
   visibility: Visibility;
   args?: ValidatorJSON;
   returns?: ValidatorJSON;
 };
 
 type HttpFunctionSpec = {
-  function_type: "HttpAction";
+  functionType: "HttpAction";
   method: string;
   path: string;
 };
@@ -38,7 +38,7 @@ export const apiSpec = queryPrivateSystem({
       for (const fn of analyzeResult.sourceMapped?.functions || []) {
         result.push({
           identifier: module.path + ":" + fn.name,
-          function_type: fn.udfType,
+          functionType: fn.udfType,
           visibility: fn.visibility ?? { kind: "public" },
           args: JSON.parse(fn.args ?? DEFAULT_ARGS_VALIDATOR),
           returns:
@@ -49,7 +49,7 @@ export const apiSpec = queryPrivateSystem({
 
       for (const httpFn of analyzeResult.sourceMapped?.httpRoutes || []) {
         result.push({
-          function_type: "HttpAction",
+          functionType: "HttpAction",
           method: httpFn.route.method,
           path: httpFn.route.path,
         });

@@ -4,15 +4,16 @@ import {
   fetchDeploymentCredentialsWithinCurrentProject,
 } from "./lib/api.js";
 import { runQuery } from "./lib/run.js";
-import { Command } from "@commander-js/extra-typings";
+import { Command, Option } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 
-export const apiSpec = new Command("api-spec")
+export const functionSpec = new Command("function-spec")
   .summary("List function metadata from your deployment")
   .description(
     "List argument and return values to your Convex functions.\n\n" +
       "By default, this inspects your dev deployment.",
   )
+  .addOption(new Option("--path", "Output as JSON to this file path."))
   .addDeploymentSelectionOptions(
     actionDescription("Read function metadata from"),
   )
@@ -35,5 +36,12 @@ export const apiSpec = new Command("api-spec")
       {},
     )) as any[];
 
-    logOutput(ctx, JSON.stringify(functions, null, 2));
+    const output = JSON.stringify(functions, null, 2);
+
+    if (options.path) {
+      const fileName = `function_spec_${Date.now().valueOf()}.json`;
+      ctx.fs.writeUtf8File(fileName, output);
+    } else {
+      logOutput(ctx, output);
+    }
   });
