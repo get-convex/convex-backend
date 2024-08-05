@@ -85,6 +85,8 @@ export class AuthenticationManager {
   private readonly authenticate: (token: string) => void;
   private readonly stopSocket: () => Promise<void>;
   private readonly restartSocket: () => void;
+  private readonly pauseSocket: () => void;
+  private readonly resumeSocket: () => void;
   // Passed down by BaseClient, sends a message to the server
   private readonly clearAuth: () => void;
   private readonly verbose: boolean;
@@ -95,12 +97,16 @@ export class AuthenticationManager {
       authenticate,
       stopSocket,
       restartSocket,
+      pauseSocket,
+      resumeSocket,
       clearAuth,
       verbose,
     }: {
       authenticate: (token: string) => void;
       stopSocket: () => Promise<void>;
       restartSocket: () => void;
+      pauseSocket: () => void;
+      resumeSocket: () => void;
       clearAuth: () => void;
       verbose: boolean;
     },
@@ -109,6 +115,8 @@ export class AuthenticationManager {
     this.authenticate = authenticate;
     this.stopSocket = stopSocket;
     this.restartSocket = restartSocket;
+    this.pauseSocket = pauseSocket;
+    this.resumeSocket = resumeSocket;
     this.clearAuth = clearAuth;
     this.verbose = verbose;
   }
@@ -118,6 +126,8 @@ export class AuthenticationManager {
     onChange: (isAuthenticated: boolean) => void,
   ) {
     this.resetAuthState();
+    this._logVerbose("pausing WS for auth token fetch");
+    this.pauseSocket();
     const token = await this.fetchTokenAndGuardAgainstRace(fetchToken, {
       forceRefreshToken: false,
     });
@@ -131,6 +141,8 @@ export class AuthenticationManager {
         hasRetried: false,
       });
       this.authenticate(token.value);
+      this._logVerbose("resuming WS after auth token fetch");
+      this.resumeSocket();
     } else {
       this.setAuthState({
         state: "initialRefetch",
@@ -224,12 +236,11 @@ export class AuthenticationManager {
       },
     );
     if (token.isFromOutdatedConfig) {
-      await this.restartSocket();
       return;
     }
 
     if (token.value && this.syncState.isNewAuth(token.value)) {
-      this.syncState.setAuth(token.value);
+      this.authenticate(token.value);
       this.setAuthState({
         state: "waitingForServerConfirmationOfFreshToken",
         config: this.authState.config,
@@ -245,7 +256,7 @@ export class AuthenticationManager {
       }
       this.setAndReportAuthFailed(this.authState.config.onAuthChange);
     }
-    await this.restartSocket();
+    this.restartSocket();
   }
 
   // Force refetch the token and schedule another refetch
@@ -288,6 +299,12 @@ export class AuthenticationManager {
       }
       this.setAndReportAuthFailed(this.authState.config.onAuthChange);
     }
+    // Resuming in case this refetch was triggered
+    // by an invalid cached token.
+    this._logVerbose(
+      "resuming WS after auth token fetch (if currently paused)",
+    );
+    this.resumeSocket();
   }
 
   private scheduleTokenRefetch(token: string) {

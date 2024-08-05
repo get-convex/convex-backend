@@ -9,6 +9,8 @@ import {
 } from "../browser/sync/client_node_test_helpers.js";
 import { ConvexReactClient } from "./index.js";
 import waitForExpect from "wait-for-expect";
+import { anyApi } from "../server/index.js";
+import { Long } from "../browser/long.js";
 
 const testReactClient = (address: string) =>
   new ConvexReactClient(address, {
@@ -329,6 +331,111 @@ describe.sequential.skip("auth websocket tests", () => {
 
       expect(firstOnChange).toHaveBeenCalledTimes(0);
       expect(secondOnChange).toHaveBeenCalledWith(true);
+    });
+  });
+
+  test("Authentication runs first", async () => {
+    await withInMemoryWebSocket(async ({ address, receive, send }) => {
+      const client = testReactClient(address);
+
+      const tokenFetcher = vi.fn(async () =>
+        jwtEncode({ iat: 1234500, exp: 1244500 }, "secret"),
+      );
+      client.setAuth(tokenFetcher);
+
+      expect((await receive()).type).toEqual("Connect");
+      expect((await receive()).type).toEqual("Authenticate");
+      expect((await receive()).type).toEqual("ModifyQuerySet");
+
+      const querySetVersion = client.sync["remoteQuerySet"]["version"];
+
+      send({
+        type: "Transition",
+        startVersion: querySetVersion,
+        endVersion: {
+          ...querySetVersion,
+          // Client started at 0
+          // Good token advanced to 1
+          identity: 1,
+        },
+        modifications: [],
+      });
+
+      const tokenFetcher2 = vi.fn(async () =>
+        jwtEncode({ iat: 1234550, exp: 1244550 }, "secret"),
+      );
+      client.setAuth(tokenFetcher2);
+      client.watchQuery(anyApi.myQuery.default).onUpdate(() => {});
+
+      // Crucially Authenticate comes first!
+      expect((await receive()).type).toEqual("Authenticate");
+      expect((await receive()).type).toEqual("ModifyQuerySet");
+    });
+  });
+
+  test("Auth pause doesn't prevent unsubscribing from queries", async () => {
+    await withInMemoryWebSocket(async ({ address, receive, send }) => {
+      const client = testReactClient(address);
+
+      const tokenFetcher = vi.fn(async () =>
+        jwtEncode({ iat: 1234500, exp: 1244500 }, "secret"),
+      );
+      client.setAuth(tokenFetcher);
+
+      const unsubscribe = client
+        .watchQuery(anyApi.myQuery.default)
+        .onUpdate(() => {});
+
+      expect((await receive()).type).toEqual("Connect");
+      expect((await receive()).type).toEqual("Authenticate");
+      expect((await receive()).type).toEqual("ModifyQuerySet");
+
+      const querySetVersion = client.sync["remoteQuerySet"]["version"];
+
+      send({
+        type: "Transition",
+        startVersion: querySetVersion,
+        endVersion: {
+          querySet: 1,
+          identity: 1,
+          ts: Long.fromNumber(1),
+        },
+        modifications: [
+          {
+            type: "QueryUpdated",
+            queryId: 0,
+            value: 42,
+            logLines: [],
+          },
+        ],
+      });
+
+      await waitForExpect(() => {
+        expect(client.sync["remoteQuerySet"]["version"].identity).toEqual(1);
+      });
+
+      let resolve: (value: string) => void;
+      const tokenFetcher2 = vi.fn(
+        () =>
+          new Promise<string>((r) => {
+            resolve = r;
+          }),
+      );
+      // Set new auth
+      client.setAuth(tokenFetcher2);
+
+      // Unsubscribe
+      unsubscribe();
+
+      // Finish fetching the token
+      resolve!(jwtEncode({ iat: 1234550, exp: 1244550 }, "secret"));
+
+      // Crucially Authenticate comes first!
+      expect((await receive()).type).toEqual("Authenticate");
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Remove", queryId: 0 }],
+      });
     });
   });
 });

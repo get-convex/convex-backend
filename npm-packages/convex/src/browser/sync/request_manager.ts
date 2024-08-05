@@ -192,6 +192,18 @@ export class RequestManager {
     return allMessages;
   }
 
+  resume(): ClientMessage[] {
+    const allMessages = [];
+    for (const [, value] of this.inflightRequests) {
+      if (value.status.status === "NotSent") {
+        value.status.status = "Requested";
+        allMessages.push(value.message);
+        continue;
+      }
+    }
+    return allMessages;
+  }
+
   /**
    * @returns true if there are any requests that have been requested but have
    * not be completed yet.

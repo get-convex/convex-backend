@@ -282,6 +282,56 @@ export class LocalSyncState {
     return [querySet, authenticate];
   }
 
+  resume(
+    remoteQueryResults: Set<QueryId>,
+  ): [QuerySetModification?, Authenticate?] {
+    const localQueryIds = new Set();
+    const modifications = [];
+    for (const localQuery of this.querySet.values()) {
+      localQueryIds.add(localQuery.id);
+
+      if (!remoteQueryResults.has(localQuery.id)) {
+        const add: AddQuery = {
+          type: "Add",
+          queryId: localQuery.id,
+          udfPath: localQuery.canonicalizedUdfPath,
+          args: [convexToJson(localQuery.args)],
+          journal: localQuery.journal,
+        };
+        modifications.push(add);
+      }
+    }
+
+    for (const remoteQueryId of remoteQueryResults) {
+      if (!localQueryIds.has(remoteQueryId)) {
+        const remove: RemoveQuery = {
+          type: "Remove",
+          queryId: remoteQueryId,
+        };
+        modifications.push(remove);
+      }
+    }
+
+    const querySet: QuerySetModification | undefined =
+      modifications.length > 0
+        ? {
+            type: "ModifyQuerySet",
+            baseVersion: this.querySetVersion,
+            newVersion: this.querySetVersion + 1,
+            modifications,
+          }
+        : undefined;
+    const authenticate: Authenticate | undefined =
+      this.auth !== undefined
+        ? {
+            type: "Authenticate",
+            baseVersion: this.identityVersion,
+            ...this.auth,
+          }
+        : undefined;
+    return [querySet, authenticate];
+  }
+
   private removeSubscriber(
     queryToken: QueryToken,
   ): QuerySetModification | null {

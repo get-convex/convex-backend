@@ -218,6 +218,8 @@ export class BaseConvexClient {
       },
       stopSocket: () => this.webSocketManager.stop(),
       restartSocket: () => this.webSocketManager.restart(),
+      pauseSocket: () => this.webSocketManager.pause(),
+      resumeSocket: () => this.webSocketManager.resume(),
       clearAuth: () => {
         this.clearAuth();
       },
@@ -258,89 +260,107 @@ export class BaseConvexClient {
 
     this.webSocketManager = new WebSocketManager(
       wsUri,
-      (reconnectMetadata: ReconnectMetadata) => {
-        // We have a new WebSocket!
-        this.mark("convexWebSocketOpen");
-        this.webSocketManager.sendMessage({
-          ...reconnectMetadata,
-          type: "Connect",
-          sessionId: this._sessionId,
-          maxObservedTimestamp: this.maxObservedTimestamp,
-        });
+      {
+        onOpen: (reconnectMetadata: ReconnectMetadata) => {
+          // We have a new WebSocket!
+          this.mark("convexWebSocketOpen");
+          this.webSocketManager.sendMessage({
+            ...reconnectMetadata,
+            type: "Connect",
+            sessionId: this._sessionId,
+            maxObservedTimestamp: this.maxObservedTimestamp,
+          });
 
-        // Throw out our remote query, reissue queries
-        // and outstanding mutations, and reauthenticate.
-        const oldRemoteQueryResults = new Set(
-          this.remoteQuerySet.remoteQueryResults().keys(),
-        );
-        this.remoteQuerySet = new RemoteQuerySet((queryId) =>
-          this.state.queryPath(queryId),
-        );
-        const [querySetModification, authModification] = this.state.restart(
-          oldRemoteQueryResults,
-        );
-        if (authModification) {
-          this.webSocketManager.sendMessage(authModification);
-        }
-        this.webSocketManager.sendMessage(querySetModification);
-        for (const message of this.requestManager.restart()) {
-          this.webSocketManager.sendMessage(message);
-        }
-      },
-      (serverMessage: ServerMessage) => {
-        // Metrics events grow linearly with reconnection attempts so this
-        // conditional prevents n^2 metrics reporting.
-        if (!this.firstMessageReceived) {
-          this.firstMessageReceived = true;
-          this.mark("convexFirstMessageReceived");
-          this.reportMarks();
-        }
-        switch (serverMessage.type) {
-          case "Transition": {
-            this.observedTimestamp(serverMessage.endVersion.ts);
-            this.authenticationManager.onTransition(serverMessage);
-            this.remoteQuerySet.transition(serverMessage);
-            this.state.transition(serverMessage);
-            const completedRequests = this.requestManager.removeCompleted(
-              this.remoteQuerySet.timestamp(),
-            );
-            this.notifyOnQueryResultChanges(completedRequests);
-            break;
+          // Throw out our remote query, reissue queries
+          // and outstanding mutations, and reauthenticate.
+          const oldRemoteQueryResults = new Set(
+            this.remoteQuerySet.remoteQueryResults().keys(),
+          );
+          this.remoteQuerySet = new RemoteQuerySet((queryId) =>
+            this.state.queryPath(queryId),
+          );
+          const [querySetModification, authModification] = this.state.restart(
+            oldRemoteQueryResults,
+          );
+          if (authModification) {
+            this.webSocketManager.sendMessage(authModification);
           }
-          case "MutationResponse": {
-            if (serverMessage.success) {
-              this.observedTimestamp(serverMessage.ts);
+          this.webSocketManager.sendMessage(querySetModification);
+          for (const message of this.requestManager.restart()) {
+            this.webSocketManager.sendMessage(message);
+          }
+        },
+        onResume: () => {
+          const remoteQueryResults = new Set(
+            this.remoteQuerySet.remoteQueryResults().keys(),
+          );
+          const [querySetModification, authModification] =
+            this.state.resume(remoteQueryResults);
+          if (authModification) {
+            this.webSocketManager.sendMessage(authModification);
+          }
+          if (querySetModification) {
+            this.webSocketManager.sendMessage(querySetModification);
+          }
+          for (const message of this.requestManager.resume()) {
+            this.webSocketManager.sendMessage(message);
+          }
+        },
+        onMessage: (serverMessage: ServerMessage) => {
+          // Metrics events grow linearly with reconnection attempts so this
+          // conditional prevents n^2 metrics reporting.
+          if (!this.firstMessageReceived) {
+            this.firstMessageReceived = true;
+            this.mark("convexFirstMessageReceived");
+            this.reportMarks();
+          }
+          switch (serverMessage.type) {
+            case "Transition": {
+              this.observedTimestamp(serverMessage.endVersion.ts);
+              this.authenticationManager.onTransition(serverMessage);
+              this.remoteQuerySet.transition(serverMessage);
+              this.state.transition(serverMessage);
+              const completedRequests = this.requestManager.removeCompleted(
+                this.remoteQuerySet.timestamp(),
+              );
+              this.notifyOnQueryResultChanges(completedRequests);
+              break;
             }
-            const completedMutationId =
+            case "MutationResponse": {
+              if (serverMessage.success) {
+                this.observedTimestamp(serverMessage.ts);
+              }
+              const completedMutationId =
+                this.requestManager.onResponse(serverMessage);
+              if (completedMutationId !== null) {
+                this.notifyOnQueryResultChanges(new Set([completedMutationId]));
+              }
+              break;
+            }
+            case "ActionResponse": {
               this.requestManager.onResponse(serverMessage);
-            if (completedMutationId !== null) {
-              this.notifyOnQueryResultChanges(new Set([completedMutationId]));
+              break;
             }
-            break;
+            case "AuthError": {
+              this.authenticationManager.onAuthError(serverMessage);
+              break;
+            }
+            case "FatalError": {
+              const error = logFatalError(serverMessage.error);
+              void this.webSocketManager.terminate();
+              throw error;
+            }
+            case "Ping":
+              break; // do nothing
+            default: {
+              const _typeCheck: never = serverMessage;
+            }
           }
-          case "ActionResponse": {
-            this.requestManager.onResponse(serverMessage);
-            break;
-          }
-          case "AuthError": {
-            this.authenticationManager.onAuthError(serverMessage);
-            break;
-          }
-          case "FatalError": {
-            const error = logFatalError(serverMessage.error);
-            void this.webSocketManager.terminate();
-            throw error;
-          }
-          case "Ping":
-            break; // do nothing
-          default: {
-            const _typeCheck: never = serverMessage;
-          }
-        }
 
-        return {
-          hasSyncedPastLastReconnect: this.hasSyncedPastLastReconnect(),
-        };
+          return {
+            hasSyncedPastLastReconnect: this.hasSyncedPastLastReconnect(),
+          };
+        },
       },
       webSocketConstructor,
       this.verbose,

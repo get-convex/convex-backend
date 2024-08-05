@@ -105,7 +105,10 @@ export function ConvexProviderWithAuth({
         setIsConvexAuthenticated((isConvexAuthenticated) =>
           isConvexAuthenticated ? false : null,
         );
-        client.clearAuth();
+        // Clear timeout later, so that queries from
+        // unmounted child components unsubscribe first
+        // and rerun without auth on the server
+        setTimeout(() => client.clearAuth(), 0);
       };
     }
   }, [isAuthenticated, fetchAccessToken, isLoading, client]);
