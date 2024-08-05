@@ -211,7 +211,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         if self.phase != Phase::Executing {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "NoComponentArgsDuringImport",
-                "Can't use `componentArgs` at import time",
+                "Can't use `componentArg` at import time",
             ));
         }
         Ok(component_args)

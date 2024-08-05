@@ -19,7 +19,7 @@ import {
   internalQueryGeneric,
   appGeneric,
   componentGeneric,
-  createComponentArgs,
+  createComponentArg,
 } from "convex/server";
 
 /**

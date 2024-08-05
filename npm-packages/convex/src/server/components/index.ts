@@ -509,26 +509,13 @@ function createChildComponents(
  *
  * @internal
  */
-export function createComponentArgs(): Record<string, any> {
-  const handler = {
-    get(target: any, prop: any, receiver: any) {
-      if (typeof prop === "string") {
-        const result = performSyscall("1.0/componentArgument", {
-          name: prop,
-        });
-        if (result.value === undefined) {
-          if (prop === "inspect") {
-            return () => "[componentArgs]";
-          }
-          return undefined;
-        }
-        return jsonToConvex(result.value) as any;
-      } else {
-        return Reflect.get(target, prop, receiver);
-      }
-    },
+export function createComponentArg(): (ctx: any, name: string) => any {
+  return (ctx: any, name: string) => {
+    const result = performSyscall("1.0/componentArgument", {
+      name,
+    });
+    return (jsonToConvex(result) as any).value;
   };
-  return new Proxy({}, handler);
 }
 
 /**

@@ -23,6 +23,11 @@ import {
 } from "convex/server";
 import type { DataModel } from "./dataModel.js";
 
+type GenericCtx =
+  | GenericActionCtx<DataModel>
+  | GenericMutationCtxWithTable<DataModel>
+  | GenericQueryCtxWithTable<DataModel>;
+
 /**
  * Define a query in this Convex app's public API.
  *
@@ -150,4 +155,8 @@ export type DatabaseReader = GenericDatabaseReaderWithTable<DataModel>;
 export type DatabaseWriter = GenericDatabaseWriterWithTable<DataModel>;
 
 export declare const component: {};
-export declare const componentArgs: {};
+type ComponentArgs = {};
+export declare const componentArg: <Name extends keyof ComponentArgs>(
+  ctx: GenericCtx,
+  name: Name,
+) => ComponentArgs[Name];

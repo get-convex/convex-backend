@@ -23,6 +23,11 @@ import {
 } from "convex/server";
 import type { DataModel } from "./dataModel.js";
 
+type GenericCtx =
+  | GenericActionCtx<DataModel>
+  | GenericMutationCtxWithTable<DataModel>
+  | GenericQueryCtxWithTable<DataModel>;
+
 /**
  * Define a query in this Convex app's public API.
  *

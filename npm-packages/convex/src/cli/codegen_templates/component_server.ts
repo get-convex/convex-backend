@@ -33,7 +33,7 @@ export function componentServerJS(isRoot: boolean): string {
     internalQueryGeneric,
     appGeneric,
     componentGeneric,
-    createComponentArgs,
+    createComponentArg,
   } from "convex/server";
 
   /**
@@ -113,7 +113,7 @@ export function componentServerJS(isRoot: boolean): string {
   } else {
     result += `
     export const component = componentGeneric();
-    export const componentArgs = createComponentArgs();
+    export const componentArg = createComponentArg();
     `;
   }
   return result;
@@ -137,6 +137,8 @@ function componentServerDTSPrelude(): string {
       FunctionReference,
     } from "convex/server";
     import type { DataModel } from "./dataModel.js";
+
+    type GenericCtx = GenericActionCtx<DataModel> | GenericMutationCtxWithTable<DataModel> | GenericQueryCtxWithTable<DataModel>;
 
     /**
      * Define a query in this Convex app's public API.
@@ -269,7 +271,7 @@ export function componentServerStubDTS(isRoot: boolean): string {
   } else {
     result += `
     export declare const component: AnyComponent;
-    export declare const componentArgs: Record<string, any>;
+    export declare const componentArg: (ctx: GenericCtx, name: string) => any;
     `;
   }
   return result;
@@ -318,12 +320,15 @@ export async function componentServerDTS(
 
   const definitionType = analysis.definition.definitionType;
   if (definitionType.type === "childComponent") {
-    result.push(`export declare const componentArgs: {`);
+    result.push(`type ComponentArgs = {`);
     for (const [name, { value: serializedValidator }] of definitionType.args) {
       const validatorType = validatorToType(JSON.parse(serializedValidator));
       result.push(`${name}: ${validatorType},`);
     }
     result.push("};");
+    result.push(
+      `export declare const componentArg: <Name extends keyof ComponentArgs>(ctx: GenericCtx, name: Name) => ComponentArgs[Name];`,
+    );
   }
 
   return result.join("\n");
