@@ -119,8 +119,7 @@ export function componentServerJS(isRoot: boolean): string {
   return result;
 }
 
-function componentServerDTSPrelude(isRoot: boolean): string {
-  const withTable = isRoot ? "" : "WithTable";
+function componentServerDTSPrelude(_isRoot: boolean): string {
   return `
     ${header(
       "Generated utilities for implementing server-side Convex query and mutation functions.",
@@ -128,13 +127,13 @@ function componentServerDTSPrelude(isRoot: boolean): string {
     import {
       ActionBuilder,
       HttpActionBuilder,
-      MutationBuilder${withTable},
-      QueryBuilder${withTable},
+      MutationBuilder,
+      QueryBuilder,
       GenericActionCtx,
-      GenericMutationCtx${withTable},
-      GenericQueryCtx${withTable},
-      GenericDatabaseReader${withTable},
-      GenericDatabaseWriter${withTable},
+      GenericMutationCtx,
+      GenericQueryCtx,
+      GenericDatabaseReader,
+      GenericDatabaseWriter,
       FunctionReference,
     } from "convex/server";
     import type { DataModel } from "./dataModel.js";
@@ -149,7 +148,7 @@ function componentServerDTSPrelude(isRoot: boolean): string {
      * @param func - The query function. It receives a {@link QueryCtx} as its first argument.
      * @returns The wrapped query. Include this as an \`export\` to name it and make it accessible.
      */
-    export declare const query: QueryBuilder${withTable}<DataModel, "public">;
+    export declare const query: QueryBuilder<DataModel, "public">;
 
     /**
      * Define a query that is only accessible from other Convex functions (but not from the client).
@@ -159,7 +158,7 @@ function componentServerDTSPrelude(isRoot: boolean): string {
      * @param func - The query function. It receives a {@link QueryCtx} as its first argument.
      * @returns The wrapped query. Include this as an \`export\` to name it and make it accessible.
      */
-    export declare const internalQuery: QueryBuilder${withTable}<DataModel, "internal">;
+    export declare const internalQuery: QueryBuilder<DataModel, "internal">;
 
     /**
      * Define a mutation in this Convex app's public API.
@@ -169,7 +168,7 @@ function componentServerDTSPrelude(isRoot: boolean): string {
      * @param func - The mutation function. It receives a {@link MutationCtx} as its first argument.
      * @returns The wrapped mutation. Include this as an \`export\` to name it and make it accessible.
      */
-    export declare const mutation: MutationBuilder${withTable}<DataModel, "public">;
+    export declare const mutation: MutationBuilder<DataModel, "public">;
 
     /**
      * Define a mutation that is only accessible from other Convex functions (but not from the client).
@@ -179,7 +178,7 @@ function componentServerDTSPrelude(isRoot: boolean): string {
      * @param func - The mutation function. It receives a {@link MutationCtx} as its first argument.
      * @returns The wrapped mutation. Include this as an \`export\` to name it and make it accessible.
      */
-    export declare const internalMutation: MutationBuilder${withTable}<DataModel, "internal">;
+    export declare const internalMutation: MutationBuilder<DataModel, "internal">;
 
     /**
      * Define an action in this Convex app's public API.
@@ -223,7 +222,7 @@ function componentServerDTSPrelude(isRoot: boolean): string {
      * This differs from the {@link MutationCtx} because all of the services are
      * read-only.
      */
-    export type QueryCtx = GenericQueryCtx${withTable}<DataModel>;
+    export type QueryCtx = GenericQueryCtx<DataModel>;
 
     /**
      * A set of services for use within Convex mutation functions.
@@ -231,7 +230,7 @@ function componentServerDTSPrelude(isRoot: boolean): string {
      * The mutation context is passed as the first argument to any Convex mutation
      * function run on the server.
      */
-    export type MutationCtx = GenericMutationCtx${withTable}<DataModel>;
+    export type MutationCtx = GenericMutationCtx<DataModel>;
 
     /**
      * A set of services for use within Convex action functions.
@@ -248,7 +247,7 @@ function componentServerDTSPrelude(isRoot: boolean): string {
      * document by its {@link Id}, or {@link DatabaseReader.query}, which starts
      * building a query.
      */
-    export type DatabaseReader = GenericDatabaseReader${withTable}<DataModel>;
+    export type DatabaseReader = GenericDatabaseReader<DataModel>;
 
     /**
      * An interface to read from and write to the database within Convex mutation
@@ -259,7 +258,7 @@ function componentServerDTSPrelude(isRoot: boolean): string {
      * your data in an inconsistent state. See [the Convex Guide](https://docs.convex.dev/understanding/convex-fundamentals/functions#atomicity-and-optimistic-concurrency-control)
      * for the guarantees Convex provides your functions.
      */
-    export type DatabaseWriter = GenericDatabaseWriter${withTable}<DataModel>;
+    export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
   `;
 }
 

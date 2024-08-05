@@ -12,13 +12,13 @@
 import {
   ActionBuilder,
   HttpActionBuilder,
-  MutationBuilderWithTable,
-  QueryBuilderWithTable,
+  MutationBuilder,
+  QueryBuilder,
   GenericActionCtx,
-  GenericMutationCtxWithTable,
-  GenericQueryCtxWithTable,
-  GenericDatabaseReaderWithTable,
-  GenericDatabaseWriterWithTable,
+  GenericMutationCtx,
+  GenericQueryCtx,
+  GenericDatabaseReader,
+  GenericDatabaseWriter,
   FunctionReference,
 } from "convex/server";
 import type { DataModel } from "./dataModel.js";
@@ -36,7 +36,7 @@ type GenericCtx =
  * @param func - The query function. It receives a {@link QueryCtx} as its first argument.
  * @returns The wrapped query. Include this as an `export` to name it and make it accessible.
  */
-export declare const query: QueryBuilderWithTable<DataModel, "public">;
+export declare const query: QueryBuilder<DataModel, "public">;
 
 /**
  * Define a query that is only accessible from other Convex functions (but not from the client).
@@ -46,10 +46,7 @@ export declare const query: QueryBuilderWithTable<DataModel, "public">;
  * @param func - The query function. It receives a {@link QueryCtx} as its first argument.
  * @returns The wrapped query. Include this as an `export` to name it and make it accessible.
  */
-export declare const internalQuery: QueryBuilderWithTable<
-  DataModel,
-  "internal"
->;
+export declare const internalQuery: QueryBuilder<DataModel, "internal">;
 
 /**
  * Define a mutation in this Convex app's public API.
@@ -59,7 +56,7 @@ export declare const internalQuery: QueryBuilderWithTable<
  * @param func - The mutation function. It receives a {@link MutationCtx} as its first argument.
  * @returns The wrapped mutation. Include this as an `export` to name it and make it accessible.
  */
-export declare const mutation: MutationBuilderWithTable<DataModel, "public">;
+export declare const mutation: MutationBuilder<DataModel, "public">;
 
 /**
  * Define a mutation that is only accessible from other Convex functions (but not from the client).
@@ -69,10 +66,7 @@ export declare const mutation: MutationBuilderWithTable<DataModel, "public">;
  * @param func - The mutation function. It receives a {@link MutationCtx} as its first argument.
  * @returns The wrapped mutation. Include this as an `export` to name it and make it accessible.
  */
-export declare const internalMutation: MutationBuilderWithTable<
-  DataModel,
-  "internal"
->;
+export declare const internalMutation: MutationBuilder<DataModel, "internal">;
 
 /**
  * Define an action in this Convex app's public API.
@@ -116,7 +110,7 @@ export declare const httpAction: HttpActionBuilder;
  * This differs from the {@link MutationCtx} because all of the services are
  * read-only.
  */
-export type QueryCtx = GenericQueryCtxWithTable<DataModel>;
+export type QueryCtx = GenericQueryCtx<DataModel>;
 
 /**
  * A set of services for use within Convex mutation functions.
@@ -124,7 +118,7 @@ export type QueryCtx = GenericQueryCtxWithTable<DataModel>;
  * The mutation context is passed as the first argument to any Convex mutation
  * function run on the server.
  */
-export type MutationCtx = GenericMutationCtxWithTable<DataModel>;
+export type MutationCtx = GenericMutationCtx<DataModel>;
 
 /**
  * A set of services for use within Convex action functions.
@@ -141,7 +135,7 @@ export type ActionCtx = GenericActionCtx<DataModel>;
  * document by its {@link Id}, or {@link DatabaseReader.query}, which starts
  * building a query.
  */
-export type DatabaseReader = GenericDatabaseReaderWithTable<DataModel>;
+export type DatabaseReader = GenericDatabaseReader<DataModel>;
 
 /**
  * An interface to read from and write to the database within Convex mutation
@@ -152,7 +146,7 @@ export type DatabaseReader = GenericDatabaseReaderWithTable<DataModel>;
  * your data in an inconsistent state. See [the Convex Guide](https://docs.convex.dev/understanding/convex-fundamentals/functions#atomicity-and-optimistic-concurrency-control)
  * for the guarantees Convex provides your functions.
  */
-export type DatabaseWriter = GenericDatabaseWriterWithTable<DataModel>;
+export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
 
 export declare const component: {};
 type ComponentArgs = {};
