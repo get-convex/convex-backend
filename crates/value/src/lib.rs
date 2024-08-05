@@ -126,10 +126,7 @@ pub use crate::{
         TabletIdAndTableNumber,
         METADATA_PREFIX,
     },
-    virtual_table_mapping::{
-        NamespacedVirtualTableMapping,
-        VirtualTableMapping,
-    },
+    virtual_table_mapping::VirtualTableMapping,
 };
 
 #[cfg(any(test, feature = "testing"))]

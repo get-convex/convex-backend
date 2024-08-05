@@ -252,25 +252,6 @@ impl TableRegistry {
                 );
             }
         }
-        if let Ok(existing_virtual_table) = self
-            .virtual_table_mapping
-            .namespace(namespace)
-            .name(table_number)
-        {
-            if self
-                .virtual_system_mapping
-                .virtual_to_system_table(&existing_virtual_table)?
-                == table_name
-            {
-                // A virtual table can share a table number with its physical
-                // table.
-            } else {
-                anyhow::bail!(
-                    "Cannot add a table {table_name} with table number {table_number} since it \
-                     already exists in the virtual table mapping as {existing_virtual_table}"
-                );
-            }
-        }
         Ok(())
     }
 

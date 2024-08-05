@@ -23,7 +23,6 @@ use value::{
     ConvexValue,
     FieldName,
     TableMapping,
-    VirtualTableMapping,
 };
 
 use super::{
@@ -47,7 +46,6 @@ impl VirtualSystemDocMapper for FileStorageDocMapper {
         virtual_system_mapping: &VirtualSystemMapping,
         doc: ResolvedDocument,
         table_mapping: &TableMapping,
-        virtual_table_mapping: &VirtualTableMapping,
         version: Version,
     ) -> anyhow::Result<DeveloperDocument> {
         // Note: in the future we may support different versions of our virtual table
@@ -72,12 +70,8 @@ impl VirtualSystemDocMapper for FileStorageDocMapper {
         };
         let mut public_metadata_resolved: ConvexObject = public_metadata.try_into()?;
 
-        let virtual_developer_id = virtual_system_mapping
-            .system_resolved_id_to_virtual_developer_id(
-                doc.id(),
-                table_mapping,
-                virtual_table_mapping,
-            )?;
+        let virtual_developer_id =
+            virtual_system_mapping.system_resolved_id_to_virtual_developer_id(doc.id())?;
 
         let mut fields: BTreeMap<_, _> = public_metadata_resolved.into();
         fields.insert(ID_FIELD.to_owned().into(), virtual_developer_id.into());

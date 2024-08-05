@@ -63,6 +63,7 @@ use model::{
     },
     modules::user_error::ModuleNotFoundError,
     udf_config::UdfConfigModel,
+    virtual_system_mapping,
 };
 use parking_lot::Mutex;
 use rand::SeedableRng;
@@ -81,7 +82,6 @@ use value::{
     TableNamespace,
     TableNumber,
     TabletIdAndTableNumber,
-    VirtualTableMapping,
 };
 
 use super::{
@@ -715,13 +715,12 @@ impl<RT: Runtime> Clone for UdfShared<RT> {
 }
 
 impl<RT: Runtime> UdfShared<RT> {
-    pub fn new(table_mapping: TableMapping, virtual_table_mapping: VirtualTableMapping) -> Self {
+    pub fn new(table_mapping: TableMapping) -> Self {
         Self {
             inner: Arc::new(Mutex::new(UdfSharedInner {
                 next_query_id: 0,
                 queries: BTreeMap::new(),
                 table_mapping,
-                virtual_table_mapping,
             })),
         }
     }
@@ -730,7 +729,6 @@ impl<RT: Runtime> UdfShared<RT> {
         let mut inner = self.inner.lock();
         // TODO: Avoid cloning here if the table mapping hasn't changed.
         inner.table_mapping = tx.table_mapping().clone();
-        inner.virtual_table_mapping = tx.virtual_table_mapping().clone();
     }
 
     fn lookup_table(&self, name: &TableName) -> anyhow::Result<Option<TabletIdAndTableNumber>> {
@@ -742,11 +740,12 @@ impl<RT: Runtime> UdfShared<RT> {
     }
 
     fn lookup_virtual_table(&self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
-        let inner = self.inner.lock();
-        Ok(inner
-            .virtual_table_mapping
-            .namespace(TableNamespace::by_component_TODO())
-            .number_if_exists(name))
+        let virtual_mapping = virtual_system_mapping();
+        let Ok(physical_table_name) = virtual_mapping.virtual_to_system_table(name) else {
+            return Ok(None);
+        };
+        self.lookup_table(physical_table_name)
+            .map(|r| r.map(|t| t.table_number))
     }
 
     fn start_query(&self, query: Query, version: Option<Version>) -> QueryId {
@@ -792,7 +791,6 @@ struct UdfSharedInner<RT: Runtime> {
     queries: BTreeMap<QueryId, ManagedQuery<RT>>,
 
     table_mapping: TableMapping,
-    virtual_table_mapping: VirtualTableMapping,
 }
 
 struct Isolate2SyscallProvider<'a, RT: Runtime> {
@@ -1055,10 +1053,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     let env_vars = EnvironmentVariablesModel::new(&mut tx).preload().await?;
 
     // TODO: This unconditionally takes a table mapping dep.
-    let shared = UdfShared::new(
-        tx.table_mapping().clone(),
-        tx.virtual_table_mapping().clone(),
-    );
+    let shared = UdfShared::new(tx.table_mapping().clone());
     let (log_line_sender, log_line_receiver) = mpsc::channel(32);
     let environment = UdfEnvironment::new(
         rt.clone(),

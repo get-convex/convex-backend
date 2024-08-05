@@ -14,6 +14,7 @@ use database::{
     DeveloperQuery,
 };
 use errors::ErrorMetadata;
+use model::virtual_system_mapping;
 use serde::{
     Deserialize,
     Serialize,
@@ -69,11 +70,12 @@ impl<RT: Runtime> SyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn lookup_virtual_table(&mut self, name: &TableName) -> anyhow::Result<Option<TableNumber>> {
-        let namespace = self.phase.component()?.into();
-        let virtual_table_mapping = self.phase.tx()?.virtual_table_mapping();
-        Ok(virtual_table_mapping
-            .namespace(namespace)
-            .number_if_exists(name))
+        let virtual_mapping = virtual_system_mapping();
+        let Ok(physical_table_name) = virtual_mapping.virtual_to_system_table(name) else {
+            return Ok(None);
+        };
+        self.lookup_table(physical_table_name)
+            .map(|r| r.map(|t| t.table_number))
     }
 
     fn component_argument(&self, name: &str) -> anyhow::Result<Option<ConvexValue>> {

@@ -100,22 +100,36 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         id: DeveloperDocumentId,
         version: Option<Version>,
     ) -> anyhow::Result<Option<(DeveloperDocument, WriteTimestamp)>> {
-        if self
+        if !self
             .tx
-            .virtual_table_mapping()
+            .table_mapping()
             .namespace(self.namespace)
-            .number_exists(id.table())
+            .table_number_exists()(id.table())
+        {
+            return Ok(None);
+        }
+        let id_ = id.to_resolved(
+            self.tx
+                .table_mapping()
+                .namespace(self.namespace)
+                .number_to_tablet(),
+        )?;
+        let physical_table_name = self
+            .tx
+            .table_mapping()
+            .namespace(self.namespace)
+            .tablet_name(id_.tablet_id)?;
+        if let Some(table_name) = self
+            .tx
+            .virtual_system_mapping()
+            .system_to_virtual_table(&physical_table_name)
+            .cloned()
         {
             log_virtual_table_get();
             let result = VirtualTable::new(self.tx)
                 .get(self.namespace, id, version)
                 .await;
             if let Ok(Some((document, _))) = &result {
-                let table_name = self
-                    .tx
-                    .virtual_table_mapping()
-                    .namespace(self.namespace)
-                    .name(document.id().table())?;
                 self.tx.reads.record_read_document(
                     table_name,
                     document.size(),
@@ -125,20 +139,6 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             }
             result
         } else {
-            if !self
-                .tx
-                .table_mapping()
-                .namespace(self.namespace)
-                .table_number_exists()(id.table())
-            {
-                return Ok(None);
-            }
-            let id_ = id.to_resolved(
-                self.tx
-                    .table_mapping()
-                    .namespace(self.namespace)
-                    .number_to_tablet(),
-            )?;
             let table_name = self.tx.table_mapping().tablet_name(id_.tablet_id)?;
             let result = self.tx.get_inner(id_, table_name).await?;
             Ok(result.map(|(doc, ts)| (doc.to_developer(), ts)))

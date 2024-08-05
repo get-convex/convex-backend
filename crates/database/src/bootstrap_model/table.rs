@@ -316,16 +316,25 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         let Some(table_number) = table_number else {
             return Ok(());
         };
-        if let Ok(existing_virtual_table) = self
+        let Some(existing_table_by_number) = self
             .tx
-            .virtual_table_mapping()
+            .table_mapping()
             .namespace(namespace)
-            .name(table_number)
+            .name_by_number_if_exists(table_number)
+            .cloned()
+        else {
+            // No existing table with this number.
+            return Ok(());
+        };
+        if let Some(existing_virtual_table) = self
+            .tx
+            .virtual_system_mapping()
+            .system_to_virtual_table(&existing_table_by_number)
         {
             let existing_system_table = self
                 .tx
                 .virtual_system_mapping()
-                .virtual_to_system_table(&existing_virtual_table)?;
+                .virtual_to_system_table(existing_virtual_table)?;
             if existing_system_table == table {
                 // Setting physical table to have the same table number as its virtual table is
                 // allowed.
@@ -336,48 +345,40 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 format!("New table {table} has IDs that conflict with existing system table")
             ));
         }
-        if let Some(existing_table_by_number) = self
-            .tx
-            .table_mapping()
-            .namespace(namespace)
-            .name_by_number_if_exists(table_number)
-        {
-            // Don't mess with creating conflicts with bootstrap system tables.
-            anyhow::ensure!(
-                bootstrap_system_tables()
-                    .iter()
-                    .all(|t| t.table_name() != existing_table_by_number),
-                "Conflict with bootstrap system table {existing_table_by_number}",
-            );
-            if existing_table_by_number == table {
-                // Overwriting in-place, same table name and number.
-                return Ok(());
-            }
-            if tables_in_import.contains(existing_table_by_number) {
-                // Overwriting would create a table number conflict with an
-                // existing table, but that existing table is also being
-                // overwritten.
-                return Ok(());
-            }
-            if existing_table_by_number.is_system() {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "TableConflict",
-                    format!(
-                        "New table {table} has IDs that conflict with existing internal table. \
-                         Consider importing this table without `_id` fields or import into a new \
-                         deployment."
-                    )
-                ));
-            }
+        // Don't mess with creating conflicts with bootstrap system tables.
+        anyhow::ensure!(
+            bootstrap_system_tables()
+                .iter()
+                .all(|t| *t.table_name() != existing_table_by_number),
+            "Conflict with bootstrap system table {existing_table_by_number}",
+        );
+        if existing_table_by_number == *table {
+            // Overwriting in-place, same table name and number.
+            return Ok(());
+        }
+        if tables_in_import.contains(&existing_table_by_number) {
+            // Overwriting would create a table number conflict with an
+            // existing table, but that existing table is also being
+            // overwritten.
+            return Ok(());
+        }
+        if existing_table_by_number.is_system() {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "TableConflict",
                 format!(
-                    "New table {table} has IDs that conflict with existing table \
-                     {existing_table_by_number}"
+                    "New table {table} has IDs that conflict with existing internal table. \
+                     Consider importing this table without `_id` fields or import into a new \
+                     deployment."
                 )
             ));
         }
-        Ok(())
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "TableConflict",
+            format!(
+                "New table {table} has IDs that conflict with existing table \
+                 {existing_table_by_number}"
+            )
+        ));
     }
 
     pub async fn activate_table(

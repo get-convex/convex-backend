@@ -302,7 +302,6 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
                         self.namespace,
                         &document_id,
                         &table_mapping,
-                        &self.tx.virtual_table_mapping().clone(),
                     )?;
                 Query::get(FILE_STORAGE_TABLE.clone(), document_id.into())
             },
@@ -355,52 +354,11 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{
-        BTreeMap,
-        BTreeSet,
-    };
-
-    use common::{
-        document::ID_FIELD,
-        query::{
-            Order,
-            Query,
-        },
-    };
-    use database::{
-        query::TableFilter,
-        test_helpers::DbFixtures,
-        DeveloperQuery,
-        ImportFacingModel,
-        ResolvedQuery,
-        TableModel,
-    };
     use pb::storage::FileStorageId as FileStorageIdProto;
     use proptest::prelude::*;
-    use runtime::testing::TestRuntime;
     use sync_types::testing::assert_roundtrips;
-    use uuid::Uuid;
-    use value::{
-        sha256::Sha256,
-        val,
-        ConvexObject,
-        DeveloperDocumentId,
-        TableNamespace,
-    };
 
-    use super::{
-        FileStorageId,
-        FileStorageModel,
-    };
-    use crate::{
-        file_storage::{
-            types::FileStorageEntry,
-            FILE_STORAGE_TABLE,
-            FILE_STORAGE_VIRTUAL_TABLE,
-        },
-        test_helpers::DbFixturesWithModel,
-    };
-
+    use super::FileStorageId;
     proptest! {
         #![proptest_config(
             ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
@@ -410,103 +368,5 @@ mod tests {
         fn test_function_result_proto_roundtrips(left in any::<FileStorageId>()) {
             assert_roundtrips::<FileStorageId, FileStorageIdProto>(left);
         }
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_file_storage_change_number_to_virtual(rt: TestRuntime) -> anyhow::Result<()> {
-        let fixtures = DbFixtures::new_with_model(&rt).await?;
-        let db = fixtures.db;
-        let mut tx = db.begin_system().await?;
-        FileStorageModel::new(&mut tx, TableNamespace::test_user())
-            .store_file(FileStorageEntry {
-                storage_id: Uuid::new_v4().into(),
-                storage_key: "abc".try_into()?,
-                sha256: Sha256::new().finalize(),
-                size: 0,
-                content_type: None,
-            })
-            .await?;
-        db.commit_with_write_source(tx, "test").await?;
-
-        let mut tx = db.begin_system().await?;
-        let virtual_table_number = tx
-            .virtual_table_mapping()
-            .namespace(TableNamespace::Global)
-            .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
-        let table_id = TableModel::new(&mut tx)
-            .insert_table_for_import(
-                TableNamespace::test_user(),
-                &FILE_STORAGE_TABLE,
-                Some(virtual_table_number),
-                &BTreeSet::new(),
-            )
-            .await?;
-        let table_mapping_for_schema = tx.table_mapping().clone();
-        let mut query = ResolvedQuery::new(
-            &mut tx,
-            TableNamespace::test_user(),
-            Query::full_table_scan(FILE_STORAGE_TABLE.clone(), Order::Asc),
-        )?;
-        while let Some(doc) = query.next(&mut tx, None).await? {
-            let physical_id = doc.developer_id();
-            let virtual_id =
-                DeveloperDocumentId::new(table_id.table_number, physical_id.internal_id());
-            let mut object: BTreeMap<_, _> = doc.into_value().0.into();
-            object.insert(ID_FIELD.clone().into(), val!(virtual_id.to_string()));
-
-            ImportFacingModel::new(&mut tx)
-                .insert(
-                    table_id,
-                    &FILE_STORAGE_TABLE,
-                    ConvexObject::try_from(object)?,
-                    &table_mapping_for_schema,
-                )
-                .await?;
-        }
-        TableModel::new(&mut tx)
-            .activate_table(
-                table_id.tablet_id,
-                &FILE_STORAGE_TABLE,
-                table_id.table_number,
-                &BTreeSet::new(),
-            )
-            .await?;
-        db.commit_with_write_source(tx, "migrate_file_storage_table")
-            .await?;
-
-        let mut tx = db.begin_system().await?;
-        let mut count = 0;
-        let virtual_table_number = tx
-            .virtual_table_mapping()
-            .namespace(TableNamespace::test_user())
-            .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
-        let system_table_number = tx
-            .table_mapping()
-            .namespace(TableNamespace::test_user())
-            .name_to_id()(FILE_STORAGE_TABLE.clone())?
-        .table_number;
-        assert_eq!(virtual_table_number, system_table_number);
-        let mut query = ResolvedQuery::new(
-            &mut tx,
-            TableNamespace::test_user(),
-            Query::full_table_scan(FILE_STORAGE_TABLE.clone(), Order::Asc),
-        )?;
-        while let Some(doc) = query.next(&mut tx, None).await? {
-            let physical_id = doc.developer_id();
-            let mut get_query = DeveloperQuery::new_with_version(
-                &mut tx,
-                TableNamespace::test_user(),
-                Query::get(FILE_STORAGE_VIRTUAL_TABLE.clone(), physical_id),
-                Some("1.7.0".parse()?),
-                TableFilter::ExcludePrivateSystemTables,
-            )?;
-            let Some(virtual_doc) = get_query.next(&mut tx, None).await? else {
-                anyhow::bail!("Virtual document {physical_id} not found");
-            };
-            assert_eq!(virtual_doc.id(), physical_id);
-            count += 1;
-        }
-        assert_eq!(count, 1);
-        Ok(())
     }
 }

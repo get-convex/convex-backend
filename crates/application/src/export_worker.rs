@@ -115,11 +115,9 @@ use usage_tracking::{
 };
 use value::{
     export::ValueFormat,
-    id_v6::DeveloperDocumentId,
     TableNamespace,
     TableNumber,
     TabletId,
-    VirtualTableMapping,
 };
 
 use crate::metrics::{
@@ -338,7 +336,7 @@ impl<RT: Runtime> ExportWorker<RT> {
     ) -> anyhow::Result<(Timestamp, ExportObjectKeys, FunctionUsageTracker)> {
         tracing::info!("Beginning snapshot export...");
         let storage = &self.storage;
-        let (ts, tables, by_id_indexes, system_tables, virtual_tables) = {
+        let (ts, tables, by_id_indexes, system_tables) = {
             let mut tx = self.database.begin(Identity::system()).await?;
             let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
             let snapshot = self.database.snapshot(tx.begin_timestamp())?;
@@ -361,14 +359,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 .iter_active_system_tables()
                 .map(|(id, _, _, name)| (name.clone(), id))
                 .collect();
-            let virtual_tables = snapshot.table_registry.virtual_table_mapping().clone();
-            (
-                tx.begin_timestamp(),
-                tables,
-                by_id_indexes,
-                system_tables,
-                virtual_tables,
-            )
+            (tx.begin_timestamp(), tables, by_id_indexes, system_tables)
         };
         let tablet_ids: BTreeSet<TabletId> =
             tables.iter().map(|(tablet_id, ..)| *tablet_id).collect();
@@ -388,7 +379,6 @@ impl<RT: Runtime> ExportWorker<RT> {
                     ts,
                     by_id_indexes,
                     system_tables,
-                    virtual_tables,
                     include_storage,
                     usage.clone(),
                 );
@@ -461,7 +451,6 @@ impl<RT: Runtime> ExportWorker<RT> {
         snapshot_ts: RepeatableTimestamp,
         by_id_indexes: BTreeMap<TabletId, IndexId>,
         system_tables: BTreeMap<TableName, TabletId>,
-        virtual_tables: VirtualTableMapping,
         include_storage: bool,
         usage: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
@@ -500,9 +489,6 @@ impl<RT: Runtime> ExportWorker<RT> {
             let by_id = by_id_indexes
                 .get(tablet_id)
                 .context("_file_storage.by_id does not exist")?;
-            let virtual_table_number = virtual_tables
-                .namespace(TableNamespace::by_component_TODO())
-                .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
 
             // First write metadata to _storage/documents.jsonl
             let mut table_upload = zip_snapshot_upload
@@ -513,10 +499,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             pin_mut!(stream);
             while let Some((doc, _ts)) = stream.try_next().await? {
                 let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
-                let virtual_storage_id = DeveloperDocumentId::new(
-                    virtual_table_number,
-                    file_storage_entry.id().internal_id(),
-                );
+                let virtual_storage_id = file_storage_entry.id().developer_id;
                 let creation_time = f64::from(
                     file_storage_entry
                         .creation_time()
@@ -540,10 +523,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             pin_mut!(stream);
             while let Some((doc, _ts)) = stream.try_next().await? {
                 let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
-                let virtual_storage_id = DeveloperDocumentId::new(
-                    virtual_table_number,
-                    file_storage_entry.id().internal_id(),
-                );
+                let virtual_storage_id = file_storage_entry.id().developer_id;
                 // Add an extension, which isn't necessary for anything and might be incorrect,
                 // but allows the file to be viewed at a glance in most cases.
                 let extension_guess = file_storage_entry

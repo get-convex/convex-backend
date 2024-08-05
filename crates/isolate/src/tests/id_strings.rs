@@ -71,7 +71,6 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
             .namespace(TableNamespace::test_user())
             .id(&user_table_name)?.table_number;
 
-        let storage_virtual_table_number = tx.virtual_table_mapping().namespace(TableNamespace::test_user()).number(&"_storage".parse()?)?;
         let storage_table_number = tx
             .table_mapping()
             .namespace(TableNamespace::test_user())
@@ -85,7 +84,7 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
             .await?;
         t.database.commit(tx).await?;
 
-        let id_v6 = DeveloperDocumentId::new(storage_virtual_table_number, internal_id);
+        let id_v6 = DeveloperDocumentId::new(storage_table_number, internal_id);
 
         // Correct virtual table name and number.
         must_let!(let ConvexValue::String(normalized_id) = t.query("idStrings:normalizeSystemId", assert_obj!(
@@ -112,15 +111,6 @@ async fn test_system_normalize_id(rt: TestRuntime) -> anyhow::Result<()> {
             "id" => id_v6.encode(),
             "table" => "_file_storage",
         )).await?);
-
-        // Virtual table name and physical table number does work,
-        // because the table numbers are the same.
-        assert_eq!(storage_table_number, storage_virtual_table_number);
-        must_let!(let ConvexValue::String(normalized_id) = t.query("idStrings:normalizeSystemId", assert_obj!(
-            "id" => DeveloperDocumentId::new(storage_table_number, internal_id).encode(),
-            "table" => "_storage",
-        )).await?);
-        assert_eq!(normalized_id.to_string(), id_v6.encode());
 
         // Physical table name and physical table number doesn't work.
         must_let!(let ConvexValue::Null = t.query("idStrings:normalizeSystemId", assert_obj!(

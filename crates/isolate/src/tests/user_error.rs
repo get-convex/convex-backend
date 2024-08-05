@@ -15,7 +15,7 @@ use database::{
 use keybroker::Identity;
 use model::{
     backend_state::BACKEND_STATE_TABLE,
-    file_storage::FILE_STORAGE_VIRTUAL_TABLE,
+    file_storage::FILE_STORAGE_TABLE,
 };
 use must_let::must_let;
 use runtime::testing::TestRuntime;
@@ -190,9 +190,9 @@ async fn test_nonexistent_id(rt: TestRuntime) -> anyhow::Result<()> {
         let nonexistent_system_table_id = DeveloperDocumentId::new(table_number, InternalId::MIN);
 
         let virtual_table_number = tx
-            .virtual_table_mapping()
+            .table_mapping()
             .namespace(TableNamespace::test_user())
-            .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
+            .name_to_id_user_input()(FILE_STORAGE_TABLE.clone())?.table_number;
         let nonexistent_virtual_table_id = DeveloperDocumentId::new(
             virtual_table_number, InternalId::MIN);
         let user_document = TestFacingModel::new(&mut tx)

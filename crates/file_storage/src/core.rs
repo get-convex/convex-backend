@@ -366,17 +366,12 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         namespace: TableNamespace,
         entry: FileStorageEntry,
     ) -> anyhow::Result<DeveloperDocumentId> {
-        let table_mapping = tx.table_mapping().clone();
         let system_doc_id = FileStorageModel::new(tx, namespace)
             .store_file(entry)
             .await?;
         let virtual_id = tx
             .virtual_system_mapping()
-            .system_resolved_id_to_virtual_developer_id(
-                system_doc_id,
-                &table_mapping,
-                &tx.virtual_table_mapping().clone(),
-            )?;
+            .system_resolved_id_to_virtual_developer_id(system_doc_id)?;
 
         Ok(virtual_id)
     }

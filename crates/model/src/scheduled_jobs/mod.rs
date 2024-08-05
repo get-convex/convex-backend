@@ -469,15 +469,9 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
         let system_id = SchedulerModel::new(self.tx, self.namespace)
             .schedule(path, args, ts, context)
             .await?;
-        let table_mapping = self.tx.table_mapping().clone();
-        let virtual_table_mapping = self.tx.virtual_table_mapping().clone();
         self.tx
             .virtual_system_mapping()
-            .system_resolved_id_to_virtual_developer_id(
-                system_id,
-                &table_mapping,
-                &virtual_table_mapping,
-            )
+            .system_resolved_id_to_virtual_developer_id(system_id)
     }
 
     pub async fn cancel(&mut self, virtual_id: DeveloperDocumentId) -> anyhow::Result<()> {
@@ -485,12 +479,7 @@ impl<'a, RT: Runtime> VirtualSchedulerModel<'a, RT> {
         let system_id = self
             .tx
             .virtual_system_mapping()
-            .virtual_id_v6_to_system_resolved_doc_id(
-                self.namespace,
-                &virtual_id,
-                &table_mapping,
-                &self.tx.virtual_table_mapping().clone(),
-            )?;
+            .virtual_id_v6_to_system_resolved_doc_id(self.namespace, &virtual_id, &table_mapping)?;
         SchedulerModel::new(self.tx, self.namespace)
             .cancel(system_id)
             .await

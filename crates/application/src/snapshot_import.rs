@@ -1774,11 +1774,7 @@ async fn import_storage_table<RT: Runtime>(
     let namespace = snapshot
         .table_mapping()
         .tablet_namespace(table_id.tablet_id)?;
-    let virtual_table_number = snapshot
-        .table_registry
-        .virtual_table_mapping()
-        .namespace(namespace)
-        .number(&FILE_STORAGE_VIRTUAL_TABLE)?;
+    let virtual_table_number = snapshot.table_mapping().tablet_number(table_id.tablet_id)?;
     let mut lineno = 0;
     let mut storage_metadata = BTreeMap::new();
     while let Some(ImportUnit::Object(exported_value)) = objects
@@ -1886,7 +1882,6 @@ async fn import_storage_table<RT: Runtime>(
                                 namespace,
                                 &id,
                                 &table_mapping,
-                                tx.virtual_table_mapping(),
                             )?;
                         let mut entry_object_map =
                             BTreeMap::from(ConvexObject::try_from(entry.clone())?);
