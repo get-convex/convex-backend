@@ -89,6 +89,7 @@ use crate::{
     public_api::{
         public_action_post,
         public_function_post,
+        public_function_post_with_path,
         public_get_query_ts,
         public_mutation_post,
         public_query_at_ts_post,
@@ -222,6 +223,7 @@ pub fn public_api_routes() -> Router<RouterState> {
         .route("/mutation", post(public_mutation_post))
         .route("/action", post(public_action_post))
         .route("/function", post(public_function_post))
+        .route("/run/*rest", post(public_function_post_with_path))
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
 }
 

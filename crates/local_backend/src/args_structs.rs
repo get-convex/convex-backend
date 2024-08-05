@@ -3,7 +3,7 @@ use isolate::UdfArgsJson;
 use keybroker::Identity;
 use serde::Deserialize;
 
-use crate::admin::bad_admin_key_error;
+use crate::admin::must_be_admin;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,7 +19,7 @@ pub struct UdfPostRequestWithComponent {
 
 impl UdfPostRequestWithComponent {
     pub fn component_path(&self, identity: &Identity) -> anyhow::Result<ComponentPath> {
-        anyhow::ensure!(identity.is_admin(), bad_admin_key_error(None));
+        must_be_admin(identity)?;
         ComponentPath::deserialize(self.component_path.as_deref())
     }
 }

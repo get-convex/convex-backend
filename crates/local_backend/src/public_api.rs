@@ -10,10 +10,14 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
-    components::CanonicalizedComponentFunctionPath,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentPath,
+    },
     http::{
         extract::{
             Json,
+            Path,
             Query,
         },
         ExtractClientVersion,
@@ -212,6 +216,87 @@ pub async fn public_function_post(
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;
+    let response = match udf_result {
+        Ok(write_return) => UdfResponse::Success {
+            value: export_value(write_return.value, value_format, client_version)?,
+            log_lines: write_return.log_lines,
+        },
+        Err(write_error) => UdfResponse::error(
+            write_error.error,
+            write_error.log_lines,
+            value_format,
+            client_version,
+        )?,
+    };
+    Ok(Json(response))
+}
+
+#[derive(Deserialize)]
+pub struct UdfPostRequestArgsOnly {
+    pub args: UdfArgsJson,
+    pub format: Option<String>,
+}
+
+/// Executes an arbitrary query/mutation/action from its name. This is different
+/// from `public_function_post` because it takes the udf path in the API
+/// request and doesn't require admin auth.
+pub async fn public_function_post_with_path(
+    State(st): State<RouterState>,
+    ExtractResolvedHost(host): ExtractResolvedHost,
+    Path(path): Path<String>,
+    ExtractRequestId(request_id): ExtractRequestId,
+    ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
+    ExtractClientVersion(client_version): ExtractClientVersion,
+    Json(req): Json<UdfPostRequestArgsOnly>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    // NOTE: We could coalesce authenticating and executing the query into one
+    // rpc but we keep things simple by reusing the same method as the sync worker.
+    // Round trip latency between Usher and Backend is much smaller than between
+    // client and Usher.
+    let identity = st
+        .api
+        .authenticate(&host, request_id.clone(), auth_token)
+        .await?;
+
+    let bad_request_error = || {
+        anyhow::anyhow!(ErrorMetadata::bad_request(
+            "MissingIdentifier",
+            "Path or function name not provided in path, e.g. /api/run/messages/list",
+        ))
+    };
+
+    // messages/list -> ["messages", "list"]
+    let mut path_parts = path
+        .as_str()
+        .split('/')
+        .map(|p| urlencoding::decode(p).map_err(|_e| bad_request_error()))
+        .try_collect::<Vec<_>>()?;
+    if path_parts.len() < 2 {
+        return Err(bad_request_error().into());
+    }
+    let function_name = path_parts.pop().ok_or(bad_request_error())?;
+    let udf_path_str = format!("{}:{}", path_parts.join("/"), function_name);
+    let udf_path = parse_udf_path(&udf_path_str)?;
+    let udf_result = st
+        .api
+        .execute_any_function(
+            &host,
+            request_id,
+            identity,
+            CanonicalizedComponentFunctionPath {
+                // Only functions exported at the root can be called through this endpoint
+                component: ComponentPath::root(),
+                udf_path,
+            },
+            req.args.into_arg_vec(),
+            FunctionCaller::HttpApi(client_version.clone()),
+        )
+        .await?;
+    // Default to ConvexCleanJSON if no format is provided.
+    let value_format = match req.format.as_ref().map(|f| f.parse()).transpose()? {
+        Some(format) => Some(format),
+        None => Some(ValueFormat::ConvexCleanJSON),
+    };
     let response = match udf_result {
         Ok(write_return) => UdfResponse::Success {
             value: export_value(write_return.value, value_format, client_version)?,

@@ -55,6 +55,7 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 tungstenite = { workspace = true }
 url = { workspace = true }
+urlencoding = { workspace = true }
 usage_tracking = { path = "../../crates/usage_tracking" }
 value = { path = "../../crates/value" }
 vector = { path = "../../crates/vector" }

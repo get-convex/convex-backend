@@ -141,6 +141,7 @@ tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
 tracy-client = { version = "0.17.0", default-features = false, features = [ "fibers" ] }
 tungstenite = { version = "0.20.0", features = [ "native-tls-vendored" ] }
 url = "2"
+urlencoding = "2.1.3"
 uuid = { version = "1.6", features = [ "serde", "v4" ] }
 walkdir = "2"
 xorf = { git = "https://github.com/sujayakar/xorf.git", rev = "62a32de47bb3ad8b34d6d4feac034a24be2c881a" }
