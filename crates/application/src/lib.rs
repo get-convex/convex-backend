@@ -50,7 +50,6 @@ use common::{
         CanonicalizedComponentModulePath,
         ComponentDefinitionPath,
         ComponentId,
-        ComponentPath,
         PublicFunctionPath,
     },
     document::{
@@ -2478,10 +2477,8 @@ impl<RT: Runtime> Application<RT> {
         args: Vec<JsonValue>,
         identity: Identity,
         caller: FunctionCaller,
+        component: ComponentId,
     ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
-        // TODO(ENG-7038) Pass component through custom query tester
-        let component = ComponentId::TODO();
-
         let block_logging = self
             .log_visibility
             .should_redact_logs_and_error(
@@ -2584,8 +2581,11 @@ impl<RT: Runtime> Application<RT> {
 
         // 4. run the function within the transaction
         let function_name = FunctionName::default_export();
+        let component_path = BootstrapComponentsModel::new(&mut tx)
+            .get_component_path(component)
+            .await?;
         let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::TODO(),
+            component: component_path,
             udf_path: CanonicalizedUdfPath::new(module_path, function_name),
         };
         let arguments = parse_udf_args(&path.udf_path, args)?;
