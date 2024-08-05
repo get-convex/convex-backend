@@ -18,14 +18,14 @@ const flushPromises = async () => {
   await act(() => new Promise((timers as any).setImmediate));
 };
 
-test.skip("setAuth legacy signature typechecks and doesn't throw", async () => {
+test("setAuth legacy signature typechecks and doesn't throw", async () => {
   const convex = new ConvexReactClient("https://127.0.0.1:3001");
   // We're moving towards removing the Promise, but for backwards compatibility
   // it's still here now.
   await convex.setAuth(async () => "foo");
 });
 
-test.skip("ConvexProviderWithAuth works", async () => {
+test("ConvexProviderWithAuth works", async () => {
   // This is our fake ProviderX state
   const AuthProviderXContext = createContext<{
     isLoading: boolean;
@@ -129,7 +129,7 @@ test.skip("ConvexProviderWithAuth works", async () => {
 // This is no longer really possible, because
 // we wait on server response before scheduling token refetch,
 // and the server currently requires JWT tokens.
-test.skip("Tokens must be valid JWT", async () => {
+test("Tokens must be valid JWT", async () => {
   const client = new ConvexReactClient("https://127.0.0.1:3001");
   const consoleSpy = vi
     .spyOn(global.console, "error")
@@ -162,7 +162,7 @@ test.skip("Tokens must be valid JWT", async () => {
   );
 });
 
-test.skip("Tokens are used to schedule refetch", async () => {
+test("Tokens are used to schedule refetch", async () => {
   const client = new ConvexReactClient("https://127.0.0.1:3001");
   const tokenLifetimeSeconds = 60;
   let tokenId = 0;
