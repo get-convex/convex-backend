@@ -27,6 +27,12 @@ import {
 } from "../codegen_templates/component_server.js";
 import { ComponentDirectory } from "./components/definition/directoryStructure.js";
 import { StartPushResponse } from "./deployApi/startPush.js";
+import {
+  componentApiDTS,
+  componentApiJs,
+  componentApiStubDTS,
+  rootComponentApiCJS,
+} from "../codegen_templates/component_api.js";
 
 export type CodegenOptions = {
   url?: string;
@@ -174,10 +180,10 @@ export async function doInitialComponentCodegen(
   // The `api.d.ts` file imports from the developer's modules, which then
   // import from `server.d.ts`. Note that there's a cycle here, since the
   // developer's modules could also import from the `api.{js,d.ts}` files.
-  const apiFiles = await doApiCodegen(
+  const apiFiles = await doInitialComponentApiCodegen(
     ctx,
+    componentDirectory.isRoot,
     tmpDir,
-    componentDirectory.path,
     codegenDir,
     opts?.generateCommonJSApi || projectConfig.generateCommonJSApi,
     opts,
@@ -198,12 +204,13 @@ export async function doFinalComponentCodegen(
   rootComponent: ComponentDirectory,
   componentDirectory: ComponentDirectory,
   startPushResponse: StartPushResponse,
-  opts?: { dryRun?: boolean; debug?: boolean },
+  opts?: { dryRun?: boolean; debug?: boolean; generateCommonJSApi?: boolean },
 ) {
+  const { projectConfig } = await readProjectConfig(ctx);
   const codegenDir = path.join(componentDirectory.path, "_generated");
   ctx.fs.mkdir(codegenDir, { allowExisting: true, recursive: true });
 
-  // Only `server.d.ts` depends on analyze results, where we replace the stub
+  // Only `server.d.ts` and `api.d.ts` depend on analyze results, where we replace the stub
   // generated during initial codegen with a more precise type.
   const serverDTSPath = path.join(codegenDir, "server.d.ts");
   const serverContents = await componentServerDTS(
@@ -220,6 +227,34 @@ export async function doFinalComponentCodegen(
     serverDTSPath,
     opts,
   );
+
+  const apiDTSPath = path.join(codegenDir, "api.d.ts");
+  const apiContents = await componentApiDTS(
+    ctx,
+    startPushResponse,
+    rootComponent,
+    componentDirectory,
+  );
+  await writeFormattedFile(
+    ctx,
+    tmpDir,
+    apiContents,
+    "typescript",
+    apiDTSPath,
+    opts,
+  );
+
+  if (opts?.generateCommonJSApi || projectConfig.generateCommonJSApi) {
+    const apiCjsDTSPath = path.join(codegenDir, "api_cjs.d.ts");
+    await writeFormattedFile(
+      ctx,
+      tmpDir,
+      apiContents,
+      "typescript",
+      apiCjsDTSPath,
+      opts,
+    );
+  }
 }
 
 async function doReadmeCodegen(
@@ -347,6 +382,68 @@ async function doInitialComponentServerCodegen(
   }
 
   return ["server.js", "server.d.ts"];
+}
+
+async function doInitialComponentApiCodegen(
+  ctx: Context,
+  isRoot: boolean,
+  tmpDir: TempDir,
+  codegenDir: string,
+  generateCommonJSApi: boolean,
+  opts?: { dryRun?: boolean; debug?: boolean },
+) {
+  const apiJS = componentApiJs(isRoot);
+  await writeFormattedFile(
+    ctx,
+    tmpDir,
+    apiJS,
+    "typescript",
+    path.join(codegenDir, "api.js"),
+    opts,
+  );
+
+  // Don't write the `.d.ts` stub if it already exists.
+  const apiDTSPath = path.join(codegenDir, "api.d.ts");
+  const apiStubDTS = componentApiStubDTS(isRoot);
+  if (!ctx.fs.exists(apiDTSPath)) {
+    await writeFormattedFile(
+      ctx,
+      tmpDir,
+      apiStubDTS,
+      "typescript",
+      apiDTSPath,
+      opts,
+    );
+  }
+
+  const writtenFiles = ["api.js", "api.d.ts"];
+
+  if (generateCommonJSApi && isRoot) {
+    const apiCjsJS = rootComponentApiCJS();
+    await writeFormattedFile(
+      ctx,
+      tmpDir,
+      apiCjsJS,
+      "typescript",
+      path.join(codegenDir, "api_cjs.cjs"),
+      opts,
+    );
+
+    const cjsStubPath = path.join(codegenDir, "api_cjs.d.cts");
+    if (!ctx.fs.exists(cjsStubPath)) {
+      await writeFormattedFile(
+        ctx,
+        tmpDir,
+        apiStubDTS,
+        "typescript",
+        cjsStubPath,
+        opts,
+      );
+    }
+    writtenFiles.push("api_cjs.cjs", "api_cjs.d.cts");
+  }
+
+  return writtenFiles;
 }
 
 async function doApiCodegen(

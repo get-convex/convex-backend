@@ -349,7 +349,12 @@ async function* codegenExport(
   componentExport: ComponentExports,
 ): AsyncGenerator<string> {
   if (componentExport.type === "leaf") {
-    yield await resolveFunctionReference(ctx, analysis, componentExport.leaf);
+    yield await resolveFunctionReference(
+      ctx,
+      analysis,
+      componentExport.leaf,
+      "internal",
+    );
   } else if (componentExport.type === "branch") {
     yield "{";
     for (const [name, childExport] of componentExport.branch) {
@@ -361,10 +366,11 @@ async function* codegenExport(
   }
 }
 
-async function resolveFunctionReference(
+export async function resolveFunctionReference(
   ctx: Context,
   analysis: EvaluatedComponentDefinition,
   reference: Reference,
+  visibility: "public" | "internal",
 ) {
   if (!reference.startsWith("_reference/function/")) {
     logError(ctx, `Invalid function reference: ${reference}`);
@@ -408,7 +414,7 @@ async function resolveFunctionReference(
     returnsType = validatorToType(returnsValidator);
   }
 
-  return `FunctionReference<"${udfType}", "internal", ${argsType}, ${returnsType}>`;
+  return `FunctionReference<"${udfType}", "${visibility}", ${argsType}, ${returnsType}>`;
 }
 
 function parseValidator(validator: string | null): ConvexValidator | null {
