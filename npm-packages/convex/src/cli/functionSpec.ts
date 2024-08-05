@@ -1,3 +1,4 @@
+import chalk from "chalk";
 import { logOutput, oneoffContext } from "../bundler/context.js";
 import {
   deploymentSelectionFromOptions,
@@ -41,6 +42,7 @@ export const functionSpec = new Command("function-spec")
     if (options.path) {
       const fileName = `function_spec_${Date.now().valueOf()}.json`;
       ctx.fs.writeUtf8File(fileName, output);
+      logOutput(ctx, chalk.green(`Wrote function spec to ${fileName}`));
     } else {
       logOutput(ctx, output);
     }
