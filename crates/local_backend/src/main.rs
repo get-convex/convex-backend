@@ -88,6 +88,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
     let mut shutdown_rx_ = shutdown_rx.clone();
     let http_service = ConvexHttpService::new(
         router,
+        "backend",
         SERVER_VERSION_STR.to_string(),
         MAX_CONCURRENT_REQUESTS,
         Duration::from_secs(125),

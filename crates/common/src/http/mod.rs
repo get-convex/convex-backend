@@ -7,7 +7,10 @@ use std::{
     ops::Deref,
     pin::Pin,
     str,
-    sync::LazyLock,
+    sync::{
+        Arc,
+        LazyLock,
+    },
     time::{
         Duration,
         Instant,
@@ -71,7 +74,10 @@ use hyper::server::conn::AddrIncoming;
 use itertools::Itertools;
 use maplit::btreemap;
 use minitrace::future::FutureExt;
-use prometheus::TextEncoder;
+use prometheus::{
+    PullingGauge,
+    TextEncoder,
+};
 use regex::Regex;
 use sentry::integrations::tower as sentry_tower;
 use serde::{
@@ -80,6 +86,7 @@ use serde::{
 };
 use tokio::net::TcpSocket;
 use tower::{
+    limit::GlobalConcurrencyLimitLayer,
     timeout::TimeoutLayer,
     Layer,
     Service,
@@ -579,16 +586,30 @@ impl RouteMapper for NoopRouteMapper {
 pub struct ConvexHttpService {
     router: Router<(), Body>,
     version: String,
+    _concurrency_gauge: Option<PullingGauge>,
 }
 
 impl ConvexHttpService {
     pub fn new<RM: RouteMapper>(
         router: Router<(), Body>,
+        service_name: &'static str,
         version: String,
         max_concurrency: usize,
         request_timeout: Duration,
         route_metric_mapper: RM,
     ) -> Self {
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
+        let semaphore_ = semaphore.clone();
+        let concurrency_gauge = PullingGauge::new(
+            format!("{service_name}_http_service_concurrent_requests"),
+            "The number of currently outstanding requests on the ConvexHttpService",
+            Box::new(move || (max_concurrency - semaphore_.available_permits()) as f64),
+        )
+        .expect("Invalid gauge initialization");
+        if let Err(e) = CONVEX_METRICS_REGISTRY.register(Box::new(concurrency_gauge.clone())) {
+            tracing::error!("Failed to register request concurrency gauge for {service_name}: {e}");
+        }
+
         let router = router.layer(
             ServiceBuilder::new()
                     // Order important. Log/stats first because they are infallible.
@@ -598,7 +619,7 @@ impl ConvexHttpService {
                         stats_middleware::<RM>,
                     ))
                     .layer(axum::middleware::from_fn(client_version_state_middleware))
-                    .concurrency_limit(max_concurrency)
+                    .layer(GlobalConcurrencyLimitLayer::with_semaphore(semaphore))
                     .layer(tower_cookies::CookieManagerLayer::new())
                     .layer(HandleErrorLayer::new(|_: BoxError| async {
                         StatusCode::REQUEST_TIMEOUT
@@ -606,7 +627,11 @@ impl ConvexHttpService {
                     .layer(TimeoutLayer::new(request_timeout)),
         );
 
-        Self { router, version }
+        Self {
+            router,
+            version,
+            _concurrency_gauge: Some(concurrency_gauge),
+        }
     }
 
     /// Routes not handled by the passed-in router.
@@ -671,6 +696,7 @@ impl ConvexHttpService {
         Self {
             router,
             version: String::new(),
+            _concurrency_gauge: None,
         }
     }
 

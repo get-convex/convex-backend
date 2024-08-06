@@ -55,6 +55,7 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
     let router = router(st.clone()).await;
     let app = ConvexHttpService::new(
         router,
+        "backend_test",
         SERVER_VERSION_STR.to_string(),
         MAX_CONCURRENT_REQUESTS,
         Duration::from_secs(125),

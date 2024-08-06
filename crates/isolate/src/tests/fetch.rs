@@ -63,6 +63,7 @@ async fn serve(router: Router, port: u16) {
     let (_shutdown_tx, mut shutdown_rx) = async_broadcast::broadcast::<()>(1);
     _ = ConvexHttpService::new(
         router,
+        "http_test",
         "0.0.1".to_owned(),
         1,
         Duration::from_secs(125),

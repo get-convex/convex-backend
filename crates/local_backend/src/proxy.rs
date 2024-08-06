@@ -57,6 +57,7 @@ pub async fn dev_site_proxy(
 
     let service = ConvexHttpService::new(
         Router::new().fallback_service(router),
+        "backend_http_proxy",
         "unknown".to_string(),
         4,
         Duration::from_secs(125),
