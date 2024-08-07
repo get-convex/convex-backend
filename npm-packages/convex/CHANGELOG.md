@@ -2,9 +2,16 @@
 
 ## Unpublished
 
+## 1.14.0
+
+- Updates to ConvexReactClient to work better with authentication and server
+  rendering
+- `npx convex init` and `npx convex reinit` have been deprecated in favor of
+  `npx convex dev --configure`
 - Drop support for Node.js v16, and with it drop the dependency on node-fetch.
   This removes the 'punycode' deprecation warning printed when running the CLI
   in more recent versions of Node.js.
+- Support for custom claims in JWTs
 
 ## 1.13.2
 
