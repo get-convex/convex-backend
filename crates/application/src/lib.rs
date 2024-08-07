@@ -1789,7 +1789,7 @@ impl<RT: Runtime> Application<RT> {
                 parse_schema_id(
                     &schema_id,
                     tx.table_mapping(),
-                    TableNamespace::by_component_TODO(),
+                    TableNamespace::root_component(),
                 )
                 .context(invalid_schema_id(&schema_id))
             })
@@ -1806,7 +1806,7 @@ impl<RT: Runtime> Application<RT> {
 
         let config_metadata = ConfigMetadata::from_file(config_file, auth_providers);
 
-        let (config_diff, schema) = ConfigModel::new(tx, ComponentId::TODO())
+        let (config_diff, schema) = ConfigModel::new(tx, ComponentId::Root)
             .apply(
                 config_metadata.clone(),
                 modules,

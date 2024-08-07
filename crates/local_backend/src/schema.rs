@@ -247,7 +247,6 @@ pub async fn prepare_schema(
     Json(req): Json<PrepareSchemaArgs>,
 ) -> Result<Json<PrepareSchemaResponse>, HttpResponseError> {
     let (response, _) = prepare_schema_handler(st, req).await?;
-
     Ok(response)
 }
 
@@ -271,21 +270,24 @@ pub async fn prepare_schema_handler(
 
     let dry_run = req.dry_run.unwrap_or(true);
 
+    // Table namespace is root because this endpoint is only used in non-components
+    // push.
+    let table_namespace = TableNamespace::root_component();
     // In dry_run we only commit the schema, to enable CLI to check if the schema is
     // valid.
     let index_diff: LegacyIndexDiff = if dry_run {
         let mut tx = st.application.begin(identity.clone()).await?;
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::by_component_TODO(), &schema)
+            .prepare_new_and_mutated_indexes(table_namespace, &schema)
             .await?
     } else {
         IndexModel::new(&mut tx)
-            .prepare_new_and_mutated_indexes(TableNamespace::by_component_TODO(), &schema)
+            .prepare_new_and_mutated_indexes(table_namespace, &schema)
             .await?
     }
     .into();
 
-    let (schema_id, schema_state) = SchemaModel::new(&mut tx, TableNamespace::by_component_TODO())
+    let (schema_id, schema_state) = SchemaModel::new(&mut tx, table_namespace)
         .submit_pending(schema)
         .await?;
     let should_save_new_schema = match schema_state {
@@ -359,10 +361,12 @@ pub async fn schema_state(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin(&identity)?;
     let mut tx = st.application.begin(identity.clone()).await?;
+    // This endpoint is only used in non-components push.
+    let table_namespace = TableNamespace::root_component();
     let indexes = IndexModel::new(&mut tx)
-        .get_application_indexes(TableNamespace::TODO())
+        .get_application_indexes(table_namespace)
         .await?;
-    let schema_id = parse_schema_id(&schema_id, tx.table_mapping(), TableNamespace::TODO())
+    let schema_id = parse_schema_id(&schema_id, tx.table_mapping(), table_namespace)
         .context(invalid_schema_id(&schema_id))?;
 
     let doc = tx.get(schema_id).await?.ok_or_else(|| {

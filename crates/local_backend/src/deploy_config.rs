@@ -225,7 +225,8 @@ pub async fn get_config(
     .await?;
 
     let mut tx = st.application.begin(identity).await?;
-    let (config, modules, udf_config) = ConfigModel::new(&mut tx, ComponentId::TODO())
+    let component = ComponentId::Root; // This endpoint is only used pre-components.
+    let (config, modules, udf_config) = ConfigModel::new(&mut tx, component)
         .get_with_module_source(st.application.modules_cache())
         .await?;
     let config = ConvexObject::try_from(config)?;
@@ -255,7 +256,8 @@ pub async fn get_config_hashes(
     .await?;
 
     let mut tx = st.application.begin(identity).await?;
-    let (config, modules, udf_config) = ConfigModel::new(&mut tx, ComponentId::TODO())
+    let component = ComponentId::Root; // This endpoint is not used in components push.
+    let (config, modules, udf_config) = ConfigModel::new(&mut tx, component)
         .get_with_module_metadata()
         .await?;
     let module_hashes: Vec<_> = modules
