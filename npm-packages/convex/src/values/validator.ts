@@ -82,7 +82,7 @@ export const v = {
    * Validates that the value corresponds to an ID of a document in given table.
    * @param tableName The name of the table.
    */
-  id<TableName extends string>(tableName: TableName) {
+  id: <TableName extends string>(tableName: TableName) => {
     return new VId<GenericId<TableName>>({
       isOptional: "required",
       tableName,
@@ -92,7 +92,7 @@ export const v = {
   /**
    * Validates that the value is of type Null.
    */
-  null() {
+  null: () => {
     return new VNull({ isOptional: "required" });
   },
 
@@ -101,49 +101,49 @@ export const v = {
    *
    * Alias for `v.float64()`
    */
-  number() {
+  number: () => {
     return new VFloat64({ isOptional: "required" });
   },
 
   /**
    * Validates that the value is of Convex type Float64 (Number in JS).
    */
-  float64() {
+  float64: () => {
     return new VFloat64({ isOptional: "required" });
   },
 
   /**
    * @deprecated Use `v.int64()` instead
    */
-  bigint() {
+  bigint: () => {
     return new VInt64({ isOptional: "required" });
   },
 
   /**
    * Validates that the value is of Convex type Int64 (BigInt in JS).
    */
-  int64() {
+  int64: () => {
     return new VInt64({ isOptional: "required" });
   },
 
   /**
    * Validates that the value is of type Boolean.
    */
-  boolean() {
+  boolean: () => {
     return new VBoolean({ isOptional: "required" });
   },
 
   /**
    * Validates that the value is of type String.
    */
-  string() {
+  string: () => {
     return new VString({ isOptional: "required" });
   },
 
   /**
    * Validates that the value is of Convex type Bytes (constructed in JS via `ArrayBuffer`).
    */
-  bytes() {
+  bytes: () => {
     return new VBytes({ isOptional: "required" });
   },
 
@@ -151,7 +151,7 @@ export const v = {
    * Validates that the value is equal to the given literal value.
    * @param literal The literal value to compare against.
    */
-  literal<T extends string | number | bigint | boolean>(literal: T) {
+  literal: <T extends string | number | bigint | boolean>(literal: T) => {
     return new VLiteral<T>({ isOptional: "required", value: literal });
   },
 
@@ -159,7 +159,7 @@ export const v = {
    * Validates that the value is an Array of the given element type.
    * @param element The validator for the elements of the array.
    */
-  array<T extends Validator<any, "required", any>>(element: T) {
+  array: <T extends Validator<any, "required", any>>(element: T) => {
     return new VArray<T["type"][], T>({ isOptional: "required", element });
   },
 
@@ -167,15 +167,18 @@ export const v = {
    * Validates that the value is an Object with the given properties.
    * @param fields An object specifying the validator for each property.
    */
-  object<T extends PropertyValidators>(fields: T) {
+  object: <T extends PropertyValidators>(fields: T) => {
     return new VObject<ObjectType<T>, T>({ isOptional: "required", fields });
   },
 
   /** @internal */
-  record<
+  record: <
     Key extends Validator<any, "required", any>,
     Value extends Validator<any, "required", any>,
-  >(keys: Key, values: Value) {
+  >(
+    keys: Key,
+    values: Value,
+  ) => {
     // TODO enforce that Infer<key> extends string
     return new VRecord<
       Value["isOptional"] extends true
@@ -194,7 +197,7 @@ export const v = {
    * Validates that the value matches one of the given validators.
    * @param members The validators to match against.
    */
-  union<T extends Validator<any, "required", any>[]>(...members: T) {
+  union: <T extends Validator<any, "required", any>[]>(...members: T) => {
     return new VUnion<T[number]["type"], T>({
       isOptional: "required",
       members,
@@ -204,7 +207,7 @@ export const v = {
   /**
    * Does not validate the value.
    */
-  any() {
+  any: () => {
     return new VAny({ isOptional: "required" });
   },
 
@@ -219,7 +222,7 @@ export const v = {
    * });
    * ```
    */
-  optional<T extends GenericValidator>(value: T) {
+  optional: <T extends GenericValidator>(value: T) => {
     return value.asOptional() as VOptional<T>;
   },
 };
