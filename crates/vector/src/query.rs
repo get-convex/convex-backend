@@ -11,6 +11,7 @@ use std::{
 };
 
 use common::{
+    components::ComponentId,
     json::JsonExpression,
     query::Expression,
     types::{
@@ -40,6 +41,7 @@ use value::{
     NamespacedTableMapping,
     Size,
     TableName,
+    TableNamespace,
     TableNumber,
     TabletId,
 };
@@ -55,6 +57,7 @@ pub struct VectorSearchRequest {
 #[derive(Clone, Debug, PartialEq)]
 pub struct VectorSearch {
     pub index_name: IndexName,
+    pub component_id: ComponentId,
     pub limit: Option<u32>,
     pub vector: Vec<f32>,
     pub expressions: BTreeSet<VectorSearchExpression>,
@@ -76,6 +79,7 @@ impl Arbitrary for VectorSearch {
         use proptest::prelude::*;
         (
             any::<IndexName>(),
+            any::<ComponentId>(),
             any::<Option<u32>>(),
             any::<Vec<f32>>(),
             // There's an invariant that there's at most one `VectorSearchExpression` for a given
@@ -87,11 +91,14 @@ impl Arbitrary for VectorSearch {
                 1..5,
             ),
         )
-            .prop_map(|(index_name, limit, vector, field_map)| VectorSearch {
-                index_name,
-                limit,
-                vector,
-                expressions: VectorSearchExpression::from_field_map(field_map),
+            .prop_map(|(index_name, component_id, limit, vector, field_map)| {
+                VectorSearch {
+                    index_name,
+                    component_id,
+                    limit,
+                    vector,
+                    expressions: VectorSearchExpression::from_field_map(field_map),
+                }
             })
     }
 }
@@ -233,11 +240,22 @@ impl VectorSearchExpression {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct VectorSearchJson {
+pub struct VectorSearchJson {
     index_name: String,
+    component_id: Option<String>,
     limit: Option<u32>,
     vector: Vec<f32>,
     expressions: Option<JsonExpression>,
+}
+
+impl VectorSearchJson {
+    /// Inject the component_id into the [VectorSearchJson]. This is a hack to
+    /// allow us to use the same encoding/decoding across backend callbacks,
+    /// action callbacks, and the syscall, but we don't necessarily know the
+    /// component id until executing inside v8.
+    pub fn insert_component_id(&mut self, component_id: ComponentId) {
+        self.component_id = component_id.serialize_to_string();
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -260,6 +278,7 @@ impl TryFrom<JsonValue> for VectorSearch {
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         let search: VectorSearchJson = serde_json::from_value(value)?;
         let index_name: GenericIndexName<TableName> = search.index_name.parse()?;
+        let component_id = ComponentId::deserialize_from_string(search.component_id.as_deref())?;
         let expressions = search
             .expressions
             .map_or(anyhow::Ok(BTreeSet::new()), |e| {
@@ -269,6 +288,7 @@ impl TryFrom<JsonValue> for VectorSearch {
 
         let result = Self {
             index_name,
+            component_id,
             expressions,
             limit: search.limit,
             vector: search.vector,
@@ -290,6 +310,7 @@ impl TryFrom<VectorSearch> for JsonValue {
 
         let search = VectorSearchJson {
             index_name: format!("{}", value.index_name),
+            component_id: value.component_id.serialize_to_string(),
             expressions: expression_json,
             limit: value.limit,
             vector: value.vector,
@@ -341,6 +362,14 @@ impl VectorSearch {
         self,
         table_mapping: &NamespacedTableMapping,
     ) -> anyhow::Result<InternalVectorSearch> {
+        anyhow::ensure!(
+            table_mapping.namespace() == TableNamespace::from(self.component_id),
+            format!(
+                "Component id {:?} does not match the table namespace {:?}",
+                self.component_id,
+                table_mapping.namespace()
+            )
+        );
         let original_table_name = self.index_name.table().clone();
         let index_name = self
             .index_name

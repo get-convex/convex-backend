@@ -5,6 +5,7 @@ use common::{
     bootstrap_model::index::IndexMetadata,
     components::{
         ComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     execution_context::ExecutionId,
@@ -205,6 +206,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
             Identity::Unknown,
             VectorSearch {
                 index_name: index_name.clone(),
+                component_id: ComponentId::Root,
                 limit: Some(10),
                 vector: vec![0.; 2],
                 expressions: btreeset![],

@@ -127,6 +127,7 @@ mod tests {
             IndexConfig,
             IndexMetadata,
         },
+        components::ComponentId,
         knobs::{
             MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             VECTOR_INDEX_SIZE_SOFT_LIMIT,
@@ -1067,6 +1068,7 @@ mod tests {
                 Identity::system(),
                 VectorSearch {
                     index_name,
+                    component_id: ComponentId::Root,
                     vector: vector.into_iter().map(|value| value as f32).collect(),
                     limit: Some(1),
                     expressions: btreeset![],

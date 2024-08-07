@@ -52,6 +52,7 @@ pub use self::{
         PublicVectorSearchQueryResult,
         VectorSearch,
         VectorSearchExpression,
+        VectorSearchJson,
         VectorSearchQueryResult,
         VectorSearchRequest,
     },

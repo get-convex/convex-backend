@@ -78,6 +78,7 @@ pub async fn compact_vector_indexes_in_test<RT: Runtime>(
 #[cfg(test)]
 mod tests {
 
+    use common::components::ComponentId;
     use itertools::Itertools;
     use keybroker::Identity;
     use maplit::{
@@ -594,6 +595,7 @@ mod tests {
                 Identity::system(),
                 VectorSearch {
                     index_name: index_data.index_name,
+                    component_id: ComponentId::Root,
                     vector: vec![0f32, 0f32],
                     limit: Some(10),
                     expressions: btreeset![],

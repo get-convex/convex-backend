@@ -1951,7 +1951,7 @@ impl<RT: Runtime> Database<RT> {
         let snapshot = self.snapshot(ts)?;
         let table_mapping = snapshot
             .table_mapping()
-            .namespace(TableNamespace::by_component_TODO());
+            .namespace(TableNamespace::from(query.component_id));
         if !table_mapping.name_exists(query.index_name.table()) {
             return Ok((vec![], usage.gather_user_stats()));
         }

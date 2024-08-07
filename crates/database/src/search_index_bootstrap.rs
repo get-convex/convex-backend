@@ -569,6 +569,7 @@ mod tests {
             IndexMetadata,
             TabletIndexMetadata,
         },
+        components::ComponentId,
         document::ParsedDocument,
         persistence::{
             NoopRetentionValidator,
@@ -899,6 +900,7 @@ mod tests {
     ) -> anyhow::Result<Vec<PublicVectorSearchQueryResult>> {
         let query = VectorSearch {
             index_name: index_metadata.name.clone(),
+            component_id: ComponentId::Root,
             vector: vec![0.; 2],
             limit: None,
             expressions: btreeset![],

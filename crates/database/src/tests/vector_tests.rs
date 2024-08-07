@@ -19,6 +19,7 @@ use common::{
         IndexConfig,
         IndexMetadata,
     },
+    components::ComponentId,
     knobs::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
@@ -251,6 +252,7 @@ impl<RT: Runtime> Scenario<RT> {
                 Identity::system(),
                 VectorSearch {
                     index_name: INDEX_NAME.parse()?,
+                    component_id: ComponentId::Root,
                     vector,
                     limit,
                     expressions: filter_expressions,
@@ -428,6 +430,7 @@ impl<RT: Runtime> RandomizedTest<RT> {
                 }
                 let query = VectorSearch {
                     index_name: INDEX_NAME.parse()?,
+                    component_id: ComponentId::Root,
                     vector: test_query.vector.clone(),
                     limit: Some(test_query.limit),
                     expressions,
@@ -673,6 +676,7 @@ async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Resu
                 .vector_search_at_ts(
                     VectorSearch {
                         index_name: INDEX_NAME.parse().unwrap(),
+                        component_id: ComponentId::Root,
                         limit: Some(10),
                         vector: vec![0.; 4],
                         expressions: btreeset![],
@@ -1009,6 +1013,7 @@ async fn test_multi_segment_search_obeys_sorted_order(rt: TestRuntime) -> anyhow
             Identity::system(),
             VectorSearch {
                 index_name: index_name.clone(),
+                component_id: ComponentId::Root,
                 vector: [6f64, 7f64].into_iter().map(|value| value as f32).collect(),
                 limit: Some(3),
                 expressions: btreeset![],

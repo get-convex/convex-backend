@@ -34,7 +34,10 @@ use serde_json::{
 };
 use sync_types::CanonicalizedUdfPath;
 use value::id_v6::DeveloperDocumentId;
-use vector::VectorSearchRequest;
+use vector::{
+    VectorSearchJson,
+    VectorSearchRequest,
+};
 
 use super::task_executor::TaskExecutor;
 use crate::{
@@ -291,9 +294,16 @@ impl<RT: Runtime> TaskExecutor<RT> {
     #[convex_macro::instrument_future]
     async fn async_syscall_vectorSearch(&self, args: JsonValue) -> anyhow::Result<JsonValue> {
         let VectorSearchRequest { query } = serde_json::from_value(args)?;
+        let component_id = self.component_id()?;
+        let mut vector_search_query: VectorSearchJson = serde_json::from_value(query)?;
+        vector_search_query.insert_component_id(component_id);
+
         let (results, usage_stats) = self
             .action_callbacks
-            .vector_search(self.identity.clone(), query)
+            .vector_search(
+                self.identity.clone(),
+                serde_json::to_value(vector_search_query)?,
+            )
             .await?;
         self.usage_tracker.add(usage_stats);
         let results: Vec<_> = results.into_iter().map(JsonValue::from).collect();
