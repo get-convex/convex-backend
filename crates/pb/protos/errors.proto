@@ -6,7 +6,7 @@ enum ErrorCode {
     BAD_REQUEST = 0;
     UNAUTHENTICATED = 1;
     FORBIDDEN = 2;
-    NOT_FOUND = 3;
+    TRANSIENT_NOT_FOUND = 3;
     CLIENT_DISCONNECT = 4;
     RATE_LIMITED = 11;
     OVERLOADED = 5;

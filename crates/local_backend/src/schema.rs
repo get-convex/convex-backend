@@ -370,7 +370,7 @@ pub async fn schema_state(
         .context(invalid_schema_id(&schema_id))?;
 
     let doc = tx.get(schema_id).await?.ok_or_else(|| {
-        anyhow::anyhow!(ErrorMetadata::not_found(
+        anyhow::anyhow!(ErrorMetadata::transient_not_found(
             "SchemaNotFound",
             format!("Schema with id {} not found", schema_id),
         ))

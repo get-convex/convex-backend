@@ -62,7 +62,7 @@ pub enum ErrorCode {
     BadRequest,
     Unauthenticated,
     Forbidden,
-    NotFound,
+    TransientNotFound,
     ClientDisconnect,
     RateLimited,
 
@@ -103,17 +103,21 @@ impl ErrorMetadata {
         }
     }
 
-    /// Resource not found. Maps to 404 in HTTP.
+    /// Resource not found. Maps to 404 in HTTP. This is not considered
+    /// a deterministic user error. It should typically be used when the
+    /// resource can't be currently found, e.g. the backend is not currently
+    /// in service discovery. If the UDF is missing, this should throw
+    /// `bad_request`` insteaFd, which is a deterministic user error.
     ///
     /// The short_msg should be a CapitalCamelCased describing the error (eg
     /// FileNotFound). The msg should be a descriptive message targeted
     /// toward the developer.
-    pub fn not_found(
+    pub fn transient_not_found(
         short_msg: impl Into<Cow<'static, str>>,
         msg: impl Into<Cow<'static, str>>,
     ) -> Self {
         Self {
-            code: ErrorCode::NotFound,
+            code: ErrorCode::TransientNotFound,
             short_msg: short_msg.into(),
             msg: msg.into(),
         }
@@ -332,8 +336,8 @@ impl ErrorMetadata {
         self.code == ErrorCode::BadRequest
     }
 
-    pub fn is_not_found(&self) -> bool {
-        self.code == ErrorCode::NotFound
+    pub fn is_transient_not_found(&self) -> bool {
+        self.code == ErrorCode::TransientNotFound
     }
 
     pub fn is_overloaded(&self) -> bool {
@@ -354,12 +358,12 @@ impl ErrorMetadata {
     pub fn is_deterministic_user_error(&self) -> bool {
         match self.code {
             ErrorCode::BadRequest
-            | ErrorCode::NotFound
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
             | ErrorCode::Forbidden => true,
             ErrorCode::OperationalInternalServerError
             | ErrorCode::ClientDisconnect
+            | ErrorCode::TransientNotFound
             | ErrorCode::RateLimited
             | ErrorCode::OCC
             | ErrorCode::OutOfRetention
@@ -373,7 +377,7 @@ impl ErrorMetadata {
             ErrorCode::ClientDisconnect => None,
             ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.01))),
             ErrorCode::BadRequest
-            | ErrorCode::NotFound
+            | ErrorCode::TransientNotFound
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
             | ErrorCode::Forbidden => Some((sentry::Level::Info, None)),
@@ -391,7 +395,7 @@ impl ErrorMetadata {
     fn metric_server_error_label_value(&self) -> Option<&'static str> {
         match self.code {
             ErrorCode::BadRequest
-            | ErrorCode::NotFound
+            | ErrorCode::TransientNotFound
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
             | ErrorCode::Forbidden
@@ -418,7 +422,7 @@ impl ErrorMetadata {
             ErrorCode::Unauthenticated => Some(&crate::metrics::SYNC_AUTH_ERROR_TOTAL),
             ErrorCode::Forbidden => Some(&crate::metrics::FORBIDDEN_ERROR_TOTAL),
             ErrorCode::OCC => Some(&crate::metrics::COMMIT_RACE_TOTAL),
-            ErrorCode::NotFound => None,
+            ErrorCode::TransientNotFound => None,
             ErrorCode::PaginationLimit => None,
             ErrorCode::OutOfRetention => None,
             ErrorCode::Overloaded => None,
@@ -429,7 +433,7 @@ impl ErrorMetadata {
 
     pub fn close_frame(&self) -> Option<CloseFrame<'static>> {
         let code = match self.code {
-            ErrorCode::NotFound
+            ErrorCode::TransientNotFound
             | ErrorCode::PaginationLimit
             | ErrorCode::Forbidden
             | ErrorCode::ClientDisconnect => Some(CloseCode::Normal),
@@ -465,7 +469,7 @@ impl ErrorCode {
             // https://stackoverflow.com/questions/3297048/403-forbidden-vs-401-unauthorized-http-responses
             ErrorCode::Unauthenticated => StatusCode::UNAUTHORIZED,
             ErrorCode::Forbidden => StatusCode::FORBIDDEN,
-            ErrorCode::NotFound => StatusCode::NOT_FOUND,
+            ErrorCode::TransientNotFound => StatusCode::NOT_FOUND,
             ErrorCode::RateLimited => StatusCode::TOO_MANY_REQUESTS,
             ErrorCode::OperationalInternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
             ErrorCode::OCC
@@ -481,7 +485,7 @@ impl ErrorCode {
             ErrorCode::BadRequest => tonic::Code::InvalidArgument,
             ErrorCode::Unauthenticated => tonic::Code::Unauthenticated,
             ErrorCode::Forbidden => tonic::Code::FailedPrecondition,
-            ErrorCode::NotFound => tonic::Code::NotFound,
+            ErrorCode::TransientNotFound => tonic::Code::NotFound,
             ErrorCode::ClientDisconnect => tonic::Code::Aborted,
             ErrorCode::Overloaded | ErrorCode::RejectedBeforeExecution | ErrorCode::RateLimited => {
                 tonic::Code::ResourceExhausted
@@ -497,7 +501,7 @@ impl ErrorCode {
         match code {
             StatusCode::UNAUTHORIZED => Some(ErrorCode::Unauthenticated),
             StatusCode::FORBIDDEN => Some(ErrorCode::Forbidden),
-            StatusCode::NOT_FOUND => Some(ErrorCode::NotFound),
+            StatusCode::NOT_FOUND => Some(ErrorCode::TransientNotFound),
             StatusCode::TOO_MANY_REQUESTS => Some(ErrorCode::RateLimited),
             // Tries to categorize in one of the above more specific 4xx codes first,
             // otherwise categorizes as a general 4xx via BadRequest
@@ -514,7 +518,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_unauthenticated(&self) -> bool;
     fn is_out_of_retention(&self) -> bool;
     fn is_bad_request(&self) -> bool;
-    fn is_not_found(&self) -> bool;
+    fn is_transient_not_found(&self) -> bool;
     fn is_overloaded(&self) -> bool;
     fn is_rejected_before_execution(&self) -> bool;
     fn is_forbidden(&self) -> bool;
@@ -576,9 +580,9 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     }
 
     /// Returns true if error is tagged as NotFound
-    fn is_not_found(&self) -> bool {
+    fn is_transient_not_found(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
-            return e.is_not_found();
+            return e.is_transient_not_found();
         }
         false
     }
@@ -784,7 +788,7 @@ mod proptest {
         fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
             any::<ErrorCode>().prop_map(|ec| match ec {
                 ErrorCode::BadRequest => ErrorMetadata::bad_request("bad", "request"),
-                ErrorCode::NotFound => ErrorMetadata::not_found("not", "found"),
+                ErrorCode::TransientNotFound => ErrorMetadata::transient_not_found("not", "found"),
                 ErrorCode::PaginationLimit => {
                     ErrorMetadata::pagination_limit("pagination", "limit")
                 },

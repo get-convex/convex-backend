@@ -221,7 +221,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         for (id, environment_variable) in changes.clone() {
             let new_env_var_name = environment_variable.name().to_owned();
             let document = self.tx.get(id).await?.ok_or_else(|| {
-                ErrorMetadata::not_found(
+                ErrorMetadata::transient_not_found(
                     "ModifiedEnvVarNotFound",
                     "The modified environment variable couldn’t be found.",
                 )

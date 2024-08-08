@@ -147,7 +147,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
     ) -> anyhow::Result<()> {
         let success = self._delete(tx, namespace, storage_id.clone()).await?;
         if !success {
-            anyhow::bail!(ErrorMetadata::not_found(
+            anyhow::bail!(ErrorMetadata::bad_request(
                 "StorageIdNotFound",
                 format!("storage id {storage_id} not found"),
             ));

@@ -1028,7 +1028,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         let managed_query =
                             provider
                                 .take_query(query_id)
-                                .context(ErrorMetadata::not_found(
+                                .context(ErrorMetadata::bad_request(
                                     "QueryNotFound",
                                     "in-progress query not found",
                                 ))?;
