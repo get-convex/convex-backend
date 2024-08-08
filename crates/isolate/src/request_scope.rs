@@ -47,6 +47,8 @@ use crate::{
         context_build_timer,
         load_setup_module_timer,
         log_promise_handler_added_after_reject,
+        log_promise_rejected_after_resolved,
+        log_promise_resolved_after_resolved,
         run_setup_module_timer,
     },
     module_map::ModuleMap,
@@ -508,10 +510,10 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
                 log_promise_handler_added_after_reject();
             },
             v8::PromiseRejectEvent::PromiseRejectAfterResolved => {
-                tracing::warn!("Promise rejected after resolved");
+                log_promise_rejected_after_resolved();
             },
             v8::PromiseRejectEvent::PromiseResolveAfterResolved => {
-                tracing::warn!("Promise resolved after resolved");
+                log_promise_resolved_after_resolved();
             },
         }
     }

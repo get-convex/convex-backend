@@ -362,6 +362,22 @@ pub fn log_promise_handler_added_after_reject() {
     log_counter(&PROMISE_HANDLER_ADDED_AFTER_REJECT_TOTAL, 1);
 }
 
+register_convex_counter!(
+    PROMISE_REJECTED_AFTER_RESOLVED_TOTAL,
+    "Number of times a promise was rejected after it was resolved"
+);
+pub fn log_promise_rejected_after_resolved() {
+    log_counter(&PROMISE_REJECTED_AFTER_RESOLVED_TOTAL, 1);
+}
+
+register_convex_counter!(
+    PROMISE_RESOLVED_AFTER_RESOLVED_TOTAL,
+    "Number of times a promise was resolved after it was resolved"
+);
+pub fn log_promise_resolved_after_resolved() {
+    log_counter(&PROMISE_RESOLVED_AFTER_RESOLVED_TOTAL, 1);
+}
+
 register_convex_histogram!(ISOLATE_USED_HEAP_SIZE_BYTES, "Isolate used heap size");
 register_convex_histogram!(ISOLATE_HEAP_SIZE_LIMIT_BYTES, "Isolate heap size limit");
 register_convex_histogram!(ISOLATE_AVAILABLE_SIZE_BYTES, "Isolate available size");
