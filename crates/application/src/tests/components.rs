@@ -1,6 +1,7 @@
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
+        ComponentId,
         ComponentPath,
     },
     testing::assert_contains,
@@ -10,9 +11,14 @@ use common::{
     },
     RequestId,
 };
+use database::{
+    TableModel,
+    UserFacingModel,
+};
 use futures::FutureExt;
 use itertools::Itertools;
 use keybroker::Identity;
+use model::components::config::ComponentConfigModel;
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use serde_json::{
@@ -20,7 +26,12 @@ use serde_json::{
     Value as JsonValue,
 };
 use sync_types::CanonicalizedUdfPath;
-use value::ConvexValue;
+use value::{
+    assert_obj,
+    ConvexValue,
+    TableName,
+    TableNamespace,
+};
 
 use crate::{
     test_helpers::ApplicationTestExt,
@@ -193,5 +204,45 @@ async fn test_system_error_propagation(rt: TestRuntime) -> anyhow::Result<()> {
     .unwrap_err();
     assert_contains(&result.error, "Your request couldn't be completed");
 
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    // Create a table in a new namespace
+    let mut tx = application.begin(Identity::system()).await?;
+    let table_namespace = TableNamespace::test_component();
+    let mut component_config_model = ComponentConfigModel::new(&mut tx);
+    component_config_model
+        .initialize_component_namespace_for_test(ComponentId::from(table_namespace))
+        .await?;
+    let mut user_facing_model = UserFacingModel::new(&mut tx, table_namespace);
+    let table_name: TableName = "test".parse()?;
+    user_facing_model
+        .insert(table_name.clone(), assert_obj!())
+        .await?;
+    application.commit_test(tx).await?;
+
+    // Confirm table exists and document is present
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut table_model = TableModel::new(&mut tx);
+    let count = table_model.count(table_namespace, &table_name).await?;
+    assert_eq!(count, 1);
+    assert!(table_model.table_exists(table_namespace, &table_name));
+
+    // Delete the table
+    application
+        .delete_tables(
+            &Identity::system(),
+            vec![table_name.clone()],
+            table_namespace,
+        )
+        .await?;
+
+    // Confirm table no longer exists
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut table_model = TableModel::new(&mut tx);
+    assert!(!table_model.table_exists(table_namespace, &table_name));
     Ok(())
 }

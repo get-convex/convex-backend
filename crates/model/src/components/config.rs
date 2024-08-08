@@ -338,6 +338,15 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         })
     }
 
+    // make a new function to initialize the component namespace but for tests only
+    #[cfg(any(test, feature = "testing"))]
+    pub async fn initialize_component_namespace_for_test(
+        &mut self,
+        component_id: ComponentId,
+    ) -> anyhow::Result<()> {
+        self.initialize_component_namespace(component_id).await
+    }
+
     async fn initialize_component_namespace(
         &mut self,
         component_id: ComponentId,

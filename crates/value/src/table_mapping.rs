@@ -34,6 +34,11 @@ impl TableNamespace {
         Self::Global
     }
 
+    #[cfg(any(test, feature = "testing"))]
+    pub const fn test_component() -> Self {
+        Self::ByComponent(DeveloperDocumentId::MIN)
+    }
+
     /// Use this to make it clear that a table pertains to the root component.
     /// It doesn't extend between components like a plain Global.
     /// This is useful for code searching.

@@ -2446,6 +2446,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: &Identity,
         table_names: Vec<TableName>,
+        table_namespace: TableNamespace,
     ) -> anyhow::Result<u64> {
         let mut tx = self.begin(identity.clone()).await?;
         let mut count = 0;
@@ -2455,11 +2456,9 @@ impl<RT: Runtime> Application<RT> {
                 "cannot delete system table {table_name}"
             );
             let mut table_model = TableModel::new(&mut tx);
-            count += table_model
-                .count(TableNamespace::by_component_TODO(), &table_name)
-                .await?;
+            count += table_model.count(table_namespace, &table_name).await?;
             table_model
-                .delete_table(TableNamespace::by_component_TODO(), table_name)
+                .delete_table(table_namespace, table_name)
                 .await?;
         }
         self.commit(tx, "delete_tables").await?;

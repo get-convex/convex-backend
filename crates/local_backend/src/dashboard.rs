@@ -44,6 +44,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct DeleteTableArgs {
     table_names: Vec<String>,
+    component_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -84,14 +85,22 @@ pub async fn shapes2(
 pub async fn delete_tables(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
-    Json(DeleteTableArgs { table_names }): Json<DeleteTableArgs>,
+    Json(DeleteTableArgs {
+        table_names,
+        component_id,
+    }): Json<DeleteTableArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_member_with_write_access(&identity)?;
     let table_names = table_names
         .into_iter()
         .map(|t| Ok(t.parse::<ValidIdentifier<TableName>>()?.0))
         .collect::<anyhow::Result<_>>()?;
-    st.application.delete_tables(&identity, table_names).await?;
+    let table_namespace = TableNamespace::from(ComponentId::deserialize_from_string(
+        component_id.as_deref(),
+    )?);
+    st.application
+        .delete_tables(&identity, table_names, table_namespace)
+        .await?;
     Ok(StatusCode::OK)
 }
 

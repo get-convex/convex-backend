@@ -84,6 +84,15 @@ impl From<ComponentId> for TableNamespace {
     }
 }
 
+impl From<TableNamespace> for ComponentId {
+    fn from(value: TableNamespace) -> Self {
+        match value {
+            TableNamespace::Global => ComponentId::Root,
+            TableNamespace::ByComponent(id) => ComponentId::Child(id),
+        }
+    }
+}
+
 #[cfg(any(test, feature = "testing"))]
 mod proptests {
     use proptest::prelude::*;
