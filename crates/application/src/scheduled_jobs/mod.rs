@@ -119,6 +119,7 @@ impl<RT: Runtime> Clone for ScheduledJobRunner<RT> {
 impl<RT: Runtime> ScheduledJobRunner<RT> {
     pub fn start(
         rt: RT,
+        instance_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
@@ -126,6 +127,7 @@ impl<RT: Runtime> ScheduledJobRunner<RT> {
     ) -> Self {
         let executor_fut = ScheduledJobExecutor::start(
             rt.clone(),
+            instance_name,
             database.clone(),
             runner,
             function_log,
@@ -165,6 +167,7 @@ impl<RT: Runtime> Deref for ScheduledJobExecutor<RT> {
 #[derive(Clone)]
 pub struct ScheduledJobContext<RT: Runtime> {
     rt: RT,
+    instance_name: String,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
@@ -180,6 +183,7 @@ const CHECKS_BETWEEN_YIELDS: usize = 128;
 impl<RT: Runtime> ScheduledJobExecutor<RT> {
     pub fn start(
         rt: RT,
+        instance_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
@@ -188,6 +192,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         let mut executor = Self {
             context: ScheduledJobContext {
                 rt,
+                instance_name,
                 database,
                 runner,
                 function_log,
@@ -210,6 +215,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
     #[cfg(any(test, feature = "testing"))]
     pub fn new(
         rt: RT,
+        instance_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
@@ -217,6 +223,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         Self {
             context: ScheduledJobContext {
                 rt,
+                instance_name,
                 database,
                 runner,
                 function_log,
@@ -342,9 +349,14 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             let context = self.context.clone();
             let tx = job_finished_tx.clone();
 
-            let root = self
-                .rt
-                .with_rng(|rng| get_sampled_span("scheduler/execute_job", rng, BTreeMap::new()));
+            let root = self.rt.with_rng(|rng| {
+                get_sampled_span(
+                    &self.instance_name,
+                    "scheduler/execute_job",
+                    rng,
+                    BTreeMap::new(),
+                )
+            });
             self.rt.spawn(
                 "spawn_scheduled_job",
                 async move {

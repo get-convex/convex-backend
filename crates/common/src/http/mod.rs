@@ -797,6 +797,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     State(route_metric_mapper): State<RM>,
     matched_path: Option<axum::extract::MatchedPath>,
     ExtractRequestId(request_id): ExtractRequestId,
+    ExtractResolvedHost(resolved_host): ExtractResolvedHost,
     ExtractClientVersion(client_version): ExtractClientVersion,
     req: http::request::Request<Body>,
     next: axum::middleware::Next<Body>,
@@ -815,6 +816,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     let root = {
         let mut rng = rand::thread_rng();
         get_sampled_span(
+            &resolved_host.instance_name,
             path,
             &mut rng,
             btreemap!["request_id".to_owned() => request_id.to_string()],

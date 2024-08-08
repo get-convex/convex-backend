@@ -622,6 +622,7 @@ impl<RT: Runtime> Application<RT> {
 
         let scheduled_job_runner = ScheduledJobRunner::start(
             runtime.clone(),
+            instance_name.clone(),
             database.clone(),
             runner.clone(),
             function_log.clone(),
@@ -630,6 +631,7 @@ impl<RT: Runtime> Application<RT> {
 
         let cron_job_executor_fut = CronJobExecutor::start(
             runtime.clone(),
+            instance_name.clone(),
             database.clone(),
             runner.clone(),
             function_log.clone(),

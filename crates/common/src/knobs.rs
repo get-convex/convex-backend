@@ -1072,11 +1072,22 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
 /// Enable sampling for 10% of /api/push_config and 0.001% of all requests
 /// Use knobs to enable to higher limits for individual instances.
 ///
+/// You can also enable sampling for individual instance_names if applicable,
+/// e.g. in Usher.
+///
+///
 /// Examples:
 ///   REQUEST_TRACE_SAMPLE_CONFIG=0.01
 ///   REQUEST_TRACE_SAMPLE_CONFIG=/route1=0.50,0.01
 ///   REQUEST_TRACE_SAMPLE_CONFIG=/route1=0.50,route2=0.50,0.01
 ///   REQUEST_TRACE_SAMPLE_CONFIG=/http/.*=0.50
+///
+///   REQUEST_TRACE_SAMPLE_CONFIG=carnitas:/route1=0.5,alpastor:1.0,0.01
+///   This configures:
+///   - sampling for "/route1" for instance name "carnitas" to 0.5
+///   - sampling for all methods for instance name "alpastor" to 1.0
+///   - sampling for anything else to 0.01
+
 pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> = LazyLock::new(|| {
     env_config(
         "REQUEST_TRACE_SAMPLE_CONFIG",

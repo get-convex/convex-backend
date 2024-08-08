@@ -30,11 +30,12 @@ impl EncodedSpan {
 /// Given an instance name returns a span with the sample percentage specified
 /// in `knobs.rs`
 pub fn get_sampled_span<R: Rng>(
+    instance_name: &str,
     name: &str,
     rng: &mut R,
     properties: BTreeMap<String, String>,
 ) -> Span {
-    let sample_ratio = REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(name);
+    let sample_ratio = REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(instance_name, name);
     let should_sample = rng.gen_bool(sample_ratio);
     match should_sample {
         true => Span::root(name.to_owned(), SpanContext::random()).with_properties(|| properties),
@@ -42,34 +43,28 @@ pub fn get_sampled_span<R: Rng>(
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SamplingConfig {
-    global: f64,
-    by_regex: Vec<(Regex, f64)>,
-}
-
-impl Default for SamplingConfig {
-    fn default() -> Self {
-        // No sampling by default
-        Self {
-            global: 0.0,
-            by_regex: Vec::new(),
-        }
-    }
+    by_regex: Vec<(Option<String>, Regex, f64)>,
 }
 
 impl SamplingConfig {
-    fn sample_ratio(&self, name: &str) -> f64 {
+    fn sample_ratio(&self, instance_name: &str, name: &str) -> f64 {
         self.by_regex
             .iter()
-            .find_map(|(name_regex, sample_ratio)| {
+            .find_map(|(rule_instance_name, name_regex, sample_ratio)| {
+                if let Some(rule_instance_name) = rule_instance_name {
+                    if rule_instance_name != instance_name {
+                        return None;
+                    }
+                }
                 if name_regex.is_match(name) {
                     Some(*sample_ratio)
                 } else {
                     None
                 }
             })
-            .unwrap_or(self.global)
+            .unwrap_or(0.0)
     }
 }
 
@@ -77,26 +72,31 @@ impl FromStr for SamplingConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> anyhow::Result<Self> {
-        let mut global = None;
         let mut by_regex = Vec::new();
         for token in s.split(',') {
-            let parts: Vec<_> = token.split('=').map(|s| s.trim()).collect();
+            let parts: Vec<_> = token.split(':').map(|s| s.trim()).collect();
             anyhow::ensure!(parts.len() <= 2, "Too many parts {}", token);
-            if parts.len() == 2 {
-                let name = parts[0];
-                let name_regex = Regex::new(name).context("Failed to parse name regex")?;
-                let rate: f64 = parts[1].parse().context("Failed to parse sampling rate")?;
-                by_regex.push((name_regex, rate));
+            let (instance_name, token2) = if parts.len() == 2 {
+                let instance_name = Some(parts[0].to_owned());
+                (instance_name, parts[1])
             } else {
+                (None, parts[0])
+            };
+
+            let parts: Vec<_> = token2.split('=').map(|s| s.trim()).collect();
+            anyhow::ensure!(parts.len() <= 2, "Too many parts {}", token2);
+            let (name_regex, rate) = if parts.len() == 2 {
+                let regex = Regex::new(parts[0]).context("Failed to parse name regex")?;
+                let rate: f64 = parts[1].parse().context("Failed to parse sampling rate")?;
+                (regex, rate)
+            } else {
+                let regex = Regex::new(".*").expect(".* is not a valid regex");
                 let rate: f64 = parts[0].parse().context("Failed to parse sampling rate")?;
-                anyhow::ensure!(global.is_none(), "Global sampling rate set more than once");
-                global = Some(rate)
-            }
+                (regex, rate)
+            };
+            by_regex.push((instance_name, name_regex, rate));
         }
-        Ok(SamplingConfig {
-            global: global.unwrap_or(0.0),
-            by_regex,
-        })
+        Ok(SamplingConfig { by_regex })
     }
 }
 
@@ -117,37 +117,49 @@ mod tests {
     #[test]
     fn test_parse_sampling_config() -> anyhow::Result<()> {
         let config: SamplingConfig = "1".parse()?;
-        assert_eq!(config.global, 1.0);
-        assert_eq!(config.by_regex.len(), 0);
-        assert_eq!(config.sample_ratio("a"), 1.0);
+        assert_eq!(config.by_regex.len(), 1);
+        assert_eq!(config.sample_ratio("carnitas", "a"), 1.0);
 
         let config: SamplingConfig = "a=0.5,b=0.15".parse()?;
-        assert_eq!(config.global, 0.0);
         assert_eq!(config.by_regex.len(), 2);
-        assert_eq!(config.sample_ratio("a"), 0.5);
-        assert_eq!(config.sample_ratio("b"), 0.15);
-        assert_eq!(config.sample_ratio("c"), 0.0);
+        assert_eq!(config.sample_ratio("carnitas", "a"), 0.5);
+        assert_eq!(config.sample_ratio("carnitas", "b"), 0.15);
+        assert_eq!(config.sample_ratio("carnitas", "c"), 0.0);
 
         let config: SamplingConfig = "a=0.5,b=0.15,0.01".parse()?;
-        assert_eq!(config.global, 0.01);
-        assert_eq!(config.by_regex.len(), 2);
-        assert_eq!(config.by_regex.len(), 2);
-        assert_eq!(config.sample_ratio("a"), 0.5);
-        assert_eq!(config.sample_ratio("b"), 0.15);
-        assert_eq!(config.sample_ratio("c"), 0.01);
+        assert_eq!(config.by_regex.len(), 3);
+        assert_eq!(config.sample_ratio("carnitas", "a"), 0.5);
+        assert_eq!(config.sample_ratio("carnitas", "b"), 0.15);
+        assert_eq!(config.sample_ratio("carnitas", "c"), 0.01);
 
         let config: SamplingConfig = "/f/.*=0.5".parse()?;
         assert_eq!(config.by_regex.len(), 1);
-        assert_eq!(config.sample_ratio("/f/a"), 0.5);
-        assert_eq!(config.sample_ratio("/f/b"), 0.5);
-        assert_eq!(config.sample_ratio("c"), 0.0);
+        assert_eq!(config.sample_ratio("carnitas", "/f/a"), 0.5);
+        assert_eq!(config.sample_ratio("carnitas", "/f/b"), 0.5);
+        assert_eq!(config.sample_ratio("carnitas", "c"), 0.0);
+
+        // Instance overrides.
+        let config: SamplingConfig = "alpastor:a=0.5,b=0.15,carnitas:0.01,1.0".parse()?;
+        assert_eq!(config.by_regex.len(), 4);
+        assert_eq!(config.sample_ratio("carnitas", "a"), 0.01);
+        assert_eq!(config.sample_ratio("carnitas", "b"), 0.15);
+        assert_eq!(config.sample_ratio("carnitas", "c"), 0.01);
+        assert_eq!(config.sample_ratio("alpastor", "a"), 0.5);
+        assert_eq!(config.sample_ratio("alpastor", "b"), 0.15);
+        assert_eq!(config.sample_ratio("alpastor", "c"), 1.0);
+        assert_eq!(config.sample_ratio("chorizo", "a"), 1.0);
+        assert_eq!(config.sample_ratio("chorizo", "b"), 0.15);
+        assert_eq!(config.sample_ratio("chorizo", "c"), 1.0);
 
         // Invalid configs.
-        let err = "100,200".parse::<SamplingConfig>().unwrap_err();
-        assert!(format!("{}", err).contains("Global sampling rate set more than once"));
-
         let err = "a=a".parse::<SamplingConfig>().unwrap_err();
         assert!(format!("{}", err).contains("Failed to parse sampling rate"));
+
+        let err = "a:a:a=1.0".parse::<SamplingConfig>().unwrap_err();
+        assert!(format!("{}", err).contains("Too many parts"));
+
+        let err = "a:a=a=1.0".parse::<SamplingConfig>().unwrap_err();
+        assert!(format!("{}", err).contains("Too many parts"));
 
         Ok(())
     }

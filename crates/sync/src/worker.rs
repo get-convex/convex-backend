@@ -474,6 +474,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 };
                 let root = self.rt.with_rng(|rng| {
                     get_sampled_span(
+                        &self.host.instance_name,
                         "sync-worker/mutation",
                         rng,
                         btreemap! {
@@ -575,6 +576,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 };
                 let root = self.rt.with_rng(|rng| {
                     get_sampled_span(
+                        &self.host.instance_name,
                         "sync-worker/action",
                         rng,
                         btreemap! {
@@ -732,6 +734,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             let current_subscription = remaining_subscriptions.remove(&query.query_id);
             let root = self.rt.with_rng(|rng| {
                 get_sampled_span(
+                    &self.host.instance_name,
                     "sync-worker/update-queries",
                     rng,
                     btreemap! {

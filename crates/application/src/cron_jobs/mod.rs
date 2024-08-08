@@ -106,6 +106,7 @@ const CRON_LOG_MAX_LOG_LINE_LENGTH: usize = 1000;
 #[derive(Clone)]
 pub struct CronJobExecutor<RT: Runtime> {
     rt: RT,
+    instance_name: String,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
@@ -114,12 +115,14 @@ pub struct CronJobExecutor<RT: Runtime> {
 impl<RT: Runtime> CronJobExecutor<RT> {
     pub fn start(
         rt: RT,
+        instance_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
     ) -> impl Future<Output = ()> + Send {
         let executor = Self {
             rt,
+            instance_name,
             database,
             runner,
             function_log,
@@ -141,12 +144,14 @@ impl<RT: Runtime> CronJobExecutor<RT> {
     #[cfg(any(test, feature = "testing"))]
     pub fn new(
         rt: RT,
+        instance_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
     ) -> Self {
         Self {
             rt,
+            instance_name,
             database,
             runner,
             function_log,
@@ -229,9 +234,14 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             if next_ts > now || running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
                 return Ok(Some(next_ts));
             }
-            let root = self
-                .rt
-                .with_rng(|rng| get_sampled_span("crons/execute_job", rng, BTreeMap::new()));
+            let root = self.rt.with_rng(|rng| {
+                get_sampled_span(
+                    &self.instance_name,
+                    "crons/execute_job",
+                    rng,
+                    BTreeMap::new(),
+                )
+            });
             let context = self.clone();
             let tx = job_finished_tx.clone();
             self.rt.spawn(

@@ -285,6 +285,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
     ) -> anyhow::Result<()> {
         let test_executor = ScheduledJobExecutor::new(
             self.runtime.clone(),
+            DEV_INSTANCE_NAME.into(),
             self.database.clone(),
             self.runner.clone(),
             self.function_log.clone(),
@@ -300,6 +301,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
     ) -> anyhow::Result<()> {
         let test_executor = CronJobExecutor::new(
             self.runtime.clone(),
+            DEV_INSTANCE_NAME.into(),
             self.database.clone(),
             self.runner.clone(),
             self.function_log.clone(),
