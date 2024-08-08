@@ -14,7 +14,7 @@ export const functionSpec = new Command("function-spec")
     "List argument and return values to your Convex functions.\n\n" +
       "By default, this inspects your dev deployment.",
   )
-  .addOption(new Option("--path", "Output as JSON to this file path."))
+  .addOption(new Option("--file", "Output as JSON to a file."))
   .addDeploymentSelectionOptions(
     actionDescription("Read function metadata from"),
   )
@@ -37,9 +37,13 @@ export const functionSpec = new Command("function-spec")
       {},
     )) as any[];
 
-    const output = JSON.stringify(functions, null, 2);
+    const output = JSON.stringify(
+      { url: deploymentUrl, functions: functions },
+      null,
+      2,
+    );
 
-    if (options.path) {
+    if (options.file) {
       const fileName = `function_spec_${Date.now().valueOf()}.json`;
       ctx.fs.writeUtf8File(fileName, output);
       logOutput(ctx, chalk.green(`Wrote function spec to ${fileName}`));

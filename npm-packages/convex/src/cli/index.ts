@@ -121,7 +121,7 @@ async function main() {
     .addCommand(update)
     .addCommand(logout)
     .addCommand(networkTest, { hidden: true })
-    .addCommand(functionSpec, { hidden: true })
+    .addCommand(functionSpec)
     .addHelpCommand("help <command>", "Show help for given <command>")
     .version(version)
     // Hide version and help so they don't clutter
