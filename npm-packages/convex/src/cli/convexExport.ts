@@ -66,20 +66,14 @@ export const convexExport = new Command("export")
       : "";
     showSpinner(ctx, `Creating snapshot export${deploymentNotice}`);
 
-    const fetch = deploymentFetch(deploymentUrl, adminKey);
-    try {
-      await fetch(`/api/export/request/zip?includeStorage=${includeStorage}`, {
-        method: "POST",
-      });
-    } catch (e) {
-      return await logAndHandleFetchError(ctx, e);
-    }
-
-    const snapshotExportState = await waitForStableExportState(
-      ctx,
-      deploymentUrl,
+    const snapshotExportState = await startSnapshotExport(ctx, {
+      includeStorage,
+      inputPath,
       adminKey,
-    );
+      deploymentUrl,
+      deploymentName: deploymentName ?? null,
+    });
+
     switch (snapshotExportState.state) {
       case "completed":
         stopSpinner(ctx);
@@ -111,55 +105,16 @@ export const convexExport = new Command("export")
     }
 
     showSpinner(ctx, `Downloading snapshot export to ${chalk.bold(inputPath)}`);
-    const exportUrl = `/api/export/zip/${snapshotExportState.start_ts.toString()}?adminKey=${encodeURIComponent(
+    await downloadSnapshotExport(ctx, {
+      snapshotExportTs: snapshotExportState.start_ts,
+      inputPath,
       adminKey,
-    )}`;
-    let response: Response;
-    try {
-      response = await fetch(exportUrl, {
-        method: "GET",
-      });
-    } catch (e) {
-      return await logAndHandleFetchError(ctx, e);
-    }
-
-    let filePath;
-    if (ctx.fs.exists(inputPath)) {
-      const st = ctx.fs.stat(inputPath);
-      if (st.isDirectory()) {
-        const contentDisposition =
-          response.headers.get("content-disposition") ?? "";
-        let filename = `snapshot_${snapshotExportState.start_ts.toString()}.zip`;
-        if (contentDisposition.startsWith("attachment; filename=")) {
-          filename = contentDisposition.slice("attachment; filename=".length);
-        }
-        filePath = path.join(inputPath, filename);
-      } else {
-        logFailure(ctx, `Error: Path ${chalk.bold(inputPath)} already exists.`);
-        return await ctx.crash(1, "invalid filesystem data");
-      }
-    } else {
-      filePath = inputPath;
-    }
-    changeSpinner(
-      ctx,
-      `Downloading snapshot export to ${chalk.bold(filePath)}`,
-    );
-
-    try {
-      await nodeFs.writeFileStream(
-        filePath,
-        Readable.fromWeb(response.body! as any),
-      );
-    } catch (e) {
-      logFailure(ctx, `Exporting data failed`);
-      logError(ctx, chalk.red(e));
-      return await ctx.crash(1);
-    }
+      deploymentUrl,
+    });
     stopSpinner(ctx);
     logFinishedStep(
       ctx,
-      `Downloaded snapshot export to ${chalk.bold(filePath)}`,
+      `Downloaded snapshot export to ${chalk.bold(inputPath)}`,
     );
   });
 
@@ -209,4 +164,91 @@ async function waitForStableExportState(
     },
   );
   return snapshotExportState!;
+}
+
+export async function startSnapshotExport(
+  ctx: Context,
+  args: {
+    includeStorage: boolean;
+    inputPath: string;
+    adminKey: string;
+    deploymentUrl: string;
+    deploymentName: string | null;
+  },
+) {
+  const fetch = deploymentFetch(args.deploymentUrl, args.adminKey);
+  try {
+    await fetch(
+      `/api/export/request/zip?includeStorage=${args.includeStorage}`,
+      {
+        method: "POST",
+      },
+    );
+  } catch (e) {
+    return await logAndHandleFetchError(ctx, e);
+  }
+
+  const snapshotExportState = await waitForStableExportState(
+    ctx,
+    args.deploymentUrl,
+    args.adminKey,
+  );
+  return snapshotExportState;
+}
+
+export async function downloadSnapshotExport(
+  ctx: Context,
+  args: {
+    snapshotExportTs: bigint;
+    inputPath: string;
+    adminKey: string;
+    deploymentUrl: string;
+  },
+) {
+  const inputPath = args.inputPath;
+  const exportUrl = `/api/export/zip/${args.snapshotExportTs.toString()}?adminKey=${encodeURIComponent(
+    args.adminKey,
+  )}`;
+  const fetch = deploymentFetch(args.deploymentUrl, args.adminKey);
+  let response: Response;
+  try {
+    response = await fetch(exportUrl, {
+      method: "GET",
+    });
+  } catch (e) {
+    return await logAndHandleFetchError(ctx, e);
+  }
+
+  let filePath;
+  if (ctx.fs.exists(inputPath)) {
+    const st = ctx.fs.stat(inputPath);
+    if (st.isDirectory()) {
+      const contentDisposition =
+        response.headers.get("content-disposition") ?? "";
+      let filename = `snapshot_${args.snapshotExportTs.toString()}.zip`;
+      if (contentDisposition.startsWith("attachment; filename=")) {
+        filename = contentDisposition.slice("attachment; filename=".length);
+      }
+      filePath = path.join(inputPath, filename);
+    } else {
+      // TODO(sarah) -- if this is called elsewhere, I'd like to catch the error + potentially
+      // have different logging
+      logFailure(ctx, `Error: Path ${chalk.bold(inputPath)} already exists.`);
+      return await ctx.crash(1, "invalid filesystem data");
+    }
+  } else {
+    filePath = inputPath;
+  }
+  changeSpinner(ctx, `Downloading snapshot export to ${chalk.bold(filePath)}`);
+
+  try {
+    await nodeFs.writeFileStream(
+      filePath,
+      Readable.fromWeb(response.body! as any),
+    );
+  } catch (e) {
+    logFailure(ctx, `Exporting data failed`);
+    logError(ctx, chalk.red(e));
+    return await ctx.crash(1);
+  }
 }

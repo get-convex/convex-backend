@@ -1,6 +1,6 @@
 import { Command } from "@commander-js/extra-typings";
 import { logFinishedStep, oneoffContext } from "../bundler/context.js";
-import { rootDirectory } from "./lib/utils.js";
+import { globalConfigPath } from "./lib/utils.js";
 import { recursivelyDelete } from "./lib/fsUtils.js";
 
 export const logout = new Command("logout")
@@ -8,8 +8,7 @@ export const logout = new Command("logout")
   .action(async () => {
     const ctx = oneoffContext;
 
-    const globalConfigDirectory = rootDirectory();
-    recursivelyDelete(ctx, globalConfigDirectory);
+    recursivelyDelete(ctx, globalConfigPath());
 
     logFinishedStep(
       ctx,

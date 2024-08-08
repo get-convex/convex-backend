@@ -54,6 +54,9 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
       ...options,
       prod: false,
       local: false,
+      localOptions: {
+        forceUpgrade: false,
+      },
     });
     await startComponentsPushAndCodegen(ctx, projectConfig, configPath, {
       ...options,

@@ -142,13 +142,8 @@ export const convexImport = new Command("import")
         options.yes,
       );
     }
-    const fetch = deploymentFetch(deploymentUrl, adminKey);
 
-    const data = ctx.fs.createReadStream(filePath, {
-      highWaterMark: CHUNK_SIZE,
-    });
     const fileStats = ctx.fs.stat(filePath);
-
     showSpinner(ctx, `Importing ${filePath} (${formatSize(fileStats.size)})`);
 
     let mode = "requireEmpty";
@@ -166,65 +161,43 @@ export const convexImport = new Command("import")
       ? ` in your ${chalk.bold("prod")} deployment`
       : "";
     const tableNotice = tableName ? ` to table "${chalk.bold(tableName)}"` : "";
-    let importId: string;
-    try {
-      const startResp = await fetch("/api/import/start_upload", {
-        method: "POST",
-      });
-      const { uploadToken } = await startResp.json();
-
-      const partTokens = [];
-      let partNumber = 1;
-
-      for await (const chunk of data) {
-        const partUrl = `/api/import/upload_part?uploadToken=${encodeURIComponent(
-          uploadToken,
-        )}&partNumber=${partNumber}`;
-        const partResp = await fetch(partUrl, {
-          headers: {
-            "Content-Type": "application/octet-stream",
-          },
-          body: chunk,
-          method: "POST",
-        });
-        partTokens.push(await partResp.json());
-        partNumber += 1;
-        changeSpinner(
-          ctx,
-          `Uploading ${filePath} (${formatSize(data.bytesRead)}/${formatSize(
-            fileStats.size,
-          )})`,
-        );
-      }
-
-      const finishResp = await fetch("/api/import/finish_upload", {
-        body: JSON.stringify({
-          import: importArgs,
-          uploadToken,
-          partTokens,
-        }),
-        method: "POST",
-      });
-      const body = await finishResp.json();
-      importId = body.importId;
-    } catch (e) {
+    const onFailure = async () => {
       logFailure(
         ctx,
         `Importing data from "${chalk.bold(
           filePath,
         )}"${tableNotice}${deploymentNotice} failed`,
       );
-      return await logAndHandleFetchError(ctx, e);
-    }
+    };
+    const importId = await uploadForImport(ctx, {
+      deploymentUrl,
+      adminKey,
+      filePath,
+      importArgs,
+      onImportFailed: onFailure,
+    });
     changeSpinner(ctx, "Parsing uploaded data");
+    const onProgress = (
+      ctx: Context,
+      state: InProgressImportState,
+      checkpointCount: number,
+    ) => {
+      stopSpinner(ctx);
+      while ((state.checkpoint_messages?.length ?? 0) > checkpointCount) {
+        logFinishedStep(ctx, state.checkpoint_messages![checkpointCount]);
+        checkpointCount += 1;
+      }
+      showSpinner(ctx, state.progress_message ?? "Importing");
+      return checkpointCount;
+    };
     // eslint-disable-next-line no-constant-condition
     while (true) {
-      const snapshotImportState = await waitForStableImportState(
-        ctx,
+      const snapshotImportState = await waitForStableImportState(ctx, {
         importId,
         deploymentUrl,
         adminKey,
-      );
+        onProgress,
+      });
       switch (snapshotImportState.state) {
         case "completed":
           logFinishedStep(
@@ -251,21 +224,19 @@ export const convexImport = new Command("import")
             options.yes,
           );
           showSpinner(ctx, `Importing`);
-          const performUrl = `/api/perform_import`;
-          try {
-            await fetch(performUrl, {
-              method: "POST",
-              body: JSON.stringify({ importId }),
-            });
-          } catch (e) {
-            logFailure(
-              ctx,
-              `Importing data from "${chalk.bold(
-                filePath,
-              )}"${tableNotice}${deploymentNotice} failed`,
-            );
-            return await logAndHandleFetchError(ctx, e);
-          }
+          await confirmImport(ctx, {
+            importId,
+            adminKey,
+            deploymentUrl,
+            onError: async () => {
+              logFailure(
+                ctx,
+                `Importing data from "${chalk.bold(
+                  filePath,
+                )}"${tableNotice}${deploymentNotice} failed`,
+              );
+            },
+          });
           // Now we have kicked off the rest of the import, go around the loop again.
           break;
         }
@@ -348,6 +319,12 @@ async function askToConfirmImportWithExistingImports(
   }
 }
 
+type InProgressImportState = {
+  state: "in_progress";
+  progress_message?: string | undefined;
+  checkpoint_messages?: string[] | undefined;
+};
+
 type SnapshotImportState =
   | { state: "uploaded" }
   | {
@@ -355,20 +332,24 @@ type SnapshotImportState =
       message_to_confirm?: string;
       require_manual_confirmation?: boolean;
     }
-  | {
-      state: "in_progress";
-      progress_message?: string | undefined;
-      checkpoint_messages?: string[] | undefined;
-    }
+  | InProgressImportState
   | { state: "completed"; num_rows_written: bigint }
   | { state: "failed"; error_message: string };
 
-async function waitForStableImportState(
+export async function waitForStableImportState(
   ctx: Context,
-  importId: string,
-  deploymentUrl: string,
-  adminKey: string,
+  args: {
+    importId: string;
+    deploymentUrl: string;
+    adminKey: string;
+    onProgress: (
+      ctx: Context,
+      state: InProgressImportState,
+      checkpointCount: number,
+    ) => number;
+  },
 ): Promise<SnapshotImportState> {
+  const { importId, deploymentUrl, adminKey, onProgress } = args;
   const [donePromise, onDone] = waitUntilCalled();
   let snapshotImportState: SnapshotImportState;
   let checkpointCount = 0;
@@ -393,20 +374,10 @@ async function waitForStableImportState(
             return;
           case "in_progress":
             // Not a stable state. Ignore while the server continues working.
-            stopSpinner(ctx);
-            while (
-              (snapshotImportState.checkpoint_messages?.length ?? 0) >
-              checkpointCount
-            ) {
-              logFinishedStep(
-                ctx,
-                snapshotImportState.checkpoint_messages![checkpointCount],
-              );
-              checkpointCount += 1;
-            }
-            showSpinner(
+            checkpointCount = onProgress(
               ctx,
-              snapshotImportState.progress_message ?? "Importing",
+              snapshotImportState,
+              checkpointCount,
             );
             return;
         }
@@ -450,4 +421,94 @@ async function determineFormat(
     return await ctx.crash(1, "fatal");
   }
   return format;
+}
+
+export async function confirmImport(
+  ctx: Context,
+  args: {
+    importId: string;
+    adminKey: string;
+    deploymentUrl: string;
+    onError: (e: any) => Promise<void>;
+  },
+) {
+  const { importId, adminKey, deploymentUrl } = args;
+  const fetch = deploymentFetch(deploymentUrl, adminKey);
+  const performUrl = `/api/perform_import`;
+  try {
+    await fetch(performUrl, {
+      method: "POST",
+      body: JSON.stringify({ importId }),
+    });
+  } catch (e) {
+    await args.onError(e);
+    return await logAndHandleFetchError(ctx, e);
+  }
+}
+
+export async function uploadForImport(
+  ctx: Context,
+  args: {
+    deploymentUrl: string;
+    adminKey: string;
+    filePath: string;
+    importArgs: { tableName?: string; mode: string; format: string };
+    onImportFailed: (e: any) => Promise<void>;
+  },
+) {
+  const { deploymentUrl, adminKey, filePath } = args;
+  const fetch = deploymentFetch(deploymentUrl, adminKey);
+
+  const data = ctx.fs.createReadStream(filePath, {
+    highWaterMark: CHUNK_SIZE,
+  });
+  const fileStats = ctx.fs.stat(filePath);
+
+  showSpinner(ctx, `Importing ${filePath} (${formatSize(fileStats.size)})`);
+  let importId: string;
+  try {
+    const startResp = await fetch("/api/import/start_upload", {
+      method: "POST",
+    });
+    const { uploadToken } = await startResp.json();
+
+    const partTokens = [];
+    let partNumber = 1;
+
+    for await (const chunk of data) {
+      const partUrl = `/api/import/upload_part?uploadToken=${encodeURIComponent(
+        uploadToken,
+      )}&partNumber=${partNumber}`;
+      const partResp = await fetch(partUrl, {
+        headers: {
+          "Content-Type": "application/octet-stream",
+        },
+        body: chunk,
+        method: "POST",
+      });
+      partTokens.push(await partResp.json());
+      partNumber += 1;
+      changeSpinner(
+        ctx,
+        `Uploading ${filePath} (${formatSize(data.bytesRead)}/${formatSize(
+          fileStats.size,
+        )})`,
+      );
+    }
+
+    const finishResp = await fetch("/api/import/finish_upload", {
+      body: JSON.stringify({
+        import: args.importArgs,
+        uploadToken,
+        partTokens,
+      }),
+      method: "POST",
+    });
+    const body = await finishResp.json();
+    importId = body.importId;
+  } catch (e) {
+    await args.onImportFailed(e);
+    return await logAndHandleFetchError(ctx, e);
+  }
+  return importId;
 }

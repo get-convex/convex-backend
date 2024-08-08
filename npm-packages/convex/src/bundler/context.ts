@@ -44,6 +44,10 @@ export const oneoffContext: Context = {
   deprecationMessagePrinted: false,
   spinner: undefined,
   async crash(exitCode: number, _errorType?: ErrorType, err?: any) {
+    logVerbose(
+      oneoffContext,
+      `Crashing with exit code ${exitCode}, error: ${_errorType?.toString()} ${err?.toString()}`,
+    );
     return await flushAndExit(exitCode, err);
   },
 };
@@ -85,6 +89,12 @@ export function logMessage(ctx: Context, ...logged: any) {
 export function logOutput(ctx: Context, ...logged: any) {
   ctx.spinner?.clear();
   console.log(...logged);
+}
+
+export function logVerbose(ctx: Context, ...logged: any) {
+  if (process.env.CONVEX_VERBOSE) {
+    logMessage(ctx, "[verbose]", ...logged);
+  }
 }
 
 // Start a spinner.

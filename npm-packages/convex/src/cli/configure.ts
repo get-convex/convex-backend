@@ -23,6 +23,7 @@ import {
 } from "./lib/config.js";
 import {
   CONVEX_DEPLOYMENT_VAR_NAME,
+  DeploymentDetails,
   eraseDeploymentEnvVar,
   writeDeploymentEnvVar,
 } from "./lib/deployment.js";
@@ -41,6 +42,7 @@ import { writeConvexUrlToEnvFile } from "./lib/envvars.js";
 import path from "path";
 import { projectDashboardUrl } from "./dashboard.js";
 import { doCodegen, doInitCodegen } from "./lib/codegen.js";
+import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
 
 type DeploymentCredentials = {
   url: string;
@@ -61,6 +63,14 @@ export async function deploymentCredentialsOrConfigure(
   cmdOptions: {
     prod: boolean;
     local: boolean;
+    localOptions: {
+      ports?: {
+        cloud: number;
+        site: number;
+      };
+      backendVersion?: string | undefined;
+      forceUpgrade: boolean;
+    };
     team?: string | undefined;
     project?: string | undefined;
     url?: string | undefined;
@@ -84,23 +94,27 @@ export async function deploymentCredentialsOrConfigure(
     chosenConfiguration,
     { team: cmdOptions.team, project: cmdOptions.project },
   );
-  const deploymentType = cmdOptions.prod
-    ? "prod"
+  const deploymentOptions: DeploymentOptions = cmdOptions.prod
+    ? { kind: "prod" }
     : cmdOptions.local
-      ? "local"
-      : "dev";
-  const { deploymentName, url, adminKey, cleanupHandle } =
-    await ensureDeploymentProvisioned(ctx, {
-      teamSlug,
-      projectSlug,
-      deploymentType,
-    });
+      ? { kind: "local", ...cmdOptions.localOptions }
+      : { kind: "dev" };
+  const {
+    deploymentName,
+    deploymentUrl: url,
+    adminKey,
+    cleanupHandle,
+  } = await ensureDeploymentProvisioned(ctx, {
+    teamSlug,
+    projectSlug,
+    deploymentOptions,
+  });
   await updateEnvAndConfigForDeploymentSelection(ctx, {
     url,
     deploymentName,
     teamSlug,
     projectSlug,
-    deploymentType,
+    deploymentType: deploymentOptions.kind,
   });
 
   return { deploymentName, url, adminKey, cleanupHandle };
@@ -392,6 +406,21 @@ async function promptToInitWithProjects(
   return choice;
 }
 
+type DeploymentOptions =
+  | {
+      kind: "prod";
+    }
+  | { kind: "dev" }
+  | {
+      kind: "local";
+      ports?: {
+        cloud: number;
+        site: number;
+      };
+      backendVersion?: string;
+      forceUpgrade: boolean;
+    };
+
 /**
  * This method assumes that the member has access to the selected project.
  */
@@ -400,32 +429,29 @@ async function ensureDeploymentProvisioned(
   options: {
     teamSlug: string;
     projectSlug: string;
-    deploymentType: DeploymentType;
+    deploymentOptions: DeploymentOptions;
   },
-): Promise<{
-  deploymentName: string;
-  url: string;
-  adminKey: string;
-  cleanupHandle: null | (() => Promise<void>);
-}> {
-  switch (options.deploymentType) {
+): Promise<DeploymentDetails> {
+  switch (options.deploymentOptions.kind) {
     case "dev":
     case "prod": {
       const credentials =
         await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
           ctx,
           { teamSlug: options.teamSlug, projectSlug: options.projectSlug },
-          options.deploymentType,
+          options.deploymentOptions.kind,
         );
       return {
         ...credentials,
         cleanupHandle: null,
+        onActivity: null,
       };
     }
     case "local": {
-      const credentials = await handleLocalDev(ctx, {
+      const credentials = await handleLocalDeployment(ctx, {
         teamSlug: options.teamSlug,
         projectSlug: options.projectSlug,
+        ...options.deploymentOptions,
       });
       return credentials;
     }
@@ -433,20 +459,9 @@ async function ensureDeploymentProvisioned(
       return await ctx.crash(
         1,
         "fatal",
-        `Invalid deployment type: ${options.deploymentType as any}`,
+        `Invalid deployment type: ${(options.deploymentOptions as any).kind}`,
       );
   }
-}
-
-async function handleLocalDev(
-  ctx: Context,
-  _options: {
-    teamSlug: string;
-    projectSlug: string;
-    localDevPort?: string | undefined;
-  },
-) {
-  return await ctx.crash(1, "fatal", "Local development is not supported yet.");
 }
 
 async function updateEnvAndConfigForDeploymentSelection(

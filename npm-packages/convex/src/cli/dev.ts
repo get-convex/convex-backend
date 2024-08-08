@@ -7,6 +7,7 @@ import {
   logError,
   logFinishedStep,
   logMessage,
+  logVerbose,
   logWarning,
   oneoffContext,
   showSpinner,
@@ -93,6 +94,7 @@ export const dev = new Command("dev")
     ),
   )
   .addOption(new Option("--trace-events").default(false).hideHelp())
+  .addOption(new Option("--verbose").default(false).hideHelp())
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
   .addOption(new Option("--debug-bundle-path <path>").hideHelp())
@@ -104,8 +106,13 @@ export const dev = new Command("dev")
   .addOption(
     new Option("--local", "Develop live against a locally running backend.")
       .default(false)
+      .conflicts(["--prod", "--url", "--admin-key"])
       .hideHelp(),
   )
+  .addOption(new Option("--local-cloud-port <port>").hideHelp())
+  .addOption(new Option("--local-site-port <port>").hideHelp())
+  .addOption(new Option("--local-backend-version <version>").hideHelp())
+  .addOption(new Option("--local-force-upgrade").default(false).hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = oneoffContext;
@@ -113,6 +120,39 @@ export const dev = new Command("dev")
     if (cmdOptions.debugBundlePath !== undefined && !cmdOptions.once) {
       logError(ctx, "`--debug-bundle-path` can only be used with `--once`.");
       await ctx.crash(1, "fatal");
+    }
+
+    const localOptions: {
+      ports?: { cloud: number; site: number };
+      backendVersion?: string | undefined;
+      forceUpgrade: boolean;
+    } = { forceUpgrade: false };
+    if (!cmdOptions.local) {
+      if (
+        cmdOptions.localCloudPort !== undefined ||
+        cmdOptions.localSitePort !== undefined ||
+        cmdOptions.localBackendVersion !== undefined ||
+        cmdOptions.localForceUpgrade === true
+      ) {
+        logError(ctx, "`--local-*` options can only be used with `--local`.");
+        await ctx.crash(1, "fatal");
+      }
+    } else {
+      if (cmdOptions.localCloudPort !== undefined) {
+        if (cmdOptions.localSitePort === undefined) {
+          logError(
+            ctx,
+            "`--local-cloud-port` requires `--local-site-port` to be set.",
+          );
+          return await ctx.crash(1, "fatal");
+        }
+        localOptions["ports"] = {
+          cloud: parseInt(cmdOptions.localCloudPort),
+          site: parseInt(cmdOptions.localSitePort),
+        };
+      }
+      localOptions["backendVersion"] = cmdOptions.localBackendVersion;
+      localOptions["forceUpgrade"] = cmdOptions.localForceUpgrade;
     }
 
     if (!cmdOptions.url || !cmdOptions.adminKey) {
@@ -123,16 +163,18 @@ export const dev = new Command("dev")
 
     const configure =
       cmdOptions.configure === true ? "ask" : cmdOptions.configure ?? null;
-    const credentials = await deploymentCredentialsOrConfigure(
-      ctx,
-      configure,
-      cmdOptions,
-    );
-    if (credentials.cleanupHandle !== null) {
-      process.on("exit", () => {
-        void credentials.cleanupHandle?.();
-      });
-    }
+    const credentials = await deploymentCredentialsOrConfigure(ctx, configure, {
+      ...cmdOptions,
+      localOptions,
+    });
+    process.on("SIGINT", async () => {
+      logVerbose(ctx, "Received SIGINT, cleaning up...");
+      if (credentials.cleanupHandle !== null) {
+        await credentials.cleanupHandle?.();
+      }
+      logVerbose(ctx, "Cleaned up. Exiting.");
+      process.exit(-2);
+    });
 
     await usageStateWarning(ctx);
 
@@ -241,9 +283,15 @@ export async function watchAndPush(
       stopSpinner(ctx);
     }
     if (cmdOptions.once) {
+      if (options.cleanupHandle !== null) {
+        await options.cleanupHandle();
+      }
       return;
     }
     if (pushed && cmdOptions.untilSuccess) {
+      if (options.cleanupHandle !== null) {
+        await options.cleanupHandle();
+      }
       return;
     }
     const fileSystemWatch = getFileSystemWatch(ctx, watch, cmdOptions);

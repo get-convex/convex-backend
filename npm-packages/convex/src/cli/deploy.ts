@@ -231,6 +231,7 @@ async function deployToNewPreviewDeployment(
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",
     url: previewUrl,
+    cleanupHandle: null,
   };
   showSpinner(ctx, `Deploying to ${previewUrl}...`);
   await runPush(oneoffContext, pushOptions);
@@ -321,6 +322,7 @@ async function deployToExistingDeployment(
     codegen: options.codegen === "enable",
     url,
     writePushRequest: options.writePushRequest,
+    cleanupHandle: null,
   };
   showSpinner(
     ctx,

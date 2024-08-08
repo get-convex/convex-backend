@@ -1,5 +1,10 @@
 import chalk from "chalk";
-import { Context, logError, logFailure } from "../../bundler/context.js";
+import {
+  Context,
+  logError,
+  logFailure,
+  logVerbose,
+} from "../../bundler/context.js";
 import {
   deploymentNameFromAdminKeyOrCrash,
   deploymentTypeFromAdminKey,
@@ -16,7 +21,6 @@ import {
   getAuthHeaderForBigBrain,
   getConfiguredDeploymentName,
   getConfiguredDeploymentOrCrash,
-  logAndHandleFetchError,
   readAdminKeyFromEnvVar,
 } from "./utils.js";
 
@@ -134,27 +138,6 @@ export async function createProjectProvisioningDevOrProd(
     adminKey,
     projectsRemaining,
   };
-}
-
-// Reinit
-export async function fetchDeploymentCredentialsProvisioningDevOrProd(
-  ctx: Context,
-  { teamSlug, projectSlug }: { teamSlug: string; projectSlug: string },
-  deploymentType: DeploymentType,
-): Promise<{
-  deploymentName: string | undefined;
-  url: string;
-  adminKey: AdminKey;
-}> {
-  try {
-    return fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
-      ctx,
-      { teamSlug, projectSlug },
-      deploymentType,
-    );
-  } catch (error: unknown) {
-    return await logAndHandleFetchError(ctx, error);
-  }
 }
 
 // Dev
@@ -509,6 +492,10 @@ export async function fetchDeploymentCredentialsProvisionProd(
       ctx,
       deploymentSelection,
     );
+    logVerbose(
+      ctx,
+      `Deployment URL: ${result.url}, Deployment Name: ${result.deploymentName}, Deployment Type: ${result.deploymentType}`,
+    );
     return {
       url: result.url,
       adminKey: result.adminKey,
@@ -521,6 +508,10 @@ export async function fetchDeploymentCredentialsProvisionProd(
   const result = await fetchExistingDevDeploymentCredentialsOrCrash(
     ctx,
     configuredDeployment,
+  );
+  logVerbose(
+    ctx,
+    `Deployment URL: ${result.url}, Deployment Name: ${configuredDeployment}, Deployment Type: ${result.deploymentType}`,
   );
   return {
     url: result.url,
@@ -563,7 +554,7 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
   deploymentType: DeploymentType,
 ): Promise<{
   deploymentName: string;
-  url: string;
+  deploymentUrl: string;
   adminKey: AdminKey;
 }> {
   const data = await bigBrainAPIMaybeThrows({
@@ -584,7 +575,7 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
     logError(ctx, chalk.red(msg));
     return await ctx.crash(1, "transient", new Error(msg));
   }
-  return { adminKey, url, deploymentName };
+  return { adminKey, deploymentUrl: url, deploymentName };
 }
 
 type Credentials = {

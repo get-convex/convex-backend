@@ -240,3 +240,16 @@ export async function getTeamAndProjectFromPreviewAdminKey(
   const [_preview, teamSlug, projectSlug] = parts;
   return { teamSlug, projectSlug };
 }
+
+export type OnDeploymentActivityFunc = (
+  isOffline: boolean,
+  wasOffline: boolean,
+) => Promise<void>;
+export type CleanupDeploymentFunc = () => Promise<void>;
+export type DeploymentDetails = {
+  deploymentName: string;
+  deploymentUrl: string;
+  adminKey: string;
+  cleanupHandle: CleanupDeploymentFunc | null;
+  onActivity: OnDeploymentActivityFunc | null;
+};
