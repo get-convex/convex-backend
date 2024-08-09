@@ -416,6 +416,7 @@ mod tests {
                 ComponentInstantiation,
             },
             ComponentMetadata,
+            ComponentState,
             ComponentType,
         },
         components::{
@@ -481,6 +482,7 @@ mod tests {
                 ComponentMetadata {
                     definition_id: root_definition_id.into(),
                     component_type: ComponentType::App,
+                    state: ComponentState::Active,
                 }
                 .try_into()?,
             )
@@ -495,6 +497,7 @@ mod tests {
                         name: "subcomponent_child".parse()?,
                         args: Default::default(),
                     },
+                    state: ComponentState::Active,
                 }
                 .try_into()?,
             )

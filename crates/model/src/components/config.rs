@@ -6,6 +6,7 @@ use common::{
         components::{
             definition::ComponentDefinitionMetadata,
             ComponentMetadata,
+            ComponentState,
             ComponentType,
         },
         schema::SchemaState,
@@ -402,8 +403,8 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let mut stack = vec![(ComponentPath::root(), None, existing_root, Some(app))];
         let mut diffs = BTreeMap::new();
         while let Some((path, parent_and_name, existing_node, new_node)) = stack.pop() {
-            let new_metadata = match new_node {
-                Some(new_node) => {
+            let new_metadata = new_node
+                .map(|new_node| {
                     let definition_id = *definition_id_by_path
                         .get(&new_node.definition_path)
                         .context("Missing definition ID for component")?;
@@ -418,13 +419,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                             args: new_node.args.clone(),
                         },
                     };
-                    Some(ComponentMetadata {
+                    Ok(ComponentMetadata {
                         definition_id,
                         component_type,
+                        state: ComponentState::Active,
                     })
-                },
-                None => None,
-            };
+                })
+                .transpose()?;
 
             // Diff the node itself.
             let (internal_id, diff) = match (existing_node, new_metadata) {
@@ -452,8 +453,8 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                     )
                     .await?
                 },
-                // Delete an existing node.
-                (Some(existing_node), None) => self.delete_component(existing_node).await?,
+                // Unmount an existing node.
+                (Some(existing_node), None) => self.unmount_component(existing_node).await?,
                 (None, None) => anyhow::bail!("Unexpected None/None in stack"),
             };
             diffs.insert(path.clone(), diff);
@@ -613,7 +614,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         ))
     }
 
-    async fn delete_component(
+    async fn unmount_component(
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
     ) -> anyhow::Result<(DeveloperDocumentId, ComponentDiff)> {
@@ -622,9 +623,10 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         } else {
             ComponentId::Child(existing.id().into())
         };
-        // TODO: Delete the component's system tables.
+        let mut unmounted_metadata = existing.clone().into_value();
+        unmounted_metadata.state = ComponentState::Unmounted;
         SystemMetadataModel::new_global(self.tx)
-            .delete(existing.id())
+            .replace(existing.id(), unmounted_metadata.try_into()?)
             .await?;
         let module_diff = ModuleModel::new(self.tx)
             .apply(component_id, vec![], None, BTreeMap::new())
@@ -638,7 +640,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         Ok((
             existing.id().into(),
             ComponentDiff {
-                diff_type: ComponentDiffType::Delete,
+                diff_type: ComponentDiffType::Unmount,
                 module_diff,
                 udf_config_diff: None,
                 cron_diff,
@@ -703,7 +705,7 @@ struct TreeDiffChild<'a> {
 pub enum ComponentDiffType {
     Create,
     Modify,
-    Delete,
+    Unmount,
 }
 
 pub struct ComponentDiff {
@@ -718,7 +720,7 @@ pub struct ComponentDiff {
 pub enum SerializedComponentDiffType {
     Create,
     Modify,
-    Delete,
+    Unmount,
 }
 
 #[derive(Serialize)]
@@ -737,7 +739,7 @@ impl TryFrom<ComponentDiffType> for SerializedComponentDiffType {
         Ok(match value {
             ComponentDiffType::Create => Self::Create,
             ComponentDiffType::Modify => Self::Modify,
-            ComponentDiffType::Delete => Self::Delete,
+            ComponentDiffType::Unmount => Self::Unmount,
         })
     }
 }

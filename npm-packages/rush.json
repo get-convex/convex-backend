@@ -36,6 +36,14 @@
       "projectFolder": "component-tests"
     },
     {
+      "packageName": "component-tests-empty",
+      "projectFolder": "component-tests/projects/empty"
+    },
+    {
+      "packageName": "component-tests-mounted",
+      "projectFolder": "component-tests/projects/mounted"
+    },
+    {
       "packageName": "component-tests-with-schema",
       "projectFolder": "component-tests/projects/with-schema"
     },

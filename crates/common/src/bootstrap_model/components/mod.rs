@@ -24,6 +24,17 @@ use crate::components::{
 pub struct ComponentMetadata {
     pub definition_id: DeveloperDocumentId,
     pub component_type: ComponentType,
+    pub state: ComponentState,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ComponentState {
+    /// The component is mounted and can be used.
+    Active,
+    /// The component is unmounted. Component functions are not available, and
+    /// tables in the component are read-only.
+    Unmounted,
 }
 
 impl ComponentMetadata {
@@ -59,6 +70,7 @@ struct SerializedComponentMetadata {
     pub parent: Option<String>,
     pub name: Option<String>,
     pub args: Option<Vec<(String, SerializedResource)>>,
+    pub state: Option<String>,
 }
 
 impl TryFrom<ComponentMetadata> for SerializedComponentMetadata {
@@ -77,11 +89,16 @@ impl TryFrom<ComponentMetadata> for SerializedComponentMetadata {
                 ),
             ),
         };
+        let state = match m.state {
+            ComponentState::Active => "active",
+            ComponentState::Unmounted => "unmounted",
+        };
         Ok(Self {
             definition_id: m.definition_id.to_string(),
             parent,
             name,
             args,
+            state: Some(state.to_string()),
         })
     }
 }
@@ -102,9 +119,15 @@ impl TryFrom<SerializedComponentMetadata> for ComponentMetadata {
             },
             _ => anyhow::bail!("Invalid component type"),
         };
+        let state = match m.state.as_deref() {
+            None | Some("active") => ComponentState::Active,
+            Some("unmounted") => ComponentState::Unmounted,
+            Some(invalid_state) => anyhow::bail!("Invalid component state: {invalid_state}"),
+        };
         Ok(Self {
             definition_id: m.definition_id.parse()?,
             component_type,
+            state,
         })
     }
 }

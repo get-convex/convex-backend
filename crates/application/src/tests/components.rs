@@ -1,4 +1,5 @@
 use common::{
+    bootstrap_model::components::ComponentState,
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
@@ -12,6 +13,7 @@ use common::{
     RequestId,
 };
 use database::{
+    BootstrapComponentsModel,
     TableModel,
     UserFacingModel,
 };
@@ -45,11 +47,20 @@ async fn run_function(
     udf_path: CanonicalizedUdfPath,
     args: Vec<JsonValue>,
 ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
+    run_component_function(application, udf_path, args, ComponentPath::root()).await
+}
+
+async fn run_component_function(
+    application: &Application<TestRuntime>,
+    udf_path: CanonicalizedUdfPath,
+    args: Vec<JsonValue>,
+    component: ComponentPath,
+) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
     application
         .any_udf(
             RequestId::new(),
             CanonicalizedComponentFunctionPath {
-                component: ComponentPath::root(),
+                component,
                 udf_path,
             },
             args,
@@ -244,5 +255,78 @@ async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> 
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     assert!(!table_model.table_exists(table_namespace, &table_name));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_unmount_and_remount_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules("mounted").await?;
+    let component_path = ComponentPath::deserialize(Some("component"))?;
+    run_component_function(
+        &application,
+        "messages:insertMessage".parse()?,
+        vec![assert_obj!("channel" => "sports", "text" => "the celtics won!").into()],
+        component_path.clone(),
+    )
+    .await??;
+
+    // Unmount component
+    application.load_component_tests_modules("empty").await?;
+
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut components_model = BootstrapComponentsModel::new(&mut tx);
+    let (_, component_id) = components_model
+        .component_path_to_ids(component_path.clone())
+        .await?;
+    let component = components_model
+        .load_component(component_id)
+        .await?
+        .unwrap();
+    assert!(matches!(component.state, ComponentState::Unmounted));
+
+    // Data should still exist in unmounted component tables
+    let mut table_model = TableModel::new(&mut tx);
+    let count = table_model
+        .count(component_id.into(), &"messages".parse()?)
+        .await?;
+    assert_eq!(count, 1);
+
+    // Calling component function after the component is unmounted should fail
+    let result = run_component_function(
+        &application,
+        "messages:listMessages".parse()?,
+        vec![assert_obj!().into()],
+        ComponentPath::deserialize(Some("component"))?,
+    )
+    .await?;
+    assert!(result.is_err());
+
+    // Remount the component
+    application.load_component_tests_modules("mounted").await?;
+
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut components_model = BootstrapComponentsModel::new(&mut tx);
+    let component = components_model
+        .load_component(component_id)
+        .await?
+        .unwrap();
+    assert!(matches!(component.state, ComponentState::Active));
+
+    // Data should still exist in remounted component tables
+    let mut table_model = TableModel::new(&mut tx);
+    let count = table_model
+        .count(component_id.into(), &"messages".parse()?)
+        .await?;
+    assert_eq!(count, 1);
+
+    // Calling functions from the remounted component should work
+    run_component_function(
+        &application,
+        "messages:listMessages".parse()?,
+        vec![assert_obj!().into()],
+        ComponentPath::deserialize(Some("component"))?,
+    )
+    .await??;
     Ok(())
 }
