@@ -3,7 +3,10 @@ use std::{
     collections::BTreeMap,
 };
 
+use anyhow::Context;
 use common::{
+    bootstrap_model::components::ComponentState,
+    components::ComponentId,
     document::{
         DeveloperDocument,
         ResolvedDocument,
@@ -46,6 +49,7 @@ use crate::{
     },
     unauthorized_error,
     virtual_tables::VirtualTable,
+    BootstrapComponentsModel,
     PatchValue,
     TableModel,
     Transaction,
@@ -145,6 +149,32 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         }
     }
 
+    /// Returns an error if the component associated with the current namespace
+    /// is unmounted. Should be called in all methods that write to user tables.
+    async fn require_active_component(&mut self) -> anyhow::Result<()> {
+        match self.namespace {
+            TableNamespace::Global => {},
+            TableNamespace::ByComponent(developer_id) => {
+                let component = BootstrapComponentsModel::new(self.tx)
+                    .load_component(ComponentId::Child(developer_id))
+                    .await?
+                    .with_context(|| format!("Component not found for id: {developer_id}"))?;
+
+                match component.state {
+                    ComponentState::Active => {},
+                    ComponentState::Unmounted => {
+                        anyhow::bail!(ErrorMetadata::bad_request(
+                            "UnmountedComponent",
+                            "Cannot perform write operations in an unmounted component. Make sure \
+                             your component is installed in your `app.config.ts` file.",
+                        ));
+                    },
+                }
+            },
+        }
+        Ok(())
+    }
+
     /// Creates a new document with given value in the specified table.
     #[minitrace::trace]
     #[convex_macro::instrument_future]
@@ -153,6 +183,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         table: TableName,
         value: ConvexObject,
     ) -> anyhow::Result<DeveloperDocumentId> {
+        self.require_active_component().await?;
         if self.tx.virtual_system_mapping().is_virtual_table(&table) {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "ReadOnlyTable",
@@ -220,6 +251,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         {
             anyhow::bail!(unauthorized_error("patch"))
         }
+        self.require_active_component().await?;
         self.tx.retention_validator.fail_if_falling_behind()?;
 
         let id_ = id.to_resolved(
@@ -254,6 +286,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         {
             anyhow::bail!(unauthorized_error("replace"))
         }
+        self.require_active_component().await?;
         if !self.tx.is_system(self.namespace, id.table()) {
             check_user_size(value.size())?;
         }
@@ -281,6 +314,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         {
             anyhow::bail!(unauthorized_error("delete"))
         }
+        self.require_active_component().await?;
         self.tx.retention_validator.fail_if_falling_behind()?;
 
         let id_ = id.to_resolved(

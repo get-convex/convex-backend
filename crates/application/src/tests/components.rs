@@ -17,10 +17,10 @@ use database::{
     TableModel,
     UserFacingModel,
 };
+use errors::ErrorMetadataAnyhowExt;
 use futures::FutureExt;
 use itertools::Itertools;
 use keybroker::Identity;
-use model::components::config::ComponentConfigModel;
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use serde_json::{
@@ -30,6 +30,7 @@ use serde_json::{
 use sync_types::CanonicalizedUdfPath;
 use value::{
     assert_obj,
+    ConvexObject,
     ConvexValue,
     TableName,
     TableNamespace,
@@ -221,13 +222,15 @@ async fn test_system_error_propagation(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
-    // Create a table in a new namespace
+    application.load_component_tests_modules("mounted").await?;
     let mut tx = application.begin(Identity::system()).await?;
-    let table_namespace = TableNamespace::test_component();
-    let mut component_config_model = ComponentConfigModel::new(&mut tx);
-    component_config_model
-        .initialize_component_namespace_for_test(ComponentId::from(table_namespace))
+    let mut components_model = BootstrapComponentsModel::new(&mut tx);
+    let (_, component_id) = components_model
+        .component_path_to_ids(component_path())
         .await?;
+
+    // Create a table in a new namespace
+    let table_namespace = TableNamespace::from(component_id);
     let mut user_facing_model = UserFacingModel::new(&mut tx, table_namespace);
     let table_name: TableName = "test".parse()?;
     user_facing_model
@@ -258,40 +261,72 @@ async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> 
     Ok(())
 }
 
-#[convex_macro::test_runtime]
-async fn test_unmount_and_remount_component(rt: TestRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
+async fn unmount_component(application: &Application<TestRuntime>) -> anyhow::Result<ComponentId> {
     application.load_component_tests_modules("mounted").await?;
-    let component_path = ComponentPath::deserialize(Some("component"))?;
     run_component_function(
-        &application,
+        application,
         "messages:insertMessage".parse()?,
-        vec![assert_obj!("channel" => "sports", "text" => "the celtics won!").into()],
-        component_path.clone(),
+        vec![example_message().into()],
+        component_path(),
     )
     .await??;
 
     // Unmount component
     application.load_component_tests_modules("empty").await?;
-
     let mut tx = application.begin(Identity::system()).await?;
     let mut components_model = BootstrapComponentsModel::new(&mut tx);
     let (_, component_id) = components_model
-        .component_path_to_ids(component_path.clone())
+        .component_path_to_ids(component_path())
         .await?;
+    Ok(component_id)
+}
+
+fn example_message() -> ConvexObject {
+    assert_obj!("channel" => "sports", "text" => "the celtics won!")
+}
+
+fn component_path() -> ComponentPath {
+    ComponentPath::deserialize(Some("component")).unwrap()
+}
+
+fn table_name() -> TableName {
+    "messages".parse().unwrap()
+}
+
+#[convex_macro::test_runtime]
+async fn test_unmounted_component_state(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let component_id = unmount_component(&application).await?;
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut components_model = BootstrapComponentsModel::new(&mut tx);
     let component = components_model
         .load_component(component_id)
         .await?
         .unwrap();
     assert!(matches!(component.state, ComponentState::Unmounted));
 
-    // Data should still exist in unmounted component tables
-    let mut table_model = TableModel::new(&mut tx);
-    let count = table_model
-        .count(component_id.into(), &"messages".parse()?)
-        .await?;
-    assert_eq!(count, 1);
+    // Remount the component
+    application.load_component_tests_modules("mounted").await?;
 
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut components_model = BootstrapComponentsModel::new(&mut tx);
+    // Component at the same path should be remounted with the same id.
+    let (_, new_component_id) = components_model
+        .component_path_to_ids(component_path())
+        .await?;
+    assert_eq!(component_id, new_component_id);
+    let component = components_model
+        .load_component(component_id)
+        .await?
+        .unwrap();
+    assert!(matches!(component.state, ComponentState::Active));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_unmount_cannot_call_functions(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    unmount_component(&application).await?;
     // Calling component function after the component is unmounted should fail
     let result = run_component_function(
         &application,
@@ -301,32 +336,33 @@ async fn test_unmount_and_remount_component(rt: TestRuntime) -> anyhow::Result<(
     )
     .await?;
     assert!(result.is_err());
+    Ok(())
+}
 
-    // Remount the component
-    application.load_component_tests_modules("mounted").await?;
-
+#[convex_macro::test_runtime]
+async fn test_writes_to_unmounted_tables_fails(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let component_id = unmount_component(&application).await?;
     let mut tx = application.begin(Identity::system()).await?;
-    let mut components_model = BootstrapComponentsModel::new(&mut tx);
-    let component = components_model
-        .load_component(component_id)
-        .await?
-        .unwrap();
-    assert!(matches!(component.state, ComponentState::Active));
+    let mut user_model = UserFacingModel::new(&mut tx, TableNamespace::from(component_id));
+    let error = user_model
+        .insert(table_name(), example_message())
+        .await
+        .unwrap_err();
+    assert!(error.is_bad_request());
+    assert_eq!(error.short_msg(), "UnmountedComponent");
+    Ok(())
+}
 
-    // Data should still exist in remounted component tables
+#[convex_macro::test_runtime]
+async fn test_data_exists_in_unmounted_components(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let component_id = unmount_component(&application).await?;
+    let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let count = table_model
-        .count(component_id.into(), &"messages".parse()?)
+        .count(component_id.into(), &table_name())
         .await?;
     assert_eq!(count, 1);
-
-    // Calling functions from the remounted component should work
-    run_component_function(
-        &application,
-        "messages:listMessages".parse()?,
-        vec![assert_obj!().into()],
-        ComponentPath::deserialize(Some("component"))?,
-    )
-    .await??;
     Ok(())
 }
