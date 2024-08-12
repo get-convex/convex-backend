@@ -33,6 +33,7 @@ export const list = queryPrivateSystem({
       name: doc.name,
       path: computeIdToPath(doc),
       args: Object.fromEntries(doc.args ?? []),
+      state: doc.state ?? "active",
     }));
   },
 });

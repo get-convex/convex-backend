@@ -252,6 +252,7 @@ export default defineSchema({
     parent: v.union(v.id("_components"), v.null()),
     name: v.union(v.string(), v.null()),
     args: v.union(v.array(v.any()), v.null()),
+    state: v.optional(v.union(v.literal("active"), v.literal("unmounted"))),
   }),
   _modules: defineTable({
     path: v.string(),
