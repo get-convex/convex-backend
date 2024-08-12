@@ -373,6 +373,10 @@ impl ErrorMetadata {
     }
 
     pub fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)> {
+        // Sentry considers errors invalid if this field is empty.
+        if self.short_msg.is_empty() {
+            return None;
+        }
         match self.code {
             ErrorCode::ClientDisconnect => None,
             ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.01))),
