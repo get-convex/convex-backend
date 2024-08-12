@@ -66,7 +66,6 @@ use common::{
         ResolvedDocumentId,
         Size,
         TableMapping,
-        VirtualTableMapping,
     },
     version::Version,
     virtual_system_mapping::VirtualSystemMapping,
@@ -230,10 +229,6 @@ impl<RT: Runtime> Transaction<RT> {
         self.metadata.table_mapping()
     }
 
-    pub fn virtual_table_mapping(&self) -> &VirtualTableMapping {
-        self.metadata.virtual_table_mapping()
-    }
-
     pub fn virtual_system_mapping(&self) -> &VirtualSystemMapping {
         &self.virtual_system_mapping
     }
@@ -247,12 +242,12 @@ impl<RT: Runtime> Transaction<RT> {
         table_filter: TableFilter,
     ) -> impl Fn(TableNumber) -> anyhow::Result<TableName> + '_ {
         let table_mapping = self.table_mapping().namespace(namespace);
-        let virtual_table_mapping = self.virtual_table_mapping().namespace(namespace);
+        let virtual_system_mapping = self.virtual_system_mapping().clone();
         move |number| {
-            if let Some(name) = virtual_table_mapping.name_if_exists(number) {
-                Ok(name)
+            let name = table_mapping.number_to_name()(number)?;
+            if let Some(virtual_name) = virtual_system_mapping.system_to_virtual_table(&name) {
+                Ok(virtual_name.clone())
             } else {
-                let name = table_mapping.number_to_name()(number)?;
                 match table_filter {
                     TableFilter::IncludePrivateSystemTables => {},
                     TableFilter::ExcludePrivateSystemTables => {
@@ -535,10 +530,6 @@ impl<RT: Runtime> Transaction<RT> {
                 Ok(id) => Some(id),
             };
         tablet_id.is_some_and(|id| self.table_mapping().is_system_tablet(id))
-            || self
-                .virtual_table_mapping()
-                .namespace(namespace)
-                .number_exists(table_number)
     }
 
     #[convex_macro::instrument_future]
@@ -775,6 +766,7 @@ impl<RT: Runtime> Transaction<RT> {
         );
 
         let is_new = !self
+            .metadata
             .virtual_table_mapping()
             .namespace(namespace)
             .name_exists(table_name);
@@ -835,11 +827,7 @@ impl<RT: Runtime> Transaction<RT> {
         }
         let result = match range_results.into_iter().next() {
             Some((_, doc, timestamp)) => {
-                let namespace = self.table_mapping().tablet_namespace(id.tablet_id)?;
-                let is_virtual_table = self
-                    .virtual_table_mapping()
-                    .namespace(namespace)
-                    .name_exists(&table_name);
+                let is_virtual_table = self.virtual_system_mapping().is_virtual_table(&table_name);
                 self.reads.record_read_document(
                     table_name,
                     doc.size(),

@@ -19,7 +19,10 @@ use common::{
         TabletIdAndTableNumber,
         VirtualTableMapping,
     },
-    virtual_system_mapping::VirtualSystemMapping,
+    virtual_system_mapping::{
+        all_tables_number_to_name,
+        VirtualSystemMapping,
+    },
 };
 use imbl::OrdMap;
 use indexing::index_registry::IndexRegistry;
@@ -198,13 +201,6 @@ impl TableRegistry {
                 // Virtual table creation
                 (None, Some(new_value)) => {
                     let metadata = VirtualTableMetadata::try_from(new_value.clone())?;
-                    if self
-                        .virtual_table_mapping
-                        .namespace(metadata.namespace)
-                        .name_exists(&metadata.name)
-                    {
-                        anyhow::bail!("Tried to create duplicate virtual table {new_value}");
-                    }
                     self.validate_table_number(
                         metadata.namespace,
                         metadata.number,
@@ -294,7 +290,7 @@ impl TableRegistry {
         &self.tablet_states
     }
 
-    pub fn virtual_table_mapping(&self) -> &VirtualTableMapping {
+    pub(crate) fn virtual_table_mapping(&self) -> &VirtualTableMapping {
         &self.virtual_table_mapping
     }
 
@@ -303,13 +299,7 @@ impl TableRegistry {
         namespace: TableNamespace,
     ) -> impl Fn(TableNumber) -> anyhow::Result<TableName> + '_ {
         let table_mapping = self.table_mapping().namespace(namespace);
-        let virtual_table_mapping = self.virtual_table_mapping().namespace(namespace);
-        move |number| {
-            if let Some(table_number) = virtual_table_mapping.name_if_exists(number) {
-                return Ok(table_number);
-            }
-            table_mapping.number_to_name()(number)
-        }
+        all_tables_number_to_name(&table_mapping, &self.virtual_system_mapping)
     }
 
     pub fn persistence_version(&self) -> PersistenceVersion {

@@ -15,7 +15,6 @@ use value::{
     TableNumber,
     TabletId,
     TabletIdAndTableNumber,
-    VirtualTableMapping,
 };
 
 use crate::{
@@ -54,7 +53,6 @@ pub struct TestIdGenerator {
     curr: u32,
     curr_table_number: TableNumber,
     table_mapping: TableMapping,
-    pub virtual_table_mapping: VirtualTableMapping,
     pub virtual_system_mapping: VirtualSystemMapping,
 }
 
@@ -78,7 +76,6 @@ impl TestIdGenerator {
             curr: 0,
             curr_table_number: TableNumber::MIN,
             table_mapping: TableMapping::new(),
-            virtual_table_mapping: VirtualTableMapping::new(),
             virtual_system_mapping: VirtualSystemMapping::default(),
         }
     }
@@ -149,20 +146,20 @@ impl TestIdGenerator {
 
     // For adding to virtual table mapping
     pub fn generate_virtual_table(&mut self, table_name: &TableName) -> TableNumber {
-        if let Ok(table_number) = self
-            .virtual_table_mapping
-            .namespace(TableNamespace::test_user())
-            .number(table_name)
+        if let Ok(physical_table_name) = self
+            .virtual_system_mapping
+            .virtual_to_system_table(table_name)
         {
-            return table_number;
+            if let Ok(id) = self
+                .table_mapping
+                .namespace(TableNamespace::test_user())
+                .name_to_id()(physical_table_name.clone())
+            {
+                return id.table_number;
+            }
         }
         let physical_table_name = format!("_physical_{table_name}").parse().unwrap();
         let table_number = self.system_table_id(&physical_table_name).table_number;
-        self.virtual_table_mapping.insert(
-            TableNamespace::test_user(),
-            table_number,
-            table_name.clone(),
-        );
         self.virtual_system_mapping.add_table(
             table_name,
             &physical_table_name,

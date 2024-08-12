@@ -1148,7 +1148,10 @@ mod tests {
             DocumentSchema,
         },
         testing::TestIdGenerator,
-        virtual_system_mapping::VirtualSystemMapping,
+        virtual_system_mapping::{
+            all_tables_name_to_number,
+            VirtualSystemMapping,
+        },
     };
 
     fn empty_table_mapping() -> NamespacedTableMapping {
@@ -1163,14 +1166,11 @@ mod tests {
         let value = match validator {
             Validator::Id(table_name) => {
                 let id = InternalId::MIN;
-                let namespaced_table_mapping = id_generator.namespace(TableNamespace::test_user());
-                let namespaced_virtual_table_mapping = id_generator
-                    .virtual_table_mapping
-                    .namespace(TableNamespace::test_user());
-                let table_number = match namespaced_table_mapping.name_to_id()(table_name.clone()) {
-                    Err(_) => namespaced_virtual_table_mapping.number(&table_name)?,
-                    Ok(id) => id.table_number,
-                };
+                let table_number = all_tables_name_to_number(
+                    TableNamespace::test_user(),
+                    id_generator,
+                    &id_generator.virtual_system_mapping,
+                )(table_name)?;
                 let doc_idv6 = DeveloperDocumentId::new(table_number, id);
                 ConvexValue::String(doc_idv6.encode().try_into()?)
             },
@@ -1761,13 +1761,13 @@ mod tests {
             )
         ) {
             let table_mapping = empty_table_mapping();
-            let virtual_table_mapping = VirtualSystemMapping::default();
+            let virtual_system_mapping = VirtualSystemMapping::default();
             let shape = CountedShape::<TestConfig>::empty().insert_value(&resolved_value);
-            let validator = Validator::from_shape(&shape, &table_mapping, &virtual_table_mapping);
+            let validator = Validator::from_shape(&shape, &table_mapping, &virtual_system_mapping);
             prop_assert!(validator.check_value(
                 &resolved_value,
                 &table_mapping,
-                &virtual_table_mapping
+                &virtual_system_mapping
             ).is_ok());
         }
     }

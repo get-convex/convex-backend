@@ -49,7 +49,6 @@ use database::{
     TransactionIdGenerator,
     TransactionIndex,
     TransactionTextSnapshot,
-    VIRTUAL_TABLES_TABLE,
 };
 use futures::{
     FutureExt,
@@ -73,8 +72,8 @@ use value::{
     },
     InternalId,
     TableName,
-    TableNamespace,
     TabletId,
+    VirtualTableMapping,
 };
 
 use super::metrics::{
@@ -286,30 +285,13 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             persistence_snapshot.persistence().version(),
         )?;
 
-        let virtual_tables_table = table_mapping
-            .namespace(TableNamespace::Global)
-            .id(&VIRTUAL_TABLES_TABLE)?;
-        let virtual_tables_by_id = index_registry
-            .must_get_by_id(virtual_tables_table.tablet_id)?
-            .id();
-        let virtual_tables = self
-            .must_get_or_load_unpacked(
-                instance_name.clone(),
-                virtual_tables_by_id,
-                &in_memory_index_last_modified,
-                persistence_snapshot.clone(),
-                virtual_tables_table.tablet_id,
-                VIRTUAL_TABLES_TABLE.clone(),
-            )
-            .await?
-            .map(|doc| doc.try_into())
-            .try_collect()?;
-        let virtual_table_mapping = DatabaseSnapshot::<RT>::virtual_table_mapping(virtual_tables);
         let table_registry = TableRegistry::bootstrap(
             table_mapping.clone(),
             table_states,
             persistence_snapshot.persistence().version(),
-            virtual_table_mapping,
+            // Virtual table mapping is only used when inserting virtual tables,
+            // which the function runner doesn't do.
+            VirtualTableMapping::new(),
             virtual_system_mapping(),
         )?;
         DatabaseSnapshot::<RT>::verify_invariants(&table_registry, &index_registry)?;

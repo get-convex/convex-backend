@@ -69,6 +69,8 @@ use common::{
         ConvexValue,
     },
     virtual_system_mapping::{
+        all_tables_name_to_number,
+        all_tables_number_to_name,
         NoopDocMapper,
         VirtualSystemMapping,
     },
@@ -1994,7 +1996,7 @@ async fn create_system_table_with_non_system_table_fails(rt: TestRuntime) -> any
 }
 
 #[convex_macro::test_runtime]
-async fn test_create_system_table_then_virtual_table(rt: TestRuntime) -> anyhow::Result<()> {
+async fn test_create_system_table_for_virtual_table(rt: TestRuntime) -> anyhow::Result<()> {
     let mut virtual_system_mapping = VirtualSystemMapping::default();
     virtual_system_mapping.add_table(
         &"_storage".parse()?,
@@ -2002,6 +2004,7 @@ async fn test_create_system_table_then_virtual_table(rt: TestRuntime) -> anyhow:
         BTreeMap::new(),
         Arc::new(NoopDocMapper),
     );
+    let virtual_system = virtual_system_mapping.clone();
     let db = DbFixtures::new_with_args(
         &rt,
         DbFixturesArgs {
@@ -2020,50 +2023,27 @@ async fn test_create_system_table_then_virtual_table(rt: TestRuntime) -> anyhow:
         Some(table_number),
     )
     .await?;
-    tx.create_virtual_table(
-        TableNamespace::test_user(),
-        &"_storage".parse()?,
-        Some(table_number),
-    )
-    .await?;
     db.commit(tx).await?;
 
     let mut tx = db.begin_system().await?;
-    let physical_table_number = tx
-        .table_mapping()
-        .namespace(TableNamespace::test_user())
-        .id(&"_file_storage".parse()?)?
-        .table_number;
-    let virtual_table_number = tx
-        .virtual_table_mapping()
-        .namespace(TableNamespace::test_user())
-        .number(&"_storage".parse()?)?;
+    let physical_table_number = all_tables_name_to_number(
+        TableNamespace::test_user(),
+        tx.table_mapping(),
+        &virtual_system,
+    )("_file_storage".parse()?)?;
+    let virtual_table_number = all_tables_name_to_number(
+        TableNamespace::test_user(),
+        tx.table_mapping(),
+        &virtual_system,
+    )("_storage".parse()?)?;
     assert_eq!(physical_table_number, table_number);
     assert_eq!(virtual_table_number, table_number);
+    let table_name = all_tables_number_to_name(
+        &tx.table_mapping().namespace(TableNamespace::test_user()),
+        &virtual_system,
+    )(table_number)?;
+    assert_eq!(table_name, "_storage".parse()?);
 
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn test_virtual_table_transaction(rt: TestRuntime) -> anyhow::Result<()> {
-    let db = new_test_database(rt).await;
-    let mut tx = db.begin_system().await?;
-    let table_name: TableName = "_test_virtual_table".parse()?;
-    let namespace = TableNamespace::test_user();
-    tx.create_virtual_table(namespace, &table_name, None)
-        .await?;
-    // Check that virtual table is available in the transaction before commit
-    assert!(tx
-        .virtual_table_mapping()
-        .namespace(namespace)
-        .name_exists(&table_name));
-    db.commit(tx).await?;
-    // Check that virtual table is available in a new transaction after commit
-    let tx2 = db.begin_system().await?;
-    assert!(tx2
-        .virtual_table_mapping()
-        .namespace(namespace)
-        .name_exists(&table_name));
     Ok(())
 }
 
