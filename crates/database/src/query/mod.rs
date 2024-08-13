@@ -137,7 +137,7 @@ pub enum QueryStreamNext {
 
 pub struct DeveloperQuery<RT: Runtime> {
     root: QueryNode,
-    query_fingerprint: QueryFingerprint,
+    query_fingerprint: Option<QueryFingerprint>,
     end_cursor: Option<Cursor>,
     _marker: PhantomData<RT>,
 }
@@ -167,11 +167,7 @@ impl<RT: Runtime> ResolvedQuery<RT> {
         tx: &mut Transaction<RT>,
         namespace: TableNamespace,
         query: Query,
-        start_cursor: Option<Cursor>,
-        end_cursor: Option<Cursor>,
-        maximum_rows_read: Option<usize>,
-        maximum_bytes_read: Option<usize>,
-        should_compute_split_cursor: bool,
+        pagination_options: PaginationOptions,
         version: Option<Version>,
         table_filter: TableFilter,
     ) -> anyhow::Result<Self> {
@@ -180,11 +176,7 @@ impl<RT: Runtime> ResolvedQuery<RT> {
                 tx,
                 namespace,
                 query,
-                start_cursor,
-                end_cursor,
-                maximum_rows_read,
-                maximum_bytes_read,
-                should_compute_split_cursor,
+                pagination_options,
                 version,
                 table_filter,
             )?,
@@ -200,11 +192,7 @@ impl<RT: Runtime> ResolvedQuery<RT> {
             tx,
             namespace,
             query,
-            None,
-            None,
-            None,
-            None,
-            false,
+            PaginationOptions::NoPagination,
             None,
             TableFilter::IncludePrivateSystemTables,
         )
@@ -220,11 +208,7 @@ impl<RT: Runtime> ResolvedQuery<RT> {
             tx,
             namespace,
             query,
-            None,
-            None,
-            None,
-            None,
-            false,
+            PaginationOptions::NoPagination,
             version,
             TableFilter::IncludePrivateSystemTables,
         )
@@ -245,6 +229,34 @@ impl<RT: Runtime> AsMut<DeveloperQuery<RT>> for ResolvedQuery<RT> {
     }
 }
 
+pub enum PaginationOptions {
+    /// For one-shot queries that don't need pagination.
+    /// e.g. `.collect()`, `.first()`, `.get()`
+    /// Such a query does not have a `cursor` so you can't construct a new query
+    /// for the next page.
+    NoPagination,
+    /// For manual pagination, usually internal within workers but could be used
+    /// when we know there is no reactivity, like in a oneshot query from the
+    /// client or from an action.
+    /// Such a query does have a `cursor` so you can fetch the next
+    /// page, but it does not have a `split_cursor` and you can't refetch the
+    /// query on the same range by passing in an `end_cursor`.
+    ManualPagination {
+        start_cursor: Option<Cursor>,
+        maximum_rows_read: Option<usize>,
+        maximum_bytes_read: Option<usize>,
+    },
+    /// For reactive pagination, when queries call `.paginate()`. Such a query
+    /// does have a `cursor` and a `split_cursor`, and you can refetch the query
+    /// on the same range by passing in an `end_cursor`.
+    ReactivePagination {
+        start_cursor: Option<Cursor>,
+        end_cursor: Option<Cursor>,
+        maximum_rows_read: Option<usize>,
+        maximum_bytes_read: Option<usize>,
+    },
+}
+
 impl<RT: Runtime> DeveloperQuery<RT> {
     pub fn new(
         tx: &mut Transaction<RT>,
@@ -256,11 +268,7 @@ impl<RT: Runtime> DeveloperQuery<RT> {
             tx,
             namespace,
             query,
-            None,
-            None,
-            None,
-            None,
-            false,
+            PaginationOptions::NoPagination,
             None,
             table_filter,
         )
@@ -277,27 +285,17 @@ impl<RT: Runtime> DeveloperQuery<RT> {
             tx,
             namespace,
             query,
-            None,
-            None,
-            None,
-            None,
-            false,
+            PaginationOptions::NoPagination,
             version,
             table_filter,
         )
     }
-}
 
-impl<RT: Runtime> DeveloperQuery<RT> {
     pub fn new_bounded(
         tx: &mut Transaction<RT>,
         namespace: TableNamespace,
         query: Query,
-        start_cursor: Option<Cursor>,
-        end_cursor: Option<Cursor>,
-        maximum_rows_read: Option<usize>,
-        maximum_bytes_read: Option<usize>,
-        should_compute_split_cursor: bool,
+        pagination_options: PaginationOptions,
         version: Option<Version>,
         table_filter: TableFilter,
     ) -> anyhow::Result<Self> {
@@ -330,24 +328,84 @@ impl<RT: Runtime> DeveloperQuery<RT> {
                 IndexedFields::try_from(Vec::new())?
             },
         };
-        let fingerprint = query.fingerprint(&indexed_fields)?;
-        let start_cursor_position = match start_cursor {
-            Some(cursor) => {
-                anyhow::ensure!(cursor.query_fingerprint == fingerprint, invalid_cursor());
-                Some(cursor.position)
-            },
-            None => None,
+        let should_compute_split_cursor = match &pagination_options {
+            PaginationOptions::NoPagination => false,
+            PaginationOptions::ManualPagination { .. } => false,
+            PaginationOptions::ReactivePagination { .. } => true,
         };
-        let end_cursor_position = match &end_cursor {
-            Some(cursor) => {
-                anyhow::ensure!(cursor.query_fingerprint == fingerprint, invalid_cursor());
-                Some(cursor.position.clone())
-            },
-            None => None,
+        let (maximum_rows_read, maximum_bytes_read) = match &pagination_options {
+            PaginationOptions::NoPagination => (None, None),
+            PaginationOptions::ManualPagination {
+                maximum_bytes_read,
+                maximum_rows_read,
+                ..
+            }
+            | PaginationOptions::ReactivePagination {
+                maximum_bytes_read,
+                maximum_rows_read,
+                ..
+            } => (*maximum_rows_read, *maximum_bytes_read),
         };
-        let cursor_interval = CursorInterval {
-            curr_exclusive: start_cursor_position,
-            end_inclusive: end_cursor_position,
+        // Fingerprint makes sure that a cursor is only used with the same
+        // query. So you can fetch the next page of a query, but if the query
+        // changes, we don't start returning bogus results.
+        // e.g.
+        // ```
+        // const user = await db.get(args.userId);
+        // const emails = await db.query("emails")
+        //   .withIndex("address", q=>q.eq("address", user.emailAddress))
+        //   .paginate(opts);
+        // ```
+        // If the user changes their email address, we don't want to continue
+        // using the same cursors.
+        let fingerprint = match &pagination_options {
+            PaginationOptions::NoPagination => None,
+            PaginationOptions::ManualPagination { .. }
+            | PaginationOptions::ReactivePagination { .. } => {
+                // Calculating fingerprint is expensive, so only do it if we're
+                // paginating.
+                Some(query.fingerprint(&indexed_fields)?)
+            },
+        };
+        let end_cursor = match &pagination_options {
+            PaginationOptions::NoPagination
+            | PaginationOptions::ManualPagination { .. }
+            | PaginationOptions::ReactivePagination {
+                end_cursor: None, ..
+            } => None,
+            PaginationOptions::ReactivePagination {
+                end_cursor: Some(end_cursor),
+                ..
+            } => {
+                anyhow::ensure!(
+                    Some(&end_cursor.query_fingerprint) == fingerprint.as_ref(),
+                    invalid_cursor()
+                );
+                Some(end_cursor.clone())
+            },
+        };
+        let cursor_interval = match pagination_options {
+            PaginationOptions::NoPagination => CursorInterval {
+                curr_exclusive: None,
+                end_inclusive: None,
+            },
+            PaginationOptions::ManualPagination { start_cursor, .. }
+            | PaginationOptions::ReactivePagination { start_cursor, .. } => {
+                let start_cursor_position = match start_cursor {
+                    Some(cursor) => {
+                        anyhow::ensure!(
+                            Some(cursor.query_fingerprint) == fingerprint,
+                            invalid_cursor()
+                        );
+                        Some(cursor.position)
+                    },
+                    None => None,
+                };
+                CursorInterval {
+                    curr_exclusive: start_cursor_position,
+                    end_inclusive: end_cursor.as_ref().map(|cursor| cursor.position.clone()),
+                }
+            },
         };
 
         let mut cur_node = match query.source {
@@ -417,12 +475,13 @@ impl<RT: Runtime> DeveloperQuery<RT> {
     /// Get the current cursor for the query.
     ///
     /// Will be `None` if there was no initial cursor and `next` has
-    /// never been called.
+    /// never been called,
+    /// or if the query was created with PaginationOptions::NoPagination.
     pub fn cursor(&self) -> Option<Cursor> {
         match self.root.cursor_position().clone() {
             Some(position) => Some(Cursor {
                 position,
-                query_fingerprint: self.query_fingerprint.clone(),
+                query_fingerprint: self.query_fingerprint.clone()?,
             }),
             None => None,
         }
@@ -432,14 +491,10 @@ impl<RT: Runtime> DeveloperQuery<RT> {
         match self.root.split_cursor_position().cloned() {
             Some(position) => Some(Cursor {
                 position,
-                query_fingerprint: self.query_fingerprint.clone(),
+                query_fingerprint: self.query_fingerprint.clone()?,
             }),
             None => None,
         }
-    }
-
-    pub fn fingerprint(&self) -> &QueryFingerprint {
-        &self.query_fingerprint
     }
 
     pub fn is_approaching_data_limit(&self) -> bool {

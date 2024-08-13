@@ -40,6 +40,7 @@ use common::{
 use database::{
     query::{
         query_batch_next,
+        PaginationOptions,
         TableFilter,
     },
     soft_data_limit,
@@ -1423,11 +1424,12 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 tx,
                 component.into(),
                 parsed_query,
-                start_cursor,
-                end_cursor,
-                args.maximum_rows_read,
-                args.maximum_bytes_read,
-                true,
+                PaginationOptions::ReactivePagination {
+                    start_cursor,
+                    end_cursor,
+                    maximum_rows_read: args.maximum_rows_read,
+                    maximum_bytes_read: args.maximum_bytes_read,
+                },
                 version,
                 table_filter,
             )?;

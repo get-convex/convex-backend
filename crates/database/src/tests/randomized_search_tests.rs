@@ -97,6 +97,10 @@ use crate::{
         search_compactor::CompactionConfig,
         writer::SearchIndexMetadataWriter,
     },
+    query::{
+        PaginationOptions,
+        TableFilter,
+    },
     search_index_bootstrap::FINISHED_BOOTSTRAP_UPDATES,
     test_helpers::{
         DbFixtures,
@@ -306,12 +310,29 @@ impl Scenario {
         };
 
         let mut query_stream = match version {
-            SearchVersion::V1 => ResolvedQuery::new(&mut tx, self.namespace, query)?,
-            SearchVersion::V2 => ResolvedQuery::new_with_version(
+            SearchVersion::V1 => ResolvedQuery::new_bounded(
                 &mut tx,
                 self.namespace,
                 query,
+                PaginationOptions::ManualPagination {
+                    start_cursor: None,
+                    maximum_rows_read: None,
+                    maximum_bytes_read: None,
+                },
+                None,
+                TableFilter::ExcludePrivateSystemTables,
+            )?,
+            SearchVersion::V2 => ResolvedQuery::new_bounded(
+                &mut tx,
+                self.namespace,
+                query,
+                PaginationOptions::ManualPagination {
+                    start_cursor: None,
+                    maximum_rows_read: None,
+                    maximum_bytes_read: None,
+                },
                 Some(MIN_NPM_VERSION_FOR_FUZZY_SEARCH.clone()),
+                TableFilter::ExcludePrivateSystemTables,
             )?,
         };
         let mut returned = Vec::new();

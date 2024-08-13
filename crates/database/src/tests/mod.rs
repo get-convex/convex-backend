@@ -104,6 +104,7 @@ use crate::{
         IndexWriter,
     },
     query::{
+        PaginationOptions,
         ResolvedQuery,
         TableFilter,
     },
@@ -905,7 +906,18 @@ async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
     let query2 = Query::full_table_scan("table2".parse()?, Order::Asc);
 
     // Get a cursor from query 1.
-    let mut compiled_query1 = ResolvedQuery::new(&mut tx, namespace, query1.clone())?;
+    let mut compiled_query1 = ResolvedQuery::new_bounded(
+        &mut tx,
+        namespace,
+        query1.clone(),
+        PaginationOptions::ManualPagination {
+            start_cursor: None,
+            maximum_rows_read: None,
+            maximum_bytes_read: None,
+        },
+        None,
+        TableFilter::ExcludePrivateSystemTables,
+    )?;
     compiled_query1.next(&mut tx, None).await?;
     let cursor1 = compiled_query1.cursor();
 
@@ -914,11 +926,11 @@ async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
         &mut tx,
         namespace,
         query1,
-        cursor1.clone(),
-        None,
-        None,
-        None,
-        false,
+        PaginationOptions::ManualPagination {
+            start_cursor: cursor1.clone(),
+            maximum_rows_read: None,
+            maximum_bytes_read: None,
+        },
         None,
         TableFilter::IncludePrivateSystemTables,
     )?;
@@ -928,11 +940,11 @@ async fn test_query_cursor_reuse(rt: TestRuntime) -> anyhow::Result<()> {
         &mut tx,
         namespace,
         query2,
-        cursor1,
-        None,
-        None,
-        None,
-        false,
+        PaginationOptions::ManualPagination {
+            start_cursor: cursor1,
+            maximum_rows_read: None,
+            maximum_bytes_read: None,
+        },
         None,
         TableFilter::IncludePrivateSystemTables,
     )
