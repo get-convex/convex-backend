@@ -9,6 +9,7 @@ message ValidatedPathAndArgs {
   optional bytes args = 2;
   optional string npm_version = 3;
   optional ComponentPath component_path = 4;
+  optional string component_id = 5;
 }
 
 message ComponentPath {

@@ -24,6 +24,7 @@ pub use self::{
         ComponentFunctionPath,
         ExportPath,
         PublicFunctionPath,
+        ResolvedComponentFunctionPath,
     },
     module_paths::CanonicalizedComponentModulePath,
     reference::Reference,

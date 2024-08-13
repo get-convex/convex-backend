@@ -12,6 +12,7 @@ use common::{
         CanonicalizedComponentFunctionPath,
         CanonicalizedComponentModulePath,
         ComponentId,
+        ResolvedComponentFunctionPath,
     },
     document::{
         ParsedDocument,
@@ -278,6 +279,18 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Ok(module_metadata)
     }
 
+    pub async fn get_metadata_for_function_by_id(
+        &mut self,
+        path: &ResolvedComponentFunctionPath,
+    ) -> anyhow::Result<Option<ParsedDocument<ModuleMetadata>>> {
+        let module_path = CanonicalizedComponentModulePath {
+            component: path.component,
+            module_path: path.udf_path.module().clone(),
+        };
+        let module_metadata = self.get_metadata(module_path).await?;
+        Ok(module_metadata)
+    }
+
     /// Helper function to get a module at the latest version.
     pub async fn get_metadata(
         &mut self,
@@ -412,6 +425,45 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
         let udf_path = &path.udf_path;
         let Some(module) = self.get_metadata_for_function(path.clone()).await? else {
+            let err = ModuleNotFoundError::new(udf_path.module().as_str());
+            return Ok(Err(ErrorMetadata::bad_request(
+                "ModuleNotFound",
+                err.to_string(),
+            )
+            .into()));
+        };
+
+        // Dependency modules don't have AnalyzedModule.
+        if !udf_path.module().is_deps() {
+            let analyzed_module = module
+                .analyze_result
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("Expected analyze result for {udf_path:?}"))?;
+
+            for function in &analyzed_module.functions {
+                if &function.name == udf_path.function_name() {
+                    return Ok(Ok(function.clone()));
+                }
+            }
+        }
+
+        Ok(Err(ErrorMetadata::bad_request(
+            "FunctionNotFound",
+            FunctionNotFoundError::new(udf_path.function_name(), udf_path.module().as_str())
+                .to_string(),
+        )
+        .into()))
+    }
+
+    // Helper method that returns the AnalyzedFunction for the specified path.
+    // It returns a user error if the module or function does not exist.
+    // Note that using this method will error if AnalyzedResult is not backfilled,
+    pub async fn get_analyzed_function_by_id(
+        &mut self,
+        path: &ResolvedComponentFunctionPath,
+    ) -> anyhow::Result<anyhow::Result<AnalyzedFunction>> {
+        let udf_path = &path.udf_path;
+        let Some(module) = self.get_metadata_for_function_by_id(path).await? else {
             let err = ModuleNotFoundError::new(udf_path.module().as_str());
             return Ok(Err(ErrorMetadata::bad_request(
                 "ModuleNotFound",

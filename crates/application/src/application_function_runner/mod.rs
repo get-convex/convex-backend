@@ -23,6 +23,7 @@ use common::{
     },
     components::{
         CanonicalizedComponentFunctionPath,
+        CanonicalizedComponentModulePath,
         ComponentDefinitionPath,
         ComponentId,
         ComponentName,
@@ -76,7 +77,6 @@ use common::{
 };
 use database::{
     unauthorized_error,
-    BootstrapComponentsModel,
     Database,
     Token,
     Transaction,
@@ -1023,9 +1023,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             FunctionOutcome::Mutation(o) => o,
             _ => anyhow::bail!("Received non-mutation outcome for mutation"),
         };
-        let (_, component) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids(path.component.clone())
-            .await?;
+        let component = path.component;
 
         let table_mapping = tx.table_mapping().namespace(component.into());
 
@@ -1185,9 +1183,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             },
         };
 
-        let (_, component) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids(path_and_args.path().component.clone())
-            .await?;
+        let component = path_and_args.path().component;
 
         // We should use table mappings from the same transaction as the output
         // validator was retrieved.
@@ -1198,7 +1194,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // which requires the module to exist.
         let path = path_and_args.path().clone();
         let module = ModuleModel::new(&mut tx)
-            .get_metadata_for_function(path.clone())
+            .get_metadata_for_function_by_id(&path)
             .await?
             .context("Missing a valid module")?;
         let (log_line_sender, log_line_receiver) = mpsc::unbounded();
@@ -1218,7 +1214,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     log_line_receiver,
                     |log_line| {
                         self.function_log.log_action_progress(
-                            path.clone(),
+                            path.clone().for_logging(),
                             unix_timestamp,
                             context.clone(),
                             vec![log_line].into(),
@@ -1251,9 +1247,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             ModuleEnvironment::Node => {
                 // We should not be missing the module given we validated the path above
                 // which requires the module to exist.
-                let module_path = BootstrapComponentsModel::new(&mut tx)
-                    .function_path_to_module(path.clone())
-                    .await?;
+                let module_path = CanonicalizedComponentModulePath {
+                    component: path.component,
+                    module_path: path.udf_path.module().clone(),
+                };
                 let module_version = self
                     .module_cache
                     .get_module(&mut tx, module_path.clone())
@@ -1336,7 +1333,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     log_line_receiver,
                     |log_line| {
                         self.function_log.log_action_progress(
-                            path.clone(),
+                            path.clone().for_logging(),
                             unix_timestamp,
                             context.clone(),
                             vec![log_line].into(),
@@ -1362,7 +1359,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
                 node_outcome_result.map(|node_outcome| {
                     let outcome = ActionOutcome {
-                        path: path.clone(),
+                        path: path.clone().for_logging(),
                         arguments: arguments.clone(),
                         identity: tx.inert_identity(),
                         unix_timestamp,
@@ -1393,7 +1390,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             Err(e) if e.is_deterministic_user_error() => {
                 let outcome = ValidatedActionOutcome::from_error(
                     JsError::from_error(e),
-                    path,
+                    path.for_logging(),
                     arguments,
                     inert_identity,
                     self.runtime.clone(),

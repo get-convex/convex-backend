@@ -13,12 +13,31 @@ use value::heap_size::HeapSize;
 
 use super::{
     component_definition_path::ComponentDefinitionPath,
+    ComponentId,
     ComponentPath,
 };
 
 pub struct ComponentDefinitionFunctionPath {
     pub component: ComponentDefinitionPath,
     pub udf_path: UdfPath,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct ResolvedComponentFunctionPath {
+    pub component: ComponentId,
+    pub udf_path: CanonicalizedUdfPath,
+    // For error messages and logging.
+    pub component_path: Option<ComponentPath>,
+}
+
+impl ResolvedComponentFunctionPath {
+    pub fn for_logging(self) -> CanonicalizedComponentFunctionPath {
+        CanonicalizedComponentFunctionPath {
+            component: self.component_path.unwrap_or_else(ComponentPath::root),
+            udf_path: self.udf_path,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -184,6 +203,7 @@ impl HeapSize for ExportPath {
 pub enum PublicFunctionPath {
     RootExport(ExportPath),
     Component(CanonicalizedComponentFunctionPath),
+    ResolvedComponent(ResolvedComponentFunctionPath),
 }
 
 impl PublicFunctionPath {
@@ -191,6 +211,7 @@ impl PublicFunctionPath {
         match self {
             PublicFunctionPath::RootExport(path) => path.is_system(),
             PublicFunctionPath::Component(path) => path.udf_path.is_system(),
+            PublicFunctionPath::ResolvedComponent(path) => path.udf_path.is_system(),
         }
     }
 
@@ -198,6 +219,7 @@ impl PublicFunctionPath {
         match self {
             PublicFunctionPath::RootExport(path) => path.udf_path(),
             PublicFunctionPath::Component(path) => &path.udf_path,
+            PublicFunctionPath::ResolvedComponent(path) => &path.udf_path,
         }
     }
 
@@ -208,6 +230,7 @@ impl PublicFunctionPath {
                 udf_path: path.into(),
             },
             PublicFunctionPath::Component(path) => path,
+            PublicFunctionPath::ResolvedComponent(path) => path.for_logging(),
         }
     }
 }
@@ -217,6 +240,7 @@ impl HeapSize for PublicFunctionPath {
         match self {
             PublicFunctionPath::RootExport(path) => path.heap_size(),
             PublicFunctionPath::Component(path) => path.heap_size(),
+            PublicFunctionPath::ResolvedComponent(path) => path.udf_path.heap_size(),
         }
     }
 }

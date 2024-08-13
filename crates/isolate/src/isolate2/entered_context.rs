@@ -1,8 +1,9 @@
 use anyhow::anyhow;
 use common::{
     components::{
-        CanonicalizedComponentFunctionPath,
+        ComponentId,
         ComponentPath,
+        ResolvedComponentFunctionPath,
     },
     errors::JsError,
     types::UdfType,
@@ -321,9 +322,10 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         // before collecting what it's blocked on.
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
-        let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::TODO(),
+        let path = ResolvedComponentFunctionPath {
+            component: ComponentId::TODO(),
             udf_path: udf_path.clone(),
+            component_path: Some(ComponentPath::TODO()),
         };
         let evaluate_result = self.check_promise_result(&path, &promise)?;
         Ok((v8::Global::new(self.scope, promise), evaluate_result))
@@ -428,16 +430,17 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
         let promise = v8::Local::new(self.scope, &pending_function.promise);
-        let path = CanonicalizedComponentFunctionPath {
-            component: ComponentPath::TODO(),
+        let path = ResolvedComponentFunctionPath {
+            component: ComponentId::TODO(),
             udf_path: pending_function.udf_path.clone(),
+            component_path: Some(ComponentPath::TODO()),
         };
         self.check_promise_result(&path, &promise)
     }
 
     fn check_promise_result(
         &mut self,
-        path: &CanonicalizedComponentFunctionPath,
+        path: &ResolvedComponentFunctionPath,
         promise: &v8::Local<v8::Promise>,
     ) -> anyhow::Result<EvaluateResult> {
         let context = self.context_state_mut()?;

@@ -9,7 +9,6 @@ use common::{
     bootstrap_model::components::handles::FunctionHandle,
     components::{
         ComponentId,
-        ComponentPath,
         Reference,
         Resource,
     },
@@ -81,7 +80,7 @@ use crate::{
 /// and environment variables), and all writes will be handled in their own
 /// separate transactions.
 pub struct ActionPhase<RT: Runtime> {
-    component: ComponentPath,
+    component: ComponentId,
     phase: Phase,
     pub rt: RT,
     preloaded: ActionPreloaded<RT>,
@@ -93,7 +92,6 @@ enum ActionPreloaded<RT: Runtime> {
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
-        component_id: Arc<Mutex<Option<ComponentId>>>,
         function_handles: Arc<Mutex<BTreeMap<CanonicalizedUdfPath, FunctionHandle>>>,
     },
     Preloading,
@@ -109,12 +107,11 @@ enum ActionPreloaded<RT: Runtime> {
 impl<RT: Runtime> ActionPhase<RT> {
     pub fn new(
         rt: RT,
-        component: ComponentPath,
+        component: ComponentId,
         tx: Transaction<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
-        component_id: Arc<Mutex<Option<ComponentId>>>,
         function_handles: Arc<Mutex<BTreeMap<CanonicalizedUdfPath, FunctionHandle>>>,
     ) -> Self {
         Self {
@@ -126,7 +123,6 @@ impl<RT: Runtime> ActionPhase<RT> {
                 module_loader,
                 system_env_vars,
                 resources,
-                component_id,
                 function_handles,
             },
         }
@@ -146,22 +142,13 @@ impl<RT: Runtime> ActionPhase<RT> {
             module_loader,
             system_env_vars,
             resources,
-            component_id,
             function_handles,
         } = preloaded
         else {
             anyhow::bail!("ActionPhase initialized twice");
         };
 
-        let component_id = with_release_permit(timeout, permit_slot, async {
-            let (_, component) = BootstrapComponentsModel::new(&mut tx)
-                .component_path_to_ids(self.component.clone())
-                .await?;
-            let mut component_id = component_id.lock();
-            *component_id = Some(component);
-            anyhow::Ok(component)
-        })
-        .await?;
+        let component_id = self.component;
 
         let udf_config = with_release_permit(
             timeout,
@@ -261,8 +248,8 @@ impl<RT: Runtime> ActionPhase<RT> {
         Ok(())
     }
 
-    pub fn component_path(&self) -> &ComponentPath {
-        &self.component
+    pub fn component(&self) -> ComponentId {
+        self.component
     }
 
     pub fn get_module(

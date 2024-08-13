@@ -5,6 +5,7 @@ use common::{
         ComponentId,
         ComponentPath,
         PublicFunctionPath,
+        ResolvedComponentFunctionPath,
     },
     errors::JsError,
     identity::InertIdentity,
@@ -55,6 +56,8 @@ use proptest::arbitrary::Arbitrary;
 use proptest::strategy::Strategy;
 use rand::Rng;
 use serde_json::Value as JsonValue;
+#[cfg(any(test, feature = "testing"))]
+use sync_types::CanonicalizedUdfPath;
 use value::{
     heap_size::HeapSize,
     ConvexArray,
@@ -155,11 +158,10 @@ fn missing_or_internal_error(path: PublicFunctionPath) -> anyhow::Result<String>
 }
 
 async fn udf_version<RT: Runtime>(
-    path: &CanonicalizedComponentFunctionPath,
-    component: ComponentId,
+    path: &ResolvedComponentFunctionPath,
     tx: &mut Transaction<RT>,
 ) -> anyhow::Result<Result<Version, JsError>> {
-    let udf_config = UdfConfigModel::new(tx, component.into()).get().await?;
+    let udf_config = UdfConfigModel::new(tx, path.component.into()).get().await?;
 
     let udf_version = match udf_config {
         Some(udf_config) if udf_config.server_version > DEPRECATION_THRESHOLD.npm.unsupported => {
@@ -168,7 +170,7 @@ async fn udf_version<RT: Runtime>(
         _ => {
             if udf_config.is_none()
                 && ModuleModel::new(tx)
-                    .get_analyzed_function(path)
+                    .get_analyzed_function_by_id(path)
                     .await?
                     .is_err()
             {
@@ -176,7 +178,7 @@ async fn udf_version<RT: Runtime>(
                 // Likely this developer has never pushed before, so give them
                 // the missing error message.
                 return Ok(Err(JsError::from_message(missing_or_internal_error(
-                    PublicFunctionPath::Component(path.clone()),
+                    PublicFunctionPath::ResolvedComponent(path.clone()),
                 )?)));
             }
 
@@ -206,7 +208,7 @@ async fn udf_version<RT: Runtime>(
 #[derive(Clone, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub struct ValidatedPathAndArgs {
-    path: CanonicalizedComponentFunctionPath,
+    path: ResolvedComponentFunctionPath,
     args: ConvexArray,
     // Not set for system modules.
     npm_version: Option<Version>,
@@ -223,9 +225,10 @@ impl Arbitrary for ValidatedPathAndArgs {
 
         any::<(sync_types::CanonicalizedUdfPath, ConvexArray)>().prop_map(|(udf_path, args)| {
             ValidatedPathAndArgs {
-                path: CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::test_user(),
+                path: ResolvedComponentFunctionPath {
+                    component: ComponentId::test_user(),
                     udf_path,
+                    component_path: Some(ComponentPath::test_user()),
                 },
                 args,
                 npm_version: None,
@@ -264,11 +267,22 @@ impl ValidatedPathAndArgs {
     ) -> anyhow::Result<Result<(ValidatedPathAndArgs, ReturnsValidator), JsError>> {
         if public_path.is_system() {
             let path = match public_path {
-                PublicFunctionPath::RootExport(path) => CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::root(),
+                PublicFunctionPath::RootExport(path) => ResolvedComponentFunctionPath {
+                    component: ComponentId::Root,
                     udf_path: path.into(),
+                    component_path: Some(ComponentPath::root()),
                 },
-                PublicFunctionPath::Component(path) => path,
+                PublicFunctionPath::Component(path) => {
+                    let (_, component) = BootstrapComponentsModel::new(tx)
+                        .component_path_to_ids(path.component.clone())
+                        .await?;
+                    ResolvedComponentFunctionPath {
+                        component,
+                        udf_path: path.udf_path,
+                        component_path: Some(path.component),
+                    }
+                },
+                PublicFunctionPath::ResolvedComponent(path) => path,
             };
             // We don't analyze system modules, so we don't validate anything
             // except the identity for them.
@@ -304,11 +318,34 @@ impl ValidatedPathAndArgs {
 
         let maybe_path = match public_path.clone() {
             PublicFunctionPath::RootExport(path) => {
-                ComponentsModel::new(tx)
+                match ComponentsModel::new(tx)
                     .resolve_public_export_path(path)
                     .await?
+                {
+                    Some(path) => {
+                        let (_, component) = BootstrapComponentsModel::new(tx)
+                            .component_path_to_ids(path.component.clone())
+                            .await?;
+                        Some(ResolvedComponentFunctionPath {
+                            component,
+                            udf_path: path.udf_path,
+                            component_path: Some(path.component),
+                        })
+                    },
+                    None => None,
+                }
             },
-            PublicFunctionPath::Component(path) => Some(path),
+            PublicFunctionPath::Component(path) => {
+                let (_, component) = BootstrapComponentsModel::new(tx)
+                    .component_path_to_ids(path.component.clone())
+                    .await?;
+                Some(ResolvedComponentFunctionPath {
+                    component,
+                    udf_path: path.udf_path,
+                    component_path: Some(path.component),
+                })
+            },
+            PublicFunctionPath::ResolvedComponent(path) => Some(path),
         };
         let Some(path) = maybe_path else {
             return Ok(Err(JsError::from_message(missing_or_internal_error(
@@ -316,11 +353,7 @@ impl ValidatedPathAndArgs {
             )?)));
         };
 
-        let (_, component) = BootstrapComponentsModel::new(tx)
-            .component_path_to_ids(path.component.clone())
-            .await?;
-
-        let udf_version = match udf_version(&path, component, tx).await? {
+        let udf_version = match udf_version(&path, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };
@@ -328,7 +361,10 @@ impl ValidatedPathAndArgs {
         // AnalyzeResult result should be populated for all supported versions.
         //
         //
-        let Ok(analyzed_function) = ModuleModel::new(tx).get_analyzed_function(&path).await? else {
+        let Ok(analyzed_function) = ModuleModel::new(tx)
+            .get_analyzed_function_by_id(&path)
+            .await?
+        else {
             return Ok(Err(JsError::from_message(missing_or_internal_error(
                 public_path,
             )?)));
@@ -344,7 +380,6 @@ impl ValidatedPathAndArgs {
             allowed_visibility,
             tx,
             path,
-            component,
             args,
             expected_udf_type,
             analyzed_function,
@@ -360,8 +395,7 @@ impl ValidatedPathAndArgs {
     fn new_inner<RT: Runtime>(
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,
-        path: CanonicalizedComponentFunctionPath,
-        component: ComponentId,
+        path: ResolvedComponentFunctionPath,
         args: ConvexArray,
         expected_udf_type: UdfType,
         analyzed_function: AnalyzedFunction,
@@ -377,25 +411,24 @@ impl ValidatedPathAndArgs {
                     Some(Visibility::Public) => (),
                     Some(Visibility::Internal) => {
                         return Ok(Err(JsError::from_message(missing_or_internal_error(
-                            PublicFunctionPath::Component(path),
+                            PublicFunctionPath::ResolvedComponent(path),
                         )?)));
                     },
                     None => {
                         anyhow::bail!(
                             "No visibility found for analyzed function {}{}",
                             path.udf_path,
-                            path.component.in_component_str(),
+                            path.clone().for_logging().component.in_component_str(),
                         );
                     },
                 },
             },
         };
         if expected_udf_type != analyzed_function.udf_type {
-            anyhow::ensure!(path.component.is_root());
             return Ok(Err(JsError::from_message(format!(
                 "Trying to execute {}{} as {}, but it is defined as {}.",
                 path.udf_path,
-                path.component.in_component_str(),
+                path.clone().for_logging().component.in_component_str(),
                 expected_udf_type,
                 analyzed_function.udf_type
             ))));
@@ -406,7 +439,7 @@ impl ValidatedPathAndArgs {
             Err(err) => return Ok(Err(err)),
         }
 
-        let table_mapping = &tx.table_mapping().namespace(component.into());
+        let table_mapping = &tx.table_mapping().namespace(path.component.into());
 
         // If the UDF has an args validator, check that these args match.
         let args_validation_error =
@@ -429,28 +462,42 @@ impl ValidatedPathAndArgs {
 
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_tests(
+        udf_path: CanonicalizedUdfPath,
+        args: ConvexArray,
+        npm_version: Option<Version>,
+    ) -> Self {
+        Self::new_for_tests_in_component(
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::test_user(),
+                udf_path,
+            },
+            args,
+            npm_version,
+        )
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn new_for_tests_in_component(
         path: CanonicalizedComponentFunctionPath,
         args: ConvexArray,
         npm_version: Option<Version>,
     ) -> Self {
         Self {
-            path,
+            path: ResolvedComponentFunctionPath {
+                component: ComponentId::test_user(),
+                udf_path: path.udf_path,
+                component_path: Some(path.component),
+            },
             args,
             npm_version,
         }
     }
 
-    pub fn path(&self) -> &CanonicalizedComponentFunctionPath {
+    pub fn path(&self) -> &ResolvedComponentFunctionPath {
         &self.path
     }
 
-    pub fn consume(
-        self,
-    ) -> (
-        CanonicalizedComponentFunctionPath,
-        ConvexArray,
-        Option<Version>,
-    ) {
+    pub fn consume(self) -> (ResolvedComponentFunctionPath, ConvexArray, Option<Version>) {
         (self.path, self.args, self.npm_version)
     }
 
@@ -464,19 +511,22 @@ impl ValidatedPathAndArgs {
             args,
             npm_version,
             component_path,
+            component_id,
         }: pb::common::ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
         let args_json: JsonValue =
             serde_json::from_slice(&args.ok_or_else(|| anyhow::anyhow!("Missing args"))?)?;
         let args_value = ConvexValue::try_from(args_json)?;
         let args = ConvexArray::try_from(args_value)?;
-        let component = component_path
+        let component = ComponentId::deserialize_from_string(component_id.as_deref())?;
+        let component_path = component_path
             .context("Missing component path")?
             .try_into()?;
         Ok(Self {
-            path: CanonicalizedComponentFunctionPath {
+            path: ResolvedComponentFunctionPath {
                 component,
                 udf_path: path.context("Missing udf_path")?.parse()?,
+                component_path: Some(component_path),
             },
             args,
             npm_version: npm_version.map(|v| Version::parse(&v)).transpose()?,
@@ -496,12 +546,15 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
     ) -> anyhow::Result<Self> {
         let args_json = JsonValue::from(args);
         let args = serde_json::to_vec(&args_json)?;
-        let component_path = Some(path.component.into());
+        let component_path = path
+            .component_path
+            .map(|component_path| component_path.into());
         Ok(Self {
             path: Some(path.udf_path.to_string()),
             args: Some(args),
             npm_version: npm_version.map(|v| v.to_string()),
             component_path,
+            component_id: path.component.serialize_to_string(),
         })
     }
 }
@@ -511,7 +564,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
 /// This should only be constructed via `ValidatedHttpRoute::try_from` to use
 /// the type system to enforce that validation is never skipped.
 pub struct ValidatedHttpPath {
-    path: CanonicalizedComponentFunctionPath,
+    path: ResolvedComponentFunctionPath,
     npm_version: Option<Version>,
 }
 
@@ -528,9 +581,10 @@ impl ValidatedHttpPath {
                 .await?;
         }
         Ok(Self {
-            path: CanonicalizedComponentFunctionPath {
-                component: ComponentPath::test_user(),
+            path: ResolvedComponentFunctionPath {
+                component: ComponentId::test_user(),
                 udf_path,
+                component_path: Some(ComponentPath::test_user()),
             },
             npm_version,
         })
@@ -554,7 +608,12 @@ impl ValidatedHttpPath {
         let (_, component) = BootstrapComponentsModel::new(tx)
             .component_path_to_ids(path.component.clone())
             .await?;
-        let udf_version = match udf_version(&path, component, tx).await? {
+        let path = ResolvedComponentFunctionPath {
+            component,
+            udf_path: path.udf_path,
+            component_path: Some(path.component),
+        };
+        let udf_version = match udf_version(&path, tx).await? {
             Ok(udf_version) => udf_version,
             Err(e) => return Ok(Err(e)),
         };
@@ -568,7 +627,7 @@ impl ValidatedHttpPath {
         &self.npm_version
     }
 
-    pub fn path(&self) -> &CanonicalizedComponentFunctionPath {
+    pub fn path(&self) -> &ResolvedComponentFunctionPath {
         &self.path
     }
 }
@@ -620,7 +679,7 @@ pub struct ValidatedUdfOutcome {
 
 impl HeapSize for ValidatedUdfOutcome {
     fn heap_size(&self) -> usize {
-        self.path.heap_size()
+        self.path.udf_path.heap_size()
             + self.arguments.heap_size()
             + self.identity.heap_size()
             + self.log_lines.heap_size()

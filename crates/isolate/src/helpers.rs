@@ -1,6 +1,6 @@
 use anyhow::Context;
 use common::{
-    components::CanonicalizedComponentFunctionPath,
+    components::ResolvedComponentFunctionPath,
     errors::JsError,
     knobs::{
         FUNCTION_MAX_ARGS_SIZE,
@@ -137,7 +137,7 @@ pub fn validate_udf_args_size(
 }
 
 pub fn deserialize_udf_result(
-    path: &CanonicalizedComponentFunctionPath,
+    path: &ResolvedComponentFunctionPath,
     result_str: &str,
 ) -> anyhow::Result<Result<ConvexValue, JsError>> {
     // Don't print out result_str in error messages - as it may contain pii
@@ -146,7 +146,7 @@ pub fn deserialize_udf_result(
             "FunctionReturnInvalidJson",
             format!(
                 "Function {} failed. Could not parse return value as json: {e}",
-                path.debug_str()
+                path.clone().for_logging().debug_str()
             ),
         ))
     })?;
@@ -155,7 +155,7 @@ pub fn deserialize_udf_result(
             if value.size() > *FUNCTION_MAX_RESULT_SIZE {
                 Err(JsError::from_message(format!(
                     "Function {} return value is too large (actual: {}, limit: {})",
-                    path.debug_str(),
+                    path.clone().for_logging().debug_str(),
                     value.size().format_size(BINARY),
                     (*FUNCTION_MAX_RESULT_SIZE).format_size(BINARY),
                 )))
@@ -165,7 +165,10 @@ pub fn deserialize_udf_result(
         },
         Err(e) if e.is_deterministic_user_error() => {
             Err(JsError::from_error(e.wrap_error_message(|msg| {
-                format!("Function {} return value invalid: {msg}", path.debug_str())
+                format!(
+                    "Function {} return value invalid: {msg}",
+                    path.clone().for_logging().debug_str()
+                )
             })))
         },
         Err(e) => return Err(e),

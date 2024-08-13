@@ -13,6 +13,7 @@ use common::{
         ComponentId,
         PublicFunctionPath,
         Reference,
+        ResolvedComponentFunctionPath,
         Resource,
     },
     document::DeveloperDocument,
@@ -307,7 +308,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
     async fn run_udf(
         &mut self,
         udf_type: UdfType,
-        path: CanonicalizedComponentFunctionPath,
+        path: ResolvedComponentFunctionPath,
         args: ConvexObject,
     ) -> anyhow::Result<ConvexValue>;
 
@@ -459,7 +460,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
     async fn run_udf(
         &mut self,
         udf_type: UdfType,
-        path: CanonicalizedComponentFunctionPath,
+        path: ResolvedComponentFunctionPath,
         args: ConvexObject,
     ) -> anyhow::Result<ConvexValue> {
         match (self.udf_type, udf_type) {
@@ -478,14 +479,12 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             },
         }
         let tx = self.phase.tx()?;
-        let (_, called_component_id) = BootstrapComponentsModel::new(tx)
-            .component_path_to_ids(path.component.clone())
-            .await?;
+        let called_component_id = path.component;
 
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::All,
             tx,
-            PublicFunctionPath::Component(path),
+            PublicFunctionPath::ResolvedComponent(path),
             ConvexArray::try_from(vec![args.into()])?,
             udf_type,
         )
@@ -856,6 +855,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                         ));
                     },
                     Resource::Function(p) => p,
+                    Resource::ResolvedSystemUdf { .. } => {
+                        anyhow::bail!("Cannot schedule function by component id");
+                    },
                 }
             },
         };
@@ -1221,25 +1223,48 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 .context(ArgName("args"))?;
             Ok((udf_type, args))
         })?;
-        let function_path = match function_handle {
+        let path = match function_handle {
             Some(function_handle) => {
                 let handle: FunctionHandle =
                     with_argument_error("runUdf", || function_handle.parse())?;
-                provider.lookup_function_handle(handle).await?
+                let path = provider.lookup_function_handle(handle).await?;
+                let tx = provider.tx()?;
+                let (_, component) = BootstrapComponentsModel::new(tx)
+                    .component_path_to_ids(path.component.clone())
+                    .await?;
+                ResolvedComponentFunctionPath {
+                    component,
+                    udf_path: path.udf_path,
+                    component_path: Some(path.component),
+                }
             },
             None => {
                 let reference =
                     parse_name_or_reference(name, reference).context(ArgName("name"))?;
-                let Resource::Function(path) = provider.resolve(reference).await? else {
-                    anyhow::bail!(ErrorMetadata::bad_request(
-                        "InvalidResource",
-                        "Cannot execute a value resource"
-                    ));
-                };
-                path
+                let resource = provider.resolve(reference).await?;
+                match resource {
+                    Resource::ResolvedSystemUdf(path) => path,
+                    Resource::Value(_) => {
+                        anyhow::bail!(ErrorMetadata::bad_request(
+                            "InvalidResource",
+                            "Cannot execute a value resource"
+                        ));
+                    },
+                    Resource::Function(path) => {
+                        let tx = provider.tx()?;
+                        let (_, component) = BootstrapComponentsModel::new(tx)
+                            .component_path_to_ids(path.component.clone())
+                            .await?;
+                        ResolvedComponentFunctionPath {
+                            component,
+                            udf_path: path.udf_path,
+                            component_path: Some(path.component),
+                        }
+                    },
+                }
             },
         };
-        let value = provider.run_udf(udf_type, function_path, args).await?;
+        let value = provider.run_udf(udf_type, path, args).await?;
         Ok(value.into())
     }
 

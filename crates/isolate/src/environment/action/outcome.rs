@@ -91,7 +91,7 @@ impl ActionOutcome {
         };
         let (path, arguments, udf_server_version) = path_and_args.consume();
         Ok(Self {
-            path,
+            path: path.for_logging(),
             arguments,
             identity,
             unix_timestamp: unix_timestamp
@@ -231,7 +231,7 @@ mod tests {
             let arguments = udf_outcome.arguments.clone();
             let version = udf_outcome.udf_server_version.clone();
             let identity = udf_outcome_clone.identity.clone();
-            let path_and_args = ValidatedPathAndArgs::new_for_tests(
+            let path_and_args = ValidatedPathAndArgs::new_for_tests_in_component(
                 path,
                 arguments,
                 version

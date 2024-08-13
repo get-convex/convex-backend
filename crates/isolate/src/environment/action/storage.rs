@@ -74,7 +74,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let size = entry.size;
         let storage_id = self
             .action_callbacks
-            .storage_store_file_entry(self.identity.clone(), self.component_id()?, entry)
+            .storage_store_file_entry(self.identity.clone(), self.component_id(), entry)
             .await?;
 
         self.usage_tracker
@@ -136,7 +136,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
 
         let file_entry = self
             .action_callbacks
-            .storage_get_file_entry(self.identity.clone(), self.component_id()?, storage_id)
+            .storage_get_file_entry(self.identity.clone(), self.component_id(), storage_id)
             .await?;
         let file_entry = match file_entry {
             None => return Ok(None),

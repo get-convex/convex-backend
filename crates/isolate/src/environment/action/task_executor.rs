@@ -79,7 +79,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub usage_tracker: FunctionUsageTracker,
     pub context: ExecutionContext,
     pub resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
-    pub component_id: Arc<Mutex<Option<ComponentId>>>,
+    pub component_id: ComponentId,
     pub function_handles: Arc<Mutex<BTreeMap<CanonicalizedUdfPath, FunctionHandle>>>,
 }
 
@@ -220,6 +220,9 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let resource = self.resolve(reference)?;
         match resource {
             Resource::Function(p) => Ok(p),
+            Resource::ResolvedSystemUdf { .. } => {
+                anyhow::bail!("actions cannot call functions by component id");
+            },
             Resource::Value(v) => anyhow::bail!(ErrorMetadata::bad_request(
                 "InvalidFunction",
                 format!(

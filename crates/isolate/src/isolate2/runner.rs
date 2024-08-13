@@ -14,6 +14,7 @@ use common::{
         ComponentId,
         ComponentPath,
         Reference,
+        ResolvedComponentFunctionPath,
         Resource,
     },
     errors::JsError,
@@ -544,7 +545,7 @@ async fn run_request<RT: Runtime>(
         log_line_processor.into_join_future().await?;
         let log_lines = log_line_rx.await?.into();
         let outcome = UdfOutcome {
-            path,
+            path: path.for_logging(),
             arguments,
             identity: tx.inert_identity(),
             rng_seed: execution_time_seed.rng_seed,
@@ -668,7 +669,7 @@ async fn run_request<RT: Runtime>(
     log_line_processor.into_join_future().await?;
     let mut log_lines = log_line_rx.await?;
     DatabaseUdfEnvironment::<RT>::add_warnings_to_log_lines(
-        &path,
+        &path.clone().for_logging(),
         &arguments,
         client.execution_time()?,
         provider.tx.execution_size(),
@@ -686,7 +687,7 @@ async fn run_request<RT: Runtime>(
         },
     )?;
     let outcome = UdfOutcome {
-        path,
+        path: path.for_logging(),
         arguments,
         identity: provider.tx.inert_identity(),
         rng_seed: execution_time_seed.rng_seed,
@@ -936,7 +937,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     async fn run_udf(
         &mut self,
         _udf_type: UdfType,
-        _path: CanonicalizedComponentFunctionPath,
+        _path: ResolvedComponentFunctionPath,
         _args: ConvexObject,
     ) -> anyhow::Result<ConvexValue> {
         todo!();

@@ -20,6 +20,7 @@ use common::{
         ComponentPath,
         ExportPath,
         Reference,
+        ResolvedComponentFunctionPath,
         Resource,
     },
     runtime::Runtime,
@@ -142,18 +143,10 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                         "CurrentSystemUdfInComponent must be called from a system UDF",
                     ));
                 }
-                let mut m = BootstrapComponentsModel::new(self.tx);
-                // TODO(lee) this should work for disconnected components too.
-                let component_path = m
-                    .get_component_path(ComponentId::Child(*component_by_id))
-                    .await
-                    .context(ErrorMetadata::bad_request(
-                        "MissingComponent",
-                        format!("No component found with id {component_by_id}"),
-                    ))?;
-                Resource::Function(CanonicalizedComponentFunctionPath {
-                    component: component_path,
+                Resource::ResolvedSystemUdf(ResolvedComponentFunctionPath {
+                    component: ComponentId::Child(*component_by_id),
                     udf_path: current_udf_path.canonicalize(),
+                    component_path: None,
                 })
             },
         };

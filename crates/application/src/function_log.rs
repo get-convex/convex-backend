@@ -718,7 +718,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
         };
-        if outcome.path.is_system() {
+        if outcome.path.udf_path.is_system() {
             return;
         }
         let execution = FunctionExecution {
@@ -806,7 +806,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             TrackUsage::SystemError => AggregatedFunctionUsageStats::default(),
         };
-        if outcome.path.is_system() {
+        if outcome.path.udf_path.is_system() {
             return;
         }
         let execution = FunctionExecution {

@@ -1,5 +1,8 @@
 use common::{
-    components::CanonicalizedComponentFunctionPath,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ResolvedComponentFunctionPath,
+    },
     execution_context::ExecutionContext,
 };
 use futures::{
@@ -173,7 +176,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     rt: RT,
 
     udf_type: UdfType,
-    path: CanonicalizedComponentFunctionPath,
+    path: ResolvedComponentFunctionPath,
     arguments: ConvexArray,
     identity: InertIdentity,
     udf_server_version: Option<semver::Version>,
@@ -327,7 +330,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     ) -> Self {
         let persistence_version = transaction.persistence_version();
         let (path, arguments, udf_server_version) = path_and_args.consume();
-        let component_path = path.component.clone();
+        let component = path.component;
         Self {
             rt: rt.clone(),
             udf_type,
@@ -341,7 +344,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 rt,
                 module_loader.clone(),
                 system_env_vars,
-                component_path,
+                component,
             ),
             file_storage,
 
@@ -419,7 +422,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             _ => None,
         };
         Self::add_warnings_to_log_lines(
-            &self.path,
+            &self.path.clone().for_logging(),
             &self.arguments,
             execution_time,
             self.phase.execution_size()?,
@@ -438,7 +441,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         )?;
         let outcome = match self.udf_type {
             UdfType::Query => FunctionOutcome::Query(UdfOutcome {
-                path: self.path,
+                path: self.path.for_logging(),
                 arguments: self.arguments,
                 identity: self.identity,
                 rng_seed,
@@ -457,7 +460,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // TODO: Add num_writes and write_bandwidth to UdfOutcome,
             // and use them in log_mutation.
             UdfType::Mutation => FunctionOutcome::Mutation(UdfOutcome {
-                path: self.path,
+                path: self.path.for_logging(),
                 arguments: self.arguments,
                 identity: self.identity,
                 rng_seed,

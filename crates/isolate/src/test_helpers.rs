@@ -742,10 +742,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
 
         let path: UdfPath = udf_path.parse()?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
-            CanonicalizedComponentFunctionPath {
-                component: ComponentPath::test_user(),
-                udf_path: path.canonicalize(),
-            },
+            path.canonicalize(),
             ConvexArray::try_from(vec![ConvexValue::Object(args)])?,
             Some(npm_version),
         );
@@ -1403,10 +1400,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
     // let (sender, _rx) = oneshot::channel();
     let request = UdfRequest {
         path_and_args: ValidatedPathAndArgs::new_for_tests(
-            CanonicalizedComponentFunctionPath {
-                component: ComponentPath::test_user(),
-                udf_path: "path.js:default".parse()?,
-            },
+            "path.js:default".parse()?,
             ConvexArray::empty(),
             None,
         ),

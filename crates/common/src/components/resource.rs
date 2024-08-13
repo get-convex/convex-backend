@@ -8,16 +8,35 @@ use value::ConvexValue;
 use super::{
     function_paths::SerializedComponentFunctionPath,
     CanonicalizedComponentFunctionPath,
+    ResolvedComponentFunctionPath,
 };
 
 /// `Resource`s are resolved `Reference`s to objects within the components
 /// data model. For now, we only have free standing `ConvexValue`s and
 /// functions within a component.
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum Resource {
     Value(ConvexValue),
     Function(CanonicalizedComponentFunctionPath),
+    /// A system UDF running in a component by ID (not path).
+    ResolvedSystemUdf(ResolvedComponentFunctionPath),
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl proptest::prelude::Arbitrary for Resource {
+    type Parameters = ();
+    type Strategy = proptest::strategy::BoxedStrategy<Self>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        use value::ConvexValue;
+
+        prop_oneof![
+            ConvexValue::arbitrary().prop_map(Resource::Value),
+            CanonicalizedComponentFunctionPath::arbitrary().prop_map(Resource::Function),
+        ]
+        .boxed()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,6 +60,9 @@ impl TryFrom<Resource> for SerializedResource {
             }),
             Resource::Function(path) => Ok(Self::Function {
                 path: path.try_into()?,
+            }),
+            Resource::ResolvedSystemUdf(path) => Ok(Self::Function {
+                path: path.for_logging().try_into()?,
             }),
         }
     }

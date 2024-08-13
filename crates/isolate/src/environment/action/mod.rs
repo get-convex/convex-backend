@@ -17,7 +17,7 @@ use std::{
 
 use anyhow::anyhow;
 use common::{
-    components::ComponentPath,
+    components::ComponentId,
     errors::JsError,
     execution_context::ExecutionContext,
     http::{
@@ -235,7 +235,7 @@ pub struct ActionEnvironment<RT: Runtime> {
 impl<RT: Runtime> ActionEnvironment<RT> {
     pub fn new(
         rt: RT,
-        component: ComponentPath,
+        component: ComponentId,
         EnvironmentData {
             key_broker,
             system_env_vars,
@@ -255,7 +255,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let (task_retval_sender, task_responses) = mpsc::unbounded();
         let resources = Arc::new(Mutex::new(BTreeMap::new()));
         let function_handles = Arc::new(Mutex::new(BTreeMap::new()));
-        let component_id = Arc::new(Mutex::new(None));
         let task_executor = TaskExecutor {
             rt: rt.clone(),
             identity: identity.clone(),
@@ -270,7 +269,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             usage_tracker: transaction.usage_tracker.clone(),
             context,
             resources: resources.clone(),
-            component_id: component_id.clone(),
+            component_id: component,
             function_handles: function_handles.clone(),
         };
         let (pending_task_sender, pending_task_receiver) = mpsc::unbounded();
@@ -294,7 +293,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 module_loader,
                 system_env_vars,
                 resources,
-                component_id,
                 function_handles,
             ),
             syscall_trace,
@@ -320,7 +318,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // component path and then pass a bare `CanonicalizedUdfPath` to
         // `run_http_action_inner`.
         let component_function_path = http_module_path.path();
-        anyhow::ensure!(&component_function_path.component == self.phase.component_path());
+        anyhow::ensure!(component_function_path.component == self.phase.component());
         let udf_path = &component_function_path.udf_path;
 
         // See Isolate::with_context for an explanation of this setup code. We can't use
@@ -661,7 +659,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             result.as_ref().ok().and_then(|r| r.as_ref().ok()),
         )?;
         let outcome = ActionOutcome {
-            path,
+            path: path.for_logging(),
             arguments,
             unix_timestamp: start_unix_timestamp,
             identity: self.identity.into(),

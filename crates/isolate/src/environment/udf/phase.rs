@@ -14,7 +14,6 @@ use common::{
     components::{
         CanonicalizedComponentModulePath,
         ComponentId,
-        ComponentPath,
     },
     runtime::{
         Runtime,
@@ -83,7 +82,7 @@ pub struct UdfPhase<RT: Runtime> {
     module_loader: Arc<dyn ModuleLoader<RT>>,
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     preloaded: UdfPreloaded,
-    component_path: ComponentPath,
+    component: ComponentId,
 }
 
 enum UdfPreloaded {
@@ -105,7 +104,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         rt: RT,
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
-        component_path: ComponentPath,
+        component: ComponentId,
     ) -> Self {
         Self {
             phase: Phase::Importing,
@@ -114,7 +113,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             module_loader,
             system_env_vars,
             preloaded: UdfPreloaded::Created,
-            component_path,
+            component,
         }
     }
 
@@ -128,16 +127,9 @@ impl<RT: Runtime> UdfPhase<RT> {
             anyhow::bail!("UdfPhase initialized twice");
         };
 
-        let component_path = self.component_path.clone();
-        let (_, component) = with_release_permit(
-            timeout,
-            permit_slot,
-            BootstrapComponentsModel::new(self.tx_mut()?)
-                .component_path_to_ids(component_path.clone()),
-        )
-        .await?;
+        let component = self.component;
 
-        let component_args = if !component_path.is_root() {
+        let component_args = if !component.is_root() {
             Some(
                 with_release_permit(
                     timeout,

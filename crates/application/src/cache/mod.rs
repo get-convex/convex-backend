@@ -41,7 +41,6 @@ use common::{
     RequestId,
 };
 use database::{
-    BootstrapComponentsModel,
     Database,
     Token,
 };
@@ -469,9 +468,7 @@ impl<RT: Runtime> CacheManager<RT> {
                         };
                         if let Ok(ref json_packed_value) = &query_outcome.result {
                             let output: ConvexValue = json_packed_value.unpack();
-                            let (_, component) = BootstrapComponentsModel::new(&mut tx)
-                                .component_path_to_ids(path_and_args.path().component.clone())
-                                .await?;
+                            let component = path_and_args.path().component;
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
                             let returns_validation_error = returns_validator.check_output(

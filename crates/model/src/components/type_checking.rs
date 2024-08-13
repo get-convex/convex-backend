@@ -225,7 +225,7 @@ impl<'a> CheckedComponentBuilder<'a> {
                                     )
                                 })?;
                         },
-                        (Resource::Function { .. }, _) => {
+                        (Resource::Function { .. } | Resource::ResolvedSystemUdf { .. }, _) => {
                             anyhow::bail!(ErrorMetadata::bad_request(
                                 "TypecheckError",
                                 "Function references are not supported"

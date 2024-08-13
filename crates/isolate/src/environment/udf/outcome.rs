@@ -120,7 +120,7 @@ impl Arbitrary for UdfOutcome {
 
 impl HeapSize for UdfOutcome {
     fn heap_size(&self) -> usize {
-        self.path.heap_size()
+        self.path.udf_path.heap_size()
             + self.arguments.heap_size()
             + self.identity.heap_size()
             + self.log_lines.heap_size()
@@ -227,7 +227,7 @@ impl UdfOutcome {
         let (path, arguments, udf_server_version) = path_and_args.consume();
         let log_lines = log_lines.into_iter().map(LogLine::try_from).try_collect()?;
         Ok(Self {
-            path,
+            path: path.for_logging(),
             arguments,
             identity,
             rng_seed,
@@ -271,7 +271,7 @@ mod tests {
             let arguments = udf_outcome.arguments.clone();
             let version = udf_outcome.udf_server_version.clone();
             let identity = udf_outcome_clone.identity.clone();
-            let path_and_args = ValidatedPathAndArgs::new_for_tests(
+            let path_and_args = ValidatedPathAndArgs::new_for_tests_in_component(
                 path,
                 arguments,
                 version

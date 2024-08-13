@@ -50,10 +50,8 @@ use crate::{
 };
 
 impl<RT: Runtime> TaskExecutor<RT> {
-    pub fn component_id(&self) -> anyhow::Result<ComponentId> {
+    pub fn component_id(&self) -> ComponentId {
         self.component_id
-            .lock()
-            .context("component_id was not initialized")
     }
 
     #[minitrace::trace]
@@ -261,7 +259,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .action_callbacks
             .schedule_job(
                 self.identity.clone(),
-                self.component_id()?,
+                self.component_id(),
                 path,
                 args.into_arg_vec(),
                 scheduled_ts,
@@ -294,7 +292,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     #[convex_macro::instrument_future]
     async fn async_syscall_vectorSearch(&self, args: JsonValue) -> anyhow::Result<JsonValue> {
         let VectorSearchRequest { query } = serde_json::from_value(args)?;
-        let component_id = self.component_id()?;
+        let component_id = self.component_id();
         let mut vector_search_query: VectorSearchJson = serde_json::from_value(query)?;
         vector_search_query.insert_component_id(component_id);
 
@@ -320,7 +318,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         _args: JsonValue,
     ) -> anyhow::Result<JsonValue> {
         let issued_ts = self.rt.unix_timestamp();
-        let component = self.component_id()?;
+        let component = self.component_id();
         let postUrl =
             self.file_storage
                 .generate_upload_url(&self.key_broker, issued_ts, component)?;
@@ -340,7 +338,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         })?;
         let url = self
             .action_callbacks
-            .storage_get_url(self.identity.clone(), self.component_id()?, storage_id)
+            .storage_get_url(self.identity.clone(), self.component_id(), storage_id)
             .await?;
         Ok(url.into())
     }
@@ -358,7 +356,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         })?;
 
         self.action_callbacks
-            .storage_delete(self.identity.clone(), self.component_id()?, storage_id)
+            .storage_delete(self.identity.clone(), self.component_id(), storage_id)
             .await?;
 
         Ok(JsonValue::Null)
@@ -386,7 +384,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         }
         let file_metadata = self
             .action_callbacks
-            .storage_get_file_entry(self.identity.clone(), self.component_id()?, storage_id)
+            .storage_get_file_entry(self.identity.clone(), self.component_id(), storage_id)
             .await?
             .map(
                 |FileStorageEntry {
