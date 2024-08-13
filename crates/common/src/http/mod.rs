@@ -1059,6 +1059,11 @@ async fn log_middleware<B: Send>(
 
     let resp = next.run(req).await;
 
+    if uri == "/instance_version" || uri == "/get_backend_info" {
+        // Skip logging for these high volume, less useful endpoints
+        return Ok(resp);
+    }
+
     tracing::info!(
         target: "convex-cloud-http",
         "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {:?}",
