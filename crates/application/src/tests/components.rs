@@ -366,3 +366,21 @@ async fn test_data_exists_in_unmounted_components(rt: TestRuntime) -> anyhow::Re
     assert_eq!(count, 1);
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_descendents_unmounted(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    unmount_component(&application).await?;
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut components_model = BootstrapComponentsModel::new(&mut tx);
+    let env_vars_child_component = ComponentPath::deserialize(Some("envVars/component"))?;
+    let (_, component_id) = components_model
+        .component_path_to_ids(env_vars_child_component)
+        .await?;
+    let metadata = components_model
+        .load_component(component_id)
+        .await?
+        .unwrap();
+    assert!(matches!(metadata.state, ComponentState::Unmounted));
+    Ok(())
+}

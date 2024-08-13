@@ -162,4 +162,14 @@ export declare const app: {
       url: FunctionReference<"action", "internal", any, any>;
     };
   };
+  envVars: {
+    messages: {
+      envVarAction: FunctionReference<"action", "internal", any, any>;
+      envVarQuery: FunctionReference<"query", "internal", any, any>;
+      hello: FunctionReference<"action", "internal", any, any>;
+      systemEnvVarAction: FunctionReference<"action", "internal", any, any>;
+      systemEnvVarQuery: FunctionReference<"query", "internal", any, any>;
+      url: FunctionReference<"action", "internal", any, any>;
+    };
+  };
 };
