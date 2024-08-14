@@ -2,20 +2,16 @@ use std::time::Instant;
 
 use async_trait::async_trait;
 use axum::{
-    body::HttpBody,
     extract::{
         FromRequest,
         FromRequestParts,
-    },
-    http::request::{
-        Parts,
         Request,
     },
+    http::request::Parts,
     response::{
         IntoResponse,
         Response,
     },
-    BoxError,
 };
 use errors::ErrorMetadata;
 use serde::{
@@ -90,17 +86,14 @@ pub struct Json<T>(pub T);
 /// Wrapper type around axum::Json that uses HttpResponseError instead
 /// of JsonRejection to make sure we get propper logging / error reporting.
 #[async_trait]
-impl<S, B, T> FromRequest<S, B> for Json<T>
+impl<S, T> FromRequest<S> for Json<T>
 where
     T: DeserializeOwned,
-    B: HttpBody + Send + 'static,
-    B::Data: Send,
-    B::Error: Into<BoxError>,
     S: Send + Sync,
 {
     type Rejection = HttpResponseError;
 
-    async fn from_request(req: Request<B>, state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request(req: Request, state: &S) -> Result<Self, Self::Rejection> {
         #[allow(clippy::disallowed_types)]
         let t = axum::Json::<T>::from_request(req, state)
             .await

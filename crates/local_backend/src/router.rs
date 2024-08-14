@@ -1,4 +1,5 @@
 use std::{
+    convert::Infallible,
     sync::Arc,
     time::Duration,
 };
@@ -10,7 +11,6 @@ use axum::{
         get,
         post,
     },
-    BoxError,
     Router,
 };
 use common::{
@@ -151,7 +151,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .route("/deploy2/start_push", post(deploy_config2::start_push))
         .layer(
             ServiceBuilder::new()
-                .layer(HandleErrorLayer::new(|_: BoxError| async {
+                .layer(HandleErrorLayer::new(|_: Infallible| async {
                     StatusCode::INTERNAL_SERVER_ERROR
                 }))
                 .layer(RequestDecompressionLayer::new())

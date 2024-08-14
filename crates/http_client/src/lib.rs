@@ -66,7 +66,7 @@ async fn cached_http_client_inner(
     // convert it to a `AsStdError` which does implement `std::error::Error
     let res: Result<HttpResponse, anyhow::Error> = try {
         let mut request_builder = HTTP_CLIENT
-            .request(request.method, request.url.as_str())
+            .request(request.method.as_str().parse()?, request.url.as_str())
             .body(request.body);
         for (name, value) in &request.headers {
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
@@ -87,8 +87,16 @@ async fn cached_http_client_inner(
         let headers = response.headers().to_owned();
         let chunks = response.bytes().await?;
         HttpResponse {
-            status_code,
-            headers,
+            status_code: status_code.as_str().parse()?,
+            headers: headers
+                .iter()
+                .map(|(name, value)| {
+                    Ok((
+                        openidconnect::http::HeaderName::from_bytes(name.as_ref())?,
+                        openidconnect::http::HeaderValue::from_bytes(value.as_bytes())?,
+                    ))
+                })
+                .collect::<anyhow::Result<_>>()?,
             body: chunks.to_vec(),
         }
     };
@@ -98,12 +106,14 @@ async fn cached_http_client_inner(
 #[cfg(test)]
 mod tests {
     use http_cache::XCACHE;
-    use openidconnect::HttpRequest;
-    use reqwest::{
-        header::HeaderValue,
-        Method,
-        Url,
+    use openidconnect::{
+        http::{
+            header::HeaderValue,
+            Method,
+        },
+        HttpRequest,
     };
+    use reqwest::Url;
 
     use crate::{
         cached_http_client_inner,
@@ -111,7 +121,7 @@ mod tests {
     };
 
     #[tokio::test]
-    async fn test_cached_client() {
+    async fn test_cached_client() -> anyhow::Result<()> {
         // Use Google's OpenID configuration, which should never disappear
         let url =
             Url::parse("https://accounts.google.com/.well-known/openid-configuration").unwrap();
@@ -119,7 +129,7 @@ mod tests {
             url: url.clone(),
             method: Method::GET,
             headers: vec![(
-                reqwest::header::ACCEPT,
+                openidconnect::http::header::ACCEPT,
                 HeaderValue::from_static("application/json"),
             )]
             .into_iter()
@@ -141,5 +151,6 @@ mod tests {
             response.headers.get(XCACHE).unwrap().as_bytes(),
             "HIT".as_bytes()
         );
+        Ok(())
     }
 }

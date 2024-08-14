@@ -7,11 +7,9 @@ use application::snapshot_import::{
     upload_import_file,
 };
 use axum::{
+    body::Body,
     debug_handler,
-    extract::{
-        BodyStream,
-        State,
-    },
+    extract::State,
     response::IntoResponse,
 };
 use common::http::{
@@ -133,11 +131,14 @@ pub async fn import(
         format,
         mode,
     }): Query<ImportQueryArgs>,
-    stream: BodyStream,
+    stream: Body,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
     let format = parse_format_arg(table_name, format)?;
-    let body_stream = stream.map_err(anyhow::Error::from).boxed();
+    let body_stream = stream
+        .into_data_stream()
+        .map_err(anyhow::Error::from)
+        .boxed();
     let num_written = do_import(&st.application, identity, format, mode, body_stream).await?;
     Ok(Json(ImportResponse { num_written }))
 }
@@ -170,10 +171,11 @@ pub async fn import_upload_part(
         upload_token,
         part_number,
     }): Query<ImportUploadPartArgs>,
-    body_stream: BodyStream,
+    body_stream: Body,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
     let body_bytes = body_stream
+        .into_data_stream()
         .map_ok(|chunk| chunk.to_vec())
         .try_concat()
         .await
@@ -241,11 +243,14 @@ pub async fn prepare_import(
         format,
         mode,
     }): Query<ImportQueryArgs>,
-    stream: BodyStream,
+    stream: Body,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
     let format = parse_format_arg(table_name, format)?;
-    let body_stream = stream.map_err(anyhow::Error::from).boxed();
+    let body_stream = stream
+        .into_data_stream()
+        .map_err(anyhow::Error::from)
+        .boxed();
     let import_id =
         upload_import_file(&st.application, identity, format, mode, body_stream).await?;
     Ok(Json(PrepareImportResponse {

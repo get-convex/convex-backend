@@ -7,10 +7,7 @@ use std::{
 };
 
 use axum::{
-    body::{
-        Body,
-        Full,
-    },
+    body::Body,
     response::Response,
     routing::{
         get,
@@ -31,6 +28,7 @@ use http::{
     Request,
     StatusCode,
 };
+use http_body_util::BodyExt;
 use itertools::Itertools;
 use keybroker::Identity;
 use must_let::must_let;
@@ -99,7 +97,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
             get(|| async {
                 Response::builder()
                     .header("content-type", "application/json")
-                    .body(Full::from(
+                    .body(Body::from(
                         serde_json::to_string(&json!({
                             "name": "convex",
                         }))
@@ -135,7 +133,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
             get(|| async {
                 Response::builder()
                     .status(StatusCode::PROXY_AUTHENTICATION_REQUIRED)
-                    .body(Full::from("Sorry can't do that"))
+                    .body(Body::from("Sorry can't do that"))
                     .expect("invalid response")
             }),
         )
@@ -144,7 +142,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
             get(|| async {
                 Response::builder()
                     .header("Content-Type", "application/x-www-form-urlencoded")
-                    .body(Full::from("field_1=Hi&field_2=%3CConvex%3E"))
+                    .body(Body::from("field_1=Hi&field_2=%3CConvex%3E"))
                     .expect("invalid response")
             }),
         )
@@ -158,7 +156,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
                          text/javascript\r\n\r\nconsole.log(\"Hi\")\r\n--boundary--\r\nEpilogue";
                 Response::builder()
                     .header("Content-Type", "multipart/form-data;boundary=boundary")
-                    .body(Full::from(b))
+                    .body(Body::from(b))
                     .expect("invalid response")
             }),
         )
@@ -175,7 +173,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
                         "Content-Type",
                         "multipart/form-dataststst;boundary=boundary",
                     )
-                    .body(Full::from(b))
+                    .body(Body::from(b))
                     .expect("invalid response")
             }),
         )
@@ -183,7 +181,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
             "/echo_multipart_file",
             post(|req: Request<Body>| async {
                 let body = req.into_body();
-                let bytes = &hyper::body::to_bytes(body).await.unwrap()[0..];
+                let bytes = body.collect().await.unwrap().to_bytes();
                 let start = b"--boundary\t \r\n\
                     Content-Disposition: form-data; name=\"field_1\"\r\n\
                     \r\n\
@@ -194,7 +192,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
                     Content-Type: application/octet-stream\r\n\
                     \r\n";
                 let end = b"\r\n--boundary--\r\n";
-                let b = [start as &[u8], bytes, end].concat();
+                let b = [start as &[u8], &bytes[..], end].concat();
 
                 Response::builder()
                     .header("content-type", "multipart/form-data;boundary=boundary")
@@ -207,7 +205,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
         "/print_auth",
         get(|req: Request<Body>| async move {
             Response::builder()
-                .body(Full::from(
+                .body(Body::from(
                     serde_json::to_string(&json!({
                         "auth": match req.headers().get("Authorization") {
                             Some(header) => header.to_str().unwrap(),
@@ -222,7 +220,11 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
     rt.spawn("test_router", serve(redirected_router, 4547));
 
     let t = UdfTest::default(rt).await?;
-    must_let!(let (ConvexValue::String(r), _outcome, log_lines) = t.action_outcome_and_log_lines("fetch", assert_obj!(), Identity::system()).await?);
+    must_let!(let (ConvexValue::String(r), _outcome, log_lines) = t.action_outcome_and_log_lines(
+        "fetch",
+        assert_obj!(),
+        Identity::system(),
+    ).await?);
     assert_eq!(String::from(r), "success".to_string());
     assert!(log_lines.is_empty());
 
@@ -278,7 +280,7 @@ async fn test_fetch_timing(rt: ProdRuntime) -> anyhow::Result<()> {
                 rt_.wait(Duration::from_secs(3)).await;
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Full::from("timeout"))
+                    .body(Body::from("timeout"))
                     .expect("invalid response")
             }),
         );

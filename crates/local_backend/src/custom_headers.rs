@@ -1,4 +1,4 @@
-use axum::headers::{
+use axum_extra::headers::{
     Header,
     HeaderName,
     HeaderValue,
@@ -13,7 +13,7 @@ impl Header for ContentDispositionAttachment {
         &CONTENT_DISPOSITION
     }
 
-    fn decode<'i, I>(_values: &mut I) -> Result<Self, axum::headers::Error>
+    fn decode<'i, I>(_values: &mut I) -> Result<Self, axum_extra::headers::Error>
     where
         I: Iterator<Item = &'i HeaderValue>,
     {
@@ -26,7 +26,7 @@ impl Header for ContentDispositionAttachment {
     {
         let value = format!("attachment; filename={}", self.0);
         let encoded = HeaderValue::from_str(&value)
-            .map_err(|_| axum::headers::Error::invalid())
+            .map_err(|_| axum_extra::headers::Error::invalid())
             .unwrap();
         values.extend(std::iter::once(encoded));
     }

@@ -12,6 +12,10 @@ use derive_more::{
     From,
     Into,
 };
+use headers::{
+    HeaderName,
+    HeaderValue,
+};
 use maplit::btreemap;
 use serde::{
     de::DeserializeOwned,
@@ -19,10 +23,6 @@ use serde::{
     Serialize,
 };
 use serde_json::Value as JsonValue;
-use tonic::codegen::http::{
-    HeaderName,
-    HeaderValue,
-};
 
 #[allow(clippy::declare_interior_mutable_const)]
 const CONVEX_CLIENT_HEADER: HeaderName = HeaderName::from_static("convex-client");

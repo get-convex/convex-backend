@@ -132,7 +132,7 @@ async function fetchProtocolError() {
 
 async function fetchDnsError() {
   await expect(fetch("http://invalid/")).to.be.rejectedWith(
-    /error trying to connect: dns error/,
+    /dns error: failed to lookup address information/,
   );
 }
 

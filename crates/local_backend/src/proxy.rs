@@ -4,7 +4,10 @@ use std::{
 };
 
 use axum::{
-    extract::State,
+    extract::{
+        Request,
+        State,
+    },
     response::IntoResponse,
     routing::get,
     Router,
@@ -17,8 +20,7 @@ use common::{
     },
     types::ConvexOrigin,
 };
-use http::Request;
-use hyper::Body;
+use hyper_util::rt::TokioExecutor;
 
 /// Routes HTTP actions to the main webserver
 pub async fn dev_site_proxy(
@@ -33,11 +35,12 @@ pub async fn dev_site_proxy(
 
     async fn proxy_method(
         State(st): State<ConvexOrigin>,
-        mut request: Request<Body>,
+        mut request: Request,
     ) -> Result<impl IntoResponse, HttpResponseError> {
         let new_uri = format!("{}/http{}", st, request.uri());
         *request.uri_mut() = new_uri.parse().map_err(anyhow::Error::new)?;
-        let resp = hyper::Client::new()
+        let resp = hyper_util::client::legacy::Client::builder(TokioExecutor::new())
+            .build_http()
             .request(request)
             .await
             .map_err(anyhow::Error::new)?;

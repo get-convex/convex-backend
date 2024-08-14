@@ -14,7 +14,7 @@ homepage = "https://www.convex.dev/"
 anyhow = { version = "1" }
 base64 = { version = "0.13" }
 derive_more = { version = "0.99" }
-headers = { version = "0.3" }
+headers = { version = "0.4" }
 proptest = { optional = true, version = "1" }
 proptest-derive = { optional = true, version = "0.4.0" }
 rand = { version = "0.8" }

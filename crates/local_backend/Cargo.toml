@@ -15,6 +15,7 @@ async-broadcast = { workspace = true }
 async-trait = { workspace = true }
 authentication = { path = "../authentication" }
 axum = { workspace = true }
+axum-extra = { workspace = true }
 base64 = { workspace = true }
 clap = { workspace = true }
 cmd_util = { path = "../../crates/cmd_util" }
@@ -28,7 +29,9 @@ futures = { workspace = true }
 futures-async-stream = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
+http-body-util = { workspace = true }
 hyper = { workspace = true }
+hyper-util = { workspace = true }
 isolate = { path = "../../crates/isolate" }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }

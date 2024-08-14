@@ -6,7 +6,6 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use axum::{
-    body::Body,
     debug_handler,
     extract::{
         FromRequestParts,
@@ -468,8 +467,8 @@ fn get_encoded_span(headers: &HeaderMap) -> anyhow::Result<EncodedSpan> {
 
 pub async fn action_callbacks_middleware(
     State(st): State<LocalAppState>,
-    req: http::request::Request<Body>,
-    next: axum::middleware::Next<Body>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     // Validate we have an valid token in order to call any methods in this
     // actions_callback router.
@@ -582,12 +581,11 @@ impl<T> FromRequestParts<T> for ExtractExecutionContext {
 
 #[cfg(test)]
 mod tests {
-
     use application::test_helpers::ApplicationTestExt;
-    use axum::headers::authorization::Credentials;
+    use axum::body::Body;
+    use axum_extra::headers::authorization::Credentials;
     use common::runtime::Runtime;
     use http::Request;
-    use hyper::Body;
     use runtime::prod::ProdRuntime;
     use serde_json::{
         json,

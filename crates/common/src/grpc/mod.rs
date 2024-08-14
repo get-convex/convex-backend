@@ -3,12 +3,11 @@ use std::{
     net::SocketAddr,
 };
 
-use axum::body::Body;
 use futures::Future;
 use sentry::integrations::tower as sentry_tower;
 use tonic::{
     server::NamedService,
-    transport::server::Routes,
+    service::Routes,
 };
 use tonic_health::{
     server::{
@@ -39,7 +38,7 @@ impl ConvexGrpcService {
     pub fn add_service<S>(mut self, service: S) -> Self
     where
         S: tower::Service<
-                http::Request<Body>,
+                http::Request<tonic::body::BoxBody>,
                 Response = http::Response<tonic::body::BoxBody>,
                 Error = Infallible,
             > + NamedService

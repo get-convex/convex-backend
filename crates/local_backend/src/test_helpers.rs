@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Context;
-use axum::headers::Authorization;
+use axum_extra::headers::Authorization;
 use common::{
     http::{
         ConvexHttpService,
@@ -19,6 +19,7 @@ use http::{
     Request,
     StatusCode,
 };
+use http_body_util::BodyExt;
 use metrics::SERVER_VERSION_STR;
 use runtime::prod::ProdRuntime;
 use serde::de::DeserializeOwned;
@@ -75,13 +76,15 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
 impl TestLocalBackend {
     pub async fn expect_success<T: DeserializeOwned>(
         &self,
-        req: Request<hyper::Body>,
+        req: Request<axum::body::Body>,
     ) -> anyhow::Result<T> {
         tracing::info!("Sending req {req:?}");
         let (parts, body) = self.app.router().clone().oneshot(req).await?.into_parts();
-        let bytes = hyper::body::to_bytes(body)
+        let bytes = body
+            .collect()
             .await
-            .context("Couldn't convert to bytes")?;
+            .context("Couldn't convert to bytes")?
+            .to_bytes();
         let msg = format!("Got response: {}", String::from_utf8_lossy(&bytes));
         tracing::info!("{msg}");
         assert_eq!(parts.status, StatusCode::OK, "{msg}");
@@ -91,7 +94,7 @@ impl TestLocalBackend {
 
     pub async fn expect_error(
         &self,
-        req: Request<hyper::Body>,
+        req: Request<axum::body::Body>,
         expected_code: StatusCode,
         expected_short_msg: &str,
     ) -> anyhow::Result<()> {

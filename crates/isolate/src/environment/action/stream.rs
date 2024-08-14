@@ -70,7 +70,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     ) -> anyhow::Result<Vec<FormPart>> {
         let request = Request::builder()
             .header("Content-Type", content_type)
-            .body(axum::body::Body::wrap_stream(request_stream))?;
+            .body(axum::body::Body::from_stream(request_stream))?;
         let mut multipart = axum::extract::Multipart::from_request(request, &())
             .await
             .map_err(|e| ErrorMetadata::bad_request("InvalidMultiPartForm", e.to_string()))?;

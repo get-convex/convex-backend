@@ -99,13 +99,15 @@ pub struct StorageGetStream {
 impl StorageGetStream {
     #[cfg(any(test, feature = "testing"))]
     pub async fn collect_as_bytes(self) -> anyhow::Result<Bytes> {
-        use axum::body::StreamBody;
+        use http_body_util::BodyExt;
 
         let Self {
             content_length,
             stream,
         } = self;
-        let content = hyper::body::to_bytes(StreamBody::new(stream)).await?;
+        let content = BodyExt::collect(axum::body::Body::from_stream(stream))
+            .await?
+            .to_bytes();
         anyhow::ensure!(
             (content_length as usize) == content.len(),
             "ContentLength mismatch"

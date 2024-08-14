@@ -2,14 +2,16 @@ use std::time::Duration;
 
 use anyhow::Context;
 use axum::{
-    body::StreamBody,
+    body::Body,
     debug_handler,
     extract::State,
+    response::IntoResponse,
+};
+use axum_extra::{
     headers::{
         CacheControl,
         ContentLength,
     },
-    response::IntoResponse,
     TypedHeader,
 };
 use common::http::{
@@ -122,7 +124,7 @@ pub async fn get_export(
                 .with_private()
                 .with_max_age(MAX_CACHE_AGE),
         ),
-        StreamBody::new(stream),
+        Body::from_stream(stream),
     ))
 }
 
@@ -161,6 +163,6 @@ pub async fn get_zip_export(
                 .with_private()
                 .with_max_age(MAX_CACHE_AGE),
         ),
-        StreamBody::new(stream),
+        Body::from_stream(stream),
     ))
 }

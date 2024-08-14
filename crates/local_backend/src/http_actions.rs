@@ -5,9 +5,8 @@ use application::api::ApplicationApi;
 use async_trait::async_trait;
 use axum::{
     body::{
-        BoxBody,
+        Body,
         Bytes,
-        StreamBody,
     },
     debug_handler,
     extract::{
@@ -143,7 +142,7 @@ impl FromRequest<RouterState, axum::body::Body> for ExtractHttpRequestMetadata {
                 url,
                 method,
             },
-            body: Some(Box::pin(body.map_err(|e| e.into()))),
+            body: Some(Box::pin(body.into_data_stream().map_err(|e| e.into()))),
         }))
     }
 }
@@ -250,10 +249,10 @@ pub struct HttpActionResponse {
 }
 
 impl IntoResponse for HttpActionResponse {
-    fn into_response(self) -> Response<BoxBody> {
+    fn into_response(self) -> Response {
         let status = self.status;
         let headers = self.headers;
-        let body = StreamBody::new(self.body);
+        let body = Body::from_stream(self.body);
         (status, headers, body).into_response()
     }
 }

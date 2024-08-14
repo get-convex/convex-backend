@@ -18,6 +18,7 @@ convex_fivetran_common = { path = "../fivetran_common" }
 derive_more = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
+headers = { workspace = true }
 maplit = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }

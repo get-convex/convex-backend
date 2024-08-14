@@ -39,6 +39,7 @@ file_storage = { path = "../file_storage" }
 futures = { workspace = true }
 headers = { workspace = true }
 http = { workspace = true }
+http-body-util = { workspace = true }
 humansize = { workspace = true }
 itertools = { workspace = true }
 keybroker = { path = "../keybroker" }

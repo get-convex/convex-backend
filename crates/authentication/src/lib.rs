@@ -19,12 +19,6 @@ use chrono::TimeZone;
 use common::auth::AuthInfo;
 use errors::ErrorMetadata;
 use futures::Future;
-use http::{
-    header::ACCEPT,
-    HeaderValue,
-    Method,
-    StatusCode,
-};
 use keybroker::UserIdentity;
 use oauth2::{
     HttpRequest,
@@ -35,6 +29,12 @@ use openidconnect::{
         CoreIdToken,
         CoreIdTokenVerifier,
         CoreProviderMetadata,
+    },
+    http::{
+        header::ACCEPT,
+        HeaderValue,
+        Method,
+        StatusCode,
     },
     ClaimsVerificationError,
     ClientId,
@@ -162,9 +162,11 @@ where
             match e {
                 DiscoveryError::Response(code, body, _) => {
                     let long = format!("{long}: {} {}", code, String::from_utf8_lossy(&body));
-                    if let Some(em) =
-                        ErrorMetadata::from_http_status_code(code, short, long.clone())
-                    {
+                    if let Some(em) = ErrorMetadata::from_http_status_code(
+                        code.to_string().parse().unwrap(),
+                        short,
+                        long.clone(),
+                    ) {
                         em
                     } else {
                         ErrorMetadata::bad_request(short, long)
@@ -397,7 +399,6 @@ mod tests {
         Future,
         FutureExt,
     };
-    use http::StatusCode;
     use keybroker::testing::TEST_SIGNING_KEY;
     use openidconnect::{
         core::{
@@ -413,6 +414,7 @@ mod tests {
             CoreResponseType,
             CoreSubjectIdentifierType,
         },
+        http::StatusCode,
         AdditionalClaims,
         Audience,
         EmptyAdditionalClaims,

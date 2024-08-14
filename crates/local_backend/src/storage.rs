@@ -5,17 +5,18 @@ use std::{
 
 use anyhow::Context;
 use axum::{
-    body::StreamBody,
+    body::Body,
     debug_handler,
     extract::{
-        rejection::{
-            TypedHeaderRejection,
-            TypedHeaderRejectionReason,
-        },
-        BodyStream,
         Host,
         State,
     },
+    response::{
+        IntoResponse,
+        Response,
+    },
+};
+use axum_extra::{
     headers::{
         AcceptRanges,
         CacheControl,
@@ -24,9 +25,9 @@ use axum::{
         Header,
         Range,
     },
-    response::{
-        IntoResponse,
-        Response,
+    typed_header::{
+        TypedHeaderRejection,
+        TypedHeaderRejectionReason,
     },
     TypedHeader,
 };
@@ -92,7 +93,7 @@ pub async fn storage_upload(
     ExtractResolvedHost(host): ExtractResolvedHost,
     Host(original_host): Host,
     ExtractRequestId(request_id): ExtractRequestId,
-    body: BodyStream,
+    body: Body,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let component = st
         .api
@@ -106,7 +107,10 @@ pub async fn storage_upload(
     let content_length = map_header_err(content_length)?;
     let content_type = map_header_err(content_type)?;
     let sha256 = map_header_err(sha256)?.map(|dh| dh.0);
-    let body = body.map(|r| r.context("Error parsing body")).boxed();
+    let body = body
+        .into_data_stream()
+        .map(|r| r.context("Error parsing body"))
+        .boxed();
     let origin = original_host.into();
     let storage_id = st
         .api
@@ -158,7 +162,13 @@ pub async fn storage_get(
     // TODO(CX-3065) figure out deterministic repeatable tokens
 
     if let Ok(range_header) = range {
-        let ranges: Vec<(Bound<u64>, Bound<u64>)> = range_header.iter().collect();
+        let ranges: Vec<(Bound<u64>, Bound<u64>)> = range_header
+            .satisfiable_ranges(
+                u64::MAX, /* technically, we should pass in the length of the file to protect
+                           * against inputs that are too large, but it's a
+                           * bit tricky to get at this point */
+            )
+            .collect();
         // Convex only supports a single range because underlying AWS S3 only supports
         // a single range
         if ranges.len() != 1 {
@@ -189,7 +199,7 @@ pub async fn storage_get(
                     .with_max_age(MAX_CACHE_AGE),
             ),
             TypedHeader(AcceptRanges::bytes()),
-            StreamBody::new(stream),
+            Body::from_stream(stream),
         )
             .into_response());
     }
@@ -213,7 +223,7 @@ pub async fn storage_get(
                 .with_max_age(MAX_CACHE_AGE),
         ),
         TypedHeader(AcceptRanges::bytes()),
-        StreamBody::new(stream),
+        Body::from_stream(stream),
     )
         .into_response())
 }

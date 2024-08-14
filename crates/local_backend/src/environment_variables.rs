@@ -87,13 +87,12 @@ fn validate_env_var(name: &String, value: &String) -> anyhow::Result<Environment
 mod tests {
     use std::collections::BTreeMap;
 
-    use axum::headers::authorization::Credentials;
+    use axum_extra::headers::authorization::Credentials;
     use common::types::{
         EnvVarName,
         EnvVarValue,
     };
     use http::Request;
-    use hyper::Body;
     use keybroker::Identity;
     use maplit::btreemap;
     use model::environment_variables::EnvironmentVariablesModel;
@@ -110,7 +109,7 @@ mod tests {
         changes: serde_json::Value,
     ) -> anyhow::Result<()> {
         let json_body = json!({"changes": changes});
-        let body = Body::from(serde_json::to_vec(&json_body)?);
+        let body = axum::body::Body::from(serde_json::to_vec(&json_body)?);
         let req = Request::builder()
             .uri("/api/update_environment_variables")
             .method("POST")

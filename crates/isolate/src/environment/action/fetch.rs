@@ -46,7 +46,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     .unbounded_send(TaskResponse::TaskDone {
                         task_id,
                         variant: Err(
-                            ErrorMetadata::bad_request("FetchFailed", e.to_string()).into()
+                            ErrorMetadata::bad_request("FetchFailed", format!("{e:#}")).into()
                         ),
                     });
                 Self::log_fetch_request(t, origin, Err(()), initial_response_time);

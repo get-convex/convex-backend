@@ -25,22 +25,19 @@ use ::metrics::{
 use anyhow::Context;
 use async_trait::async_trait;
 use axum::{
-    body::{
-        Body,
-        BoxBody,
-    },
+    body::Body,
     error_handling::HandleErrorLayer,
     extract::{
         connect_info::IntoMakeServiceWithConnectInfo,
         FromRequestParts,
         Host,
+        Request,
         State,
     },
-    http::{
+    response::{
+        IntoResponse,
         Response,
-        StatusCode,
     },
-    response::IntoResponse,
     routing::get,
     BoxError,
     RequestPartsExt,
@@ -68,12 +65,12 @@ use http::{
     request::Parts,
     HeaderMap,
     Method,
+    StatusCode,
     Uri,
 };
-use hyper::server::conn::AddrIncoming;
 use itertools::Itertools;
 use maplit::btreemap;
-use minitrace::future::FutureExt;
+use minitrace::future::FutureExt as _;
 use prometheus::{
     PullingGauge,
     TextEncoder,
@@ -113,6 +110,7 @@ use crate::{
 
 pub mod extract;
 pub mod fetch;
+pub mod fork_of_axum_serve;
 
 const MAX_HTTP2_STREAMS: u32 = 1024;
 
@@ -472,7 +470,7 @@ impl HttpError {
         &self.msg
     }
 
-    pub fn into_response(self) -> Response<BoxBody> {
+    pub fn into_response(self) -> Response {
         if self.msg.is_empty() && self.error_code.is_empty() {
             self.status_code.into_response()
         } else {
@@ -498,16 +496,15 @@ impl HttpError {
 
     // Tests might parse a response back into a message
     #[cfg(any(test, feature = "testing"))]
-    pub async fn from_response<B>(response: Response<B>) -> Self
-    where
-        B: axum::body::HttpBody,
-        B::Error: fmt::Debug,
-    {
+    pub async fn from_response(response: Response) -> Self {
+        use http_body_util::BodyExt;
+
         let (parts, body) = response.into_parts();
         let (code, message) = Self::error_message_from_bytes(
-            hyper::body::to_bytes(body)
+            body.collect()
                 .await
-                .expect("Couldn't convert to bytes"),
+                .expect("Couldn't collect body")
+                .to_bytes(),
         )
         .await;
 
@@ -543,7 +540,7 @@ struct ResponseErrorMessage {
 }
 
 impl IntoResponse for HttpResponseError {
-    fn into_response(mut self) -> Response<BoxBody> {
+    fn into_response(mut self) -> Response {
         // This is the only place we capture errors to sentry because it is the exit
         // point of the HTTP layer
         report_error(&mut self.trace);
@@ -584,14 +581,14 @@ impl RouteMapper for NoopRouteMapper {
 
 /// Router + Middleware for a Convex service
 pub struct ConvexHttpService {
-    router: Router<(), Body>,
+    router: Router,
     version: String,
     _concurrency_gauge: Option<PullingGauge>,
 }
 
 impl ConvexHttpService {
     pub fn new<RM: RouteMapper>(
-        router: Router<(), Body>,
+        router: Router,
         service_name: &'static str,
         version: String,
         max_concurrency: usize,
@@ -635,14 +632,14 @@ impl ConvexHttpService {
     }
 
     /// Routes not handled by the passed-in router.
-    fn extra_routes(&self) -> Router<(), Body> {
+    fn extra_routes(&self) -> Router {
         let version = self.version.clone();
         Router::new()
             .route("/version", get(move || async move { version }))
             .route("/metrics", get(metrics))
     }
 
-    pub async fn serve<F: Future<Output = ()>>(
+    pub async fn serve<F: Future<Output = ()> + Send + 'static>(
         self,
         addr: SocketAddr,
         shutdown: F,
@@ -665,13 +662,14 @@ impl ConvexHttpService {
     /// and `/metrics`. Because the middleware is applied before routing, it is
     /// allowed to change the request URI and affect which route will be
     /// matched.
-    pub async fn serve_with_middleware<F: Future<Output = ()>, Fut, Rejection>(
+    pub async fn serve_with_middleware<F, Fut, Rejection>(
         self,
         addr: SocketAddr,
         shutdown: F,
         middleware_fn: impl FnMut(http::Request<Body>) -> Fut + Clone + Send + 'static,
     ) -> anyhow::Result<()>
     where
+        F: Future<Output = ()> + Send + 'static,
         Fut: Future<Output = Result<http::Request<Body>, Rejection>> + Send + 'static,
         Rejection: IntoResponse + Send + 'static,
     {
@@ -692,7 +690,7 @@ impl ConvexHttpService {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    pub fn new_for_test(router: Router<(), Body>) -> Self {
+    pub fn new_for_test(router: Router) -> Self {
         Self {
             router,
             version: String::new(),
@@ -701,59 +699,47 @@ impl ConvexHttpService {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    pub fn router(&self) -> Router<(), Body> {
+    pub fn router(&self) -> Router {
         self.router.clone()
     }
 }
 
 /// Serves an HTTP server using the given service.
-pub async fn serve_http<F, R, B>(
-    service: IntoMakeServiceWithConnectInfo<R, SocketAddr>,
+pub async fn serve_http<F, R>(
+    make_service: IntoMakeServiceWithConnectInfo<R, SocketAddr>,
     addr: SocketAddr,
     shutdown: F,
 ) -> anyhow::Result<()>
 where
-    R: Service<http::Request<Body>, Response = Response<B>> + Send + Clone + 'static,
-    <R as Service<http::Request<Body>>>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    R: Service<http::Request<Body>, Response = Response, Error = Infallible>
+        + Send
+        + Clone
+        + 'static,
     <R as Service<http::Request<Body>>>::Future: Send,
-    F: Future<Output = ()>,
-    B: axum::body::HttpBody + Send + 'static,
-    <B as axum::body::HttpBody>::Data: Send + 'static,
-    <B as axum::body::HttpBody>::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    F: Future<Output = ()> + Send + 'static,
 {
     // Set SO_REUSEADDR and a bounded TCP accept backlog for our server's listening
     // socket.
     let socket = TcpSocket::new_v4()?;
     socket.set_reuseaddr(true)?;
+    // Set TCP_NODELAY on accepted connections.
+    socket.set_nodelay(true)?;
     socket.bind(addr)?;
     let listener = socket.listen(*HTTP_SERVER_TCP_BACKLOG)?;
 
-    let mut incoming_sockets = AddrIncoming::from_listener(listener)?;
-    // Set TCP_NODELAY on accepted connections.
-    incoming_sockets.set_nodelay(true);
-    // This setting is a bit of a `hyper`-specific hack to prevent a DDoS attack
-    // from taking down the webserver. See https://github.com/hyperium/hyper/issues/1358 and
-    // https://klau.si/blog/crashing-a-rust-hyper-server-with-a-denial-of-service-attack/ for more
-    // details.
-    incoming_sockets.set_sleep_on_errors(true);
-    let addr = incoming_sockets.local_addr();
-
     tracing::info!("Listening on http://{}", addr);
-    hyper::Server::builder(incoming_sockets)
-        .http2_max_concurrent_streams(MAX_HTTP2_STREAMS)
-        .serve(service)
+
+    fork_of_axum_serve::serve(listener, make_service)
         .with_graceful_shutdown(shutdown)
         .await?;
-    tracing::info!("HTTP server shutdown complete");
-
     Ok(())
 }
 
 async fn client_version_state_middleware(
     ExtractClientVersion(client_version): ExtractClientVersion,
     req: http::request::Request<Body>,
-    next: axum::middleware::Next<Body>,
-) -> Result<impl IntoResponse, HttpResponseError> {
+    next: axum::middleware::Next,
+) -> Result<Response, HttpResponseError> {
     let version_state = client_version.current_state();
 
     let mut resp = match &version_state {
@@ -800,7 +786,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     ExtractResolvedHost(resolved_host): ExtractResolvedHost,
     ExtractClientVersion(client_version): ExtractClientVersion,
     req: http::request::Request<Body>,
-    next: axum::middleware::Next<Body>,
+    next: axum::middleware::Next,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let start = Instant::now();
     let method = req.method().clone();
@@ -1036,12 +1022,12 @@ where
     }
 }
 
-async fn log_middleware<B: Send>(
+async fn log_middleware(
     remote_addr: Option<axum::extract::ConnectInfo<SocketAddr>>,
     ExtractResolvedHost(resolved_host): ExtractResolvedHost,
-    req: http::request::Request<B>,
-    next: axum::middleware::Next<B>,
-) -> Result<impl IntoResponse, HttpResponseError> {
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Result<Response, HttpResponseError> {
     let site_id = resolved_host.instance_name;
     let start = Instant::now();
 
@@ -1049,13 +1035,13 @@ async fn log_middleware<B: Send>(
     let method = req.method().clone();
     let uri = req.uri().clone();
     let version = req.version();
-    let get_header = |name: HeaderName| -> Option<String> {
+    let get_header = |req: &Request, name: HeaderName| -> Option<String> {
         req.headers()
             .get(name)
             .and_then(|h| h.to_str().ok().map(|s| s.to_string()))
     };
-    let referer = get_header(http::header::REFERER);
-    let user_agent = get_header(http::header::USER_AGENT);
+    let referer = get_header(&req, http::header::REFERER);
+    let user_agent = get_header(&req, http::header::USER_AGENT);
 
     let resp = next.run(req).await;
 

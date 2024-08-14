@@ -242,7 +242,7 @@ mod tests {
 
         // Ensure it doesn't panic. Regression test for.
         // https://github.com/seanmonstar/reqwest/issues/668
-        assert!(err.to_string().contains("Parsed Url is not a valid Uri"));
+        assert!(format!("{err:?}").contains("Parsed Url is not a valid Uri"));
 
         Ok(())
     }

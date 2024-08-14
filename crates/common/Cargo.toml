@@ -30,11 +30,14 @@ event-listener = { workspace = true }
 float_next_after = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
+futures-util = { workspace = true }
 governor = { workspace = true }
 headers = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
+http-body-util = { workspace = true }
 hyper = { workspace = true }
+hyper-util = { workspace = true }
 imbl = { workspace = true }
 itertools = { workspace = true }
 maplit = { workspace = true }

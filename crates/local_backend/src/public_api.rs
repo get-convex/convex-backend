@@ -633,11 +633,11 @@ pub async fn public_action_post(
 #[cfg(test)]
 mod tests {
     use application::test_helpers::ApplicationTestExt;
+    use axum::body::Body;
     use http::{
         Request,
         StatusCode,
     };
-    use hyper::Body;
     use runtime::prod::ProdRuntime;
     use serde_json::{
         json,
