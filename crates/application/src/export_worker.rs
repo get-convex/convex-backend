@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::Context;
+use async_recursion::async_recursion;
 use async_zip::{
     write::{
         EntryStreamWriter,
@@ -22,6 +23,10 @@ use common::{
     async_compat::TokioAsyncWriteCompatExt,
     backoff::Backoff,
     bootstrap_model::tables::TABLES_TABLE,
+    components::{
+        ComponentId,
+        ComponentName,
+    },
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -55,6 +60,7 @@ use database::{
     SystemMetadataModel,
     TableSummary,
     Transaction,
+    COMPONENTS_TABLE,
 };
 use futures::{
     channel::mpsc,
@@ -69,6 +75,7 @@ use futures::{
 use keybroker::Identity;
 use mime2ext::mime2ext;
 use model::{
+    components::ComponentsModel,
     exports::{
         types::{
             Export,
@@ -154,6 +161,27 @@ pub struct ExportWorker<RT: Runtime> {
     file_storage: Arc<dyn Storage>,
     backoff: Backoff,
     usage_tracking: UsageCounter,
+}
+
+struct ComponentTree {
+    id: ComponentId,
+    children: BTreeMap<ComponentName, Box<ComponentTree>>,
+}
+
+impl ComponentTree {
+    #[async_recursion]
+    async fn new<RT>(tx: &mut Transaction<RT>, id: ComponentId) -> anyhow::Result<Self>
+    where
+        RT: Runtime,
+    {
+        let mut children = BTreeMap::new();
+        for (component_name, child_id) in
+            ComponentsModel::new(tx).component_children_ids(id).await?
+        {
+            children.insert(component_name, Box::new(Self::new(tx, child_id).await?));
+        }
+        Ok(Self { id, children })
+    }
 }
 
 impl<RT: Runtime> ExportWorker<RT> {
@@ -314,7 +342,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         runtime: &RT,
         storage: Arc<dyn Storage>,
         format: ExportFormat,
-        tables: BTreeMap<TabletId, (TableNumber, TableName, TableSummary)>,
+        tables: BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
     ) -> anyhow::Result<BTreeMap<TabletId, TableUpload>> {
         let start_upload_futs = tables
             .into_keys()
@@ -336,17 +364,19 @@ impl<RT: Runtime> ExportWorker<RT> {
     ) -> anyhow::Result<(Timestamp, ExportObjectKeys, FunctionUsageTracker)> {
         tracing::info!("Beginning snapshot export...");
         let storage = &self.storage;
-        let (ts, tables, by_id_indexes, system_tables) = {
+        let (ts, tables, by_id_indexes, system_tables, component_tree) = {
             let mut tx = self.database.begin(Identity::system()).await?;
             let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
+            let component_tree = ComponentTree::new(&mut tx, ComponentId::Root).await?;
             let snapshot = self.database.snapshot(tx.begin_timestamp())?;
             let tables: BTreeMap<_, _> = snapshot
                 .table_registry
                 .iter_active_user_tables()
-                .map(|(tablet_id, _, table_number, table_name)| {
+                .map(|(tablet_id, table_namespace, table_number, table_name)| {
                     (
                         tablet_id,
                         (
+                            table_namespace,
                             table_number,
                             table_name.clone(),
                             snapshot.table_summaries.tablet_summary(&tablet_id),
@@ -357,9 +387,15 @@ impl<RT: Runtime> ExportWorker<RT> {
             let system_tables = snapshot
                 .table_registry
                 .iter_active_system_tables()
-                .map(|(id, _, _, name)| (name.clone(), id))
+                .map(|(id, namespace, _, name)| ((namespace, name.clone()), id))
                 .collect();
-            (tx.begin_timestamp(), tables, by_id_indexes, system_tables)
+            (
+                tx.begin_timestamp(),
+                tables,
+                by_id_indexes,
+                system_tables,
+                component_tree,
+            )
         };
         let tablet_ids: BTreeSet<TabletId> =
             tables.iter().map(|(tablet_id, ..)| *tablet_id).collect();
@@ -375,6 +411,7 @@ impl<RT: Runtime> ExportWorker<RT> {
 
                 let zipper = self.construct_zip_snapshot(
                     writer,
+                    component_tree,
                     tables.clone(),
                     ts,
                     by_id_indexes,
@@ -422,8 +459,8 @@ impl<RT: Runtime> ExportWorker<RT> {
                             anyhow::Ok((
                                 tables
                                     .get(&tablet_id)
-                                    .expect("export table id missing")
-                                    .1
+                                    .context("export table id missing")?
+                                    .2
                                     .clone(),
                                 upload.complete().await?,
                             ))
@@ -444,30 +481,38 @@ impl<RT: Runtime> ExportWorker<RT> {
         }
     }
 
-    async fn construct_zip_snapshot(
+    #[async_recursion]
+    async fn write_component<'a, 'b: 'a>(
         &self,
-        mut writer: ChannelWriter,
-        mut tables: BTreeMap<TabletId, (TableNumber, TableName, TableSummary)>,
+        path_prefix: &'a str,
+        component_tree: &'a ComponentTree,
+        zip_snapshot_upload: &'a mut ZipSnapshotUpload<'b>,
+        tables: &'a mut BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
         snapshot_ts: RepeatableTimestamp,
-        by_id_indexes: BTreeMap<TabletId, IndexId>,
-        system_tables: BTreeMap<TableName, TabletId>,
+        by_id_indexes: &BTreeMap<TabletId, IndexId>,
+        system_tables: &BTreeMap<(TableNamespace, TableName), TabletId>,
         include_storage: bool,
         usage: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
-        let mut zip_snapshot_upload = ZipSnapshotUpload::new(&mut writer).await?;
-        let tablet_ids: BTreeSet<_> = tables.keys().cloned().collect();
+        let namespace: TableNamespace = component_tree.id.into();
+        let tablet_ids: BTreeSet<_> = tables
+            .iter()
+            .filter(|(_, (ns, ..))| *ns == namespace)
+            .map(|(tablet_id, _)| *tablet_id)
+            .collect();
 
         {
             // _tables
             let mut table_upload = zip_snapshot_upload
-                .start_system_table(TABLES_TABLE.clone())
+                .start_system_table(path_prefix, TABLES_TABLE.clone())
                 .await?;
 
             // Write documents from stream to table uploads, in table number order.
             // This includes all user tables present in the export.
             let mut user_table_numbers_and_names: Vec<_> = tables
                 .iter()
-                .map(|(_, (table_number, table_name, _))| (table_number, table_name))
+                .filter(|(_, (ns, ..))| *ns == namespace)
+                .map(|(_, (_, table_number, table_name, _))| (table_number, table_name))
                 .collect();
             user_table_numbers_and_names.sort();
             for (table_number, table_name) in user_table_numbers_and_names {
@@ -484,7 +529,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         if include_storage {
             // _storage
             let tablet_id = system_tables
-                .get(&FILE_STORAGE_TABLE)
+                .get(&(namespace, FILE_STORAGE_TABLE.clone()))
                 .context("_file_storage does not exist")?;
             let by_id = by_id_indexes
                 .get(tablet_id)
@@ -492,7 +537,7 @@ impl<RT: Runtime> ExportWorker<RT> {
 
             // First write metadata to _storage/documents.jsonl
             let mut table_upload = zip_snapshot_upload
-                .start_system_table(FILE_STORAGE_VIRTUAL_TABLE.clone())
+                .start_system_table(path_prefix, FILE_STORAGE_VIRTUAL_TABLE.clone())
                 .await?;
             let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
             let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
@@ -533,7 +578,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     .map(|extension| format!(".{extension}"))
                     .unwrap_or_default();
                 let path = format!(
-                    "{}/{}{extension_guess}",
+                    "{path_prefix}{}/{}{extension_guess}",
                     *FILE_STORAGE_VIRTUAL_TABLE,
                     virtual_storage_id.encode()
                 );
@@ -558,7 +603,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         }
 
         for tablet_id in tablet_ids.iter() {
-            let (_, table_name, table_summary) =
+            let (_, _, table_name, table_summary) =
                 tables.remove(tablet_id).expect("table should have details");
             let by_id = by_id_indexes
                 .get(tablet_id)
@@ -575,7 +620,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             }
 
             let mut table_upload = zip_snapshot_upload
-                .start_table(table_name.clone(), generated_schema)
+                .start_table(path_prefix, table_name.clone(), generated_schema)
                 .await?;
 
             let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
@@ -589,6 +634,56 @@ impl<RT: Runtime> ExportWorker<RT> {
             }
             table_upload.complete().await?;
         }
+
+        // Write children components, if there are any.
+        for (name, child) in &component_tree.children {
+            let path_prefix = format!(
+                "{path_prefix}{}/{}/",
+                &*COMPONENTS_TABLE,
+                String::from(name.clone())
+            );
+            self.write_component(
+                &path_prefix,
+                child,
+                zip_snapshot_upload,
+                tables,
+                snapshot_ts,
+                by_id_indexes,
+                system_tables,
+                include_storage,
+                usage.clone(),
+            )
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn construct_zip_snapshot(
+        &self,
+        mut writer: ChannelWriter,
+        component_tree: ComponentTree,
+        mut tables: BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
+        snapshot_ts: RepeatableTimestamp,
+        by_id_indexes: BTreeMap<TabletId, IndexId>,
+        system_tables: BTreeMap<(TableNamespace, TableName), TabletId>,
+        include_storage: bool,
+        usage: FunctionUsageTracker,
+    ) -> anyhow::Result<()> {
+        let mut zip_snapshot_upload = ZipSnapshotUpload::new(&mut writer).await?;
+
+        self.write_component(
+            "",
+            &component_tree,
+            &mut zip_snapshot_upload,
+            &mut tables,
+            snapshot_ts,
+            &by_id_indexes,
+            &system_tables,
+            include_storage,
+            usage,
+        )
+        .await?;
 
         // Complete upload.
         zip_snapshot_upload.complete().await?;
@@ -702,9 +797,10 @@ struct ZipSnapshotTableUpload<'a, 'b> {
 impl<'a, 'b> ZipSnapshotTableUpload<'a, 'b> {
     async fn new(
         zip_writer: &'b mut ZipFileWriter<&'a mut ChannelWriter>,
+        path_prefix: &str,
         table_name: TableName,
     ) -> anyhow::Result<Self> {
-        let source_path = format!("{table_name}/documents.jsonl");
+        let source_path = format!("{path_prefix}{table_name}/documents.jsonl");
         let builder = ZipEntryBuilder::new(source_path.clone(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
         let entry_writer = zip_writer.write_entry_stream(builder.build()).await?;
@@ -775,30 +871,33 @@ impl<'a> ZipSnapshotUpload<'a> {
 
     async fn start_table<T: ShapeConfig>(
         &mut self,
+        path_prefix: &str,
         table_name: TableName,
         generated_schema: GeneratedSchema<T>,
     ) -> anyhow::Result<ZipSnapshotTableUpload<'a, '_>> {
-        self.write_generated_schema(&table_name, generated_schema)
+        self.write_generated_schema(path_prefix, &table_name, generated_schema)
             .await?;
 
-        ZipSnapshotTableUpload::new(&mut self.writer, table_name).await
+        ZipSnapshotTableUpload::new(&mut self.writer, path_prefix, table_name).await
     }
 
     /// System tables have known shape, so we don't need to serialize it.
     async fn start_system_table(
         &mut self,
+        path_prefix: &str,
         table_name: TableName,
     ) -> anyhow::Result<ZipSnapshotTableUpload<'a, '_>> {
         anyhow::ensure!(table_name.is_system());
-        ZipSnapshotTableUpload::new(&mut self.writer, table_name).await
+        ZipSnapshotTableUpload::new(&mut self.writer, path_prefix, table_name).await
     }
 
     async fn write_generated_schema<T: ShapeConfig>(
         &mut self,
+        path_prefix: &str,
         table_name: &TableName,
         generated_schema: GeneratedSchema<T>,
     ) -> anyhow::Result<()> {
-        let generated_schema_path = format!("{table_name}/generated_schema.jsonl");
+        let generated_schema_path = format!("{path_prefix}{table_name}/generated_schema.jsonl");
         let builder = ZipEntryBuilder::new(generated_schema_path.clone(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
         let mut entry_writer = self.writer.write_entry_stream(builder.build()).await?;
@@ -839,6 +938,7 @@ mod tests {
     use anyhow::Context;
     use bytes::Bytes;
     use common::{
+        components::ComponentId,
         document::{
             ParsedDocument,
             ResolvedDocument,
@@ -851,6 +951,7 @@ mod tests {
     };
     use database::{
         test_helpers::DbFixtures,
+        BootstrapComponentsModel,
         TableModel,
         UserFacingModel,
     };
@@ -890,7 +991,11 @@ mod tests {
         ExportWorker,
         TableUpload,
     };
-    use crate::export_worker::README_MD_CONTENTS;
+    use crate::{
+        export_worker::README_MD_CONTENTS,
+        test_helpers::ApplicationTestExt,
+        Application,
+    };
 
     #[convex_macro::test_runtime]
     async fn test_export(rt: TestRuntime) -> anyhow::Result<()> {
@@ -1048,6 +1153,101 @@ mod tests {
         assert!(usage.database_egress_size["table_0"] > 0);
         assert!(usage.database_egress_size["table_1"] > 0);
         assert!(usage.database_egress_size["table_2"] > 0);
+
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_export_components(rt: TestRuntime) -> anyhow::Result<()> {
+        let application = Application::new_for_tests(&rt).await?;
+        application
+            .load_component_tests_modules("with-schema")
+            .await?;
+        let db = application.database().clone();
+        let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let file_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let mut export_worker =
+            ExportWorker::new_test(rt, db.clone(), storage.clone(), file_storage);
+
+        let mut expected_export_entries = BTreeMap::new();
+
+        expected_export_entries.insert("README.md".to_string(), README_MD_CONTENTS.to_string());
+
+        let mut tx = db.begin(Identity::system()).await?;
+        let (_, child_component) = BootstrapComponentsModel::new(&mut tx)
+            .component_path_to_ids("component".parse()?)
+            .await?;
+
+        for (path_prefix, component) in [
+            ("", ComponentId::Root),
+            ("_components/component/", child_component),
+        ] {
+            expected_export_entries.insert(
+                format!("{path_prefix}_tables/documents.jsonl"),
+                format!("{}\n", json!({"name": "messages", "id": 10001}),),
+            );
+            // Write to tables in each component
+            let table: TableName = str::parse("messages")?;
+            let mut tx = db.begin(Identity::system()).await?;
+            let id = UserFacingModel::new(&mut tx, component.into())
+                .insert(table, assert_obj!("channel" => "c", "text" => path_prefix))
+                .await?;
+            let doc = UserFacingModel::new(&mut tx, component.into())
+                .get(id, None)
+                .await?
+                .unwrap();
+            let tablet_id = tx
+                .table_mapping()
+                .namespace(component.into())
+                .number_to_tablet()(doc.table())?;
+            let doc = doc.to_resolved(tablet_id);
+            expected_export_entries.insert(
+                format!("{path_prefix}messages/documents.jsonl"),
+                format!(
+                    "{}\n",
+                    serde_json::to_string(&doc.export(ValueFormat::ConvexCleanJSON))?
+                ),
+            );
+            expected_export_entries.insert(
+                format!("{path_prefix}messages/generated_schema.jsonl"),
+                format!(
+                    "{}\n",
+                    json!(format!(
+r#"{{"_creationTime": normalfloat64, "_id": "{id}", "channel": "c", "text": field_name}}"#,
+                    ))
+                ),
+            );
+            db.commit(tx).await?;
+        }
+        let (_, object_keys, usage) = export_worker
+            .export_inner(ExportFormat::Zip {
+                include_storage: false,
+            })
+            .await?;
+        must_let!(let ExportObjectKeys::Zip(object_key) = object_keys);
+
+        // Check we can get the stored zip.
+        let storage_stream = storage
+            .get(&object_key)
+            .await?
+            .context("object missing from storage")?;
+        let stored_bytes = storage_stream.collect_as_bytes().await?;
+        let mut zip_reader = async_zip::read::mem::ZipFileReader::new(&stored_bytes).await?;
+        let mut zip_entries = BTreeMap::new();
+        let filenames: Vec<_> = zip_reader
+            .entries()
+            .into_iter()
+            .map(|entry| entry.filename().to_string())
+            .collect();
+        for (i, filename) in filenames.into_iter().enumerate() {
+            let entry_reader = zip_reader.entry_reader(i).await?;
+            let entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
+            zip_entries.insert(filename, entry_contents);
+        }
+        assert_eq!(zip_entries, expected_export_entries);
+
+        let usage = usage.gather_user_stats();
+        assert!(usage.database_egress_size["messages"] > 0);
 
         Ok(())
     }

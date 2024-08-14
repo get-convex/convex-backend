@@ -177,6 +177,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-broadcast",
+ "async-recursion",
  "async-trait",
  "async_lru",
  "async_zip",

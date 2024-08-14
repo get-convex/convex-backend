@@ -11,18 +11,21 @@ use async_recursion::async_recursion;
 use common::{
     bootstrap_model::components::{
         definition::ComponentExport,
+        ComponentMetadata,
         ComponentType,
     },
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentDefinitionId,
         ComponentId,
+        ComponentName,
         ComponentPath,
         ExportPath,
         Reference,
         ResolvedComponentFunctionPath,
         Resource,
     },
+    document::ParsedDocument,
     runtime::Runtime,
 };
 use database::{
@@ -250,10 +253,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         component_id: ComponentId,
     ) -> anyhow::Result<BTreeMap<Reference, Resource>> {
         let mut m = BootstrapComponentsModel::new(self.tx);
-        let component = m.load_component(component_id).await?;
         let component_type = m.load_component_type(component_id).await?;
-        let definition_id = m.component_definition(component_id).await?;
-        let definition = m.load_definition_metadata(definition_id).await?;
         let component_path = m.get_component_path(component_id).await?;
 
         let mut result = BTreeMap::new();
@@ -288,23 +288,53 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             }
         }
 
+        for (component_name, child_component_id) in
+            self.component_children_ids(component_id).await?
+        {
+            for (attributes, resource) in
+                self.preload_exported_resources(child_component_id).await?
+            {
+                let reference = Reference::ChildComponent {
+                    component: component_name.clone(),
+                    attributes,
+                };
+                result.insert(reference, resource);
+            }
+        }
+
+        Ok(result)
+    }
+
+    pub async fn component_children_ids(
+        &mut self,
+        component_id: ComponentId,
+    ) -> anyhow::Result<BTreeMap<ComponentName, ComponentId>> {
+        Ok(self
+            .component_children(component_id)
+            .await?
+            .into_iter()
+            .map(|(name, component)| (name, ComponentId::Child(component.id().into())))
+            .collect())
+    }
+
+    async fn component_children(
+        &mut self,
+        component_id: ComponentId,
+    ) -> anyhow::Result<BTreeMap<ComponentName, ParsedDocument<ComponentMetadata>>> {
+        let mut m = BootstrapComponentsModel::new(self.tx);
+        let component = m.load_component(component_id).await?;
+        let definition_id = m.component_definition(component_id).await?;
+        let definition = m.load_definition_metadata(definition_id).await?;
+
+        let mut result = BTreeMap::new();
         if let Some(component) = component {
-            for instantiation in &definition.child_components {
+            for instantiation in definition.child_components {
                 let parent = (component.id().into(), instantiation.name.clone());
-                let child_component = BootstrapComponentsModel::new(self.tx)
+                let child_component = m
                     .component_in_parent(Some(parent))
                     .await?
                     .context("Missing child component")?;
-                let child_component_id = ComponentId::Child(child_component.id().into());
-                for (attributes, resource) in
-                    self.preload_exported_resources(child_component_id).await?
-                {
-                    let reference = Reference::ChildComponent {
-                        component: instantiation.name.clone(),
-                        attributes,
-                    };
-                    result.insert(reference, resource);
-                }
+                result.insert(instantiation.name, child_component);
             }
         }
 
